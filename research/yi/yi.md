@@ -6,27 +6,16 @@ Yi系列是由零一万物研究的大规模语言预训练模型，目前开源
 
 ### 安装mindformers
 
-参考[README](../../README.md#二、mindformers安装)安装mindformers。
+参考[README](../../README.md#二MindFormers安装)安装mindformers。
 本文操作的相对路径均为安装mindformers后的代码仓根路径。
 
 ### 环境要求
 
 - 硬件: Atlas 800T A2
 - MindSpore: 2.3.0
-- MindFormers: dev
+- MindFormers: r1.1.0
 
 **注** yi-6b推理可以在单卡上完成部署，全量微调至少需要4卡。
-
-### 生成RANK_TABLE_FILE(多卡运行必须环节)
-
-运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件
-
-```bash
-# 运行如下命令，在当前路径生成该机器的RANK_TABLE_FILE的json文件，生成的文件名形如hccl_8p_01234567_127.0.0.1.json
-python mindformers/tools/hccl_tools.py --device_num "[0,8)"
-```
-
-**注** 若使用ModelArts的notebook环境，可从 `/user/config/jobstart_hccl.json` 路径下直接获取rank table，无需手动生成
 
 ### Yi-6B-Base 预训练权重下载和转换
 
@@ -72,13 +61,13 @@ Yi-6B-Base 模型以双语语言模型为目标，并在3T多语言语料库上�
 
 ## 微调
 
-目前提供了模型的基础配置文件`research/yi/run_yi_6b_finetune.yaml`。使用前请将配置文件中路径相关参数修改为实际路径。
+目前提供了模型的基础配置文件`research/yi/finetune_yi_6b.yaml`。使用前请将配置文件中路径相关参数修改为实际路径。
 
 ## 模型性能
 
-| config                                                       | task                  | Datasets  | SeqLength | metric | phase             | score     | performance(tokens/s/p)  |
-| ------------------------------------------------------------ | --------------------- | --------- | --------- | ------ | ----------------- | --------- | ------------ |
-| [yi_6b](./run_yi_6b_finetune.yaml)    | text_generation       | Yi-demo-data    | 2048      | -      | [finetune](#微调)  | -         | 3324  |
+| config                         | task            | Datasets     | SeqLength | metric | phase           | score | performance(tokens/s/p) |
+|--------------------------------|-----------------|--------------|-----------|--------|-----------------|-------|-------------------------|
+| [yi_6b](./finetune_yi_6b.yaml) | text_generation | Yi-demo-data | 2048      | -      | [finetune](#微调) | -     | 3324                    |
 
 ### 数据集准备
 
@@ -191,33 +180,15 @@ DEVICE_NUM：使用的卡的个数
 
 - 单机多卡微调示例
 
-```shell
-cd research
-# Usage Help: bash run_singlenode.sh [START_CMD] [RANK_TABLE_FILE] [DEVICE_RANGE] [DEVICE_NUM]
-bash run_singlenode.sh \
-"python yi/run_yi.py \
---config yi/run_yi_6b_finetune.yaml \
---run_mode finetune \
---load_checkpoint  /{path}/ \
---train_dataset /{path}/alpaca_gpt4_data_zh.mindrecord \
---auto_trans_ckpt True \
---use_parallel True" \
-../hccl_8p_01234567_127.0.0.1.json [0,8] 8
-```
-
-**参数说明**
-
-```text
-START_CMD：Python启动命令，其中
- config：为research/yi文件夹下面的run_yi_6b_*.yaml配置文件，配置文件参数请按需修改
- run_mode：任务运行状态，支持关键字train/finetune/eval/predict
- load_checkpoint：权重路径。例如路径形式为/path/ckpt/rank_0/yi_6b.ckpt，则参数填写为/path/ckpt
- train_dataset：训练数据集路径
- auto_trans_ckpt：是否自动转换ckpt
- use_parallel：是否使用并行模式
-RANK_TABLE_FILE：由 mindformers/tools/hccl_tools.py 生成的分布式json文件
-DEVICE_RANGE：为单机分布式卡的范围，如 '[0,8]' 为8卡分布式，不包含8本身
-DEVICE_NUM：使用的卡的个数
+```bash
+bash scripts/msrun_launcher.sh " \
+ python research/yi/run_yi.py \
+ --config research/yi/finetune_yi_6b.yaml \
+ --run_mode finetune \
+ --load_checkpoint /{path}/yi_6b.ckpt \
+ --train_dataset /{path}/alpaca_gpt4_data_zh.mindrecord \
+ --auto_trans_ckpt True \
+ --use_parallel True" 4
 ```
 
 ## 推理
@@ -430,7 +401,7 @@ bash scripts/msrun_launcher.sh "research/yi/run_yi.py --config research/yi/predi
 
 ### 评测结果
 
-|batch_size|seq_length|Atlas 800T A2（400T）tokens/s|A100（首次） tokens/s|对比
-|----------|----------|----------|----------|----------|
-|1|512|39.5741|35.0316|1.1297
-|2|512|71.4809|77.2835|0.9249
+| batch_size | seq_length | Atlas 800T A2（400T）tokens/s | A100（首次） tokens/s | 对比     |
+|------------|------------|-----------------------------|-------------------|--------|
+| 1          | 512        | 39.5741                     | 35.0316           | 1.1297 |
+| 2          | 512        | 71.4809                     | 77.2835           | 0.9249 |
