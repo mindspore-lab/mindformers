@@ -19,7 +19,7 @@ pytest tests/st/test_model/test_llama_model/test_config.py
 """
 import os
 import sys
-from glob import glob
+# from glob import glob
 from multiprocessing.pool import Pool
 import pytest
 
@@ -47,6 +47,21 @@ def build_model(config):
         raise AssertionError
 
 
+def get_yaml_files(prefix):
+    """get all yaml files for testing"""
+    files = os.listdir(prefix)
+
+    configs = list()
+    remove_list = [
+        "finetune_llama2_70b_bf16_32p.yaml",
+        "pretrain_llama2_70b_bf16_32p.yaml"]
+    for file in files:
+        if file in remove_list or not file.endswith('.yaml'):
+            continue
+        configs.append(os.path.join(prefix, file))
+    return configs
+
+
 @pytest.mark.level0
 @pytest.mark.platform_x86_cpu
 @pytest.mark.platform_arm_cpu
@@ -60,8 +75,11 @@ def test_configs():
     configs = list()
     for path in sys.path:
         if path.endswith('/site-packages'):
-            config_path = os.path.join(path, 'configs/llama2/*.yaml')
-            configs += glob(config_path)
+            config_path = os.path.join(path, 'configs/llama2')
+            configs = get_yaml_files(config_path)
+
+            # config_path = os.path.join(path, 'configs/llama2/*.yaml')
+            # configs += glob(config_path)
             if configs:
                 break
     assert configs
