@@ -405,8 +405,6 @@ class ChatGLM2Block(nn.Cell):
         # hidden_states: [bs, seq_len, hidden_size]
         # attention_mask first: (bs, 1, seq_len, seq_len), after: (bs, 1, 1, seq_len)
         # rotary_pos_emb: first: (seq_len, kv_channels//4, 2)， after: (1, kv_channels//4, 2)
-        if batch_valid_length is not None:
-            batch_valid_length = batch_valid_length + 1
         # Layer norm at the beginning of the transformer layer.
         hidden_states = self.cast(hidden_states, self.layernorm_dtype)
         layernorm_output = self.input_layernorm(hidden_states)
