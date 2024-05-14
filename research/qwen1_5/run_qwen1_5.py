@@ -23,6 +23,8 @@ from mindformers import Trainer, MindFormerConfig
 from mindformers.core.context import build_context, build_profile_cb
 from mindformers.tools import get_output_root_path
 from mindformers.tools.utils import check_in_modelarts, str2bool, set_remote_save_url
+from mindformers.tools.cloud_adapter import cloud_monitor
+
 
 # pylint: disable=W0611
 import optim
@@ -54,7 +56,7 @@ def clear_auto_trans_output(config):
         os.makedirs(strategy_dir, exist_ok=True)
         os.makedirs(transformed_ckpt_dir, exist_ok=True)
 
-
+@cloud_monitor()
 def main(task='text_generation',
          config='run_qwen_7b.yaml',
          run_mode='predict',
