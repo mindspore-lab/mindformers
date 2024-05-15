@@ -66,134 +66,6 @@ ChatGLM**2**-6B 是开源中英双语对话模型 [ChatGLM2-6B](https://github.c
 
 ## 前期准备
 
-### 生成RANK_TABLE_FILE
-
-运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件
-
-```bash
-# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
-python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
-```
-
-**注：若使用ModelArts的notebook环境，可从 `/user/config/jobstart_hccl.json` 路径下直接获取rank table，无需手动生成**
-
-RANK_TABLE_FILE 单机8卡参考样例:
-
-```json
-{
-    "version": "1.0",
-    "server_count": "1",
-    "server_list": [
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
-                {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"},
-                {"device_id": "2","device_ip": "192.3.27.6","rank_id": "2"},
-                {"device_id": "3","device_ip": "192.4.27.6","rank_id": "3"},
-                {"device_id": "4","device_ip": "192.1.27.7","rank_id": "4"},
-                {"device_id": "5","device_ip": "192.2.27.7","rank_id": "5"},
-                {"device_id": "6","device_ip": "192.3.27.7","rank_id": "6"},
-                {"device_id": "7","device_ip": "192.4.27.7","rank_id": "7"}],
-             "host_nic_ip": "reserve"
-        }
-    ],
-    "status": "completed"
-}
-```
-
-### 多机RANK_TABLE_FILE合并
-
-- step 1. 首先根据上章节内容，在每个机器上生成各自的`RANK_TABLE_FILE`文件，然后将不同机器上生成的`RANK_TABLE_FILE`文件全部拷贝到同一台机器上。
-
-```bash
-# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
-python ./mindformers/tools/hccl_tools.py --device_num "[0,8)" --server_ip xx.xx.xx.xx
-```
-
-**注：需要根据机器的ip地址指定 --server_ip，避免由于不同机器server_ip不同，导致多节点间通信失败。**
-
-- step 2. 运行mindformers/tools/merge_hccl.py将不同机器上生成的`RANK_TABLE_FILE`文件合并
-
-```bash
-# 运行如下命令，合并每个机器上的RANK_TABLE_FILE的json文件。
-python ./mindformers/tools/merge_hccl.py hccl*.json
-```
-
-- step 3. 将合并后的`RANK_TABLE_FILE`文件拷贝到所有机器中，保证不同机器上的`RANK_TABLE_FILE`相同。
-
-RANK_TABLE_FILE 双机16卡参考样例:
-
-```json
-{
-    "version": "1.0",
-    "server_count": "2",
-    "server_list": [
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {
-                    "device_id": "0", "device_ip": "192.168.0.0", "rank_id": "0"
-                },
-                {
-                    "device_id": "1", "device_ip": "192.168.1.0", "rank_id": "1"
-                },
-                {
-                    "device_id": "2", "device_ip": "192.168.2.0", "rank_id": "2"
-                },
-                {
-                    "device_id": "3", "device_ip": "192.168.3.0", "rank_id": "3"
-                },
-                {
-                    "device_id": "4", "device_ip": "192.168.0.1", "rank_id": "4"
-                },
-                {
-                    "device_id": "5", "device_ip": "192.168.1.1", "rank_id": "5"
-                },
-                {
-                    "device_id": "6", "device_ip": "192.168.2.1", "rank_id": "6"
-                },
-                {
-                    "device_id": "7", "device_ip": "192.168.3.1", "rank_id": "7"
-                }
-            ],
-            "host_nic_ip": "reserve"
-        },
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {
-                    "device_id": "0", "device_ip": "192.168.0.1", "rank_id": "8"
-                },
-                {
-                    "device_id": "1", "device_ip": "192.168.1.1", "rank_id": "9"
-                },
-                {
-                    "device_id": "2", "device_ip": "192.168.2.1", "rank_id": "10"
-                },
-                {
-                    "device_id": "3", "device_ip": "192.168.3.1", "rank_id": "11"
-                },
-                {
-                    "device_id": "4", "device_ip": "192.168.0.2", "rank_id": "12"
-                },
-                {
-                    "device_id": "5", "device_ip": "192.168.1.2", "rank_id": "13"
-                },
-                {
-                    "device_id": "6", "device_ip": "192.168.2.2", "rank_id": "14"
-                },
-                {
-                    "device_id": "7", "device_ip": "192.168.3.2", "rank_id": "15"
-                }
-            ],
-            "host_nic_ip": "reserve"
-        }
-    ],
-    "status": "completed"
-}
-```
-
 ### 模型权重下载与转换
 
 开发者可以下载获取官方权重后，通过下面提供的**权重转换脚本**，将官方权重转换为MindSpore权重；或直接使用MindFormers提供的**已转换权重**
@@ -291,10 +163,6 @@ prefix: ckpt文件前缀名
 
 ### 基于AutoClass的快速使用
 
-可以使用AutoClass接口，通过模型名称获取相应的model/preprocess/tokenizer等实例，并自动下载并加载权重
-
-`from_pretrained()` 接口会自动从云上下载预训练的模型，存储路径：`./checkpoint_download/glm2`
-
 ```python
 import mindspore
 from mindformers import AutoConfig, AutoModel, AutoTokenizer
@@ -304,13 +172,9 @@ mindspore.set_context(mode=0, device_id=0)
 
 tokenizer = AutoTokenizer.from_pretrained('glm2_6b')
 
-# model的实例化有以下两种方式，选择其中一种进行实例化即可
-# 1. 直接根据默认配置实例化
-model = AutoModel.from_pretrained('glm2_6b')
-# 2. 自定义修改配置后实例化
-config = AutoConfig.from_pretrained('glm2_6b')
-config.use_past = True                  # 此处修改默认配置，开启增量推理能够加速推理性能
-# config.xxx = xxx                      # 根据需求自定义修改其余模型配置
+# 自定义修改配置后实例化,配置为yaml文件路径，示例yaml文件为configs/glm2/predict_glm2_6b.yaml
+# 需要修改yaml中的checkpoint_name_or_path为权重下载章节下载的权重文件
+config = AutoConfig.from_pretrained('/path/to/predict_glm2_6b.yaml')
 model = AutoModel.from_config(config)   # 从自定义配置项中实例化模型
 
 inputs = tokenizer("你好")["input_ids"]
@@ -351,9 +215,9 @@ trainer = Trainer(task='text_generation',
 trainer.evaluate()
 
 # 开启推理
+# 需要在configs/glm2/run_glm2_6b.yaml中将param_init_type、compute_dtype修改为"float16"
 predict_result = trainer.predict(input_data="你好")
 print(predict_result)
-# [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
 ```
 
 ### 基于Pipeline的快速推理
@@ -362,13 +226,11 @@ print(predict_result)
 import mindspore
 mindspore.set_context(mode=0, device_id=0)
 
-from mindformers import pipeline
-task_pipeline = pipeline(task='text_generation', model='glm2_6b', max_length=2048)
-task_pipeline('你好')
-# [{'text_generation_text': ['你好，我是 ChatGLM2-6B， 一个人工智能助手。我背后使用的模型是 GLM2-6B， 是一种大型语言模型， 具有超过 2000 亿参数，支持多种任务。']}]
-
 from mindformers import AutoModel, AutoTokenizer, TextGenerationPipeline
-model = AutoModel.from_pretrained('glm2_6b')
+# 自定义修改配置后实例化,配置为yaml文件路径，示例yaml文件为configs/glm2/predict_glm2_6b.yaml
+# 需要修改yaml中的checkpoint_name_or_path为权重下载章节下载的权重文件
+config = AutoConfig.from_pretrained('/path/to/predict_glm2_6b.yaml')
+model = AutoModel.from_config(config)   # 从自定义配置项中实例化模型
 tokenizer = AutoTokenizer.from_pretrained('glm2_6b')
 pipeline = TextGenerationPipeline(model=model, tokenizer=tokenizer)
 predict_result = pipeline("你好")
@@ -440,26 +302,28 @@ yaml文件中默认的`seq_length: 192`以及`max_source_length: 64`和`max_targ
 
 #### 多卡微调
 
-- 单机多卡
-
-多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成ranktablefile)
-
 ```shell
-cd scripts
-# Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_STATUS]
-bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/run_glm2_6b_finetune*.yaml '[0,8]' finetune
-# 将此处rank_table_file替换为实际路径
+# 以glm2-6b模型为例，默认配置单机8卡，如果节点数有变，需要修改相应的配置。
+# 配置文件路径：configs/glm2/run_glm2_6b_finetune*.yaml
+parallel_config:
+  data_parallel: 8
+  model_parallel: 1
+  pipeline_stage: 1
+  expert_parallel: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  gradient_aggregation_group: 4
 ```
 
-> 多卡微调的模型需要合并权重后才能进行单卡评估。
-
-参数说明
+```shell
+cd {mindformers根目录}
+bash scripts/msrun_launcher.sh "run_mindformer.py --config configs/glm2/run_glm2_6b_finetune*.yaml --run_mode finetune"
+```
 
 ```text
-RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
-CONFIG_PATH: 为configs文件夹下面的glm2/run_glm2_6b_finetune*.yaml配置文件
-DEVICE_RANGE: 为单机分布式卡的范围，如 '[0,8]' 为8卡分布式，不包含8本身
-RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
+# 参数说明
+config: 配置文件路径
+run_mode: 运行模式，微调时设置为finetune
 ```
 
 > 训练的log日志路径：mindformers/output/log
@@ -469,39 +333,6 @@ RUN_STATUS: 为任务运行状态，支持关键字 train\finetune\eval\predict
 > checkpoint(不含优化器参数)存储路径：mindformers/output/checkpoint_network
 >
 > 若想合并ckpt用于后续评估，选择不含优化器参数的权重即可。
-
-- 多机多卡
-
-多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机ranktablefile合并)
-
-在每台机器上启动`bash run_distribute.sh`。
-
-```bash
-server_count=12
-device_num=8*$server_count
-# launch ranks in the 0th server
-cd scripts
-bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [0,8] finetune $device_num
-
-# launch ranks in the 1-11 server via ssh
-for idx in {1..11}
-do
-    let rank_start=8*$idx
-    let rank_end=$rank_start+8
-    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config.yaml [$rank_start,$rank_end] finetune $device_num"
-done
-```
-
-其中
-
-- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
-- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
-
-```bash
-IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
-```
-
-> 多卡微调的模型需要合并权重后才能进行单卡评估。
 
 ### LoRA微调
 
@@ -518,34 +349,42 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 #### 单卡微调
 
 ```shell
-cd scripts
-# Usage Help: bash run_stanalone.sh [CONFIG_PATH] [DEVICE_ID] [RUN_STATUS]
-bash run_standalone.sh ../configs/glm2/run_glm2_6b_lora*.yaml 0 finetune
+cd {mindformers根目录}
+python run_mindformer.py --config configs/glm2/run_glm2_6b_lora*.yaml --run_mode finetune
 ```
 
-> 训练的log日志路径：mindformers/output/log
->
-> checkpoint(含优化器参数)存储路径：mindformers/output/checkpoint
->
-> checkpoint(不含优化器参数)存储路径：mindformers/output/checkpoint_network
->
-> 若想合并ckpt用于后续评估，选择不含优化器参数的权重即可。
+```text
+# 参数说明
+config: 配置文件路径
+run_mode: 运行模式，微调时设置为finetune
+```
 
 #### 多卡微调
 
-- 单机多卡
-
-多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成ranktablefile)
-
 ```shell
-cd scripts
-# Usage Help: bash run_distribute.sh [RANK_TABLE_FILE] [CONFIG_PATH] [DEVICE_RANGE] [RUN_STATUS]
-bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/run_glm2_6b_lora*.yaml '[0,8]' finetune
-# 将此处rank_table_file替换为实际路径
+# 以glm2-6b模型为例，默认配置单机8卡，如果节点数有变，需要修改相应的配置。
+# 配置文件路径：configs/glm2/run_glm2_6b_lora*.yaml
+parallel_config:
+  data_parallel: 8
+  model_parallel: 1
+  pipeline_stage: 1
+  expert_parallel: 1
+  micro_batch_num: 1
+  vocab_emb_dp: True
+  gradient_aggregation_group: 4
 ```
 
-> 多卡微调的模型需要合并权重后才能进行单卡评估。
->
+```shell
+cd {mindformers根目录}
+bash scripts/msrun_launcher.sh "run_mindformer.py --config configs/glm2/run_glm2_6b_lora*.yaml --run_mode finetune"
+```
+
+```text
+# 参数说明
+config: 配置文件路径
+run_mode: 运行模式，微调时设置为finetune
+```
+
 > 训练的log日志路径：mindformers/output/log
 >
 > checkpoint(含优化器参数)存储路径：mindformers/output/checkpoint
@@ -553,35 +392,6 @@ bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/
 > checkpoint(不含优化器参数)存储路径：mindformers/output/checkpoint_network
 >
 > 若想合并ckpt用于后续评估，选择不含优化器参数的权重即可。
-
-- 多机多卡
-
-在每台机器上启动`bash run_distribute.sh`。
-
-```bash
-server_count=12
-device_num=8*$server_count
-# launch ranks in the 0th server
-cd scripts
-bash run_distribute.sh $RANK_TABLE_FILE path/to/config_lora.yaml [0,8] finetune $device_num
-
-# launch ranks in the 1-11 server via ssh
-for idx in {1..11}
-do
-    let rank_start=8*$idx
-    let rank_end=$rank_start+8
-    ssh ${IP_LIST[$idx]} "cd scripts; bash run_distribute.sh $RANK_TABLE_FILE path/to/config_lora.yaml [$rank_start,$rank_end] finetune $device_num"
-done
-```
-
-其中
-
-- `RANK_TABLE_FILE`为上一步汇总并分发的总rank table文件；
-- `IP_LIST`为12台服务器的IP地址。如192.168.0.[0-11]
-
-```bash
-IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
-```
 
 ### P-Tuning 微调
 
@@ -599,9 +409,14 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 执行命令：
 
 ```shell
-cd scripts
-# Usage Help: bash run_stanalone.sh [CONFIG_PATH] [DEVICE_ID] [RUN_STATUS]
-bash run_standalone.sh ../configs/glm2/run_glm2_6b_ptuning2.yaml 0 finetune
+cd {mindformers根目录}
+python run_mindformer.py --config configs/glm2/run_glm2_6b_ptuning2.yaml --run_mode finetune
+```
+
+```text
+# 参数说明
+config: 配置文件路径
+run_mode: 运行模式，微调时设置为finetune
 ```
 
 > 训练的log日志路径：mindformers/output/log
@@ -711,19 +526,6 @@ python run_mindformer.py --config configs/glm2/run_glm2_6b_lora_eval.yaml --run_
 
 > 单卡评测时，应将yaml中 model:model_config:batch_size 修改为等于 runner_config:batch_size
 
-### 多卡评测
-
-执行脚本：
-
-```bash
-cd scripts
-bash run_distribute.sh /path/to/hccl_8p_01234567_127.0.1.1.json ../configs/glm2/run_glm2_6b_*_eval.yaml '[0,8]' eval
-```
-
-> 全参微调请选择 `configs/glm2/run_glm2_6b_finetune_eval.yaml`
-> lora微调请选择 `configs/glm2/run_glm2_6b_lora_eval.yaml`
-> 多卡评测时，应将yaml中 model:model_config:batch_size 修改为等于 global_batch_size。例如 bs8/dp4/mp2的配置, batch_size = 8 * 4 = 32
-
 ## 推理
 
 ### 基于generate的推理
@@ -736,20 +538,14 @@ import mindspore as ms
 
 ms.set_context(mode=ms.GRAPH_MODE, device_target="Ascend", device_id=0)
 
-# **注意** LoRA微调模型替换成 “glm2_6b_lora”,
-# **注意** P-Tuning 微调模型替换成 “glm2_6b_ptuning2”
-config = AutoConfig.from_pretrained("glm2_6b")
-# 可以在此使用下行代码指定自定义权重进行推理，默认使用自动从obs上下载的预训练权重
-# config.checkpoint_name_or_path = "/path/to/your/chatglm2_6b.ckpt"
-config.use_past = True
+# 自定义修改配置后实例化,配置为yaml文件路径，示例yaml文件为configs/glm2/predict_glm2_6b.yaml
+# 需要修改yaml中的checkpoint_name_or_path为权重下载章节下载的权重文件
+config = AutoConfig.from_pretrained("/path/to/predict_glm2_6b.yaml")
 config.seq_length = 1024
 model = AutoModel.from_config(config)
 
-# 以下两种tokenizer实例化方式选其一即可
-# 1. 在线加载方式
-tokenizer = AutoTokenizer.from_pretrained("glm2_6b")
-# 2. 本地加载方式
-# tokenizer = ChatGLM2Tokenizer("/path/to/your/tokenizer.model")
+# 本地加载方式
+tokenizer = ChatGLM2Tokenizer("/path/to/your/tokenizer.model")
 
 kwargs={}
 gen_kwargs = {"max_length": config.seq_length, "num_beams": 1, "do_sample": False, "top_p": 3,"top_k": 0.7,
@@ -790,9 +586,9 @@ for query in queries:
 
     1. 西湖醋鱼：这是杭州最著名的菜肴之一，鱼肉鲜美，入口即化，佐以香醋、糖、姜丝等调料，口感酸甜适中。
 
-    2. 龙井虾仁：以当地特产的龙井茶为佐料，将鲜嫩的虾仁炒制而成，香气扑鼻，鲜嫩可口。
+    2. 龙井虾仁：以当地特产的龙井茶为佐料，将鲜嫩的虾仁炒制而成，口感清香可口。
 
-    3. 灌汤包：又称小笼包，是杭州的传统点心之一。包子的皮薄馅多，汤汁鲜美，非常受欢迎。
+    3. 灌汤包：又称小笼包，是杭州的传统点心之一。包子的皮软馅鲜，汤汁鲜美，非常受欢迎。
 
     4. 姜母鸭：这是一道杭帮菜，以鸭肉、姜母、葱等调料烹制而成，口感鲜美。
 
@@ -801,20 +597,3 @@ for query in queries:
     此外，杭州还有许多特色小吃，如粽子、臭豆腐、糯米鸡、肉夹馍、鸭血粉丝汤等，让人垂涎欲滴。
     '''
 ```
-
-### 脚本启动
-
-> GLM2使用脚本进行推理时需要手动对输入问题添加prompt，prompt模板的形式为`[Round 1]\n\n问：{此处填写问题}\n\n答：`。
->
-> 如果问题是`为什么说地球是独一无二的`，添加prompt后为`[Round 1]\n\n问：为什么说地球是独一无二的\n\n答：`。
-
-#### 单卡推理
-
-```bash
-python run_mindformer.py --config path/to/config.yaml --run_mode predict --predict_data "[Round 1]\n\n问：你好\n\n答："
-#  [{'text_generation_text': ['[Round 1]\n\n问：你好\n\n答： 你好👋！我是人工智能助手 ChatGLM2-6B，很高兴见到你，欢迎问我任何问题。']}]
-```
-
-#### 多卡推理
-
-暂未支持
