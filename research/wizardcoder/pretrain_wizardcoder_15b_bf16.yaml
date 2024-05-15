@@ -141,8 +141,8 @@ model:
     expand_ratio: 4
     hidden_act: "gelu"
     dropout_prob: 0.0
-    hidden_dropout_prob: 0.1
-    attention_probs_dropout_prob: 0.1
+    hidden_dropout_prob: 0.0
+    attention_probs_dropout_prob: 0.0
     initializer_range: 0.02
     eos_token: 0
     pad_token: 49152
@@ -151,7 +151,7 @@ model:
     softmax_dtype: "float16"
     compute_dtype: "bfloat16"
     use_past: False
-    use_seq_parallel: True  # 原本是True 修改为False试试
+    use_seq_parallel: True
     use_select_recompute: True
     checkpoint_name_or_path: "wizardcoder_15B.ckpt"
     eos_token_id: 0
