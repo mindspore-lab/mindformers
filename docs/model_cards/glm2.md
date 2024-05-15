@@ -19,15 +19,15 @@ ChatGLM**2**-6B 是开源中英双语对话模型 [ChatGLM2-6B](https://github.c
 
 **GLM2_6b**:
 
-| config                                                      | task            | Datasets | metric                                  | phase                   | score                                   | performance                                    |
-|-------------------------------------------------------------|-----------------|----------|-----------------------------------------|-------------------------|-----------------------------------------|------------------------------------------------|
-| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)              | text_generation | ADGEN    | -                                       | [finetune](#全量微调)       | -                                       | 815.2059134 tokens/s/p                         |
-| [glm2_6b_lora](../../configs/glm2/run_glm2_6b_lora.yaml)    | text_generation | ADGEN    | -                                       | [finetune](#lora微调)     | -                                       | 3243.697479 tokens/s/p                         |
-| [glm2_6b_ptuning2](../../configs/glm2/run_glm2_6b_ptuning2.yaml) | text_generation | ADGEN    | -                                       | [finetune](#ptuning2微调) | -                                       | 4150.537634 tokens/s/p                         |
-| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)              | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)             | 30.7842<br>7.0734<br>24.7739<br>7.4661  | -                                              |
-| [glm2_6b_lora](../../configs/glm2/run_glm2_6b_lora.yaml)    | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)             | 31.0563<br>7.1753<br>24.2296<br>7.2294  | -                                              |
-| [glm2_6b_ptuning2](../../configs/glm2/run_glm2_6b_ptuning2.yaml)      | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)             | 31.5933<br>7.4504<br>24.7071<br>7.3042  | -                                              |
-| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)              | text_generation | -        | -                                       | [predict](#推理)          | -                                       | 32.08 tokens/s (use_past=True, seq_length=512) |
+| config                                                           | task            | Datasets | metric                                  | phase                   | score                                  | performance                                    |
+|------------------------------------------------------------------|-----------------|----------|-----------------------------------------|-------------------------|----------------------------------------|------------------------------------------------|
+| [glm2_6b](../../configs/glm2/finetune_glm2_6b_fp16.yaml)         | text_generation | ADGEN    | -                                       | [finetune](#微调)         | -                                      | 815.2059134 tokens/s/p                         |
+| [glm2_6b_lora](../../configs/glm2/lora_glm2_6b_fp16.yaml)        | text_generation | ADGEN    | -                                       | [finetune](#lora微调)     | -                                      | 3243.697479 tokens/s/p                         |
+| [glm2_6b_ptuning2](../../configs/glm2/run_glm2_6b_ptuning2.yaml) | text_generation | ADGEN    | -                                       | [finetune](#P-Tuning微调) | -                                      | 4150.537634 tokens/s/p                         |
+| [glm2_6b](../../configs/glm2/run_glm2_6b.yaml)                   | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)             | 30.7842<br>7.0734<br>24.7739<br>7.4661 | -                                              |
+| [glm2_6b_lora](../../configs/glm2/run_glm2_6b_lora_eval.yaml)    | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)             | 31.0563<br>7.1753<br>24.2296<br>7.2294 | -                                              |
+| [glm2_6b_ptuning2](../../configs/glm2/run_glm2_6b_ptuning2.yaml) | text_generation | ADGEN    | rouge-1<br>rouge-2<br>rouge-l<br>bleu-4 | [eval](#评测)             | 31.5933<br>7.4504<br>24.7071<br>7.3042 | -                                              |
+| [glm2_6b](../../configs/glm2/predict_glm2_6b.yaml)               | text_generation | -        | -                                       | [predict](#推理)          | -                                      | 32.08 tokens/s (use_past=True, seq_length=512) |
 
 ## 仓库介绍
 
@@ -187,6 +187,8 @@ print(response)
 
 ### 基于Trainer的快速训练，微调，评测，推理
 
+glm2_6b暂不支持使用Trainer进行单卡训练和微调，请参考多卡训练和微调。
+
 > 注：下面仅显示接口使用方式，模型启动训练需求多卡分布式训练，训练脚本需配合分布式脚本启动
 
 ```python
@@ -201,14 +203,6 @@ trainer = Trainer(task='text_generation',
                   model='glm2_6b',
                   train_dataset='path/to/train_dataset',
                   eval_dataset='path/to/eval_dataset')
-
-# 开启预训练
-# 请参照多卡训练，glm2_6b不支持单卡启动训练
-# trainer.train()
-
-# 开启全量微调
-# 请参照多卡微调，glm2_6b不支持单卡启动全量微调
-# trainer.finetune()
 
 # 开启评测
 # 需要在configs/glm2/run_glm2_6b.yaml中将seq_length修改为256
@@ -393,7 +387,7 @@ run_mode: 运行模式，微调时设置为finetune
 >
 > 若想合并ckpt用于后续评估，选择不含优化器参数的权重即可。
 
-### P-Tuning 微调
+### P-Tuning微调
 
 对于每个下游任务，在网络的每一层添加一份连续提示向量，冻结预训练模型的其他参数，只训练这些向量。
 

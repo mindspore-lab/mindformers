@@ -21,9 +21,9 @@ Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据�
 
 llama2_7b:
 
-| config                                                     | task                  | Datasets  | SeqLength | metric | phase             | score     | performance  |
-| ---------------------------------------------------------- | --------------------- | --------- | --------- | ------ | ----------------- | --------- | ------------ |
-| [llama2_7b](../../configs/llama2/pretrain_llama2_7b.yaml)  | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -         | 4820 tks/s/p |
+| config                                                     | task                  | Datasets  | SeqLength | metric | phase           | score     | performance  |
+|------------------------------------------------------------|-----------------------|-----------|-----------|--------|-----------------|-----------|--------------|
+| [llama2_7b](../../configs/llama2/pretrain_llama2_7b.yaml)  | text_generation       | wiki      | 4096      | -      | [train](#预训练)   | -         | 4820 tks/s/p |
 | [llama2_7b](../../configs/llama2/finetune_llama2_7b.yaml)  | text_generation       | alpaca    | 4096      | -      | [finetune](#微调) | -         | 4820 tks/s/p |
 | [llama2_7b_lora](../../configs/llama2/lora_llama2_7b.yaml) | text_generation       | alpaca    | 4096      | -      | [finetune](#微调) | -         | 5217 tks/s/p |
 | [llama2_7b](../../configs/llama2/predict_llama2_7b.yaml)   | text_generation       | WikiText2 | -         | PPL    | [eval](#评测)     | 6.58      | -            |
@@ -31,9 +31,9 @@ llama2_7b:
 
 llama2_13b:
 
-| config                                                       | task                  | Datasets  | SeqLength | metric | phase             | score       | performance   |
-| ------------------------------------------------------------ | --------------------- | --------- | --------- | ------ | ----------------- | ----------- | ------------- |
-| [llama2_13b](../../configs/llama2/pretrain_llama2_13b.yaml)  | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -           | 1883  tks/s/p |
+| config                                                       | task                  | Datasets  | SeqLength | metric | phase           | score       | performance   |
+|--------------------------------------------------------------|-----------------------|-----------|-----------|--------|-----------------|-------------|---------------|
+| [llama2_13b](../../configs/llama2/pretrain_llama2_13b.yaml)  | text_generation       | wiki      | 4096      | -      | [train](#预训练)   | -           | 1883  tks/s/p |
 | [llama2_13b](../../configs/llama2/finetune_llama2_13b.yaml)  | text_generation       | alpaca    | 4096      | -      | [finetune](#微调) | -           | 1883 tks/s/p  |
 | [llama2_13b_lora](../../configs/llama2/lora_llama2_13b.yaml) | text_generation       | alpaca    | 4096      | -      | [finetune](#微调) | -           | 2322 tks/s/p  |
 | [llama2_13b](../../configs/llama2/predict_llama2_13b.yaml)   | text_generation       | WikiText2 | -         | PPL    | [eval](#评测)     | 6.14        | -             |
@@ -41,20 +41,20 @@ llama2_13b:
 
 llama2_70b：
 
-| config                                                      | task                  | Datasets  | SeqLength | metric | phase             | score       | performance  |
-| ----------------------------------------------------------- | --------------------- | --------- | --------- | ------ | ----------------- | ----------- | ------------ |
-| [llama2_70b](../../configs/llama2/pretrain_llama2_70b.yaml) | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -           | 407  tks/s/p |
+| config                                                      | task                  | Datasets  | SeqLength | metric | phase           | score       | performance  |
+|-------------------------------------------------------------|-----------------------|-----------|-----------|--------|-----------------|-------------|--------------|
+| [llama2_70b](../../configs/llama2/pretrain_llama2_70b.yaml) | text_generation       | wiki      | 4096      | -      | [train](#预训练)   | -           | 407  tks/s/p |
 | [llama2_70b](../../configs/llama2/finetune_llama2_70b.yaml) | text_generation       | alpaca    | 4096      | -      | [finetune](#微调) | -           | 414 tks/s/p  |
 | [llama2_70b](../../configs/llama2/predict_llama2_70b.yaml)  | text_generation       | WikiText2 | -         | PPL    | [eval](#评测)     | 4.92        | -            |
 | [llama2_70b](../../configs/llama2/predict_llama2_70b.yaml)  | reading comprehension | SQuAD 1.1 | -         | EM/F1  | [eval](#评测)     | 41.94/63.86 | -            |
 
 基于Atlas 900 A2 PoDc
 
-| config                                                                  | task                  | Datasets  | SeqLength | metric | phase             | score       | performance   |
-|-------------------------------------------------------------------------| --------------------- | --------- | --------- | ------ | ----------------- | ----------- |---------------|
-| [llama2_7b](../../configs/llama2/run_llama2_7b_910b.yaml)             | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -         | 4100 tks/s/p |
-| [llama2_13b](../../configs/llama2/run_llama2_13b_910b.yaml)             | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -           | 1658  tks/s/p |
-| [llama2_70b](../../configs/llama2/run_llama2_70b_910b.yaml)             | text_generation       | wiki      | 4096      | -      | [train](#预训练)  | -         | 406 tks/s/p |
+| config                                                      | task            | Datasets | SeqLength | metric | phase         | score | performance   |
+|-------------------------------------------------------------|-----------------|----------|-----------|--------|---------------|-------|---------------|
+| [llama2_7b](../../configs/llama2/pretrain_llama2_7b.yaml)   | text_generation | wiki     | 4096      | -      | [train](#预训练) | -     | 4100 tks/s/p  |
+| [llama2_13b](../../configs/llama2/pretrain_llama2_13b.yaml) | text_generation | wiki     | 4096      | -      | [train](#预训练) | -     | 1658  tks/s/p |
+| [llama2_70b](../../configs/llama2/pretrain_llama2_70b.yaml) | text_generation | wiki     | 4096      | -      | [train](#预训练) | -     | 406 tks/s/p   |
 
 ## 仓库介绍
 
@@ -104,7 +104,7 @@ llama2_70b：
 - 硬件：Atlas 800T A2
 - MindSpore：2.3
 - CANN: 7.2及以上
-- MindFormers版本：dev
+- MindFormers版本：r1.1.0
 
 注：Atlas 800T A2芯片：7b,13b推理可在单机单卡上完成部署；70b推理至少使用8卡，全参微调至少需要4机32卡，推荐使用8机64卡。
 

@@ -11,7 +11,7 @@ WizardCoder完全开源可商用，基于 Transformer 结构，上下文窗口�
 
 1. 模型具体实现：`research/wizardcoder`
 
-    ```bash
+    ```text
     wizardcoder
         ├── wizardcoder_tokenizer.py       # tokenizer
         ├── wizardcoder.py                 # 15B模型实现
@@ -20,14 +20,14 @@ WizardCoder完全开源可商用，基于 Transformer 结构，上下文窗口�
 
 2. 模型配置：`research/wizardcoder`
 
-    ```bash
+    ```text
     wizardcoder
         └── run_wizardcoder.yaml           # 15B全量微调Atlas 800T A2启动配置
     ```
 
 3. 数据处理脚本和任务启动脚本：`research/wizardcoder`
 
-    ```bash
+    ```text
     wizardcoder
         ├── wizardcoder_preprocess.py      # wizardcoder数据集预处理脚本
         └── run_wizardcoder.py             # wizardcoder高阶接口使用脚本
@@ -35,17 +35,11 @@ WizardCoder完全开源可商用，基于 Transformer 结构，上下文窗口�
 
 ### 环境要求
 
-- 硬件: Atlas 800T A2
+- 硬件：Atlas 800T A2
+- MindSpore：2.3.0
+- MindFormers版本：r1.1.0
 
-### 支持源码编译安装，用户可以执行下述的命令进行包的安装：
-
-```shell
-#!/bin/bash
-git clone -b dev https://gitee.com/mindspore/mindformers.git
-cd mindformers
-bash build.sh
-pip install -r requirements.txt
-```
+### [mindformers安装](../../README.md#二mindformers安装)
 
 设置环境变量
 
@@ -71,7 +65,7 @@ export MS_GE_ATOMIC_CLEAN_POLICY=1
 export GE_USE_STATIC_MEMORY=2
 ```
 
-**注：** `ASCEND_CUSTOM_PATH`的`path`替换为CANN包真实地址
+**注：** `ASCEND_CUSTOM_PATH`的`path`替换为CANN包的实际安装路径
 
 ### 模型权重下载与转换(mindformers权重或huggingface权重选择使用即可)
 
@@ -127,7 +121,7 @@ python ./research/wizardcoder/convert_weight.py \
 --mindspore_path ./ckpt/rank_0/wizardcoder_15b.ckpt
 ```
 
-```text
+```yaml
 # 参数说明
 torch_path: huggingface权重保存目录路径下任意权重bin文件，根据文件路径读取目录下全部权重
 mindspore_path: mindspore格式的权重保存文件名，如'saved_dir/wizardcoder.ckpt'
@@ -137,10 +131,10 @@ mindspore_path: mindspore格式的权重保存文件名，如'saved_dir/wizardco
 
 ### 训练和微调性能
 
-| config                                                       | task                  | Datasets  | SeqLength | metric | phase             | score     | performance(tokens/s/p)  |
-| ------------------------------------------------------------ | --------------------- | --------- | --------- | ------ | ----------------- | --------- | ------------ |
-| [wizardcoder_15b](./run_wizardcoder.yaml)    | text_generation   | alpaca      | 2048      | -      | [train](#预训练)  | -         | 798.7  |
-| [wizardcoder_15b](./run_wizardcoder.yaml)    | text_generation   | alpaca      | 2048      | -      | [finetune](#微调)  | -         | 798.7  |
+| config                                    | task            | Datasets | SeqLength | metric | phase           | score | performance(tokens/s/p) |
+|-------------------------------------------|-----------------|----------|-----------|--------|-----------------|-------|-------------------------|
+| [wizardcoder_15b](./run_wizardcoder.yaml) | text_generation | alpaca   | 2048      | -      | [train](#预训练)   | -     | 798.7                   |
+| [wizardcoder_15b](./run_wizardcoder.yaml) | text_generation | alpaca   | 2048      | -      | [finetune](#微调) | -     | 798.7                   |
 
 ```shell
 #!/bin/bash
@@ -185,7 +179,7 @@ python research/wizardcoder/wizardcoder_preprocess.py \
 
 - step 1. 修改`research/wizardcoder/run_wizardcoder.yaml`中相关配置
 
-```text
+```yaml
 output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: './ckpt'          # 添加预训练权重路径
 auto_trans_ckpt: True
@@ -280,7 +274,7 @@ python research/wizardcoder/wizardcoder_preprocess.py \
 
 - step 1. 修改`research/wizardcoder/run_wizardcoder.yaml`中相关配置
 
-```text
+```yaml
 output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: './output/transformed_checkpoint/'          # 添加预训练权重路径
 auto_trans_ckpt: False
@@ -399,7 +393,7 @@ WizardCoderConfig的入参use_past=False为自回归推理，use_past=True为增
 
 **注：** 使用如下脚本推理，其中`wizardcoder_model_path`是权重存放的地址，`tokenizer_path`是存放vocab.json和merges.txt的目录地址
 
-```text
+```python
 import os
 import sys
 
@@ -496,7 +490,7 @@ processor:
 
 - step 3. 推理脚本
 
-```bash
+```shell
 bash scripts/msrun_launcher.sh "research/wizardcoder/run_wizardcoder.py \
 --config research/wizardcoder/run_wizardcoder.yaml \
 --load_checkpoint ./output/transformed_checkpoint/ \
@@ -509,6 +503,6 @@ bash scripts/msrun_launcher.sh "research/wizardcoder/run_wizardcoder.py \
 
 推理结果
 
-```text
+```yaml
 {'text_generation_text': ['使用python编写快速排序代码，并分析其时间复杂度。\r\n\r\n快速排序是一种分治算法，它的基本思想是：通过一趟排序将待排记录分隔成独立的两部分，其中一部分记录的关键字均比另一部分的关键字小，则可分别对这两部分记录继续进行排序，以达到整个序列有序。\r\n\r\n快速排序的步骤如下：\r\n\r\n1. 从数列中挑出一个元素，称为 “基准”（pivot）\r\n2. 重新排序数列，所有元素比基准值小的摆放在基准前面，所有元素比基准值大的摆在基准的后面（相同的数可以到任一边）。在这个分区退出之后，该基准就处于数列的中间位置。这个称为分区（partition）操作。\r\n3. 递归地（recursive）把小于基准值元素的子数列和大于基准值元素的子数列排序。\r\n\r\n快速排序的时间复杂度为O(nlogn)，最坏情况下的时间复杂度为O(n^2)，平均情况下的时间复杂度为O(nlogn)。\r\n\r\n下面是Python代码实现的快速排序：\r\n\r\n```python\r\ndef quick_sort(arr):\r\n    if len(arr) <= 1:\r\n        return arr\r\n    else:\r\n        pivot = arr[0]\r\n        left = []\r\n        right = []\r\n        for i in range(1, len(arr)):\r\n            if arr[i] < pivot:\r\n                left.append(arr[i])\r\n            else:\r\n                right.append(arr[i])\r\n        return quick_sort(left) + [pivot] + quick_sort(right)\r\n```\r\n\r\n该代码的基本思路是：\r\n\r\n1. 如果数组的长度小于等于1，则直接返回数组。\r\n2. 选择数组的第一个元素作为基准值。\r\n3. 遍历数组，将比基准值小的元素放到左边，将比基准值大的元素放到右边。\r\n4. 递归地对左边和右边的子数组进行排序。\r\n5. 将左边子数组、基准值、右边子数组合并成一个新的数组。\r\n\r\n下面是该代码的时间复杂度分析：\r\n\r\n- 最坏情况下的时间复杂度：当数组的长度为n，且每次选择的基准值都为数组的第一个元素时，每次递归都需要进行n-1次，因此最坏情况下的时间复杂度为O(n^2)。\r\n- 平均情况下的时间复杂度：每次选择的基准值都为数组的中间元素，每次递归都需要进行logn次，因此平均情况下的时间复杂度为O(nlogn)。\r\n- 最优情况下的时间复杂度：当数组的长度为n，且每次选择的基准值都为数组的第一个元素时，每次递归都需要进行logn次，因此最优情况下的时间复杂度为O(nlogn)。']}
 ```

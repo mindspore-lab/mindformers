@@ -77,7 +77,7 @@ Yi-6B-Base 模型以双语语言模型为目标，并在3T多语言语料库上�
 
 alpaca数据集样式
 
-```text
+```yaml
   {
     "instruction": "保持健康的三个提示。",
     "input": "",
@@ -87,7 +87,7 @@ alpaca数据集样式
 
 - step 1. 执行`alpaca_converter.py`，将原始数据集转换为对话格式。
 
-``` bash
+```shell
 # 脚本路径：yi/alpaca_converter.py
 # 执行转换脚本
 python alpaca_converter.py \
@@ -95,7 +95,7 @@ python alpaca_converter.py \
 --output_path /{path}/alpaca_gpt4_data_zh-conversation.json
 ```
 
-```text
+```yaml
 # 参数说明
 data_path: 存放原始数据的路径
 output_path: 输出转换后对话格式的数据路径
@@ -103,7 +103,7 @@ output_path: 输出转换后对话格式的数据路径
 
 转换后格式样例：
 
-```text
+```yaml
 [
   {
     "id": "1",
@@ -134,13 +134,13 @@ python yi_preprocess.py \
 --output_file /{path}/alpaca_gpt4_data_zh.mindrecord
 ```
 
-```text
+```yaml
 # 参数说明
-input_file_path：数据集输入文件路径
-output_file：生成的mindrecord目标文件路径
-dataset_type：数据集类型，目前仅支持"text"和"qa"
-model_file：tokenizer.model文件路径
-seq_length：数据长度
+input_file_path: 数据集输入文件路径
+output_file: 生成的mindrecord目标文件路径
+dataset_type: 数据集类型，目前仅支持"text"和"qa"
+model_file: tokenizer.model文件路径
+seq_length: 数据长度
 ```
 
 <!-- ### 预训练

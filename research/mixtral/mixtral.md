@@ -21,7 +21,7 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 
 1. 模型具体实现：`mindformers/models/llama`
 
-   ```bash
+   ```text
    llama
        ├── __init__.py
        ├── llama.py                  # 模型实现
@@ -34,7 +34,7 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 
 2. 模型配置：`research/mixtral`
 
-   ```bash
+   ```text
    mixtral
     ├── pretrain_mixtral-8x7b.yaml        # 8x7b模型预训练启动配置
     ├── finetune_mixtral-8x7b.yaml        # 8x7b模型全参微调启动配置
@@ -45,7 +45,7 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 
 3. 数据预处理脚本：
 
-   ```bash
+   ```text
    mindformers/tools/dataset_preprocess/llama/
        ├── alpaca_converter.py     # 基于fschat的alpaca数据集格式转换脚本
        └── llama_preprocess.py     # llama模型的mindrecord数据处理脚本
@@ -55,12 +55,12 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 
 ### 环境要求
 
-- 硬件：Ascend910B
+- 硬件：Atlas 800T A2
 - MindSpore：2.3.0
 - CANN: 7.2
-- MindFormers版本：dev
+- MindFormers版本：r1.1.0
 
-注：910B推理单机2卡即可推理.全参微调910B至少需要二机16卡。
+注：Atlas 800T A2推理单机2卡即可推理.全参微调Atlas 800T A2至少需要二机16卡。
 
 ### 模型权重准备
 
@@ -188,7 +188,7 @@ prefix: ckpt文件前缀名
 
 - 使用以下预处理脚本生成mindrecord训练数据
 
-``` bash
+```shell
 # 使用tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理+Mindrecord数据生成
 python llama_preprocess.py \
 --dataset_type wiki \
@@ -210,7 +210,7 @@ python llama_preprocess.py \
 
 - step 2. 根据服务器节点数等信息，修改相应的配置。
 
-``` bash
+```shell
 # 以mixtral-8x7b模型两机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
 # 配置文件路径：../research/mixtral/pretrain_mixtral-8x7b.yaml
 parallel_config:
@@ -228,7 +228,7 @@ parallel_config:
 
 - step 3. 调大`moe_config`中的专家容量因子`capacity_factor`(非必要步骤)
 
-``` bash
+```shell
 # capacity_factor默认值为1.1，调大capacity_factor(建议值2.0-4.0)可提高训练精度，但会带来一定的性能损失
 # moe
 moe_config:
@@ -282,7 +282,7 @@ train_data: 训练数据集文件夹路径
 
 alpaca数据集原始格式样例：
 
-```text
+```yaml
 # alpaca examples:
     {
         "instruction": "Describe a time when you had to make a difficult decision.",
@@ -298,7 +298,7 @@ alpaca数据集原始格式样例：
 
 - step 1. 执行`alpaca_converter.py`，使用fastchat工具添加prompts模板，将原始数据集转换为多轮对话格式。
 
-``` bash
+```shell
 # 脚本路径：tools/dataset_preprocess/llama/alpaca_converter.py
 # 执行转换脚本
 python alpaca_converter.py \
@@ -306,7 +306,7 @@ python alpaca_converter.py \
 --output_path /{path}/alpaca-data-conversation.json
 ```
 
-```text
+```shell
 # 参数说明
 data_path: 存放alpaca数据的路径
 output_path: 输出转换后对话格式的数据路径
@@ -314,7 +314,7 @@ output_path: 输出转换后对话格式的数据路径
 
 转换后格式样例：
 
-```text
+```yaml
 {
     "id": "1",
     "conversations": [
@@ -332,7 +332,7 @@ output_path: 输出转换后对话格式的数据路径
 
 - step 2. 执行`llama_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
 
-```bash
+```shell
 # 脚本路径：tools/dataset_preprocess/llama/llama_preprocess.py
 # 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13 python = 3.9
 python llama_preprocess.py \
@@ -349,7 +349,7 @@ python llama_preprocess.py \
 
 - step 1. 将`../research/mixtral/finetune_mixtral-8x7b.yaml`中训练数据集路径改为微调数据集路径。
 
-```bash
+```yaml
 train_dataset: &train_dataset
   data_loader:
     type: MindDataset
@@ -360,7 +360,7 @@ train_dataset: &train_dataset
 
 - step 2. 默认开启`moe_config`中的`enable_sdrop`选项，修改微调时学习率, 优化器参数，`seq_length`, 与预训练不同，微调配置如下：
 
-```bash
+```yaml
 # moe
 moe_config:
   expert_num: 8
@@ -379,7 +379,7 @@ optimizer:
   eps: 1.e-8
   learning_rate: 3.e-4
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 1.e-5
@@ -433,7 +433,7 @@ train_data: 训练数据集文件夹路径
 
 - step 1. 修改cann包安装路径下的fusion_config.json文件，路径为`/{path}/CANN-7.X/opp/built-in/fusion_pass/fusion_config.json`
 
-```txt
+```yaml
 {
   "Switch":{
     "GrapFusion":{

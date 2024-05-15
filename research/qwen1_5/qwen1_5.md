@@ -51,7 +51,7 @@
 
 - 硬件：Altas 800T A2
 - MindSpore：2.3
-- MindFormers版本：dev
+- MindFormers版本：r1.1.0
 - Python：3.9
 
 注：
@@ -161,9 +161,9 @@ python qwen1_5/qwen1_5_preprocess.py \
 
 ### 微调性能
 
-| config | task | Datasets | SeqLength | metric | phase |score | performance(tokens/s/p) |
-|-------|-------|-------|-------|-------|-------|-------|-------|
-| [qwen1.5-72b](./run_qwen1_5_72b.yaml)| text_generation | alpaca |2048 | - | [finetune](#全参微调) | - | 180.2 |
+| config                                     | task            | Datasets | SeqLength | metric | phase             | score | performance(tokens/s/p) |
+|--------------------------------------------|-----------------|----------|-----------|--------|-------------------|-------|-------------------------|
+| [qwen1.5-72b](./finetune_qwen1_5_72b.yaml) | text_generation | alpaca   | 2048      | -      | [finetune](#全参微调) | -     | 180.2                   |
 
 ### 操作步骤
 
