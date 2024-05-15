@@ -107,7 +107,7 @@ model:
     num_blocks: 512
     is_dynamic: True
     offset: 0
-    checkpoint_name_or_path: ""
+    checkpoint_name_or_path: "llama2_13b"
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 3

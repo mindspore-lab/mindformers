@@ -10,12 +10,15 @@ run_mode: 'train'
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'llama2_7b'
+  model_name: 'llama2_13b'
+# if True, do evaluate during the training process. if false, do nothing.
+# note that the task trainer should support _evaluate_in_training function.
+do_eval: False
 
 # runner config
 runner_config:
   epochs: 2
-  batch_size: 1
+  batch_size: 4
   sink_mode: True
   sink_size: 2
 
@@ -25,13 +28,12 @@ optimizer:
   beta1: 0.9
   beta2: 0.95
   eps: 1.e-8 # 1e-8
-  learning_rate: 3.e-4
 
 # lr sechdule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 3.e-4
-  lr_end: 3.e-5
+  learning_rate: 1.e-5
+  lr_end: 0.0
   warmup_ratio: 0.03
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
@@ -41,7 +43,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids"]  # "input_ids", "labels" , labels are used in instruction finetune.
+  input_columns: ["input_ids", "labels"]  # "input_ids", "labels" , labels are used in instruction finetune.
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -52,11 +54,6 @@ train_dataset: &train_dataset
 train_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *train_dataset
-# if True, do evaluate during the training process. if false, do nothing.
-# note that the task trainer should support _evaluate_in_training function.
-do_eval: False
-eval_step_interval: -1        # num of step intervals between each eval, -1 means no step end eval.
-eval_epoch_interval: 50        # num of epoch intervals between each eval, 1 means eval on every epoch end.
 
 # eval dataset
 eval_dataset: &eval_dataset
@@ -64,7 +61,7 @@ eval_dataset: &eval_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: False
-  input_columns: ["input_ids"]
+  input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: False
@@ -84,17 +81,19 @@ parallel:
   full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+  strategy_ckpt_config:
+    save_file: "./ckpt_strategy.ckpt"
+    only_trainable_params: False
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-# default parallel of device num = 8 for Atlas 800
+# default parallel of device num = 16 for Atlas 800T A2
 parallel_config:
-  data_parallel: 2
-  model_parallel: 8
+  data_parallel: 8
+  model_parallel: 1
   pipeline_stage: 1
   use_seq_parallel: False
-  micro_batch_num: 8
+  micro_batch_num: 16
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -112,7 +111,7 @@ recompute_config:
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "llama_7b"
+    prefix: "llama_13b"
     save_checkpoint_steps: 100
     integrated_save: False
     async_save: False
@@ -125,7 +124,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "28GB"
+  max_device_memory: "58GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -136,9 +135,9 @@ model:
     type: LlamaConfig
     batch_size: 1 # add for increase predict
     seq_length: 4096
-    hidden_size: 4096
-    num_layers: 32
-    num_heads: 32
+    hidden_size: 5120
+    num_layers: 40
+    num_heads: 40
     max_position_embedding: 4096
     vocab_size: 32000
     multiple_of: 256
@@ -154,14 +153,20 @@ model:
     param_init_type: "float16"
     use_past: False
     extend_method: "None" # support "None", "PI", "NTK"
-    use_flash_attention: False # FA can accelerate training or finetune
+    use_flash_attention: True # FA can accelerate training or finetune
     offset: 0
-    checkpoint_name_or_path: "llama2_7b"
+    checkpoint_name_or_path: ""
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 3
     top_p: 1
     do_sample: False
+    pet_config:
+      pet_type: lora
+      lora_rank: 8
+      lora_alpha: 16
+      lora_dropout: 0.05
+      target_modules: '.*wq|.*wv'
   arch:
     type: LlamaForCausalLM
 
@@ -184,7 +189,7 @@ runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
     type: DynamicLossScaleUpdateCell
-    loss_scale_value: 65536
+    loss_scale_value: 4294967296
     scale_factor: 2
     scale_window: 1000
   use_clip_grad: True
