@@ -73,43 +73,6 @@ export GE_USE_STATIC_MEMORY=2
 
 **注：** `ASCEND_CUSTOM_PATH`的`path`替换为CANN包真实地址
 
-### 生成RANK_TABLE_FILE
-
-运行mindformers/tools/hccl_tools.py生成RANK_TABLE_FILE的json文件
-
-```shell
-#!/bin/bash
-# 运行如下命令，生成当前机器的RANK_TABLE_FILE的json文件
-python ./mindformers/tools/hccl_tools.py --device_num "[0,8)"
-```
-
-**注：若使用ModelArts的notebook环境，可从 `/user/config/jobstart_hccl.json` 路径下直接获取rank table，无需手动生成**
-
-RANK_TABLE_FILE 单机8卡参考样例:
-
-```json
-{
-    "version": "1.0",
-    "server_count": "1",
-    "server_list": [
-        {
-            "server_id": "xx.xx.xx.xx",
-            "device": [
-                {"device_id": "0","device_ip": "192.1.27.6","rank_id": "0"},
-                {"device_id": "1","device_ip": "192.2.27.6","rank_id": "1"},
-                {"device_id": "2","device_ip": "192.3.27.6","rank_id": "2"},
-                {"device_id": "3","device_ip": "192.4.27.6","rank_id": "3"},
-                {"device_id": "4","device_ip": "192.1.27.7","rank_id": "4"},
-                {"device_id": "5","device_ip": "192.2.27.7","rank_id": "5"},
-                {"device_id": "6","device_ip": "192.3.27.7","rank_id": "6"},
-                {"device_id": "7","device_ip": "192.4.27.7","rank_id": "7"}],
-             "host_nic_ip": "reserve"
-        }
-    ],
-    "status": "completed"
-}
-```
-
 ### 模型权重下载与转换(mindformers权重或huggingface权重选择使用即可)
 
 #### mindformers权重直接使用
@@ -144,19 +107,24 @@ wget https://huggingface.co/WizardLM/WizardCoder-15B-V1.0/resolve/main/vocab.jso
 cd ..
 ```
 
-**注**: 请安装torch=1.11.0和transformers=4.30.2版本
+**注**: 请安装torch=1.11.0和transformers=4.30.2版本; 进行模型转换后，需要重新根据本项目[requirements.txt](../../requirements.txt)恢复tokenizers版本
 
 ```shell
 #!/bin/bash
 pip install torch==1.11.0 -i https://pypi.tuna.tsinghua.edu.cn/simple
 pip install transformers==4.30.2 -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# 后续转换任务完成后
+pip install -r requirement.txt
 ```
 
 下载完成后，运行`/research/wizardcoder/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
 #!/bin/bash
-python ./research/wizardcoder/convert_weight.py --torch_path ./ckpt --mindspore_path ./ckpt/rank_0
+python ./research/wizardcoder/convert_weight.py \
+--torch_path ./ckpt/pytorch_model.bin \
+--mindspore_path ./ckpt/rank_0/wizardcoder_15b.ckpt
 ```
 
 ```text
@@ -256,14 +224,13 @@ parallel_config:
 
 ```shell
 #!/bin/bash
-bash research/run_singlenode.sh \
+bash scripts/msrun_launcher.sh \
 "python research/wizardcoder/run_wizardcoder.py \
 --config research/wizardcoder/run_wizardcoder.yaml \
 --load_checkpoint ./ckpt \
 --use_parallel True \
 --run_mode train \
---train_data ./dataset/alpaca_data.mindrecord" \
-path/to/rank_table_file [0,8] 8
+--train_data ./dataset/alpaca_data.mindrecord" 8
 ```
 
 ```text
@@ -272,7 +239,6 @@ config: 配置文件路径
 load_checkpoint: 权重文件夹路径
 run_mode: 运行模式，训练时设置为train
 train_data: 训练数据集路径
-path/to/rank_table_file: 生成RANK_TABLE_FILE步骤中生成的hccl_***_json文件路径
 ```
 
 ### 微调
@@ -352,14 +318,13 @@ parallel_config:
 -[x] 2: 执行运行脚本。
 
 ```shell
-bash research/run_singlenode.sh \
+bash scripts/msrun_launcher.sh \
 "python research/wizardcoder/run_wizardcoder.py \
 --config research/wizardcoder/run_wizardcoder.yaml \
 --load_checkpoint ./output/transformed_checkpoint/ \
 --use_parallel True \
 --run_mode finetune \
---train_data ./finetune_dataset/code_alpaca.mindrecord" \
-path/to/rank_table_file [0,8] 8
+--train_data ./finetune_dataset/code_alpaca.mindrecord" 8
 ```
 
 ```text
@@ -368,7 +333,6 @@ config: 配置文件路径
 load_checkpoint: 权重文件夹路径
 run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集路径
-path/to/rank_table_file: 生成RANK_TABLE_FILE步骤中生成的hccl_***_json文件路径
 ```
 
 ### 快速推理
@@ -530,141 +494,18 @@ processor:
             └── checkpoint_3.ckpt
 ```
 
-- step 3. 配置单机4卡环境
-
-运行`mindformers/tools/hccl_tools.py`生成`RANK_TABLE_FILE`的json文件hccl_4p_0123_127.0.0.1.json
-
-```text
-python mindformers/tools/hccl_tools.py --device_num "[0,4)"
-```
-
-- step 4. 推理脚本
-
-``` python
-# test_wizardcoder_pipeline_dist.py
-import os
-import sys
-import argparse
-import numpy as np
-sys.path.append(os.path.abspath("../.."))
-sys.path.insert(0, os.getcwd().split('research')[0])
-import mindspore as ms
-from mindspore.train import Model
-from mindspore import load_checkpoint, load_param_into_net
-
-from mindformers import AutoConfig, AutoTokenizer, AutoModel, pipeline
-from mindformers import init_context, ContextConfig, ParallelContextConfig, TransformerOpParallelConfig
-from mindformers.trainer.utils import get_last_checkpoint
-from mindformers.tools.utils import str2bool, get_real_rank
-from mindformers import Trainer, MindFormerConfig, MindFormerRegister, MindFormerModuleType
-
-from wizardcoder_config import WizardCoderConfig
-from wizardcoder_tokenizer import WizardCoderTokenizer
-from wizardcoder import WizardCoderLMHeadModel
-
-
-def context_init(use_parallel=False, device_id=0):
-    """init context for mindspore."""
-    context_config = ContextConfig(mode=0, device_target="Ascend", device_id=device_id)
-    parallel_config = None
-    if use_parallel:
-        parallel_config = ParallelContextConfig(parallel_mode='SEMI_AUTO_PARALLEL',
-                                                gradients_mean=False,
-                                                full_batch=True)
-    init_context(use_parallel=use_parallel,
-                 context_config=context_config,
-                 parallel_config=parallel_config)
-
-
-def main(model_type='wizardcoder',
-         config_path="run_wizardcoder.yaml",
-         use_parallel=False,
-         device_id=0,
-         checkpoint_path=""):
-    """main function."""
-    # 初始化单卡/多卡环境
-    context_init(use_parallel, device_id)
-    inputs = ["使用python编写快速排序代码"] * 2
-    config = MindFormerConfig(os.path.realpath(config_path))
-    # set model config
-    model_config = WizardCoderConfig.from_pretrained(os.path.realpath(config_path))
-    model_config.parallel_config = TransformerOpParallelConfig(**config.parallel_config)
-    if checkpoint_path and not use_parallel:
-        model_config.checkpoint_name_or_path = checkpoint_path
-    print(f"config is: {model_config}")
-
-    # build tokenizer
-    tokenizer = WizardCoderTokenizer(config.processor.tokenizer.vocab_file,
-                                     config.processor.tokenizer.merge_file)
-    # build model from config
-    network = WizardCoderLMHeadModel(model_config)
-    network.add_flags_recursive(is_first_iteration=True)
-
-    # if use parallel, load distributed checkpoints
-    if use_parallel:
-        # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(checkpoint_path, "rank_{}".format(get_real_rank()), "checkpoint_{}.ckpt".format(get_real_rank()))
-        print("ckpt path: %s", str(ckpt_path))
-
-        # shard model and load sharded ckpt
-        model = Model(network)
-        model.infer_predict_layout(ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32))
-        checkpoint_dict = load_checkpoint(ckpt_path)
-        not_load_network_params = load_param_into_net(network, checkpoint_dict)
-        print("Network parameters are not loaded: %s", str(not_load_network_params))
-
-    text_generation_pipeline = pipeline(task="text_generation", model=network, tokenizer=tokenizer)
-    outputs = text_generation_pipeline(inputs, do_sample=False, max_length=2048)
-    for output in outputs:
-        print(output)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model_type', default='wizardcoder', type=str,
-                        help='which model to use.')
-    parser.add_argument('--config_path', default='run_wizardcoder.yaml', type=str,
-                        help='config path')
-    parser.add_argument('--use_parallel', default=False, type=str2bool,
-                        help='whether use parallel.')
-    parser.add_argument('--device_id', default=0, type=int,
-                        help='set device id.')
-    parser.add_argument('--checkpoint_path', default='', type=str,
-                        help='set checkpoint path.')
-    args = parser.parse_args()
-
-    main(args.model_type,
-         args.config_path,
-         args.use_parallel,
-         args.device_id,
-         args.checkpoint_path)
-```
-
-使用如下bash启动脚本来运行pipeline分布式推理
+- step 3. 推理脚本
 
 ```bash
-# pipeline_dist.sh
-
-CHECKPOINT_PATH=$2
-export RANK_TABLE_FILE=$1
-
-# define variable
-export RANK_SIZE=4
-export START_RANK=0 # this server start rank
-export END_RANK=4 # this server end rank
-
-# run
-for((i=${START_RANK}; i<${END_RANK}; i++))
-do
-    export RANK_ID=$i
-    export DEVICE_ID=$((i-START_RANK))
-    echo "Start distribute running for rank $RANK_ID, device $DEVICE_ID"
-    python3 ./test_wizardcoder_pipeline_dist.py --use_parallel True --checkpoint_path $CHECKPOINT_PATH &> mindformers_$RANK_ID.log &
-done
-
+bash scripts/msrun_launcher.sh "research/wizardcoder/run_wizardcoder.py \
+--config research/wizardcoder/run_wizardcoder.yaml \
+--load_checkpoint ./output/transformed_checkpoint/ \
+--use_parallel True \
+--run_mode predict \
+--predict_data '使用python编写快速排序代码，并分析其时间复杂度' \
+--vocab_file vocab.json \
+--merge_file merges.txt" 8
 ```
-
-执行命令bash pipeline_dist.sh hccl_4p_0123_127.0.0.1.json distribute_model_ckpt_path/
 
 推理结果
 
