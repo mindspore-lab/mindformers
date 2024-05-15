@@ -14,7 +14,7 @@ context:
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "30GB"
+  max_device_memory: "59GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -27,7 +27,7 @@ runner_config:
   epochs: 2
   batch_size: 2
   sink_mode: True
-  sink_size: 2
+  sink_size: 1
 runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
@@ -48,12 +48,13 @@ parallel:
   enable_parallel_optimizer: True
   strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
 parallel_config:
-  data_parallel: 4
-  model_parallel: 8
+  data_parallel: 8
+  model_parallel: 1
   pipeline_stage: 1
   use_seq_parallel: False
   micro_batch_num: 1
   vocab_emb_dp: True
+  optimizer_shard: True
   gradient_aggregation_group: 4
 micro_batch_interleave_num: 1
 
@@ -70,7 +71,7 @@ recompute_config:
   select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
-  recompute_slice_activation: False
+  recompute_slice_activation: True
 
 # autotune
 auto_tune: True
@@ -98,7 +99,10 @@ train_dataset: &train_dataset
   data_loader:
     type: MindDataset
     dataset_dir: ""
-    shuffle: True
+    shuffle: False
+  tokenizer:
+    type: GPT2Tokenizer
+    max_length: 2049
   input_columns: ["input_ids", "attention_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
@@ -117,6 +121,9 @@ eval_dataset: &eval_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: False
+  tokenizer:
+    type: GPT2Tokenizer
+    max_length: 2048
   input_columns: ["input_ids", "attention_mask"]
   num_parallel_workers: 8
   python_multiprocessing: False
@@ -162,17 +169,17 @@ model:
 
 # lr schedule
 lr_schedule:
-  type: polynomial
-  learning_rate: 0.00005
-  lr_end: 0.000001
-  warmup_steps: 2000
+  type: CosineWithWarmUpLR
+  learning_rate: 6.e-5
+  lr_end: 6.e-6
+  warmup_steps: 0
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: False
 layer_decay: 0.65
 
 # optimizer
 optimizer:
-  type: FusedAdamWeightDecay
+  type: FP32StateAdamWeightDecay
   beta1: 0.9
   beta2: 0.95
   eps: 0.00000001 # 1e-8

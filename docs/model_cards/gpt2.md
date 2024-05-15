@@ -13,11 +13,11 @@ Mindspore: 2.0.0rc1
 Ascend: Atlas 800
 ```
 
-|               config                |        task         |              Datasets              | [metric](#评测) |                score                | [train performance](#预训练) |         [predict performance](#推理)         |
-| :---------------------------------: | :-----------------: | :--------------------------------: |:-----------:| :---------------------------------: |:-------------------------:|:----------------------------------------:|
-|    [gpt2](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)     |   text_generation   |             wikitext2              |     ppl     |                22.11                |       1265 tokens/s       | 4.66/11.37 tokens/s(use past True/False) |
-|  [gpt2_lora](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_lora.yaml)  |   text_generation   |             wikitext2              |      -      |                  -                  |      33573 tokens/s       |                    -                     |
-| [gpt2_txtcls](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_txtcls.yaml) | text_classification | SST-2<br/>IMDB<br/>AGNews<br/>COLA |  accuracy   | 0.908<br/>0.934<br/>0.941<br/>0.693 |             -             |                    -                     |
+|                         config                         |        task         |              Datasets              | [metric](#评测) |                score                | [train performance](#预训练) |        [predict performance](#推理)        |
+|:------------------------------------------------------:|:-------------------:|:----------------------------------:|:-------------:|:-----------------------------------:|:-------------------------:|:----------------------------------------:|
+|        [gpt2](../../configs/gpt2/run_gpt2.yaml)        |   text_generation   |             wikitext2              |      ppl      |                22.11                |       1265 tokens/s       | 4.66/11.37 tokens/s(use past True/False) |
+|   [gpt2_lora](../../configs/gpt2/run_gpt2_lora.yaml)   |   text_generation   |             wikitext2              |       -       |                  -                  |      33573 tokens/s       |                    -                     |
+| [gpt2_txtcls](../../configs/gpt2/run_gpt2_txtcls.yaml) | text_classification | SST-2<br/>IMDB<br/>AGNews<br/>COLA |   accuracy    | 0.908<br/>0.934<br/>0.941<br/>0.693 |             -             |                    -                     |
 
 ## 仓库介绍
 
