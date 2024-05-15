@@ -87,10 +87,10 @@ parallel:
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
   data_parallel: 1
-  model_parallel: 2
-  pipeline_stage: 4
+  model_parallel: 1
+  pipeline_stage: 1
   use_seq_parallel: False
-  micro_batch_num: 16
+  micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -132,7 +132,7 @@ model:
   model_config:
     type: LlamaConfig
     batch_size: 1 # add for increase predict
-    seq_length: 512
+    seq_length: 4096
     hidden_size: 5120
     num_layers: 40
     num_heads: 40
