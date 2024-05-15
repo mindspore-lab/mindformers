@@ -24,7 +24,7 @@ DeepSeek Coder由一系列代码语言模型组成，每个模型都在2T token�
 
 ### 环境要求
 
-- 硬件: Ascend 910B
+- 硬件：Atlas 800T A2
 - MindSpore: 2.3.0
 - MindFormers: dev
 
