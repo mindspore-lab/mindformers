@@ -37,7 +37,7 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
     ```bash
     glm32k
         └── finetune_glm32k.yaml           # Atlas 800T A2最佳性能全量微调启动配置
-        └── predict_glm32k.yaml           # Atlas 800T A2推理配置
+        └── predict_glm.yaml           # Atlas 800T A2推理配置
     ```
 
 3. 数据处理脚本和任务启动脚本：`research/glm32k`
@@ -133,7 +133,7 @@ MS_CKPT_NAME: mindspore格式的权重保存文件名，如'saved_dir/glm32k.ckp
 
 | config                               | task              | Datasets  | SeqLength | metric | phase             | score     | performance(tokens/s/p) |
 |--------------------------------------|-------------------|-----------|-----------| ------ | ----------------- | --------- |-------------------------|
-| [ChatGLM3-6B-32K](./run_glm32k.yaml) | text_generation   | longbench | 32768     | -      | [finetune](#微调)  | -         | 777.91                  |
+| [ChatGLM3-6B-32K](./finetune_glm32k.yaml) | text_generation   | longbench | 32768     | -      | [finetune](#微调)  | -         | 777.91                  |
 
 ### 微调
 
@@ -247,7 +247,9 @@ run_mode: 运行模式，微调时设置为finetune
 ### 推理
 
 大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。
-在启动前，请先行在配置文件predict_glm32k.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径；增量推理开关在配置文件中model.model_config.use_past位置；
+在启动前，请先行在配置文件predict_glm.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径；增量推理开关在配置文件中model.model_config.use_past位置；
+
+注：推理当前仅支持8k长度
 
 ```yaml
 processor:
