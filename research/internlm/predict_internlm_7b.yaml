@@ -10,7 +10,7 @@ run_mode: 'predict'
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'internlm_20b'
+  model_name: 'internlm_7b'
 
 # runner config
 runner_config:
@@ -58,7 +58,7 @@ recompute_config:
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
-    prefix: "internlm_20b"
+    prefix: "internlm_7b"
     save_checkpoint_steps: 500
     keep_checkpoint_max: 3
     integrated_save: False
@@ -96,12 +96,12 @@ model:
     type: InternLMConfig
     batch_size: 1 # add for increase predict
     seq_length: 2048
-    hidden_size: 5120
-    num_layers: 60
-    num_heads: 40
+    hidden_size: 4096
+    num_layers: 32
+    num_heads: 32
     vocab_size: 103168
     multiple_of: 256
-    rms_norm_eps: 1.0e-5
+    rms_norm_eps: 1.0e-6
     bos_token_id: 1
     eos_token_id: 2
     pad_token_id: 2
@@ -111,7 +111,7 @@ model:
     softmax_compute_type: "float16"
     rotary_dtype: "float16"
     param_init_type: "float16"
-    has_bias: False
+    has_bias: True
     use_past: True
     block_size: 16
     num_blocks: 512
@@ -119,7 +119,7 @@ model:
     scaling_factor: 1.0
     extend_method: "None"
     offset: 0
-    checkpoint_name_or_path: "internlm_20b"
+    checkpoint_name_or_path: "internlm_7b"
     repetition_penalty: 1.0
     max_decode_length: 512
     top_k: 3
@@ -136,7 +136,7 @@ processor:
     eos_token: '</s>'
     pad_token: '</s>'
     type: InternLMTokenizer
-    vocab_file: './internlm-20b-chat/tokenizer.model'
+    vocab_file: './internlm-7b-chat/tokenizer.model'
   type: LlamaProcessor
 
 # metric
