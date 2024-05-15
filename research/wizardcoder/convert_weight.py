@@ -22,6 +22,8 @@ from transformers import GPTBigCodeForCausalLM
 
 from mindformers.utils.convert_utils import pt2ms
 
+ms.set_context(device_target="CPU")
+
 ms_name = [
     "backbone.blocks.{}.layernorm1.gamma",
     "backbone.blocks.{}.layernorm1.beta",
