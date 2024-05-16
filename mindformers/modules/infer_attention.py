@@ -212,7 +212,8 @@ class InferAttention(Cell):
                                                      n_kv_heads=self.n_kv_head,
                                                      block_size=self.block_size,
                                                      num_blocks=self.num_blocks,
-                                                     compute_dtype=self.compute_dtype)
+                                                     compute_dtype=self.compute_dtype,
+                                                     parallel_config=self.parallel_config)
         self.paged_attention_mgr.shard(parallel_config)
         self.apply_rotary_pos_emb = ops.ApplyRotaryPosEmb(self.rotary_cos_format)
         self.apply_rotary_pos_emb.shard(((dp, 1, mp), (dp, 1, mp), (1, 1), (1, 1), (dp,)))
