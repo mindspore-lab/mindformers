@@ -25,11 +25,11 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
 ## 模型性能
 
-|                            config                            |      task       | Datasets | [train performance](#全参微调) |    [predict performance](###MindSpore推理)    |
-| :----------------------------------------------------------: | :-------------: | :------: | :----------------------------: | :-----------------------------------------: |
-| [InternLM_7B (Atlas 800T A2)](../../research/internlm/finetune_internlm_7b.yaml) | text_generation |  alpaca  |         3182 tokens/s          | 58.9 tokens/s (batch_size=1, use_past=True) |
-| [InternLM_7B_lora (Atlas 800T A2)](../../research/internlm/finetune_internlm_7b_lora.yaml) | text_generation |  alpaca  |         3864 tokens/s          |                      /                      |
-| [InternLM_20B (Atlas 800T A2)](../../research/internlm/predicet_internlm_20b.yaml) | text_generation |    /     |               /                | 25.3 tokens/s (batch_size=1, use_past=True) |
+|                                   config                                   |      task       | Datasets | [train performance](#全参微调) |    [predict performance](###MindSpore推理)    |
+|:--------------------------------------------------------------------------:|:---------------:|:--------:|:--------------------------:|:-------------------------------------------:|
+|      [InternLM_7B](../../research/internlm/finetune_internlm_7b.yaml)      | text_generation |  alpaca  |       3182 tokens/s        | 58.9 tokens/s (batch_size=1, use_past=True) |
+| [InternLM_7B_lora](../../research/internlm/finetune_internlm_7b_lora.yaml) | text_generation |  alpaca  |       3864 tokens/s        |                      /                      |
+|     [InternLM_20B](../../research/internlm/predict_internlm_20b.yaml)      | text_generation |    /     |             /              | 25.3 tokens/s (batch_size=1, use_past=True) |
 
 ## 代码结构介绍
 
@@ -37,7 +37,7 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
 1. 模型具体实现：`research/internlm`
 
-    ```bash
+    ```text
     internlm
         ├── internlm_tokenizer.py       # tokenizer
         ├── internlm_transformer.py     # transformer层实现
@@ -47,7 +47,7 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
 2. 模型配置：`research/internlm`
 
-    ```bash
+    ```text
     internlm
         ├── finetune_internlm_7b.yaml             # InternLM-7B全参微调Atlas 800T A2启动配置
         ├── finetune_internlm_7b_lora.yaml        # InternLM-7B lora低参微调Atlas 800T A2启动配置
@@ -57,7 +57,7 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
 3. 预处理脚本和任务启动脚本：`research/internlm`
 
-    ```bash
+    ```text
     internlm
         ├── alpaca_data_preprocess.py     # alpaca数据集预处理
         ├── wiki_data_preprocess.py       # wikitext2数据集预处理
@@ -77,11 +77,8 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 也可选择从Hugging Face下载预训练权重后根据以下步骤进行权重转换，包含对应的分词模型，需要下载整个工程，Hugging Face权重的链接如下：
 
 - [InternLM-7B-Base](https://huggingface.co/internlm/internlm-7b)
-
 - [InternLM-7B-Chat](https://huggingface.co/internlm/internlm-chat-7b)
-
 - [InternLM-20B-Base](https://huggingface.co/internlm/internlm-20b)
-
 - [InternLM-20B-Chat](https://huggingface.co/internlm/internlm-chat-20b)
 
 注：InternLM-7B-Base权重用于训练/微调，InternLM-7B-Chat用于直接开启快速推理，InternLM-20B同上。
@@ -108,7 +105,7 @@ mindspore_ckpt_path: 转换后MindSpore权重文件的保存路径
 
 在使用Trainer接口进行推理时，由于InternLM-7b的tokenizer需要用户自行下载，因此在启动前，请先在配置文件中将tokenizer.model的路径自行配置，配置项为vocab_file。
 
-```python
+```yaml
 # research/internlm/predict_internlm_7b.yaml
 # runner config
 runner_config:
@@ -253,7 +250,7 @@ InternLM-7B用于微调，seq_length默认为2048，分布式微调训练使用�
 
 2. 修改`finetune_internlm_7b.yaml`中相关配置
 
-```python
+```yaml
 output_dir: './output'             # path to save checkpoint/strategy
 load_checkpoint: 'path/of/ckpt'    # 添加预训练权重路径
 auto_trans_ckpt: True              # 开启权重自动切分
@@ -272,7 +269,7 @@ train_dataset: &train_dataset
 # 用wiki数据集微调时，input_columns: ["input_ids"]
 ```
 
-2. 启动微调任务，以单机八卡为例，指令如下：
+3. 启动微调任务，以单机八卡为例，指令如下：
 
 ```shell
 bash scripts/msrun_launcher.sh \
@@ -331,7 +328,7 @@ bash scripts/msrun_launcher.sh \
 
 - 修改predict_internlm_20b.yaml配置文件设置
 
-```bash
+```yaml
 auto_trans_ckpt: False                              # 关闭自动权重转换
 use_past: True                                      # 使用增量推理
 vocab_file: '/path/to/tokenizer.model'              # 配置词表路径

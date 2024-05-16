@@ -6,14 +6,14 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 
 ## 模型性能
 
-|                            config                            |      task       | Datasets | [train performance](#全参微调) | [predict performance](#推理) |
-| :----------------------------------------------------------: | :-------------: | :------: | :----------------------------: | :--------------------------: |
-| [finetune_baichuan2_7b(Atlas 800T A2)](../../research/baichuan2/finetune_baichuan2_7b.yaml) | text_generation |  belle   |        3010 tokens/s/p         |              /               |
-| [finetune_baichuan2_13b(Atlas 800T A2)](../../research/baichuan2/finetune_baichuan2_13b.yaml) | text_generation |  belle   |        1359 tokens/s/p         |              /               |
-| [finetune_baichuan2_7b_lora(Atlas 800T A2)](../../research/baichuan2/finetune_baichuan2_7b_lora.yaml) | text_generation |  belle   |        3375 tokens/s/p         |              /               |
-| [finetune_baichuan2_13b_lora(Atlas 800T A2)](../../research/baichuan2/finetune_baichuan2_13b_lora.yaml) | text_generation |  belle   |        1880 tokens/s/p         |              /               |
-| [predict_baichuan2_7b(Atlas 800T A2)](../../research/baichuan2/predict_baichuan2_7b.yaml) | text_generation |    /     |               /                |          42tokens/s          |
-| [predict_baichuan2_13b(Atlas 800T A2)](../../research/baichuan2/predict_baichuan2_13b.yaml) | text_generation |    /     |               /                |         23tokens/s-          |
+|                                          config                                          |      task       | Datasets | [train performance](#全参微调) | [predict performance](#推理) |
+|:----------------------------------------------------------------------------------------:|:---------------:|:--------:|:--------------------------:|:--------------------------:|
+|       [finetune_baichuan2_7b](../../research/baichuan2/finetune_baichuan2_7b.yaml)       | text_generation |  belle   |      3010 tokens/s/p       |             /              |
+|      [finetune_baichuan2_13b](../../research/baichuan2/finetune_baichuan2_13b.yaml)      | text_generation |  belle   |      1359 tokens/s/p       |             /              |
+|  [finetune_baichuan2_7b_lora](../../research/baichuan2/finetune_baichuan2_7b_lora.yaml)  | text_generation |  belle   |      3375 tokens/s/p       |             /              |
+| [finetune_baichuan2_13b_lora](../../research/baichuan2/finetune_baichuan2_13b_lora.yaml) | text_generation |  belle   |      1880 tokens/s/p       |             /              |
+|        [predict_baichuan2_7b](../../research/baichuan2/predict_baichuan2_7b.yaml)        | text_generation |    /     |             /              |         42tokens/s         |
+|       [predict_baichuan2_13b](../../research/baichuan2/predict_baichuan2_13b.yaml)       | text_generation |    /     |             /              |        23tokens/s-         |
 
 ## 仓库介绍
 
@@ -57,13 +57,13 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 
 - 硬件：Atlas 800T A2
 - MindSpore：2.3.0
-- MindFormers版本：r1.1.0/dev
+- MindFormers版本：r1.1.0
 - 硬件支持矩阵
 
-|     模型      |     硬件      | 全量微调 | lora微调 | 推理 |
-| :-----------: | :-----------: | :------: | :------: | :--: |
-| Baichuan2-7b  | Atlas 800T A2 |  单节点  |  单节点  | 单卡 |
-| Baichuan2-13b | Atlas 800T A2 |  单节点  |  单节点  | 单卡 |
+|      模型       |      硬件       | 全量微调 | lora微调 | 推理 |
+|:-------------:|:-------------:|:----:|:------:|:--:|
+| Baichuan2-7b  | Atlas 800T A2 | 单节点  |  单节点   | 单卡 |
+| Baichuan2-13b | Atlas 800T A2 | 单节点  |  单节点   | 单卡 |
 
 ### 数据集准备
 

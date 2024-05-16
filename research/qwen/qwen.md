@@ -112,8 +112,8 @@ pip install tokenizers==0.13.0
 
 | Model                | tokens/s |
 |:---------------------|:--------:|
-| Mindformers-Qwen-7B  |  1512  |
-| Mindformers-Qwen-14B |   901  |
+| Mindformers-Qwen-7B  |   1512   |
+| Mindformers-Qwen-14B |   901    |
 
 ### 数据集准备
 

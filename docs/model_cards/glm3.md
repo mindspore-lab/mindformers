@@ -143,7 +143,7 @@ prefix: ckpt文件前缀名
 
 ADGEN 数据集任务为根据输入（content）生成一段广告词（summary）。
 
-```json
+```yaml
 {"content": "类型#上衣*版型#宽松*版型#显瘦*图案#线条*衣样式#衬衫*衣袖型#泡泡袖*衣款式#抽绳", "summary": "这件衬衫的款式非常的宽松，利落的线条可以很好的隐藏身材上的小缺点，穿在身上有着很好的显瘦效果。领口装饰了一个可爱的抽绳，漂亮的绳结展现出了十足的个性，配合时尚的泡泡袖型，尽显女性甜美可爱的气息。"}
 ```
 
@@ -186,7 +186,7 @@ yaml文件中默认的`seq_length: 192`以及`max_source_length: 64`和`max_targ
 
 首先，克隆 [ToolAlpaca 数据集](https://github.com/tangqiaoyu/ToolAlpaca)，并下载处理脚本 [format_tool_alpaca.py](https://github.com/THUDM/ChatGLM3/blob/7cd5bc78bd6232d02764b60b33874bb2d63a0df0/finetune_chatmodel_demo/scripts/format_tool_alpaca.py)，然后执行脚本执行脚本：
 
-```python
+```shell
 python mindformers/tools/format_tool_alpaca.py --path ToolAlpaca/data/train_data.json
 ```
 
@@ -454,7 +454,7 @@ response, history = process_response(response, history)
 
 A1: 执行训练前设置环境变量：
 
-```bash
+```shell
 export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"
 ```
 
@@ -465,13 +465,13 @@ export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"
 A2: 一般是 Mindspore + Ascend 环境安装问题，确认环境安装过程参照
 [安装指南](https://www.mindspore.cn/install/#%E6%89%8B%E5%8A%A8%E5%AE%89%E8%A3%85)并且成功设置了环境变量。执行：
 
-```python
+```shell
 python -c "import mindspore;mindspore.set_context(device_target='Ascend');mindspore.run_check()"
 ```
 
 假如执行输出：
 
-```bash
+```text
 MindSpore version: 版本号
 The result of multiplication calculation is correct, MindSpore has been installed on platform [Ascend] successfully!
 ```
@@ -485,7 +485,7 @@ The result of multiplication calculation is correct, MindSpore has been installe
 
 A3:这类报错较为宽泛，可以打开昇腾host日志进一步定位。
 
-```bash
+```shell
 export ASCEND_GLOBAL_EVENT_ENABLE=0
 export ASCEND_GLOBAL_LOG_LEVEL=2
 export ASCEND_SLOG_PRINT_TO_STDOUT=1
@@ -493,7 +493,7 @@ export ASCEND_SLOG_PRINT_TO_STDOUT=1
 
 打开昇腾host日志后模型性能将明显下降，定位问题结束后需要取消昇腾日志：
 
-```bash
+```shell
 unset ASCEND_GLOBAL_EVENT_ENABLE ASCEND_GLOBAL_LOG_LEVEL ASCEND_SLOG_PRINT_TO_STDOUT
 ```
 

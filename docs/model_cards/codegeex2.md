@@ -8,10 +8,10 @@ CodeGeeX**2**-6B 是多语言代码生成模型 CodeGeeX的第二代版本。不
 
 - 基于Atlas 800T A2
 
-|                                   config                                    |      task       | Datasets | metric |   score    | [train performance](#预训练) | [predict performance](#基于pipeline的推理) |
-|:---------------------------------------------------------------------------:| :-------------: |:--------:| :----: | :--------: |:-------------------------:|:-------------------------------------:|
-|   [codegeex2_6b](../../configs/codegeex2/run_codegeex2_6b_finetune.yaml)    | text_generation |  CodeAlpaca   |   -    |     -      |      1421 tokens/s/p      |   20.17 tokens/s/p (use past True)    |
-| [codegeex2_6b](../../configs/codegeex2/run_codegeex2_6b_finetune_2048.yaml) | text_generation |  CodeAlpaca   |   -    |     -      |     2167.2 tokens/s/p     |   20.31 tokens/s/p (use past True)    |
+|                                   config                                    |      task       |  Datasets  | metric | score | [train performance](#预训练) | [predict performance](#基于pipeline的推理) |
+|:---------------------------------------------------------------------------:|:---------------:|:----------:|:------:|:-----:|:-------------------------:|:-------------------------------------:|
+|   [codegeex2_6b](../../configs/codegeex2/run_codegeex2_6b_finetune.yaml)    | text_generation | CodeAlpaca |   -    |   -   |      1421 tokens/s/p      |   20.17 tokens/s/p (use past True)    |
+| [codegeex2_6b](../../configs/codegeex2/run_codegeex2_6b_finetune_2048.yaml) | text_generation | CodeAlpaca |   -    |   -   |     2167.2 tokens/s/p     |   20.31 tokens/s/p (use past True)    |
 
 ## 仓库介绍
 
@@ -34,7 +34,7 @@ CodeGeeX**2**-6B 是多语言代码生成模型 CodeGeeX的第二代版本。不
     ```bash
     codegeex2
         ├── run_codegeex2_6b_fintune.yaml  # 全量微调启动配置
-        └── run_codegeex2_6b.yaml     # 推理配置
+        └── run_codegeex2_6b.yaml          # 推理配置
     ```
 
 ## 前期准备
@@ -265,7 +265,9 @@ print(response)
 
 **注：快速使用仅限单卡，该示例支持6B模型。**
 
-### 基于Trainer的快速训练，微调，评测，推理
+### 基于Trainer的快速推理
+
+CodeGeeX2暂不支持使用Trainer进行预训练和微调。
 
 > 注：下面仅显示接口使用方式，模型启动训练需求多卡分布式训练，训练脚本需配合分布式脚本启动
 
@@ -284,12 +286,6 @@ trainer = Trainer(task='text_generation',
                   train_dataset='path/to/train_dataset',
                   eval_dataset='path/to/eval_dataset',
                   tokenizer=tokenizer)
-
-# 开启预训练
-# trainer.train()
-
-# 开启全量微调
-# trainer.finetune()
 
 # 开启推理
 predict_result = trainer.predict(input_data="#language: Python\n# write a bubble sort function\n")

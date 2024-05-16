@@ -19,14 +19,14 @@ DeepSeek Coder由一系列代码语言模型组成，每个模型都在2T token�
 
 ### 安装mindformers
 
-参考[README](../../README.md#二、mindformers安装)安装mindformers。
+参考[README](../../README.md#二mindformers安装)安装mindformers。
 本文操作的相对路径均为安装mindformers后的代码仓根路径。
 
 ### 环境要求
 
 - 硬件：Atlas 800T A2
 - MindSpore: 2.3.0
-- MindFormers: dev
+- MindFormers: r1.1.0
 
 ### deepseek-coder-33b-instruct 权重下载和转换
 

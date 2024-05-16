@@ -57,7 +57,7 @@ Code Llama是基于Llama 2的一系列大型代码语言模型，它在开源模
 - 硬件：Atlas 800T A2
 - MindSpore：2.3
 - CANN: 7.2及以上
-- MindFormers版本：dev
+- MindFormers版本：r1.1.0
 
 > 注：34b推理使用Atlas 800T A2 至少使用2卡，全量微调至少需要2机16卡，建议4机32卡。
 
@@ -155,7 +155,7 @@ Code Llama 34b至少使用2机16卡进行训练。
 
 当前模型已支持使用**Flash Attention算法**进行预训练，请参考 [Flash Attention使用文档](../feature_cards/Training_Algorithms.md#flash-attention)
 
-使用msrun快速启动命令启动训练，具体参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
+使用msrun快速启动命令启动训练，具体参见[msrun快速启动](../../README.md#四快速使用)。
 
 #### 多卡训练
 
@@ -220,10 +220,10 @@ alpaca数据集原始格式样例：
 ```text
 # code alpaca examples:
 {
-            "instruction": "Create an array of length 5 which contains all even numbers between 1 and 10.",
-            "input": "",
-            "output": "arr = [2, 4, 6, 8, 10]"
-      },
+    "instruction": "Create an array of length 5 which contains all even numbers between 1 and 10.",
+    "input": "",
+    "output": "arr = [2, 4, 6, 8, 10]"
+},
 ```
 
 - step 1. 执行`alpaca_converter.py`，使用fastchat工具添加prompts模板，将原始数据集转换为多轮对话格式。
@@ -281,7 +281,7 @@ python llama_preprocess.py \
 
 - step 1. 将`config/codellama/finetune_codellama_34b_16p.yaml`中训练数据集路径为微调数据集路径，并在`input_columns`中添加`labels`。
 
-```python
+```yaml
 train_dataset: &train_dataset
   data_loader:
     type: MindDataset
@@ -292,7 +292,7 @@ train_dataset: &train_dataset
 
 - step 2. 修改微调时学习率, 优化器参数，微调配置如下：
 
-```python
+```yaml
 # optimizer
 optimizer:
   type: FP32StateAdamWeightDecay
@@ -301,7 +301,7 @@ optimizer:
   eps: 1.e-8
   learning_rate: 5.e-6
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 5.e-6
@@ -316,18 +316,18 @@ context:
 
 - step 3. 在需要进行训练的机器中**都导入权重**，添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。参考[权重切分与合并](../feature_cards/Transform_Ckpt.md)的物理机训练案例，修改权重配置如下：
 
-  1). 有共享盘
+1). 有共享盘
 
-```python
+```yaml
 auto_trans_ckpt: True
 load_checkpoint: path/to/checkpoint_dir
 ```
 
 > 注：权重需要按照path/to/checkpoint_dir/rank_0/xxx.ckpt存放，load_checkpoint只需要填写到checkpoint_dir即可
 
-​       2). 无共享盘
+2). 无共享盘
 
-```python
+```yaml
 auto_trans_ckpt: False
 load_checkpoint: path/to/transformed_checkpoint
 ```
@@ -354,9 +354,9 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 `Code Llama`当前支持的评测任务如下：
 
-| 任务类型 | 评测指标 |   数据集   |
-| :------: | :------: | :--------: |
-| 代码生成 |  Pass@1  | HumanEeval |
+| 任务类型 |  评测指标  |    数据集     |
+|:----:|:------:|:----------:|
+| 代码生成 | Pass@1 | HumanEeval |
 
 - 代码生成：
 
@@ -420,7 +420,6 @@ pip install -e human-eval
 ```
 
 > 注：
->
 > 1. 解除`human-eval/human_eval/execution.py`的第58行注释;
 > 2. 由于代码生成时会自带prompt，因此将`human-eval/human_eval/execution.py`第39行的`problem["prompt"] + completion` 改为 `completion`即可。
 
@@ -536,7 +535,7 @@ bash scripts/msrunlauncher.sh "predict_custom.py \
 
 > 注：几卡推理就要在yaml配置中将相应的parallel_config 中的model_parallel置为几，其余置为1。
 
-```python
+```yaml
 use_parallel: True
 # model config
 parallel_config:
