@@ -189,7 +189,7 @@ python qwen1_5/qwen1_5_preprocess.py \
    run_mode: 'finetune'
 
    model_config:
-      seq_length: 8192 # 与数据集长度保持相同
+      seq_length: 2048 # 与数据集长度保持相同
 
    train_dataset: &train_dataset
      data_loader:
