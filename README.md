@@ -69,7 +69,7 @@ bash build.sh
 
 ## 三、版本匹配关系
 
-当前支持的硬件为Atlas 800训练服务器与[Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2)训练服务器。
+当前支持的硬件为[Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2)训练服务器。
 
 当前套件建议使用的Python版本为3.9。
 
