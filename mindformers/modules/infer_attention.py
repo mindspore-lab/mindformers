@@ -23,7 +23,7 @@ from mindspore.ops import operations as P
 
 from mindformers.modules import PagedAttentionMgr
 from mindformers.modules.flash_attention import FlashAttention
-
+from mindformers.tools.utils import get_ms_enable_asd_op
 
 class InferAttention(Cell):
     """Infer Attention Layer.
@@ -70,7 +70,6 @@ class InferAttention(Cell):
             - 8: Represents the block_local scenario, not implemented yet.
         block_size (int): Block size for paged attention.
         num_blocks (int): Block num for paged attention.
-        use_attention_mask (bool): The value is True if attention_mask is passed. Default: False.
         use_alibi_mask (bool): The value is True if alibi_mask is passed. Default: False.
         use_rope_rotary_emb (bool): If use rotary embedding. Default True.
         rotary_cos_format (int): Choose the rotary embedding cos format. Default 0.
@@ -154,7 +153,6 @@ class InferAttention(Cell):
                  sparse_mode=0,
                  block_size=16,
                  num_blocks=1024,
-                 use_attention_mask=False,
                  use_alibi_mask=False,
                  use_rope_rotary_emb=True,
                  rotary_cos_format=0,
@@ -173,7 +171,6 @@ class InferAttention(Cell):
         self.sparse_mode = sparse_mode
         self.block_size = block_size
         self.num_blocks = num_blocks
-        self.use_attention_mask = use_attention_mask
         self.use_alibi_mask = use_alibi_mask
         self.use_rope_rotary_emb = use_rope_rotary_emb
         self.rotary_cos_format = rotary_cos_format
@@ -195,6 +192,12 @@ class InferAttention(Cell):
 
         dp = 1 if parallel_config is None else parallel_config.data_parallel
         mp = 1 if parallel_config is None else parallel_config.model_parallel
+
+        self.enable_asd_op = get_ms_enable_asd_op()
+        self.use_attention_mask = False
+
+        if self.enable_asd_op:
+            self.use_attention_mask = True
         self.flash_attention = FlashAttention(head_num=self.n_head,
                                               pre_tokens=self.pre_tokens,
                                               next_tokens=self.next_tokens,
@@ -212,7 +215,8 @@ class InferAttention(Cell):
                                                      n_kv_heads=self.n_kv_head,
                                                      block_size=self.block_size,
                                                      num_blocks=self.num_blocks,
-                                                     compute_dtype=self.compute_dtype)
+                                                     compute_dtype=self.compute_dtype,
+                                                     parallel_config=self.parallel_config)
         self.paged_attention_mgr.shard(parallel_config)
         self.apply_rotary_pos_emb = ops.ApplyRotaryPosEmb(self.rotary_cos_format)
         self.apply_rotary_pos_emb.shard(((dp, 1, mp), (dp, 1, mp), (1, 1), (1, 1), (dp,)))

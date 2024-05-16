@@ -14,6 +14,7 @@
 # ============================================================================
 """LLaMA models' APIs."""
 import copy
+
 import numpy as np
 
 import mindspore.common.dtype as mstype
@@ -30,6 +31,7 @@ from mindformers.modules.layers import Linear
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
+from mindformers.tools.utils import get_ms_enable_asd_op
 
 from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr
@@ -84,6 +86,10 @@ class LlamaModel(LlamaPreTrainedModel):
         self.cast = P.Cast()
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        # default open internal kernel boost
+        self.enable_asd_op = get_ms_enable_asd_op()
+        logger.info("enable asd op:{}".format(self.enable_asd_op))
+
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
                                   max_position_embedding=config.max_position_embedding,
@@ -193,6 +199,9 @@ class LlamaModel(LlamaPreTrainedModel):
         if self.use_past:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                if self.enable_asd_op:
+                    mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
+                    mask = self.cast(mask, mstype.float16)
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:

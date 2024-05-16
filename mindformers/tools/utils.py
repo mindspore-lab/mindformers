@@ -432,3 +432,12 @@ def get_real_group_size():
         return get_group_size()
     except RuntimeError:
         return int(os.getenv("RANK_SIZE", "1"))
+
+
+def get_ms_enable_asd_op():
+    ms_enable_internal_boost = os.environ.get("MS_ENABLE_INTERNAL_BOOST")
+    ms_enable_asd_op = False
+
+    if ms_enable_internal_boost == "off":
+        ms_enable_asd_op = True
+    return ms_enable_asd_op
