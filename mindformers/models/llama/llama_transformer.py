@@ -93,6 +93,7 @@ class LLamaAttention(nn.Cell):
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
                  use_past=False,
+                 ms_enable_internal_boost=True,
                  is_dynamic=False,
                  use_rope_slice=False,
                  use_flash_attention=False,
@@ -175,6 +176,7 @@ class LLamaAttention(nn.Cell):
         self.wo.shard(((dp, mp), (1, mp)))
 
         if self.use_past:
+            use_attention_mask = not ms_enable_internal_boost
             self.infer_attention = InferAttention(self.n_head,
                                                   self.head_dim,
                                                   self.n_kv_head,
@@ -184,6 +186,7 @@ class LLamaAttention(nn.Cell):
                                                   block_size=self.block_size,
                                                   num_blocks=self.num_blocks,
                                                   rotary_cos_format=2,
+                                                  use_attention_mask=use_attention_mask,
                                                   parallel_config=parallel_config)
         else:
             self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
@@ -413,6 +416,7 @@ class LLamaDecodeLayer(nn.Cell):
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
                  use_past=False,
+                 ms_enable_internal_boost=True,
                  is_dynamic=False,
                  use_rope_slice=False,
                  moe_config=None,
@@ -446,6 +450,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         param_init_type=param_init_type,
                                         qkv_has_bias=qkv_has_bias,
                                         use_past=use_past,
+                                        ms_enable_internal_boost=ms_enable_internal_boost,
                                         is_dynamic=is_dynamic,
                                         use_rope_slice=use_rope_slice,
                                         use_flash_attention=use_flash_attention,

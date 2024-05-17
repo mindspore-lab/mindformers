@@ -14,6 +14,8 @@
 # ============================================================================
 """LLaMA models' APIs."""
 import copy
+import os
+
 import numpy as np
 
 import mindspore.common.dtype as mstype
@@ -39,6 +41,8 @@ from ..utils import cell_reuse
 from ...tools.logger import logger
 
 __all__ = ['LlamaModel', 'LlamaForCausalLM']
+
+ENV_MS_ENABLE_INTERNAL_BOOST = os.environ.get("MS_ENABLE_INTERNAL_BOOST")
 
 
 class LlamaPreTrainedModel(PreTrainedModel):
@@ -84,6 +88,15 @@ class LlamaModel(LlamaPreTrainedModel):
         self.cast = P.Cast()
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        # default open internal kernel boost
+        self.ms_enable_internal_boost = True
+
+        logger.info("ENV MS_ENABLE_INTERNAL_BOOST:{}".format(ENV_MS_ENABLE_INTERNAL_BOOST))
+        if ENV_MS_ENABLE_INTERNAL_BOOST == "off":
+            self.ms_enable_internal_boost = False
+
+        logger.info("ms enable internal boost:{}".format(self.ms_enable_internal_boost))
+
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
                                   max_position_embedding=config.max_position_embedding,
@@ -140,6 +153,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          rotary_dtype=config.rotary_dtype,
                                          param_init_type=config.param_init_type,
                                          use_past=config.use_past,
+                                         ms_enable_internal_boost=self.ms_enable_internal_boost,
                                          use_flash_attention=config.use_flash_attention,
                                          block_size=config.block_size,
                                          num_blocks=config.num_blocks,
@@ -193,6 +207,9 @@ class LlamaModel(LlamaPreTrainedModel):
         if self.use_past:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                if not self.ms_enable_internal_boost:
+                    mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
+                    mask = self.cast(mask, mstype.float16)
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
