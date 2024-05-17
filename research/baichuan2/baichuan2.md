@@ -114,14 +114,13 @@ pip install protobuf==3.20 -i https://pypi.tuna.tsinghua.edu.cn/simple
 pip install wandb==0.16.6 -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
-下载完成后，运行`/research/baichuan/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
+下载完成后，运行`mindformers/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
-python ./research/baichuan/convert_weight.py --torch_ckpt_path TORCH_CKPT_PATH --mindspore_ckpt_path MS_CKPT_NAME
-
+python convert_weight.py --model baichuan2 --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME
 # 参数说明
-torch_ckpt_path: huggingface权重保存目录路径下任意权重bin文件，根据该文件路径读取目录下全部权重
-mindspore_ckpt_path: mindspore权重文件保存路径
+input_path: huggingface权重保存目录路径
+output_path: 权重保存文件名, 可以指定自定义保存路径
 ```
 
 ### [模型权重转换](../../docs/feature_cards/Transform_Ckpt.md)
