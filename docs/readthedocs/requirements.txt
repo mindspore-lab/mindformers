@@ -3,4 +3,4 @@ sphinx
 docutils
 myst_parser
 sphinx_rtd_theme == 0.5.2
-mindspore
+mindspore >= 2.3.0rc2
