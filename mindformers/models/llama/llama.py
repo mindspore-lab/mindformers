@@ -25,7 +25,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.models.utils import set_layer_stage_recompute
+from mindformers.models.utils import set_layer_stage_recompute, check_fine_grain_interleave_valid
 from mindformers.modules.layers import Linear
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
@@ -99,9 +99,11 @@ class LlamaModel(LlamaPreTrainedModel):
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              param_init_type=config.embedding_init_type)
+        self.fine_grain_interleave = check_fine_grain_interleave_valid(config.fine_grain_interleave,
+                                                                       config.parallel_config)
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
-            if config.fine_grain_interleave > 1 and config.parallel_config.model_parallel > 1:
+            if self.fine_grain_interleave:
                 layer = LLamaDecodeLayerInterleave(config.batch_size,
                                                    config.seq_length,
                                                    layer_id,
@@ -164,7 +166,7 @@ class LlamaModel(LlamaPreTrainedModel):
 
             self.tok_embeddings.shard(config.parallel_config)
             self.casual_mask.shard(config.parallel_config)
-            if config.fine_grain_interleave > 1:
+            if self.fine_grain_interleave:
                 self.norm_out.shard((dp, 1))
             else:
                 self.norm_out.shard((dp, 1, 1))
