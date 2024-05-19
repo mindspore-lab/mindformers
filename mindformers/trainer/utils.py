@@ -600,7 +600,8 @@ def transform_ckpt(config, ckpt_dir, src_ckpt_strategy=None, dst_ckpt_strategy=N
                                                  f'transform_succeed_rank_{rank_id}.txt')
             f = open(transform_succeed_txt, 'w')
             f.close()
-        except (NotADirectoryError, TypeError, ValueError, NotImplementedError, RuntimeError) as e:
+        # pylint: disable=W0703
+        except BaseException as e:
             logger.error(f".........Transform failed due to: {str(e)}.........")
             transform_failed_txt = os.path.join(transformed_ckpt_dir,
                                                 f'transform_failed_rank_{rank_id}.txt')
