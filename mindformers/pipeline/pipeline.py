@@ -26,7 +26,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 from mindspore import Model, set_context
 
-from mindformers.models.auto import AutoConfig, AutoModel, AutoTokenizer
+from mindformers.models.auto import AutoConfig, AutoModel, AutoTokenizer, AutoImageProcessor
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import (BaseAudioProcessor, BaseImageProcessor,
                                 PreTrainedModel, PreTrainedTokenizerBase,
@@ -52,7 +52,6 @@ FEATURE_EXTRACTOR_MAPPING = OrderedDict()
 
 class Backend(Enum):
     MS = "ms"
-    MS_LITE = "mslite"
 
 
 def pipeline(
@@ -101,10 +100,8 @@ def pipeline(
         {'score': 6.75336e-06, 'label': 'tree'},
         {'score': 2.396818e-06, 'label': 'cat'}]]
     """
-    if backend == Backend.MS_LITE.value:
-        from mindformers.inference import get_mslite_pipeline
-        task_pipeline = get_mslite_pipeline(task, model, tokenizer, image_processor, audio_processor, **kwargs)
-    elif backend == Backend.MS.value:
+
+    if backend == Backend.MS.value:
         if is_experimental_mode(model, **kwargs):
             audio_processor = kwargs.pop("feature_extractor", audio_processor)
             task_pipeline = get_ms_experimental_pipeline(task, model,
@@ -116,7 +113,7 @@ def pipeline(
             task_pipeline = get_ms_pipeline(task, model, tokenizer, image_processor, audio_processor, **kwargs)
     else:
         raise ValueError(f"The inference backend \"{backend}\" is not supported,"
-                         f"please select a backend from [\"ms\", \"mslite\"]")
+                         f"please select a backend from [\"ms\"]")
     return task_pipeline
 
 
@@ -242,16 +239,11 @@ def get_ms_experimental_pipeline(
     if isinstance(model, Path):
         model = str(model)
 
-    if framework == Backend.MS_LITE.value:
-        from mindformers.inference import get_mslite_pipeline
-        logger.info("Initializing mslite pipeline.")
-        return get_mslite_pipeline(task, model, tokenizer, image_processor, feature_extractor, **kwargs)
-
     if framework == Backend.MS.value:
         logger.info("Initializing ms pipeline.")
     else:
         raise ValueError(f"The inference framework \"{framework}\" is not supported,"
-                         f"please select a framework from [\"ms\", \"mslite\"]")
+                         f"please select a framework from [\"ms\"]")
 
     if commit_hash is None:
         pretrained_model_name_or_path = None
@@ -454,10 +446,9 @@ def get_ms_experimental_pipeline(
 
         # Instantiate image_processor if needed
         if isinstance(image_processor, (str, tuple)):
-            # TODO: from auto class
-            # image_processor = AutoImageProcessor.from_pretrained(
-            #     image_processor, _from_pipeline=task, **hub_kwargs, **model_kwargs
-            # )
+            image_processor = AutoImageProcessor.from_pretrained(
+                image_processor, _from_pipeline=task, **hub_kwargs, **model_kwargs
+            )
             logger.warning("image_processor is a reserved field is currently not loaded.")
 
     if load_feature_extractor:

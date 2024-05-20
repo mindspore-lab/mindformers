@@ -159,6 +159,7 @@ class PretrainedConfig(PushToHubMixin):
         self.tokenizer_class = kwargs.pop("tokenizer_class", None)
 
         # general config
+        self.architectures = kwargs.pop("architectures", None)
         self.is_encoder_decoder = kwargs.pop("is_encoder_decoder", None)
 
         # generation config
