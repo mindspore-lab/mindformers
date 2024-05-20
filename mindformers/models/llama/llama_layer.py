@@ -308,7 +308,7 @@ class LlamaRMSNorm(nn.Cell):
         super(LlamaRMSNorm, self).__init__()
         self.eps = eps
         self.compute_type = compute_type
-        self.weight = Parameter(initializer('ones', (dim,), dtype=mstype.float32), parallel_optimizer=False)
+        self.weight = Parameter(initializer('ones', (dim,), dtype=self.compute_type), parallel_optimizer=False)
 
         if check_rmsnorm_big_kernel_valid():
             self.norm = P.RmsNorm(eps)
@@ -340,7 +340,7 @@ class LlamaRMSNorm(nn.Cell):
 
     def _rms_norm(self, x):
         original_type = x.dtype
-        output = self.norm(self.cast(x, self.compute_type), self.cast(self.weight, self.compute_type))[0]
+        output = self.norm(self.cast(x, self.compute_type), self.weight)[0]
         return self.rcast(output, original_type)
 
     def construct(self, x):
