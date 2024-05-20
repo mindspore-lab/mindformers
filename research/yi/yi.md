@@ -55,21 +55,21 @@ MS_CKPT_NAME: 自定义mindspore权重文件保存路径和名称
 
 以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
 
-# Yi-6B-Base
+## Yi-6B-Base
 
 Yi-6B-Base 模型以双语语言模型为目标，并在3T多语言语料库上进行了训练，成为世界上最强大的LLM之一，在语言理解、常识推理、阅读理解等方面显示出前景。
 
-## 微调
+### 微调
 
 目前提供了模型的基础配置文件`research/yi/finetune_yi_6b.yaml`。使用前请将配置文件中路径相关参数修改为实际路径。
 
-## 模型性能
+### 模型性能
 
 | config                         | task            | Datasets     | SeqLength | metric | phase           | score | performance(tokens/s/p) |
 |--------------------------------|-----------------|--------------|-----------|--------|-----------------|-------|-------------------------|
 | [yi_6b](./finetune_yi_6b.yaml) | text_generation | Yi-demo-data | 2048      | -      | [finetune](#微调) | -     | 3324                    |
 
-### 数据集准备
+#### 数据集准备
 
 使用Yi-6B-Base进行训练或者微调时，需要使用Yi-6B-Base配套的tokenizer.model处理数据集，以及选用Yi-6B-Base的yaml配置文件进行任务启动。
 
@@ -176,7 +176,7 @@ DEVICE_NUM：使用的卡的个数
 
 **注**：由于模型较大，未切分的模型当seq_length为4096时，仅能进行batch_size为1的单机8卡训练。如果要使用其他并行策略训练，请参考 [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md) -->
 
-### 微调
+#### 微调
 
 - 单机多卡微调示例
 
@@ -191,11 +191,11 @@ bash scripts/msrun_launcher.sh " \
  --use_parallel True" 4
 ```
 
-## 推理
+### 推理
 
 大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。
 
-### 设置推理配置
+#### 设置推理配置
 
 以6b推理为例，在启动前，请先行在配置文件predict_yi_6b.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径,
 model_config按如下配置
@@ -397,9 +397,9 @@ bash scripts/msrun_launcher.sh "research/yi/run_yi.py --config research/yi/predi
 
 ```
 
-## 推理性能评测
+### 推理性能评测
 
-### 评测结果
+#### 评测结果
 
 | batch_size | seq_length | Atlas 800T A2（400T）tokens/s | A100（首次） tokens/s | 对比     |
 |------------|------------|-----------------------------|-------------------|--------|
