@@ -1037,7 +1037,7 @@ python run_mindformer.py --config run_gpt2_13b_910b.ymal --run_mode export --loa
 
 ### 执行推理
 
-1. 新建推理配置文件, 配置参数请参考特性文档[如何配置GE图引擎配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Inference.md#%E5%A6%82%E4%BD%95%E9%85%8D%E7%BD%AEge%E5%9B%BE%E5%BC%95%E6%93%8E%E9%85%8D%E7%BD%AE)
+1. 新建推理配置文件, 配置参数请参考特性文档[如何配置GE图引擎配置](../../docs/feature_cards/Inference.md#如何配置GE图引擎配置)
 
 ```bash
 lite.ini
