@@ -124,6 +124,13 @@ def set_layer_stage_recompute(layer, layer_id, offset, parallel_config, n_layers
             layer.feed_forward.w1.activation.silu.recompute()
 
 
+def check_fine_grain_interleave_valid(fine_grain_interleave, parallel_config):
+    """Check the fine grain interleave condition"""
+    if fine_grain_interleave is None or parallel_config is None:
+        return False
+    return fine_grain_interleave > 1 and parallel_config.model_parallel > 1
+
+
 ms_type_to_str = reverse_dict(str_to_ms_type)
 
 cell_reuse = get_cell_reuse
