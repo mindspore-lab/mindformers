@@ -44,7 +44,7 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
 
 - 硬件：Atlas 800T A2
 - MindSpore：2.3
-- MindFormers版本：dev
+- MindFormers版本：r1.1.0
 - 硬件支持矩阵
 
 |     模型      | 硬件 | 全量微调 | 推理 |
