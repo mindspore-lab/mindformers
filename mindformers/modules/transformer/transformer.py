@@ -1476,10 +1476,9 @@ class MultiHeadAttention(Cell):
                 scale_value=1. / math.sqrt(self.size_per_head),
                 input_layout="BNSD",
                 sparse_mode=0,
-                use_attention_mask=True,
-                dp=parallel_config.data_parallel,
-                mp=parallel_config.model_parallel
+                use_attention_mask=True
             )
+            self.flash_attention.shard(parallel_config)
             self.sub = P.Sub().shard(
                 ((1,), (parallel_config.data_parallel, 1, 1, 1)))
 

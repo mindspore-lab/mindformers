@@ -14,7 +14,6 @@
 # ============================================================================
 
 """Paged Attention Manager for inference."""
-from typing import Optional
 import math
 
 import mindspore.common.dtype as mstype
@@ -30,36 +29,27 @@ class PagedAttentionMgr(nn.Cell):
     def __init__(self,
                  n_heads,
                  head_dim,
-                 n_kv_heads: Optional[int] = None,
-                 block_size=16,
-                 num_blocks=256,
-                 compute_dtype=mstype.float16,
-                 parallel_config=None):
+                 n_kv_heads,
+                 kv_shape,
+                 compute_dtype=mstype.float16):
         super().__init__()
         self.n_heads = n_heads
         self.head_dim = head_dim
         self.n_kv_heads = n_kv_heads
-        self.block_size = block_size
-        self.num_blocks = num_blocks
 
         self.scale_value = 1 / math.sqrt(self.head_dim)
-        mp = 1 if parallel_config is None else parallel_config.model_parallel
-
-        self.n_heads_split = self.n_heads // mp
-        self.n_kv_heads_split = self.n_kv_heads // mp
-
-        kv_shape = (self.num_blocks, self.block_size, self.n_kv_heads, self.head_dim)
         self.key_cache = Parameter(Tensor(shape=kv_shape, dtype=compute_dtype, init=Zero()), name="key_cache",
                                    requires_grad=False)
         self.value_cache = Parameter(Tensor(shape=kv_shape, dtype=compute_dtype, init=Zero()), name="value_cache",
                                      requires_grad=False)
 
         self.reshape_and_cache = P.auto_generate.ReshapeAndCache()
-        self.paged_attention = P.auto_generate.PagedAttention(self.n_heads_split, self.scale_value,
-                                                              self.n_kv_heads_split)
-        self.paged_attention_with_alibi = P.auto_generate.PagedAttentionMask(self.n_heads_split,
+        self.paged_attention = P.auto_generate.PagedAttention(self.n_heads,
+                                                              self.scale_value,
+                                                              self.n_kv_heads)
+        self.paged_attention_with_alibi = P.auto_generate.PagedAttentionMask(self.n_heads,
                                                                              self.scale_value,
-                                                                             self.n_heads_split)
+                                                                             self.n_kv_heads)
 
     def construct(self, key, value, slot_mapping):
         """The forward compute of KVCache for Paged Attention."""

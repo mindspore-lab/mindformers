@@ -170,7 +170,9 @@ class ChatGLM2SelfAttention(nn.Cell):
             self.qkv_hidden_size = (
                 self.projection_size + 2 * self.head_dim * config.multi_query_group_num)
 
-        dp, mp = config.parallel_config.data_parallel, config.parallel_config.model_parallel
+        parallel_config = config.parallel_config
+
+        dp, mp = parallel_config.data_parallel, parallel_config.model_parallel
         self.query_key_value = Linear(config.hidden_size,
                                       self.qkv_hidden_size,
                                       has_bias=config.add_bias_linear or config.add_qkv_bias,
@@ -184,18 +186,23 @@ class ChatGLM2SelfAttention(nn.Cell):
                             param_init_type=self.params_dtype,
                             compute_dtype=self.compute_dtype)
         self.dense.shard(strategy_matmul=((dp, 1), (mp, 1)), strategy_bias=((dp, 1), (1,)))
+        self.use_flash_attention = config.use_flash_attention
         self.use_past = config.use_past
         if self.use_past:
             self.infer_attention = InferAttention(self.n_head,
                                                   self.head_dim,
                                                   self.n_kv_head,
+                                                  pa_n_head_split=self.n_head // mp,
+                                                  pa_n_kv_head_split=self.n_kv_head // mp,
                                                   scale_value=1. / math.sqrt(self.head_dim),
                                                   pre_tokens=65536,
                                                   next_tokens=0,
                                                   block_size=config.block_size,
                                                   num_blocks=config.num_blocks,
+                                                  use_flash_attention=self.use_flash_attention,
                                                   rotary_cos_format=1,
-                                                  parallel_config=config.parallel_config)
+                                                  compute_dtype=self.compute_dtype)
+            self.infer_attention.shard(parallel_config)
         else:
             self.core_attention = CoreAttention(config, self.layer_number)
             self.reshape = P.Reshape()
@@ -207,7 +214,6 @@ class ChatGLM2SelfAttention(nn.Cell):
             self.transpose = P.Transpose()
             self.cast = P.Cast()
             self.tile_kv = P.Tile()
-            self.use_flash_attention = config.use_flash_attention
 
             if self.use_flash_attention:
                 self.flash_attention = FlashAttention(head_num=config.num_attention_heads,
@@ -215,9 +221,8 @@ class ChatGLM2SelfAttention(nn.Cell):
                                                       input_layout='BNSD',
                                                       keep_prob=1. - config.attention_dropout,
                                                       pre_tokens=65536,
-                                                      next_tokens=0,
-                                                      dp=dp,
-                                                      mp=mp)
+                                                      next_tokens=0)
+                self.flash_attention.shard(parallel_config)
             self.merger_head_transpose = P.Transpose().shard(((dp, mp, 1, 1),))
 
     def _repeat_kv(self, x, rep):
@@ -318,9 +323,8 @@ class ChatGLM2SelfAttention(nn.Cell):
 
         # key and value for current token(s)
         if self.use_past:
-            freqs_cos, freqs_sin, _ = rotary_pos_emb
             context_layer = self.infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping,
-                                                 freqs_cos, freqs_sin)
+                                                 rotary_pos_emb)
         else:
             query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
             key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))

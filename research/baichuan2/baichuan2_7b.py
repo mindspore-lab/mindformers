@@ -34,10 +34,12 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import cell_reuse, set_layer_stage_recompute
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
+from mindformers.modules.layers import FreqsMgr
+
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 
 from mindformers.models.llama.llama_config import LlamaConfig
-from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr
+from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.tools.logger import logger
 
@@ -185,7 +187,7 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                freqs_cis = self.freqs_mgr(bs, seq_len)
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:

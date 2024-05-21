@@ -24,8 +24,8 @@ from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
-from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaRotaryEmbedding
-from mindformers.modules.layers import _check_input_dtype, Linear
+from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm
+from mindformers.modules.layers import _check_input_dtype, Linear, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.flash_attention import FlashAttention
 
@@ -188,7 +188,7 @@ class LLamaAttentionInterleave(nn.Cell):
         self.slice_qkv = P.StridedSlice()
         self.slice_qkv.add_prim_attr("skip_redistribution", True)
 
-        self.apply_rotary_emb = LlamaRotaryEmbedding(self.head_dim, rotary_dtype)
+        self.apply_rotary_emb = RotaryEmbedding(self.head_dim, rotary_dtype)
         if self.qkv_concat:
             self.w = Linear(in_channels=self.hidden_size,
                             out_channels=self.hidden_size + self.kv_dim * 2,
@@ -225,9 +225,8 @@ class LLamaAttentionInterleave(nn.Cell):
                                                   scale_value=1. / math.sqrt(self.head_dim),
                                                   input_layout="BNSD",
                                                   sparse_mode=0,
-                                                  use_attention_mask=True,
-                                                  dp=parallel_config.data_parallel,
-                                                  mp=parallel_config.model_parallel)
+                                                  use_attention_mask=True)
+            self.flash_attention.shard(parallel_config)
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
@@ -241,7 +240,7 @@ class LLamaAttentionInterleave(nn.Cell):
             self.tile_kv.shard(((dp, mp, 1, 1),))
             self.slice_qkv.shard(((dp, mp),))
 
-            self.apply_rotary_emb.shard((dp, mp, 1, 1))
+            self.apply_rotary_emb.shard(parallel_config)
             if self.qkv_concat:
                 self.w.shard(((dp, 1), (mp, 1)))
             elif qkv_has_bias:

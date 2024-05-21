@@ -35,9 +35,10 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import cell_reuse
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks
+from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks,\
+    FreqsMgr
 from mindformers.modules.transformer import TransformerOpParallelConfig
-from mindformers.models.llama.llama_layer import LlamaEmbedding, FreqsMgr, LlamaSiLU, LlamaRMSNorm
+from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaSiLU, LlamaRMSNorm
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.models.utils import set_layer_stage_recompute
 from mindformers.version_control import check_valid_flash_attention
@@ -324,7 +325,7 @@ class QwenModel(QwenPreTrainedModel):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                freqs_cis = self.freqs_mgr(bs, seq_len)
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:

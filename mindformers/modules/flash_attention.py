@@ -124,9 +124,6 @@ class FlashAttention(Cell):
                                    use_attention_mask=True,
                                    use_alibi_mask=False,
                                    use_mqa=False,
-                                   dp=1,
-                                   mp=1,
-                                   sp=1
         ...                        )
         >>> output = model(query, key, value, attn_mask)
         >>> print(output.shape)
@@ -144,9 +141,6 @@ class FlashAttention(Cell):
                  use_attention_mask=True,
                  use_alibi_mask=False,
                  use_mqa=False,
-                 dp=1,
-                 mp=1,
-                 sp=1,
                  ):
         super(FlashAttention, self).__init__()
         self.head_num = head_num
@@ -156,11 +150,7 @@ class FlashAttention(Cell):
         self.use_alibi_mask = use_alibi_mask
         self.use_attention_mask = use_attention_mask
         self.use_mqa = use_mqa
-        self.dp = dp
-        self.mp = mp
-        self.sp = sp
 
-        fa_strategies = self._generate_flash_attention_strategy(dp, mp, sp)
         self.flash_attention = FlashAttentionScore(head_num=head_num,
                                                    keep_prob=keep_prob,
                                                    scale_value=scale_value,
@@ -168,10 +158,10 @@ class FlashAttention(Cell):
                                                    next_tokens=next_tokens,
                                                    inner_precise=0,
                                                    input_layout=self.input_layout,
-                                                   sparse_mode=self.sparse_mode).shard(fa_strategies)
+                                                   sparse_mode=self.sparse_mode)
         if self.use_alibi_mask:
             self.alibi_rescale_factor = Tensor([1.0 / scale_value], dtype=mstype.float16)
-            self.alibi_rescale_mul = ops.Mul().shard(((dp, mp, sp, 1), (1,)))
+            self.alibi_rescale_mul = ops.Mul()
         if self.enable_dropout:
             self.keep_prob_tensor = Tensor(keep_prob, dtype=mstype.float16)
             self.drop_gen_mask = ops.DropoutGenMask()
@@ -222,3 +212,17 @@ class FlashAttention(Cell):
                                                attn_mask,
                                                prefix)
         return output
+
+    def shard(self, parallel_config):
+        """sharding for flash attention"""
+        dp = 1 if parallel_config is None else parallel_config.data_parallel
+        mp = 1 if parallel_config is None else parallel_config.model_parallel
+        sp = 1
+
+        fa_strategies = self._generate_flash_attention_strategy(dp, mp, sp)
+        self.flash_attention.shard(fa_strategies)
+
+        if self.use_alibi_mask:
+            self.alibi_rescale_mul.shard(((dp, mp, sp, 1), (1,)))
+
+        return self

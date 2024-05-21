@@ -23,8 +23,8 @@ from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
-from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaRotaryEmbedding
-from mindformers.modules.layers import _check_input_dtype, Linear
+from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm
+from mindformers.modules.layers import _check_input_dtype, Linear, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferAttention
@@ -178,13 +178,18 @@ class LLamaAttention(nn.Cell):
             self.infer_attention = InferAttention(self.n_head,
                                                   self.head_dim,
                                                   self.n_kv_head,
+                                                  pa_n_head_split=self.n_head // mp,
+                                                  pa_n_kv_head_split=self.n_kv_head // mp,
                                                   scale_value=1. / math.sqrt(self.head_dim),
                                                   pre_tokens=65536,
                                                   next_tokens=0,
                                                   block_size=self.block_size,
                                                   num_blocks=self.num_blocks,
+                                                  use_flash_attention=self.use_flash_attention,
                                                   rotary_cos_format=2,
-                                                  parallel_config=parallel_config)
+                                                  rotary_dtype=rotary_dtype,
+                                                  compute_dtype=compute_dtype)
+            self.infer_attention.shard(parallel_config)
         else:
             self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
 
@@ -200,7 +205,7 @@ class LLamaAttention(nn.Cell):
             self.tile_kv = P.Tile()
             self.slice_qkv = P.StridedSlice()
 
-            self.apply_rotary_emb = LlamaRotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
+            self.apply_rotary_emb = RotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
 
             if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
                 self.transpose.shard(((dp, 1, mp, 1),))
@@ -213,7 +218,7 @@ class LLamaAttention(nn.Cell):
                 self.tile_kv.shard(((dp, mp, 1, 1),))
                 self.slice_qkv.shard(((dp, mp),))
 
-                self.apply_rotary_emb.shard((dp, mp, 1, 1))
+                self.apply_rotary_emb.shard(parallel_config)
 
                 if parallel_config.use_seq_parallel and self.is_first_iteration:
                     self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
@@ -235,9 +240,8 @@ class LLamaAttention(nn.Cell):
                                                       keep_prob=1.,
                                                       scale_value=1. / math.sqrt(self.head_dim),
                                                       sparse_mode=0,
-                                                      use_attention_mask=True,
-                                                      dp=parallel_config.data_parallel,
-                                                      mp=parallel_config.model_parallel)
+                                                      use_attention_mask=True)
+                self.flash_attention.shard(parallel_config)
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
                   block_tables=None, slot_mapping=None):
@@ -261,9 +265,8 @@ class LLamaAttention(nn.Cell):
 
         # key and value for current token(s)
         if self.use_past:
-            freqs_cos, freqs_sin, _ = freqs_cis
             context_layer = self.infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping,
-                                                 freqs_cos, freqs_sin, mask)
+                                                 freqs_cis, mask)
         else:
             query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
             key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
@@ -433,7 +436,6 @@ class LLamaDecodeLayer(nn.Cell):
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
         self.add = P.Add()
-        self.batch_valid_length_add = P.Add()
         self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.attention = LLamaAttention(dim=dim,
@@ -483,7 +485,6 @@ class LLamaDecodeLayer(nn.Cell):
             else:
                 self.feed_forward.ffn.shard(parallel_config)
             self.add.shard(((dp, 1, 1), (dp, 1, 1)))
-            self.batch_valid_length_add.shard(((dp,), ()))
             self.attention_norm.shard((dp, 1, 1))
             self.ffn_norm.shard((dp, 1, 1))
             if moe_config is None or not moe_config.expert_num > 1:
@@ -500,8 +501,6 @@ class LLamaDecodeLayer(nn.Cell):
         """ Forward of transformer block. """
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
-        if batch_valid_length is not None:
-            batch_valid_length = self.batch_valid_length_add(batch_valid_length, 1)
         # [bs, seq/1, hidden_dim]
         input_x = self.attention_norm(x)
         # [bs, seq/1, hidden_dim]

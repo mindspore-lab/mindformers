@@ -46,11 +46,12 @@ def test_paged_attention_mgr():
     key = Tensor(np.ones((bsz, seq_len, hidden_size)), mstype.float16)
     value = Tensor(np.ones((bsz, seq_len, hidden_size)), mstype.float16)
     slot_mapping = Tensor(np.ones((bsz,)), mstype.int32)
+
+    kv_shape = (num_blocks, block_size, n_kv_head, head_dim)
     paged_attention_mgr = PagedAttentionMgr(head_num,
                                             head_dim,
-                                            n_kv_heads=n_kv_head,
-                                            block_size=block_size,
-                                            num_blocks=num_blocks,
+                                            n_kv_head,
+                                            kv_shape,
                                             compute_dtype=compute_dtype)
     paged_attention_mgr(key, value, slot_mapping)
 
