@@ -180,22 +180,20 @@ class FlashAttention(Cell):
         """get FA generate strategies"""
         kv_head_split_num = 1 if self.use_mqa else mp
         if self.input_layout == "BSH":
-            fa_strategies = ((dp, sp, mp),
-                             (dp, 1, kv_head_split_num),
-                             (dp, 1, kv_head_split_num))
+            if self.use_attention_mask:
+                fa_strategies = ((dp, sp, mp), (dp, 1, kv_head_split_num), (dp, 1, kv_head_split_num), (dp, 1, sp, 1))
+            else:
+                fa_strategies = ((dp, sp, mp), (dp, 1, kv_head_split_num), (dp, 1, kv_head_split_num))
         else:
-            fa_strategies = ((dp, mp, sp, 1),
-                             (dp, kv_head_split_num, 1, 1),
-                             (dp, kv_head_split_num, 1, 1))
+            if self.use_attention_mask:
+                fa_strategies = ((dp, mp, sp, 1), (dp, kv_head_split_num, 1, 1), (dp, kv_head_split_num, 1, 1),
+                                 (dp, 1, sp, 1))
+            else:
+                fa_strategies = ((dp, mp, sp, 1), (dp, kv_head_split_num, 1, 1), (dp, kv_head_split_num, 1, 1))
         if self.use_alibi_mask:
             fa_strategies += ((dp, mp, sp, 1),)
         if self.enable_dropout:
             fa_strategies += ((dp, mp, sp, 1),)
-        if self.use_attention_mask:
-            if self.sparse_mode in [0, 1]:
-                fa_strategies += ((dp, 1, sp, 1),)
-            else:
-                raise RuntimeError(f"sparse_mode: {self.sparse_mode} is not support currently")
 
         return fa_strategies
 
