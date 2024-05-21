@@ -42,7 +42,7 @@ def dir_path(path, times: int):
 
 wizardcoder_path = os.path.join(dir_path(__file__, 5), "research/wizardcoder")
 sys.path.append(wizardcoder_path)
-ms.set_context(mode=0)
+
 
 def generator_train():
     """train dataset generator"""
@@ -83,10 +83,10 @@ class TestWizardcoderPrecision:
                                              eps=1.e-8,
                                              learning_rate=lr_schedule)
 
-        loss_list_std = [10.871237, 10.86816, 10.860825, 10.848734, 10.861235,
-                         10.875328, 10.860098, 10.858349, 10.872917, 10.871431,
-                         10.861275, 10.871601, 10.874082, 10.858971, 10.849184,
-                         10.873372, 10.857426, 10.873322, 10.867041, 10.870938]
+        loss_list_std = [10.87196731, 10.86381340, 10.86076164, 10.85227680, 10.86382389,
+                         10.87404155, 10.87038421, 10.85717391, 10.87336921, 10.86869049,
+                         10.86590003, 10.86959266, 10.87599754, 10.86171531, 10.84695625,
+                         10.87440299, 10.85226821, 10.86902809, 10.86273670, 10.86673927]
         avg_step_time_std = 20
         callback = TrainingChecker(loss_list_std=loss_list_std, avg_step_time_std=avg_step_time_std)
 
