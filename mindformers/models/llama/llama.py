@@ -31,7 +31,7 @@ from mindformers.modules.layers import Linear
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_ms_enable_asd_op
+from mindformers.tools.utils import get_ms_enable_asd_op, get_predict_run_mode
 
 from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr
@@ -315,6 +315,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
         self.load_checkpoint(config)
         self.set_model_predict_config()
+        self.predict_run_mode = get_predict_run_mode()
+
+        logger.info("Predict run mode:{}".format(self.predict_run_mode))
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         if self.config.is_dynamic and "origin_inputs" in kwargs:
@@ -404,6 +407,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
         if not self.training:
             logits = self.cast(logits, mstype.float32)
+            if self.predict_run_mode:
+                return logits
             return logits, tokens, input_mask
 
         if logits.ndim > 2:
