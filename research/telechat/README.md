@@ -80,14 +80,7 @@ telechat_12b:
 
 ### 环境要求
 
-- 硬件：Atlas 800T A2
-- MindSpore：2.2.11
-- CANN: 7.1
-- MindFormers版本：dev
-
-注：Atlas 800T A2芯片：7b, 12b推理可在单机单卡上完成部署。
-
-### [mindformers安装](../../README.md#二mindformers安装)
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
 
 ### 生成RANK_TABLE_FILE(多卡运行必须环节)
 

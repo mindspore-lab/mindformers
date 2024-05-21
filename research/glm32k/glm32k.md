@@ -49,17 +49,9 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 
 ## 前期准备
 
-### 安装mindformers
-
-参考[README](../../README.md#二、mindformers安装)安装mindformers。
-本文操作的相对路径均为安装mindformers后的代码仓根路径。
-
 ### 环境要求
 
-- 硬件: Atlas 800T A2
-- MindSpore: 2.3
-- MindFormers: r1.1.0
-- Mindpet: 1.0.2
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
 
 ### 模型权重下载与转换(mindformers权重或huggingface权重选择使用即可)
 

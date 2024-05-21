@@ -33,13 +33,9 @@ WizardCoder完全开源可商用，基于 Transformer 结构，上下文窗口�
         └── run_wizardcoder.py             # wizardcoder高阶接口使用脚本
     ```
 
-### 环境要求
+## 环境要求
 
-- 硬件：Atlas 800T A2
-- MindSpore：2.3.0
-- MindFormers版本：r1.1.0
-
-### [mindformers安装](../../README.md#二mindformers安装)
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
 
 设置环境变量
 

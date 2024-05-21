@@ -39,7 +39,9 @@ CodeGeeX**2**-6B 是多语言代码生成模型 CodeGeeX的第二代版本。不
 
 ## 前期准备
 
-### [mindformers安装](../../README.md#二mindformers安装)
+### 环境要求
+
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
 
 ### 生成RANK_TABLE_FILE(多卡运行必须环节)
 

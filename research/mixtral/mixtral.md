@@ -55,10 +55,7 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 
 ### 环境要求
 
-- 硬件：Atlas 800T A2
-- MindSpore：2.3.0
-- CANN: 7.2
-- MindFormers版本：r1.1.0
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
 
 注：Atlas 800T A2推理单机2卡即可推理.全参微调Atlas 800T A2至少需要二机16卡。
 

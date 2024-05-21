@@ -66,6 +66,10 @@ ChatGLM**2**-6B 是开源中英双语对话模型 [ChatGLM2-6B](https://github.c
 
 ## 前期准备
 
+### 环境要求
+
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
+
 ### 模型权重下载与转换
 
 开发者可以下载获取官方权重后，通过下面提供的**权重转换脚本**，将官方权重转换为MindSpore权重；或直接使用MindFormers提供的**已转换权重**

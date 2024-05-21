@@ -66,7 +66,11 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
         └── run_internlm.py               # 高阶接口使用脚本
     ```
 
-## <span id="jump">权重转换</span>
+## 环境要求
+
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
+
+## 权重转换
 
 本仓库提供已经转换完成的预训练权重用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理，tokenizer.model为词表文件。
 

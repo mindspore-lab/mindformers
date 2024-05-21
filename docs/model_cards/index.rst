@@ -15,6 +15,7 @@
    codegeex2
    gpt2
    codellama
+   ../../research/llama3/llama3
    ../../research/baichuan2/baichuan2
    ../../research/deepseek/deepseek
    ../../research/internlm/internlm

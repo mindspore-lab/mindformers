@@ -4,6 +4,8 @@ CodeGeeX是一个具有130亿参数的多编程语言代码生成预训练模型
 
 ## 快速使用
 
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
+
 ### CodeGeex-13B 预训练权重转换
 
 通过[该链接](https://models.aminer.cn/codegeex/download/request)申请权重，您将收到一个包含临时下载链接文件```urls.txt```的邮件。推荐使用[aria2](https://aria2.github.io/)通过以下命令快速下载（请保证有足够的硬盘空间存放权重（～26GB））：

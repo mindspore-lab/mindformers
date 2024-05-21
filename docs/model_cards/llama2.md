@@ -101,14 +101,9 @@ llama2_70b：
 
 ### 环境要求
 
-- 硬件：Atlas 800T A2
-- MindSpore：2.3
-- CANN: 7.2及以上
-- MindFormers版本：r1.1.0
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
 
 注：Atlas 800T A2芯片：7b,13b推理可在单机单卡上完成部署；70b推理至少使用8卡，全参微调至少需要4机32卡，推荐使用8机64卡。
-
-### [mindformers安装](../../README.md#二mindformers安装)
 
 ### 模型权重下载与转换
 
