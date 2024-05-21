@@ -441,3 +441,8 @@ def get_ms_enable_asd_op():
     if ms_enable_internal_boost == "off":
         ms_enable_asd_op = True
     return ms_enable_asd_op
+
+
+def get_predict_run_mode():
+    run_mode = os.environ.get("RUN_MODE")
+    return run_mode == "predict"
