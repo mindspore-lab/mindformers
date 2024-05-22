@@ -30,11 +30,11 @@ from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.utils import cell_reuse
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.modules import KVCachePreprocess
-from mindformers.modules.layers import Linear
+from mindformers.modules.layers import Linear, FreqsMgr
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.logger import logger
-from mindformers.models.llama.llama_layer import LlamaRMSNorm, FreqsMgr
+from mindformers.models.llama.llama_layer import LlamaRMSNorm
 from research.telechat.telechat_config import TelechatConfig
 from research.telechat.telechat_layer import TelechatEmbedding
 from research.telechat.telechat_transformer import TelechatDecodeLayer

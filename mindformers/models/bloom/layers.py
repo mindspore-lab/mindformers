@@ -113,10 +113,9 @@ class BloomAttention(MultiHeadAttention):
                                                       keep_prob=1. - attention_dropout_rate,
                                                       pre_tokens=65536,
                                                       next_tokens=0,
-                                                      dp=parallel_config.data_parallel,
-                                                      mp=parallel_config.model_parallel,
                                                       use_alibi_mask=True,
                                                       use_attention_mask=True)
+                self.flash_attention.shard(parallel_config)
             if use_select_recompute:
                 logger.info("Using select recompute mode!")
                 self.cast.recompute()

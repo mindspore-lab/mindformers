@@ -357,6 +357,7 @@ def parse_value(value):
         parse value from command line.
         handles with int, float, bool, string, list and dict.
     """
+
     def isint(x):
         try:
             a = float(x)
@@ -446,3 +447,9 @@ def get_ms_enable_asd_op():
 def get_predict_run_mode():
     run_mode = os.environ.get("RUN_MODE")
     return run_mode == "predict"
+
+
+def get_use_rope_self_define():
+    # use_rope_self_define=True indicate that using self defined op for rope kernel
+    use_rope_self_define = os.environ.get("USE_ROPE_SELF_DEFINE")
+    return use_rope_self_define == "True"

@@ -31,10 +31,10 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindformers.tools.utils import is_version_ge
 from mindformers.tools.logger import logger
 from mindformers.modules.flash_attention import FlashAttention
-from mindformers.modules.layers import _check_input_dtype, Dropout
+from mindformers.modules.layers import _check_input_dtype, Dropout, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules import KVCacheMgr
-from mindformers.models.llama.llama_layer import LlamaRMSNorm, LlamaRotaryEmbedding
+from mindformers.models.llama.llama_layer import LlamaRMSNorm
 from telechat_layer import TelechatLinear, TelechatFeedForward
 
 class TelechatAttention(nn.Cell):
@@ -160,7 +160,7 @@ class TelechatAttention(nn.Cell):
         self.cast_attn = P.Cast()
         self.tile_kv = P.Tile()
         self.split = P.Split(output_num=2, axis=-1)
-        self.apply_rotary_emb = LlamaRotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
+        self.apply_rotary_emb = RotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
         self.attention_dropout = Dropout(1-self.attention_dropout_prob)
         self.wo = TelechatLinear(in_channels=self.hidden_size,
                                  out_channels=self.hidden_size,
@@ -193,7 +193,7 @@ class TelechatAttention(nn.Cell):
             self.softmax.shard(((dp, mp, 1, 1),))
             self.tile_kv.shard(((dp, mp, 1, 1),))
 
-            self.apply_rotary_emb.shard((dp, mp, 1, 1))
+            self.apply_rotary_emb.shard(parallel_config)
 
             if qkv_has_bias:
                 self.wq.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
@@ -221,10 +221,9 @@ class TelechatAttention(nn.Cell):
             self.flash_attention = FlashAttention(head_num=n_heads,
                                                   scale_value=1. / math.sqrt(self.head_dim),
                                                   input_layout='BNSD',
-                                                  dp=dp,
-                                                  mp=mp,
                                                   pre_tokens=65536,
                                                   next_tokens=0)
+            self.flash_attention.shard(parallel_config)
 
         if self.use_past:
             self.kvcache_mgr = KVCacheMgr(self.n_kv_head, self.head_dim,

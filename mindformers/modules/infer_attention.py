@@ -23,7 +23,55 @@ from mindspore.ops import operations as P
 
 from mindformers.modules import PagedAttentionMgr
 from mindformers.modules.flash_attention import FlashAttention
-from mindformers.tools.utils import get_ms_enable_asd_op
+from mindformers.modules.layers import RotaryEmbedding
+from mindformers.tools.utils import get_ms_enable_asd_op, get_use_rope_self_define
+
+
+class InferRotaryEmbedding(Cell):
+    r"""
+    Infer Rotary Position Embedding.
+
+    Args:
+            rotary_cos_format (int): - Choose the rotary embedding cos format. Default 0.
+
+    Inputs:
+            query: the query matrix.
+            key: the key matrix.
+            freqs_cis: The precompute freqs and mask for rotary position embedding used in attention.
+            batch_valid_length: Int32 tensor with shape [batch_size] the past calculated the index.
+
+    Outputs:
+            Tensor of shape :math:`(batch, seq_length, hidden_size)`.
+    """
+
+    def __init__(self, rotary_cos_format=0):
+        super().__init__()
+        self.rotary_cos_format = rotary_cos_format
+        self.rotary_embedding_op = ops.ApplyRotaryPosEmb(self.rotary_cos_format)
+        self.tile_freqs = P.Tile()
+
+        self.is_first_iteration = True
+
+    def construct(self, query: Tensor, key: Tensor, freqs_cis, batch_valid_length):
+        """Forward of rotary position embedding."""
+        freqs_cos, freqs_sin, _ = freqs_cis
+
+        # ROPE currently only supported float16 data type.
+        freqs_cos = self.cast(freqs_cos, mstype.float16)
+        freqs_sin = self.cast(freqs_sin, mstype.float16)
+        if self.is_first_iteration:
+            bs, _, _ = query.shape
+            freqs_cos = self.tile_freqs(freqs_cos, (bs, 1))
+            freqs_sin = self.tile_freqs(freqs_sin, (bs, 1))
+        return self.rotary_embedding_op(query, key, freqs_cos, freqs_sin, batch_valid_length)
+
+    def shard(self, parallel_config):
+        """sharding for rotary embedding"""
+        dp = 1 if parallel_config is None else parallel_config.data_parallel
+        mp = 1 if parallel_config is None else parallel_config.model_parallel
+        self.rotary_embedding_op.shard(((dp, 1, mp), (dp, 1, mp), (1, 1), (1, 1), (dp,)))
+        self.tile_freqs.shard(((1, 1),))
+
 
 class InferAttention(Cell):
     """Infer Attention Layer.
@@ -47,7 +95,6 @@ class InferAttention(Cell):
         When sparse_mode is set to 1, 2, 3, or 5, this parameter does not take effect. Default: 2147483647.
         next_tokens (int): Parameter for sparse computation, represents how many tokens are counted backward.
         When sparse_mode is set to 1, 2, 3, or 5, this parameter does not take effect. Default: 2147483647.
-        input_layout (str): Specifies the layout of input `query`, key and value. The value can be "BSH" or "BNSD".
         Default: "BSH".
         sparse_mode (int): Indicates sparse mode. Default 0.
 
@@ -70,10 +117,11 @@ class InferAttention(Cell):
             - 8: Represents the block_local scenario, not implemented yet.
         block_size (int): Block size for paged attention.
         num_blocks (int): Block num for paged attention.
+        use_flash_attention (bool): The value is True if chosen to use flash attention. Default: True.
         use_alibi_mask (bool): The value is True if alibi_mask is passed. Default: False.
         use_rope_rotary_emb (bool): If use rotary embedding. Default True.
         rotary_cos_format (int): Choose the rotary embedding cos format. Default 0.
-        parallel_config (ParallelConfig): Parallel config for infer attention. Default None.
+        rotary_dtype (mstype): Compute dtype for rope op. Default mstype.float16.
         compute_dtype (mstype): Compute dtype for infer attention. Default mstype.float16.
 
 
@@ -145,81 +193,84 @@ class InferAttention(Cell):
                  n_head,
                  head_dim,
                  n_kv_head,
+                 pa_n_head_split=None,
+                 pa_n_kv_head_split=None,
                  keep_prob=1.0,
                  scale_value=1.0,
                  pre_tokens=2147483647,
                  next_tokens=2147483647,
-                 input_layout="BSH",
                  sparse_mode=0,
                  block_size=16,
                  num_blocks=1024,
+                 use_flash_attention=True,
                  use_alibi_mask=False,
                  use_rope_rotary_emb=True,
                  rotary_cos_format=0,
-                 parallel_config=None,
+                 rotary_dtype=mstype.float32,
                  compute_dtype=mstype.float16
                  ):
         super(InferAttention, self).__init__()
         self.n_head = n_head
         self.head_dim = head_dim
         self.n_kv_head = n_kv_head
+        self.pa_n_head_split = pa_n_head_split if pa_n_head_split is not None else n_head
+        self.pa_n_kv_head_split = pa_n_kv_head_split if pa_n_kv_head_split is not None else n_kv_head
         self.keep_prob = keep_prob
         self.scale_value = scale_value
         self.pre_tokens = pre_tokens
         self.next_tokens = next_tokens
-        self.input_layout = input_layout
         self.sparse_mode = sparse_mode
         self.block_size = block_size
         self.num_blocks = num_blocks
+        self.use_flash_attention = use_flash_attention
         self.use_alibi_mask = use_alibi_mask
         self.use_rope_rotary_emb = use_rope_rotary_emb
+        self.use_rope_self_define = get_use_rope_self_define()
         self.rotary_cos_format = rotary_cos_format
-        self.parallel_config = parallel_config
+        self.rotary_dtype = rotary_dtype
         self.compute_dtype = compute_dtype
         self.is_first_iteration = True
-        self.reshape = P.Reshape()
         self.transpose = P.Transpose()
+        self.reshape = P.Reshape()
+        self.merger_head_transpose = P.Transpose()
         self.batch_matmul = P.BatchMatMul()
         self.batch_matmul_q_k = P.BatchMatMul(transpose_b=True)
         self.mul = P.Mul()
         self.add = P.Add()
         self.shape = P.Shape()
-        self.tile = P.Tile()
+        self.tile_kv = P.Tile()
         self.softmax = P.Softmax()
         self.cast = P.Cast()
         self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
         self.n_rep = self.n_head // self.n_kv_head
-
-        dp = 1 if parallel_config is None else parallel_config.data_parallel
-        mp = 1 if parallel_config is None else parallel_config.model_parallel
 
         self.enable_asd_op = get_ms_enable_asd_op()
         self.use_attention_mask = False
 
         if self.enable_asd_op:
             self.use_attention_mask = True
-        self.flash_attention = FlashAttention(head_num=self.n_head,
-                                              pre_tokens=self.pre_tokens,
-                                              next_tokens=self.next_tokens,
-                                              input_layout=self.input_layout,
-                                              keep_prob=self.keep_prob,
-                                              scale_value=self.scale_value,
-                                              sparse_mode=self.sparse_mode,
-                                              use_attention_mask=self.use_attention_mask,
-                                              use_alibi_mask=self.use_alibi_mask,
-                                              dp=dp,
-                                              mp=mp)
 
-        self.paged_attention_mgr = PagedAttentionMgr(self.n_head,
+        if self.use_flash_attention:
+            self.flash_attention = FlashAttention(head_num=self.n_head,
+                                                  pre_tokens=self.pre_tokens,
+                                                  next_tokens=self.next_tokens,
+                                                  keep_prob=self.keep_prob,
+                                                  scale_value=self.scale_value,
+                                                  sparse_mode=self.sparse_mode,
+                                                  use_attention_mask=self.use_attention_mask,
+                                                  use_alibi_mask=self.use_alibi_mask)
+
+        kv_shape = (self.num_blocks, self.block_size, self.n_kv_head, self.head_dim)
+        self.paged_attention_mgr = PagedAttentionMgr(self.pa_n_head_split,
                                                      self.head_dim,
-                                                     n_kv_heads=self.n_kv_head,
-                                                     block_size=self.block_size,
-                                                     num_blocks=self.num_blocks,
-                                                     compute_dtype=self.compute_dtype,
-                                                     parallel_config=self.parallel_config)
-        self.paged_attention_mgr.shard(parallel_config)
-        self.apply_rotary_pos_emb = ops.ApplyRotaryPosEmb(self.rotary_cos_format)
-        self.apply_rotary_pos_emb.shard(((dp, 1, mp), (dp, 1, mp), (1, 1), (1, 1), (dp,)))
+                                                     self.pa_n_kv_head_split,
+                                                     kv_shape,
+                                                     compute_dtype=self.compute_dtype)
+        if use_rope_rotary_emb:
+            if self.use_rope_self_define:
+                self.rotary_embedding = RotaryEmbedding(self.head_dim, self.rotary_dtype)
+            else:
+                self.rotary_embedding = InferRotaryEmbedding(self.rotary_cos_format)
 
     def _core_attention(self, query, key, value, attn_mask, alibi_mask=None):
         """
@@ -256,7 +307,7 @@ class InferAttention(Cell):
             return x
         bs, n_kv_head, seqlen, head_dim = self.shape(x)
         x = self.reshape(x, (bs, n_kv_head, 1, seqlen * head_dim))
-        x = self.tile(x, (1, 1, rep, 1))
+        x = self.tile_kv(x, (1, 1, rep, 1))
         x = self.reshape(x, (bs, n_kv_head * rep, seqlen, head_dim))
         return x
 
@@ -271,7 +322,7 @@ class InferAttention(Cell):
             x_merge: the 2d output
         """
         # [bs, n_head, seq/1, head_dim]
-        x = self.transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
+        x = self.merger_head_transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
         # [bs, seq/1, n_head, head_dim]
         bs, seq_len, n_head, head_dim = self.shape(x)
         # [bs, seq/1, hidden_dim]
@@ -279,33 +330,84 @@ class InferAttention(Cell):
         x_merge = self.reshape(x, new_shape)
         return x_merge
 
-    def construct(self, query, key, value, batch_valid_length, block_tables, slot_mapping, freqs_cos=None,
-                  freqs_sin=None, attn_mask=None, alibi_mask=None):
+    def _apply_rotary_pos_emb(self, query, key, freqs_cis, batch_valid_length):
+        """
+        apply rotary pos embedding
+
+        Inputs:
+            query: the query matrix
+            key: the key matrix
+            freqs_cis: The precompute freqs and mask for rotary position embedding used in attention.
+            batch_valid_length: Int32 tensor with shape [batch_size] the past calculated the index.
+        Outputs:
+            query: the query matrix
+            key: the key matrix
+        """
+        if self.use_rope_self_define:
+            bs, seq_len, _ = query.shape
+            query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
+            key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+            if not self.is_first_iteration:
+                freqs_cos, freqs_sin, swap_mask = freqs_cis
+                freqs_cos = self.reshape(freqs_cos, (bs, 1, seq_len, self.head_dim))
+                freqs_sin = self.reshape(freqs_sin, (bs, 1, seq_len, self.head_dim))
+                freqs_cis = (freqs_cos, freqs_sin, swap_mask)
+            query, key = self.rotary_embedding(query, key, freqs_cis)  # dp, mp, 1, 1
+            query = self._merge_heads(query)
+            key = self._merge_heads(key)
+        else:
+            query, key = self.rotary_embedding(query, key, freqs_cis, batch_valid_length)  # dp, mp, 1, 1
+        return query, key
+
+    def _prefill_attention(self, query, key, value, attn_mask, alibi_mask):
+        """
+        prefill attention
+        """
+        if self.use_flash_attention:
+            return self.flash_attention(query, key, value, attn_mask, alibi_mask)
+        bs, seq_len, _ = query.shape
+        query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
+        key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+        value = self.transpose(self.reshape(value, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+        key = self._repeat_kv(key, self.n_rep)
+        value = self._repeat_kv(value, self.n_rep)
+        return self._core_attention(query, key, value, attn_mask, alibi_mask)
+
+    def _incre_attention(self, query, batch_valid_length, block_tables, alibi_mask=None):
+        if self.use_alibi_mask:
+            return self.paged_attention_mgr.paged_attn_with_alibi(query, batch_valid_length, block_tables, alibi_mask)
+        return self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables)
+
+    def construct(self, query, key, value, batch_valid_length, block_tables, slot_mapping, freqs_cis=None,
+                  attn_mask=None, alibi_mask=None):
         """Forward process of the Infer Attention Cell"""
         if self.use_rope_rotary_emb:
-            # ROPE currently only supported float16 data type.
-            freqs_cos = self.cast(freqs_cos, mstype.float16)
-            freqs_sin = self.cast(freqs_sin, mstype.float16)
-            query, key = self.apply_rotary_pos_emb(query, key, freqs_cos, freqs_sin, batch_valid_length)
+            query, key = self._apply_rotary_pos_emb(query, key, freqs_cis, batch_valid_length)
+
         key_out = self.paged_attention_mgr(key, value, slot_mapping)
         query = ops.depend(query, key_out)
 
         if self.is_first_iteration:
-            if self.input_layout == "BSH":
-                context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask)
-            else:
-                bs, seq_len, _ = query.shape
-                query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
-                key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
-                value = self.transpose(self.reshape(value, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
-                key = self._repeat_kv(key, self.n_rep)
-                value = self._repeat_kv(value, self.n_rep)
-                context_layer = self._core_attention(query, key, value, attn_mask, alibi_mask)
-                return context_layer
-        else:
-            if self.use_alibi_mask:
-                context_layer = self.paged_attention_mgr.paged_attn_with_alibi(query, batch_valid_length, block_tables,
-                                                                               alibi_mask)
-            else:
-                context_layer = self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables)
-        return context_layer
+            return self._prefill_attention(query, key, value, attn_mask, alibi_mask)
+        return self._incre_attention(query, batch_valid_length, block_tables, alibi_mask)
+
+    def shard(self, parallel_config):
+        """Parallel strategy configuratiuon interface."""
+        dp = 1 if parallel_config is None else parallel_config.data_parallel
+        mp = 1 if parallel_config is None else parallel_config.model_parallel
+
+        if self.use_rope_rotary_emb:
+            self.rotary_embedding.shard(parallel_config)
+        if self.use_flash_attention:
+            self.flash_attention.shard(parallel_config)
+        self.paged_attention_mgr.shard(parallel_config)
+
+        self.transpose.shard(((dp, 1, mp, 1),))
+        self.merger_head_transpose.shard(((dp, mp, 1, 1),))
+        self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+        self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+        self.mul.shard(((dp, mp, 1, 1), ()))
+        self.add.shard(((dp, 1, 1, 1), (dp, mp, 1, 1)))
+        self.softmax.shard(((dp, mp, 1, 1),))
+        self.tile_kv.shard(((dp, mp, 1, 1),))
+        return self

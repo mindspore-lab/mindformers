@@ -717,13 +717,10 @@ class Baichuan13BAttention(nn.Cell):
             self.flash_attention = FlashAttention(head_num=n_heads,
                                                   scale_value=1. / math.sqrt(self.head_dim),
                                                   input_layout='BNSD',
-                                                  dp=dp,
-                                                  mp=mp,
                                                   pre_tokens=65536,
                                                   next_tokens=0,
                                                   use_alibi_mask=True)
-            self.flash_attention.shard(
-                ((dp, mp, 1, 1), (dp, mp, 1, 1), (dp, mp, 1, 1), (dp, 1, 1), ()))
+            self.flash_attention.shard(parallel_config)
             if parallel_config.recompute.select_recompute:
                 self.flash_attention.recompute()
 

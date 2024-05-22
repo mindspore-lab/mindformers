@@ -549,24 +549,23 @@ class Baichuan13BAttention(nn.Cell):
             self.flash_attention = FlashAttention(head_num=n_heads,
                                                   scale_value=1. / math.sqrt(self.head_dim),
                                                   input_layout='BNSD',
-                                                  dp=dp,
-                                                  mp=mp,
                                                   pre_tokens=65536,
                                                   next_tokens=0,
                                                   use_alibi_mask=True)
+            self.flash_attention.shard(parallel_config)
         if self.use_past:
             self.infer_attention = InferAttention(self.n_head,
                                                   self.head_dim,
                                                   self.n_kv_head,
                                                   scale_value=1. / math.sqrt(self.head_dim),
-                                                  input_layout='BNSD',
                                                   pre_tokens=65536,
                                                   next_tokens=65536,
                                                   block_size=self.block_size,
                                                   num_blocks=self.num_blocks,
                                                   use_alibi_mask=True,
                                                   use_rope_rotary_emb=False,
-                                                  parallel_config=parallel_config)
+                                                  compute_dtype=compute_dtype).shard(parallel_config)
+            self.infer_attention.shard(parallel_config)
 
     def construct(self, x: Tensor, alibi_tensor: Tensor, mask=None, batch_valid_length=None, block_tables=None,
                   slot_mapping=None):
@@ -582,7 +581,7 @@ class Baichuan13BAttention(nn.Cell):
         # key and value for current token(s)
         if self.use_past:
             attention = self.infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping,
-                                             None, None, mask, alibi_tensor)
+                                             None, mask, alibi_tensor)
         else:
             query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
             key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))

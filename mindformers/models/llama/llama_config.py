@@ -76,7 +76,6 @@ class LlamaConfig(PretrainedConfig):
         extend_method(str): The extend method of seq length of inferencem,default None.
         compute_in_2d(bool): Whether compute in 2-dims tensor, default False.
         use_flash_attention(bool): Whether enable flash attention ops, default False.
-        use_paged_attention(bool): Whether enable paged attention ops, default False.
         offset(int): Offset of transformer layer when set pipeline stage number.
         use_past_shard(bool): The configuration of kvcache parallel shard, default False.
         checkpoint_name_or_path (Optional[str]):
@@ -145,7 +144,6 @@ class LlamaConfig(PretrainedConfig):
                  is_flexible_shape: bool = False,
                  use_rope_slice: bool = False,
                  use_flash_attention: bool = False,
-                 use_paged_attention: bool = False,
                  use_prompt_flash_attention: bool = False,
                  use_incre_flash_attention: bool = False,
                  fine_grain_interleave: int = 1,
@@ -212,7 +210,6 @@ class LlamaConfig(PretrainedConfig):
         self.is_flexible_shape = is_flexible_shape
         self.use_rope_slice = use_rope_slice
         self.use_flash_attention = use_flash_attention
-        self.use_paged_attention = use_paged_attention
         self.use_prompt_flash_attention = use_prompt_flash_attention
         self.use_incre_flash_attention = use_incre_flash_attention
         self.fine_grain_interleave = fine_grain_interleave
@@ -223,8 +220,6 @@ class LlamaConfig(PretrainedConfig):
         self.top_p = top_p
         self.do_sample = do_sample
         self.theta = theta
-
-        self.use_paged_attention = use_paged_attention
         self.block_size = block_size
         self.num_blocks = num_blocks
         self.quant = quant

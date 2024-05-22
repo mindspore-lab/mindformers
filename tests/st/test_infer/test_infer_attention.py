@@ -49,6 +49,7 @@ def test_infer_attention():
     attn_mask = Tensor(np.ones((bsz, 1, seq_len, seq_len)), mstype.uint8)
     freqs_cos = Tensor(np.ones((seq_len, head_dim)), mstype.float16)
     freqs_sin = Tensor(np.ones((seq_len, head_dim)), mstype.float16)
+    freqs_cis = (freqs_cos, freqs_sin, None)
     infer_attention = InferAttention(head_num,
                                      head_dim,
                                      n_kv_head,
@@ -56,8 +57,8 @@ def test_infer_attention():
                                      pre_tokens=65536,
                                      next_tokens=0,
                                      block_size=block_size,
-                                     num_blocks=num_blocks)
+                                     num_blocks=num_blocks,
+                                     compute_dtype=mstype.float16)
 
-    output = infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping, freqs_cos, freqs_sin,
-                             attn_mask)
+    output = infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping, freqs_cis, attn_mask)
     assert output.shape == (1, 4096, 2048)

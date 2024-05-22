@@ -14,10 +14,6 @@
 # ============================================================================
 """LLaMA Model Layers' APIs."""
 
-from enum import Enum
-import numpy as np
-
-from mindspore.common.tensor import Tensor
 from mindspore.common.parameter import Parameter
 from mindspore import nn
 import mindspore.common.dtype as mstype
@@ -39,13 +35,6 @@ from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_va
     _valid_value_checks
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.version_control import check_rmsnorm_big_kernel_valid
-
-
-class SeqExtendMethod(Enum):
-    """Stores the acceptable string identifiers for seq length extend method"""
-    PI = "PI"
-    NTK = "NTK"
-    NONE = "None"
 
 
 class LlamaSiLU(Cell):
@@ -89,144 +78,6 @@ class LlamaSiLU(Cell):
         if hasattr(strategy, "expert_parallel"):
             moe_strategy = ((strategy.data_parallel, strategy.expert_parallel, 1, strategy.model_parallel),)
             self.shard(moe_strategy)
-
-
-class FreqsMgr(Cell):
-    r"""freqs_cis manager."""
-
-    def __init__(self,
-                 head_dim,
-                 seq_length=None,
-                 max_position_embedding=4096,
-                 rotary_dtype=mstype.float16,
-                 theta=10000,
-                 scaling_factor=1.0,
-                 extend_method=SeqExtendMethod.NONE.value):
-        super().__init__()
-        if seq_length is not None and seq_length > max_position_embedding:
-            max_position_embedding = seq_length
-        if extend_method == SeqExtendMethod.NTK.value:
-            theta *= scaling_factor
-        freqs_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32)  # (head_dim // 2, )
-        freqs = 1.0 / (theta ** (freqs_base / head_dim))  # (head_dim // 2, )
-        if extend_method == SeqExtendMethod.PI.value:
-            t = np.arange(0, max_position_embedding / scaling_factor, 1 / scaling_factor).astype(np.float32)
-        else:
-            t = np.arange(0, max_position_embedding, 1).astype(np.float32)
-        freqs = np.outer(t, freqs)  # (max_position_embedding, head_dim // 2)
-        emb = np.concatenate((freqs, freqs), axis=-1)
-        freqs_cos = np.cos(emb)  # (seq_len, head_dim)
-        freqs_sin = np.sin(emb)  # (seq_len, head_dim)
-        swap_mask = FreqsMgr.get_swap_mask(head_dim)
-
-        self.head_dim = head_dim
-        self.freqs_cos = Tensor(freqs_cos, dtype=rotary_dtype)
-        self.freqs_sin = Tensor(freqs_sin, dtype=rotary_dtype)
-        self.swap_mask = Tensor(swap_mask, dtype=rotary_dtype)
-
-        self.slice = P.StridedSlice().shard(((1, 1),))
-        self.gather = P.Gather().shard(((1, 1), (1,)))
-        self.tile = P.Tile().shard(((1, 1),))
-
-    def construct(self, seq_length):
-        freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1))
-        freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1))
-
-        return freqs_cos, freqs_sin, self.swap_mask
-
-    def prefill(self, batch_size, seq_length):
-        freqs_cos = self.tile(self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1)), (batch_size, 1))
-        freqs_sin = self.tile(self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1)), (batch_size, 1))
-        return freqs_cos, freqs_sin, self.swap_mask
-
-    def increment(self, batch_valid_length):
-        freqs_cos = self.gather(self.freqs_cos, batch_valid_length, 0)
-        freqs_sin = self.gather(self.freqs_sin, batch_valid_length, 0)
-        return freqs_cos, freqs_sin, self.swap_mask
-
-    @staticmethod
-    def get_swap_mask(head_dim):
-        """Swap matrix"""
-        zero_block = np.zeros((head_dim // 2, head_dim // 2), dtype=np.float32)
-        id_block = np.identity(head_dim // 2, dtype=np.float32)
-        return np.block([[zero_block, id_block], [-id_block, zero_block]])
-
-
-class LlamaRotaryEmbedding(Cell):
-    r"""
-    Rotary Position Embedding.
-
-    Args:
-            - **head_dim** (int): The dim of multi head attention.
-            - **compute_dtype** (mstype): The compute type, default mstype.float16.
-            - **parallel_config** (dict): - Parallel Config.
-    Inputs:
-            - **x** (Tensor) - Tensor of shape :math:`(batch, seq\_length, hidden\_size)`.
-
-    Outputs:
-            Tensor of shape :math:`(batch, seq_length, hidden_size)`.
-    """
-
-    def __init__(self, head_dim=128, compute_dtype=mstype.float32, use_rope_slice=False):
-        super().__init__(auto_prefix=False)
-        self.half_head_dim = head_dim // 2
-        self.head_dim = head_dim
-        self.dtype = compute_dtype
-        self.use_rope_slice = use_rope_slice
-        self.is_first_iteration = True
-
-        self.add = P.Add()
-        self.bmm_swap = P.BatchMatMul()
-        self.mul = P.Mul()
-        self.mul_inc = P.Mul()
-        self.neg = P.Neg()
-        self.slice = P.StridedSlice()
-        self.concat = P.Concat(axis=-1)
-        self.shape = P.Shape()
-
-    def rotate_half(self, x, swap_mask):
-        # [bs, n_head/n_kv_head, seq/1, head_dim], [head_dim, head_dim]
-        x = self.bmm_swap(x, swap_mask)
-        return x
-
-    def slice_half(self, x):
-        bs, n_head, seq, _ = self.shape(x)
-        x1 = self.slice(x, (0, 0, 0, 0), (bs, n_head, seq, self.half_head_dim), (1, 1, 1, 1))
-        x2 = self.slice(x, (0, 0, 0, self.half_head_dim), (bs, n_head, seq, self.head_dim), (1, 1, 1, 1))
-        x = self.concat((self.neg(x2), x1))
-        return x
-
-    def construct(self, xq: Tensor, xk: Tensor, freqs_cis):
-        """Forward of rotary position embedding."""
-        original_type = xq.dtype
-        xq = self.cast(xq, self.dtype)
-        xk = self.cast(xk, self.dtype)
-        # xq, xk: [bs, n_head/n_kv_head, seq/1, head_dim]
-        freqs_cos, freqs_sin, swap_mask = freqs_cis
-        mul = self.mul if self.is_first_iteration else self.mul_inc
-        if self.use_rope_slice:
-            xq_out = self.add(mul(xq, freqs_cos),
-                              mul(self.slice_half(xq), freqs_sin))
-            xk_out = self.add(mul(xk, freqs_cos),
-                              mul(self.slice_half(xk), freqs_sin))
-        else:
-            xq_out = self.add(mul(xq, freqs_cos),
-                              mul(self.rotate_half(xq, swap_mask), freqs_sin))
-            xk_out = self.add(mul(xk, freqs_cos),
-                              mul(self.rotate_half(xk, swap_mask), freqs_sin))
-
-        xq_out = self.cast(xq_out, original_type)
-        xk_out = self.cast(xk_out, original_type)
-        return xq_out, xk_out
-
-    def shard(self, strategy_in):
-        self.add.shard((strategy_in, strategy_in))
-        self.bmm_swap.shard((strategy_in, (1, 1)))
-        self.mul.shard((strategy_in, (1, 1)))
-        self.mul_inc.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
-        self.neg.shard((strategy_in,))
-        self.slice.shard((strategy_in,))
-        self.concat.shard((strategy_in, strategy_in))
 
 
 class LlamaEmbedding(Cell):

@@ -27,14 +27,14 @@ from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import set_layer_stage_recompute, check_fine_grain_interleave_valid
-from mindformers.modules.layers import Linear
+from mindformers.modules.layers import Linear, FreqsMgr
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_ms_enable_asd_op, get_predict_run_mode
 
 from .llama_config import LlamaConfig
-from .llama_layer import LlamaEmbedding, LlamaRMSNorm, FreqsMgr
+from .llama_layer import LlamaEmbedding, LlamaRMSNorm
 from .llama_transformer import LLamaDecodeLayer
 from .llama_interleave import LLamaDecodeLayerInterleave
 from ..utils import cell_reuse
@@ -200,10 +200,13 @@ class LlamaModel(LlamaPreTrainedModel):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-                if self.enable_asd_op:
+                freqs_cis = self.freqs_mgr(seq_len)
+                if self.use_flash_attention:
+                    if self.enable_asd_op:
+                        mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
+                        mask = self.cast(mask, mstype.float16)
+                else:
                     mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-                    mask = self.cast(mask, mstype.float16)
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
@@ -353,6 +356,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         for layer in self.model.layers:
             layer.add_flags(is_first_iteration=is_first_iteration)
             layer.attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
+            layer.attention.infer_attention.rotary_embedding.add_flags(is_first_iteration=is_first_iteration)
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
@@ -387,8 +391,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             tokens = input_ids
         if batch_valid_length is not None:
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
-        if not self.is_first_iteration:
-            batch_valid_length = self.sub_batch_valid_len(batch_valid_length, 1)
         output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables, slot_mapping)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
