@@ -15,6 +15,8 @@
 """Utils For Tools."""
 import json
 import os
+import re
+import shutil
 from multiprocessing import Process
 from typing import Dict, List, Tuple, Union
 
@@ -435,6 +437,10 @@ def get_real_group_size():
         return int(os.getenv("RANK_SIZE", "1"))
 
 
+def get_device_num_per_node():
+    return int(os.getenv("DEVICE_NUM_PER_NODE", "8"))
+
+
 def get_ms_enable_asd_op():
     ms_enable_internal_boost = os.environ.get("MS_ENABLE_INTERNAL_BOOST")
     ms_enable_asd_op = False
@@ -453,3 +459,85 @@ def get_use_rope_self_define():
     # use_rope_self_define=True indicate that using self defined op for rope kernel
     use_rope_self_define = os.environ.get("USE_ROPE_SELF_DEFINE")
     return use_rope_self_define == "True"
+
+
+def create_flag_txt(path):
+    """Create a unique empty text file as a flag."""
+    if check_in_modelarts():
+        import moxing as mox
+        # pylint: disable=W0612
+        with mox.file.File(path, 'w') as f:
+            pass
+    else:
+        # pylint: disable=W0612
+        with open(path, 'w') as f:
+            pass
+
+
+def is_main_rank():
+    return not get_real_rank() or (check_in_modelarts() and int(os.getenv('DEVICE_ID', '0')) == 0)
+
+
+def remake_folder(folder_path, permissions):
+    """make folder"""
+    remaked_txt = os.path.join(folder_path, "remaked.txt")
+    if is_main_rank():
+        if os.path.exists(folder_path) and os.listdir(folder_path):
+            shutil.rmtree(folder_path)
+        os.makedirs(folder_path, exist_ok=True)
+        os.chmod(folder_path, permissions)
+        f = open(remaked_txt, "w")
+        f.close()
+    while True:
+        if os.path.exists(remaked_txt):
+            break
+
+
+def remove_folder(folder_path):
+    """delete folder"""
+    if check_in_modelarts():
+        import moxing as mox
+        if mox.file.exists(folder_path) and not get_real_rank():
+            mox.file.remove(folder_path, recursive=True)
+        while True:
+            if not mox.file.exists(folder_path):
+                break
+    else:
+        if os.path.exists(folder_path) and not get_real_rank():
+            shutil.rmtree(folder_path)
+        while True:
+            if not os.path.exists(folder_path):
+                break
+
+
+def get_epoch_and_step_from_ckpt_name(ckpt_file):
+    """Get epoch and step from ckpt name."""
+    ckpt_name = os.path.split(ckpt_file)[1]
+    match = re.search(r'-(\d+)_(\d+)\.ckpt', ckpt_name)
+    if match:
+        epoch = int(match.group(1))
+        step = int(match.group(2))
+        return epoch, step
+    raise ValueError(f"Can't match epoch and step from checkpoint: {ckpt_file}. "
+                     "Please ensure the format of the ckpt_file is {prefix}-{epoch}_{step}.ckpt. "
+                     "for example, llama_7b_rank_0-3_2.ckpt.")
+
+
+def get_rank_id_from_ckpt_name(ckpt_file):
+    """Get rank id from ckpt name."""
+    ckpt_name = os.path.split(ckpt_file)[1]
+    match = re.search(r'_rank_(\d+)', ckpt_name)
+    if match:
+        rank_id = int(match.group(1))
+        return rank_id
+    raise ValueError(f"Can't match rank id in checkpoint: {ckpt_file}. "
+                     "Please ensure the format of the ckpt_file is {prefix}-{epoch}_{step}.ckpt. "
+                     "for example, llama_7b_rank_0-3_2.ckpt.")
+
+
+def replace_rank_id_in_ckpt_name(ckpt_file, dst_rank_id):
+    """Replace rank id to dst_rank_id in ckpt name"""
+    ckpt_name = os.path.split(ckpt_file)[1]
+    ori_rank_id = get_rank_id_from_ckpt_name(ckpt_name)
+    ckpt_name = ckpt_name.replace(f"_rank_{ori_rank_id}", f"_rank_{dst_rank_id}")
+    return ckpt_name

@@ -544,6 +544,7 @@ class CheckpointMointor(ModelCheckpoint):
                                      enc_mode=enc_mode,
                                      exception_save=exception_save)
         super(CheckpointMointor, self).__init__(prefix, ckpt_directory, config=config_ck)
+        self.meta_json = os.path.join(self._directory, "meta.json")
 
     def _save_ckpt(self, cb_params, force_to_save=False):
         """Save checkpoint files."""
@@ -601,6 +602,8 @@ class CheckpointMointor(ModelCheckpoint):
             save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
                             self._append_dict, self._config.enc_key, self._config.enc_mode)
 
+            self.record_last_ckpt_to_json(cb_params.cur_epoch_num, step_num_in_epoch, cur_ckpoint_file)
+
             def save_only_network_params():
                 save_obj = cb_params.network
                 if hasattr(save_obj, 'optimizer') and save_obj.optimizer is not None:
@@ -640,6 +643,20 @@ class CheckpointMointor(ModelCheckpoint):
             save_only_network_params()
 
             self._latest_ckpt_file_name = cur_file
+
+    def record_last_ckpt_to_json(self, epoch, step, ckpt_file):
+        """record last ckpt info to json"""
+        if os.path.exists(self.meta_json):
+            with open(self.meta_json, "r") as json_file:
+                meta_data = json.load(json_file)
+        else:
+            meta_data = {}
+
+        meta_data["last_epoch"] = epoch
+        meta_data["last_step"] = step
+        meta_data["last_ckpt_file"] = ckpt_file
+        with open(self.meta_json, "w") as json_file:
+            json.dump(meta_data, json_file)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)

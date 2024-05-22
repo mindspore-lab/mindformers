@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,36 +13,33 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the gpt interface used for mindformers.
+Test module for testing resume training.
 How to run this:
-pytest tests/st/test_resume.py
+pytest tests/st/test_resume/test_resume.py
 """
 import os
 import numpy as np
 import pytest
 import mindspore as ms
 
-from mindspore.train.callback import LossMonitor, TimeMonitor
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.tools.utils import LOCAL_DEFAULT_PATH, get_real_rank
-from mindformers.trainer import Trainer
+from mindformers.trainer import Trainer, TrainingArguments
 from mindformers.models.gpt2 import GPT2LMHeadModel, GPT2Config
-from mindformers import CheckpointMointor, TrainingArguments, PolynomialWithWarmUpLR
-from mindformers.core.optim import FusedAdamWeightDecay
+from utils import extract_loss_values
 
 ms.set_context(mode=0)
 
-
 def generator():
     """dataset generator"""
+    np.random.seed(42)
     seq_len = 1025
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
     input_mask = np.ones_like(input_ids)
     train_data = (input_ids, input_mask)
     for _ in range(32):
         yield train_data
-
 
 @pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
@@ -54,35 +51,25 @@ def test_gpt_trainer_train_from_instance():
     Expectation: TypeError
     """
     # Config definition
-    config = TrainingArguments(num_train_epochs=2, batch_size=8, sink_mode=True, sink_size=2, seed=2022)
+    config = TrainingArguments(
+        num_train_epochs=2,
+        batch_size=8,
+        save_steps=1,
+        save_directory=os.path.join(LOCAL_DEFAULT_PATH, "test_resume"),
+    )
 
     # Model
     model_config = GPT2Config(num_layers=2)
-    gpt_model = GPT2LMHeadModel(model_config)
+    model = GPT2LMHeadModel(model_config)
 
     # Dataset and operations
     dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask"])
     dataset = dataset.batch(batch_size=8)
 
-    # optimizer
-    lr_schedule = PolynomialWithWarmUpLR(learning_rate=0.0001, lr_end=0.00001, warmup_steps=0, total_steps=512)
-    optimizer = FusedAdamWeightDecay(beta1=0.009, beta2=0.999,
-                                     learning_rate=lr_schedule,
-                                     params=gpt_model.trainable_params())
-
-    # callback
-    loss_cb = LossMonitor(per_print_times=2)
-    time_cb = TimeMonitor()
-    ckpt_cb = CheckpointMointor(directory=os.path.join(LOCAL_DEFAULT_PATH, "test_resume"))
-    callbacks = [loss_cb, time_cb, ckpt_cb]
-
-    lm_trainer = Trainer(model=gpt_model,
-                         args=config,
-                         optimizers=optimizer,
-                         train_dataset=dataset,
-                         callbacks=callbacks,
-                         task="text_generation")
-    lm_trainer.train(train_checkpoint=False)
+    trainer = Trainer(model=model,
+                      args=config,
+                      train_dataset=dataset)
+    trainer.train(train_checkpoint=False)
 
     checkpoint_dir = os.path.join(LOCAL_DEFAULT_PATH, "test_resume", "checkpoint",
                                   "rank_{}".format(get_real_rank()))
@@ -99,17 +86,11 @@ def test_gpt_trainer_train_from_instance():
     dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask"])
     dataset = dataset.batch(batch_size=8)
 
-    # callback
-    loss_cb = LossMonitor(per_print_times=2)
-    time_cb = TimeMonitor()
-    ckpt_cb = CheckpointMointor(directory=os.path.join(LOCAL_DEFAULT_PATH, "test_resume"))
-    callbacks = [loss_cb, time_cb, ckpt_cb]
-
-    lm_trainer = Trainer(model=gpt_model,
-                         args=config,
-                         optimizers=optimizer,
-                         train_dataset=dataset,
-                         callbacks=callbacks,
-                         task="text_generation")
-    lm_trainer.train(train_checkpoint=os.path.join(LOCAL_DEFAULT_PATH, "test_resume", "checkpoint"),
-                     resume_training=True)
+    trainer = Trainer(model=model,
+                      args=config,
+                      train_dataset=dataset)
+    trainer.train(resume_from_checkpoint=os.path.join(LOCAL_DEFAULT_PATH, "test_resume", "checkpoint"),
+                  resume_training=True)
+    loss = extract_loss_values(f"{LOCAL_DEFAULT_PATH}/log/rank_0/info.log")
+    assert abs(loss[-4] - loss[-2]) < 0.005
+    assert abs(loss[-3] - loss[-1]) < 0.005
