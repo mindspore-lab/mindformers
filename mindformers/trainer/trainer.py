@@ -37,11 +37,17 @@ from mindformers.dataset import build_dataset, build_dataset_loader, \
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import BaseModel, BaseImageProcessor, \
     BaseTokenizer, BaseAudioProcessor
-from mindformers.tools.utils import set_output_path, set_strategy_save_path
+from mindformers.tools.utils import (
+    set_output_path,
+    set_strategy_save_path,
+    get_real_rank,
+    get_real_group_size,
+    has_shared_disk
+)
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.register.config import ordered_yaml_dump
+from mindformers.tools.resume_ckpt import get_resume_checkpoint
 from .build_trainer import build_trainer
 from .config_args import ConfigArguments
 from .training_args import TrainingArguments
@@ -330,11 +336,11 @@ class Trainer:
             self._save_config_to_yaml(self.config)
             logger.info("save running config success of %s_new.", task_config.trainer.model_name.lower())
 
-    @args_type_check(train_checkpoint=(str, bool), resume_training=bool,
+    @args_type_check(train_checkpoint=(str, bool), resume_training=(bool, str),
                      auto_trans_ckpt=bool, do_eval=bool)
     def train(self,
               train_checkpoint: Optional[Union[str, bool]] = False,
-              resume_training: Optional[bool] = None,
+              resume_training: Optional[Union[str, bool]] = None,
               auto_trans_ckpt: Optional[bool] = None,
               do_eval: bool = False):
         """
@@ -346,8 +352,11 @@ class Trainer:
                 Used to restore training or fine-tune the weight of the network.
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
-            resume_training (bool):
-                Whether to perform resume training. Default: False.
+            resume_training (bool, str):
+                Decide whether to resume training or specify the name of the checkpoint from which to resume training.
+                If set to True, the checkpoint recorded in meta.json will be loaded to resume training.
+                If a checkpoint name is provided, that specific checkpoint will be loaded for resume training.
+                Default: None.
             auto_trans_ckpt:
                 auto transform checkpoint to load in distributed model
             do_eval (bool):
@@ -395,6 +404,18 @@ class Trainer:
         if self.is_model_instance:
             self._reset_model_instance(is_train=True)
 
+        if self.config.resume_training:
+            if os.path.isfile(self.config.load_checkpoint) and \
+                isinstance(self.config.resume_training, str):
+                logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
+                               "when `load_checkpoint` is a file path.")
+                self.config.resume_training = True
+            elif os.path.isdir(self.config.load_checkpoint) and has_shared_disk():
+                self.config.resume_training = get_resume_checkpoint(
+                    checkpoint_dir=self.config.load_checkpoint,
+                    resume_training=self.config.resume_training
+                )
+
         self.trainer.train(
             config=self.config, network=self.model,
             dataset=self.train_dataset, optimizer=self.optimizers,
@@ -403,11 +424,11 @@ class Trainer:
             callbacks=self.callbacks,
             is_full_config=True)
 
-    @args_type_check(finetune_checkpoint=(str, bool), resume_training=bool,
+    @args_type_check(finetune_checkpoint=(str, bool), resume_training=(bool, str),
                      auto_trans_ckpt=bool, do_eval=bool)
     def finetune(self,
                  finetune_checkpoint: Optional[Union[str, bool]] = False,
-                 resume_training: Optional[bool] = None,
+                 resume_training: Optional[Union[bool, str]] = None,
                  auto_trans_ckpt: Optional[bool] = None,
                  do_eval: bool = False):
         """
@@ -421,8 +442,11 @@ class Trainer:
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 if resume_training is true, this checkpoint will be used to restore training of the network.
                 Default: False.
-            resume_training (bool):
-                Whether to perform resume training. Default: False
+            resume_training (bool, str):
+                Decide whether to resume training or specify the name of the checkpoint from which to resume training.
+                If set to True, the checkpoint recorded in meta.json will be loaded to resume training.
+                If a checkpoint name is provided, that specific checkpoint will be loaded for resume training.
+                Default: None.
             auto_trans_ckpt:
                 auto transform checkpoint to load in distributed model
             do_eval (bool):
@@ -481,6 +505,18 @@ class Trainer:
 
         if self.is_model_instance:
             self._reset_model_instance(is_train=True)
+
+        if self.config.resume_training:
+            if os.path.isfile(self.config.load_checkpoint) and \
+                isinstance(self.config.resume_training, str):
+                logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
+                               "when `load_checkpoint` is a file path.")
+                self.config.resume_training = True
+            elif os.path.isdir(self.config.load_checkpoint) and has_shared_disk():
+                self.config.resume_training = get_resume_checkpoint(
+                    checkpoint_dir=self.config.load_checkpoint,
+                    resume_training=self.config.resume_training
+                )
 
         self.trainer.train(
             config=self.config, network=self.model,
@@ -951,8 +987,8 @@ class Trainer:
                 self.config.model.model_config.checkpoint_name_or_path = self.default_checkpoint_name_or_path
 
     def _config_type_check(self, config):
-        if config.resume_training is not None and not isinstance(config.resume_training, bool):
-            raise TypeError(f"resume_training must be bool, "
+        if config.resume_training is not None and not isinstance(config.resume_training, (bool, str)):
+            raise TypeError(f"resume_training must be bool or str, "
                             f"but get {config.resume_training}")
         if config.auto_trans_ckpt is not None and not isinstance(config.auto_trans_ckpt, bool):
             raise TypeError(f"auto_trans_ckpt must be bool, "
