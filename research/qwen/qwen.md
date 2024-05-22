@@ -53,16 +53,9 @@
 
 ## 前期准备
 
-### [mindformers安装](../../README.md#二mindformers安装)
-
 ### 环境要求
 
-- 硬件：Atlas 800T A2
-- MindSpore：2.3.0
-- MindFormers版本：1.1.0
-- Python：3.8+
-
-注：
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
 
 > 1. 环境搭建请参考 [MindSpore官网](https://www.mindspore.cn/install/ )，安装MindSpore2.3.0 + CANN社区版7.2.0配套版本。
 > 2. 因Qwen的tokenizer基于`tiktoken`实现，而`tiktoken`官方不支持 Python 3.8 以下的版本，所以运行Qwen需要Python 3.8或者更高版本。

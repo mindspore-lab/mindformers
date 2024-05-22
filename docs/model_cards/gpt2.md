@@ -59,7 +59,9 @@ gpt2
 
 ## 前期准备
 
-### [mindformers安装](https://gitee.com/mindspore/mindformers/tree/dev#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)
+### 环境要求
+
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
 
 ### 生成RANK_TABLE_FILE(多卡运行必备环节)
 

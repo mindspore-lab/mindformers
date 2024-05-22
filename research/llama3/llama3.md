@@ -38,18 +38,15 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
 
 ## 前期准备
 
-### [mindformers安装](../../README.md#二mindformers安装)
+## 环境要求
 
-### 环境要求
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
 
-- 硬件：Atlas 800T A2
-- MindSpore：2.3
-- MindFormers版本：r1.1.0
 - 硬件支持矩阵
 
-|     模型      | 硬件 | 全量微调 | 推理 |
-| :-----------: | :--: | :------: | :--: |
-| Llama3-8b | Atlas 800T A2 |  单节点  | 单卡 |
+|    模型     |      硬件       | 全量微调 | 推理 |
+|:---------:|:-------------:|:----:|:--:|
+| Llama3-8b | Atlas 800T A2 | 单节点  | 单卡 |
 
 ### 数据集准备
 

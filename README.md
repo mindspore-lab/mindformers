@@ -32,6 +32,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 |                         模型                         | model name                                                         |
 |:--------------------------------------------------:|:-------------------------------------------------------------------|
 |        [LLama2](docs/model_cards/llama2.md)        | llama2_7b, llama2_13b, llama2_7b_lora, llama2_13b_lora, llama2_70b |
+|        [LLama3](research/llama3/llama3.md)         | llama3_8b                                                          |
 |          [GLM2](docs/model_cards/glm2.md)          | glm2_6b, glm2_6b_lora                                              |
 |          [GLM3](docs/model_cards/glm3.md)          | glm3_6b, glm3_6b_lora                                              |
 |          [GPT2](docs/model_cards/gpt2.md)          | gpt2, gpt2_13b                                                     |

@@ -41,6 +41,8 @@ KnowLM-13B-Base以 LlaMA-13B 为基础，使用中英文双语数据进行了二
 
 ## 快速使用
 
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
+
 ### KnowLM-13B-ZhiXi 预训练权重转换
 
 从huggingface下载[KnowLM-13B-ZhiXi](https://huggingface.co/zjunlp/knowlm-13b-zhixi/tree/main);把文件全部下载下来
