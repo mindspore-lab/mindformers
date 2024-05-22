@@ -26,6 +26,7 @@ from mindspore.communication.management import init
 from mindspore.common.initializer import Zero
 from mindspore._c_expression import swap_cache
 
+from mindformers import models
 from mindformers import build_context, logger, build_parallel_config, GenerationConfig, AutoModel, AutoConfig
 from mindformers.models.build_config import build_model_config
 from mindformers.models.utils import convert_mstype
@@ -37,7 +38,7 @@ __all__ = ["ModelRunner"]
 
 class ModelRunner:
     """
-    ModelRunner supports MF to be a backend of MindIEServer.
+    ModelRunner API, supports MF to be a backend of MindIEServer.
 
     Args:
         model_path (str):
@@ -54,14 +55,56 @@ class ModelRunner:
             Rank size used for infer.
         npu_device_ids (list[int]):
             Get npu_device_ids from MindIE config.
+
+    Returns:
+        A MindIERunner object.
     """
 
-    def __init__(self, model_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0, world_size=1,
+    def __new__(cls, model_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0, world_size=1,
+                npu_device_ids=None):
+        experiment_mode, config = _get_model_config(model_path)
+        model_type = config.model.arch.type if not experiment_mode else config.architectures[0]
+        logger.info(f"The model type is: {model_type}")
+        model_runner_cls = MindIEModelRunner
+        if model_type not in models.__all__:
+            try:
+                model_runner_cls = __import__(model_type, ["MindIEModelRunner"]).MindIEModelRunner
+            except ImportError:
+                logger.info(f"import MindIEModelRunner from module {model_type} failed, "
+                            f"and will use the default one defined in mindformers.")
+
+        model_runner = model_runner_cls(experiment_mode, config, npu_mem_size, cpu_mem_size, block_size, rank_id,
+                                        world_size, npu_device_ids)
+        return model_runner
+
+
+class MindIEModelRunner:
+    """
+    Implementation of ModelRunner.
+
+    Args:
+        experiment_mode (bool):
+            Is experiment model.
+        model_config (PretrainedConfig):
+            Model config.
+        npu_mem_size (int):
+            Npu memory size used for kv-cache.
+        cpu_mem_size (int):
+            Cpu memory size used for kv-cache.
+        block_size (int):
+            Block size used for kv-cache.
+        rank_id (int):
+            Rank id used for infer.
+        world_size (int):
+            Rank size used for infer.
+        npu_device_ids (list[int]):
+            Get npu_device_ids from MindIE config.
+    """
+
+    def __init__(self, experiment_mode, model_config, npu_mem_size, cpu_mem_size, block_size, rank_id=0, world_size=1,
                  npu_device_ids=None):
-        self.config = None
-        self.model_config = None
-        self.generation_config = None
-        self.experiment_mode = False
+        self.experiment_mode = experiment_mode
+        self.config = None if experiment_mode else model_config
         self.post_processor = LogitsProcessorAcceleration()
 
         # parallel predict with dynamic cluster.
@@ -72,25 +115,6 @@ class ModelRunner:
                 os.environ['MS_ROLE'] = 'MS_SCHED'
                 init()
 
-        if os.path.isdir(model_path):
-            json_list = [file for file in os.listdir(model_path)
-                         if file.endswith("config.json")]
-            yaml_list = [file for file in os.listdir(model_path)
-                         if file.endswith(".yaml")]
-            if yaml_list:
-                yaml_path = os.path.join(model_path, yaml_list[0])
-                self.config = MindFormerConfig(yaml_path)
-                self.config.model.model_config.block_size = block_size
-                self.model_config = build_model_config(self.config.model.model_config)
-            elif json_list:
-                self.model_config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
-                self.model_config.block_size = block_size
-                self.experiment_mode = True
-            else:
-                raise FileNotFoundError(f"There is no yaml file nor config.json file for model config in {model_path}.")
-        else:
-            raise ValueError(f"The path {model_path} is not exist.")
-
         if world_size > 1:
             if not self.experiment_mode:
                 self.config.use_parallel = True
@@ -98,6 +122,7 @@ class ModelRunner:
                 raise SystemError(f"You are running in experiment mode. World size can only be 1, "
                                   f"but got world_size = {world_size}")
 
+        self.model_config = build_model_config(self.config.model.model_config) if not experiment_mode else model_config
         self.num_layers = self.model_config.num_layers
         n_kv_heads = self.model_config.num_heads if self.model_config.n_kv_heads is None \
             else self.model_config.n_kv_heads
@@ -108,6 +133,7 @@ class ModelRunner:
         self.cpu_num_blocks = (cpu_mem_size * 1024 * 1024 * 1024) // \
                               (block_size * n_kv_heads * head_dim * 2 * 2 * self.num_layers)
         self.model_config.num_blocks = self.npu_num_blocks
+        self.model_config.block_size = block_size
 
         self.generation_config = GenerationConfig.from_model_config(self.model_config)
 
@@ -124,6 +150,7 @@ class ModelRunner:
 
             build_context(self.config)
             logger.info(f"Build context finished.")
+            self.config.model.model_config.block_size = block_size
             self.config.model.model_config.num_blocks = self.npu_num_blocks
             self.model = AutoModel.from_config(self.config)
             logger.info(f"Create model finished.")
@@ -282,6 +309,7 @@ class ModelRunner:
             swap_cache(self.key_host[i], key_cache, ms.Tensor(block_tables), swap_type)
             swap_cache(self.value_host[i], value_cache, ms.Tensor(block_tables), swap_type)
 
+
 def _the_same_sample_parmas(generation_config):
     """
     Check if the sample parameters are all the same.
@@ -289,7 +317,7 @@ def _the_same_sample_parmas(generation_config):
     Args:
         generation_config: dict of generation config contains dosample parameters.
 
-    Return:
+    Returns:
          Bool value indicates if all sample parameters the same.
     """
 
@@ -300,3 +328,34 @@ def _the_same_sample_parmas(generation_config):
     repetition_penalty = generation_config.get("repetition_penalty")
     return np.all(do_sample == do_sample[0]) and np.all(temperature == temperature[0]) and np.all(top_k == top_k[0]) \
             and np.all(top_p == top_p[0]) and np.all(repetition_penalty == repetition_penalty[0])
+
+
+def _get_model_config(model_path):
+    """
+    Get model config from the config file.
+
+    Args:
+        model_path: path of model config file.
+
+    Returns:
+         experiment_mode, model_config.
+    """
+
+    experiment_mode = False
+    if os.path.isdir(model_path):
+        json_list = [file for file in os.listdir(model_path)
+                     if file.endswith("config.json")]
+        yaml_list = [file for file in os.listdir(model_path)
+                     if file.endswith(".yaml")]
+        if yaml_list:
+            yaml_path = os.path.join(model_path, yaml_list[0])
+            model_config = MindFormerConfig(yaml_path)
+        elif json_list:
+            model_config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
+            experiment_mode = True
+        else:
+            raise FileNotFoundError(f"There is no yaml file nor config.json file for model config in {model_path}.")
+    else:
+        raise ValueError(f"The path {model_path} is not exist.")
+
+    return experiment_mode, model_config
