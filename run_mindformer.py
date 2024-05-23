@@ -112,7 +112,8 @@ if __name__ == "__main__":
         help="if true, when strategy files are saved, system exit. ")
     parser.add_argument(
         '--resume_training', default=None, type=str2bool,
-        help="whether to load training context info, such as optimizer and epoch num")
+        help="Decide whether to resume training or specify the name of the checkpoint "
+             "from which to resume training.")
     parser.add_argument(
         '--strategy_load_checkpoint', default=None, type=str,
         help='path to parallel strategy checkpoint to load, it support real data path or data directory.'

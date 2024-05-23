@@ -113,9 +113,14 @@ class TrainingArguments:
         default=None,
         metadata={"help": "The path to a folder with a valid checkpoint for your model."},
     )
-    resume_training: bool = field(
-        default=False,
-        metadata={"help": "Whether enable resume training."},
+    resume_training: Optional[Union[bool, str]] = field(
+        default=None,
+        metadata={
+            "help": (
+                "Decide whether to resume training or specify the name of the checkpoint "
+                "from which to resume training."
+            )
+        },
     )
     ignore_data_skip: bool = field(
         default=False,
