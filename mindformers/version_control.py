@@ -255,3 +255,9 @@ def check_rmsnorm_big_kernel_valid():
     if check_valid_big_kernel() and not is_910a():
         return True
     return False
+
+
+def use_mint_op():
+    """Check whether ms.mint op is valid or not"""
+    version_info = ms.__version__.split('rc')
+    return is_version_ge(version_info[0], '2.3.0') and ms.__version__ != '2.3.0rc1'

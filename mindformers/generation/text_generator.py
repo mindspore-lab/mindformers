@@ -22,6 +22,7 @@ from typing import Optional, List, Union
 
 import numpy as np
 import mindspore as ms
+from mindspore import mint
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 import mindspore.common.dtype as mstype
@@ -34,6 +35,7 @@ from mindformers.generation.logits_process import (LogitNormalization, LogitsPro
                                                    TemperatureLogitsWarper, TopKLogitsWarper,
                                                    TopPLogitsWarper, MinLengthLogitsProcessor,
                                                    MinNewTokensLengthLogitsProcessor)
+from mindformers import version_control
 from mindformers.generation.streamers import BaseStreamer
 from mindformers.generation.utils import softmax_with_threads, topk
 from mindformers.modules.block_tables import BlockTables
@@ -76,6 +78,7 @@ class GenerationMixin:
     def __init__(self):
         self.block_mgr = None
         self.use_kbk_infer = False
+        self.argmax = mint.argmax if version_control.use_mint_op() else ms.ops.argmax
 
     def _set_block_mgr(self, batch_size):
         """ Set model block table mgr function. """
@@ -1116,7 +1119,7 @@ class GenerationMixin:
                     if isinstance(logits, Tensor):
                         logits = logits.asnumpy()
                     logits = Tensor(logits_processor(input_ids, logits, is_finished))
-                target_list = P.Argmax()(logits)
+                target_list = self.argmax(logits, -1)
                 target_list = target_list.asnumpy().tolist()
             else:
                 probs, p_args = res
