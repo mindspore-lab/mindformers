@@ -22,8 +22,10 @@ from mindpet.delta.ptuning2 import PrefixEncoder
 import numpy as np
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules import VocabEmbedding, EmbeddingOpParallelConfig
+from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.layers import Linear
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
+from mindformers.tools.utils import get_ms_enable_asd_op
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.version_control import get_tril
@@ -64,7 +66,18 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         self.seq_length = config.seq_length
         self.compute_dtype = config.compute_dtype
         self.use_past = config.use_past
+        self.use_flash_attention = config.use_flash_attention
         self.is_first_iteration = True
+        # default open internal kernel boost
+        self.enable_asd_op = get_ms_enable_asd_op()
+        logger.info("enable asd op:{}".format(self.enable_asd_op))
+
+        # mask
+        self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
+                                                          compute_type=config.compute_dtype,
+                                                          is_dynamic=config.is_dynamic,
+                                                          pad_token_id=config.pad_token_id,
+                                                          use_flash_attention=config.use_flash_attention)
 
         # vocab embedding
         embed_parallel_config = EmbeddingOpParallelConfig()
@@ -132,17 +145,28 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         """ChatGLM2 model."""
         _ = position_ids
         batch_size, _ = input_ids.shape
+
+        mask = None
+        if self.use_past:
+            if self.is_first_iteration:
+                if self.use_flash_attention:
+                    if self.enable_asd_op:
+                        mask = self.casual_mask(input_ids)  # mask: [bs, seq, seq]
+                        mask = self.cast(mask, mstype.float16)
+                else:
+                    mask = self.casual_mask(input_ids)  # mask: [bs, seq, seq]
+        else:
+            if full_attention_mask is None:
+                # (bs, 1, seq_len, seq_len)
+                full_attention_mask = self.get_masks(batch_size, attention_mask, input_position)
+                full_attention_mask = full_attention_mask.type(mstype.uint8)
+            mask = full_attention_mask
         if input_embeds is None:
             input_embeds, _ = self.embedding(input_ids)  # (bs, seq_len, hs)
 
-        if full_attention_mask is None:
-            # (bs, 1, seq_len, seq_len)
-            full_attention_mask = self.get_masks(batch_size, attention_mask, input_position)
-            full_attention_mask = full_attention_mask.type(mstype.uint8)
-
         # Run encoder.
         hidden_states = self.encoder(
-            input_embeds, full_attention_mask, self.rotary_pos_emb,
+            input_embeds, mask, self.rotary_pos_emb,
             batch_valid_length=batch_valid_length, prefix_key_values=prefix_key_values, block_tables=block_tables,
             slot_mapping=slot_mapping)
         return hidden_states
