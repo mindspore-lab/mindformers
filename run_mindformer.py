@@ -151,7 +151,7 @@ def main(config):
             logger.warning(f"`resume_training={config.resume_training}` is not valid "
                            "when `load_checkpoint` is a file path.")
             config.resume_training = True
-        elif os.path.isdir(config.load_checkpoint) and has_shared_disk():
+        elif os.path.isdir(config.load_checkpoint):
             config.resume_training = get_resume_checkpoint(
                 checkpoint_dir=config.load_checkpoint,
                 resume_training=config.resume_training
