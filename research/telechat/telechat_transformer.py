@@ -16,11 +16,6 @@
 from typing import Tuple, Optional
 import math
 
-try:
-    from mindspore._checkparam import Validator
-except ImportError:
-    import mindspore._checkparam as Validator
-
 from mindspore import nn, __version__
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
@@ -33,7 +28,7 @@ from mindformers.tools.logger import logger
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.layers import _check_input_dtype, Dropout, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
-from mindformers.modules import KVCacheMgr
+from mindformers.modules.infer_attention import InferAttention
 from mindformers.models.llama.llama_layer import LlamaRMSNorm
 from telechat_layer import TelechatLinear, TelechatFeedForward
 
@@ -42,10 +37,6 @@ class TelechatAttention(nn.Cell):
     This is an implementation of multihead attention in Telechat.
 
     Args:
-            - **batch_size** (int): The batch size of the input tensor when do increnmental prediction. Should be a
-                positive value.
-                When do training or prediction, the argument will not work and the user can just pass None to the
-                argument.
             - **src_seq_length** (int): The sequence length of the query vector.
             - **tgt_seq_length** (int): The sequence length of the key and value vector.
             - **dim** (int): The hidden size of the input.
@@ -86,7 +77,8 @@ class TelechatAttention(nn.Cell):
                 Default None.
             - **batch_valid_length** (Tensor) - Int32 tensor with shape (batch_size,) the past calculated the index.
                 Used for incremental prediction when the use_past is True. Default None.
-
+            - **block_tables** (Tensor[int64]) - Store mapping tables for each sequence.
+            - **slot_mapping** (Tensor[int32]) - Store token cache physical slot index.
     Outputs:
             Tuple, a tuple contains(`output`, `layer_present`)
 
@@ -99,7 +91,6 @@ class TelechatAttention(nn.Cell):
                 (batch_size, num_heads, tgt_seq_length, head_dim)).
     """
     def __init__(self,
-                 batch_size,
                  seq_length,
                  dim: int = 512,
                  n_heads: int = 8,
@@ -113,10 +104,10 @@ class TelechatAttention(nn.Cell):
                  qkv_has_bias=False,
                  use_past=False,
                  is_dynamic=False,
-                 use_kvcache_op=False,
-                 is_flexible_shape=False,
                  use_rope_slice=False,
                  use_flash_attention=False,
+                 block_size: Optional[int] = None,
+                 num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
         self.seq_length = seq_length
@@ -128,6 +119,8 @@ class TelechatAttention(nn.Cell):
         self.n_kv_head = n_heads if n_kv_heads is None else n_kv_heads
         self.n_rep = self.n_head // self.n_kv_head
         self.kv_dim = self.n_kv_head * self.head_dim
+        self.block_size = block_size
+        self.num_blocks = num_blocks
 
         self.dtype = compute_dtype
         self.softmax_dtype = softmax_compute_dtype
@@ -226,58 +219,51 @@ class TelechatAttention(nn.Cell):
             self.flash_attention.shard(parallel_config)
 
         if self.use_past:
-            self.kvcache_mgr = KVCacheMgr(self.n_kv_head, self.head_dim,
-                                          max_batch_size=batch_size,
-                                          max_seq_length=seq_length,
-                                          compute_dtype=compute_dtype,
-                                          is_dynamic=is_dynamic,
-                                          use_kvcache_op=use_kvcache_op,
-                                          is_flexible_shape=is_flexible_shape)
-            self.kvcache_mgr.shard(parallel_config)
+            self.infer_attention = InferAttention(self.n_head,
+                                                  self.head_dim,
+                                                  self.n_kv_head,
+                                                  pa_n_head_split=self.n_head // mp,
+                                                  pa_n_kv_head_split=self.n_kv_head // mp,
+                                                  scale_value=1. / math.sqrt(self.head_dim),
+                                                  pre_tokens=65536,
+                                                  next_tokens=0,
+                                                  block_size=self.block_size,
+                                                  num_blocks=self.num_blocks,
+                                                  use_flash_attention=self.use_flash_attention,
+                                                  rotary_cos_format=2,
+                                                  rotary_dtype=rotary_dtype,
+                                                  compute_dtype=compute_dtype)
 
-    def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, kvcache_inputs=None):
+    def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
+                  block_tables=None, slot_mapping=None):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
         bs, seq_len, _ = self.shape(x)
-        # [bs * seq/1, hidden_dim]
         query = self.cast(self.wq(x), self.dtype)  # dp, 1 -> dp, mp
-        key_value = self.cast(self.wk_v(x), self.dtype)  # dp, 1 -> dp, mp
-
-        key_value = self.reshape(key_value, (seq_len, -1, self.n_kv_head, self.head_dim * 2))
+        key_value = self.cast(self.wk_v(x), self.dtype)
         key, value = self.split(key_value)
 
-        if self.use_past and not self.is_first_iteration:
-            query = self.reshape(query, (bs, self.n_head, 1, self.head_dim))
-            key = self.reshape(key, (bs, self.n_kv_head, 1, self.head_dim))
-            value = self.reshape(value, (bs, self.n_kv_head, 1, self.head_dim))
-        else:
-            query = self.reshape(query, (bs, seq_len, self.n_head, self.head_dim))
-            key = self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim))
-            value = self.reshape(value, (bs, seq_len, self.n_kv_head, self.head_dim))
-            # [bs, seq/1, n_head/n_kv_head, head_dim]
-            query = self.transpose(query, (0, 2, 1, 3))
-            key = self.transpose(key, (0, 2, 1, 3))
-            value = self.transpose(value, (0, 2, 1, 3))
-        # [bs, n_head/n_kv_head, seq/1, head_dim]
-        query, key = self.apply_rotary_emb(query, key, freqs_cis) # dp, mp, 1, 1
-        # kv cache: [bs, n_kv_head, 1, head_dim] -> [bs, n_kv_head, seq, head_dim]
+        # key and value for current token(s)
         if self.use_past:
-            key, value = self.kvcache_mgr(key, value, kvcache_inputs)
-        # kv share: [bs, n_kv_head, seq, head_dim] -> [bs, n_head, seq, head_dim]
-        key = self._repeat_kv(key, self.n_rep)
-        value = self._repeat_kv(value, self.n_rep)
-        # q, k, v: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim], [bs, n_head, seq, head_dim]
-        if self.use_flash_attention:
-            mask = self.cast(mask, mstype.uint8)
-            attention = self.flash_attention(query, key, value, mask)
-            attention = self._merge_heads(attention)
+            context_layer = self.infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping,
+                                                 freqs_cis, mask)
         else:
-            attention = self._attn(query, key, value, mask)
-        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
-        output = self.wo(attention) # dp, mp -> dp, 1 / dp * mp, 1
-        output = self.cast(output, ori_dtype)
+            query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
+            key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+            value = self.transpose(self.reshape(value, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+            query, key = self.apply_rotary_emb(query, key, freqs_cis)  # dp, mp, 1, 1
+            if self.use_flash_attention:
+                context_layer = self.flash_attention(query, key, value, mask)
+                context_layer = self._merge_heads(context_layer)
+            else:
+                key = self._repeat_kv(key, self.n_rep)
+                value = self._repeat_kv(value, self.n_rep)
+                context_layer = self._attn(query, key, value, mask)
 
+        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        output = self.wo(context_layer)  # dp, mp -> dp, 1 / dp * mp, 1
+        output = self.cast(output, ori_dtype)
         return output
 
     def _repeat_kv(self, x, rep):
@@ -343,9 +329,6 @@ class TelechatDecodeLayer(nn.Cell):
         encoder layer, including multihead attention and feedward layer.
 
         Args:
-            batch_size(int): The batch size of the input tensor when do increnmental prediction. Should be a positive
-                value. When do training or prediction, the argument will not work and the user can just pass None to
-                the argument.
             seq_length(int): The input sequence length.
             layer_id(int): The layer id of current transformer block layer.
             dim(int): The hidden size of the input.
@@ -383,7 +366,8 @@ class TelechatDecodeLayer(nn.Cell):
               past value parameter used in the incremental prediction. Only valid when use_past is True. Default True.
             - **batch_valid_length** (Tensor) - Int32 tensor with shape [batch_size] the past calculated the index.
               Used for incremental prediction when the use_past is True. Default None.
-
+            - **block_tables** (Tensor[int64]) - Store mapping tables for each sequence.
+            - **slot_mapping** (Tensor[int32]) - Store token cache physical slot index.
         Outputs:
             Tuple, a tuple contains(`output`, `layer_present`).
 
@@ -397,7 +381,6 @@ class TelechatDecodeLayer(nn.Cell):
 
     """
     def __init__(self,
-                 batch_size,
                  seq_length,
                  layer_id,
                  dim: int = 512,
@@ -416,16 +399,12 @@ class TelechatDecodeLayer(nn.Cell):
                  qkv_has_bias=False,
                  use_past=False,
                  is_dynamic=False,
-                 use_kvcache_op=False,
-                 is_flexible_shape=False,
                  use_rope_slice=False,
                  use_flash_attention=False,
+                 block_size: Optional[int] = None,
+                 num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
-        if batch_size or use_past:
-            Validator.check_positive_int(batch_size)
-        self.batch_size = batch_size
-
         self.seq_length = seq_length
         self.layer_id = layer_id
         self.hidden_size = dim
@@ -443,8 +422,7 @@ class TelechatDecodeLayer(nn.Cell):
         self.add = P.Add()
         self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
-        self.attention = TelechatAttention(batch_size=batch_size,
-                                           seq_length=seq_length,
+        self.attention = TelechatAttention(seq_length=seq_length,
                                            dim=dim,
                                            n_heads=n_heads,
                                            hidden_dropout_prob=hidden_dropout_prob,
@@ -457,10 +435,10 @@ class TelechatDecodeLayer(nn.Cell):
                                            qkv_has_bias=qkv_has_bias,
                                            use_past=use_past,
                                            is_dynamic=is_dynamic,
-                                           use_kvcache_op=use_kvcache_op,
-                                           is_flexible_shape=is_flexible_shape,
                                            use_rope_slice=use_rope_slice,
                                            use_flash_attention=use_flash_attention,
+                                           block_size=block_size,
+                                           num_blocks=num_blocks,
                                            parallel_config=parallel_config)
         self.feed_forward = TelechatFeedForward(dim=self.hidden_size,
                                                 intermediate_size=intermediate_size,
@@ -486,13 +464,13 @@ class TelechatDecodeLayer(nn.Cell):
             self.ffn_norm.shard((dp, mp, 1))
             self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
 
-    def construct(self, x, freqs_cis, mask=None, kvcache_inputs=None):
+    def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None):
         """ Forward of transformer block. """
         self._check_input(x, freqs_cis, mask)
         # [bs, seq/1, hidden_dim]
         input_x = self.attention_norm(x)
         # [bs, seq/1, hidden_dim]
-        h = self.attention(input_x, freqs_cis, mask, kvcache_inputs)
+        h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables, slot_mapping)
         h = self.add(x, h)
         ffn_norm = self.ffn_norm(h)
         # [bs, seq/1, hidden_dim]

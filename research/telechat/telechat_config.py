@@ -117,8 +117,6 @@ class TelechatConfig(PretrainedConfig):
                  extend_method: str = "None",
                  scaling_factor: float = 1.0,
                  is_dynamic: bool = False,
-                 use_kvcache_op: bool = False,
-                 is_flexible_shape: bool = False,
                  use_rope_slice: bool = False,
                  use_flash_attention: bool = False,
                  fine_grain_interleave: int = 1,
@@ -126,6 +124,8 @@ class TelechatConfig(PretrainedConfig):
                  checkpoint_name_or_path: str = "",
                  repetition_penalty: float = 1.0,
                  max_decode_length: int = 1024,
+                 block_size: int = 16,
+                 num_blocks: int = 512,
                  top_k: int = 5,
                  top_p: float = 1.0,
                  do_sample: bool = True,
@@ -160,8 +160,6 @@ class TelechatConfig(PretrainedConfig):
         self.extend_method = extend_method
         self.scaling_factor = scaling_factor
         self.is_dynamic = is_dynamic
-        self.use_kvcache_op = use_kvcache_op
-        self.is_flexible_shape = is_flexible_shape
         self.use_rope_slice = use_rope_slice
         self.use_flash_attention = use_flash_attention
         self.fine_grain_interleave = fine_grain_interleave
@@ -172,3 +170,5 @@ class TelechatConfig(PretrainedConfig):
         self.top_p = top_p
         self.do_sample = do_sample
         self.theta = theta
+        self.block_size = block_size
+        self.num_blocks = num_blocks
