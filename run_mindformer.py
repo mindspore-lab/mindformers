@@ -24,13 +24,20 @@ from mindspore.common import set_seed
 
 from mindformers.tools.register import MindFormerConfig, ActionDict
 from mindformers.core.parallel_config import build_parallel_config
-from mindformers.tools.utils import str2bool, set_remote_save_url, check_in_modelarts, \
-                                    parse_value, check_shared_disk
 from mindformers.core.context import build_context, build_profile_cb
 from mindformers.trainer import build_trainer
 from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.tools.logger import logger
-from mindformers.tools import set_output_path, get_output_root_path
+from mindformers.tools.utils import (
+    str2bool,
+    set_remote_save_url,
+    check_in_modelarts,
+    parse_value,
+    set_output_path,
+    get_output_root_path,
+    has_shared_disk
+)
+from mindformers.tools.resume_ckpt import get_resume_checkpoint
 from mindformers.mindformer_book import MindFormerBook
 
 if check_in_modelarts():
@@ -133,12 +140,22 @@ def main(config):
         config.profile_cb = build_profile_cb(config)
 
     if config.auto_trans_ckpt:
-        if config.device_num <= 8 or check_shared_disk(config.output_dir) or check_in_modelarts():
-            clear_auto_trans_output(config)
-        else:
+        if not has_shared_disk():
             raise ValueError("When device num > 8 and auto_trans_ckpt is set to True,"
                              "the output_dir should be a shared directory that can be accessed by all nodes."
                              f"but {os.path.abspath(config.output_dir)} is not a shared directory.")
+        clear_auto_trans_output(config)
+
+    if config.resume_training:
+        if os.path.isfile(config.load_checkpoint) and isinstance(config.resume_training, str):
+            logger.warning(f"`resume_training={config.resume_training}` is not valid "
+                           "when `load_checkpoint` is a file path.")
+            config.resume_training = True
+        elif os.path.isdir(config.load_checkpoint) and has_shared_disk():
+            config.resume_training = get_resume_checkpoint(
+                checkpoint_dir=config.load_checkpoint,
+                resume_training=config.resume_training
+            )
 
     create_task_trainer(config)
 
@@ -209,7 +226,8 @@ if __name__ == "__main__":
         help="if true, when strategy files are saved, system exit. ")
     parser.add_argument(
         '--resume_training', default=None, type=str2bool,
-        help="whether to load training context info, such as optimizer and epoch num")
+        help="Decide whether to resume training or specify the name of the checkpoint "
+             "from which to resume training.")
     parser.add_argument(
         '--strategy_load_checkpoint', default=None, type=str,
         help='path to parallel strategy checkpoint to load, it support real data path or data directory.'

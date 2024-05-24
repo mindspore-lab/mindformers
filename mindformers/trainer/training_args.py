@@ -138,8 +138,14 @@ class TrainingArguments:
     auto_trans_ckpt: bool = field(
         default=None, metadata={"help": "Whether to transform checkpoint according to parallel config. "}
     )
-    resume_training: bool = field(
-        default=None, metadata={"help": "Whether to load training context info, such as optimizer and epoch num. "}
+    resume_training: Optional[Union[bool, str]] = field(
+        default=None,
+        metadata={
+            "help": (
+                "Decide whether to resume training or specify the name of the checkpoint "
+                "from which to resume training."
+            )
+        },
     )
     do_eval: bool = field(
         default=None, metadata={"help": "Whether to eval current model while Training. "}

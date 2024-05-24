@@ -31,8 +31,14 @@ from mindspore import set_seed as ms_set_seed
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.tools.register import MindFormerConfig
-from mindformers.tools.utils import check_in_modelarts, get_output_root_path, \
-                                    replace_tk_to_mindpet, check_shared_disk
+from mindformers.tools.utils import (
+    check_in_modelarts,
+    get_output_root_path,
+    replace_tk_to_mindpet,
+    check_shared_disk,
+    get_remote_save_url,
+    remove_folder
+)
 from mindformers.tools.transform_ckpt import get_strategy
 from mindformers.tools.cloud_adapter import mox_adapter
 
@@ -266,11 +272,15 @@ def load_resume_context_from_checkpoint(config, dataset):
         raise FileNotFoundError(f"The load_checkpoint must be correct, "
                                 f"but get {config.load_checkpoint}")
 
-    if os.path.isdir(config.load_checkpoint):
+    if os.path.isdir(config.load_checkpoint) and not isinstance(config.resume_training, str):
         resume_dict = load_distributed_checkpoint(config.load_checkpoint,
                                                   choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num"])
     else:
-        resume_dict = load_checkpoint(config.load_checkpoint,
+        if isinstance(config.resume_training, str):
+            checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{get_real_rank()}", config.resume_training)
+        else:
+            checkpoint_tmp = config.load_checkpoint
+        resume_dict = load_checkpoint(checkpoint_tmp,
                                       choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num"])
 
     if "step_num" in resume_dict:
@@ -296,6 +306,15 @@ def load_resume_context_from_checkpoint(config, dataset):
                 else:
                     config.runner_wrapper.scale_sense = resume_dict["loss_scale"]
             break
+
+
+def delete_resume_record_dir():
+    """delete resume record dir"""
+    if check_in_modelarts():
+        resume_record_dir = os.path.join(get_remote_save_url(), "resume_record")
+    else:
+        resume_record_dir = os.path.join(get_output_root_path(), "resume_record")
+    remove_folder(resume_record_dir)
 
 
 def transform_and_load_checkpoint(config, model, network, dataset, optimizer=None, do_eval=False, do_predict=False):
@@ -728,7 +747,10 @@ def load_ckpt(config, network, optimizer=None):
         elif os.path.isfile(config.load_checkpoint) and config.load_checkpoint.endswith('.ckpt'):
             checkpoint_dict = load_checkpoint(config.load_checkpoint)
         elif os.path.isdir(config.load_checkpoint) and check_rank_folders(config.load_checkpoint, rank_id):
-            if config.use_parallel:
+            if isinstance(config.resume_training, str):
+                checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{rank_id}", config.resume_training)
+                checkpoint_dict = load_checkpoint(checkpoint_tmp)
+            elif config.use_parallel:
                 checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint)
             else:
                 checkpoint_dict = load_checkpoint(get_last_checkpoint(os.path.join(config.load_checkpoint,

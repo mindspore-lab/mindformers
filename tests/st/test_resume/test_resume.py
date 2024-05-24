@@ -31,6 +31,7 @@ from mindformers.models.gpt2 import GPT2LMHeadModel, GPT2Config
 from mindformers.core.lr import WarmUpDecayLR
 from mindformers import CheckpointMointor, TrainingArguments
 from mindformers.core.optim import FusedAdamWeightDecay
+from utils import extract_loss_values
 
 ms.set_context(mode=0)
 
@@ -38,6 +39,7 @@ ms.set_context(mode=0)
 def generator():
     """dataset generator"""
     seq_len = 1025
+    np.random.seed(42)
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
     input_mask = np.ones_like(input_ids)
     train_data = (input_ids, input_mask)
@@ -115,3 +117,31 @@ def test_gpt_trainer_train_from_instance():
                          task="text_generation")
     lm_trainer.train(train_checkpoint=os.path.join(LOCAL_DEFAULT_PATH, "test_resume", "checkpoint"),
                      resume_training=True)
+
+    # Dataset and operations
+    dataset = GeneratorDataset(generator, column_names=["input_ids", "input_mask"])
+    dataset = dataset.batch(batch_size=8)
+
+    # callback
+    loss_cb = LossMonitor(per_print_times=2)
+    time_cb = TimeMonitor()
+    ckpt_cb = CheckpointMointor(directory=os.path.join(LOCAL_DEFAULT_PATH, "test_resume"))
+    callbacks = [loss_cb, time_cb, ckpt_cb]
+
+    lm_trainer = Trainer(model=gpt_model,
+                         args=config,
+                         optimizers=optimizer,
+                         train_dataset=dataset,
+                         callbacks=callbacks,
+                         task="text_generation")
+    lm_trainer.train(train_checkpoint=os.path.join(LOCAL_DEFAULT_PATH, "test_resume", "checkpoint"),
+                     resume_training=output_checkpoint_path[-1])
+    loss = extract_loss_values(f"{LOCAL_DEFAULT_PATH}/log/rank_0/info.log")
+    assert abs(loss[2] - loss[4]) < 0.005
+    assert abs(loss[3] - loss[5]) < 0.005
+
+    assert abs(loss[2] - loss[6]) < 0.005
+    assert abs(loss[3] - loss[7]) < 0.005
+
+    assert abs(loss[4] - loss[6]) < 0.005
+    assert abs(loss[5] - loss[7]) < 0.005
