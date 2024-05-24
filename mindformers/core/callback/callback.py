@@ -16,6 +16,7 @@
 import json
 import os
 import time
+import tempfile
 import datetime
 
 from collections import OrderedDict
@@ -646,17 +647,15 @@ class CheckpointMointor(ModelCheckpoint):
 
     def record_last_ckpt_to_json(self, epoch, step, ckpt_file):
         """record last ckpt info to json"""
-        if os.path.exists(self.meta_json):
-            with open(self.meta_json, "r") as json_file:
-                meta_data = json.load(json_file)
-        else:
-            meta_data = {}
-
-        meta_data["last_epoch"] = epoch
-        meta_data["last_step"] = step
-        meta_data["last_ckpt_file"] = ckpt_file
-        with open(self.meta_json, "w") as json_file:
-            json.dump(meta_data, json_file)
+        meta_data = {
+            "last_epoch": epoch,
+            "last_step": step,
+            "last_ckpt_file": ckpt_file
+        }
+        with tempfile.NamedTemporaryFile('w', delete=False, dir=self._directory) as temp_file:
+            json.dump(meta_data, temp_file)
+            temp_file_path = temp_file.name
+        os.replace(temp_file_path, self.meta_json)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)

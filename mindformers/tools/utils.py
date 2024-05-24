@@ -478,6 +478,13 @@ def is_main_rank():
     return not get_real_rank() or (check_in_modelarts() and int(os.getenv('DEVICE_ID', '0')) == 0)
 
 
+def has_shared_disk():
+    if get_real_group_size() <= get_device_num_per_node() or \
+        check_shared_disk(get_output_root_path()) or check_in_modelarts():
+        return True
+    return False
+
+
 def remake_folder(folder_path, permissions):
     """make folder"""
     remaked_txt = os.path.join(folder_path, "remaked.txt")

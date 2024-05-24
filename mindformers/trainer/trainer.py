@@ -14,7 +14,6 @@
 # ============================================================================
 """Trainer API For Import."""
 import os
-import json
 import copy
 import shutil
 from pathlib import Path
@@ -48,22 +47,17 @@ from mindformers.tools.utils import (
     set_output_path,
     set_strategy_save_path,
     check_in_modelarts,
-    check_shared_disk,
     get_real_rank,
     get_real_group_size,
     set_remote_save_url,
-    get_remote_save_url,
     get_output_root_path,
-    create_flag_txt,
-    remake_folder,
-    remove_folder,
-    get_epoch_and_step_from_ckpt_name,
-    get_rank_id_from_ckpt_name,
-    replace_rank_id_in_ckpt_name,
-    get_device_num_per_node)
+    get_device_num_per_node,
+    has_shared_disk
+)
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.register.config import ordered_yaml_dump
+from mindformers.tools.resume_ckpt import get_resume_checkpoint
 from .build_trainer import build_trainer
 from .training_args import TrainingArguments
 from .utils import config2dict
@@ -429,7 +423,7 @@ class Trainer:
         self._init_model(is_train=True)
 
         if self.config.resume_training and os.path.isdir(self.config.load_checkpoint):
-            self.config.resume_training = self.get_resume_checkpoint(
+            self.config.resume_training = get_resume_checkpoint(
                 checkpoint_dir=self.config.load_checkpoint,
                 resume_training=self.config.resume_training
             )
@@ -543,7 +537,7 @@ class Trainer:
         self._init_model(is_train=True)
 
         if self.config.resume_training and os.path.isdir(self.config.load_checkpoint):
-            self.config.resume_training = self.get_resume_checkpoint(
+            self.config.resume_training = get_resume_checkpoint(
                 checkpoint_dir=self.config.load_checkpoint,
                 resume_training=self.config.resume_training
             )
@@ -1224,19 +1218,12 @@ class Trainer:
 
     def _check_config_rules(self):
         """Check config rules."""
-        if self.config.device_num > get_device_num_per_node() \
-            and not check_shared_disk(self.config.output_dir) and not check_in_modelarts():
-            if self.config.auto_trans_ckpt:
+        if self.config.auto_trans_ckpt:
+            if not has_shared_disk():
                 raise ValueError(f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True,"
                                  "the output_dir should be a shared directory that can be accessed by all nodes."
                                  f"but {os.path.abspath(self.config.output_dir)} is not a shared directory.")
-            if self.config.resume_training and isinstance(self.config.resume_training, str):
-                logger.warning(f"`resume_training={self.config.resume_training}` is not support specify checkpoint "
-                               f"when device num > {get_device_num_per_node()} and not use shared disk.")
-                self.config.resume_training = True
-        else:
-            if self.config.auto_trans_ckpt:
-                clear_auto_trans_output(self.config.remote_save_url)
+            clear_auto_trans_output(self.config.remote_save_url)
 
         if (self.config.auto_trans_ckpt or self.config.resume_training) and not self.config.load_checkpoint:
             if self.config.model and self.config.model.model_config.checkpoint_name_or_path:
@@ -1340,169 +1327,6 @@ class Trainer:
             ignore_patterns=["_*", f"{PREFIX_CHECKPOINT_DIR}-*", "transformed_checkpoint"],
         )
 
-    def get_resume_checkpoint(self, checkpoint_dir, resume_training):
-        """get final checkpoint for resume training."""
-        if isinstance(resume_training, str):
-            if not resume_training.endswith(".ckpt"):
-                resume_training = resume_training + ".ckpt"
-            resume_training = replace_rank_id_in_ckpt_name(resume_training, self.rank_id)
-            logger.info("Specify resume checkpoint: %s", \
-                os.path.join(checkpoint_dir, f"rank_{self.rank_id}", resume_training))
-            return resume_training
-
-        if self.config.device_num > get_device_num_per_node() and \
-            not check_shared_disk(self.config.output_dir) and not check_in_modelarts():
-            return True
-
-        # 1. get basic resume ckpt file
-        last_epoch = None
-        last_step = None
-        for rank_id in range(self.device_num):
-            meta_json = os.path.join(checkpoint_dir, f"rank_{rank_id}", "meta.json")
-            if not os.path.exists(meta_json):
-                logger.info(f"{meta_json} is not found.")
-                return True
-            with open(meta_json, "r") as json_file:
-                meta_data = json.load(json_file)
-            epoch = meta_data["last_epoch"]
-            step = meta_data["last_step"]
-            if last_epoch is None:
-                last_epoch = epoch
-                last_step = step
-            elif epoch < last_epoch or (epoch == last_epoch and step < last_step):
-                last_epoch = epoch
-                last_step = step
-            last_ckpt_file = meta_data["last_ckpt_file"]
-        ckpt_prefix = last_ckpt_file.split("-")[0]
-        last_ckpt_file = ckpt_prefix + "-" + str(last_epoch) + "_" + str(last_step) + ".ckpt"
-        logger.info("Basic resume checkpoint: %s", last_ckpt_file)
-
-        # 2. get ckpt files suitable for resume training per rank
-        resume_ckpt_list = self.get_resume_ckpt_list(checkpoint_dir, last_ckpt_file)
-
-        # 3. try to load ckpt files and get final resume ckpt file
-        while resume_ckpt_list:
-            current_resume_ckpt = resume_ckpt_list.pop(-1)
-            resume_succeed_txt, resume_failed_txt = self.get_resume_record_txt(current_resume_ckpt)
-            try:
-                load_checkpoint(current_resume_ckpt)
-                create_flag_txt(resume_succeed_txt)
-            # pylint: disable=W0703
-            except BaseException as e:
-                logger.info("Load %s failed due to %s", current_resume_ckpt, str(e))
-                create_flag_txt(resume_failed_txt)
-
-            logger.info("..........wait all rank resume ckpt..........")
-            all_rank_resume_succeed = self.wait_all_rank_load_resume_ckpt(resume_succeed_txt)
-            if all_rank_resume_succeed:
-                logger.info("Final resume checkpoint: %s", current_resume_ckpt)
-                return os.path.split(current_resume_ckpt)[1]
-            if not resume_ckpt_list:
-                # delete resume record
-                remove_folder(os.path.split(resume_succeed_txt)[0])
-                raise ValueError("No checkpoint could be resumed.")
-
-    def get_resume_ckpt_list(self, checkpoint_dir, last_ckpt_file):
-        """
-        get ckpts suitable for resuming, where their rank numbers are intact,
-        epoch and step are consistent, and the path exists.
-        """
-        # get all valid ckpts where the epoch and step values are not greater than those of last_ckpt_file.
-        ckpt_prefix = last_ckpt_file.split("-")[0]
-        last_epoch, last_step = get_epoch_and_step_from_ckpt_name(last_ckpt_file)
-        original_rank = get_rank_id_from_ckpt_name(last_ckpt_file)
-        valid_ckpts = {}
-        for rank_id_tmp in range(self.device_num):
-            ckpt_prefix_tmp = ckpt_prefix.replace(f"rank_{original_rank}", f"rank_{rank_id_tmp}")
-            checkpoint_rank_dir = os.path.join(checkpoint_dir, f"rank_{rank_id_tmp}")
-            assert os.path.exists(checkpoint_rank_dir), f"{checkpoint_rank_dir} is not found!"
-            for ckpt_file in os.listdir(checkpoint_rank_dir):
-                if ckpt_file.startswith(ckpt_prefix_tmp) and ckpt_file.endswith(".ckpt"):
-                    epoch, step = get_epoch_and_step_from_ckpt_name(ckpt_file)
-                    if epoch < last_epoch or (epoch == last_epoch and step <= last_step):
-                        key = str(epoch) + '_' + str(step)
-                        valid_ckpts[key] = [ckpt_file] if not valid_ckpts.get(key) \
-                            else valid_ckpts[key] + [ckpt_file]
-
-        # get ckpts suitable for resuming, where their rank numbers are intact,
-        # epoch and step are consistent, and the path exists.
-        resume_ckpt_list = []
-        for key in valid_ckpts:
-            if self.check_checkpoints_by_rank(valid_ckpts[key], self.device_num):
-                ckpt_file = replace_rank_id_in_ckpt_name(valid_ckpts[key][0], self.rank_id)
-                resume_ckpt = os.path.join(checkpoint_dir, f"rank_{self.rank_id}", ckpt_file)
-                assert os.path.exists(resume_ckpt), f"{resume_ckpt} is not found!"
-                resume_ckpt_list.append(resume_ckpt)
-        if not resume_ckpt_list:
-            raise ValueError("No checkpoint could be resumed.")
-        resume_ckpt_list.sort(key=get_epoch_and_step_from_ckpt_name)
-        logger.info("Find resume-able checkpoints as follow:")
-        for ckpt in resume_ckpt_list:
-            logger.info(ckpt)
-
-        return resume_ckpt_list
-
-    def wait_all_rank_load_resume_ckpt(self, resume_succeed_txt):
-        """wait all rank load resume ckpt"""
-        logger.info("..........wait all rank load resume ckpt..........")
-        resume_dir, resume_name = os.path.split(resume_succeed_txt)
-        resume_succeed_prefix = resume_name.split("_rank_")[0]
-        resume_failed_prefix = resume_succeed_prefix.replace("succeed", "failed")
-        ckpt_prefix = resume_succeed_prefix.split("_succeed")[0]
-        while True:
-            if check_in_modelarts():
-                resume_suceed_txt_list = [file_name for file_name in mox.file.list_directory(resume_dir) \
-                    if file_name.startswith(resume_succeed_prefix)]
-            else:
-                resume_suceed_txt_list = [file_name for file_name in os.listdir(resume_dir) \
-                    if file_name.startswith(resume_succeed_prefix)]
-            if len(resume_suceed_txt_list) == self.device_num:
-                return True
-
-            if check_in_modelarts():
-                resume_failed_txt_list = [file_name for file_name in mox.file.list_directory(resume_dir) \
-                    if file_name.startswith(resume_failed_prefix)]
-            else:
-                resume_failed_txt_list = [file_name for file_name in os.listdir(resume_dir) \
-                    if file_name.startswith(resume_failed_prefix)]
-            if resume_failed_txt_list:
-                logger.info("%s load failed.", ckpt_prefix)
-                return False
-
-    def get_resume_record_txt(self, ckpt_file):
-        """get resume record txt"""
-        ckpt_name = os.path.split(ckpt_file)[1]
-        rank_id = get_rank_id_from_ckpt_name(ckpt_name)
-        txt_name = ckpt_name.replace(f"rank_{rank_id}", "")
-        resume_succeed_txt_name = txt_name.split('.')[0] + f"_succeed_rank_{rank_id}.txt"
-        resume_failed_txt_name = resume_succeed_txt_name.replace("_succeed_", "_failed_")
-
-        if check_in_modelarts():
-            resume_succeed_txt = os.path.join(get_remote_save_url(), "resume_record", resume_succeed_txt_name)
-            resume_failed_txt = os.path.join(get_remote_save_url(), "resume_record", resume_failed_txt_name)
-        else:
-            resume_succeed_txt = os.path.join(get_output_root_path(), "resume_record", resume_succeed_txt_name)
-            resume_failed_txt = os.path.join(get_output_root_path(), "resume_record", resume_failed_txt_name)
-
-        remake_folder(os.path.split(resume_succeed_txt)[0], permissions=0o777)
-        return resume_succeed_txt, resume_failed_txt
-
-    def check_checkpoints_by_rank(self, checkpoints, rank_size):
-        """Check rank number of ckpt in checkpoints are intact."""
-        if not checkpoints:
-            return False
-        checkpoints.sort(key=get_rank_id_from_ckpt_name)
-        rank_id_set = set(map(get_rank_id_from_ckpt_name, checkpoints))
-        if len(rank_id_set) == rank_size and max(rank_id_set) == rank_size - 1:
-            return True
-
-        ori_checkpoint = checkpoints[0]
-        ori_rank_id = get_rank_id_from_ckpt_name(ori_checkpoint)
-        for i in range(rank_size):
-            if i not in rank_id_set:
-                checkpoint = ori_checkpoint.replace(f"rank_{ori_rank_id}", f"rank_{i}")
-                logger.warning("%s is not found.", checkpoint)
-        return False
 
 def _save_config_to_yaml(save_file_path: str = None, save_config: dict = None):
     """
