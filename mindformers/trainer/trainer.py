@@ -41,8 +41,7 @@ from mindformers.tools.utils import (
     set_output_path,
     set_strategy_save_path,
     get_real_rank,
-    get_real_group_size,
-    has_shared_disk
+    get_real_group_size
 )
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
@@ -410,7 +409,7 @@ class Trainer:
                 logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
                                "when `load_checkpoint` is a file path.")
                 self.config.resume_training = True
-            elif os.path.isdir(self.config.load_checkpoint) and has_shared_disk():
+            elif os.path.isdir(self.config.load_checkpoint):
                 self.config.resume_training = get_resume_checkpoint(
                     checkpoint_dir=self.config.load_checkpoint,
                     resume_training=self.config.resume_training
@@ -512,7 +511,7 @@ class Trainer:
                 logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
                                "when `load_checkpoint` is a file path.")
                 self.config.resume_training = True
-            elif os.path.isdir(self.config.load_checkpoint) and has_shared_disk():
+            elif os.path.isdir(self.config.load_checkpoint):
                 self.config.resume_training = get_resume_checkpoint(
                     checkpoint_dir=self.config.load_checkpoint,
                     resume_training=self.config.resume_training

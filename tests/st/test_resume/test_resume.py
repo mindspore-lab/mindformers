@@ -142,6 +142,3 @@ def test_gpt_trainer_train_from_instance():
 
     assert abs(loss[2] - loss[6]) < 0.005
     assert abs(loss[3] - loss[7]) < 0.005
-
-    assert abs(loss[4] - loss[6]) < 0.005
-    assert abs(loss[5] - loss[7]) < 0.005

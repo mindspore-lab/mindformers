@@ -30,6 +30,8 @@ from mindformers.tools.utils import (
     get_rank_id_from_ckpt_name,
     replace_rank_id_in_ckpt_name,
     remake_folder,
+    remove_folder,
+    has_shared_disk
 )
 
 if check_in_modelarts():
@@ -46,6 +48,9 @@ def get_resume_checkpoint(checkpoint_dir, resume_training):
         logger.info("Specify resume checkpoint: %s", \
             os.path.join(checkpoint_dir, f"rank_{rank_id}", resume_training))
         return resume_training
+
+    if not has_shared_disk():
+        return True
 
     # 1. get basic resume ckpt file
     last_epoch = None
