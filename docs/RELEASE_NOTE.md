@@ -1,3 +1,16 @@
+# MindSpore Transformers 1.0.3 RELEASE NOTE
+
+以下为MindSpore Transformers (以下称为MindFormers) 套件 1.0.3 版本的变更日志，相较于1.0.2版本有以下关键新特性。
+
+## 新特性
+
+- 权重保存时，每个rank文件夹单独维护meta.json用以记录最后保存的权重epoch, step和权重文件名。
+- 断点续训支持`resume_training`配置为权重路径或权重文件名，来指定基于特定epoch_step的权重进行断点续训。
+- 共享盘场景下，断点续训配置`resume_training`为`True`时，默认基于meta.json记录的权重进行续训（任一rank文件夹下存在meta.json即可），若权重加载失败，会自动搜寻上一step的权重进行续训。
+- 共享盘场景下，断点续训配置`resume_training`为`True`时，若不存在meta.json，将加载最后时间戳的权重用于断点续训，前提是所有rank下最后时间戳权重的名称校验一致（除名称中的rank id外），比如llama_7b_rank_0-3_2.ckpt和llama_7b_rank_1-3_2.ckpt视为名称一致，llama_7b_rank_0-3_2.ckpt和llama_7b_rank_1_1-3_2.ckpt视为名称不一致。
+- 共享盘场景下，断点续训配置`resume_training`为`True`时，若不存在meta.json，且最后时间戳的权重也未按照{prefix}-{epoch}_{step}.ckpt格式命名，则直接加载最后时间戳的权重用于断点续训，没有名称校验。
+- 断点续训[相关文档](docs/feature_cards/Resume_Training.md)更新。
+
 # MindSpore Transformers 1.0.2 RELEASE NOTE
 
 以下为MindSpore Transformers (以下称为MindFormers) 套件 1.0.2 版本的变更日志，相较于1.0.1版本有以下关键新特性和bug fix修复。
