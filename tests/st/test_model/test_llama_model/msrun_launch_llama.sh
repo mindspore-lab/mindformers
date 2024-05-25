@@ -18,7 +18,7 @@ BASE_PATH=$(cd "$(dirname $0)"; pwd)
 USE_DEVICE_NUM=$1
 TEST_MODE=$2
 
-export MS_ENABLE_FORMAT_MODE=1
+export MS_FORMAT_MODE=1
 export MS_GE_TRAIN=1
 export MS_ENABLE_REF_MODE=1
 export MS_ENABLE_GE=1

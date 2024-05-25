@@ -42,7 +42,7 @@ init()
 
 def generator_train():
     """train dataset generator"""
-    seq_len = 513
+    seq_len = 4097
     step_num = 20
     batch_size = 8
     vocab_size = 32000
@@ -59,21 +59,22 @@ def build_model(test_mode):
     args = TrainingArguments(batch_size=8, num_train_epochs=1, use_parallel=True)
     model_config = LlamaConfig(num_layers=2,
                                hidden_size=5120,
-                               num_heads=10,
-                               seq_length=512,
+                               num_heads=40,
+                               seq_length=4096,
                                batch_size=8,
-                               use_flash_attention=True)
+                               use_flash_attention=True,
+                               use_past=True)
     model = LlamaForCausalLM(model_config)
 
     if test_mode == 'test_train':
         train_dataset = GeneratorDataset(generator_train, column_names=["input_ids"])
         train_dataset = train_dataset.batch(batch_size=8)
 
-        loss_list_std = [10.64083385, 10.66199111, 10.73337078, 10.77247810, 10.76296615,
-                         10.76086235, 10.81247138, 10.85725212, 10.89818477, 10.91546630,
-                         10.84539699, 10.80605888, 10.80117130, 10.77456283, 10.75439071,
-                         10.72909164, 10.72699165, 10.69403266, 10.70089054, 10.67097663]
-        avg_step_time_std = 112
+        loss_list_std = [10.62391281, 10.65274333, 10.63243484, 10.61519622, 10.62401390,
+                         10.62270355, 10.60839271, 10.60130405, 10.58601284, 10.56890296,
+                         10.55602836, 10.54759025, 10.53646373, 10.51494216, 10.50622177,
+                         10.49535274, 10.48854446, 10.48176097, 10.47748756, 10.47608566]
+        avg_step_time_std = 363
         callback = TrainingChecker(loss_list_std=loss_list_std,
                                    avg_step_time_std=avg_step_time_std,
                                    micro_batch_num=2,
@@ -110,7 +111,7 @@ def msrun_llama_8p_predict():
     """test msrun launch llama on 8p for Trainer.predict()."""
     task_trainer = build_model('test_predict')
     predict_data = ["hello world!"] * 8
-    task_trainer.set_parallel_config(data_parallel=4, model_parallel=2, pipeline_stage=1, micro_batch_num=1)
+    task_trainer.set_parallel_config(data_parallel=1, model_parallel=8, pipeline_stage=1, micro_batch_num=1)
     task_trainer.predict(input_data=predict_data, max_length=20, repetition_penalty=1, top_k=3, top_p=1, batch_size=8)
 
 
