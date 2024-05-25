@@ -18,6 +18,8 @@ import mindspore as ms
 from mindspore import nn
 import mindspore.ops.operations as P
 import mindspore.ops.functional as F
+
+from mindformers.tools.utils import get_predict_run_mode
 from .tools.utils import is_version_ge
 from .tools.logger import logger
 
@@ -47,6 +49,21 @@ def is_910a():
 def is_910b():
     device = get_ascend_soc_version()
     return device in ['910b', 'ascend910b']
+
+
+def get_predict_cell_reuse(func):
+    """Predict cell reuse decorator."""
+
+    def decorator(*args, **kwargs):
+        if get_predict_run_mode():
+            from mindspore.common import lazy_inline
+            lazy_inline(func)(*args, **kwargs)
+
+            logger.info("Predict enable lazy inline.")
+        else:
+            func(*args, **kwargs)
+
+    return decorator
 
 
 def get_cell_reuse(func):

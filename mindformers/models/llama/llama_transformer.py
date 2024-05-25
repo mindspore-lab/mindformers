@@ -24,12 +24,14 @@ from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm
+from mindformers.models.utils import predict_cell_reuse
 from mindformers.modules.layers import _check_input_dtype, Linear, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules.transformer.moe import MoEV2
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import get_predict_run_mode
 
 
 class LLamaAttention(nn.Cell):
@@ -399,6 +401,7 @@ class LLamaDecodeLayer(nn.Cell):
 
     """
 
+    @predict_cell_reuse
     def __init__(self,
                  layer_id,
                  dim: int = 512,
@@ -496,6 +499,12 @@ class LLamaDecodeLayer(nn.Cell):
             self.ffn_norm.shard((dp, mp, 1))
             if moe_config is None or not moe_config.expert_num > 1:
                 self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
+
+        self.predict_run_mode = get_predict_run_mode()
+        logger.info("Predict run mode:{}".format(self.predict_run_mode))
+
+        if self.predict_run_mode:
+            self.no_inline = False
 
     def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None):
         """ Forward of transformer block. """
