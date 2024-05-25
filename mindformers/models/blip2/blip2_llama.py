@@ -54,7 +54,7 @@ class LlamaModelForBlip2(LlamaModel):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr(bs, seq_len)
+                freqs_cis = self.freqs_mgr(seq_len)
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
