@@ -16,7 +16,7 @@
 import json
 import numpy as np
 import mindspore.common.dtype as mstype
-from ..version_control import get_cell_reuse
+from ..version_control import get_cell_reuse, get_predict_cell_reuse
 
 CONFIG_NAME = "config.json"
 WEIGHTS_NAME = "mindspore_model.ckpt"
@@ -134,3 +134,4 @@ def check_fine_grain_interleave_valid(fine_grain_interleave, parallel_config):
 ms_type_to_str = reverse_dict(str_to_ms_type)
 
 cell_reuse = get_cell_reuse
+predict_cell_reuse = get_predict_cell_reuse
