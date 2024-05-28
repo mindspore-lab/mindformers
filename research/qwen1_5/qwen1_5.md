@@ -161,15 +161,16 @@ python qwen1_5/qwen1_5_preprocess.py \
 
 ### 微调性能
 
-| config | task | Datasets | SeqLength | metric | phase |score | performance(tokens/s/p) |
-|-------|-------|-------|-------|-------|-------|-------|-------|
-| [qwen1.5-72b](./run_qwen1_5_72b.yaml)| text_generation | alpaca |2048 | - | [finetune](#全参微调) | - | 180.2 |
+| config                                   | task | Datasets | SeqLength | metric | phase |score | performance(tokens/s/p) |
+|------------------------------------------|-------|-------|-----------|-------|-------|-------|-------------------------|
+| [qwen1.5-72b](./run_qwen1_5_72b.yaml)    | text_generation | alpaca | 2048      | - | [finetune](#全参微调) | - | 180.2                   |
+| [qwen1.5-7b](./finetune_qwen1_5_7b.yaml) | text_generation | alpaca | 4096      | - | [finetune](#全参微调) | - | 2457                    |
 
 ### 操作步骤
 
 请参照[数据集准备](#数据集准备)章节获取mindrecord格式的alpaca数据集，参照[模型权重准备](#模型权重准备)章节获取权重。
 
-1. 当前支持模型已提供yaml文件，下文以Qwen-72B为例，即使用`finetune_qwen1_5_72b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
+1. 当前支持模型已提供yaml文件，下文以Qwen-72B / 7B 为例，即使用`finetune_qwen1_5_72b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
 
    当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
    warning: [cann7.2, ms2.3, qwen1.5训练bf16, loss溢出问题规避方案](https://gitee.com/mindspore/mindformers/issues/I9KA3Z?from=project-issue)
@@ -180,7 +181,7 @@ python qwen1_5/qwen1_5_preprocess.py \
    export MS_ASCEND_CHECK_OVERFLOW_MODE=INFNAN_MODE
    ```
 
-3. 修改`finetune_qwen1_5_72b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+3.1 修改`finetune_qwen1_5_72b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
 
    ```yaml
    load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
@@ -206,7 +207,18 @@ python qwen1_5/qwen1_5_preprocess.py \
      gradient_aggregation_group: 4
    ```
 
-5. 启动微调任务。
+3.2 修改`finetune_qwen1_5_7b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+
+   ```yaml
+   load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+
+   train_dataset: &train_dataset
+     data_loader:
+       type: MindDataset
+       dataset_dir: "/path/alpaca.mindrecord"  # 配置训练数据集文件夹路径
+   ```
+
+4.1 启动微调任务。
 
 在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考[ms_run快速使用](https://gitee.com/mindspore/mindformers#%E5%9B%9B%E5%BF%AB%E9%80%9F%E4%BD%BF%E7%94%A8)
 
@@ -259,6 +271,14 @@ python qwen1_5/qwen1_5_preprocess.py \
    # train_data: 训练数据集文件夹路径
    ```
 
+4.2 启动微调任务。
+在mindformers工作目录下，执行：
+
+```shell
+bash scripts/msrun_launcher.sh "run_mindformer.py --config research/qwen1_5/finetune_qwen1_5_7b.yaml
+--run_mode finetune --worker_num 8 --local_worker_num 8 --master_port 8110 --log_dir ./output/msrun_log"
+```
+
 ## 推理
 
 大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。
@@ -271,9 +291,39 @@ python qwen1_5/qwen1_5_preprocess.py \
 
 ### 基于高阶接口推理
 
+- **单卡推理**
+
+1.1 主要参数配置参考：
+
+   ```yaml
+   load_checkpoint: '/path/model_dir'       # 使用切分完的权重
+   auto_trans_ckpt: False                   # 打开自动权重转换
+   use_past: True                           # 使用增量推理
+   use_parallel: True                       # 使用并行模式
+
+   model:
+     model_config:
+       use_past: True
+       is_dynamic: True
+
+   processor:
+     tokenizer:
+       vocab_file: "/{path}/vocab.json"     # vocab.json文件路径
+       merges_file: "/{path}/merges.txt"    # merges.txt文件路径
+
+   # parallel of device num = 2
+   parallel_config:
+     data_parallel: 1
+     model_parallel: 1
+     pipeline_stage: 1
+     micro_batch_num: 1
+     vocab_emb_dp: True
+     gradient_aggregation_group: 4
+   ```
+
 - **多卡推理**
 
-1. 主要参数配置参考：
+1.2 主要参数配置参考：
 
    ```yaml
    load_checkpoint: '/path/model_dir'       # 使用切分完的权重
@@ -303,7 +353,23 @@ python qwen1_5/qwen1_5_preprocess.py \
 
    *注*：可配置`model_config:param_init_type`为`float32`提高推理精度，但同时会影响在线推理性能。
 
-2. 启动推理：
+2.1 启动单卡推理：
+
+   ```shell
+   cd mindformers/research/qwen1_5
+   # 推理命令中参数会覆盖yaml文件中的相同参数
+   python run_qwen1_5.py \
+   --config predict_qwen1_5_7b.yaml \
+   --load_checkpoint /path/model_dir \
+   --run_mode predict \
+   --use_parallel True \
+   --predict_data 帮助我制定一份去上海的旅游攻略 \
+   --auto_trans_ckpt False
+
+   # 帮助我制定一份去上海的旅游攻略，包括景点、美食、住宿等信息……
+   ```
+
+2.2 启动多卡推理：
 
    ```shell
    cd mindformers/research/qwen1_5
