@@ -523,3 +523,13 @@ def replace_rank_id_in_ckpt_name(ckpt_file, dst_rank_id):
     ori_rank_id = get_rank_id_from_ckpt_name(ckpt_name)
     ckpt_name = ckpt_name.replace(f"_rank_{ori_rank_id}", f"_rank_{dst_rank_id}")
     return ckpt_name
+
+
+def check_ckpt_file_name(ckpt_file):
+    """Check ckpt name in the format of {prefix}-{epoch}_{step}.ckpt"""
+    ckpt_name = os.path.split(ckpt_file)[1]
+    pattern = r'^[^/]+-\d+_\d+\.ckpt$'
+    match = re.match(pattern, ckpt_name)
+    if match:
+        return True
+    return False
