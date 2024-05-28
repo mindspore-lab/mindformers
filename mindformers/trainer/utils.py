@@ -361,7 +361,6 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
     if not config.auto_trans_ckpt and not config.only_save_strategy and do_predict:
         network.set_train(False)
         load_ckpt(config, network)
-        build_model(config, model, dataset, do_eval=do_eval, do_predict=do_predict)
         return
 
     if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',

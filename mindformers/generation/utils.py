@@ -71,7 +71,7 @@ def softmax_with_threads(x, is_finished=None):
 def topk(x, top_k, axis=-1, largest=True, sort=True):
     """numpy implemented topk sample."""
     # safety check
-    if x.shape[axis] < top_k:
+    if x.shape[axis] <= top_k:
         top_k = x.shape[axis] - 1
     if largest:
         topk_index = np.argpartition(-x, top_k, axis=axis)
