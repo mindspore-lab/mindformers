@@ -85,7 +85,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.use_flash_attention = config.use_flash_attention
         self.cast = P.Cast()
         self.shape = P.Shape()
-        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        self.reshape = P.Reshape()
         # default open internal kernel boost
         self.enable_asd_op = get_ms_enable_asd_op()
         logger.info("enable asd op:{}".format(self.enable_asd_op))
