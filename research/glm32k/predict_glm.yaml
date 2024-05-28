@@ -59,7 +59,6 @@ model:
     block_size: 16
     num_blocks: 2048
     use_flash_attention: False # when use FlashAttention, seq_length should be multiple of 16
-    use_prompt_flash_attention: True
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0

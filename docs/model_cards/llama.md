@@ -712,7 +712,6 @@ metric:
 ```yaml
 # model config
 use_past: True          # 开启增量推理
-pretrain_seqlen: 2048
 extend_method: "None"
 offset: 0
 checkpoint_name_or_path: "llama_7b"
@@ -1070,7 +1069,6 @@ python run_mindformer.py --config configs/pangualpha/run_llama_7b.yaml --run_mod
 ```python
 # model config
 use_past: True          # 开启增量推理
-pretrain_seqlen: 2048
 extend_method: "None"
 offset: 0
 checkpoint_name_or_path: "llama_7b"

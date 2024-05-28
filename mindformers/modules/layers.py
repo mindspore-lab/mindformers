@@ -1050,8 +1050,6 @@ class RotaryEmbedding(Cell):
             - **head_dim** (int): The dim of multi head attention.
             - **compute_dtype** (mstype): The compute type, default mstype.float16.
             - **use_rope_slice** (dict): - Choose using rope slice. Default False.
-            - **use_rope_self_define** (bool): - Choose the rotary embedding self defined implement. Default True.
-            - **rotary_cos_format** (int): - Choose the rotary embedding cos format. Default 0.
 
     Inputs:
             - **x** (Tensor) - Tensor of shape :math:`(batch, seq\_length, hidden\_size)`.
