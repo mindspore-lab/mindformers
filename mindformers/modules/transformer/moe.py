@@ -1097,6 +1097,12 @@ class TopkRouterV2(Cell):
         self.mod = P.Mod().shard(((dp, 1, 1), ()))
         self.print = P.Print()
 
+        #aux loss
+        self.reduce_mean = P.ReduceMean(keep_dims=False).shard(((dp, 1, 1),))
+        self.reduce_mean2 = P.ReduceMean(keep_dims=False).shard(((dp, 1),))
+        self.mul = P.Mul().shard(((dp, 1), (dp, 1)))
+        self.mul2 = P.Mul().shard(((), ()))
+
     def dispatch(self, input_tensor, dispatch_index):
         r"""
             Implementing dispatch operation.
@@ -1231,3 +1237,16 @@ class TopkRouterV2(Cell):
         router_coeff_sum = self.reduce_sum_keep(router_coeff_raw, 2) # (dp, N, 1) <-- (dp, N, k)
         router_coeff = self.div_3d(router_coeff_raw, self.add_eps(router_coeff_sum, 1e-9)) # (dp, N, k) <-- (dp, N, k) (dp, N, 1)
         return router_coeff # (dp, N, k)
+
+    def _auxiliary_loss(self, expert_index, router_prob):
+        """
+        computing the load balance loss
+        """
+        expert_index = self.reshape(expert_index, (expert_index.shape[0], -1)) # (dp, Nk) <--- (dp, N, k)
+        expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value) # (dp, Nk, E) <--- (dp, Nk)
+        density_1 = self.reduce_mean(expert_mask, 1) # (dp, E) <--- (dp, Nk, E)
+        density_1_proxy = self.reduce_mean(router_prob, 1) # (dp, E) <--- (dp, N, E)
+        loss = self.mul(density_1, density_1_proxy) # (dp, E) <--- (dp, E), (dp, E)
+        loss = self.reduce_mean2(loss) # (,) <--- (dp, E)
+        loss = self.mul2(self.mul2(loss, self.expert_dim), self.expert_dim) # (,) <--- (,)
+        return loss
