@@ -149,7 +149,8 @@ model:
     layernorm_compute_type: "float32"
     softmax_compute_type: "float32"
     rotary_dtype: "float32"
-    param_init_type: "bfloat16"
+    param_init_type: "float16"
+    embedding_init_type: "bfloat16"
     use_past: False
     scaling_factor: 1.0
     theta: 500000
