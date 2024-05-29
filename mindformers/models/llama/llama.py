@@ -277,7 +277,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                               has_bias=False,
                               compute_dtype=config.compute_dtype,
                               param_init_type=config.param_init_type,
-                              skip_redistribution=config.is_dynamic,
                               weight_init="normal")  # meta default: xavier_normal
 
         mp = config.parallel_config.model_parallel
