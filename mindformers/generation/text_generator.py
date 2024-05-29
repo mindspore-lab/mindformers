@@ -1168,7 +1168,11 @@ class GenerationMixin:
                 if is_finished[i]:
                     continue
                 p_norm = p_norms[i]
-                target_index = np.random.choice(len(probs[i]), p=p_norm)
+                try:
+                    target_index = np.random.choice(len(probs[i]), p=p_norm)
+                except ValueError:
+                    logger.warning("np random choice contain NaN")
+                    continue
                 # get target token id
                 target = p_args[i][target_index]
                 target_list[i] = target
