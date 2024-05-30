@@ -877,7 +877,6 @@ model:
     use_past: False
     pretrain_seqlen: 2048 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
     extend_method: "None"
-    compute_in_2d: False
     offset: 0
     checkpoint_name_or_path: "llama_7b"
     repetition_penalty: 1

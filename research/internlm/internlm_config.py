@@ -15,7 +15,7 @@
 """InternLM Config API."""
 from typing import Optional
 
-from mindformers import LlamaConfig, TransformerOpParallelConfig, logger
+from mindformers import LlamaConfig, TransformerOpParallelConfig
 from mindformers.models.utils import convert_mstype
 from mindformers.modules.transformer.transformer import default_transformer_config
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -62,14 +62,11 @@ class InternLMConfig(LlamaConfig):
         parallel_config(TransformerOpParallelConfig):
             The parallel configure. Default `default_transformer_config`,
             an instance of `TransformerOpParallelConfig` with default args.
-        pretrain_seqlen(int): The pretrained model seq length, default 2048.
         extend_method(str): The extend method of seq length of inferencem,default None.
-        compute_in_2d(bool): Whether compute in 2-dims tensor, default False.
         use_flash_attention(bool): Whether enable flash attention ops, default False.
         block_size(int): The shape of blocks in paged attention, default 16.
         num_blocks(int): The total number of blocks in paged attention, default 512.
         offset(int): Offset of transformer layer when set pipeline stage number.
-        use_past_shard(bool): The configuration of kvcache parallel shard, default False.
         checkpoint_name_or_path (Optional[str]):
             checkpoint path or name used to load to the network.
         repetition_penalty (`float`, *optional*, defaults to 1.0):
@@ -118,14 +115,9 @@ class InternLMConfig(LlamaConfig):
                  has_bias: bool = True,
                  parallel_config: TransformerOpParallelConfig = default_transformer_config,
                  use_past: bool = False,
-                 pretrain_seqlen=None,
-                 compute_in_2d=None,
-                 use_past_shard=None,
                  extend_method: str = "None",
                  scaling_factor: float = 1.0,
                  is_dynamic: bool = False,
-                 use_kvcache_op: bool = False,
-                 is_flexible_shape: bool = False,
                  use_rope_slice: bool = False,
                  use_flash_attention: bool = False,
                  block_size: int = 16,
@@ -164,20 +156,9 @@ class InternLMConfig(LlamaConfig):
         self.pad_token_id = pad_token_id
         self.ignore_token_id = ignore_token_id
         self.use_past = use_past
-        if pretrain_seqlen is not None:
-            self.pretrain_seqlen = pretrain_seqlen
-            logger.warning(f"Argument `pretrain_seqlen` is deprecated. Use `scaling_factor` instead.")
-        if compute_in_2d is not None:
-            self.compute_in_2d = compute_in_2d
-            logger.warning(f"Argument `compute_in_2d` is deprecated.")
-        if use_past_shard is not None:
-            self.use_past_shard = use_past_shard
-            logger.warning(f"Argument `use_past_shard` is deprecated.")
         self.extend_method = extend_method
         self.scaling_factor = scaling_factor
         self.is_dynamic = is_dynamic
-        self.use_kvcache_op = use_kvcache_op
-        self.is_flexible_shape = is_flexible_shape
         self.use_rope_slice = use_rope_slice
         self.use_flash_attention = use_flash_attention
         self.offset = offset

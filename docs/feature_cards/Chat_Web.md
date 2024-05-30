@@ -600,12 +600,9 @@ model:
     rotary_dtype: "float16"
     param_init_type: "float16"
     use_past: True
-    pretrain_seqlen: 4096 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
     extend_method: "None" # support "None", "PI", "NTK"
-    compute_in_2d: False
     use_flash_attention: False
     offset: 0
-    use_past_shard: False
     checkpoint_name_or_path: ""
     repetition_penalty: 1
     max_decode_length: 512
@@ -869,12 +866,9 @@ model:
     softmax_compute_type: "float16"
     param_init_type: "float16"
     use_past: True
-    pretrain_seqlen: 2048 # seqlen of the pretrain checkpoint: 2048 for llama and 4096 for llama2
     extend_method: "None" # support "None", "PI", "NTK"
-    compute_in_2d: False
     use_flash_attention: False
     offset: 0
-    use_past_shard: False
     checkpoint_name_or_path: ""
     repetition_penalty: 1
     max_decode_length: 512

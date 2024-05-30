@@ -115,10 +115,8 @@ model:
     param_init_type: "float16"
     use_past: True
     use_flash_attention: True
-    use_kbk_infer: True
     block_size: 16
     num_blocks: 1024
-    use_past_shard: False
     offset: 0
     checkpoint_name_or_path: ""
     repetition_penalty: 1
