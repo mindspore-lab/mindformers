@@ -32,7 +32,7 @@ except ImportError:
 
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.models.utils import cell_reuse
+from mindformers.models.utils import lazy_inline
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks,\
@@ -67,7 +67,7 @@ class QwenForCausalLM(QwenPreTrainedModel):
             Tensor, the loss or logits of the network.
         """
 
-    @cell_reuse
+    @lazy_inline
     def __init__(self, config=None):
         super().__init__(config)
 

@@ -29,7 +29,7 @@ from mindspore.ops import operations as P
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.models.utils import cell_reuse
+from mindformers.models.utils import lazy_inline
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer import AttentionMask, TransformerOpParallelConfig
 from mindformers.modules.layers import Linear, _check_input_dtype, AlibiTensor
@@ -83,7 +83,7 @@ class Baichuan13BForCausalLM(BaichuanPreTrainedModel):
             >>> network = Baichuan13BForCausalLM(config=config)
         """
 
-    @cell_reuse
+    @lazy_inline
     def __init__(self, config: LlamaConfig = None):
         super(Baichuan13BForCausalLM, self).__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)

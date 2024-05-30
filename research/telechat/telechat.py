@@ -24,7 +24,7 @@ from mindspore.ops import functional as F
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.core.loss.loss import CrossEntropyLoss
-from mindformers.models.utils import cell_reuse
+from mindformers.models.utils import lazy_inline
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.modules.layers import Linear, FreqsMgr
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
@@ -276,7 +276,7 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
             output: Tensor, the output of telechat decoderlayer
         """
 
-    @cell_reuse
+    @lazy_inline
     def __init__(self, config: TelechatConfig = None):
         super(TelechatForCausalLM, self).__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)

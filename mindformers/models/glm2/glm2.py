@@ -29,7 +29,7 @@ from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.version_control import get_tril
 from mindformers.models.modeling_utils import PreTrainedModel
 
-from ..utils import cell_reuse
+from ..utils import lazy_inline
 from .glm2_config import ChatGLM2Config
 from .glm2_modules import precompute_rotary_emb_cache
 from .glm2_transformer import ChatGLM2Transformer
@@ -163,7 +163,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
     _support_list.extend(MindFormerBook.get_model_support_list()['glm3'])
     _support_list.extend(MindFormerBook.get_model_support_list()['codegeex2'])
 
-    @cell_reuse
+    @lazy_inline
     def __init__(self, config: ChatGLM2Config, **kwargs):
         super(ChatGLM2ForConditionalGeneration, self).__init__(config, **kwargs)
         self.transformer = ChatGLM2Model(config=config)

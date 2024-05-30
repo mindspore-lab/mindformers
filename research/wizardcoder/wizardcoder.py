@@ -23,7 +23,7 @@ from mindspore.common.tensor import Tensor
 from mindspore.common.initializer import initializer
 from mindspore.ops import operations as P
 
-from mindformers.models.utils import cell_reuse
+from mindformers.models.utils import lazy_inline
 from mindformers.modules.transformer.moe import default_moe_config
 from mindformers.modules.layers import LayerNorm
 from mindformers.version_control import get_dropout
@@ -59,7 +59,7 @@ class WizardCoderLMHeadModel(WizardCoderPreTrainedModel):
         Returns:
             Tensor, the loss or logits of the network.
         """
-    @cell_reuse
+    @lazy_inline
     def __init__(self, config: WizardCoderConfig = None):
         config = config if config is not None else WizardCoderConfig()
         super(WizardCoderLMHeadModel, self).__init__(config, auto_prefix=True)

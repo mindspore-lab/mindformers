@@ -237,24 +237,26 @@ mindspore实现参考：
 
 **注：此特性在mindspore≥2.2.0下适用。通常在`pipeline`并行时使用以提高编译性能。**
 
-对于模型，可以通过在`__init__`函数上注册装饰器`cell_reuse`，指定一个cell是可复用的。此装饰器会按照`attrs`的值去添加`__init__`函数对应的入参作为cell的属性。示例如下：
+对于模型，可以通过在`__init__`函数上注册装饰器`lazy_inline`，指定一个cell是可复用的。此装饰器会按照`attrs`的值去添加`__init__`函数对应的入参作为cell的属性。示例如下：
 
 ```python
-from mindformers.models.utils import cell_reuse
+from mindformers.models.utils import lazy_inline
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.models import PreTrainedModel
 from mindformers.models.llama.llama_config import LlamaConfig
 
 class Baichuan7BV2ForCausalLM(PreTrainedModel):
     #注册装饰器
-    @cell_reuse
+    @lazy_inline
     def __init__(self, config: LlamaConfig = None):
         super(Baichuan7BV2ForCausalLM, self).__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)
         self.ignore_token_id = config.ignore_token_id
 ```
 
-在模型启动前，通过设置环境变量`ENABLE_CELL_REUSE=1`，开启lazy inline。
+在pipeline并行模式下将默认使能lazy inline特性，可通过设置环境变量`ENABLE_LAZY_INLINE=0`关闭；  
+在非pipeline并行模式下，lazy inline特性默认不生效，如需在非pipeline并行模式下使能lazy inline特性，可以通过设置环境变量`ENABLE_LAZY_INLINE_NO_PIPELINE=1`以启用；  
+详情请参考[环境变量使用说明](../readthedocs/source_zh_cn/docs/practice/Environment.md)
 
 ## MoE冷热门专家优化
 
