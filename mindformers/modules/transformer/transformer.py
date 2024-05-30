@@ -191,7 +191,6 @@ class TransformerRecomputeConfig(_Config):
     def __init__(self, recompute=False, select_recompute=False,
                  parallel_optimizer_comm_recompute=False, select_comm_recompute=False,
                  mp_comm_recompute=True, recompute_slice_activation=False):
-        Validator.check_bool(recompute, "recompute")
         Validator.check_bool(parallel_optimizer_comm_recompute, "parallel_optimizer_comm_recompute")
         Validator.check_bool(mp_comm_recompute, "mp_comm_recompute")
         Validator.check_bool(recompute_slice_activation, "recompute_slice_activation")
