@@ -303,12 +303,14 @@ class GenerationMixin:
         if prefill:
             self.phase = "prefill"
             self.add_flags_custom(is_first_iteration=True)
-            model_inputs["input_position"] = Tensor(current_index, mstype.int32)
-            model_inputs["init_reset"] = Tensor([False], mstype.bool_)  # init_reset (1,) bool False
-            model_inputs["batch_valid_length"] = Tensor([valid_length_each_example], mstype.int32)
+            model_inputs["input_position"] = Tensor.from_numpy(np.array(current_index, dtype=np.int32))
+            model_inputs["init_reset"] = Tensor.from_numpy(
+                np.array([False], dtype=np.bool_))  # init_reset (1,) bool False
+            model_inputs["batch_valid_length"] = Tensor.from_numpy(
+                np.array([valid_length_each_example], dtype=np.int32))
             if block_tables is not None:
-                model_inputs["block_tables"] = Tensor(block_tables, mstype.int32)
-                model_inputs["slot_mapping"] = Tensor(slot_mapping, mstype.int32)
+                model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
+                model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -320,12 +322,14 @@ class GenerationMixin:
         else:
             # slice model inputs for incremental infer
             self.slice_incremental_inputs(model_inputs, current_index)
-            model_inputs["input_position"] = Tensor(current_index, mstype.int32)
-            model_inputs["init_reset"] = Tensor([True], mstype.bool_)  # init_reset (1,) bool True
-            model_inputs["batch_valid_length"] = Tensor([valid_length_each_example], mstype.int32)
+            model_inputs["input_position"] = Tensor.from_numpy(np.array(current_index, dtype=np.int32))
+            model_inputs["init_reset"] = Tensor.from_numpy(
+                np.array([True], dtype=np.bool_))  # init_reset (1,) bool True
+            model_inputs["batch_valid_length"] = Tensor.from_numpy(
+                np.array([valid_length_each_example], dtype=np.int32))
             if block_tables is not None:
-                model_inputs["block_tables"] = Tensor(block_tables, mstype.int32)
-                model_inputs["slot_mapping"] = Tensor(slot_mapping, mstype.int32)
+                model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
+                model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -1116,7 +1120,7 @@ class GenerationMixin:
         if generation_config.generation_mode == GenerationMode.GREEDY_SEARCH:
             if not self.config.is_sample_acceleration:
                 logits = res[0] if isinstance(res, tuple) else res
-                logits = P.Reshape()(logits, (-1, logits.shape[-1]))
+                logits = ms.ops.reshape(logits, (-1, logits.shape[-1]))
                 if need_gather_logits and logits.shape[0] > len(current_index):
                     logits = logits[Tensor(current_index, dtype=mstype.int32)]
                 if logits_processor:
@@ -1131,11 +1135,10 @@ class GenerationMixin:
                     p_args = p_args.asnumpy()
                 target_index_list = P.Argmax()(probs)
                 target_index_list = target_index_list.asnumpy().tolist()
-            # run greedy search
-            for i in range(batch_size):
-                if is_finished[i]:
-                    continue
-                if self.config.is_sample_acceleration:
+                # run greedy search
+                for i in range(batch_size):
+                    if is_finished[i]:
+                        continue
                     target_index = target_index_list[i]
                     target = p_args[i][target_index]
                     target_list[i] = target
