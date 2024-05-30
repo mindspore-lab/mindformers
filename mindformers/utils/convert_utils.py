@@ -49,3 +49,12 @@ def ms2pt(value: ms.Tensor, dtype) -> torch.Tensor:
         return torch.from_numpy(np_value).cpu().to(dtype)
     return torch.from_numpy(np_value).cpu().to(torch.bfloat16) if value.dtype == ms.bfloat16 else torch.from_numpy(
         np_value)
+
+
+def is_lora_param(key: str) -> bool:
+    """
+    is lora parameter of model weight
+    """
+    if 'lora' in key.lower():
+        return True
+    return False

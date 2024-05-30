@@ -34,6 +34,7 @@ reversed_dtype_map = {
 convert_map = {
     'llama': 'mindformers.models.llama.convert_weight.convert_pt_to_ms',
     'glm': 'mindformers.models.glm.convert_weight.convert_pt_to_ms',
+    'glm-n': 'mindformers.models.glm2.convert_weight.convert_pt_to_ms',
     'qwen': 'research.qwen.convert_weight.convert_pt_to_ms',
     'internlm': 'research.internlm.convert_weight.convert_pt_to_ms',
     'baichuan': 'research.baichuan.convert_weight.convert_pt_to_ms',
@@ -42,11 +43,18 @@ convert_map = {
     'blip': 'mindformers.models.blip2.convert_weight.convert_pt_to_ms',
     'wizardcoder': 'research.wizardcoder.convert_weight.convert_pt_to_ms',
     'skywork': 'research.skywork.convert_weight.convert_pt_to_ms',
-    'mixtral': 'research.mixtral.convert_weight.convert_pt_to_ms'
+    'mixtral': 'research.mixtral.convert_weight.convert_pt_to_ms',
+    'mae': 'mindformers.models.mae.convert_weight.convert_pt_to_ms',
+    'vit': 'mindformers.models.vit.convert_weight.convert_pt_to_ms',
+    'swin': 'mindformers.models.swin.convert_weight.convert_pt_to_ms',
+    'knowlm': 'research.knowlm.convert_weight.convert_pt_to_ms',
+    'telechat': 'research.telechat.convert_weight.convert_pt_to_ms',
+    'codegeex2': 'mindformers.models.codegeex2.convert_weight.convert_pt_to_ms',
 }
 reversed_convert_map = {
     'llama': 'mindformers.models.llama.convert_reversed.convert_ms_to_pt',
     'glm': 'mindformers.models.glm.convert_reversed.convert_ms_to_pt',
+    'glm-n': 'mindformers.models.glm2.convert_reversed.convert_ms_to_pt',
     'qwen': 'research.qwen.convert_reversed.convert_ms_to_pt',
     'internlm': 'research.internlm.convert_reversed.convert_ms_to_pt',
     'baichuan': 'research.baichuan.convert_reversed.convert_ms_to_pt',
@@ -55,7 +63,13 @@ reversed_convert_map = {
     'blip': 'mindformers.models.blip2.convert_reversed.convert_ms_to_pt',
     'wizardcoder': 'research.wizardcoder.convert_reversed.convert_ms_to_pt',
     'skywork': 'research.skywork.convert_reversed.convert_ms_to_pt',
-    'mixtral': 'research.mixtral.convert_reversed.convert_ms_to_pt'
+    'mixtral': 'research.mixtral.convert_reversed.convert_ms_to_pt',
+    'mae': 'mindformers.models.mae.convert_reversed.convert_ms_to_pt',
+    'vit': 'mindformers.models.vit.convert_reversed.convert_ms_to_pt',
+    'swin': 'mindformers.models.swin.convert_reversed.convert_ms_to_pt',
+    'knowlm': 'research.knowlm.convert_reversed.convert_ms_to_pt',
+    'telechat': 'research.telechat.convert_reversed.convert_ms_to_pt',
+    'codegeex2': 'mindformers.models.codegeex2.convert_reversed.convert_ms_to_pt',
 }
 
 if __name__ == '__main__':
@@ -73,6 +87,8 @@ if __name__ == '__main__':
     parser.add_argument('--layers', default=12, type=int, required=False,
                         help="Only for gpt2 and wizardcoder. "
                              "The number of layers of the model to be converted from hf to ms")
+    parser.add_argument('--is_pretrain', default=False, type=bool, required=False,
+                        help="Only for swin. Convert pretrain model weight.")
     args, extra_args = parser.parse_known_args()
     extra_args = [i for item in extra_args for i in item.split("=")]
 

@@ -10,6 +10,7 @@ ConvertWeight支持对torch权重和mindspore权重的格式互转
 | ----------- | ------------------- |
 | llama       | llama               |
 | glm         | glm                 |
+| glm-n       | glm2、glm3          |
 | qwen        | qwen                |
 | internlm    | internlm            |
 | baichuan    | baichuan、baichuan2 |
@@ -39,6 +40,7 @@ ConvertWeight支持对torch权重和mindspore权重的格式互转
 | n_head      | bloom权重转换所需额外参数，根据bloom模型实际情况配置         | 否       |
 | hidden_size | bloom权重转换所需额外参数，根据bloom模型实际情况配置         | 否       |
 | layers      | gpt2和wizardcoder的torch权重转mindspore权重时所需的额外参数，转换的权重层数 | 否       |
+| is_pretrain | swin权重转换所需额外参数，输入权重是否为预训练权重           | 否       |
 
 执行：
 

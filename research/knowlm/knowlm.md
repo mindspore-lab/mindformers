@@ -48,13 +48,13 @@ KnowLM-13B-Base以 LlaMA-13B 为基础，使用中英文双语数据进行了二
 执行权重转换脚本
 
 ```shell
-python research/knowlm/convert_weight.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME
+python research/knowlm/convert_weight.py --torch_bin_path TORCH_BIN_PATH --mindspore_ckpt_path MS_CKPT_PATH
 ```
 
 ```text
 # 参数说明
-TORCH_CKPT_DIR: huggingface权重保存目录路径
-mindspore_ckpt_path: 权重保存文件名，保存为TORCH_CKPT_DIR/OUTPUT_NAME, 也可以指定为自定义保存路径
+TORCH_BIN_PATH: huggingface权重保存目录下任意权重bin文件，根据该文件路径读取目录下所有权重
+MS_CKPT_PATH: mindspore权重保存文件路径
 ```
 
 ### API方式调用

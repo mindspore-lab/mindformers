@@ -1,12 +1,28 @@
+# Copyright 2024 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
 """Convert checkpoint from torch/MicroSoft"""
 import os
 import argparse
 import mindspore as ms
 import torch
 from mindformers.tools.utils import str2bool
+from mindformers.utils.convert_utils import pt2ms
 
 
-def convert_pretrained_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ckpt_path="swin_base_p4w7.ckpt"):
+def convert_pretrained_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ckpt_path="swin_base_p4w7.ckpt",
+                              dtype=None):
     """
     convert swin_base_p4w7 weights from pytorch to mindspore
     pytorch required.
@@ -34,15 +50,14 @@ def convert_pretrained_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ck
                 k = k.replace('.fc2', '.projection')
                 if "weight" in k:
                     v = v.transpose(-1, 0)
+        v = pt2ms(v, dtype)
         if '.qkv' not in k:
-            ms_ckpt.append({'name': k, 'data': ms.Tensor(v.numpy())})
+            ms_ckpt.append({'name': k, 'data': v})
         else:
-            data = ms.Tensor(v.numpy())
-            length = len(data)
-            ms_ckpt.append({'name': k.replace('.qkv', '.q'), 'data': data[:length // 3]})
-            ms_ckpt.append({'name': k.replace('.qkv', '.k'), 'data': data[length // 3:length // 3 * 2]})
-            ms_ckpt.append({'name': k.replace('.qkv', '.v'), 'data': data[length // 3 * 2:]})
-
+            length = len(v)
+            ms_ckpt.append({'name': k.replace('.qkv', '.q'), 'data': ms.Tensor(v[:length // 3])})
+            ms_ckpt.append({'name': k.replace('.qkv', '.k'), 'data': ms.Tensor(v[length // 3:length // 3 * 2])})
+            ms_ckpt.append({'name': k.replace('.qkv', '.v'), 'data': ms.Tensor(v[length // 3 * 2:])})
     if not os.path.exists(ms_ckpt_path):
         try:
             ms.save_checkpoint(ms_ckpt, ms_ckpt_path)
@@ -50,7 +65,8 @@ def convert_pretrained_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ck
             raise RuntimeError(f'Save checkpoint to {ms_ckpt_path} failed, please checkout the path.')
 
 
-def convert_finetuned_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ckpt_path="swin_base_p4w7.ckpt"):
+def convert_finetuned_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ckpt_path="swin_base_p4w7.ckpt",
+                             dtype=None):
     """
     convert swin_base_p4w7 weights from pytorch to mindspore
     pytorch required.
@@ -59,7 +75,7 @@ def convert_finetuned_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ckp
     state_dict = torch.load(pth_file, map_location=torch.device('cpu'))
     for k, v in state_dict['model'].items():
         if 'head' in k:
-            ms_ckpt.append({'name': k, 'data': ms.Tensor(v.numpy())})
+            ms_ckpt.append({'name': k, 'data': pt2ms(v, dtype)})
             continue
         if 'patch_embed.' in k:
             k = k.replace('proj', 'projection')
@@ -79,21 +95,41 @@ def convert_finetuned_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ckp
                 k = k.replace('.fc2', '.projection')
                 if "weight" in k:
                     v = v.transpose(-1, 0)
+        v = pt2ms(v, dtype)
         if '.qkv' not in k:
-            ms_ckpt.append({'name': 'encoder.' + k, 'data': ms.Tensor(v.numpy())})
+            ms_ckpt.append({'name': 'encoder.' + k, 'data': v})
         else:
-            data = ms.Tensor(v.numpy())
-            length = len(data)
-            ms_ckpt.append({'name': 'encoder.' + k.replace('.qkv', '.q'), 'data': data[:length // 3]})
+            length = len(v)
+            ms_ckpt.append({'name': 'encoder.' + k.replace('.qkv', '.q'), 'data': ms.Tensor(v[:length // 3])})
             ms_ckpt.append(
-                {'name': 'encoder.' + k.replace('.qkv', '.k'), 'data': data[length // 3:length // 3 * 2]})
-            ms_ckpt.append({'name': 'encoder.' + k.replace('.qkv', '.v'), 'data': data[length // 3 * 2:]})
+                {'name': 'encoder.' + k.replace('.qkv', '.k'), 'data': ms.Tensor(v[length // 3:length // 3 * 2])})
+            ms_ckpt.append({'name': 'encoder.' + k.replace('.qkv', '.v'), 'data': ms.Tensor(v[length // 3 * 2:])})
 
     if not os.path.exists(ms_ckpt_path):
         try:
             ms.save_checkpoint(ms_ckpt, ms_ckpt_path)
         except:
             raise RuntimeError(f'Save checkpoint to {ms_ckpt_path} failed, please checkout the path.')
+
+
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
+    """
+    convert torch weight to mindspore weight
+
+    Args:
+        input_path: torch weight path
+        output_path: mindspore weight path
+        dtype: The dtype of th converted weight.
+        **kwargs: extra args
+
+    Returns:
+        None
+    """
+    is_pretrain = kwargs.pop('is_pretrain', False)
+    if is_pretrain:
+        convert_pretrained_weight(input_path, output_path, dtype)
+    else:
+        convert_finetuned_weight(input_path, output_path, dtype)
 
 
 if __name__ == '__main__':
@@ -113,8 +149,4 @@ if __name__ == '__main__':
                         default=False,
                         help="whether converting pretrained weights.")
     opt = parser.parse_args()
-
-    if opt.is_pretrain:
-        convert_pretrained_weight(opt.torch_path, opt.mindspore_path)
-    else:
-        convert_finetuned_weight(opt.torch_path, opt.mindspore_path)
+    convert_pt_to_ms(opt.torch_path, opt.mindspore_path, is_pretrain=opt.is_pretrain)

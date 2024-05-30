@@ -49,3 +49,35 @@ skywork:
   input_path:
   output_path:
   dtype:
+
+glm2:
+  input_path:
+  output_path:
+  dtype:
+  model_class: AutoModel
+
+mae:
+  input_path:
+  output_path:
+  dtype:
+
+vit:
+  input_path:
+  output_path:
+  dtype:
+
+swin:
+  input_path:
+  output_path:
+  dtype:
+
+codegeex2:
+  input_path:
+  output_path:
+  dtype:
+
+knowlm:
+  input_path:
+  output_path:
+  dtype:
+

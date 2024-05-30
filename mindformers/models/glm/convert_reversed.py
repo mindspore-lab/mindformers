@@ -18,7 +18,8 @@ import argparse
 import torch as pt
 import mindspore as ms
 
-from mindformers.utils.convert_utils import ms2pt
+from mindformers.utils.convert_utils import ms2pt, is_lora_param
+
 
 # pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
@@ -34,6 +35,9 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
             k = k.replace("beta", "bias")
         if "word_embeddings.embedding_table" in k:
             k = k.replace("embedding_table", "weight")
+        if is_lora_param(k):
+            k = k.replace('tk_delta_lora_a', 'lora_A.weight')
+            k = k.replace('tk_delta_lora_b', 'lora_B.weight')
         pt_param[k] = v
 
     print('saving pt ckpt....')

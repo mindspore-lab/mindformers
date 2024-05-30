@@ -22,7 +22,7 @@ import argparse
 import torch
 import mindspore as ms
 
-from mindformers.utils.convert_utils import ms2pt
+from mindformers.utils.convert_utils import ms2pt, is_lora_param
 
 
 def read_json(path):
@@ -45,6 +45,7 @@ def name_replace(name: str):
     name = name.replace('.norm_out.', '.norm.')
     return name
 
+
 # pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """convert ms weight to hf."""
@@ -55,6 +56,9 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     for name, value in model_ms.items():
         name = name_replace(name)
         print(f'\rprocessing parameter: {name} {value.shape}     ', end='', flush=True)
+        if is_lora_param(name):
+            name = name.replace('.tk_delta_lora_a', '.lora_A.weight')
+            name = name.replace('.tk_delta_lora_b', 'lora_B.weight')
         state_dict[name] = ms2pt(value, dtype)
 
     torch.save(state_dict, output_path)
