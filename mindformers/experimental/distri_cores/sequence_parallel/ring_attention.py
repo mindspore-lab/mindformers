@@ -60,7 +60,7 @@ class RingAttention(nn.Cell):
             - 3: Representing the rightDownCausal model corresponds to the lower triangle scene divided by the lower
               right vertex, and the optimized attn_mask matrix (2048*2048) is required.
             - 4: Represents the band scenario, that is, the part between counting preTokens and nextTokens, and the
-              optimized attn_mask matrix (2048*2048) is required..
+              optimized attn_mask matrix (2048*2048) is required.
             - 5: Represents the prefix scenario, that is, on the basis of rightDownCasual, a matrix with length S1 and
               width N is added to the left side. The value of N is obtained by the new input prefix, and the N value of
               each Batch axis is different. Not implemented yet.
@@ -85,7 +85,7 @@ class RingAttention(nn.Cell):
           Input tensor of shape :math:`(B, S2, H2)` or `(B, N2, S2, D)`.
         - **attn_mask** (Union[Tensor[uint8], None]) - The attention mask tensor. For each element, 0 indicates
           retention and 1 indicates discard. Input tensor of shape :math:`(B, N1, S1, S2)`, `(B, 1, S1, S2)`, `(S1, S2)`
-          or (2048, 2048). Currently only attn_mask = None is supported and it indicates the causal mask is used.
+          or (2048, 2048). Currently only attn_mask = None is supported, and it indicates the causal mask is used.
         - **alibi_mask** (Union[Tensor[float16, bfloat16], None]) - The position embedding code. If S is greater than
           1024 and the mask of the lower triangle is used, enter only the inverse 1024 lines of the lower triangle for
           memory optimization. Currently only alibi_mask = None is supported.
@@ -104,8 +104,7 @@ class RingAttention(nn.Cell):
         ``Ascend910B``
 
     Examples:
--
-        (1, 16, 2048)
+        - (1, 16, 2048)
     """
     def __init__(self,
                  head_num,
@@ -214,7 +213,7 @@ class RingAttention(nn.Cell):
 
     def forward_update(self, prev_attn_out, prev_softmax_max, prev_softmax_sum,
                        cur_attn_out, cur_softmax_max, cur_softmax_sum):
-        '''Updata ring attention output'''
+        """Update ring attention output"""
         # update softmax_max
         softmax_max = ops.maximum(prev_softmax_max, cur_softmax_max)
         prev_scale = ops.exp(prev_softmax_max - softmax_max)
@@ -245,7 +244,7 @@ class RingAttention(nn.Cell):
         return attn_out, softmax_max, softmax_sum
 
     def check_parameter(self, q, k, v, attn_mask, alibi_mask, prefix, padding_mask):
-        '''check ring attention intput'''
+        """check ring attention input"""
         if attn_mask is not None:
             raise ValueError(f"Only attn_mask = None is supported")
         if alibi_mask is not None:
@@ -278,7 +277,7 @@ class RingAttention(nn.Cell):
             raise ValueError(f"The next_tokens should be larger or equal to 0, but got {self.next_tokens}")
 
     def construct(self, q, k, v, attn_mask=None, alibi_mask=None, prefix=None, padding_mask=None):
-        '''Forward of RingAttention block'''
+        """Forward of RingAttention block"""
         self.check_parameter(q, k, v, attn_mask, alibi_mask, prefix, padding_mask)
         sp_group = get_sequence_parallel_group()
         cp_size = get_sequence_parallel_world_size()
