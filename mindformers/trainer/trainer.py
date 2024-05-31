@@ -999,24 +999,31 @@ class Trainer:
     def _build_profile_cb(self):
         """build profile callback from config."""
         if self.config.profile:
+            sink_size = self.config.runner_config.sink_size
+            sink_mode = self.config.runner_config.sink_mode
+            if sink_mode:
+                if self.config.profile_start_step % sink_size != 0:
+                    self.config.profile_start_step -= self.config.profile_start_step % sink_size
+                    logger.warning("profile_start_step should divided by sink_size, \
+                        set profile_start_step to %s", self.config.profile_start_step)
+                if self.config.profile_stop_step % sink_size != 0:
+                    self.config.profile_stop_step += self.config.profile_stop_step % sink_size
+                    logger.warning("profile_stop_step should divided by sink_size, \
+                        set profile_stop_step to %s", self.config.profile_stop_step)
+
             start_profile = self.config.init_start_profile
             profile_communication = self.config.profile_communication
-            if self.config.device_num > 1:
-                logger.info("Device number is %s > 1, so profile_communication and start_profile will be set True ")
-                start_profile = True
-                profile_communication = True
             profile_cb = ProfileMonitor(
                 start_step=self.config.profile_start_step,
                 stop_step=self.config.profile_stop_step,
                 start_profile=start_profile,
                 profile_communication=profile_communication,
-                profile_memory=self.config.profile_memory)
+                profile_memory=self.config.profile_memory,
+                output_path=self.config.profile_output)
             logger.warning(
-                "In profiler mode, data sink mode will be turned off. "
                 "Please reduce the data sample size with 'num_samples' in MindSpore data format according to "
                 "https://www.mindspore.cn/mindinsight/docs/zh-CN/master/performance_profiling_ascend.html.")
             logger.warning("In profiler mode, auto-tune will be turned off.")
-            self.config.runner_config.sink_mode = False
             self.config.auto_tune = False
             self.config.profile_cb = profile_cb
 
