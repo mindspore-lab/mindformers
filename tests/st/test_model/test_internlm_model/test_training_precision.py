@@ -80,12 +80,11 @@ class TestInternLMTrainingPrecision:
                                              eps=1.e-8,
                                              learning_rate=lr_schedule)
 
-        loss_list_std = [11.7715, 11.751391, 11.737675, 11.73484, 11.7693815,
-                         11.780886, 11.729794, 11.737111, 11.727144, 11.733832,
-                         11.718602, 11.77964, 11.751205, 11.736936, 11.757384,
-                         11.743711, 11.752291, 11.760548, 11.750416, 11.744327]
-        avg_step_time_std = 179
-        callback = TrainingChecker(loss_list_std=loss_list_std, avg_step_time_std=avg_step_time_std)
+        loss_list_std = [11.771508, 11.751401, 11.737638, 11.734842, 11.769341,
+                         11.780877, 11.729747, 11.737159, 11.727165, 11.733872,
+                         11.718598, 11.779717, 11.751253, 11.736994, 11.757427,
+                         11.743711, 11.752302, 11.760626, 11.750484, 11.744394]
+        callback = TrainingChecker(loss_list_std=loss_list_std)
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,

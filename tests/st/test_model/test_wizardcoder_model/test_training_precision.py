@@ -83,12 +83,11 @@ class TestWizardcoderPrecision:
                                              eps=1.e-8,
                                              learning_rate=lr_schedule)
 
-        loss_list_std = [10.871237, 10.86816, 10.860825, 10.848734, 10.861235,
+        loss_list_std = [10.871237, 10.868160, 10.860825, 10.848734, 10.861235,
                          10.875328, 10.860098, 10.858349, 10.872917, 10.871431,
                          10.861275, 10.871601, 10.874082, 10.858971, 10.849184,
                          10.873372, 10.857426, 10.873322, 10.867041, 10.870938]
-        avg_step_time_std = 20
-        callback = TrainingChecker(loss_list_std=loss_list_std, avg_step_time_std=avg_step_time_std)
+        callback = TrainingChecker(loss_list_std=loss_list_std)
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,

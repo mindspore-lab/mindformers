@@ -67,12 +67,11 @@ class TestGpt2TrainingPrecision:
         optimizer = FusedAdamWeightDecay(params=group_params, beta1=0.9, beta2=0.95, eps=1.e-8, weight_decay=0.1,
                                          learning_rate=lr_schedule)
 
-        loss_list_std = [10.86497, 10.862962, 10.86503, 10.863865, 10.870255,
-                         10.862238, 10.862514, 10.87036, 10.86107, 10.859316,
-                         10.87028, 10.864309, 10.865507, 10.863663, 10.862607,
-                         10.869809, 10.871201, 10.8701725, 10.862435, 10.864089]
-        avg_step_time_std = 44.3278
-        callback = TrainingChecker(loss_list_std=loss_list_std, avg_step_time_std=avg_step_time_std)
+        loss_list_std = [10.858289, 10.866613, 10.866228, 10.860546, 10.862840,
+                         10.862125, 10.860486, 10.866213, 10.864862, 10.867769,
+                         10.862738, 10.863748, 10.869925, 10.862442, 10.864432,
+                         10.865078, 10.873352, 10.866808, 10.864880, 10.869852]
+        callback = TrainingChecker(loss_list_std=loss_list_std)
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,

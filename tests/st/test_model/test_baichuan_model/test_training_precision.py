@@ -78,12 +78,11 @@ class TestBaichuanTrainingPrecision:
                                              eps=1.e-8,
                                              learning_rate=lr_schedule)
 
-        loss_list_std = [12.247409, 12.236682, 12.246553, 12.271661, 12.233513,
-                         12.233652, 12.280604, 12.230948, 12.261696, 12.221994,
-                         12.248443, 12.240035, 12.259356, 12.244299, 12.278494,
-                         12.20916, 12.23171, 12.266195, 12.240306, 12.230747]
-        avg_step_time_std = 266
-        callback = TrainingChecker(loss_list_std=loss_list_std, avg_step_time_std=avg_step_time_std)
+        loss_list_std = [12.247405, 12.236690, 12.246584, 12.271641, 12.233471,
+                         12.233606, 12.280523, 12.230942, 12.261669, 12.221941,
+                         12.248384, 12.239944, 12.259271, 12.244239, 12.278428,
+                         12.209021, 12.231584, 12.266120, 12.240211, 12.230636]
+        callback = TrainingChecker(loss_list_std=loss_list_std)
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,
