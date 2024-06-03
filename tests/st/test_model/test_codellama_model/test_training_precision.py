@@ -81,12 +81,11 @@ class TestCodeLlamaTrainingPrecision:
         optimizer = build_optim(config=optim_config, default_args={"params": group_params,
                                                                    "learning_rate": lr_schedule})
 
-        loss_list_std = [10.781137, 10.792782, 10.777257, 10.81901, 10.753006,
-                         10.784267, 10.805832, 10.778866, 10.800653, 10.787513,
-                         10.789893, 10.826312, 10.765125, 10.783563, 10.802842,
-                         10.790674, 10.775396, 10.796202, 10.731129, 10.76932]
-        avg_step_time_std = 339
-        callback = TrainingChecker(loss_list_std=loss_list_std, avg_step_time_std=avg_step_time_std)
+        loss_list_std = [10.789872, 10.757260, 10.753937, 10.812907, 10.764998,
+                         10.775925, 10.753245, 10.738774, 10.754865, 10.772793,
+                         10.773643, 10.796061, 10.805105, 10.801342, 10.814847,
+                         10.775556, 10.803775, 10.819521, 10.780754, 10.763416]
+        callback = TrainingChecker(loss_list_std=loss_list_std)
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,

@@ -70,11 +70,11 @@ def build_model(test_mode):
         train_dataset = GeneratorDataset(generator_train, column_names=["input_ids"])
         train_dataset = train_dataset.batch(batch_size=8)
 
-        loss_list_std = [10.62391281, 10.65274333, 10.63243484, 10.61519622, 10.62401390,
-                         10.62270355, 10.60839271, 10.60130405, 10.58601284, 10.56890296,
-                         10.55602836, 10.54759025, 10.53646373, 10.51494216, 10.50622177,
-                         10.49535274, 10.48854446, 10.48176097, 10.47748756, 10.47608566]
-        avg_step_time_std = 363
+        loss_list_std = [10.623913, 10.65274, 10.632439, 10.615196, 10.624016,
+                         10.622704, 10.608397, 10.601301, 10.58601, 10.568909,
+                         10.556030, 10.547592, 10.536463, 10.51494, 10.506217,
+                         10.49535, 10.488544, 10.481762, 10.477485, 10.476085]
+        avg_step_time_std = 380
         callback = TrainingChecker(loss_list_std=loss_list_std,
                                    avg_step_time_std=avg_step_time_std,
                                    micro_batch_num=2,

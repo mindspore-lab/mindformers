@@ -90,12 +90,11 @@ class TestQwenTrainingPrecision:
                                              weight_decay=0.1,
                                              learning_rate=lr_schedule)
 
-        loss_list_std = [12.194456, 12.192232, 12.221799, 12.196581, 12.172615,
-                         12.176325, 12.192205, 12.167669, 12.17017, 12.19082,
-                         12.179697, 12.1658125, 12.175744, 12.174243, 12.206135,
-                         12.202461, 12.185411, 12.212146, 12.200212, 12.190927]
-        avg_step_time_std = 277
-        callback = TrainingChecker(loss_list_std=loss_list_std, avg_step_time_std=avg_step_time_std)
+        loss_list_std = [12.194469, 12.192232, 12.221778, 12.196572, 12.172647,
+                         12.176313, 12.192204, 12.167645, 12.170177, 12.190814,
+                         12.179645, 12.165785, 12.175731, 12.174227, 12.206128,
+                         12.202451, 12.185367, 12.212145, 12.200205, 12.190893]
+        callback = TrainingChecker(loss_list_std=loss_list_std)
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,

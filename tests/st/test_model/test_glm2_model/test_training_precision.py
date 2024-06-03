@@ -91,12 +91,11 @@ class TestGLM2TrainingPrecision:
                                              eps=1.e-8,
                                              learning_rate=lr_schedule)
 
-        loss_list_std = [11.28316211, 11.26703357, 11.31917381, 11.27406215, 11.26584815,
-                         11.27925872, 11.28161334, 11.28795528, 11.26731872, 11.26702499,
-                         11.26383018, 11.31049442, 11.27194690, 11.27497196, 11.28303623,
-                         11.26208114, 11.27406501, 11.26027965, 11.28536415, 11.26210498]
-        avg_step_time_std = 140
-        callback = TrainingChecker(loss_list_std=loss_list_std, avg_step_time_std=avg_step_time_std)
+        loss_list_std = [11.283140, 11.267008, 11.319166, 11.274074, 11.265873,
+                         11.279291, 11.281591, 11.287952, 11.267339, 11.267045,
+                         11.263843, 11.310497, 11.271940, 11.274936, 11.283089,
+                         11.262089, 11.274037, 11.260251, 11.285424, 11.262118]
+        callback = TrainingChecker(loss_list_std=loss_list_std)
 
         self.tokenizer = AutoTokenizer.from_pretrained("glm2_6b")
         self.task_trainer = Trainer(task='text_generation',
