@@ -197,7 +197,11 @@ def calculate_expert_capacity(k, tokens_per_group, capacity_factor, expert_dim):
 @constexpr
 def calculate_expert_capacity_v2(k, tokens_per_group, capacity_factor, expert_dim, mp):
     raw_capacity = math.ceil(k * tokens_per_group * capacity_factor / expert_dim)
-    return raw_capacity + mp - (raw_capacity % mp)
+    if tokens_per_group < raw_capacity:
+        raw_capacity = tokens_per_group
+    if raw_capacity % mp > 0:
+        raw_capacity = raw_capacity + mp - (raw_capacity % mp)
+    return raw_capacity
 
 
 class MoE(Cell):
