@@ -21,7 +21,7 @@ from mindspore import load_checkpoint
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import (
     check_in_modelarts,
-    create_flag_txt,
+    create_file,
     get_remote_save_url,
     get_output_root_path,
     get_real_rank,
@@ -84,11 +84,11 @@ def get_resume_checkpoint(checkpoint_dir, resume_training):
         resume_succeed_txt, resume_failed_txt = get_resume_record_txt(current_resume_ckpt)
         try:
             load_checkpoint(current_resume_ckpt)
-            create_flag_txt(resume_succeed_txt)
+            create_file(resume_succeed_txt)
         # pylint: disable=W0703
         except BaseException as e:
             logger.info("Load %s failed due to %s", current_resume_ckpt, str(e))
-            create_flag_txt(resume_failed_txt)
+            create_file(resume_failed_txt)
 
         logger.info("..........wait all rank resume ckpt..........")
         all_rank_resume_succeed = wait_all_rank_load_resume_ckpt(resume_succeed_txt, device_num)

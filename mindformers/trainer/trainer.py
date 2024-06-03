@@ -15,7 +15,6 @@
 """Trainer API For Import."""
 import os
 import copy
-import shutil
 from pathlib import Path
 from collections import OrderedDict
 from collections.abc import Iterable
@@ -52,7 +51,8 @@ from mindformers.tools.utils import (
     set_remote_save_url,
     get_output_root_path,
     get_device_num_per_node,
-    has_shared_disk
+    has_shared_disk,
+    clear_auto_trans_output
 )
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
@@ -61,9 +61,6 @@ from mindformers.tools.resume_ckpt import get_resume_checkpoint
 from .build_trainer import build_trainer
 from .training_args import TrainingArguments
 from .utils import config2dict
-
-if check_in_modelarts():
-    import moxing as mox
 
 __all__ = ['Trainer']
 
@@ -74,28 +71,6 @@ SUPPORT_PIPELINE_INPUT_DATA = MindFormerBook().get_pipeline_support_input_data_l
 CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CHECKPOINT_DIR = 'checkpoint'
 DEFAULT_CONFIG_DIR = 'configs'
-
-def clear_auto_trans_output(remote_save_url):
-    """clear transformed_checkpoint and strategy"""
-    local_rank = get_real_rank()
-    if check_in_modelarts():
-        obs_strategy_dir = os.path.join(remote_save_url, "strategy")
-        if mox.file.exists(obs_strategy_dir) and local_rank == 0:
-            mox.file.remove(obs_strategy_dir, recursive=True)
-            mox.file.make_dirs(obs_strategy_dir)
-        obs_transformed_ckpt_dir = os.path.join(remote_save_url, "transformed_checkpoint")
-        if mox.file.exists(obs_transformed_ckpt_dir) and local_rank == 0:
-            mox.file.remove(obs_transformed_ckpt_dir, recursive=True)
-            mox.file.make_dirs(obs_transformed_ckpt_dir)
-    else:
-        strategy_dir = os.path.join(get_output_root_path(), "strategy")
-        if os.path.exists(strategy_dir) and local_rank == 0:
-            shutil.rmtree(strategy_dir)
-            os.makedirs(strategy_dir, exist_ok=True)
-        transformed_ckpt_dir = os.path.join(get_output_root_path(), "transformed_checkpoint")
-        if os.path.exists(transformed_ckpt_dir) and local_rank == 0:
-            shutil.rmtree(transformed_ckpt_dir)
-            os.makedirs(transformed_ckpt_dir, exist_ok=True)
 
 class Trainer:
     r"""
@@ -338,13 +313,15 @@ class Trainer:
         logger.info("==========Trainer Init Success!==========")
 
     @args_type_check(train_checkpoint=(str, bool), resume_from_checkpoint=(str, bool),
-                     resume_training=(bool, str), auto_trans_ckpt=bool, src_strategy=(str), do_eval=bool)
+                     resume_training=(bool, str), auto_trans_ckpt=bool, src_strategy=str,
+                     transform_process_num=int, do_eval=bool)
     def train(self,
               train_checkpoint: Optional[Union[str, bool]] = False,
               resume_from_checkpoint: Optional[Union[str, bool]] = None,
               resume_training: Optional[Union[bool, str]] = None,
               auto_trans_ckpt: Optional[bool] = None,
               src_strategy: Optional[str] = None,
+              transform_process_num: Optional[int] = None,
               do_eval: Optional[bool] = False):
         """
         The training API of Trainer. After setting custom settings, implement training by calling the
@@ -370,6 +347,8 @@ class Trainer:
             src_strategy (Optionalp[str]):
                 The strategy of `load_checkpoint`. Effective only when auto_trans_ckpt is set to True,
                 used for automatic checkpoint transform.
+            transform_process_num (Optionalp[int]):
+                The number of processes responsible for checkpoint transform.
             do_eval (bool):
                 Whether evaluations are performed during training. Default: False.
 
@@ -417,6 +396,8 @@ class Trainer:
             self.config.auto_trans_ckpt = auto_trans_ckpt
         if src_strategy is not None:
             self.config.src_strategy_path_or_dir = src_strategy
+        if transform_process_num is not None:
+            self.config.transform_process_num = transform_process_num
 
         self._check_config_type()
         self._check_config_rules()
@@ -436,13 +417,15 @@ class Trainer:
             is_full_config=True)
 
     @args_type_check(finetune_checkpoint=(str, bool), resume_from_checkpoint=(str, bool),
-                     resume_training=(bool, str), auto_trans_ckpt=bool, do_eval=bool)
+                     resume_training=(bool, str), auto_trans_ckpt=bool, src_strategy=str,
+                     transform_process_num=int, do_eval=bool)
     def finetune(self,
                  finetune_checkpoint: Optional[Union[str, bool]] = False,
                  resume_from_checkpoint: Optional[Union[str, bool]] = None,
                  resume_training: Optional[Union[bool, str]] = None,
                  auto_trans_ckpt: Optional[bool] = None,
                  src_strategy: Optional[str] = None,
+                 transform_process_num: Optional[int] = None,
                  do_eval: bool = False):
         """
         The fine-tuning API of Trainer. After setting custom settings, implement fine-tuning by calling the
@@ -472,6 +455,8 @@ class Trainer:
             src_strategy (Optionalp[str]):
                 The strategy of `resume_from_checkpoint`. Effective only when auto_trans_ckpt is set to True,
                 used for automatic checkpoint transform.
+            transform_process_num (Optionalp[int]):
+                The number of processes responsible for checkpoint transform.
             do_eval (bool):
                 Whether evaluations are performed during training. Default: False.
 
@@ -531,6 +516,8 @@ class Trainer:
             self.config.auto_trans_ckpt = auto_trans_ckpt
         if src_strategy is not None:
             self.config.src_strategy_path_or_dir = src_strategy
+        if transform_process_num is not None:
+            self.config.transform_process_num = transform_process_num
 
         self._check_config_type()
         self._check_config_rules()
@@ -549,12 +536,14 @@ class Trainer:
             callbacks=self.callbacks, compute_metrics=self.compute_metrics,
             is_full_config=True)
 
-    @args_type_check(eval_checkpoint=(str, bool), auto_trans_ckpt=bool)
+    @args_type_check(eval_checkpoint=(str, bool), auto_trans_ckpt=bool, src_strategy=str,
+                     transform_process_num=int)
     def evaluate(self,
                  eval_dataset: Optional[Union[str, BaseDataset, Dataset, Iterable]] = None,
                  eval_checkpoint: Optional[Union[str, bool]] = False,
                  auto_trans_ckpt: Optional[bool] = None,
                  src_strategy: Optional[str] = None,
+                 transform_process_num: Optional[int] = None,
                  **kwargs):
         """
         The evaluation API of Trainer. After setting custom settings, implement evaluation by calling the
@@ -613,6 +602,8 @@ class Trainer:
             self.config.auto_trans_ckpt = auto_trans_ckpt
         if src_strategy is not None:
             self.config.src_strategy_path_or_dir = src_strategy
+        if transform_process_num is not None:
+            self.config.transform_process_num = transform_process_num
 
         self._check_config_type()
         self._check_config_rules()
@@ -623,13 +614,14 @@ class Trainer:
             dataset=self.eval_dataset, callbacks=self.eval_callbacks,
             compute_metrics=self.compute_metrics, is_full_config=True, **kwargs)
 
-    @args_type_check(predict_checkpoint=(str, bool), auto_trans_ckpt=bool,
-                     input_data=(GeneratorDataset, Tensor, np.ndarray, Image, str, list),
+    @args_type_check(predict_checkpoint=(str, bool), auto_trans_ckpt=bool, src_strategy=str,
+                     transform_process_num=int, input_data=(GeneratorDataset, Tensor, np.ndarray, Image, str, list),
                      batch_size=int)
     def predict(self,
                 predict_checkpoint: Optional[Union[str, bool]] = None,
                 auto_trans_ckpt: Optional[bool] = None,
                 src_strategy: Optional[str] = None,
+                transform_process_num: Optional[int] = None,
                 input_data: Optional[Union[GeneratorDataset,
                                            Tensor, np.ndarray, Image, str, list]] = None,
                 batch_size: int = None,
@@ -696,6 +688,8 @@ class Trainer:
             self.config.auto_trans_ckpt = auto_trans_ckpt
         if src_strategy is not None:
             self.config.src_strategy_path_or_dir = src_strategy
+        if transform_process_num is not None:
+            self.config.transform_process_num = transform_process_num
 
         self._check_config_type()
         self._check_config_rules()
@@ -1223,7 +1217,7 @@ class Trainer:
                 raise ValueError(f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True,"
                                  "the output_dir should be a shared directory that can be accessed by all nodes."
                                  f"but {os.path.abspath(self.config.output_dir)} is not a shared directory.")
-            clear_auto_trans_output(self.config.remote_save_url)
+            clear_auto_trans_output()
 
         if (self.config.auto_trans_ckpt or self.config.resume_training) and not self.config.load_checkpoint:
             if self.config.model and self.config.model.model_config.checkpoint_name_or_path:

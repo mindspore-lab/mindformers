@@ -108,6 +108,9 @@ if __name__ == "__main__":
         '--auto_trans_ckpt', default=None, type=str2bool,
         help="if true, auto transform load_checkpoint to load in distributed model. ")
     parser.add_argument(
+        '--transform_process_num', default=None, type=int,
+        help="The number of processes responsible for checkpoint transform.")
+    parser.add_argument(
         '--only_save_strategy', default=None, type=str2bool,
         help="if true, when strategy files are saved, system exit. ")
     parser.add_argument(
@@ -191,6 +194,8 @@ if __name__ == "__main__":
         config_.src_strategy_path_or_dir = args_.src_strategy_path_or_dir
     if args_.auto_trans_ckpt is not None:
         config_.auto_trans_ckpt = args_.auto_trans_ckpt
+    if args_.transform_process_num is not None:
+        config_.transform_process_num = args_.transform_process_num
     if args_.only_save_strategy is not None:
         config_.only_save_strategy = args_.only_save_strategy
     if args_.resume_training is not None:
