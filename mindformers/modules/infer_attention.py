@@ -57,8 +57,8 @@ class InferRotaryEmbedding(Cell):
         freqs_cos, freqs_sin, _ = freqs_cis
 
         # ROPE currently only supported float16 data type.
-        freqs_cos = self.cast(freqs_cos, mstype.float16)
-        freqs_sin = self.cast(freqs_sin, mstype.float16)
+        freqs_cos = self.cast(freqs_cos, query.dtype)
+        freqs_sin = self.cast(freqs_sin, query.dtype)
         if self.is_first_iteration:
             bs, _, _ = query.shape
             freqs_cos = self.tile_freqs(freqs_cos, (bs, 1))
