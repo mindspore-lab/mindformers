@@ -32,7 +32,7 @@ model:
     ffn_hidden_size: 13696
     kv_channels: 128
     num_attention_heads: 32
-    seq_length: 8192
+    seq_length: 32768
     hidden_dropout: 0.0
     attention_dropout: 0.0
     layernorm_epsilon: 1e-5
@@ -57,12 +57,12 @@ model:
     use_past: True
     is_dynamic: True
     block_size: 16
-    num_blocks: 2048
+    num_blocks: 4096
     use_flash_attention: True # when use FlashAttention, seq_length should be multiple of 16
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0
-    max_length: 8192
+    max_length: 32768
     max_decode_length: 512
     checkpoint_name_or_path: ""
     top_k: 1
