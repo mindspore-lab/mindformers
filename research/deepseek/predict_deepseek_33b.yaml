@@ -136,7 +136,7 @@ model:
   model_config:
     type: LlamaConfig
     batch_size: 32 # add for increase predict
-    seq_length: 4096
+    seq_length: 16384
     hidden_size: 7168
     num_layers: 62
     num_heads: 56
@@ -153,12 +153,12 @@ model:
     eos_token_id: 32021
     pad_token_id: 32014
     ignore_token_id: -100
-    compute_dtype: "float16"
+    compute_dtype: "bfloat16"
     layernorm_compute_type: "float32"
     is_dynamic: True
     softmax_compute_type: "float16"
-    rotary_dtype: "float16"
-    param_init_type: "float16"
+    rotary_dtype: "bfloat16"
+    param_init_type: "bfloat16"
     use_past: True
     extend_method: "PI" # support "None", "PI", "NTK"
     theta: 100000.0
