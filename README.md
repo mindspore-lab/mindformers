@@ -33,7 +33,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 |:--------------------------------------------------:|:-------------------------------------------------------------------|
 |        [LLama2](docs/model_cards/llama2.md)        | llama2_7b, llama2_13b, llama2_7b_lora, llama2_13b_lora, llama2_70b |
 |          [GLM2](docs/model_cards/glm2.md)          | glm2_6b, glm2_6b_lora                                              |
-|     [CodeLlama](docs/model_cards/codellama.md)     | codellama_34b                                                       |
+|     [CodeLlama](docs/model_cards/codellama.md)     | codellama_34b                                                      |
 |     [CodeGeex2](docs/model_cards/codegeex2.md)     | codegeex2_6b                                                       |
 |         [LLama](docs/model_cards/llama.md)         | llama_7b, llama_13b, llama_7b_lora                                 |
 |           [GLM](docs/model_cards/glm.md)           | glm_6b, glm_6b_lora                                                |
@@ -55,9 +55,9 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 |           [ziya](research/ziya/ziya.md)            | ziya_13b                                                           |
 |    [VisualGLM](research/visualglm/visualglm.md)    | visualglm                                                          |
 
-## 二、mindformers安装
+## 二、MindFormers安装
 
-### 方式一：Linux源码编译方式安装
+### Linux源码编译方式安装
 
 支持源码编译安装，用户可以执行下述的命令进行包的安装。
 
@@ -83,15 +83,26 @@ bash build.sh
 
 MindFormers套件对外提供两种使用和开发形式，为开发者提供灵活且简洁的使用方式和高阶开发接口。
 
-### 方式一：使用已有脚本启动
+### 方式一：使用[msrun方式启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3/parallel/msrun_launcher.html)（仅适用于配套MindSpore2.3以上版本）
 
 用户可以直接clone整个仓库，按照以下步骤即可运行套件中已支持的任意`configs`模型任务配置文件，方便用户快速进行使用和开发：
 
-**一、使用[msrun方式启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3/parallel/msrun_launcher.html)（推荐，仅适用于配套MindSpore2.3以上版本）**
-
 目前msrun方式启动不支持指定device_id启动，msrun命令会按当前节点所有显卡顺序设置rank_id。
 
-- 单机多卡
+- 参数说明
+
+  | **参数**           | **单机是否必选**  | **多机是否必选** |     **默认值**      | **说明**           |
+  |------------------|:-----------:|:----------:|:----------------:|------------------|
+  | WORKER_NUM       |      √      |     √      |        8         | 所有节点中使用计算卡的总数    |
+  | LOCAL_WORKER     |      ×      |     √      |        8         | 当前节点中使用计算卡的数量    |
+  | MASTER_ADDR      |      ×      |     √      |    127.0.0.1     | 指定分布式启动主节点的ip    |
+  | MASTER_PORT      |      ×      |     √      |       8118       | 指定分布式启动绑定的端口号    |
+  | NODE_RANK        |      ×      |     √      |        0         | 指定当前节点的rank id   |
+  | LOG_DIR          |      ×      |     √      | output/msrun_log | 日志输出路径，若不存在则递归创建 |
+  | JOIN             |      ×      |     √      |      False       | 是否等待所有分布式进程退出    |
+  | CLUSTER_TIME_OUT |      ×      |     √      |       600        | 分布式启动的等待时间，单位为秒  |
+
+#### 单机多卡
 
   ```shell
   # 单机多卡快速启动方式，默认8卡启动
@@ -111,27 +122,27 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
    WORKER_NUM MASTER_PORT LOG_DIR JOIN CLUSTER_TIME_OUT
   ```
 
-    - 使用示例
+- 使用示例
 
-      ```shell
-      # 单机多卡快速启动方式，默认8卡启动
-      bash scripts/msrun_launcher.sh "run_mindformer.py \
-       --config path/to/xxx.yaml \
-       --run_mode finetune"
+  ```shell
+  # 单机多卡快速启动方式，默认8卡启动
+  bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config path/to/xxx.yaml \
+    --run_mode finetune"
 
-      # 单机多卡快速启动方式
-      bash scripts/msrun_launcher.sh "run_mindformer.py \
-       --config path/to/xxx.yaml \
-       --run_mode finetune" 8
+  # 单机多卡快速启动方式
+  bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config path/to/xxx.yaml \
+    --run_mode finetune" 8
 
-      # 单机多卡自定义启动方式
-      bash scripts/msrun_launcher.sh "run_mindformer.py \
-       --config path/to/xxx.yaml \
-       --run_mode finetune" \
-       8 8118 output/msrun_log False 300
-      ```
+  # 单机多卡自定义启动方式
+  bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config path/to/xxx.yaml \
+    --run_mode finetune" \
+    8 8118 output/msrun_log False 300
+  ```
 
-- 多机多卡
+#### 多机多卡
 
   多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，
   所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同。
@@ -144,95 +155,29 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
    WORKER_NUM LOCAL_WORKER MASTER_ADDR MASTER_PORT NODE_RANK LOG_DIR JOIN CLUSTER_TIME_OUT
   ```
 
-    - 使用示例
+- 使用示例
 
-      ```shell
-      # 节点0，节点ip为192.168.1.1，作为主节点，总共8卡且每个节点4卡
-      bash scripts/msrun_launcher.sh "run_mindformer.py \
-       --config {CONFIG_PATH} \
-       --run_mode {train/finetune/eval/predict}" \
-       8 4 192.168.1.1 8118 0 output/msrun_log False 300
+  ```shell
+  # 节点0，节点ip为192.168.1.1，作为主节点，总共8卡且每个节点4卡
+  bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config {CONFIG_PATH} \
+    --run_mode {train/finetune/eval/predict}" \
+    8 4 192.168.1.1 8118 0 output/msrun_log False 300
 
-      # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
-      bash scripts/msrun_launcher.sh "run_mindformer.py \
-       --config {CONFIG_PATH} \
-       --run_mode {train/finetune/eval/predict}" \
-       8 4 192.168.1.1 8118 1 output/msrun_log False 300
-      ```
+  # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+  bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config {CONFIG_PATH} \
+    --run_mode {train/finetune/eval/predict}" \
+    8 4 192.168.1.1 8118 1 output/msrun_log False 300
+  ```
 
-- 参数说明
+#### 单卡启动
 
-  | **参数**           | **单机是否必选**  | **多机是否必选** |     **默认值**      | **说明**           |
-  |------------------|:-----------:|:----------:|:----------------:|------------------|
-  | WORKER_NUM       |      √      |     √      |        8         | 所有节点中使用计算卡的总数    |
-  | LOCAL_WORKER     |      ×      |     √      |        8         | 当前节点中使用计算卡的数量    |
-  | MASTER_ADDR      |      ×      |     √      |    127.0.0.1     | 指定分布式启动主节点的ip    |
-  | MASTER_PORT      |      ×      |     √      |       8118       | 指定分布式启动绑定的端口号    |
-  | NODE_RANK        |      ×      |     √      |        0         | 指定当前节点的rank id   |
-  | LOG_DIR          |      ×      |     √      | output/msrun_log | 日志输出路径，若不存在则递归创建 |
-  | JOIN             |      ×      |     √      |      False       | 是否等待所有分布式进程退出    |
-  | CLUSTER_TIME_OUT |      ×      |     √      |       600        | 分布式启动的等待时间，单位为秒  |
-
-**二、使用rank table或动态组网方式启动**
-
-- 准备工作
-
-    - step1：克隆mindformers仓库。
-
-      ```shell
-      git clone -b dev https://gitee.com/mindspore/mindformers.git
-      cd mindformers
-      ```
-
-    - step2: 准备相应任务的数据集，请参考`docs`目录下各模型的README.md文档准备相应数据集。
-
-    - step3：修改配置文件`configs/{model_name}/run_{model_name}_***.yaml`中数据集路径。
-
-    - step4：如果要使用分布式训练，则需提前生成RANK_TABLE_FILE。
-    **注意**：不支持在镜像容器中执行该命令，请在容器外执行。
-
-      ```shell
-      # 不包含8本身，生成0~7卡的hccl json文件
-      python mindformers/tools/hccl_tools.py --device_num [0,8)
-      ```
-
-- 单卡启动：统一接口启动，根据模型的config配置，完成任意模型的单卡训练、微调、评估、推理流程。
+通过统一接口启动，根据模型的config配置，完成任意模型的单卡训练、微调、评估、推理流程。
 
   ```shell
   # 训练启动，run_mode支持train、finetune、eval、predict四个关键字，以分别完成模型训练、评估、推理功能，默认使用配置文件中的run_mode
   python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/predict}
-  ```
-
-- 多卡启动：scripts脚本启动，根据模型的config配置，完成任意模型的单卡/多卡训练、微调、评估、推理流程。
-
-    - 使用 [rank table方式启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.2/parallel/rank_table.html)
-
-      ```shell
-      # 8卡分布式运行， DEVICE_RANGE = [0,8), 不包含8本身
-      cd scripts
-      bash run_distribute.sh RANK_TABLE_FILE CONFIG_PATH DEVICE_RANGE RUN_MODE
-      ```
-
-    - 使用[动态组网方式启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.2/parallel/dynamic_cluster.html)
-
-      ```shell
-      # 8卡分布式运行
-      启动前的准备:
-      1. 使用hostname命令将每台服务器hostname设置为各自的ip:  hostname [host ip], 如果在docker内需求设置为docker内部ip,同时保证各个服务器之间docker网络互通
-      2. 设置环境变量: export SERVER_ID=0; export SERVER_NUM=1; export PER_DEVICE_NUMS=8; export MS_SCHED_HOST=[HOST IP]; export MS_SCHED_PORT=[PORT]
-      cd scripts
-      # SERVER_ID为当前服务器序号，SERVER_NUM为服务器的总数，PER_DEVICE_NUMS为每台服务器使用的卡数默认值为8，MS_SCHED_HOST为调度节点的ip，MS_SCHED_PORT为通信端口
-      bash run_distribute_ps_auto.sh CONFIG_PATH RUN_MODE
-      ```
-
-- 常用参数说明
-
-  ```text
-  RANK_TABLE_FILE: 由mindformers/tools/hccl_tools.py生成的分布式json文件
-  CONFIG_PATH: 为configs文件夹下面的{model_name}/run_*.yaml配置文件
-  DEVICE_ID: 为设备卡，范围为0~7
-  DEVICE_RANGE: 为单机分布式卡的范围, 如[0,8]为8卡分布式，不包含8本身
-  RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict\export
   ```
 
 ### 方式二：调用API启动
@@ -241,7 +186,7 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
 
 - 准备工作
 
-    - step 1：安装mindformers
+    - step 1：安装MindFormers
 
       具体安装请参考[第二章](https://gitee.com/mindspore/mindformers/blob/dev/README.md#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)。
 
@@ -253,76 +198,35 @@ MindFormers套件对外提供两种使用和开发形式，为开发者提供灵
 
   用户可以通过以上方式安装mindformers库，然后利用Trainer高阶接口执行模型任务的训练、微调、评估、推理功能。
 
-    - Trainer 训练/微调启动
+  ```python
+  # 以gpt2模型为例
+  import mindspore; mindspore.set_context(mode=0, device_id=0)
+  from mindformers import Trainer
 
-      用户可使用`Trainer.train`或者`Trainer.finetune`接口完成模型的训练/微调/断点续训。
+  # 初始化预训练任务
+  trainer = Trainer(task='text_generation',
+                    model='gpt2',
+                    train_dataset='path/to/train_dataset',
+                    eval_dataset='path/to/eval_dataset')
+  # 开启预训练
+  trainer.train()
 
-      ```python
-      import mindspore; mindspore.set_context(mode=0, device_id=0)
-      from mindformers import Trainer
+  # 开启全量微调
+  trainer.finetune()
 
-      cls_trainer = Trainer(task='image_classification', # 已支持的任务名
-                            model='vit_base_p16', # 已支持的模型名
-                            train_dataset="/data/imageNet-1k/train", # 传入标准的训练数据集路径，默认支持ImageNet数据集格式
-                            eval_dataset="/data/imageNet-1k/val") # 传入标准的评估数据集路径，默认支持ImageNet数据集格式
-      # Example 1： 开启训练复现流程
-      cls_trainer.train()
-      # Example 2： 加载集成的mae权重，开启微调流程
-      cls_trainer.finetune(finetune_checkpoint='mae_vit_base_p16')
-      # Example 3： 开启断点续训功能
-      cls_trainer.train(train_checkpoint=True, resume_training=True)
-      ```
+  # 开启评测
+  trainer.evaluate()
 
-    - Trainer 评估启动
+  # 开启推理
+  predict_result = trainer.predict(input_data="An increasing sequence: one,", do_sample=False, max_length=20)
+  print(predict_result)
+  # output result is: [{'text_generation_text': ['An increasing sequence: one, two, three, four, five, six, seven, eight,']}]
 
-      用户可使用`Trainer.evaluate`接口完成模型的评估流程。
-
-      ```python
-      import mindspore; mindspore.set_context(mode=0, device_id=0)
-      from mindformers import Trainer
-
-      cls_trainer = Trainer(task='image_classification', # 已支持的任务名
-                            model='vit_base_p16', # 已支持的模型名
-                            eval_dataset="/data/imageNet-1k/val") # 传入标准的评估数据集路径，默认支持ImageNet数据集格式
-      # Example 1： 开启评估已集成模型权重的复现流程
-      cls_trainer.evaluate()
-      # Example 2： 开启评估训练得到的最后一个权重
-      cls_trainer.evaluate(eval_checkpoint=True)
-      # Example 3： 开启评估指定的模型权重
-      cls_trainer.evaluate(eval_checkpoint='./output/checkpoint/rank_0/mindformers.ckpt')
-      ```
-
-      结果打印示例(已集成的vit_base_p16模型权重评估分数)：
-
-      ```text
-      Top1 Accuracy=0.8317
-      ```
-
-    - Trainer推理启动
-
-      用户可使用`Trainer.predict`接口完成模型的推理流程。
-
-      ```python
-      import mindspore; mindspore.set_context(mode=0, device_id=0)
-      from mindformers import Trainer
-
-      cls_trainer = Trainer(task='image_classification', # 已支持的任务名
-                            model='vit_base_p16') # 已支持的模型名
-      input_data = './cat.png' # 一张猫的图片
-      # Example 1： 指定输入的数据完成模型推理
-      predict_result_d = cls_trainer.predict(input_data=input_data)
-      # Example 2： 开启推理（自动加载训练得到的最后一个权重）
-      predict_result_b = cls_trainer.predict(input_data=input_data, predict_checkpoint=True)
-      # Example 3： 加载指定的权重以完成推理
-      predict_result_c = cls_trainer.predict(input_data=input_data, predict_checkpoint='./output/checkpoint/rank_0/mindformers.ckpt')
-      print(predict_result_d)
-      ```
-
-      结果打印示例(已集成的vit_base_p16模型权重推理结果)：
-
-      ```text
-      {‘label’: 'cat', score: 0.99}
-      ```
+  # Lora微调
+  trainer = Trainer(task="text_generation", model="gpt2", pet_method="lora",
+                    train_dataset="path/to/train_dataset")
+  trainer.finetune(finetune_checkpoint="gpt2")
+  ```
 
 - pipeline 快速入门
 
