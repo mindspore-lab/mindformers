@@ -29,6 +29,46 @@ from research.qwen1_5.qwen1_5_tokenizer import Qwen2Tokenizer
 IGNORE_TOKEN_ID = -100
 
 
+def chunks(lst, n):
+    """ yield n sized chunks from list"""
+    for i in range(0, len(lst), n):
+        yield lst[i:i+n]
+
+
+def clean_wikitext(string):
+    """ cleaning wikitext dataset"""
+    # contractions
+    string = string.replace("s '", "s'")
+    string = re.sub(r"/' [0-9]/", r"/'[0-9]/", string)
+    # number separators
+    string = string.replace(" @-@ ", "-")
+    string = string.replace(" @,@ ", ",")
+    string = string.replace(" @.@ ", ".")
+    # punctuation
+    string = string.replace(" : ", ": ")
+    string = string.replace(" ; ", "; ")
+    string = string.replace(" . ", ". ")
+    string = string.replace(" ! ", "! ")
+    string = string.replace(" ? ", "? ")
+    string = string.replace(" , ", ", ")
+    # double brackets
+    string = re.sub(r"\(\s*([^\)]*?)\s*\)", r"(\1)", string)
+    string = re.sub(r"\[\s*([^\]]*?)\s*\]", r"[\1]", string)
+    string = re.sub(r"{\s*([^}]*?)\s*}", r"{\1}", string)
+    string = re.sub(r"\"\s*([^\"]*?)\s*\"", r'"\1"', string)
+    string = re.sub(r"'\s*([^']*?)\s*'", r"'\1'", string)
+    # miscellaneous
+    string = string.replace("= = = =", "====")
+    string = string.replace("= = =", "===")
+    string = string.replace("= =", "==")
+    string = string.replace(" "+chr(176)+" ", chr(176))
+    string = string.replace(" \n", "\n")
+    string = string.replace("\n ", "\n")
+    string = string.replace(" N ", " 1 ")
+    string = string.replace(" 's", "'s")
+    return string
+
+
 def preprocess(messages, tokenizer, seq_length):
     """Preprocesses the data for supervised fine-tuning."""
 
@@ -52,6 +92,24 @@ def preprocess(messages, tokenizer, seq_length):
     return dict(
         input_ids=input_ids, target_ids=target_ids, attention_mask=attention_mask
     )
+
+
+def tokenize_wiki(tokenizer, file_path, seq_length, repeat):
+    """tokenize wikitext-2/wikitext-103 dataset"""
+    content = []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        for para in clean_wikitext(f.read()).split("\n\n"):
+            if para and para.strip().startswith('=') is False:
+                content += tokenizer(para)['input_ids']
+    content_out = []
+    for _ in range(repeat):
+        content_out.extend(content)
+    content = content_out
+    for chunk in chunks(content, seq_length):
+        sample = {}
+        if len(chunk) == seq_length:
+            sample['input_ids'] = np.array(chunk, dtype=np.int32)
+            yield sample
 
 
 def tokenize_qa(tokenizer, file_path, seq_length):
@@ -90,6 +148,7 @@ class SupervisedDataset:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset_type', type=str, default='wiki', choices=['wiki', 'qa'])
     parser.add_argument('--input_glob', type=str, required=True)
     parser.add_argument('--output_file', type=str,
                         default='./alpaca-fastchat-qwen.mindrecord')
@@ -106,10 +165,13 @@ if __name__ == '__main__':
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
-    schema = {'input_ids': {"type": "int32", "shape": [-1]},
-              'target_ids': {"type": "int32", "shape": [-1]},
-              "attention_mask": {"type": "int32", "shape": [-1]}
-              }
+    if args.dataset_type == 'wiki':
+        schema = {'input_ids': {"type": "int32", "shape": [-1]},}
+    elif args.dataset_type == 'qa':
+        schema = {'input_ids': {"type": "int32", "shape": [-1]},
+                  'target_ids': {"type": "int32", "shape": [-1]},
+                  "attention_mask": {"type": "int32", "shape": [-1]}
+                  }
     writer = FileWriter(file_name=args.output_file,
                         shard_num=args.file_partition)
     writer.add_schema(schema)
@@ -118,10 +180,19 @@ if __name__ == '__main__':
     word_tokenizer = Qwen2Tokenizer(
         args.vocab_file, args.merges_file, add_bos_token=False, add_eos_token=False)
 
-    for x in tokenize_qa(word_tokenizer, args.input_glob, args.seq_length + 1):
-        transforms_count += 1
-        writer.write_raw_data([x])
-    print("Transformed {} records.".format(transforms_count))
+    if args.dataset_type == 'wiki':
+        for x in tokenize_wiki(word_tokenizer, args.input_glob, args.seq_length + 1, args.repeat):
+            transforms_count += 1
+            writer.write_raw_data([x])
+        print("Transformed {} records.".format(transforms_count))
+    elif args.dataset_type == 'qa':
+        for x in tokenize_qa(word_tokenizer, args.input_glob, args.seq_length + 1):
+            transforms_count += 1
+            writer.write_raw_data([x])
+        print("Transformed {} records.".format(transforms_count))
+    else:
+        raise ValueError(
+            "Not support dataset type: {}".format(args.dataset_type))
 
     writer.commit()
     out_file = args.output_file
