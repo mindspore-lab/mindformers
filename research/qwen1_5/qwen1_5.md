@@ -29,6 +29,7 @@
    ```text
    qwen1_5
      ├── finetune_qwen1_5_72b.yaml         # 72B 全参微调启动配置
+     ├── pretrain_qwen1_5_72b.yaml         # 72B 预训练启动配置  
      ├── predict_qwen1_5_14b.yaml          # 14B 在线推理启动配置
      └── predict_qwen1_5_72b.yaml          # 72B 在线推理启动配置
    ```
@@ -156,6 +157,127 @@ python qwen1_5/qwen1_5_preprocess.py \
 通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
 以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+
+## 预训练
+
+### 预训练性能
+
+| config                                     | task | Datasets | SeqLength | metric | phase         |score | performance(tokens/s/p) |
+|--------------------------------------------|-------|-------|--------|-------|---------------|-------|-------------------------|
+| [qwen1.5-72b](./pretrain_qwen1_5_72b.yaml) | text_generation | alpaca | 32768  | - | [train](#预训练) | - | 186                     |
+
+### 数据预处理
+
+目前提供wikitext数据集的预处理脚本用于预训练任务
+
+执行`qwen1_5_preprocess.py`，进行数据预处理和Mindrecord数据生成。
+
+```bash
+python qwen1_5/qwen1_5_preprocess.py \
+--dataset_type 'wiki' \
+--input_glob /path/wiki.train.tokens \
+--vocab_file /path/vocab.json \
+--merges_file /path/merges.txt \
+--seq_length 32768 \
+--output_file /path/wiki.mindrecord
+```
+
+### 操作步骤
+
+1. 当前支持模型已提供yaml文件，下文以Qwen-72B为例，即使用`pretrain_qwen1_5_72b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
+
+2. 启动微调任务。
+
+在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考[ms_run快速使用](https://gitee.com/mindspore/mindformers#%E5%9B%9B%E5%BF%AB%E9%80%9F%E4%BD%BF%E7%94%A8)
+
+   ```shell
+   # 节点0，节点ip为192.168.1.1，作为主节点，总共32卡且每个节点8卡
+   bash ../../scripts/msrun_launcher.sh "run_qwen1_5.py \
+   --config run_qwen1_5_72b.yaml \
+   --use_parallel True \
+   --run_mode train \
+   --merges_file /path/merges.txt \
+   --vocab_file /path/vocab.json
+   --train_data /path/wiki.mindrecord" \
+   64 8 192.168.1.1 8118 0 output/msrun_log False 1200
+
+   # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+   bash ../../scripts/msrun_launcher.sh "run_qwen1_5.py \
+   --config run_qwen1_5_72b.yaml \
+   --use_parallel True \
+   --run_mode train \
+   --merges_file /path/merges.txt \
+   --vocab_file /path/vocab.json
+   --train_data /path/wiki.mindrecord" \
+   64 8 192.168.1.1 8118 1 output/msrun_log False 1200
+
+   # 节点2，节点ip为192.168.1.3，节点0与节点2启动命令仅参数NODE_RANK不同
+   bash ../../scripts/msrun_launcher.sh "run_qwen1_5.py \
+   --config run_qwen1_5_72b.yaml \
+   --use_parallel True \
+   --run_mode train \
+   --merges_file /path/merges.txt \
+   --vocab_file /path/vocab.json
+   --train_data /path/wiki.mindrecord" \
+   64 8 192.168.1.1 8118 2 output/msrun_log False 1200
+
+   # 节点3，节点ip为192.168.1.4，节点0与节点3启动命令仅参数NODE_RANK不同
+   bash ../../scripts/msrun_launcher.sh "run_qwen1_5.py \
+   --config run_qwen1_5_72b.yaml \
+   --use_parallel True \
+   --run_mode train \
+   --merges_file /path/merges.txt \
+   --vocab_file /path/vocab.json
+   --train_data /path/wiki.mindrecord" \
+   64 8 192.168.1.1 8118 3 output/msrun_log False 1200
+
+   # 节点4，节点ip为192.168.1.5，节点0与节点4启动命令仅参数NODE_RANK不同
+   bash ../../scripts/msrun_launcher.sh "run_qwen1_5.py \
+   --config run_qwen1_5_72b.yaml \
+   --use_parallel True \
+   --run_mode train \
+   --merges_file /path/merges.txt \
+   --vocab_file /path/vocab.json
+   --train_data /path/wiki.mindrecord" \
+   64 8 192.168.1.1 8118 4 output/msrun_log False 1200
+
+   # 节点5，节点ip为192.168.1.6，节点0与节点5启动命令仅参数NODE_RANK不同
+   bash ../../scripts/msrun_launcher.sh "run_qwen1_5.py \
+   --config run_qwen1_5_72b.yaml \
+   --use_parallel True \
+   --run_mode train \
+   --merges_file /path/merges.txt \
+   --vocab_file /path/vocab.json
+   --train_data /path/wiki.mindrecord" \
+   64 8 192.168.1.1 8118 5 output/msrun_log False 1200
+
+   # 节点6，节点ip为192.168.1.7，节点0与节点6启动命令仅参数NODE_RANK不同
+   bash ../../scripts/msrun_launcher.sh "run_qwen1_5.py \
+   --config run_qwen1_5_72b.yaml \
+   --use_parallel True \
+   --run_mode train \
+   --merges_file /path/merges.txt \
+   --vocab_file /path/vocab.json
+   --train_data /path/wiki.mindrecord" \
+   64 8 192.168.1.1 8118 6 output/msrun_log False 1200
+
+   # 节点7，节点ip为192.168.1.8，节点0与节点7启动命令仅参数NODE_RANK不同
+   bash ../../scripts/msrun_launcher.sh "run_qwen1_5.py \
+   --config run_qwen1_5_72b.yaml \
+   --use_parallel True \
+   --run_mode train \
+   --merges_file /path/merges.txt \
+   --vocab_file /path/vocab.json
+   --train_data /path/wiki.mindrecord" \
+   64 8 192.168.1.1 8118 7 output/msrun_log False 1200
+
+   # 参数说明
+   # config: 配置文件路径
+   # load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_0/xxx.ckpt'格式存放
+   # run_mode: 运行模式，微调时设置为finetune
+   # train_data: 训练数据集文件夹路径
+   # merges_file、vocab_file：词表模型
+   ```
 
 ## 全参微调
 
