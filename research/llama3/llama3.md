@@ -2,7 +2,7 @@
 
 ## 模型描述
 
-Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8B，Llama 3-70B。Llama 3在来自公开可用来源的超过15T的数据上进行了预训练。微调数据包括公开可用的指令数据集，以及超过1000万个人工标注的示例。模型支持上下文窗口长度8K，并使用了新的分词器，词汇表大小达到128256个，采用了分组查询注意力机制(GQA)。Llama 3模型是类GPT模型，是一个生成式的语言模型，主要是用于预测下一个单词。目前Mindformers支持Llama 3-8B。
+Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8B，Llama 3-70B。Llama 3在来自公开可用来源的超过15T的数据上进行了预训练。微调数据包括公开可用的指令数据集，以及超过1000万个人工标注的示例。模型支持上下文窗口长度8K，并使用了新的分词器，词汇表大小达到128256个，采用了分组查询注意力机制(GQA)。Llama 3模型是类GPT模型，是一个生成式的语言模型，主要是用于预测下一个单词。目前Mindformers支持Llama 3-8B和Llama 3-70B。
 
 ## 仓库介绍
 
@@ -25,7 +25,9 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
    ```bash
    llama3
        ├── predict_llama3_8b_8k_800T_A2_64G.yaml    # 8B推理配置
-       └── run_llama3_8b_8k_800T_A2_64G.yaml        # 8B全量微调Atlas 800 A2启动配置
+       ├── predict_llama3_70b.yaml                  # 70B推理配置
+       ├── finetune_llama3_8b_8k_800T_A2_64G.yaml        # 8B全量微调Atlas 800 A2启动配置
+       └── finetune_llama3_70b.yaml                 # 70B全量微调Atlas 800 A2启动配置
    ```
 
 3. 数据预处理脚本和任务启动脚本：`research/llama3`
@@ -33,6 +35,8 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
    ```bash
    llama3
        ├── run_llama3.py           # llama3启动脚本
+       ├── llama3_tokenizer.py     # llama3 tokenizer处理脚本
+       ├── conversation.py         # 微调数据集处理，将原始alpaca转换为对话形式alpaca
        └── llama_preprocess.py     # llama模型的mindrecord数据处理脚本
    ```
 
@@ -50,6 +54,7 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
 |     模型      | 硬件 | 全量微调 | 推理 |
 | :-----------: | :--: | :------: | :--: |
 | Llama3-8b | Atlas 800T A2 |  单节点  | 单卡 |
+| Llama3-70b | Atlas 800T A2 |  8节点  | 8卡 |
 
 ### 数据集准备
 
@@ -129,6 +134,7 @@ python llama_preprocess.py \
 选择从huggingface下载预训练权重后根据以下步骤进行权重转换，需要下载整个工程，huggingface权重的链接如下：
 
 - [Llama3-8B](https://huggingface.co/meta-llama/Meta-Llama-3-8B)
+- [Llama3-70B](https://huggingface.co/meta-llama/Meta-Llama-3-70B)
 
 **注**: 请安装transformers=4.40版本
 
@@ -153,9 +159,9 @@ dtype: 转换权重的精度选择。
 
 Mindformer支持权重自动转换，详细教程请参考[权重转换文档](../../docs/feature_cards/Transform_Ckpt.md)。
 
-## Llama3-8B
+## 全参微调
 
-### 全参微调
+### Llama3-8B
 
 请参照[数据集准备](#数据集准备)章节获取mindrecord格式的alpaca数据集，参照[模型权重准备](#模型权重准备)章节获取Llama3-8B权重。
 
@@ -163,15 +169,15 @@ Llama3-8B在Atlas 800T A2上训练，支持**单机/多机训练**。
 
 当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)：
 
-使用`run_llama3_8b_8k_800T_A2_64G.yaml`进行训练，或修改默认配置文件中的`model_config.seq_length`，使数据集与训练配置的`seq_length`保持一致。
+使用`finetune_llama3_8b_8k_800T_A2_64G.yaml`进行训练，或修改默认配置文件中的`model_config.seq_length`，使数据集与训练配置的`seq_length`保持一致。
 
-- **单机训练**
+#### 单机训练
 
-Llama3-8B用于微调，seq_length默认为8192，分布式微调训练在Atlas 800T A2上单节点即可启动。以`alpaca`数据集为例，给出了默认配置文件`run_llama3_8b_8k_800T_A2_64G.yaml`。
+Llama3-8B用于微调，seq_length默认为8192，分布式微调训练在Atlas 800T A2上单节点即可启动。以`alpaca`数据集为例，给出了默认配置文件`finetune_llama3_8b_8k_800T_A2_64G.yaml`。
 
 **步骤**：
 
-2. 修改`run_llama3_8b_8k_800T_A2_64G.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+2. 修改`finetune_llama3_8b_8k_800T_A2_64G.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
 
 ```yaml
 load_checkpoint: 'model_dir/xxx.ckpt'  # 使用完整权重路径
@@ -204,7 +210,7 @@ cd mindformers/research
 # 单机8卡默认快速启动
 bash ../scripts/msrun_launcher.sh \
 "llama3/run_llama3.py \
---config llama3/run_llama3_8b_8k_800T_A2_64G.yaml \
+--config llama3/finetune_llama3_8b_8k_800T_A2_64G.yaml \
 --load_checkpoint model_dir/xxx.ckpt \
 --auto_trans_ckpt True \
 --use_parallel True \
@@ -219,15 +225,106 @@ run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集文件夹路径
 ```
 
-### MindSpore推理
+### Llama3-70B
+
+数据准备参考Llama3-8B全参微调.
+
+#### 多机多卡
+
+1. 修改`finetune_llama3_70b.yaml`中相关配置，默认使用64卡；需要先对权重进行切分，切分权重可以参见[权重切分与合并](../feature_cards/Transform_Ckpt.md).（也可以开启自动权重转换，使用完整权重）
+
+```yaml
+load_checkpoint: '/path/model_dir/'  # 使用切分后的权重路径
+use_parallel: True
+auto_trans_ckpt: False # 默认关闭自动转换
+run_mode: 'finetune'
+# dataset
+train_dataset: &train_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: "dataset_dir"  # 配置训练数据集文件夹路径
+    shuffle: True
+  input_columns: ["input_ids", "labels"]
+# input_columns按照数据集中的字段指定（如alpaca数据集），input_columns: ["input_ids", "labels"]
+
+# 8卡分布式策略配置
+parallel_config:
+  data_parallel: 1
+  model_parallel: 8
+  pipeline_stage: 8
+  use_seq_parallel: True
+  micro_batch_num: 256
+  vocab_emb_dp: False
+  gradient_aggregation_group: 4
+```
+
+2. 启动微调任务，执行运行脚本。
+
+多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，各个参数位置含义参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
+
+```shell
+# 节点0，设0节点ip为192.168.1.1，作为主节点，总共64卡且每个节点8卡
+bash ../scripts/msrun_launcher.sh "run_llama3.py \
+ --config {CONFIG_PATH} \
+ --run_mode finetune" \
+ 64 8 192.168.1.1 8118 0 output/msrun_log False 300
+
+# 节点1，设1节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+bash ../scripts/msrun_launcher.sh "run_llama3.py \
+ --config {CONFIG_PATH} \
+ --run_mode finetune" \
+ 64 8 192.168.1.2 8118 1 output/msrun_log False 300
+
+# 节点2，设1节点ip为192.168.1.3
+bash ../scripts/msrun_launcher.sh "run_llama3.py \
+ --config {CONFIG_PATH} \
+ --run_mode finetune" \
+ 64 8 192.168.1.3 8118 2 output/msrun_log False 300
+
+# 节点3，设1节点ip为192.168.1.4
+bash ../scripts/msrun_launcher.sh "run_llama3.py \
+ --config {CONFIG_PATH} \
+ --run_mode finetune" \
+ 64 8 192.168.1.4 8118 3 output/msrun_log False 300
+
+# 节点4，设1节点ip为192.168.1.5
+bash ../scripts/msrun_launcher.sh "run_llama3.py \
+ --config {CONFIG_PATH} \
+ --run_mode finetune" \
+ 64 8 192.168.1.5 8118 4 output/msrun_log False 300
+
+# 节点5，设1节点ip为192.168.1.6
+bash ../scripts/msrun_launcher.sh "run_llama3.py \
+ --config {CONFIG_PATH} \
+ --run_mode finetune" \
+ 64 8 192.168.1.6 8118 5 output/msrun_log False 300
+
+# 节点6，设1节点ip为192.168.1.7
+bash ../scripts/msrun_launcher.sh "run_llama3.py \
+ --config {CONFIG_PATH} \
+ --run_mode finetune" \
+ 64 8 192.168.1.7 8118 6 output/msrun_log False 300
+
+# 节点7，设1节点ip为192.168.1.8
+bash ../scripts/msrun_launcher.sh "run_llama3.py \
+ --config {CONFIG_PATH} \
+ --run_mode finetune" \
+ 64 8 192.168.1.8 8118 7 output/msrun_log False 300
+```
+
+## 推理
 
 Llama3-8b用于在线推理，Atlas 800T A2支持**单卡推理**。
 
 以下提供了基于高阶接口推理：基于trainer推理，支持传入单句或多句列表。
 
-#### 基于高阶接口推理
+### 基于高阶接口推理
 
-1. 主要参数配置参考
+#### 单卡推理
+
+- Llama3-8B
+
+1. 修改默认配置predict_llama3_8b_800T_A2_64G.yaml，主要参数配置参考如下：
 
 ```yaml
 load_checkpoint: 'path/to/llama3_8b.ckpt'   # 填写权重路径
@@ -253,3 +350,54 @@ python llama3/run_llama3.py \
 
 # output: [{'text_generation_text': ['I love Beijing,because it is a city of history and culture. I love Beijing,because it is a city of modernization. I love Beijing, because it is a city of the future. I love Beijing,because it is a city of my heart.']}]
 ```
+
+#### 多卡推理
+
+- Llama3-70B
+
+>注：
+>1.多卡推理在yaml中将`use_parallel`设为`True`才可以.
+>2.几卡推理就要在yaml配置中将相应的parallel_config 中的model_parallel置为几，其余置为1，比如下面的配置表示4卡推理。
+>3.切分权重可以参见[权重切分与合并](../feature_cards/Transform_Ckpt.md)，使用自动转换权重得到的分布式权重在`output/transformed_checkpoint`文件夹中。
+
+1. 修改默认配置predict_llama3_70b.yaml，主要参数配置参考如下(4卡推理)：
+
+  ```yaml
+   load_checkpoint: '/path/model_dir'       # 使用切分完的权重
+   auto_trans_ckpt: False                   # 打开自动权重转换
+   use_parallel: True                       # 使用并行模式
+
+   model:
+     model_config:
+       use_past: True                       #使用kbk增量推理
+       is_dynamic: True
+
+   processor:
+     tokenizer:
+       vocab_file: "/{path}/vocab.json"     # vocab.json文件路径
+
+   # parallel of device num = 4
+   parallel_config:
+     data_parallel: 1
+     model_parallel: 4
+     pipeline_stage: 1
+     micro_batch_num: 1
+     vocab_emb_dp: True
+  ```
+
+2. 启动推理：
+
+   ```shell
+   cd mindformers/research/llama3
+   # 推理命令中参数会覆盖yaml文件中的相同参数， load_checkpoint为切分好的权重
+   bash ../../scripts/msrun_launcher.sh "python run_llama3.py \
+   --config predict_llama3_70b.yaml \
+   --load_checkpoint /path/model_dir \
+   --run_mode predict \
+   --use_parallel True \
+   --predict_data I love Beijing, because"  4
+
+   # I love Beijing, because it is a city of history and culture...
+   ```
+
+>注：目前llama3 8B和llama3 70B默认为bf16精度，目前无法完全对齐。fp16精度能与A100结果对齐，需要将layernorm_compute_type和softmax_compute_type设为float32，compute_dtype、rotary_dtype和param_init_type设为float16.
