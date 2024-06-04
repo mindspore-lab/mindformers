@@ -324,7 +324,7 @@ class ChatGLM2SelfAttention(nn.Cell):
         # key and value for current token(s)
         if self.use_past:
             context_layer = self.infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping,
-                                                 rotary_pos_emb)
+                                                 rotary_pos_emb, attention_mask)
         else:
             query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
             key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
