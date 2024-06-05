@@ -51,8 +51,8 @@ def is_910b():
     return device in ['910b', 'ascend910b']
 
 
-def get_predict_cell_reuse(func):
-    """Predict cell reuse decorator."""
+def get_predict_lazy_inline(func):
+    """Predict lazy inline decorator."""
 
     def decorator(*args, **kwargs):
         if get_predict_run_mode():
@@ -66,59 +66,47 @@ def get_predict_cell_reuse(func):
     return decorator
 
 
-def get_cell_reuse(func):
-    """Cell reuse decorator."""
+def check_lazy_inline_version():
+    if not is_version_ge(ms.__version__, "2.2.0"):
+        logger.info("The Lazy Inline compilation acceleration feature is not supported "
+                    "when MindSpore version is earlier than 2.2.0, The current MindSpore version is %s, "
+                    "please install MindSpore 2.2.0 or later.", ms.__version__)
+        return False
+    return True
+
+
+def get_lazy_inline(func):
+    """Lazy inline decorator."""
 
     def decorator(*args, **kwargs):
         stand_alone = ms.get_auto_parallel_context("parallel_mode") == 'stand_alone'
         pipline_parallel = ms.get_auto_parallel_context("pipeline_stages") > 1
-        if os.getenv("ENABLE_CELL_REUSE", "0") == "0" or \
-                not is_version_ge(ms.__version__, "2.1.0") \
-                or stand_alone or not pipline_parallel:
-            logger.info("The Cell Reuse compilation acceleration feature is not supported "
-                        "when the environment variable ENABLE_CELL_REUSE is 0 or "
-                        "MindSpore version is earlier than 2.1.0 or stand_alone mode or pipeline_stages <= 1")
-            if os.getenv("ENABLE_CELL_REUSE", "0") == "0":
-                logger.info("\nThe current ENABLE_CELL_REUSE=0, please set the environment variable as follows: \n"
-                            "export ENABLE_CELL_REUSE=1 to enable the Cell Reuse compilation acceleration feature.")
-            if not is_version_ge(ms.__version__, "2.1.0"):
-                logger.info("The current MindSpore version is %s, please install MindSpore 2.1.0 or later.",
-                            ms.__version__)
-            if stand_alone:
-                logger.info("The Cell Reuse compilation acceleration feature does not support single-card mode."
-                            "This feature is disabled by default. ENABLE_CELL_REUSE=1 does not take effect.")
-            if not pipline_parallel:
-                logger.info("The Cell Reuse compilation acceleration feature "
-                            "only works in pipeline parallel mode(pipeline_stage>1)."
-                            "Current pipeline stage=1, the feature is disabled by default.")
+
+        if os.getenv("ENABLE_LAZY_INLINE", "1") == "0":
+            logger.info("The Lazy Inline compilation acceleration feature is turned off, due to the "
+                        "environment variable ENABLE_LAZY_INLINE is set to 0.")
             func(*args, **kwargs)
             return
-        logger.info("Enable cell use mode at %s.", func.__class__.__name__)
-        if ms.__version__ in ["2.1.0", "2.1.1"]:
-            logger.info("The current MindSpore version is %s,"
-                        "and the following conditions are required to use the Cell Reuse capability:",
-                        ms.__version__)
-            logger.info("\nWhen the chip used is Atlas 800 and the Back-End is VM,"
-                        "'export MS_DEV_CELL_REUSE=2' is required.\n"
-                        "When the chip used is Atlas 800T A2 and the Back-End is GE,"
-                        "set environment variables as follows:\n"
-                        "export MS_DEV_CELL_REUSE=1\n"
-                        "export MS_ENABLE_REF_MODE=1\n"
-                        "export MS_ENABLE_GE=1\n"
-                        "export MS_ENABLE_TRAIN=1")
-            logger.info("\nThe current relevant environment variables are as follows: \n"
-                        "MindSpore Version=%s\n"
-                        "ENABLE_CELL_REUSE=%s\n"
-                        "MS_DEV_CELL_REUSE=%s\n"
-                        "MS_ENABLE_REF_MODE=%s\n"
-                        "MS_ENABLE_GE=%s\n"
-                        "MS_ENABLE_TRAIN=%s",
-                        ms.__version__,
-                        os.getenv("ENABLE_CELL_REUSE", "UNSET"),
-                        os.getenv("MS_DEV_CELL_REUSE", "UNSET"),
-                        os.getenv("MS_ENABLE_REF_MODE", "UNSET"),
-                        os.getenv("MS_ENABLE_GE", "UNSET"),
-                        os.getenv("MS_ENABLE_TRAIN", "UNSET"))
+
+        if not check_lazy_inline_version():
+            func(*args, **kwargs)
+            return
+
+        if stand_alone:
+            logger.info("The Lazy Inline compilation acceleration feature does not support single-card mode."
+                        "This feature is disabled by default. ENABLE_LAZY_INLINE=1 does not take effect.")
+            func(*args, **kwargs)
+            return
+
+        if not pipline_parallel and os.getenv("ENABLE_LAZY_INLINE_NO_PIPELINE", "0") == "0":
+            logger.info("The Lazy Inline compilation acceleration feature "
+                        "only works in pipeline parallel mode (pipeline_stage > 1). "
+                        "Current pipeline stage=1, the feature is disabled by default. "
+                        "You can also enable lazy inline without pipeline parallel, by setting "
+                        "environment variable `export ENABLE_LAZY_INLINE_NO_PIPELINE=1`.")
+            func(*args, **kwargs)
+            return
+
         from mindspore.common import lazy_inline
         lazy_inline(func)(*args, **kwargs)
 

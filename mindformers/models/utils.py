@@ -17,7 +17,7 @@ import json
 import re
 import numpy as np
 import mindspore.common.dtype as mstype
-from ..version_control import get_cell_reuse, get_predict_cell_reuse
+from ..version_control import get_lazy_inline, get_predict_lazy_inline
 from ..tools.logger import logger
 
 CONFIG_NAME = "config.json"
@@ -199,5 +199,5 @@ def check_fine_grain_interleave_valid(fine_grain_interleave, parallel_config):
 
 ms_type_to_str = reverse_dict(str_to_ms_type)
 
-cell_reuse = get_cell_reuse
-predict_cell_reuse = get_predict_cell_reuse
+lazy_inline = get_lazy_inline
+predict_lazy_inline = get_predict_lazy_inline

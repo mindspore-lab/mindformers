@@ -24,7 +24,7 @@ from mindformers.models import LlamaModel, LlamaForCausalLM
 from mindformers.models.utils import set_layer_stage_recompute
 from mindformers.models.llama.llama_layer import LlamaEmbedding
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.models.utils import cell_reuse
+from mindformers.models.utils import lazy_inline
 
 from internlm_transformer import InternLMDecodeLayer
 from internlm_config import InternLMConfig
@@ -91,7 +91,7 @@ class InternLMForCausalLM(LlamaForCausalLM):
     config_class = InternLMConfig
     base_model_prefix = "internlm"
 
-    @cell_reuse
+    @lazy_inline
     def __init__(self, config: InternLMConfig):
         checkpoint_name_or_path = config.checkpoint_name_or_path
         config.checkpoint_name_or_path = ""

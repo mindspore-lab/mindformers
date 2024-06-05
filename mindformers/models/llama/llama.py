@@ -37,7 +37,7 @@ from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm
 from .llama_transformer import LLamaDecodeLayer
 from .llama_interleave import LLamaDecodeLayerInterleave
-from ..utils import cell_reuse
+from ..utils import lazy_inline
 from ...tools.logger import logger
 
 __all__ = ['LlamaModel', 'LlamaForCausalLM']
@@ -248,7 +248,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         """
     _support_list = MindFormerBook.get_model_support_list()['llama']
 
-    @cell_reuse
+    @lazy_inline
     def __init__(self, config: LlamaConfig = None):
         super(LlamaForCausalLM, self).__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)

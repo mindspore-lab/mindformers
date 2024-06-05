@@ -24,7 +24,7 @@ from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm
-from mindformers.models.utils import predict_cell_reuse
+from mindformers.models.utils import predict_lazy_inline
 from mindformers.modules.layers import _check_input_dtype, Linear, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.flash_attention import FlashAttention
@@ -401,7 +401,7 @@ class LLamaDecodeLayer(nn.Cell):
 
     """
 
-    @predict_cell_reuse
+    @predict_lazy_inline
     def __init__(self,
                  layer_id,
                  dim: int = 512,

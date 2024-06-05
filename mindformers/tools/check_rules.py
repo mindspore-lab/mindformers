@@ -218,10 +218,10 @@ def _check_env(config):
     """check environment"""
     fine_grain_interleave = config.model.model_config.fine_grain_interleave
     if fine_grain_interleave and fine_grain_interleave > 1:
-        if os.getenv("ENABLE_CELL_REUSE", "0") == 0:
-            os.environ["ENABLE_CELL_REUSE"] = '1'
-            logger.warning(f"ENABLE_CELL_REUSE must be set in environment when use fine_grain_interleave"
-                           f" (export ENABLE_CELL_REUSE=1)")
+        if os.getenv("ENABLE_LAZY_INLINE", "1") == '0':
+            os.environ["ENABLE_LAZY_INLINE"] = '1'
+            logger.warning(f"ENABLE_LAZY_INLINE must be set in environment when use fine_grain_interleave"
+                           f" (export ENABLE_LAZY_INLINE=1)")
 
 def check_rules(config, mode='train', **kwargs):
     """check rules"""
