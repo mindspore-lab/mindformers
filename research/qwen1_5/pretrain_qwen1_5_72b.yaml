@@ -138,7 +138,7 @@ context:
     jit_level: "O1"
   max_call_depth: 10000
   max_device_memory: "57GB"
-  mempool_device_memory: "57GB"
+  mempool_block_size: "57GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
