@@ -594,7 +594,7 @@ class MoEV2(Cell):
         self.dp = parallel_config.data_parallel
         self.ep = parallel_config.expert_parallel
         self.mp = parallel_config.model_parallel
-        self.group_wise_a2a = moe_config.group_wise_a2a
+        self.group_wise_a2a = moe_config.group_wise_a2a if self.mp > 1 else False
         self.dp_moe = self.dp // self.ep
         self.dp_range = Tensor(np.arange(self.dp_group).reshape(-1, 1), mstype.int32) # (dp, 1) = [[0],[1],[2]...[dp]]
 
@@ -669,6 +669,7 @@ class MoEV2(Cell):
                 expert_output = self.stride_slice_dp(expert_output, (0, 0, 0, 0),
                                                      (self.expert_dim, self.dp_group, capacity, self.hidden_size),
                                                      (1, 1, 1, 1))
+                expert_output = self.transpose_4dim_dp1(expert_output, (1, 0, 2, 3)) # (dp, E, n, h) <-- (E, dp, n, h)
             else:
                 # (dp, E, n, h) <-- (E, dp, n, h)
                 expert_output = self.transpose_4dim_dp1(expert_output, (1, 0, 2, 3))
