@@ -21,7 +21,7 @@ from typing import Optional, List, Union
 import numpy as np
 
 import mindspore as ms
-from mindspore import context, Tensor
+from mindspore import context, ops, Tensor
 from mindspore.communication.management import init
 from mindspore.common.initializer import Zero
 from mindspore._c_expression import swap_cache
@@ -31,9 +31,9 @@ from mindformers.models.build_config import build_model_config
 from mindformers.models.utils import convert_mstype
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
+from mindformers.generation.logits_process import LogitsProcessorAcceleration
 
 __all__ = ["ModelRunner"]
-
 
 class ModelRunner:
     """
@@ -62,6 +62,7 @@ class ModelRunner:
         self.model_config = None
         self.generation_config = None
         self.experiment_mode = False
+        self.post_processor = LogitsProcessorAcceleration()
 
         # parallel predict with dynamic cluster.
         if world_size > 1:
@@ -201,66 +202,60 @@ class ModelRunner:
         if generation_config is None:
             return self.model.infer(**kwargs)
 
-        input_ids = np.array(input_ids)
-        is_finished = np.array(is_finished)
         do_sample = generation_config.get("do_sample")
+        temperature = generation_config.get("temperature")
+        top_k = generation_config.get("top_k")
+        top_p = generation_config.get("top_p")
         repetition_penalty = generation_config.get("repetition_penalty")
-        batch_size = input_ids.shape[0]
-        batch_idx = np.arange(batch_size)
-        no_sample_batch_idx = batch_idx if do_sample is None else np.where(do_sample == 0)[0]
-        no_penalty_batch_idx = batch_idx if repetition_penalty is None else np.where(repetition_penalty == 1.0)[0]
-        if no_sample_batch_idx.size == batch_size and no_penalty_batch_idx.size == batch_size:
-            generation_config = {"do_sample": do_sample[0], "temperature": 1.0, "top_k": 0, "top_p": 1.0,
-                                 "repetition_penalty": repetition_penalty[0]}
+
+        # Check if the sample parameters are all the same, \
+        # because the post_process in text_generator does not support different ones.
+        if _the_same_sample_parmas(generation_config):
+            generation_config = {"do_sample": do_sample[0], "temperature": temperature[0], "top_k": int(top_k[0]),
+                                 "top_p": top_p[0], "repetition_penalty": repetition_penalty[0]}
             self.generation_config.update(**generation_config)
             logits_processor = self.model.get_logits_processor(self.generation_config, input_ids_seq_length, None)
             logits_warper = self.model.get_logits_warper(self.generation_config)
+            kwargs["generation_config"] = self.generation_config
             kwargs["logits_processor"] = logits_processor
             kwargs["logits_warper"] = logits_warper
             return self.model.infer(**kwargs)
 
         res, current_idx = self.model.forward(**kwargs)
-        next_ids = np.array([self.model_config.eos_token_id] * batch_size)
-        no_post_batch_idx = np.intersect1d(no_sample_batch_idx, no_penalty_batch_idx).tolist()
-        if no_post_batch_idx:
-            next_ids_no_post, is_finished_no_post = \
-                self.model.postprocess(input_ids=input_ids[no_post_batch_idx],
-                                       is_finished=is_finished[no_post_batch_idx],
-                                       res=(res[0][no_post_batch_idx], res[1][no_post_batch_idx]),
-                                       generation_config=self.generation_config,
-                                       valid_length_each_example=None,
-                                       current_index=np.array(current_idx)[no_post_batch_idx].tolist(),
-                                       logits_processor=logits_processor,
-                                       logits_warper=logits_warper,
-                                       need_gather_logits=prefill)
-            next_ids[no_post_batch_idx] = np.array(next_ids_no_post)
-            is_finished[no_post_batch_idx] = np.array(is_finished_no_post)
+        logits = ops.reshape(res[0], (-1, res[0].shape[-1]))
+        if prefill and logits.shape[0] > len(current_idx):
+            logits = logits[Tensor(current_idx)]
 
-        temperature = generation_config.get("temperature")
-        top_k = generation_config.get("top_k")
-        top_p = generation_config.get("top_p")
-        post_batch_idx = np.setdiff1d(batch_idx, no_post_batch_idx).tolist()
-        for idx in post_batch_idx:
-            generation_config["do_sample"] = do_sample[idx]
-            generation_config["repetition_penalty"] = 1.0 if repetition_penalty is None else repetition_penalty[idx]
-            generation_config["temperature"] = 1.0 if temperature is None else temperature[idx]
-            generation_config["top_k"] = 0 if top_k is None else int(top_k[idx])
-            generation_config["top_p"] = 1.0 if top_p is None else top_p[idx]
-            self.generation_config.update(**generation_config)
-            logits_processor = self.model.get_logits_processor(self.generation_config, input_ids_seq_length, None)
-            logits_warper = self.model.get_logits_warper(self.generation_config)
+        ori_logits = logits
+        if np.any(temperature != 1.0):
+            logits = self.post_processor.temperature_process(logits, temperature)
+        if np.any(top_k != 1):
+            logits = self.post_processor.top_k_process(logits, top_k)
+        if np.any(top_p != 1.0):
+            logits = self.post_processor.top_p_process(logits, top_p)
+        if self.generation_config.renormalize_logits:
+            logits = self.post_processor.logits_normalization(logits)
 
-            next_ids_post, is_finished_post = self.model.postprocess(input_ids=np.array([input_ids[idx]]),
-                                                                     is_finished=[is_finished[idx]],
-                                                                     res=(res[0][int(idx)], res[1][int(idx)]),
-                                                                     generation_config=self.generation_config,
-                                                                     valid_length_each_example=None,
-                                                                     current_index=[current_idx[idx]],
-                                                                     logits_processor=logits_processor,
-                                                                     logits_warper=logits_warper,
-                                                                     need_gather_logits=prefill)
-            next_ids[idx] = np.array(next_ids_post)
-            is_finished[idx] = np.array(is_finished_post)
+        p_norms = ops.softmax(logits).asnumpy()
+        batch_size = np.array(input_ids).shape[0]
+        length = logits.shape[1]
+
+        next_ids = [None] * batch_size
+        for i in range(batch_size):
+            if is_finished[i]:
+                continue
+            if do_sample[i]:
+                p_norm = p_norms[i]
+                try:
+                    target = np.random.choice(length, p=p_norm)
+                except ValueError:
+                    logger.warning("np random choice contain NaN")
+                    continue
+            else:
+                p_norm = ori_logits[i]
+                target = ops.argmax(p_norm)
+            next_ids[i] = int(target)
+
         return next_ids, is_finished
 
     def generate(self, **kwargs):
@@ -290,3 +285,22 @@ class ModelRunner:
             key_cache, value_cache = self.model.kvcache(i)
             swap_cache(self.key_host[i], key_cache, ms.Tensor(block_tables), swap_type)
             swap_cache(self.value_host[i], value_cache, ms.Tensor(block_tables), swap_type)
+
+def _the_same_sample_parmas(generation_config):
+    """
+    Check if the sample parameters are all the same.
+
+    Args:
+        generation_config: dict of generation config contains dosample parameters.
+
+    Return:
+         Bool value indicates if all sample parameters the same.
+    """
+
+    do_sample = generation_config.get("do_sample")
+    temperature = generation_config.get("temperature")
+    top_k = generation_config.get("top_k")
+    top_p = generation_config.get("top_p")
+    repetition_penalty = generation_config.get("repetition_penalty")
+    return np.all(do_sample == do_sample[0]) and np.all(temperature == temperature[0]) and np.all(top_k == top_k[0]) \
+            and np.all(top_p == top_p[0]) and np.all(repetition_penalty == repetition_penalty[0])
