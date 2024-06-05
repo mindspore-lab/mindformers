@@ -101,7 +101,8 @@ def main(task='text_generation',
         config.auto_trans_ckpt = auto_trans_ckpt
         if config.auto_trans_ckpt:
             clear_auto_trans_output(config)
-
+    if ckpt is not None:
+        config.load_checkpoint = ckpt
     if use_past is not None:
         config.model.model_config.use_past = use_past
     if seq_length is not None:

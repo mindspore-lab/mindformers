@@ -506,3 +506,39 @@ bash scripts/msrun_launcher.sh "run_mindformer.py --config research/qwen1_5/fine
 
    # 帮助我制定一份去上海的旅游攻略，包括景点、美食、住宿等信息……
    ```
+
+### chat 多轮对话推理
+
+`run_qwen1_5_chat.py` 基于`model.generate()`实现，支持交互式多轮对话，支持加载lora权重、权重转换、多卡推理，暂不支持 batch 推理。
+
+```shell
+cd research/qwen1_5
+python run_qwen1_5_chat.py --config predict_qwen1_5_7b_chat.yaml \
+  --load_checkpoint /path/to/qwen1_5_7b_chat.ckpt \
+  --enable_history True \
+  --use_parallel False \
+  --auto_trans_ckpt False \
+  --run_demo True \
+  --device_id 0
+
+## 参数说明
+# --enable_history: 是否将历史对话带入后面的输入。在交互式模式下（且启动时指定了--enable_history=True），可以用 /clear 清除前面的对话历史，开始新一轮会话;
+# --run_demo: 启动时是否自动运行预设的若干个问题（用于演示/试验目的）;
+# --predict_data: 提交给模型进行推理的问题（run_qwen1_5_chat.py会将历史对话和问题按照chatml格式组装后提交给模型进行推理），可以给出多个问题。不给出此参数时，`run_qwen1_5_chat.py`按交互模式运行;
+# --system_prompt: 系统提示符，默认为"You are a helpful assistant.";
+# --verbose: 是否打印调试信息（比如模型的原始输入和输出）。
+```
+
+#### 多卡推理
+
+注意: 多卡运行`run_qwen1_5_chat.py`时，不支持交互式对话，只能通过`--predict_data`传入预先给出的问题。
+
+```shell
+cd research/qwen1_5
+bash ../../scripts/msrun_launcher.sh "python run_qwen1_5_chat.py --config predict_qwen1_5_72b_chat.yaml \
+  --use_parallel True --auto_trans_ckpt False \
+  --load_checkpoint /path/to/预先切分好的4卡权重 \
+  --predict_data 《三体》这本小说的精彩之处在什么地方 再推荐几部刘慈欣的作品吧 国内这些年还有哪些不错的科幻作家 \
+  --enable_history True" 4
+tail -f output/msrun_log/*.log  # press Ctrl-C to quit when done
+```
