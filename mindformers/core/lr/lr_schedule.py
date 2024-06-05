@@ -40,8 +40,6 @@ def _get_warmup_steps(warmup_steps: int, warmup_ratio: float, total_steps: int):
             raise TypeError(f"The type of warmup_steps must be int, but got {type(warmup_steps)}")
         if warmup_steps < 0:
             raise ValueError(f"Warmup_steps must be >= 0, but got {warmup_steps}")
-        if warmup_steps > total_steps:
-            raise ValueError(f"Total_steps {total_steps} must be greater than warmup_steps {warmup_steps}")
         return warmup_steps
 
     if not isinstance(warmup_ratio, float):
