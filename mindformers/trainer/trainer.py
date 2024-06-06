@@ -183,7 +183,8 @@ class Trainer:
                  pet_method: Optional[str] = '',
                  image_processor: Optional[BaseImageProcessor] = None,
                  audio_processor: Optional[BaseAudioProcessor] = None,
-                 save_config: bool = False):
+                 save_config: bool = False,
+                 reset_model: bool = False):
         self.args = args
         self.task = task
         self.model = model
@@ -199,6 +200,7 @@ class Trainer:
         self.pet_method = pet_method
         self.image_processor = image_processor
         self.audio_processor = audio_processor
+        self.reset_model = reset_model
         self.default_checkpoint_name_or_path = None
         self.configs_directory = os.path.join('.', DEFAULT_CONFIG_DIR)
 
@@ -261,15 +263,6 @@ class Trainer:
         self.device_num = get_real_group_size()
         self.config.rank_id = self.rank_id
         self.config.device_num = self.device_num
-
-        if self.device_num > 1:
-            self.is_set_parallel_config = True
-            self.is_set_moe_config = True
-            self.is_set_recompute_config = True
-        else:
-            self.is_set_parallel_config = False
-            self.is_set_moe_config = False
-            self.is_set_recompute_config = False
 
         # set seed
         if self.config.seed and \
@@ -802,7 +795,8 @@ class Trainer:
         self.config.parallel_config.gradient_aggregation_group = gradient_aggregation_group
         self.config.micro_batch_interleave_num = micro_batch_interleave_num
 
-        self.is_set_parallel_config = True
+        self.reset_model = True
+        logger.info("The incoming model will be reinit when parallel config is reconfigured.")
 
     @args_type_check(recompute=bool, parallel_optimizer_comm_recompute=bool,
                      select_recompute=bool, mp_comm_recompute=bool,
@@ -836,7 +830,8 @@ class Trainer:
         self.config.recompute_config.mp_comm_recompute = mp_comm_recompute
         self.config.recompute_config.recompute_slice_activation = recompute_slice_activation
 
-        self.is_set_recompute_config = True
+        self.reset_model = True
+        logger.info("The incoming model will be reinit when recompute config is reconfigured.")
 
     @args_type_check(expert_num=int, capacity_factor=float, aux_loss_factor=float, num_experts_chosen=int,
                      expert_group_size=int, group_wise_a2a=bool, comp_comm_parallel=bool, comp_comm_parallel_degree=int)
@@ -890,36 +885,25 @@ class Trainer:
         self.config.moe_config.comp_comm_parallel = comp_comm_parallel
         self.config.moe_config.comp_comm_parallel_degree = comp_comm_parallel_degree
 
-        self.is_set_moe_config = True
+        self.reset_model = True
+        logger.info("The incoming model will be reinit when moe config is reconfigured.")
 
     def _reset_model_instance(self, is_train=False):
         """Reset model instance for new model config."""
-        if self.is_set_parallel_config:
-            logger.info("The incoming model will be configured in parallel.")
-
-        if self.is_set_recompute_config:
-            logger.info("The incoming model will be configured in recompute.")
-
-        if self.is_set_moe_config:
-            logger.info("The incoming model will be configured in moe.")
-
         if not isinstance(self.model, PreTrainedModel):
             raise NotImplementedError("Currently only the integrated model structure in MindFormers is supported.")
 
         build_parallel_config(self.config)
         model_config = self.model.config
-        if True in [self.is_set_parallel_config, self.is_set_moe_config, self.is_set_recompute_config] or \
-            (is_train and hasattr(model_config, 'use_past') and model_config.use_past):
+        if self.reset_model or (is_train and hasattr(model_config, 'use_past') and model_config.use_past):
             logger.info("..........Reinit Model..........")
             if is_train and hasattr(model_config, 'use_past') and model_config.use_past:
                 model_config.use_past = False
-                logger.warning("The `use_past` is set to False.")
+                logger.warning("The `use_past` is set to False and reinit the incoming model.")
             model_config.parallel_config = self.config.parallel_config
             model_config.moe_config = self.config.moe_config
             self.model.__init__(model_config)
-            self.is_set_parallel_config = False
-            self.is_set_recompute_config = False
-            self.is_set_moe_config = False
+            self.reset_model = False
 
     @staticmethod
     def get_task_config(task, model_name):
@@ -1031,7 +1015,7 @@ class Trainer:
             assert self.config.model is not None, \
                 "When `model` is not instance, `self.config.model` must not be None."
 
-        if self.is_model_instance:
+        if self.is_model_instance and self.reset_model:
             self._reset_model_instance(is_train)
 
     def _init_tokenizer(self):

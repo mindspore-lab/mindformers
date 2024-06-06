@@ -68,7 +68,8 @@ def gpt_trainer_train_from_instance():
 
     trainer = Trainer(model=model,
                       args=config,
-                      train_dataset=dataset)
+                      train_dataset=dataset,
+                      reset_model=True)
     trainer.train(train_checkpoint=False)
 
     checkpoint_dir = os.path.join(LOCAL_DEFAULT_PATH, "test_resume_parallel", "checkpoint",
@@ -88,7 +89,8 @@ def gpt_trainer_train_from_instance():
 
     trainer = Trainer(model=model,
                       args=config,
-                      train_dataset=dataset)
+                      train_dataset=dataset,
+                      reset_model=True)
     trainer.train(resume_from_checkpoint=os.path.join(LOCAL_DEFAULT_PATH, "test_resume_parallel", "checkpoint"),
                   resume_training=True)
 
@@ -98,7 +100,8 @@ def gpt_trainer_train_from_instance():
 
     trainer = Trainer(model=model,
                       args=config,
-                      train_dataset=dataset)
+                      train_dataset=dataset,
+                      reset_model=True)
     trainer.train(resume_from_checkpoint=os.path.join(LOCAL_DEFAULT_PATH, "test_resume_parallel", "checkpoint"),
                   resume_training=output_checkpoint_path[-1])
 
