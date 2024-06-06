@@ -149,7 +149,7 @@ model:
     param_init_type: "float16"
     use_past: True
     extend_method: "None" # support "None", "PI", "NTK"
-    use_flash_attention: True
+    use_flash_attention: False
     block_size: 16
     num_blocks: 512
     is_dynamic: True
