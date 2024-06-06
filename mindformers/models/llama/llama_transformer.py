@@ -195,7 +195,7 @@ class LLamaAttention(nn.Cell):
         else:
             self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
 
-            self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+            self.reshape = P.Reshape()
             self.transpose = P.Transpose()
             self.merger_head_transpose = P.Transpose()
             self.batch_matmul = P.BatchMatMul()
@@ -437,7 +437,7 @@ class LLamaDecodeLayer(nn.Cell):
         self.use_past = use_past
 
         self.shape = P.Shape()
-        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        self.reshape = P.Reshape()
         self.add = P.Add()
         self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
