@@ -16,6 +16,7 @@
 import math
 from typing import Tuple, Optional
 
+import mindspore as ms
 from mindspore import nn
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
@@ -133,14 +134,16 @@ class LLamaAttention(nn.Cell):
         self.cast = P.Cast()
 
         if self.qkv_concat:
-            self.w = Linear(in_channels=self.hidden_size,
-                            out_channels=self.hidden_size + self.kv_dim * 2,
-                            has_bias=qkv_has_bias,
-                            compute_dtype=compute_dtype,
-                            param_init_type=param_init_type,
-                            skip_redistribution=is_dynamic)
-            self.w.shard(((dp, 1), (mp, 1)))
-
+            self.w_qkv = Linear(in_channels=self.hidden_size,
+                                out_channels=self.hidden_size + self.kv_dim * 2,
+                                has_bias=qkv_has_bias,
+                                compute_dtype=compute_dtype,
+                                param_init_type=param_init_type,
+                                skip_redistribution=is_dynamic)
+            self.w_qkv.shard(((dp, 1), (mp, 1)))
+            self.split_qkv = ms.ops.auto_generate.SplitWithSize()
+            self.split_qkv.add_prim_attr("skip_redistribution", True)
+            self.split_qkv.shard(((dp, 1, mp),))
         else:
             self.wq = Linear(self.hidden_size,
                              self.hidden_size,
@@ -205,7 +208,6 @@ class LLamaAttention(nn.Cell):
             self.softmax = P.Softmax()
             self.cast_attn = P.Cast()
             self.tile_kv = P.Tile()
-            self.slice_qkv = P.StridedSlice()
 
             self.apply_rotary_emb = RotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
 
@@ -218,7 +220,6 @@ class LLamaAttention(nn.Cell):
                 self.add.shard(((dp, 1, 1, 1), (dp, mp, 1, 1)))
                 self.softmax.shard(((dp, mp, 1, 1),))
                 self.tile_kv.shard(((dp, mp, 1, 1),))
-                self.slice_qkv.shard(((dp, mp),))
 
                 self.apply_rotary_emb.shard(parallel_config)
 
@@ -252,14 +253,8 @@ class LLamaAttention(nn.Cell):
         # [bs, seq/1, hidden_dim]
         bs, seq_len, _ = self.shape(x)
         if self.qkv_concat:
-            x = self.reshape(x, (-1, x.shape[-1]))
-            bs_seq = x.shape[0]
-            qkv = self.cast(self.w(x), self.dtype)
-            query = self.slice_qkv(qkv, (0, 0), (bs_seq, self.hidden_size), (1, 1))
-            key = self.slice_qkv(qkv, (0, self.hidden_size),
-                                 (bs_seq, self.hidden_size + self.kv_dim), (1, 1))
-            value = self.slice_qkv(qkv, (0, self.hidden_size + self.kv_dim),
-                                   (bs_seq, self.hidden_size + self.kv_dim * 2), (1, 1))
+            qkv = self.cast(self.w_qkv(x), self.dtype)
+            query, key, value = self.split_qkv(qkv, (self.hidden_size, self.kv_dim, self.kv_dim), 2)
         else:
             query = self.cast(self.wq(x), self.dtype)  # dp, 1 -> dp, mp
             key = self.cast(self.wk(x), self.dtype)  # dp, 1 -> dp, mp
@@ -467,6 +462,7 @@ class LLamaDecodeLayer(nn.Cell):
                                ffn_dim_multiplier=ffn_dim_multiplier,
                                compute_dtype=compute_dtype,
                                param_init_type=param_init_type,
+                               ffn_concat=qkv_concat,
                                is_dynamic=is_dynamic,
                                parallel_config=parallel_config)
         if self.expert_num == 1:
