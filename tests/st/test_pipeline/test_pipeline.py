@@ -82,3 +82,19 @@ class TestPipeline:
                                do_sample=False)
         print(output)
         assert "An increasing sequence: one, two," in output[0]['text_generation_text'][0]
+
+class TestPipelineExperiment:
+    """A test class for testing experiment pipeline features."""
+    def setup_method(self):
+        """setup method."""
+        self.task_name = "text_generation"
+        self.model = "MindSpore-Lab/baichuan2_7b_chat"
+
+    def test_pipeline(self):
+        pipeline_task = pipeline(task=self.task_name,
+                                 model=self.model,
+                                 model_kwargs={"use_past": True},
+                                 framework='ms',
+                                 trust_remote_code=True)
+        pipeline_result = pipeline_task("<reserved_106>你是谁？<reserved_107>", do_sample=False)
+        assert "百川" in pipeline_result[0]['text_generation_text'][0]
