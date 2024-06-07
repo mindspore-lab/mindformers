@@ -23,6 +23,7 @@ from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules import LayerNorm
 from mindformers.modules.layers import Linear
 from mindformers.modules.flash_attention import FlashAttention
+from mindformers.models.utils import set_layer_stage_recompute
 from mindformers.pet.tuners.ptuning2_adapter import Ptuning2Adapter
 from mindformers.version_control import get_dropout
 
@@ -456,58 +457,6 @@ class ChatGLM2Block(nn.Cell):
         return output
 
 
-def set_parallel_configure_for_layer(layer, layer_id, offset, parallel_config, n_layers, no_recompute_layers=None):
-    r"""
-        Default setting for the pipeline is: `(layer_id + offset) // (layers / pipeline_stage)`.
-
-        Args:
-            layer(Cell) - Represents the transformer block
-            layer_id(int) - Means the layer index for the current module, counts from zero.
-            offset(int) - Means the layer_index needs a offset, if there are other modules in the net.
-            parallel_config(dict) - Parallel Config
-            n_layers(int) - The total layers used for the model.
-            no_recompute_layers(Union[list, None]) - layer not use recompute
-    """
-    pp_dis = max(int((n_layers + 1) / parallel_config.pipeline_stage), 1)
-    if isinstance(offset, list):
-        if len(offset) != parallel_config.pipeline_stage:
-            raise ValueError(f"The length of `offset` {len(offset)} do not match "
-                             f"`pipeline stage` {parallel_config.pipeline_stage}.")
-        i = min(layer_id // pp_dis, parallel_config.pipeline_stage - 1)
-        offset_layer = offset[i]
-    elif isinstance(offset, int):
-        offset_layer = offset
-    else:
-        raise TypeError(f"`offset` must be `int` of list of `int`, but got {type(offset)}.")
-
-    pp_id = min((layer_id + offset_layer) // pp_dis, parallel_config.pipeline_stage - 1)
-    layer.pipeline_stage = pp_id
-
-    # Used for optimizer's fusion tag
-    dis = max(int((n_layers + 1) / parallel_config.gradient_aggregation_group), 1)
-    if parallel_config.pipeline_stage > 1:
-        # we give the fusion in pipeline mode a fixed value, otherwise the performance may become worse.
-        layer.set_comm_fusion(2)
-    else:
-        layer.set_comm_fusion(int((layer_id + offset) / dis) + 1)
-    # Used for enabling recomputation of the block
-    if not parallel_config.recompute.select_recompute:
-        if isinstance(parallel_config.recompute, bool):
-            if parallel_config.recompute:
-                layer.recompute()
-        else:
-            if parallel_config.recompute.recompute:
-                layer.recompute(recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
-    else:
-        if not no_recompute_layers:
-            layer.set_select_recompute()
-        elif layer_id not in no_recompute_layers:
-            if parallel_config.recompute.recompute:
-                layer.recompute()
-            else:
-                layer.recompute(recompute_slice_activation=parallel_config.recompute.recompute_slice_activation)
-
-
 class ChatGLM2Transformer(nn.Cell):
     """Transformer class."""
 
@@ -529,9 +478,7 @@ class ChatGLM2Transformer(nn.Cell):
         self.layers = nn.CellList()
         for i in range(self.num_layers):
             layer = build_layer(i + 1)
-            set_parallel_configure_for_layer(layer, layer_id=i, offset=0, n_layers=self.num_layers,
-                                             parallel_config=config.parallel_config,
-                                             no_recompute_layers=config.no_recompute_layers)
+            set_layer_stage_recompute(layer, i, config.offset, config.parallel_config, self.num_layers)
             self.layers.append(layer)
 
         if self.post_layer_norm:

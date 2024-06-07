@@ -11,12 +11,13 @@ context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   enable_graph_kernel: False
-  graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
   max_device_memory: "59GB" # 59GB for Atlas 800T A2
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
+  jit_config:
+   jit_level: "O1"
 
 # aicc
 remote_save_url: "Please input obs url on AICC platform."
@@ -54,7 +55,7 @@ model:
     param_init_type: "float16"
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    use_past: True
+    use_past: False
     use_flash_attention: True # when use FlashAttention, seq_length should be multiple of 16
     no_recompute_layers: [20]
     eos_token_id: 2
@@ -153,7 +154,7 @@ eval_dataset_task:
 
 # ==== runner config ====
 runner_config:
-  epochs: 15
+  epochs: 2
   batch_size: 1
   gradient_accumulation_steps: 1
   sink_mode: True
@@ -201,12 +202,12 @@ parallel:
   strategy_ckpt_config:
     save_file: "./ckpt_strategy.ckpt"
 parallel_config:
-  data_parallel: 1
-  model_parallel: 2
+  data_parallel: 2
+  model_parallel: 1
   pipeline_stage: 4
   expert_parallel: 1
   micro_batch_num: 16
-  vocab_emb_dp: True
+  vocab_emb_dp: False
   use_seq_parallel: False
   gradient_aggregation_group: 4
 micro_batch_interleave_num: 1
@@ -248,8 +249,6 @@ callbacks:
     keep_checkpoint_max: 1
     integrated_save: False
     async_save: False
-  - type: ObsMonitor
-    keep_last: False
 eval_callbacks:
   - type: ObsMonitor
     keep_last: False
