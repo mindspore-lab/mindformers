@@ -235,7 +235,7 @@ parallel_config:
 
 ```shell
 cd {mindformers根目录}
-bash scripts/msrun_launcher.sh "run_mindformer.py --config research/finetune_glm32k.yaml --run_mode finetune"
+bash scripts/msrun_launcher.sh "run_mindformer.py --config research/glm32k/finetune_glm32k.yaml --run_mode finetune"
 ```
 
 ```text
@@ -248,8 +248,6 @@ run_mode: 运行模式，微调时设置为finetune
 
 大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。
 在启动前，请先行在配置文件predict_glm.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径；增量推理开关在配置文件中model.model_config.use_past位置；
-
-注：推理当前仅支持8k长度
 
 ```yaml
 processor:
