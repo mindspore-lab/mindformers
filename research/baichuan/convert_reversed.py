@@ -23,7 +23,7 @@ import torch
 
 import mindspore as ms
 
-from mindformers.utils.convert_utils import ms2pt
+from mindformers.utils.convert_utils import ms2pt, is_lora_param
 
 
 def read_json(path):
@@ -45,6 +45,7 @@ def name_replace(name: str):
     name = name.replace('.ffn_norm.', '.post_attention_layernorm.')
     return name
 
+
 # pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """convert baichuan ms weight to hf."""
@@ -54,6 +55,9 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     state_dict = {}
     attention_dict = collections.defaultdict(lambda: {})
     for name, value in model_ms.items():
+        if is_lora_param(name):
+            name = name.replace('mindpet_delta_lora_a', 'lora_A.weight')
+            name = name.replace('mindpet_delta_lora_b', 'lora_B.weight')
         value = ms2pt(value, dtype)
         if '.attention.wq' in name:
             name = name.replace('.attention.wq', '.self_attn.W_pack')

@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,16 @@ import argparse
 import torch
 import mindspore as ms
 
+from mindformers.utils.convert_utils import pt2ms
 
-def convert_weight(torch_pth_path="mae_pretrain_vit_base.pth", ms_ckpt_path="mae_pretrain_vit_base.ckpt"):
+
+# pylint: disable=W0613
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """
     convert mae_vit_base_p16 weights from pytorch to mindspore
     pytorch and GPU required.
     """
-    param_dict = torch.load(torch_pth_path, map_location=torch.device("cpu"))
+    param_dict = torch.load(input_path, map_location=torch.device("cpu"))
 
     new_dict = []
     for k, v in param_dict["model"].items():
@@ -55,15 +58,15 @@ def convert_weight(torch_pth_path="mae_pretrain_vit_base.pth", ms_ckpt_path="mae
                 if "weight" in k:
                     v = v.transpose(-1, 0)
         if "qkv" not in k:
-            new_dict.append({"name": k, "data": ms.Tensor(v.numpy())})
+            new_dict.append({"name": k, "data": pt2ms(v, dtype)})
         else:
-            data = ms.Tensor(v.numpy())
+            data = pt2ms(v, dtype)
             length = data.shape[0] // 3
-            new_dict.append({"name": k.replace(".qkv", ".dense1"), "data": data[:length]})
-            new_dict.append({"name": k.replace(".qkv", ".dense2"), "data": data[length:length*2]})
-            new_dict.append({"name": k.replace(".qkv", ".dense3"), "data": data[length*2:]})
+            new_dict.append({"name": k.replace(".qkv", ".dense1"), "data": ms.Tensor(data[:length])})
+            new_dict.append({"name": k.replace(".qkv", ".dense2"), "data": ms.Tensor(data[length:length * 2])})
+            new_dict.append({"name": k.replace(".qkv", ".dense3"), "data": ms.Tensor(data[length * 2:])})
 
-    ms.save_checkpoint(new_dict, ms_ckpt_path)
+    ms.save_checkpoint(new_dict, output_path)
 
     print("Weights conversion completes. ")
 
@@ -82,4 +85,4 @@ if __name__ == "__main__":
                         help="The output mindspore checkpoint path.")
     opt = parser.parse_args()
 
-    convert_weight(opt.torch_pth_path, opt.ms_ckpt_path)
+    convert_pt_to_ms(opt.torch_pth_path, opt.ms_ckpt_path)

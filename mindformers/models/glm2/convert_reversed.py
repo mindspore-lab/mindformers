@@ -18,16 +18,22 @@ import torch as pt
 import mindspore as ms
 from tqdm import tqdm
 
+from mindformers.utils.convert_utils import is_lora_param, ms2pt
+
+
 # pylint: disable=W0613
-def convert_pt_to_ms(input_path, output_path, dtype=pt.float32, **kwargs):
+def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """ Convert MindSpore model file to pytorch model file. """
     ckpt_dict = ms.load_checkpoint(input_path)
     print('parameter convert....')
     pt_param = {}
     for k, v in tqdm(ckpt_dict.items()):
-        v = pt.from_numpy(v.data.asnumpy()).to(dtype)
+        v = ms2pt(v, dtype)
         if "embedding_table" in k:
             k = k.replace("embedding_table", "word_embeddings.weight")
+        if is_lora_param(k):
+            k = k.replace(".tk_delta_lora_a", ".lora_A.weight")
+            k = k.replace(".tk_delta_lora_b", ".lora_B.weight")
         pt_param[k] = v
     print('saving pt ckpt....')
     pt.save(pt_param, output_path)
@@ -48,4 +54,4 @@ if __name__ == '__main__':
                         help="The output torch checkpoint path.")
 
     opt = parser.parse_args()
-    convert_pt_to_ms(opt.mindspore_ckpt_path, opt.torch_ckpt_path)
+    convert_ms_to_pt(opt.mindspore_ckpt_path, opt.torch_ckpt_path)

@@ -22,10 +22,7 @@ import collections
 import torch
 import mindspore as ms
 
-from mindformers.utils.convert_utils import ms2pt
-
-ATTENTION_WEIGHT_NAME = 'attn.c_attn.weight'
-ATTENTION_BIAS_NAME = 'attn.c_attn.bias'
+from mindformers.utils.convert_utils import ms2pt, is_lora_param
 
 
 def _name_replace(name: str):
@@ -44,6 +41,7 @@ def _name_replace(name: str):
     name = name.replace('feed_forward.w2.', 'mlp.c_proj.')
     return name
 
+
 # pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """convert mindspore weights files to huggingface."""
@@ -55,30 +53,19 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
         print('Parameter (name=%s, shape=%s, dtype=%s, requires_grad=%s)' % (
             name, value.data.shape, value.data.dtype, value.data.requires_grad))
         value = ms2pt(value, dtype)
-
+        if is_lora_param(name):
+            name = name.replace('mindpet_delta_lora_a', 'lora_A.weight')
+            name = name.replace('mindpet_delta_lora_b', 'lora_B.weight')
         if 'attention.wq.bias' in name:
-            name = name.replace('attention.wq.bias', ATTENTION_BIAS_NAME)
+            name = name.replace('attention.wq', 'attn.c_attn')
             attention_dict[name]['wq'] = value
             continue
         if 'attention.wk.bias' in name:
-            name = name.replace('attention.wk.bias', ATTENTION_BIAS_NAME)
+            name = name.replace('attention.wk', 'attn.c_attn')
             attention_dict[name]['wk'] = value
             continue
         if 'attention.wv.bias' in name:
-            name = name.replace('attention.wv.bias', ATTENTION_BIAS_NAME)
-            attention_dict[name]['wv'] = value
-            continue
-
-        if 'attention.wq.weight' in name:
-            name = name.replace('attention.wq.weight', ATTENTION_WEIGHT_NAME)
-            attention_dict[name]['wq'] = value
-            continue
-        if 'attention.wk.weight' in name:
-            name = name.replace('attention.wk.weight', ATTENTION_WEIGHT_NAME)
-            attention_dict[name]['wk'] = value
-            continue
-        if 'attention.wv.weight' in name:
-            name = name.replace('attention.wv.weight', ATTENTION_WEIGHT_NAME)
+            name = name.replace('attention.wv', 'attn.c_attn')
             attention_dict[name]['wv'] = value
             continue
 

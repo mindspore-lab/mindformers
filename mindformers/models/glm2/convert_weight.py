@@ -19,8 +19,11 @@ import mindspore as ms
 from tqdm import tqdm
 from transformers import AutoModel
 
+from mindformers.utils.convert_utils import pt2ms
+
+
 # pylint: disable=W0613
-def convert_pt_to_ms(input_path, output_path, dtype=ms.float32, **kwargs):
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """ Convert pytorch model file to MindSpore model file. """
     input_dir = os.path.dirname(input_path)
     model = AutoModel.from_pretrained(input_dir, trust_remote_code=True)
@@ -30,7 +33,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=ms.float32, **kwargs):
     for k, v in tqdm(model.state_dict().items()):
         if "word_embeddings.weight" in k:
             k = k.replace("word_embeddings.weight", "embedding_table")
-        ms_param.append({"name": k, "data": ms.Tensor(v.numpy(), dtype=dtype)})
+        ms_param.append({"name": k, "data": pt2ms(v, dtype=dtype)})
 
     ms.save_checkpoint(ms_param, output_path)
     print(f"Convert finished, the output is saved to {output_path}")
