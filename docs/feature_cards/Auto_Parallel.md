@@ -14,7 +14,9 @@
 
 |  模型  |    自动并行算法    | 模型与参数量                          |
 | :----: | :----------------: | :------------------------------------ |
-| LLaMA2 | 双递归策略搜索算法 | LLaMA2-7B<br>LLaMA2-13B<br>LLaMA2-70B |
+| LLaMA2 | 双递归策略搜索算法 | LLaMA2-7B<br>LLaMA2-13B<br>LLaMA2-70B<br>LLaMA2-lora |
+| Baichuan2 | 双递归策略搜索算法 | Baichuan2-7B<br>Baichuan2-13B<br>Baichuan2-lora |
+| Qwen      | 双递归策略搜索算法 | Qwen-7B<br>Qwen-14B<br>Qwen-lora |
 | PanGu  | 双递归策略搜索算法 | 支持中                                |
 
 在模型对应的configs路径下，提供了auto parallel的yaml配置文件，用户可以快速启动单机多卡或多机多卡的自动并行训练。
@@ -25,18 +27,21 @@
 
 自动并行下的*batch_size*配置项和半自动并行下的*batch_size*略有不同。这是因为自动并行下不存在半自动并行的数据并行数（*data_parallel_num*）的概念，每个算子的数据并行和模型切分都不尽相同，没有统一的数据并行数和模型并行数。
 
-半自动并行下的*batch_size*代表单卡上实际执行的*batch size*大小，而整个集群执行的*global batch size*公式为：
-$$
-global\_batch\_size = batch\_size \times data\_parallel\_num \times micro\_batch
-$$
-自动并行下的*batch_size*代表单个stage内实际执行的*batch size*大小，而整个集群执行的*global batch size*公式为：
-$$
-global\_batch\_size = batch\_size \times micro\_batch
-$$
-可以看到自动并行下的*batch_size*实际上相当于半自动并行概念下的 `batch_size * data_parallel_num`
+| Pipeline | Full Batch | Global batch size formula |
+| :------: | :--------: | :------------------------ |
+| False    | False      | `batch_size * device_num * micro_batch_interleave_num * gradient_accumulation_steps` |
+| False    | True       | `batch_size * data_parallel * micro_batch_interleave_num * gradient_accumulation_steps` |
+| True     | False      | `batch_size * device_num * micro_batch_interleave_num * micro_batch_num` |
+| True     | True       | `batch_size * data_parallel * micro_batch_interleave_num * micro_batch_num` |
+
+可以看到自动并行下的*batch_size*实际上相当于半自动并行概念下的 `batch_size * data_parallel`
 
 ## mem_coeff
 
 在 yaml 配置文件下新增了 mem_coeff 配置项，用来控制自动并行策略生成时，更倾向于数据并行或者模型并行。此配置项的默认值为0.25，更倾向于进行数据并行，但当模型参数量较大时，采用更多的数据并行会更可能出现内存不足的报错。此时，用户可以通过增大 mem_coeff 的值来控制自动并行策略生成更倾向于模型并行，mem_coeff 值越大，模型并行数越大（**建议用户以4为因数倍增**）。
 
 **当前yaml配置文件下的mem_coeff配置值已经是最优，通常不需要用户进行调整。**
+
+## auto_pipeline
+
+在 yaml 配置文件下新增了 `auto_pipeline` 配置项，用来决定是否由自动并行模式为流水线并行（pipeline stage）生成策略（pipeline stage number）。如果设置成True，那么用户无需配置流水线并行，自动并行模式会自动生成合适的流水线并行策略。如果设置为False，那么模型会执行用户配置的流水线并行，同时自动并行模式会在LOG中建议一个合适的流水线并行策略。请注意，自动并行功能生成的流水线并行策略（pipeline stage number）不会超过用户定义的`micro_batch_num`。
