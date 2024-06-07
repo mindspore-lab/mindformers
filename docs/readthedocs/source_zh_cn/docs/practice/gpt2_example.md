@@ -1257,7 +1257,7 @@ GPT2作为大语言模型，其主要的task是文本生成和对话问答方面
 - 完成训练逻辑的编写后，下一步可通过配置预训练或微调所需要的`config`文件，利用`Mindformers`准备好的训练脚本拉起任务，以`configs/gpt2/run_gpt2_13b.yaml`为例：
 
     ```yaml
-    # run_gpt2_13b.yaml
+    # pretrain_gpt2_13b_fp16.yaml
     # 以下展示了部分配置，具体配置内容请参考Mindformers
     seed: 0
     run_mode: 'train'
@@ -1293,5 +1293,5 @@ GPT2作为大语言模型，其主要的task是文本生成和对话问答方面
 
     ```bash
     cd scripts
-    bash run_distribute.sh {RANK_TABLE_FILE} ../configs/gpt2/run_gpt2_13b.yaml [0,8) {RUN_STATUS}
+    bash run_distribute.sh {RANK_TABLE_FILE} ../configs/gpt2/pretrain_gpt2_13b_fp16.yaml [0,8) {RUN_STATUS}
     ```

@@ -43,7 +43,7 @@ parallel:
     save_file: "./ckpt_strategy.ckpt"
     only_trainable_params: False
 parallel_config:
-  data_parallel: 1
+  data_parallel: 8
   model_parallel: 1
   pipeline_stage: 1
   use_seq_parallel: False
@@ -145,7 +145,7 @@ model:
     max_decode_length: 1024
     top_k: 5
     top_p: 1
-    do_sample: True
+    do_sample: False
     use_past: False
     pet_config:
       pet_type: lora
@@ -181,7 +181,7 @@ lr_scale_factor: 256
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMonitor
-    prefix: "gpt"
+    prefix: "gpt2_lora"
     save_checkpoint_steps: 1
     integrated_save: True
     async_save: False

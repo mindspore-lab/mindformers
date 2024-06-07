@@ -34,7 +34,7 @@ class TestModelMethod:
         self.gpt2_txtcls_checkpoint_dir = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
                                                        'gpt2')
         self.gpt2_txtcls_config_path = os.path.join(MindFormerBook.get_project_path(),
-                                                    'configs', 'gpt2', 'run_gpt2_txtcls.yaml')
+                                                    'configs', 'gpt2', 'finetune_gpt2_small_txtcls_fp16.yaml')
         self.gpt2_txtcls_config = AutoConfig.from_pretrained('gpt2_txtcls')
 
         # save path

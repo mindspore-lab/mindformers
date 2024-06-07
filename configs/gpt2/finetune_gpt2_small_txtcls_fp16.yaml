@@ -1,10 +1,9 @@
 seed: 0
 run_mode: 'finetune'
 output_dir: './output' # path to save checkpoint/strategy
-load_checkpoint: "gpt2"
+load_checkpoint: ""
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
-only_save_strategy: False
 resume_training: False
 
 # context
@@ -18,9 +17,9 @@ remote_save_url: "Please input obs url on AICC platform."
 
 # runner
 runner_config:
-  epochs: 3
-  batch_size: 8
-  sink_mode: True
+  epochs: 1
+  batch_size: 16
+  sink_mode: False
   sink_size: 2
 runner_wrapper:
   type: MFTrainOneStepCell
@@ -34,16 +33,13 @@ runner_wrapper:
 # parallel
 use_parallel: False
 parallel:
-  parallel_mode: 0 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
-  gradients_mean: False
+  parallel_mode: 0 # 0-dataset, 1-semi, 2-auto, 3-hybrid
+  gradients_mean: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: False
   full_batch: True
-  strategy_ckpt_config:
-    save_file: "./ckpt_strategy.ckpt"
-    only_trainable_params: False
 parallel_config:
-  data_parallel: 1
+  data_parallel: 8
   model_parallel: 1
   pipeline_stage: 1
   use_seq_parallel: False
@@ -82,8 +78,11 @@ profile_memory: True
 
 # Trainer
 trainer:
-  type: CausalLanguageModelingTrainer
-  model_name: 'gpt2'
+  type: TextClassificationTrainer
+  model_name: 'gpt2_txtcls'
+# if True, do evaluate during the training process. if false, do nothing.
+# note that the task trainer should support _evaluate_in_training function.
+do_eval: False
 
 # train dataset
 train_dataset: &train_dataset
@@ -91,7 +90,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids", "attention_mask"]
+  input_columns: ["input_ids", "attention_mask", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -100,7 +99,7 @@ train_dataset: &train_dataset
   numa_enable: False
   prefetch_size: 1
 train_dataset_task:
-  type: CausalLanguageModelDataset
+  type: TextClassificationDataset
   dataset_config: *train_dataset
 
 # eval dataset
@@ -109,7 +108,7 @@ eval_dataset: &eval_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: False
-  input_columns: ["input_ids", "attention_mask"]
+  input_columns: ["input_ids", "attention_mask", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: False
@@ -117,7 +116,7 @@ eval_dataset: &eval_dataset
   numa_enable: False
   prefetch_size: 1
 eval_dataset_task:
-  type: CausalLanguageModelDataset
+  type: TextClassificationDataset
   dataset_config: *eval_dataset
 
 # model
@@ -127,6 +126,7 @@ model:
     seq_length: 1024
     vocab_size: 50257
     hidden_size: 768
+    num_labels: 2
     num_layers: 12
     num_heads: 12
     expand_ratio: 4
@@ -139,29 +139,22 @@ model:
     layernorm_compute_type: "float32"
     softmax_compute_type: "float32"
     compute_dtype: "float16"
-    checkpoint_name_or_path: "gpt2_lora"
+    checkpoint_name_or_path: "gpt2"
     eos_token_id: 50256
     repetition_penalty: 1
     max_decode_length: 1024
     top_k: 5
     top_p: 1
-    do_sample: True
+    do_sample: False
     use_past: False
-    pet_config:
-      pet_type: lora
-      # configuration of lora
-      lora_rank: 64
-      lora_alpha: 128
-      lora_dropout: 0.1
-      target_modules: '.*dense1.*|.*dense3.*'
   arch:
-    type: GPT2LMHeadModel
+    type: GPT2ForSequenceClassification
 
 # lr schedule
 lr_schedule:
   type: polynomial
-  learning_rate: 0.001
-  lr_end: 0.0001
+  learning_rate: 0.0001
+  lr_end: 0.00001
   warmup_steps: 0
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: False
@@ -181,8 +174,8 @@ lr_scale_factor: 256
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMonitor
-    prefix: "gpt"
-    save_checkpoint_steps: 1
+    prefix: "gpt2_txtcls"
+    save_checkpoint_steps: 100
     integrated_save: True
     async_save: False
   - type: ObsMonitor
@@ -191,7 +184,8 @@ eval_callbacks:
 
 # metric
 metric:
-  type: PerplexityMetric
+  type: Accuracy
+  eval_type: classification
 
 # processor
 processor:
