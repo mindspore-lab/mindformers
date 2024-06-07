@@ -242,6 +242,8 @@ class InferAttention(Cell):
         self.cast = P.Cast()
         self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
         self.n_rep = self.n_head // self.n_kv_head
+        if self.use_alibi_mask:
+            self.add_alibi = P.Add()
 
         self.enable_asd_op = get_ms_enable_asd_op()
         self.use_attention_mask = False
@@ -290,7 +292,7 @@ class InferAttention(Cell):
         # score: [bs, n_head, seq/1, seq]
         score = self.mul(score, self.inv_norm_factor)
         if alibi_mask is not None:
-            score = self.add(score, alibi_mask)
+            score = self.add_alibi(score, alibi_mask)
         score = self.add(attn_mask, score)
 
         attention_probs = self.softmax(self.cast(score, mstype.float32))
@@ -407,6 +409,8 @@ class InferAttention(Cell):
         self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
         self.mul.shard(((dp, mp, 1, 1), ()))
         self.add.shard(((dp, 1, 1, 1), (dp, mp, 1, 1)))
+        if self.use_alibi_mask:
+            self.add_alibi.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
         self.softmax.shard(((dp, mp, 1, 1),))
         self.tile_kv.shard(((dp, mp, 1, 1),))
         return self

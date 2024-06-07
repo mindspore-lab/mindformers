@@ -35,7 +35,7 @@ from mindformers.modules.flash_attention import FlashAttention
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import lazy_inline
 from mindformers.modules.transformer.op_parallel_config import _check_config
-from mindformers.modules.layers import Linear, _check_input_dtype, build_alibi_tensor_v2, AlibiTensorV2
+from mindformers.modules.layers import Linear, _check_input_dtype, build_alibi_tensor_v2
 from mindformers.modules.transformer import TransformerOpParallelConfig, LowerTriangularMaskWithDynamic
 from mindformers.modules.infer_attention import InferAttention
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
@@ -313,13 +313,10 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type)
-        if not self.use_past:
-            self.alibi_tensor = build_alibi_tensor_v2(seq_len=config.seq_length,
-                                                      num_heads=config.num_heads,
-                                                      return_tensors='ms',
-                                                      dtype=self.dtype)
-        else:
-            self.build_alibi_tensor = AlibiTensorV2(num_heads=config.num_heads)
+        self.alibi_tensor = build_alibi_tensor_v2(seq_len=config.seq_length,
+                                                  num_heads=config.num_heads,
+                                                  return_tensors='ms',
+                                                  dtype=self.dtype)
 
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
@@ -358,15 +355,14 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
             input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float16)
             alibi_tensor = self.mul_alibi(self.alibi_tensor, self.reshape(input_mask, (bs, 1, -1, 1)))
         else:
+            mask = None
             if self.is_first_iteration:
-                mask = self.casual_mask(tokens)  # mask: [bs , 1, seq, seq]
-                input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float16)
-                alibi_tensor = self.build_alibi_tensor(input_mask, dtype=self.dtype)
+                if not self.use_flash_attention:
+                    mask = self.casual_mask(tokens)  # mask: [bs , 1, seq, seq]
+                alibi_tensor = self.slice(self.alibi_tensor, (0, 0, 0, 0),
+                                          (1, self.alibi_tensor.shape[1], seq_len, seq_len), (1, 1, 1, 1))
             else:
-                mask = None
-                mask_tmp = self.ones((1, self.config.seq_length), self.dtype)
-                alibi_tensor = self.build_alibi_tensor(mask_tmp, dtype=self.dtype)
-                alibi_tensor = self.gather(alibi_tensor, batch_valid_length, 2)
+                alibi_tensor = self.gather(self.alibi_tensor, batch_valid_length, 2)
                 alibi_tensor = self.transpose(alibi_tensor, (2, 1, 0, 3))
         # tokens: [bs, seq/1]
         h = self.tok_embeddings(tokens)
@@ -564,6 +560,7 @@ class Baichuan13BAttention(nn.Cell):
                                                   num_blocks=self.num_blocks,
                                                   use_alibi_mask=True,
                                                   use_rope_rotary_emb=False,
+                                                  use_flash_attention=use_flash_attention,
                                                   compute_dtype=compute_dtype).shard(parallel_config)
             self.infer_attention.shard(parallel_config)
 
