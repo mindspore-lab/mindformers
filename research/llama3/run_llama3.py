@@ -30,6 +30,7 @@ from mindformers.tools import get_output_root_path
 from llama3_tokenizer import Llama3Tokenizer
 
 import mindspore as ms
+import optim
 
 if check_in_modelarts():
     import moxing as mox
