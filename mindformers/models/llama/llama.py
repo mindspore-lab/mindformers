@@ -96,15 +96,18 @@ class LlamaModel(LlamaPreTrainedModel):
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
-                                  extend_method=config.extend_method)
+                                  extend_method=config.extend_method,
+                                  parallel_config=config.parallel_config)
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
-                                                          use_flash_attention=config.use_flash_attention)
+                                                          use_flash_attention=config.use_flash_attention,
+                                                          use_attn_mask_compression=config.use_attn_mask_compression)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
-                                             param_init_type=config.embedding_init_type)
+                                             param_init_type=config.embedding_init_type,
+                                             parallel_optimizer=config.parallel_optimizer)
         self.fine_grain_interleave = check_fine_grain_interleave_valid(config.fine_grain_interleave,
                                                                        config.parallel_config)
         self.layers = nn.CellList()
@@ -129,6 +132,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                                    rotary_dtype=config.rotary_dtype,
                                                    param_init_type=config.param_init_type,
                                                    use_flash_attention=config.use_flash_attention,
+                                                   use_attn_mask_compression=config.use_attn_mask_compression,
                                                    fine_grain_interleave=config.fine_grain_interleave,
                                                    parallel_config=config.parallel_config)
             else:
@@ -149,6 +153,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          param_init_type=config.param_init_type,
                                          use_past=config.use_past,
                                          use_flash_attention=config.use_flash_attention,
+                                         use_attn_mask_compression=config.use_attn_mask_compression,
                                          block_size=config.block_size,
                                          num_blocks=config.num_blocks,
                                          is_dynamic=config.is_dynamic,
@@ -160,6 +165,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type)
         dp = config.parallel_config.data_parallel
+        cp = config.parallel_config.context_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.tok_embeddings.pipeline_stage = 0
             if config.parallel_config.pipeline_stage > 1:
@@ -173,9 +179,9 @@ class LlamaModel(LlamaPreTrainedModel):
             self.tok_embeddings.shard(config.parallel_config)
             self.casual_mask.shard(config.parallel_config)
             if self.fine_grain_interleave:
-                self.norm_out.shard((dp, 1))
+                self.norm_out.shard((dp * cp, 1))
             else:
-                self.norm_out.shard((dp, 1, 1))
+                self.norm_out.shard((dp, cp, 1))
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
@@ -287,10 +293,12 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                            vocab_size, mp)
             logger.warning("Now, the model_parallel num of Loss will be changed: mp = 1")
             loss_parallel_config.model_parallel = 1
+        loss_parallel_config.data_parallel *= loss_parallel_config.context_parallel
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
 
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
+        cp = config.parallel_config.context_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.slice.shard(((dp, 1),))
             self.not_equal.shard(((dp, 1), ()))
@@ -299,9 +307,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             self.gather.shard(((dp, 1, 1), (dp,)))
             self.sub_batch_valid_len.shard(((1,), ()))
             if config.parallel_config.vocab_emb_dp or (vocab_size % mp != 0):
-                self.lm_head.shard(strategy_matmul=((dp, 1), (1, 1)))
+                self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
             else:
-                self.lm_head.shard(strategy_matmul=((dp, 1), (mp, 1)))
+                self.lm_head.shard(strategy_matmul=((dp * cp, 1), (mp, 1)))
             if config.parallel_config.pipeline_stage > 1:
                 self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 

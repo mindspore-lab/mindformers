@@ -56,14 +56,16 @@ class MoEParallelConfig(_Config):
             ``Ascend``
     """
 
-    def __init__(self, data_parallel=1, model_parallel=1, expert_parallel=1,
+    def __init__(self, data_parallel=1, model_parallel=1, expert_parallel=1, context_parallel=1,
                  use_seq_parallel=False, select_recompute=False):
         Validator.check_positive_int(data_parallel, "data_parallel")
         Validator.check_positive_int(model_parallel, "model_parallel")
+        Validator.check_positive_int(context_parallel, "context_parallel")
         Validator.check_positive_int(expert_parallel, "expert_parallel")
         Validator.check_bool(use_seq_parallel, "use_seq_parallel")
         self._dpmp = OpParallelConfig(data_parallel=data_parallel,
                                       model_parallel=model_parallel,
+                                      context_parallel=context_parallel,
                                       use_seq_parallel=use_seq_parallel,
                                       select_recompute=select_recompute)
         self.expert_parallel = expert_parallel
@@ -86,6 +88,15 @@ class MoEParallelConfig(_Config):
     @model_parallel.setter
     def model_parallel(self, value):
         Validator.check_positive_int(value, "model_parallel")
+        self._dpmp.model_parallel = value
+
+    @property
+    def context_parallel(self):
+        return self._dpmp.context_parallel
+
+    @context_parallel.setter
+    def context_parallel(self, value):
+        Validator.check_positive_int(value, "context_parallel")
         self._dpmp.model_parallel = value
 
     @property
@@ -118,12 +129,15 @@ class OpParallelConfig(_Config):
             >>> config=OpParallelConfig(data_parallel=1, model_parallel=1)
     """
 
-    def __init__(self, data_parallel=1, model_parallel=1, use_seq_parallel=False, select_recompute=False):
+    def __init__(self, data_parallel=1, model_parallel=1, use_seq_parallel=False, context_parallel=1,
+                 select_recompute=False):
         Validator.check_positive_int(data_parallel, "data_parallel")
         Validator.check_positive_int(model_parallel, "model_parallel")
+        Validator.check_positive_int(context_parallel, "context_parallel")
         Validator.check_bool(use_seq_parallel, "use_seq_parallel")
         self.data_parallel = data_parallel
         self.model_parallel = model_parallel
+        self.context_parallel = context_parallel
         self.use_seq_parallel = use_seq_parallel
         self.select_recompute = select_recompute
 
@@ -145,6 +159,15 @@ class OpParallelConfig(_Config):
         Validator.check_positive_int(value, "model_parallel")
         self._model_parallel = value
 
+    @property
+    def context_parallel(self):
+        return self._context_parallel
+
+    @context_parallel.setter
+    def context_parallel(self, value):
+        Validator.check_positive_int(value, "context_parallel")
+        self._context_parallel = value
+
     def __eq__(self, other) -> bool:
         return isinstance(other, OpParallelConfig) and (self.to_dict() == other.to_dict())
 
@@ -153,6 +176,7 @@ class OpParallelConfig(_Config):
         config_dict = {
             'data_parallel': self.data_parallel,
             'model_parallel': self.model_parallel,
+            'context_parallel': self.context_parallel,
             'use_seq_parallel': self.use_seq_parallel,
             'select_recompute': self.select_recompute
         }

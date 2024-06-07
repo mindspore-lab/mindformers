@@ -22,6 +22,7 @@ import math
 from typing import Union
 import numpy as np
 
+import mindspore as ms
 from mindspore.common.tensor import Tensor
 from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer
@@ -101,11 +102,12 @@ class EmbeddingOpParallelConfig(_Config):
             >>> config=EmbeddingOpParallelConfig(data_parallel=1, model_parallel=1, vocab_emb_dp=True)
     """
 
-    def __init__(self, data_parallel=1, model_parallel=1,
+    def __init__(self, data_parallel=1, model_parallel=1, context_parallel=1,
                  use_seq_parallel=False, select_recompute=False,
                  vocab_emb_dp=True):
         self._dp_mp_config = OpParallelConfig(data_parallel=data_parallel,
                                               use_seq_parallel=use_seq_parallel,
+                                              context_parallel=context_parallel,
                                               model_parallel=model_parallel,
                                               select_recompute=select_recompute)
         Validator.check_bool(vocab_emb_dp, "vocab_emb_dp")
@@ -128,6 +130,14 @@ class EmbeddingOpParallelConfig(_Config):
     @model_parallel.setter
     def model_parallel(self, value):
         self._dp_mp_config.model_parallel = value
+
+    @property
+    def context_parallel(self):
+        return self._dp_mp_config.context_parallel
+
+    @context_parallel.setter
+    def context_parallel(self, value):
+        self._dp_mp_config.context_parallel = value
 
     @property
     def vocab_emb_dp(self):
@@ -158,6 +168,7 @@ class EmbeddingOpParallelConfig(_Config):
         """to dict"""
         config_dict = {
             'data_parallel': self.data_parallel,
+            'context_parallel': self.context_parallel,
             'model_parallel': self.model_parallel,
             'select_recompute': self.select_recompute,
             'use_seq_parallel': self.use_seq_parallel,
@@ -321,7 +332,8 @@ class TransformerOpParallelConfig(_Config):
     """
 
     @args_type_check(recompute=(TransformerRecomputeConfig, dict))
-    def __init__(self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_num=1,
+    def __init__(self, data_parallel=1, model_parallel=1, context_parallel=1,
+                 expert_parallel=1, pipeline_stage=1, micro_batch_num=1,
                  recompute: Union[TransformerRecomputeConfig, dict] = default_transformer_recompute_config,
                  use_seq_parallel=False, optimizer_shard=None, gradient_aggregation_group=4, vocab_emb_dp=True):
         if isinstance(recompute, dict):
@@ -332,12 +344,12 @@ class TransformerOpParallelConfig(_Config):
         self.optimizer_shard = optimizer_shard
         self.gradient_aggregation_group = gradient_aggregation_group
         self._embed_dp_mp_config = EmbeddingOpParallelConfig(
-            data_parallel=data_parallel, model_parallel=model_parallel,
+            data_parallel=data_parallel, model_parallel=model_parallel, context_parallel=context_parallel,
             vocab_emb_dp=vocab_emb_dp, use_seq_parallel=use_seq_parallel,
             select_recompute=recompute.select_recompute)
         self._pp_config = _PipeLineConfig(pipeline_stage=pipeline_stage, micro_batch_num=micro_batch_num)
         self._moe_config = MoEParallelConfig(
-            data_parallel=data_parallel, model_parallel=model_parallel,
+            data_parallel=data_parallel, model_parallel=model_parallel, context_parallel=context_parallel,
             select_recompute=recompute.select_recompute,
             expert_parallel=expert_parallel, use_seq_parallel=use_seq_parallel)
 
@@ -359,6 +371,7 @@ class TransformerOpParallelConfig(_Config):
         """to dict"""
         config_dict = {
             'data_parallel': self.data_parallel,
+            'context_parallel': self.context_parallel,
             'model_parallel': self.model_parallel,
             'expert_parallel': self.expert_parallel,
             'pipeline_stage': self.pipeline_stage,
@@ -416,6 +429,15 @@ class TransformerOpParallelConfig(_Config):
     def model_parallel(self, value):
         self._embed_dp_mp_config.model_parallel = value
         self._moe_config.model_parallel = value
+
+    @property
+    def context_parallel(self):
+        return self._embed_dp_mp_config.context_parallel
+
+    @context_parallel.setter
+    def context_parallel(self, value):
+        self._embed_dp_mp_config.context_parallel = value
+        self._moe_config.context_parallel = value
 
     @property
     def data_parallel(self):
@@ -886,20 +908,26 @@ class LowerTriangularMaskWithDynamic(Cell):
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     def __init__(self, seq_length, compute_type=mstype.float16,
                  is_dynamic=False, pad_token_id=0, use_flash_attention=False,
-                 use_prompt_flash_attention=False, use_incre_flash_attention=False):
+                 use_prompt_flash_attention=False, use_incre_flash_attention=False, use_attn_mask_compression=False):
         super().__init__()
         self.dtype = compute_type
         self.is_dynamic = is_dynamic
         self.pad_token_id = pad_token_id
         self.use_flash_attention = use_flash_attention
+        self.use_attn_mask_compression = use_attn_mask_compression
+        self.seq_length = seq_length
         self.use_prompt_flash_attention = use_prompt_flash_attention
         self.use_incre_flash_attention = use_incre_flash_attention
         self.is_first_iteration = True
         self.multiply_data = Tensor([-10000.0], dtype=compute_type)
         self.one = Tensor([1.0], dtype=compute_type)
-        self.lower_triangle_mask = ops.cast(Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32),
-                                            compute_type)
-
+        if use_attn_mask_compression and seq_length > 2048:
+            if seq_length < 2048:
+                raise ValueError("seq_length should be larger than 2048 when use mask_compression")
+            self.lower_triangle_mask = ms.Tensor(np.triu(np.ones((2048, 2048), dtype=np.int8), k=1), dtype=ms.uint8)
+        else:
+            self.lower_triangle_mask = ops.cast(Tensor(np.tril(np.ones(shape=(seq_length, seq_length))),
+                                                       mstype.float32), compute_type)
         self.shape = P.Shape()
         self.cast = P.Cast()
         self.reshape = P.Reshape()
@@ -915,6 +943,9 @@ class LowerTriangularMaskWithDynamic(Cell):
 
     def construct(self, tokens=None, masks=None):
         """Forward process of the CausalMask"""
+        if self.use_attn_mask_compression:
+            attention_mask = self.lower_triangle_mask
+            return attention_mask
         if tokens is not None:
             bs = self.shape(tokens)[0]
             seq_len = self.shape(tokens)[1]
@@ -1475,7 +1506,7 @@ class MultiHeadAttention(Cell):
                 scale_value=1. / math.sqrt(self.size_per_head),
                 input_layout="BNSD",
                 sparse_mode=0,
-                use_attention_mask=True
+                use_attention_mask=True,
             )
             self.flash_attention.shard(parallel_config)
             self.sub = P.Sub().shard(

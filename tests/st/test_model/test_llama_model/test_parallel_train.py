@@ -38,3 +38,15 @@ class TestLlamaParallelTrain:
         ret = os.system(f"bash {sh_path}/msrun_launch_llama.sh 8 test_train")
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_7.log -C 3")
         assert ret == 0
+
+    def test_train_cp(self):
+        """
+        Feature: Trainer.train()
+        Description: Test context parallel trainer for train.
+        Expectation: AssertionError
+        """
+        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
+        sh_path = os.path.split(os.path.realpath(__file__))[0]
+        ret = os.system(f"bash {sh_path}/msrun_launch_llama.sh 8 test_train_cp")
+        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_7.log -C 3")
+        assert ret == 0

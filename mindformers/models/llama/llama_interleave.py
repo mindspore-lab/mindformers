@@ -23,6 +23,7 @@ from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore.parallel.shard import Layout
 
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm
 from mindformers.modules.layers import _check_input_dtype, Linear, RotaryEmbedding
@@ -146,6 +147,7 @@ class LLamaAttentionInterleave(nn.Cell):
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
                  use_flash_attention=False,
+                 use_attn_mask_compression=False,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
         self.batch_size = batch_size
@@ -162,6 +164,7 @@ class LLamaAttentionInterleave(nn.Cell):
         self.is_first_iteration = True
         self.qkv_concat = qkv_concat
         self.use_flash_attention = use_flash_attention
+        self.use_attn_mask_compression = use_attn_mask_compression
 
         if self.hidden_size % self.n_head != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
@@ -173,8 +176,13 @@ class LLamaAttentionInterleave(nn.Cell):
                              "and the parallel_config.model_parallel  is {}."
                              .format(self.n_kv_head, parallel_config.model_parallel))
         self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+        cp = parallel_config.context_parallel
+        self.context_parallel = cp
 
         self.reshape = P.Reshape()
+        self.reshape_merge = P.Reshape()
         self.transpose = P.Transpose()
         self.merger_head_transpose = P.Transpose()
         self.batch_matmul = P.BatchMatMul()
@@ -218,19 +226,25 @@ class LLamaAttentionInterleave(nn.Cell):
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
         if self.use_flash_attention:
+            self.input_layout = "BSH" if cp > 1 else "BNSD"
+            self.sparse_mode = 2 if self.use_attn_mask_compression else 0
             self.flash_attention = FlashAttention(head_num=self.n_head,
                                                   pre_tokens=65536,
                                                   next_tokens=0,
                                                   keep_prob=1.,
                                                   scale_value=1. / math.sqrt(self.head_dim),
-                                                  input_layout="BNSD",
-                                                  sparse_mode=0,
+                                                  input_layout=self.input_layout,
+                                                  sparse_mode=self.sparse_mode,
                                                   use_attention_mask=True)
             self.flash_attention.shard(parallel_config)
-        dp = parallel_config.data_parallel
-        mp = parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.transpose.shard(((dp, 1, mp, 1),))
+            self.transpose.shard(((dp, cp, mp, 1),))
+            if cp > 1:
+                layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
+                layout_merger_head_transpose = (layout("dp", "mp", "cp", "None"),)
+                self.merger_head_transpose.shard(in_strategy=layout_merger_head_transpose)
+            else:
+                self.merger_head_transpose.shard(((dp, mp, 1, 1),))
             self.merger_head_transpose.shard(((dp, mp, 1, 1),))
             self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
             self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
@@ -244,15 +258,15 @@ class LLamaAttentionInterleave(nn.Cell):
             if self.qkv_concat:
                 self.w.shard(((dp, 1), (mp, 1)))
             elif qkv_has_bias:
-                self.wq.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
-                self.wk.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
-                self.wv.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+                self.wq.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
+                self.wk.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
+                self.wv.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
             else:
-                self.wq.shard(((dp, 1), (mp, 1)))
-                self.wk.shard(((dp, 1), (mp, 1)))
-                self.wv.shard(((dp, 1), (mp, 1)))
-            self.wo.shard(((dp, mp), (1, mp)))
-            if parallel_config.use_seq_parallel and self.is_first_iteration:
+                self.wq.shard(((dp * cp, 1), (mp, 1)))
+                self.wk.shard(((dp * cp, 1), (mp, 1)))
+                self.wv.shard(((dp * cp, 1), (mp, 1)))
+            self.wo.shard(((dp * cp, mp), (1, mp)), out_strategy_matmul=((dp * cp, 1),))
+            if parallel_config.use_seq_parallel and self.is_first_iteration and cp == 1:
                 self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
             if parallel_config.recompute.select_recompute and not self.use_flash_attention:
                 self.apply_rotary_emb.recompute()
@@ -285,26 +299,37 @@ class LLamaAttentionInterleave(nn.Cell):
         """cal_attn"""
         query = self.reshape(query, (-1, self.seq_length, self.n_head, self.head_dim))
         key = self.reshape(key, (-1, self.seq_length, self.n_kv_head, self.head_dim))
-        value = self.reshape(value, (-1, self.seq_length, self.n_kv_head, self.head_dim))
+        if self.context_parallel > 1:
+            value = self.reshape(value, (-1, self.seq_length, self.n_kv_head * self.head_dim))
+        else:
+            value = self.reshape(value, (-1, self.seq_length, self.n_kv_head, self.head_dim))
+            value = self.transpose(value, (0, 2, 1, 3))
 
         # [bs, seq/1, n_head/n_kv_head, head_dim]
         query = self.transpose(query, (0, 2, 1, 3))
         key = self.transpose(key, (0, 2, 1, 3))
-        value = self.transpose(value, (0, 2, 1, 3))
 
         # [bs, n_head/n_kv_head, seq/1, head_dim]
         query, key = self.apply_rotary_emb(query, key, freqs_cis) # dp, mp, 1, 1
-        # kv share: [bs, n_kv_head, seq, head_dim] -> [bs, n_head, seq, head_dim]
-        bs, n_head, seq, head_dim = query.shape
-        n_kv_head = key.shape[1]
-        query = self.reshape(query, (bs, n_head, seq, head_dim))
-        key = self.reshape(key, (bs, n_kv_head, seq, head_dim))
-        value = self.reshape(value, (bs, n_kv_head, seq, head_dim))
+
+        if self.context_parallel > 1:
+            query = self._merge_heads(query)
+            key = self._merge_heads(key)
+        else:
+            # kv share: [bs, n_kv_head, seq, head_dim] -> [bs, n_head, seq, head_dim]
+            bs, n_head, seq, head_dim = query.shape
+            n_kv_head = key.shape[1]
+            query = self.reshape(query, (bs, n_head, seq, head_dim))
+            key = self.reshape(key, (bs, n_kv_head, seq, head_dim))
+            value = self.reshape(value, (bs, n_kv_head, seq, head_dim))
 
         # q, k, v: [bs, n_head, seq/1, head_dim], [bs, n_head, seq, head_dim], [bs, n_head, seq, head_dim]
         if self.use_flash_attention:
             attention = self.flash_attention(query, key, value, mask)
-            attention = self._merge_heads(attention)
+            if self.context_parallel > 1:
+                attention = self.reshape(attention, (-1, attention.shape[-1]))
+            else:
+                attention = self._merge_heads(attention)
         else:
             key = self._repeat_kv(key, self.n_rep)
             value = self._repeat_kv(value, self.n_rep)
@@ -341,7 +366,10 @@ class LLamaAttentionInterleave(nn.Cell):
         # [bs, seq/1, n_head, head_dim]
         x_shape = x.shape
         # [bs * seq/1, hidden_dim]
-        new_shape = (-1, x_shape[-2] * x_shape[-1])
+        if self.context_parallel > 1:
+            new_shape = (-1, x_shape[-3], x_shape[-2] * x_shape[-1])
+        else:
+            new_shape = (-1, x_shape[-2] * x_shape[-1])
         x_merge = self.reshape(x, new_shape)
         return x_merge
 
@@ -453,6 +481,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                  qkv_has_bias=False,
                  qkv_concat=False,
                  use_flash_attention=False,
+                 use_attn_mask_compression=False,
                  fine_grain_interleave=2,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
@@ -487,6 +516,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                                                   param_init_type=param_init_type,
                                                   qkv_has_bias=qkv_has_bias,
                                                   use_flash_attention=use_flash_attention,
+                                                  use_attn_mask_compression=use_attn_mask_compression,
                                                   parallel_config=parallel_config)
         self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
                                              intermediate_size=intermediate_size,
@@ -498,11 +528,17 @@ class LLamaDecodeLayerInterleave(nn.Cell):
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
+        cp = parallel_config.context_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.feed_forward.shard(parallel_config)
-            self.add.shard(((dp, 1), (dp, 1)))
-            self.attention_norm.shard((dp, 1))
-            self.ffn_norm.shard((dp, 1))
+            self.feed_forward.mul.shard(((dp * cp, mp), (dp * cp, mp)))
+            self.add.shard(((dp * cp, 1), (dp * cp, 1)))
+            if cp > 1:
+                self.attention_norm.shard((dp * cp * mp, 1))
+                self.ffn_norm.shard((dp * cp * mp, 1))
+            else:
+                self.attention_norm.shard((dp, 1))
+                self.ffn_norm.shard((dp, 1))
 
         if parallel_config.use_seq_parallel and self.is_first_iteration:
             self.add.shard(((dp * mp, 1), (dp * mp, 1)))

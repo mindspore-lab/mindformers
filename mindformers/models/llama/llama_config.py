@@ -135,6 +135,8 @@ class LlamaConfig(PretrainedConfig):
                  is_dynamic: bool = False,
                  use_rope_slice: bool = False,
                  use_flash_attention: bool = False,
+                 use_attn_mask_compression: bool = False,
+                 parallel_optimizer: bool = False,
                  fine_grain_interleave: int = 1,
                  offset: int = 0,
                  checkpoint_name_or_path: str = "",
@@ -188,6 +190,8 @@ class LlamaConfig(PretrainedConfig):
         self.is_dynamic = is_dynamic
         self.use_rope_slice = use_rope_slice
         self.use_flash_attention = use_flash_attention
+        self.use_attn_mask_compression = use_attn_mask_compression
+        self.parallel_optimizer = parallel_optimizer
         self.fine_grain_interleave = fine_grain_interleave
         self.offset = offset
         self.repetition_penalty = repetition_penalty

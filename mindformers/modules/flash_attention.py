@@ -74,7 +74,7 @@ class FlashAttention(Cell):
         use_mqa (bool): Specifies whether using MQA. Default: False.
         dp (int): Data parallel num.
         mp (int): Model parallel num.
-        sp (int): Sequence parallel num.
+        cp (int): Context parallel num.
 
 
     Inputs:
@@ -166,24 +166,28 @@ class FlashAttention(Cell):
             self.keep_prob_tensor = Tensor(keep_prob, dtype=mstype.float16)
             self.drop_gen_mask = ops.DropoutGenMask()
 
-    def _generate_flash_attention_strategy(self, dp, mp, sp):
+    def _generate_flash_attention_strategy(self, dp, mp, cp):
         """get FA generate strategies"""
         kv_head_split_num = 1 if self.use_mqa else mp
         if self.input_layout == "BSH":
-            if self.use_attention_mask:
-                fa_strategies = ((dp, sp, mp), (dp, 1, kv_head_split_num), (dp, 1, kv_head_split_num), (dp, 1, sp, 1))
-            else:
-                fa_strategies = ((dp, sp, mp), (dp, 1, kv_head_split_num), (dp, 1, kv_head_split_num))
+            fa_strategies = ((dp, cp, mp),
+                             (dp, 1, kv_head_split_num),
+                             (dp, 1, kv_head_split_num))
         else:
-            if self.use_attention_mask:
-                fa_strategies = ((dp, mp, sp, 1), (dp, kv_head_split_num, 1, 1), (dp, kv_head_split_num, 1, 1),
-                                 (dp, 1, sp, 1))
-            else:
-                fa_strategies = ((dp, mp, sp, 1), (dp, kv_head_split_num, 1, 1), (dp, kv_head_split_num, 1, 1))
+            fa_strategies = ((dp, mp, cp, 1),
+                             (dp, kv_head_split_num, 1, 1),
+                             (dp, kv_head_split_num, 1, 1))
         if self.use_alibi_mask:
-            fa_strategies += ((dp, mp, sp, 1),)
+            fa_strategies += ((dp, mp, cp, 1),)
         if self.enable_dropout:
-            fa_strategies += ((dp, mp, sp, 1),)
+            fa_strategies += ((dp, mp, cp, 1),)
+        if self.use_attention_mask:
+            if self.sparse_mode in [0, 1]:
+                fa_strategies += ((dp, 1, cp, 1),)
+            elif self.sparse_mode == 2:
+                fa_strategies += ((1, 1),)
+            else:
+                raise RuntimeError(f"sparse_mode: {self.sparse_mode} is not support currently")
 
         return fa_strategies
 
@@ -217,12 +221,12 @@ class FlashAttention(Cell):
         """sharding for flash attention"""
         dp = 1 if parallel_config is None else parallel_config.data_parallel
         mp = 1 if parallel_config is None else parallel_config.model_parallel
-        sp = 1
+        cp = 1 if parallel_config is None else parallel_config.context_parallel
 
-        fa_strategies = self._generate_flash_attention_strategy(dp, mp, sp)
+        fa_strategies = self._generate_flash_attention_strategy(dp, mp, cp)
         self.flash_attention.shard(fa_strategies)
 
         if self.use_alibi_mask:
-            self.alibi_rescale_mul.shard(((dp, mp, sp, 1), (1,)))
+            self.alibi_rescale_mul.shard(((dp, mp, cp, 1), (1,)))
 
         return self

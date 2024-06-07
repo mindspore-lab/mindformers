@@ -33,6 +33,7 @@ from mindspore.nn.cell import Cell
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.ops.primitive import constexpr
+from mindspore.parallel.shard import Layout
 
 # MindSpore 2.0 has changed the APIs of _checkparam, the following try except is for compatibility
 try:
@@ -996,7 +997,8 @@ class FreqsMgr(Cell):
                  rotary_dtype=mstype.float16,
                  theta=10000,
                  scaling_factor=1.0,
-                 extend_method=SeqExtendMethod.NONE.value):
+                 extend_method=SeqExtendMethod.NONE.value,
+                 parallel_config=None):
         super().__init__()
         if seq_length is not None and seq_length > max_position_embedding:
             max_position_embedding = seq_length
@@ -1014,11 +1016,16 @@ class FreqsMgr(Cell):
         freqs_sin = np.sin(emb)  # (seq_len, head_dim)
         swap_mask = FreqsMgr.get_swap_mask(head_dim)
 
+        if parallel_config is not None and parallel_config.context_parallel > 1:
+            self.context_parallel = parallel_config.context_parallel
+        else:
+            self.context_parallel = 1
         self.head_dim = head_dim
         self.freqs_cos = Tensor(freqs_cos, dtype=rotary_dtype)
         self.freqs_sin = Tensor(freqs_sin, dtype=rotary_dtype)
         self.swap_mask = Tensor(swap_mask, dtype=rotary_dtype)
 
+        self.reshape = P.Reshape()
         self.slice = P.StridedSlice().shard(((1, 1),))
         self.gather = P.Gather().shard(((1, 1), (1,)))
         self.tile = P.Tile().shard(((1, 1),))
@@ -1026,6 +1033,9 @@ class FreqsMgr(Cell):
     def construct(self, seq_length):
         freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1))
         freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1))
+        if self.context_parallel > 1:
+            freqs_cos = self.reshape(freqs_cos, (1, 1, seq_length, self.head_dim))
+            freqs_sin = self.reshape(freqs_sin, (1, 1, seq_length, self.head_dim))
         return freqs_cos, freqs_sin, self.swap_mask
 
     def increment(self, batch_valid_length):
@@ -1110,10 +1120,20 @@ class RotaryEmbedding(Cell):
         """sharding for rotary embedding"""
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
+        cp = parallel_config.context_parallel
         strategy_in = (dp, mp, 1, 1)
-        self.add.shard((strategy_in, strategy_in))
-        self.bmm_swap.shard((strategy_in, (1, 1)))
-        self.mul.shard((strategy_in, (1, 1)))
+        if cp > 1:
+            layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
+            layout_add = (layout("dp", "mp", "cp", "None"), layout("dp", "mp", "cp", "None"))
+            layout_bmm_swap = (layout("dp", "mp", "cp", "None"), layout("None", "None"))
+            layout_mul = (layout("dp", "mp", "cp", "None"), layout("dp", "None", "cp", "None"))
+            self.add.shard(in_strategy=layout_add)
+            self.bmm_swap.shard(in_strategy=layout_bmm_swap)
+            self.mul.shard(in_strategy=layout_mul)
+        else:
+            self.add.shard((strategy_in, strategy_in))
+            self.bmm_swap.shard((strategy_in, (1, 1)))
+            self.mul.shard((strategy_in, (1, 1)))
         self.mul_inc.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
         self.neg.shard((strategy_in,))
         self.slice.shard((strategy_in,))
