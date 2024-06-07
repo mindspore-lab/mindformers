@@ -50,6 +50,7 @@ convert_map = {
     'knowlm': 'research.knowlm.convert_weight.convert_pt_to_ms',
     'telechat': 'research.telechat.convert_weight.convert_pt_to_ms',
     'codegeex2': 'mindformers.models.codegeex2.convert_weight.convert_pt_to_ms',
+    'qwenvl': 'research.qwenvl.convert_weight.convert_pt_to_ms'
 }
 reversed_convert_map = {
     'llama': 'mindformers.models.llama.convert_reversed.convert_ms_to_pt',

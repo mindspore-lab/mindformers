@@ -156,7 +156,7 @@ class MindFormerBook:
             ("itt_blip2_stage2_vit_g_llama_7b", os.path.join(
                 _PROJECT_PATH, "configs/blip2/run_blip2_stage2_vit_g_llama_7b_image_to_text_generation.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/clip/run_blip2_stage2_vit_g_llama_7b_image_to_text_generation.yaml"))])
+                _PROJECT_PATH, "configs/general/run_general_task.yaml"))])
          ),
         ("translation", OrderedDict([
             ("t5_small", os.path.join(
@@ -317,7 +317,7 @@ class MindFormerBook:
             ('itt_blip2_stage2_vit_g_llama_7b', os.path.join(
                 _PROJECT_PATH, "configs/blip2/run_blip2_stage2_vit_g_llama_7b_image_to_text_generation.yaml")),
             ("common", os.path.join(
-                _PROJECT_PATH, "configs/blip2/run_blip2_stage2_vit_g_llama_7b_image_to_text_generation.yaml"))
+                _PROJECT_PATH, "configs/general/run_general_task.yaml"))
         ])),
         ('masked_image_modeling', OrderedDict([
             ('mae_vit_base_p16', os.path.join(

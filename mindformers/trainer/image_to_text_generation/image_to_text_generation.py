@@ -13,19 +13,19 @@
 # limitations under the License.
 # ============================================================================
 """ImageToTextGeneration Trainer."""
-from typing import Optional, Union
+from typing import Optional, Union, List
 
-import numpy as np
-from PIL.Image import Image
-
-from mindspore import Tensor
-from mindspore.nn import Cell
+from mindspore import Callback
 from mindspore.dataset import GeneratorDataset
+from mindspore.nn import Cell, Optimizer, TrainOneStepCell
 
-from mindformers.models import PreTrainedModel, PreTrainedTokenizerBase, BaseImageProcessor
+from mindformers.dataset import BaseDataset
+from mindformers.models import PreTrainedModel, BaseProcessor, \
+    build_processor
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType, MindFormerConfig
+
 from ...dataset.dataloader import build_dataset_loader
 from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
@@ -55,9 +55,44 @@ class ImageToTextGenerationTrainer(BaseTrainer):
     def __init__(self, model_name: str = None):
         super(ImageToTextGenerationTrainer, self).__init__("image_to_text_generation", model_name)
 
-    def train(self, *args, **kwargs):
-        raise NotImplementedError(
-            "The ImageToTextGenerationTrainer task does not support train.")
+    def train(self,
+              config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
+              network: Optional[Union[Cell, PreTrainedModel]] = None,
+              dataset: Optional[Union[BaseDataset, GeneratorDataset]] = None,
+              optimizer: Optional[Optimizer] = None,
+              wrapper: Optional[TrainOneStepCell] = None,
+              callbacks: Optional[Union[Callback, List[Callback]]] = None,
+              **kwargs):
+        """
+        Train For Trainer.
+
+        Args:
+            config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
+                The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
+                Default: None.
+            network (Optional[Union[Cell, PreTrainedModel]]):
+                The network for trainer.It supports model name or PreTrainedModel or MindSpore Cell class.
+                Default: None.
+            dataset (Optional[Union[BaseDataset, GeneratorDataset]]):
+                The training dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
+                Default: None.
+            optimizer (Optional[Optimizer]):
+                The optimizer used for training. Default: None.
+            wrapper (Optional[TrainOneStepCell]):
+                Wraps the `network` with the `optimizer`. It supports TrainOneStepCell class of MindSpore.
+                Default: None.
+            callbacks (Optional[Union[Callback, List[Callback]]]):
+                The training callback function. It supports CallBack or CallBack List of MindSpore. Default: None.
+        """
+        self.training_process(
+            config=config,
+            network=network,
+            callbacks=callbacks,
+            dataset=dataset,
+            optimizer=optimizer,
+            wrapper=wrapper,
+            **kwargs)
 
     def evaluate(self, *args, **kwargs):
         raise NotImplementedError(
@@ -65,13 +100,11 @@ class ImageToTextGenerationTrainer(BaseTrainer):
 
     def predict(self,
                 config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
-                input_data: Optional[Union[GeneratorDataset,
-                                           Tensor, np.ndarray, Image, str, list]] = None,
+                input_data: Optional[Union[GeneratorDataset, list]] = None,
                 network: Optional[Union[Cell, PreTrainedModel]] = None,
-                tokenizer: Optional[PreTrainedTokenizerBase] = None,
-                image_processor: Optional[BaseImageProcessor] = None, **kwargs):
+                processor: Optional[BaseProcessor] = None, **kwargs):
         """
-        Predict task for ZeroShotImageToTextGenerationTrainer Trainer.
+        Predict task for ImageToTextGenerationTrainer Trainer.
         This function is used to predict the network.
 
         Args:
@@ -79,53 +112,42 @@ class ImageToTextGenerationTrainer(BaseTrainer):
                 The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
                 It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
                 Default: None.
-            input_data (Optional[Union[GeneratorDataset, Tensor, np.ndarray, Image, str, list]]):
+            input_data (Optional[Union[GeneratorDataset, list]]):
                 The dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
                 Default: None.
             network (Optional[Union[Cell, PreTrainedModel]]):
                 The network for trainer. It supports model name or PreTrainedModel or MindSpore Cell class.
                 Default: None.
-            tokenizer (Optional[PreTrainedTokenizerBase]):
-                Used for text process. Default: None.
-            image_processor (Optional[BaseImageProcessor]):
-                Used for image process. Default: None.
+            processor (Optional[BaseProcessor]):
+                Used for image and text process. Default: None.
         """
         config = self.set_config(config)
 
         logger.info(".........Build Input Data For Predict..........")
-        if input_data is None and config.input_data is not None:
-            input_data = config.input_data
 
         if input_data is None:
             input_data = build_dataset_loader(config.eval_dataset.data_loader)
 
-        max_length = kwargs.pop("max_length", None)
-        if max_length is None:
-            if config.processor.tokenizer.max_length is not None:
-                max_length = config.processor.tokenizer.max_length
-            else:
-                max_length = 32
+        if processor is None:
+            processor = build_processor(config.processor)
 
-        padding = kwargs.pop("padding", None)
-        if padding is None:
-            if config.processor.tokenizer.padding is not None:
-                padding = config.processor.tokenizer.padding
-            else:
-                padding = "max_length"
+        tokenizer = kwargs.pop("tokenizer", None)
+        if tokenizer is not None:
+            processor.tokenizer = tokenizer
+        else:
+            tokenizer = processor.tokenizer
 
-        hypothesis_template = kwargs.pop("hypothesis_template", None)
-        if hypothesis_template is None:
-            if config.eval_dataset.data_loader.hypothesis_template is not None:
-                hypothesis_template = config.eval_dataset.data_loader.hypothesis_template
-            else:
-                hypothesis_template = "{}"
+        image_processor = kwargs.pop("image_processor", None)
+        if image_processor is not None:
+            processor.image_processor = image_processor
+        else:
+            image_processor = processor.image_processor
+
         return self.predict_process(config=config,
                                     input_data=input_data,
                                     task='image_to_text_generation',
                                     network=network,
+                                    processor=processor,
                                     tokenizer=tokenizer,
                                     image_processor=image_processor,
-                                    max_length=max_length,
-                                    padding=padding,
-                                    hypothesis_template=hypothesis_template,
                                     **kwargs)
