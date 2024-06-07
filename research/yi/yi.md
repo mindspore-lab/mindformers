@@ -73,7 +73,7 @@ Yi-6B-Base 模型以双语语言模型为目标，并在3T多语言语料库上�
 
 使用Yi-6B-Base进行训练或者微调时，需要使用Yi-6B-Base配套的tokenizer.model处理数据集，以及选用Yi-6B-Base的yaml配置文件进行任务启动。
 
-目前提供[alpaca_gpt4_data_zh数据集](https://github.com/hiyouga/LLaMA-Factory/blob/main/data/alpaca_gpt4_data_zh.json) （jsonl格式）数据集的预处理脚本用于全参微调任务。
+目前提供[alpaca_gpt4_data_zh数据集](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh/resolve/main/alpaca_gpt4_data_zh.json) （jsonl格式）数据集的预处理脚本用于全参微调任务。
 
 alpaca数据集样式
 
@@ -394,6 +394,24 @@ bash scripts/msrun_launcher.sh "research/yi/run_yi.py --config research/yi/predi
 
 # 运行结果
 [{'text_generation_text': ['DNA分子具有双螺旋结构，磷酸和脱氧核糖交替连接，排列在外侧，构成基本骨架，碱基排列在内侧，两条链上的碱基通过氢键连接起来，A与T配对，G与C配对，A、C、T、G、U五种碱基的排列顺序不同，构成了DNA分子的多样性．']}]
+
+```
+
+### chat推理
+
+run_yi_34b_chat.py基于model.generate()实现，支持交互式对话、多卡推理
+
+```bash
+# 以yi_34b 4卡推理为例,此时的checkpoint必须是已经切分好的ckpt,shard_checkpoint_dir文件夹下为rank_{}的文件夹。
+bash scripts/msrun_launcher.sh "research/yi/predict_yi_chat.py \
+ --yaml_file research/yi/predict_yi_34b_chat.yaml \
+ --use_past True \
+ --checkpoint_path path/to/shard_checkpoint_dir \
+ --prompt {'your prompt'}" 4
+
+>注：
+>1.多卡推理在yaml中将`use_parallel`设为`True`才可以.
+>2.几卡推理就要在yaml配置中将相应的parallel_config 中的model_parallel置为几，其余置为1。
 
 ```
 
