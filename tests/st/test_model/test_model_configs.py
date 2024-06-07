@@ -169,13 +169,13 @@ class TestGPT2Config(unittest.TestCase):
     """test gpt2 config"""
     def test_init_model_for_text_generation_from_yaml(self):
         """test init model with config"""
-        config = AutoConfig.from_pretrained("configs/gpt2/run_gpt2.yaml")
+        config = AutoConfig.from_pretrained("configs/gpt2/pretrain_gpt2_small_fp16.yaml")
         config.checkpoint_name_or_path = ''
         model = GPT2LMHeadModel(config)
 
     def test_init_model_for_sequence_classification_from_yaml(self):
         """test init model with config"""
-        config = AutoConfig.from_pretrained("configs/gpt2/run_gpt2_txtcls.yaml")
+        config = AutoConfig.from_pretrained("configs/gpt2/finetune_gpt2_small_txtcls_fp16.yaml")
         config.checkpoint_name_or_path = ''
         model = GPT2ForSequenceClassification(config)
 

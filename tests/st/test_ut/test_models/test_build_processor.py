@@ -33,7 +33,7 @@ class TestBuildProcessor:
 
     def test_build_gpt2_processor(self):
         """test build gpt2 processor."""
-        config = MindFormerConfig("configs/gpt2/run_gpt2.yaml")
+        config = MindFormerConfig("configs/gpt2/pretrain_gpt2_small_fp16.yaml")
         processor = build_processor(config.processor)
         assert isinstance(processor, GPT2Processor)
         assert isinstance(processor.tokenizer, GPT2Tokenizer)

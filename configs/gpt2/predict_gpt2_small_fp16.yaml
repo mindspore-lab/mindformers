@@ -1,7 +1,7 @@
 seed: 0
-run_mode: 'finetune'
+run_mode: 'predict'
 output_dir: './output' # path to save checkpoint/strategy
-load_checkpoint: "gpt2"
+load_checkpoint: ""
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
@@ -19,7 +19,7 @@ remote_save_url: "Please input obs url on AICC platform."
 # runner
 runner_config:
   epochs: 3
-  batch_size: 8
+  batch_size: 4
   sink_mode: True
   sink_size: 2
 runner_wrapper:
@@ -35,13 +35,9 @@ runner_wrapper:
 use_parallel: False
 parallel:
   parallel_mode: 0 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
-  gradients_mean: False
+  gradients_mean: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: False
-  full_batch: True
-  strategy_ckpt_config:
-    save_file: "./ckpt_strategy.ckpt"
-    only_trainable_params: False
 parallel_config:
   data_parallel: 1
   model_parallel: 1
@@ -84,6 +80,9 @@ profile_memory: True
 trainer:
   type: CausalLanguageModelingTrainer
   model_name: 'gpt2'
+# if True, do evaluate during the training process. if false, do nothing.
+# note that the task trainer should support _evaluate_in_training function.
+do_eval: False
 
 # train dataset
 train_dataset: &train_dataset
@@ -139,29 +138,22 @@ model:
     layernorm_compute_type: "float32"
     softmax_compute_type: "float32"
     compute_dtype: "float16"
-    checkpoint_name_or_path: "gpt2_lora"
+    checkpoint_name_or_path: "gpt2"
     eos_token_id: 50256
     repetition_penalty: 1
     max_decode_length: 1024
     top_k: 5
     top_p: 1
-    do_sample: True
-    use_past: False
-    pet_config:
-      pet_type: lora
-      # configuration of lora
-      lora_rank: 64
-      lora_alpha: 128
-      lora_dropout: 0.1
-      target_modules: '.*dense1.*|.*dense3.*'
+    do_sample: False
+    use_past: True
   arch:
     type: GPT2LMHeadModel
 
 # lr schedule
 lr_schedule:
   type: polynomial
-  learning_rate: 0.001
-  lr_end: 0.0001
+  learning_rate: 0.0001
+  lr_end: 0.00001
   warmup_steps: 0
   total_steps: -1 # -1 means it will load the total steps of the dataset
 layer_scale: False
@@ -181,9 +173,11 @@ lr_scale_factor: 256
 callbacks:
   - type: MFLossMonitor
   - type: CheckpointMonitor
-    prefix: "gpt"
+    prefix: "gpt2"
     save_checkpoint_steps: 1
     integrated_save: True
+    save_network_params: True
+    save_trainable_params: False
     async_save: False
   - type: ObsMonitor
 eval_callbacks:
