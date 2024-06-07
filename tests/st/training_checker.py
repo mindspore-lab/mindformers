@@ -47,6 +47,11 @@ class TrainingChecker(Callback):
             Multi-copy parallel configuration. Defaults to 1.
         gradient_accumulation_steps (int, optional):
             The number of gradient accumulation steps. Defaults to 1.
+        loss_mode (bool, optional):
+            The mode of checking loss, 'abs' and 'relative' are supported. Defaults to 'abs'.
+        experiment_mode (bool, optional):
+            Enables or disables the developer debugging mode. Defaults to False.
+            If set True, will not check values of loss and time.
 
     Raises:
         AssertionError
@@ -55,7 +60,8 @@ class TrainingChecker(Callback):
     def __init__(self, loss_list_std: list, avg_step_time_std: float = None,
                  loss_error: float = 1e-3, time_error_ratio: float = 0.1,
                  skip_step_num: int = 2, skip_time_num: int = 5, micro_batch_num: int = 1,
-                 micro_batch_interleave_num: int = 1, gradient_accumulation_steps: int = 1):
+                 micro_batch_interleave_num: int = 1, gradient_accumulation_steps: int = 1,
+                 loss_mode: str = 'abs', experiment_mode: bool = False):
         super(TrainingChecker, self).__init__()
         self.loss_list_std = loss_list_std
         self.avg_step_time_std = avg_step_time_std
@@ -73,6 +79,11 @@ class TrainingChecker(Callback):
 
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.micro_batch_interleave_num = micro_batch_interleave_num
+
+        self.loss_mode = loss_mode
+        self.experiment_mode = experiment_mode
+        self.loss_recoder = []
+        self.time_recoder = []
 
     def on_train_begin(self, run_context):
         """Called once before the network training."""
@@ -112,20 +123,37 @@ class TrainingChecker(Callback):
             loss = loss / self.micro_batch_interleave_num
         if self.gradient_accumulation_steps > 1:
             loss = loss / self.gradient_accumulation_steps
+        self.loss_recoder.append(loss)
 
         # when enable pp, loss will be only available on the last card
-        if not self.pipeline_parallel or self.is_last_stage:
-            assert abs(loss - self.loss_list_std[cur_step_num - 1]) < self.loss_error, \
-                f"The error between loss: {loss} and " \
-                f"loss_list_std: {self.loss_list_std[cur_step_num - 1]} is larger than {self.loss_error}"
+        if not self.pipeline_parallel or self.is_last_stage and not self.experiment_mode:
+            real_loss = self.loss_list_std[cur_step_num - 1]
+            if self.loss_mode == 'abs':
+                loss_diff = abs(loss - real_loss)
+            elif self.loss_mode == 'relative':
+                loss_diff = abs(loss - real_loss / real_loss)
+            else:
+                raise ValueError(f"support 'abs' and 'relative' loss checking mode, but got {self.loss_mode}.")
+
+            print(f"loss check mode: {self.loss_mode}.")
+            assert loss_diff < self.loss_error, \
+                f"The error between loss: {loss} and loss_list_std: {real_loss} is larger than {self.loss_error}"
 
     def on_train_end(self, run_context):
         _ = run_context
         self.total_time.sort()
         self.total_time = self.total_time[:-self.skip_time_num]
         avg_step_time = sum(self.total_time) / len(self.total_time)
+        self.time_recoder.append(avg_step_time)
 
-        if self.avg_step_time_std is not None:
+        if self.avg_step_time_std is not None and not self.experiment_mode:
             assert (avg_step_time - self.avg_step_time_std) / self.avg_step_time_std < self.time_error_ratio, \
                 f"The error ratio between avg_step_time: {avg_step_time} and " \
                 f"avg_step_time_std: {self.avg_step_time_std} is larger than {self.time_error_ratio}"
+
+    def get_experiment_results(self):
+        print("\nexperiment loss: ")
+        for i in range(0, len(self.loss_recoder), 5):
+            loss = [f"{item:.6f}" for item in self.loss_recoder[i:i + 5]]
+            print(', '.join(loss) + ',')
+        print(f"\nexperiment time: {int(self.time_recoder[0])}")

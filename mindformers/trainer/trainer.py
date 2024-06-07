@@ -72,6 +72,7 @@ CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CHECKPOINT_DIR = 'checkpoint'
 DEFAULT_CONFIG_DIR = 'configs'
 
+
 class Trainer:
     r"""
     Executor of general task trainers. It can initialize a trainer instance of the specific task through the task name
@@ -81,18 +82,18 @@ class Trainer:
 
     You can initialize the Trainer using the following method:
     1.Define the `task` and `model_name`, for example, task='text_generation', model_name='gpt2'.
-      By specifying the correct `task` and `model_name`, the corresponding YAML file will be found from MindformerBook,
+      By specifying the correct `task` and `model_name`, the corresponding YAML file will be found from MindFormerBook,
       and it will be read as the task configuration.
     2.Define the `task` and `model`, for example, task='text_generation', model='gpt2'.
       The `model` can be either a model instance or a model name.
       If the `model` is a model name, it will override the `model_name`.
     3.Define the `task`, `model_name` and `model`, note that the `model` is a model instance now.
-    4.Define the `args` as an instance of MindformerConfig or yaml path.
+    4.Define the `args` as an instance of MindFormerConfig or yaml path.
       You can also pass a model instance through the `model` parameter.
       Otherwise, the model will be initialized through the `args` configuration.
     5.Define the `args` as an instance of TrainingArguments and the `model` as a model instance.
     6.Define the `args` as an instance of TrainingArguments and just define the `task` and `model_name`.
-      In this case, you needn't to pass in a model instance, the model will be initialized through the
+      In this case, you needn't pass in a model instance, the model will be initialized through the
       YAML configuration obtained from `task` and `model_name`.
 
     Additionally, please note the following points:
@@ -103,7 +104,7 @@ class Trainer:
 
     Args:
         args (Optional[Union[str, TrainingArguments]]):
-            The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+            The task config which is used to configure the dataset, the hyperparameter, optimizer, etc.
             It supports yaml path or MindFormerConfig or TrainingArguments class.
             Default: None.
         task (str):
@@ -129,13 +130,13 @@ class Trainer:
 
             Default: ''.
         train_dataset (Optional[Union[str, BaseDataset]]):
-            The training dataset. It support real dataset path or BaseDateset class or MindSpore Dataset class.
+            The training dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
             Default: None.
         eval_dataset (Optional[Union[str, BaseDataset]]):
-            The evaluate dataset. It support real dataset path or BaseDateset class or MindSpore Dataset class.
+            The evaluate dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
             Default: None.
         tokenizer (Optional[PreTrainedTokenizerBase]):
-            The tokenizer for text preprocessing. It support PreTrainedTokenizerBase class.
+            The tokenizer for text preprocessing. It supports PreTrainedTokenizerBase class.
             Default: None.
         image_processor (Optional[BaseImageProcessor]):
             The processor for image preprocessing. It supports BaseImageProcessor class.
@@ -144,7 +145,7 @@ class Trainer:
             The processor for audio preprocessing. It supports BaseAudioProcessor class.
             Default: None.
         optimizers (Optional[Optimizer]):
-            The training network's optimizer. It support Optimizer class of MindSpore.
+            The training network's optimizer. It supports Optimizer class of MindSpore.
             Default: None.
         callbacks (Optional[Union[Callback, List[Callback]]]):
             The training callback function. It supports CallBack or CallBack List of MindSpore.
@@ -162,6 +163,7 @@ class Trainer:
     Raises:
         KeyError: If 'task' or 'model' not in supported trainer.
     """
+
     @args_type_check(
         args=(str, MindFormerConfig, TrainingArguments), task=str, model=(str, PreTrainedModel),
         model_name=str, tokenizer=PreTrainedTokenizerBase, pet_method=str,
@@ -243,7 +245,7 @@ class Trainer:
 
         if (isinstance(self.args, (str, MindFormerConfig)) or \
             (isinstance(self.args, TrainingArguments) and self.is_model_instance)) and \
-            self.task == 'general' and self.model_name != 'common':
+                self.task == 'general' and self.model_name != 'common':
             logger.warning("When (`args` is MindformerConfig) or \
                 (`args` is TrainingArguments and a model instance is passed), \
                     The `model_name` is invalid and set to 'common'.")
@@ -329,7 +331,7 @@ class Trainer:
                 Used to restore training or fine-tune the weight of the network.
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
-                if `train_checkpoint` is passed in, `resume_from_checkpoint` will be overrode.
+                if `train_checkpoint` is passed in, `resume_from_checkpoint` will be overridden.
             resume_training (bool, str):
                 Decide whether to resume training or specify the name of the checkpoint from which to resume training.
                 If set to True, the checkpoint recorded in meta.json will be loaded to resume training.
@@ -337,10 +339,10 @@ class Trainer:
                 Default: None.
             auto_trans_ckpt:
                 auto transform checkpoint to load in distributed model.
-            src_strategy (Optionalp[str]):
+            src_strategy (Optional[str]):
                 The strategy of `load_checkpoint`. Effective only when auto_trans_ckpt is set to True,
                 used for automatic checkpoint transform.
-            transform_process_num (Optionalp[int]):
+            transform_process_num (Optional[int]):
                 The number of processes responsible for checkpoint transform.
             do_eval (bool):
                 Whether evaluations are performed during training. Default: False.
@@ -436,7 +438,7 @@ class Trainer:
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 if resume_training is true, this checkpoint will be used to restore training of the network.
-                if `finetune_checkpoint` is passed in, `resume_from_checkpoint` will be overrode.
+                if `finetune_checkpoint` is passed in, `resume_from_checkpoint` will be overridden.
                 Default: None.
             resume_training (bool, str):
                 Decide whether to resume training or specify the name of the checkpoint from which to resume training.
@@ -445,10 +447,10 @@ class Trainer:
                 Default: None.
             auto_trans_ckpt:
                 auto transform checkpoint to load in distributed model
-            src_strategy (Optionalp[str]):
+            src_strategy (Optional[str]):
                 The strategy of `resume_from_checkpoint`. Effective only when auto_trans_ckpt is set to True,
                 used for automatic checkpoint transform.
-            transform_process_num (Optionalp[int]):
+            transform_process_num (Optional[int]):
                 The number of processes responsible for checkpoint transform.
             do_eval (bool):
                 Whether evaluations are performed during training. Default: False.
@@ -550,7 +552,7 @@ class Trainer:
                 Default: False.
             auto_trans_ckpt:
                 auto transform checkpoint to load in distributed model
-            src_strategy (Optionalp[str]):
+            src_strategy (Optional[str]):
                 The strategy of `resume_from_checkpoint`. Effective only when auto_trans_ckpt is set to True,
                 used for automatic checkpoint transform.
 
@@ -615,8 +617,7 @@ class Trainer:
                 auto_trans_ckpt: Optional[bool] = None,
                 src_strategy: Optional[str] = None,
                 transform_process_num: Optional[int] = None,
-                input_data: Optional[Union[GeneratorDataset,
-                                           Tensor, np.ndarray, Image, str, list]] = None,
+                input_data: Optional[Union[GeneratorDataset, Tensor, np.ndarray, Image, str, list]] = None,
                 batch_size: int = None,
                 **kwargs):
         """
@@ -631,7 +632,7 @@ class Trainer:
                 Default: False.
             auto_trans_ckpt:
                 auto transform checkpoint to load in distributed model
-            src_strategy (Optionalp[str]):
+            src_strategy (Optional[str]):
                 The strategy of `resume_from_checkpoint`. Effective only when auto_trans_ckpt is set to True,
                 used for automatic checkpoint transform.
             input_data (Optional[Union[Tensor, np.ndarray, Image, str, list]]):
@@ -960,7 +961,7 @@ class Trainer:
             task_config = args
         elif isinstance(args, str):
             assert os.path.realpath(args) and os.path.exists(args), \
-                    f"config path must be exist, but get {args}."
+                f"config path must be exist, but get {args}."
             assert args.endswith(('.yaml', '.yml')), \
                 f"config file must be end with .yaml or .yml, but get {args}"
             config_path = args
@@ -1015,7 +1016,7 @@ class Trainer:
             assert self.config.model is not None, \
                 "When `model` is not instance, `self.config.model` must not be None."
 
-        if self.is_model_instance and self.reset_model:
+        if self.is_model_instance and (self.reset_model or is_train):
             self._reset_model_instance(is_train)
 
     def _init_tokenizer(self):
@@ -1219,12 +1220,12 @@ class Trainer:
                                  "the `load_checkpoint` should not be empty string or None."
                                  "If you are using TrainingArguments, `resume_from_checkpoint` should be set.")
         if self.config.load_checkpoint and self.config.model \
-            and self.config.model.model_config.checkpoint_name_or_path:
+                and self.config.model.model_config.checkpoint_name_or_path:
             self.config.model.model_config.checkpoint_name_or_path = None
             logger.info("The `load_checkpoint` is set, the `checkpoint_name_or_path` will be set to None.")
 
         if isinstance(self.config.resume_training, str) and \
-            self.config.load_checkpoint and os.path.isfile(self.config.load_checkpoint):
+                self.config.load_checkpoint and os.path.isfile(self.config.load_checkpoint):
             logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
                            "when `load_checkpoint` is a file path")
             self.config.resume_training = True
@@ -1240,7 +1241,7 @@ class Trainer:
                              f"Support model name of {self.task}: {model_name_support_list}.")
 
         if isinstance(self.args, (str, MindFormerConfig)) or \
-            (isinstance(self.args, TrainingArguments) and self.is_model_instance):
+                (isinstance(self.args, TrainingArguments) and self.is_model_instance):
             return
 
         if self.task == 'general':
