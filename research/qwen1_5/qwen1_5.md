@@ -164,11 +164,12 @@ python qwen1_5/qwen1_5_preprocess.py \
 
 | config                                     | task | Datasets | SeqLength | metric | phase         |score | performance(tokens/s/p) |
 |--------------------------------------------|-------|-------|--------|-------|---------------|-------|-------------------------|
-| [qwen1.5-72b](./pretrain_qwen1_5_72b.yaml) | text_generation | alpaca | 32768  | - | [train](#预训练) | - | 186                     |
+| [qwen1.5-72b](./pretrain_qwen1_5_72b.yaml) | text_generation | wikitext-103-v1 | 32768  | - | [train](#预训练) | - | 186                   |
+| [qwen1.5-7b] (./pretrain_qwen1_5_7b.yaml)  | text_generation | wikitext-103-v1 | 32768  | - | [train](#预训练) | - | 1048                  |
 
 ### 数据预处理
 
-目前提供wikitext数据集的预处理脚本用于预训练任务
+目前提供wikitext-103-v1数据集的预处理脚本用于预训练任务
 
 执行`qwen1_5_preprocess.py`，进行数据预处理和Mindrecord数据生成。
 
@@ -186,7 +187,7 @@ python qwen1_5/qwen1_5_preprocess.py \
 
 1. 当前支持模型已提供yaml文件，下文以Qwen-72B为例，即使用`pretrain_qwen1_5_72b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
 
-2. 启动微调任务。
+2.1 启动Qwen-72B预训练任务。
 
 在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考[ms_run快速使用](https://gitee.com/mindspore/mindformers#%E5%9B%9B%E5%BF%AB%E9%80%9F%E4%BD%BF%E7%94%A8)
 
@@ -273,11 +274,30 @@ python qwen1_5/qwen1_5_preprocess.py \
 
    # 参数说明
    # config: 配置文件路径
-   # load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_0/xxx.ckpt'格式存放
-   # run_mode: 运行模式，微调时设置为finetune
+   # run_mode: 运行模式，预训练时设置为train
    # train_data: 训练数据集文件夹路径
    # merges_file、vocab_file：词表模型
    ```
+
+2.2 启动Qwen-7B预训练任务。
+
+修改`pretrain_qwen1_5_7b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+
+   ```yaml
+   load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+
+   train_dataset: &train_dataset
+     data_loader:
+       type: MindDataset
+       dataset_dir: "/path/alpaca.mindrecord"  # 配置训练数据集文件夹路径
+   ```
+
+在mindformers工作目录下，执行：
+
+```shell
+bash scripts/msrun_launcher.sh "run_mindformer.py --config research/qwen1_5/pretrain_qwen1_5_7b.yaml
+--run_mode finetune --worker_num 8 --local_worker_num 8 --master_port 8110 --log_dir ./output/msrun_log"
+```
 
 ## 全参微调
 
@@ -392,6 +412,9 @@ python qwen1_5/qwen1_5_preprocess.py \
    # run_mode: 运行模式，微调时设置为finetune
    # train_data: 训练数据集文件夹路径
    ```
+
+4.2 启动微调任务。
+在mindformers工作目录下，执行：
 
 4.2 启动微调任务。
 在mindformers工作目录下，执行：
