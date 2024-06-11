@@ -26,6 +26,7 @@ import mindspore.ops as ops
 from mindspore.common.tensor import Tensor
 from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer
+from mindspore.ops.operations._sequence_ops import TensorToScalar
 import mindspore.common.dtype as mstype
 import mindspore.communication.management as D
 
@@ -93,7 +94,6 @@ class MoEConfig:
                  hot_expert_num=0, cold_token_percent=1.0, moe_module_name="", routing_policy="TopkRouterV1",
                  enable_sdrop=False, router_dense_type="float32"):
         Validator.check_positive_int(expert_num, "expert_num")
-        Validator.check_positive_float(capacity_factor, "capacity_factor")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
         Validator.check_bool(group_wise_a2a, "group_wise_a2a")
@@ -108,9 +108,6 @@ class MoEConfig:
         Validator.check_string(router_dense_type, ["float16", "float32", "bfloat16"], "router_dense_type")
         if expert_group_size is not None:
             Validator.check_positive_int(expert_group_size, "expert_group_size")
-        if capacity_factor < 1.0:
-            raise ValueError(f"'capacity_factor' must be equal to or greater than 1.0, "
-                             f"but got {capacity_factor}.")
         if aux_loss_factor >= 1.0:
             raise ValueError(f"'aux_loss_factor' must be less than 1.0, "
                              f"but got {aux_loss_factor}.")
@@ -687,19 +684,13 @@ class MoEV2(Cell):
     def construct(self, input_tensor):
         """forward process"""
         input_tensor_shape = self.shape(input_tensor)
-
-        input_tensor = self.reshape(input_tensor, (-1, self.hidden_size))
-        bs_and_dmodel = self.shape(input_tensor)
-        tokens_per_group = bs_and_dmodel[0] // self.dp_group
-        expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
-                                                       self.capacity_factor, self.expert_dim, self.mp)
-
         input_tensor = self.reshape(input_tensor, (self.dp_group, -1, self.hidden_size)) # (dp, N, h) <-- (B*S, h)
 
         # calculate router
         dispatch_policy, combine_policy, router_coeff = self.router(input_tensor) # (dp, E, n)int32, (dp, N, k)int32, (dp, N, k)fp16 <-- (dp, N, h), where 0<= dispatch_index < 1+N, 0<= combine_index <E*(1+n)
 
         # dispatch
+        expert_capacity = dispatch_policy.shape[-1]
         expert_input = self.router.router.dispatch(input_tensor, dispatch_policy) # (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
 
         # ffn
@@ -1107,6 +1098,14 @@ class TopkRouterV2(Cell):
         self.reduce_mean2 = P.ReduceMean(keep_dims=False).shard(((dp, 1),))
         self.mul = P.Mul().shard(((dp, 1), (dp, 1)))
         self.mul2 = P.Mul().shard(((), ()))
+        # dynamic capacity
+        self.on_value_int = Tensor(1, mstype.int32)
+        self.off_value_int = Tensor(0, mstype.int32)
+        self.mod = P.Mod().shard(((dp, 1, 1), ()))
+        self.add = P.Add()
+        self.sub = P.Sub()
+        self.mod_expert = P.Mod()
+        self.tensor2scalar = TensorToScalar()
 
     def dispatch(self, input_tensor, dispatch_index):
         r"""
@@ -1165,9 +1164,12 @@ class TopkRouterV2(Cell):
         k = self.num_experts_chosen
         tokens_per_group = self.shape(expert_index)[1]
         kn = k * tokens_per_group # this n refers to N
-        expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
-                                                       self.capacity_factor, self.expert_dim, self.mp)
+        if self.capacity_factor > 0:
+            expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
+                                                           self.capacity_factor, self.expert_dim, self.mp)
 
+        else:
+            expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
         # calculate combine_index from cumsum
         #K-drop(k,N)
         expert_index = self.reshape(self.transpose_3d(expert_index, (0, 2, 1)), (expert_index.shape[0], -1)) # (dp, kN) <-- (dp, N, k) account for topk priority
@@ -1205,9 +1207,12 @@ class TopkRouterV2(Cell):
         k = self.num_experts_chosen
         tokens_per_group = self.shape(expert_index)[1]
         kn = k * tokens_per_group # this n refers to N
-        expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
-                                                       self.capacity_factor, self.expert_dim, self.mp)
+        if self.capacity_factor > 0:
+            expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
+                                                           self.capacity_factor, self.expert_dim, self.mp)
 
+        else:
+            expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
         # calculate combine_index from cumsum
         #S-drop(N,k)
         expert_index = self.reshape(expert_index, (expert_index.shape[0], -1)) # (dp, Nk) <-- (dp, N, k) account for topk priority
@@ -1255,3 +1260,13 @@ class TopkRouterV2(Cell):
         loss = self.reduce_mean2(loss) # (,) <--- (dp, E)
         loss = self.mul2(self.mul2(loss, self.expert_dim), self.expert_dim) # (,) <--- (,)
         return loss
+
+    def _calculate_expert_capacity_dynamic(self, expert_index):
+        expert_index = self.reshape(expert_index, (self.dp_group, -1))
+        expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value_int, self.off_value_int) # (dp, kN, E) <- (dp, kN)
+        expert_mask = self.reduce_sum(expert_mask, 1) # (dp, E) <- (dp, kN, E)
+        expert_capacity = expert_mask.max() # (1, ) <- (dp, E)
+        expert_capacity = self.cast(expert_capacity, mstype.int64)
+        expert_capacity = self.sub(self.add(expert_capacity, self.expert_dim),
+                                   self.mod_expert(expert_capacity, self.expert_dim))
+        return self.tensor2scalar(expert_capacity)
