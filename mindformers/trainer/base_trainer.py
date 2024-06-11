@@ -642,7 +642,7 @@ class BaseTrainer:
             logger.info("initial step: %d", config.runner_config.initial_step)
             append_info = [resume_dict]
             dataset.set_init_step(config.runner_config.initial_step)
-            delete_resume_record_dir()
+            delete_resume_record_dir(wait_time=config.resume_gap_time if config.resume_gap_time else 5)
         else:
             config.runner_config.initial_epoch = 0
             config.runner_config.initial_step = 0
