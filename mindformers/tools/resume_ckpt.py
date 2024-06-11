@@ -14,6 +14,7 @@
 # ============================================================================
 """Get resume ckpt."""
 import os
+import time
 import json
 
 from mindspore import load_checkpoint
@@ -38,7 +39,7 @@ from mindformers.tools.utils import (
 if check_in_modelarts():
     import moxing as mox
 
-def get_resume_checkpoint(checkpoint_dir, resume_training):
+def get_resume_checkpoint(checkpoint_dir, resume_training, gap_time=5, limit_time=7200):
     """get final checkpoint for resume training."""
     rank_id = get_real_rank()
     device_num = get_real_group_size()
@@ -85,7 +86,12 @@ def get_resume_checkpoint(checkpoint_dir, resume_training):
             create_flag_txt(resume_failed_txt)
 
         logger.info("..........wait all rank resume ckpt..........")
-        all_rank_resume_succeed = wait_all_rank_load_resume_ckpt(resume_succeed_txt, device_num)
+        all_rank_resume_succeed = wait_all_rank_load_resume_ckpt(
+            resume_succeed_txt,
+            device_num,
+            gap_time=gap_time,
+            limit_time=limit_time
+        )
         if all_rank_resume_succeed:
             logger.info("Final resume checkpoint: %s", current_resume_ckpt)
             return os.path.split(current_resume_ckpt)[1]
@@ -170,13 +176,14 @@ def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, device_num):
 
     return resume_ckpt_list
 
-def wait_all_rank_load_resume_ckpt(resume_succeed_txt, device_num):
+def wait_all_rank_load_resume_ckpt(resume_succeed_txt, device_num, gap_time=5, limit_time=7200):
     """wait all rank load resume ckpt"""
     logger.info("..........wait all rank load resume ckpt..........")
     resume_dir, resume_name = os.path.split(resume_succeed_txt)
     resume_succeed_prefix = resume_name.split("_rank_")[0]
     resume_failed_prefix = resume_succeed_prefix.replace("succeed", "failed")
     ckpt_prefix = resume_succeed_prefix.split("_succeed")[0]
+    start_time = time.time()
     while True:
         if check_in_modelarts():
             resume_suceed_txt_list = [file_name for file_name in mox.file.list_directory(resume_dir) \
@@ -186,6 +193,10 @@ def wait_all_rank_load_resume_ckpt(resume_succeed_txt, device_num):
                 if file_name.startswith(resume_succeed_prefix)]
         if len(resume_suceed_txt_list) == device_num:
             return True
+
+        if time.time() - start_time > limit_time:
+            raise TimeoutError("Timeout while waiting all rank load resume ckpt!")
+        time.sleep(gap_time)
 
         if check_in_modelarts():
             resume_failed_txt_list = [file_name for file_name in mox.file.list_directory(resume_dir) \

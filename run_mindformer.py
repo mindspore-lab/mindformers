@@ -154,7 +154,9 @@ def main(config):
         elif os.path.isdir(config.load_checkpoint):
             config.resume_training = get_resume_checkpoint(
                 checkpoint_dir=config.load_checkpoint,
-                resume_training=config.resume_training
+                resume_training=config.resume_training,
+                gap_time=config.resume_gap_time if config.resume_gap_time else 5,
+                limit_time=config.resume_limit_time if config.resume_limit_time else 7200,
             )
 
     create_task_trainer(config)

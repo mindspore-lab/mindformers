@@ -412,7 +412,9 @@ class Trainer:
             elif os.path.isdir(self.config.load_checkpoint):
                 self.config.resume_training = get_resume_checkpoint(
                     checkpoint_dir=self.config.load_checkpoint,
-                    resume_training=self.config.resume_training
+                    resume_training=self.config.resume_training,
+                    gap_time=self.config.resume_gap_time if self.config.resume_gap_time else 5,
+                    limit_time=self.config.resume_limit_time if self.config.resume_limit_time else 7200,
                 )
 
         self.trainer.train(
@@ -514,7 +516,9 @@ class Trainer:
             elif os.path.isdir(self.config.load_checkpoint):
                 self.config.resume_training = get_resume_checkpoint(
                     checkpoint_dir=self.config.load_checkpoint,
-                    resume_training=self.config.resume_training
+                    resume_training=self.config.resume_training,
+                    gap_time=self.config.resume_gap_time if self.config.resume_gap_time else 5,
+                    limit_time=self.config.resume_limit_time if self.config.resume_limit_time else 7200,
                 )
 
         self.trainer.train(
