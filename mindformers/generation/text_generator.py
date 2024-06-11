@@ -254,11 +254,8 @@ class GenerationMixin:
         """determine the generation mode by config"""
         if generation_config.num_beams == 1:
             if generation_config.do_sample:
-                logger.info("The generation mode will be **SAMPLE**.")
                 return GenerationMode.SAMPLE
-            logger.info("The generation mode will be **GREEDY_SEARCH**.")
             return GenerationMode.GREEDY_SEARCH
-        logger.info("The generation mode will be **BEAM_SEARCH**.")
         return GenerationMode.BEAM_SEARCH
 
     def _prepare_model_inputs_for_decoder(self, input_ids, input_mask):
@@ -728,7 +725,7 @@ class GenerationMixin:
 
         # determine generation mode
         generation_config.generation_mode = self._get_generation_mode(generation_config)
-
+        logger.info(f"The generation mode will be **{generation_config.generation_mode.upper()}**.")
         if streamer is not None and (generation_config.num_beams > 1):
             raise ValueError(
                 "`streamer` cannot be used with beam search yet. Make sure that `num_beams` is set to 1."
