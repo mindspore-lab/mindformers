@@ -33,8 +33,60 @@ from mindformers.models.utils import convert_mstype
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.generation.logits_process import LogitsProcessorAcceleration
+from mindformers import AutoTokenizer
 
-__all__ = ["ModelRunner"]
+__all__ = ["get_model", "ModelRunner"]
+
+
+def get_model(model_name_or_path: str,
+              revision: Optional[str] = None,
+              trust_remote_code: Optional[bool] = True,
+              **kwargs):
+    """
+    get_model API, supports MF to be a backend of MindIEServer.
+
+    Args:
+        model_name_or_path (str):
+            A path to a *directory* containing vocabulary files() required by the tokenizer.
+        revision (`str`, *optional*, defaults to `"None"`):
+            The specific model version to use. It can be a branch name, a tag name, or a commit id.
+        trust_remote_code (`bool`, *optional*, defaults to `True`):
+            Whether or not to allow for custom models defined on the Hub in their own modeling files. This option
+            should only be set to `True` for repositories you trust and in which you have read the code, as it will
+            execute code present on the Hub on your local machine.
+        kwargs (`Dict[str, Any]`, *optional*):
+            Additional key word arguments for AutoTokenizer.from_pretrained.
+
+    Returns:
+        A Tokenizer object and others.
+    """
+    if os.path.exist(model_name_or_path) and os.path.isdir(model_name_or_path):
+        logger.debug(f"model_name_or_path is {model_name_or_path}")
+        experiment_mode, config = _get_model_config(model_name_or_path)
+        model_type = config.model.arch.type if not experiment_mode else config.architectures[0]
+        logger.info(f"The model type is: {model_type}")
+        if model_type not in models.__all__:
+            try:
+                tokenizer_cls = __import__(model_type, ["MindIEPanguTokenizer"]).MindIEPanguTokenizer
+                vocab_list = [file for file in os.listdir(model_name_or_path) if file.endswith(".vocab")]
+                if len(vocab_list) == 1:
+                    vocab_file = os.path.join(model_name_or_path, vocab_list[0])
+                else:
+                    raise ValueError(f"There must be only one vocab file in the {model_name_or_path}.")
+                logger.debug(f"vocab_file_path is {vocab_file}")
+                tokenizer = tokenizer_cls(vocab_file)
+            except:
+                raise ImportError(f"import MindIEPanguTokenizer from module {model_type} failed.")
+        else:
+            use_fast = kwargs.get("use_fast", True)
+            tokenizer = AutoTokenizer.from_pretrained(
+                model_name_or_path, revision=revision, trust_remote_code=trust_remote_code, use_fast=use_fast
+            )
+    else:
+        raise ValueError(f"{model_name_or_path} does not exist or is not a directory.")
+
+    return None, None, tokenizer, None, None
+
 
 class ModelRunner:
     """
