@@ -257,7 +257,7 @@ class BaseTrainer:
             self.config.runner_config.gradient_accumulation_steps = 1
         # grad accumulation not supported in data parallel/standalone mode for now
         if self.config.runner_config.gradient_accumulation_steps > 1 and \
-            parallel_mode not in ["semi_auto_parallel"]:
+            parallel_mode not in ["semi_auto_parallel", "auto_parallel"]:
             logger.warning("gradient_accumulation_steps currently need to be used in semi_auto_parallel mode, "
                            "but got %s mode, please check your runner config and parallel config. "
                            "Reset the gradient_accumulation_steps from %s to 1. ",

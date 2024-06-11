@@ -49,7 +49,7 @@ def build_parallel_config(config):
     if config.parallel_config:
         if not isinstance(config.parallel_config, TransformerOpParallelConfig):
             logger.info("initial parallel_config from dict: %s", config.parallel_config)
-            if config.parallel_config.pipeline_stage > 1:
+            if config.parallel_config.auto_parallel or config.parallel_config.pipeline_stage > 1:
                 logger.info("pipeline_stage = %s > 1, vocab_emd_dp will be reset to False.",
                             config.parallel_config.pipeline_stage)
                 config.parallel_config.vocab_emb_dp = False

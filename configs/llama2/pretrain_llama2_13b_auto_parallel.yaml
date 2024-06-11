@@ -23,8 +23,6 @@ do_eval: False
 runner_config:
   epochs: 2
   batch_size: 16
-  # global batch size for devices in a single stage under auto parallel.
-  # If pipeline is enabled, the global batch size is batch_size * micro batch.
   sink_mode: True
   sink_size: 2
 
@@ -34,13 +32,13 @@ optimizer:
   beta1: 0.9
   beta2: 0.95
   eps: 1.e-8 # 1e-8
-  learning_rate: 3.e-4
+  learning_rate: 1.e-4
 
 # lr sechdule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 3.e-4
-  lr_end: 3.e-5
+  learning_rate: 1.e-4
+  lr_end: 1.e-5
   warmup_ratio: 0.03
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
@@ -54,7 +52,7 @@ train_dataset: &train_dataset
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 4
+  batch_size: 2
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -94,10 +92,10 @@ parallel:
     parallel_optimizer_threshold: 64
 # default parallel of device num = 16 for Atlas 800T A2
 parallel_config:
-  mem_coeff: 0.25
+  mem_coeff: 0.1
   pipeline_stage: 1
   use_seq_parallel: False
-  micro_batch_num: 16
+  micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -132,6 +130,7 @@ context:
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
+  runtime_num_threads: 1
 
 # model config
 model:
@@ -142,7 +141,6 @@ model:
     hidden_size: 5120
     num_layers: 40
     num_heads: 40
-    max_position_embedding: 4096
     vocab_size: 32000
     multiple_of: 256
     rms_norm_eps: 1.0e-5
@@ -156,8 +154,9 @@ model:
     rotary_dtype: "float16"
     param_init_type: "float16"
     use_past: False
+    scaling_factor: 1.0
     extend_method: "None" # support "None", "PI", "NTK"
-    use_flash_attention: False # FA can accelerate training or finetune
+    use_flash_attention: True # FA can accelerate training or finetune
     offset: 0
     checkpoint_name_or_path: "llama2_13b"
     repetition_penalty: 1

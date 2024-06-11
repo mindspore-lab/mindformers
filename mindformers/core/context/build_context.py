@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2022-2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ from mindformers.tools import PARALLEL_MODE, MODE, get_output_subpath, check_in_
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import check_in_dynamic_cluster, set_strategy_save_path
+from mindformers.tools.check_rules import get_server_num
 
 CONTEXT_CONFIG = {
     'mode': 'GRAPH_MODE', 'device_target': 'Ascend', 'device_id': 0, 'save_graphs': False}
@@ -42,8 +43,8 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
         config = config.convert_args_to_mindformers_config()
     if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
         config = MindFormerConfig(**config)
-    if config.use_parallel and config.parallel_config.pipeline_stage > 1:
-        config.parallel.pipeline_stages = config.parallel_config.pipeline_stage
+    if config.use_parallel:
+        set_pipeline_stage(config)
     local_rank, device_num = init_context(use_parallel=config.use_parallel,
                                           context_config=config.context, parallel_config=config.parallel)
 
@@ -64,6 +65,26 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
     if config.parallel.get("strategy_ckpt_load_file"):
         context.set_auto_parallel_context(strategy_ckpt_load_file=config.parallel.strategy_ckpt_load_file)
 
+def set_pipeline_stage(config):
+    """Set pipeline stage number."""
+    input_stages = 1
+    final_stages = 1
+    if config.parallel_config.pipeline_stage:
+        input_stages = config.parallel_config.pipeline_stage
+    if config.parallel.auto_pipeline:
+        micro_batch = config.parallel_config.micro_batch_num
+        servers = get_server_num()
+        final_stages = max(input_stages, servers)
+        final_stages = min(final_stages, micro_batch)
+        logger.info(f"Automatic pipeline stage provider will search in [1...{final_stages}], "
+                    f"where {final_stages} = min( max( stages input: {input_stages}, servers: {servers}), "
+                    f"micro batch: {micro_batch})")
+    else:
+        final_stages = input_stages
+
+    config.parallel_config.pipeline_stage = final_stages
+    if final_stages > 1:
+        config.parallel.pipeline_stages = final_stages
 
 def cpu_affinity(rank_id, rank_size):
     """cpu affinity"""
