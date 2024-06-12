@@ -52,12 +52,14 @@ from mindformers.tools.utils import (
     get_output_root_path,
     get_device_num_per_node,
     is_publicly_accessible_path,
-    clear_auto_trans_output
+    clear_auto_trans_output,
+    try_sync_file
 )
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.register.config import ordered_yaml_dump
 from mindformers.tools.resume_ckpt import get_resume_checkpoint
+from mindformers.tools.download_tools import download_with_progress_bar
 from .build_trainer import build_trainer
 from .training_args import TrainingArguments
 from .utils import config2dict
@@ -67,6 +69,7 @@ __all__ = ['Trainer']
 PREFIX_CHECKPOINT_DIR = "checkpoint"
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
+SUPPORT_CHECKPOINT_NAMES = MindFormerBook().get_downloadable_model_name_list()
 SUPPORT_PIPELINE_INPUT_DATA = MindFormerBook().get_pipeline_support_input_data_list()
 CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CHECKPOINT_DIR = 'checkpoint'
@@ -406,6 +409,8 @@ class Trainer:
                 limit_time=self.config.resume_limit_time if self.config.resume_limit_time else 7200,
             )
 
+        self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
+
         self.trainer.train(
             config=self.config, network=self.model,
             dataset=self.train_dataset, optimizer=self.optimizers,
@@ -528,6 +533,8 @@ class Trainer:
                 limit_time=self.config.resume_limit_time if self.config.resume_limit_time else 7200,
             )
 
+        self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
+
         self.trainer.train(
             config=self.config, network=self.model,
             dataset=self.train_dataset, optimizer=self.optimizers,
@@ -607,6 +614,8 @@ class Trainer:
         self._check_config_type()
         self._check_config_rules()
         self._init_model()
+
+        self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
 
         self.trainer.evaluate(
             config=self.config, network=self.model,
@@ -692,6 +701,8 @@ class Trainer:
         self._check_config_type()
         self._check_config_rules()
         self._init_model()
+
+        self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
 
         if input_data is None:
             input_data = build_dataset_loader(self.config.eval_dataset.data_loader)
@@ -946,6 +957,55 @@ class Trainer:
                                         key=lambda x: os.path.getmtime(os.path.join(checkpoint_dir, x)))
         return os.path.join(checkpoint_dir, output_checkpoint_path[-1])
 
+    def get_load_checkpoint(self, checkpoint):
+        """get checkpoint path which will be loaded."""
+        if not checkpoint:
+            return None
+
+        if not isinstance(checkpoint, str):
+            raise TypeError(f"checkpoint should be a str, but got {type(checkpoint)}")
+
+        if os.path.exists(checkpoint):
+            return checkpoint
+
+        if checkpoint not in SUPPORT_CHECKPOINT_NAMES:
+            raise ValueError(f"{checkpoint} is not a supported default model"
+                             f" or a valid path to checkpoint,"
+                             f" please select from {SUPPORT_CHECKPOINT_NAMES}.")
+
+        checkpoint_name = checkpoint
+        if checkpoint.startswith('mindspore'):
+            # Adaptation the name of checkpoint at the beginning of mindspore,
+            # the relevant file will be downloaded from the Xihe platform.
+            # such as "mindspore/vit_base_p16"
+            checkpoint_name = checkpoint.split('/')[1]
+            default_checkpoint_download_folder = os.path.join(
+                MindFormerBook.get_xihe_checkpoint_download_folder(),
+                checkpoint_name.split('_')[0])
+        else:
+            # Default the name of checkpoint,
+            # the relevant file will be downloaded from the Obs platform.
+            # such as "vit_base_p16"
+            default_checkpoint_download_folder = os.path.join(
+                MindFormerBook.get_default_checkpoint_download_folder(),
+                checkpoint.split("_")[0])
+
+        if not os.path.exists(default_checkpoint_download_folder) and not get_real_rank():
+            os.makedirs(default_checkpoint_download_folder, exist_ok=True)
+        while True:
+            if os.path.exists(default_checkpoint_download_folder):
+                break
+
+        ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name + ".ckpt")
+        if not os.path.exists(ckpt_file):
+            url = MindFormerBook.get_model_ckpt_url_list()[checkpoint][0]
+            succeed = download_with_progress_bar(url, ckpt_file)
+            if not succeed:
+                logger.info("checkpoint download failed, and pretrained weights are unloaded.")
+                return None
+        try_sync_file(ckpt_file)
+        return ckpt_file
+
     def _config_init(self,
                      args: Optional[Union[str, MindFormerConfig, TrainingArguments]] = None,
                      task_config: dict = None):
@@ -987,10 +1047,13 @@ class Trainer:
             if sink_mode:
                 if self.config.profile_start_step % sink_size != 0:
                     self.config.profile_start_step -= self.config.profile_start_step % sink_size
+                    self.config.profile_start_step = max(self.config.profile_start_step, sink_size)
                     logger.warning("profile_start_step should divided by sink_size, \
                         set profile_start_step to %s", self.config.profile_start_step)
                 if self.config.profile_stop_step % sink_size != 0:
                     self.config.profile_stop_step += self.config.profile_stop_step % sink_size
+                    self.config.profile_stop_step = max(self.config.profile_stop_step, \
+                        self.config.profile_start_step + sink_size)
                     logger.warning("profile_stop_step should divided by sink_size, \
                         set profile_stop_step to %s", self.config.profile_stop_step)
 
