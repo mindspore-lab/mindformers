@@ -19,6 +19,7 @@ transform dataset to mindrecord.
 import argparse
 import json
 import os
+import re
 
 import numpy as np
 
@@ -148,7 +149,7 @@ class SupervisedDataset:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset_type', type=str, default='wiki', choices=['wiki', 'qa'])
+    parser.add_argument('--dataset_type', type=str, default='qa', choices=['wiki', 'qa'])
     parser.add_argument('--input_glob', type=str, required=True)
     parser.add_argument('--output_file', type=str,
                         default='./alpaca-fastchat-qwen.mindrecord')

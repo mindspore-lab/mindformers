@@ -143,6 +143,7 @@ python qwen1_5/alpaca_converter.py \
 
 ```bash
 python qwen1_5/qwen1_5_preprocess.py \
+--dataset_type 'qa' \
 --input_glob /path/alpaca-data-messages.json \
 --vocab_file /path/vocab.json \
 --merges_file /path/merges.txt \
