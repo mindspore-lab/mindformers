@@ -83,7 +83,7 @@ pip install einops transformers_stream_generator accelerate
 2. 运行`mindformers/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
-python convert_weights.py --model qwenvl --input_path /path/to/hf/dir \
+python convert_weight.py --model qwenvl --input_path /path/to/hf/dir \
 --output_path /path/to/qwenvl_ms.ckpt \
 --dtype fp16
 ```
@@ -185,7 +185,7 @@ Qwen-VL开源模型中未开源相关数据集，并且当前公开数据集中�
 3. 通过如下命令运行目录中`data_convert.py`脚本
 
    ```shell
-   python --data_path /path/to/detail_23k.json --image_location /location/of/coco/train2014 --output_path /path/to/converted/json --user_role_name user --assistant_role_name assistant
+   python data_convert.py --data_path /path/to/detail_23k.json --image_location /location/of/coco/train2014 --output_path /path/to/converted/json --user_role_name user --assistant_role_name assistant
    ```
 
    其中`--data_path`表示原始对话数据路径，`--image_location`表示COCO
@@ -232,7 +232,7 @@ Qwen-VL开源模型中未开源相关数据集，并且当前公开数据集中�
 运行如下命令启动单机8卡微调任务。
 
 ```shell
-cd mindformers/research/qwen
+cd research/qwenvl
 bash ../../scripts/msrun_launcher.sh "python run_qwenvl.py \
 --config finetune_qwenvl_9.6b.yaml \
 --run_mode finetune \

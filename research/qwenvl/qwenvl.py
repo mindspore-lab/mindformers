@@ -29,7 +29,7 @@ from mindspore.ops import operations as P
 from mindformers import MultiHeadAttention, MindFormerRegister, MindFormerModuleType, PreTrainedModel, \
     TransformerOpParallelConfig
 from mindformers.models import build_network
-from mindformers.models.utils import cell_reuse
+from mindformers.models.utils import lazy_inline
 from mindformers.models.vit.vit_modules import get_2d_sincos_pos_embed
 from mindformers.modules.activation import GELU
 from mindformers.modules.layers import LayerNorm, Linear
@@ -495,7 +495,7 @@ class QwenVL(PreTrainedModel):
         config (QwenVLConfig): The config of QwenVL model.
     """
 
-    @cell_reuse
+    @lazy_inline
     def __init__(self, config: QwenVLConfig, **kwargs):
         super().__init__(config, **kwargs)
         self.config = config
