@@ -110,7 +110,10 @@ class GenerationConfig:
         # Special tokens that can be used at generation time
         self.pad_token_id = kwargs.pop("pad_token_id", None)
         self.bos_token_id = kwargs.pop("bos_token_id", None)
-        self.eos_token_id = kwargs.pop("eos_token_id", None)
+        self.eos_token_id = kwargs.pop("eos_token_id", [])
+
+        if isinstance(self.eos_token_id, int):
+            self.eos_token_id = [self.eos_token_id]
 
         # interface.
         self._from_model_config = kwargs.pop("_from_model_config", False)
