@@ -983,10 +983,13 @@ class Trainer:
             if sink_mode:
                 if self.config.profile_start_step % sink_size != 0:
                     self.config.profile_start_step -= self.config.profile_start_step % sink_size
+                    self.config.profile_start_step = max(self.config.profile_start_step, sink_size)
                     logger.warning("profile_start_step should divided by sink_size, \
                         set profile_start_step to %s", self.config.profile_start_step)
                 if self.config.profile_stop_step % sink_size != 0:
                     self.config.profile_stop_step += self.config.profile_stop_step % sink_size
+                    self.config.profile_stop_step = max(self.config.profile_stop_step, \
+                        self.config.profile_start_step + sink_size)
                     logger.warning("profile_stop_step should divided by sink_size, \
                         set profile_stop_step to %s", self.config.profile_stop_step)
 
