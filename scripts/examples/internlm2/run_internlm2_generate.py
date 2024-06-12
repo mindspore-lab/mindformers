@@ -29,9 +29,18 @@ from mindformers.core.context import build_context
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.trainer.utils import transform_and_load_checkpoint
 
+
 def main(config_path, use_parallel, load_checkpoint, load_tokenizer):
     # multi batch inputs
-    inputs = ["<s><|im_start|>Hi, pls intro yourself<|im_end|>\n<|im_start|>assistant"]
+    inputs = [
+        '''<|im_start|>user\nIdentify the odd one out.\nTwitter, Instagram, Telegram<|im_end|>\n
+        <|im_start|>assistant\n''',
+        '''<|im_start|>user\nGenerate an analogy which captures the character of the person.\n
+        The person is reliable and kind.<|im_end|>\n<|im_start|>assistant\n''',
+        '''<|im_start|>user\nHow did the fossil fuel revolution change the course of history?<|im_end|>\n
+        <|im_start|>assistant\n''',
+        "<|im_start|>user\nGenerate a motivational quote<|im_end|>\n<|im_start|>assistant\n"
+    ]
     batch_size = len(inputs)
 
     # init config with yaml
