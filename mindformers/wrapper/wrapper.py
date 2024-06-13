@@ -45,6 +45,37 @@ def tensor_grad_scale_row_tensor(scale, grad):
                      grad.values * F.cast(reciprocal(scale), F.dtype(grad.values)),
                      grad.dense_shape)
 
+get_square_sum = C.MultitypeFuncGraph("get_square_sum")
+get_size = C.MultitypeFuncGraph("get_size")
+
+@get_square_sum.register("Tensor", "Number")
+def _get_square_sum(grad, value):
+    norm = P.ReduceSum(False)(F.square(F.cast(grad, mstype.float32)), ()) * value
+    norm = F.expand_dims(norm, 0)
+    return norm
+
+# pylint: disable=E0102
+@get_square_sum.register("Tensor")
+def _get_square_sum(grad):
+    norm = P.ReduceSum(False)(F.square(F.cast(grad, mstype.float32)), ())
+    norm = F.expand_dims(norm, 0)
+    return norm
+
+@get_size.register("Tensor")
+def _get_size(grad):
+    size = P.Size()(grad)
+    return size
+
+class LocalNorm(nn.Cell):
+    def __init__(self):
+        super(LocalNorm, self).__init__()
+        self.hyper_map = C.HyperMap()
+
+    def construct(self, grads):
+        square_sum = self.hyper_map(get_square_sum, grads)
+        size = self.hyper_map(get_size, grads)
+        return square_sum, size
+
 
 # pylint: disable=W1401
 @MindFormerRegister.register(MindFormerModuleType.WRAPPER)
@@ -87,6 +118,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
                  use_clip_grad=False,
                  max_grad_norm=1.0,
                  scale_sense=1.0,
+                 local_norm=False,
                  **kwargs):
         if isinstance(scale_sense, (int, float)):
             scale_sense = Tensor(scale_sense)
@@ -99,6 +131,9 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
         self.parallel_config = kwargs.pop("parallel_config", None)
         self.learning_rate = deepcopy(self.optimizer.learning_rate)
+        self.localnorm = LocalNorm()
+        self.concat = P.Concat()
+        self.local_norm = local_norm
 
     def construct(self, *inputs):
         """forward and backward."""
@@ -111,12 +146,21 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
         grads = self.grad(self.network, weights)(*inputs, scaling_sens_filled)
         grads = self.hyper_map(F.partial(_grad_scale, scaling_sens), grads)
+
+        if self.local_norm:
+            local_norm, size = self.localnorm(grads)
+            local_norm = self.concat(local_norm)
+
         # apply grad reducer on grads
         grads = self.grad_reducer(grads)
 
         # get the overflow buffer
         cond = self.get_overflow_status(status, grads)
         overflow = self.process_loss_scale(cond)
+
+        global_norm = None
+        if self.use_clip_grad:
+            grads, global_norm = self.clip_grad_norm(grads)
 
         learning_rate = self.learning_rate
         if self.optimizer.dynamic_lr:
@@ -127,15 +171,13 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
 
         # if there is no overflow, do optimize
         if not overflow:
-            if self.use_clip_grad:
-                grads, grad_norm = self.clip_grad_norm(grads)
-                if self.use_grad_norm:
-                    loss = F.depend(loss, self.optimizer(grads, grad_norm))
-                else:
-                    loss = F.depend(loss, self.optimizer(grads))
+            if self.use_clip_grad and self.use_grad_norm:
+                loss = F.depend(loss, self.optimizer(grads, global_norm))
             else:
                 loss = F.depend(loss, self.optimizer(grads))
-        return loss, overflow, scaling_sens, learning_rate
+        if self.local_norm:
+            return loss, overflow, scaling_sens, learning_rate, global_norm, local_norm, size
+        return loss, overflow, scaling_sens, learning_rate, global_norm
 
 
 grad_scale = C.MultitypeFuncGraph("grad_scale")
@@ -193,7 +235,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
     """
 
     def __init__(self, network, optimizer, use_clip_grad=True, max_grad_norm=1.0,
-                 scale_sense=1.0, micro_batch_num=1, **kwargs):
+                 scale_sense=1.0, micro_batch_num=1, local_norm=False, **kwargs):
         if isinstance(scale_sense, (int, float)):
             scale_sense = Tensor(scale_sense)
         super(MFPipelineWithLossScaleCell, self).__init__(network, optimizer, scale_sense)
@@ -236,6 +278,9 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         self.micro_size = micro_batch_num
         self.parallel_config = kwargs.pop("parallel_config", None)
         self.learning_rate = deepcopy(self.optimizer.learning_rate)
+        self.localnorm = LocalNorm()
+        self.concat = P.Concat()
+        self.local_norm = local_norm
 
     @C.add_flags(has_effect=True)
     def construct(self, *inputs):
@@ -249,6 +294,10 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
                                                       self.cast(scaling_sens_filled / self.micro_size,
                                                                 mstype.float32))
 
+        if self.local_norm:
+            local_norm, size = self.localnorm(grads)
+            local_norm = self.concat(local_norm)
+
         if self.opt_shard:
             grads = self.grad_reducer(grads)
             grads = self.hyper_map(F.partial(shard_grad_scale, scaling_sens * self.degree), grads, self.accu_grads)
@@ -256,8 +305,9 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
             accu_grads = self.grad_reducer(self.accu_grads)
             grads = self.hyper_map(F.partial(grad_scale, scaling_sens * self.degree), grads, accu_grads)
 
+        global_norm = None
         if self.use_clip_grad:
-            grads, _ = self.clip_grad_norm(grads)
+            grads, global_norm = self.clip_grad_norm(grads)
 
         learning_rate = self.learning_rate
         if self.optimizer.dynamic_lr:
@@ -274,4 +324,6 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         if not overflow:
             loss = F.depend(loss, self.optimizer(grads))
 
-        return loss, overflow, scaling_sens.value(), learning_rate
+        if self.local_norm:
+            return loss, overflow, scaling_sens.value(), learning_rate, global_norm, local_norm, size
+        return loss, overflow, scaling_sens.value(), learning_rate, global_norm
