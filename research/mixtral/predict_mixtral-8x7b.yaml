@@ -112,7 +112,7 @@ micro_batch_interleave_num: 1
 
 # recompute config
 recompute_config:
-  recompute: True
+  recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
@@ -154,7 +154,6 @@ model:
     num_layers: 32
     num_heads: 32
     vocab_size: 32000
-    multiple_of: 256
     n_kv_heads: 8
     rms_norm_eps: 1.0e-5
     bos_token_id: 1
@@ -166,7 +165,9 @@ model:
     softmax_compute_type: "float32"
     rotary_dtype: "float16"
     param_init_type: "float16"
-    use_past: False
+    use_past: True
+    block_size: 16
+    num_blocks: 512
     extend_method: "None" # support "None", "PI", "NTK"
     use_flash_attention: False
     offset: 0

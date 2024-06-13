@@ -74,10 +74,13 @@ class LlamaSiLU(Cell):
         else:
             self.silu.shard(strategy)
 
-    def activation_shard(self, strategy):
+    def activation_shard(self, strategy, use_gmm=False):
         # activation_shard is the api called by moe [dp_group, expert_dim, capacity, ffn_hidden]
         if hasattr(strategy, "expert_parallel"):
-            moe_strategy = ((strategy.data_parallel, strategy.expert_parallel, 1, strategy.model_parallel),)
+            if use_gmm:
+                moe_strategy = ((strategy.data_parallel, strategy.model_parallel),)
+            else:
+                moe_strategy = ((strategy.data_parallel, strategy.expert_parallel, 1, strategy.model_parallel),)
             self.shard(moe_strategy)
 
 
@@ -385,3 +388,127 @@ class LlamaFeedForward(Cell):
             self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
             self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
             self.mul.shard(((dp * ep, mp), (dp * ep, mp)))
+
+
+class LlamaMoeInferFeedForward(Cell):
+    r"""
+    LLaMA FeedForward for MoE Infer implemented with grouped matmul.
+
+    .. math::
+            (xW_1 * xW_3)W_2
+
+        Inputs:
+            - **x** (Tensor) - should be `[batch, seq_length, hidden_size] or [batch * seq_length, hidden_size]`.
+              Float tensor.
+
+        Outputs:
+            Tensor, the output of this layer after mapping. The shape is `[batch, seq_length, hidden_size] or
+            [batch * seq_length, hidden_size]`.
+
+        Raises:
+            ValueError: `hidden_dim` is not a multiple of the model parallel way.
+            ValueError: `dim` is not a multiple of the model parallel way.
+    """
+
+    @_LogActionOnce(m_logger=logger, key='FeedForward',
+                    no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
+    @_args_type_validator_check(dim=Validator.check_positive_int,
+                                hidden_dim=Validator.check_positive_int,
+                                multiple_of=Validator.check_positive_int,
+                                compute_dtype=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
+                                                                  "FeedForward"),
+                                param_init_type=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
+                                                                    "FeedForward"))
+    def __init__(self, dim,
+                 intermediate_size=None,
+                 hidden_dim=None,
+                 expert_num=1,
+                 multiple_of=256,
+                 hidden_act=LlamaSiLU,
+                 ffn_dim_multiplier=None,
+                 compute_dtype=mstype.float16,
+                 param_init_type=mstype.float32,
+                 is_dynamic=False,
+                 use_gmm=True):
+        super().__init__()
+
+        if hidden_act is None or not (isinstance(hidden_act, str) or issubclass(hidden_act, nn.Cell)):
+            raise TypeError(f"For FeedForward cell, the hidden_act should str type or nn.Cell type, "
+                            f"but got {hidden_act}.")
+
+        if intermediate_size is not None:
+            hidden_dim = intermediate_size
+        else:
+            if ffn_dim_multiplier is not None:
+                hidden_dim = int((ffn_dim_multiplier + 0.01) * hidden_dim)
+            hidden_dim = int(2 * hidden_dim / 3)
+            hidden_dim = multiple_of * \
+                         ((hidden_dim + multiple_of - 1) // multiple_of)
+
+        self.dtype = compute_dtype
+        self.hidden_act = hidden_act
+        self.dim = dim
+        self.hidden_dim = hidden_dim
+        self.expert_num = expert_num
+        self.use_gmm = use_gmm
+
+        self.mul = P.Mul()
+        self.cast = P.Cast()
+
+        self.w1 = Linear(in_channels=dim,
+                         out_channels=hidden_dim,
+                         expert_num=expert_num,
+                         activation=hidden_act,
+                         has_bias=False,
+                         use_gmm=use_gmm,
+                         compute_dtype=compute_dtype,
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
+
+        self.w2 = Linear(in_channels=hidden_dim,
+                         out_channels=dim,
+                         expert_num=expert_num,
+                         has_bias=False,
+                         use_gmm=use_gmm,
+                         compute_dtype=compute_dtype,
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
+
+        self.w3 = Linear(in_channels=dim,
+                         out_channels=hidden_dim,
+                         expert_num=expert_num,
+                         has_bias=False,
+                         use_gmm=use_gmm,
+                         compute_dtype=compute_dtype,
+                         param_init_type=param_init_type,
+                         skip_redistribution=is_dynamic)
+
+    def construct(self, x, group_list=None):
+        """Forward process of the FeedForward"""
+        _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
+        x = self.cast(x, self.dtype)
+        # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
+        gate = self.w1(x, group_list)  # dp,1 -> dp, mp
+        hidden = self.w3(x, group_list)  # dp,1 -> dp, mp
+        hidden = self.mul(hidden, gate)  # dp,mp -> dp, mp
+        output = self.w2(hidden, group_list)  # dp,mp -> dp, 1
+        return output
+
+    def shard(self, parallel_config):
+        """sharding for moe infer feedforward"""
+        mp = parallel_config.model_parallel
+        if self.hidden_dim % mp != 0:
+            raise ValueError("For 'FeedForward', the class variable 'hidden_dim' must be a multiple of the"
+                             "num of model parallel, but got the hidden_dim is {} and the num of model "
+                             "parallel is {}.".format(self.hidden_dim, mp))
+        if self.dim % mp != 0:
+            raise ValueError("For 'FeedForward', the class variable 'dim' must be a multiple of the num of "
+                             "model parallel, but got the dim is {} and the num of model parallel is {}."
+                             .format(self.dim, mp))
+        if self.expert_num == 1:
+            raise ValueError("For 'LlamaMoEFFNInfer', the class variable 'expert_num' must be greater than 1.")
+
+        self.w1.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)),
+                      strategy_activation=((1, 1, mp, 1),))
+        self.w3.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)))
+        self.w2.shard(strategy_matmul=(((1, mp),), ((1, mp, 1),), ((),), ((),), ((),), ((),), ((),), (1,)))
