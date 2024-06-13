@@ -959,10 +959,10 @@ class GenerationMixin:
         input_ids = np.array(input_ids)
         res, current_index = self.forward(input_ids=input_ids,
                                           valid_length_each_example=valid_length_each_example,
-                                          generation_config=generation_config,
                                           block_tables=block_tables,
                                           slot_mapping=slot_mapping,
                                           prefill=prefill,
+                                          use_past=generation_config.use_past,
                                           encoder_mask=encoder_mask,
                                           encoder_output=encoder_output,
                                           target_mask=target_mask,
@@ -995,10 +995,10 @@ class GenerationMixin:
     def forward(self,
                 input_ids: [Union[List[int], List[List[int]]]],
                 valid_length_each_example: [List[int]],
-                generation_config: [GenerationConfig] = None,
                 block_tables: Optional[Tensor] = None,
                 slot_mapping: Optional[Tensor] = None,
                 prefill: bool = None,
+                use_past: bool = False,
                 encoder_mask: Optional[Tensor] = None,
                 encoder_output: Optional[Tensor] = None,
                 target_mask: Optional[Tensor] = None,
@@ -1011,14 +1011,14 @@ class GenerationMixin:
                 Input ids after padding.
             valid_length_each_example (List(int)):
                 Valid input length except padding.
-            generation_config (`GenerationConfig`):
-                The generation configuration to be used as base parametrization for the generation call.
             block_tables (Tensor):
                 Params for page attention
             slot_mapping (Tensor):
                 Params for page attention
             prefill (bool):
                 Whether to do prefill predict or decode predict
+            use_past (bool):
+                Whether to use past
             encoder_mask (Tensor):
                 Use for encoder-decoder construct, do not need for decoder only construct
             encoder_output (Tensor):
@@ -1060,7 +1060,7 @@ class GenerationMixin:
             ]
             model_kwargs["current_index"] = current_index
 
-            if generation_config.use_past:
+            if use_past:
                 res = self._incremental_infer(
                     model_inputs=model_inputs,
                     prefill=prefill,
