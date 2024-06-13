@@ -688,9 +688,12 @@ class ProfileMonitor(Callback):
         if profile_communication and not start_profile:
             raise ValueError("When profile_communication is True, start_profile must also be True")
 
-        if output_path is None:
-            rank_id = get_real_rank()
+        rank_id = get_real_rank()
+        if not output_path:
             output_path = get_output_subpath('profile', rank_id)
+        else:
+            output_path = os.path.join(output_path, 'profile', 'rank_{}'.format(rank_id))
+        logger.info("Profile save path: %s", output_path)
 
         if ms.get_context("device_target") == "GPU" and profile_memory:
             logger.warning("The parameter profile_memory is not supported on GPU currently, so is changed to False. ")
