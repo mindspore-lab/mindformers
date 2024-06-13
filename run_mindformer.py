@@ -35,7 +35,7 @@ from mindformers.tools.utils import (
     parse_value,
     set_output_path,
     get_output_root_path,
-    has_shared_disk
+    is_publicly_accessible_path
 )
 from mindformers.tools.resume_ckpt import get_resume_checkpoint
 from mindformers.mindformer_book import MindFormerBook
@@ -140,7 +140,7 @@ def main(config):
         config.profile_cb = build_profile_cb(config)
 
     if config.auto_trans_ckpt:
-        if not has_shared_disk():
+        if not is_publicly_accessible_path(get_output_root_path()):
             raise ValueError("When device num > 8 and auto_trans_ckpt is set to True,"
                              "the output_dir should be a shared directory that can be accessed by all nodes."
                              f"but {os.path.abspath(config.output_dir)} is not a shared directory.")
