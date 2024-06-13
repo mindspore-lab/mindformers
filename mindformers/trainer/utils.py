@@ -15,6 +15,7 @@
 """Trainer Utils."""
 import os
 import sys
+import time
 import random
 from enum import Enum
 
@@ -323,12 +324,13 @@ def load_resume_context_from_checkpoint(config, dataset):
             break
 
 
-def delete_resume_record_dir():
+def delete_resume_record_dir(wait_time=5):
     """delete resume record dir"""
     if check_in_modelarts():
         resume_record_dir = os.path.join(get_remote_save_url(), "resume_record")
     else:
         resume_record_dir = os.path.join(get_output_root_path(), "resume_record")
+    time.sleep(wait_time)
     remove_folder(resume_record_dir)
 
 

@@ -51,7 +51,7 @@ from mindformers.tools.utils import (
     set_remote_save_url,
     get_output_root_path,
     get_device_num_per_node,
-    has_shared_disk,
+    is_publicly_accessible_path,
     clear_auto_trans_output
 )
 from mindformers.tools.logger import logger
@@ -401,7 +401,9 @@ class Trainer:
         if self.config.resume_training and os.path.isdir(self.config.load_checkpoint):
             self.config.resume_training = get_resume_checkpoint(
                 checkpoint_dir=self.config.load_checkpoint,
-                resume_training=self.config.resume_training
+                resume_training=self.config.resume_training,
+                gap_time=self.config.resume_gap_time if self.config.resume_gap_time else 5,
+                limit_time=self.config.resume_limit_time if self.config.resume_limit_time else 7200,
             )
 
         self.trainer.train(
@@ -521,7 +523,9 @@ class Trainer:
         if self.config.resume_training and os.path.isdir(self.config.load_checkpoint):
             self.config.resume_training = get_resume_checkpoint(
                 checkpoint_dir=self.config.load_checkpoint,
-                resume_training=self.config.resume_training
+                resume_training=self.config.resume_training,
+                gap_time=self.config.resume_gap_time if self.config.resume_gap_time else 5,
+                limit_time=self.config.resume_limit_time if self.config.resume_limit_time else 7200,
             )
 
         self.trainer.train(
@@ -1205,7 +1209,7 @@ class Trainer:
     def _check_config_rules(self):
         """Check config rules."""
         if self.config.auto_trans_ckpt:
-            if not has_shared_disk():
+            if not is_publicly_accessible_path(get_output_root_path()):
                 raise ValueError(f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True,"
                                  "the output_dir should be a shared directory that can be accessed by all nodes."
                                  f"but {os.path.abspath(self.config.output_dir)} is not a shared directory.")

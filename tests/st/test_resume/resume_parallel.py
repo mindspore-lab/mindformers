@@ -18,12 +18,17 @@ How to run this:
 pytest tests/st/test_resume/test_parallel_resume.py
 """
 import os
+import json
 import numpy as np
 
 from mindspore.dataset import GeneratorDataset
 
 from mindformers import build_context
-from mindformers.tools.utils import LOCAL_DEFAULT_PATH, get_real_rank
+from mindformers.tools.utils import (
+    LOCAL_DEFAULT_PATH,
+    get_real_rank,
+    get_real_group_size
+)
 from mindformers.trainer import Trainer, TrainingArguments
 from mindformers.models.gpt2 import GPT2LMHeadModel, GPT2Config
 
@@ -72,6 +77,27 @@ def gpt_trainer_train_from_instance():
                       reset_model=True)
     trainer.train(train_checkpoint=False)
 
+    # wait other rank saving over
+    meta_json = os.path.join(LOCAL_DEFAULT_PATH, "test_resume_parallel", "checkpoint",
+                             "rank_{}".format(get_real_rank()), "meta.json")
+    with open(meta_json, "r") as json_file:
+        meta_data = json.load(json_file)
+    last_epoch = meta_data["last_epoch"]
+    last_step = meta_data["last_step"]
+    while True:
+        saving_over = True
+        for rank_id_tmp in range(get_real_group_size()):
+            meta_json = os.path.join(LOCAL_DEFAULT_PATH, "test_resume_parallel", "checkpoint",
+                                     "rank_{}".format(rank_id_tmp), "meta.json")
+            with open(meta_json, "r") as json_file:
+                meta_data = json.load(json_file)
+            compare_epoch = meta_data["last_epoch"]
+            compare_step = meta_data["last_step"]
+            if last_epoch != compare_epoch or last_step != compare_step:
+                saving_over = False
+        if saving_over:
+            break
+
     checkpoint_dir = os.path.join(LOCAL_DEFAULT_PATH, "test_resume_parallel", "checkpoint",
                                   "rank_{}".format(get_real_rank()))
     output_checkpoint_path = [
@@ -80,6 +106,7 @@ def gpt_trainer_train_from_instance():
     ]
     output_checkpoint_path = sorted(output_checkpoint_path,
                                     key=lambda x: os.path.getmtime(os.path.join(checkpoint_dir, x)))
+
     for _ in range(2):
         os.remove(os.path.join(checkpoint_dir, output_checkpoint_path.pop()))
 

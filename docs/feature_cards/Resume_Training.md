@@ -58,7 +58,17 @@ checkpoint
 
   ① 该功能只在`resume_training`为`True`时生效，`resume_training`为权重名时，将会严格按照指定epoch和step的权重续训。
 
-  ② 该功能不支持**多机+非共享盘**训练场景。
+  ② **多机**场景下，该功能需保证所有节点的续训权重在**同一共享目录**下。
+
+  可以手动配置环境变量`SHARED_PATHS`来设置共享路径。
+
+  ```bash
+  # 将"/mnt/shared1","/mnt/shared2"两个路径设置为共享路径，权重路径若在这两个目录下，均视为共享路径。
+  export SHARED_PATHS="/mnt/shared1,/mnt/shared2"
+
+  # Docker容器内设置共享路径
+  docker run -e SHARED_PATHS="/mnt/shared1,/mnt/shared2" -v /mnt/shared1:/mnt/shared1 -v /mnt/shared2:/mnt/shared2 my_container
+  ```
 
 - **功能说明**
 
@@ -66,7 +76,7 @@ checkpoint
   | --------------- | --------------- | ------------------------------------------------------------ | ------------------ |
   | 权重文件路径    | True            | 基于load_checkpoint指代的权重续训                            | √                  |
   | 权重文件路径    | 权重文件名      | resume_training指代的文件名无效，基于load_checkpoint指代的权重续训 | ×                  |
-  | 权重文件夹路径  | True            | **单机/多机+共享盘/ModelArts训练场景**<br />① 基于meta.json记录的权重续训，支持故障恢复。<br />② 若任一rank文件夹下缺少meta.json，所有rank基于最后时间戳的权重续训。<br />**多机+非共享盘训练场景**<br />所有rank基于最后时间戳的权重续训。 | √                  |
+  | 权重文件夹路径  | True            | **场景①："单机"\|"多机+共享目录"\|"ModelArts"**<br />① 基于meta.json记录的权重续训，支持故障恢复。<br />② 若任一rank文件夹下缺少meta.json，所有rank基于最后时间戳的权重续训。<br />**场景②："多机+非共享目录"**<br />所有rank基于最后时间戳的权重续训。 | √                  |
   | 权重文件夹路径  | 权重文件名      | 基于resume_training指代的权重续训                            | √                  |
 
 ## 脚本启动场景

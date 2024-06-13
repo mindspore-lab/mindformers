@@ -408,13 +408,24 @@ def replace_tk_to_mindpet(ckpt_dict):
 
 
 def check_shared_disk(disk_path):
-    """check whether the disk_path is a shared path."""
+    """
+    Check whether the disk_path is a shared path.
+
+    Args:
+    disk_path (str): The path to check.
+
+    Returns:
+    bool: True if the path is on a shared disk, False otherwise.
+    """
     disk_path = os.path.abspath(disk_path)
     partitions = psutil.disk_partitions(all=True)
     for partition in partitions:
         if partition.mountpoint != '/' and disk_path.startswith(partition.mountpoint):
             # Check if the partition is a network file system (NFS) or other network storage
-            return partition.fstype.lower() in ['nfs', 'dpc'] or 'fuse.sshfs' in partition.opts.lower()
+            fstype = partition.fstype.lower()
+            opts = partition.opts.lower()
+            if fstype in ['nfs', 'dpc'] or 'fuse.sshfs' in opts:
+                return True
     return False
 
 
@@ -465,10 +476,27 @@ def is_main_rank():
     return not get_real_rank() or (check_in_modelarts() and int(os.getenv('DEVICE_ID', '0')) == 0)
 
 
-def has_shared_disk():
-    if get_real_group_size() <= get_device_num_per_node() or \
-        check_shared_disk(get_output_root_path()) or check_in_modelarts():
+def is_publicly_accessible_path(path):
+    """Check a path is accessible by all rank."""
+    if get_real_group_size() <= get_device_num_per_node():
         return True
+
+    if check_in_modelarts():
+        return True
+
+    if check_shared_disk(path):
+        return True
+
+    # For example, SHARED_PATHS="/mnt/shared1,/mnt/shared2"
+    shared_paths = os.getenv("SHARED_PATHS", "").split(',')
+    path = os.path.realpath(path)
+    for shared_path in shared_paths:
+        if not shared_path:
+            continue
+        shared_path = os.path.realpath(shared_path)
+        if path.startswith(shared_path):
+            return True
+
     return False
 
 
@@ -592,3 +620,13 @@ def clear_auto_trans_output():
         if not get_real_rank():
             remaked_txt = remake_folder(folder_path, permissions=0o777)
             delete_file(remaked_txt)
+
+
+def check_ckpt_file_name(ckpt_file):
+    """Check ckpt name in the format of {prefix}-{epoch}_{step}.ckpt"""
+    ckpt_name = os.path.split(ckpt_file)[1]
+    pattern = r'^[^/]+-\d+_\d+\.ckpt$'
+    match = re.match(pattern, ckpt_name)
+    if match:
+        return True
+    return False
