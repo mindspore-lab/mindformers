@@ -65,8 +65,17 @@
 
 从huggingface下载预训练权重后根据以下步骤进行权重转换，需要下载整个工程，huggingface权重的链接如下：
 
+训练和微调建议使用Base权重
+
+- [Qwen1.5-7B-Base](https://huggingface.co/Qwen/Qwen1.5-7B/tree/main)
 - [Qwen1.5-14B-Base](https://huggingface.co/Qwen/Qwen1.5-14B/tree/main)
 - [Qwen1.5-72B-Base](https://huggingface.co/Qwen/Qwen1.5-72B/tree/main)
+
+推理建议使用Chat权重
+
+- [Qwen1.5-7B-Chat](https://huggingface.co/Qwen/Qwen1.5-7B-Chat/tree/main)
+- [Qwen1.5-14B-Chat](https://huggingface.co/Qwen/Qwen1.5-14B-Chat/tree/main)
+- [Qwen1.5-72B-Chat](https://huggingface.co/Qwen/Qwen1.5-72B-Chat/tree/main)
 
 **注**: 请安装`convert_weight.py`依赖包。后续所用的vocab.json和merges.txt文件在此工程中获取。
 
