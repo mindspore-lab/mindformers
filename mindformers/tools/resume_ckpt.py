@@ -32,7 +32,7 @@ from mindformers.tools.utils import (
     replace_rank_id_in_ckpt_name,
     remake_folder,
     remove_folder,
-    has_shared_disk
+    is_publicly_accessible_path
 )
 
 if check_in_modelarts():
@@ -50,7 +50,7 @@ def get_resume_checkpoint(checkpoint_dir, resume_training):
             os.path.join(checkpoint_dir, f"rank_{rank_id}", resume_training))
         return resume_training
 
-    if not has_shared_disk():
+    if not is_publicly_accessible_path(checkpoint_dir):
         return True
 
     # 1. get basic resume ckpt file
