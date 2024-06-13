@@ -1024,3 +1024,32 @@ class ColdHotExpertMointor(Callback):
         def construct(self, x):
             x = self.broadcast(x)
             return x
+
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
+class TrainCallBack(Callback):
+    """
+    Train Callback used in training progress.
+
+    Args:
+        stop_step (int): The function stop train process at the step.
+                             Default None, set in yaml.
+    Examples:
+        >>> from mindformers.core.callback import TrainCallBack
+        >>> stop_step = TrainCallBack(stop_step=10)
+        <class 'mindformers.core.callback.callback.TrainCallBack'>
+    """
+
+    def __init__(self, stop_step: int = None):
+        self.stop_step = stop_step
+
+    def step_end(self, run_context):
+        """
+        Print training info at the end of epoch.
+
+        Args:
+            run_context (RunContext): Context of the process running.
+        """
+        cb_params = run_context.original_args()
+        if self.stop_step is not None and cb_params.cur_step_num >= self.stop_step:
+            run_context.request_stop()
+            logger.info("set train process early stop at %s steps in yaml", self.stop_step)
