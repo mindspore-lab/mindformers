@@ -45,4 +45,13 @@ then
    --join=True \
    --cluster_time_out=300 \
    ${BASE_PATH}/parallel_llama.py --test_predict True > parallel_llama_predict.log 2>&1
+elif [ "$TEST_MODE" == "test_train_cp" ]
+then
+  msrun --worker_num=${USE_DEVICE_NUM} \
+   --local_worker_num=${USE_DEVICE_NUM} \
+   --master_port=8118 \
+   --log_dir=msrun_log \
+   --join=True \
+   --cluster_time_out=300 \
+   ${BASE_PATH}/parallel_llama.py --test_train_sp True > parallel_llama_train_cp.log 2>&1
 fi

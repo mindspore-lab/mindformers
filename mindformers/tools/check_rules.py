@@ -23,8 +23,9 @@ from .logger import logger
 def get_parallel_strategy(config):
     dp = config.parallel_config.data_parallel
     mp = config.parallel_config.model_parallel
+    cp = config.parallel_config.context_parallel
     pp = config.parallel_config.pipeline_stage
-    return dp, mp, pp
+    return dp, mp, cp, pp
 
 
 def get_device_num():
@@ -105,7 +106,7 @@ def _rule_fa_only_for_train(config, mode):
 
 def _rule_pp_only_for_train(config, mode):
     """pp only support training for now"""
-    _, _, pp = get_parallel_strategy(config)
+    _, _, _, pp = get_parallel_strategy(config)
     if pp > 1:
         raise ValueError(f"pipeline stage only support training process for now, set pipeline stage=1 to {mode} ")
 
@@ -123,13 +124,14 @@ def _check_full_batch():
 def _check_parallel(config):
     """check parallel config"""
     parallel_mode = ms.get_auto_parallel_context("parallel_mode")
-    dp, mp, pp = get_parallel_strategy(config)
+    dp, mp, cp, pp = get_parallel_strategy(config)
     device_num = get_device_num()
     server_num = get_server_num()
     if parallel_mode in ["semi_auto_parallel"]:
-        if dp * mp * pp != device_num:
-            raise ValueError(f"The parallel config data_parallel * model_parallel * pipeline_stage should "
-                             f"be equal to device_num, but get dp*mp*pp = {dp}*{mp}*{pp} = {dp * mp * pp} "
+        if dp * mp * cp * pp != device_num:
+            raise ValueError(f"The parallel config data_parallel * model_parallel "
+                             f"* context_parallel * pipeline_stage should "
+                             f"be equal to device_num, but get dp*mp*sp*pp = {dp}*{mp}*{cp}*{pp} = {dp * mp * cp * pp} "
                              f"!= device_num({device_num})")
 
         if config.model.model_config.num_layers and config.model.model_config.num_layers < pp:

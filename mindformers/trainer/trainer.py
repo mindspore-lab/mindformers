@@ -754,8 +754,8 @@ class Trainer:
                      micro_batch_interleave_num=int, micro_batch_num=int, use_seq_parallel=bool, optimizer_shard=bool,
                      gradient_aggregation_group=int, vocab_emb_dp=bool)
     def set_parallel_config(
-            self, data_parallel=1, model_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_interleave_num=1,
-            micro_batch_num=1, use_seq_parallel=False, optimizer_shard=False,
+            self, data_parallel=1, model_parallel=1, context_parallel=1, expert_parallel=1, pipeline_stage=1,
+            micro_batch_interleave_num=1, micro_batch_num=1, use_seq_parallel=False, optimizer_shard=False,
             gradient_aggregation_group=4, vocab_emb_dp=True):
         """
         set_parallel_config for the setting global data parallel, model parallel and fusion group.
@@ -768,6 +768,9 @@ class Trainer:
             model_parallel (int):
                 The model parallel way. The parameters of dense layers in Multi-head Attention and
                 FeedForward layer will be sliced according to the model parallel way. Default: 1.
+            context_parallel (int):
+                The context parallel way. The sequence length of the input data in Multi-head Attention and
+                FeedForward layer will be sliced according to the context parallel way. Default: 1.
             expert_parallel (int):
                 The expert parallel way. This is effective only when MoE (Mixture of Experts)
                 is applied. This value specifies the number of partitions to split the experts into.
@@ -791,6 +794,7 @@ class Trainer:
         """
         self.config.parallel_config.data_parallel = data_parallel
         self.config.parallel_config.model_parallel = model_parallel
+        self.config.parallel_config.context_parallel = context_parallel
         self.config.parallel_config.expert_parallel = expert_parallel
         self.config.parallel_config.pipeline_stage = pipeline_stage
         self.config.parallel_config.use_seq_parallel = use_seq_parallel

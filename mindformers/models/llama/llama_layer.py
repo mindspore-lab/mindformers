@@ -126,18 +126,19 @@ class LlamaEmbedding(Cell):
         """sharding for embedding"""
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
+        cp = parallel_config.context_parallel
         if parallel_config.vocab_emb_dp:
-            self.gather.shard(((1, 1), (dp, 1)))
-            logger.info(f"Using {dp} data parallel for the embedding lookup.")
+            self.gather.shard(((1, 1), (dp, cp)))
+            logger.info(f"Using {dp*cp} data parallel for the embedding lookup.")
         else:
             if self.vocab_table_size % mp != 0:
                 logger.warning("The vocab size of Loss is: %s, it is not divide by model_parallel: %s",
                                self.vocab_table_size, mp)
                 logger.warning("Now, the model_parallel num of Loss will be changed: mp = 1")
-                self.gather.shard(((1, 1), (dp, 1)))
+                self.gather.shard(((1, 1), (dp, cp)))
             else:
-                self.gather.shard(((mp, 1), (dp, 1)))
-                logger.info(f"Using {dp} data parallel and {mp} "
+                self.gather.shard(((mp, 1), (dp, cp)))
+                logger.info(f"Using {dp*cp} data parallel and {mp} "
                             f"model parallel for the embedding lookup.")
 
 
@@ -352,6 +353,7 @@ class LlamaFeedForward(Cell):
         """sharding for feedforward"""
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
+        cp = parallel_config.context_parallel
         if self.hidden_dim % mp != 0:
             raise ValueError("For 'FeedForward', the class variable 'hidden_dim' must be a multiple of the"
                              "num of model parallel, but got the hidden_dim is {} and the num of model "
@@ -369,11 +371,11 @@ class LlamaFeedForward(Cell):
                 self.split.shard(((dp, 1, mp),))
                 self.mul.shard(((dp, mp), (dp, mp)))
             else:
-                self.w1.shard(((dp, 1), (mp, 1)), strategy_activation=((dp, mp),))
-                self.w1.activation.shard(((dp, mp),))
-                self.w2.shard(((dp, mp), (1, mp)))
-                self.w3.shard(((dp, 1), (mp, 1)))
-                self.mul.shard(((dp, mp), (dp, mp)))
+                self.w1.shard(((dp * cp, 1), (mp, 1)), strategy_activation=((dp * cp, mp),))
+                self.w1.activation.shard(((dp * cp, mp),))
+                self.w2.shard(((dp * cp, mp), (1, mp)))
+                self.w3.shard(((dp * cp, 1), (mp, 1)))
+                self.mul.shard(((dp, cp, mp), (dp, cp, mp)))
         else:
             logger.info("shard ffn with MoE")
             ep = parallel_config.expert_parallel
