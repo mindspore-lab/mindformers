@@ -37,7 +37,7 @@ from mindformers.generation.logits_process import (LogitNormalization, LogitsPro
                                                    MinNewTokensLengthLogitsProcessor)
 from mindformers import version_control
 from mindformers.generation.streamers import BaseStreamer
-from mindformers.generation.utils import softmax_with_threads, topk
+from mindformers.generation.utils import softmax_with_threads, topk, GenerateOutput, InferOutput
 from mindformers.modules.block_tables import BlockTables
 from mindformers.tools import logger
 
@@ -737,6 +737,15 @@ class GenerationMixin:
             if self.config.is_dynamic:
                 self.set_dynamic_inputs()
 
+        # prepare dict outputs
+        if generation_config.return_dict_in_generate and generation_config.output_logits \
+            and self.config.is_sample_acceleration:
+            logger.warning("When `is_sample_acceleration` is True, logits can not be fetched. "
+                           "Set `output_logits` to False.")
+            generation_config.output_logits = False
+        scores = () if generation_config.return_dict_in_generate and generation_config.output_scores else None
+        raw_logits = () if generation_config.return_dict_in_generate and generation_config.output_logits else None
+
         # beam search
         if generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
             # prepare beam search scorer
@@ -835,19 +844,27 @@ class GenerationMixin:
                         block_tables, slot_mapping = self.block_mgr.assemble_pa_inc_inputs(valid_length_each_example,
                                                                                            is_finished)
 
-                target_list, is_finished = self.infer(input_ids=input_ids,
-                                                      valid_length_each_example=valid_length_each_example,
-                                                      generation_config=generation_config,
-                                                      logits_processor=logits_processor,
-                                                      logits_warper=logits_warper,
-                                                      block_tables=block_tables,
-                                                      slot_mapping=slot_mapping,
-                                                      prefill=prefill,
-                                                      is_finished=is_finished,
-                                                      encoder_mask=encoder_mask,
-                                                      encoder_output=encoder_output,
-                                                      target_mask=target_mask,
-                                                      **model_kwargs)
+                infer_output, is_finished = self.infer(input_ids=input_ids,
+                                                       valid_length_each_example=valid_length_each_example,
+                                                       generation_config=generation_config,
+                                                       logits_processor=logits_processor,
+                                                       logits_warper=logits_warper,
+                                                       block_tables=block_tables,
+                                                       slot_mapping=slot_mapping,
+                                                       prefill=prefill,
+                                                       is_finished=is_finished,
+                                                       encoder_mask=encoder_mask,
+                                                       encoder_output=encoder_output,
+                                                       target_mask=target_mask,
+                                                       **model_kwargs)
+                if generation_config.return_dict_in_generate:
+                    target_list = infer_output["target_list"]
+                    if generation_config.output_scores:
+                        scores += (infer_output["probs"],)
+                    if generation_config.output_logits:
+                        raw_logits += (infer_output["logits"],)
+                else:
+                    target_list = infer_output
                 if generation_config.use_past:
                     if prefill and "origin_inputs" in model_kwargs:
                         model_kwargs.pop("origin_inputs")
@@ -896,12 +913,20 @@ class GenerationMixin:
         if self.block_mgr:
             self.block_mgr.clear_cache()
 
+        if generation_config.return_dict_in_generate:
+            result = GenerateOutput(
+                sequences=output_ids,
+                scores=scores,
+                logits=raw_logits
+            )
+            return result
+
         return output_ids
 
     def infer(self,
-              input_ids: [Union[List[int], List[List[int]]]],
-              valid_length_each_example: [List[int]],
-              generation_config: [GenerationConfig] = None,
+              input_ids: Union[List[int], List[List[int]]],
+              valid_length_each_example: List[int],
+              generation_config: GenerationConfig = None,
               logits_processor: Optional[LogitsProcessorList] = None,
               logits_warper: Optional[LogitsProcessorList] = None,
               block_tables: Optional[Tensor] = None,
@@ -975,22 +1000,32 @@ class GenerationMixin:
         if not self.config.is_encoder_decoder and generation_config.use_past:
             need_gather_logits = prefill
 
-        next_id, is_finished = self.postprocess(input_ids=input_ids,
-                                                is_finished=is_finished,
-                                                res=res,
-                                                generation_config=generation_config,
-                                                valid_length_each_example=valid_length_each_example,
-                                                current_index=current_index,
-                                                logits_processor=logits_processor,
-                                                logits_warper=logits_warper,
-                                                need_gather_logits=need_gather_logits)
+        target_list, probs, logits, is_finished = self.postprocess(
+            input_ids=input_ids,
+            is_finished=is_finished,
+            res=res,
+            generation_config=generation_config,
+            valid_length_each_example=valid_length_each_example,
+            current_index=current_index,
+            logits_processor=logits_processor,
+            logits_warper=logits_warper,
+            need_gather_logits=need_gather_logits
+        )
 
         sample_time = time.time() - sample_time
         infer_time = time.time() - start_time
         logger.debug("forward time: %s s; sample time: %s s; total count: %s s",
                      forward_time, sample_time, infer_time)
 
-        return next_id, is_finished
+        if generation_config.return_dict_in_generate:
+            infer_output_dict = InferOutput(
+                target_list=target_list,
+                probs=probs,
+                logits=logits
+            )
+            return infer_output_dict, is_finished
+
+        return target_list, is_finished
 
     def forward(self,
                 input_ids: [Union[List[int], List[List[int]]]],
@@ -1078,7 +1113,7 @@ class GenerationMixin:
                     input_ids,
                     is_finished,
                     res,
-                    generation_config,
+                    generation_config: GenerationConfig,
                     valid_length_each_example,
                     current_index: Optional[Union[List[int], List[List[int]]]],
                     logits_processor: Optional[LogitsProcessorList] = None,
@@ -1113,6 +1148,10 @@ class GenerationMixin:
         batch_size = input_ids.shape[0]
         target_list = [[] for _ in range(batch_size)]
 
+        # cache for logits and probs, if needed in output
+        next_logits_cache = None
+        next_probs_cache = None
+
         generation_config.generation_mode = self._get_generation_mode(generation_config)
         if generation_config.generation_mode == GenerationMode.GREEDY_SEARCH:
             if not self.config.is_sample_acceleration:
@@ -1120,16 +1159,34 @@ class GenerationMixin:
                 logits = ms.ops.reshape(logits, (-1, logits.shape[-1]))
                 if need_gather_logits and logits.shape[0] > len(current_index):
                     logits = logits[Tensor(current_index, dtype=mstype.int32)]
+                # store caced logits
+                if generation_config.return_dict_in_generate and generation_config.output_logits:
+                    if isinstance(logits, Tensor):
+                        next_logits_cache = logits.asnumpy().copy()
+                    else:
+                        next_logits_cache = logits.copy()
                 if logits_processor:
                     if isinstance(logits, Tensor):
                         logits = logits.asnumpy()
                     logits = Tensor(logits_processor(input_ids, logits, is_finished))
+                # store caced probs
+                if generation_config.return_dict_in_generate and generation_config.output_scores:
+                    if isinstance(logits, Tensor):
+                        next_probs_cache = logits.asnumpy().copy()
+                    else:
+                        next_probs_cache = logits.copy()
                 target_list = self.argmax(logits, -1)
                 target_list = target_list.asnumpy().tolist()
             else:
                 probs, p_args = res
                 if isinstance(p_args, Tensor):
                     p_args = p_args.asnumpy()
+                # store caced probs
+                if generation_config.return_dict_in_generate and generation_config.output_scores:
+                    if isinstance(probs, Tensor):
+                        next_probs_cache = probs.asnumpy().copy()
+                    else:
+                        next_probs_cache = probs.copy()
                 target_index_list = P.Argmax()(probs)
                 target_index_list = target_index_list.asnumpy().tolist()
                 # run greedy search
@@ -1151,7 +1208,9 @@ class GenerationMixin:
                 # compare length to determine if need gather; if not, gather should be done in model construct
                 if need_gather_logits and logits.shape[0] > len(current_index):
                     logits = logits[current_index]
-
+                # store caced logits
+                if generation_config.return_dict_in_generate and generation_config.output_logits:
+                    next_logits_cache = logits.copy()
                 probs = logits_processor(input_ids, logits, is_finished)
                 p_args = np.tile(np.arange(logits.shape[-1]), (batch_size, 1))
                 probs = logits_warper(input_ids, probs, is_finished)
@@ -1161,6 +1220,9 @@ class GenerationMixin:
                     probs = probs.asnumpy()
                 if isinstance(p_args, Tensor):
                     p_args = p_args.asnumpy()
+            # store caced probs
+            if generation_config.return_dict_in_generate and generation_config.output_scores:
+                next_probs_cache = probs.copy()
             p_norms = softmax_with_threads(probs, is_finished)
 
             for i in range(batch_size):
@@ -1175,4 +1237,4 @@ class GenerationMixin:
         elif generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
             raise ValueError("sampler method doesn't support BEAM_SEARCH. ")
 
-        return target_list, is_finished
+        return target_list, next_probs_cache, next_logits_cache, is_finished

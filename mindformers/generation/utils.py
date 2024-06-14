@@ -13,8 +13,10 @@
 # limitations under the License.
 # ============================================================================
 """utils for text generation."""
-
+from collections import UserDict
+from dataclasses import dataclass
 from threading import Thread
+from typing import Optional
 import numpy as np
 
 
@@ -88,3 +90,65 @@ def topk(x, top_k, axis=-1, largest=True, sort=True):
         topk_data = np.take_along_axis(topk_data, sort_index, axis=axis)
         topk_index = np.take_along_axis(topk_index, sort_index, axis=axis)
     return topk_data, topk_index
+
+
+@dataclass
+class GenerateOutput(UserDict):
+    """
+    Outputs of generate.
+
+    Args:
+        sequences (`list` of shape `(batch_size, sequence_length)`):
+            The generated sequences. The second dimension (sequence_length) is either equal to `max_length` or shorter
+            if all batches finished early due to the `eos_token_id`.
+        scores (`tuple(np.ndarray)` *optional*, returned when `output_scores=True` is passed or when
+            `config.output_scores=True`):
+            Processed prediction scores of the language modeling head (scores for each vocabulary token
+            before SoftMax) at each generation step. Tuple of `np.ndarray` with up to `max_new_tokens` elements
+            (one element for each generated token), with each item of shape `(batch_size, config.vocab_size)`.
+        logits (`tuple(np.ndarray)` *optional*, returned when `output_logits=True` is passed or when
+            `config.output_logits=True`):
+            Unprocessed prediction scores of the language modeling head (scores for each vocabulary token
+            before SoftMax) at each generation step. Tuple of `np.ndarray` with up to `max_new_tokens` elements
+            (one element for each generated token), with each item of shape `(batch_size, config.vocab_size)`.
+    """
+    sequences: list = None
+    scores: Optional[np.ndarray] = None
+    logits: Optional[np.ndarray] = None
+
+    def __post_init__(self):
+        super().__init__(
+            sequences=self.sequences,
+            scores=self.scores,
+            logits=self.logits
+        )
+
+
+@dataclass
+class InferOutput(UserDict):
+    """
+    Outputs of infer api.
+
+    Args:
+        target_list (`list` of shape `(batch_size, sequence_length)`):
+            The generated sequences. The second dimension (sequence_length) is either equal to `max_length`
+            or shorter if all batches finished early due to the `eos_token_id`.
+        probs (`np.ndarray` *optional*, returned when `output_scores=True` is passed or when
+            `config.output_scores=True`):
+            Processed prediction scores of the language modeling head (scores for each vocabulary token before SoftMax)
+            at a single infer step, with shape of `(batch_size, config.vocab_size)`.
+        logits (`np.ndarray` *optional*, returned when `output_logits=True` is passed or when
+            `config.output_logits=True`):
+            Unprocessed prediction scores of the language modeling head (scores for each vocabulary token
+            before SoftMax) at a single infer step, with shape of `(batch_size, config.vocab_size)`.
+    """
+    target_list: list = None
+    probs: Optional[np.ndarray] = None
+    logits: Optional[np.ndarray] = None
+
+    def __post_init__(self):
+        super().__init__(
+            target_list=self.target_list,
+            probs=self.probs,
+            logits=self.logits
+        )
