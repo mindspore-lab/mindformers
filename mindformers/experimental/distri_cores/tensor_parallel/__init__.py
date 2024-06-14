@@ -15,4 +15,32 @@
 
 """mindformers init"""
 
-__version__ = "1.1"
+from .collective_primitives import all_to_all_hp2sp, all_to_all_sp2hp
+from .collective_primitives import CopyToModelParallelRegion
+from .collective_primitives import ScatterToModelParallelRegion
+from .collective_primitives import GatherFromModelParallelRegion
+from .collective_primitives import ReduceFromModelParallelRegion
+from .collective_primitives import ReduceScatterToSequenceParallelRegion
+from .collective_primitives import ReduceScatterToTensorParallelRegion
+from .collective_primitives import ScatterToSequenceParallelRegion
+from .collective_primitives import GatherFromSequenceParallelRegion
+from .collective_primitives import AllGatherFromTensorParallelRegion
+from .collective_primitives import AllToAll
+from .layers import *
+
+__all__ = [
+    'all_to_all_hp2sp',
+    'all_to_all_sp2hp',
+    'CopyToModelParallelRegion',
+    'ScatterToModelParallelRegion',
+    'GatherFromModelParallelRegion',
+    'ReduceFromModelParallelRegion',
+    'ReduceScatterToSequenceParallelRegion',
+    'ReduceScatterToTensorParallelRegion',
+    'ScatterToSequenceParallelRegion',
+    'GatherFromSequenceParallelRegion',
+    'AllGatherFromTensorParallelRegion',
+    'AllToAll'
+]
+
+__all__.extend(layers.__all__)

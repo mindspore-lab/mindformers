@@ -15,8 +15,6 @@
 
 """mindformers init"""
 
-__version__ = "1.1"
-
 from .distri_cores import *
 from .distri_ckpt import *
 

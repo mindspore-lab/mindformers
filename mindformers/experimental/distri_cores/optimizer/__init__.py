@@ -15,9 +15,9 @@
 
 """mindformers init"""
 
-__version__ = "1.1"
-
 from .zero import *
+from .lr_scheduler import *
 
 __all__ = []
 __all__.extend(zero.__all__)
+__all__.extend(lr_scheduler.__all__)

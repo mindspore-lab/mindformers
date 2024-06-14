@@ -22,9 +22,10 @@ from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 from mindspore.nn.optim.optimizer import Optimizer
 from mindspore.common.initializer import initializer
-from mindspore.communication.management import GlobalComm, get_group_size, get_rank
-from mindspore.communication._comm_helper import _get_group_ranks
 import mindspore._checkparam as validator
+
+from mindformers.experimental.distri_cores.create_comm import get_dp_rank, \
+    get_dp_world_size, get_dp_group
 
 __all__ = ["AdamWeightDecayZeRO2"]
 
@@ -149,10 +150,7 @@ class AdamWeightDecayZeRO2(Optimizer):
 
         use_parallel (bool): Enable optimizer parallel. Default: False.
 
-        shard_size (int): Number of shards when using optimizer parallel, which should less or equal to dimension of
-            data parallel. When set to -1, shard_size equal to data parallel dimension. Default: -1.
-
-        comm_group (str): Name of communication group used by optimizer parallel. Default: None.
+        opt_parallel_group (str): Name of communication group used by optimizer parallel. Default: None.
 
         cpu_offload (bool): The process of optimizer will be offload to host. The gradients, parameters and optimizer
             status will be offload to host. Default: Flase.
@@ -160,15 +158,19 @@ class AdamWeightDecayZeRO2(Optimizer):
     Inputs:
         - **gradients** (tuple[Tensor]) - The gradients of `params`, the shape is the same as `params`.
 
-    Outputs:
-        tuple[bool], all elements are True.
-
     Examples:
         >>> import mindspore as ms
+        >>> from mindspore.communication.management import init, get_rank, get_group_size, GlobalComm
         >>> from mindspore.nn.wrap.cell_wrapper import WithLossCell
         >>> from mindformers import AdamWeightDecayZeRO2
+        >>> from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
         >>> loss = SoftmaxCrossEntropyWithLogits()
-        >>> opt = AdamWeightDecayZeRO2(params=net.get_parameters, use_parallel=True, comm_group=comm_group)
+        >>> ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE)
+        >>> ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.DATA_PARALLEL)
+        >>> init()
+        >>> initialize_model_parallel()
+        >>> optimizer = AdamWeightDecayZeRO2(params=network.get_parameters(), learning_rate=1e-1, use_parallel=True,
+        ...                                  opt_parallel_group=GlobalComm.WORLD_COMM_GROUP, cpu_offload=False)
     """
     _support_parallel_optimizer = True
 
@@ -177,11 +179,7 @@ class AdamWeightDecayZeRO2(Optimizer):
         super(AdamWeightDecayZeRO2, self).__init__(learning_rate, params, weight_decay)
         _check_param_value(beta1, beta2, eps, use_parallel, opt_parallel_group, cpu_offload, self.cls_name)
         self._is_stand_alone_mode = (ms.get_auto_parallel_context("parallel_mode") == ms.ParallelMode.STAND_ALONE)
-        self.use_parallel = use_parallel
-        if opt_parallel_group:
-            self.opt_parallel_group = opt_parallel_group
-        elif self.use_parallel:
-            self.opt_parallel_group = GlobalComm.WORLD_COMM_GROUP
+        self.use_parallel = use_parallel and not self._is_stand_alone_mode
         self.cpu_offload = cpu_offload
 
         # init communication group info
@@ -208,23 +206,19 @@ class AdamWeightDecayZeRO2(Optimizer):
 
     def _init_optimizer_shard_info(self):
         """Init optimizer parallel information."""
-        # pylint: disable=W0212
         if not self.use_parallel:
             self.shard_id = 0
             self.shard_size = 1
         else:
-            self.shard_size = get_group_size(self.opt_parallel_group)
-            group_list = _get_group_ranks(self.opt_parallel_group)
-            group_list.sort()
-            self.rank_id = get_rank()
-            self.shard_id = group_list.index(self.rank_id)
+            self.shard_size = get_dp_world_size()
+            self.shard_id = get_dp_rank()
 
     def _init_all_gather_ops(self, params):
         """Init allgather operations for each parameter."""
         op_list = []
         for i, param in enumerate(params):
             if self.use_parallel and param.shape[0] % self.shard_size == 0:
-                op_list.append(P.AllGather(self.opt_parallel_group))
+                op_list.append(P.AllGather(group=get_dp_group()))
                 self._parameter_splited[i] = True
             else:
                 op_list.append(None)
@@ -233,11 +227,11 @@ class AdamWeightDecayZeRO2(Optimizer):
     def _regist_hook_for_params(self):
         """Register hook for model parameters for optimizer parallel."""
         def reduce_scatter_hook(grad):
-            allreduce = P.AllReduce()
+            allreduce = P.AllReduce(group=get_dp_group())
             split = P.Split(0, self.shard_size)
-            return split(allreduce(grad))[self.shard_id]
+            return split(allreduce(grad))[self.shard_id].contiguous()
         def reduce_hook(grad):
-            allreduce = P.AllReduce()
+            allreduce = P.AllReduce(group=get_dp_group())
             return allreduce(grad)
         for i, param in enumerate(self._parameters):
             if self._parameter_splited[i]:
@@ -324,3 +318,31 @@ class AdamWeightDecayZeRO2(Optimizer):
             )
 
         self.hyper_map(_update_params, self._parameters, optim_result, self.all_gather_ops)
+
+    def sharded_state_dict(self, model_sharded_state_dict):
+        """provide optim's sharded state dict based on the model's sharding info"""
+        state_dict = {}
+        for idx, param in enumerate(self._parameters):
+            moment1 = self.moments1[idx]
+            moment2 = self.moments2[idx]
+            model_name = param.name
+            if model_name in model_sharded_state_dict and 'shard' in model_sharded_state_dict[model_name]:
+                shard = list(model_sharded_state_dict[model_name]['shard'])
+            else:
+                raise Exception(f"the input dict has no shard info for '{model_name}'.")
+            if self._parameter_splited[idx]:
+                opt_weight_shard_step = np.prod(shard)
+                opt_weight_shard_size = get_dp_world_size()
+            else:
+                opt_weight_shard_step = 0
+                opt_weight_shard_size = -1
+            state_dict[moment1.name] = {'shape': moment1.shape,
+                                        'shard': tuple(shard),
+                                        'opt_weight_shard_step': opt_weight_shard_step,
+                                        'opt_weight_shard_size': opt_weight_shard_size}
+            state_dict[moment2.name] = {'shape': moment2.shape,
+                                        'shard': tuple(shard),
+                                        'opt_weight_shard_step': opt_weight_shard_step,
+                                        'opt_weight_shard_size': opt_weight_shard_size}
+
+        return state_dict
