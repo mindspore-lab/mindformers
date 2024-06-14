@@ -17,7 +17,7 @@
 For text generation
 """
 import os
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Dict
 import numpy as np
 
 import mindspore as ms
@@ -84,7 +84,8 @@ def get_model(model_name_or_path: str,
     else:
         raise ValueError(f"{model_name_or_path} does not exist or is not a directory.")
 
-    return None, None, tokenizer, None, None
+    input_builder = InputBuilder(tokenizer)
+    return tokenizer, input_builder
 
 
 class ModelRunner:
@@ -265,7 +266,10 @@ class MindIEModelRunner:
                                               slot_mapping=slot_mapping,
                                               prefill=prefill,
                                               use_past=True)
-        logits = ops.reshape(res[0], (-1, res[0].shape[-1]))
+        if isinstance(res, tuple):
+            logits = ops.reshape(res[0], (-1, res[0].shape[-1]))
+        else:
+            logits = ops.reshape(res, (-1, res.shape[-1]))
         if prefill and logits.shape[0] > len(current_idx):
             logits = logits[Tensor(current_idx)]
 
@@ -316,3 +320,73 @@ def _get_model_config(model_path):
         raise ValueError(f"The path {model_path} is not exist.")
 
     return experiment_mode, model_config
+
+
+class InputBuilder:
+    """
+    Implementation of InputBuilder.
+
+    Args:
+        tokenizer (PreTrainedTokenizer):
+            Tokenizer.
+        chat_template (str):
+            Model config.
+        system_role_name (str):
+            The name of system.
+        user_role_name (str):
+            The name of user.
+        max_length (int):
+            max seq length.
+    """
+    def __init__(self, tokenizer, chat_template="", system_role_name="system", user_role_name="user", max_length=2048):
+        self.tokenizer = tokenizer
+        self.system_role_name = system_role_name
+        self.user_role_name = user_role_name
+        if chat_template:
+            self.tokenizer.chat_template = chat_template
+        self.max_length = max_length
+        self.rank = 0
+        self.adapt_to_max_length = False
+
+    def make_context(self, rank: int, conversation: List[Dict[str, str]], add_generation_prompt: bool = True,
+                     adapt_to_max_length: bool = False, **kwargs):
+        """
+        Make a conversation tokens. Adapt interface of mindie-llm.
+
+        Args:
+            rank (int):
+                The rank id.
+            conversation (List[Dict[str, str]]):
+                The chat input.
+            add_generation_prompt (bool, *optional*):
+                Whether to end the prompt with the token(s) that indicate the start of an assistant message.
+            adapt_to_max_length (bool, *optional*):
+                Where input tokens should less max_length.
+
+        Returns:
+             context_tokens
+        """
+        self.rank = rank
+        self.adapt_to_max_length = adapt_to_max_length
+        context_tokens = self._apply_chat_template(conversation, add_generation_prompt=add_generation_prompt,
+                                                   **kwargs)
+        return context_tokens
+
+    def _apply_chat_template(self, conversation: List[Dict[str, str]], **kwargs):
+        """
+        Converts a Conversation to a list of token ids.
+
+        Args:
+            conversation (List[Dict[str, str]]):
+                The chat input.
+
+        Returns:
+             input_ids
+        """
+        if not hasattr(self.tokenizer, "apply_chat_template"):
+            raise RuntimeError("The tokenizer dose not implement apply_chat_template function.")
+        if not self.tokenizer.chat_template:
+            raise RuntimeError("The model does not appear to be a chat model because it is not configured with a "
+                               "`chat_template`.")
+        input_ids = self.tokenizer.apply_chat_template(conversation, **kwargs)
+        return input_ids
