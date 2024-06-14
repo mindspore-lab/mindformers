@@ -90,6 +90,8 @@ def main(config):
                                  max_length=model_config.max_decode_length,
                                  do_sample=False)
         for output in outputs:
+            if output[-1] == insertconfig.model.model_config.eos_token_id:
+                output = output[:-1]
             print(tokenizer.decode(output))
 
 
