@@ -15,8 +15,6 @@
 
 """mindformers init"""
 
-__version__ = "1.1"
-
 from .checkpointing import save_checkpoint, load_checkpoint
 
 __all__ = []

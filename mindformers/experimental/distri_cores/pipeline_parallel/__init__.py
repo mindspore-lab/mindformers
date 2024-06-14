@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,4 +15,12 @@
 
 """mindformers init"""
 
-__version__ = "1.1"
+from .p2p_primitives import P2P_Primitive
+from .pipeline_cell import PipelineCell
+from .schedules import pipelining_1F1B_without_interleaved
+
+__all__ = [
+    "P2P_Primitive",
+    "PipelineCell",
+    "pipelining_1F1B_without_interleaved",
+]

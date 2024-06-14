@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+"mindformers init"
+from .norm import get_norm
+from .module import Module
+from .utils import get_attn_mask_func
+from .activation import get_act_func
+from .transformer import *
 
-"""mindformers init"""
-
-__version__ = "1.1"
+__all__ = ["Module", "get_norm", "get_attn_mask_func", "get_act_func"]
+__all__.extend(transformer.__all__)
