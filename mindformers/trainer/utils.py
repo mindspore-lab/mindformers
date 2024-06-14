@@ -35,9 +35,7 @@ from mindformers.tools.utils import (
     check_in_modelarts,
     get_output_root_path,
     replace_tk_to_mindpet,
-    check_shared_disk,
-    get_remote_save_url,
-    remove_folder
+    check_shared_disk
 )
 from mindformers.tools.transform_ckpt import get_strategy
 from mindformers.tools.cloud_adapter import mox_adapter
@@ -306,16 +304,6 @@ def load_resume_context_from_checkpoint(config, dataset):
                 else:
                     config.runner_wrapper.scale_sense = resume_dict["loss_scale"]
             break
-
-
-def delete_resume_record_dir(wait_time=5):
-    """delete resume record dir"""
-    if check_in_modelarts():
-        resume_record_dir = os.path.join(get_remote_save_url(), "resume_record")
-    else:
-        resume_record_dir = os.path.join(get_output_root_path(), "resume_record")
-    time.sleep(wait_time)
-    remove_folder(resume_record_dir)
 
 
 def transform_and_load_checkpoint(config, model, network, dataset, optimizer=None, do_eval=False, do_predict=False):

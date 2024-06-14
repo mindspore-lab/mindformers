@@ -57,8 +57,7 @@ from .training_args import TrainingArguments
 from .utils import (
     check_runner_config,
     transform_and_load_checkpoint,
-    load_resume_context_from_checkpoint,
-    delete_resume_record_dir
+    load_resume_context_from_checkpoint
 )
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
@@ -642,7 +641,6 @@ class BaseTrainer:
             logger.info("initial step: %d", config.runner_config.initial_step)
             append_info = [resume_dict]
             dataset.set_init_step(config.runner_config.initial_step)
-            delete_resume_record_dir(wait_time=config.resume_gap_time if config.resume_gap_time else 5)
         else:
             config.runner_config.initial_epoch = 0
             config.runner_config.initial_step = 0

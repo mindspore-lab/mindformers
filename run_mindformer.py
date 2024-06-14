@@ -155,6 +155,7 @@ def main(config):
             config.resume_training = get_resume_checkpoint(
                 checkpoint_dir=config.load_checkpoint,
                 resume_training=config.resume_training,
+                resume_by_meta=not config.resume_by_origin_mode,
                 gap_time=config.resume_gap_time if config.resume_gap_time else 5,
                 limit_time=config.resume_limit_time if config.resume_limit_time else 7200,
             )
