@@ -302,6 +302,7 @@ model_dict = {
 inputs = ["<reserved_106>你是谁？<reserved_107>",
           "<reserved_106>《静夜思》作者是？<reserved_107>",
           "<reserved_106>白日依山尽，下一句是？<reserved_107>"]
+batch_size = len(inputs)
 
 # init config, 以Baichuan2-7B为例
 config_path = "path/to/predict_baichuan2_7b.yaml"
