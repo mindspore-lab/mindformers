@@ -36,7 +36,7 @@ optimizer:
 # moe
 moe_config:
   expert_num: 8
-  capacity_factor: 1.1
+  capacity_factor: 1.1 # if capacity_factor <= 0 means dropless
   aux_loss_factor: 0.05
   num_experts_chosen: 2
   routing_policy: "TopkRouterV2"
