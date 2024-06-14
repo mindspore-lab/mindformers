@@ -135,6 +135,7 @@ class BaseTrainer:
         build_parallel_config(self.config)
         self._check_grad_accumulation_steps()
         self._check_global_batch_size_for_auto_parallel()
+        self._reset_wrapper()
 
         return self.config
 
@@ -212,8 +213,6 @@ class BaseTrainer:
                     logger.info("global_batch_size = per_batch_size * device_num = %s * %s = %s",
                                 per_batch_size, get_real_group_size(), self.global_batch_size)
                     self.config.runner_config.batch_size = per_batch_size
-            if gradient_accumulation_steps > 1:
-                self._reset_wrapper_for_grad_accu()
         else:
             logger.info("The current parallel mode is %s, batch size per card will not be changed: "
                         "batch_size_per_card = %s",
@@ -269,6 +268,14 @@ class BaseTrainer:
             raise ValueError("In training process, network should be configured to use_past=False, "
                              f"but got use_past={network.config.use_past}")
 
+    def _reset_wrapper(self):
+        """reset wrapper in some special cases."""
+        parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+        gradient_accumulation_steps = self.config.runner_config.gradient_accumulation_steps
+        # use gradient_accumulation, reset wrapper to MFPipelineWrapper
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and gradient_accumulation_steps > 1:
+            self._reset_wrapper_for_grad_accu(gradient_accumulation_steps)
+
     def _reset_wrapper_for_pipeline_parallel(self):
         """Reset wrapper when pipeline parallel."""
         if self.config.runner_wrapper is not None:
@@ -285,16 +292,21 @@ class BaseTrainer:
                 "MindSpore's built-in PipelineCell is used by default")
         logger.info("PipelineWrapper under evaluate or predict mode will not take effect.")
 
-    def _reset_wrapper_for_grad_accu(self):
+    def _reset_wrapper_for_grad_accu(self, gradient_accumulation_steps):
         """Reset wrapper when using grad accumulation."""
         if self.config.runner_wrapper is not None:
             self.config.runner_wrapper.type = "MFPipelineWithLossScaleCell" \
                 if self.config.runner_wrapper.type != "MFPipelineWithLossScaleCell" else self.config.runner_wrapper.type
+            # set micro_batch_num as gradient_accumulation_steps in MFPipelineWithLossScaleCell
+            self.config.runner_wrapper.micro_batch_num = gradient_accumulation_steps
+            logger.warning(
+                "When using the gradient_accumulation_steps in semi/auto parallel mode, "
+                "the MFPipelineWithLossScaleCell class is used by default.")
         else:
-            self.config.runner_wrapper.type = "MFPipelineWithLossScaleCell"
-        logger.warning(
-            "When using the gradient_accumulation_steps in semi/auto parallel mode, "
-            "the MFPipelineWithLossScaleCell class is used by default.")
+            logger.info(
+                "When using the gradient_accumulation_steps in semi/auto parallel mode, "
+                "because the wrapper class is not specified, "
+                "MindSpore's built-in GradAccumulationCell is used by default")
 
     def _reset_dataset_batch_size(self):
         """Reset dataset batch size according to the global batch size of runner config."""
