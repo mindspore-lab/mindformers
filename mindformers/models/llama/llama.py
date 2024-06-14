@@ -83,6 +83,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.is_first_iteration = True
         self.use_past = config.use_past
         self.use_flash_attention = config.use_flash_attention
+        self.concat = P.Concat(-1)
         self.cast = P.Cast()
         self.shape = P.Shape()
         self.reshape = P.Reshape()
@@ -178,6 +179,7 @@ class LlamaModel(LlamaPreTrainedModel):
 
             self.tok_embeddings.shard(config.parallel_config)
             self.casual_mask.shard(config.parallel_config)
+            self.concat.shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
             if self.fine_grain_interleave:
                 self.norm_out.shard((dp * cp, 1))
             else:
@@ -185,7 +187,7 @@ class LlamaModel(LlamaPreTrainedModel):
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
         """
         Forward of llama model.
 
@@ -208,24 +210,37 @@ class LlamaModel(LlamaPreTrainedModel):
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr(seq_len)
                 if self.use_flash_attention:
-                    if self.enable_asd_op:
+                    if self.enable_asd_op: # only surppot fp16
                         mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
                         mask = self.cast(mask, mstype.float16)
+                    #else:no mask input
                 else:
                     mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
+
+                if prefix_keys_values is not None:
+                    if mask is None:
+                        mask = self.casual_mask(tokens)
+                    prefix_length = prefix_keys_values[0].shape[2]
+                    prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
+                    mask = self.concat((prefix_mask, mask))
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
+            mask = self.casual_mask(tokens)
             freqs_cis = self.freqs_mgr(seq_len)
-            mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
+            if prefix_keys_values is not None:
+                prefix_length = prefix_keys_values[0].shape[2]
+                prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
+                mask = self.concat((prefix_mask, mask))
 
         # tokens: [bs, seq/1]
         h = self.cast(self.tok_embeddings(tokens), self.dtype)
         h = self.reshape(h, (bs, seq_len, self.hidden_size))
         # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
+            prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
             h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length, block_tables=block_tables,
-                               slot_mapping=slot_mapping)
+                               slot_mapping=slot_mapping, prefix_keys_values=prefix_kv)
         output = self.norm_out(h)
         return output
 
@@ -343,7 +358,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         labels = Tensor(kwargs["labels"]) if "labels" in kwargs else None
         bs = input_ids.shape[0]
         slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
-        return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping
+        prefix_keys_values = Tensor(kwargs["prefix_keys_values"]) if "prefix_keys_values" in kwargs else None
+        return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping, prefix_keys_values
 
     def set_dynamic_inputs(self):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
@@ -352,8 +368,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None], dtype=mstype.float16)
         self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
-                        dynamic_batch_valid_length, None, None, dynamic_block_tables, dynamic_slot_mapping)
+                        dynamic_batch_valid_length, None, None, dynamic_block_tables,
+                        dynamic_slot_mapping, dynamic_prefix_keys_values)
         logger.info("Set dynamic input for llama.")
 
     def add_flags_custom(self, is_first_iteration):
@@ -368,7 +386,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
         r"""
         LlamaForCausalLM forward.
 
@@ -398,7 +416,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             tokens = input_ids
         if batch_valid_length is not None:
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
-        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables, slot_mapping)
+        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables, \
+                            slot_mapping, prefix_keys_values)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)

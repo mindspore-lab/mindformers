@@ -20,25 +20,30 @@ from mindspore._checkparam import args_type_check
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.pet.constants import PetType
 from mindformers.pet.models.lora import LoraModel
-from mindformers.pet.pet_config import LoraConfig, PetConfig
+from mindformers.pet.models.ptuning2 import Ptuning2Model
+from mindformers.pet.models.prefix_tuning import PrefixTuningModel
+from mindformers.pet.pet_config import LoraConfig, PetConfig, Ptuning2Config, PrefixTuningConfig
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.tools import logger
 
 # Mapping of pet models.
 PET_TYPE_TO_MODEL_MAPPING = {
     PetType.LORA.value: LoraModel,
+    PetType.PREFIX_TUNING.value: PrefixTuningModel,
+    PetType.P_TUNING_V2.value: Ptuning2Model
 }
 
 # Mapping of pet configs.
 PET_TYPE_TO_CONFIG_MAPPING = {
     PetType.LORA.value: LoraConfig,
+    PetType.PREFIX_TUNING.value: PrefixTuningConfig,
+    PetType.P_TUNING_V2.value: Ptuning2Config
 }
 
 
 class PetModel(PreTrainedModel):
     """
     PetModel define parameter efficient tuning model for LLM model.
-
     Args:
         config(PetConfig): pet config,define parameters efficient tuning algorithm.
         base_model(PreTrainedModel): pretrained model for tuning.
@@ -61,6 +66,7 @@ class PetModel(PreTrainedModel):
         PetAdapter.freeze_pretrained_model(self.pet_model, pet_type, pet_config.freeze_include,
                                            pet_config.freeze_exclude)
         self.set_model_predict_config()
+
     def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
         return self.pet_model.update_model_kwargs_before_generate(input_ids, model_kwargs)
 
@@ -72,6 +78,12 @@ class PetModel(PreTrainedModel):
 
     def slice_incremental_inputs(self, model_inputs: dict, current_index):
         return self.pet_model.slice_incremental_inputs(model_inputs, current_index)
+
+    def set_dynamic_inputs(self):
+        return self.pet_model.set_dynamic_inputs()
+
+    def add_flags_custom(self, is_first_iteration):
+        return self.pet_model.add_flags_custom(is_first_iteration)
 
     def construct(self, input_ids, labels=None, position_ids=None, attention_mask=None, input_position=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None,

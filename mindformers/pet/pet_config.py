@@ -21,7 +21,7 @@ from mindformers.tools import DictConfig
 from mindformers.pet.constants import PetType
 
 
-__all__ = ['LoraConfig', 'Ptuning2Config']
+__all__ = ['PetConfig', 'LoraConfig', 'Ptuning2Config', 'PrefixTuningConfig']
 
 
 class PetConfig(DictConfig):
@@ -109,8 +109,23 @@ class Ptuning2Config(PetConfig):
                  projection_dim: int = 128,
                  dropout_prob: float = 0.01,
                  **kwargs):
-        super().__init__(pet_type=PetType.P_TUNING_V2, **kwargs)
+        super().__init__(pet_type=PetType.P_TUNING_V2.value, **kwargs)
         self.pre_seq_len = pre_seq_len
         self.prefix_projection = prefix_projection
         self.projection_dim = projection_dim
         self.dropout_prob = dropout_prob
+
+
+class PrefixTuningConfig(PetConfig):
+    """
+    PrefixTuning algorithm config.
+    """
+    def __init__(self,
+                 prefix_token_num: int = 128,
+                 mid_dim: int = 512,
+                 dropout_rate: float = 0.1,
+                 **kwargs):
+        super().__init__(pet_type=PetType.PREFIX_TUNING.value, **kwargs)
+        self.prefix_token_num = prefix_token_num
+        self.mid_dim = mid_dim
+        self.dropout_rate = dropout_rate

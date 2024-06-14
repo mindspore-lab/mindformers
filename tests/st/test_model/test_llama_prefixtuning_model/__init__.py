@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""The export function for bert_pet."""
-
-from .adalora_adapter import *
-from .ada_adapter import *
-from .lora_adapter import *
-from .prefix_tuning_adapter import *
-from .pet_adapter import *
-from .ptuning2_adapter import *
-
-
-__all__ = ['AdaLoraAdapter', 'AdaAdapter', 'LoraAdapter', 'PetAdapter', 'PrefixTuningAdapter', 'Ptuning2Adapter']
+"""test llama2 prefixtuning."""

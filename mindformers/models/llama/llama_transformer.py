@@ -263,7 +263,7 @@ class LLamaAttention(nn.Cell):
                 self.flash_attention.shard(parallel_config)
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
-                  block_tables=None, slot_mapping=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
@@ -279,7 +279,7 @@ class LLamaAttention(nn.Cell):
         # key and value for current token(s)
         if self.use_past:
             context_layer = self.infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping,
-                                                 freqs_cis, mask)
+                                                 freqs_cis, mask, prefix_keys_values=prefix_keys_values)
         else:
             query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
             key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
@@ -289,6 +289,8 @@ class LLamaAttention(nn.Cell):
                 key = self._merge_heads(key)
             else:
                 value = self.transpose(self.reshape(value, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+                key, value = self._cat_prefix(key, value, prefix_keys_values)
+
             if self.use_flash_attention:
                 if self.context_parallel > 1:
                     mask = self.cast(mask, mstype.uint8)
@@ -305,6 +307,24 @@ class LLamaAttention(nn.Cell):
         output = self.wo(context_layer)  # dp, mp -> dp, 1 / dp * mp, 1
         output = self.cast(output, ori_dtype)
         return output
+
+    def _cat_prefix(self, key, value, prefix_keys_values):
+        r'''
+        concat prefix_keys_values to key and value
+        prefix_keys_values: shape(2, bs, pre_len, num_heads * kv_channels)
+        '''
+        if prefix_keys_values is not None:
+            bs, n_kv_head, _, head_dim = key.shape
+            past_key = prefix_keys_values[0]
+            past_value = prefix_keys_values[1]
+            past_key = self.transpose(self.reshape(past_key, (bs, -1, n_kv_head, head_dim)), (0, 2, 1, 3))
+            past_value = self.transpose(self.reshape(past_value, (bs, -1, n_kv_head, head_dim)), (0, 2, 1, 3))
+            past_key = self.cast(past_key, self.dtype)
+            past_value = self.cast(past_value, self.dtype)
+            cat = P.Concat(2)
+            key = cat((past_key, key))
+            value = cat((past_value, value))
+        return key, value
 
     def _repeat_kv(self, x, rep):
         if rep == 1:
@@ -533,14 +553,16 @@ class LLamaDecodeLayer(nn.Cell):
         if self.predict_run_mode:
             self.no_inline = False
 
-    def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None):
+    def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
+                  slot_mapping=None, prefix_keys_values=None):
         """ Forward of transformer block. """
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
         # [bs, seq/1, hidden_dim]
         input_x = self.attention_norm(x)
         # [bs, seq/1, hidden_dim]
-        h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables, slot_mapping)
+        h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
+                           slot_mapping, prefix_keys_values)
         h = self.add(x, h)
         ffn_norm = self.ffn_norm(h)
         # [bs, seq/1, hidden_dim]

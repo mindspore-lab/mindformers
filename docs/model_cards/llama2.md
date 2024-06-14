@@ -479,6 +479,52 @@ MindFormers提供Llama2-7b的LoRA微调示例，微调过程中使用的数据�
      --run_mode finetune" 8
    ```
 
+### PrefixTuning微调
+
+使用PrefixTuning低参微调算法，冻结原模型权重，仅在kv向量前添加可训练前缀向量进行训练，使大模型在少量资源的情况下也能训练。
+
+MindFormers提供Llama2-7b的PrefixTuning微调示例，微调过程中使用的数据集可以参考[数据集下载](#数据集下载)获得。
+
+1. 修改模型配置文件`configs/llama2/finetune_llama2_7b_prefixtuning.yaml`
+
+   ```yaml
+   train_dataset:
+     data_loader:
+       dataset_dir: "/{path}/alpaca-fastchat512.mindrecord"  # 预训练数据集的文件路径
+
+   model:
+     model_config:
+       use_flash_attention: True                              # 可加速训练
+       ...
+       pet_config:
+       pet_type: prefixtuning
+       prefix_token_num: 16 # depend on dataset scale
+       mid_dim: 512
+       dropout_rate: 0.01
+   ```
+
+   如果加载完整权重，进行如下修改：
+
+   ```yaml
+   load_checkpoint: {path}/llama2_7b.ckpt
+   auto_trans_ckpt: False
+   ```
+
+   如果加载分布式权重，加载权重路径需要设置为rank_0的上一层路径：
+
+   ```yaml
+   load_checkpoint: {path}/rank_0/
+   anto_trans_ckpt: True
+   ```
+
+2. 执行msrun启动脚本，进行8卡分布式微调
+
+   ```shell
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+     --config configs/llama2/finetune_llama2_7b_prefixtuning.yaml \
+     --run_mode finetune" 8
+   ```
+
 ### 分布式训练权重合并
 
 分布式训练（微调）后所得到的权重文件为根据策略切分后的权重，可以手动将切分权重合一，以用于评估和推理。
