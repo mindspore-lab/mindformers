@@ -25,26 +25,8 @@ class QwenConfig(LlamaConfig):
     """
     Qwen config class.
 
-    Args:
-        intermediate_size (Optional[int]): size which defines QwenFeedForward hidden dim.
     Returns:
         Class, QwenConfig.
     """
 
     _support_list = MindFormerBook.get_config_support_list()['qwen']
-
-    def __init__(self, intermediate_size, **kwargs):
-        if 'num_hidden_layers' in kwargs:
-            logger.warning(f"Argument `num_hidden_layers` is deprecated. Use `num_layers` instead.")
-            if kwargs.get('num_layers', None) is None:
-                num_layers = kwargs.pop('num_hidden_layers')
-                kwargs['num_layers'] = num_layers
-
-        if 'num_attention_heads' in kwargs:
-            logger.warning(f"Argument `num_hidden_layerss` is deprecated. Use `num_heads` instead.")
-            if kwargs.get('num_heads', None) is None:
-                num_heads = kwargs.pop('num_attention_heads')
-                kwargs['num_heads'] = num_heads
-
-        super(QwenConfig, self).__init__(**kwargs)
-        self.intermediate_size = intermediate_size
