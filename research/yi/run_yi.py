@@ -15,7 +15,7 @@
 """Yi-6B Train/Finetune/Eval/Predict/Export scripts."""
 
 import argparse
-
+import os
 
 from mindformers import Trainer, MindFormerConfig
 from mindformers.tools.utils import str2bool
@@ -30,6 +30,7 @@ def main(task='text_generation',
          use_parallel=False,
          resume=False,
          auto_trans_ckpt=False,
+         vocab_file=None,
          src_strategy='',
          train_dataset="",
          ckpt=None,
@@ -38,11 +39,21 @@ def main(task='text_generation',
          op=True,
          device_id=None,
          use_past=False,
-         batch_size=None):
+         batch_size=None,
+         output_dir=None,
+         remote_save_url=None):
     """main function."""
 
     config_args = MindFormerConfig(config)
 
+    if vocab_file:
+        assert os.path.exists(vocab_file)
+        config_args.processor.tokenizer.vocab_file = vocab_file
+    if output_dir:
+        assert os.path.exists(output_dir)
+        config_args.output_dir = output_dir
+    if remote_save_url:
+        config_args.remote_save_url = remote_save_url
     if ckpt is not None:
         config_args.load_checkpoint = ckpt
     if device_id is not None:
@@ -98,15 +109,17 @@ if __name__ == "__main__":
                         help='checkpoint name or dir to load.')
     parser.add_argument('--auto_trans_ckpt', default=False, type=str2bool,
                         help='whether auto trans ckpt.')
+    parser.add_argument('--vocab_file', default=None, type=str,
+                        help='tokenizer model')
     parser.add_argument('--src_strategy', default=None, type=str,
                         help='src strategy dir to load.')
     parser.add_argument('--resume', default=False, type=str2bool,
                         help='whether resume training.')
-    parser.add_argument('--train_dataset', default='', type=str,
+    parser.add_argument('--train_dataset', default=None, type=str,
                         help='set train dataset.')
-    parser.add_argument('--eval_dataset', default='', type=str,
+    parser.add_argument('--eval_dataset', default=None, type=str,
                         help='set eval dataset.')
-    parser.add_argument('--predict_data', default='', type=str,
+    parser.add_argument('--predict_data', default=None, type=str,
                         help='input predict data.')
     parser.add_argument('--device_id', default=None, type=int,
                         help='set device id.')
@@ -118,6 +131,10 @@ if __name__ == "__main__":
                         help='whether use optimizer parallel. Default: None')
     parser.add_argument('--use_past', default=False, type=str2bool,
                         help='whether use past. Default: False')
+    parser.add_argument('--output_dir', default=None, type=str,
+                        help='output dir')
+    parser.add_argument('--remote_save_url', default=None, type=str,
+                        help='remote save url for AICC')
     args = parser.parse_args()
     print(args)
 
@@ -128,6 +145,7 @@ if __name__ == "__main__":
          use_parallel=args.use_parallel,
          resume=args.resume,
          auto_trans_ckpt=args.auto_trans_ckpt,
+         vocab_file=args.vocab_file,
          src_strategy=args.src_strategy,
          train_dataset=args.train_dataset,
          ckpt=args.load_checkpoint,
@@ -136,4 +154,6 @@ if __name__ == "__main__":
          op=args.optimizer_parallel,
          device_id=args.device_id,
          use_past=args.use_past,
-         batch_size=args.batch_size)
+         batch_size=args.batch_size,
+         output_dir=args.output_dir,
+         remote_save_url=args.remote_save_url)
