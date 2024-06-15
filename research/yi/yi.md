@@ -66,7 +66,7 @@ Yi-6B-Base 模型以双语语言模型为目标，并在3T多语言语料库上�
 
 使用Yi-6B-Base进行训练或者微调时，需要使用Yi-6B-Base配套的tokenizer.model处理数据集，以及选用Yi-6B-Base的yaml配置文件进行任务启动。
 
-目前提供[alpaca_gpt4_data_zh数据集](https://github.com/hiyouga/LLaMA-Factory/blob/main/data/alpaca_gpt4_data_zh.json) （jsonl格式）数据集的预处理脚本用于全参微调任务。
+目前提供[alpaca_gpt4_data_zh数据集](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh/resolve/main/alpaca_gpt4_data_zh.json) （jsonl格式）数据集的预处理脚本用于全参微调任务。
 
 alpaca数据集样式
 
@@ -181,7 +181,7 @@ bash scripts/msrun_launcher.sh " \
  --load_checkpoint /{path}/yi_6b.ckpt \
  --train_dataset /{path}/alpaca_gpt4_data_zh.mindrecord \
  --auto_trans_ckpt True \
- --use_parallel True" 4
+ --use_parallel True" 8
 ```
 
 ### 推理
