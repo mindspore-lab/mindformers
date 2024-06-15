@@ -13,15 +13,17 @@
 # limitations under the License.
 # ============================================================================
 """ChatGLM2 model."""
+import copy
 import mindspore.ops as ops
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
 from mindspore import Tensor
+from mindspore.context import ParallelMode
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindpet.delta.ptuning2 import PrefixEncoder
 
 import numpy as np
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.modules import VocabEmbedding, EmbeddingOpParallelConfig
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.layers import Linear
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
@@ -30,6 +32,7 @@ from mindformers.core.loss import CrossEntropyLoss
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.version_control import get_tril
 from mindformers.models.modeling_utils import PreTrainedModel
+from mindformers.models.llama.llama_layer import LlamaEmbedding
 
 from ..utils import lazy_inline
 from .glm2_config import ChatGLM2Config
@@ -80,14 +83,10 @@ class ChatGLM2Model(GLM2PreTrainedModel):
                                                           use_flash_attention=config.use_flash_attention)
 
         # vocab embedding
-        embed_parallel_config = EmbeddingOpParallelConfig()
-        embed_parallel_config.data_parallel = config.parallel_config.data_parallel
-        embed_parallel_config.model_parallel = config.parallel_config.model_parallel
-        embed_parallel_config.vocab_emb_dp = False
-        self.embedding = VocabEmbedding(vocab_size=config.vocab_size, embedding_size=config.hidden_size,
-                                        parallel_config=embed_parallel_config, param_init_type=config.param_init_type)
-        self.embedding.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
-
+        dp = config.parallel_config.data_parallel
+        mp = config.parallel_config.model_parallel
+        self.embedding = LlamaEmbedding(vocab_table_size=config.vocab_size, embedding_size=config.hidden_size,
+                                        param_init_type=config.param_init_type, parallel_optimizer=True)
         # rotary embedding
         rotary_dim = (
             config.hidden_size // config.num_attention_heads if config.kv_channels is None else config.kv_channels
@@ -106,11 +105,19 @@ class ChatGLM2Model(GLM2PreTrainedModel):
                                    has_bias=False,
                                    param_init_type=config.param_init_type,
                                    compute_dtype=config.compute_dtype)
-        self.output_layer.shard(strategy_matmul=((config.parallel_config.data_parallel, 1),
-                                                 (config.parallel_config.model_parallel, 1)))
-        if config.parallel_config.pipeline_stage > 1:
-            self.output_layer.pipeline_stage = config.parallel_config.pipeline_stage - 1
-        self.output_layer.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+
+        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+            self.embedding.pipeline_stage = 0
+            if config.parallel_config.pipeline_stage > 1:
+                self.embedding.set_comm_fusion(2)
+                self.output_layer.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            else:
+                self.embedding.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+            self.embedding.shard(config.parallel_config)
+            if config.parallel_config.vocab_emb_dp or (config.vocab_size % mp != 0):
+                self.output_layer.shard(strategy_matmul=((dp, 1), (1, 1)))
+            else:
+                self.output_layer.shard(strategy_matmul=((1, 1), (dp * mp, 1)))
 
         self.tril = get_tril()
         self.ones = P.Ones()
@@ -162,7 +169,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
                 full_attention_mask = full_attention_mask.type(mstype.uint8)
             mask = full_attention_mask
         if input_embeds is None:
-            input_embeds, _ = self.embedding(input_ids)  # (bs, seq_len, hs)
+            input_embeds = self.embedding(input_ids)  # (bs, seq_len, hs)
 
         # Run encoder.
         hidden_states = self.encoder(
@@ -193,7 +200,12 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         self.transformer = ChatGLM2Model(config=config)
         self.cast = P.Cast()
         self.gather = P.Gather()
-        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
+        dp = config.parallel_config.data_parallel
+        mp = config.parallel_config.model_parallel
+        loss_parallel_config = copy.deepcopy(config.parallel_config)
+        loss_parallel_config.model_parallel = dp * mp
+        loss_parallel_config.data_parallel = 1
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
         self.use_past = config.use_past

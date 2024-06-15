@@ -32,7 +32,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     ms_param = []
     for k, v in tqdm(model.state_dict().items()):
         if "word_embeddings.weight" in k:
-            k = k.replace("word_embeddings.weight", "embedding_table")
+            k = k.replace("word_embeddings.weight", "embedding_weight")
         ms_param.append({"name": k, "data": pt2ms(v, dtype=dtype)})
 
     ms.save_checkpoint(ms_param, output_path)
