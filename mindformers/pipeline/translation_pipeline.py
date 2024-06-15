@@ -112,6 +112,8 @@ class TranslationPipeline(Pipeline):
         for item in forward_key_name:
             if item in pipeline_parameters:
                 forward_kwargs[item] = pipeline_parameters.get(item)
+        # always use dictionary output
+        forward_kwargs["return_dict_in_generate"] = True
         return preprocess_params, forward_kwargs, postprocess_params
 
     def preprocess(self, inputs: Union[str, dict, Tensor],
@@ -153,8 +155,8 @@ class TranslationPipeline(Pipeline):
         """
         forward_params.pop("None", None)
         input_ids = model_inputs["input_ids"]
-        output_ids = self.network.generate(input_ids, **forward_params)
-        return {"output_ids": output_ids}
+        result = self.network.generate(input_ids, **forward_params)
+        return result
 
     def postprocess(self, model_outputs: dict,
                     **postprocess_params):
@@ -167,5 +169,5 @@ class TranslationPipeline(Pipeline):
         Return:
             Translation results.
         """
-        outputs = self.tokenizer.decode(model_outputs["output_ids"], skip_special_tokens=True)
+        outputs = self.tokenizer.decode(model_outputs["sequences"], skip_special_tokens=True)
         return [{self.return_name + '_text': outputs}]

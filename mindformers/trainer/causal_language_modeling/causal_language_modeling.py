@@ -263,7 +263,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
 
             start_time = time.time()
             outputs = model.predict_network.generate(input_ids, do_sample=do_sample, max_length=max_length,
-                                                     top_p=top_p, top_k=top_k)
+                                                     top_p=top_p, top_k=top_k, return_dict_in_generate=False)
             output_ids = []
             for j in range(input_ids.shape[0]):
                 output_ids.append(outputs[j][int(valid_length_each_example[j]):])
@@ -397,7 +397,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
 
                 start_time = time.time()
                 outputs = model.generate(input_ids, do_sample=do_sample, max_length=max_length,
-                                         top_p=top_p, top_k=top_k)
+                                         top_p=top_p, top_k=top_k, return_dict_in_generate=False)
                 output_ids = []
                 for j in range(input_ids.shape[0]):
                     output_ids.append(outputs[j][int(valid_length_each_example[j]):])

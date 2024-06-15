@@ -68,6 +68,16 @@ class GenerationConfig:
             ones). It's highly recommended to set this flag to `True` as the search algorithms suppose the score logits
             are normalized but some logit processors or warpers break the normalization.
 
+        > Parameters that define the output variables of `generate`
+
+        output_scores (`bool`, *optional*, defaults to `False`):
+            Whether or not to return the prediction scores before softmax.
+        output_logits (`bool`, *optional*, defaults to `False`):
+            Whether or not to return the unprocessed prediction logit scores.
+        return_dict_in_generate (`bool`, *optional*, defaults to `False`):
+            Whether or not to return a dictionary output instead of a tuple with output_ids.
+            Only when this is set to True, can generate other output items besides output_ids.
+
         > Special tokens that can be used at generation time
 
         pad_token_id (`int`, *optional*):
@@ -106,6 +116,11 @@ class GenerationConfig:
         self.repetition_penalty = kwargs.pop("repetition_penalty", 1.0)
         self.encoder_repetition_penalty = kwargs.pop("encoder_repetition_penalty", 1.0)
         self.renormalize_logits = kwargs.pop("renormalize_logits", False)
+
+        # dictionary output
+        self.return_dict_in_generate = kwargs.pop("return_dict_in_generate", False)
+        self.output_scores = kwargs.pop("output_scores", False)
+        self.output_logits = kwargs.pop("output_logits", False)
 
         # Special tokens that can be used at generation time
         self.pad_token_id = kwargs.pop("pad_token_id", None)
