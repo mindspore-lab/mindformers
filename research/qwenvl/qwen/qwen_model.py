@@ -38,7 +38,6 @@ from mindformers.tools.register.register import MindFormerModuleType, MindFormer
 from mindformers.tools.utils import get_use_rope_self_define
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks,\
     FreqsMgr
-from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaSiLU, LlamaRMSNorm
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.models.utils import set_layer_stage_recompute
@@ -423,14 +422,18 @@ class QwenDecodeLayer(LLamaDecodeLayer):
 
     def __init__(self,
                  layer_id,
+                 intermediate_size,
+                 parallel_config,
+                 compute_dtype=mstype.float16,
+                 param_init_type=mstype.float32,
                  **kwargs):
-        kwargs['qkv_has_bias'] = True
-        intermediate_size = kwargs.pop('intermediate_size', 0)
-        super().__init__(layer_id, **kwargs)
+        super().__init__(layer_id,
+                         intermediate_size=intermediate_size,
+                         parallel_config=parallel_config,
+                         compute_dtype=compute_dtype,
+                         param_init_type=param_init_type,
+                         **kwargs)
 
-        compute_dtype = kwargs.get('compute_dtype', mstype.float16)
-        param_init_type = kwargs.get('param_init_type', mstype.float32)
-        parallel_config = kwargs.get('parallel_config', TransformerOpParallelConfig())
         self.feed_forward = QwenFeedForward(dim=self.hidden_size,
                                             intermediate_size=intermediate_size,
                                             compute_dtype=compute_dtype,
