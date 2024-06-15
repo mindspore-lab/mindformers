@@ -1,6 +1,29 @@
 # Yi大模型
 
-Yi系列是由零一万物研究的大规模语言预训练模型，目前开源的有Yi-6B/34B-Base/Chat，Yi-VL-6B/34B，MindFormers已支持Yi-6B-Base。
+Yi系列是由零一万物研究的大规模语言预训练模型，目前开源的有Yi-6B/34B-Base/Chat，Yi-VL-6B/34B，MindFormers已支持Yi-6B-Base,Yi-34B-Base/Chat。当前训练使用Base权重，推理使用Chat权重
+
+## 仓库介绍
+
+1. 模型配置：
+
+   ```text
+    yi
+     ├── finetune_yi_6b.yaml               # 6B 全参微调启动配置
+     ├── predict_yi_6b.yaml                # 6B base在线推理启动配置  
+     ├── predict_yi_34b.yaml               # 34B base在线推理启动配置
+     └── predict_yi_34b_chat.yaml          # 34B chat在线推理启动配置
+   ```
+
+2. 环境准备和任务启动脚本：
+
+   ```text
+    yi
+     ├── alpaca_converter.py           # alpaca数据集格式转换脚本
+     ├── yi_preprocess.py              # 数据集预处理脚本
+     ├── convert_ckpt_bf16.py          # 权重转换脚本
+     ├── predict_yi_34b_chat.py        # 34B chat在线推理启动脚本
+     └── run_yi.py                     # Qwen高阶接口脚本
+   ```
 
 ## 前期准备
 
@@ -17,13 +40,15 @@ Yi系列是由零一万物研究的大规模语言预训练模型，目前开源
 
 **注** yi-6b推理可以在单卡上完成部署，全量微调至少需要4卡。
 
-### Yi-6B-Base 预训练权重下载和转换
+### 预训练权重下载和转换
 
 - 从huggingface下载原始权重后转换
 
 需要将整个工程下载下来。
 
-[Yi-6B-Base](https://huggingface.co/01-ai/Yi-6B)
+- [Yi-6B-Base](https://huggingface.co/01-ai/Yi-6B)
+- [Yi-34B-Base](https://huggingface.co/01-ai/Yi-34B)
+- [Yi-34B-Chat](https://huggingface.co/01-ai/Yi-34B-Chat)
 
 如果使用git命令下载，下载前请先确保已安装git-lfs。
 
@@ -188,7 +213,7 @@ bash scripts/msrun_launcher.sh " \
  --load_checkpoint /{path}/yi_6b.ckpt \
  --train_dataset /{path}/alpaca_gpt4_data_zh.mindrecord \
  --auto_trans_ckpt True \
- --use_parallel True" 4
+ --use_parallel True" 8
 ```
 
 ## 推理
