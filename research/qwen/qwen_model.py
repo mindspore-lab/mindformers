@@ -36,10 +36,10 @@ from mindformers.models.utils import cell_reuse
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks
-from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, FreqsMgr, LlamaSiLU, LlamaRMSNorm
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.models.utils import set_layer_stage_recompute
+from mindformers.modules.transformer.transformer import default_transformer_config
 from mindformers.version_control import check_valid_flash_attention
 
 from qwen_config import QwenConfig
@@ -354,14 +354,17 @@ class QwenDecodeLayer(LLamaDecodeLayer):
 
     def __init__(self,
                  layer_id,
+                 intermediate_size,
+                 compute_dtype=mstype.float16,
+                 param_init_type=mstype.float32,
+                 parallel_config=default_transformer_config,
                  **kwargs):
-        kwargs['qkv_has_bias'] = True
-        intermediate_size = kwargs.pop('intermediate_size', 0)
-        super().__init__(layer_id, **kwargs)
+        super().__init__(layer_id=layer_id,
+                         intermediate_size=intermediate_size,
+                         compute_dtype=compute_dtype,
+                         param_init_type=param_init_type,
+                         parallel_config=parallel_config, **kwargs)
 
-        compute_dtype = kwargs.get('compute_dtype', mstype.float16)
-        param_init_type = kwargs.get('param_init_type', mstype.float32)
-        parallel_config = kwargs.get('parallel_config', TransformerOpParallelConfig())
         self.feed_forward = QwenFeedForward(dim=self.hidden_size,
                                             intermediate_size=intermediate_size,
                                             compute_dtype=compute_dtype,
