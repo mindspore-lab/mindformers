@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""test RingAttention."""
+"""Test Ring Attention."""
 import numpy as np
+from mindformers.experimental.distri_cores.sequence_parallel.utils import get_sp_chuncks
+from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
+from mindformers.experimental.distri_cores.sequence_parallel.flash_sp import FlashSP
 
 import mindspore as ms
 from mindspore.communication import init
@@ -22,12 +25,9 @@ from mindspore import ops
 from mindspore.common.tensor import Tensor
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 
-from mindformers.experimental.distri_cores.sequence_parallel.utils import init_sp_group, get_sp_chuncks
-from mindformers.experimental.distri_cores.sequence_parallel.ring_attention import RingAttention
-
 
 def generate_inputs(b, n1, n2, s1, s2, d1, input_layout, dtype, return_tensor=True):
-    """generate inputs"""
+    '''generate inputs'''
     min_value = -1
     max_value = 1
     np.random.seed(42)
@@ -60,55 +60,61 @@ def generate_inputs(b, n1, n2, s1, s2, d1, input_layout, dtype, return_tensor=Tr
     padding_mask = None
     if return_tensor:
         return Tensor(query, dtype=dtype), Tensor(key, dtype=dtype), Tensor(value, dtype=dtype), alibi_mask, \
-               drop_mask, padding_mask, attn_mask, prefix
+            drop_mask, padding_mask, attn_mask, prefix
     return query, key, value, alibi_mask, drop_mask, padding_mask, attn_mask, prefix
 
 
-def test_ring_attention():
+def run_flash_sp():
     """
-    Feature: RingAttention
-    Description: Test RingAttention functional
-    Expectation: Success
+    Feature: Test FlashSP.
+    Description: Test FlashSP functional.
+    Expectation: Success.
     """
-    ms.set_context(mode=ms.PYNATIVE_MODE, device_target="Ascend")
+    ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON', pynative_synchronize=True)
     ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.DATA_PARALLEL)
     init()
 
     # Init parameter
     dp = 2
     sp = 4
-    init_sp_group(sp)
+    initialize_model_parallel(cp_size=sp, order="cp-dp")
 
     bs = 16
     n = 8
     s = 4096
     hidden_size = 16
+    test_layout = "BSH" # only "BSH" is supported
+    test_mask_type = "causal"  # only "full" is supported
+    test_dtype = mstype.float16 # or mstype.bfloat16
     query_output, key_output, value_output, alibi_mask_output, drop_mask_output, \
         padding_mask_output, ring_attn_mask_output, prefix_out = generate_inputs(bs, n, n, s, s,
-                                                                                 hidden_size, "SBH", mstype.float16)
+                                                                                 hidden_size, test_layout,
+                                                                                 test_dtype)
 
-    q2 = get_sp_chuncks(query_output, dp, sp)
-    k2 = get_sp_chuncks(key_output, dp, sp)
-    v2 = get_sp_chuncks(value_output, dp, sp)
+    if test_layout == "SBH":
+        batch_dim_ = 1
+        seq_dim_ = 0
+    elif test_layout == "BSH":
+        batch_dim_ = 0
+        seq_dim_ = 1
+    elif test_layout == "BNSD":
+        batch_dim_ = 0
+        seq_dim_ = 2
+    q2 = get_sp_chuncks(query_output, batch_dim=batch_dim_, seq_dim=seq_dim_, enable_flash_sp=True)
+    k2 = get_sp_chuncks(key_output, batch_dim=batch_dim_, seq_dim=seq_dim_, enable_flash_sp=True)
+    v2 = get_sp_chuncks(value_output, batch_dim=batch_dim_, seq_dim=seq_dim_, enable_flash_sp=True)
 
-    ring_attention = RingAttention(head_num=n,
-                                   pre_tokens=65535,
-                                   next_tokens=0,
-                                   keep_prob=1.,
-                                   input_layout="SBH",
-                                   dp=dp,
-                                   sp=sp)
-    ring_attention_output = ring_attention(
-        q2, k2, v2, ring_attn_mask_output, alibi_mask_output,
-        prefix_out, padding_mask_output)
+    flash_sp = FlashSP(head_num=n,
+                       input_layout=test_layout,
+                       dp=dp,
+                       sp=sp)
+    flash_sp_output = flash_sp(q2, k2, v2, ring_attn_mask_output, alibi_mask_output, prefix_out,
+                               padding_mask_output, test_mask_type)
 
-    flash_attn_mask = ops.ones((query_output.shape[0], key_output.shape[0]), dtype=mstype.uint8)
+    flash_attn_mask = ops.ones((query_output.shape[seq_dim_], key_output.shape[seq_dim_]), dtype=mstype.uint8)
     flash_attn_mask = ops.triu(flash_attn_mask, diagonal=1)
     flash_attention = FlashAttentionScore(head_num=n,
-                                          pre_tokens=65535,
-                                          next_tokens=0,
-                                          keep_prob=1.,
-                                          input_layout="SBH")
+                                          input_layout=test_layout)
     _, _, _, flash_attention_output = flash_attention(query_output,
                                                       key_output,
                                                       value_output,
@@ -117,5 +123,14 @@ def test_ring_attention():
                                                       padding_mask_output,
                                                       flash_attn_mask)
 
-    flash_attention_output = get_sp_chuncks(flash_attention_output, dp, sp)
-    assert np.allclose(flash_attention_output.asnumpy(), ring_attention_output.asnumpy(), 0.004, 0.004)
+    flash_attention_output = get_sp_chuncks(
+        flash_attention_output, batch_dim=batch_dim_, seq_dim=seq_dim_, enable_flash_sp=True)
+
+    flash_attention_output = ms.ops.cast(flash_attention_output, mstype.float16)
+    flash_sp_output = ms.ops.cast(flash_sp_output, mstype.float16)
+    assert np.allclose(flash_attention_output.asnumpy(), flash_sp_output.asnumpy(), 0.004, 0.004)
+    print("end test.")
+
+
+if __name__ == "__main__":
+    run_flash_sp()

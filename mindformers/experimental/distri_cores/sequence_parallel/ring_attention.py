@@ -83,7 +83,7 @@ class RingAttention(nn.Cell):
           Input tensor of shape :math:`(B, S2, H2)` or `(B, N2, S2, D)`.
         - **attn_mask** (Union[Tensor[uint8], None]) - The attention mask tensor. For each element, 0 indicates
           retention and 1 indicates discard. Input tensor of shape :math:`(B, N1, S1, S2)`, `(B, 1, S1, S2)`, `(S1, S2)`
-          or (2048, 2048). Currently only attn_mask = None is supported and it indicates the causal mask is used.
+          or (2048, 2048). Currently only attn_mask = None is supported. Please use attn_mask_type to indicate the mask.
         - **alibi_mask** (Union[Tensor[float16, bfloat16], None]) - The position embedding code. If S is greater than
           1024 and the mask of the lower triangle is used, enter only the inverse 1024 lines of the lower triangle for
           memory optimization. Currently only alibi_mask = None is supported.
@@ -302,6 +302,11 @@ class RingAttention(nn.Cell):
         if self.pre_tokens < s1 or self.pre_tokens < s2:
             raise ValueError(f"The pre_tokens should be larger or equal to the sequence of q and k,"
                              f"but got pre_tokens is {self.pre_tokens}, and the sequence length of q is {s1}"
+                             f"and sequence length of kv is {s2}")
+
+        if self.next_tokens < s1 or self.next_tokens < s2:
+            raise ValueError(f"The next_tokens should be larger or equal to the sequence of q and k,"
+                             f"but got next_tokens is {self.next_tokens}, and the sequence length of q is {s1}"
                              f"and sequence length of kv is {s2}")
 
         if self.next_tokens < 0:

@@ -82,7 +82,7 @@ def get_sp_chuncks(batch, seq_dim=0, batch_dim=1, enable_dp_shard=True, enable_f
             )
 
         if enable_flash_sp:
-            index = Tensor([sp_rank, sp_rank + 1])
+            index = Tensor([2 * sp_rank, 2 * sp_rank + 1])
         else:
             index = Tensor([sp_rank, (2 * sp - sp_rank - 1)])
         batch = batch.index_select(seq_dim, index)
