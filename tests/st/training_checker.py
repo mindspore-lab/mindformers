@@ -126,7 +126,7 @@ class TrainingChecker(Callback):
         self.loss_recoder.append(loss)
 
         # when enable pp, loss will be only available on the last card
-        if not self.pipeline_parallel or self.is_last_stage and not self.experiment_mode:
+        if (not self.pipeline_parallel or self.is_last_stage) and not self.experiment_mode:
             real_loss = self.loss_list_std[cur_step_num - 1]
             if self.loss_mode == 'abs':
                 loss_diff = abs(loss - real_loss)
