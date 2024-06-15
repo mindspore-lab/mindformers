@@ -241,6 +241,7 @@ class InferAttention(Cell):
         self.softmax = P.Softmax()
         self.cast = P.Cast()
         self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
+        self.not_equal = P.NotEqual()
         self.n_rep = self.n_head // self.n_kv_head
         if self.use_alibi_mask:
             self.add_alibi = P.Add()
@@ -360,6 +361,20 @@ class InferAttention(Cell):
             query, key = self.rotary_embedding(query, key, freqs_cis, batch_valid_length)  # dp, mp, 1, 1
         return query, key
 
+    def _cat_prefix(self, key, value, prefix_keys_values):
+        """
+        concat prefix_keys_values to key and value
+        prefix_keys_values: shape(2, bs, pre_len, num_heads * kv_channels)
+        """
+        if prefix_keys_values is not None:
+            past_key = prefix_keys_values[0]
+            past_value = prefix_keys_values[1]
+            past_key = self.cast(past_key, key.dtype)
+            past_value = self.cast(past_value, value.dtype)
+            key = ops.concat((past_key, key), 1)
+            value = ops.concat((past_value, value), 1)
+        return key, value
+
     def _prefill_attention(self, query, key, value, attn_mask, alibi_mask):
         """
         prefill attention
@@ -368,8 +383,8 @@ class InferAttention(Cell):
             return self.flash_attention(query, key, value, attn_mask, alibi_mask)
         bs, seq_len, _ = query.shape
         query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
-        key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
-        value = self.transpose(self.reshape(value, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+        key = self.transpose(self.reshape(key, (bs, -1, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+        value = self.transpose(self.reshape(value, (bs, -1, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
         key = self._repeat_kv(key, self.n_rep)
         value = self._repeat_kv(value, self.n_rep)
         return self._core_attention(query, key, value, attn_mask, alibi_mask)
@@ -380,10 +395,16 @@ class InferAttention(Cell):
         return self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables)
 
     def construct(self, query, key, value, batch_valid_length, block_tables, slot_mapping, freqs_cis=None,
-                  attn_mask=None, alibi_mask=None):
+                  attn_mask=None, alibi_mask=None, prefix_keys_values=None):
         """Forward process of the Infer Attention Cell"""
         if self.use_rope_rotary_emb:
             query, key = self._apply_rotary_pos_emb(query, key, freqs_cis, batch_valid_length)
+
+        if prefix_keys_values is not None:
+            prefix_len = prefix_keys_values.shape[2]
+            slot_mapping = slot_mapping + self.cast(self.not_equal(slot_mapping, -1), mstype.int32) * prefix_len
+            if self.is_first_iteration:
+                key, value = self._cat_prefix(key, value, prefix_keys_values)
 
         key_out = self.paged_attention_mgr(key, value, slot_mapping)
         query = ops.depend(query, key_out)

@@ -54,7 +54,10 @@ def get_yaml_files(prefix):
     configs = list()
     remove_list = [
         "finetune_llama2_70b_bf16_32p.yaml",
-        "pretrain_llama2_70b_bf16_32p.yaml"]
+        "pretrain_llama2_70b_bf16_32p.yaml",
+        "pretrain_llama2_70b_bf16_32p.yaml",
+        "finetune_llama2_7b_prefixtuning.yaml",
+        "finetune_llama2_7b_ptuning2.yaml"]
     for file in files:
         if file in remove_list or not file.endswith('.yaml'):
             continue

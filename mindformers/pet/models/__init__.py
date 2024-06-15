@@ -13,3 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """The pet model modules."""
+from .lora import *
+from .prefix_tuning import *
+from .ptuning2 import *
+
+__all__ = ["LoraModel", "Ptuning2Model", "PrefixTuningModel"]

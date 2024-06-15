@@ -75,183 +75,49 @@ gpt2_trainer.finetune()
 
 ## P-Tuning v2使用示例
 
-1. 修改任务模型，以GLM2为例，主要有以下步骤：
-    - 继承`ChatGLM2ForConditionalGeneration`
-    - 初始化好`PrefixEncoder`
-    - 导入预训练权重以及冻结预训练模型权重
-    - 为了使用MindFormer的训练流程，将`ChatGLM2WithPtuning2`微调模型注册到MindFormer中
-    - `construct`中构造提示向量输入到模型中
-
-具体代码如下：
-
-```python
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
-class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
-    def __init__(self, config, **kwargs):
-        ckpt_cfg = config.checkpoint_name_or_path
-        config.checkpoint_name_or_path = None
-        config.pre_seq_len = config.pet_config.pre_seq_len
-
-        super().__init__(config, **kwargs)
-
-        config.pet_config.num_layers = config.num_layers
-        config.pet_config.kv_channels = config.kv_channels
-        config.pet_config.num_heads = config.num_attention_heads
-
-        self.prefix_encoder = PrefixEncoder(
-            config.pet_config.pre_seq_len,
-            config.pet_config.num_layers,
-            config.pet_config.num_heads,
-            config.pet_config.kv_channels,
-            config.pet_config.prefix_projection,
-            config.pet_config.projection_dim,
-            config.pet_config.dropout_prob
-        )
-
-        if ckpt_cfg:
-            config.checkpoint_name_or_path = ckpt_cfg
-            self.load_checkpoint(config)
-
-        PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
-
-    def construct(self, input_ids, ...):
-        if not self.use_past or self.is_first_iteration:
-            batch_size = input_ids.shape[0]
-            prefix_key_values = self.prefix_encoder(batch_size)
-
-        return super().construct(input_ids, ..., prefix_key_values)
-```
-
-2. 修改训练任务参数，主要修改模型配置yaml：
+修改训练任务参数，主要修改模型配置yaml, 添加pet_config配置：
 
 ```yaml
 model:
   model_config:
-    type: ChatGLM2Config
+    type: LlamaConfig
     ...
-    num_layers: 28
+    num_layers: 32
     kv_channels: 128
     num_attention_heads: 32
-
     pet_config:
-      # p-tuning-v2 微调配置
-      pet_type: ptuning2
-      pre_seq_len: 128
-      prefix_projection: False
-      projection_dim: 128
-      dropout_prob: 0.0
+      pet_type: ptuning2 # 模型类别，会根据字符映射到相应微调算法
+      pre_seq_len: 16 # 前缀长度，取决于数据集规模
+      prefix_projection: True # 是否加投影层
+      projection_dim: 128 # 中间投影维度
+      dropout_rate: 0.01 # 节点弃置率
   arch:
     # 替换为适配微调算法的模型
-    type: ChatGLM2WithPtuning2
+    type: LlamaForCausalLM
 ```
 
-3. 为模型每层分别传入提示向量`prefix_key_value`：
+注意：P-Tuning v2前缀长度要和数据集规模相匹配，具体实验过程中在5000条数据下前缀长度超过60会导致loss收敛欠佳，预测输出乱码
 
-```python
-class ChatGLM2Transformer(nn.Cell):
-    def construct(self, ..., prefix_key_values=None):
-        ...
-        for i in range(self.num_layers):
-            prefix_key_value = None
-            if prefix_key_values is not None:
-                prefix_key_value = prefix_key_values[i]
-            layer = self.layers[i]
+## Prefix-Tuning 使用示例
 
-            hidden_states = layer(..., prefix_key_value=prefix_key_value)
-        ...
+修改训练任务参数，与P-Tuning v2使用方法相同主要修改模型配置yaml, 添加pet_config配置：
+
+```yaml
+model:
+  model_config:
+    type: LlamaConfig
+    ...
+    num_layers: 32
+    kv_channels: 128
+    num_attention_heads: 32
+    pet_config:
+      pet_type: prefixtuning # 模型类别，会根据字符映射到相应微调算法
+      prefix_token_num: 32 # 前缀长度，取决于数据集规模
+      mid_dim: 512 # 中间投影维度
+      dropout_rate: 0.05 # 节点弃置率
+  arch:
+    # 替换为适配微调算法的模型
+    type: LlamaForCausalLM
 ```
 
-4. 模型每层Attention计算前调用`Ptuning2Adapter.add_prefix`添加提示向量并刷新`attention_mask`：
-
-```python
-class ChatGLM2SelfAttention(nn.Cell):
-    def construct(self, ..., prefix_key_values=None):
-        ...
-        key_layer, value_layer, attention_mask = self.add_prefix_if_need(
-            prefix_key_value,
-            key_layer,
-            value_layer,
-            attention_mask
-        )
-        ...
-        context_layer = self.core_attention(query_layer, key_layer, value_layer, attention_mask)
-        ...
-
-    def add_prefix_if_need(self, prefix_key_value, key_layer, value_layer, attention_mask):
-        if not isinstance(self.pre_seq_len, int) or self.pre_seq_len <= 0:
-            return key_layer, value_layer, attention_mask
-
-        seq_len = key_layer.shape[2]
-
-        key_layer, value_layer = Ptuning2Adapter.add_prefix(
-            prefix_key_value,
-            key_layer,
-            value_layer
-        )
-
-        if attention_mask is not None:
-            batch_size = attention_mask.shape[0]
-            prefix_mask = attention_mask.new_zeros((batch_size, 1, seq_len, self.pre_seq_len))
-            m_cat = P.Concat(3)
-            # [bs, 1, seq_len, pre_seq_len + seq_len]
-            attention_mask = m_cat((prefix_mask, attention_mask))
-
-        return key_layer, value_layer, attention_mask
-```
-
-5. 适配增量推理：
-    - 适配增量推理有效长度变量`batch_valid_length`和`range`，加上提示向量的长度
-    - 适配`key_past`、`value_past`初始`shape`，加上提示向量的长度
-
-```python
-class ChatGLM2Transformer(nn.Cell):
-    def construct(self, ..., batch_valid_length=None, prefix_key_values=None):
-        if batch_valid_length is not None and isinstance(self.pre_seq_len, int):
-            batch_valid_length = batch_valid_length + self.pre_seq_len
-        ...
-
-class ChatGLM2SelfAttention(nn.Cell):
-    def __init__(self, config: ChatGLM2Config, layer_number):
-        ...
-        if self.use_past:
-            total_seq_length = self.seq_length
-            if isinstance(config.pre_seq_len, int):
-                total_seq_length = total_seq_length + config.pre_seq_len
-            seq_range = np.arange(total_seq_length).reshape(1, 1, -1)
-            self.range = Tensor(
-                np.tile(seq_range, (self.batch_size, 1, 1)), mstype.int32)
-            ...
-
-class ChatGLM2Block(nn.Cell):
-    def __init__(self, config: ChatGLM2Config, layer_number: int):
-        ...
-        if self.use_past:
-            ...
-            total_seq_length = self.seq_length
-            if isinstance(config.pre_seq_len, int):
-                total_seq_length = total_seq_length + config.pre_seq_len
-
-            kv_shape = (config.batch_size, kv_num_partition, total_seq_length, size_per_head)
-
-            self.key_past = Parameter(
-                Tensor(np.zeros(shape=kv_shape), self.params_dtype), name="key_past")
-            self.value_past = Parameter(
-                Tensor(np.zeros(shape=kv_shape), self.params_dtype), name="value_past")
-```
-
-6. 使用MindFormer的Trainer进行模型训练：
-
-```python
-from mindformers.trainer.trainer import Trainer
-
-trainer = Trainer(
-    task='text_generation',
-    model='glm2_6b',
-    pet_method='ptuning2',
-    train_dataset="/path/to/AdvertiseGen/train.json",
-)
-
-trainer.finetune(finetune_checkpoint="glm2_6b")
-```
-
-至此，完成了一个P-Tuning v2微调算法适配过程。
+注意：Prefix-Tuning前缀长度要和数据集规模相匹配，具体实验过程中在5000条数据下前缀长度超过60会导致loss收敛欠佳，预测输出乱码
