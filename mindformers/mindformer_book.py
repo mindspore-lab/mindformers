@@ -1677,3 +1677,8 @@ class MindFormerBook:
     def get_model_ckpt_url_list(cls):
         """get_model_ckpt_url_list function"""
         return cls._MODEL_CKPT_URL_LIST
+
+    @classmethod
+    def get_downloadable_model_name_list(cls):
+        """get downloadable model name list"""
+        return set(cls._MODEL_CKPT_URL_LIST.keys())

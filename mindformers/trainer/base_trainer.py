@@ -49,7 +49,6 @@ from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.check_rules import check_rules
-from mindformers.models.auto import AutoModel
 from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.core.callback.callback import ColdHotExpertMointor
 from .config_args import ConfigArguments
@@ -736,9 +735,6 @@ class BaseTrainer:
                 logger.info(".............Start resume training from checkpoint..................")
                 transform_and_load_checkpoint(config, model, network, dataset, optimizer=optimizer)
             else:
-                if config.load_checkpoint in SUPPORT_MODEL_NAMES:
-                    config.load_checkpoint = \
-                        AutoModel.from_pretrained(config.load_checkpoint).default_checkpoint_download_path
                 transform_and_load_checkpoint(config, model, network, dataset)
 
         # build evaluate in training
@@ -838,9 +834,6 @@ class BaseTrainer:
         model = Model(network, metrics=compute_metrics, eval_network=network)
 
         if config.load_checkpoint or config.only_save_strategy:
-            if config.load_checkpoint in SUPPORT_MODEL_NAMES:
-                config.load_checkpoint = \
-                    AutoModel.from_pretrained(config.load_checkpoint).default_checkpoint_download_path
             logger.info(".............Start load checkpoint for eval..................")
             transform_and_load_checkpoint(config, model, network, next(dataset.create_tuple_iterator()), do_eval=True)
 
