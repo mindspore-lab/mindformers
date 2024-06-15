@@ -46,6 +46,7 @@ from mindspore.context import ParallelMode
 from mindformers.tools.logger import logger
 from mindformers.modules.activation import get_activation
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, OpParallelConfig, MoEParallelConfig
+from mindformers.version_control import check_valid_gmm_op
 
 __all__ = [
     "FixedSparseAttention",
@@ -389,6 +390,7 @@ class Linear(Cell):
         outer_batch (int): The replication number of experts. The replication is effective only when MoE is applied.
             Default: 1.
         expert_group_size (int): The number of tokens in each data parallel group. Default: None.
+        use_gmm (bool): Implemented GroupedMatmul or not, Default: False.
         compute_dtype (dtype.Number): The computation type. Default: mstype.float16
     Inputs:
         - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `in_channels` in `Args` should be equal
@@ -432,6 +434,7 @@ class Linear(Cell):
                  expert_num=1,
                  outer_batch=1,
                  expert_group_size=None,
+                 use_gmm=False,
                  param_init_type=mstype.float32,
                  compute_dtype=mstype.float16,
                  skip_redistribution=False):
@@ -443,16 +446,25 @@ class Linear(Cell):
         if isinstance(weight_init, Tensor) and (weight_init.ndim != 2 or weight_init.shape[0] != out_channels or
                                                 weight_init.shape[1] != in_channels):
             raise ValueError("The shape of parameter 'weight_init' is error, please check shape of 'weight_init'.")
+        transpose_b = False if use_gmm else transpose_b
         weight_shape = [out_channels, in_channels] if transpose_b else [in_channels, out_channels]
         self.expert_num = expert_num
         self.outer_batch = outer_batch
         self.expert_group_size = expert_group_size
+        self.use_gmm = use_gmm
         self.transpose_b = transpose_b
         if self.expert_num > 1:
             self.expert_flag = True
             self.weight = Parameter(initializer(weight_init, [self.expert_num] + weight_shape, param_init_type),
                                     name="weight")
-            self.matmul = P.BatchMatMul(transpose_b=transpose_b)
+            if self.use_gmm and check_valid_gmm_op():
+                from mindspore.ops.auto_generate import GroupedMatmul
+                # split_item only supports 0 and 3 now, 0 means the size of tensorlist not equal to 1,
+                # 3 means the size of tensorlist is 1.
+                # group_type only supports -1 and 0 now, -1 means ungrouped and 0 means split x-axis.
+                self.matmul = GroupedMatmul(split_item=3, group_type=0)
+            else:
+                self.matmul = P.BatchMatMul(transpose_b=transpose_b)
         else:
             self.expert_flag = False
             self.weight = Parameter(initializer(weight_init, weight_shape, param_init_type), name="weight")
@@ -486,11 +498,11 @@ class Linear(Cell):
             self.reshape.add_prim_attr("skip_redistribution", True)
         self.shape = P.Shape()
 
-    def construct(self, x):
+    def construct(self, x, group_list=None):
         """Forward process, x should be a tensor"""
         out_shape = self.shape(x)[:-1] + (self.out_channels,)
         x = self.reshape(x, (-1, self.in_channels))
-        if self.expert_flag:
+        if self.expert_flag and not self.use_gmm:
             if self.use_expert_group_size is True:
                 x = self.reshape(x, (-1, self.expert_num, self.expert_group_size, self.in_channels))
             else:
@@ -498,7 +510,11 @@ class Linear(Cell):
         ori_dtype = F.dtype(x)
         weight = self.cast(self.weight, self.dtype)
         x = self.cast(x, self.dtype)
-        x = self.matmul(x, weight)
+        # apply gmm to the inference of moe structural models when use_past=True.
+        if self.use_gmm:
+            x = self.matmul([x], [weight], None, None, None, None, None, group_list)[0]
+        else:
+            x = self.matmul(x, weight)
         if self.has_bias:
             x = self.bias_add(x, self.cast(self.bias, self.dtype))
         if self.activation_flag:
@@ -555,7 +571,7 @@ class Linear(Cell):
                                      "input policy is 2 or 4, so that relevant policies can be extracted from it."
                                      "To avoid this error, you need to add the function of extracting "
                                      "'ParallelConfig' or 'OpParallelConfig' for the incoming strategy_activation ")
-                self.activation.activation_shard(parallel_config)
+                self.activation.activation_shard(parallel_config, self.use_gmm)
             else:
                 logger.warning("The user passed the custom defined activation function %s. "
                                "If the user want to enable shard for the activation cell, "

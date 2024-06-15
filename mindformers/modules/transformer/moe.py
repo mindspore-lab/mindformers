@@ -42,7 +42,9 @@ from mindspore.nn.cell import Cell
 from mindspore.nn.layer import Dense
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+
 from mindformers.modules.transformer.op_parallel_config import default_moeparallel_config, MoEParallelConfig
+from mindformers.version_control import check_valid_moefinalizerouting_op
 
 __all__ = [
     "MoEConfig"]
@@ -364,7 +366,7 @@ class MoE(Cell):
                 self.reduce_any = P.ReduceAny().shard(((1, 1),))
                 self.topk = P.TopK().shard(((1,),))
 
-    def ffn_infer(self, expert_input, capacity):
+    def ffn_forward(self, expert_input, capacity):
         """
         Computing the FFN.
         """
@@ -426,7 +428,7 @@ class MoE(Cell):
             expert_output = self.transpose_4dim(expert_output, (1, 3, 0, 2))
         return expert_output
 
-    def ffn_parallel_infer(self, expert_input, capacity):
+    def ffn_parallel_forward(self, expert_input, capacity):
         """
         Split and overlap FFN compute and communication.
         """
@@ -443,7 +445,7 @@ class MoE(Cell):
         sub_capacity = capacity // self.comp_comm_parallel_degree
         output_list = []
         for sub_expert_input in self.split(expert_input):
-            sub_expert_output = self.ffn_infer(sub_expert_input, sub_capacity)
+            sub_expert_output = self.ffn_forward(sub_expert_input, sub_capacity)
             output_list.append(sub_expert_output)
         expert_output = self.concat(output_list)
 
@@ -500,9 +502,9 @@ class MoE(Cell):
                 (1, 1, 1, 1))
             # expert_output's shape: (self.dp_group, self.hidden_size, self.expert_dim, expert_capacity)
             if self.comp_comm_parallel:
-                cold_expert_output = self.ffn_parallel_infer(cold_expert_input, cold_expert_capacity)
+                cold_expert_output = self.ffn_parallel_forward(cold_expert_input, cold_expert_capacity)
             else:
-                cold_expert_output = self.ffn_infer(cold_expert_input, cold_expert_capacity)
+                cold_expert_output = self.ffn_forward(cold_expert_input, cold_expert_capacity)
 
             hot_expert_input = self.reshape(hot_expert_input,
                                             (self.hot_expert_num * self.dp_group * expert_capacity, self.hidden_size))
@@ -529,9 +531,9 @@ class MoE(Cell):
             expert_input = self.transpose_4dim_dp(expert_input, (0, 2, 1, 3))
             # expert_output's shape: (self.dp_group, self.hidden_size, self.expert_dim, expert_capacity)
             if self.comp_comm_parallel:
-                expert_output = self.ffn_parallel_infer(expert_input, expert_capacity)
+                expert_output = self.ffn_parallel_forward(expert_input, expert_capacity)
             else:
-                expert_output = self.ffn_infer(expert_input, expert_capacity)
+                expert_output = self.ffn_forward(expert_input, expert_capacity)
 
         expert_output = self.reshape(expert_output, (self.dp_group, self.hidden_size,
                                                      self.expert_dim * expert_capacity))
@@ -617,7 +619,7 @@ class MoEV2(Cell):
         self.stride_slice_dp_mp = P.StridedSlice().shard(((1, self.dp, self.mp, 1),))
         self.stride_slice_ep_mp = P.StridedSlice().shard(((self.ep, 1, self.mp, 1),))
 
-    def ffn_infer(self, expert_input, capacity):
+    def ffn_forward(self, expert_input, capacity):
         """
         Computing the FFN.
         """
@@ -695,7 +697,7 @@ class MoEV2(Cell):
         expert_input = self.router.router.dispatch(input_tensor, dispatch_policy) # (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
 
         # ffn
-        expert_output = self.ffn_infer(expert_input, expert_capacity) # (E, dp, n, h) <-- (E, dp, n, h)
+        expert_output = self.ffn_forward(expert_input, expert_capacity) # (E, dp, n, h) <-- (E, dp, n, h)
 
         # combine
         output_tensor = self.router.router.combine(expert_output, combine_policy, router_coeff) # (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
@@ -1298,3 +1300,106 @@ class TopkRouterV2(Cell):
         expert_capacity = self.sub(self.add(expert_capacity, self.expert_dim),
                                    self.mod_expert(expert_capacity, self.expert_dim))
         return self.tensor2scalar(expert_capacity)
+
+
+class MoEInfer(Cell):
+    r"""
+        MoEInfer. Routing each tokens to the topk expert and calculating the final output.
+
+        Args:
+            ffn (Cell): The FeedForward Module.
+            dim (int): The hidden size of each token.
+            moe_config (MoEConfig): The configuration of MoE (Mixture of Expert).
+            parallel_config: The parallel-related configuration.
+        Inputs:
+            - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+
+        Outputs:
+            - **output_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+    """
+
+    def __init__(self,
+                 ffn,
+                 dim,
+                 moe_config,
+                 parallel_config):
+        super(MoEInfer, self).__init__()
+        self.hidden_size = dim
+        self.expert_dim = moe_config.expert_num
+        self.num_experts_chosen = moe_config.num_experts_chosen
+
+        self.ffn = ffn
+        self.router = Router(d_model=self.hidden_size, moe_config=moe_config, routing_policy=None,
+                             training=True, parallel_config=parallel_config)
+        self.gating = self.router.dense
+
+        self.reshape = P.Reshape()
+        self.shape = P.Shape()
+        self.cast = P.Cast()
+        self.mod = P.Mod()
+        self.topk = P.TopK().shard(((1, 1),))
+        self.softmax = P.Softmax().shard(((1, 1),))
+        self.expand_dims = P.ExpandDims().shard(((1,),))
+        self.transpose_2d = P.Transpose().shard(((1, 1),))
+        self.sort = P.Sort().shard(((1,),))
+        self.gather = P.Gather().shard(((1, 1), (1,)))
+        self.onehot = P.OneHot().shard(((1, 1), (), ()))
+        self.cumsum = P.CumSum(exclusive=False).shard(((1,),))
+
+        self.on_value = Tensor(1.0, dtype=mstype.float32)
+        self.off_value = Tensor(0.0, dtype=mstype.float32)
+        if check_valid_moefinalizerouting_op():
+            from mindspore.ops.auto_generate import MoeFinalizeRouting
+            self.moe_finalize_routing = MoeFinalizeRouting().shard(((1, 1), (1, 1), (1, 1), (1, 1), (1,), (1, 1)))
+
+    def tensor_sort(self, input_tensor, expert_ids):
+        '''dispatch and get unsort map for routing'''
+        expert_shape = expert_ids.shape
+        transposed_index = self.transpose_2d(expert_ids, (1, 0)) # (N, 2) -> (2, N)
+        reshaped_index = self.reshape(transposed_index, (-1,)) # (2, N) -> (2N)
+        _, sort_map = self.sort(self.cast(reshaped_index, mstype.float32))
+
+        inter_map = self.mod(sort_map, expert_shape[0])
+        output_tensor = self.gather(input_tensor, inter_map, 0)
+        expert_mask = self.onehot(reshaped_index, self.expert_dim, self.on_value, self.off_value)
+        expert_cnt = ops.sum(expert_mask, 0)
+        group_list = self.cast(self.cumsum(expert_cnt, 0), mstype.int64)
+
+        _, unsort_map = self.sort(self.cast(sort_map, mstype.float32))
+        unsort_map = self.cast(unsort_map, mstype.int32)
+        return output_tensor, group_list, unsort_map
+
+    def tensor_moe_finalize_routing(self, input_tensor, expert_weight, expert_index, unsort_map):
+        '''calculate the final output by multiplying FeedForward's output and experts' weight in MoeFinalizeRouting'''
+        input_shape = input_tensor.shape # (2N, h)
+        x1 = Tensor(np.zeros((input_shape[0] // 2, input_shape[-1])), dtype=mstype.float16) # (N, h)
+        x2 = None
+        bias = Tensor(np.zeros((self.expert_dim, input_shape[-1])), dtype=mstype.float16) # (E, h)
+        output_tensor = self.moe_finalize_routing(input_tensor, x1, x2, bias, expert_weight, unsort_map, expert_index)
+        return output_tensor
+
+    def construct(self, input_tensor):
+        """forward process"""
+        input_tensor_shape = self.shape(input_tensor) # (B, S, H)
+        input_dtype = input_tensor.dtype
+        input_tensor = self.reshape(input_tensor, (-1, self.hidden_size)) # (bs, seq/1, h) -> (bs*seq, h) : use N replace bs*seq
+
+        # gating + topk + softmax
+        gating_logits = self.gating(input_tensor.astype(mstype.float32)) # (N, h) * (h, E) -> (bs*seq, E)
+        routing_weights = self.softmax(gating_logits.astype(mstype.float32)) # (N, E) -> (N, E)
+        expert_val, expert_index = self.topk(routing_weights,
+                                             self.num_experts_chosen) # (N, E) -> (N, 2), (N, 2)
+
+        expert_val = self.cast(expert_val, mstype.float32)
+        expert_weight = expert_val / (self.expand_dims(ops.sum(expert_val, -1), -1) + 1e-9)
+        expert_weight = self.cast(expert_weight, input_dtype)
+
+        sorted_input_tensor, group_list, unsort_map = self.tensor_sort(input_tensor, expert_index)
+
+        # moeffn
+        expert_output = self.ffn(sorted_input_tensor, group_list) # (N, h) (N, 2) -> (N, 2, h)
+
+        moe_output = self.tensor_moe_finalize_routing(expert_output, expert_weight, expert_index, unsort_map) # -> (N, h)
+
+        output_tensor = self.reshape(moe_output, input_tensor_shape) # (N, h) -> (bs, seq, h)
+        return output_tensor

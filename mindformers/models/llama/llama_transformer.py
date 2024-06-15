@@ -25,13 +25,13 @@ from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.parallel.shard import Layout
 
-from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm
+from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaMoeInferFeedForward
 from mindformers.models.utils import predict_lazy_inline
 from mindformers.modules.layers import _check_input_dtype, Linear, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferAttention
-from mindformers.modules.transformer.moe import MoEV2
+from mindformers.modules.transformer.moe import MoEV2, MoEInfer
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode
 
@@ -382,6 +382,7 @@ class LLamaAttention(nn.Cell):
         return attention_merge
 
 
+# pylint: disable=C0326
 class LLamaDecodeLayer(nn.Cell):
     r"""
         Transformer Layer. This is an implementation of the single layer of the transformer
@@ -500,27 +501,48 @@ class LLamaDecodeLayer(nn.Cell):
                                         parallel_config=parallel_config)
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
-        ffn = LlamaFeedForward(dim=self.hidden_size,
-                               intermediate_size=intermediate_size,
-                               hidden_dim=4 * self.hidden_size,
-                               multiple_of=multiple_of,
-                               expert_num=self.expert_num,
-                               ffn_dim_multiplier=ffn_dim_multiplier,
-                               compute_dtype=compute_dtype,
-                               param_init_type=param_init_type,
-                               ffn_concat=qkv_concat,
-                               is_dynamic=is_dynamic,
-                               parallel_config=parallel_config)
+        # set kbk infer for moe structural models.
+        self.use_moe_infer = use_past and (self.expert_num > 1)
+        if self.use_moe_infer:
+            ffn = LlamaMoeInferFeedForward(dim=self.hidden_size,
+                                           intermediate_size=intermediate_size,
+                                           hidden_dim=4 * self.hidden_size,
+                                           multiple_of=multiple_of,
+                                           expert_num=self.expert_num,
+                                           ffn_dim_multiplier=ffn_dim_multiplier,
+                                           compute_dtype=compute_dtype,
+                                           param_init_type=param_init_type,
+                                           is_dynamic=is_dynamic,
+                                           use_gmm=self.use_moe_infer)
+        else:
+            ffn = LlamaFeedForward(dim=self.hidden_size,
+                                   intermediate_size=intermediate_size,
+                                   hidden_dim=4 * self.hidden_size,
+                                   multiple_of=multiple_of,
+                                   expert_num=self.expert_num,
+                                   ffn_dim_multiplier=ffn_dim_multiplier,
+                                   compute_dtype=compute_dtype,
+                                   param_init_type=param_init_type,
+                                   ffn_concat=qkv_concat,
+                                   is_dynamic=is_dynamic,
+                                   parallel_config=parallel_config)
         if self.expert_num == 1:
             logger.info("MoE config is None, use normal FFN")
             self.feed_forward = ffn
         else:
             logger.info("MoE config is provided, use MoE FFN")
-            self.feed_forward = MoEV2(
-                ffn=ffn,
-                dim=self.hidden_size,
-                moe_config=moe_config,
-                parallel_config=parallel_config)
+            if self.use_moe_infer:
+                self.feed_forward = MoEInfer(
+                    ffn=ffn,
+                    dim=self.hidden_size,
+                    moe_config=moe_config,
+                    parallel_config=parallel_config)
+            else:
+                self.feed_forward = MoEV2(
+                    ffn=ffn,
+                    dim=self.hidden_size,
+                    moe_config=moe_config,
+                    parallel_config=parallel_config)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
