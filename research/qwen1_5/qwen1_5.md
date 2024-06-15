@@ -28,7 +28,11 @@
 
    ```text
    qwen1_5
+     ├── finetune_qwen1_5_7b.yaml          # 7B 全参微调启动配置  
+     ├── finetune_qwen1_5_14b.yaml         # 14B 全参微调启动配置
      ├── finetune_qwen1_5_72b.yaml         # 72B 全参微调启动配置
+     ├── pretrain_qwen1_5_7b.yaml          # 7B 预训练启动配置  
+     ├── pretrain_qwen1_5_14b.yaml         # 14B 预训练启动配置
      ├── pretrain_qwen1_5_72b.yaml         # 72B 预训练启动配置  
      ├── predict_qwen1_5_14b.yaml          # 14B 在线推理启动配置
      └── predict_qwen1_5_72b.yaml          # 72B 在线推理启动配置
@@ -172,10 +176,11 @@ python qwen1_5/qwen1_5_preprocess.py \
 
 ### 预训练性能
 
-| config                                     | task | Datasets | SeqLength | metric | phase         |score | performance(tokens/s/p) |
-|--------------------------------------------|-------|-------|--------|-------|---------------|-------|-------------------------|
-| [qwen1.5-72b](./pretrain_qwen1_5_72b.yaml) | text_generation | wikitext-103-v1 | 32768  | - | [train](#预训练) | - | 186                   |
-| [qwen1.5-7b] (./pretrain_qwen1_5_7b.yaml)  | text_generation | wikitext-103-v1 | 32768  | - | [train](#预训练) | - | 1048                  |
+| config                                     | task            | Datasets        | SeqLength | metric | phase         | score | performance(tokens/s/p) |
+|--------------------------------------------|-----------------|-----------------|-----------|--------|---------------|-------|-------------------------|
+| [qwen1.5-7b](./pretrain_qwen1_5_7b.yaml)   | text_generation | wikitext-103-v1 | 32768     | -      | [train](#预训练) | -     | 1048                    |
+| [qwen1.5-14b](./pretrain_qwen1_5_14b.yaml) | text_generation | wikitext-103-v1 | 32768     | -      | [train](#预训练) | -     | 675                     |
+| [qwen1.5-72b](./pretrain_qwen1_5_72b.yaml) | text_generation | wikitext-103-v1 | 32768     | -      | [train](#预训练) | -     | 186                     |
 
 ### 数据预处理
 
@@ -195,9 +200,61 @@ python qwen1_5/qwen1_5_preprocess.py \
 
 ### 操作步骤
 
-1. 当前支持模型已提供yaml文件，下文以Qwen-72B为例，即使用`pretrain_qwen1_5_72b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
+1. 当前支持模型已提供yaml文件，预训练yaml文件以`pretrain_qwen1_5_*.yaml`的格式命名。如Qwen-72B，即使用`pretrain_qwen1_5_72b.yaml`配置文件，请根据实际使用模型更改配置文件。
 
-2.1 启动Qwen-72B预训练任务。
+2.1 启动Qwen-7B预训练任务。
+
+修改`pretrain_qwen1_5_7b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+
+   ```yaml
+   load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+
+   train_dataset: &train_dataset
+     data_loader:
+       type: MindDataset
+       dataset_dir: "/path/alpaca.mindrecord"  # 配置训练数据集文件夹路径
+   ```
+
+在mindformers工作目录下，执行：
+
+```shell
+bash scripts/msrun_launcher.sh "run_mindformer.py --config research/qwen1_5/pretrain_qwen1_5_7b.yaml
+--run_mode finetune --worker_num 8 --local_worker_num 8 --master_port 8110 --log_dir ./output/msrun_log"
+```
+
+2.2 启动Qwen-14B预训练任务。
+
+在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考[ms_run快速使用](https://gitee.com/mindspore/mindformers#%E5%9B%9B%E5%BF%AB%E9%80%9F%E4%BD%BF%E7%94%A8)
+
+   ```shell
+   # 节点0，节点ip为192.168.1.1，节点启动命令仅参数NODE_RANK不同
+   bash ../../scripts/msrun_launcher.sh "run_qwen1_5.py \
+   --config pretrain_qwen1_5_14b.yaml \
+   --use_parallel True \
+   --run_mode train \
+   --merges_file /path/merges.txt \
+   --vocab_file /path/vocab.json
+   --train_data /path/wiki.mindrecord" \
+   16 8 192.168.1.1 8118 0 output/msrun_log False 3000
+
+   # 节点1，节点ip为192.168.1.2，节点启动命令仅参数NODE_RANK不同
+   bash ../../scripts/msrun_launcher.sh "run_qwen1_5.py \
+   --config pretrain_qwen1_5_14b.yaml \
+   --use_parallel True \
+   --run_mode train \
+   --merges_file /path/merges.txt \
+   --vocab_file /path/vocab.json
+   --train_data /path/wiki.mindrecord" \
+   16 8 192.168.1.1 8118 1 output/msrun_log False 3000
+
+   # 参数说明
+   # config: 配置文件路径
+   # run_mode: 运行模式，预训练时设置为train
+   # train_data: 训练数据集文件夹路径
+   # merges_file、vocab_file：词表模型
+   ```
+
+2.3 启动Qwen-72B预训练任务。
 
 在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考[ms_run快速使用](https://gitee.com/mindspore/mindformers#%E5%9B%9B%E5%BF%AB%E9%80%9F%E4%BD%BF%E7%94%A8)
 
@@ -289,9 +346,37 @@ python qwen1_5/qwen1_5_preprocess.py \
    # merges_file、vocab_file：词表模型
    ```
 
-2.2 启动Qwen-7B预训练任务。
+## 全参微调
 
-修改`pretrain_qwen1_5_7b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+### 微调性能
+
+| config                                     | task            | Datasets | SeqLength | metric | phase             | score | performance(tokens/s/p) |
+|--------------------------------------------|-----------------|----------|-----------|--------|-------------------|-------|-------------------------|
+| [qwen1.5-7b](./finetune_qwen1_5_7b.yaml)   | text_generation | alpaca   | 4096      | -      | [finetune](#全参微调) | -     | 2457                    |
+| [qwen1.5-14b](./finetune_qwen1_5_14b.yaml) | text_generation | alpaca   | 4096      | -      | [finetune](#全参微调) | -     | 1077                    |
+| [qwen1.5-72b](./finetune_qwen1_5_72b.yaml) | text_generation | alpaca   | 2048      | -      | [finetune](#全参微调) | -     | 180.2                   |
+
+### 操作步骤
+
+请参照[数据集准备](#数据集准备)章节获取mindrecord格式的alpaca数据集，参照[模型权重准备](#模型权重准备)章节获取权重。
+
+1. 当前支持模型已提供yaml文件，微调yaml文件以`finetune_qwen1_5_*.yaml`的格式命名。如Qwen-72B，即使用`finetune_qwen1_5_72b.yaml`配置文件，请根据实际使用模型更改配置文件。
+
+   当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
+   warning: [cann7.2, ms2.3, qwen1.5训练bf16, loss溢出问题规避方案](https://gitee.com/mindspore/mindformers/issues/I9KA3Z?from=project-issue)
+
+2. 设置如下环境变量：
+
+   ```bash
+   export MS_ASCEND_CHECK_OVERFLOW_MODE=INFNAN_MODE
+   # 如出现OOM需要配置:
+   export ENABLE_CELL_RESUSE=1          # 打开内存复用
+   export MS_GE_ATOMIC_CLEAN_POLICY=1   # 打开内存优化
+   ```
+
+3.1 启动Qwen-7B微调任务。
+
+修改`finetune_qwen1_5_7b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
 
    ```yaml
    load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
@@ -305,35 +390,33 @@ python qwen1_5/qwen1_5_preprocess.py \
 在mindformers工作目录下，执行：
 
 ```shell
-bash scripts/msrun_launcher.sh "run_mindformer.py --config research/qwen1_5/pretrain_qwen1_5_7b.yaml
+bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py --config research/qwen1_5/finetune_qwen1_5_7b.yaml
 --run_mode finetune --worker_num 8 --local_worker_num 8 --master_port 8110 --log_dir ./output/msrun_log"
 ```
 
-## 全参微调
+3.2 启动Qwen-14B微调任务。
 
-### 微调性能
+修改`finetune_qwen1_5_14b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
 
-| config                                   | task | Datasets | SeqLength | metric | phase |score | performance(tokens/s/p) |
-|------------------------------------------|-------|-------|-----------|-------|-------|-------|-------------------------|
-| [qwen1.5-72b](./run_qwen1_5_72b.yaml)    | text_generation | alpaca | 2048      | - | [finetune](#全参微调) | - | 180.2                   |
-| [qwen1.5-7b](./finetune_qwen1_5_7b.yaml) | text_generation | alpaca | 4096      | - | [finetune](#全参微调) | - | 2457                    |
+   ```yaml
+   load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
 
-### 操作步骤
-
-请参照[数据集准备](#数据集准备)章节获取mindrecord格式的alpaca数据集，参照[模型权重准备](#模型权重准备)章节获取权重。
-
-1. 当前支持模型已提供yaml文件，下文以Qwen-72B / 7B 为例，即使用`finetune_qwen1_5_72b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
-
-   当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
-   warning: [cann7.2, ms2.3, qwen1.5训练bf16, loss溢出问题规避方案](https://gitee.com/mindspore/mindformers/issues/I9KA3Z?from=project-issue)
-
-2. 设置如下环境变量：
-
-   ```bash
-   export MS_ASCEND_CHECK_OVERFLOW_MODE=INFNAN_MODE
+   train_dataset: &train_dataset
+     data_loader:
+       type: MindDataset
+       dataset_dir: "/path/alpaca.mindrecord"  # 配置训练数据集文件夹路径
    ```
 
-3.1 修改`finetune_qwen1_5_72b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+在mindformers工作目录下，执行：
+
+```shell
+bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py --config research/qwen1_5/finetune_qwen1_5_14b.yaml
+--run_mode finetune --worker_num 8 --local_worker_num 8 --master_port 8110 --log_dir ./output/msrun_log"
+```
+
+3.3 启动Qwen-72B微调任务。
+
+修改`finetune_qwen1_5_72b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
 
    ```yaml
    load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
@@ -358,19 +441,6 @@ bash scripts/msrun_launcher.sh "run_mindformer.py --config research/qwen1_5/pret
      vocab_emb_dp: True
      gradient_aggregation_group: 4
    ```
-
-3.2 修改`finetune_qwen1_5_7b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
-
-   ```yaml
-   load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
-
-   train_dataset: &train_dataset
-     data_loader:
-       type: MindDataset
-       dataset_dir: "/path/alpaca.mindrecord"  # 配置训练数据集文件夹路径
-   ```
-
-4.1 启动微调任务。
 
 在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考[ms_run快速使用](https://gitee.com/mindspore/mindformers#%E5%9B%9B%E5%BF%AB%E9%80%9F%E4%BD%BF%E7%94%A8)
 
@@ -422,17 +492,6 @@ bash scripts/msrun_launcher.sh "run_mindformer.py --config research/qwen1_5/pret
    # run_mode: 运行模式，微调时设置为finetune
    # train_data: 训练数据集文件夹路径
    ```
-
-4.2 启动微调任务。
-在mindformers工作目录下，执行：
-
-4.2 启动微调任务。
-在mindformers工作目录下，执行：
-
-```shell
-bash scripts/msrun_launcher.sh "run_mindformer.py --config research/qwen1_5/finetune_qwen1_5_7b.yaml
---run_mode finetune --worker_num 8 --local_worker_num 8 --master_port 8110 --log_dir ./output/msrun_log"
-```
 
 ## 推理
 
