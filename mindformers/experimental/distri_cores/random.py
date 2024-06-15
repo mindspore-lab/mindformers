@@ -18,8 +18,10 @@
 import random
 from contextlib import contextmanager
 import numpy as np
-
-from mindspore.nn.generator import manual_seed, get_rng_state, set_rng_state
+try:
+    from mindspore import manual_seed, get_rng_state, set_rng_state
+except ImportError:
+    from mindspore.nn.generator import manual_seed, get_rng_state, set_rng_state
 from mindformers.experimental.distri_cores.create_comm import (
     get_tp_rank,
     get_dp_rank,
@@ -75,7 +77,7 @@ class RNGStateTracer:
         orig_rng_state = get_rng_state()
         manual_seed(seed)
         self._states[mode] = get_rng_state()
-        set_rng_state(*orig_rng_state)
+        set_rng_state(orig_rng_state)
 
     # pylint: disable=W0101
     @contextmanager
@@ -88,14 +90,14 @@ class RNGStateTracer:
             raise ValueError(f"not initialize or the parallel mode {mode} not exists ")
         # save current state, then set target state
         orig_rng_state = get_rng_state()
-        set_rng_state(*self._states[mode])
+        set_rng_state(self._states[mode])
         try:
             # yield to do job
             yield
         finally:
             # restore old state
             self._states[mode] = get_rng_state()
-            set_rng_state(*orig_rng_state)
+            set_rng_state(orig_rng_state)
 
 default_rng_tracer_ = None
 
