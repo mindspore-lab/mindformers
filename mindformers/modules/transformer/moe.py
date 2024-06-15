@@ -92,7 +92,7 @@ class MoEConfig:
                  expert_group_size=None, group_wise_a2a=False, comp_comm_parallel=False, comp_comm_parallel_degree=2,
                  save_token_distribution=False, cur_layer=0, enable_cold_hot_expert=False, update_step=10000,
                  hot_expert_num=0, cold_token_percent=1.0, moe_module_name="", routing_policy="TopkRouterV1",
-                 enable_sdrop=False, router_dense_type="float32"):
+                 enable_sdrop=False, use_fused_ops_topkrouter=False, router_dense_type="float32"):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
@@ -138,6 +138,7 @@ class MoEConfig:
         self.moe_module_name = moe_module_name
         self.routing_policy = routing_policy
         self.enable_sdrop = enable_sdrop
+        self.use_fused_ops_topkrouter = use_fused_ops_topkrouter
         self.router_dense_type = dtype_map.get(router_dense_type)
 
     def __eq__(self, other) -> bool:
@@ -1098,6 +1099,7 @@ class TopkRouterV2(Cell):
         self.reduce_mean2 = P.ReduceMean(keep_dims=False).shard(((dp, 1),))
         self.mul = P.Mul().shard(((dp, 1), (dp, 1)))
         self.mul2 = P.Mul().shard(((), ()))
+
         # dynamic capacity
         self.on_value_int = Tensor(1, mstype.int32)
         self.off_value_int = Tensor(0, mstype.int32)
@@ -1106,6 +1108,11 @@ class TopkRouterV2(Cell):
         self.sub = P.Sub()
         self.mod_expert = P.Mod()
         self.tensor2scalar = TensorToScalar()
+
+        #topkrouter
+        if self.moe_config.use_fused_ops_topkrouter:
+            # pylint: disable=W0212
+            self.topkrouter = P._inner_ops.TopKRouter().shard(((dp, 1, 1),))
 
     def dispatch(self, input_tensor, dispatch_index):
         r"""
@@ -1148,10 +1155,17 @@ class TopkRouterV2(Cell):
         return output_tensor
 
     def construct(self, router_logits):
+        """
+        Calculate dispatch_policy, combine_policy, router_coeff.
+        """
         router_prob = self.softmax(router_logits) # (dp, N, expert_dim)fp32 <-- (dp, N, expert_dim)fp32
         expert_gate, expert_index = self.topk(router_prob, self.num_experts_chosen) # (dp, N, k)int32, (dp, N, k)fp32 <-- (dp, N, expert_dim)fp32
+
         if self.moe_config.enable_sdrop:
-            dispatch_index, combine_index, router_coeff = self._maskout_overflowed_tokens_sort_sdrop(expert_index, expert_gate) # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
+            if self.moe_config.use_fused_ops_topkrouter:
+                dispatch_index, combine_index, router_coeff = self._maskout_overflowed_tokens_use_topkrouter(expert_index, expert_gate) # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
+            else:
+                dispatch_index, combine_index, router_coeff = self._maskout_overflowed_tokens_sort_sdrop(expert_index, expert_gate) # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
         else:
             dispatch_index, combine_index, router_coeff = self._maskout_overflowed_tokens_sort_kdrop(expert_index, expert_gate) # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
         return dispatch_index, combine_index, router_coeff # (dp, E, n)int32, (dp, N, k), (dp, N, k)
@@ -1242,6 +1256,20 @@ class TopkRouterV2(Cell):
         router_coeff_raw = self.mul_3d(expert_gate, within_capacity)
         router_coeff = self._normalize(router_coeff_raw) # (dp, N, k) <-- (dp, N, k)
         return dispatch_index, combine_index, router_coeff # (dp, E, n), (dp, N, k), (dp, N, k)
+
+    def _maskout_overflowed_tokens_use_topkrouter(self, expert_index, expert_gate):
+        """
+        Using TopKRouter calculate dispatch_policy and combine_policy.
+        """
+        if self.capacity_factor > 0:
+            tokens_per_group = self.shape(expert_index)[1]
+            expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
+                                                           self.capacity_factor, self.expert_dim, self.mp)
+        else:
+            expert_capacity = self._calculate_expert_adaptive_capacity(expert_index)
+        dispatch_index, combine_index = self.topkrouter(expert_index, expert_capacity, self.expert_dim)
+        router_coeff = self._normalize(expert_gate)
+        return dispatch_index, combine_index, router_coeff
 
     def _normalize(self, router_coeff_raw):
         router_coeff_sum = self.reduce_sum_keep(router_coeff_raw, 2) # (dp, N, 1) <-- (dp, N, k)
