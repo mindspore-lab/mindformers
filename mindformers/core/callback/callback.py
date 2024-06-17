@@ -558,92 +558,96 @@ class CheckpointMointor(ModelCheckpoint):
             self._flush_from_cache(cb_params)
 
         save_ckpt = self._check_save_ckpt(cb_params, force_to_save)
-        step_num_in_epoch = int((cb_params.cur_step_num - 1) % cb_params.batch_num + 1)
 
         if save_ckpt:
-            logger.info('......Saving ckpt......')
-            cur_ckpoint_file = self._prefix + "-" + str(cb_params.cur_epoch_num) + "_" \
-                               + str(step_num_in_epoch) + ".ckpt"
-            # update checkpoint file list.
-            self._manager.update_ckpoint_filelist(self._directory, self._prefix)
-            # keep checkpoint files number equal max number.
-            if self._config.keep_checkpoint_max and 0 < self._config.keep_checkpoint_max <= self._manager.ckpoint_num:
-                self._manager.remove_oldest_ckpoint_file()
-            elif self._config.keep_checkpoint_per_n_minutes and self._config.keep_checkpoint_per_n_minutes > 0:
-                # pylint: disable=E0203
-                self._cur_time_for_keep = time.time()
-                if (self._cur_time_for_keep - self._last_time_for_keep) \
-                        < self._config.keep_checkpoint_per_n_minutes * 60:
-                    self._manager.keep_one_ckpoint_per_minutes(self._config.keep_checkpoint_per_n_minutes,
-                                                               self._cur_time_for_keep)
+            self.save_checkpoint(cb_params)
+            self.save_checkpoint_network(cb_params)
 
-            # generate the new checkpoint file and rename it.
-            global SAVE_DIR
-            SAVE_DIR = self._directory
-            cur_file = os.path.join(self._directory, cur_ckpoint_file)
-            self._last_time_for_keep = time.time()
-            self._last_triggered_step = cb_params.cur_step_num
+    def save_checkpoint(self, cb_params):
+        """save checkpoint suitable for resume training."""
+        logger.info('......Saving ckpt......')
+        step_num_in_epoch = int((cb_params.cur_step_num - 1) % cb_params.batch_num + 1)
+        cur_ckpoint_file = self._prefix + "-" + str(cb_params.cur_epoch_num) + "_" \
+                            + str(step_num_in_epoch) + ".ckpt"
+        # update checkpoint file list.
+        self._manager.update_ckpoint_filelist(self._directory, self._prefix)
+        # keep checkpoint files number equal max number.
+        if self._config.keep_checkpoint_max and 0 < self._config.keep_checkpoint_max <= self._manager.ckpoint_num:
+            self._manager.remove_oldest_ckpoint_file()
+        elif self._config.keep_checkpoint_per_n_minutes and self._config.keep_checkpoint_per_n_minutes > 0:
+            # pylint: disable=E0203
+            self._cur_time_for_keep = time.time()
+            if (self._cur_time_for_keep - self._last_time_for_keep) \
+                    < self._config.keep_checkpoint_per_n_minutes * 60:
+                self._manager.keep_one_ckpoint_per_minutes(self._config.keep_checkpoint_per_n_minutes,
+                                                           self._cur_time_for_keep)
 
-            if context.get_context("enable_ge") and os.getenv("MS_ENABLE_REF_MODE", "0") == "0":
-                set_cur_net(cb_params.train_network)
-                cb_params.train_network.exec_checkpoint_graph()
-            if "epoch_num" in self._append_dict:
-                self._append_dict["epoch_num"] = cb_params.cur_epoch_num
-            if "step_num" in self._append_dict:
-                self._append_dict["step_num"] = self._append_step_num + cb_params.cur_step_num
-            if cb_params.optimizer is not None:
-                self._append_dict["global_step"] = cb_params.optimizer.global_step
-            else:
-                self._append_dict["global_step"] = cb_params.network.optimizer.global_step
-            if "loss_scale" in self._append_dict:
-                outputs = cb_params.net_outputs
-                if isinstance(outputs, (tuple, list)) and len(outputs) >= 3:
-                    self._append_dict["loss_scale"] = outputs[2]
-            network = self._config.saved_network if self._config.saved_network is not None else cb_params.train_network
-            save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
-                            self._append_dict, self._config.enc_key, self._config.enc_mode)
+        # generate the new checkpoint file and rename it.
+        global SAVE_DIR
+        SAVE_DIR = self._directory
+        cur_file = os.path.join(self._directory, cur_ckpoint_file)
+        self._last_time_for_keep = time.time()
+        self._last_triggered_step = cb_params.cur_step_num
 
-            self.record_last_ckpt_to_json(cb_params.cur_epoch_num, step_num_in_epoch, cur_ckpoint_file)
+        if context.get_context("enable_ge") and os.getenv("MS_ENABLE_REF_MODE", "0") == "0":
+            set_cur_net(cb_params.train_network)
+            cb_params.train_network.exec_checkpoint_graph()
+        if "epoch_num" in self._append_dict:
+            self._append_dict["epoch_num"] = cb_params.cur_epoch_num
+        if "step_num" in self._append_dict:
+            self._append_dict["step_num"] = self._append_step_num + cb_params.cur_step_num
+        if cb_params.optimizer is not None:
+            self._append_dict["global_step"] = cb_params.optimizer.global_step
+        else:
+            self._append_dict["global_step"] = cb_params.network.optimizer.global_step
+        if "loss_scale" in self._append_dict:
+            outputs = cb_params.net_outputs
+            if isinstance(outputs, (tuple, list)) and len(outputs) >= 3:
+                self._append_dict["loss_scale"] = outputs[2]
+        network = self._config.saved_network if self._config.saved_network is not None else cb_params.train_network
+        save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
+                        self._append_dict, self._config.enc_key, self._config.enc_mode,
+                        choice_func=lambda x: not x.startswith('accu_grads'))
+        self._latest_ckpt_file_name = cur_file
 
-            def save_only_network_params():
-                save_obj = cb_params.network
-                if hasattr(save_obj, 'optimizer') and save_obj.optimizer is not None:
-                    save_obj = save_obj.network
+        self.record_last_ckpt_to_json(cb_params.cur_epoch_num, step_num_in_epoch, cur_ckpoint_file)
 
-                if self.save_network_params:
-                    cb_cur_ckpoint_file = self._prefix + "-" + "network" + ".ckpt"
-                    cb_cur_file = os.path.join(self.network_directory, cb_cur_ckpoint_file)
-                    os.makedirs(self.network_directory, exist_ok=True)
-                    save_checkpoint(save_obj, cb_cur_file, self._config.integrated_save, self._config.async_save,
-                                    {}, self._config.enc_key, self._config.enc_mode)
+    def save_checkpoint_network(self, cb_params):
+        """save checkpoint only network params, which is suitable for train, evaluate and predict."""
+        save_obj = cb_params.network
+        if hasattr(save_obj, 'optimizer') and save_obj.optimizer is not None:
+            save_obj = save_obj.network
 
-                if self.save_trainable_params:
-                    save_obj.init_parameters_data()
-                    param_dict = OrderedDict()
-                    for param in save_obj.trainable_params():
-                        param_dict[param.name] = param
-                    param_list = []
-                    for (key, value) in param_dict.items():
-                        each_param = {"name": key}
-                        param_data = Tensor(value.data.asnumpy())
+        if self.save_network_params:
+            cb_cur_ckpoint_file = self._prefix + "-" + "network" + ".ckpt"
+            cb_cur_file = os.path.join(self.network_directory, cb_cur_ckpoint_file)
+            os.makedirs(self.network_directory, exist_ok=True)
+            save_checkpoint(save_obj, cb_cur_file, self._config.integrated_save, self._config.async_save,
+                            {}, self._config.enc_key, self._config.enc_mode)
 
-                        # in automatic model parallel scenario, some parameters were split to all the devices,
-                        # which should be combined before saving
-                        if key in save_obj.parameter_layout_dict:
-                            param_data = _get_merged_param_data(save_obj, key, param_data, self._config.integrated_save)
+        if self.save_trainable_params:
+            save_obj.init_parameters_data()
+            param_dict = OrderedDict()
+            for param in save_obj.trainable_params():
+                param_dict[param.name] = param
+            param_list = []
+            for (key, value) in param_dict.items():
+                each_param = {"name": key}
+                param_data = Tensor(value.data.asnumpy())
 
-                        each_param["data"] = param_data
-                        param_list.append(each_param)
-                    save_obj = param_list
-                    cb_cur_ckpoint_file = self._prefix + "-" + "trainable_params" + ".ckpt"
-                    cb_cur_file = os.path.join(self.trainable_directory, cb_cur_ckpoint_file)
-                    os.makedirs(self.trainable_directory, exist_ok=True)
-                    save_checkpoint(save_obj, cb_cur_file, self._config.integrated_save,
-                                    self._config.async_save, {}, self._config.enc_key, self._config.enc_mode)
+                # in automatic model parallel scenario, some parameters were split to all the devices,
+                # which should be combined before saving
+                if key in save_obj.parameter_layout_dict:
+                    param_data = _get_merged_param_data(save_obj, key, param_data, self._config.integrated_save)
 
-            save_only_network_params()
-
-            self._latest_ckpt_file_name = cur_file
+                each_param["data"] = param_data
+                param_list.append(each_param)
+            save_obj = param_list
+            cb_cur_ckpoint_file = self._prefix + "-" + "trainable_params" + ".ckpt"
+            cb_cur_file = os.path.join(self.trainable_directory, cb_cur_ckpoint_file)
+            os.makedirs(self.trainable_directory, exist_ok=True)
+            save_checkpoint(save_obj, cb_cur_file, self._config.integrated_save,
+                            self._config.async_save, {}, self._config.enc_key, self._config.enc_mode)
 
     def record_last_ckpt_to_json(self, epoch, step, ckpt_file):
         """record last ckpt info to json"""
