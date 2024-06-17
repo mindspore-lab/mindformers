@@ -1268,7 +1268,7 @@ class TopkRouterV2(Cell):
             expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
                                                            self.capacity_factor, self.expert_dim, self.mp)
         else:
-            expert_capacity = self._calculate_expert_adaptive_capacity(expert_index)
+            expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
         dispatch_index, combine_index = self.topkrouter(expert_index, expert_capacity, self.expert_dim)
         router_coeff = self._normalize(expert_gate)
         return dispatch_index, combine_index, router_coeff
