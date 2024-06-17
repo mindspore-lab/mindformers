@@ -96,9 +96,9 @@ Yi-6B-Base 模型以双语语言模型为目标，并在3T多语言语料库上�
 
 ### 数据集准备
 
-使用Yi-6B-Base进行训练或者微调时，需要使用Yi-6B-Base配套的tokenizer.model处理数据集，以及选用Yi-6B-Base的yaml配置文件进行任务启动。
+使用Yi-6B-Base或Yi-34B-Base进行训练或者微调时，需要使用配套的tokenizer.model处理数据集，以及选用对应的yaml配置文件进行任务启动。
 
-目前提供[alpaca_gpt4_data_zh数据集](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh/resolve/main/alpaca_gpt4_data_zh.json) （jsonl格式）数据集的预处理脚本用于全参微调任务。
+目前提供[alpaca数据集](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)（json格式）[alpaca_gpt4_data_zh数据集](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh/resolve/main/alpaca_gpt4_data_zh.json) （jsonl格式）数据集的预处理脚本用于全参微调任务。
 
 alpaca数据集样式
 
@@ -214,6 +214,39 @@ bash scripts/msrun_launcher.sh " \
  --train_dataset /{path}/alpaca_gpt4_data_zh.mindrecord \
  --auto_trans_ckpt True \
  --use_parallel True" 8
+```
+
+- 多机多卡微调示例（以双机举例）
+
+在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考ms_run快速使用
+
+```bash
+# 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
+bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
+--config research/yi/finetune_yi_34b.yaml \
+--load_checkpoint /path/model_dir \
+--use_parallel True \
+--run_mode finetune \
+--auto_trans_ckpt True \
+--train_dataset /path/alpaca.mindrecord" \
+16 8 192.168.1.1 8118 0 output/msrun_log False 300
+
+# 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
+--config research/yi/finetune_yi_34b.yaml \
+--load_checkpoint /path/model_dir \
+--use_parallel True \
+--run_mode finetune \
+--auto_trans_ckpt True \
+--train_dataset /path/alpaca.mindrecord" \
+16 8 192.168.1.1 8118 1 output/msrun_log False 300
+
+# 参数说明
+# config: 配置文件路径
+# load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_0/xxx.ckpt'格式存放
+# auto_trans_ckpt: 自动权重转换开关
+# run_mode: 运行模式，微调时设置为finetune
+# train_dataset: 训练数据集文件夹路径
 ```
 
 ## 推理
