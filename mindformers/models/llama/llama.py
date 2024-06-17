@@ -361,17 +361,23 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         prefix_keys_values = Tensor(kwargs["prefix_keys_values"]) if "prefix_keys_values" in kwargs else None
         return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping, prefix_keys_values
 
-    def set_dynamic_inputs(self):
+    def set_dynamic_inputs(self, **kwargs):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_init_reset = Tensor([False], mstype.bool_)
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None], dtype=mstype.float16)
-        self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
-                        dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                        dynamic_slot_mapping, dynamic_prefix_keys_values)
+        have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
+        if have_prefix_keys_values:
+            dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None, None], dtype=mstype.float16)
+            self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
+                            dynamic_batch_valid_length, None, None, dynamic_block_tables,
+                            dynamic_slot_mapping, dynamic_prefix_keys_values)
+        else:
+            self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
+                            dynamic_batch_valid_length, None, None, dynamic_block_tables,
+                            dynamic_slot_mapping, None)
         logger.info("Set dynamic input for llama.")
 
     def add_flags_custom(self, is_first_iteration):

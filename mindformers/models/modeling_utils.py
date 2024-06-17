@@ -612,7 +612,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         )
 
     # pylint: disable=W0613
-    def set_dynamic_inputs(self):
+    def set_dynamic_inputs(self, **kwargs):
         """
         Compile static graphs into dynamic shapes
         """
