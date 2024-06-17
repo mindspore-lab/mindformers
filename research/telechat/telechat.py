@@ -362,7 +362,7 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
         slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
         return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping
 
-    def set_dynamic_inputs(self):
+    def set_dynamic_inputs(self, **kwargs):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_init_reset = Tensor([False], mstype.bool_)

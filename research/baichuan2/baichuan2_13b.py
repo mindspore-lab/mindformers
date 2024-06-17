@@ -156,7 +156,7 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
             "input_ids": Tensor(input_ids, mstype.int32)
         }
 
-    def set_dynamic_inputs(self):
+    def set_dynamic_inputs(self, **kwargs):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_init_reset = Tensor([False], mstype.bool_)

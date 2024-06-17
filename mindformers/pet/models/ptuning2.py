@@ -22,8 +22,6 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.pet.pet_config import Ptuning2Config
 from mindformers.pet.tuners.ptuning2_adapter import Ptuning2Adapter
 
-from ...tools.logger import logger
-
 class Ptuning2Model(PreTrainedModel):
     """
     PTuning2 Model for llm model.
@@ -38,6 +36,8 @@ class Ptuning2Model(PreTrainedModel):
         self.config.pet_config = config
         self.pet_model = base_model
         self._check_config()
+        if self.pet_model.config.is_dynamic:
+            self.pet_model.set_dynamic_inputs(have_prefix_keys_values=True)
         # add prefix token
         self.prefix_layers = Ptuning2Adapter.get_prefix(self.pet_model, self.config.pet_config)
 
@@ -63,16 +63,8 @@ class Ptuning2Model(PreTrainedModel):
     def slice_incremental_inputs(self, model_inputs: dict, current_index):
         return self.pet_model.slice_incremental_inputs(model_inputs, current_index)
 
-    def set_dynamic_inputs(self):
-        dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
-        dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_init_reset = Tensor([False], mstype.bool_)
-        dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
-        dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
-        dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
-        self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
-                        dynamic_batch_valid_length, None, None, dynamic_block_tables, dynamic_slot_mapping)
-        logger.info("Set dynamic input for prefixtuning petmodel.")
+    def set_dynamic_inputs(self, **kwargs):
+        return self.pet_model.set_dynamic_inputs(**kwargs)
 
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None,

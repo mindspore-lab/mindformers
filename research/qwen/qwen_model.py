@@ -125,7 +125,7 @@ class QwenForCausalLM(QwenPreTrainedModel):
         return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping
 
     # pylint: disable=W0613
-    def set_dynamic_inputs(self):
+    def set_dynamic_inputs(self, **kwargs):
         """Set inputs when is_dynamic=True."""
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)

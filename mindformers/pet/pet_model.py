@@ -79,8 +79,8 @@ class PetModel(PreTrainedModel):
     def slice_incremental_inputs(self, model_inputs: dict, current_index):
         return self.pet_model.slice_incremental_inputs(model_inputs, current_index)
 
-    def set_dynamic_inputs(self):
-        return self.pet_model.set_dynamic_inputs()
+    def set_dynamic_inputs(self, **kwargs):
+        return self.pet_model.set_dynamic_inputs(**kwargs)
 
     def add_flags_custom(self, is_first_iteration):
         return self.pet_model.add_flags_custom(is_first_iteration)
