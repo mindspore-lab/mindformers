@@ -40,7 +40,7 @@ class TestGLM32kTrainerMethod:
         args = TrainingArguments(num_train_epochs=1, batch_size=2)
 
         model_config = ChatGLM2Config(num_layers=2, seq_length=128, hidden_size=32, inner_hidden_size=None,
-                                      num_heads=2, position_encoding_2d=True, padded_vocab_size=65024,
+                                      num_heads=2, padded_vocab_size=65024,
                                       rope_ratio=50)
         model = ChatGLM2ForConditionalGeneration(model_config)
         self.tokenizer = AutoTokenizer.from_pretrained("glm3_6b")
@@ -58,11 +58,12 @@ class TestGLM32kTrainerMethod:
         Expectation: TypeError, ValueError, RuntimeError
         """
         model_config = ChatGLM2Config(num_layers=1, hidden_size=32, inner_hidden_size=None,
-                                      num_heads=2, position_encoding_2d=True, padded_vocab_size=65024,
-                                      seq_length=128, rope_ratio=50)
+                                      num_heads=2, padded_vocab_size=65024, block_size=128, num_blocks=1024,
+                                      seq_length=32768, rope_ratio=50,
+                                      use_past=True, use_flash_attention=True, is_dynamic=True)
         model = ChatGLM2ForConditionalGeneration(model_config)
         task_trainer = Trainer(task='text_generation',
                                model=model,
                                tokenizer=self.tokenizer)
         if is_version_ge(mindspore.__version__, "1.11.0"):
-            task_trainer.predict(input_data="你好", max_length=20)
+            task_trainer.predict(input_data="使用python编写快速排序代码" * 3600, max_length=32768)
