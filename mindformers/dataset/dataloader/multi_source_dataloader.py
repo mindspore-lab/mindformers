@@ -18,7 +18,10 @@ import random
 from itertools import accumulate
 from typing import Optional, List, Union
 
-from mindspore.dataset import GeneratorDataset, Shuffle
+import numpy as np
+from tqdm import tqdm
+
+from mindspore.dataset import Dataset, GeneratorDataset, Shuffle
 
 from .build_dataloader import build_dataset_loader
 from ...tools.logger import logger
@@ -35,6 +38,9 @@ class MultiSourceDataLoader:
                 nums_per_dataset: Optional[List[int]] = None,
                 shuffle: Optional[Union[bool, Shuffle]] = True,
                 shuffle_buffer_size: Optional[int] = 320,
+                data_source_type: Optional[str] = "iterator",
+                load_indices_npz_path: Optional[str] = None,
+                save_indices_npz_path: Optional[str] = None,
                 **kwargs):
         if dataset_ratios is not None:
             if any([ratios < 0 for ratios in dataset_ratios]):
@@ -104,7 +110,10 @@ class MultiSourceDataLoader:
             dataset_loaders.append(sub_dataset_loader)
 
         for index, sub_data_loader_item in enumerate(dataset_loaders):
-            actual_nums_over_this_dataset = sub_data_loader_item.get_dataset_size()
+            if isinstance(sub_data_loader_item, Dataset):
+                actual_nums_over_this_dataset = sub_data_loader_item.get_dataset_size()
+            else:
+                actual_nums_over_this_dataset = len(sub_data_loader_item)
 
             if not need_sample:
                 nums_per_dataset.append(actual_nums_over_this_dataset)
@@ -129,10 +138,30 @@ class MultiSourceDataLoader:
                     "ratios or actual sub dataset size. The total dataset size is %s if drop_remainder=False.",
                     nums_per_dataset, sum(nums_per_dataset))
 
-        return GeneratorDataset(
-            MultiSourceIterDataSet(dataset_loaders, nums_per_dataset, shuffle_dataset=shuffle_dataset,
-                                   shuffle_buffer_size=shuffle_buffer_size),
-            **prepare_generator_dataset_args(sub_data_loader_args))
+        if data_source_type == "iterator":
+            if load_indices_npz_path is not None or save_indices_npz_path is not None:
+                logger.warning("For MultiSourceDataLoader class, arguments `load_indices_npz_path` and "
+                               "`save_indices_npz_path` only take effect when `data_source_type` is random_access.")
+            data_source = MultiSourceIterDataSet(dataset_loaders, nums_per_dataset, shuffle_dataset=shuffle_dataset,
+                                                 shuffle_buffer_size=shuffle_buffer_size)
+        elif data_source_type == "random_access":
+            # for random access dataset, we control shuffle with indices
+            sub_data_loader_args["shuffle"] = False
+            shuffle_random_access = shuffle
+            if shuffle_dataset and shuffle_file:
+                # when both dataset & sample shuffle is True, we can simply use generator shuffle
+                sub_data_loader_args["shuffle"] = True
+                shuffle_random_access = False
+            data_source = MultiSourceRandomAccessDataset(dataset_loaders, nums_per_dataset,
+                                                         shuffle=shuffle_random_access,
+                                                         shuffle_buffer_size=shuffle_buffer_size,
+                                                         load_indices_npz_path=load_indices_npz_path,
+                                                         save_indices_npz_path=save_indices_npz_path)
+        else:
+            raise ValueError("For MultiSourceDataLoader class, argument `data_source_type` should be one of: "
+                             f"1. iterator; 2. random_access. But got {data_source_type}, please check your args.")
+
+        return GeneratorDataset(data_source, **prepare_generator_dataset_args(sub_data_loader_args))
 
 
 def prepare_generator_sub_dataloader_args(class_name, full_args):
@@ -162,11 +191,6 @@ class MultiSourceIterDataSet:
 
     def __init__(self, dataset_list, sample_nums, shuffle_buffer_size=320,
                  shuffle_dataset: Optional[bool] = True):
-        if shuffle_dataset:
-            zipped = list(zip(dataset_list, sample_nums))
-            random.shuffle(zipped)
-            dataset_list, sample_nums = zip(*zipped)
-
         self.sample_nums = sample_nums
         self.lasted_samples = sample_nums
         self.size = sum(sample_nums)
@@ -256,7 +280,6 @@ class MultiSourceIterDataSet:
             raise StopIteration
 
         dataset_index = self.get_next_dataset_index()
-
         item = next(self.dataset_iter_list[dataset_index])
         self.created += 1
         return item
@@ -264,3 +287,132 @@ class MultiSourceIterDataSet:
     def __iter__(self):
         self._reset_parameters()
         return self
+
+    def __len__(self):
+        return self.size
+
+
+class MultiSourceRandomAccessDataset:
+    """MultiSource Dataloader with radom access implement."""
+    def __init__(self, dataset_list, sample_nums, shuffle_buffer_size=320,
+                 shuffle: Optional[bool] = True,
+                 load_indices_npz_path: str = None,
+                 save_indices_npz_path: str = None):
+        self.sample_nums = sample_nums
+        self.lasted_samples = sample_nums
+        self.size = sum(sample_nums)
+
+        if isinstance(shuffle, bool):
+            self.shuffle_dataset = shuffle
+            self.shuffle_file = shuffle
+        elif shuffle == Shuffle.INFILE:
+            self.shuffle_dataset = False
+            self.shuffle_file = True
+        elif shuffle == Shuffle.FILES:
+            self.shuffle_dataset = True
+            self.shuffle_file = False
+        else:
+            self.shuffle_dataset = True
+            self.shuffle_file = True
+
+        self.dataset_list = dataset_list
+        self.acc_sample_nums = list(accumulate(self.sample_nums))
+
+        self.shuffle_buffer_size = shuffle_buffer_size
+        self.shuffle_buffer = []
+        self.shuffle_num_list_base = [int(self.shuffle_buffer_size * sample_num / self.size)
+                                      for sample_num in self.sample_nums]
+        self.shuffle_buffer_base_size = sum(self.shuffle_num_list_base)
+        self.shuffle_diff = self.shuffle_buffer_size - self.shuffle_buffer_base_size
+
+        logger.info(".......... Building indices for multi-source dataset ..........")
+        if load_indices_npz_path is None:
+            self.dataloader_index, self.data_sample_index = self.build_indices()
+        else:
+            logger.info(f".......... load indices from npz file: {load_indices_npz_path} ..........")
+            load_dict = np.load(load_indices_npz_path)
+            self.dataloader_index = load_dict["dataloader_index"]
+            self.data_sample_index = load_dict["data_sample_index"]
+        if save_indices_npz_path is not None:
+            logger.info(f".......... save indices to npz file: {save_indices_npz_path} ..........")
+            np.savez_compressed(save_indices_npz_path, dataloader_index=self.dataloader_index,
+                                data_sample_index=self.data_sample_index)
+        logger.info(".......... Build indices DONE for multi-source dataset ..........")
+
+    def build_indices(self):
+        dataloader_index = self._build_dataloader_indices()
+        dataloader_index = np.array(dataloader_index, dtype=np.uint8)
+        data_sample_index = self._build_data_sample_indices(dataloader_index)
+        return dataloader_index, data_sample_index
+
+    def _build_dataloader_indices(self):
+        if self.shuffle_dataset:
+            return self._build_shuffle_dataloader_indices()
+        return self._build_seq_dataloader_indices()
+
+    def _build_shuffle_dataloader_indices(self):
+        dataloader_index = []
+        with tqdm(total=self.size, desc="Building dataloader index") as pbar:
+            while len(dataloader_index) < self.size:
+                self._push_data_to_shuffle_buffer()
+                dataloader_index.extend(self.shuffle_buffer)
+                pbar.update(len(self.shuffle_buffer))
+        return dataloader_index
+
+    def _build_seq_dataloader_indices(self):
+        cur_dataset_index = 0
+        dataloader_index = []
+        for sample_num in self.sample_nums:
+            seq_index = np.ones(shape=(sample_num,), dtype=np.int32) * cur_dataset_index
+            cur_dataset_index += 1
+            dataloader_index.extend(seq_index)
+        return dataloader_index
+
+    def _build_data_sample_indices(self, dataloader_index):
+        data_sample_index = np.zeros(self.size, dtype=np.int32)
+        for i, sample_num in enumerate(self.sample_nums):
+            seq_sample_index = np.arange(sample_num, dtype=np.int32)
+            if self.shuffle_file:
+                random.shuffle(seq_sample_index)
+            tmp_indices = np.where(dataloader_index == i)[0]
+            data_sample_index[tmp_indices] = seq_sample_index
+        return data_sample_index
+
+    def _push_data_to_shuffle_buffer(self):
+        """push data to shuffle buffer when shuffle buffer is empty"""
+        self.shuffle_buffer = []
+        if sum(self.lasted_samples) > self.shuffle_buffer_base_size:
+            diff = self.shuffle_diff
+            shuffle_num_list = self.shuffle_num_list_base.copy()
+            self.lasted_samples = [self.lasted_samples[index] - shuffle_num_list[index]
+                                   for index in range(len(self.lasted_samples))]
+            while diff != 0:
+                cur_index = self._get_random_valid_dataset_index()
+                shuffle_num_list[cur_index] += 1
+                self.lasted_samples[cur_index] -= 1
+                diff -= 1
+            for index, sample_num in enumerate(shuffle_num_list):
+                self.shuffle_buffer.extend([index] * sample_num)
+        else:
+            for index, sample_num in enumerate(self.lasted_samples):
+                self.shuffle_buffer.extend([index] * sample_num)
+        random.shuffle(self.shuffle_buffer)
+
+    def _get_random_valid_dataset_index(self):
+        cur_index = random.randint(0, len(self.lasted_samples) - 1)
+        init_index = cur_index
+        while True:
+            cur_index = cur_index + 1 if cur_index + 1 != len(self.lasted_samples) else 0
+            if self.lasted_samples[cur_index] > 0:
+                return cur_index
+            if cur_index == init_index:
+                logger.warning(self.lasted_samples)
+                return init_index
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, idx):
+        dataset_idx = self.dataloader_index[idx]
+        sample_idx = self.data_sample_index[idx]
+        return self.dataset_list[(int)(dataset_idx)][(int)(sample_idx)]
