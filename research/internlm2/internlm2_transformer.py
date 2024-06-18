@@ -236,8 +236,9 @@ class InternLM2Attention(nn.Cell):
                 self.flash_attention.shard(parallel_config)
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
-                  block_tables=None, slot_mapping=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
         """Forward process of the MultiHeadAttention"""
+        _ = prefix_keys_values
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
         bs, seq_len, _ = self.shape(x)
