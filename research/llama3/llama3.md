@@ -58,6 +58,26 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
 
 ### 数据集准备
 
+#### 预训练数据集
+
+以Wikitext2数据集为例:
+
+- 数据集下载：[WikiText2数据集](https://gitee.com/link?target=https%3A%2F%2Fascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com%2FMindFormers%2Fdataset%2Fwikitext-2%2Fwikitext-2-v1.zip)
+
+- 使用以下预处理脚本生成mindrecord训练数据
+
+``` bash
+# 使用tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理+Mindrecord数据生成
+python llama_preprocess.py \
+--dataset_type wiki \
+--input_glob  /{path}/wiki.train.tokens \
+--model_file /{path}/tokenizer.model \
+--seq_length 8192 \
+--output_file /{path}/wiki8192.mindrecord
+```
+
+#### 全参微调数据集
+
 目前提供alpaca数据集的预处理脚本用于全参微调任务。
 
 数据集下载链接如下：
@@ -135,8 +155,9 @@ python llama_preprocess.py \
 
 - [Llama3-8B](https://huggingface.co/meta-llama/Meta-Llama-3-8B)
 - [Llama3-70B](https://huggingface.co/meta-llama/Meta-Llama-3-70B)
+- [tokenizer文件](https://huggingface.co/meta-llama/Meta-Llama-3-8B/blob/main/original/tokenizer.model)
 
-**注**: 请安装transformers=4.40版本
+**注**: 请自行申请huggingface上llama3使用权限，并安装transformers=4.40版本
 
 下载完成后，运行`mindformers/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
@@ -158,6 +179,55 @@ dtype: 转换权重的精度选择。
 - 修改分布式策略训练，需要将权重转换为对应分布式权重。
 
 Mindformer支持权重自动转换，详细教程请参考[权重转换文档](../../docs/feature_cards/Transform_Ckpt.md)。
+
+## 预训练
+
+### Llama3-70B
+
+请参照[数据集准备](#数据集准备)章节获取mindrecord格式的wikitext数据集。参照[模型权重准备](#模型权重准备)章节获取Llama3-70B权重和分词器文件。
+
+#### 多机多卡
+
+1. 修改`pretrain_llama3_70b.yaml`中相关配置，默认使用64卡；需要先对权重进行切分，切分权重可以参见[权重切分与合并](../feature_cards/Transform_Ckpt.md).（如果是共享盘也可以开启自动权重转换，使用完整权重）
+
+```yaml
+load_checkpoint: '/path/model_dir/'  # 使用切分后的权重路径
+use_parallel: True
+auto_trans_ckpt: False # 默认关闭自动转换
+run_mode: 'finetune'
+# dataset
+train_dataset: &train_dataset
+  data_loader:
+    type: MindDataset
+    dataset_dir: "dataset_dir"  # 配置训练数据集文件夹路径
+    shuffle: True
+  input_columns: ["input_ids"]
+
+# 8卡分布式策略配置
+parallel_config:
+  data_parallel: 1
+  model_parallel: 8
+  pipeline_stage: 8
+  use_seq_parallel: True
+  micro_batch_num: 256
+  vocab_emb_dp: False
+  gradient_aggregation_group: 4
+```
+
+2. 启动任务，执行运行脚本。
+
+多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，各个参数位置含义参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
+
+在每台机器上运行以下命令，多机运行命令在每台机器上仅`node_num` 不同，从0开始计数，命令中主节点ip为第0个节点ip。
+
+```shell
+# 节点0，设0节点ip为192.168.1.1，作为主节点ip，总共64卡且每个节点8卡
+# 节点0、节点1、...节点7 依此修改node_num，比如8机，node_num为0~7。
+bash ../scripts/msrun_launcher.sh "run_llama3.py \
+ --config {CONFIG_PATH} \
+ --run_mode train" \
+ 64 8 {主节点ip} 8118 {node_num} output/msrun_log False 300
+```
 
 ## 全参微调
 
@@ -231,7 +301,7 @@ train_data: 训练数据集文件夹路径
 
 #### 多机多卡
 
-1. 修改`finetune_llama3_70b.yaml`中相关配置，默认使用64卡；需要先对权重进行切分，切分权重可以参见[权重切分与合并](../feature_cards/Transform_Ckpt.md).（也可以开启自动权重转换，使用完整权重）
+1. 修改`finetune_llama3_70b.yaml`中相关配置，默认使用64卡；需要先对权重进行切分，切分权重可以参见[权重切分与合并](../feature_cards/Transform_Ckpt.md).（如果是共享盘也可以开启自动权重转换，使用完整权重）
 
 ```yaml
 load_checkpoint: '/path/model_dir/'  # 使用切分后的权重路径
@@ -262,54 +332,15 @@ parallel_config:
 
 多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，各个参数位置含义参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
 
+在每台机器上运行以下命令，多机运行命令在每台机器上仅`node_num` 不同，从0开始计数，命令中主节点ip为第0个节点ip。
+
 ```shell
-# 节点0，设0节点ip为192.168.1.1，作为主节点，总共64卡且每个节点8卡
+# 节点0，设0节点ip为192.168.1.1，作为主节点ip，总共64卡且每个节点8卡
+# 节点0、节点1、...节点7 依此修改node_num，比如8机，node_num为0~7。
 bash ../scripts/msrun_launcher.sh "run_llama3.py \
  --config {CONFIG_PATH} \
- --run_mode finetune" \
- 64 8 192.168.1.1 8118 0 output/msrun_log False 300
-
-# 节点1，设1节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
-bash ../scripts/msrun_launcher.sh "run_llama3.py \
- --config {CONFIG_PATH} \
- --run_mode finetune" \
- 64 8 192.168.1.2 8118 1 output/msrun_log False 300
-
-# 节点2，设1节点ip为192.168.1.3
-bash ../scripts/msrun_launcher.sh "run_llama3.py \
- --config {CONFIG_PATH} \
- --run_mode finetune" \
- 64 8 192.168.1.3 8118 2 output/msrun_log False 300
-
-# 节点3，设1节点ip为192.168.1.4
-bash ../scripts/msrun_launcher.sh "run_llama3.py \
- --config {CONFIG_PATH} \
- --run_mode finetune" \
- 64 8 192.168.1.4 8118 3 output/msrun_log False 300
-
-# 节点4，设1节点ip为192.168.1.5
-bash ../scripts/msrun_launcher.sh "run_llama3.py \
- --config {CONFIG_PATH} \
- --run_mode finetune" \
- 64 8 192.168.1.5 8118 4 output/msrun_log False 300
-
-# 节点5，设1节点ip为192.168.1.6
-bash ../scripts/msrun_launcher.sh "run_llama3.py \
- --config {CONFIG_PATH} \
- --run_mode finetune" \
- 64 8 192.168.1.6 8118 5 output/msrun_log False 300
-
-# 节点6，设1节点ip为192.168.1.7
-bash ../scripts/msrun_launcher.sh "run_llama3.py \
- --config {CONFIG_PATH} \
- --run_mode finetune" \
- 64 8 192.168.1.7 8118 6 output/msrun_log False 300
-
-# 节点7，设1节点ip为192.168.1.8
-bash ../scripts/msrun_launcher.sh "run_llama3.py \
- --config {CONFIG_PATH} \
- --run_mode finetune" \
- 64 8 192.168.1.8 8118 7 output/msrun_log False 300
+ --run_mode train" \
+ 64 8 {主节点ip} 8118 {node_num} output/msrun_log False 300
 ```
 
 ## 推理
