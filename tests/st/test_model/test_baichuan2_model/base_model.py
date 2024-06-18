@@ -47,7 +47,6 @@ BASE_CONFIG = {
     'is_dynamic': False,
     'offset': 0,
     # 'use_past_shard': False,  # deprecated
-    'checkpoint_name_or_path': '',
     'repetition_penalty': 1,
     'temperature': 1.0,
     'max_decode_length': 512,
