@@ -135,14 +135,20 @@ class ColumnParallelLinear(nn.Cell):
         self.output_size_per_partition = divide(output_size, tensor_parallel_group_size)
         self.is_expert = is_expert
         self.skip_weight_param_allocation = skip_weight_param_allocation
-        self.config = config
+        self.parallel_config = config
         self.compute_dtype = compute_dtype
 
-        self.expert_parallel = self.config.expert_parallel > 1
-        self.sequence_parallel = self.config.use_sequence_parallel
-        self.use_zero3 = self.config.use_zero3
+        self.expert_parallel = self.parallel_config.expert_parallel > 1
+        self.sequence_parallel = self.parallel_config.use_sequence_parallel
+        self.use_zero3 = self.parallel_config.use_zero3
         self.transpose_b = transpose_b
-        dp_size = get_dp_world_size()
+        if self.use_zero3:
+            try:
+                dp_size = get_dp_world_size()
+            except AssertionError:
+                raise RuntimeError("When using zero3 optimizer parallel. Data parallel communication "
+                                   "need be initialized. Please check 'dp' in order when calling "
+                                   "initialize_model_parallel.")
         if self.transpose_b:
             if self.use_zero3 and self.output_size_per_partition % dp_size == 0:
                 self.output_size_per_partition = divide(self.output_size_per_partition, dp_size)
@@ -327,7 +333,13 @@ class RowParallelLinear(nn.Cell):
         self.sequence_parallel = self.parallel_config.use_sequence_parallel
         self.use_zero3 = self.parallel_config.use_zero3
         self.transpose_b = transpose_b
-        dp_size = get_dp_world_size()
+        if self.use_zero3:
+            try:
+                dp_size = get_dp_world_size()
+            except AssertionError:
+                raise RuntimeError("When using zero3 optimizer parallel. Data parallel communication "
+                                   "need be initialized. Please check 'dp' in order when calling "
+                                   "initialize_model_parallel.")
         if self.transpose_b:
             if self.use_zero3 and self.output_size % dp_size == 0:
                 self.output_size = divide(self.output_size, dp_size)

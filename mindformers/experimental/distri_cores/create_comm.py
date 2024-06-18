@@ -44,6 +44,8 @@ _DATA_PARALLEL_GLOBAL_RANKS_WITH_CP = None
 _TENSOR_AND_DP_GROUP_WITH_CP = None
 _GLOBAL_STREAM = None
 
+_IS_INITIALIZED = False
+
 _SP_SEND_STREAM = None
 _SP_RECV_STREAM = None
 _SP_SEND_OML_STREAM = None
@@ -334,6 +336,8 @@ def initialize_model_parallel(tp_size=1,
 
     order = order.lower()
     order_list = order.split('-')
+    if not order:
+        raise RuntimeError(f"order can not be empty.")
     if len(set(order_list)) != len(order_list):
         raise RuntimeError(f"Duplicate elements in order ({order}).")
     if 'ep' in order:
@@ -385,10 +389,13 @@ def initialize_model_parallel(tp_size=1,
         _SP_SEND_OML_STREAM = hal.Stream()
         _SP_RECV_OML_STREAM = hal.Stream()
 
+    global _IS_INITIALIZED
+    _IS_INITIALIZED = True
+
 
 def is_initialized():
     """Useful for code segments that may be accessed with or without mpu initialization"""
-    return _DP_GROUP is not None
+    return _IS_INITIALIZED
 
 
 def is_unitialized() -> bool:
@@ -405,7 +412,9 @@ def is_unitialized() -> bool:
 
 def get_model_parallel_group():
     """Get the model parallel group the caller rank belongs to."""
-    assert _MODEL_PARALLEL_GROUP is not None, 'model parallel group is not initialized'
+    assert _MODEL_PARALLEL_GROUP is not None, \
+            ("model parallel group is not initialized. Please check whether communication "
+             "is initialized and 'tp-pp' in order.")
     return _MODEL_PARALLEL_GROUP
 
 
@@ -413,15 +422,17 @@ def get_model_parallel_group():
 def get_tp_group(check_initialized=True):
     """Get the tensor model parallel group the caller rank belongs to."""
     if check_initialized:
-        assert (
-                _TP_GROUP is not None
-        ), 'tensor model parallel group is not initialized'
+        assert _TP_GROUP is not None, \
+            ("tensor parallel group is not initialized. Please check whether communication "
+             "is initialized and 'tp' in order.")
     return _TP_GROUP
 
 
 def get_pp_group():
     """Get the pipeline model parallel group the caller rank belongs to."""
-    assert (_PP_GROUP is not None), 'pipeline_model parallel group is not initialized'
+    assert _PP_GROUP is not None, \
+        ("pipeline parallel group is not initialized. Please check whether communication "
+         "is initialized and 'pp' in order.")
     return _PP_GROUP
 
 
@@ -430,12 +441,14 @@ def get_dp_group(with_context_parallel=False):
     """Get the data parallel group the caller rank belongs to."""
     ret = None
     if with_context_parallel:
-        assert (
-                _DP_GROUP_WITH_CP is not None
-        ), 'data parallel group with context parallel combined is not initialized'
+        assert _DP_GROUP_WITH_CP is not None, \
+            ("data parallel group with context parallel combined is not initialized. "
+             "Please check whether communication is initialized and 'dp-cp' in order.")
         ret = _DP_GROUP_WITH_CP
     else:
-        assert _DP_GROUP is not None, 'data parallel group is not initialized'
+        assert _DP_GROUP is not None, \
+            ("data parallel group is not initialized. Please check whether communication "
+             "is initialized and 'dp' in order.")
         ret = _DP_GROUP
     return ret
 
@@ -443,7 +456,9 @@ def get_dp_group(with_context_parallel=False):
 def get_cp_group(check_initialized=True):
     """Get the context parallel group the caller rank belongs to."""
     if check_initialized:
-        assert _CP_GROUP is not None, 'context parallel group is not initialized'
+        assert _CP_GROUP is not None, \
+            ("context parallel group is not initialized. Please check whether communication "
+             "is initialized and 'cp' in order.")
     return _CP_GROUP
 
 
@@ -451,15 +466,17 @@ def get_cp_group(check_initialized=True):
 def get_cp_global_ranks(check_initialized=True):
     """Get all global ranks of the context parallel group that the caller rank belongs to."""
     if check_initialized:
-        assert (
-                _CONTEXT_PARALLEL_GLOBAL_RANKS is not None
-        ), 'context parallel group is not initialized'
+        assert _CONTEXT_PARALLEL_GLOBAL_RANKS is not None, \
+            ("context parallel group is not initialized. Please check whether communication "
+             "is initialized and 'cp' in order.")
     return _CONTEXT_PARALLEL_GLOBAL_RANKS
 
 
 def get_embedding_group():
     """Get the embedding group the caller rank belongs to."""
-    assert _EMBEDDING_GROUP is not None, 'embedding group is not initialized'
+    assert _EMBEDDING_GROUP is not None, \
+        ("pipeline parallel group is not initialized. Please check whether communication "
+         "is initialized and 'pp' in order.")
     return _EMBEDDING_GROUP
 
 def get_tp_world_size():
