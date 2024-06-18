@@ -147,7 +147,8 @@ def tensor_grad_scale_pipeline(scale, grad, accu_grad):
     accu_grad = F.depend(accu_grad, grad)
     new_grad = accu_grad * reciprocal(scale)
     accu_grad = F.depend(accu_grad, new_grad)
-    zeros = F.tensor_mul(accu_grad, 0.0)
+    grad_val = F.cast(F.equal(accu_grad, accu_grad), F.dtype(accu_grad))
+    zeros = F.mul(grad_val, 0)
     new_grad = F.depend(new_grad, F.assign(accu_grad, zeros))
     return new_grad
 
@@ -156,7 +157,9 @@ def tensor_grad_scale_pipeline(scale, grad, accu_grad):
 def tensor_shard_grad_scale_pipeline(scale, grad, accu_grad):
     new_grad = grad * F.cast(reciprocal(scale), F.dtype(grad))
     accu_grad = F.depend(accu_grad, new_grad)
-    new_grad = F.depend(new_grad, F.assign(accu_grad, F.zeros_like(accu_grad)))
+    grad_val = F.cast(F.equal(accu_grad, accu_grad), F.dtype(accu_grad))
+    zeros = F.mul(grad_val, 0)
+    new_grad = F.depend(new_grad, F.assign(accu_grad, zeros))
     return new_grad
 
 
