@@ -187,6 +187,8 @@ class MindIEModelRunner:
                               (block_size * self.num_kv_heads * self.head_size * 2 * 2 * self.num_layers)
         self.model_config.num_blocks = self.npu_num_blocks
         self.model_config.block_size = block_size
+        if not hasattr(self.model_config, "max_position_embedding") or not self.model_config.max_position_embedding:
+            self.model_config.max_position_embedding = self.model_config.seq_length
 
         self.generation_config = GenerationConfig.from_model_config(self.model_config)
 
