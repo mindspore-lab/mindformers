@@ -84,15 +84,19 @@ def main(config):
         not_load_network_params = load_param_into_net(model, checkpoint_dict)
         print("Network parameters are not loaded: %s", str(not_load_network_params))
 
-    for prompt in inputs:
-        inputs_ids = process_input(prompt, tokenizer)
-        outputs = model.generate([inputs_ids],
-                                 max_length=model_config.max_decode_length,
-                                 do_sample=False)
-        for output in outputs:
-            if output[-1] == insertconfig.model.model_config.eos_token_id:
-                output = output[:-1]
-            print(tokenizer.decode(output))
+    with open('text_generation_result.txt', 'w') as writers:
+        for prompt in inputs:
+            inputs_ids = process_input(prompt, tokenizer)
+            outputs = model.generate([inputs_ids],
+                                     max_length=model_config.max_decode_length,
+                                     do_sample=False)
+            for output in outputs:
+                if output[-1] == insertconfig.model.model_config.eos_token_id:
+                    output = output[:-1]
+                result = tokenizer.decode(output)
+                print(result)
+            writers.write(f'text_generation:\n{result}\n')
+    writers.close()
 
 
 if __name__ == "__main__":
