@@ -16,7 +16,7 @@
 """
 Test module for testing the bloom interface used for mindformers.
 How to run this:
-pytest tests/st/test_model/test_bloom_model/test_autoclass.py
+pytest tests/st/test_model/test_bloom_model/test_auto_class.py
 """
 import os
 import shutil
