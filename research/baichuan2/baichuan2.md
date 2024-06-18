@@ -137,7 +137,7 @@ MindFormers提供了默认微调配置`finetune_baichuan2_7b.yaml`和`finetune_b
 
 ```shell
 cd research/baichuan2
-bash ../../script/msrun_launcher.sh \
+bash ../../scripts/msrun_launcher.sh \
  "run_baichuan2.py \
  --config finetune_baichuan2_7b.yaml \
  --load_checkpoint path/to/baichuan2_7b_base.ckpt \
@@ -187,7 +187,7 @@ train_data: 训练数据集文件夹路径或mindrecord文件路径
 
   ```shell
   # 以使用共享盘为例
-  bash ../../script/msrun_launcher.sh \
+  bash ../../scripts/msrun_launcher.sh \
    "run_baichuan2.py \
    --config finetune_baichuan2_7b.yaml \
    --load_checkpoint path/to/baichuan2_7b_base.ckpt \
@@ -201,7 +201,7 @@ train_data: 训练数据集文件夹路径或mindrecord文件路径
 - 在节点1执行如下命令，其中192.168.1.1需要改为节点0的实际ip。
 
   ```shell
-  bash ../../script/msrun_launcher.sh \
+  bash ../../scripts/msrun_launcher.sh \
    "run_baichuan2.py \
    --config finetune_baichuan2_7b.yaml \
    --load_checkpoint path/to/baichuan2_7b_base.ckpt \
