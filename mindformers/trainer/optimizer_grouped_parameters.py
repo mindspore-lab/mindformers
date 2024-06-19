@@ -46,9 +46,7 @@ def get_optimizer_grouped_parameters(model: Optional[PreTrainedModel] = None,
 
     decay_parameters_names = [
         param.name for param in model.trainable_params()
-        if not (len(param.shape) == 1
-                or param.name.endswith(".bias")
-                or (param.name in skip_params)
+        if not ((param.name in skip_params)
                 or check_keywords_in_name(param.name, skip_keywords))
     ]
 
