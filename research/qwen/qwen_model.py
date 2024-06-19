@@ -162,8 +162,6 @@ class QwenForCausalLM(QwenPreTrainedModel):
 
         if batch_valid_length is not None:
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
-        if not self.is_first_iteration:
-            batch_valid_length = self.sub_batch_valid_len(batch_valid_length, 1)
 
         output = self.transformer(tokens, init_reset=init_reset, batch_valid_length=batch_valid_length,
                                   batch_index=batch_index, zactivate_len=zactivate_len,
