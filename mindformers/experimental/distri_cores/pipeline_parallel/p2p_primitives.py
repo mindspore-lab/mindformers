@@ -34,6 +34,7 @@ class ISend(nn.Cell):
 
     def construct(self, send_data):
         """ ISend forward """
+        self.send_stream.wait_stream(hal.current_stream())
         with hal.StreamCtx(self.send_stream):
             self.op_send(send_data)
         return self.send_stream
@@ -51,6 +52,7 @@ class IRecv(nn.Cell):
         """ IRecv forward """
         with hal.StreamCtx(self.recv_stream):
             recv_tensor = self.op_recv(self.data)
+        hal.current_stream().wait_stream(self.recv_stream)
         return self.recv_stream, recv_tensor
 
 

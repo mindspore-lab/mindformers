@@ -28,6 +28,7 @@ from mindspore.context import ParallelMode
 from mindspore.nn.wrap.grad_reducer import DistributedGradReducer
 from mindspore.parallel._utils import _get_enable_parallel_optimizer
 from mindformers.core.clip_grad import ClipGradNorm
+from mindformers.experimental.distri_cores.create_comm import get_dp_group, get_dp_world_size
 
 
 class TrainOneStepCell(Cell):
@@ -219,6 +220,7 @@ class PipelineTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
         self.opt_shard = _get_enable_parallel_optimizer()
         self.learning_rate = deepcopy(self.optimizer.learning_rate)
+        self.reduction = config.parallel_config.reduction
 
         self.loss_scaling_manager = None
         if isinstance(scale_sense, nn.Cell):
@@ -228,6 +230,7 @@ class PipelineTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         elif isinstance(scale_sense, Tensor):
             if scale_sense.shape == (1,) or scale_sense.shape == ():
                 self.scale_sense = Parameter(scale_sense, name='scale_sense')
+        self.allreduce = P.AllReduce(group=get_dp_group())
 
     @C.add_flags(has_effect=True)
     def construct(self, forward_func, *input_data_tuple, **input_data_dict):
@@ -260,4 +263,9 @@ class PipelineTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
 
         if not overflow:
             loss = F.depend(loss, self.optimizer(grads))
+
+        if get_dp_world_size() > 1:
+            loss = self.allreduce(loss)
+            if self.reduction == "mean":
+                loss /= get_dp_world_size()
         return loss, overflow, scaling_sens.value(), learning_rate.value()
