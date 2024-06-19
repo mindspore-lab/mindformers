@@ -361,6 +361,7 @@ class BloomLMHeadModel(BloomPreTrainedModel):
                 logits = logits.reshape(-1, logits.shape[-1])
                 index = input_position.view(-1,)
                 logits = self.gather(logits, index, 0)
+                logits = logits.reshape(batch_size, -1, logits.shape[-1])
             return logits, tokens, input_mask
 
         labels = self.stridedslice(input_ids, (0, 1), (batch_size, seq_length), (1, 1))
