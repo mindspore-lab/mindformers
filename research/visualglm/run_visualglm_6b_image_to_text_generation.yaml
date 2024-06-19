@@ -14,8 +14,6 @@ context:
   mode: 1
   device_target: "Ascend"
   enable_graph_kernel: False
-  graph_kernel_flags: str = "--disable_expand_ops=Softmax,Dropout " \
-    "--enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
   save_graphs: True
   save_graphs_path: "./graph"

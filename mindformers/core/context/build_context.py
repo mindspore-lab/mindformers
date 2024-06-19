@@ -18,6 +18,7 @@ import os
 from typing import Union
 import psutil
 
+import mindspore as ms
 import mindspore.dataset as ds
 from mindspore import context
 from mindspore.communication.management import init, get_group_size, get_rank
@@ -35,6 +36,11 @@ from mindformers.tools.check_rules import get_server_num
 CONTEXT_CONFIG = {
     'mode': 'GRAPH_MODE', 'device_target': 'Ascend', 'device_id': 0, 'save_graphs': False}
 PARALLEL_CONFIG = {'parallel_mode': 'DATA_PARALLEL', 'gradients_mean': True}
+
+
+def check_runtime_num_threads_version():
+    """check mindspore version that need to set the runtime_num_threads to 1"""
+    return bool(ms.__version__ < "2.3")
 
 
 def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
@@ -64,6 +70,11 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
 
     if config.parallel.get("strategy_ckpt_load_file"):
         context.set_auto_parallel_context(strategy_ckpt_load_file=config.parallel.strategy_ckpt_load_file)
+
+    if config.context.get('runtime_num_threads') is None and check_runtime_num_threads_version():
+        context.set_context(runtime_num_threads=1)
+        logger.info("The current MindSpore version is %s,"
+                    "and set the default runtime_num_threads to 1.", ms.__version__)
 
 def set_pipeline_stage(config):
     """Set pipeline stage number."""

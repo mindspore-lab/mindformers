@@ -421,10 +421,6 @@ MindFormers提供`Llama2-7b`的微调示例，
        type: LlamaConfig
        seq_length: 4096
        use_flash_attention: True
-
-   # context
-   context:
-     runtime_num_threads: 1
    ```
 
 2. 执行msrun启动脚本，进行8卡分布式微调

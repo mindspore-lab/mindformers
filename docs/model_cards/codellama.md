@@ -308,10 +308,6 @@ lr_schedule:
   lr_end: 0
   warmup_ratio: 0.03
   total_steps: -1 # -1 means it will load the total steps of the dataset
-
-# context
-context:
-  runtime_num_threads: 1
 ```
 
 - step 3. 在需要进行训练的机器中**都导入权重**，添加预训练权重路径，修改配置文件中的`load_checkpoint`，配置预训练权重路径。参考[权重切分与合并](../feature_cards/Transform_Ckpt.md)的物理机训练案例，修改权重配置如下：

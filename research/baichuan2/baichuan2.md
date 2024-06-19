@@ -158,9 +158,6 @@ train_data: 训练数据集文件夹路径或mindrecord文件路径
 1. 修改`finetune_baichuan2_7b.yaml`
 
     ```yaml
-    context:
-      runtime_num_threads: 1  # 新增配置
-
     parallel_config:
       data_parallel: 8
       model_parallel: 1
