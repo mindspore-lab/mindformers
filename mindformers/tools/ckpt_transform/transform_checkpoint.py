@@ -250,10 +250,10 @@ class TransformCkpt:
                 src_ckpt_dir = os.path.join(soft_link_dir, ckpt_name)
                 # Clear dst_ckpt_dir.
                 dst_ckpt_dir = os.path.join(dst_checkpoint_dir, ckpt_name)
-                self.remake_folder(dst_ckpt_dir, permissions=0o777, rank_id=self.rank_id)
+                self.remake_folder_by_transform_ckpt(dst_ckpt_dir, permissions=0o666)
                 if check_in_modelarts():
                     dst_ckpt_dir_obs = os.path.join(self.transformed_checkpoint_dir_obs, ckpt_name)
-                    self.remake_folder(dst_ckpt_dir_obs, permissions=0o777, rank_id=self.rank_id)
+                    self.remake_folder_by_transform_ckpt(dst_ckpt_dir_obs)
                 logger.info("The transformed checkpoint will be saved under %s.", dst_ckpt_dir)
 
                 self.transform_ckpt(
@@ -313,7 +313,7 @@ class TransformCkpt:
                 else:
                     transform_failed_txt = os.path.join(dst_checkpoint_dir,
                                                         f'transform_failed_rank_{self.rank_id}.txt')
-                create_file(transform_failed_txt)
+                create_file(transform_failed_txt, info=str(e))
 
         # Wait transform finished.
         self.wait_transform(dst_checkpoint_dir)
@@ -406,8 +406,8 @@ class TransformCkpt:
             soft_link = os.path.join(soft_link_dir, ckpt_name.split(".")[0], "rank_0", ckpt_name)
             make_soft_link(soft_link, checkpoint)
 
-    def remake_folder(self, folder_path, permissions=None, rank_id=None):
-        remaked_txt = remake_folder(folder_path, permissions, rank_id)
+    def remake_folder_by_transform_ckpt(self, folder_path, permissions=None):
+        remaked_txt = remake_folder(folder_path, permissions)
         self.cache_list.append(remaked_txt)
 
     def clear_cache(self):
@@ -440,24 +440,18 @@ class TransformCkpt:
             else:
                 merge_path = os.path.join(startegy_path, f'merged_ckpt_strategy.ckpt')
 
-            if os.path.exists(merge_path):
-                logger.info("The merged strategy: %s has existed. \
-                    It will be deleted and re-merge a new strategy.", merge_path)
-                remerged_txt = os.path.join(startegy_path, "remerged.txt")
-                if self.is_main_rank:
-                    os.remove(merge_path)
-                    create_file(remerged_txt)
-                    self.cache_list.append(remerged_txt)
-                else:
-                    while True:
-                        if os.path.exists(remerged_txt):
-                            break
-
+            merged_succeed_txt = os.path.join(startegy_path, "merge_succeed.txt")
             if self.is_main_rank:
+                if os.path.exists(merge_path):
+                    logger.info("The merged strategy: %s has existed. \
+                                It will be deleted and re-merge a new strategy.", merge_path)
+                    os.remove(merge_path)
                 ms.merge_pipeline_strategys(startegy_path, merge_path)
+                create_file(merged_succeed_txt)
+                self.cache_list.append(merged_succeed_txt)
             else:
                 while True:
-                    if os.path.exists(merge_path):
+                    if os.path.exists(merged_succeed_txt):
                         break
 
             return merge_path
