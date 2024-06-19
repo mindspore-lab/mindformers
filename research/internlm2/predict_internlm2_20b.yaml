@@ -118,7 +118,7 @@ model:
     n_kv_heads: 8
     vocab_size: 92544
     rms_norm_eps: 1.0e-5
-    intermediate_size: 14336
+    intermediate_size: 16384
     theta: 1000000
     bos_token_id: 1
     eos_token_id: [2, 92542]
