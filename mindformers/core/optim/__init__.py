@@ -16,7 +16,9 @@
 from .build_optim import build_optim
 from .came import *
 from .optim import *
+from .adamw import *
 
 __all__ = []
 __all__.extend(came.__all__)
 __all__.extend(optim.__all__)
+__all__.extend(adamw.__all__)
