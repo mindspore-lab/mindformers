@@ -330,15 +330,15 @@ class InputBuilder:
 
     Args:
         tokenizer (PreTrainedTokenizer):
-            Tokenizer.
+            A tokenizer for text processing.
         chat_template (str):
-            Model config.
+            A Jinja template to use for this conversion.
         system_role_name (str):
-            The name of system.
+            The name of system role.
         user_role_name (str):
-            The name of user.
+            The name of user role.
         max_length (int):
-            max seq length.
+            The max length of input tokens.
     """
     def __init__(self, tokenizer, chat_template="", system_role_name="system", user_role_name="user", max_length=2048):
         self.tokenizer = tokenizer
@@ -359,7 +359,7 @@ class InputBuilder:
             rank (int):
                 The rank id.
             conversation (List[Dict[str, str]]):
-                The chat input.
+                A conversation object or list of dicts.
             add_generation_prompt (bool, *optional*):
                 Whether to end the prompt with the token(s) that indicate the start of an assistant message.
             adapt_to_max_length (bool, *optional*):
@@ -380,7 +380,7 @@ class InputBuilder:
 
         Args:
             conversation (List[Dict[str, str]]):
-                The chat input.
+                A conversation object or list of dicts.
 
         Returns:
              input_ids
@@ -391,4 +391,4 @@ class InputBuilder:
             raise RuntimeError("The model does not appear to be a chat model because it is not configured with a "
                                "`chat_template`.")
         input_ids = self.tokenizer.apply_chat_template(conversation, **kwargs)
-        return input_ids
+        return input_ids[0].tolist()
