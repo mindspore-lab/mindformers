@@ -53,6 +53,7 @@ for((i=0;i<${PROCESS_NUM};i++))
 do
     rank_id=$((i * (WORLD_SIZE / PROCESS_NUM)))
     echo "start device_$i with rank_id $rank_id"
+    export RANK_ID=$rank_id
     python $script_dir/transform_checkpoint.py \
     --src_checkpoint=$SRC_CKPT \
     --dst_checkpoint_dir=$DST_CKPT_DIR \

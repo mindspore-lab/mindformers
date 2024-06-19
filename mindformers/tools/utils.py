@@ -473,7 +473,8 @@ def get_use_rope_self_define():
 
 
 def is_main_rank():
-    return not get_real_rank() or (check_in_modelarts() and int(os.getenv('DEVICE_ID', '0')) == 0)
+    return not get_real_rank() or \
+        (check_in_modelarts() and get_real_rank() % get_device_num_per_node() == 0)
 
 
 def is_publicly_accessible_path(path):
@@ -500,18 +501,19 @@ def is_publicly_accessible_path(path):
     return False
 
 
-def create_file(file_path):
+def create_file(file_path, info=None):
     """create file."""
     if Validator.is_obs_url(file_path):
         assert check_in_modelarts(), f"When create {file_path}, \
             it is detected that it is not in the ModelArts platform."
         import moxing as mox
         with mox.file.File(file_path, 'w') as f:
-            f.write("Hugging ModelArts.")
+            if info:
+                f.write(info)
     else:
-        # pylint: disable=W0612
         with open(file_path, 'w') as f:
-            pass
+            if info:
+                f.write(info)
 
 
 def delete_file(file_path):
@@ -527,10 +529,10 @@ def delete_file(file_path):
             os.remove(file_path)
 
 
-def remake_folder(folder_path, permissions=None, rank_id=None):
+def remake_folder(folder_path, permissions=None):
     """make folder"""
     remaked_txt = os.path.join(folder_path, "remaked.txt")
-    rank_id = rank_id or get_real_rank()
+    rank_id = get_real_rank()
     if Validator.is_obs_url(folder_path):
         assert check_in_modelarts(), f"When remaking {folder_path}, \
             it is detected that it is not in the ModelArts platform."
@@ -544,7 +546,7 @@ def remake_folder(folder_path, permissions=None, rank_id=None):
             if mox.file.exists(remaked_txt):
                 break
     else:
-        if not rank_id:
+        if is_main_rank():
             if os.path.exists(folder_path):
                 shutil.rmtree(folder_path)
             os.makedirs(folder_path, exist_ok=True)
@@ -618,7 +620,7 @@ def clear_auto_trans_output():
         else:
             folder_path = os.path.join(get_output_root_path(), folder)
         if not get_real_rank():
-            remaked_txt = remake_folder(folder_path, permissions=0o777)
+            remaked_txt = remake_folder(folder_path, permissions=0o666)
             delete_file(remaked_txt)
 
 
