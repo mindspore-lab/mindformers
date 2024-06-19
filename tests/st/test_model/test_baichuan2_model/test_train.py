@@ -29,7 +29,7 @@ ms.set_context(mode=0)
 class TestBaichuan2Train:
     """A test class for testing model training precision."""
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_base_model(self):
@@ -42,12 +42,12 @@ class TestBaichuan2Train:
 
         model_config = get_config()
         # if set 4096, cause Memory pool not enough by large alibi tensor
-        model_config.seq_length = 512
+        model_config.seq_length = 1024
 
-        loss_std = [12.221302, 12.234898, 12.227418, 12.224919, 12.247095,
-                    12.256886, 12.259717, 12.249476, 12.265904, 12.235092,
-                    12.264286, 12.229508, 12.218564, 12.220242, 12.231214,
-                    12.238742, 12.246398, 12.267619, 12.264290, 12.302188]
+        loss_std = [12.258659, 12.261440, 12.255911, 12.254996, 12.218494,
+                    12.218085, 12.238973, 12.240837, 12.243781, 12.202168,
+                    12.223692, 12.230153, 12.233392, 12.260446, 12.229095,
+                    12.253792, 12.231637, 12.224062, 12.224649, 12.263802]
 
         model = get_model(model_config)
 
