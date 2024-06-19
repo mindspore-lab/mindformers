@@ -38,13 +38,13 @@ class TestGenerateOutput:
 
         vocab_size = 50257
         input_length = 8
-        seq_length = 64
+        self.seq_length = 64
 
-        model_config = GPT2Config(num_layers=2, seq_length=seq_length, use_past=True, checkpoint_name_or_path="")
+        model_config = GPT2Config(num_layers=2, seq_length=self.seq_length, use_past=True, checkpoint_name_or_path="")
         self.model = GPT2LMHeadModel(model_config)
 
         self.input_ids = np.pad(np.random.randint(low=0, high=vocab_size, size=input_length),
-                                (0, seq_length - input_length), mode='constant', constant_values=50256).tolist()
+                                (0, self.seq_length - input_length), mode='constant', constant_values=50256).tolist()
 
         std_list = [27469, 38984, 6921, 38804, 2163, 5072, 37619, 7877, 22424, 22424, 22424, 22424, 22424, 22424,
                     22424, 36387, 36387, 36387]
@@ -75,3 +75,19 @@ class TestGenerateOutput:
         assert isinstance(result["scores"], tuple)
         assert len(result["scores"]) == max_new_tokens
         assert result["logits"] is None
+
+    def test_generate_max_length(self):
+        """
+        Feature: test generate max length.
+        Description: Test correctness of generate max length.
+        Expectation: AssertionError
+        """
+        max_length = 100
+
+        output_ids = self.model.generate(self.input_ids, do_sample=False, max_length=max_length)
+        assert len(output_ids[0]) <= self.seq_length
+
+        max_new_tokens = 100
+        output_ids = self.model.generate(self.input_ids, do_sample=False, max_length=max_length,
+                                         max_new_tokens=max_new_tokens, eos_token_id=[-1])
+        assert len(output_ids[0]) <= self.seq_length

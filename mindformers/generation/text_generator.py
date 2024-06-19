@@ -699,17 +699,17 @@ class GenerationMixin:
         if generation_config.pad_token_id is None:
             generation_config.pad_token_id = 0
 
+        _, input_ids_length = get_valid_length_each_example(input_ids, generation_config.pad_token_id)
+
+        if generation_config.max_new_tokens is not None:
+            generation_config.max_length = generation_config.max_new_tokens + input_ids_length
+
         if generation_config.max_length > self.config.seq_length:
             logger.warning("max_length %s can not exceeds model seq_length %s, set max_length = seq_length.",
                            generation_config.max_length, self.config.seq_length)
             generation_config.max_length = self.config.seq_length
 
         logger.debug("max length is: %s", generation_config.max_length)
-
-        _, input_ids_length = get_valid_length_each_example(input_ids, generation_config.pad_token_id)
-
-        if generation_config.max_new_tokens is not None:
-            generation_config.max_length = generation_config.max_new_tokens + input_ids_length
 
         if not self.config.is_encoder_decoder and input_ids_length > generation_config.max_length:
             raise ValueError(
