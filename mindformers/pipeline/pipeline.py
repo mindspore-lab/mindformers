@@ -414,6 +414,9 @@ def get_ms_experimental_pipeline(
         if isinstance(tokenizer, (str, tuple)):
             if isinstance(tokenizer, tuple):
                 # For tuple we have (tokenizer name, {kwargs})
+                if not isinstance(tokenizer[1], dict):
+                    raise TypeError(f"tokenizer[1] should be a dict when type of tokenizer is tuple, "
+                                    f"but get {type(tokenizer[1])}.")
                 use_fast = tokenizer[1].pop("use_fast", use_fast)
                 tokenizer_identifier = tokenizer[0]
                 tokenizer_kwargs = tokenizer[1]

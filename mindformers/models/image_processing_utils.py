@@ -25,23 +25,11 @@ import numpy as np
 import mindspore as ms
 from PIL import Image
 
-from mindformers.tools import logger
+from mindformers.tools import logger, add_model_info_to_auto_map
 from mindformers.tools import PushToHubMixin, cached_file, download_url, is_offline_mode, is_remote_url, custom_object_save
 from mindformers.utils.image_transforms import center_crop, normalize, rescale
 from mindformers.utils.image_utils import ChannelDimension
 from mindformers.models.utils import IMAGE_PROCESSOR_NAME, is_json_serializable
-
-def add_model_info_to_auto_map(auto_map, repo_id):
-    """
-    Adds the information of the repo_id to a given auto map.
-    """
-    for key, value in auto_map.items():
-        if isinstance(value, (tuple, list)):
-            auto_map[key] = [f"{repo_id}--{v}" if (v is not None and "--" not in v) else v for v in value]
-        elif value is not None and "--" not in value:
-            auto_map[key] = f"{repo_id}--{value}"
-
-    return auto_map
 
 
 class ImageProcessingMixin(PushToHubMixin):
@@ -354,7 +342,7 @@ class ImageProcessingMixin(PushToHubMixin):
         image_processor = cls(**image_processor_dict)
 
         # Update image_processor with kwargs if needed
-        to_remove = []
+        to_remove = ["_from_auto"]
         for key, value in kwargs.items():
             if hasattr(image_processor, key):
                 setattr(image_processor, key, value)

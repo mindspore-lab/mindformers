@@ -300,6 +300,8 @@ class _BaseAutoModelClass:
     @classmethod
     def from_config_experimental_mode(cls, config, **kwargs):
         """get models from_config"""
+        if not isinstance(config, PretrainedConfig):
+            raise TypeError(f"config should be a model config, like LlamaConfig, but get {type(config)}")
         trust_remote_code = kwargs.pop("trust_remote_code", None)
         has_remote_code = hasattr(config, "auto_map") and cls.__name__ in config.auto_map
         has_local_code = type(config) in cls._model_mapping.keys()  # pylint: disable=C0123
