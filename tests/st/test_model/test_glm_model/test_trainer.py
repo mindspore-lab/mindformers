@@ -50,7 +50,7 @@ def generator_eval():
         yield eval_data
 
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 class TestGLMTrainerMethod:

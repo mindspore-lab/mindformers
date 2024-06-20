@@ -86,7 +86,7 @@ def write_raw_text_data(stage, data_record_path):
                 tfp.write(y + '\n')
 
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 class TestTranslationTrainer:
