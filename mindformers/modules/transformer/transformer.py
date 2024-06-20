@@ -26,7 +26,7 @@ import mindspore as ms
 from mindspore.common.tensor import Tensor
 from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer
-from mindspore import nn, ops
+from mindspore import nn
 from mindspore import context
 import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
@@ -926,8 +926,8 @@ class LowerTriangularMaskWithDynamic(Cell):
                 raise ValueError("seq_length should be larger than 2048 when use mask_compression")
             self.lower_triangle_mask = ms.Tensor(np.triu(np.ones((2048, 2048), dtype=np.int8), k=1), dtype=ms.uint8)
         else:
-            self.lower_triangle_mask = ops.cast(Tensor(np.tril(np.ones(shape=(seq_length, seq_length))),
-                                                       mstype.float32), compute_type)
+            self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length), dtype=np.int8)),
+                                              dtype=compute_type)
         self.shape = P.Shape()
         self.cast = P.Cast()
         self.reshape = P.Reshape()
