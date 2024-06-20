@@ -38,9 +38,12 @@ class Module(nn.Cell):
         if config is not None:
             self.config = config
             self.share_embedding_weight = config.share_embedding_weight
-            if get_pp_world_size() > 1:
-                self.first_stage = is_pipeline_first_stage()
-                self.last_stage = is_pipeline_last_stage()
+            try:
+                if get_pp_world_size() > 1:
+                    self.first_stage = is_pipeline_first_stage()
+                    self.last_stage = is_pipeline_last_stage()
+            except AssertionError:
+                pass
 
     def get_embedding_or_head_share_weight(self, layers):
         """get embedding or head share weight"""
