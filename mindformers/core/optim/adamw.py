@@ -72,7 +72,7 @@ def _update_run_op(beta1, beta2, eps, step, lr,
 
 def _check_param_value(betas, eps, weight_decay, prim_name):
     """Check the type of inputs."""
-    validator.check_value_type('betas', betas, [tuple], prim_name)
+    validator.check_value_type('betas', betas, [list, tuple], prim_name)
     validator.check("betas size", len(betas), "", [2], validator.IN, prim_name)
     validator.check_value_type("betas[0]", betas[0], [float], prim_name)
     validator.check_value_type("betas[1]", betas[1], [float], prim_name)
@@ -122,8 +122,9 @@ class AdamW(Optimizer):
             - LearningRateSchedule: Learning rate is dynamic. During training, the optimizer calls the instance of
               LearningRateSchedule with step as the input to get the learning rate of current step.
 
-        betas (tuple(float)): The exponential decay rate for the 1st and 2nd moment estimations. Default: (0.9, 0.999).
-            Each element should be in range (0.0, 1.0).
+        betas (Union[list(float), tuple(float)]): The exponential decay rate for the 1st and 2nd moment estimations.
+            Default: (0.9, 0.999). Each element should be in range (0.0, 1.0).
+
         eps (float): Term added to the denominator to improve numerical stability. Default: 1e-6.
             Should be greater than 0.
 
