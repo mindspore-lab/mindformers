@@ -16,7 +16,9 @@
 import json
 import os
 import re
+import time
 import shutil
+import random
 import tempfile
 from multiprocessing import Process
 from typing import Dict, List, Tuple, Union
@@ -493,34 +495,36 @@ def is_publicly_accessible_path(path):
 
 def remake_folder(folder_path, permissions):
     """make folder"""
+    from .logger import logger
     remaked_txt = os.path.join(folder_path, "remaked.txt")
     if is_main_rank():
         if os.path.exists(folder_path) and os.listdir(folder_path):
             shutil.rmtree(folder_path)
         os.makedirs(folder_path, exist_ok=True)
         os.chmod(folder_path, permissions)
-        f = open(remaked_txt, "w")
-        f.close()
-    while True:
-        if os.path.exists(remaked_txt):
-            break
+        # pylint: disable=W0612
+        with open(remaked_txt, "w") as f:
+            pass
+    while not os.path.exists(remaked_txt):
+        time.sleep(0.1 + random.uniform(0, 0.1))
+    logger.info(f"Folder {folder_path} remake with permissions {oct(permissions)}")
 
 
 def remove_folder(folder_path):
     """delete folder"""
+    from .logger import logger
     if check_in_modelarts():
         import moxing as mox
         if mox.file.exists(folder_path) and not get_real_rank():
             mox.file.remove(folder_path, recursive=True)
-        while True:
-            if not mox.file.exists(folder_path):
-                break
+        while mox.file.exists(folder_path):
+            time.sleep(0.1 + random.uniform(0, 0.1))
     else:
         if os.path.exists(folder_path) and not get_real_rank():
             shutil.rmtree(folder_path)
-        while True:
-            if not os.path.exists(folder_path):
-                break
+        while os.path.exists(folder_path):
+            time.sleep(0.1 + random.uniform(0, 0.1))
+    logger.info(f"Folder {folder_path} removed successfully")
 
 
 def get_epoch_and_step_from_ckpt_name(ckpt_file):
