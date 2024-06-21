@@ -214,75 +214,6 @@ input_path:  下载HuggingFace权重的文件夹路径
 output_path: 转换后的MindSpore权重文件保存路径
 ```
 
-## 基于API的快速使用
-
-### 基于AutoClass的快速使用
-
-可以使用AutoClass接口，通过模型名称获取相应的model/preprocess/tokenizer等实例，并自动下载并加载权重
-
-`from_pretrained()` 接口会自动从云上下载预训练的模型，存储路径：`mindformers/checkpoint_download/llama2`
-
-```python
-import mindspore
-from mindformers import AutoConfig, AutoModel, AutoTokenizer
-
-# 指定图模式，指定使用训练卡id
-mindspore.set_context(mode=0, device_id=0)
-
-tokenizer = AutoTokenizer.from_pretrained('llama2_7b')
-
-# model的实例化有以下两种方式，选择其中一种进行实例化即可
-# 1. 直接根据默认配置实例化
-model = AutoModel.from_pretrained('llama2_7b')
-# 2. 自定义修改配置后实例化
-config = AutoConfig.from_pretrained('llama2_7b')
-# config.xxx = xxx                      # 根据需求自定义修改其余模型配置
-model = AutoModel.from_config(config)   # 从自定义配置项中实例化模型
-
-inputs = tokenizer("I love Beijing, because")["input_ids"]
-# 首次调用model.generate()进行推理将包含图编译时间，推理性能显示不准确，多次重复调用以获取准确的推理性能
-outputs = model.generate(inputs, max_new_tokens=30, do_sample=False)
-response = tokenizer.decode(outputs)
-print(response)
-# ['<s>I love Beijing, because it’s a city that is constantly changing. I have been living here for 10 years and I have seen the city change so much.I']
-```
-
-### 基于Trainer的快速推理
-
-> 注：下面仅显示接口使用方式，模型启动训练需求多卡分布式训练，训练脚本需配合分布式脚本启动
-
-```python
-import mindspore
-from mindformers.trainer import Trainer
-
-# 指定图模式，指定使用训练卡id
-mindspore.set_context(mode=0, device_id=0)
-
-# 初始化预训练任务
-trainer = Trainer(task='text_generation',
-                  model='llama2_7b',
-                  train_dataset='path/to/train_dataset')
-
-# 开启推理
-predict_result = trainer.predict(input_data="I love Beijing, because")
-# [{'text_generation_text': ['<s>I love Beijing, because it’s a a city that is constantly changing. I have been living here for 10 years and I have']}]
-```
-
-### 基于Pipeline的快速推理
-
-```python
-import mindspore
-from mindformers.pipeline import pipeline
-
-# 指定图模式，指定使用训练卡id
-mindspore.set_context(mode=0, device_id=0)
-
-pipeline_task = pipeline("text_generation", model='llama2_7b', max_length=30)
-pipeline_result = pipeline_task("I love Beijing, because", do_sample=False)
-print(pipeline_result)
-# [{'text_generation_text': ['<s>I love Beijing, because it’s a a city that is constantly changing. I have been living here for 10 years and I have']}]
-```
-
 ## 预训练
 
 MindFormers提供`llama2-7b`单机多卡以及`llama2_13b`多机多卡的预训练示例，
@@ -551,341 +482,36 @@ MindFormers提供Llama2-7b的PrefixTuning微调示例，微调过程中使用的
 
 ## 推理
 
-### 基本介绍
+MindFormers提供`Llama2-7b`的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡、多卡以及多batch推理。
 
-　　MindFormers 定位打造训练->微调->部署的端到端大模型工具套件，为了更好性能地部署已经微调训练好的大模型，我们利用MindSpore打造了全新的训推一体高性能推理引擎，保证训练与推理使用同一套脚本，为用户提供了开箱即用的推理部署方案，为用户提供端到端的大模型解决方案，帮助用户使能大模型业务。
+```shell
+# 脚本使用
+bash bash scripts/examples/llama2/run_llama2_predict.sh PARALLEL CONFIG_PATH CKPT_PATH DEVICE_NUM
 
-　　MindSpore 大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。在Atlas 800T A2硬件环境下推理，可加入如下配置。
-
-```yaml
-context:
-  ascend_config:
-    precision_mode: "must_keep_origin_dtype"
+# 参数说明
+PARALLEL:    是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
+CONFIG_PATH: 模型配置文件路径
+CKPT_PATH:   模型权重文件路径
+DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 ```
 
-### 基于generate的推理
+### 单卡推理
 
-以下为基于model.generate接口的自定义推理脚本，支持多卡多batch推理。
-
-```python
-# run_llama2_predict.py
-import argparse
-import mindspore as ms
-import numpy as np
-import os
-from mindspore import load_checkpoint, load_param_into_net
-from mindspore.train import Model
-
-from mindformers import MindFormerConfig, LlamaConfig, TransformerOpParallelConfig, LlamaTokenizer, LlamaForCausalLM
-from mindformers import init_context, ContextConfig, ParallelContextConfig
-from mindformers.tools.utils import str2bool, get_real_rank
-from mindformers.trainer.utils import get_last_checkpoint
-
-
-def main(args):
-    """main function."""
-    # multi batch inputs
-    inputs = ["I love Beijing, because",
-              "LLaMA is a",
-              "Huawei is a company that"]
-
-    # set model config
-    config = MindFormerConfig(args.yaml_file)
-
-    # init environment
-    init_context(use_parallel=config.use_parallel,
-                 context_config=config.context,
-                 parallel_config=config.parallel)
-
-    model_config = LlamaConfig(**config.model.model_config)
-    model_config.parallel_config = TransformerOpParallelConfig(**config.parallel_config)
-    model_config.batch_size = len(inputs)
-    model_config.use_past = args.use_past
-    model_config.seq_length = args.seq_length
-    if args.checkpoint_path and not config.use_parallel:
-        model_config.checkpoint_name_or_path = args.checkpoint_path # 如果本地已有ckpt，可加绝对路径：/path/to/model.ckpt
-    print(f"config is: {model_config}")
-
-    # build tokenizer
-    tokenizer = LlamaTokenizer.from_pretrained(args.model_type) # 如果本地已有tokenizer.model，可加绝对路径：/path/to/tokenizer_directory/
-    # build model from config
-    model = LlamaForCausalLM(model_config)
-
-    # if use parallel, load distributed checkpoints
-    if config.use_parallel:
-        # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(args.checkpoint_path, "rank_{}".format(get_real_rank()))
-        ckpt_path = get_last_checkpoint(ckpt_path)
-        print("ckpt path: %s", str(ckpt_path))
-
-        # shard model and load sharded ckpt
-        warm_up_model = Model(model)
-        input_ids = ms.Tensor(np.ones(shape=(model_config.batch_size, model_config.seq_length)), ms.int32)
-        if model_config.use_past:
-            infer_data = model.prepare_inputs_for_predict_layout(input_ids)
-            warm_up_model.infer_predict_layout(*infer_data)
-        else:
-            warm_up_model.infer_predict_layout(input_ids)
-        checkpoint_dict = load_checkpoint(ckpt_path)
-        not_load_network_params = load_param_into_net(model, checkpoint_dict)
-        print("Network parameters are not loaded: %s", str(not_load_network_params))
-
-    inputs_ids = tokenizer(inputs, max_length=model_config.seq_length, padding="max_length")["input_ids"]
-    outputs = model.generate(inputs_ids,
-                             max_length=model_config.max_decode_length,
-                             do_sample=model_config.do_sample,
-                             top_k=model_config.top_k,
-                             top_p=model_config.top_p)
-    for output in outputs:
-        print(tokenizer.decode(output))
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model_type', default='llama_7b', type=str,
-                        help='which model to use.')
-    parser.add_argument('--device_id', default=0, type=int,
-                        help='set device id.')
-    parser.add_argument('--checkpoint_path', default='', type=str,
-                        help='set checkpoint path.')
-    parser.add_argument('--use_past', default=True, type=str2bool,
-                        help='whether use past.')
-    parser.add_argument('--yaml_file', default="", type=str,
-                        help='predict yaml path')
-    parser.add_argument('--seq_length', default=512, type=int,
-                        help='predict max length')
-    args = parser.parse_args()
-    main(args)
-
-# 多batch输出
-# <s>I love Beijing,because it is a city that is constantly changing. I have been living here for 10 years ...
-# <s>LlaMa is a large-scale, open-source, multimodal, multilingual, multitask, and multimodal pretrained language model....
-# <s>Huawei is a company that has been around for a long time. ...
+```shell
+   bash scripts/examples/llama2/run_llama2_predict.sh single \
+    configs/llama2/predict_llama2_7b.yaml \
+    path/to/llama2_7b.ckpt
 ```
 
-#### 单卡推理
+### 多卡推理
 
-1. 修改模型配置文件，并创建上述推理脚本`run_llama2_predict.py`
+以`Llama2-7b`2卡推理为例。
 
-   ```yaml
-   use_parallel: False
-   ```
-
-2. 执行推理命令
-
-   ```shell
-   python run_llama2_predict.py --yaml_file path/to/predict_llama2_7b.yaml --checkpoint_path path/to/checkpoint.ckpt --model_type llama2_7b
-
-   # 参数说明
-   yaml_file:       配置文件路径
-   checkpoint_path: 加载权重路径
-   model_type:      模型类型
-   ```
-
-#### 多卡推理
-
-以2卡推理为例。
-
-1. 修改模型配置文件，并创建上述推理脚本`run_llama2_predict.py`
-
-   ```yaml
-   use_parallel: True
-
-   parallel_config:
-     data_parallel: 1
-     model_parallel: 2  # 修改为使用卡数
-     pipeline_stage: 1
-     use_seq_parallel: False
-     micro_batch_num: 1
-     vocab_emb_dp: True
-     gradient_aggregation_group: 4
-   micro_batch_interleave_num: 1
-   ```
-
-2. 切分权重
-
-   切分权重可以参考[权重切分与合并](../feature_cards/Transform_Ckpt.md#离线转换案例一完整权重转换为分布式权重)中的推理案例三，使用自动转换权重得到的分布式权重在`output/transformed_checkpoint`文件夹中。
-
-3. 执行推理命令
-
-   ```shell
-   bash scripts/msrun_launcher.sh "run_llama2_predict.py \
-     --yaml_file path/to/predict_llama2_7b.yaml \
-     --checkpoint_path path/to/shard_checkpoint_dir \
-     --model_type llama2_7b" 2
-   ```
-
-   > 注：多卡推理时, 使用的checkpoint必须是经过切分的, shard_checkpoint_dir文件夹中包含rank_{}文件夹。
-
-### 基于pipeline的推理
-
-以下为基于pipeline接口的自定义推理脚本，支持多卡推理。
-
-```python
-# run_llama2_predict.py
-import argparse
-import mindspore as ms
-import numpy as np
-import os
-from mindspore import load_checkpoint, load_param_into_net
-from mindspore.train import Model
-
-from mindformers import MindFormerConfig, LlamaConfig, TransformerOpParallelConfig, LlamaTokenizer, LlamaForCausalLM, pipeline
-from mindformers import init_context, ContextConfig, ParallelContextConfig
-from mindformers.tools.utils import str2bool, get_real_rank
-from mindformers.trainer.utils import get_last_checkpoint
-
-
-def main(args):
-    """main function."""
-    # 多输入
-    inputs = ["I love Beijing, because",
-              "LLaMA is a",
-              "Huawei is a company that"]
-
-    # set model config
-    config = MindFormerConfig(args.yaml_file)
-
-    # 初始化环境
-    init_context(use_parallel=config.use_parallel,
-                 context_config=config.context,
-                 parallel_config=config.parallel)
-
-    model_config = LlamaConfig(**config.model.model_config)
-    model_config.parallel_config = TransformerOpParallelConfig(**config.parallel_config)
-    model_config.use_past = args.use_past
-    model_config.seq_length = args.seq_length
-    if args.checkpoint_path and not config.use_parallel:
-        model_config.checkpoint_name_or_path = args.checkpoint_path # 如果本地已有ckpt，可加绝对路径：/path/to/model.ckpt
-    print(f"config is: {model_config}")
-
-    # build tokenizer
-    tokenizer = LlamaTokenizer.from_pretrained(args.model_type) # 如果本地已有tokenizer.model，可加绝对路径：/path/to/tokenizer_directory/
-
-    model = LlamaForCausalLM(model_config)
-    model.set_train(False)
-
-    # if use parallel, load distributed checkpoints
-    if config.use_parallel:
-        # find the sharded ckpt path for this rank
-        ckpt_path = os.path.join(args.checkpoint_path, "rank_{}".format(get_real_rank()))
-        ckpt_path = get_last_checkpoint(ckpt_path)
-        print("ckpt path: %s", str(ckpt_path))
-
-        # shard model and load sharded ckpt
-        warm_up_model = Model(model)
-        input_ids = ms.Tensor(np.ones(shape=(1, model_config.seq_length)), ms.int32)
-        if model_config.use_past:
-            infer_data = model.prepare_inputs_for_predict_layout(input_ids)
-            warm_up_model.infer_predict_layout(*infer_data)
-        else:
-            warm_up_model.infer_predict_layout(input_ids)
-        checkpoint_dict = load_checkpoint(ckpt_path)
-        not_load_network_params = load_param_into_net(model, checkpoint_dict)
-        print("Network parameters are not loaded: %s", str(not_load_network_params))
-
-    text_generation_pipeline = pipeline(task="text_generation", model=model, tokenizer=tokenizer)
-    outputs = text_generation_pipeline(inputs,
-                                       max_length=model_config.max_decode_length,
-                                       do_sample=model_config.do_sample,
-                                       top_k=model_config.top_k,
-                                       top_p=model_config.top_p)
-    for output in outputs:
-        print(output)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--model_type', default='llama_7b', type=str,
-                        help='which model to use.')
-    parser.add_argument('--device_id', default=0, type=int,
-                        help='set device id.')
-    parser.add_argument('--checkpoint_path', default='', type=str,
-                        help='set checkpoint path.')
-    parser.add_argument('--use_past', default=True, type=str2bool,
-                        help='whether use past.')
-    parser.add_argument('--yaml_file', default="", type=str,
-                        help='predict yaml path')
-    parser.add_argument('--seq_length', default=512, type=int,
-                        help='predict max length')
-    args = parser.parse_args()
-    main(args)
-
-# 推理输出
-# 'text_generation_text':['I love Beijing,because it is a city that is constantly changing. I have been living here for 10 years ...
-# 'text_generation_text':['LlaMa is a large-scale, open-source, multimodal, multilingual, multitask, and multimodal pretrained language model....
-# 'text_generation_text':['Huawei is a company that has been around for a long time. ...
+```shell
+   bash scripts/examples/llama2/run_llama2_predict.sh parallel \
+    configs/llama2/predict_llama2_7b.yaml \
+    path/to/llama2_7b.ckpt 2
 ```
-
-#### 单卡推理
-
-推理过程与[**基于generate推理的单卡推理**](#单卡推理)一致，只需要修改`run_llama2_predict.py`内容和配置文件之后运行即可。
-
-#### 多卡推理
-
-推理过程与[**基于generate推理的多卡推理**](#多卡推理)一致，只需要修改`run_llama2_predict.py`内容和配置文件之后运行即可。
-
-### 基于run_mindformer脚本的推理
-
-使用`run_mindformer.py`进行推理，在`tokenizer`配置下添加`vocab_file`及其`tokenizer.model`的路径，`tokenizer.model`可通过[模型权重下载](#模型权重下载)得到。
-
-#### 单卡推理
-
-1. 修改模型配置文件`configs/llama2/predict_llama2_7b.yaml`
-
-   ```yaml
-   processor:
-     return_tensors: ms
-     tokenizer:
-       vocab_file: "path/to/tokenizer.model"  # 增加tokenizer.model文件路径
-   ```
-
-2. 执行推理命令
-
-   ```shell
-   python run_mindformer.py --config configs/llama2/predict_llama2_7b.yaml --run_mode predict --predict_data 'I love Beijing, because' --use_parallel False
-
-   # 推理输出
-   # I love Beijing, because it is a city that is constantly changing. I have been living here for 10 years and I...
-   ```
-
-#### 多卡推理
-
-以2卡推理为例
-
-1. 模型权重切分
-
-   可参考[权重切分与合并](../feature_cards/Transform_Ckpt.md#离线转换案例一完整权重转换为分布式权重)中的推理案例三进行完整权重切分以用于多卡推理。
-
-2. 修改模型配置文件`configs/llama2/predict_llama2_7b.yaml`
-
-   ```yaml
-   use_parallel: True
-   parallel_config:
-     data_parallel: 1
-     model_parallel: 2  # 修改为使用卡数
-     pipeline_stage: 1
-     use_seq_parallel: False
-     micro_batch_num: 1
-     vocab_emb_dp: True
-     gradient_aggregation_group: 4
-   micro_batch_interleave_num: 1
-
-   processor:
-     return_tensors: ms
-     tokenizer:
-       vocab_file: "path/to/tokenizer.model"  # 增加tokenizer.model文件路径
-   ```
-
-3. 执行推理命令
-
-   ```shell
-   bash scripts/msrun_launcher.sh "run_mindformer.py \
-     --config configs/llama2/predict_llama2_7b.yaml \
-     --run_mode predict \
-     --use_parallel True \
-     --predict_data \"I love Beijing, because\"" 2
-   ```
 
 ## 评测
 

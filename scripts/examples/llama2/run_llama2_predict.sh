@@ -32,5 +32,5 @@ elif [ "$PARALLEL" = "parallel" ]; then
     --load_checkpoint $CKPT_PATH \
     --use_parallel" "$DEVICE_NUM"
 else
-  echo "Not supported mode $PARALLEL."
+  echo "Only support 'single' or 'parallel', but got $PARALLEL."
 fi
