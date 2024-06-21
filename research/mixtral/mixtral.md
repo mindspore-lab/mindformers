@@ -431,21 +431,6 @@ train_data: 训练数据集文件夹路径
 
 微调后可通过以下命令进行单机多卡推理
 
-- step 1. 修改cann包安装路径下的fusion_config.json文件，路径为`/{path}/CANN-7.X/opp/built-in/fusion_pass/fusion_config.json`
-
-```txt
-{
-  "Switch":{
-    "GrapFusion":{
-      ......
-      "ZZMatMulToMatmulV3FusionPass":"off"    #在GrapFusion中添加该行,关闭该融合算子
-    }
-  }
-}
-```
-
-- step 2. 微调后可通过以下命令进行单机多卡推理
-
 ```shell
 cd mindformers/research
 bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
