@@ -486,7 +486,7 @@ MindFormers提供`Llama2-7b`的快速推理脚本，脚本主要通过generate�
 
 ```shell
 # 脚本使用
-bash bash scripts/examples/llama2/run_llama2_predict.sh PARALLEL CONFIG_PATH CKPT_PATH DEVICE_NUM
+bash scripts/examples/llama2/run_llama2_predict.sh PARALLEL CONFIG_PATH CKPT_PATH DEVICE_NUM
 
 # 参数说明
 PARALLEL:    是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
@@ -498,9 +498,9 @@ DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 ### 单卡推理
 
 ```shell
-   bash scripts/examples/llama2/run_llama2_predict.sh single \
-    configs/llama2/predict_llama2_7b.yaml \
-    path/to/llama2_7b.ckpt
+bash scripts/examples/llama2/run_llama2_predict.sh single \
+ configs/llama2/predict_llama2_7b.yaml \
+ path/to/llama2_7b.ckpt
 ```
 
 ### 多卡推理
@@ -508,9 +508,9 @@ DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 以`Llama2-7b`2卡推理为例。
 
 ```shell
-   bash scripts/examples/llama2/run_llama2_predict.sh parallel \
-    configs/llama2/predict_llama2_7b.yaml \
-    path/to/llama2_7b.ckpt 2
+bash scripts/examples/llama2/run_llama2_predict.sh parallel \
+ configs/llama2/predict_llama2_7b.yaml \
+ path/to/llama2_7b.ckpt 2
 ```
 
 ## 评测
