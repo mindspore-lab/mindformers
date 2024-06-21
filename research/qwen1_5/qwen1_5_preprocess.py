@@ -44,10 +44,10 @@ def preprocess(messages, tokenizer, seq_length):
                 truncation=True,
             )
         )
-    input_ids = np.array(texts)
-    target_ids = np.array(texts)
+    input_ids = np.array(texts).astype(np.int32)
+    target_ids = np.array(texts).astype(np.int32)
     target_ids[target_ids == tokenizer.pad_token_id] = IGNORE_TOKEN_ID
-    attention_mask = np.where(input_ids == tokenizer.pad_token_id, 0, 1)
+    attention_mask = np.where(input_ids == tokenizer.pad_token_id, 0, 1).astype(np.int32)
 
     return dict(
         input_ids=input_ids, target_ids=target_ids, attention_mask=attention_mask
@@ -113,7 +113,10 @@ if __name__ == '__main__':
     writer = FileWriter(file_name=args.output_file,
                         shard_num=args.file_partition)
     writer.add_schema(schema)
-    writer.open_and_set_header()
+    try:
+        writer.open_and_set_header()
+    except AttributeError:
+        pass
 
     transforms_count = 0
     word_tokenizer = Qwen2Tokenizer(
