@@ -527,10 +527,8 @@ class LLamaDecodeLayer(nn.Cell):
                                    is_dynamic=is_dynamic,
                                    parallel_config=parallel_config)
         if self.expert_num == 1:
-            logger.info("MoE config is None, use normal FFN")
             self.feed_forward = ffn
         else:
-            logger.info("MoE config is provided, use MoE FFN")
             if self.use_moe_infer:
                 self.feed_forward = MoEInfer(
                     ffn=ffn,
