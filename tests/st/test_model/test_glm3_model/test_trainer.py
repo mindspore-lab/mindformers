@@ -40,7 +40,7 @@ def generator_train():
         yield train_data
 
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 class TestGLM3TrainerMethod:

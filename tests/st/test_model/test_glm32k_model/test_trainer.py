@@ -27,7 +27,7 @@ from mindformers import Trainer, TrainingArguments
 from mindformers.tools.utils import is_version_ge
 
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 class TestGLM32kTrainerMethod:
