@@ -15,7 +15,7 @@
 """
 Test bloom predict.
 How to run this:
-    tests/st/test_model/test_bloom_model/test_predict.py
+    pytest tests/st/test_model/test_bloom_model/test_predict.py
 """
 import pytest
 import mindspore as ms

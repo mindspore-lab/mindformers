@@ -15,7 +15,7 @@
 """
 Test codegeex2 predict.
 How to run this:
-    tests/st/test_model/test_codegeex2_model/test_predict.py
+    pytest tests/st/test_model/test_codegeex2_model/test_predict.py
 """
 import pytest
 import mindspore as ms
