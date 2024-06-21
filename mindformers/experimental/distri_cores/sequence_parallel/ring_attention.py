@@ -21,7 +21,7 @@ from mindspore.ops.operations.nn_ops import FlashAttentionScore
 from mindspore.communication import get_group_size
 
 from mindformers.experimental.distri_cores.create_comm import get_cp_group, get_cp_world_size, get_cp_rank, \
-    get_sp_send_stream, get_sp_recv_stream
+    get_sp_send_stream
 
 
 class RingAttention(nn.Cell):
@@ -186,8 +186,9 @@ class RingAttention(nn.Cell):
                                                    input_layout=self.input_layout,
                                                    inner_precise=0,
                                                    sparse_mode=self.sparse_mode)
-        self.stream_send = get_sp_send_stream()
-        self.stream_recv = get_sp_recv_stream()
+        if sp > 1:
+            self.stream_send = get_sp_send_stream()
+            self.stream_recv = get_sp_send_stream()
 
     def p2p_communicate(self, rank, send_tensor, send_dst,
                         recv_tensor, recv_src,
@@ -418,8 +419,8 @@ class RingAttention(nn.Cell):
                         softmax_sum[:, :, 1, :, :], cur_attn_out, cur_softmax_max, cur_softmax_sum
                     )
                     attn_out[(slice(None),) * self.seq_dim + (1,)] = attn_out_updated.copy()
-                    softmax_max[:, :, 1, :, :] = softmax_max_updated.copy()
-                    softmax_sum[:, :, 1, :, :] = softmax_sum_updated.copy()
+                    softmax_max = ops.concat((softmax_max[:, :, 0, :, :], softmax_max_updated.copy()), 2)
+                    softmax_sum = ops.concat((softmax_sum[:, :, 0, :, :], softmax_sum_updated.copy()), 2)
                     attn_out = attn_out.view(*attn_out.shape[0:self.seq_dim],
                                              2 * attn_out.shape[self.seq_dim + 1],
                                              *attn_out.shape[(self.seq_dim + 2):]

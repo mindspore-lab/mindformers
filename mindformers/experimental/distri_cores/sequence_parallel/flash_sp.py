@@ -18,10 +18,9 @@ import mindspore.common.dtype as mstype
 from mindspore import Tensor, nn, ops
 from mindspore.ops import Send, Receive
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
-from mindspore.communication import get_group_size
 
 from mindformers.experimental.distri_cores.create_comm import get_cp_group, get_cp_world_size, get_cp_rank, \
-    get_sp_send_stream, get_sp_recv_stream, get_sp_send_oml_stream, get_sp_recv_oml_stream
+    get_sp_send_stream
 
 
 class FlashSP(nn.Cell):
@@ -104,9 +103,6 @@ class FlashSP(nn.Cell):
     Supported Platforms:
         ``Ascend910B``
 
-    Examples:
--
-        (1, 16, 2048)
     """
 
     def __init__(self,
@@ -139,25 +135,14 @@ class FlashSP(nn.Cell):
         self.mp = mp
         self.sp = sp
 
+        if sp == 1:
+            raise ValueError(f"Only sp > 1 is supported. For sp == 1, please use FlashAttentionScore")
+
         if sparse_mode != 0:
             raise ValueError(f"Only sparse_mode = 0 is supported")
 
         if input_layout != "BSH":
             raise ValueError(f"Only input_layout = 'BSH' is supported")
-
-        parallel_mode = ms.get_auto_parallel_context("parallel_mode")
-        if parallel_mode not in (ms.ParallelMode.STAND_ALONE, ms.ParallelMode.DATA_PARALLEL):
-            raise ValueError(f"The ring-attention only supports stand_alone and data_parallel,"
-                             f"but got the paralle mode of {parallel_mode}")
-        if parallel_mode == ms.ParallelMode.STAND_ALONE:
-            if dp != 1 or sp != 1:
-                raise ValueError(f"Current parallel mode is stand_alone, dp and sp must be 1",
-                                 f"but got the dp is f{dp}, sp is {sp}")
-        else:
-            world_size = get_group_size()
-            if dp * sp != world_size:
-                raise ValueError(f"The product of dp and sp should be equal to total device number,"
-                                 f"but got dp = {dp}, sp = {sp} and total device number = {world_size}")
 
         init_sp = get_cp_world_size()
         if sp != init_sp:
@@ -182,9 +167,9 @@ class FlashSP(nn.Cell):
                                                    inner_precise=0,
                                                    sparse_mode=self.sparse_mode)
         self.stream_send_qkv = get_sp_send_stream()
-        self.stream_recv_qkv = get_sp_recv_stream()
-        self.stream_send_oml = get_sp_send_oml_stream()
-        self.stream_recv_oml = get_sp_recv_oml_stream()
+        self.stream_recv_qkv = get_sp_send_stream()
+        self.stream_send_oml = get_sp_send_stream()
+        self.stream_recv_oml = get_sp_send_stream()
 
     def p2p_send_communicate(self, send_tensor, send_dst,
                              sp_group, stream, send_ops, sr_tag):

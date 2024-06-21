@@ -47,9 +47,6 @@ _GLOBAL_STREAM = None
 _IS_INITIALIZED = False
 
 _SP_SEND_STREAM = None
-_SP_RECV_STREAM = None
-_SP_SEND_OML_STREAM = None
-_SP_RECV_OML_STREAM = None
 
 
 class CreateCommGroups():
@@ -380,14 +377,8 @@ def initialize_model_parallel(tp_size=1,
     _GLOBAL_STREAM = hal.Stream()
 
     global _SP_SEND_STREAM
-    global _SP_RECV_STREAM
-    global _SP_SEND_OML_STREAM
-    global _SP_RECV_OML_STREAM
     if cp_size > 1:
         _SP_SEND_STREAM = hal.Stream()
-        _SP_RECV_STREAM = hal.Stream()
-        _SP_SEND_OML_STREAM = hal.Stream()
-        _SP_RECV_OML_STREAM = hal.Stream()
 
     global _IS_INITIALIZED
     _IS_INITIALIZED = True
@@ -569,24 +560,6 @@ def get_sp_send_stream():
     """Return send stream for sequence parallel."""
     assert _SP_SEND_STREAM is not None, "Sp send stream is not initialized"
     return _SP_SEND_STREAM
-
-
-def get_sp_recv_stream():
-    """Return recv stream for sequence parallel."""
-    assert _SP_RECV_STREAM is not None, "Sp receive stream is not initialized"
-    return _SP_RECV_STREAM
-
-
-def get_sp_send_oml_stream():
-    """Return send stream for sequence parallel."""
-    assert _SP_SEND_OML_STREAM is not None, "Sp send oml stream is not initialized"
-    return _SP_SEND_OML_STREAM
-
-
-def get_sp_recv_oml_stream():
-    """Return recv stream for sequence parallel."""
-    assert _SP_RECV_OML_STREAM is not None, "Sp receive oml stream is not initialized"
-    return _SP_RECV_OML_STREAM
 
 
 def destroy_model_parallel():
