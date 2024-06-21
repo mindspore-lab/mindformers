@@ -51,11 +51,11 @@ def get_sp_chuncks(batch, input_layout, enable_dp_shard=True, enable_flash_sp=Fa
 
     if not isinstance(enable_dp_shard, bool):
         raise TypeError(f"The type of enable_dp_shard must be bool, but got the {type(enable_dp_shard)}")
-    
+
     if dp * sp != world_size:
         raise ValueError(f"The product of dp and sp should be equal to total device number,"
                          f"but got dp = {dp}, sp = {sp} and total device number = {world_size}")
-    
+
     seq_len = batch.shape[seq_dim]
     if seq_len < 2 * sp:
         raise ValueError(f"The sequence length of input batch should be larger or equal to 2*sp,"
