@@ -90,6 +90,10 @@ class LlamaModel(LlamaPreTrainedModel):
         # default open internal kernel boost
         self.enable_asd_op = get_ms_enable_asd_op()
         logger.info("enable asd op:{}".format(self.enable_asd_op))
+        if config.moe_config.expert_num > 1:
+            logger.info("MoE config is None, use normal FFN")
+        else:
+            logger.info("MoE config is provided, use MoE FFN")
 
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
