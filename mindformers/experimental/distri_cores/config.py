@@ -99,7 +99,7 @@ def _config_to_str(cls):
     return print_str
 
 
-class TrainingConfig():
+class TrainingConfig:
     r"""
     Training config.
 
@@ -122,7 +122,7 @@ class TrainingConfig():
         return _config_to_str(self)
 
 
-class DatasetConfig():
+class DatasetConfig:
     r"""
     Dataset config class.
 
@@ -145,7 +145,7 @@ class DatasetConfig():
         return _config_to_str(self)
 
 
-class ParallelConfig():
+class ParallelConfig:
     r"""
     Parallel config class.
 
@@ -189,7 +189,7 @@ class ParallelConfig():
         return _config_to_str(self)
 
 
-class ModelConfig():
+class ModelConfig:
     r"""
     Model config class.
 
@@ -278,9 +278,9 @@ class ModelConfig():
         Validator.check_bool(apply_residual_connection_post_norm,
                              "apply_residual_connection_post_norm")
         Validator.check_string(residual_connection_dtype, _SUPPORT_DTYPE, "recv_dtype")
-        Validator.check_string(param_init_dtype, _SUPPORT_DTYPE, "recv_dtype")
-        Validator.check_string(compute_dtype, _SUPPORT_DTYPE, "recv_dtype")
-        Validator.check_string(softmax_compute_dtype, _SUPPORT_DTYPE, "recv_dtype")
+        Validator.check_string(param_init_dtype, _SUPPORT_DTYPE, "param_init_dtype")
+        Validator.check_string(compute_dtype, _SUPPORT_DTYPE, "compute_dtype")
+        Validator.check_string(softmax_compute_dtype, _SUPPORT_DTYPE, "softmax_compute_dtype")
         Validator.check_float_range(hidden_dropout_rate, 0, 1, Rel.INC_BOTH, "hidden_dropout_rate")
         Validator.check_float_range(attention_dropout_rate, 0, 1, Rel.INC_BOTH, "attention_dropout_rate")
         Validator.check_value_type("num_experts", num_experts, [int, type(None)])
