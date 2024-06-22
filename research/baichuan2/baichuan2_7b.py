@@ -85,9 +85,6 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
         self.use_past = config.use_past
         self.is_dynamic = config.is_dynamic
         self.use_flash_attention = config.use_flash_attention
-        # only support flash attention in train and prefill predict process.
-        if self.use_past:
-            self.use_flash_attention = False
         if self.use_flash_attention:
             logger.info("Enable flash attention.")
         elif config.use_flash_attention:
@@ -187,6 +184,8 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
+                if not self.use_flash_attention:
+                    mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
                 freqs_cis = self.freqs_mgr(seq_len)
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
