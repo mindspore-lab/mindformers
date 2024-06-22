@@ -254,7 +254,7 @@ class P2P_Primitive():
         recv_prev_shape = tensor_shape
         recv_next_shape = tensor_shape
 
-        recv_dtype = self.config.get('recv_dtype')
+        recv_dtype = self.config.recv_dtype
         if recv_prev:
             if tensor_shape is None:
                 raise RuntimeError("Now receiving tensor from the previous stage, but the recv_shape is None.")

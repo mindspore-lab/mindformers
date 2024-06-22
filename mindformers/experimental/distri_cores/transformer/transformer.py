@@ -607,7 +607,7 @@ class ParallelTransformer(Module):
 
         offset = 0
 
-        self.layers = nn.CellList(
+        self.layers = nn.SequentialCell(
             [build_layer(i + 1 + offset) for i in range(self.num_layers)]
         )
 
