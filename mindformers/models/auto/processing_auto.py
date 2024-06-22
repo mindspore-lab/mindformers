@@ -26,7 +26,8 @@ from ..configuration_utils import PretrainedConfig
 from ..tokenization_utils_base import TOKENIZER_CONFIG_FILE
 from .image_processing_auto import AutoImageProcessor
 from ..image_processing_utils import ImageProcessingMixin
-from ..utils import FEATURE_EXTRACTOR_NAME
+from ..processing_utils import ProcessorMixin
+from ..utils import FEATURE_EXTRACTOR_NAME, PROCESSOR_NAME
 from .auto_factory import _LazyAutoMapping
 from .configuration_auto import CONFIG_MAPPING_NAMES, AutoConfig
 from ...tools.hub.hub import get_file_from_repo
@@ -282,15 +283,26 @@ class AutoProcessor:
         get_file_from_repo_kwargs = {
             key: kwargs[key] for key in inspect.signature(get_file_from_repo).parameters.keys() if key in kwargs
         }
-        # Let's start by checking whether the processor class is saved in an image processor
-        preprocessor_config_file = get_file_from_repo(
-            pretrained_model_name_or_path, FEATURE_EXTRACTOR_NAME, **get_file_from_repo_kwargs
+
+        # Let's start by checking whether the processor class is saved in an processor config
+        processor_config_file = get_file_from_repo(
+            pretrained_model_name_or_path, PROCESSOR_NAME, **get_file_from_repo_kwargs
         )
-        if preprocessor_config_file is not None:
-            config_dict, _ = ImageProcessingMixin.get_image_processor_dict(pretrained_model_name_or_path, **kwargs)
+        if processor_config_file is not None:
+            config_dict, _ = ProcessorMixin.get_processor_dict(pretrained_model_name_or_path, **kwargs)
             processor_class = config_dict.get("processor_class", None)
             if "AutoProcessor" in config_dict.get("auto_map", {}):
                 processor_auto_map = config_dict["auto_map"]["AutoProcessor"]
+
+        if processor_class is None:
+            preprocessor_config_file = get_file_from_repo(
+                pretrained_model_name_or_path, FEATURE_EXTRACTOR_NAME, **get_file_from_repo_kwargs
+            )
+            if preprocessor_config_file is not None:
+                config_dict, _ = ImageProcessingMixin.get_image_processor_dict(pretrained_model_name_or_path, **kwargs)
+                processor_class = config_dict.get("processor_class", None)
+                if "AutoProcessor" in config_dict.get("auto_map", {}):
+                    processor_auto_map = config_dict["auto_map"]["AutoProcessor"]
 
         if processor_class is None:
             # Next, let's check whether the processor class is saved in a tokenizer
@@ -311,6 +323,8 @@ class AutoProcessor:
                 config = AutoConfig.from_pretrained(
                     pretrained_model_name_or_path, trust_remote_code=trust_remote_code, **kwargs
                 )
+                if isinstance(config, tuple):
+                    config = config[0]
 
             # And check if the config contains the processor class.
             processor_class = getattr(config, "processor_class", None)

@@ -21,6 +21,7 @@ import os
 import shutil
 from pathlib import Path
 from typing import Optional, Union
+import json
 import yaml
 
 from ..mindformer_book import print_path_or_list, MindFormerBook
@@ -28,10 +29,17 @@ from .build_processor import build_processor
 from .tokenization_utils import PreTrainedTokenizer
 from .tokenization_utils_base import PreTrainedTokenizerBase
 from .image_processing_utils import ImageProcessingMixin
-from ..tools import logger
+from .utils import PROCESSOR_NAME
+from ..tools import logger, add_model_info_to_auto_map
 from ..tools.register import MindFormerConfig
 from ..tools.hub.dynamic_module_utils import custom_object_save
-from ..tools.hub.hub import PushToHubMixin
+from ..tools.hub.hub import (
+    PushToHubMixin,
+    is_offline_mode,
+    is_remote_url,
+    download_url,
+    cached_file
+)
 from ..tools.generic import experimental_mode_func_checker
 from ..utils import direct_mindformers_import
 
@@ -272,7 +280,152 @@ class ProcessorMixin(PushToHubMixin):
             kwargs["token"] = token
 
         args = cls._get_arguments_from_pretrained(pretrained_model_name_or_path, **kwargs)
-        return cls(*args)
+        processor_dict, kwargs = cls.get_processor_dict(pretrained_model_name_or_path, **kwargs)
+        return cls.from_args_and_dict(args, processor_dict, **kwargs)
+
+    @classmethod
+    def get_processor_dict(cls, pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs):
+        """
+        From a `pretrained_model_name_or_path`, resolve to a dictionary of parameters, to be used for instantiating a
+        processor of type [`~processing_utils.ProcessingMixin`] using `from_args_and_dict`.
+
+        Parameters:
+            pretrained_model_name_or_path (`str` or `os.PathLike`):
+                The identifier of the pre-trained checkpoint from which we want the dictionary of parameters.
+            subfolder (`str`, *optional*, defaults to `""`):
+                In case the relevant files are located inside a subfolder of the model repo on openmind.cn, you can
+                specify the folder name here.
+
+        Returns:
+            `Tuple[Dict, Dict]`: The dictionary(ies) that will be used to instantiate the processor object.
+        """
+        cache_dir = kwargs.pop("cache_dir", None)
+        force_download = kwargs.pop("force_download", False)
+        resume_download = kwargs.pop("resume_download", False)
+        proxies = kwargs.pop("proxies", None)
+        token = kwargs.pop("token", None)
+        local_files_only = kwargs.pop("local_files_only", False)
+        revision = kwargs.pop("revision", None)
+        subfolder = kwargs.pop("subfolder", "")
+
+        from_pipeline = kwargs.pop("_from_pipeline", None)
+        from_auto_class = kwargs.pop("_from_auto", False)
+
+        user_agent = {"file_type": "processor", "from_auto_class": from_auto_class}
+        if from_pipeline is not None:
+            user_agent["using_pipeline"] = from_pipeline
+
+        if is_offline_mode() and not local_files_only:
+            logger.info("Offline mode: forcing local_files_only=True")
+            local_files_only = True
+
+        pretrained_model_name_or_path = str(pretrained_model_name_or_path)
+        is_local = os.path.isdir(pretrained_model_name_or_path)
+        if os.path.isdir(pretrained_model_name_or_path):
+            processor_file = os.path.join(pretrained_model_name_or_path, PROCESSOR_NAME)
+        if os.path.isfile(pretrained_model_name_or_path):
+            resolved_processor_file = pretrained_model_name_or_path
+            is_local = True
+        elif is_remote_url(pretrained_model_name_or_path):
+            processor_file = pretrained_model_name_or_path
+            resolved_processor_file = download_url(pretrained_model_name_or_path)
+        else:
+            processor_file = PROCESSOR_NAME
+            try:
+                # Load from local folder or from cache or download from model Hub and cache
+                resolved_processor_file = cached_file(
+                    pretrained_model_name_or_path,
+                    processor_file,
+                    cache_dir=cache_dir,
+                    force_download=force_download,
+                    proxies=proxies,
+                    resume_download=resume_download,
+                    local_files_only=local_files_only,
+                    token=token,
+                    user_agent=user_agent,
+                    revision=revision,
+                    subfolder=subfolder,
+                    _raise_exceptions_for_missing_entries=False,
+                )
+            except EnvironmentError:
+                # Raise any environment error raise by `cached_file`. It will have a helpful error message adapted to
+                # the original exception.
+                raise
+            except Exception:
+                # For any other exception, we throw a generic error.
+                raise EnvironmentError(
+                    f"Can't load processor for '{pretrained_model_name_or_path}'. If you were trying to load"
+                    " it from 'https://openmind.cn/models', make sure you don't have a local directory with the"
+                    f" same name. Otherwise, make sure '{pretrained_model_name_or_path}' is the correct path to a"
+                    f" directory containing a {PROCESSOR_NAME} file"
+                )
+
+        if resolved_processor_file is None:
+            return {}, kwargs
+
+        try:
+            # Load processor dict
+            with open(resolved_processor_file, "r", encoding="utf-8") as reader:
+                text = reader.read()
+            processor_dict = json.loads(text)
+
+        except json.JSONDecodeError:
+            raise EnvironmentError(
+                f"It looks like the config file at '{resolved_processor_file}' is not a valid JSON file."
+            )
+
+        if is_local:
+            logger.info(f"loading configuration file {resolved_processor_file}")
+        else:
+            logger.info(f"loading configuration file {processor_file} from cache at {resolved_processor_file}")
+
+        if "auto_map" in processor_dict and not is_local:
+            processor_dict["auto_map"] = add_model_info_to_auto_map(
+                processor_dict["auto_map"], pretrained_model_name_or_path
+            )
+
+        return processor_dict, kwargs
+
+    @classmethod
+    def from_args_and_dict(cls, args, processor_dict, **kwargs):
+        """
+        Instantiates a type of [`~processing_utils.ProcessingMixin`] from a Python dictionary of parameters.
+
+        Args:
+            processor_dict (`Dict[str, Any]`):
+                Dictionary that will be used to instantiate the processor object. Such a dictionary can be
+                retrieved from a pretrained checkpoint by leveraging the
+                [`~processing_utils.ProcessingMixin.to_dict`] method.
+            kwargs (`Dict[str, Any]`):
+                Additional parameters from which to initialize the processor object.
+
+        Returns:
+            [`~processing_utils.ProcessingMixin`]: The processor object instantiated from those
+            parameters.
+        """
+        processor_dict = processor_dict.copy()
+        return_unused_kwargs = kwargs.pop("return_unused_kwargs", False)
+
+        # Unlike image processors or feature extractors whose `__init__` accept `kwargs`, processor don't have `kwargs`.
+        # We have to pop up some unused (but specific) arguments to make it work.
+        if "processor_class" in processor_dict:
+            del processor_dict["processor_class"]
+
+        if "auto_map" in processor_dict:
+            del processor_dict["auto_map"]
+
+        processor = cls(*args, **processor_dict)
+
+        # Update processor with kwargs if needed
+        for key in set(kwargs.keys()):
+            if hasattr(processor, key):
+                setattr(processor, key, kwargs.pop(key))
+
+        logger.info(f"Processor {processor}")
+        if return_unused_kwargs:
+            return processor, kwargs
+
+        return processor
 
     def save_pretrained(self, save_directory=None, save_name="mindspore_model", **kwargs):
         """
