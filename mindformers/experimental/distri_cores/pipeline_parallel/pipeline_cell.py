@@ -37,16 +37,19 @@ class PipelineCell(Module):
             model_customize_staged=False,
             model_forward_func=None
         ):
-        super().__init__()
+        super().__init__(auto_prefix=False)
+        # check valid
+        if get_pp_world_size() < 2:
+            raise RuntimeError(f"Under pipeline parallel mode, the pp size must be greater than 1. "
+                               f"But now, 'pp_size={get_pp_world_size()}', it do not support using 'PipelineCell'.")
         self.model_customize_staged = model_customize_staged
+        self._check_inputs_valid(map_dict, pipeline_offset, model_forward_func)
 
         # get pp info
         self.first_stage = is_pipeline_first_stage()
         self.last_stage = is_pipeline_last_stage()
         self.stage_id = get_pp_rank()
 
-        # get all of layers in full model
-        self._check_inputs_valid(map_dict, pipeline_offset, model_forward_func)
         for key, value in map_dict.items():
             setattr(self, key, value)
         if not model_customize_staged:
@@ -86,9 +89,39 @@ class PipelineCell(Module):
         return False
 
     def _check_inputs_valid(self, map_dict, pipeline_offset, model_forward_func):
-        """ ensure the input map_dict have required fields and overridden method valid"""
+        """ ensure the map_dict/pipeline_offset/model_forward_func valid"""
         print("[WARNING] When using pipeline parallel, "
               "please make sure that all layers in the 'map_dict' contain the complete model forward.")
+
+        self._check_map_dict(map_dict)
+
+        if pipeline_offset is not None:
+            if not isinstance(pipeline_offset, (list, tuple)):
+                raise TypeError(f"'pipeline_offset' must be 'list' or 'tuple', but got '{type(pipeline_offset)}'")
+
+            if len(pipeline_offset) != get_pp_world_size():
+                raise RuntimeError(f"The length of 'pipeline_offset' must be equal to pipeline stage size, "
+                                   f"but got length of 'pipeline_offset': {len(pipeline_offset)}, "
+                                   f"pipeline stage size: {get_pp_world_size()}.")
+
+            if not self.model_customize_staged:
+                correction_value = len(map_dict["transformer_layers"]) % get_pp_world_size()
+                if sum(list(pipeline_offset)) != correction_value:
+                    raise RuntimeError(f"The sum of 'pipeline_offset' must be equal to {correction_value}, "
+                                       f"but got {sum(list(pipeline_offset))}.")
+
+        if self.model_customize_staged:
+            params = inspect.signature(model_forward_func).parameters
+            last_param_name = list(params)[-1]
+            if not isinstance(map_dict, OrderedDict) \
+                or last_param_name != 'recv_data' or params[last_param_name].default is not None:
+                raise ValueError(f"If model_customize_staged=True, layers 'embedding' and 'head'"
+                                 f" and other customized layers should be included in an OrderedDict."
+                                 f" And the method model_forward should be overwritten"
+                                 f" with the last param recv_data=None.")
+
+    def _check_map_dict(self, map_dict):
+        """ check map_dict valid"""
         layers = map_dict.values()
         for layer in layers:
             if not isinstance(layer, nn.Cell):
@@ -118,28 +151,9 @@ class PipelineCell(Module):
                              f" should be included, and the method model_forward should be overwritten."
                              f" 3.According to 'map_dict', {msg}. Please check 'map_dict' are set correctly.")
 
-        if pipeline_offset is not None:
-            if not isinstance(pipeline_offset, (list, tuple)):
-                raise TypeError(f"'pipeline_offset' must be 'list' or 'tuple', but got '{type(pipeline_offset)}'")
-
-            if len(pipeline_offset) != get_pp_world_size():
-                raise RuntimeError(f"The length of 'pipeline_offset' must be equal to pipeline stage size, "
-                                   f"but got length of 'pipeline_offset': {len(pipeline_offset)}, "
-                                   f"pipeline stage size: {get_pp_world_size()}")
-
-            if sum(list(pipeline_offset)) != 0:
-                raise RuntimeError(f"The sum of 'pipeline_offset' must be equal to 0, "
-                                   f"but got sum of 'pipeline_offset': {sum(list(pipeline_offset))}")
-
-        if self.model_customize_staged:
-            params = inspect.signature(model_forward_func).parameters
-            last_param_name = list(params)[-1]
-            if not isinstance(map_dict, OrderedDict) \
-                or last_param_name != 'recv_data' or params[last_param_name].default is not None:
-                raise ValueError(f"If model_customize_staged=True, layers 'embedding' and 'head'"
-                                 f" and other customized layers should be included in an OrderedDict."
-                                 f" And the method model_forward should be overwritten"
-                                 f" with the last param recv_data=None.")
+        if not self.model_customize_staged and not isinstance(map_dict['transformer_layers'], nn.SequentialCell):
+            raise TypeError(f"The type of 'transformer_layers' must be mindspore.nn.SequentialCell, "
+                            f"but got type '{type(map_dict['transformer_layers'])}'.")
 
     def set_ori_model_input_signatures(self, model):
         """ set full model's input argument """
