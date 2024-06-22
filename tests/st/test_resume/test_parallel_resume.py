@@ -25,7 +25,7 @@ from utils import extract_loss_values
 class TestResumeTraining:
     """A test class for testing pipeline."""
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     def test_train(self):
