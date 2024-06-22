@@ -443,11 +443,13 @@ class Linear(Cell):
         self.out_channels = out_channels
         if not (isinstance(activation, str) or activation is None or issubclass(activation, nn.Cell)):
             raise TypeError(f"For Linear cell, the activation should str type or nn.Cell type, but got {activation}.")
-        if isinstance(weight_init, Tensor) and (weight_init.ndim != 2 or weight_init.shape[0] != out_channels or
-                                                weight_init.shape[1] != in_channels):
-            raise ValueError("The shape of parameter 'weight_init' is error, please check shape of 'weight_init'.")
+
         transpose_b = False if use_gmm else transpose_b
         weight_shape = [out_channels, in_channels] if transpose_b else [in_channels, out_channels]
+        if isinstance(weight_init, Tensor) and (weight_init.ndim != 2 or weight_init.shape[0] != weight_shape[0] or
+                                                weight_init.shape[1] != weight_shape[1]):
+            raise ValueError("The shape of parameter 'weight_init' is error, please check shape of 'weight_init'.")
+
         self.expert_num = expert_num
         self.outer_batch = outer_batch
         self.expert_group_size = expert_group_size
