@@ -972,6 +972,10 @@ class Trainer:
         if os.path.exists(checkpoint):
             return checkpoint
 
+        if not checkpoint.startswith("mindspore/") and "/" in checkpoint:
+            raise FileNotFoundError("The load_checkpoint must be correct, "
+                                    f"but get {checkpoint}")
+
         if checkpoint not in SUPPORT_CHECKPOINT_NAMES:
             raise ValueError(f"{checkpoint} is not a supported default model"
                              f" or a valid path to checkpoint,"
