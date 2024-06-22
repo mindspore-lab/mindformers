@@ -53,7 +53,6 @@ class RNGStateTracer:
         self.reset()
 
     def reset(self):
-        self._seeds = set()
         self._states = {}
 
     def set_state(self, states):
@@ -66,10 +65,7 @@ class RNGStateTracer:
         return states
 
     def init_mode(self, mode, seed):
-        "init mode and seed"
-        if seed in self._seeds:
-            # if seed exists, raise exception
-            raise ValueError(f"init generator with existed seed {seed}")
+        "initialize mode and seed where mode should not be duplicate, otherwise reset should be called first"
         if mode in self._states:
             # if mode exists, raise exception
             raise ValueError(f"init generator with existed mode {mode}")
@@ -119,17 +115,17 @@ def parallel_mode_manual_seed(seed):
 
     tracer = get_rng_tracer()
     tracer.reset()
+    manual_seed(seed) # for rng
 
     tracer.init_mode(DATA_PARALLEL_GENERATOR, dp_seed)
     tracer.init_mode(TENSOR_PARALLEL_GENERATOR, tp_seed)
     tracer.init_mode(EXPERT_PARALLEL_GENERATOR, exp_seed)
 
 def set_rng_seed(seed, dp_random_init=False):
-    if seed is None:
-        raise ValueError(f"invalid seed: seed should not be None")
+    seed = int(seed)
     seed = seed + 1024 * get_pp_rank()
     if dp_random_init:
         seed = seed + 64 * get_dp_rank()
     random.seed(seed)
     np.random.seed(seed)
-    parallel_mode_manual_seed(seed)
+    parallel_mode_manual_seed(seed) # for parallel rng tracer
