@@ -71,7 +71,6 @@ def run_ring_attention():
     Expectation: Success.
     """
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
-    ms.set_context(pynative_synchronize=True, save_graphs=True, save_graphs_path="ir")
     ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.DATA_PARALLEL)
     init()
 
@@ -92,17 +91,14 @@ def run_ring_attention():
                                                                                  hidden_size, test_layout,
                                                                                  test_dtype)
     if test_layout == "SBH":
-        batch_dim_ = 1
         seq_dim_ = 0
     elif test_layout == "BSH":
-        batch_dim_ = 0
         seq_dim_ = 1
     elif test_layout == "BNSD":
-        batch_dim_ = 0
         seq_dim_ = 2
-    q2 = get_sp_chuncks(query_output, batch_dim=batch_dim_, seq_dim=seq_dim_)
-    k2 = get_sp_chuncks(key_output, batch_dim=batch_dim_, seq_dim=seq_dim_)
-    v2 = get_sp_chuncks(value_output, batch_dim=batch_dim_, seq_dim=seq_dim_)
+    q2 = get_sp_chuncks(query_output, test_layout)
+    k2 = get_sp_chuncks(key_output, test_layout)
+    v2 = get_sp_chuncks(value_output, test_layout)
 
     ring_attention = RingAttention(head_num=n,
                                    input_layout=test_layout,
@@ -126,7 +122,7 @@ def run_ring_attention():
                                                       padding_mask_output,
                                                       flash_attn_mask)
 
-    flash_attention_output = get_sp_chuncks(flash_attention_output, batch_dim=batch_dim_, seq_dim=seq_dim_)
+    flash_attention_output = get_sp_chuncks(flash_attention_output, test_layout)
 
     flash_attention_output = ms.ops.cast(flash_attention_output, mstype.float16)
     ring_attention_output = ms.ops.cast(ring_attention_output, mstype.float16)

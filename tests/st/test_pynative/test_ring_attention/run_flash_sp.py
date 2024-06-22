@@ -70,7 +70,7 @@ def run_flash_sp():
     Description: Test FlashSP functional.
     Expectation: Success.
     """
-    ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON', pynative_synchronize=True)
+    ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
     ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.DATA_PARALLEL)
     init()
 
@@ -92,17 +92,14 @@ def run_flash_sp():
                                                                                  test_dtype)
 
     if test_layout == "SBH":
-        batch_dim_ = 1
         seq_dim_ = 0
     elif test_layout == "BSH":
-        batch_dim_ = 0
         seq_dim_ = 1
     elif test_layout == "BNSD":
-        batch_dim_ = 0
         seq_dim_ = 2
-    q2 = get_sp_chuncks(query_output, batch_dim=batch_dim_, seq_dim=seq_dim_, enable_flash_sp=True)
-    k2 = get_sp_chuncks(key_output, batch_dim=batch_dim_, seq_dim=seq_dim_, enable_flash_sp=True)
-    v2 = get_sp_chuncks(value_output, batch_dim=batch_dim_, seq_dim=seq_dim_, enable_flash_sp=True)
+    q2 = get_sp_chuncks(query_output, test_layout, enable_flash_sp=True)
+    k2 = get_sp_chuncks(key_output, test_layout, enable_flash_sp=True)
+    v2 = get_sp_chuncks(value_output, test_layout, enable_flash_sp=True)
 
     flash_sp = FlashSP(head_num=n,
                        input_layout=test_layout,
@@ -124,7 +121,7 @@ def run_flash_sp():
                                                       flash_attn_mask)
 
     flash_attention_output = get_sp_chuncks(
-        flash_attention_output, batch_dim=batch_dim_, seq_dim=seq_dim_, enable_flash_sp=True)
+        flash_attention_output, test_layout, enable_flash_sp=True)
 
     flash_attention_output = ms.ops.cast(flash_attention_output, mstype.float16)
     flash_sp_output = ms.ops.cast(flash_sp_output, mstype.float16)
