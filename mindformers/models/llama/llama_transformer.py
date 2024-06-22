@@ -191,7 +191,7 @@ class LLamaAttention(nn.Cell):
                                                   pa_n_head_split=self.n_head // mp,
                                                   pa_n_kv_head_split=self.n_kv_head // mp,
                                                   scale_value=1. / math.sqrt(self.head_dim),
-                                                  pre_tokens=65536,
+                                                  pre_tokens=2147483647,
                                                   next_tokens=0,
                                                   block_size=self.block_size,
                                                   num_blocks=self.num_blocks,
