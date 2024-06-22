@@ -109,6 +109,8 @@ def get_pet_model(base_model: PreTrainedModel, config: Union[dict, PetConfig]):
         logger.warning("%s doesn't have pet model currently.", pet_type)
         return base_model
 
+    if type(base_model).__name__ == "ChatGLM2WithPtuning2":
+        return base_model
     # return pet model.
     return PetModel(config=config, base_model=base_model)
 

@@ -382,9 +382,11 @@ class InferAttention(Cell):
         if self.use_flash_attention:
             return self.flash_attention(query, key, value, attn_mask, alibi_mask)
         bs, seq_len, _ = query.shape
+        key_seq_len = key.shape[1]
+        value_seq_len = value.shape[1]
         query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
-        key = self.transpose(self.reshape(key, (bs, -1, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
-        value = self.transpose(self.reshape(value, (bs, -1, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+        key = self.transpose(self.reshape(key, (bs, key_seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+        value = self.transpose(self.reshape(value, (bs, value_seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
         key = self._repeat_kv(key, self.n_rep)
         value = self._repeat_kv(value, self.n_rep)
         return self._core_attention(query, key, value, attn_mask, alibi_mask)
