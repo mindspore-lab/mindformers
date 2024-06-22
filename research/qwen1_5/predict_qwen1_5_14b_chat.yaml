@@ -1,6 +1,6 @@
 seed: 0
 output_dir: './output' # path to save checkpoint/strategy
-load_checkpoint: '/data/zjh/ckpt/qwen1_5_14b_chat_bf16.ckpt'
+load_checkpoint: ''
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
@@ -67,7 +67,7 @@ model:
     num_blocks: 1024
     use_past_shard: False
     offset: 0
-    checkpoint_name_or_path: "/data/zjh/ckpt/qwen1_5_14b_chat_bf16.ckpt"
+    checkpoint_name_or_path: ""
     repetition_penalty: 1.05
     max_decode_length: 2048
     top_k: 0
