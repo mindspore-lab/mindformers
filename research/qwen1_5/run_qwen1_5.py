@@ -86,6 +86,9 @@ def main(task='text_generation',
     if merges_file:
         assert os.path.exists(merges_file)
         config.processor.tokenizer.merges_file = merges_file
+    if train_dataset:
+        config.train_dataset.data_loader.dataset_dir = train_dataset
+    train_dataset = config.train_dataset.data_loader.dataset_dir
     if use_parallel is not None:
         config.use_parallel = use_parallel
     if device_id is not None:
