@@ -114,7 +114,11 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, gap_time=5, limit_time=3600):
                 time.sleep(gap_time)
                 count = 0
                 rank_id_not_found = 0
-                for rank_id_other in range(1, expect_num + 1):
+                if check_in_modelarts():
+                    start_rank_id = rank_id // get_device_num_per_node() * get_device_num_per_node() + 1
+                else:
+                    start_rank_id = 1
+                for rank_id_other in range(start_rank_id, start_rank_id + expect_num):
                     get_resume_ckpt_txt = os.path.join(resume_record_dir, f"get_resume_ckpt_rank_{rank_id_other}.txt")
                     if os.path.exists(get_resume_ckpt_txt):
                         count += 1
