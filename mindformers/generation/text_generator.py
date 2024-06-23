@@ -40,6 +40,7 @@ from mindformers.generation.streamers import BaseStreamer
 from mindformers.generation.utils import softmax_with_threads, topk, GenerateOutput, InferOutput
 from mindformers.modules.block_tables import BlockTables
 from mindformers.tools import logger
+from mindformers.models.attention_metadata import AttentionMetadata
 
 __all__ = ["GenerationMixin"]
 
@@ -294,7 +295,7 @@ class GenerationMixin:
         return input_ids
 
     def _incremental_infer(self, model_inputs: dict, prefill, current_index, valid_length_each_example, block_tables,
-                           slot_mapping):
+                           slot_mapping, attention_metadata=None):
         """model forward for incremental infer."""
         # Claim the first graph
         if prefill:
@@ -309,6 +310,8 @@ class GenerationMixin:
                 model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
                 model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
             # pylint: disable=E1102
+            if attention_metadata is not None:
+                model_inputs["attention_metadata"] = attention_metadata
             res = self(
                 **model_inputs,
             )
@@ -319,6 +322,9 @@ class GenerationMixin:
         else:
             # slice model inputs for incremental infer
             self.slice_incremental_inputs(model_inputs, current_index)
+            if attention_metadata is not None:
+                model_inputs["input_ids"] = self._padding_decode(model_inputs["input_ids"])
+                model_inputs["attention_metadata"] = attention_metadata
             model_inputs["input_position"] = Tensor.from_numpy(np.array(current_index, dtype=np.int32))
             model_inputs["init_reset"] = Tensor.from_numpy(
                 np.array([True], dtype=np.bool_))  # init_reset (1,) bool True
@@ -334,6 +340,13 @@ class GenerationMixin:
             ms.hal.synchronize()
 
         return res
+
+    def _padding_decode(self, input_ids):
+        seq_length = self.config.seq_length
+        input_ids2 = Tensor(np.zeros((self.shape(input_ids)[0], seq_length-1)), mstype.int32)
+        input_ids3 = ms.ops.cat((input_ids, input_ids2), 1)
+        return input_ids3
+
 
     def _beam_search(self,
                      origin_inputs,
@@ -936,6 +949,7 @@ class GenerationMixin:
               encoder_mask: Optional[Tensor] = None,
               encoder_output: Optional[Tensor] = None,
               target_mask: Optional[Tensor] = None,
+              attention_metadata: AttentionMetadata = None,
               **model_kwargs):
         """
         do infer and return logits on next position, can choose do prefill or decode predict.
@@ -991,6 +1005,7 @@ class GenerationMixin:
                                           encoder_mask=encoder_mask,
                                           encoder_output=encoder_output,
                                           target_mask=target_mask,
+                                          attention_metadata=attention_metadata,
                                           **model_kwargs)
 
         forward_time = time.time() - start_time
@@ -1037,6 +1052,7 @@ class GenerationMixin:
                 encoder_mask: Optional[Tensor] = None,
                 encoder_output: Optional[Tensor] = None,
                 target_mask: Optional[Tensor] = None,
+                attention_metadata: AttentionMetadata = None,
                 **model_kwargs):
         """
         Model forward process.
@@ -1102,7 +1118,8 @@ class GenerationMixin:
                     current_index=current_index,
                     valid_length_each_example=valid_length_each_example,
                     block_tables=block_tables,
-                    slot_mapping=slot_mapping
+                    slot_mapping=slot_mapping,
+                    attention_metadata=attention_metadata,
                 )
             else:
                 res = self(**model_inputs)  # pylint: disable=E1102

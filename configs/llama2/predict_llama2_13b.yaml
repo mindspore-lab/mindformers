@@ -113,6 +113,7 @@ model:
     top_k: 3
     top_p: 1
     do_sample: False
+    chunk_prefill: False
   arch:
     type: LlamaForCausalLM
 

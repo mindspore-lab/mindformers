@@ -15,7 +15,7 @@
 """LLaMA transformer Layer's APIs."""
 import math
 from typing import Tuple, Optional
-
+import numpy as np
 import mindspore as ms
 from mindspore import nn
 import mindspore.common.dtype as mstype
@@ -103,7 +103,8 @@ class LLamaAttention(nn.Cell):
                  use_attn_mask_compression=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
-                 parallel_config=TransformerOpParallelConfig()):
+                 parallel_config=TransformerOpParallelConfig(),
+                 chunk_prefill=False):
         super().__init__()
         self.hidden_size = dim
         self.n_head = n_heads
@@ -121,6 +122,8 @@ class LLamaAttention(nn.Cell):
         self.use_flash_attention = use_flash_attention
         self.use_attn_mask_compression = use_attn_mask_compression
         self.qkv_concat = qkv_concat
+        self.chunk_prefill = chunk_prefill
+        self.reshape = P.Reshape()
 
         if self.hidden_size % self.n_head != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
@@ -198,7 +201,8 @@ class LLamaAttention(nn.Cell):
                                                   use_flash_attention=self.use_flash_attention,
                                                   rotary_cos_format=2,
                                                   rotary_dtype=rotary_dtype,
-                                                  compute_dtype=compute_dtype)
+                                                  compute_dtype=compute_dtype,
+                                                  chunk_prefill=self.chunk_prefill)
             self.infer_attention.shard(parallel_config)
         else:
             self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
@@ -263,11 +267,17 @@ class LLamaAttention(nn.Cell):
                 self.flash_attention.shard(parallel_config)
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, phase=None, bs=None):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
-        bs, seq_len, _ = self.shape(x)
+        if self.chunk_prefill:
+            bs = bs
+            seq_len, h = self.shape(x)
+            seq_len = seq_len/bs
+            x = self.reshape(x, (bs, -1, h))
+        else:
+            bs, seq_len, _ = self.shape(x)
         if self.qkv_concat:
             qkv = self.cast(self.w_qkv(x), self.dtype)
             query, key, value = self.split_qkv(qkv, (self.hidden_size, self.kv_dim, self.kv_dim), 2)
@@ -278,6 +288,11 @@ class LLamaAttention(nn.Cell):
 
         # key and value for current token(s)
         if self.use_past:
+            if self.chunk_prefill:
+                if phase == 0:
+                    self.infer_attention.is_first_iteration = False
+                else:
+                    self.infer_attention.is_first_iteration = True
             context_layer = self.infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping,
                                                  freqs_cis, mask, prefix_keys_values=prefix_keys_values)
         else:
@@ -466,7 +481,9 @@ class LLamaDecodeLayer(nn.Cell):
                  use_attn_mask_compression=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
-                 parallel_config=TransformerOpParallelConfig()):
+                 parallel_config=TransformerOpParallelConfig(),
+                 chunk_prefill = False,
+                 seq_length = 512):
         super().__init__()
         self.layer_id = layer_id
         self.hidden_size = dim
@@ -476,12 +493,15 @@ class LLamaDecodeLayer(nn.Cell):
         self.dtype = compute_dtype
         self.is_first_iteration = True
         self.use_past = use_past
-
+        self.gather = P.Gather()
+        self.concat = P.Concat(0)
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.add = P.Add()
         self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
+        self.seq_length = seq_length
+        self.chunk_prefill = chunk_prefill
         self.attention = LLamaAttention(dim=dim,
                                         n_heads=n_heads,
                                         n_kv_heads=n_kv_heads,
@@ -498,7 +518,8 @@ class LLamaDecodeLayer(nn.Cell):
                                         use_attn_mask_compression=use_attn_mask_compression,
                                         block_size=block_size,
                                         num_blocks=num_blocks,
-                                        parallel_config=parallel_config)
+                                        parallel_config=parallel_config,
+                                        chunk_prefill=chunk_prefill)
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
         # set kbk infer for moe structural models.
@@ -574,8 +595,11 @@ class LLamaDecodeLayer(nn.Cell):
             self.no_inline = False
 
     def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, prefix_keys_values=None):
+                  slot_mapping=None, prefix_keys_values=None, attention_metadata=None):
         """ Forward of transformer block. """
+        if self.chunk_prefill:
+            return self.chunk_prefill_decoder(x, freqs_cis, mask, batch_valid_length, block_tables, \
+                                              slot_mapping, prefix_keys_values, attention_metadata)
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
         # [bs, seq/1, hidden_dim]
@@ -589,6 +613,53 @@ class LLamaDecodeLayer(nn.Cell):
         ffn_out = self.feed_forward(ffn_norm)
         # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         out = self.add(h, ffn_out)
+        return out
+
+    def chunk_prefill_decoder(self, x, freqs_ciss, masks=None, batch_valid_length=None, block_tables=None,
+                              slot_mapping=None, prefix_keys_values=None, attention_metadata=None):
+        """ Forward of transformer block. """
+        if not self.use_past:
+            self._check_input(x, freqs_cis, mask)
+        num_decode_q = attention_metadata.num_decode_querys
+        num_prefill_q = attention_metadata.num_prefill_querys
+        _ , hidden = self.shape(x)
+        h = Tensor(np.zeros(self.shape(x)))
+        h_merge = Tensor(np.zeros((1, hidden)), mstype.float16)
+        seq_length=self.seq_length
+        h_padding_full = Tensor(np.zeros((seq_length-1, hidden)), mstype.float16)
+        block_tables_prefill = block_tables[0:num_prefill_q:1]
+        block_tables_decode = block_tables[num_prefill_q:num_prefill_q+num_decode_q:1]
+        if num_prefill_q > 0:
+            start = 0
+            end = seq_length*num_prefill_q
+            index = Tensor(np.arange(start,end, 1))
+            split_x = self.gather(x, index, 0)
+            input_x = self.attention_norm(split_x)
+            slot_mapping_count = slot_mapping[start:end]
+            h = self.attention(input_x, freqs_ciss[0], masks[0], batch_valid_length[0], block_tables_prefill, \
+                               slot_mapping_count, prefix_keys_values, phase=1, bs=num_prefill_q)
+            h_merge = self.concat((h_merge, h))
+        if num_decode_q > 0:
+            start=seq_length*num_prefill_q
+            pick_list=[]
+            for i in range(num_decode_q):
+                pick_list.append(i*seq_length+num_prefill_q*seq_length)
+            index = Tensor(pick_list)
+            split_x = self.gather(x, index, 0)
+            input_x = self.attention_norm(split_x)
+            slot_mapping_count = slot_mapping[start:start+num_decode_q]
+            h = self.attention(input_x, freqs_ciss[1], masks[1], batch_valid_length[1], block_tables_decode, \
+                               slot_mapping_count, prefix_keys_values, phase=0, bs=num_decode_q)
+            for i in range(num_decode_q):
+                h_merge = self.concat((h_merge, self.reshape(h[i], (1, -1))))
+                h_merge = self.concat((h_merge, h_padding_full))
+        h_merge = h_merge[1:]
+        h_merge = self.add(x, h_merge)
+        ffn_norm = self.ffn_norm(h_merge)
+        # [bs, seq/1, hidden_dim]
+        ffn_out = self.feed_forward(ffn_norm)
+        # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        out = self.add(h_merge, ffn_out)
         return out
 
     def _check_input(self, x, freqs_cis, mask):
