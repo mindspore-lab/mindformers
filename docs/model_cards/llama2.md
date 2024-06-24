@@ -311,6 +311,12 @@ MindFormers提供`llama2-7b`单机多卡以及`llama2_13b`多机多卡的预训�
      16 8 {ip_addr} 8118 1 output/msrun_log False 300
    ```
 
+3. 对于llama2-70b模型，再训练之前请定义以下环境变量。
+
+   ```shell
+   export MS_DEV_RUNTIME_CONF="inline:False"
+   ```
+
 ## 微调
 
 MindFormers提供`Llama2-7b`的微调示例，
