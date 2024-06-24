@@ -1,4 +1,3 @@
-numpy
 setuptools
 sentencepiece>=0.1.97
 ftfy>=6.1.1
@@ -14,3 +13,4 @@ opencv-python-headless
 pyarrow==12.0.1
 tokenizers==0.15.0
 astunparse>=1.6.3
+numpy==1.26.4
