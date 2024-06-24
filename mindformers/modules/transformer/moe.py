@@ -94,7 +94,8 @@ class MoEConfig:
                  expert_group_size=None, group_wise_a2a=False, comp_comm_parallel=False, comp_comm_parallel_degree=2,
                  save_token_distribution=False, cur_layer=0, enable_cold_hot_expert=False, update_step=10000,
                  hot_expert_num=0, cold_token_percent=1.0, moe_module_name="", routing_policy="TopkRouterV1",
-                 enable_sdrop=False, use_fused_ops_topkrouter=False, router_dense_type="float32"):
+                 enable_sdrop=False, use_fused_ops_topkrouter=False, router_dense_type="float32", shared_expert_num=0,
+                 use_shared_expert_gating=False):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
@@ -142,6 +143,8 @@ class MoEConfig:
         self.enable_sdrop = enable_sdrop
         self.use_fused_ops_topkrouter = use_fused_ops_topkrouter
         self.router_dense_type = dtype_map.get(router_dense_type)
+        self.shared_expert_num = shared_expert_num
+        self.use_shared_expert_gating = use_shared_expert_gating
 
     def __eq__(self, other) -> bool:
         return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())
