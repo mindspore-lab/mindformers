@@ -332,7 +332,10 @@ class AdamWeightDecayZeRO2(Optimizer):
                 raise Exception(f"the input dict has no shard info for '{model_name}'.")
             if self._parameter_splited[idx]:
                 opt_weight_shard_step = np.prod(shard)
-                opt_weight_shard_size = get_dp_world_size()
+                try:
+                    opt_weight_shard_size = get_dp_world_size()
+                except AssertionError:
+                    opt_weight_shard_size = -1
             else:
                 opt_weight_shard_step = 0
                 opt_weight_shard_size = -1
