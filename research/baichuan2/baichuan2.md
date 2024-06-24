@@ -229,7 +229,55 @@ callbacks:
 
 ## 推理
 
-推理使用`Baichuan2-7B-Chat`和`Baichuan2-13B-Chat`权重，默认设置`seq_length=4096`，支持单卡推理。
+MindFormers提供`Baichuan2`的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡、多卡以及多batch推理。
+
+使用推理功能时，推荐使用`Baichuan2-7B-Chat`和`Baichuan2-13B-Chat`权重，默认设置`seq_length=4096`，模型权重以及tokenizer文件可参考[模型权重下载](#模型权重下载)。
+
+```shell
+# 脚本使用
+bash scripts/examples/baichuan2/run_baichuan2_predict.sh PARALLEL CONFIG_PATH CKPT_PATH TOKENIZER DEVICE_NUM
+
+# 参数说明
+PARALLEL:    是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
+CONFIG_PATH: 模型配置文件路径
+CKPT_PATH:   模型权重文件路径
+TOKENIZER:   模型tokenizer文件路径
+DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
+```
+
+### 单卡推理
+
+```shell
+# baichuan2 7b
+bash scripts/examples/baichuan2/run_baichuan2_predict.sh single \
+ research/baichuan2/predict_baichuan2_7b.yaml \
+ path/to/baichuan2_7b_chat.ckpt \
+ path/to/tokenizer.model
+
+# baichuan2 13b
+bash scripts/examples/baichuan2/run_baichuan2_predict.sh single \
+ research/baichuan2/predict_baichuan2_13b.yaml \
+ path/to/baichuan2_13b_chat.ckpt \
+ path/to/tokenizer.model
+```
+
+### 多卡推理
+
+`Baichuan2-13B`多卡推理暂不支持`is_dynamic=True`，示例中使用2卡进行推理。
+
+```shell
+# baichuan2 7b
+bash scripts/examples/baichuan2/run_baichuan2_predict.sh parallel \
+ research/baichuan2/predict_baichuan2_7b.yaml \
+ path/to/baichuan2_7b_chat.ckpt \
+ path/to/tokenizer.model 2
+
+# baichuan2 13b
+bash scripts/examples/baichuan2/run_baichuan2_predict.sh parallel \
+ research/baichuan2/predict_baichuan2_13b.yaml \
+ path/to/baichuan2_13b_chat.ckpt \
+ path/to/tokenizer.model 2
+```
 
 ### 多轮对话推理
 
@@ -243,281 +291,6 @@ python run_baichuan2_chat.py \
 # 请输入：你是谁？
 # 我是我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问
 ```
-
-### 基于pipeline的推理
-
-pipeline推理支持**自动权重转换**，支持加载**lora权重**。
-
-根据是否加载lora权重进行推理，可以分为以下几种情况：
-
-1. 使用预训练权重或微调权重
-
-   使用`predict_baichuan2_*.yaml`，修改`load_checkpoint`为权重路径即可。
-
-2. 使用训练过的lora权重
-   1. **lora权重已与base权重合并，参考[lora权重合并教程](../../docs/feature_cards/Transform_Lorackpt.md)**
-
-      使用`predict_baichuan2_*.yaml`，修改`load_checkpoint`为合并权重路径即可。
-
-   2. **lora权重未合并，权重包含base层和lora层**
-
-      使用`predict_baichuan2_*_lora.yaml`，修改`load_checkpoint`为lora权重路径，若使用分布式权重则修改为权重文件夹路径。
-
-   3. **仅包含lora权重**
-
-      使用`predict_baichuan2_*_lora.yaml`，修改`load_chjeckpoint`为文件夹路径，文件夹包含lora权重和base权重。
-      若使用的lora权重是分布式权重，则需要先使用权重转换工具将分布式权重合并为完整权重，使用方法参考[权重转换文档](../../docs/feature_cards/Transform_Ckpt.md)。
-
-以下为基于pipeline接口的自定义推理代码示例。
-
-```python
-# run_baichuan2_pipeline.py
-import mindspore as ms
-from mindspore import Model
-from mindspore import Tensor
-from mindspore.common import initializer as init
-
-from mindformers import MindFormerConfig
-from mindformers.pipeline import pipeline
-from mindformers.models import LlamaConfig
-from mindformers.pet import get_pet_model, LoraConfig
-from mindformers.trainer.utils import transform_and_load_checkpoint
-from mindformers.core.context import build_context
-from mindformers.core.parallel_config import build_parallel_config
-
-from baichuan2_7b import Baichuan7BV2ForCausalLM
-from baichuan2_13b import Baichuan13BV2ForCausalLM
-from baichuan2_tokenizer import Baichuan2Tokenizer
-
-model_dict = {
-    "baichuan2_7b": Baichuan7BV2ForCausalLM,
-    "baichuan2_7b_lora": Baichuan7BV2ForCausalLM,
-    "baichuan2_13b": Baichuan13BV2ForCausalLM,
-    "baichuan2_13b_lora": Baichuan13BV2ForCausalLM
-}
-
-inputs = ["<reserved_106>你是谁？<reserved_107>",
-          "<reserved_106>《静夜思》作者是？<reserved_107>",
-          "<reserved_106>白日依山尽，下一句是？<reserved_107>"]
-batch_size = len(inputs)
-
-# init config, 以Baichuan2-7B为例
-config_path = "path/to/predict_baichuan2_7b.yaml"
-config = MindFormerConfig(config_path)
-
-# init context
-build_context(config)
-build_parallel_config(config)
-
-# init model
-batch_size = 1
-config.model.model_config.parallel_config = config.parallel_config
-config.model.model_config.batch_size = batch_size
-model_config = LlamaConfig(**config.model.model_config)
-model_config.checkpoint_name_or_path = None
-model_name = config.trainer.model_name
-network = model_dict[model_name](
-    config=model_config
-)
-
-if config.model.model_config.pet_config:
-    print("----------------Init lora params----------------")
-    pet_config = config.model.model_config.pet_config
-    pet_config = LoraConfig(
-        lora_rank=pet_config.lora_rank,
-        lora_alpha=pet_config.lora_alpha,
-        lora_dropout=pet_config.lora_dropout,
-        target_modules=pet_config.target_modules
-    )
-    network = get_pet_model(network, pet_config)
-
-model = Model(network)
-
-# load checkpoint
-if config.load_checkpoint:
-    print("----------------Transform and load checkpoint----------------")
-    seq_length = config.model.model_config.seq_length
-    input_ids = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
-    infer_data = network.prepare_inputs_for_predict_layout(input_ids)
-    transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
-
-# init tokenizer
-tokenizer = Baichuan2Tokenizer(
-    vocab_file=config.processor.tokenizer.vocab_file
-)
-
-# init and run pipeline
-pipeline_task = pipeline(task="text_generation", model=model, tokenizer=tokenizer)
-outputs = pipeline_task(inputs,
-                        do_sample=False,
-                        top_k=1,
-                        top_p=1.0,
-                        repetition_penalty=1.0,
-                        temperature=1.0,
-                        max_length=64)
-for output in outputs:
-    print(output)
-```
-
-#### 单卡推理
-
-以Baichuan2-7B推理为例。
-
-1. 修改`predict_baichuan2_7b.yaml`
-
-   ```yaml
-   load_checkpoint: 'path/to/baichuan2_7b_chat.ckpt'  # 权重路径
-   use_parallel: False                                # 关闭并行模式
-   auto_trans_ckpt: False                             # 关闭自动权重转换
-   is_dynamic: True                                   # 开启动态推理
-   model:
-     model_config:
-       use_past: True                                 # 开启增量推理
-
-   processor:
-     tokenizer:
-       vocab_file: 'path/to/tokenizer.model'          # 词表路径
-   ```
-
-   若加载**分布式权重进行单卡推理**，则涉及将分布式权重转换为完整权重，参考以下配置修改相关参数。
-
-   ```yaml
-   # 需要将分布式权重转换为完整权重
-   load_checkpoint: 'path/to/dist_model_dir'          # 分布式权重文件夹路径
-   src_strategy_path_or_dir: 'strategy_path'          # 分布式策略文件路径
-   auto_trans_ckpt: True                              # 开启自动权重转换
-   ```
-
-   分布式权重应按如下结构存放，以8卡分布式权重为例。
-
-   ```text
-   dist_model_dir
-       ├── rank_0
-       |   └── checkpoint_0.ckpt  # 权重名称可不同
-       ├── rank_1
-       |   └── checkpoint_1.ckpt
-       ...
-       └── rank_7
-           └── checkpoint_7.ckpt
-   ```
-
-2. 执行命令
-
-   ```shell
-   # 运行示例代码
-   python run_baichuan2_pipeline.py
-
-   # 输出推理结果
-   # {'text_generation_text': [<reserved_106>你是谁？<reserved_107>我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问</s>]}
-   # {'text_generation_text': [<reserved_106>《静夜思》作者是？<reserved_107>《静夜思》的作者是唐代著名诗人李白。这是一首描绘夜晚思乡之情的诗篇，表达了作者对故乡的思念和对亲人的牵挂之情。</s>]}
-   # {'text_generation_text': [<reserved_106>白日依山尽，下一句是？<reserved_107>黄河入海流。</s>]}
-   ```
-
-#### 多卡推理
-
-暂不支持
-
-### 基于generate的推理
-
-generate推理支持**自动权重转换**，支持加载**lora权重**。关于推理中使用lora权重的说明可以参考[基于pipeline的推理](#基于pipeline的推理)。
-
-以下为基于generate接口的自定义推理代码示例。
-
-```python
-# run_baichuan2_generate.py
-import mindspore as ms
-from mindspore import Model
-from mindspore import Tensor
-from mindspore.common import initializer as init
-
-from mindformers import MindFormerConfig
-from mindformers.models import LlamaConfig
-from mindformers.pet import get_pet_model, LoraConfig
-from mindformers.trainer.utils import transform_and_load_checkpoint
-from mindformers.core.context import build_context
-from mindformers.core.parallel_config import build_parallel_config
-
-from baichuan2_7b import Baichuan7BV2ForCausalLM
-from baichuan2_13b import Baichuan13BV2ForCausalLM
-from baichuan2_tokenizer import Baichuan2Tokenizer
-
-model_dict = {
-    "baichuan2_7b": Baichuan7BV2ForCausalLM,
-    "baichuan2_7b_lora": Baichuan7BV2ForCausalLM,
-    "baichuan2_13b": Baichuan13BV2ForCausalLM,
-    "baichuan2_13b_lora": Baichuan13BV2ForCausalLM
-}
-
-inputs = ["<reserved_106>你是谁？<reserved_107>",
-          "<reserved_106>《静夜思》作者是？<reserved_107>",
-          "<reserved_106>白日依山尽，下一句是？<reserved_107>",
-          "<reserved_106>推荐一些杭州的美食？<reserved_107>"]
-batch_size = len(inputs)
-
-# init config with yaml
-config_path = "path/to/predict_baichuan2_7b.yaml"
-config = MindFormerConfig(config_path)
-
-# init context
-build_context(config)
-build_parallel_config(config)
-
-# init model
-config.model.model_config.parallel_config = config.parallel_config
-config.model.model_config.batch_size = batch_size
-model_config = LlamaConfig(**config.model.model_config)
-model_config.checkpoint_name_or_path = None
-model_name = config.trainer.model_name
-network = model_dict[model_name](
-    config=model_config
-)
-
-if config.model.model_config.pet_config:
-    print("----------------Init lora params----------------")
-    pet_config = config.model.model_config.pet_config
-    pet_config = LoraConfig(
-        lora_rank=pet_config.lora_rank,
-        lora_alpha=pet_config.lora_alpha,
-        lora_dropout=pet_config.lora_dropout,
-        target_modules=pet_config.target_modules
-    )
-    baichuan2_network = get_pet_model(network, pet_config)
-
-model = Model(network)
-
-# load checkpoint
-if config.load_checkpoint:
-    print("----------------Transform and load checkpoint----------------")
-    seq_length = config.model.model_config.seq_length
-    input_ids = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
-    infer_data = network.prepare_inputs_for_predict_layout(input_ids)
-    transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
-
-# init tokenizer
-tokenizer = Baichuan2Tokenizer(
-    vocab_file=config.processor.tokenizer.vocab_file
-)
-
-# predict using generate
-inputs_ids = tokenizer(inputs, max_length=64, padding="max_length")["input_ids"]
-outputs = network.generate(inputs_ids,
-                           do_sample=False,
-                           top_k=1,
-                           top_p=1.0,
-                           repetition_penalty=1.0,
-                           temperature=1.0,
-                           max_length=64)
-for output in outputs:
-    print(tokenizer.decode(output))
-```
-
-#### 单卡推理
-
-同[基于pipeline的单卡推理](#单卡推理)，执行代码替换为`run_baichuan2_generate.py`即可。
-
-#### 多卡推理
-
-同[基于pipeline的多卡推理](#多卡推理)
 
 ## 常见问题
 
