@@ -16,7 +16,9 @@
 import json
 import os
 import re
+import time
 import shutil
+import random
 from multiprocessing import Process
 from typing import Dict, List, Tuple, Union
 
@@ -531,6 +533,7 @@ def delete_file(file_path):
 
 def remake_folder(folder_path, permissions=None):
     """make folder"""
+    from .logger import logger
     remaked_txt = os.path.join(folder_path, "remaked.txt")
     rank_id = get_real_rank()
     if Validator.is_obs_url(folder_path):
@@ -542,9 +545,8 @@ def remake_folder(folder_path, permissions=None):
                 mox.file.remove(folder_path, recursive=True)
             mox.file.make_dirs(folder_path)
             create_file(remaked_txt)
-        while True:
-            if mox.file.exists(remaked_txt):
-                break
+        while not mox.file.exists(remaked_txt):
+            time.sleep(0.1 + random.uniform(0, 0.1))
     else:
         if is_main_rank():
             if os.path.exists(folder_path):
@@ -552,14 +554,15 @@ def remake_folder(folder_path, permissions=None):
             os.makedirs(folder_path, exist_ok=True)
             os.chmod(folder_path, permissions)
             create_file(remaked_txt)
-        while True:
-            if os.path.exists(remaked_txt):
-                break
+        while not os.path.exists(remaked_txt):
+            time.sleep(0.1 + random.uniform(0, 0.1))
+    logger.info(f"Folder {folder_path} remaked.")
     return remaked_txt
 
 
 def remove_folder(folder_path, rank_id=None):
     """delete folder"""
+    from .logger import logger
     rank_id = rank_id or get_real_rank()
     if Validator.is_obs_url(folder_path):
         assert check_in_modelarts(), f"When removing {folder_path}, \
@@ -567,15 +570,14 @@ def remove_folder(folder_path, rank_id=None):
         import moxing as mox
         if mox.file.exists(folder_path) and not rank_id:
             mox.file.remove(folder_path, recursive=True)
-        while True:
-            if not mox.file.exists(folder_path):
-                break
+        while mox.file.exists(folder_path):
+            time.sleep(0.1 + random.uniform(0, 0.1))
     else:
         if os.path.exists(folder_path) and not rank_id:
             shutil.rmtree(folder_path)
-        while True:
-            if not os.path.exists(folder_path):
-                break
+        while os.path.exists(folder_path):
+            time.sleep(0.1 + random.uniform(0, 0.1))
+    logger.info(f"Folder {folder_path} removed successfully")
 
 
 def get_epoch_and_step_from_ckpt_name(ckpt_file):
