@@ -201,7 +201,7 @@ class ChatGLM2SelfAttention(nn.Cell):
                                                   block_size=config.block_size,
                                                   num_blocks=config.num_blocks,
                                                   use_flash_attention=self.use_flash_attention,
-                                                  rotary_cos_format=1,
+                                                  rotary_cos_format=3,
                                                   compute_dtype=self.compute_dtype)
             self.infer_attention.shard(parallel_config)
         else:

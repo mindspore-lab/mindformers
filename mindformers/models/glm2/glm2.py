@@ -36,7 +36,7 @@ from mindformers.models.llama.llama_layer import LlamaEmbedding
 
 from ..utils import lazy_inline
 from .glm2_config import ChatGLM2Config
-from .glm2_modules import precompute_rotary_emb_cache
+from .glm2_modules import FreqsMgr
 from .glm2_transformer import ChatGLM2Transformer
 from ...tools.logger import logger
 
@@ -91,12 +91,12 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         rotary_dim = (
             config.hidden_size // config.num_attention_heads if config.kv_channels is None else config.kv_channels
         )
-        self.rotary_pos_emb = precompute_rotary_emb_cache(
-            seq_len=self.seq_length,
+        self.freqs_mgr = FreqsMgr(
             dim=rotary_dim // 2,
-            rope_ratio=config.rope_ratio,
-            dtype=config.compute_dtype
-        )
+            seq_length=config.seq_length,
+            rotary_dtype=config.compute_dtype,
+            base=10000,
+            rope_ratio=config.rope_ratio)
 
         self.encoder = ChatGLM2Transformer(config)
 
@@ -151,18 +151,22 @@ class ChatGLM2Model(GLM2PreTrainedModel):
                   block_tables=None, slot_mapping=None):
         """ChatGLM2 model."""
         _ = position_ids
-        batch_size, _ = input_ids.shape
+        batch_size, seq_len = input_ids.shape
 
         mask = None
         if self.use_past:
             if self.is_first_iteration:
+                freqs_cis = self.freqs_mgr(seq_len)
                 if self.use_flash_attention:
                     if self.enable_asd_op:
                         mask = self.casual_mask(input_ids)  # mask: [bs, seq, seq]
                         mask = self.cast(mask, mstype.float16)
                 else:
                     mask = self.casual_mask(input_ids)  # mask: [bs, seq, seq]
+            else:
+                freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
+            freqs_cis = self.freqs_mgr(seq_len)
             if full_attention_mask is None:
                 # (bs, 1, seq_len, seq_len)
                 full_attention_mask = self.get_masks(batch_size, attention_mask, input_position)
@@ -173,7 +177,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
 
         # Run encoder.
         hidden_states = self.encoder(
-            input_embeds, mask, self.rotary_pos_emb,
+            input_embeds, mask, freqs_cis,
             batch_valid_length=batch_valid_length, prefix_key_values=prefix_key_values, block_tables=block_tables,
             slot_mapping=slot_mapping)
         return hidden_states
@@ -212,6 +216,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         self.is_first_iteration = True
         self.not_equal = P.NotEqual()
         self.add = P.Add()
+        self.reshape = P.Reshape()
         self.load_checkpoint(config)
         self.vocab_size = config.padded_vocab_size
         self.set_model_predict_config()
@@ -254,6 +259,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         for layer in self.transformer.encoder.layers:
             layer.add_flags(is_first_iteration=is_first_iteration)
             layer.self_attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
+            layer.self_attention.infer_attention.rotary_embedding.add_flags(is_first_iteration=is_first_iteration)
 
     # pylint: disable=W0613
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
@@ -264,6 +270,8 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         # position_ids: (bs, seq_len)
         # attention_mask: (bs, seq_len)
         bs, seq_len = input_ids.shape
+        if batch_valid_length is not None:
+            batch_valid_length = self.reshape(batch_valid_length, (-1,))
         hidden_states = self.transformer(
             input_ids=input_ids,
             input_position=input_position,

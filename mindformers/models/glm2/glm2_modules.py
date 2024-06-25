@@ -25,28 +25,53 @@ from mindformers.version_control import check_rmsnorm_big_kernel_valid, check_va
 
 from .glm2_config import ChatGLM2Config
 
+class FreqsMgr(nn.Cell):
+    r"""freqs_cis manager."""
 
-def precompute_rotary_emb_cache(seq_len: int, dim: int, dtype=mstype.float32, rope_ratio=1, base: int = 10000):
-    """pre compute rotary emb cache."""
-    base = base * rope_ratio
-    # $\Theta = {\theta_i = 10000^{\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
-    theta = 1.0 / (base ** (np.arange(0, dim, 2, dtype=np.float32) / dim))
+    def __init__(self,
+                 dim,
+                 seq_length=None,
+                 max_position_embedding=4096,
+                 rotary_dtype=mstype.float16,
+                 base=10000,
+                 rope_ratio=1.0
+                 ):
+        super().__init__()
+        if seq_length is not None and seq_length > max_position_embedding:
+            max_position_embedding = seq_length
+        self.reshape = P.Reshape()
+        base = base * rope_ratio
+        theta = 1.0 / (base ** (np.arange(0, dim, 2, dtype=np.float32) / dim))
+        seq_idx = np.arange(seq_length, dtype=np.float32)
+        idx_theta = np.outer(seq_idx, theta).astype(np.float32)
 
-    # Create position indexes `[0, 1, ..., seq_len - 1]`
-    seq_idx = np.arange(seq_len, dtype=np.float32)
+        cache = Tensor(np.stack((np.cos(idx_theta), np.sin(idx_theta)), axis=-1), dtype=rotary_dtype)
 
-    # Calculate the product of position index and $\theta_i$
-    idx_theta = np.outer(seq_idx, theta).astype(np.float32)
+        freqs = np.expand_dims(idx_theta, 2)
+        emb = np.concatenate((freqs, freqs), axis=-1)
+        emb = emb.reshape(seq_length, dim)
+        freqs_cos = Tensor(np.concatenate((np.cos(emb), np.ones_like(emb)), axis=-1), dtype=rotary_dtype)
+        freqs_sin = Tensor(np.concatenate((np.sin(emb), np.zeros_like(emb)), axis=-1), dtype=rotary_dtype)
 
-    cache = Tensor(np.stack((np.cos(idx_theta), np.sin(idx_theta)), axis=-1), dtype=dtype)
+        self.head_dim = dim
+        self.freqs_cos = Tensor(freqs_cos, dtype=rotary_dtype)
+        self.freqs_sin = Tensor(freqs_sin, dtype=rotary_dtype)
+        self.cache = Tensor(cache, dtype=rotary_dtype)
 
-    freqs = np.expand_dims(idx_theta, 2)
-    emb = np.concatenate((freqs, freqs), axis=-1)
-    emb = emb.reshape(seq_len, dim)
-    freqs_cos = Tensor(np.concatenate((np.cos(emb), np.ones_like(emb)), axis=-1), dtype=dtype)
-    freqs_sin = Tensor(np.concatenate((np.sin(emb), np.zeros_like(emb)), axis=-1), dtype=dtype)
-    return freqs_cos, freqs_sin, cache
+        self.slice = P.StridedSlice().shard(((1, 1),))
+        self.gather = P.Gather().shard(((1, 1), (1,)))
+        self.tile = P.Tile().shard(((1, 1),))
 
+    def construct(self, seq_length):
+        freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim * 2), (1, 1))
+        freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim * 2), (1, 1))
+        return freqs_cos, freqs_sin, self.cache
+
+    def increment(self, batch_valid_length):
+        indices = batch_valid_length - 1
+        freqs_cos = self.gather(self.freqs_cos, indices, 0)
+        freqs_sin = self.gather(self.freqs_sin, indices, 0)
+        return freqs_cos, freqs_sin, self.cache
 
 class ChatGLM2RMSNorm(nn.Cell):
     r"""
