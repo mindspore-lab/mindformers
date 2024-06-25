@@ -238,7 +238,10 @@ class ColumnParallelLinear(nn.Cell):
         w_shard = (tp_size, 1) if self.transpose_b else (1, tp_size)
         state_dict = {}
         opt_weight_shard_step = get_tp_world_size() if self.use_zero3 else 0
-        opt_weight_shard_size = get_dp_world_size() if self.use_zero3 else -1
+        try:
+            opt_weight_shard_size = get_dp_world_size() if self.use_zero3 else -1
+        except AssertionError:
+            opt_weight_shard_size = -1
         if not self.skip_weight_param_allocation:
             state_dict[self.weight.name] = {'shape': self.weight.shape,
                                             'shard': w_shard,
@@ -419,7 +422,10 @@ class RowParallelLinear(nn.Cell):
         w_shard = (1, tp_size) if self.transpose_b else (tp_size, 1)
         state_dict = {}
         opt_weight_shard_step = get_tp_world_size() if self.use_zero3 else 0
-        opt_weight_shard_size = get_dp_world_size() if self.use_zero3 else -1
+        try:
+            opt_weight_shard_size = get_dp_world_size() if self.use_zero3 else -1
+        except AssertionError:
+            opt_weight_shard_size = -1
         state_dict[self.weight.name] = {'shape': self.weight.shape,
                                         'shard': w_shard,
                                         'opt_weight_shard_step': opt_weight_shard_step,
@@ -427,8 +433,8 @@ class RowParallelLinear(nn.Cell):
         if self.has_bias:
             state_dict[self.bias.name] = {'shape': self.bias.shape,
                                           'shard': (1,),
-                                          'opt_weight_shard_step': 0,
-                                          'opt_weight_shard_size': -1}
+                                          'opt_weight_shard_step': opt_weight_shard_step,
+                                          'opt_weight_shard_size': opt_weight_shard_size}
         return state_dict
 
 class VocabParallelEmbedding(nn.Cell):

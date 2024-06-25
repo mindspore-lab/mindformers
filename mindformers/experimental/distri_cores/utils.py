@@ -115,17 +115,25 @@ def generate_state_dict(network: Module, optimizer: Optimizer):
     Supported Platforms:
         ``Ascend``
     """
+    try:
+        pp_size = get_pp_world_size()
+        pp_rank = get_pp_rank()
+    except AssertionError:
+        pp_size = 1
+        pp_rank = 0
     state_dict = {
         'total_rank': get_group_size(),
-        'stage_rank_size': get_group_size() // get_pp_world_size(),
-        'stage': get_pp_rank(),
+        'stage_rank_size': get_group_size() // pp_size,
+        'stage': pp_rank,
     }
     state_dict['model'] = network.sharded_state_dict()
-    if hasattr(optimizer, 'sharded_state_dict'):
-        state_dict['optimizer'] = optimizer.sharded_state_dict(state_dict['model'])
-    else:
-        print(f"The optimizer {type(optimizer).__name__} has no sharded_state_dict overridden")
-        state_dict['optimizer'] = get_default_dict_for_optimizer(optimizer, state_dict['model'])
+    state_dict['optimizer'] = {}
+    if optimizer is not None:
+        if hasattr(optimizer, 'sharded_state_dict'):
+            state_dict['optimizer'] = optimizer.sharded_state_dict(state_dict['model'])
+        else:
+            print(f"The optimizer {type(optimizer).__name__} has no sharded_state_dict overridden")
+            state_dict['optimizer'] = get_default_dict_for_optimizer(optimizer, state_dict['model'])
     return state_dict
 
 def save_strategy_file(state_dict, strategy_file_name):
