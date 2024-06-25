@@ -70,9 +70,9 @@ class AbsPos(nn.Cell):
             x = self.transpose(x, (0, 3, 1, 2))
             x = self.cast(x, ms.float32)
             x = self.resize(x, self.resize_shape)
+            x = self.cast(x, ori_dtype)
             x = self.transpose(x, (0, 2, 3, 1))
             x = self.flatten(x)
-            x = self.cast(x, ori_dtype)
         return x
 
 
@@ -413,12 +413,12 @@ class ResidualAttentionBlock(nn.Cell):
                                     use_flash_attention=use_flash_attention,
                                     use_attention_mask=False,
                                     enable_fa_opt=enable_fa_opt)
-        self.ln_1 = LayerNorm((hidden_size,), eps=1e-6)
+        self.ln_1 = LayerNorm((hidden_size,), eps=1e-6, param_init_type=param_init_type)
         self.ln_1.layer_norm.shard(((dp, 1, 1), (1,), (1,)))
         self.mlp = MLP(layers=layers, hidden_size=hidden_size, intermediate_size=intermediate_size,
                        compute_dtype=compute_dtype, param_init_type=param_init_type, gelu_dtype=gelu_dtype,
                        parallel_config=parallel_config)
-        self.ln_2 = LayerNorm((hidden_size,), eps=1e-6)
+        self.ln_2 = LayerNorm((hidden_size,), eps=1e-6, param_init_type=param_init_type)
         self.ln_2.layer_norm.shard(((dp, 1, 1), (1,), (1,)))
         self.attn_mask = attn_mask
         self.add = P.Add().shard(((dp, 1, mp), (dp, 1, mp)))
@@ -528,6 +528,7 @@ class QwenVL(PreTrainedModel):
         self.equal = P.Equal().shard(((parallel_config.data_parallel, 1), ()))
         self.ones = P.Ones()
         self.img_pos_add = P.Add().shard(((1, 1, 1, 1), (1, 1, 1, 1)))
+        self.base_index_adder = None
 
         self.freeze_component()
         self.set_model_predict_config()
@@ -546,6 +547,16 @@ class QwenVL(PreTrainedModel):
             logger.info("freeze llm model")
             for param in self.llm_model.trainable_params():
                 param.requires_grad = False
+
+    def generate_base_index_adder(self, batch_size):
+        if self.base_index_adder is None:
+            self.base_index_adder = ms.Tensor(
+                [[i, 0] for i in range(batch_size)], ms.int32).reshape(batch_size, 1, 1, 2)
+
+    # pylint: disable=W0613
+    def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
+        batch_size, _ = input_ids.shape
+        self.generate_base_index_adder(batch_size)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """prepare inputs for generation in inference"""
@@ -572,14 +583,23 @@ class QwenVL(PreTrainedModel):
         }
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
+        """prepare inputs for predict layout"""
         input_ids = Tensor(input_ids, mstype.int32)
-        images = Tensor(kwargs.get("images")) if "images" in kwargs else None
-        img_pos = Tensor(kwargs.get("img_pos")) if "img_pos" in kwargs else None
-        labels = None
-
         bs = input_ids.shape[0]
+
+        if "images" in kwargs:
+            images = Tensor(kwargs.get("images"))
+        else:
+            images = Tensor(np.random.random((bs, 1, 3, self.image_size, self.image_size)), ms.float32)
+
+        if "img_pos" in kwargs:
+            img_pos = Tensor(kwargs.get("img_pos"))
+        else:
+            img_pos = Tensor(np.random.randint(0, self.num_queries, (bs, 1, self.num_queries, 2)), ms.int32)
+
+        self.generate_base_index_adder(bs)
         slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
-        return input_ids, images, img_pos, labels, None, None, None, None, None, None, None, None, slot_mapping
+        return input_ids, images, img_pos, None, None, None, None, None, None, None, None, None, slot_mapping
 
     def set_dynamic_inputs(self):
         """set inputs when is_dynamic=True"""
@@ -607,9 +627,13 @@ class QwenVL(PreTrainedModel):
         return self.llm_model.kvcache(layer_idx)
 
     def concat_image_text(self, text_embeds, image_embeds, img_pos):
-        batch_size = self.shape(text_embeds)[0]
-        batch_index_adder = ms.Tensor([[i, 0] for i in range(batch_size)], ms.int32).reshape(batch_size, 1, 1, 2)
-        img_pos = self.img_pos_add(img_pos, batch_index_adder).reshape((-1,) + img_pos.shape[-2:])
+        """update the value at a specific position of the text embedding with the image embedding"""
+        if self.training:
+            batch_size = self.shape(text_embeds)[0]
+            batch_index_adder = ms.Tensor([[i, 0] for i in range(batch_size)], ms.int32).reshape(batch_size, 1, 1, 2)
+        else:
+            batch_index_adder = self.base_index_adder
+        img_pos = self.img_pos_add(img_pos, batch_index_adder).reshape((-1, self.num_queries, 2))
         image_embeds = self.cast(image_embeds, text_embeds.dtype)
         text_embeds = self.tensor_scatter_update(text_embeds, img_pos, image_embeds)
         return text_embeds

@@ -390,6 +390,9 @@ class QwenModel(QwenPreTrainedModel):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
+                if not self.use_flash_attention:
+                    mask = self.casual_mask(masks=input_attention_masks)
+                    mask = self.casual_mask.post_process(mask)
                 if self.use_rope_self_define:
                     freqs_cis = self.freqs_mgr(seq_len)
                 else:

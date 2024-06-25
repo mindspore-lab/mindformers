@@ -13,6 +13,9 @@ trainer:
   type: ImageToTextGenerationTrainer
   model_name: 'qwenvl'
 
+runner_config:
+  sink_mode: True
+
 # callbacks
 callbacks:
   - type: MFLossMonitor
@@ -50,13 +53,13 @@ model:
     freeze_vision: True
     freeze_resampler: False
     freeze_llm: False
-    use_past: False
+    use_past: True
     compute_dtype: "float16"
     param_init_type: "float16"
     softmax_compute_type: "float32"
     is_dynamic: True
-    block_size: 32
-    num_blocks: 128
+    block_size: 16
+    num_blocks: 512
     checkpoint_name_or_path: ""
 
     vision_model:
@@ -99,13 +102,13 @@ model:
         rotary_dtype: "float16"
         use_flash_attention: True
         is_dynamic: True
-        block_size: 32
-        num_blocks: 128
+        block_size: 16
+        num_blocks: 512
         offset: 0
         checkpoint_name_or_path: ""
         repetition_penalty: 1
         max_decode_length: 1024
-        use_past: False
+        use_past: True
         top_k: 0
         top_p: 0.8
         do_sample: False

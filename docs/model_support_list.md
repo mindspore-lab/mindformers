@@ -77,6 +77,12 @@
 |           [clip](model_cards/clip.md)           | clip_vit_b_32<br/>clip_vit_b_16 <br/>clip_vit_l_14<br/>clip_vit_l_14@336 | Cifar100 <br> Cifar100 <br> Cifar100 <br> Cifar100 | Accuracy   <br>  Accuracy   <br>  Accuracy   <br>  Accuracy | 57.24% <br> 61.41% <br> 69.67% <br> 68.19% |       [configs](https://gitee.com/mindspore/mindformers/tree/dev/configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml)       |
 | [visualglm](../research/visualglm/visualglm.md) | visualglm                                                                |                    fewshot-data                    |                              -                              |                     -                      | [configs](https://gitee.com/mindspore/mindformers/tree/dev/research/visualglm/run_visualglm_6b_image_to_text_generation.yaml) |
 
+### image_to_text_generation
+
+|                  模型 <br> model                  | 模型规格<br/>type                                                                            |   数据集 <br> dataset    | 评估指标 <br> metric | 评估得分 <br> score |                                        配置<br>config                                        |
+|:-----------------------------------------------:|------------------------------------------------------------------------------------------|:---------------------:|:----------------:|:---------------:|:------------------------------------------------------------------------------------------:|
+|        [QwenVL](../research/qwenvl/qwenvl.md)         | qwenvl_9.6b_bf16 | LLaVa-150k detail_23k |        -         |        -        | [configs](https://gitee.com/mindspore/mindformers/tree/dev/research/qwenvl/finetune_qwenvl_9.6b_bf16.yaml) |
+
 ## LLM大模型能力支持一览
 
 |    模型  \  特性    |    低参微调     |    边训边评    | Flash Attention | 并行推理 | 流式推理 | Chat | 多轮对话 |

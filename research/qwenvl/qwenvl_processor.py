@@ -204,10 +204,10 @@ class QwenVLProcessor(BaseProcessor):
                 padded_batch_img_pos.append(image_pos)
                 continue
 
-            repeat = [1]*image_size
+            repeat = [1] * image_size
             repeat[-1] = max_img_len - image_size + 1
             padded_batch_images.append(np.repeat(image, repeat, axis=0))
-            padded_batch_img_pos.append(np.repeat(image, image_pos, axis=0))
+            padded_batch_img_pos.append(np.repeat(image_pos, repeat, axis=0))
         return padded_batch_images, padded_batch_img_pos
 
     def post_process(self, output_ids, queries):
