@@ -58,7 +58,7 @@ def clear_auto_trans_output(config):
 def main(task='text_generation',
          config='run_qwen_72b_infer.yaml',
          run_mode='predict',
-         use_parallel=False,
+         use_parallel=None,
          use_past=None,
          ckpt=None,
          auto_trans_ckpt=None,
@@ -161,7 +161,7 @@ if __name__ == "__main__":
                         help='seq_length')
     parser.add_argument('--predict_length', default=8192, type=int,
                         help='max length for predict output.')
-    parser.add_argument('--use_parallel', default=False, type=str2bool,
+    parser.add_argument('--use_parallel', default=None, type=str2bool,
                         help='open parallel for model.')
     parser.add_argument('--device_id', default=-1, type=int,
                         help='ID of the target device, the value must be in [0, device_num_per_host-1]')
