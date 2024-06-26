@@ -132,9 +132,6 @@ def main(task='text_generation',
     if micro_batch_num is not None:
         config.parallel_config.micro_batch_num = micro_batch_num
 
-    if config.output_dir != './output':
-        raise ValueError("output_dir must be set to './output' and cannot be customized.")
-
     # init context
     build_context(config)
 
