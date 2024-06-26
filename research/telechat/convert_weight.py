@@ -22,7 +22,7 @@ import mindspore as ms
 from mindformers.utils.convert_utils import pt2ms
 
 
-def layer_name_mapping(key):
+def layer_name_mapping(telechat_type, key):
     """Convert huggingface PP weights mapping in MindSpore.
 
     return: new_name
@@ -42,7 +42,12 @@ def layer_name_mapping(key):
         "post_attention_layernorm.weight": "ffn_norm.weight",
         "ln_f.weight": "model.norm_out.weight"
     }
-
+    if telechat_type == "telechat_12b":
+        del layer_rename_map["word_embeddings.weight"]
+        del layer_rename_map["ln_f.weight"]
+        layer_rename_map["lm_head.weight"] = "lm_head.weight"
+        layer_rename_map["transformer.word_embeddings.weight"] = "model.tok_embeddings.embedding_weight"
+        layer_rename_map["transformer.ln_f.weight"] = "model.norm_out.weight"
     if key in layer_rename_map:
         return layer_rename_map[key]
 
@@ -53,9 +58,9 @@ def layer_name_mapping(key):
     return f"model.layers.{layer_number}." + layer_rename_map[text]
 
 
-# pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert hf weight to ms"""
+    telechat_type = kwargs.pop("telechat_type", "telechat_12b")
     state_dict = {}
     torch_dir = os.path.dirname(input_path)
     for file_name in os.listdir(torch_dir):
@@ -65,7 +70,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
 
     ms_params = []
     for k, v in state_dict.items():
-        ms_params.append({'name': layer_name_mapping(k), 'data': pt2ms(v, dtype)})
+        ms_params.append({'name': layer_name_mapping(telechat_type, k), 'data': pt2ms(v, dtype)})
 
     ms.save_checkpoint(ms_params, output_path)
     print(f"*** finish torch convert ms model, ms_ckpt save in {output_path} ***")
@@ -81,7 +86,11 @@ if __name__ == '__main__':
                         type=str,
                         default="",
                         help="The output mindspore checkpoint path.")
+    parser.add_argument("--telechat_type",
+                        type=str,
+                        default="telechat_12b",
+                        help="Telechat version.")
     args = parser.parse_args()
 
     # convert hf ckpt to ms
-    convert_pt_to_ms(args.torch_path, args.mindspore_path)
+    convert_pt_to_ms(args.torch_path, args.mindspore_path, telechat_type=args.telechat_type)

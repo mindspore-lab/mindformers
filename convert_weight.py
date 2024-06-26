@@ -94,6 +94,8 @@ if __name__ == '__main__':
                              "The number of layers of the model to be converted from hf to ms")
     parser.add_argument('--is_pretrain', default=False, type=bool, required=False,
                         help="Only for swin. Convert pretrain model weight.")
+    parser.add_argument('--telechat_type', default="telechat_12b", type=str, required=False,
+                        help="Only for telechat. Telechat version.")
     args, extra_args = parser.parse_known_args()
     extra_args = [i for item in extra_args for i in item.split("=")]
 
