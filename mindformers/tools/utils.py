@@ -512,6 +512,8 @@ def create_file(file_path, info=None):
         with mox.file.File(file_path, 'w') as f:
             if info:
                 f.write(info)
+            else:
+                f.write("Hugging ModelArts.")
     else:
         with open(file_path, 'w') as f:
             if info:
@@ -536,6 +538,7 @@ def remake_folder(folder_path, permissions=None):
     from .logger import logger
     remaked_txt = os.path.join(folder_path, "remaked.txt")
     rank_id = get_real_rank()
+    logger.info("Wait remake folder: %s", folder_path)
     if Validator.is_obs_url(folder_path):
         assert check_in_modelarts(), f"When remaking {folder_path}, \
             it is detected that it is not in the ModelArts platform."
@@ -564,6 +567,7 @@ def remove_folder(folder_path, rank_id=None):
     """delete folder"""
     from .logger import logger
     rank_id = rank_id or get_real_rank()
+    logger.info("Wait remove folder: %s", folder_path)
     if Validator.is_obs_url(folder_path):
         assert check_in_modelarts(), f"When removing {folder_path}, \
             it is detected that it is not in the ModelArts platform."
