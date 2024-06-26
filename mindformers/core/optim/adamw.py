@@ -16,6 +16,7 @@
 import numpy as np
 
 from mindspore import _checkparam as validator, Parameter, ParameterTuple, Tensor
+from mindspore._checkparam import GT, INC_NEITHER
 from mindspore.common import dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import composite as C
@@ -76,7 +77,10 @@ def _check_param_value(betas, eps, weight_decay, prim_name):
     validator.check("betas size", len(betas), "", [2], validator.IN, prim_name)
     validator.check_value_type("betas[0]", betas[0], [float], prim_name)
     validator.check_value_type("betas[1]", betas[1], [float], prim_name)
+    validator.check_float_range(betas[0], 0.0, 1.0, INC_NEITHER, "beta1", prim_name)
+    validator.check_float_range(betas[1], 0.0, 1.0, INC_NEITHER, "beta2", prim_name)
     validator.check_value_type("eps", eps, [float], prim_name)
+    validator.check_float(eps, 0.0, GT, "eps", prim_name)
     validator.check_value_type("weight_decay", weight_decay, [float], prim_name)
 
 
