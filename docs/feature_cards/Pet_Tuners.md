@@ -255,3 +255,14 @@ trainer.finetune(finetune_checkpoint="glm2_6b")
 ```
 
 至此，完成了一个P-Tuning v2微调算法适配过程。
+
+## 注意事项
+
+当使用微调算法时需要在配置文件中将`parallel.strategy_ckpt_config.only_trainable_params`设为`False`，通过该配置项使能在模型编译过程中保存所有参数的切分策略，保证在权重自动转换，以及后续权重合并时能够正确执行，具体设置如下所示：
+
+```yaml
+parallel:
+  strategy_ckpt_config:
+    save_file: "./ckpt_strategy.ckpt"
+    only_trainable_params: False # 设置成 False，使能策略文件中保存所有参数的切分策略，保证在权重自动转换，以及后续权重合并时能够正确执行
+```
