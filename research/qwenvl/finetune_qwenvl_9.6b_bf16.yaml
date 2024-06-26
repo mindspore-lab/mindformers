@@ -213,6 +213,8 @@ context:
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
+  jit_config:
+    jit_level: "O2"
 
 # parallel context config
 parallel:
