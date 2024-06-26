@@ -12,8 +12,6 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
 本仓库支持InternLM-7B的微调和InternLM-Chat-7B/20B的推理。由于InternLM与LLaMA结构相似，模型实现中的Embedding、FeedForward、RMSNorm等模块复用仓上LLaMA的代码。
 
-注: 由于InternLM基于高阶接口的形式开发，存放于research文件夹下，使用时需要将MindFormers[安装](https://gitee.com/mindspore/mindformers#%E4%BA%8Cmindformers%E5%AE%89%E8%A3%85)为python包，才能直接进入research/internlm目录下执行相关命令。
-
 ``` text
 @misc{2023internlm,
     title={InternLM: A Multilingual Language Model with Progressively Enhanced Capabilities},
@@ -31,7 +29,7 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 | [InternLM_7B_lora (Atlas 800T A2)](../../research/internlm/finetune_internlm_7b_lora.yaml) | text_generation |  alpaca  |         3864 tokens/s          |                      /                      |
 | [InternLM_20B (Atlas 800T A2)](../../research/internlm/predicet_internlm_20b.yaml) | text_generation |    /     |               /                | 25.3 tokens/s (batch_size=1, use_past=True) |
 
-## 代码结构介绍
+## 模型文件
 
 `InternLM` 基于 `MindFormers` 实现，主要涉及的文件有：
 
@@ -66,25 +64,66 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
         └── run_internlm.py               # 高阶接口使用脚本
     ```
 
-## <span id="jump">权重转换</span>
+## 环境及数据准备
 
-本仓库提供已经转换完成的预训练权重用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理，tokenizer.model为词表文件。
+### 安装环境
 
-- [InternLM-7B-Base](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/internlm.ckpt)
-- [InternLM-7B-Chat](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/internlm-chat.ckpt)
-- [tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/tokenizer.model)
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#二mindformers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
+> 注：Atlas 800T A2芯片支持7b，20b单机单卡推理，7b的全参微调支持单机八卡。
 
-也可选择从Hugging Face下载预训练权重后根据以下步骤进行权重转换，包含对应的分词模型，需要下载整个工程，Hugging Face权重的链接如下：
+### 数据及权重准备
 
-- [InternLM-7B-Base](https://huggingface.co/internlm/internlm-7b)
+#### 数据集下载
 
-- [InternLM-7B-Chat](https://huggingface.co/internlm/internlm-chat-7b)
+MindFormers提供**Wikitext2**作为预训练数据集，**alpaca**作为[微调](#微调)数据集。
 
-- [InternLM-20B-Base](https://huggingface.co/internlm/internlm-20b)
+| 数据集名称     |                    适用模型                     |          适用阶段           |                                                         下载链接                                                          |
+|:----------|:-------------------------------------------:|:-----------------------:|:---------------------------------------------------------------------------------------------------------------------:|
+| Wikitext2 | internlm-7b <br/> internlm20b <br/> |  Pretrain | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip) |
+| alpaca    |  internlm-7b <br/> internlm20b <br/> |        Finetune         |                    [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)                    |
+| alpaca-gpt4-data-zh |  internlm-7b <br/> internlm20b <br/> |        Finetune         |                                     [Link](https://huggingface.co/datasets/c-s-ale/alpaca-gpt4-data-zh/blob/main/alpaca_gpt4_data_zh.json)                                      |
 
-- [InternLM-20B-Chat](https://huggingface.co/internlm/internlm-chat-20b)
+下载数据集后，使用预处理脚本生成mindrecord训练数据：
 
-注：InternLM-7B-Base权重用于训练/微调，InternLM-7B-Chat用于直接开启快速推理，InternLM-20B同上。
+- WikiText2数据集预处理指令示例：
+
+```shell
+cd mindformers/research/internlm
+python wiki_data_preprocess.py \
+--mindrecord_schema internlm_wiki \
+--input_glob {path}/wikitext-2/wiki.train.tokens \
+--output_file {path}/wiki_processed/wiki.mindrecord \
+--model_file {path}/tokenizer.model \
+--seq_length 2048 \
+--min_length 50  # 过滤token长度小于min_length的数据，default=50
+```
+
+- Alpaca数据集预处理指令示例：（同时适用于alpaca_data和alpaca-gpt4-data-zh数据集）
+
+```shell
+cd mindformers/research/internlm
+python alpaca_data_preprocess.py \
+--mindrecord_schema internlm_alpaca \
+--input_glob {path}/alpaca_data.json \
+--output_file {path}/alpaca_processed/alpaca.mindrecord \
+--model_file {path}/tokenizer.model \
+--seq_length 2048
+```
+
+#### 模型权重下载
+
+MindFormers 提供已经转换完成的预训练权重、词表文件用于训练/微调/推理，用户可自行从下方链接拉取后直接使用，Base用于微调，Chat用于推理。
+
+也可选择从 HuggingFace 下载所由工程文件后进行模型权重转换使用。
+| 模型名称            |                                                 MindSpore权重                                                  |                      HuggingFace权重                       |
+|:----------------|:------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------------:|
+| InternLM-7B-Base       |    [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/internlm.ckpt)    | [Link](https://huggingface.co/internlm/internlm-7b)  |
+| InternLM-7B-Chat      | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/internlm-chat.ckpt) |  [Link](https://huggingface.co/internlm/internlm-chat-7b)   |                                                                                                            |  |
+| InternLM-20B-Base |  / |             [Link](https://huggingface.co/internlm/internlm-20b)                                   |
+| InternLM-20B-Chat | /  |                      [Link](https://huggingface.co/internlm/internlm-chat-20b)                                |
+| tokenizer.model |  [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/internlm/tokenizer.model) |                         /                             |
+
+#### 模型权重转换
 
 原始权重下载完成后，运行如下转换脚本，将Hugging Face的权重转换为完整的ckpt权重。
 
@@ -98,144 +137,13 @@ torch_ckpt_path: Hugging Face权重保存目录路径下任意权重bin文件，
 mindspore_ckpt_path: 转换后MindSpore权重文件的保存路径
 ```
 
-## InternLM-7B
+## 微调
 
-### 快速推理
+MindFormers提供 internlm 全参微调和LoRA微调的示例。
 
-#### 基于高阶接口的推理
-
-1. 配置文件设置，添加tokenizer路径`vocab_file`，并设置`rms_norm`，`batch_size`的值
-
-在使用Trainer接口进行推理时，由于InternLM-7b的tokenizer需要用户自行下载，因此在启动前，请先在配置文件中将tokenizer.model的路径自行配置，配置项为vocab_file。
-
-```python
-# research/internlm/predict_internlm_7b.yaml
-# runner config
-runner_config:
-  epochs: 1
-  batch_size: 1                 # batch_size设为1
-  sink_mode: True
-  sink_size: 2
-...
-# model config
-model:
-  model_config:
-    type: LlamaConfig
-    ...
-    rms_norm_eps: 1.0e-6        # rms_norm_eps设为1.0e-6
-...
-processor:
- return_tensors: ms
- tokenizer:
-   unk_token: '<unk>'
-   bos_token: '<s>'
-   eos_token: '</s>'
-   pad_token: '</s>'
-   vocab_file: '/path/Internlm-7b/tokenizer.model'        # 添加tokenizer路径
-   type: InternLMTokenizer
-```
-
-2. Trainer接口启动推理
-
-InternLM-7B的高阶接口使用脚本已集成在run_internlm.py脚本中，运行此脚本命令示例：
-
-```shell
-python run_internlm.py \
---config "predict_internlm_7b.yaml" \
---run_mode predict \
---use_parallel False \
---load_checkpoint ckpt_path_or_dir \
---predict_data '我们来对对联吧！生意如春意 的下联是' \
---device_id 0
-
-# [{'text_generation_text': ['<|User|>:我们来对对联吧！生意如春意的下联是\n<|Bot|>:生意如春意\n']}]
-```
-
-#### Pipeline推理
-
-```python
-from mindspore import context
-from mindformers.pipeline import pipeline
-
-from internlm import InternLMForCausalLM
-from internlm_tokenizer import InternLMTokenizer
-from internlm_config import InternLMConfig
-
-context.set_context(device_id=0, mode=0)
-# init model
-internlm_model_path = "/path/InternLM-7B/internlm-chat.ckpt" # InternLM ckpt path
-internlm_config = InternLMConfig(
-    checkpoint_name_or_path=internlm_model_path,
-    use_past=True,
-    is_dynamic=True
-)
-internlm_model = InternLMForCausalLM(
-    config=internlm_config
-)
-# init tokenizer
-tokenizer_path = "/path/InternLM-7B/tokenizer.model" # InternLM-7B tokenizer.model path
-tokenizer = InternLMTokenizer(
-    vocab_file=tokenizer_path
-)
-pipeline_task = pipeline(task="text_generation", model=internlm_model, tokenizer=tokenizer)
-pipeline_result = pipeline_task("<s><|User|>:你好<eoh>\n<|Bot|>:",
-                                do_sample=False,
-                                repetition_penalty=1.0,
-                                max_length=256)
-
-print(pipeline_result)
-
-# [{'text_generation_text': ['<|User|>:你好\n<|Bot|>:你好，有什么我可以帮助你的吗？\n']}]
-```
-
-### 微调
-
-#### 数据集准备
-
-本仓库提供了WikiText2、Alpaca数据集的预处理脚本，用于生成mindrecord训练数据。
-
-1. 数据集下载：
-
-- [WikiText2](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip)
-
-- [alpaca_data](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)
-
-- [alpaca-gpt4-data-zh](https://huggingface.co/datasets/c-s-ale/alpaca-gpt4-data-zh/blob/main/alpaca_gpt4_data_zh.json)
-
-2. 分词模型下载：
-
-从Hugging Face下载预训练权重时，同时下载对应的tokenizer.model。参考[权重转换](#jump)中提供的链接进行下载。
-
-3. 使用预处理脚本生成mindrecord训练数据：
-
-- WikiText2数据集预处理指令示例：
-
-```shell
-python wiki_data_preprocess.py \
---mindrecord_schema internlm_wiki \
---input_glob {path}/wikitext-2/wiki.train.tokens \
---output_file {path}/wiki_processed/wiki.mindrecord \
---model_file {path}/tokenizer.model \
---seq_length 2048 \
---min_length 50  # 过滤token长度小于min_length的数据，default=50
-```
-
-- Alpaca数据集预处理指令示例：（同时适用于alpaca_data和alpaca-gpt4-data-zh数据集）
-
-```shell
-python alpaca_data_preprocess.py \
---mindrecord_schema internlm_alpaca \
---input_glob {path}/alpaca_data.json \
---output_file {path}/alpaca_processed/alpaca.mindrecord \
---model_file {path}/tokenizer.model \
---seq_length 2048
-```
-
-#### 全参微调
+### 全参微调
 
 InternLM-7B用于微调，seq_length默认为2048，分布式微调训练使用单机八卡上启动。以alpaca_data数据集为例，在Atlas 800T A2上默认使用`finetune_internlm_7b.yaml`配置文件即可。
-
-当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
 
 1. 权重准备
 
@@ -285,7 +193,7 @@ bash scripts/msrun_launcher.sh \
 --train_dataset {path}/train_data" 8
 ```
 
-#### Lora微调
+### Lora微调
 
 Lora微调支持单卡/多卡启动，以alpaca-gpt4-data-zh数据集为例，在Atlas 800T A2机器上，使用`finetune_internlm_7b_lora.yaml`配置文件即可。
 
@@ -319,174 +227,49 @@ bash scripts/msrun_launcher.sh \
 --train_dataset {path}/train_data" 8
 ```
 
-## InternLM-20B
+## 推理
 
-### MindSpore推理
+MindFormers提供 InternLM-20b 的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡、多卡以及多batch推理。
 
-　　MindFormers 定位打造训练->微调->部署的端到端大模型工具套件，为了更好性能地部署已经微调训练好的大模型，我们利用MindSpore打造了全新的训推一体高性能推理引擎，保证训练与推理使用同一套脚本，为用户提供了开箱即用的推理部署方案，为用户提供端到端的大模型解决方案，帮助用户使能大模型业务。
+```shell
+# 脚本使用
+bash scripts/examples/internlm/run_internlm_predict.sh PARALLEL CONFIG_PATH DEVICE_NUM
 
-　　MindSpore 大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。
-
-#### 基于高阶接口推理
-
-- 修改predict_internlm_20b.yaml配置文件设置
-
-```bash
-auto_trans_ckpt: False                              # 关闭自动权重转换
-use_past: True                                      # 使用增量推理
-vocab_file: '/path/to/tokenizer.model'              # 配置词表路径
+# 参数说明
+PARALLEL:    是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
+CONFIG_PATH: 模型配置文件路径
+CKPT_PATH:   模型权重文件路径
+DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 ```
 
-- Trainer接口启动推理
+### 单卡推理
 
-InternLM-20B的高阶接口使用脚本已集成在run_internlm.py脚本中，运行此脚本命令示例：
+```shell
+# internlm 7b
+bash scripts/examples/internlm/internlm_predict.sh single \
+ research/internlm/predict_internlm_7.yaml \
+ path/to/InternLM_7B_Chat.ckpt \
+ path/to/tokenizer.model
 
-```bash
-python run_internlm.py \
---config 'predict_internlm_20b.yaml' \
---run_mode predict \
---use_parallel False \
---load_checkpoint '/path/to/InternLM-20B-Chat.ckpt' \
---predict_data '你是谁？' \
---device_id 0
-
-# output: [{'text_generation_text': ['<|User|>:你是谁？<eoh>\n<|Bot|>:我是一个名叫书生·浦语的人工智能助手，由上海人工智能实验室开发。我能够回答问题、提供定义和解释、将文本从一种语言翻译成另一种语言、总结文本、生成文本、编写故事、分析情感、提供推荐、开发算法、编写代码以及其他任何基于语言的任务。我的设计理念是有用、诚实并且无害。我使用了Transformer模型和深度学习技术，并使用语言模型作为预训练任务。我能够使用汉语和英语进行交流。<eoa>\n']}]
+# internlm 20b
+bash scripts/examples/internlm/internlm_predict.sh single \
+ research/internlm/predict_internlm_20b.yaml \
+ path/to/InternLM_20B_Chat.ckpt \
+ path/to/tokenizer.model
 ```
 
-#### 基于Pipeline推理
+### 多卡推理
 
-- 构建run_internlm_pipeline.py，该脚本提供了加载**完整权重**进行**单卡pipeline推理**的简单示例。
+```shell
+# internlm 7b
+bash scripts/examples/internlm/run_internlm_predict.sh parallel \
+ research/internlm/predict_internlm_7b.yaml \
+ path/to/InternLM_7B_Chat.ckpt \
+ path/to/tokenizer.model 2
 
-```python
-# run_internlm_pipeline.py
-import mindspore as ms
-from mindspore import context
-from mindformers.pipeline import pipeline
-
-from mindformers import MindFormerConfig
-from internlm import InternLMForCausalLM
-from internlm_config import InternLMConfig
-from internlm_tokenizer import InternLMTokenizer
-
-
-# init context
-context.set_context(device_id=0, mode=0)
-
-# init config
-internlm_config_path = "/path/to/predict_internlm_20b.yaml"
-config = MindFormerConfig(internlm_config_path)
-internlm_config = InternLMConfig(**config.model.model_config)
-internlm_model = InternLMForCausalLM(
-    config=internlm_config
-)
-
-# init tokenizer
-tokenizer_path = "/path/to/InternLM-20B/tokenizer.model" # InternLM-20B tokenizer path
-tokenizer = InternLMTokenizer(
-    vocab_file=tokenizer_path
-)
-
-# init and run pipeline
-pipeline_task = pipeline(task="text_generation", model=internlm_model, tokenizer=tokenizer)
-pipeline_result = pipeline_task("<s><|User|>:你是谁？<eoh>\n<|Bot|>:",
-                                do_sample=False,
-                                repetition_penalty=1.0,
-                                max_length=256)
-print(pipeline_result)
-
-# 推理输出
-# [{'text_generation_text': ['<|User|>:你是谁？<eoh>\n<|Bot|>:我是一个名叫书生·浦语的人工智能助手，由上海人工智能实验室开发。我能够回答问题、提供定义和解释、将文本从一种语言翻译成另一种语言、总结文本、生成文本、编写故事、分析情感、提供推荐、开发算法、编写代码以及其他任何基于语言的任务。我的设计理念是有用、诚实并且无害。我使用了Transformer模型和深度学习技术，并使用语言模型作为预训练任务。我能够使用汉语和英语进行交流。<eoa>\n']}]
-```
-
-- 修改predict_internlm_20b.yaml配置文件，以下为主要参数设置参考：
-
-```yaml
-load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
-auto_trans_ckpt: False                                        # 关闭自动权重转换
-checkpoint_name_or_path: '/path/to/InternLM-20B-Chat.ckpt'    # 填写权重绝对路径
-use_past: True                                                # 使用增量推理
-is_dynamic: True                                              # 使用动态shape
-block_size: 16                                                # Paged Attention中每个block的大小
-num_blocks: 512                                               # Paged Attention中的block数量
-vocab_file: '/path/to/tokenizer.model'                        # 配置词表路径
-use_parallel: False                                           # 关闭并行模式
-```
-
-【注意】需要设置batch_size × seq_length <= block_size × num_blocks，否则可能会导致"block pool out of memory"报错
-
-- 运行run_internlm_pipeline.py
-
-```bash
-python internlm/run_internlm_pipeline.py
-```
-
-#### 基于Generate推理
-
-- 构建run_internlm_generate.py，该脚本提供了加载**完整权重**进行**单卡generate推理**的简单示例。
-
-```python
-# run_internlm_generate.py
-import mindspore as ms
-from mindspore import context
-
-from mindformers import MindFormerConfig
-from internlm import InternLMForCausalLM
-from internlm_config import InternLMConfig
-from internlm_tokenizer import InternLMTokenizer
-
-
-# init context
-context.set_context(device_id=0, mode=0)
-
-# init config
-internlm_config_path = "/path/to/predict_internlm_20b.yaml"
-config = MindFormerConfig(internlm_config_path)
-internlm_config = InternLMConfig(**config.model.model_config)
-internlm_model = InternLMForCausalLM(
-    config=internlm_config
-)
-
-# init tokenizer
-tokenizer_path = "/path/to/InternLM-20B/tokenizer.model" # InternLM-20B tokenizer path
-tokenizer = InternLMTokenizer(
-    vocab_file=tokenizer_path
-)
-
-# predict using generate
-input_ids = tokenizer("<s><|User|>:你是谁？<eoh>\n<|Bot|>:",
-                      max_length=64, padding="max_length")["input_ids"]
-generate_ids = internlm_model.generate(input_ids,
-                                       do_sample=False,
-                                       top_k=1,
-                                       top_p=1.0,
-                                       repetition_penalty=1.0,
-                                       temperature=1.0,
-                                       max_length=256)
-generate_result = tokenizer.decode(generate_ids)
-print(generate_result)
-
-# 推理输出
-# [{'text_generation_text': ['<|User|>:你是谁？<eoh>\n<|Bot|>:我是一个名叫书生·浦语的人工智能助手，由上海人工智能实验室开发。我使用了Transformer模型和深度学习技术，并使用语言模型作为预训练任务。我的设计理念是有用、诚实并且无害。我能够回答问题、提供定义和解释、将文本从一种语言翻译成另一种语言、总结文本、生成文本、编写故事、分析情感、提供推荐、开发算法、编写代码以及其他任何基于语言的任务。但我不能看、听、尝、触摸、闻、移动、与物理世界交互、感受情感或体验感官输入、执行需要身体能力的任务。<eoa>\n']}]
-```
-
-- 修改predict_internlm_20b.yaml配置文件，以下为主要参数设置参考：
-
-```yaml
-load_checkpoint: ''                                           # 单卡推理时，只需配置checkpoint_name_or_path
-auto_trans_ckpt: False                                        # 关闭自动权重转换
-checkpoint_name_or_path: '/path/to/InternLM-20B-Chat.ckpt'    # 填写权重绝对路径
-use_past: True                                                # 使用增量推理
-is_dynamic: True                                              # 使用动态shape
-block_size: 16                                                # Paged Attention中每个block的大小
-num_blocks: 512                                               # Paged Attention中的block数量
-vocab_file: '/path/to/tokenizer.model'                        # 配置词表路径
-use_parallel: False                                           # 关闭并行模式
-```
-
-【注意】需要设置batch_size × seq_length <= block_size × num_blocks，否则可能会导致"block pool out of memory"报错
-
-- 运行run_internlm_generate.py
-
-```bash
-python internlm/run_internlm_generate.py
+# internlm 20b
+bash scripts/examples/internlm/run_internlm_predict.sh parallel \
+ research/internlm/predict_internlm_20b.yaml \
+ path/to/InternLM_20B_Chat.ckpt \
+ path/to/tokenizer.model 2
 ```
