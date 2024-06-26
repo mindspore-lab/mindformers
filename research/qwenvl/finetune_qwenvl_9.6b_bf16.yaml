@@ -87,7 +87,7 @@ lr_schedule:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "qwen-vl_bf16"
     save_checkpoint_steps: 10000
     keep_checkpoint_max: 3

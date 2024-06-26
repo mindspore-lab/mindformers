@@ -108,7 +108,7 @@ recompute_config:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "llama3_8b"
     save_checkpoint_steps: 10000
     integrated_save: False

@@ -719,7 +719,7 @@ class BaseTrainer:
                     "global_batch_size": self.global_batch_size,
                     "gradient_accumulation_steps": self.config.runner_config.gradient_accumulation_steps
                 }
-            elif "type" in callback and callback["type"] == "CheckpointMointor":
+            elif "type" in callback and callback["type"] == "CheckpointMonitor":
                 default_args = {"append_info": append_info}
 
             default_callbacks.append(build_callback(callback, default_args=default_args))
@@ -769,7 +769,7 @@ class BaseTrainer:
         if config.moe_config.enable_cold_hot_expert:
             save_checkpoint_steps = -1
             for callback in config.callbacks:
-                if callback['type'] == 'CheckpointMointor':
+                if callback['type'] == 'CheckpointMonitor':
                     save_checkpoint_steps = callback['save_checkpoint_steps']
             cold_hot_mointor = ColdHotExpertMointor(
                 moe_config=config.moe_config,
@@ -778,7 +778,7 @@ class BaseTrainer:
                 expert_parallel=config.parallel_config.expert_parallel,
                 model_parallel=config.parallel_config.model_parallel,
                 save_checkpoint_steps=save_checkpoint_steps)
-            # ColdHotExpertMointor needs to be placed before CheckpointMointor
+            # ColdHotExpertMointor needs to be placed before CheckpointMonitor
             callbacks.insert(1, cold_hot_mointor)
 
         logger.info(".........Starting Training Model..........")

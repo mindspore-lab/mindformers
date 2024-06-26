@@ -163,7 +163,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - type: 回调函数类
     - type: MFLossMonitor: loss打印
     - type: SummaryMonitor: 收集summary数据，可以参考[mindspore.SummaryCollector](https://www.mindspore.cn/docs/zh-CN/r2.3/api_python/mindspore/mindspore.SummaryCollector.html)
-    - type: CheckpointMointor: checkpoint保存，可以参考[mindspore.save_checkpoint](https://www.mindspore.cn/docs/zh-CN/r2.3/api_python/mindspore/mindspore.save_checkpoint.html)
+    - type: CheckpointMonitor: checkpoint保存，可以参考[mindspore.save_checkpoint](https://www.mindspore.cn/docs/zh-CN/r2.3/api_python/mindspore/mindspore.save_checkpoint.html)
         - prefix: 权重文件前缀
         - directory: 保存权重的目录
         - save_checkpoint_seconds: 设定多少s保存一次ckpt

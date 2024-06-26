@@ -242,7 +242,7 @@ profile_memory: True
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "glm2-6b-ptuning2"
     save_checkpoint_steps: 3000
     keep_checkpoint_max: 2

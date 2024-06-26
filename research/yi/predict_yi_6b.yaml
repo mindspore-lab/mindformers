@@ -111,7 +111,7 @@ recompute_config:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "yi_6b"
     save_checkpoint_steps: 100
     integrated_save: False

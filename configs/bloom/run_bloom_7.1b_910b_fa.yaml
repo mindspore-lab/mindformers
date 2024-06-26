@@ -173,7 +173,7 @@ callbacks:
   - type: MFLossMonitor
   - type: SummaryMonitor
     keep_default_action: True
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "mindformers"
     save_checkpoint_steps: 6400
     integrated_save: False

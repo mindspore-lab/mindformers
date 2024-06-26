@@ -96,7 +96,7 @@ recompute_config:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "knowlm_13b"
     save_checkpoint_steps: 100
     integrated_save: False

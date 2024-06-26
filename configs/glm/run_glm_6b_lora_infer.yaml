@@ -227,7 +227,7 @@ profile_memory: True
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "glm-6b-lora"
     save_checkpoint_steps: 500
     keep_checkpoint_max: 2

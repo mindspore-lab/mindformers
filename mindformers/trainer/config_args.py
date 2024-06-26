@@ -17,7 +17,7 @@ import os
 from typing import Optional, Union
 from dataclasses import dataclass
 import inspect
-from mindformers.core.callback import CheckpointMointor
+from mindformers.core.callback import CheckpointMonitor
 from mindformers.tools.register import MindFormerRegister, \
     MindFormerModuleType
 from mindformers.tools.utils import get_real_group_size
@@ -711,7 +711,7 @@ class RunnerConfig(BaseArgsConfig):
 class CheckpointConfig(BaseArgsConfig):
     """MindFormers' save checkpoint config."""
 
-    _support_kwargs = inspect.getfullargspec(CheckpointMointor).args
+    _support_kwargs = inspect.getfullargspec(CheckpointMonitor).args
 
     def __init__(self,
                  prefix: str = 'mindformers',

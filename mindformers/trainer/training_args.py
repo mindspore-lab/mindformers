@@ -1846,7 +1846,7 @@ class TrainingArguments:
         """adapt callback config."""
         if not _check_task_config(task_config.callbacks):
             task_config.callbacks = [OrderedDict([("type", "MFLossMonitor")]),
-                                     OrderedDict([("type", "CheckpointMointor")]),
+                                     OrderedDict([("type", "CheckpointMonitor")]),
                                      OrderedDict([("type", "ObsMonitor")])]
 
         assert isinstance(task_config.callbacks, list),\
@@ -1856,7 +1856,7 @@ class TrainingArguments:
         for callback in task_config.callbacks:
             assert isinstance(callback, dict),\
                 f"The type of callback should be dict, but get {type(callback)}"
-            if callback['type'] == "CheckpointMointor" and self.save_strategy == 'no':
+            if callback['type'] == "CheckpointMonitor" and self.save_strategy == 'no':
                 continue
             new_callbacks.append(callback)
         task_config.callbacks = new_callbacks
@@ -1888,7 +1888,7 @@ class TrainingArguments:
         for i, callback in enumerate(task_config.callbacks):
             if callback['type'] == "MFLossMonitor":
                 task_config.callbacks[i] = _adapt_logging_callback(task_config.callbacks[i])
-            if callback['type'] == "CheckpointMointor":
+            if callback['type'] == "CheckpointMonitor":
                 task_config.callbacks[i] = _adapt_save_checkpoint_callback(task_config.callbacks[i])
 
     def _adapt_eval_config(self, task_config):

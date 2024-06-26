@@ -162,7 +162,7 @@ lr_scale_factor: 256
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "mindformers"
     save_checkpoint_steps: 100
     integrated_save: True

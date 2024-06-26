@@ -215,7 +215,7 @@ processor:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "mindformers"
     save_checkpoint_steps: 10000
     integrated_save: True

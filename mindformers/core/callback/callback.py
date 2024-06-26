@@ -40,7 +40,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_output_root_path, get_output_subpath, get_remote_save_url, check_in_modelarts,\
     get_real_rank, get_real_group_size
 
-__all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMointor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
+__all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
 _cur_dir = os.getcwd()
 SAVE_DIR = _cur_dir
@@ -456,7 +456,7 @@ class SummaryMonitor:
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
-class CheckpointMointor(ModelCheckpoint):
+class CheckpointMonitor(ModelCheckpoint):
     """
     Checkpoint Monitor For Save LossScale.
 
@@ -489,8 +489,8 @@ class CheckpointMointor(ModelCheckpoint):
         TypeError: If the config is not CheckpointConfig type.
 
     Examples:
-        >>> from mindformers.core.callback import CheckpointMointor
-        >>> monitor = CheckpointMointor(directory='./checkpoint_dir')
+        >>> from mindformers.core.callback import CheckpointMonitor
+        >>> monitor = CheckpointMonitor(directory='./checkpoint_dir')
     """
 
     def __init__(self, prefix='CKP',
@@ -544,7 +544,7 @@ class CheckpointMointor(ModelCheckpoint):
                                      enc_key=enc_key,
                                      enc_mode=enc_mode,
                                      exception_save=exception_save)
-        super(CheckpointMointor, self).__init__(prefix, ckpt_directory, config=config_ck)
+        super(CheckpointMonitor, self).__init__(prefix, ckpt_directory, config=config_ck)
         self.meta_json = os.path.join(self._directory, "meta.json")
 
     def _save_ckpt(self, cb_params, force_to_save=False):

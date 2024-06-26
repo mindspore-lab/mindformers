@@ -111,7 +111,7 @@ recompute_config:
 callbacks:
   - type: MFLossMonitor
     per_print_times: 1
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "deepseek_33b"
     save_checkpoint_steps: 10000
     integrated_save: False

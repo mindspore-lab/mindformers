@@ -162,7 +162,7 @@ optimizer:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "Codegeex-13b"
     save_checkpoint_steps: 500
     integrated_save: False

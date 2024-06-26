@@ -95,7 +95,7 @@ recompute_config:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "internlm_7b_lora"
     save_checkpoint_steps: 500
     save_trainable_params: False    # Whether to save fine-tuned weights additionally.
