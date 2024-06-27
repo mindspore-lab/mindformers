@@ -36,9 +36,13 @@ layer_rename_map = {
 }
 
 
-# pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """convert ms weight to hf."""
+    telechat_type = kwargs.pop("telechat_type", "telechat_12b")
+    if telechat_type == "telechat_12b":
+        layer_rename_map["lm_head.weight"] = "lm_head.weight"
+        layer_rename_map["model.tok_embeddings.embedding_weight"] = "transformer.word_embeddings.weight"
+        layer_rename_map["model.norm_out.weight"] = "transformer.ln_f.weight"
     param_dict = ms.load_checkpoint(input_path)
     state_dict = {}
     for name, value in param_dict.items():
@@ -66,8 +70,11 @@ if __name__ == '__main__':
                         type=str,
                         default="",
                         help="The input torch checkpoint path.")
-
+    parser.add_argument("--telechat_type",
+                        type=str,
+                        default="telechat_12b",
+                        help="Telechat version.")
     args = parser.parse_args()
 
     # convert hf ckpt to ms
-    convert_ms_to_pt(args.mindspore_path, args.torch_path)
+    convert_ms_to_pt(args.mindspore_path, args.torch_path, telechat_type=args.telechat_type)
