@@ -13,21 +13,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+
 PARALLEL=$1
 CONFIG_PATH=$2
 CKPT_PATH=$3
 DEVICE_NUM=$4
+TOKENIZER_PATH=$5
+
 script_path="$(realpath "$(dirname "$0")")"
+
+# set PYTHONPATH for research directory
+export PYTHONPATH=$script_path/../../../:$script_path/../../../research/:$script_path/../../../research/internlm2/:$PYTHONPATH
+
 if [ "$PARALLEL" = "single" ]; then
-  python "$script_path"/run_llama2_generate.py \
+  python "$script_path"/run_internlm2_generate.py \
     --config_path "$CONFIG_PATH" \
-    --load_checkpoint "$CKPT_PATH"
+    --load_checkpoint "$CKPT_PATH" \
+    --load_tokenizer "$TOKENIZER_PATH"
 elif [ "$PARALLEL" = "parallel" ]; then
   bash "$script_path"/../../msrun_launcher.sh \
-    "$script_path/run_llama2_generate.py \
+    "$script_path/run_internlm2_generate.py \
     --config_path $CONFIG_PATH \
     --load_checkpoint $CKPT_PATH \
-    --use_parallel" "$DEVICE_NUM"
+    --use_parallel \
+    --load_tokenizer $TOKENIZER_PATH" "$DEVICE_NUM"
 else
   echo "Only support 'single' or 'parallel', but got $PARALLEL."
 fi
