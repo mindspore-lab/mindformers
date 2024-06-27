@@ -21,20 +21,46 @@ from typing import Optional, List, Union, Dict
 import numpy as np
 
 import mindspore as ms
-from mindspore import context, ops, Tensor
+from mindspore import ops, Tensor
 from mindspore.communication.management import init
 from mindspore.common.initializer import Zero
 from mindspore._c_expression import swap_cache
 
-from mindformers import models
+from mindformers import models, MindFormerRegister, MindFormerModuleType
 from mindformers import build_context, logger, build_parallel_config, GenerationConfig
 from mindformers import AutoModel, AutoConfig, AutoTokenizer
-from mindformers.models.build_config import build_model_config
 from mindformers.models.utils import convert_mstype, ms_type_to_str
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
+from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
 
 __all__ = ["get_model", "ModelRunner"]
+
+
+def register_auto_class(config, pretrained_model_name_or_path, class_type, use_fast=True):
+    """convert to auto class"""
+    if config.model.model_config.auto_map:
+        class_auto = config["model"]["model_config"]["auto_map"]
+        if class_type == "AutoConfig" and \
+            config.model.model_config.type not in MindFormerRegister.registry[MindFormerModuleType.CONFIG]:
+            class_ref = class_auto[class_type]
+            config_class = get_class_from_dynamic_module(class_ref, pretrained_model_name_or_path)
+            MindFormerRegister.register_cls(config_class, module_type=MindFormerModuleType.CONFIG)
+
+        if class_type == "AutoTokenizer" and \
+            config.processor.tokenizer.type not in MindFormerRegister.registry[MindFormerModuleType.TOKENIZER]:
+            if use_fast and class_auto[class_type][1] is not None:
+                class_ref = class_auto[class_type][1]
+            else:
+                class_ref = class_auto[class_type][0]
+            tokenizer_class = get_class_from_dynamic_module(class_ref, pretrained_model_name_or_path)
+            MindFormerRegister.register_cls(tokenizer_class, module_type=MindFormerModuleType.TOKENIZER)
+
+        if class_type == "AutoModel" and \
+            config.model.arch.type not in MindFormerRegister.registry[MindFormerModuleType.MODELS]:
+            class_ref = class_auto[class_type]
+            model_class = get_class_from_dynamic_module(class_ref, pretrained_model_name_or_path)
+            MindFormerRegister.register_cls(model_class, module_type=MindFormerModuleType.MODELS)
 
 
 def get_model(model_name_or_path: str,
@@ -61,26 +87,16 @@ def get_model(model_name_or_path: str,
     """
     if os.path.exists(model_name_or_path) and os.path.isdir(model_name_or_path):
         logger.debug(f"model_name_or_path is {model_name_or_path}")
-        experiment_mode, config = _get_model_config(model_name_or_path)
-        model_type = config.model.arch.type if not experiment_mode else config.architectures[0]
+        config_path = _get_model_config(model_name_or_path)
+        config = MindFormerConfig(config_path)
+        model_type = config.model.arch.type
         logger.info(f"The model type is: {model_type}")
-        if model_type not in models.__all__:
-            try:
-                tokenizer_cls = __import__(model_type, ["MindIEPanguTokenizer"]).MindIEPanguTokenizer
-                vocab_list = [file for file in os.listdir(model_name_or_path) if file.endswith(".vocab")]
-                if len(vocab_list) == 1:
-                    vocab_file = os.path.join(model_name_or_path, vocab_list[0])
-                else:
-                    raise ValueError(f"There must be only one vocab file in the {model_name_or_path}.")
-                logger.debug(f"vocab_file_path is {vocab_file}")
-                tokenizer = tokenizer_cls(vocab_file)
-            except:
-                raise ImportError(f"import MindIEPanguTokenizer from module {model_type} failed.")
-        else:
-            use_fast = kwargs.get("use_fast", True)
-            tokenizer = AutoTokenizer.from_pretrained(
-                model_name_or_path, revision=revision, trust_remote_code=trust_remote_code, use_fast=use_fast
-            )
+        register_auto_class(config, model_name_or_path, class_type="AutoTokenizer")
+
+        use_fast = kwargs.get("use_fast", True)
+        tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, revision=revision,
+                                                  trust_remote_code=trust_remote_code,
+                                                  use_fast=use_fast)
     else:
         raise ValueError(f"{model_name_or_path} does not exist or is not a directory.")
 
@@ -114,8 +130,9 @@ class ModelRunner:
 
     def __new__(cls, model_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0, world_size=1,
                 npu_device_ids=None):
-        experiment_mode, config = _get_model_config(model_path)
-        model_type = config.model.arch.type if not experiment_mode else config.architectures[0]
+        config_path = _get_model_config(model_path)
+        config = MindFormerConfig(config_path)
+        model_type = config.model.arch.type
         logger.info(f"The model type is: {model_type}")
         model_runner_cls = MindIEModelRunner
         if model_type not in models.__all__:
@@ -125,8 +142,8 @@ class ModelRunner:
                 logger.info(f"import MindIEModelRunner from module {model_type} failed, "
                             f"and will use the default one defined in mindformers.")
 
-        model_runner = model_runner_cls(model_path, experiment_mode, config, npu_mem_size, cpu_mem_size, block_size,
-                                        rank_id, world_size, npu_device_ids)
+        model_runner = model_runner_cls(model_path, config_path, npu_mem_size, cpu_mem_size,
+                                        block_size, rank_id, world_size, npu_device_ids)
         return model_runner
 
 
@@ -155,27 +172,24 @@ class MindIEModelRunner:
             Get npu_device_ids from MindIE config.
     """
 
-    def __init__(self, model_path, experiment_mode, model_config, npu_mem_size, cpu_mem_size, block_size, rank_id=0,
+    def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0,
                  world_size=1, npu_device_ids=None):
-        self.experiment_mode = experiment_mode
-        self.config = None if experiment_mode else model_config
+        self.config = MindFormerConfig(config_path)
+        # register to Auto Class
+        register_auto_class(self.config, model_path, class_type="AutoConfig")
+        register_auto_class(self.config, model_path, class_type="AutoTokenizer")
+        register_auto_class(self.config, model_path, class_type="AutoModel")
 
         # parallel predict with dynamic cluster.
         if world_size > 1:
+            self.config.use_parallel = True
             os.environ['MS_WORKER_NUM'] = str(world_size)
             os.environ['MS_ROLE'] = 'MS_WORKER'
             if rank_id == 0 and os.fork() == 0:
                 os.environ['MS_ROLE'] = 'MS_SCHED'
                 init()
 
-        if world_size > 1:
-            if not self.experiment_mode:
-                self.config.use_parallel = True
-            else:
-                raise SystemError(f"You are running in experiment mode. World size can only be 1, "
-                                  f"but got world_size = {world_size}")
-
-        self.model_config = build_model_config(self.config.model.model_config) if not experiment_mode else model_config
+        self.model_config = AutoConfig.from_pretrained(config_path)
         self.num_layers = self.model_config.num_layers
         self.num_kv_heads = self.model_config.num_heads if self.model_config.n_kv_heads is None \
             else self.model_config.n_kv_heads
@@ -192,41 +206,35 @@ class MindIEModelRunner:
 
         self.generation_config = GenerationConfig.from_model_config(self.model_config)
 
-        if not self.experiment_mode:
-            if self.config.use_parallel:
-                build_parallel_config(self.config)
-                self.config.model.model_config.checkpoint_name_or_path = None
-                self.config.model.model_config.parallel_config = self.config.parallel_config
+        if self.config.use_parallel:
+            build_parallel_config(self.config)
+            self.model_config.checkpoint_name_or_path = None
+            self.model_config.parallel_config = self.config.parallel_config
 
-            if not self.config.use_parallel and npu_device_ids:
-                if len(npu_device_ids) != 1:
-                    raise ValueError("npu_device_ids should only contain one device_id")
-                self.config.context.device_id = npu_device_ids[0]
+        if not self.config.use_parallel and npu_device_ids:
+            if len(npu_device_ids) != 1:
+                raise ValueError("npu_device_ids should only contain one device_id")
+            self.config.context.device_id = npu_device_ids[0]
 
-            build_context(self.config)
-            logger.info(f"Build context finished.")
-            self.config.model.model_config.block_size = block_size
-            self.config.model.model_config.num_blocks = self.npu_num_blocks
-            self.model = AutoModel.from_config(self.config)
-            logger.info(f"Create model finished.")
+        build_context(self.config)
+        logger.info(f"Build context finished.")
 
-            if self.config.use_parallel:
-                ms_model = ms.Model(self.model)
-                batch_size = self.model_config.batch_size
-                seq_length = self.model_config.seq_length
-                input_ids = np.ones(shape=tuple([batch_size, seq_length]))
-                inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
-                transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
-        else:
-            context.set_context(mode=0, device_id=npu_device_ids[0])
-            logger.info(f"Build context finished.")
-            self.model = AutoModel.from_config(self.model_config, trust_remote_code=True)
-            logger.info(f"Create model finished.")
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=True)
+        self.model_config.block_size = block_size
+        self.model_config.num_blocks = self.npu_num_blocks
+        self.model = AutoModel.from_config(self.config)
+        logger.info(f"Create model finished.")
+
+        if self.config.use_parallel:
+            ms_model = ms.Model(self.model)
+            batch_size = self.model_config.batch_size
+            seq_length = self.model_config.seq_length
+            input_ids = np.ones(shape=tuple([batch_size, seq_length]))
+            inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
+            transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
 
         if self.model_config.is_dynamic:
             self.model.set_dynamic_inputs()
-
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=True)
 
         compute_dtype = convert_mstype(self.model_config.compute_dtype)
         self.dtype = ms_type_to_str[compute_dtype]
@@ -235,7 +243,6 @@ class MindIEModelRunner:
                                       name=f"key_host_{i}", requires_grad=False) for i in range(self.num_layers)]
         self.value_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=compute_dtype, init=Zero()),
                                         name=f"value_host_{i}", requires_grad=False) for i in range(self.num_layers)]
-
 
     def forward(self, input_ids: [Union[List[int], List[List[int]]]],
                 valid_length_each_example: List[int],
@@ -301,27 +308,20 @@ def _get_model_config(model_path):
         model_path: path of model config file.
 
     Returns:
-         experiment_mode, model_config.
+        config_path.
     """
 
-    experiment_mode = False
     if os.path.isdir(model_path):
-        json_list = [file for file in os.listdir(model_path)
-                     if file.endswith("config.json")]
         yaml_list = [file for file in os.listdir(model_path)
                      if file.endswith(".yaml")]
         if yaml_list:
             yaml_path = os.path.join(model_path, yaml_list[0])
-            model_config = MindFormerConfig(yaml_path)
-        elif json_list:
-            model_config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
-            experiment_mode = True
         else:
-            raise FileNotFoundError(f"There is no yaml file nor config.json file for model config in {model_path}.")
+            raise FileNotFoundError(f"There is no yaml file for model config in {model_path}.")
     else:
         raise ValueError(f"The path {model_path} is not exist.")
 
-    return experiment_mode, model_config
+    return yaml_path
 
 
 class InputBuilder:
@@ -340,6 +340,7 @@ class InputBuilder:
         max_length (int):
             The max length of input tokens.
     """
+
     def __init__(self, tokenizer, chat_template="", system_role_name="system", user_role_name="user", max_length=2048):
         self.tokenizer = tokenizer
         self.system_role_name = system_role_name
@@ -391,4 +392,4 @@ class InputBuilder:
             raise RuntimeError("The model does not appear to be a chat model because it is not configured with a "
                                "`chat_template`.")
         input_ids = self.tokenizer.apply_chat_template(conversation, **kwargs)
-        return input_ids[0].tolist()
+        return input_ids

@@ -154,9 +154,12 @@ model:
     param_init_type: "float16"
     qkv_concat: True
     use_past: True
+    use_flash_attention: True
+    block_size: 16
+    num_blocks: 512
+    is_dynamic: True
     scaling_factor: 1.0
     extend_method: "None"
-    use_flash_attention: False
     offset: 0
     checkpoint_name_or_path: "internlm2_7b"
     repetition_penalty: 1.00
@@ -164,6 +167,10 @@ model:
     top_k: 3
     top_p: 0.8
     do_sample: False
+    auto_map:
+      AutoModel: internlm2.InternLM2ForCausalLM
+      AutoConfig: internlm2_config.InternLM2Config
+      AutoTokenizer: [internlm2_tokenizer.InternLM2Tokenizer, null]
   arch:
     type: InternLM2ForCausalLM
 
