@@ -198,7 +198,19 @@ class PipelineCell(Module):
             self.stage_layers_list = stage_layers_list
             start_idx, end_idx = self._get_bounds(stage_layers_list)
             self._set_bounds(start_idx, end_idx)
-            self.transformer_layers = self.transformer_layers[start_idx:end_idx]
+
+            # pylint: disable=W0212
+            def split_transformer_layers(seq, start_idx, end_idx):
+                """ helper function for splitting transformer layers without prefix rename """
+                cells = OrderedDict(list(seq._cells.items())[start_idx:end_idx])
+                seq._cells.clear()
+                for name, cell in cells.items():
+                    seq.insert_child_to_cell(name, cell)
+                    seq._is_dynamic_name.append(False)
+                seq.cell_list = list(seq._cells.values())
+                return seq
+            self.transformer_layers = split_transformer_layers(self.transformer_layers, start_idx, end_idx)
+
         else:
             staged_set = set()
             for key, cur_layer in map_dict.items():
