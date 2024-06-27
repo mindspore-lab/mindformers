@@ -168,7 +168,6 @@ model:
     rotary_dtype: "float32"
     param_init_type: "float32"
     use_flash_attention: True
-    use_kbk_infer: True
     use_past: False
     use_past_shard: False
     offset: 0

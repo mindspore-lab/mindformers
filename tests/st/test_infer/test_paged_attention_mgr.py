@@ -17,6 +17,7 @@ import os
 import pytest
 
 import numpy as np
+import mindspore as ms
 from mindspore import dtype as mstype
 from mindspore import Tensor
 from mindformers.modules import PagedAttentionMgr
@@ -31,9 +32,11 @@ def test_paged_attention_mgr():
     Description: Test the forward
     Expectation: No exception
     """
-    os.environ['GRAPH_OP_RUN'] = '1'
-    os.environ['MS_ENABLE_INTERNAL_KERNELS'] = "on"
     os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
+    jit_level = "O0"
+    infer_boost = "on"
+    ms.set_context(jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
+
     bsz, head_num, seq_len, head_dim = 1, 16, 4096, 128
     n_kv_head = 16
     block_size = 1024

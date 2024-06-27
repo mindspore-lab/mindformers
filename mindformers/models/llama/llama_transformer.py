@@ -145,7 +145,10 @@ class LLamaAttention(nn.Cell):
                                 compute_dtype=compute_dtype,
                                 param_init_type=param_init_type,
                                 skip_redistribution=is_dynamic)
-            self.w_qkv.shard(((dp, 1), (mp, 1)))
+            if qkv_has_bias:
+                self.w_qkv.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+            else:
+                self.w_qkv.shard(((dp, 1), (mp, 1)))
             self.split_qkv = ms.ops.auto_generate.SplitWithSize()
             self.split_qkv.add_prim_attr("skip_redistribution", True)
             self.split_qkv.shard(((dp, 1, mp),))

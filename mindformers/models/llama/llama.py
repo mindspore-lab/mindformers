@@ -31,7 +31,7 @@ from mindformers.modules.layers import Linear, FreqsMgr
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_ms_enable_asd_op, get_predict_run_mode
+from mindformers.tools.utils import get_ms_enable_asd_op, get_predict_run_mode, get_use_rope_self_define
 
 from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm
@@ -94,6 +94,7 @@ class LlamaModel(LlamaPreTrainedModel):
             logger.info("MoE config is None, use normal FFN")
         else:
             logger.info("MoE config is provided, use MoE FFN")
+        self.use_rope_self_define = get_use_rope_self_define()
 
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
@@ -212,7 +213,11 @@ class LlamaModel(LlamaPreTrainedModel):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr(seq_len)
+                if self.use_rope_self_define:
+                    freqs_cis = self.freqs_mgr(seq_len)
+                else:
+                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+
                 if self.use_flash_attention:
                     if self.enable_asd_op: # only surppot fp16
                         mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
@@ -391,7 +396,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         for layer in self.model.layers:
             layer.add_flags(is_first_iteration=is_first_iteration)
             layer.attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
-            layer.attention.infer_attention.rotary_embedding.add_flags(is_first_iteration=is_first_iteration)
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
