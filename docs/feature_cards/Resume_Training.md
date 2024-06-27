@@ -191,7 +191,7 @@ train_dataset: &train_dataset
 
 # 设置权重保存参数
 callbacks:
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     save_checkpoint_steps: 5 # 每隔5step保存一次
     keep_checkpoint_max: 20 # 设置checkpoint最大保存数，设置为20以保存全部的checkpoint，如不设置默认为5。
 

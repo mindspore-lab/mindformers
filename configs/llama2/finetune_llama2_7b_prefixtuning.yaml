@@ -109,7 +109,7 @@ recompute_config:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "prefixtuning_llama2_7b"
     save_checkpoint_steps: 10000
     integrated_save: False

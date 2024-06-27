@@ -22,7 +22,7 @@ mindformers.core.callback
     :nosignatures:
     :template: classtemplate.rst
 
-    mindformers.core.callback.CheckpointMointor
+    mindformers.core.callback.CheckpointMonitor
     mindformers.core.callback.MFLossMonitor
     mindformers.core.callback.ObsMonitor
     mindformers.core.callback.SummaryMonitor

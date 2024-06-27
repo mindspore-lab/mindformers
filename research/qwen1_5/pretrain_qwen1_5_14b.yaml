@@ -121,7 +121,7 @@ recompute_config:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "qwen2"
     save_checkpoint_steps: 5000
     keep_checkpoint_max: 1

@@ -69,7 +69,7 @@ micro_batch_interleave_num: 1
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "llama2_70b"
     save_checkpoint_steps: 1000
     integrated_save: False

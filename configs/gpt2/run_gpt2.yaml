@@ -172,7 +172,7 @@ lr_scale_factor: 256
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "gpt"
     save_checkpoint_steps: 1
     integrated_save: True

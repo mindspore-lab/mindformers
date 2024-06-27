@@ -16,7 +16,7 @@ trainer:
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "qwen-vl"
     save_checkpoint_steps: 10000
     keep_checkpoint_max: 3

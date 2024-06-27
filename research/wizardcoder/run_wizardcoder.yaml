@@ -186,7 +186,7 @@ lr_scale_factor: 256
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "wizardcoder"
     save_checkpoint_steps: 2000
     keep_checkpoint_max: 2

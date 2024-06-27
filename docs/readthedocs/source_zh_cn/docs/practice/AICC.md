@@ -181,7 +181,7 @@ finetune恢复训练示例如下：
 
 ### 权重保存相关修改
 
-保存ckpt相关的配置需要修改`config`配置文件中`CheckpointMointor`：
+保存ckpt相关的配置需要修改`config`配置文件中`CheckpointMonitor`：
 
 `save_checkpoint_steps`：可修改保存ckpt频率。
 
@@ -193,7 +193,7 @@ callbacks:
   - type: MFLossMonitor
   - type: SummaryMonitor
     keep_default_action: True
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "gpt2"
     save_checkpoint_steps: 500
     integrated_save: False
@@ -229,7 +229,7 @@ callbacks:
   - type: MFLossMonitor
   - type: SummaryMonitor
     keep_default_action: True
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "mindformers"
     save_checkpoint_steps: 100
     integrated_save: True

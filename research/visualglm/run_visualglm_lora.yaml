@@ -272,7 +272,7 @@ lr_scale_factor: 256
 # callbacks
 callbacks:
   - type: MFLossMonitor
-  - type: CheckpointMointor
+  - type: CheckpointMonitor
     prefix: "visualglm"
     save_checkpoint_steps: 1500
     integrated_save: True

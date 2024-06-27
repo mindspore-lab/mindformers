@@ -315,7 +315,7 @@ def load_resume_context_from_checkpoint(config, dataset):
         config.runner_config.initial_epoch = 0
 
     for callback in config.callbacks:
-        if "type" in callback and callback["type"] == "CheckpointMointor":
+        if "type" in callback and callback["type"] == "CheckpointMonitor":
             if config.runner_wrapper.scale_sense is not None and "loss_scale" in resume_dict:
                 if hasattr(config.runner_wrapper.scale_sense, "loss_scale_value"):
                     config.runner_wrapper.scale_sense.loss_scale_value = resume_dict["loss_scale"]

@@ -312,7 +312,7 @@ self.blocks = nn.CellList()
 
 `model_parallel`：config.parallel_config.model_parallel
 
-`save_checkpoint_steps`：CheckpointMointor中配置的'save_checkpoint_steps'
+`save_checkpoint_steps`：CheckpointMonitor中配置的'save_checkpoint_steps'
 
 ```python
 from mindformers.core.callback.callback import ColdHotExpertMointor
@@ -320,7 +320,7 @@ from mindformers.core.callback.callback import ColdHotExpertMointor
 if config.moe_config.enable_cold_hot_expert:
     save_checkpoint_steps = -1
     for callback in config.callbacks:
-        if callback['type'] == 'CheckpointMointor':
+        if callback['type'] == 'CheckpointMonitor':
             save_checkpoint_steps = callback['save_checkpoint_steps']
     cold_hot_mointor = ColdHotExpertMointor(
         moe_config=config.moe_config,
@@ -329,8 +329,8 @@ if config.moe_config.enable_cold_hot_expert:
         expert_parallel=config.parallel_config.expert_parallel,
         model_parallel=config.parallel_config.model_parallel,
         save_checkpoint_steps=save_checkpoint_steps)
-    # ColdHotExpertMointor needs to be placed before CheckpointMointor
+    # ColdHotExpertMointor needs to be placed before CheckpointMonitor
     callbacks.insert(1, cold_hot_mointor)
 ```
 
-需要注意：在callbacks中ColdHotExpertMointor需要放置在CheckpointMointor前面，先执行ColdHotExpertMointor，不然副本的权重还没复制回其代表的Expert就保存ckpt，导致ckpt保存的Expert权重并非最新训练结果。
+需要注意：在callbacks中ColdHotExpertMointor需要放置在CheckpointMonitor前面，先执行ColdHotExpertMointor，不然副本的权重还没复制回其代表的Expert就保存ckpt，导致ckpt保存的Expert权重并非最新训练结果。
