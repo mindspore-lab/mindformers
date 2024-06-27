@@ -17,6 +17,8 @@ context:
   max_device_memory: "59GB" # 59GB for Atlas 800T A2
   save_graphs: False
   device_id: 0
+  jit_config:
+    jit_level: "O2"
 
 # aicc
 remote_save_url: "Please input obs url on AICC platform."
