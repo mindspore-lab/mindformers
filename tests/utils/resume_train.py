@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Test Resume Utils."""
+"""resume training utils."""
 import re
+import os
+
 
 def extract_loss_values(log_file_path):
     """extract loss values from log"""
@@ -28,3 +30,7 @@ def extract_loss_values(log_file_path):
                 loss_values.append(loss_value)
 
     return loss_values
+
+
+def get_file_mtime(file_path):
+    return os.path.getmtime(file_path)

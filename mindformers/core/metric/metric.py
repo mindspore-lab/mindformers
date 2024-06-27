@@ -683,7 +683,7 @@ class PromptAccMetric(nn.Metric):
         ppl_ms = self.reshape(ppl_ms, (batch_size, num_labels))
         ppl_ms = self.cast(self.argmin(ppl_ms), ms.int32)
         label = self.reshape(labels, (-1,))
-        cur_acc_num = self.cast(self.equal(ppl_ms, label), ms.float16).sum().asnumpy()
+        cur_acc_num = self.sum(self.cast(self.equal(ppl_ms, label), ms.float16)).asnumpy()
         self.num_data += batch_size
         self.total_acc_num += cur_acc_num
 

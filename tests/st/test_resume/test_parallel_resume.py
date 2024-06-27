@@ -20,7 +20,7 @@ pytest tests/st/test_resume/test_parallel_resume.py
 import os
 import pytest
 
-from utils import extract_loss_values
+from tests.utils.resume_train import extract_loss_values
 
 class TestResumeTraining:
     """A test class for testing pipeline."""
