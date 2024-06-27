@@ -131,7 +131,7 @@ class TransformCkpt:
             # responsible for transform checkpoints.
             self.transform_rank_id_list = \
                 [i for i in range(0, self.world_size, self.world_size // transform_process_num)]
-        self.transform_process_num = transform_process_num
+        self.transform_process_num = len(self.transform_rank_id_list)
 
         if auto_trans_ckpt:
             # Check if pipeline parallel is being used and
@@ -147,7 +147,7 @@ class TransformCkpt:
         self.auto_trans_ckpt = auto_trans_ckpt
 
         self.transform_by_rank = transform_by_rank
-        if self.transform_process_num > 1:
+        if transform_process_num > 1:
             self.transform_by_rank = True
         elif self.world_size == 1:
             self.transform_by_rank = False
