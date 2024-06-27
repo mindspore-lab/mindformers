@@ -1,14 +1,41 @@
 # Yi大模型
 
-Yi系列是由零一万物研究的大规模语言预训练模型，目前开源的有Yi-6B/34B-Base/Chat，Yi-VL-6B/34B，MindFormers已支持Yi-6B-Base,Yi-34B-Base/Chat。当前训练使用Base权重，推理使用Chat权重
+Yi系列是由零一万物研究的大规模语言预训练模型，目前开源的有Yi-6B/34B-Base/Chat，Yi-VL-6B/34B，MindFormers已支持Yi-6B-Base,Yi-34B-Base/Chat。当前训练使用Base权重，推理使用Base/Chat权重
 
-## 仓库介绍
+[Yi: Open Foundation Models by 01.AI](https://arxiv.org/abs/2403.04652v1)
+
+``` text
+@article{ai2024yiopenfoundationmodels,
+      title={Yi: Open Foundation Models by 01.AI},
+      author={01. AI and : and Alex Young and Bei Chen and Chao Li and Chengen Huang and Ge Zhang and Guanwei Zhang and Heng Li and Jiangcheng Zhu and Jianqun Chen and Jing Chang and Kaidong Yu and Peng Liu and Qiang Liu and Shawn Yue and Senbin Yang and Shiming Yang and Tao Yu and Wen Xie and Wenhao Huang and Xiaohui Hu and Xiaoyi Ren and Xinyao Niu and Pengcheng Nie and Yuchi Xu and Yudong Liu and Yue Wang and Yuxuan Cai and Zhenyu Gu and Zhiyuan Liu and Zonghong Dai},
+      year={2024},
+      eprint={2403.04652},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2403.04652},
+}
+```
+
+## 模型性能
+
+| Config                                                            |      Task       |        Datasets        |   Performance   |  Phase   |
+|:------------------------------------------------------------------|:---------------:|:----------------------:|:---------------:|:--------:|
+| [finetune_yi_6b](../../research/yi/finetune_yi_6b.yaml)           | text_generation |  alpaca_gpt4_data_zh   | 3324 tokens/s/p | Finetune |
+| [finetune_yi_34b](../../research/yi/finetune_yi_34b.yaml)         | text_generation |         alpaca         |  660 tokens/s/p | Finetune |
+| [pretrain_yi_34b](../../research/yi/pretrain_yi_34b.yaml)         | text_generation |        wikitext2       |  660 tokens/s/p | Pretrain |
+| [predict_yi_6b](../../research/yi/predict_yi_6b.yaml)             | text_generation |           /            |   39 tokens/s   | Predict  |
+| [predict_yi_34b](../../research/yi/predict_yi_34b.yaml)           | text_generation |           /            |   39 tokens/s   | Predict  |
+| [predict_yi_34b_chat](../../research/yi/predict_yi_34b_chat.yaml) | text_generation |           /            |   39 tokens/s   | Predict  |
+
+## 模型文件
 
 1. 模型配置：
 
    ```text
     yi
      ├── finetune_yi_6b.yaml               # 6B 全参微调启动配置
+     ├── finetune_yi_34b.yaml              # 34B 全参微调启动配置
+     ├── pretrain_yi_34b.yaml              # 34B 预训练启动配置
      ├── predict_yi_6b.yaml                # 6B base在线推理启动配置  
      ├── predict_yi_34b.yaml               # 34B base在线推理启动配置
      └── predict_yi_34b_chat.yaml          # 34B chat在线推理启动配置
@@ -25,78 +52,47 @@ Yi系列是由零一万物研究的大规模语言预训练模型，目前开源
      └── run_yi.py                     # Qwen高阶接口脚本
    ```
 
-## 前期准备
+## 环境及数据准备
 
-### 安装mindformers
+### 安装环境
 
-参考[README](../../README.md#二MindFormers安装)安装mindformers。
-本文操作的相对路径均为安装mindformers后的代码仓根路径。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#二mindformers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
 
-### 环境要求
+> 注：Atlas 800T A2芯片支持6b单卡推理，全参微调至少需要4卡，建议8卡；34b推理需要4卡，全参微调需要双机32卡。
 
-- 硬件: Atlas 800T A2
-- MindSpore: 2.3.0
-- MindFormers: dev
+### 数据及权重准备
 
-**注** yi-6b推理可以在单卡上完成部署，全量微调至少需要4卡。
+#### 数据集下载
 
-### 预训练权重下载和转换
+| 数据集名称            |      适用模型       | 适用阶段  |                                                         下载链接                                                        |
+|:--------------------|:------------------:|:--------:|:---------------------------------------------------------------------------------------------------------------------:|
+| Wikitext2           | yi-34b             | Pretrain | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip) |
+| alpaca              | yi-6b <br/> yi-34b | Finetune | [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)                                       |
+| alpaca_gpt4_data_zh | yi-6b <br/> yi-34b | Finetune | [Link](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh/resolve/main/alpaca_gpt4_data_zh.json)             |
 
-- 从huggingface下载原始权重后转换
+#### 预训练数据集
 
-需要将整个工程下载下来。
+使用Yi-6B-Base或Yi-34B-Base进行预训练时，需要使用配套的tokenizer.model处理数据集。
 
-- [Yi-6B-Base](https://huggingface.co/01-ai/Yi-6B)
-- [Yi-34B-Base](https://huggingface.co/01-ai/Yi-34B)
-- [Yi-34B-Chat](https://huggingface.co/01-ai/Yi-34B-Chat)
+以Wikitext2数据集为例:
 
-如果使用git命令下载，下载前请先确保已安装git-lfs。
+- 数据集下载：[WikiText2数据集](https://gitee.com/link?target=https%3A%2F%2Fascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com%2FMindFormers%2Fdataset%2Fwikitext-2%2Fwikitext-2-v1.zip)
 
-```shell
-git lfs install
-git clone https://huggingface.co/01-ai/Yi-6B
+- 使用以下预处理脚本生成mindrecord训练数据
+
+``` bash
+# 使用tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理+Mindrecord数据生成
+python llama_preprocess.py \
+--dataset_type wiki \
+--input_glob  /{path}/wiki.train.tokens \
+--model_file /{path}/tokenizer.model \
+--seq_length 4096 \
+--output_file /{path}/wiki4096.mindrecord
 ```
 
-执行权重转换脚本
+#### 微调数据集
 
-```shell
-cd research
-python yi/convert_ckpt_bf16.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path MS_CKPT_NAME
-```
-
-```text
-# 参数说明
-TORCH_CKPT_DIR: huggingface Yi-6B-Base权重保存目录路径
-MS_CKPT_NAME: 自定义mindspore权重文件保存路径和名称
-```
-
-**注**: 请安装torch>=2.2.0和transformers>=4.37.2版本。如果执行报错，请检查并安装requests、decorator、pandas、sympy。
-
-### 模型权重切分与合并
-
-从huggingface或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
-
-通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
-
-以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
-
-# Yi-6B-Base
-
-Yi-6B-Base 模型以双语语言模型为目标，并在3T多语言语料库上进行了训练，成为世界上最强大的LLM之一，在语言理解、常识推理、阅读理解等方面显示出前景。
-
-## 微调
-
-目前提供了模型的基础配置文件`research/yi/finetune_yi_6b.yaml`。使用前请将配置文件中路径相关参数修改为实际路径。
-
-## 模型性能
-
-| config                         | task            | Datasets     | SeqLength | metric | phase           | score | performance(tokens/s/p) |
-|--------------------------------|-----------------|--------------|-----------|--------|-----------------|-------|-------------------------|
-| [yi_6b](./finetune_yi_6b.yaml) | text_generation | Yi-demo-data | 2048      | -      | [finetune](#微调) | -     | 3324                    |
-
-### 数据集准备
-
-使用Yi-6B-Base或Yi-34B-Base进行训练或者微调时，需要使用配套的tokenizer.model处理数据集，以及选用对应的yaml配置文件进行任务启动。
+使用Yi-6B-Base或Yi-34B-Base进行全参微调时，需要使用配套的tokenizer.model处理数据集。
 
 目前提供[alpaca数据集](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)（json格式）[alpaca_gpt4_data_zh数据集](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh/resolve/main/alpaca_gpt4_data_zh.json) （jsonl格式）数据集的预处理脚本用于全参微调任务。
 
@@ -168,42 +164,108 @@ model_file：tokenizer.model文件路径
 seq_length：数据长度
 ```
 
-<!-- ### 预训练
+#### 模型权重下载
 
-- 单机多卡预训练示例
+- 从huggingface下载原始权重后转换
+
+需要将整个工程下载下来。
+
+- [Yi-6B-Base](https://huggingface.co/01-ai/Yi-6B)
+- [Yi-34B-Base](https://huggingface.co/01-ai/Yi-34B)
+- [Yi-34B-Chat](https://huggingface.co/01-ai/Yi-34B-Chat)
+
+如果使用git命令下载，下载前请先确保已安装git-lfs。
 
 ```shell
-cd research
-# Usage Help: bash run_singlenode.sh [START_CMD] [RANK_TABLE_FILE] [DEVICE_RANGE] [DEVICE_NUM]
-bash run_singlenode.sh \
-"python yi/run_yi.py \
---config yi/run_yi_6b_pretrain.yaml \
+git lfs install
+git clone https://huggingface.co/01-ai/Yi-6B
+```
+
+#### 模型权重转换
+
+执行`mindformers/convert_weight.py`转换脚本，将HuggingFace的权重转换为完整的ckpt权重。
+
+```shell
+python convert_weight.py --model yi --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME
+
+# 参数说明
+model:       模型名称
+input_path:  下载HuggingFace权重的文件夹路径
+output_path: 转换后的MindSpore权重文件保存路径
+```
+
+**注**: 请安装torch>=2.2.0和transformers>=4.37.2版本。如果执行报错，请检查并安装requests、decorator、pandas、sympy。
+
+#### 模型权重切分与合并
+
+从huggingface或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
+
+通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
+
+以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+
+## 预训练
+
+以Yi-34b为例。
+
+1. 修改模型配置文件`research/yi/pretrain_yi_34b.yaml`
+
+   ```yaml
+   processor:
+    tokenizer:
+      vocab_file: "/{path}/tokenizer.model"        # 词表文件路径
+   ```
+
+   `ymal`配置文件中各参数含义详见[Config配置说明](../../configs/README.md)，
+
+2. 执行msrun启动脚本，进行双机16卡分布式训练
+
+   在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考ms_run快速使用
+
+```bash
+# 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
+bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
+--config research/yi/pretrain_yi_34b.yaml \
+--use_parallel True \
 --run_mode train \
---train_dataset /{path}/wiki4096.mindrecord \
 --auto_trans_ckpt True \
---use_parallel True" \
-../hccl_8p_01234567_127.0.0.1.json [0,8] 8
+--train_dataset /{path}/alpaca.mindrecord" \
+16 8 {ip_addr} 8118 0 output/msrun_log False 300
+
+# 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
+--config research/yi/pretrain_yi_34b.yaml \
+--use_parallel True \
+--run_mode train \
+--auto_trans_ckpt True \
+--train_dataset /{path}/alpaca.mindrecord" \
+16 8 {ip_addr} 8118 1 output/msrun_log False 300
+
+# 参数说明
+# config: 配置文件路径
+# load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_0/xxx.ckpt'格式存放
+# auto_trans_ckpt: 自动权重转换开关
+# run_mode: 运行模式，微调时设置为finetune
+# train_dataset: 训练数据集文件夹路径
 ```
 
-**参数说明**
+### 全参微调
 
-```text
-START_CMD：Python启动命令，其中
- config：为research/yi文件夹下面的run_yi_6b_*.yaml配置文件，配置文件参数请按需修改
- run_mode：任务运行状态，支持关键字train/finetune/eval/predict
- train_dataset：训练数据集路径
- auto_trans_ckpt：是否自动转换ckpt
- use_parallel：是否使用并行模式
-RANK_TABLE_FILE：由 mindformers/tools/hccl_tools.py 生成的分布式json文件
-DEVICE_RANGE：为单机分布式卡的范围，如 '[0,8]' 为8卡分布式，不包含8本身
-DEVICE_NUM：使用的卡的个数
+#### 单机训练
+
+以Yi-6b为例。
+
+1. 修改模型配置文件`research/yi/finetune_yi_6b.yaml`
+
+```yaml
+processor:
+ tokenizer:
+  vocab_file: "/{path}/tokenizer.model"        # 词表文件路径
 ```
 
-**注**：由于模型较大，未切分的模型当seq_length为4096时，仅能进行batch_size为1的单机8卡训练。如果要使用其他并行策略训练，请参考 [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md) -->
+   `ymal`配置文件中各参数含义详见[Config配置说明](../../configs/README.md)，
 
-### 微调
-
-- 单机多卡微调示例
+2. 执行msrun启动脚本，进行8卡分布式微调
 
 ```bash
 bash scripts/msrun_launcher.sh " \
@@ -216,7 +278,19 @@ bash scripts/msrun_launcher.sh " \
  --use_parallel True" 8
 ```
 
-- 多机多卡微调示例（以双机举例）
+#### 多机训练
+
+1. 修改模型配置文件`research/yi/finetune_yi_34b.yaml`
+
+```yaml
+processor:
+ tokenizer:
+  vocab_file: "/{path}/tokenizer.model"        # 词表文件路径
+```
+
+   `ymal`配置文件中各参数含义详见[Config配置说明](../../configs/README.md)，
+
+2. 执行msrun启动脚本，进行8卡分布式微调
 
 在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考ms_run快速使用
 
@@ -229,7 +303,7 @@ bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
 --run_mode finetune \
 --auto_trans_ckpt True \
 --train_dataset /path/alpaca.mindrecord" \
-16 8 192.168.1.1 8118 0 output/msrun_log False 300
+16 8 {ip_addr} 8118 0 output/msrun_log False 300
 
 # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
 bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
@@ -239,7 +313,7 @@ bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
 --run_mode finetune \
 --auto_trans_ckpt True \
 --train_dataset /path/alpaca.mindrecord" \
-16 8 192.168.1.1 8118 1 output/msrun_log False 300
+16 8 {ip_addr} 8118 1 output/msrun_log False 300
 
 # 参数说明
 # config: 配置文件路径
@@ -248,6 +322,34 @@ bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
 # run_mode: 运行模式，微调时设置为finetune
 # train_dataset: 训练数据集文件夹路径
 ```
+
+### 分布式训练权重合并
+
+分布式训练（微调）后所得到的权重文件为根据策略切分后的权重，可以手动将切分权重合一，以用于评估和推理。
+
+涉及到模型权重的单卡或多卡转换，详细教程请参考特性文档模型[权重切分与合并](../feature_cards/Transform_Ckpt.md)。
+
+1. 获取模型切分策略文件：
+
+   在执行微调脚本时，模型完成编译后，将会在`output/strategy`路径下生成各卡的切分策略文件，用于权重合并。
+
+2. 运行`mindformers/tools/transform_ckpt.py`脚本进行多卡权重合并：
+
+   ```shell
+   python transform_ckpt.py \
+     --src_ckpt_strategy {path}/output/strategy/ \
+     --src_ckpt_dir {path}/output/checkpoint/ \
+     --dst_ckpt_dir {path}/target_checkpoint/ \
+     --prefix yi_6b
+
+   # 参数说明
+   src_ckpt_strategy: 切分策略文件路径
+   src_ckpt_dir:      原切分权重文件夹
+   dst_ckpt_dir:      目标路径
+   prefix:            ckpt文件前缀
+   ```
+
+   > 注：`transform_checkpoints` 接口当前仅mindspore 2.0以上版本支持，如当前硬件环境只支持2.0以下版本，可以通过mindspore 2.0的cpu版本以执行该脚本。
 
 ## 推理
 
@@ -472,12 +574,3 @@ bash scripts/msrun_launcher.sh "research/yi/predict_yi_chat.py \
 >2.几卡推理就要在yaml配置中将相应的parallel_config 中的model_parallel置为几，其余置为1。
 
 ```
-
-## 推理性能评测
-
-### 评测结果
-
-| batch_size | seq_length | Atlas 800T A2（400T）tokens/s | A100（首次） tokens/s | 对比     |
-|------------|------------|-----------------------------|-------------------|--------|
-| 1          | 512        | 39.5741                     | 35.0316           | 1.1297 |
-| 2          | 512        | 71.4809                     | 77.2835           | 0.9249 |
