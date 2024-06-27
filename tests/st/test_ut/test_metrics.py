@@ -17,9 +17,12 @@ import pytest
 import numpy as np
 
 import mindspore as ms
-from mindspore import Tensor
+from mindspore.common import Tensor
+from mindspore.common import dtype as mstype
 
 from mindformers.core.metric import PromptAccMetric, EmF1Metric
+
+ms.set_context(mode=1, device_target='CPU')
 
 
 @pytest.mark.level0
@@ -38,10 +41,10 @@ def test_prompt_acc_metric():
                                [[-0.2, 0.05],
                                 [0.6, -0.8]],
                                [[0.6, -0.4],
-                                [0.18, -0.56]]]]), ms.float16)
-    input_ids = Tensor(np.array([[0, 1], [3, 7], [6, 2], [4, 4]]), ms.int32)
-    input_mask = Tensor(np.array([[0, 1], [0, 1], [0, 1], [0, 1]]), ms.float32)
-    labels = Tensor(np.array([[0]]), ms.int32)
+                                [0.18, -0.56]]]]), mstype.float16)
+    input_ids = Tensor(np.array([[0, 1], [3, 7], [6, 2], [4, 4]]), mstype.int32)
+    input_mask = Tensor(np.array([[0, 1], [0, 1], [0, 1], [0, 1]]), mstype.float32)
+    labels = Tensor(np.array([[0]]), mstype.int32)
 
     prompt_acc_std = 0
 
