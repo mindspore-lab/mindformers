@@ -249,11 +249,13 @@ bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
 # train_dataset: 训练数据集文件夹路径
 ```
 
+## 微调
+
 ### 全参微调
 
 #### 单机训练
 
-以Yi-6b为例。
+以Yi-6b全参微调为例。
 
 1. 修改模型配置文件`research/yi/finetune_yi_6b.yaml`
 
@@ -279,6 +281,8 @@ bash scripts/msrun_launcher.sh " \
 ```
 
 #### 多机训练
+
+以Yi-34b全参微调为例。
 
 1. 修改模型配置文件`research/yi/finetune_yi_34b.yaml`
 
