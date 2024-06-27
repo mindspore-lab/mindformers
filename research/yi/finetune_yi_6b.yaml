@@ -112,7 +112,7 @@ callbacks:
   - type: MFLossMonitor
   - type: CheckpointMointor
     prefix: "yi_6b"
-    save_checkpoint_steps: 10000
+    save_checkpoint_steps: 500
     integrated_save: False
     async_save: False
   - type: ObsMonitor
