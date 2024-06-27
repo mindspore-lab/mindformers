@@ -29,17 +29,6 @@ from mindformers.tools.utils import str2bool, get_real_rank
 from mindformers.trainer.utils import get_last_checkpoint
 
 
-def process_input(inputs, tokenizer):
-    im_start_tokens, im_end_tokens = tokenizer.encode("<|im_start|>"), tokenizer.encode("<|im_end|>")
-    nl_tokens = tokenizer.encode("\n")
-    assistant_tokens = tokenizer.encode("assistant")
-    use_tokens = tokenizer.encode("user")
-    inputs_ids = tokenizer(inputs)["input_ids"]
-    inputs_ids = im_start_tokens + use_tokens + nl_tokens + inputs_ids + im_end_tokens + nl_tokens \
-        + im_start_tokens + assistant_tokens + nl_tokens
-
-    return inputs_ids
-
 def main(config):
     """main function."""
     # 多batch输入
@@ -86,15 +75,13 @@ def main(config):
 
     with open('text_generation_result.txt', 'w') as writers:
         for prompt in inputs:
-            inputs_ids = process_input(prompt, tokenizer)
-            outputs = model.generate([inputs_ids],
+            message = [{"role": "user", "content": prompt}]
+            input_id = tokenizer.apply_chat_template(conversation=message, tokenize=True, add_generation_prompt=True)
+            outputs = model.generate(input_id,
                                      max_length=model_config.max_decode_length,
                                      do_sample=False)
-            for output in outputs:
-                if output[-1] == insertconfig.model.model_config.eos_token_id:
-                    output = output[:-1]
-                result = tokenizer.decode(output)
-                print(result)
+            result = tokenizer.decode(outputs[0][len(input_id):], skip_special_tokens=True)
+            print(result)
             writers.write(f'text_generation:\n{result}\n')
     writers.close()
 
