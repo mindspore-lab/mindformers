@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""llama2 predict example."""
+"""internlm2 predict example."""
 import argparse
 import os
 
@@ -89,7 +89,7 @@ def main(config_path, use_parallel, load_checkpoint, load_tokenizer):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_path', default='predict_llama2_7b.yaml', type=str,
+    parser.add_argument('--config_path', default='predict_internlm2_7b.yaml', type=str,
                         help='model config file path.')
     parser.add_argument('--use_parallel', action='store_true',
                         help='if run model prediction in parallel mode.')
