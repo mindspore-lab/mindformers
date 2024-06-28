@@ -78,7 +78,8 @@ class GenerationMixin:
     def __init__(self):
         self.block_mgr = None
         self.use_kbk_infer = False
-        self.argmax = mint.argmax if version_control.use_mint_op() else ms.ops.argmax
+        self.use_mint_op = version_control.use_mint_op()
+        self.argmax = mint.argmax if self.use_mint_op else ms.ops.argmax
 
     def _set_block_mgr(self, batch_size):
         """ Set model block table mgr function. """
@@ -1145,6 +1146,9 @@ class GenerationMixin:
             need_gather_logits (bool):
                 whether gather result, when decode predict and is first iteration, set True.
         """
+        if self.use_mint_op:
+            from mindspore.common.api import _pynative_executor
+            _pynative_executor.set_async_for_graph(True)
         batch_size = input_ids.shape[0]
         target_list = [[] for _ in range(batch_size)]
 
@@ -1156,7 +1160,7 @@ class GenerationMixin:
         if generation_config.generation_mode == GenerationMode.GREEDY_SEARCH:
             if not self.config.is_sample_acceleration:
                 logits = res[0] if isinstance(res, tuple) else res
-                logits = ms.ops.reshape(logits, (-1, logits.shape[-1]))
+                logits = logits.reshape(-1, logits.shape[-1])
                 if need_gather_logits and logits.shape[0] > len(current_index):
                     logits = logits[Tensor(current_index, dtype=mstype.int32)]
                 # store caced logits
@@ -1236,5 +1240,8 @@ class GenerationMixin:
 
         elif generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
             raise ValueError("sampler method doesn't support BEAM_SEARCH. ")
-
+        if self.use_mint_op:
+            from mindspore.common.api import _pynative_executor
+            _pynative_executor.sync()
+            _pynative_executor.set_async_for_graph(False)
         return target_list, next_probs_cache, next_logits_cache, is_finished
