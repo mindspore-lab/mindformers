@@ -23,7 +23,7 @@ NODE_RANK=0
 LOG_DIR="output/msrun_log"
 JOIN="False"
 CLUSTER_TIME_OUT=600
-export HCCL_BUFFSIZE=2 # HCCL memory usage
+# export HCCL_BUFFSIZE=2 # HCCL memory usage
 
 # Set PYTHONPATH
 MF_SCRIPTS_ROOT=$(realpath "$(dirname "$0")")
