@@ -24,7 +24,7 @@ from mindspore.context import ParallelMode
 from mindspore.parallel import set_algo_parameters
 
 from mindspore import log as logger
-from mindspore.parallel._utils import _get_device_num, _get_pipeline_stages, _get_parallel_mode, _is_sharding_propagation
+from mindspore.parallel._utils import _get_device_num, _get_pipeline_stages, _get_parallel_mode
 
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -210,22 +210,13 @@ class _LogSoftmax(nn.Cell):
         self.on_value = Tensor(1.0, mstype.float32)
         self.off_value = Tensor(0.0, mstype.float32)
 
-        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
-            self.sum = P.ReduceSum(keep_dims=True).shard(((dp, mp),))
-            self.max = P.ReduceMax(keep_dims=True).shard(
-                ((dp, mp),))
-            self.sub = P.Sub()
-            self.exp = P.Exp()
-            self.log = P.Log()
-            self.onehot = P.OneHot()
-        else:
-            self.sum = P.ReduceSum(keep_dims=True).shard(((dp, mp),))
-            self.max = P.ReduceMax(keep_dims=True).shard(
-                ((dp, mp),))
-            self.sub = P.Sub().shard(((dp, mp), (dp, 1)))
-            self.exp = P.Exp().shard(((dp, mp),))
-            self.log = P.Log().shard(((dp, 1),))
-            self.onehot = P.OneHot().shard(((dp, mp), (), ()))
+        self.sum = P.ReduceSum(keep_dims=True).shard(((dp, mp),))
+        self.max = P.ReduceMax(keep_dims=True).shard(
+            ((dp, mp),))
+        self.sub = P.Sub().shard(((dp, mp), (dp, 1)))
+        self.exp = P.Exp().shard(((dp, mp),))
+        self.log = P.Log().shard(((dp, 1),))
+        self.onehot = P.OneHot().shard(((dp, mp), (), ()))
 
     def construct(self, logits, label):
         """Forward process"""
@@ -273,14 +264,9 @@ class _NLLLoss(nn.Cell):
         # we need to eliminate this virtual div by adding a factor "mp".
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             self.repeat_loss = mp
-        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
-            self.sum = P.ReduceSum()
-            self.mul = P.Mul()
-            self.neg = P.Neg()
-        else:
-            self.sum = P.ReduceSum().shard(((dp, mp),))
-            self.mul = P.Mul().shard(((dp, mp), (dp, mp)))
-            self.neg = P.Neg().shard(((dp, mp),))
+        self.sum = P.ReduceSum().shard(((dp, mp),))
+        self.mul = P.Mul().shard(((dp, mp), (dp, mp)))
+        self.neg = P.Neg().shard(((dp, mp),))
 
     def construct(self, log_softmax_result, one_hot_label):
         """Forward process"""

@@ -252,7 +252,18 @@ class LLamaAttention(nn.Cell):
             if self.cp_ds > 1:
                 self._ulysses_initial()
 
-            if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+                self.transpose.shard(((dp, cp, mp, 1),))
+                if cp > 1:
+                    layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
+                    layout_merger_head_transpose = (layout("dp", "mp", "cp", "None"),)
+                    self.merger_head_transpose.shard(in_strategy=layout_merger_head_transpose)
+                else:
+                    self.merger_head_transpose.shard(((dp, mp, 1, 1),))
+                self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+                self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+                self.apply_rotary_emb.shard(parallel_config)
+            else:
                 self.transpose.shard(((dp, cp, mp, 1),))
                 if cp > 1:
                     layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
@@ -266,20 +277,20 @@ class LLamaAttention(nn.Cell):
                 self.add.shard(((dp, 1, 1, 1), (dp, mp, 1, 1)))
                 self.softmax.shard(((dp, mp, 1, 1),))
                 self.tile_kv.shard(((dp, mp, 1, 1),))
-
                 self.apply_rotary_emb.shard(parallel_config)
-                if parallel_config.use_seq_parallel and self.is_first_iteration:
-                    self.wo.shard(((dp * cp, mp), (1, mp)), ((dp * mp * cp, 1), (1,)),
-                                  out_strategy_matmul=((dp * mp * cp, 1),))
-                if parallel_config.recompute.select_recompute and not self.use_flash_attention:
-                    self.apply_rotary_emb.recompute()
-                    self.tile_kv.recompute()
-                    self.batch_matmul_q_k.recompute()
-                    self.mul.recompute()
-                    self.add.recompute()
-                    self.cast_attn.recompute()
-                    self.softmax.recompute()
-                    self.batch_matmul.recompute()
+
+            if parallel_config.use_seq_parallel and self.is_first_iteration:
+                self.wo.shard(((dp * cp, mp), (1, mp)), ((dp * mp * cp, 1), (1,)),
+                              out_strategy_matmul=((dp * mp * cp, 1),))
+            if parallel_config.recompute.select_recompute and not self.use_flash_attention:
+                self.apply_rotary_emb.recompute()
+                self.tile_kv.recompute()
+                self.batch_matmul_q_k.recompute()
+                self.mul.recompute()
+                self.add.recompute()
+                self.cast_attn.recompute()
+                self.softmax.recompute()
+                self.batch_matmul.recompute()
 
             if self.use_flash_attention:
                 self.input_layout = "BSH" if cp > 1 else "BNSD"
@@ -692,22 +703,21 @@ class LLamaDecodeLayer(nn.Cell):
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         cp = parallel_config.context_parallel
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            if self.expert_num == 1:
-                self.feed_forward.shard(parallel_config)
-            elif self.shared_expert_num == 0:
-                self.feed_forward.ffn.shard(parallel_config)
-            else:
-                self.feed_forward.shard(parallel_config)
-            self.add.shard(((dp, cp, 1), (dp, cp, 1)))
-            if cp > 1:
-                self.attention_norm.shard((dp, cp * mp, 1))
-                self.ffn_norm.shard((dp, cp * mp, 1))
-            else:
-                self.attention_norm.shard((dp, 1, 1))
-                self.ffn_norm.shard((dp, 1, 1))
-            if moe_config is None or not moe_config.expert_num > 1:
-                self.feed_forward.mul.shard(((dp, cp, mp), (dp, cp, mp)))
+        if self.expert_num == 1:
+            self.feed_forward.shard(parallel_config)
+        elif self.shared_expert_num == 0:
+            self.feed_forward.ffn.shard(parallel_config)
+        else:
+            self.feed_forward.shard(parallel_config)
+        self.add.shard(((dp, cp, 1), (dp, cp, 1)))
+        if cp > 1:
+            self.attention_norm.shard((dp, cp * mp, 1))
+            self.ffn_norm.shard((dp, cp * mp, 1))
+        else:
+            self.attention_norm.shard((dp, 1, 1))
+            self.ffn_norm.shard((dp, 1, 1))
+        if moe_config is None or not moe_config.expert_num > 1:
+            self.feed_forward.mul.shard(((dp, cp, mp), (dp, cp, mp)))
 
         if parallel_config.use_seq_parallel and self.is_first_iteration:
             self.add.shard(((dp, mp, 1), (dp, mp, 1)))

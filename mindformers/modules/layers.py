@@ -40,7 +40,7 @@ try:
     from mindspore._checkparam import Validator
 except ImportError:
     import mindspore._checkparam as Validator
-from mindspore.parallel._utils import _get_parallel_mode
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.context import ParallelMode
 
 from mindformers.tools.logger import logger
@@ -546,6 +546,12 @@ class Linear(Cell):
             the inputs.
             out_strategy_matmul (tuple): The out strategy for the matmul. Should be the same shape as the inputs.
         """
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.matmul.shard(in_strategy=strategy_matmul, out_strategy=out_strategy_matmul)
+            if self.has_bias:
+                self.bias_add.shard(strategy_bias)
+            return self
+
         self.matmul.shard(in_strategy=strategy_matmul, out_strategy=out_strategy_matmul)
         if self.has_bias:
             self.bias_add.shard(strategy_bias)

@@ -30,7 +30,7 @@ except ImportError:
     import mindspore._checkparam as Validator
 from mindspore import log as logger
 from mindspore.common.initializer import initializer, Normal
-from mindspore.parallel._utils import _get_parallel_mode
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.context import ParallelMode
 from mindformers.version_control import check_valid_big_kernel
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
@@ -218,15 +218,19 @@ class LlamaRMSNorm(nn.Cell):
 
     def shard(self, strategy_in):
         """Parallel strategy configuratiuon interface."""
-        if self.self_define:
-            self.square.shard((strategy_in,))
-            self.mean.shard((strategy_in,))
-            self.rsqrt.shard((strategy_in,))
-            self.add.shard((strategy_in, ()))
-            self.mul.shard((strategy_in, strategy_in))
-            self.mul2.shard((strategy_in, (1,)))
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            if not self.self_define:
+                self.norm.shard((strategy_in, (1,)))
         else:
-            self.norm.shard((strategy_in, (1,)))
+            if self.self_define:
+                self.square.shard((strategy_in,))
+                self.mean.shard((strategy_in,))
+                self.rsqrt.shard((strategy_in,))
+                self.add.shard((strategy_in, ()))
+                self.mul.shard((strategy_in, strategy_in))
+                self.mul2.shard((strategy_in, (1,)))
+            else:
+                self.norm.shard((strategy_in, (1,)))
 
 
 class LlamaFeedForward(Cell):
@@ -384,32 +388,54 @@ class LlamaFeedForward(Cell):
             raise ValueError("For 'FeedForward', the class variable 'dim' must be a multiple of the num of "
                              "model parallel, but got the dim is {} and the num of model parallel is {}."
                              .format(self.dim, mp))
-        if self.expert_num == 1:
-            if self.ffn_concat:
-                self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
-                self.activate.shard(((dp, 1, mp),))
-                self.w2.shard(((dp, mp), (1, mp)))
-                self.split.add_prim_attr("skip_redistribution", True)
-                self.split.shard(((dp, 1, mp),))
-                self.mul.shard(((dp, mp), (dp, mp)))
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            if self.expert_num == 1:
+                if self.ffn_concat:
+                    self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
+                    self.activate.shard(((dp, 1, mp),))
+                    self.w2.shard(((dp, mp), (1, mp)))
+                    self.split.add_prim_attr("skip_redistribution", True)
+                    self.split.shard(((dp, 1, mp),))
+                else:
+                    self.w1.shard(((dp * cp, 1), (mp, 1)), strategy_activation=((dp * cp, mp),))
+                    self.w1.activation.shard(((dp * cp, mp),))
+                    self.w2.shard(((dp * cp, mp), (1, mp)))
+                    self.w3.shard(((dp * cp, 1), (mp, 1)))
             else:
-                self.w1.shard(((dp * cp, 1), (mp, 1)), strategy_activation=((dp * cp, mp),))
-                self.w1.activation.shard(((dp * cp, mp),))
-                self.w2.shard(((dp * cp, mp), (1, mp)))
-                self.w3.shard(((dp * cp, 1), (mp, 1)))
-                self.mul.shard(((dp, cp, mp), (dp, cp, mp)))
+                logger.info("shard ffn with MoE")
+                ep = parallel_config.expert_parallel
+                dp = parallel_config.data_parallel // ep
+                self.w1.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)),
+                              strategy_activation=((dp, ep, mp, 1),))
+                self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
+                self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
         else:
-            logger.info("shard ffn with MoE")
-            ep = parallel_config.expert_parallel
-            dp = parallel_config.data_parallel // ep
-            self.w1.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)),
-                          strategy_activation=((dp, ep, mp, 1),))
-            self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
-            self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
-            mul_shard = (dp * ep, mp)
-            if parallel_config.use_seq_parallel:
-                mul_shard = (dp, ep, mp)
-            self.mul.shard((mul_shard, mul_shard))
+            if self.expert_num == 1:
+                if self.ffn_concat:
+                    self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
+                    self.activate.shard(((dp, 1, mp),))
+                    self.w2.shard(((dp, mp), (1, mp)))
+                    self.split.add_prim_attr("skip_redistribution", True)
+                    self.split.shard(((dp, 1, mp),))
+                    self.mul.shard(((dp, mp), (dp, mp)))
+                else:
+                    self.w1.shard(((dp * cp, 1), (mp, 1)), strategy_activation=((dp * cp, mp),))
+                    self.w1.activation.shard(((dp * cp, mp),))
+                    self.w2.shard(((dp * cp, mp), (1, mp)))
+                    self.w3.shard(((dp * cp, 1), (mp, 1)))
+                    self.mul.shard(((dp, cp, mp), (dp, cp, mp)))
+            else:
+                logger.info("shard ffn with MoE")
+                ep = parallel_config.expert_parallel
+                dp = parallel_config.data_parallel // ep
+                self.w1.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)),
+                              strategy_activation=((dp, ep, mp, 1),))
+                self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
+                self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
+                mul_shard = (dp * ep, mp)
+                if parallel_config.use_seq_parallel:
+                    mul_shard = (dp, ep, mp)
+                self.mul.shard((mul_shard, mul_shard))
 
 
 class LlamaMoeInferFeedForward(Cell):
@@ -533,12 +559,16 @@ class LlamaMoeInferFeedForward(Cell):
                              .format(self.dim, mp))
         if self.expert_num == 1:
             raise ValueError("For 'LlamaMoEFFNInfer', the class variable 'expert_num' must be greater than 1.")
-
-        self.mul.shard((1, mp), (1, mp))
-        self.w1.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)),
-                      strategy_activation=((1, 1, mp, 1),))
-        self.w3.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)))
-        self.w2.shard(strategy_matmul=(((1, mp),), ((1, mp, 1),), ((),), ((),), ((),), ((),), ((),), (1,)))
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.w1.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)))
+            self.w3.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)))
+            self.w2.shard(strategy_matmul=(((1, mp),), ((1, mp, 1),), ((),), ((),), ((),), ((),), ((),), (1,)))
+        else:
+            self.mul.shard((1, mp), (1, mp))
+            self.w1.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)),
+                          strategy_activation=((1, 1, mp, 1),))
+            self.w3.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)))
+            self.w2.shard(strategy_matmul=(((1, mp),), ((1, mp, 1),), ((),), ((),), ((),), ((),), ((),), (1,)))
 
 
 
