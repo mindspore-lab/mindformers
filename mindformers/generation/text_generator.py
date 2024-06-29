@@ -16,6 +16,7 @@
 """
 For text generation
 """
+import os
 import copy
 import time
 from typing import Optional, List, Union
@@ -300,6 +301,9 @@ class GenerationMixin:
         # Claim the first graph
         if prefill:
             self.phase = "prefill"
+            pre_set_phase = os.environ.get('NETWORK_PHASE', '')
+            if pre_set_phase:
+                self.phase = f"prefill_{pre_set_phase}"
             self.add_flags_custom(is_first_iteration=True)
             model_inputs["input_position"] = Tensor.from_numpy(np.array(current_index, dtype=np.int32))
             model_inputs["init_reset"] = Tensor.from_numpy(
@@ -319,6 +323,9 @@ class GenerationMixin:
             self.add_flags_custom(is_first_iteration=False)
         else:
             # slice model inputs for incremental infer
+            pre_set_phase = os.environ.get('NETWORK_PHASE', '')
+            if pre_set_phase:
+                self.phase = f"increment_{pre_set_phase}"
             self.slice_incremental_inputs(model_inputs, current_index)
             model_inputs["input_position"] = Tensor.from_numpy(np.array(current_index, dtype=np.int32))
             model_inputs["init_reset"] = Tensor.from_numpy(
@@ -1106,6 +1113,9 @@ class GenerationMixin:
                     slot_mapping=slot_mapping
                 )
             else:
+                pre_set_phase = os.environ.get('NETWORK_PHASE', '')
+                if pre_set_phase:
+                    self.phase = f"predict_{pre_set_phase}"
                 res = self(**model_inputs)  # pylint: disable=E1102
 
         return res, current_index

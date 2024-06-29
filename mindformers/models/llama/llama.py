@@ -346,6 +346,15 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             ptq = RTN(config=cfg)
             self.model = ptq.apply(self.model)
             self.model = ptq.convert(self.model)
+        elif config.quant == "w8a8":
+            logger.info("Using SmoothQuant to quant LlamaForCausalLM.")
+            from mindspore_gs.ptq import PTQConfig, PTQMode
+            from mindspore_gs.common import BackendTarget
+            from mindspore_gs.ptq import SmoothQuant as SQ
+            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['w2', 'lm_head'])
+            ptq = SQ(config=cfg)
+            ptq.apply(self)
+            ptq.convert(self)
 
         self.load_checkpoint(config)
         self.set_model_predict_config()
