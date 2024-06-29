@@ -156,7 +156,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr(seq_len)
+                freqs_cis = self.freqs_mgr.prefill(batch_size, seq_len)
                 if self.use_flash_attention:
                     if self.enable_asd_op:
                         mask = self.casual_mask(input_ids)  # mask: [bs, seq, seq]
