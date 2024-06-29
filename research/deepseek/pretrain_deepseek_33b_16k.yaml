@@ -130,6 +130,7 @@ context:
   device_id: 0
   jit_config:
     jit_level: "O1"
+  memory_optimize_level: "O0"
 
 # model config
 model:

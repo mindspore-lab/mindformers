@@ -18,6 +18,7 @@ context:
   device_id: 0
   jit_config:
    jit_level: "O1"
+  memory_optimize_level: "O0"
 
 # aicc
 remote_save_url: "Please input obs url on AICC platform."
