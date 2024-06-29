@@ -28,7 +28,6 @@ optimizer:
   beta1: 0.9
   beta2: 0.999
   eps: 1.e-8
-  learning_rate: 5.e-6
   weight_decay: 0.0
 
 # lr sechdule

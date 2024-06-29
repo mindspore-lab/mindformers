@@ -129,7 +129,8 @@ context:
   save_graphs_path: "./graph"
   device_id: 0
   jit_config:
-    jit_level: "O0"
+    jit_level: "O1"
+  memory_optimize_level: "O0"
 
 # model config
 model:
@@ -164,7 +165,6 @@ model:
     extend_method: "PI" # support "None", "PI", "NTK"
     theta: 100000.0
     scaling_factor: 4
-    compute_in_2d: True
     use_flash_attention: True
     offset: 0
     use_past_shard: False
