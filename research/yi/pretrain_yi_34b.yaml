@@ -127,6 +127,7 @@ context:
   save_graphs_path: "./graph"
   jit_config:
     jit_level: "O1"
+  memory_optimize_level: "O0"
 
 
 # model config

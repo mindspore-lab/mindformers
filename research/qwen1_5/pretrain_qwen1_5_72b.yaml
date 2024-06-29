@@ -136,6 +136,7 @@ context:
   enable_graph_kernel: False
   jit_config:
     jit_level: "O1"
+  memory_optimize_level: "O0"
   max_call_depth: 10000
   max_device_memory: "57GB"
   mempool_block_size: "57GB"
