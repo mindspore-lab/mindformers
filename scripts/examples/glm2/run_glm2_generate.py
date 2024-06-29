@@ -88,7 +88,7 @@ def main(config_path, load_checkpoint):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_path', default='predict_llama2_7b.yaml', type=str,
+    parser.add_argument('--config_path', default='predict_glm2_6b.yaml', type=str,
                         help='model config file path.')
     parser.add_argument('--load_checkpoint', type=str,
                         help='load model checkpoint path or directory.')
