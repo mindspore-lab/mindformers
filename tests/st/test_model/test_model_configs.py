@@ -22,7 +22,7 @@ from mindformers.models.blip2 import Blip2Qformer, Blip2ItmEvaluator, \
 from mindformers.models.bloom import BloomLMHeadModel
 from mindformers.models.clip import CLIPModel
 from mindformers.models.glm import GLMForPreTraining, GLMChatModel
-from mindformers.models.glm2 import ChatGLM2ForConditionalGeneration, ChatGLM2WithPtuning2
+from mindformers.models.glm2 import ChatGLM2ForConditionalGeneration
 from mindformers.models.gpt2 import GPT2LMHeadModel, GPT2ForSequenceClassification
 from mindformers.models.llama import LlamaForCausalLM
 from mindformers.models.mae import ViTMAEForPreTraining
@@ -163,12 +163,6 @@ class TestGLM2Config(unittest.TestCase):
         config = AutoConfig.from_pretrained("configs/glm2/run_glm2_6b.yaml")
         config.checkpoint_name_or_path = ''
         model = ChatGLM2ForConditionalGeneration(config)
-
-    def test_init_model_with_ptuning2_from_yaml(self):
-        """test init model with config"""
-        config = AutoConfig.from_pretrained("configs/glm2/run_glm2_6b_ptuning2.yaml")
-        config.checkpoint_name_or_path = ''
-        model = ChatGLM2WithPtuning2(config)
 
 
 class TestGPT2Config(unittest.TestCase):
