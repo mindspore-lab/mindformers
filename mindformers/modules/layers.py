@@ -1056,6 +1056,11 @@ class FreqsMgr(Cell):
             freqs_sin = self.reshape(freqs_sin, (1, 1, seq_length, self.head_dim))
         return freqs_cos, freqs_sin, self.swap_mask
 
+    def prefill(self, bs, seq_length):
+        freqs_cos = self.tile(self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))
+        freqs_sin = self.tile(self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))
+        return freqs_cos, freqs_sin, self.swap_mask
+
     def increment(self, batch_valid_length):
         indices = batch_valid_length - 1
         freqs_cos = self.gather(self.freqs_cos, indices, 0)

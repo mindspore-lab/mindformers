@@ -168,9 +168,7 @@ model:
     rotary_dtype: "float16"
     param_init_type: "float32"
     use_flash_attention: True
-    use_kbk_infer: True
     use_past: False
-    use_past_shard: False
     fine_grain_interleave: 2
     offset: [-1, 1, 1, -1]
     checkpoint_name_or_path: ""

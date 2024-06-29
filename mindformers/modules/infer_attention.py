@@ -48,20 +48,10 @@ class InferRotaryEmbedding(Cell):
         super().__init__()
         self.rotary_cos_format = rotary_cos_format
         self.rotary_embedding_op = ops.ApplyRotaryPosEmb(self.rotary_cos_format)
-        self.tile_freqs = P.Tile()
-
-        self.is_first_iteration = True
 
     def construct(self, query: Tensor, key: Tensor, freqs_cis, batch_valid_length):
         """Forward of rotary position embedding."""
         freqs_cos, freqs_sin, _ = freqs_cis
-
-        freqs_cos = self.cast(freqs_cos, query.dtype)
-        freqs_sin = self.cast(freqs_sin, query.dtype)
-        if self.is_first_iteration:
-            bs, _, _ = query.shape
-            freqs_cos = self.tile_freqs(freqs_cos, (bs, 1))
-            freqs_sin = self.tile_freqs(freqs_sin, (bs, 1))
         return self.rotary_embedding_op(query, key, freqs_cos, freqs_sin, batch_valid_length)
 
     def shard(self, parallel_config):
@@ -69,7 +59,6 @@ class InferRotaryEmbedding(Cell):
         dp = 1 if parallel_config is None else parallel_config.data_parallel
         mp = 1 if parallel_config is None else parallel_config.model_parallel
         self.rotary_embedding_op.shard(((dp, 1, mp), (dp, 1, mp), (1, 1), (1, 1), (dp,)))
-        self.tile_freqs.shard(((1, 1),))
 
 
 class InferAttention(Cell):

@@ -175,7 +175,6 @@ model:
     block_size: 32
     num_blocks: 128
     offset: 0
-    use_past_shard: False
     checkpoint_name_or_path: ""
     repetition_penalty: 1
     max_decode_length: 512
