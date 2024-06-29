@@ -201,7 +201,7 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
         tokens = role_tokens + message_tokens
         return tokens
 
-    def build_chat_input(self, query, history=None, role="user"):
+    def build_chat_input(self, query, history=None, role="user", return_tensors="np"):
         """build chat input with role."""
         if history is None:
             history = []
@@ -213,9 +213,9 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
             input_ids.extend(self.build_single_message(item["role"], item.get("metadata", ""), content))
         input_ids.extend(self.build_single_message(role, "", query))
         input_ids.extend([self.get_command("<|assistant|>")])
-        return self.batch_encode_plus([input_ids], return_tensors="np", is_split_into_words=True)
+        return self.batch_encode_plus([input_ids], return_tensors=return_tensors, is_split_into_words=True)
 
-    def build_batch_input(self, queries, histories=None, roles="user", padding=True):
+    def build_batch_input(self, queries, histories=None, roles="user", padding=True, return_tensors="np"):
         """build batch input with role."""
         if isinstance(queries, str):
             queries = [queries]
@@ -245,7 +245,8 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
             input_ids.extend([self.get_command("<|assistant|>")])
             batch_inputs.append(input_ids)
 
-        return self.batch_encode_plus(batch_inputs, return_tensors="np", is_split_into_words=True, padding=padding)
+        return self.batch_encode_plus(batch_inputs, return_tensors=return_tensors,
+                                      is_split_into_words=True, padding=padding)
 
 
     def tokenize(self, text, pair=None, add_special_tokens=True, **kwargs):
@@ -408,11 +409,10 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
 
 
     # pylint: disable=W0221
-    def apply_chat_template(self, conversation, **tokenizer_kwargs):
-        queries, roles = [], []
-        if isinstance(conversation, list):
-            for item in conversation:
-                if "content" in item and "role" in item:
-                    queries.append(item.get("content"))
-                    roles.append(item.get("role"))
-        return self.build_batch_input(queries=queries, roles=roles, padding=True)["input_ids"]
+    def apply_chat_template(self, conversation, return_tensors=None, **tokenizer_kwargs):
+        if not conversation:
+            return []
+        assert (isinstance(conversation, list) and len(conversation) == 1
+                and isinstance(conversation[0], Dict)), f"conversation {conversation} is invalid."
+        return self.build_chat_input(query=conversation[0].get("content"), role=conversation[0].get("role"),
+                                     return_tensors=return_tensors)["input_ids"][0]
