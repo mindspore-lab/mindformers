@@ -4,14 +4,14 @@
 
 Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8B，Llama 3-70B。Llama 3在来自公开可用来源的超过15T的数据上进行了预训练。微调数据包括公开可用的指令数据集，以及超过1000万个人工标注的示例。模型支持上下文窗口长度8K，并使用了新的分词器，词汇表大小达到128256个，采用了分组查询注意力机制(GQA)。Llama 3模型是类GPT模型，是一个生成式的语言模型，主要是用于预测下一个单词。目前Mindformers支持Llama 3-8B和Llama 3-70B。
 
-## 仓库介绍
+## 模型文件
 
 `Llama 3` 基于 `mindformers` 实现，主要涉及的文件有：
 
-1. 模型具体实现：`mindformers/models/llama`
+1. 模型具体实现：
 
    ```bash
-   llama
+   mindformers/models/llama
        ├── __init__.py
        ├── llama.py                  # 模型实现
        ├── llama_config.py           # 模型配置项
@@ -20,144 +20,118 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
        └── llama_transformer.py      # transformer层实现
    ```
 
-2. 模型配置：`research/llama3`
+2. 模型配置：
 
    ```bash
-   llama3
+   research/llama3
        ├── predict_llama3_8b_8k_800T_A2_64G.yaml    # 8B推理配置
        ├── predict_llama3_70b.yaml                  # 70B推理配置
        ├── finetune_llama3_8b_8k_800T_A2_64G.yaml        # 8B全量微调Atlas 800 A2启动配置
        └── finetune_llama3_70b.yaml                 # 70B全量微调Atlas 800 A2启动配置
    ```
 
-3. 数据预处理脚本和任务启动脚本：`research/llama3`
+3. 数据预处理脚本和任务启动脚本：
 
    ```bash
-   llama3
+   research/llama3
        ├── run_llama3.py           # llama3启动脚本
        ├── llama3_tokenizer.py     # llama3 tokenizer处理脚本
        ├── conversation.py         # 微调数据集处理，将原始alpaca转换为对话形式alpaca
        └── llama_preprocess.py     # llama模型的mindrecord数据处理脚本
    ```
 
-## 前期准备
+## 环境及数据准备
 
-### [mindformers安装](../../README.md#二mindformers安装)
+### 安装环境
 
-### 环境要求
-
-- 硬件：Atlas 800T A2
-- MindSpore：2.3
-- MindFormers版本：dev
-- 硬件支持矩阵
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#二mindformers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
 
 |     模型      | 硬件 | 全量微调 | 推理 |
 | :-----------: | :--: | :------: | :--: |
 | Llama3-8b | Atlas 800T A2 |  单节点  | 单卡 |
 | Llama3-70b | Atlas 800T A2 |  8节点  | 8卡 |
 
-### 数据集准备
+### 数据集及权重准备
 
-#### 预训练数据集
+#### 数据集下载
 
-以Wikitext2数据集为例:
+MindFormers提供**Wiki103**作为[预训练](#预训练)数据集，**alpaca**作为[微调](#微调)数据集。
 
-- 数据集下载：[WikiText2数据集](https://gitee.com/link?target=https%3A%2F%2Fascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com%2FMindFormers%2Fdataset%2Fwikitext-2%2Fwikitext-2-v1.zip)
+| 数据集名称     |                    适用模型                     |          适用阶段           |                                                         下载链接                                                          |
+|:----------|:-------------------------------------------:|:-----------------------:|:---------------------------------------------------------------------------------------------------------------------:|
+| Wiki103 | llama3-8b <br/> llama3-70b | Pretrain | [Link](https://dagshub.com/DagsHub/WIkiText-103/src/main/dataset/tokens) |
+| alpaca    | llama3-8b <br/> llama3-70b  |        Finetune         |                    [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)                    |
 
-- 使用以下预处理脚本生成mindrecord训练数据
+数据预处理中所用的`tokenizer.model`可以参考[模型权重下载](#模型权重下载)进行下载。
 
-``` bash
-# 使用tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理+Mindrecord数据生成
-python llama_preprocess.py \
---dataset_type wiki \
---input_glob  /{path}/wiki.train.tokens \
---model_file /{path}/tokenizer.model \
---seq_length 8192 \
---output_file /{path}/wiki8192.mindrecord
-```
+- **Wiki103 数据预处理**
 
-#### 全参微调数据集
+  使用`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`对下载后的数据进行预处理，并生成Mindrecord数据。
 
-目前提供alpaca数据集的预处理脚本用于全参微调任务。
+  ``` shell
+  python llama_preprocess.py \
+  --dataset_type wiki \
+  --input_glob  /{path}/wiki.train.tokens \
+  --model_file /{path}/tokenizer.model \
+  --seq_length 8192 \
+  --output_file /{path}/wiki8192.mindrecord
 
-数据集下载链接如下：
+  # 参数说明
+  dataset_type: 预处理数据类型
+  input_glob:   输入下载后wiki.train.tokens的文件路径
+  model_file:   模型tokenizer.model文件路径
+  seq_length:   输出数据的序列长度
+  output_file:  输出文件的保存路径
+  ```
 
-- [alpaca_data](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)
+- **alpaca 数据预处理**
 
-alpaca数据集原始格式样例：
+  1. 执行`mindformers/tools/dataset_preprocess/llama/alpaca_converter.py`，使用fastchat工具添加prompts模板，将原始数据集转换为多轮对话格式。
 
-```text
-# alpaca examples:
-    {
-        "instruction": "Describe a time when you had to make a difficult decision.",
-        "input": "",
-        "output": "I had to make a difficult decision when I was working as a project manager at a construction company. I was in charge of a project that needed to be completed by a certain date in order to meet the client\u2019s expectations. However, due to unexpected delays, we were not able to meet the deadline and so I had to make a difficult decision. I decided to extend the deadline, but I had to stretch the team\u2019s resources even further and increase the budget. Although it was a risky decision, I ultimately decided to go ahead with it to ensure that the project was completed on time and that the client\u2019s expectations were met. The project was eventually successfully completed and this was seen as a testament to my leadership and decision-making abilities."
-    },
-    {
-        "instruction": "Identify the odd one out.",
-        "input": "Twitter, Instagram, Telegram",
-        "output": "Telegram"
-    },
-```
+     ```shell
+     python alpaca_converter.py \
+       --data_path /{path}/alpaca_data.json \
+       --output_path /{path}/alpaca-data-conversation.json
 
-- step 1. 执行`alpaca_converter.py`，使用fastchat工具添加prompts模板，将原始数据集转换为多轮对话格式。
+     # 参数说明
+     data_path:   输入下载的文件路径
+     output_path: 输出文件的保存路径
+     ```
 
-``` bash
-# 脚本路径：tools/dataset_preprocess/llama/alpaca_converter.py
-# 执行转换脚本
-python alpaca_converter.py \
---data_path /{path}/alpaca_data.json \
---output_path /{path}/alpaca-data-conversation.json
-```
+  2. 执行`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`，生成Mindrecord数据，将带有prompt模板的数据转换为mindrecord格式。
 
-```text
-# 参数说明
-data_path: 存放alpaca数据的路径
-output_path: 输出转换后对话格式的数据路径
-```
+     ```shell
+     # 此工具依赖fschat工具包解析prompt模板, 请提前安装fschat >= 0.2.13 python = 3.9
+     python llama_preprocess.py \
+       --dataset_type qa \
+       --input_glob /{path}/alpaca-data-conversation.json \
+       --model_file /{path}/tokenizer.model \
+       --seq_length 4096 \
+       --output_file /{path}/alpaca-fastchat4096.mindrecord
 
-转换后格式样例：
-
-```text
-{
-    "id": "1",
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\nGive three tips for staying healthy.\n\n### Response:"
-      },
-      {
-        "from": "gpt",
-        "value": "1.Eat a balanced diet and make sure to include plenty of fruits and vegetables. \n2. Exercise regularly to keep your body active and strong. \n3. Get enough sleep and maintain a consistent sleep schedule."
-      }
-    ]
-  },
-```
-
-- step 2. 执行`llama_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
-
-```bash
-# 脚本路径：research/llama3/llama_preprocess.py
-# 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13 python = 3.9
-python llama_preprocess.py \
---dataset_type qa \
---input_glob /{path}/alpaca-data-conversation.json \
---model_file /{path}/tokenizer.model \
---seq_length 8192 \
---output_file /{path}/alpaca-fastchat8192.mindrecord
-```
+     # 参数说明
+     dataset_type: 预处理数据类型
+     input_glob:   转换后的alpaca的文件路径
+     model_file:   模型tokenizer.model文件路径
+     seq_length:   输出数据的序列长度
+     output_file:  输出文件的保存路径
+     ```
 
 数据处理时候注意bos，eos，pad等特殊ids要和yaml配置中model_config里保持一致。
 
-### 模型权重准备
+#### 模型权重下载
 
-选择从huggingface下载预训练权重后根据以下步骤进行权重转换，需要下载整个工程，huggingface权重的链接如下：
+MindFormers暂时没有提供权重，用户可以下载HuggingFace官方权重经过[模型权重转换](#模型权重转换)后进行使用。
 
-- [Llama3-8B](https://huggingface.co/meta-llama/Meta-Llama-3-8B)
-- [Llama3-70B](https://huggingface.co/meta-llama/Meta-Llama-3-70B)
-- [tokenizer文件](https://huggingface.co/meta-llama/Meta-Llama-3-8B/blob/main/original/tokenizer.model)
+| 模型名称            |                                                 MindSpore权重                                                  |                      HuggingFace权重                       |
+|:----------------|:------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------------:|
+| Llama3-8B      |    \   | [Link](https://huggingface.co/meta-llama/Meta-Llama-3-8B) |
+| Llama3-70B      | \ | [Link](https://huggingface.co/meta-llama/Meta-Llama-3-70B) |
+| tokenizer.model |   \    |  [Link](https://huggingface.co/meta-llama/Meta-Llama-3-8B/blob/main/original/tokenizer.model)   |
 
 **注**: 请自行申请huggingface上llama3使用权限，并安装transformers=4.40版本
+
+#### 模型权重转换
 
 下载完成后，运行`mindformers/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
@@ -169,26 +143,15 @@ output_path: 权重保存文件名，可以指定自定义保存路径
 dtype: 转换权重的精度选择。
 ```
 
-### [模型权重转换](../../docs/feature_cards/Transform_Ckpt.md)
-
-从hugging face或官方github仓库转换而来的权重通常是完整权重。
-
-- 基于完整权重进行多卡分布式训练，需要将完整权重转换为分布式权重。
-
-- 基于训完的分布式权重进行单卡推理，需要将分布式权重转换为完整权重。
-- 修改分布式策略训练，需要将权重转换为对应分布式权重。
-
-Mindformer支持权重自动转换，详细教程请参考[权重转换文档](../../docs/feature_cards/Transform_Ckpt.md)。
-
 ## 预训练
 
-### Llama3-70B
+MindFormers提供`llama3_70b`多机多卡的预训练示例，请参照[数据集下载](#数据集下载)章节获取mindrecord格式的Wiki103数据集。参照[模型权重下载](#模型权重下载)章节获取Llama3-70B权重和分词器文件。
 
-请参照[数据集准备](#数据集准备)章节获取mindrecord格式的wikitext数据集。参照[模型权重准备](#模型权重准备)章节获取Llama3-70B权重和分词器文件。
+### 多机训练
 
-#### 多机多卡
+以llama3_70b为例，执行8机64卡预训练。
 
-1. 修改`pretrain_llama3_70b.yaml`中相关配置，默认使用64卡；需要先对权重进行切分，切分权重可以参见[权重切分与合并](../feature_cards/Transform_Ckpt.md).（如果是共享盘也可以开启自动权重转换，使用完整权重）
+1. 修改`pretrain_llama3_70b.yaml`中相关配置，默认使用64卡；需要先对权重进行切分，切分权重可以参见[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md).（如果是共享盘也可以开启自动权重转换，使用完整权重）
 
 ```yaml
 load_checkpoint: '/path/model_dir/'  # 使用切分后的权重路径
@@ -223,6 +186,7 @@ parallel_config:
 ```shell
 # 节点0，设0节点ip为192.168.1.1，作为主节点ip，总共64卡且每个节点8卡
 # 节点0、节点1、...节点7 依此修改node_num，比如8机，node_num为0~7。
+export MS_DEV_RUNTIME_CONF="inline:False"
 bash ../scripts/msrun_launcher.sh "run_llama3.py \
  --config {CONFIG_PATH} \
  --run_mode train" \
@@ -231,23 +195,17 @@ bash ../scripts/msrun_launcher.sh "run_llama3.py \
 
 ## 全参微调
 
-### Llama3-8B
+MindFormers提供`Llama3-8b`单机多卡以及`Llama3-70b`多机多卡的微调示例，
+过程中使用**alpaca**数据集对模型进行微调，数据集可以参考[数据集下载](#数据集下载)获得。
 
-请参照[数据集准备](#数据集准备)章节获取mindrecord格式的alpaca数据集，参照[模型权重准备](#模型权重准备)章节获取Llama3-8B权重。
+### 单机训练
 
-Llama3-8B在Atlas 800T A2上训练，支持**单机/多机训练**。
-
+以Llama3-8b为例。Llama3-8B在Atlas 800T A2上训练，支持**单机/多机训练**。
 当前模型已支持使用**Flash Attention算法**进行全参微调，请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)：
 
 使用`finetune_llama3_8b_8k_800T_A2_64G.yaml`进行训练，或修改默认配置文件中的`model_config.seq_length`，使数据集与训练配置的`seq_length`保持一致。
 
-#### 单机训练
-
-Llama3-8B用于微调，seq_length默认为8192，分布式微调训练在Atlas 800T A2上单节点即可启动。以`alpaca`数据集为例，给出了默认配置文件`finetune_llama3_8b_8k_800T_A2_64G.yaml`。
-
-**步骤**：
-
-2. 修改`finetune_llama3_8b_8k_800T_A2_64G.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+1. 修改`finetune_llama3_8b_8k_800T_A2_64G.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
 
 ```yaml
 load_checkpoint: 'model_dir/xxx.ckpt'  # 使用完整权重路径
@@ -273,7 +231,7 @@ parallel_config:
   gradient_aggregation_group: 4
 ```
 
-3. 启动微调任务，在单机上拉起任务。快速启动脚本指令msrun_launcher特性参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
+2. 启动微调任务，在单机上拉起任务。快速启动脚本指令msrun_launcher特性参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
 
 ```shell
 cd mindformers/research
@@ -295,140 +253,42 @@ run_mode: 运行模式，微调时设置为finetune
 train_data: 训练数据集文件夹路径
 ```
 
-### Llama3-70B
+### 多机训练
 
-数据准备参考Llama3-8B全参微调.
-
-#### 多机多卡
-
-1. 修改`finetune_llama3_70b.yaml`中相关配置，默认使用64卡；需要先对权重进行切分，切分权重可以参见[权重切分与合并](../feature_cards/Transform_Ckpt.md).（如果是共享盘也可以开启自动权重转换，使用完整权重）
-
-```yaml
-load_checkpoint: '/path/model_dir/'  # 使用切分后的权重路径
-use_parallel: True
-auto_trans_ckpt: False # 默认关闭自动转换
-run_mode: 'finetune'
-# dataset
-train_dataset: &train_dataset
-  data_loader:
-    type: MindDataset
-    dataset_dir: "dataset_dir"  # 配置训练数据集文件夹路径
-    shuffle: True
-  input_columns: ["input_ids", "labels"]
-# input_columns按照数据集中的字段指定（如alpaca数据集），input_columns: ["input_ids", "labels"]
-
-# 8卡分布式策略配置
-parallel_config:
-  data_parallel: 1
-  model_parallel: 8
-  pipeline_stage: 8
-  use_seq_parallel: True
-  micro_batch_num: 256
-  vocab_emb_dp: False
-  gradient_aggregation_group: 4
-```
-
-2. 启动微调任务，执行运行脚本。
-
-多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，各个参数位置含义参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
-
-在每台机器上运行以下命令，多机运行命令在每台机器上仅`node_num` 不同，从0开始计数，命令中主节点ip为第0个节点ip。
-
-```shell
-# 节点0，设0节点ip为192.168.1.1，作为主节点ip，总共64卡且每个节点8卡
-# 节点0、节点1、...节点7 依此修改node_num，比如8机，node_num为0~7。
-bash ../scripts/msrun_launcher.sh "run_llama3.py \
- --config {CONFIG_PATH} \
- --run_mode train" \
- 64 8 {主节点ip} 8118 {node_num} output/msrun_log False 300
-```
+多机多卡微调任务启动参考[预训练章节](#预训练)，添加预训练权重，修改启动脚本中的`RUN_MODE`为`finetune`即可。
 
 ## 推理
 
-Llama3-8b用于在线推理，Atlas 800T A2支持**单卡推理**。
-
-以下提供了基于高阶接口推理：基于trainer推理，支持传入单句或多句列表。
-
-### 基于高阶接口推理
-
-#### 单卡推理
-
-- Llama3-8B
-
-1. 修改默认配置predict_llama3_8b_800T_A2_64G.yaml，主要参数配置参考如下：
-
-```yaml
-load_checkpoint: 'path/to/llama3_8b.ckpt'   # 填写权重路径
-auto_trans_ckpt: False                              # 关闭自动权重转换
-use_past: True                                      # 使用增量推理
-vocab_file: 'path/to/tokenizer.model'               # 配置词表路径
-use_parallel: False                                 # 关闭并行模式
-```
-
-2. 启动推理
+MindFormers提供`Llama3-8b`和`Llama3-70b`的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡、多卡以及多batch推理。
 
 ```shell
-cd research
-# 推理命令中参数会覆盖yaml文件中的相同参数，基于释出的权重。
-python llama3/run_llama3.py \
---config llama3/predict_llama3_8b_800T_A2_64G.yaml \
---run_mode predict \
---use_parallel False \
---load_checkpoint path/to/llama3_8b.ckpt \
---vocab_file path/to/tokenizer.model \
---auto_trans_ckpt False \
---predict_data "I love Beijing,because"
+# 脚本使用
+bash scripts/examples/llama3/run_llama3_predict.sh PARALLEL CONFIG_PATH CKPT_PATH DEVICE_NUM
 
-# output: [{'text_generation_text': ['I love Beijing,because it is a city of history and culture. I love Beijing,because it is a city of modernization. I love Beijing, because it is a city of the future. I love Beijing,because it is a city of my heart.']}]
+# 参数说明
+PARALLEL:    是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
+CONFIG_PATH: 模型配置文件路径
+CKPT_PATH:   模型权重文件路径
+VOCAB_FILE:  词表路径
+DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 ```
 
-#### 多卡推理
+### 单卡推理
 
-- Llama3-70B
+```shell
+bash scripts/examples/llama3/run_llama3_predict.sh single \
+ research/llama3/predict_llama3_8b_800T_A2_64G.yaml \
+ path/to/llama3_8b.ckpt \
+ path/to/tokenizer.model
+```
 
->注：
->1.多卡推理在yaml中将`use_parallel`设为`True`才可以.
->2.几卡推理就要在yaml配置中将相应的parallel_config 中的model_parallel置为几，其余置为1，比如下面的配置表示4卡推理。
->3.切分权重可以参见[权重切分与合并](../feature_cards/Transform_Ckpt.md)，使用自动转换权重得到的分布式权重在`output/transformed_checkpoint`文件夹中。
+### 多卡推理
 
-1. 修改默认配置predict_llama3_70b.yaml，主要参数配置参考如下(4卡推理)：
+以`Llama3-70b`4卡推理为例。Llama3-70b权重较大，建议先进行权重切分，参见[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
 
-  ```yaml
-   load_checkpoint: '/path/model_dir'       # 使用切分完的权重
-   auto_trans_ckpt: False                   # 打开自动权重转换
-   use_parallel: True                       # 使用并行模式
-
-   model:
-     model_config:
-       use_past: True                       #使用kbk增量推理
-       is_dynamic: True
-
-   processor:
-     tokenizer:
-       vocab_file: "/{path}/vocab.json"     # vocab.json文件路径
-
-   # parallel of device num = 4
-   parallel_config:
-     data_parallel: 1
-     model_parallel: 4
-     pipeline_stage: 1
-     micro_batch_num: 1
-     vocab_emb_dp: True
-  ```
-
-2. 启动推理：
-
-   ```shell
-   cd mindformers/research/llama3
-   # 推理命令中参数会覆盖yaml文件中的相同参数， load_checkpoint为切分好的权重
-   bash ../../scripts/msrun_launcher.sh "python run_llama3.py \
-   --config predict_llama3_70b.yaml \
-   --load_checkpoint /path/model_dir \
-   --run_mode predict \
-   --use_parallel True \
-   --predict_data I love Beijing, because"  4
-
-   # I love Beijing, because it is a city of history and culture...
-   ```
-
->注：目前llama3 8B和llama3 70B默认为bf16精度，目前无法完全对齐。fp16精度能与A100结果对齐，需要将layernorm_compute_type和softmax_compute_type设为float32，compute_dtype、rotary_dtype和param_init_type设为float16.
+```shell
+bash scripts/examples/llama3/run_llama3_predict.sh parallel \
+ research/llama3/predict_llama3_70b.yaml \
+ path/to/model_dir \
+ path/to/tokenizer.model 4
+```
