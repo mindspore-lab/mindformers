@@ -62,14 +62,14 @@ class QwenVLTransform:
         out = self.pre_caption(caption, template)
         if len(out) == 2:
             cap_out, img_start_pos = out
-            cap_out = np.stack(cap_out, dtype=np.int32)
-            img_start_pos = np.stack(img_start_pos, dtype=np.int32)
+            cap_out = np.stack(cap_out).astype(np.int32)
+            img_start_pos = np.stack(img_start_pos).astype(np.int32)
             return cap_out, img_start_pos
 
         cap_out, img_start_pos, label = out
-        cap_out = np.stack(cap_out, dtype=np.int32)
-        img_start_pos = np.stack(img_start_pos, dtype=np.int32)
-        label = np.stack(label, dtype=np.int32)
+        cap_out = np.stack(cap_out).astype(np.int32)
+        img_start_pos = np.stack(img_start_pos).astype(np.int32)
+        label = np.stack(label).astype(np.int32)
         return cap_out, img_start_pos, label
 
     def pre_caption_for_caption_task(self, caption, template):
