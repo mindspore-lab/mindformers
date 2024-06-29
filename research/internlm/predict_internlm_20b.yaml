@@ -113,6 +113,7 @@ model:
     param_init_type: "float16"
     has_bias: False
     use_past: True
+    use_flash_attention: True
     block_size: 16
     num_blocks: 512
     is_dynamic: True
@@ -125,6 +126,10 @@ model:
     top_k: 3
     top_p: 0.8
     do_sample: False
+    auto_map:
+      AutoModel: internlm.InternLMForCausalLM
+      AutoConfig: internlm_config.InternLMConfig
+      AutoTokenizer: [internlm_tokenizer.InternLMTokenizer, null]
   arch:
     type: InternLMForCausalLM
 
