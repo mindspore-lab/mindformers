@@ -235,15 +235,18 @@ MindFormers提供`Baichuan2`的快速推理脚本，脚本主要通过generate�
 
 ```shell
 # 脚本使用
-bash scripts/examples/baichuan2/run_baichuan2_predict.sh PARALLEL CONFIG_PATH CKPT_PATH TOKENIZER DEVICE_NUM
+bash scripts/examples/baichuan2/run_baichuan2_predict.sh PARALLEL CONFIG_PATH CKPT_PATH TOKENIZER INPUT_DATA DEVICE_NUM
 
 # 参数说明
 PARALLEL:    是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
 CONFIG_PATH: 模型配置文件路径
 CKPT_PATH:   模型权重文件路径
 TOKENIZER:   模型tokenizer文件路径
+INPUT_DATA:  输入模型预测数据
 DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 ```
+
+> 注：如果输入数据中包含空格等符号，需要添加转义字符`'\'`。例如，预测`"I love you."`，则`INPUT_DATA`应该为`"I\ love\ you."`
 
 ### 单卡推理
 
@@ -252,44 +255,37 @@ DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 bash scripts/examples/baichuan2/run_baichuan2_predict.sh single \
  research/baichuan2/predict_baichuan2_7b.yaml \
  path/to/baichuan2_7b_chat.ckpt \
- path/to/tokenizer.model
+ path/to/tokenizer.model \
+ "你好。"
+# 输出推理结果：你好，很高兴和您交流。请问有什么问题我可以帮助您解答？
 
 # baichuan2 13b
 bash scripts/examples/baichuan2/run_baichuan2_predict.sh single \
  research/baichuan2/predict_baichuan2_13b.yaml \
  path/to/baichuan2_13b_chat.ckpt \
- path/to/tokenizer.model
+ path/to/tokenizer.model \
+ "你是谁？"
+# 输出推理结果：我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问
 ```
 
 ### 多卡推理
 
-`Baichuan2-13B`多卡推理暂不支持`is_dynamic=True`，示例中使用2卡进行推理。
+`Baichuan2`多卡推理暂不支持`is_dynamic=True`，示例中使用2卡进行推理，多卡推理输出推理结果与单卡推理相同。
 
 ```shell
 # baichuan2 7b
 bash scripts/examples/baichuan2/run_baichuan2_predict.sh parallel \
  research/baichuan2/predict_baichuan2_7b.yaml \
  path/to/baichuan2_7b_chat.ckpt \
- path/to/tokenizer.model 2
+ path/to/tokenizer.model \
+ "你好。" 2
 
 # baichuan2 13b
 bash scripts/examples/baichuan2/run_baichuan2_predict.sh parallel \
  research/baichuan2/predict_baichuan2_13b.yaml \
  path/to/baichuan2_13b_chat.ckpt \
- path/to/tokenizer.model 2
-```
-
-### 多轮对话推理
-
-```shell
-# 以Baichuan2-7B为例, 多轮对话目前仅支持单卡推理
-cd research/baichuan2
-python run_baichuan2_chat.py \
- --config predict_baichuan2_7b.yaml \
- --load_checkpoint path/to/baichuan2_7b_chat.ckpt
-
-# 请输入：你是谁？
-# 我是我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问
+ path/to/tokenizer.model \
+ "你是谁？" 2
 ```
 
 ## 常见问题
