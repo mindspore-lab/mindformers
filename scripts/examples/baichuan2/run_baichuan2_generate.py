@@ -39,13 +39,7 @@ MODEL_MAP = {
 }
 
 
-def main(config_path, use_parallel, load_checkpoint, vocab_file):
-    inputs = ["<reserved_106>你是谁？<reserved_107>",
-              "<reserved_106>《静夜思》作者是？<reserved_107>",
-              "<reserved_106>白日依山尽，下一句是？<reserved_107>",
-              "<reserved_106>推荐一些杭州的美食？<reserved_107>"]
-    batch_size = len(inputs)
-
+def main(config_path, use_parallel, load_checkpoint, vocab_file, predict_data):
     # init config with yaml
     config = MindFormerConfig(config_path)
     config.use_parallel = use_parallel
@@ -65,12 +59,14 @@ def main(config_path, use_parallel, load_checkpoint, vocab_file):
     # init model
     model_name = config.trainer.model_name
     config.model.model_config.parallel_config = config.parallel_config
-    config.model.model_config.batch_size = batch_size
-    if config.use_parallel and 'baichuan2_13b' in model_name:
-        # baichuan2 13b not support dynamic inputs now
+    if config.use_parallel:
+        # baichuan2 13b and 7b not support dynamic inputs in parallel
         config.model.model_config.is_dynamic = False
+        logger.warning(f"{model_name} not support dynamic inputs in parallel, set is_dynamic=False Default.")
     else:
         config.model.model_config.is_dynamic = True
+    config.model.model_config.use_flash_attention = False
+    logger.warning(f"Flash Attention might cause accuracy issues, set use_flash_attention=False Default.")
     model_config = LlamaConfig(**config.model.model_config)
     model_config.checkpoint_name_or_path = None
 
@@ -79,8 +75,6 @@ def main(config_path, use_parallel, load_checkpoint, vocab_file):
 
     # build model
     network = MODEL_MAP[model_name](model_config)
-    # network.save_pretrained(save_directory="/home/projects/mindformers_dev/temp/", save_json=True)
-    # exit(0)
 
     if config.model.model_config.pet_config:
         logger.info("----------------Init lora params----------------")
@@ -103,19 +97,20 @@ def main(config_path, use_parallel, load_checkpoint, vocab_file):
             config.auto_trans_ckpt = True
         else:
             config.auto_trans_ckpt = False
-        input_ids = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
+        input_ids = Tensor(shape=(1, seq_length), dtype=ms.int32, init=init.One())
         infer_data = network.prepare_inputs_for_predict_layout(input_ids)
         transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
 
     # predict using generate
-    inputs_ids = tokenizer(inputs, max_length=128, padding="max_length")["input_ids"]
+    predict_data = f"<reserved_106>{predict_data}<reserved_107>"
+    inputs_ids = tokenizer(predict_data, max_length=128, padding="max_length")["input_ids"]
     outputs = network.generate(inputs_ids,
                                do_sample=False,
                                top_k=1,
                                top_p=1.0,
                                repetition_penalty=1.0,
                                temperature=1.0,
-                               max_length=64)
+                               max_length=128)
     for output in outputs:
         print(tokenizer.decode(output))
 
@@ -130,11 +125,14 @@ if __name__ == "__main__":
                         help='load model checkpoint path or directory.')
     parser.add_argument('--vocab_file', type=str,
                         help='tokenizer.model file path.')
+    parser.add_argument('--predict_data', type=str,
+                        help='input data for predict.')
 
     args = parser.parse_args()
     main(
         args.config_path,
         args.use_parallel,
         args.load_checkpoint,
-        args.vocab_file
+        args.vocab_file,
+        args.predict_data
     )

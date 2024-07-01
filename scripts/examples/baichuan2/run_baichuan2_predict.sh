@@ -18,7 +18,8 @@ PARALLEL=$1
 CONFIG_PATH=$2
 CKPT_PATH=$3
 TOKENIZER=$4
-DEVICE_NUM=$5
+INPUT_DATA=$5
+DEVICE_NUM=$6
 
 script_path="$(realpath "$(dirname "$0")")"
 
@@ -32,14 +33,16 @@ if [ "$PARALLEL" = "single" ]; then
   python "$script_path"/run_baichuan2_generate.py \
     --config_path "$CONFIG_PATH" \
     --load_checkpoint "$CKPT_PATH" \
-    --vocab_file "$TOKENIZER"
+    --vocab_file "$TOKENIZER" \
+    --predict_data "$INPUT_DATA"
 elif [ "$PARALLEL" = "parallel" ]; then
   bash "$script_path"/../../msrun_launcher.sh \
     "$script_path/run_baichuan2_generate.py \
     --config_path $CONFIG_PATH \
     --load_checkpoint $CKPT_PATH \
     --vocab_file $TOKENIZER \
-    --use_parallel" "$DEVICE_NUM"
+    --use_parallel \
+    --predict_data $INPUT_DATA" "$DEVICE_NUM"
 else
   echo "Only support 'single' or 'parallel', but got $PARALLEL."
 fi

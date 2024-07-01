@@ -43,6 +43,7 @@ model_dict = {
     "baichuan2_13b_lora": Baichuan13BV2ForCausalLM
 }
 
+
 def main(config='./',
          use_parallel=None,
          device_id=None,
@@ -79,12 +80,13 @@ def main(config='./',
         config.auto_trans_ckpt = auto_trans_ckpt
     if vocab_file is None:
         assert config.processor.tokenizer.vocab_file is not None, \
-               "vocab_file can't be None."
+            "vocab_file can't be None."
         vocab_file = config.processor.tokenizer.vocab_file
     if use_past is not None:
         config.model.model_config.use_past = use_past
-    build_context(config)
 
+    os.environ["RUN_MODE"] = config.run_mode
+    build_context(config)
     build_parallel_config(config)
     logger.info("context config is: %s", config.parallel_config)
     logger.info("moe config is: %s", config.moe_config)
@@ -105,6 +107,7 @@ def main(config='./',
     config.model.model_config.parallel_config = config.parallel_config
     config.model.model_config.batch_size = 1
     model_config = LlamaConfig(**config.model.model_config)
+    model_config.use_flash_attention = False
     model_name = config.trainer.model_name
     network = model_dict[model_name](model_config)
 
@@ -123,7 +126,7 @@ def main(config='./',
     if config.load_checkpoint:
         logger.info("------------Transform and Load checkpoint------------")
         if ms.context.get_auto_parallel_context('parallel_mode') in \
-                        ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
+                ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
             seq_length = config.model.model_config.seq_length
             infer_data = ms.Tensor(shape=(1, seq_length), dtype=ms.int32, init=init.One())
             transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
@@ -135,7 +138,7 @@ def main(config='./',
 
     messages = []
     while True:
-        messages.append({"role": "user", "content": input("请输入：")}) # "帮助我制定一份去上海的旅游攻略"
+        messages.append({"role": "user", "content": input("请输入：")})  # "帮助我制定一份去上海的旅游攻略"
         input_ids = build_chat_input(model_config, tokenizer, messages, max_new_tokens)
         outputs = network.generate(input_ids,
                                    max_new_tokens=max_new_tokens,
@@ -157,6 +160,7 @@ def main(config='./',
 
 def build_chat_input(config, tokenizer, messages, max_new_tokens=None):
     """add prompt for baichuan input, and truncate input if too long."""
+
     def _parse_messages(messages, split_role="user"):
         system, rounds = "", []
         r = []
@@ -221,7 +225,7 @@ if __name__ == "__main__":
     parser.add_argument('--max_new_tokens', default=512, type=int,
                         help='max new tokens will be generated.')
     parser.add_argument('--use_past', default=True, type=str2bool,
-                        help='increcement predict')
+                        help='increment predict')
     parser.add_argument('--do_sample', default=False, type=str2bool,
                         help='do sample')
     parser.add_argument('--top_k', default=1, type=int,
