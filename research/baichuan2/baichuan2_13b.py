@@ -225,6 +225,11 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
         loss = self.loss(logits, labels, input_mask)
         return loss
 
+    def kvcache(self, layer_idx):
+        key_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache
+        value_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.value_cache
+        return key_cache, value_cache
+
 
 class Baichuan13BV2Model(Baichuan2PreTrainedModel):
     r"""
