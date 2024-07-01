@@ -151,7 +151,7 @@ context:
   ascend_config:
     precision_mode: "must_keep_origin_dtype"
   max_call_depth: 10000
-  max_device_memory: "60GB"
+  max_device_memory: "57GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
