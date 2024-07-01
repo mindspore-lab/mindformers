@@ -35,6 +35,7 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import lazy_inline
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
+from mindformers.tools.utils import get_use_rope_self_define
 from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks,\
     FreqsMgr
 from mindformers.modules.transformer import TransformerOpParallelConfig
@@ -343,6 +344,7 @@ class QwenModel(QwenPreTrainedModel):
 
             self.layers.append(layer)
 
+        self.use_rope_self_define = get_use_rope_self_define()
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=self.seq_length,
                                   max_position_embedding=config.max_position_embedding,
@@ -384,11 +386,14 @@ class QwenModel(QwenPreTrainedModel):
         """construct"""
         # 2. rotary_emb
         hidden_states = input_embeds
-        _, seq_len, _ = self.shape(hidden_states)
+        bs, seq_len, _ = self.shape(hidden_states)
         mask = None
         if self.use_past:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr(seq_len)
+                if self.use_rope_self_define:
+                    freqs_cis = self.freqs_mgr(seq_len)
+                else:
+                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
