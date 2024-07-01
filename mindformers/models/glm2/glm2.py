@@ -206,10 +206,13 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         self.gather = P.Gather()
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
-        loss_parallel_config = copy.deepcopy(config.parallel_config)
-        loss_parallel_config.model_parallel = dp * mp
-        loss_parallel_config.data_parallel = 1
-        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
+        if config.parallel_config.vocab_emb_dp or (config.vocab_size % mp != 0):
+            self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
+        else:
+            loss_parallel_config = copy.deepcopy(config.parallel_config)
+            loss_parallel_config.model_parallel = dp * mp
+            loss_parallel_config.data_parallel = 1
+            self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
         self.use_past = config.use_past
