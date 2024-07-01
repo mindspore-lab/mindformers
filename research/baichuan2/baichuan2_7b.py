@@ -42,6 +42,7 @@ from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import get_use_rope_self_define
 
 __all__ = ['Baichuan7BV2ForCausalLM', 'Baichuan7BV2Model']
 
@@ -89,6 +90,7 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
             logger.info("Enable flash attention.")
         elif config.use_flash_attention:
             logger.info("Current MindSpore do not support flash attention.")
+        self.use_rope_self_define = get_use_rope_self_define()
 
         self.shape = P.Shape()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
@@ -186,7 +188,10 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
             if self.is_first_iteration:
                 if not self.use_flash_attention:
                     mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-                freqs_cis = self.freqs_mgr(seq_len)
+                if self.use_rope_self_define:
+                    freqs_cis = self.freqs_mgr(seq_len)
+                else:
+                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
