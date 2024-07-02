@@ -126,7 +126,8 @@ model:
     top_p: 0.8
     do_sample: False
     is_dynamic: True
-
+    auto_map:
+      AutoTokenizer: [qwen1_5_tokenizer.Qwen2Tokenizer, null]
     # configuration items copied from Qwen
     rotary_pct: 1.0
     rotary_emb_base: 10000
