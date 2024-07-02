@@ -528,13 +528,13 @@ class BasicTokenizer:
     def _is_chinese_char(self, cp):
         """Checks whether CP is the codepoint of a CJK character."""
         # This defines a "chinese character" as anything in the CJK Unicode block:
-        #   https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
+        # https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)
         #
         # Note that the CJK Unicode block is NOT all Japanese and Korean characters,
         # despite its name. The modern Korean Hangul alphabet is a different block,
         # as is Japanese Hiragana and Katakana. Those alphabets are used to write
         # space-separated words, so they are not treated specially and handled
-        # like the all of the other languages.
+        # like the all the other languages.
         if (
                 (0x4E00 <= cp <= 0x9FFF)
                 or (0x3400 <= cp <= 0x4DBF)

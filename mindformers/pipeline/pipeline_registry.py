@@ -30,13 +30,13 @@ class PipelineRegistry:
         self.task_aliases = task_aliases
 
     def get_supported_tasks(self) -> List[str]:
-        """return the supported tasks"""
+        """get the supported tasks"""
         supported_task = list(self.supported_tasks.keys()) + list(self.task_aliases.keys())
         supported_task.sort()
         return supported_task
 
     def check_task(self, task: str) -> Tuple[str, Dict, Any]:
-        """check whether the taks is in the supported_task list or not"""
+        """check whether the task is in the supported_task list or not"""
         if task in self.task_aliases:
             task = self.task_aliases[task]
         if task in self.supported_tasks:

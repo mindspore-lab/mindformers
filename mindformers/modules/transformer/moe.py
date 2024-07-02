@@ -1187,7 +1187,6 @@ class TopkRouterV2(Cell):
         else:
             expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
         # calculate combine_index from cumsum
-        #K-drop(k,N)
         expert_index = self.reshape(self.transpose_3d(expert_index, (0, 2, 1)), (expert_index.shape[0], -1)) # (dp, kN) <-- (dp, N, k) account for topk priority
         expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value) # (dp, kN, E)fp32 <-- (dp, kN)int32
         position_in_expert = self.mul_3d(self.cumsum(expert_mask, 1), expert_mask) # (dp, kN, E)fp16 <-- (dp, kN, E)fp32, (dp, kN, E)fp32
@@ -1208,7 +1207,6 @@ class TopkRouterV2(Cell):
         dispatch_index = self.add_one(self.mod(dispatch_index, tokens_per_group), 1) # (dp, E, n) fp32
         dispatch_index = self.mul_3d(dispatch_index, is_safe) # (dp, E, n) fp32
 
-        # return
         dispatch_index = self.cast(dispatch_index, mstype.int32)
         combine_index = self.cast(combine_index, mstype.int32)
         router_coeff_raw = self.mul_3d(expert_gate, self.transpose_3d(self.reshape(within_capacity, (within_capacity.shape[0], k, tokens_per_group)), (0, 2, 1))) # apply within_capacity (dp, N, k) <-- (dp, N, k), (dp, N, k) <--  (dp, kN)
@@ -1230,7 +1228,6 @@ class TopkRouterV2(Cell):
         else:
             expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
         # calculate combine_index from cumsum
-        #S-drop(N,k)
         expert_index = self.reshape(expert_index, (expert_index.shape[0], -1)) # (dp, Nk) <-- (dp, N, k) account for topk priority
         expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value) # (dp, Nk, E)fp32 <-- (dp, Nk)int32
         position_in_expert = self.mul_3d(self.cumsum(expert_mask, 1), expert_mask) # (dp, Nk, E)fp16 <-- (dp, Nk, E)fp32, (dp, Nk, E)fp32
@@ -1251,7 +1248,6 @@ class TopkRouterV2(Cell):
         dispatch_index = self.add_one(ops.floor_divide(dispatch_index, k), 1) # (dp, E, n) fp32
         dispatch_index = self.mul_3d(dispatch_index, is_safe) # (dp, E, n) fp32
 
-        # return
         dispatch_index = self.cast(dispatch_index, mstype.int32)
         combine_index = self.cast(combine_index, mstype.int32)
         within_capacity = self.reshape(within_capacity, (within_capacity.shape[0], tokens_per_group, k))

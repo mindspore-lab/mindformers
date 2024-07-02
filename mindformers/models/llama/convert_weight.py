@@ -263,9 +263,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.qkv_concat:
-        # for example
-        # python convert_weight.py --qkv_concat=True --pre_ckpt_path=/path/to/llama_dist_ckpt_dir  --mindspore_ckpt_path=/path/to/new_llama_dist_ckpt_dir
-        # python convert_weight.py --qkv_concat=True --pre_ckpt_path=/path/to/llama.ckpt  --mindspore_ckpt_path=/path/to/new_llama.ckpt
         convert_to_qkv_concat(args.pre_ckpt_path, args.mindspore_ckpt_path)
     elif args.pre_ckpt_path is not None and args.config_path is not None:
         convert_to_new_ckpt(args.pre_ckpt_path, args.config_path)

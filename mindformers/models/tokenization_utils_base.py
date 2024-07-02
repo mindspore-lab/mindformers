@@ -772,19 +772,11 @@ class BatchEncoding(UserDict):
         # Do the tensor conversion in batch
         for key, value in self.items():
             try:
-                if prepend_batch_axis:
-                    # value = [value]
+                if prepend_batch_axis:  # value = [value]
                     pass
 
                 if not is_tensor(value):
                     tensor = as_tensor(value, dtype=tensor_dtype)
-
-                    # Removing this for now in favor of controlling the shape with `prepend_batch_axis`
-                    # # at-least2d
-                    # if tensor.ndim > 2:
-                    #     tensor = tensor.squeeze(0)
-                    # elif tensor.ndim < 2:
-                    #     tensor = tensor[None, :]
 
                     self[key] = tensor
             except Exception as e:
@@ -2566,7 +2558,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
             yaml_file = os.path.join(save_directory, save_name + '.yaml')
             if os.path.exists(yaml_file):
                 with open(yaml_file, 'r') as file_reader:
-                    merged_dict = yaml.load(file_reader.read(), Loader=yaml.Loader)
+                    merged_dict = yaml.safe_load(file_reader.read())
                     if merged_dict is None:
                         merged_dict = dict()
 

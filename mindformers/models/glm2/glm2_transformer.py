@@ -261,7 +261,6 @@ class ChatGLM2SelfAttention(nn.Cell):
         x, x_pass = x[..., :rot_dim], x[..., rot_dim:]
         # ms not support variable sizes
         # truncate to support variable sizes
-        # rope_cache = rope_cache[:sq]
         # [bs, nh, sq, kv_channels//4, 2]
         xshaped = self.reshape(x, (bs, num_heads, seq_len, rot_dim // 2, 2))
         # [bs, 1, sq, kv_channels//4, 2]
@@ -307,8 +306,8 @@ class ChatGLM2SelfAttention(nn.Cell):
                   block_tables=None, slot_mapping=None):
         """Forward process of self-attention."""
         # hidden_states: [bs, seq_len, hidden_size]
-        # attention_mask (bs, 1, seq_len, seq_len)
-        # rotary_pos_emb: first: (sen length, kv_channels//4, 2)， after:(1, kv_channels//4, 2]
+        # attention_mask: (bs, 1, seq_len, seq_len)
+        # rotary_pos_emb: first -> (sen length, kv_channels//4, 2), after -> (1, kv_channels//4, 2]
         bs, seq_len, _ = self.shape(hidden_states)
         # [bs, seq_len, qkv_hidden_size]
         mixed_raw_layer = self.query_key_value(hidden_states)
@@ -385,7 +384,6 @@ class ChatGLM2Block(nn.Cell):
         # Layernorm on the attention output
         self.post_attention_layernorm = layer_norm_func(config.hidden_size, eps=config.layernorm_epsilon,
                                                         param_init_type=self.layernorm_dtype)
-        # self.post_attention_layernorm.shard()
 
         # MLP
         self.mlp = ChatGLM2MLP(config)
@@ -486,7 +484,6 @@ class ChatGLM2Transformer(nn.Cell):
             # Final layer norm before output.
             self.final_layernorm = layer_norm_func(config.hidden_size, eps=config.layernorm_epsilon,
                                                    param_init_type=config.layernorm_compute_type)
-            # self.final_layernorm.shard()
             self.final_layernorm.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
     def construct(self,
@@ -498,8 +495,8 @@ class ChatGLM2Transformer(nn.Cell):
                   block_tables=None,
                   slot_mapping=None):
         """Forward process of the transformer."""
-        # hidden_states (bs, seq_len, hs)
-        # attention_mask (bs, 1, seq_len, seq_len)
+        # hidden_states -> (bs, seq_len, hs)
+        # attention_mask -> (bs, 1, seq_len, seq_len)
         # rotary_pos_emb: first: (sen length, kv_channels//2, 2)， after:[1, kv_channels // 2, 2]
 
         if batch_valid_length is not None and isinstance(self.pre_seq_len, int):

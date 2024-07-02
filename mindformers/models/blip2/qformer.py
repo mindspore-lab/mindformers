@@ -516,7 +516,7 @@ class BertAttention(nn.Cell):
         encoder_attention_mask: [batch_size, 1, 1, vit_seq_length]
         """
 
-        # self_outputs.shape ([batch_size, query_size, qformer_hidden_size],
+        # shape of self_outputs should be ([batch_size, query_size, qformer_hidden_size],
         # ([batch_size, num_head, query_size, head_size], [batch_size, num_head, query_size, head_size]))
         self_outputs = self.self_att(
             hidden_states,

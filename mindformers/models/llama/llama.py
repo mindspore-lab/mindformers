@@ -198,9 +198,6 @@ class LlamaModel(LlamaPreTrainedModel):
 
         Args:
             tokens: the tokenized inputs with datatype int32
-            input_position(Tensor): current position, used by model.predict.
-            init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
-                past value parameter used in the incremental prediction. Default True.
             batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
                 prediction. Tensor of shape :math:`(batch_size,)`. Default None.
             block_tables (Tensor[int64]): Store mapping tables for each sequence.
@@ -219,10 +216,9 @@ class LlamaModel(LlamaPreTrainedModel):
                     freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
 
                 if self.use_flash_attention:
-                    if self.enable_asd_op: # only surppot fp16
+                    if self.enable_asd_op:  # only support fp16
                         mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
                         mask = self.cast(mask, mstype.float16)
-                    #else:no mask input
                 else:
                     mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
 
