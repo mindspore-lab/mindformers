@@ -245,6 +245,11 @@ MindFormers提供`qwen1_5-7b`单机多卡以及`qwen1_5-14b`与`qwen1_5-72b`多�
 1. 启动qwen1_5-14b预训练，执行2机16卡任务。
 
     在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考[ms_run快速使用](https://gitee.com/mindspore/mindformers#%E5%9B%9B%E5%BF%AB%E9%80%9F%E4%BD%BF%E7%94%A8)
+    针对多机的场景，建议用户配置HCCL_BUFFSIZE环境变量。集合通信网络中，每一个HCCL通信域都会占用HCCL_BUFFSIZE大小的缓存区，若业务的模型数据量较小，但通信数据量较大，则可通过此环境变量增大HCCL通信域占用的缓存区大小，提升数据通信效率。
+
+   ```shell
+   export HCCL_BUFFSIZE=2
+   ```
 
     在mindformers工作目录下，执行：
 
