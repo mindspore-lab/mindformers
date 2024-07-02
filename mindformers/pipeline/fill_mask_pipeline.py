@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
 """TranslationPipeline"""
-# from tkinter import _Padding
-
 import numpy as np
 import mindspore
 from mindspore import ops, Tensor

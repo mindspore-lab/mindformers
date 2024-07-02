@@ -99,8 +99,8 @@ class Blip2Qformer(Blip2Base):
 
         # note on Atlas 800T A2, function resize_token_embeddings() is not supported,
         # thus in this case, a resized weight will be loaded, i.e:
-        # 1) vocab_size = vocab_size + special_token_nums,
-        # 2) special_token_nums = 0
+        # 1. vocab_size: vocab_size + special_token_nums,
+        # 2. special_token_nums: 0
         if not qformer_config.resize_token_embeddings:
             qformer_config.vocab_size = qformer_config.vocab_size + qformer_config.special_token_nums
             qformer_config.special_token_nums = 0
@@ -519,11 +519,10 @@ class Blip2Qformer(Blip2Base):
         image_embeds, text_embeds, multimodal_embeds = None, None, None
         image_features, text_features = None, None
 
-        if mode == "image":
+        if mode == "image":  # return query features
             assert (
                 image is not None
             ), "Image is not provided for mode 'image' or 'multimodal'"
-            # return query features
             forward_image_outputs = self.forward_image(image, use_cache=False)
             image_embeds = forward_image_outputs[0]
             image_features = ops.L2Normalize(
@@ -536,10 +535,8 @@ class Blip2Qformer(Blip2Base):
             text_features = ops.L2Normalize(
                 axis=-1, epsilon=1e-12)(self.text_proj(text_embeds))
 
-        elif mode == "multimodal":
-            # return multimodal query features
-            multimodal_embeds = self.forward_text_and_image(
-                image, text_ids, vit_computed=False)
+        elif mode == "multimodal":  # return multimodal query features
+            multimodal_embeds = self.forward_text_and_image(image, text_ids, vit_computed=False)
         return (image_embeds,
                 image_features,
                 text_embeds,

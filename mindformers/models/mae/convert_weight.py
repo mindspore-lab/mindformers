@@ -17,72 +17,32 @@ import argparse
 import torch
 import mindspore as ms
 
-from mindformers.utils.convert_utils import pt2ms
+from mindformers.models.vit.convert_weight import replace_process
 
 
-# pylint: disable=W0613
-def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
+def convert_pt_to_ms(input_path, output_path, dtype=None):
     """
     convert mae_vit_base_p16 weights from pytorch to mindspore
     pytorch and GPU required.
     """
     param_dict = torch.load(input_path, map_location=torch.device("cpu"))
-
-    new_dict = []
-    for k, v in param_dict["model"].items():
-        if k in ("cls_token", "mask_token"):
-            k += "s"
-        if "head" not in k:
-            k = "vit." + k
-        if "norm" in k:
-            if "fc_norm" not in k and "vit.norm" not in k and "decoder_norm" not in k:
-                k = k.replace("norm", "layernorm")
-            if "weight" in k:
-                k = k.replace("weight", "gamma")
-            elif "bias" in k:
-                k = k.replace("bias", "beta")
-        if "mlp" in k:
-            k = k.replace("mlp", "output")
-            if "fc1" in k:
-                k = k.replace("fc1", "mapping")
-                if "weight" in k:
-                    v = v.transpose(-1, 0)
-            elif "fc2" in k:
-                k = k.replace("fc2", "projection")
-                if "weight" in k:
-                    v = v.transpose(-1, 0)
-        if "attn" in k:
-            k = k.replace("attn", "attention")
-            if "proj" in k:
-                k = k.replace("proj", "projection")
-                if "weight" in k:
-                    v = v.transpose(-1, 0)
-        if "qkv" not in k:
-            new_dict.append({"name": k, "data": pt2ms(v, dtype)})
-        else:
-            data = pt2ms(v, dtype)
-            length = data.shape[0] // 3
-            new_dict.append({"name": k.replace(".qkv", ".dense1"), "data": ms.Tensor(data[:length])})
-            new_dict.append({"name": k.replace(".qkv", ".dense2"), "data": ms.Tensor(data[length:length * 2])})
-            new_dict.append({"name": k.replace(".qkv", ".dense3"), "data": ms.Tensor(data[length * 2:])})
-
+    new_dict = replace_process(param_dict, dtype, 'mae')
     ms.save_checkpoint(new_dict, output_path)
-
-    print("Weights conversion completes. ")
+    print("Weights conversion completes.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="mae vit weight convert script")
-    parser.add_argument("--torch_pth_path",
-                        type=str,
-                        default="mae_pretrain_vit_base.pth",
-                        required=True,
-                        help="The torch checkpoint path.")
     parser.add_argument("--ms_ckpt_path",
                         type=str,
                         required=True,
                         default="mae_pretrain_vit_base.ckpt",
                         help="The output mindspore checkpoint path.")
+    parser.add_argument("--torch_pth_path",
+                        type=str,
+                        default="mae_pretrain_vit_base.pth",
+                        required=True,
+                        help="The torch checkpoint path.")
     opt = parser.parse_args()
 
     convert_pt_to_ms(opt.torch_pth_path, opt.ms_ckpt_path)

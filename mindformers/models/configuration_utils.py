@@ -454,7 +454,7 @@ class PretrainedConfig(PushToHubMixin):
         meraged_dict = {}
         if os.path.exists(save_path):
             with open(save_path, 'r') as file_reader:
-                meraged_dict = yaml.load(file_reader.read(), Loader=yaml.Loader)
+                meraged_dict = yaml.safe_load(file_reader.read())
             file_reader.close()
         meraged_dict.update(wraped_config)
 
