@@ -50,6 +50,7 @@ SUPPORT_PIPELINES = MindFormerBook().get_pipeline_support_task_list()
 # reversed constant for feature extractor
 FEATURE_EXTRACTOR_MAPPING = OrderedDict()
 
+
 class Backend(Enum):
     MS = "ms"
 
@@ -237,7 +238,7 @@ def get_ms_experimental_pipeline(
             "Please provide a task class and a model."
         )
     if isinstance(model, Path):
-        model = str(model)
+        model = os.path.realpath(str(model))
 
     if framework == Backend.MS.value:
         logger.info("Initializing ms pipeline.")
@@ -536,7 +537,7 @@ def load_model(model,
                config: any,
                model_classes: Optional[Dict[str, Tuple[type]]] = None,
                task: Optional[str] = None,
-               **model_kwargs,):
+               **model_kwargs):
     """
 
     If `model` is instantiated, this function will just infer the framework from the model class. Otherwise `model` is
@@ -552,8 +553,6 @@ def load_model(model,
             A mapping framework to class.
         task (`str`):
             The task defining which pipeline will be returned.
-        framework ('str'):
-            The framework identifier.
         model_kwargs:
             Additional dictionary of keyword arguments passed along to the model's `from_pretrained(...,
             **model_kwargs)` function.
@@ -616,7 +615,7 @@ def is_experimental_mode(model, **kwargs):
     if os.path.isdir(model):
         return True
     # in other cases, should go into original mode
-    # if still got keys in exportimental api, raise error
+    # if still got keys in experimental api, raise error
     experimental_keys.extend(kwargs.keys())
     tmp_dict = {}.fromkeys(experimental_keys)
     if len(tmp_dict) < len(experimental_keys):

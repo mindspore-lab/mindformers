@@ -293,7 +293,7 @@ class MultiSourceIterDataSet:
 
 
 class MultiSourceRandomAccessDataset:
-    """MultiSource Dataloader with radom access implement."""
+    """MultiSource Dataloader with random access implement."""
     def __init__(self, dataset_list, sample_nums, shuffle_buffer_size=320,
                  shuffle: Optional[bool] = True,
                  load_indices_npz_path: str = None,

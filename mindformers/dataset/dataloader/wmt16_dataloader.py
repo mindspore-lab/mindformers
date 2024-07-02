@@ -38,6 +38,7 @@ class WMT16DataLoader:
         Return:
             a GeneratorDataset for WMT16 dataset
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 
@@ -87,6 +88,7 @@ class WMT16DataSet:
         Return:
             an iterable dataset for wmt16 dataset
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
         self.dataset_dir = dataset_dir
