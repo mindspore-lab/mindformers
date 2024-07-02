@@ -73,7 +73,8 @@ model:
     top_p: 0.8
     do_sample: False
     is_dynamic: True
-
+    auto_map:
+      AutoTokenizer: [qwen1_5_tokenizer.Qwen2Tokenizer, null]
   arch:
     type: LlamaForCausalLM
 
