@@ -61,8 +61,7 @@ def register_ms_dataset_loader():
             continue
         dataset = getattr(ds, module_name)
         if inspect.isclass(dataset):
-            MindFormerRegister.register_cls(
-                dataset, MindFormerModuleType.DATASET_LOADER)
+            MindFormerRegister.register_cls(dataset, MindFormerModuleType.DATASET_LOADER)
 
 
 register_ms_dataset_loader()

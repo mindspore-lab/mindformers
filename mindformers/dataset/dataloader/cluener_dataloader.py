@@ -38,7 +38,7 @@ class CLUENERDataLoader:
             dataset_dir (str): The directory to cluener dataset.
             column_names (Optional[Union[List[str], Tuple[str]]]): The output column names,
                 a tuple or a list of string with length 2
-            stage (Optional[str]): The supported key words are in ["train", "test", "del", "all"]
+            stage (Optional[str]): The supported keywords are in ["train", "test", "del", "all"]
 
         Return:
             A GeneratorDataset for cluener dataset
@@ -60,6 +60,7 @@ class CLUENERDataLoader:
                         5, 15, 15, 15, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
                         0,  0,  0,  0,  0,  0,  0,  0, 0])]
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 
@@ -90,7 +91,7 @@ class CLUENERDataSet:
 
         Args:
             dataset_dir (str): The directory to cluener dataset.
-            stage (str): The supported key words are in ["train", "dev", "test"]
+            stage (str): The supported keywords are in ["train", "dev", "test"]
 
         Return:
             A iterable dataset for cluener dataset

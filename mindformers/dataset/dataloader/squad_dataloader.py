@@ -27,6 +27,7 @@ class SQuADDataLoader:
     """SQuAD Dataloader"""
     _default_column_names = ["input_ids", "input_mask", "token_type_id",
                              "start_positions", "end_positions", "unique_id"]
+
     def __new__(cls, dataset_dir, tokenizer, column_names=None, stage="train",
                 max_question_len=64, max_seq_len=384, doc_stride=128, **kwargs):
         r"""
@@ -37,7 +38,7 @@ class SQuADDataLoader:
             tokenizer: a tokenizer for text processing.
             column_names (Optional[Union[List[str], Tuple[str]]]): The output column names,
                                                                    a tuple or a list of string with length 6
-            stage: The supported key words are in ["train", "dev"]
+            stage: The supported keywords are in ["train", "dev"]
             max_question_len: The maximum number of tokens for the question,
                               Questions longer than this will be truncated to this length.
             max_seq_len: Maximum sequence length.
@@ -92,6 +93,7 @@ class SQuADDataLoader:
                 1000000005, 1000000027, 1000000014, 1000000015, 1000000002, 1000000025, 1000000011, 1000000008,
                 1000000021, 1000000010, 1000000019, 1000000016])]
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 
@@ -122,6 +124,7 @@ class SQuADDataLoader:
 
 class SQuADDataset:
     """SQuAD Dataset"""
+
     def __init__(self, dataset_dir, tokenizer, stage="train", max_question_len=64,
                  max_seq_len=384, doc_stride=128, temp_file_dir="./squad_temp"):
         r"""
@@ -130,7 +133,7 @@ class SQuADDataset:
         Args:
             dataset_dir (str): The directory to SQuAd dataset.
             tokenizer (PreTrainedTokenizer): A tokenizer for text processing.
-            stage (str): The supported key words are in ["train", "dev"]
+            stage (str): The supported keywords are in ["train", "dev"]
             max_question_len (int): The maximum number of tokens for the question,
                                     Questions longer than this will be truncated to this length.
             max_seq_len (int): Maximum sequence length.
@@ -143,6 +146,7 @@ class SQuADDataset:
         Raises:
             ValueError: Error input for dataset_dir, stage.
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 
@@ -210,7 +214,6 @@ class SQuADDataset:
             for feature in self.input_features:
                 f.write(json.dumps(feature.__dict__) + '\n')
 
-
     def _read_squad_examples(self, input_file_path):
         """Read a SQuAD json file into a list of SquadExample."""
         with open(input_file_path, "r") as reader:
@@ -250,6 +253,7 @@ class SQuADDataset:
                     examples.append(example)
 
         return examples
+
 
 def convert_examples_to_features(examples, tokenizer, max_seq_len, max_question_len,
                                  doc_stride, is_training):
@@ -349,6 +353,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_len, max_question_
 
     return input_features
 
+
 def _get_positions(doc_span, tok_start_position, tok_end_position,
                    query_tokens_length, is_impossible, is_training):
     """Get start position and end position"""
@@ -374,6 +379,7 @@ def _get_positions(doc_span, tok_start_position, tok_end_position,
 
     return start_position, end_position
 
+
 def _get_doc_spans(doc_stride, all_doc_tokens, max_tokens_for_doc):
     """Get doc span"""
     _DocSpan = collections.namedtuple("DocSpan", ["start", "length"])
@@ -388,6 +394,7 @@ def _get_doc_spans(doc_stride, all_doc_tokens, max_tokens_for_doc):
             break
         start_offset += min(length, doc_stride)
     return doc_spans
+
 
 def _improve_answer_span(tokenizer, doc_tokens, input_start, input_end, orig_answer_text):
     """Returns tokenized answer spans that better match the annotated answer."""
@@ -423,6 +430,7 @@ def _improve_answer_span(tokenizer, doc_tokens, input_start, input_end, orig_ans
                 return (new_start, new_end)
 
     return (input_start, input_end)
+
 
 def _check_is_max_context(doc_spans, cur_span_index, position):
     """Check if this is the 'max context' doc span for the token."""
@@ -526,6 +534,7 @@ class SquadExample:
         if c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F:
             return True
         return False
+
 
 class InputFeatures:
     """A single set of features of data."""

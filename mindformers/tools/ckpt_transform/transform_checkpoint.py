@@ -33,7 +33,8 @@ from mindformers.tools.utils import (
     create_file,
     delete_file,
     remake_folder,
-    is_main_rank
+    is_main_rank,
+    format_path
 )
 from mindformers.tools.logger import logger
 from mindformers.tools.cloud_adapter import mox_adapter
@@ -73,7 +74,7 @@ class TransformCkpt:
                 - If transform_process_num = 1, single-process conversion is used,
                 where only rank_0 is responsible for checkpoint conversion, and other processes wait
                 until rank_0 finishes conversion.
-                - If transform_process_num > 1, multi-process conversion is used.
+                - If transform_process_num > 1, multiprocess conversion is used.
                 For example, in an 8-card task with transform_process_num=2,
                 rank_0 is responsible for checkpoint conversion of slices rank_0/1/2/3, and rank_4 is
                 responsible for checkpoint conversion of slices rank_4/5/6/7, while other processes wait
@@ -194,8 +195,15 @@ class TransformCkpt:
         Returns:
             str: Directory path where the transformed checkpoints are saved.
         """
-        # Check src_checkpoint is str and path is exist.
+        # Check src_checkpoint is str and path is existed.
         check_path(src_checkpoint, info="src_checkpoint")
+
+        # convert path to realpath
+        src_checkpoint = format_path(src_checkpoint)
+        dst_checkpoint_dir = format_path(dst_checkpoint_dir) if dst_checkpoint_dir is not None else dst_checkpoint_dir
+        src_strategy = format_path(src_strategy) if src_strategy is not None else src_strategy
+        dst_strategy = format_path(dst_strategy) if dst_strategy is not None else dst_strategy
+
         if src_checkpoint.endswith("/"):
             src_checkpoint = src_checkpoint[:-1]
         if self.auto_trans_ckpt:
@@ -273,7 +281,7 @@ class TransformCkpt:
                        src_strategy=None,
                        dst_strategy=None,
                        prefix="checkpoint_"):
-        """Transform ckpt using mindspore.transorm_checkpoint"""
+        """Transform ckpt using mindspore.transform_checkpoint"""
         self.check_src_checkpoint_and_strategy(src_checkpoint, src_strategy)
         if src_strategy is None and dst_strategy is None:
             raise ValueError("`src_strategy` and `dst_strategy` cannot both be None!")
@@ -416,37 +424,37 @@ class TransformCkpt:
             for cache_file in self.cache_list:
                 delete_file(cache_file)
 
-    def get_strategy(self, startegy_path, rank_id=None):
+    def get_strategy(self, strategy_path, rank_id=None):
         """Merge strategy if strategy path is dir
 
         Args:
-            startegy_path (str): The path of stategy.
+            strategy_path (str): The path of strategy.
             rank_id (int): The rank id of device.
 
         Returns:
             None or strategy path
         """
-        if not startegy_path or startegy_path == "None":
+        if not strategy_path or strategy_path == "None":
             return None
 
-        assert os.path.exists(startegy_path), f'{startegy_path} not found!'
+        assert os.path.exists(strategy_path), f'{strategy_path} not found!'
 
-        if os.path.isfile(startegy_path):
-            return startegy_path
+        if os.path.isfile(strategy_path):
+            return strategy_path
 
-        if os.path.isdir(startegy_path):
+        if os.path.isdir(strategy_path):
             if rank_id:
-                merge_path = os.path.join(startegy_path, f'merged_ckpt_strategy_by_rank_{rank_id}.ckpt')
+                merge_path = os.path.join(strategy_path, f'merged_ckpt_strategy_by_rank_{rank_id}.ckpt')
             else:
-                merge_path = os.path.join(startegy_path, f'merged_ckpt_strategy.ckpt')
+                merge_path = os.path.join(strategy_path, f'merged_ckpt_strategy.ckpt')
 
-            merged_succeed_txt = os.path.join(startegy_path, "merge_succeed.txt")
+            merged_succeed_txt = os.path.join(strategy_path, "merge_succeed.txt")
             if self.is_main_rank:
                 if os.path.exists(merge_path):
                     logger.info("The merged strategy: %s has existed. \
                                 It will be deleted and re-merge a new strategy.", merge_path)
                     os.remove(merge_path)
-                ms.merge_pipeline_strategys(startegy_path, merge_path)
+                ms.merge_pipeline_strategys(strategy_path, merge_path)
                 create_file(merged_succeed_txt)
                 self.cache_list.append(merged_succeed_txt)
             else:
