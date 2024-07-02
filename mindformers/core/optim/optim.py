@@ -102,7 +102,6 @@ def _update_run_op(beta1_power, beta2_power, beta1, beta2, eps, lr, weight_decay
         Tensor, the new value of v after updating.
     """
     if optim_filter:
-        # op_mul = P.Mul(), defined output
         op_square = P.Square()
         op_sqrt = P.Sqrt()
         op_cast = P.Cast()

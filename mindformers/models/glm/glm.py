@@ -478,7 +478,6 @@ class GLMChatModel(GLMForPreTraining):
         self.frequency_list = ms.Tensor([[0 for _ in range(self.vocab_size)]])
         self.post_logits = ProcessLogits(use_past=config.use_past)
         # seems not supported yet.
-        # self.top_p = config.top_p
         self.top_p = 1
         self.top_k = config.top_k
         self.repetition_penalty = config.repetition_penalty

@@ -148,7 +148,6 @@ class SamPromptEncoder(PreTrainedModel):
         """
         bs = self._get_batch_size(point_coords, boxes, mask_inputs)
         sparse_embeddings = np.empty((bs, 1, self.embed_dim))
-        # sparse_embeddings = None
         if point_coords is not None:
             point_embeddings = self._embed_points(point_coords, point_labels, pad=(boxes is None))
             sparse_embeddings = point_embeddings

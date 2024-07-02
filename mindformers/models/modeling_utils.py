@@ -144,7 +144,7 @@ def shard_checkpoint(
     weight_map = {}
     shards = {}
     for idx, shard in enumerate(sharded_state_dict_lists):
-        shard_file = weights_name.replace(".ckpt", f"-{idx+1:05d}-of-{len(sharded_state_dict_lists):05d}.ckpt")
+        shard_file = weights_name.replace(".ckpt", f"-{idx + 1:05d}-of-{len(sharded_state_dict_lists):05d}.ckpt")
         shards[shard_file] = shard
         for key in shard.keys():
             weight_map[key] = shard_file
@@ -153,6 +153,7 @@ def shard_checkpoint(
     metadata = {"total_size": total_size}
     index = {"metadata": metadata, "weight_map": weight_map}
     return shards, index
+
 
 def load_sharded_checkpoint(model, folder, strict=True):
     """
@@ -188,6 +189,7 @@ def load_sharded_checkpoint(model, folder, strict=True):
     logger.info("Network parameters are not loaded: %s", str(not_load_network_params))
     return not_load_network_params
 
+
 def _add_variant(weights_name: str, variant: Optional[str] = None) -> str:
     if variant is not None:
         splits = weights_name.split(".")
@@ -195,6 +197,7 @@ def _add_variant(weights_name: str, variant: Optional[str] = None) -> str:
         weights_name = ".".join(splits)
 
     return weights_name
+
 
 class ModuleUtilsMixin:
     """
@@ -230,7 +233,6 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
     base_model_prefix = ""
     main_input_name = "input_ids"
     _auto_class = None
-    # _no_split_modules = None
     _skip_keys_device_placement = None
     _keep_in_fp32_modules = None
 
@@ -371,7 +373,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             self,
             save_directory: Union[str, os.PathLike],
             is_main_process: bool = True,
-            state_dict: Optional[dict] = None, # state_dict
+            state_dict: Optional[dict] = None,  # state_dict
             push_to_hub: bool = False,
             max_shard_size: Union[int, str] = "5GB",
             variant: Optional[str] = None,
@@ -443,18 +445,13 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         if self._auto_class is not None:
             custom_object_save(self, save_directory, config=self.config)
 
-        # Save the config
-        if is_main_process:
+        if is_main_process:  # Save the config
             model_to_save.config.save_pretrained(save_directory, save_json=True)
-            # if self.can_generate():
-            #     model_to_save.generation_config.save_pretrained(save_directory)
 
-        if state_dict is None:
-        # Save the model
+        if state_dict is None:  # Save the model
             state_dict = {}
             for item in model_to_save.get_parameters():
                 state_dict[item.name] = item.data
-                # params_list.append({"name": item.name, "data": item.data})
 
         # Handle the case where some param_list keys shouldn't be saved
         def choice_func(x, keys_to_ignore_on_save):
@@ -569,7 +566,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         meraged_dict = {}
         if os.path.exists(config_path):
             with open(config_path, 'r') as file_reader:
-                meraged_dict = yaml.load(file_reader.read(), Loader=yaml.Loader)
+                meraged_dict = yaml.safe_load(file_reader.read())
             file_reader.close()
         meraged_dict.update(wraped_config)
 
@@ -752,7 +749,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             return False
 
         if "/" in pretrained_model_name_or_dir and \
-            pretrained_model_name_or_dir.split("/")[0] != "mindspore":
+                pretrained_model_name_or_dir.split("/")[0] != "mindspore":
             return True
         return False
 
@@ -1065,7 +1062,6 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         # This variable will flag if we're loading a sharded checkpoint. In this case the archive file is just the
         # index of the files.
         is_sharded = False
-        # sharded_metadata = None
 
         if pretrained_model_name_or_path is not None:
             pretrained_model_name_or_path = str(pretrained_model_name_or_path)
@@ -1151,8 +1147,8 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
                             f" {_add_variant(WEIGHTS_NAME, variant)}."
                         )
                 except EnvironmentError:
-                        # Raise any environment error raise by `cached_file`. It will have a helpful error message adapted
-                        # to the original exception.
+                    # Raise any environment error raise by `cached_file`. It will have a helpful error message adapted
+                    # to the original exception.
                     raise
                 except Exception:
                     # For any other exception, we throw a generic error.
@@ -1194,7 +1190,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         network = cls(config, *model_args, **model_kwargs)
 
         if ms.context.get_auto_parallel_context('parallel_mode') in \
-            ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel'] and auto_trans_ckpt:
+                ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel'] and auto_trans_ckpt:
             clear_auto_trans_output()
             src_checkpoint_dir = os.path.join(get_output_root_path(), "src_checkpoint")
             if not get_real_rank():
@@ -1359,7 +1355,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
 
         if remove_prefix_from_model:
             prefix_ = f"{prefix}."
-            expected_keys = [s[len(prefix_) :] if s.startswith(prefix_) else s for s in expected_keys]
+            expected_keys = [s[len(prefix_):] if s.startswith(prefix_) else s for s in expected_keys]
         elif add_prefix_to_model:
             expected_keys = [".".join([prefix, s]) for s in expected_keys]
 
