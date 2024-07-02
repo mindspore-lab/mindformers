@@ -72,7 +72,7 @@ class TrainingDataLoader:
                 The input parameter is the path of the dataset file.
                 The return value is a dictionary. Key indicates the column name,
                     and value indicates the value of the column.
-            shuffle (bool): Whether or not to perform shuffle on the dataset.
+            shuffle (bool): Whether to perform shuffle on the dataset.
                 Random accessible input is required.
                 Default: True, expected order behavior shown in the table below.
             samples_num(int): Specifies the number of samples to be trained.
@@ -99,6 +99,7 @@ class TrainingDataLoader:
             >>>     print(item)
             >>>     break
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if max_length <= 0:
             raise TypeError(f"max_length should be an integer greater than 0.")
 

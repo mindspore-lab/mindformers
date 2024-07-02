@@ -38,7 +38,7 @@ class Flickr8kDataLoader:
                 Flickr_8k.devImages.txt, and Flickr8k.token.txt
             column_names (Optional[Union[List[str], Tuple[str]]]): The output column names,
                 a tuple or a list of string with length 2
-            stage (Optional[str]): The supported key words are in ["train", "test", "del", "all"]
+            stage (Optional[str]): The supported keywords are in ["train", "test", "del", "all"]
 
         Return:
             A GeneratorDataset for Flickr8k dataset
@@ -69,6 +69,7 @@ class Flickr8kDataLoader:
                 'A young girl being held by an older woman wearing bluejeans sitting on the
                  lap of a bear statue near the entrance to a wooden building .']])]
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         annotation_dir = os.path.join(dataset_dir, "Flickr8k_text")
         dataset_dir = os.path.join(dataset_dir, "Flickr8k_Dataset", "Flickr8k_Dataset")
 
@@ -107,7 +108,7 @@ class Flickr8kDataSet:
             dataset_dir (str): The directory to images
             annotation_dir (str): The directory to Flickr_8k.trainImages.txt, Flickr_8k.testImages.txt,
                             Flickr_8k.devImages.txt, and Flickr8k.token.txt
-            stage (str): The supported key words are in ["train", "test", "dev", "all"]
+            stage (str): The supported keywords are in ["train", "test", "dev", "all"]
 
         Return:
             A iterable dataset for Flickr8k dataset
@@ -115,6 +116,7 @@ class Flickr8kDataSet:
         Raises:
             ValueError: Error input for dataset_dir, annotation_dir, and stage.
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 

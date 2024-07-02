@@ -48,6 +48,7 @@ class ToolAlpacaDataLoader:
             >>>     print(item)
             >>>     break
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if not os.path.isfile(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 
@@ -79,6 +80,7 @@ class ToolAlpacaDataset:
                                {'role': 'assistant', 'content': 'content'}]}
              middle 'assistant' and "tool" may occur multiple times
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         self.dataset_dir = dataset_dir
         with open(dataset_dir, "r", encoding="utf-8") as fp:
             if dataset_dir.endswith(".json"):

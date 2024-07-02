@@ -34,7 +34,8 @@ from mindformers.tools.utils import (
     check_shared_disk,
     get_remote_save_url,
     remove_folder,
-    get_device_num_per_node
+    get_device_num_per_node,
+    format_path
 )
 from mindformers.tools.ckpt_transform import TransformCkpt
 
@@ -420,7 +421,7 @@ def check_path_include_total_ckpt(path):
 
 
 def build_model(config, model, dataset, do_eval=False, do_predict=False):
-    """build model, generate strategy file"""
+    """build model and generate strategy file"""
     if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
                                                               'hybrid_parallel']:
         if not config.runner_config.sink_mode:
@@ -440,6 +441,7 @@ def load_ckpt(config, network, optimizer=None):
     logger.info("............Start load checkpoint from checkpoint............")
     checkpoint_dict = {}
     rank_id = get_real_rank() if get_real_rank() else 0
+    config.load_checkpoint = format_path(config.load_checkpoint)
     if config.auto_trans_ckpt:
         for checkpoint_name in os.listdir(config.load_checkpoint):
             checkpoint_path = os.path.join(config.load_checkpoint, checkpoint_name)

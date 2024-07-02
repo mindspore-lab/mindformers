@@ -13,12 +13,14 @@
 # limitations under the License.
 # ============================================================================
 """DataReaders."""
+import os
 import re
 import json
 
 
 def squad_reader(path):
     """Reading the SQUAD dataset."""
+    path = os.path.realpath(path)
     with open(path) as f:
         file = json.load(f)
     sources = []
@@ -37,6 +39,7 @@ def squad_reader(path):
 
 def cmrc2018_reader(path):
     """Reading the CMRC2018 dataset."""
+    path = os.path.realpath(path)
     with open(path) as f:
         file = json.load(f)
     prompts = []
@@ -55,6 +58,7 @@ def cmrc2018_reader(path):
 
 def agnews_reader(path):
     """Reading the AG-News dataset."""
+    path = os.path.realpath(path)
     sentences = []
     labels = []
     with open(path, "r") as f:
@@ -72,6 +76,7 @@ def agnews_reader(path):
 
 def wikitext_reader(path):
     """Reading wikitext datasets. Returns a list of many sentences."""
+    path = os.path.realpath(path)
     def wikitext_clean(string):
         """ string clean """
         # contractions

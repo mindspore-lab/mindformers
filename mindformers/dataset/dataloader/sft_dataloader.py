@@ -81,7 +81,7 @@ class SFTDataLoader:
                         collaborator's statement. If not specified, it will not be added.
                     ignore_token_id (int): Used when calculating label, used to mask the conversation initiator or
                         questioner's statement, Default: -100.
-            shuffle (bool): Whether or not to perform shuffle on the dataset.
+            shuffle (bool): Whether to perform shuffle on the dataset.
                 Random accessible input is required.
                 Default: True, expected order behavior shown in the table below.
 
@@ -107,6 +107,7 @@ class SFTDataLoader:
         """
         if max_length <= 0:
             raise TypeError(f"max_length should be an integer greater than 0.")
+        dataset_dir = os.path.realpath(dataset_dir)
 
         dataset = SFTDataSet(dataset_dir, column_names=column_names, tokenizer=tokenizer, dataset_name=dataset_name,
                              file_format=file_format, max_length=max_length, read_function=read_function,
@@ -153,6 +154,7 @@ class SFTDataSet:
                  read_function: Callable = None,
                  map_function: Callable = None,
                  map_function_kwargs: dict = None):
+        dataset_dir = os.path.realpath(dataset_dir)
         self._general_reader_map = {
             "json": self._read_json,
             "jsonl": read_json,

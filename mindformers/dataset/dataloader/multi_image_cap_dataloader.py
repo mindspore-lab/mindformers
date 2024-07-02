@@ -49,7 +49,7 @@ class MultiImgCapDataLoader:
                                   (one-to-one matching to ' annotation_files')
             column_names (Optional[Union[List[str], Tuple[str]]]): The output column names,
                 a tuple or a list of string with length 2
-            stage (Optional[str]): The supported key words are in ["train", "eval"]
+            stage (Optional[str]): The supported keywords are in ["train", "eval"]
             repeat_images (Optional[bool]): whether repeat image when it has multiple
                                             corresponding captions.
             shuffle (Optional[bool]): whether to shuffle the dataset.
@@ -61,6 +61,7 @@ class MultiImgCapDataLoader:
             ValueError: Error input for dataset_dir, and column_names.
             TypeError: Type error for column_names.
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if len(image_dirs) != len(annotation_files):
             raise ValueError(
                 "the number of image_dirs should be equal to annotation_files!"
@@ -96,7 +97,7 @@ class MultiImgCapDataSet:
         Args:
             image_dirs (str): The directory which contains images.
             annotation_files list[str]: the list of files contains annotations.
-            stage (Optional[str]): The supported key words are in ["train", "eval"]
+            stage (Optional[str]): The supported keywords are in ["train", "eval"]
             repeat_images (Optional[bool]): whether repeat image when it has multiple corresponding captions.
 
         Return:
@@ -109,6 +110,7 @@ class MultiImgCapDataSet:
                  annotation_files,
                  stage="train",
                  repeat_images=False):
+        image_dirs = os.path.realpath(image_dirs)
         self.annotation = []
         if stage in ("train", "eval"):
             for i, annotation_file in enumerate(annotation_files):

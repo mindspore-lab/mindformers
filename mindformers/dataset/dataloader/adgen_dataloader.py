@@ -33,7 +33,7 @@ class ADGenDataLoader:
             dataset_dir: The directory to ADGen dataset.
             column_names (Optional[Union[List[str], Tuple[str]]]): The output column names,
                                                                    a tuple or a list of string with length 6
-            phase: The supported key words are in ["train", "dev"]
+            phase: The supported keywords are in ["train", "dev"]
 
         Return:
             A GeneratorDataset for ADGen dataset
@@ -51,6 +51,7 @@ class ADGenDataLoader:
             >>>     print(item)
             >>>     break
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if not os.path.isfile(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 
@@ -93,7 +94,7 @@ class ADGenDataset:
 
         Args:
             dataset_dir (str): The directory to ADGen dataset.
-            phase (str): The supported key words are in ["train", "dev"]
+            phase (str): The supported keywords are in ["train", "dev"]
 
         Return:
             A iterable dataset for ADGen dataset
@@ -101,6 +102,7 @@ class ADGenDataset:
         Raises:
             ValueError: Error input for dataset_dir, phase.
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if not os.path.isfile(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 

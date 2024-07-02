@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
 """
-AutoConfig、AutoModel
+AutoConfig, AutoModel, AutoProcessor, AutoTokenizer
 """
 import os
 import shutil
@@ -117,12 +116,10 @@ class AutoConfig:
 
         if os.path.exists(yaml_name_or_path):
             if not yaml_name_or_path.endswith(".yaml"):
-                raise ValueError(f"{yaml_name_or_path} should be a .yaml file for model"
-                                 " config.")
-
+                raise ValueError(f"{yaml_name_or_path} should be a .yaml file for model config.")
             config_args = MindFormerConfig(yaml_name_or_path)
-            logger.info("the content in %s is used for"
-                        " config building.", yaml_name_or_path)
+            logger.info("the content in %s is used for config building.", yaml_name_or_path)
+
         elif cls.invalid_yaml_name(yaml_name_or_path):
             raise ValueError(f"{yaml_name_or_path} is not a supported"
                              f" model type or a valid path to model config."
@@ -429,6 +426,7 @@ class AutoModel:
         if not isinstance(pretrained_model_name_or_dir, str):
             raise TypeError(f"pretrained_model_name_or_dir should be a str,"
                             f" but got {type(pretrained_model_name_or_dir)}")
+        pretrained_model_name_or_dir = os.path.realpath(pretrained_model_name_or_dir)
         config_args = cls._get_config_args(pretrained_model_name_or_dir, **kwargs)
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
@@ -527,8 +525,7 @@ class AutoProcessor:
             yaml_name_or_path = pretrained_model_name_or_path
 
         if not isinstance(yaml_name_or_path, str):
-            raise TypeError(f"yaml_name_or_path should be a str,"
-                            f" but got {type(yaml_name_or_path)}")
+            raise TypeError(f"yaml_name_or_path should be a str, but got {type(yaml_name_or_path)}")
 
         is_exist = os.path.exists(yaml_name_or_path)
         model_name = yaml_name_or_path.split('/')[cls._model_name].split("_")[cls._model_type] \
@@ -539,8 +536,8 @@ class AutoProcessor:
                              f'please select from {cls._support_list}.')
 
         if is_exist:
-            logger.info("config in %s is used for auto processor"
-                        " building.", yaml_name_or_path)
+            yaml_name_or_path = os.path.realpath(yaml_name_or_path)
+            logger.info("config in %s is used for auto processor building.", yaml_name_or_path)
             if os.path.isdir(yaml_name_or_path):
                 yaml_list = [file for file in os.listdir(yaml_name_or_path) if file.endswith(".yaml")]
                 yaml_name = os.path.join(yaml_name_or_path, yaml_list[cls._model_type])
@@ -719,8 +716,8 @@ class AutoTokenizer:
 
         from . import MindFormerRegister
         if not isinstance(yaml_name_or_path, str):
-            raise TypeError(f"yaml_name_or_path should be a str,"
-                            f" but got {type(yaml_name_or_path)}")
+            raise TypeError(f"yaml_name_or_path should be a str, but got {type(yaml_name_or_path)}")
+
         # Try to load from the remote
         if not cls.invalid_yaml_name(yaml_name_or_path):
             # Should download the files from the remote storage
@@ -760,6 +757,7 @@ class AutoTokenizer:
                     raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
             class_name = cls._get_class_name_from_yaml(yaml_file)
         elif os.path.isdir(yaml_name_or_path):
+            yaml_name_or_path = os.path.realpath(yaml_name_or_path)
             class_name = cls._get_class_name_from_yaml(yaml_name_or_path)
             if not class_name:
                 raise ValueError(f"The file `model_name.yaml` should exist in the path "

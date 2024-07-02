@@ -71,6 +71,7 @@ class Cifar100DataLoader:
                 'This is a photo of woman.', 'This is a photo of worm.']]),
                  Tensor(shape=[1], dtype=Int32, value= [19])]
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 
@@ -106,7 +107,7 @@ class Cifar100DataSet:
 
         Args:
             dataset_dir (str): The dataset directory, such as "/home/desktop/cifar-100-python".
-            stage (Optional[str]): The supported key words are in ["train", "test", "all"].
+            stage (Optional[str]): The supported keywords are in ["train", "test", "all"].
             fine_label (Optional[bool]): True for 100 classes, False for 10 classes.
             hypothesis_template (Optional[str]): Prompt template for class label.
 
@@ -116,6 +117,7 @@ class Cifar100DataSet:
         Raises:
             ValueError: Unsupported values for stage.
         """
+        dataset_dir = os.path.realpath(dataset_dir)
         if not os.path.isdir(dataset_dir):
             raise ValueError(f"{dataset_dir} is not existed.")
 
