@@ -68,21 +68,27 @@ class InternLM2Tokenizer(PreTrainedTokenizer):
         self.sp_model = spm.SentencePieceProcessor(**self.sp_model_kwargs)
         self.sp_model.Load(vocab_file)
         self._no_prefix_space_tokens = None
+
+        if kwargs.get("added_tokens_decoder") is None:
+            kwargs["added_tokens_decoder"] = {}
+
+        kwargs["added_tokens_decoder"].update({
+            0: AddedToken("<unk>", special=True),
+            1: AddedToken("<s>", special=True),
+            2: AddedToken("</s>", special=True),
+            92538: AddedToken("<|plugin|>", special=True),
+            92539: AddedToken("<|interpreter|>", special=True),
+            92540: AddedToken("<|action_end|>", special=True),
+            92541: AddedToken("<|action_start|>", special=True),
+            92542: AddedToken("<|im_end|>", special=True),
+            92543: AddedToken("<|im_start|>", special=True)})
+
         super().__init__(
             bos_token=bos_token,
             eos_token=eos_token,
             unk_token=unk_token,
             pad_token=pad_token,
             clean_up_tokenization_spaces=clean_up_tokenization_spaces,
-            added_tokens_decoder={0: AddedToken("<unk>", special=True),
-                                  1: AddedToken("<s>", special=True),
-                                  2: AddedToken("</s>", special=True),
-                                  92538: AddedToken("<|plugin|>", special=True),
-                                  92539: AddedToken("<|interpreter|>", special=True),
-                                  92540: AddedToken("<|action_end|>", special=True),
-                                  92541: AddedToken("<|action_start|>", special=True),
-                                  92542: AddedToken("<|im_end|>", special=True),
-                                  92543: AddedToken("<|im_start|>", special=True)},
             **kwargs,
         )
 
