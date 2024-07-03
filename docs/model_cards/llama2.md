@@ -101,7 +101,7 @@ llama2_70b：
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#二mindformers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
 
 > 注：Atlas 800T A2芯片支持7b,13b单机单卡推理，70b推理至少使用8卡，全参微调至少需要4机32卡，推荐使用8机64卡。
 
@@ -192,12 +192,13 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集，**alpaca*
 
 MindFormers提供已经转换完成的预训练权重、词表文件用于预训练、微调和推理，用户也可以下载HuggingFace官方权重经过[模型权重转换](#模型权重转换)后进行使用。
 
+词表下载链接：[tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/llama2/tokenizer.model)
+
 | 模型名称            |                                                 MindSpore权重                                                  |                      HuggingFace权重                       |
 |:----------------|:------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------------:|
 | llama2-7b       |    [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/llama2/llama2_7b.ckpt)    | [Link](https://huggingface.co/meta-llama/Llama-2-7b-hf)  |
 | llama2-13b      | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/llama2/llama2-13b-fp16.ckpt) | [Link](https://huggingface.co/meta-llama/Llama-2-13b-hf) |
 | llama2-70b      |                                                      /                                                       | [Link](https://huggingface.co/meta-llama/Llama-2-70b-hf) |
-| tokenizer.model |   [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/llama2/tokenizer.model)    |                            /                             |
 
 > 注：Llama2的所有权重都需要通过向Meta[提交申请](https://ai.meta.com/resources/models-and-libraries/llama-downloads)来获取，如有需要请自行申请。
 
@@ -216,63 +217,49 @@ output_path: 转换后的MindSpore权重文件保存路径
 
 ## 预训练
 
-MindFormers提供`llama2-7b`单机多卡以及`llama2_13b`多机多卡的预训练示例，
-过程中使用**Wikitext2**数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
+MindFormers提供`llama2-7b`单机多卡以及`llama2_13b`多机多卡的预训练示例，过程中使用`Wikitext2`数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
 
 ### 单机训练
 
-以Llama2-7b为例。
+以Llama2-7b为例，执行msrun启动脚本，进行8卡分布式训练。
 
-1. 修改模型配置文件`configs/llama2/pretrain_llama2_7b.yaml`
+```shell
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/llama2/pretrain_llama2_7b.yaml \
+ --train_dataset_dir /{path}/wiki4096.mindrecord \
+ --use_parallel True \
+ --run_mode train" 8
+```
+
+在`llama2_70b`预训练中，可以通过如下方式提升模型性能：
+
+1. 修改配置文件中`qkv_concat=True`, `micro_batch_num=256`
+2. 创建`parallel_speed_up.json文件`，文件内容如下
+
+   ```json
+   {
+     "recompute_comm_overlap": false,
+     "matmul_grad_comm_overlap": true,
+     "enable_task_opt": false,
+     "enable_grad_comm_opt": false,
+     "enable_opt_shard_comm_opt": false,
+     "enable_concat_eliminate_opt": false,
+     "enable_begin_end_inline_opt": false,
+     "compute_communicate_fusion_level": 0
+   }
+   ```
+
+   同时在配置文件`context`部分添加`ascend_config`
 
    ```yaml
-   train_dataset:
-     data_loader:
-       dataset_dir: "/{path}/alpaca-fastchat4096.mindrecord"  # 预训练数据集的文件路径
-
-   model:
-     model_config:
-       use_flash_attention: True                              # 可加速训练
+   context:
+     ascend_config:
+       parallel_speed_up_json_path: "/{path}/parallel_speed_up.json"
    ```
 
-   在`llama2_70b`预训练中，可以通过如下方式提升模型性能：
+> 如果报错提示显存不足，可以通过`export HCCL_BUFFSIZE=100`将对应环境变量下调至100。
 
-   1. 修改配置文件中`qkv_concat=True`, `micro_batch_num=256`
-   2. 创建`parallel_speed_up.json文件`，文件内容如下
-
-      ```json
-      {
-        "recompute_comm_overlap": false,
-        "matmul_grad_comm_overlap": true,
-        "enable_task_opt": false,
-        "enable_grad_comm_opt": false,
-        "enable_opt_shard_comm_opt": false,
-        "enable_concat_eliminate_opt": false,
-        "enable_begin_end_inline_opt": false,
-        "compute_communicate_fusion_level": 0
-      }
-      ```
-
-      同时在配置文件`context`部分添加`ascend_config`
-
-      ```yaml
-      context:
-        ascend_config:
-          parallel_speed_up_json_path: "/{path}/parallel_speed_up.json"
-      ```
-
-   > 如果报错提示显存不足，可以通过`export HCCL_BUFFSIZE=100`将对应环境变量下调至100。
-
-   `ymal`配置文件中各参数含义详见[Config配置说明](../../configs/README.md)，
-   `parallel_speed_up`各参数含义详见[parallel_speed_up说明](https://www.mindspore.cn/docs/zh-CN/r2.3/api_python/mindspore/mindspore.set_context.html#mindspore.set_context)。
-
-2. 执行msrun启动脚本，进行8卡分布式训练
-
-   ```shell
-   bash scripts/msrun_launcher.sh "run_mindformer.py \
-     --config configs/llama2/pretrain_llama2_7b.yaml \
-     --run_mode train" 8
-   ```
+`ymal`配置文件中各参数含义详见[Config配置说明](../../configs/README.md)，`parallel_speed_up`各参数含义详见[parallel_speed_up说明](https://www.mindspore.cn/docs/zh-CN/r2.3/api_python/mindspore/mindspore.set_context.html#mindspore.set_context)。
 
 ### 多机训练
 
@@ -301,12 +288,16 @@ MindFormers提供`llama2-7b`单机多卡以及`llama2_13b`多机多卡的预训�
    # 节点0作为主节点, {ip_addr}处填写节点0实际ip, 总共16卡且每个节点8卡
    bash scripts/msrun_launcher.sh "run_mindformer.py \
      --config {CONFIG_PATH} \
+     --train_dataset_dir /{path}/wiki4096.mindrecord \
+     --use_parallel True \
      --run_mode {train}" \
      16 8 {ip_addr} 8118 0 output/msrun_log False 300
 
    # 节点1，{ip_addr}处填写节点0实际ip，节点0与节点1启动命令仅参数NODE_RANK不同
    bash scripts/msrun_launcher.sh "run_mindformer.py \
      --config {CONFIG_PATH} \
+     --train_dataset_dir /{path}/wiki4096.mindrecord \
+     --use_parallel True \
      --run_mode {train}" \
      16 8 {ip_addr} 8118 1 output/msrun_log False 300
    ```
@@ -319,172 +310,98 @@ MindFormers提供`llama2-7b`单机多卡以及`llama2_13b`多机多卡的预训�
 
 ## 微调
 
-MindFormers提供`Llama2-7b`的微调示例，
-过程中使用**alpaca**数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
+MindFormers提供`Llama2-7b`的微调示例，过程中使用`alpaca`数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
 
 ### 全参微调
 
 #### 单机训练
 
-1. 修改模型配置文件`config/llama2/finetune_llama2_7b.yaml`
+以Llama2-7b为例，执行msrun启动脚本，进行8卡分布式训练。
 
-   ```yaml
-   load_checkpoint: '{path}/llama2_7b.ckpt'
-
-   train_dataset:
-     data_loader:
-       dataset_dir: "/{path}/alpaca-fastchat4096.mindrecord"
-     input_columns: ["input_ids", "labels"]
-
-   # optimizer
-   optimizer:
-     type: FP32StateAdamWeightDecay
-     beta1: 0.9
-     beta2: 0.999
-     eps: 1.e-8
-     learning_rate: 1.e-5
-
-   # lr sechdule
-   lr_schedule:
-     type: CosineWithWarmUpLR
-     learning_rate: 1.e-5
-     lr_end: 0
-     warmup_ratio: 0.03
-     total_steps: -1  # -1 means it will load the total steps of the dataset
-
-   # model config
-   model:
-     model_config:
-       type: LlamaConfig
-       seq_length: 4096
-       use_flash_attention: True
-   ```
-
-2. 执行msrun启动脚本，进行8卡分布式微调
-
-   ```shell
-   bash scripts/msrun_launcher.sh "run_mindformer.py \
-     --config configs/llama2/finetune_llama2_7b.yaml \
-     --run_mode finetune" 8
-   ```
+```shell
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/llama2/finetune_llama2_7b.yaml \
+ --load_checkpoint /{path}/llama2_7b.ckpt \
+ --train_dataset_dir /{path}/alpaca-fastchat4096.mindrecord \
+ --use_parallel True \
+ --run_mode finetune" 8
+```
 
 #### 多机训练
 
-多机多卡微调任务启动参考[预训练章节](#预训练)，添加预训练权重，修改启动脚本中的`RUN_MODE`为`finetune`即可。
+多机多卡微调任务启动预训练类似，可参考[预训练章节](#预训练)并对启动命令进行如下修改：
+
+1. 增加脚本入参`--load_checkpoint /{path}/llama2_7b.ckpt`加载预训练权重
+2. 设置启动脚本中的`--train_dataset_dir /{path}/alpaca-fastchat4096.mindrecord`加载微调数据集
+3. 设置启动脚本中的`--run_mode finetune`
 
 ### LoRA微调
 
-使用LoRA低参微调算法，冻结原模型权重，仅在小规模参数量上进行训练，使大模型在少量资源的情况下也能训练。
+LoRA低参微调算法，可以冻结原模型权重，仅在小规模参数量上进行训练，使大模型在少量资源的情况下也能训练。
 
-MindFormers提供Llama2-7b的LoRA微调示例，微调过程中使用的数据集可以参考[数据集下载](#数据集下载)获得。
+MindFormers提供`Llama2-7b`的LoRA微调示例，微调过程中使用的数据集可以参考[数据集下载](#数据集下载)获得。
 
-1. 修改模型配置文件`configs/llama2/lora_llama2_7b.yaml`
+以Llama2-7b为例，执行msrun启动脚本，进行8卡分布式微调。
 
-   ```yaml
-   train_dataset:
-     data_loader:
-       dataset_dir: "/{path}/alpaca-fastchat4096.mindrecord"  # 预训练数据集的文件路径
+```shell
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/llama2/lora_llama2_7b.yaml \
+ --train_dataset_dir /{path}/alpaca-fastchat4096.mindrecord \
+ --load_checkpoint /{path}/llama2_7b.ckpt \
+ --auto_trans_ckpt False \
+ --use_parallel True \
+ --run_mode finetune" 8
+```
 
-   model:
-     model_config:
-       use_flash_attention: True                              # 可加速训练
-   ```
+如果加载分布式权重，加载权重路径应设置为rank_0的上一层路径，同时开启权重自动转换功能`--auto_trans_ckpt True`：
 
-   如果加载完整权重，进行如下修改：
-
-   ```yaml
-   load_checkpoint: {path}/llama2_7b.ckpt
-   auto_trans_ckpt: False
-   ```
-
-   如果加载分布式权重，加载权重路径需要设置为rank_0的上一层路径：
-
-   ```yaml
-   load_checkpoint: {path}/rank_0/
-   anto_trans_ckpt: True
-   ```
-
-2. 执行msrun启动脚本，进行8卡分布式微调
-
-   ```shell
-   bash scripts/msrun_launcher.sh "run_mindformer.py \
-     --config configs/llama2/lora_llama2_7b.yaml \
-     --run_mode finetune" 8
-   ```
+```shell
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/llama2/lora_llama2_7b.yaml \
+ --train_dataset_dir /{path}/alpaca-fastchat4096.mindrecord \
+ --load_checkpoint /{path}/rank_0/ \
+ --auto_trans_ckpt True \
+ --use_parallel True \
+ --run_mode finetune" 8
+```
 
 ### PrefixTuning微调
 
-使用PrefixTuning低参微调算法，冻结原模型权重，仅在kv向量前添加可训练前缀向量进行训练，使大模型在少量资源的情况下也能训练。
+PrefixTuning低参微调算法，可以冻结原模型权重，仅在kv向量前添加可训练前缀向量进行训练，使大模型在少量资源的情况下也能训练。
 
-MindFormers提供Llama2-7b的PrefixTuning微调示例，微调过程中使用的数据集可以参考[数据集下载](#数据集下载)获得。
+MindFormers提供`Llama2-7b`的PrefixTuning微调示例，微调过程中使用的数据集可以参考[数据集下载](#数据集下载)获得。
 
-1. 修改模型配置文件`configs/llama2/finetune_llama2_7b_prefixtuning.yaml`
+以Llama2-7b为例，执行msrun启动脚本，进行8卡分布式微调。
 
-   ```yaml
-   train_dataset:
-     data_loader:
-       dataset_dir: "/{path}/alpaca-fastchat512.mindrecord"  # 预训练数据集的文件路径
+> 注：PrefixTuning微调使用数据集`seq_length=512`，数据预处理时应按该序列长度对数据进行处理。
 
-   model:
-     model_config:
-       use_flash_attention: True                              # 可加速训练
-       ...
-       pet_config:
-       pet_type: prefixtuning
-       prefix_token_num: 16 # depend on dataset scale
-       mid_dim: 512
-       dropout_rate: 0.01
-   ```
+```shell
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/llama2/finetune_llama2_7b_prefixtuning.yaml \
+ --train_dataset_dir /{path}/alpaca-fastchat512.mindrecord \
+ --load_checkpoint /{path}/llama2_7b.ckpt \
+ --auto_trans_ckpt False \
+ --use_parallel True \
+ --run_mode finetune" 8
+```
 
-   如果加载完整权重，进行如下修改：
+如果加载分布式权重，加载权重路径应设置为rank_0的上一层路径，同时开启权重自动转换功能`--auto_trans_ckpt True`：
 
-   ```yaml
-   load_checkpoint: {path}/llama2_7b.ckpt
-   auto_trans_ckpt: False
-   ```
-
-   如果加载分布式权重，加载权重路径需要设置为rank_0的上一层路径：
-
-   ```yaml
-   load_checkpoint: {path}/rank_0/
-   anto_trans_ckpt: True
-   ```
-
-2. 执行msrun启动脚本，进行8卡分布式微调
-
-   ```shell
-   bash scripts/msrun_launcher.sh "run_mindformer.py \
-     --config configs/llama2/finetune_llama2_7b_prefixtuning.yaml \
-     --run_mode finetune" 8
-   ```
+```shell
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/llama2/finetune_llama2_7b_prefixtuning.yaml \
+ --train_dataset_dir /{path}/alpaca-fastchat512.mindrecord \
+ --load_checkpoint /{path}/rank_0/ \
+ --auto_trans_ckpt True \
+ --use_parallel True \
+ --run_mode finetune" 8
+```
 
 ### 分布式训练权重合并
 
 分布式训练（微调）后所得到的权重文件为根据策略切分后的权重，可以手动将切分权重合一，以用于评估和推理。
 
-涉及到模型权重的单卡或多卡转换，详细教程请参考特性文档模型[权重切分与合并](../feature_cards/Transform_Ckpt.md)。
-
-1. 获取模型切分策略文件：
-
-   在执行微调脚本时，模型完成编译后，将会在`output/strategy`路径下生成各卡的切分策略文件，用于权重合并。
-
-2. 运行`mindformers/tools/transform_ckpt.py`脚本进行多卡权重合并：
-
-   ```shell
-   python transform_ckpt.py \
-     --src_ckpt_strategy {path}/output/strategy/ \
-     --src_ckpt_dir {path}/output/checkpoint/ \
-     --dst_ckpt_dir {path}/target_checkpoint/ \
-     --prefix llama2_7b
-
-   # 参数说明
-   src_ckpt_strategy: 切分策略文件路径
-   src_ckpt_dir:      原切分权重文件夹
-   dst_ckpt_dir:      目标路径
-   prefix:            ckpt文件前缀
-   ```
-
-   > 注：`transform_checkpoints` 接口当前仅mindspore 2.0以上版本支持，如当前硬件环境只支持2.0以下版本，可以通过mindspore 2.0的cpu版本以执行该脚本。
+MindFormers提供自动权重转换和离线权重转换功能，可参考[自动转换案例](../feature_cards/Transform_Ckpt.md#自动转换案例)和[离线权重转换](../feature_cards/Transform_Ckpt.md#离线权重转换)进行分布式模型权重转换。
 
 ## 推理
 
@@ -503,10 +420,17 @@ DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 
 ### 单卡推理
 
+以`Llama2-7b`2卡推理为例。
+
 ```shell
 bash scripts/examples/llama2/run_llama2_predict.sh single \
  configs/llama2/predict_llama2_7b.yaml \
  path/to/llama2_7b.ckpt
+
+# 多batch输出
+# <s>I love Beijing, because it is a city that is constantly changing. I have been living here for 10 years ...
+# <s>LlaMa is a large-scale, open-source, multimodal, multilingual, multitask, and multimodal pretrained ...
+# <s>Huawei is a company that has been around for a long time. ...
 ```
 
 ### 多卡推理
@@ -517,6 +441,11 @@ bash scripts/examples/llama2/run_llama2_predict.sh single \
 bash scripts/examples/llama2/run_llama2_predict.sh parallel \
  configs/llama2/predict_llama2_7b.yaml \
  path/to/llama2_7b.ckpt 2
+
+# 多batch输出
+# <s>I love Beijing, because it is a city that is constantly changing. I have been living here for 10 years ...
+# <s>LlaMa is a large-scale, open-source, multimodal, multilingual, multitask, and multimodal pretrained ...
+# <s>Huawei is a company that has been around for a long time. ...
 ```
 
 ## 评测

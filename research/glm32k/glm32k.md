@@ -56,7 +56,7 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](https://gitee.com/mindspore/mindformers/blob/dev/README.md#二mindformers安装)和[版本匹配关系](https://gitee.com/mindspore/mindformers/blob/dev/README.md#三版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
 
 ### 数据集及权重准备
 
@@ -93,10 +93,11 @@ PROMPT_PATH:     LongBench中不同数据对应的prompt
 
 MindFormers提供已经转换完成的预训练权重、词表文件用于微调和推理，用户也可以下载HuggingFace官方权重经过[模型权重转换](#模型权重转换)后进行使用。
 
+词表下载链接：[tokenizer.model](https://huggingface.co/THUDM/chatglm3-6b-32k/blob/main/tokenizer.model)
+
 | 模型名称            |                                               MindSpore权重                                               |                                 HuggingFace权重                                  |
 |:----------------|:-------------------------------------------------------------------------------------------------------:|:------------------------------------------------------------------------------:|
 | ChatGLM3-6B-32K |                                                    /                                                    |              [Link](https://huggingface.co/THUDM/chatglm3-6b-32k)              |
-| tokenizer.model | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/glm32k/tokenizer.model) | [Link](https://huggingface.co/THUDM/chatglm3-6b-32k/blob/main/tokenizer.model) |
 
 #### 模型权重转换
 
@@ -119,50 +120,27 @@ MindFormers提供`ChatGLM3-6B-32K`的微调示例， 过程中使用`LongBench`�
 
 #### 单机训练
 
+以`glm32k_6b`单机8卡为例。
+
 1. 修改`research/glm32k/finetune_glm32k.yaml`配置文件。
 
    ```yaml
-   load_checkpoint: 'path/to/glm3_32k.ckpt'                    # 预训练权重路径
-   auto_trans_ckpt: False
-   only_save_strategy: False
-   resume_training: False
-   use_parallel: True
-   run_mode: 'finetune'
-
    train_dataset: &train_dataset
-     data_loader:
-       type: ADGenDataLoader
-       dataset_dir: "/path/to/AdvertiseGen/train.json"
-       shuffle: True
-       phase: "train"
-       version: 3
-       origin_columns: ["content", "summary"]
      tokenizer:
        type: ChatGLM3Tokenizer
-       vocab_file: "path/to/tokenizer.model"                    # 词表文件路径
-     max_source_length: 30720                                   # 长序列源数据长度
-     max_target_length: 2047                                    # 长序列目标数据长度
+       vocab_file: "/path/to/tokenizer.model"  # 词表文件路径
    ```
 
    > 注：长序列模型的训练，max_source_length和max_target_length数值较大，需要根据实际业务数据设置对应数值。
-
-   修改并行配置为单机8卡。
-
-   ```yaml
-   parallel_config:
-     data_parallel: 2
-     model_parallel: 1
-     pipeline_stage: 4
-     micro_batch_num: 16
-     vocab_emb_dp: False
-     gradient_aggregation_group: 4
-   ```
 
 2. 执行启动命令。
 
    ```shell
    bash scripts/msrun_launcher.sh "run_mindformer.py \
-    --config research/finetune_glm32k.yaml \
+    --config research/glm32k/finetune_glm32k.yaml \
+    --train_dataset_dir path/to/longbench_e.jsonl \
+    --load_checkpoint path/to/glm32k_6b.ckpt \
+    --use_parallel True \
     --run_mode finetune"
    ```
 
@@ -172,33 +150,9 @@ MindFormers提供`ChatGLM3-6B-32K`的微调示例， 过程中使用`LongBench`�
 
 ### 分布式训练权重合并
 
-分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
+分布式训练（微调）后所得到的权重文件为根据策略切分后的权重，可以手动将切分权重合一，以用于评估和推理。
 
-涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](../feature_cards/Transform_Ckpt.md)
-
-1. 获取模型切分策略文件：
-
-   在执行微调脚本时，模型完成编译后，将会在`output/strategy`路径下生成各卡的切分策略文件，用于权重合并。
-
-   > 注：lora微调时需要确认配置文件`parallel context config`中`only_trainable_params`设为`False`，以获取所有参数完整策略。
-
-2. 运行`mindformers/tools/transform_ckpt.py`脚本进行多卡权重合并：
-
-   ```shell
-   python transform_ckpt.py \
-   --src_ckpt_strategy {path}/output/strategy/ \
-   --src_ckpt_dir {path}/output/checkpoint/ \
-   --dst_ckpt_dir {path}/target_checkpoint/ \
-   --prefix glm2_6b
-
-   # 参数说明
-   src_ckpt_strategy: 步骤1中的切分策略文件路径
-   src_ckpt_dir:      原切分权重文件夹
-   dst_ckpt_dir:      目标路径
-   prefix:            ckpt文件前缀名
-   ```
-
-> 注：`transform_checkpoints` 接口当前仅mindspore 2.0以上版本支持，如当前硬件环境只支持2.0以下版本，可以新建conda环境安装mindspore 2.0的cpu版本以执行该脚本。
+MindFormers提供自动权重转换和离线权重转换功能，可参考[自动转换案例](../../docs/feature_cards/Transform_Ckpt.md#自动转换案例)和[离线权重转换](../../docs/feature_cards/Transform_Ckpt.md#离线权重转换)进行分布式模型权重转换。
 
 ## 推理
 
@@ -220,4 +174,17 @@ TOKENIZER:   模型tokenizer文件路径
 bash scripts/examples/glm32k/run_glm32k_predict.sh \
  research/glm32k/predict_glm32k.yaml \
  path/to/glm32k_6b.ckpt
+
+# 推理结果
+# 晚上睡不着应该怎么办:
+# 晚上睡不着,可以参考下述建议:
+# 1. 建立规律的睡眠时间表:每天在相同的时间上床和起床,有助于身体建立规律的睡眠时间表,更容易入睡。
+# 2. 创造舒适的睡眠环境:确保睡眠环境舒适,安静,黑暗,凉爽,有助于入睡。
+# ...
+# 使用python编写快速排序代码:
+# 快速排序（Quick Sort）是一种高效的排序算法，其基本思想是通过一趟排序将待排记录分隔成独立的两部分，其中一部分记录的关键字均比另一部分关键字小，然后分别对这两部分记录继续进行排序，以达到整个序列有序。
+# 下面是使用 Python 编写的快速排序代码：
+# ```python
+# def quick_sort(arr):
+# ...
 ```

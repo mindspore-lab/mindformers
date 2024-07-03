@@ -138,6 +138,8 @@ def main(task='text_generation',
     if top_p is not None:
         config.model.model_config.top_p = top_p
 
+    os.environ["RUN_MODE"] = run_mode
+
     if run_mode in ['train', 'finetune']:
         config.model.model_config.use_past = False
 

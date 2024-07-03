@@ -15,14 +15,14 @@
 
 ## 模型性能
 
-| config                                     | task            | Datasets        | SeqLength | metric | phase             | score | performance(tokens/s/p) |
-|--------------------------------------------|-----------------|-----------------|-----------|--------|-------------------|-------|-------------------------|
-| [qwen1.5-7b](./pretrain_qwen1_5_7b.yaml)   | text_generation | wikitext-103-v1 | 32768     | -      | [Pretrain](#预训练)  | -     | 1048                    |
-| [qwen1.5-14b](./pretrain_qwen1_5_14b.yaml) | text_generation | wikitext-103-v1 | 32768     | -      | [Pretrain](#预训练)  | -     | 675                     |
-| [qwen1.5-72b](./pretrain_qwen1_5_72b.yaml) | text_generation | wikitext-103-v1 | 32768     | -      | [Pretrain](#预训练)  | -     | 186                     |
-| [qwen1.5-7b](./finetune_qwen1_5_7b.yaml)   | text_generation | alpaca   | 4096      | -      | [Finetune](#全参微调) | -     | 2457                    |
-| [qwen1.5-14b](./finetune_qwen1_5_14b.yaml) | text_generation | alpaca   | 4096      | -      | [Finetune](#全参微调) | -     | 1077                    |
-| [qwen1.5-72b](./finetune_qwen1_5_72b.yaml) | text_generation | alpaca   | 2048      | -      | [Finetune](#全参微调) | -     | 180.2                   |
+| Config                                     |       Task       |     Datasets      |  SeqLength  |        Phase        |  Performance(tokens/s/p)  |
+|:-------------------------------------------|:----------------:|:-----------------:|:-----------:|:-------------------:|:-------------------------:|
+| [qwen1.5-7b](./pretrain_qwen1_5_7b.yaml)   | text_generation  |  wikitext-103-v1  |    32768    |  [Pretrain](#预训练)   |           1048            |
+| [qwen1.5-14b](./pretrain_qwen1_5_14b.yaml) | text_generation  |  wikitext-103-v1  |    32768    |  [Pretrain](#预训练)   |            675            |
+| [qwen1.5-72b](./pretrain_qwen1_5_72b.yaml) | text_generation  |  wikitext-103-v1  |    32768    |  [Pretrain](#预训练)   |            186            |
+| [qwen1.5-7b](./finetune_qwen1_5_7b.yaml)   | text_generation  |      alpaca       |    4096     |  [Finetune](#全参微调)  |           2457            |
+| [qwen1.5-14b](./finetune_qwen1_5_14b.yaml) | text_generation  |      alpaca       |    4096     |  [Finetune](#全参微调)  |           1077            |
+| [qwen1.5-72b](./finetune_qwen1_5_72b.yaml) | text_generation  |      alpaca       |    2048     |  [Finetune](#全参微调)  |           180.2           |
 
 ## 模型文件
 
@@ -31,14 +31,14 @@
 1. 模型具体实现：
 
    ```text
-   qwen1_5
+   research/qwen1_5
      └── qwen1_5_tokenizer.py          # tokenizer
    ```
 
 2. 模型配置：
 
    ```text
-   qwen1_5
+   research/qwen1_5
      ├── finetune_qwen1_5_7b.yaml          # 7B 全参微调启动配置  
      ├── finetune_qwen1_5_14b.yaml         # 14B 全参微调启动配置
      ├── finetune_qwen1_5_72b.yaml         # 72B 全参微调启动配置
@@ -52,7 +52,7 @@
 3. 环境准备和任务启动脚本：
 
    ```text
-   qwen1_5
+   research/qwen1_5
      ├── alpaca_converter.py           # alpaca数据集格式转换脚本
      ├── qwen1_5_preprocess.py         # 数据集预处理脚本
      ├── convert_weight.py             # 权重转换脚本
@@ -64,7 +64,7 @@
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#二mindformers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
 
 > 注：Atlas 800T A2芯片支持qwen1_5-7b、qwen1_5-14b、qwen1_5-72b的预训练、全参微调以及推理。
 
@@ -72,21 +72,21 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 #### 数据集下载
 
-MindFormers提供**Wikitext-103**作为[预训练](#预训练)数据集，**alpaca**作为[微调](#微调)数据集。
+MindFormers提供`Wikitext-103`作为[预训练](#预训练)数据集，`alpaca`作为[微调](#微调)数据集。
 
-| 数据集名称        |                      适用模型                      |   适用阶段   |                                      下载链接                                       |
-|:-------------|:----------------------------------------------:|:--------:|:-------------------------------------------------------------------------------:|
-| Wikitext-103 | qwen1_5-7b <br/> qwen1_5-14b <br/> qwen1_5-72b | Pretrain |                                                                                 |
-| alpaca       | qwen1_5-7b <br/> qwen1_5-14b <br/> qwen1_5-72b | Finetune | [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json) |
+| 数据集名称        |                      适用模型                      |   适用阶段   |                                            下载链接                                            |
+|:-------------|:----------------------------------------------:|:--------:|:------------------------------------------------------------------------------------------:|
+| Wikitext-103 | qwen1_5-7b <br/> qwen1_5-14b <br/> qwen1_5-72b | Pretrain | [Link](https://dagshub.com/DagsHub/WIkiText-103/src/main/dataset/tokens/wiki.train.tokens) |
+| alpaca       | qwen1_5-7b <br/> qwen1_5-14b <br/> qwen1_5-72b | Finetune |      [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)       |
 
 数据预处理中所用的`vocab.json`和`merges.txt`可以参考[模型权重下载](#模型权重下载)进行下载。
 
 - **Wikitext-103 数据预处理**
 
-   使用`mindformers\research\qwen1_5\qwen1_5_preprocess.py`对下载后的数据进行预处理，并生成Mindrecord数据。
+  使用`research/qwen1_5/qwen1_5_preprocess.py`对下载后的数据进行预处理，并生成Mindrecord数据。
 
-   ```bash
-   python qwen1_5_preprocess.py \
+  ```shell
+  python qwen1_5_preprocess.py \
    --dataset_type 'wiki' \
    --input_glob /path/wiki.train.tokens \
    --vocab_file /path/vocab.json \
@@ -101,357 +101,240 @@ MindFormers提供**Wikitext-103**作为[预训练](#预训练)数据集，**alpa
   merges_file:  merges.txt文件路径
   seq_length:   输出数据的序列长度
   output_file:  输出文件的保存路径
-   ```
+  ```
 
 - **alpaca 数据预处理**
 
-    执行`mindformers\research\qwen1_5\alpaca_converter.py`，将原始数据集转换为指定格式。
+  执行`research/qwen1_5/alpaca_converter.py`，将原始数据集转换为指定格式。
 
-    ```shell
-    python alpaca_converter.py \
-    --data_path path/alpaca_data.json \
-    --output_path /path/alpaca-data-messages.json
+  ```shell
+  python alpaca_converter.py \
+   --data_path path/alpaca_data.json \
+   --output_path /path/alpaca-data-messages.json
 
-    # 参数说明
-    data_path: 存放alpaca数据的路径
-    output_path: 输出转换后对话格式的数据路径
-    ```
+  # 参数说明
+  data_path:   输入下载的文件路径
+  output_path: 输出文件的保存路径
+  ```
 
-    转换后格式样例：
+  执行`research/qwen1_5/qwen1_5_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
 
-    ```text
-    {
-      "type": "chatml",
-      "messages": [
-        {
-          "role": "system",
-          "content": "You are a helpful assistant."
-        },
-        {
-          "role": "user",
-          "content": "Give three tips for staying healthy."
-        },
-        {
-          "role": "assistant",
-          "content": "1.Eat a balanced diet and make sure to include plenty of fruits and vegetables. \n2. Exercise regularly to keep your body active and strong. \n3. Get enough sleep and maintain a consistent sleep schedule."
-        }
-      ],
-      "source": "unknown"
-    },
-    ```
+  ```shell
+  python qwen1_5_preprocess.py \
+   --dataset_type 'qa' \
+   --input_glob /path/alpaca-data-messages.json \
+   --vocab_file /path/vocab.json \
+   --merges_file /path/merges.txt \
+   --seq_length 4096 \
+   --output_file /path/alpaca-messages.mindrecord
 
-    执行`mindformers\research\qwen1_5\qwen1_5_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
-
-    ```shell
-    python qwen1_5_preprocess.py \
-    --dataset_type 'qa' \
-    --input_glab /path/alpaca-data-messages.json \
-    --vocab_file /path/vocab.json \
-    --merges_file /path/merges.txt \
-    --seq_length 2048 \
-    --output_file /path/alpaca-messages.mindrecord
-
-    # 参数说明
-    dataset_type: 预处理数据类型
-    input_glob:   转换后的alpaca的文件路径
-    vocab_file:   vocab.json文件路径
-    merges_file:  merges_file文件路径
-    seq_length:   输出数据的序列长度
-    output_file:  输出文件的保存路径
-    ```
+  # 参数说明
+  dataset_type: 预处理数据类型
+  input_glob:   转换后的alpaca的文件路径
+  vocab_file:   vocab.json文件路径
+  merges_file:  merges.txt文件路径
+  seq_length:   输出数据的序列长度
+  output_file:  输出文件的保存路径
+  ```
 
 #### 模型权重下载
 
-用户可以从HuggingFace官方下载预训练权重，经过[模型权重转换](#模型权重转换)后进行使用，vocab.json和merges.txt文件也在链接中下载。
+用户可以从HuggingFace官方下载预训练权重，经过[模型权重转换](#模型权重转换)后进行使用，`vocab.json`和`merges.txt`文件也在链接中下载。
 
-| 模型名称            |                           Base权重（建议训练和微调使用）                           |                      Chat权重（建议推理使用）                      |
-|:----------------|:---------------------------------------------------------------------:|:--------------------------------------------------------:|
-| qwen1_5-7b      |  [Link](https://huggingface.co/Qwen/Qwen1.5-7B/tree/main)  | [Link](https://huggingface.co/Qwen/Qwen1.5-7B-Chat/tree/main)  |
-| qwen1_5-14b     | [Link](https://huggingface.co/Qwen/Qwen1.5-14B/tree/main) | [Link](https://huggingface.co/Qwen/Qwen1.5-14B-Chat/tree/main) |
-| qwen1_5-72b     |       [Link](https://huggingface.co/Qwen/Qwen1.5-72B/tree/main)       | [Link](https://huggingface.co/Qwen/Qwen1.5-72B-Chat/tree/main) |
+词表下载链接：[vocab.json](https://huggingface.co/Qwen/Qwen1.5-7B-Chat/blob/main/vocab.json)和[merges.txt](https://huggingface.co/Qwen/Qwen1.5-7B-Chat/blob/main/merges.txt)
+
+| 模型名称        |                     Base权重（建议训练和微调使用）                     |                         Chat权重（建议推理使用）                         |
+|:------------|:---------------------------------------------------------:|:--------------------------------------------------------------:|
+| qwen1_5-7b  | [Link](https://huggingface.co/Qwen/Qwen1.5-7B/tree/main)  | [Link](https://huggingface.co/Qwen/Qwen1.5-7B-Chat/tree/main)  |
+| qwen1_5-14b | [Link](https://huggingface.co/Qwen/Qwen1.5-14B/tree/main) | [Link](https://huggingface.co/Qwen/Qwen1.5-14B-Chat/tree/main) |
+| qwen1_5-72b | [Link](https://huggingface.co/Qwen/Qwen1.5-72B/tree/main) | [Link](https://huggingface.co/Qwen/Qwen1.5-72B-Chat/tree/main) |
 
 #### 模型权重转换
 
 - **torch权重转mindspore权重**
 
-    **注**: 请安装`convert_weight.py`依赖包。
+  **注**: 请安装`convert_weight.py`依赖包。
 
-    ```shell
-    pip install torch transformers transformers_stream_generator einops accelerate
-    # transformers版本不低于4.37.2
-    ```
+  ```shell
+  pip install torch transformers>=4.37.2 transformers_stream_generator einops accelerate
+  ```
 
-    下载完成后，运行`convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
+  下载完成后，运行`convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
-    ```shell
-    python research/qwen1_5/convert_weight.py \
-    --torch_ckpt_dir <torch_ckpt_dir> \
-    --mindspore_ckpt_path <mindspore_ckpt_path>
+  ```shell
+  python research/qwen1_5/convert_weight.py \
+   --torch_ckpt_dir <torch_ckpt_dir> \
+   --mindspore_ckpt_path <mindspore_ckpt_path>
 
-    # 参数说明：
-    torch_ckpt_dir: 预训练权重文件所在的目录, 此参数必须
-    mindspore_ckpt_path: 转换后的输出文件存放路径, 默认为`./transform.ckpt`
-    ```
+  # 参数说明：
+  torch_ckpt_dir:      预训练权重文件所在的目录, 此参数必须
+  mindspore_ckpt_path: 转换后的输出文件存放路径, 默认为'./transform.ckpt'
+  ```
 
 - **mindspore权重转torch权重**
 
-    在生成mindspore权重之后如需使用torch运行，可根据如下命令转换：
+  在生成mindspore权重之后如需使用torch运行，可根据如下命令转换：
 
-    ```shell
-    python convert_reversed.py --mindspore_ckpt_path /path/your.ckpt --torch_ckpt_path /path/your.bin
+  ```shell
+  python convert_reversed.py --mindspore_ckpt_path /path/your.ckpt --torch_ckpt_path /path/your.bin
 
-    # 参数说明：
-    mindspore_ckpt_path: 待转换的mindspore权重, 此参数必须
-    torch_ckpt_path: 转换后的输出文件存放路径, 此参数必须
-    ```
+  # 参数说明：
+  mindspore_ckpt_path: 待转换的mindspore权重路径, 此参数必须
+  torch_ckpt_path:     转换后的输出文件存放路径, 此参数必须
+  ```
 
 - **[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)**
 
-    从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
+  从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
 
-    通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
+  通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-    以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
 
 ## 预训练
 
-MindFormers提供`qwen1_5-7b`单机多卡以及`qwen1_5-14b`与`qwen1_5-72b`多机多卡的预训练示例，
-过程中使用**Wikitext-103**数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
+MindFormers提供`qwen1_5-7b`单机多卡以及`qwen1_5-14b`与`qwen1_5-72b`多机多卡的预训练示例，过程中使用`Wikitext-103`数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
 
 ### 单机训练
 
-以启动qwen1_5-7b预训练任务为例
+以`qwen1_5-7b`单机8卡预训练任务为例，执行分布式启动脚本。
 
-1. 修改`pretrain_qwen1_5_7b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
-
-   ```yaml
-   load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
-
-   train_dataset: &train_dataset
-     data_loader:
-       type: MindDataset
-       dataset_dir: "/path/alpaca.mindrecord"  # 配置训练数据集文件夹路径
-   ```
-
-2. 在mindformers工作目录下，执行：
-
-    ```shell
-    bash scripts/msrun_launcher.sh "run_mindformer.py --config research/qwen1_5/pretrain_qwen1_5_7b.yaml
-    --run_mode finetune --worker_num 8 --local_worker_num 8 --master_port 8110 --log_dir ./output/msrun_log"
-    ```
+```shell
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config research/qwen1_5/pretrain_qwen1_5_7b.yaml \
+ --load_checkpoint /path/qwen1.5_7b.ckpt \
+ --train_dataset_dir /path/wiki.mindrecord \
+ --run_mode train" 8
+```
 
 ### 多机训练
 
 1. 启动qwen1_5-14b预训练，执行2机16卡任务。
 
-    在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考[ms_run快速使用](https://gitee.com/mindspore/mindformers#%E5%9B%9B%E5%BF%AB%E9%80%9F%E4%BD%BF%E7%94%A8)
-    针对多机的场景，建议用户配置HCCL_BUFFSIZE环境变量。集合通信网络中，每一个HCCL通信域都会占用HCCL_BUFFSIZE大小的缓存区，若业务的模型数据量较小，但通信数据量较大，则可通过此环境变量增大HCCL通信域占用的缓存区大小，提升数据通信效率。
+   在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)
+
+   针对多机的场景，建议用户配置`HCCL_BUFFSIZE`环境变量。集合通信网络中，每一个HCCL通信域都会占用`HCCL_BUFFSIZE`大小的缓存区，若业务的模型数据量较小，但通信数据量较大，则可通过此环境变量增大HCCL通信域占用的缓存区大小，提升数据通信效率。
 
    ```shell
    export HCCL_BUFFSIZE=2
    ```
 
-    在mindformers工作目录下，执行：
+   在mindformers工作目录下，执行：
 
    ```shell
    # 节点0，节点ip为192.168.1.1，节点启动命令仅参数NODE_RANK不同
    bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config pretrain_qwen1_5_14b.yaml \
-   --use_parallel True \
-   --run_mode train \
-   --merges_file /path/merges.txt \
-   --vocab_file /path/vocab.json
-   --train_data /path/wiki.mindrecord" \
+    --config research/qwen1_5/pretrain_qwen1_5_14b.yaml \
+    --use_parallel True \
+    --run_mode train \
+    --merges_file /path/merges.txt \
+    --vocab_file /path/vocab.json
+    --train_data /path/wiki.mindrecord" \
    16 8 192.168.1.1 8118 0 output/msrun_log False 3000
 
    # 节点1，节点ip为192.168.1.2，节点启动命令仅参数NODE_RANK不同
    bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config pretrain_qwen1_5_14b.yaml \
-   --use_parallel True \
-   --run_mode train \
-   --merges_file /path/merges.txt \
-   --vocab_file /path/vocab.json
-   --train_data /path/wiki.mindrecord" \
+    --config research/qwen1_5/pretrain_qwen1_5_14b.yaml \
+    --use_parallel True \
+    --run_mode train \
+    --merges_file /path/merges.txt \
+    --vocab_file /path/vocab.json
+    --train_data /path/wiki.mindrecord" \
    16 8 192.168.1.1 8118 1 output/msrun_log False 3000
 
    # 参数说明
-   # config: 配置文件路径
-   # run_mode: 运行模式，预训练时设置为train
-   # train_data: 训练数据集文件夹路径
-   # merges_file、vocab_file：词表模型
+   config:      配置文件路径
+   run_mode:    运行模式, 预训练时设置为train
+   train_data:  训练数据集文件夹路径
+   merges_file: 词表文件merges.txt路径
+   vocab_file:  词表文件vocab.json路径
    ```
 
 2. 启动qwen1_5-72b预训练，执行8机64卡任务。
 
-    在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考[ms_run快速使用](https://gitee.com/mindspore/mindformers#%E5%9B%9B%E5%BF%AB%E9%80%9F%E4%BD%BF%E7%94%A8)
+  在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)
 
-    在mindformers工作目录下，执行：
+  在mindformers工作目录下，执行：
 
    ```shell
    # 节点0，节点ip为192.168.1.1，作为主节点，总共64卡且每个节点8卡
    bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config run_qwen1_5_72b.yaml \
-   --use_parallel True \
-   --run_mode train \
-   --merges_file /path/merges.txt \
-   --vocab_file /path/vocab.json
-   --train_data /path/wiki.mindrecord" \
+    --config research/qwen1_5/run_qwen1_5_72b.yaml \
+    --use_parallel True \
+    --run_mode train \
+    --merges_file /path/merges.txt \
+    --vocab_file /path/vocab.json
+    --train_data /path/wiki.mindrecord" \
    64 8 192.168.1.1 8118 0 output/msrun_log False 1200
 
    # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
    bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config run_qwen1_5_72b.yaml \
-   --use_parallel True \
-   --run_mode train \
-   --merges_file /path/merges.txt \
-   --vocab_file /path/vocab.json
-   --train_data /path/wiki.mindrecord" \
+    --config research/qwen1_5/run_qwen1_5_72b.yaml \
+    --use_parallel True \
+    --run_mode train \
+    --merges_file /path/merges.txt \
+    --vocab_file /path/vocab.json
+    --train_data /path/wiki.mindrecord" \
    64 8 192.168.1.1 8118 1 output/msrun_log False 1200
 
-   # 节点2，节点ip为192.168.1.3，节点0与节点2启动命令仅参数NODE_RANK不同
-   bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config run_qwen1_5_72b.yaml \
-   --use_parallel True \
-   --run_mode train \
-   --merges_file /path/merges.txt \
-   --vocab_file /path/vocab.json
-   --train_data /path/wiki.mindrecord" \
-   64 8 192.168.1.1 8118 2 output/msrun_log False 1200
-
-   # 节点3，节点ip为192.168.1.4，节点0与节点3启动命令仅参数NODE_RANK不同
-   bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config run_qwen1_5_72b.yaml \
-   --use_parallel True \
-   --run_mode train \
-   --merges_file /path/merges.txt \
-   --vocab_file /path/vocab.json
-   --train_data /path/wiki.mindrecord" \
-   64 8 192.168.1.1 8118 3 output/msrun_log False 1200
-
-   # 节点4，节点ip为192.168.1.5，节点0与节点4启动命令仅参数NODE_RANK不同
-   bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config run_qwen1_5_72b.yaml \
-   --use_parallel True \
-   --run_mode train \
-   --merges_file /path/merges.txt \
-   --vocab_file /path/vocab.json
-   --train_data /path/wiki.mindrecord" \
-   64 8 192.168.1.1 8118 4 output/msrun_log False 1200
-
-   # 节点5，节点ip为192.168.1.6，节点0与节点5启动命令仅参数NODE_RANK不同
-   bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config run_qwen1_5_72b.yaml \
-   --use_parallel True \
-   --run_mode train \
-   --merges_file /path/merges.txt \
-   --vocab_file /path/vocab.json
-   --train_data /path/wiki.mindrecord" \
-   64 8 192.168.1.1 8118 5 output/msrun_log False 1200
-
-   # 节点6，节点ip为192.168.1.7，节点0与节点6启动命令仅参数NODE_RANK不同
-   bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config run_qwen1_5_72b.yaml \
-   --use_parallel True \
-   --run_mode train \
-   --merges_file /path/merges.txt \
-   --vocab_file /path/vocab.json
-   --train_data /path/wiki.mindrecord" \
-   64 8 192.168.1.1 8118 6 output/msrun_log False 1200
+   # ...
+   # 省略中间节点2-6的执行命令不同节点之间仅参数NODE_RANK不同
 
    # 节点7，节点ip为192.168.1.8，节点0与节点7启动命令仅参数NODE_RANK不同
    bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config run_qwen1_5_72b.yaml \
-   --use_parallel True \
-   --run_mode train \
-   --merges_file /path/merges.txt \
-   --vocab_file /path/vocab.json
-   --train_data /path/wiki.mindrecord" \
+    --config research/qwen1_5/run_qwen1_5_72b.yaml \
+    --use_parallel True \
+    --run_mode train \
+    --merges_file /path/merges.txt \
+    --vocab_file /path/vocab.json
+    --train_data /path/wiki.mindrecord" \
    64 8 192.168.1.1 8118 7 output/msrun_log False 1200
 
    # 参数说明
-   # config: 配置文件路径
-   # run_mode: 运行模式，预训练时设置为train
-   # train_data: 训练数据集文件夹路径
-   # merges_file、vocab_file：词表模型
+   config:      配置文件路径
+   run_mode:    运行模式, 预训练时设置为train
+   train_data:  训练数据集文件夹路径
+   merges_file: 词表文件merges.txt路径
+   vocab_file:  词表文件vocab.json路径
    ```
 
 ## 全参微调
 
-MindFormers提供`qwen1_5-7b`与`qwen1_5-14b`单机多卡以及`qwen1_5-72b`多机多卡的微调示例，
-过程中使用**alpaca**数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
+MindFormers提供`qwen1_5-7b`与`qwen1_5-14b`单机多卡以及`qwen1_5-72b`多机多卡的微调示例，过程中使用`alpaca`数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
 
 设置如下环境变量：
 
-   ```bash
-   export MS_ASCEND_CHECK_OVERFLOW_MODE=INFNAN_MODE
-   # 如出现OOM需要配置:
-   export ENABLE_CELL_RESUSE=1          # 打开内存复用
-   export MS_GE_ATOMIC_CLEAN_POLICY=1   # 打开内存优化
+```bash
+export MS_ASCEND_CHECK_OVERFLOW_MODE=INFNAN_MODE
+# 如出现OOM需要配置:
+export ENABLE_CELL_RESUSE=1          # 打开内存复用
+export MS_GE_ATOMIC_CLEAN_POLICY=1   # 打开内存优化
    ```
 
 ### 单机训练
 
-1. 启动Qwen-7B微调任务。
+以`qwen1_5-7b`单机8卡微调为例，使用配置文件`research/qwen1_5/finetune_qwen1_5_7b.yaml`。
 
-    修改`finetune_qwen1_5_7b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+执行如下命令启动微调任务。
 
-   ```yaml
-   load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
+```shell
+bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
+ --config research/qwen1_5/finetune_qwen1_5_7b.yaml \
+ --load_checkpoint /path/qwen1.5_7b.ckpt \
+ --auto_trans_ckpt True \
+ --train_dataset /path/alpaca.mindrecord \
+ --run_mode finetune" 8
+```
 
-   train_dataset: &train_dataset
-     data_loader:
-       type: MindDataset
-       dataset_dir: "/path/alpaca.mindrecord"  # 配置训练数据集文件夹路径
-   ```
-
-    在mindformers工作目录下，执行：
-
-    ```shell
-    bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py --config research/qwen1_5/finetune_qwen1_5_7b.yaml
-    --run_mode finetune --worker_num 8 --local_worker_num 8 --master_port 8110 --log_dir ./output/msrun_log"
-    ```
-
-2. 启动Qwen-14B微调任务。
-
-   修改`finetune_qwen1_5_14b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
-
-   ```yaml
-   load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
-
-   train_dataset: &train_dataset
-     data_loader:
-       type: MindDataset
-       dataset_dir: "/path/alpaca.mindrecord"  # 配置训练数据集文件夹路径
-   ```
-
-   在mindformers工作目录下，执行：
-
-    ```shell
-    bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py --config research/qwen1_5/finetune_qwen1_5_14b.yaml
-    --run_mode finetune --worker_num 8 --local_worker_num 8 --master_port 8110 --log_dir ./output/msrun_log"
-    ```
+`qwen1_5-7b`单机8卡微调任务替换命令中的`--load_checkpoint /path/qwen1.5_14b.ckpt`以及配置文件`research/qwen1_5/finetune_qwen1_5_14b.yaml`即可。
 
 ### 多机训练
 
-1. 启动Qwen-72B微调任务。
+以`qwen1_5-72b`4机32卡为例，启动多机微调任务。
 
-    修改`finetune_qwen1_5_72b.yaml`中相关配置，默认开启自动权重转换，使用完整权重。
+1. 修改`research/qwen1_5/finetune_qwen1_5_72b.yaml`
 
    ```yaml
-   load_checkpoint: '/path/model_dir' # 使用完整权重，权重按照`model_dir/rank_0/xxx.ckpt`格式存放
-   auto_trans_ckpt: True              # 打开自动权重转换
-   use_parallel: True
-   run_mode: 'finetune'
-
-   model_config:
-      seq_length: 2048 # 与数据集长度保持相同
-
-   train_dataset: &train_dataset
-     data_loader:
-       type: MindDataset
-       dataset_dir: "/path/alpaca.mindrecord"  # 配置训练数据集文件夹路径
-
-   # 8卡分布式策略配置
    parallel_config:
      data_parallel: 1
      model_parallel: 8
@@ -461,57 +344,59 @@ MindFormers提供`qwen1_5-7b`与`qwen1_5-14b`单机多卡以及`qwen1_5-72b`多�
      gradient_aggregation_group: 4
    ```
 
-    在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考[ms_run快速使用](https://gitee.com/mindspore/mindformers#%E5%9B%9B%E5%BF%AB%E9%80%9F%E4%BD%BF%E7%94%A8)
+2. 执行分布式启动命令
 
-    在mindformers工作目录下，执行：
+   在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)
+
+   在mindformers工作目录下，执行：
 
    ```shell
    # 节点0，节点ip为192.168.1.1，作为主节点，总共32卡且每个节点8卡
    bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config run_qwen1_5_72b.yaml \
-   --load_checkpoint /path/model_dir \
-   --use_parallel True \
-   --run_mode finetune \
-   --auto_trans_ckpt True \
-   --train_data /path/alpaca.mindrecord" \
+    --config run_qwen1_5_72b.yaml \
+    --load_checkpoint /path/model_dir \
+    --use_parallel True \
+    --run_mode finetune \
+    --auto_trans_ckpt True \
+    --train_data /path/alpaca.mindrecord" \
    32 8 192.168.1.1 8118 0 output/msrun_log False 300
 
    # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
    bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config run_qwen1_5_72b.yaml \
-   --load_checkpoint /path/model_dir \
-   --use_parallel True \
-   --run_mode finetune \
-   --auto_trans_ckpt True \
-   --train_data /path/alpaca.mindrecord" \
+    --config run_qwen1_5_72b.yaml \
+    --load_checkpoint /path/model_dir \
+    --use_parallel True \
+    --run_mode finetune \
+    --auto_trans_ckpt True \
+    --train_data /path/alpaca.mindrecord" \
    32 8 192.168.1.1 8118 1 output/msrun_log False 300
 
    # 节点2，节点ip为192.168.1.3，节点0与节点2启动命令仅参数NODE_RANK不同
    bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config run_qwen1_5_72b.yaml \
-   --load_checkpoint /path/model_dir \
-   --use_parallel True \
-   --run_mode finetune \
-   --auto_trans_ckpt True \
-   --train_data /path/alpaca.mindrecord" \
+    --config run_qwen1_5_72b.yaml \
+    --load_checkpoint /path/model_dir \
+    --use_parallel True \
+    --run_mode finetune \
+    --auto_trans_ckpt True \
+    --train_data /path/alpaca.mindrecord" \
    32 8 192.168.1.1 8118 2 output/msrun_log False 300
 
    # 节点3，节点ip为192.168.1.4，节点0与节点3启动命令仅参数NODE_RANK不同
    bash scripts/msrun_launcher.sh "research/qwen1_5/run_qwen1_5.py \
-   --config run_qwen1_5_72b.yaml \
-   --load_checkpoint /path/model_dir \
-   --use_parallel True \
-   --run_mode finetune \
-   --auto_trans_ckpt True \
-   --train_data /path/alpaca.mindrecord" \
+    --config run_qwen1_5_72b.yaml \
+    --load_checkpoint /path/model_dir \
+    --use_parallel True \
+    --run_mode finetune \
+    --auto_trans_ckpt True \
+    --train_data /path/alpaca.mindrecord" \
    32 8 192.168.1.1 8118 3 output/msrun_log False 300
 
    # 参数说明
-   # config: 配置文件路径
-   # load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_0/xxx.ckpt'格式存放
-   # auto_trans_ckpt: 自动权重转换开关
-   # run_mode: 运行模式，微调时设置为finetune
-   # train_data: 训练数据集文件夹路径
+   config:          配置文件路径
+   load_checkpoint: 权重文件夹路径, 权重按照'model_dir/rank_0/xxx.ckpt'格式存放
+   auto_trans_ckpt: 自动权重转换开关
+   run_mode:        运行模式, 微调时设置为finetune
+   train_data:      训练数据集路径
    ```
 
 ## 推理
@@ -520,79 +405,38 @@ MindFormers提供`qwen1_5-7b`与`qwen1_5-14b`单机多卡以及`qwen1_5-72b`多�
 
 注意事项：
 
-1. 当前支持模型已提供yaml文件，下文以Qwen1_5-72B为例，即使用`predict_qwen1_5_72b.yaml`配置文件进行介绍，请根据实际使用模型更改配置文件。
+1. 当前支持模型已提供推理相关配置文件，请根据实际使用模型更改配置文件。
 
 2. 运行下面的代码需要在`research/qwen1_5`目录下，或者先将`research/qwen1_5`目录所在路径加入到`PYTHONPATH`环境变量中。
 
-### 基于高阶接口推理
+### 基于高阶接口的推理
 
 #### 单卡推理
 
-1. 主要参数配置参考：
+以`qwen1_5_7b`单卡推理为例，执行如下命令进行推理。
 
-   ```yaml
-   load_checkpoint: '/path/model_dir'       # 使用完整权重
-   auto_trans_ckpt: False                   # 关闭自动权重转换
-   use_past: True                           # 使用增量推理
-   use_parallel: True                       # 使用并行模式
-
-   model:
-     model_config:
-       use_past: True
-       is_dynamic: True
-
-   processor:
-     tokenizer:
-       vocab_file: "/{path}/vocab.json"     # vocab.json文件路径
-       merges_file: "/{path}/merges.txt"    # merges.txt文件路径
-
-   # parallel of device num = 1
-   parallel_config:
-     data_parallel: 1
-     model_parallel: 1
-     pipeline_stage: 1
-     micro_batch_num: 1
-     vocab_emb_dp: True
-     gradient_aggregation_group: 4
-   ```
-
-2. 启动单卡推理：
-
-   ```shell
-   cd mindformers/research/qwen1_5
-   # 推理命令中参数会覆盖yaml文件中的相同参数
-   python run_qwen1_5.py \
-   --config predict_qwen1_5_7b.yaml \
-   --load_checkpoint /path/model_dir \
-   --run_mode predict \
-   --use_parallel True \
-   --predict_data 帮助我制定一份去上海的旅游攻略 \
-   --auto_trans_ckpt False
-
-   # 帮助我制定一份去上海的旅游攻略，包括景点、美食、住宿等信息……
-   ```
+```shell
+cd research/qwen1_5
+# 推理命令中参数会覆盖yaml文件中的相同参数
+python run_qwen1_5.py \
+ --config predict_qwen1_5_7b.yaml \
+ --load_checkpoint /path/model_dir \
+ --vocab_file /path/vocab.json \
+ --merges_file /path/merges.txt \
+ --run_mode predict \
+ --use_parallel False \
+ --auto_trans_ckpt False \
+ --predict_data '帮助我制定一份去上海的旅游攻略'
+# 帮助我制定一份去上海的旅游攻略，包括景点、美食、住宿等信息...
+```
 
 #### 多卡推理
 
+以`qwen1_5_72b`4卡推理为例，执行如下命令进行推理。
+
 1. 主要参数配置参考：
 
    ```yaml
-   load_checkpoint: '/path/model_dir'       # 使用切分完的权重
-   auto_trans_ckpt: False                   # 关闭自动权重转换
-   use_past: True                           # 使用增量推理
-   use_parallel: True                       # 使用并行模式
-
-   model:
-     model_config:
-       use_past: True
-       is_dynamic: True
-
-   processor:
-     tokenizer:
-       vocab_file: "/{path}/vocab.json"     # vocab.json文件路径
-       merges_file: "/{path}/merges.txt"    # merges.txt文件路径
-
-   # parallel of device num = 4
    parallel_config:
      data_parallel: 1
      model_parallel: 4
@@ -607,36 +451,41 @@ MindFormers提供`qwen1_5-7b`与`qwen1_5-14b`单机多卡以及`qwen1_5-72b`多�
 2. 启动多卡推理：
 
    ```shell
-   cd mindformers/research/qwen1_5
+   cd research/qwen1_5
    # 推理命令中参数会覆盖yaml文件中的相同参数
-   bash ../../scripts/msrun_launcher.sh "python run_qwen1_5.py \
-   --config predict_qwen1_5_72b.yaml \
-   --load_checkpoint /path/model_dir \
-   --run_mode predict \
-   --use_parallel True \
-   --predict_data 帮助我制定一份去上海的旅游攻略 \
-   --auto_trans_ckpt False" 4
+   bash ../../scripts/msrun_launcher.sh "run_qwen1_5.py \
+    --config predict_qwen1_5_72b.yaml \
+    --load_checkpoint /path/model_dir \
+    --vocab_file /path/vocab.json \
+    --merges_file /path/merges.txt \
+    --run_mode predict \
+    --use_parallel True \
+    --auto_trans_ckpt True \
+    --predict_data 帮助我制定一份去上海的旅游攻略" 4
 
-   # 帮助我制定一份去上海的旅游攻略，包括景点、美食、住宿等信息……
+   # 帮助我制定一份去上海的旅游攻略，包括景点、美食、住宿等信息...
    ```
 
-### chat 多轮对话推理
+### 多轮对话推理
 
 `run_qwen1_5_chat.py` 基于`model.generate()`实现，支持交互式多轮对话，支持加载lora权重、权重转换、多卡推理，暂不支持 batch 推理。
 
 #### 单卡推理
 
+以`qwen1_5_7b`单卡推理为例，执行如下命令进行多轮对话推理。
+
 ```shell
 cd research/qwen1_5
-python run_qwen1_5_chat.py --config predict_qwen1_5_7b_chat.yaml \
-  --load_checkpoint /path/to/qwen1_5_7b_chat.ckpt \
-  --enable_history True \
-  --use_parallel False \
-  --auto_trans_ckpt False \
-  --run_demo True \
-  --device_id 0
+python run_qwen1_5_chat.py \
+ --config predict_qwen1_5_7b_chat.yaml \
+ --load_checkpoint /path/to/qwen1_5_7b_chat.ckpt \
+ --enable_history True \
+ --use_parallel False \
+ --auto_trans_ckpt False \
+ --run_demo True \
+ --device_id 0
 
-## 参数说明
+# 参数说明
 # --enable_history: 是否将历史对话带入后面的输入。在交互式模式下（且启动时指定了--enable_history=True），可以用 /clear 清除前面的对话历史，开始新一轮会话;
 # --run_demo: 启动时是否自动运行预设的若干个问题（用于演示/试验目的）;
 # --predict_data: 提交给模型进行推理的问题（run_qwen1_5_chat.py会将历史对话和问题按照chatml格式组装后提交给模型进行推理），可以给出多个问题。不给出此参数时，`run_qwen1_5_chat.py`按交互模式运行;
@@ -648,10 +497,12 @@ python run_qwen1_5_chat.py --config predict_qwen1_5_7b_chat.yaml \
 
 ```shell
 cd research/qwen1_5
-bash ../../scripts/msrun_launcher.sh "python run_qwen1_5_chat.py --config predict_qwen1_5_72b_chat.yaml \
-  --use_parallel True --auto_trans_ckpt False \
-  --load_checkpoint /path/to/预先切分好的4卡权重 \
-  --predict_data 《三体》这本小说的精彩之处在什么地方 再推荐几部刘慈欣的作品吧 国内这些年还有哪些不错的科幻作家 \
-  --enable_history True" 4
+bash ../../scripts/msrun_launcher.sh "run_qwen1_5_chat.py \
+ --config predict_qwen1_5_72b_chat.yaml \
+ --use_parallel True \
+ --auto_trans_ckpt False \
+ --load_checkpoint /path/to/预先切分好的4卡权重 \
+ --predict_data 《三体》这本小说的精彩之处在什么地方 再推荐几部刘慈欣的作品吧 国内这些年还有哪些不错的科幻作家 \
+ --enable_history True" 4
 tail -f output/msrun_log/*.log  # press Ctrl-C to quit when done
 ```

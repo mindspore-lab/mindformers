@@ -29,6 +29,8 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 ### 支持模型
 
+MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners.md)以及[LoRA权重合并](docs/feature_cards/Transform_Lorackpt.md)功能，具体可参考各模型文档启动模型的LoRA微调任务。
+
 当前MindFormers支持的模型列表如下：
 
 <table>
@@ -303,7 +305,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
   </tbody>
   <tbody>
     <tr>
-      <td rowspan="1"> <a href="research/deepseek/deepseek.md"> DeepSeek </a> </td>
+      <td rowspan="1"> <a href="research/deepseek/deepseek.md"> DeepSeek Coder </a> </td>
       <td> 33B </td>
       <td> 4K </td>
       <td style="text-align: center"> - </td>
@@ -329,19 +331,9 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
   </tbody>
   <tbody>
     <tr>
-      <td rowspan="2"> <a href="docs/model_cards/gpt2.md"> GPT2 </a> </td>
+      <td rowspan="1"> <a href="docs/model_cards/gpt2.md"> GPT2 </a> </td>
       <td> 13B </td>
       <td> 2K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/gpt2/run_gpt2_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> PPL </td>
-    </tr>
-    <tr>
-      <td> 52B </td>
-      <td> 1K </td>
       <td style="text-align: center"> &#x2713 </td>
       <td style="text-align: center"> &#x2713 </td>
       <td> <a href="scripts/examples/gpt2/run_gpt2_predict.sh"> generate </a> </td>
@@ -378,6 +370,8 @@ bash build.sh
 
 ## 三、使用指南
 
+MindFormers支持模型启动预训练、微调、推理、评测等功能，可点击[支持模型](#支持模型)中模型名称查看文档完成上述任务，以下为模型分布式启动方式的说明与示例。
+
 MindFormers推荐使用分布式方式拉起模型训练、推理等功能，目前提供`scripts/msrun_launcher.sh`分布式启动脚本作为模型的主要启动方式，`msrun`特性说明可以参考[msrun启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3.0rc2/parallel/msrun_launcher.html)。
 该脚本主要输入参数说明如下：
 
@@ -392,7 +386,7 @@ MindFormers推荐使用分布式方式拉起模型训练、推理等功能，目
   | JOIN             |     -      |  &check;   |      False       | 是否等待所有分布式进程退出    |
   | CLUSTER_TIME_OUT |     -      |  &check;   |       600        | 分布式启动的等待时间，单位为秒  |
 
-> 注：如果需要指定device_id启动，可以设置环境变量`ASCEND_RT_VISIBLE_DEVICES`，如要配置使用2、3卡则输入`export ASCEND_RT_VISIBLE_DEVICES=2,3`。
+> 注：如果需要指定`device_id`启动，可以设置环境变量`ASCEND_RT_VISIBLE_DEVICES`，如要配置使用2、3卡则输入`export ASCEND_RT_VISIBLE_DEVICES=2,3`。
 
 ### 单机多卡
 

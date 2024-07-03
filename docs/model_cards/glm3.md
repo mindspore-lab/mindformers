@@ -40,7 +40,7 @@ ChatGLM3 是智谱AI和清华大学 KEG 实验室联合发布的新一代对话�
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](https://gitee.com/mindspore/mindformers/blob/dev/README.md#二mindformers安装)和[版本匹配关系](https://gitee.com/mindspore/mindformers/blob/dev/README.md#三版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
 
 ### 数据及权重准备
 
@@ -70,10 +70,11 @@ MindFormers提供[`ADGEN`](https://aclanthology.org/D19-1321.pdf) (广告生成)
 
 MindFormers提供已经转换完成的预训练权重、词表文件用于微调和推理，用户也可以下载HuggingFace官方权重经过[模型权重转换](#模型权重转换)后进行使用。
 
+词表下载链接：[tokenizer.model](https://huggingface.co/THUDM/chatglm2-6b/blob/main/tokenizer.model)
+
 | 模型名称            |                                                   MindSpore权重                                                   |                               HuggingFace权重                                |
 |:----------------|:---------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------:|
 | ChatGLM3-6b     |                                                        /                                                        |              [Link](https://huggingface.co/THUDM/chatglm3-6b)              |
-| tokenizer.model | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/glm3/tokenizer.model) | [Link](https://huggingface.co/THUDM/chatglm3-6b/blob/main/tokenizer.model) |
 
 #### 模型权重转换
 
@@ -96,38 +97,27 @@ MindFormers提供`ChatGLM3-6B`的微调示例， 过程中使用`ADGEN`数据集
 
 #### 单机训练
 
-1. 修改`configs/glm3/finetune_glm3_6b_bf16.yaml`配置文件：
+> 注：微调时模型的`seq_length`需要等于微调数据集的`max_source_length + max_target_length + 1`。 在配置文件中默认的`seq_length: 192`以及`max_source_length: 256`和`max_target_length: 256`适用于ADGEN数据集，
+> 对于其他数据集，可以将数据集转换为`token_id`，使`seq_length`等于`token_id`的最大长度，`seq_length`太大影响训练性能，太小影响训练精度，需要做出权衡。
+
+1. 修改`configs/glm3/run_glm3_6b_finetune_2k_800T_A2_64G.yaml`配置文件：
 
    ```yaml
-   load_checkpoint: "/path/to/glm3_6b.ckpt"             # 预训练权重路径
    train_dataset: &train_dataset
-     data_loader:
-       dataset_dir: "/path/to/AdvertiseGen/train.json"  # ADGEN训练数据路径
-       origin_columns: ["content", "summary"]
      tokenizer:
+       type: ChatGLM3Tokenizer
        vocab_file: "/path/to/tokenizer.model"
-     max_source_length: 256
-     max_target_length: 256
-
-   eval_dataset: &eval_dataset
-     data_loader:
-       dataset_dir: "/path/to/AdvertiseGen/dev.json"    # ADGEN评测数据路径
-       origin_columns: ["content", "summary"]
-     tokenizer:
-       vocab_file: "/path/to/tokenizer.model"
-     max_source_length: 256
-     max_target_length: 256
    ```
-
-   > 注：微调时模型的`seq_length`需要等于微调数据集的`max_source_length + max_target_length + 1`。 在配置文件中默认的`seq_length: 192`以及`max_source_length: 64`和`max_target_length: 127`适用于ADGEN数据集，
-   > 对于其他数据集，可以将数据集转换为`token_id`，使`seq_length`等于`token_id`的最大长度，`seq_length`太大影响训练性能，太小影响训练精度，需要做出权衡。
 
 2. 执行分布式训练命令
 
    ```shell
    bash scripts/msrun_launcher.sh "run_mindformer.py \
-       --config configs/glm3/finetune_glm3_6b_bf16.yaml \
-       --run_mode finetune"
+    --config configs/glm3/run_glm3_6b_finetune_2k_800T_A2_64G.yaml \
+    --load_checkpoint {path}/glm3_6b.ckpt \
+    --train_dataset_dir {path}/AdvertiseGen/train.json \
+    --use_parallel True \
+    --run_mode finetune"
    ```
 
 #### 多机训练
@@ -136,33 +126,9 @@ MindFormers提供`ChatGLM3-6B`的微调示例， 过程中使用`ADGEN`数据集
 
 ### 分布式训练权重合并
 
-分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
+分布式训练（微调）后所得到的权重文件为根据策略切分后的权重，可以手动将切分权重合一，以用于评估和推理。
 
-涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](../feature_cards/Transform_Ckpt.md)
-
-1. 获取模型切分策略文件：
-
-   在执行微调脚本时，模型完成编译后，将会在`output/strategy`路径下生成各卡的切分策略文件，用于权重合并。
-
-   > 注：lora微调时需要确认配置文件`parallel context config`中`only_trainable_params`设为`False`，以获取所有参数完整策略。
-
-2. 运行`mindformers/tools/transform_ckpt.py`脚本进行多卡权重合并：
-
-   ```shell
-   python transform_ckpt.py \
-   --src_ckpt_strategy {path}/output/strategy/ \
-   --src_ckpt_dir {path}/output/checkpoint/ \
-   --dst_ckpt_dir {path}/target_checkpoint/ \
-   --prefix glm2_6b
-
-   # 参数说明
-   src_ckpt_strategy: 步骤1中的切分策略文件路径
-   src_ckpt_dir:      原切分权重文件夹
-   dst_ckpt_dir:      目标路径
-   prefix:            ckpt文件前缀名
-   ```
-
-> 注：`transform_checkpoints` 接口当前仅mindspore 2.0以上版本支持，如当前硬件环境只支持2.0以下版本，可以新建conda环境安装mindspore 2.0的cpu版本以执行该脚本。
+MindFormers提供自动权重转换和离线权重转换功能，可参考[自动转换案例](../feature_cards/Transform_Ckpt.md#自动转换案例)和[离线权重转换](../feature_cards/Transform_Ckpt.md#离线权重转换)进行分布式模型权重转换。
 
 ## 推理
 
@@ -186,6 +152,14 @@ CKPT_PATH:   模型权重文件路径
 bash scripts/examples/glm3/run_glm3_predict.sh single \
  configs/glm3/predict_glm3_6b.yaml \
  path/to/glm3_6b.ckpt
+
+# 输出推理结果
+# 你好:
+# 你好👋！我是人工智能助手 ChatGLM3-6B，很高兴见到你，欢迎问我任何问题。
+# 请介绍一下华为:
+# 华为是一家总部位于中国深圳的多元化科技公司,成立于1987年,是全球最大的电信设备制造商之一。该公司也在智能手机、电脑、平板电脑、
+# 云计算等领域开展业务,其产品和服务覆盖全球170多个国家和地区。
+# ...
 ```
 
 ### 多角色推理
@@ -196,6 +170,13 @@ bash scripts/examples/glm3/run_glm3_predict.sh single \
 bash scripts/examples/glm3/run_glm3_predict.sh multirole \
  configs/glm3/predict_glm3_6b.yaml \
  path/to/glm3_6b.ckpt
+
+# 输入prompt: 假设你现在是一个导游，请尽可能贴近这个角色回答问题。
+# 输出推理结果
+# 您好，我是您的人工智能助手，也可以是你的导游。请问有什么问题我可以帮您解答呢？
+# 我打算1月份去海南玩，可以介绍一下海南有哪些好玩的，好吃的么？
+# 当然可以！海南是一个风景优美、气候宜人的热带海洋省份，拥有丰富的旅游资源和美食。以下是一些您可能会感兴趣的景点和美食：
+# ...
 ```
 
 ## 常见问题
