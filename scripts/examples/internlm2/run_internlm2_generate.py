@@ -31,9 +31,7 @@ from mindformers.trainer.utils import transform_and_load_checkpoint
 
 def main(config_path, use_parallel, load_checkpoint, load_tokenizer):
     # multi batch inputs
-    inputs = ["I love Beijing, because",
-              "InternLM2 is a",
-              "Huawei is a company that"]
+    inputs = ["<s><|im_start|>Hi, pls intro yourself<|im_end|>\n<|im_start|>assistant"]
     batch_size = len(inputs)
 
     # init config with yaml
@@ -105,8 +103,3 @@ if __name__ == "__main__":
         args.load_checkpoint,
         args.load_tokenizer
     )
-
-# 多batch输出
-# <s>I love Beijing,because it is a city that is constantly changing. I have been living here for 10 years ...
-# <s>LlaMa is a large-scale, open-source, multimodal, multilingual, multitask, and multimodal pretrained ...
-# <s>Huawei is a company that has been around for a long time. ...
