@@ -18,7 +18,6 @@ import math
 from mindspore import nn, Tensor
 from mindspore import ops
 from mindspore.ops import operations as P
-import mindspore.common.dtype as mstype
 
 from mindformers.experimental.distri_cores.create_comm import (
     get_tp_world_size,
@@ -415,24 +414,7 @@ class ParallelAttention(Module):
         if not self.use_flash_attention:
             context_layer = self.core_attention(query, key, value, attention_mask)
         else:
-            if attention_mask.ndim == 3:
-                attention_mask = attention_mask.expand_dims(axis=1)
-            if query.dtype == mstype.float32:
-                query = query.astype(mstype.float16)
-            if key.dtype == mstype.float32:
-                key = key.astype(mstype.float16)
-            if value.dtype == mstype.float32:
-                value = value.astype(mstype.float16)
-            attention_mask = attention_mask.astype(mstype.uint8)
-            output = ops.flash_attention_score(query,
-                                               key,
-                                               value,
-                                               self.num_heads_per_partition,
-                                               attn_mask=attention_mask,
-                                               scalar_value=1.0/self.norm_factor,
-                                               input_layout='BNSD',
-                                               sparse_mode=0)
-            context_layer = _merge_heads(output)
+            raise NotImplementedError('use_flash_attention is not supported for now.')
 
         # apply output projection
         output = self.out_proj(context_layer)
