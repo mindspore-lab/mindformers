@@ -258,7 +258,7 @@ class TransformCkpt:
                 src_ckpt_dir = os.path.join(soft_link_dir, ckpt_name)
                 # Clear dst_ckpt_dir.
                 dst_ckpt_dir = os.path.join(dst_checkpoint_dir, ckpt_name)
-                self.remake_folder_by_transform_ckpt(dst_ckpt_dir, permissions=0o777)
+                self.remake_folder_by_transform_ckpt(dst_ckpt_dir, permissions=0o750)
                 if check_in_modelarts():
                     dst_ckpt_dir_obs = os.path.join(self.transformed_checkpoint_dir_obs, ckpt_name)
                     self.remake_folder_by_transform_ckpt(dst_ckpt_dir_obs)

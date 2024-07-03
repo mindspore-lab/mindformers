@@ -626,7 +626,7 @@ def clear_auto_trans_output():
         else:
             folder_path = os.path.join(get_output_root_path(), folder)
         if not get_real_rank():
-            remaked_txt = remake_folder(folder_path, permissions=0o777)
+            remaked_txt = remake_folder(folder_path, permissions=0o750)
             delete_file(remaked_txt)
 
 

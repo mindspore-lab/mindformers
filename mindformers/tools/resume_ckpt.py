@@ -73,7 +73,7 @@ def get_resume_checkpoint(checkpoint_dir, resume_training, gap_time=5, limit_tim
         resume_record = os.path.join(get_remote_save_url(), "resume_record")
     else:
         resume_record = os.path.join(get_output_root_path(), "resume_record")
-    remake_folder(resume_record, permissions=0o777)
+    remake_folder(resume_record, permissions=0o750)
     while resume_ckpt_list:
         current_resume_ckpt = resume_ckpt_list.pop(-1)
         resume_succeed_txt, resume_failed_txt = get_resume_record_txt(current_resume_ckpt)
