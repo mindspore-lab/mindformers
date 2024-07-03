@@ -176,9 +176,14 @@ train_data: 训练数据集文件夹路径或mindrecord文件路径
 3. 使用msrun脚本训练
 
    多机训练需要分别在不同节点执行命令，以下为2机8卡训练过程，参数说明以及使用更多节点参考[msrun方式启动](../../README.md#方式一使用已有脚本启动)多机多卡部分进行配置。
-
    > 注：如果各节点间使用共享存储存放工程文件，则可以使用**支持权重自动转换**功能，否则需要修改配置文件`auto_trans_ckpt=False`或在运行命令时设置`--auto_trans_ckpt False`，
    此时，预训练权重可以使用[权重转换工具](../../docs/feature_cards/Transform_Ckpt.md)转换得到。
+
+   针对多机的场景，建议用户配置HCCL_BUFFSIZE环境变量。集合通信网络中，每一个HCCL通信域都会占用HCCL_BUFFSIZE大小的缓存区，若业务的模型数据量较小，但通信数据量较大，则可通过此环境变量增大HCCL通信域占用的缓存区大小，提升数据通信效率。
+
+   ```shell
+   export HCCL_BUFFSIZE=2
+   ```
 
 - 在节点0执行如下命令，其中192.168.1.1需要改为节点0的实际ip，将节点0作为主节点，2机共16卡且每个节点8卡。
 
@@ -292,4 +297,4 @@ bash scripts/examples/baichuan2/run_baichuan2_predict.sh parallel \
 
 ### 显存不足
 
-如出现显存不足问题，可适当减少`data_paralell`并增大`model_parallel`，如`data_parallel=4`、`model_paralllel=2`。
+如出现显存不足问题，可适当减少`data_paralell`并增大`model_parallel`，如`data_parallel=4`、`model_paralllel=2`
