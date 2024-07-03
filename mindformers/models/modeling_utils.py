@@ -1194,7 +1194,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             clear_auto_trans_output()
             src_checkpoint_dir = os.path.join(get_output_root_path(), "src_checkpoint")
             if not get_real_rank():
-                remaked_txt = remake_folder(src_checkpoint_dir, permissions=0o777)
+                remaked_txt = remake_folder(src_checkpoint_dir, permissions=0o750)
                 delete_file(remaked_txt)
             src_checkpoint = os.path.join(src_checkpoint_dir, "mindspore_model.ckpt")
             get_src_checkpoint_succeed_txt = os.path.join(src_checkpoint_dir, "get_src_checkpoint_succeed.txt")
