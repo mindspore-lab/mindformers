@@ -118,9 +118,12 @@ class TrainingDataLoader:
         return gen_dataset
 
 
-def run_cmd(command):
+def run_cmd(command, pipeline=None):
     """Run the shell command."""
-    ret = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
+    ret = subprocess.run(command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
+    if pipeline is not None:
+        ret = subprocess.run(pipeline, input=ret.stdout, shell=False,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8")
     if "No such file" in ret.stderr:
         return False, ret.stderr.strip()
     if "Files exists" in ret.stderr:
@@ -405,7 +408,7 @@ class TrainingDataset:
                         th, file_name, filename, local_path)
             if os.path.exists(local_path):
                 os.remove(local_path)
-            status, out_info = run_cmd(f"hdfs dfs -get {file_name} {local_path}")
+            status, out_info = run_cmd(["hdfs", "dfs", "-get", file_name, local_path])
             if not status:
                 logger.error("%s", out_info)
                 logger.info("Download hdfs_file: %s failed, will retry the %s times.", file_name, th)
@@ -431,9 +434,8 @@ class TrainingDataset:
         else:
             # Obtaining files in HDFS
             logger.info("Can not find local dataset. Traverse HDFS directory: %s", dataset_dir)
-            ls_cmd = f"hdfs dfs -ls {dataset_dir}/*{file_format}"
-            ls_cmd += "| awk '{print $NF}'"
-            status, current_str = run_cmd(ls_cmd)
+            status, current_str = run_cmd(['hdfs', 'dfs', '-ls', f"{dataset_dir}/*{file_format}"],
+                                          pipeline=['awk', '{print $NF}'])
             if not status:
                 raise ValueError(f"Get dataset file failed, {current_str}")
             if not current_str:
