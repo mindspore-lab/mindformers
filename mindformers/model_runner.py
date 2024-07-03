@@ -222,7 +222,7 @@ class MindIEModelRunner:
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=True)
         self.model_config.block_size = block_size
         self.model_config.num_blocks = self.npu_num_blocks
-        self.model = AutoModel.from_config(self.config)
+        self.model = AutoModel.from_config(self.model_config)
         logger.info(f"Create model finished.")
 
         if self.config.use_parallel:
