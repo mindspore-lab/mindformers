@@ -342,10 +342,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             from mindspore_gs.ptq import PTQConfig, PTQMode
             from mindspore_gs.common import BackendTarget
             from mindspore_gs.ptq import RoundToNearest as RTN
-            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND)
+            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['lm_head'])
             ptq = RTN(config=cfg)
-            self.model = ptq.apply(self.model)
-            self.model = ptq.convert(self.model)
+            ptq.apply(self)
+            ptq.convert(self)
         elif config.quant == "w8a8":
             logger.info("Using SmoothQuant to quant LlamaForCausalLM.")
             from mindspore_gs.ptq import PTQConfig, PTQMode
