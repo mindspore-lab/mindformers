@@ -1,7 +1,7 @@
 seed: 0
 run_mode: 'train'
 output_dir: './output' # path to save checkpoint/strategy
-load_checkpoint: 'glm2_6b'
+load_checkpoint: ''
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
@@ -9,12 +9,12 @@ resume_training: False
 
 # ==== context config ====
 context:
-  mode: 0 #0--Graph Mode; 1--Pynative Mode
+  mode: 0  # 0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   enable_graph_kernel: False
   graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
-  max_device_memory: "59GB" # 59GB for Atlas 800T A2
+  max_device_memory: "59GB"  # 59GB for Atlas 800T A2
   save_graphs: False
   device_id: 0
 
@@ -152,7 +152,7 @@ runner_config:
   epochs: 1
   batch_size: 8
   sink_mode: True
-  sink_size: 4
+  sink_size: 2
 
 runner_wrapper:
   type: MFTrainOneStepCell
@@ -163,7 +163,7 @@ runner_wrapper:
     scale_window: 1000
   use_clip_grad: True
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: polynomial
   learning_rate: 5.e-5
