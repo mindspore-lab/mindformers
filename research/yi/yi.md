@@ -357,224 +357,44 @@ bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
 
 ## 推理
 
-大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合大算子降低推理时延，有效提升网络吞吐量。
-
-### 设置推理配置
-
-以6b推理为例，在启动前，请先行在配置文件predict_yi_6b.yaml中将processor.tokenizer.vocab_file的路径配置为实际路径,
-model_config按如下配置
-
-```yaml
-
-processor:
-  return_tensors: ms
-  tokenizer:
-    ...
-    vocab_file: '/path/Yi-6B/tokenizer.model'  # 修改为实际路径
-    ...
-model:
-  model_config:
-    ...
-    use_past: True
-    is_dynamic: True
-    ...
-
-```
-
-- generate接口推理：
-
-```python
-from mindspore import context
-from mindformers.generation import GenerationConfig
-from mindformers.tools.register import MindFormerConfig
-from mindformers import LlamaForCausalLM, LlamaConfig, LlamaTokenizer
-
-context.set_context(device_id=0, mode=0)
-
-# init yi-6b-Base model
-yi_model_path = "/xxx/save_checkpoint/yi_6b.ckpt"  # 填写实际路径
-config_path = '/xxx/xxx/predict_yi_6b.yaml'  # 填写实际路径
-
-config = MindFormerConfig(config_path)
-config.model.model_config.checkpoint_name_or_path = yi_model_path
-yi_config = LlamaConfig(**config.model.model_config)
-
-yi_model = LlamaForCausalLM(config=yi_config)
-
-# init yi-6b-Base tokenizer
-tokenizer_path = config.processor.tokenizer.vocab_file
-bos_token = config.processor.tokenizer.bos_token
-eos_token = config.processor.tokenizer.eos_token
-tokenizer = LlamaTokenizer(vocab_file=tokenizer_path, bos_token=bos_token,  eos_token=eos_token, add_bos_token=False)
-generation_config = GenerationConfig(
-    temperature=0.7,
-    top_p=0.8,
-    top_k=40,
-    num_beams=1,
-    eos_token_id=2,
-    pad_token_id=0,
-    bos_token_id=1,
-    do_sample=False,
-    max_length=512,
-    repetition_penalty=1.3,
-    _from_model_config=True,
-    use_past=config.model.model_config.use_past
-)
-
-inputs = tokenizer("以雷霆之力")["input_ids"]
-outputs = yi_model.generate(inputs, generation_config=generation_config)
-
-print(tokenizer.decode(outputs))
-
-
-# 运行结果
-# 以雷霆之力，将这股力量化为一道道剑气。\n“噗！”\n一柄长枪被斩断成两截后，那名大汉的脸上露出惊恐之色，他连忙向后退去，想要逃走。\n可是他的速度哪里比得上叶星辰的速度？\n只见叶星辰的身影出现在了他的面前，然后一脚踩在了这名大汉的手臂上，将他整个人都给踢飞了出去。\n这一脚的力量何其强大啊，直接就将一名武者的一只手臂废掉了。
-```
-
-- pipeline接口推理：
-
-```python
-
-from mindspore import context
-from mindformers.pipeline import pipeline
-from mindformers.tools.register import MindFormerConfig
-from mindformers import LlamaForCausalLM, LlamaConfig, LlamaTokenizer
-
-context.set_context(device_id=0, mode=0)
-
-yi_model_path = "/xxx/save_checkpoint/yi_6b.ckpt"  # 填写实际路径
-config_path = '/xxx/xxx/predict_yi_6b.yaml'  # 填写实际路径
-config = MindFormerConfig(config_path)
-config.model.model_config.checkpoint_name_or_path = yi_model_path
-yi_config = LlamaConfig(**config.model.model_config)
-
-yi_model = LlamaForCausalLM(yi_config)
-
-# init yi-6b-Base tokenizer
-tokenizer_path = config.processor.tokenizer.vocab_file
-bos_token = config.processor.tokenizer.bos_token
-eos_token = config.processor.tokenizer.eos_token
-tokenizer = LlamaTokenizer(vocab_file=tokenizer_path, bos_token=bos_token,  eos_token=eos_token, add_bos_token=False)
-pipeline_task = pipeline("text_generation", model=yi_model, tokenizer=tokenizer, max_length=32)
-pipeline_result = pipeline_task(
-    "以雷霆之力",
-    temperature=0.7,
-    top_p=0.8,
-    top_k=40,
-    num_beams=1,
-    eos_token_id=2,
-    pad_token_id=0,
-    bos_token_id=1,
-    do_sample=False,
-    max_length=100,
-    repetition_penalty=1.3,
-    _from_model_config=True,
-    use_past=config.model.model_config.use_past)
-
-print(pipeline_result)
-
-# 运行结果
-[{'text_generation_text': ['以雷霆之力，将这股力量化为一道道剑气。\n“噗！”\n一柄长枪被斩断成两截后，那名大汉的脸上露出惊恐之色，他连忙向后退去，想要逃走。\n可是他的速度哪里比得上叶星辰的速度？\n只见叶星辰的身影出现在了他的面前，然后一脚踩在了这名大汉的手臂上，将他整个人都给踢飞了出去。\n这一脚的力量何其强大啊，直接就将一名武者的一只手臂废掉了。']}]
-
-```
-
-- 基于generate接口的多batch推理
-
-```python
-from mindspore import context
-from mindformers.generation import GenerationConfig
-from mindformers.tools.register import MindFormerConfig
-from mindformers import LlamaForCausalLM, LlamaConfig, LlamaTokenizer
-
-context.set_context(device_id=0, mode=0)
-
-# init yi-6b-Base model
-yi_model_path = "/xxx/save_checkpoint/yi_6b.ckpt"  # 填写实际路径
-config_path = '/xxx/xxx/predict_yi_6b.yaml'  # 填写实际路径
-
-inputs = ["努力锻炼",
-          "奇变偶不变",
-          "DNA分子具有双螺旋结构"]
-
-batch_size = len(inputs)
-
-config = MindFormerConfig(config_path)
-config.model.model_config.checkpoint_name_or_path = yi_model_path
-config.model.model_config.batch_size = batch_size
-yi_config = LlamaConfig(**config.model.model_config)
-
-yi_model = LlamaForCausalLM(config=yi_config)
-
-# init yi-6b-Base tokenizer
-tokenizer_path = config.processor.tokenizer.vocab_file
-bos_token = config.processor.tokenizer.bos_token
-eos_token = config.processor.tokenizer.eos_token
-tokenizer = LlamaTokenizer(vocab_file=tokenizer_path, bos_token=bos_token,  eos_token=eos_token, add_bos_token=False)
-generation_config = GenerationConfig(
-    temperature=0.7,
-    top_p=0.8,
-    top_k=40,
-    num_beams=1,
-    eos_token_id=2,
-    pad_token_id=0,
-    bos_token_id=1,
-    do_sample=False,
-    max_length=1024,
-    repetition_penalty=1.3,
-    _from_model_config=True,
-    use_past=True
-)
-
-inputs = tokenizer(inputs, max_length=256, padding="max_length")["input_ids"]
-
-
-outputs = yi_model.generate(inputs, generation_config=generation_config)
-
-for index, output in enumerate(outputs):
-    print(f"==========output {index}==========")
-    print(tokenizer.decode(output))
-
-
-# 运行结果
-# ==========output 0==========
-# 努力锻炼自己，提高自己的能力。
-# 2019年5月3日星期六下午两点整，在图书馆一楼报告厅举行了“青春心向党·建功新时代”主题演讲比赛决赛暨颁奖典礼活动。出席本次活动的有：校团委书记李晓东老师、学生处副处长张志强老师以及各学院团总支副书记和学生会主席等嘉宾评委们。
-# ==========output 1==========
-# 奇变偶不变，符号看象限．
-# ==========output 2==========
-# DNA分子具有双螺旋结构，两条链上的碱基通过氢键连接形成碱基对．
-
-```
-
-- 分布式推理：
-
-参数量较大的模型，如yi-34b，可能无法进行单卡推理，可使用多卡推理，如下脚本为4卡推理样例，
-msrun_launcher.sh在mindformers的scripts目录下
+MindFormers提供`yi_6b/34b`的Base/Chat快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡、多卡以及多batch推理。
 
 ```shell
+# 脚本使用
+bash scripts/examples/yi/run_yi_predict.sh CONFIG_PATH PREDICT_MODE DEVICE_NUM
 
-cd {mindformers根目录}
-bash scripts/msrun_launcher.sh "research/yi/run_yi.py --config research/yi/predict_yi_34b.yaml --run_mode=predict --predict_data "DNA分子具有双螺旋结构" --predict_length 4096 --use_parallel True --use_past True" 4
-
-# 运行结果
-[{'text_generation_text': ['DNA分子具有双螺旋结构，磷酸和脱氧核糖交替连接，排列在外侧，构成基本骨架，碱基排列在内侧，两条链上的碱基通过氢键连接起来，A与T配对，G与C配对，A、C、T、G、U五种碱基的排列顺序不同，构成了DNA分子的多样性．']}]
-
+# 参数说明
+CONFIG_PATH: 模型配置文件路径
+PREDICT_MODE:   模型推理模式, 使用Base或Chat区分
+DEVICE_NUM:  使用卡数, 1为单卡, 其他为多卡
 ```
 
-### chat推理
+### 单卡推理
 
-run_yi_34b_chat.py基于model.generate()实现，支持交互式对话、多卡推理
+当前yi_34b模型较大，不支持单卡推理，以6b为例
 
-```bash
-# 以yi_34b 4卡推理为例,此时的checkpoint必须是已经切分好的ckpt,shard_checkpoint_dir文件夹下为rank_{}的文件夹。
-bash scripts/msrun_launcher.sh "research/yi/predict_yi_chat.py \
- --yaml_file research/yi/predict_yi_34b_chat.yaml \
- --use_past True \
- --checkpoint_path path/to/shard_checkpoint_dir \
- --prompt {'your prompt'}" 4
+```shell
+bash scripts/examples/yi/run_yi_predict.sh \
+ research/yi/predict_yi_6b.yaml \
+ Base 1
+```
 
->注：
->1.多卡推理在yaml中将`use_parallel`设为`True`才可以.
->2.几卡推理就要在yaml配置中将相应的parallel_config 中的model_parallel置为几，其余置为1。
+### 多卡推理
 
+以`yi_34b_base`4卡推理为例。
+
+```shell
+bash scripts/examples/yi/run_yi_predict.sh \
+ research/yi/predict_yi_34b.yaml \
+ Base 4
+```
+
+### Chat推理
+
+以`yi_34b_Chat`4卡推理为例。
+
+```shell
+bash scripts/examples/yi/run_yi_predict.sh \
+ research/yi/predict_yi_34b_chat.yaml \
+ Chat 4
 ```
