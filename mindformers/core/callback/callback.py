@@ -521,13 +521,16 @@ class CheckpointMonitor(ModelCheckpoint):
                  append_info=None,
                  enc_key=None,
                  enc_mode='AES-GCM',
-                 exception_save=False):
+                 exception_save=False,
+                 global_batch_size=None):
 
         self.config = config
         self.save_network_params = save_network_params
         self.save_trainable_params = save_trainable_params
         self.rank_id = get_real_rank()
         prefix = prefix + "_rank_{}".format(self.rank_id)
+
+        self.global_batch_size = global_batch_size
 
         if append_info is None:
             append_info = [{
@@ -625,6 +628,12 @@ class CheckpointMonitor(ModelCheckpoint):
             outputs = cb_params.net_outputs
             if isinstance(outputs, (tuple, list)) and len(outputs) >= 3:
                 self._append_dict["loss_scale"] = outputs[2]
+        if self.global_batch_size is not None:
+            self._append_dict["global_batch_size"] = self.global_batch_size
+            logger.info("global_batch_size: %d", self._append_dict["global_batch_size"])
+        logger.info("epoch_num: %d", self._append_dict["epoch_num"])
+        logger.info("step_num: %d", self._append_dict["step_num"])
+        logger.info("global_step: %d", self._append_dict["global_step"])
         network = self._config.saved_network if self._config.saved_network is not None else cb_params.train_network
         save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
                         self._append_dict, self._config.enc_key, self._config.enc_mode,
