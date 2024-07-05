@@ -123,6 +123,8 @@ def check_list(var_name: str, list_var: Union[Tuple, List], num: int):
 
 def format_path(path):
     """Check path."""
+    if not path:
+        return path
     return os.path.realpath(path)
 
 
