@@ -305,7 +305,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 3. 对于llama2-70b模型，再训练之前请定义以下环境变量。
 
    ```shell
-   export MS_DEV_RUNTIME_CONF="inline:False"
+   export MS_DEV_SIDE_EFFECT_LOAD_ELIM=3 # 优化显存
    ```
 
 ## 微调
