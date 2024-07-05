@@ -101,6 +101,12 @@ def _get_loss_output(output):
         invalid_loss_info = "NaN" if np.isnan(loss) else "Inf"
         raise ValueError(f"The current value of loss is {invalid_loss_info}, terminate training.")
 
+    if isinstance(overflow, ms.Tensor):
+        overflow = overflow.asnumpy()
+
+    if isinstance(learning_rate, ms.Tensor):
+        learning_rate = learning_rate.asnumpy()
+
     return loss, overflow, scaling_sens, learning_rate
 
 
@@ -270,7 +276,7 @@ class MFLossMonitor(Callback):
                           overflow, scaling_sens, time_remain, percent):
         """print output information."""
         if self.learning_rate is not None:
-            if isinstance(self.learning_rate, (float, Tensor)):
+            if isinstance(self.learning_rate, (float, Tensor, np.ndarray)):
                 current_lr = str(self.learning_rate)
             elif isinstance(self.learning_rate, LearningRateSchedule):
                 if ms.context.get_context('device_target') == 'CPU':
