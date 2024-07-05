@@ -91,9 +91,9 @@ class LlamaModel(LlamaPreTrainedModel):
         self.enable_asd_op = get_ms_enable_asd_op()
         logger.info("enable asd op:{}".format(self.enable_asd_op))
         if config.moe_config.expert_num > 1:
-            logger.info("MoE config is None, use normal FFN")
-        else:
             logger.info("MoE config is provided, use MoE FFN")
+        else:
+            logger.info("MoE config is None, use normal FFN")
         self.use_rope_self_define = get_use_rope_self_define()
 
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
