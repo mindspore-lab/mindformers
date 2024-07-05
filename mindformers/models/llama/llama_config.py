@@ -148,6 +148,7 @@ class LlamaConfig(PretrainedConfig):
                  top_p: float = 1.0,
                  do_sample: bool = True,
                  quant: str = "",
+                 chunk_prefill: bool = False,
                  **kwargs):
         super(LlamaConfig, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -203,3 +204,4 @@ class LlamaConfig(PretrainedConfig):
         self.block_size = block_size
         self.num_blocks = num_blocks
         self.quant = quant
+        self.chunk_prefill = chunk_prefill

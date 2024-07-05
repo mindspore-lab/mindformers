@@ -195,7 +195,8 @@ class InferAttention(Cell):
                  use_rope_rotary_emb=True,
                  rotary_cos_format=0,
                  rotary_dtype=mstype.float32,
-                 compute_dtype=mstype.float16
+                 compute_dtype=mstype.float16,
+                 chunk_prefill=False
                  ):
         super(InferAttention, self).__init__()
         self.n_head = n_head
@@ -232,6 +233,7 @@ class InferAttention(Cell):
         self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
         self.not_equal = P.NotEqual()
         self.n_rep = self.n_head // self.n_kv_head
+        self.chunk_prefill = chunk_prefill
         if self.use_alibi_mask:
             self.add_alibi = P.Add()
 
@@ -369,7 +371,11 @@ class InferAttention(Cell):
         prefill attention
         """
         if self.use_flash_attention:
-            return self.flash_attention(query, key, value, attn_mask, alibi_mask)
+            output = self.flash_attention(query, key, value, attn_mask, alibi_mask)
+            if self.chunk_prefill:
+                bs, seq_len, _ = self.shape(output)
+                output = self.reshape(output, (bs*seq_len, -1))
+            return output
         bs, seq_len, _ = query.shape
         key_seq_len = key.shape[1]
         value_seq_len = value.shape[1]
@@ -383,7 +389,11 @@ class InferAttention(Cell):
     def _incre_attention(self, query, batch_valid_length, block_tables, alibi_mask=None):
         if self.use_alibi_mask:
             return self.paged_attention_mgr.paged_attn_with_alibi(query, batch_valid_length, block_tables, alibi_mask)
-        return self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables)
+        output = self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables)
+        if self.chunk_prefill:
+            bs, seq_len, _ = self.shape(output)
+            output = self.reshape(output, (bs*seq_len, -1))
+        return output
 
     def construct(self, query, key, value, batch_valid_length, block_tables, slot_mapping, freqs_cis=None,
                   attn_mask=None, alibi_mask=None, prefix_keys_values=None):

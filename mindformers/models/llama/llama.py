@@ -89,6 +89,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.reshape = P.Reshape()
         # default open internal kernel boost
         self.enable_asd_op = get_ms_enable_asd_op()
+        self.chunk_prefill = config.chunk_prefill
         logger.info("enable asd op:{}".format(self.enable_asd_op))
         if config.moe_config.expert_num > 1:
             logger.info("MoE config is provided, use MoE FFN")
@@ -165,7 +166,9 @@ class LlamaModel(LlamaPreTrainedModel):
                                          is_dynamic=config.is_dynamic,
                                          use_rope_slice=config.use_rope_slice,
                                          moe_config=config.moe_config,
-                                         parallel_config=config.parallel_config)
+                                         parallel_config=config.parallel_config,
+                                         chunk_prefill=config.chunk_prefill,
+                                         seq_length=config.seq_length)
             set_layer_stage_recompute(layer, layer_id, config.offset, config.parallel_config, config.num_layers)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
@@ -192,7 +195,7 @@ class LlamaModel(LlamaPreTrainedModel):
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, attention_metadata=None):
         """
         Forward of llama model.
 
@@ -208,6 +211,9 @@ class LlamaModel(LlamaPreTrainedModel):
         # preprocess
         bs, seq_len = self.shape(tokens)
         mask = None
+        if self.chunk_prefill:
+            return self.split_prepare(tokens, batch_valid_length, batch_index, zactivate_len, block_tables, \
+                                      slot_mapping, prefix_keys_values, attention_metadata)
         if self.use_past:
             if self.is_first_iteration:
                 if self.use_rope_self_define:
@@ -249,6 +255,57 @@ class LlamaModel(LlamaPreTrainedModel):
         output = self.norm_out(h)
         return output
 
+    def split_prepare(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                      block_tables=None, slot_mapping=None, prefix_keys_values=None, attention_metadata=None):
+        """
+        Forward of llama model.
+        """
+        bs, seq_len = self.shape(tokens)
+        mask = None
+        masks = []
+        freqs_ciss = []
+        batch_valid_lengths = []
+        num_decode_q = attention_metadata.num_decode_querys
+        num_prefill_q = attention_metadata.num_prefill_querys
+        if num_prefill_q > 0:
+            new_batch_valid_length = batch_valid_length[:num_prefill_q]
+            freqs_cis = self.freqs_mgr(seq_len)
+            if self.use_flash_attention:
+                if self.enable_asd_op:
+                    mask = self.casual_mask(tokens[:num_prefill_q])  # mask: [bs, seq, seq]
+                    mask = self.cast(mask, mstype.float16)
+            else:
+                mask = self.casual_mask(tokens[:num_prefill_q])
+            masks.append(mask)
+            freqs_ciss.append(freqs_cis)
+            batch_valid_lengths.append(new_batch_valid_length)
+        else:
+            masks.append(0)
+            freqs_ciss.append(0)
+            batch_valid_lengths.append(0)
+
+        if num_decode_q > 0:
+            new_batch_valid_length = batch_valid_length[num_prefill_q:]
+            freqs_cis = self.freqs_mgr.increment(new_batch_valid_length)
+            mask = None
+            masks.append(mask)
+            freqs_ciss.append(freqs_cis)
+            batch_valid_lengths.append(new_batch_valid_length)
+        else:
+            masks.append(0)
+            freqs_ciss.append(0)
+            batch_valid_lengths.append(0)
+        #tokens: [bs, seq/1]
+        h = self.cast(self.tok_embeddings(tokens), self.dtype)
+        h = self.reshape(h, (bs*seq_len, self.hidden_size))
+        for i in range(self.num_layers):
+            prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
+            h = self.layers[i](h, freqs_ciss, masks, batch_valid_length=batch_valid_lengths, block_tables=block_tables,
+                               slot_mapping=slot_mapping, prefix_keys_values=prefix_kv,
+                               attention_metadata=attention_metadata)
+        output = self.norm_out(h)
+        output = self.reshape(output, (bs, seq_len, -1))
+        return output
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class LlamaForCausalLM(LlamaPreTrainedModel):
@@ -284,7 +341,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
         self.is_first_iteration = True
-
+        self.chunk_prefill = config.chunk_prefill
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         if config.is_dynamic:
@@ -396,7 +453,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, attention_metadata=None):
         r"""
         LlamaForCausalLM forward.
 
@@ -427,10 +484,17 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         if batch_valid_length is not None:
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables, \
-                            slot_mapping, prefix_keys_values)
-        pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
-        if pre_gather:
-            output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+                            slot_mapping, prefix_keys_values, attention_metadata=attention_metadata)
+        if self.chunk_prefill:
+            batch_valid_length_new = batch_valid_length
+            for index in range(bsz):
+                if input_ids[index][1] == 0:
+                    batch_valid_length_new[index] = 1
+            output = self.gather(output, self.sub_batch_valid_len(batch_valid_length_new, 1), 1)
+        else:
+            pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
+            if pre_gather:
+                output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
