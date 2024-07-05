@@ -200,9 +200,9 @@ class TransformCkpt:
 
         # convert path to realpath
         src_checkpoint = format_path(src_checkpoint)
-        dst_checkpoint_dir = format_path(dst_checkpoint_dir) if dst_checkpoint_dir is not None else dst_checkpoint_dir
-        src_strategy = format_path(src_strategy) if src_strategy is not None else src_strategy
-        dst_strategy = format_path(dst_strategy) if dst_strategy is not None else dst_strategy
+        dst_checkpoint_dir = format_path(dst_checkpoint_dir)
+        src_strategy = format_path(src_strategy)
+        dst_strategy = format_path(dst_strategy)
 
         if src_checkpoint.endswith("/"):
             src_checkpoint = src_checkpoint[:-1]
