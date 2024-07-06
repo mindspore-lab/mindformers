@@ -552,6 +552,11 @@ class CheckpointMonitor(ModelCheckpoint):
                                      exception_save=exception_save)
         super(CheckpointMonitor, self).__init__(prefix, ckpt_directory, config=config_ck)
         self.meta_json = os.path.join(self._directory, "meta.json")
+        if self._config.async_save:
+            self.last_epoch_num = None
+            self.last_step_num_in_epoch = None
+            self.last_ckpoint_file = None
+            self.meta_updated = True
 
     def _save_ckpt(self, cb_params, force_to_save=False):
         """Save checkpoint files."""
@@ -564,6 +569,12 @@ class CheckpointMonitor(ModelCheckpoint):
             self._flush_from_cache(cb_params)
 
         save_ckpt = self._check_save_ckpt(cb_params, force_to_save)
+
+        if self._config.async_save and not ms.async_ckpt_thread_status() and \
+            self.last_epoch_num and self.last_step_num_in_epoch and self.last_ckpoint_file and \
+                not self.meta_updated:
+            self.record_last_ckpt_to_json(self.last_epoch_num, self.last_step_num_in_epoch, self.last_ckpoint_file)
+            self.meta_updated = True
 
         if save_ckpt:
             self.save_checkpoint(cb_params)
@@ -616,7 +627,13 @@ class CheckpointMonitor(ModelCheckpoint):
                         choice_func=lambda x: not x.startswith('accu_grads'))
         self._latest_ckpt_file_name = cur_file
 
-        self.record_last_ckpt_to_json(cb_params.cur_epoch_num, step_num_in_epoch, cur_ckpoint_file)
+        if self._config.async_save:
+            self.last_epoch_num = cb_params.cur_epoch_num
+            self.last_step_num_in_epoch = step_num_in_epoch
+            self.last_ckpoint_file = cur_ckpoint_file
+            self.meta_updated = False
+        else:
+            self.record_last_ckpt_to_json(cb_params.cur_epoch_num, step_num_in_epoch, cur_ckpoint_file)
 
     def save_checkpoint_network(self, cb_params):
         """save checkpoint only network params, which is suitable for train, evaluate and predict."""
@@ -662,6 +679,7 @@ class CheckpointMonitor(ModelCheckpoint):
             "last_step": step,
             "last_ckpt_file": ckpt_file
         }
+
         with tempfile.NamedTemporaryFile('w', delete=False, dir=self._directory) as temp_file:
             json.dump(meta_data, temp_file)
             temp_file_path = temp_file.name

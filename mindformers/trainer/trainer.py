@@ -401,13 +401,20 @@ class Trainer:
         self._check_config_rules()
         self._init_model(is_train=True)
 
-        if self.config.resume_training and os.path.isdir(self.config.load_checkpoint):
-            self.config.resume_training = get_resume_checkpoint(
-                checkpoint_dir=self.config.load_checkpoint,
-                resume_training=self.config.resume_training,
-                gap_time=self.config.resume_gap_time if self.config.resume_gap_time else 5,
-                limit_time=self.config.resume_limit_time if self.config.resume_limit_time else 7200,
-            )
+        if self.config.resume_training:
+            if os.path.isfile(self.config.load_checkpoint) and \
+                isinstance(self.config.resume_training, str):
+                logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
+                               "when `load_checkpoint` is a file path.")
+                self.config.resume_training = True
+            elif os.path.isdir(self.config.load_checkpoint):
+                self.config.resume_training = get_resume_checkpoint(
+                    checkpoint_dir=self.config.load_checkpoint,
+                    resume_training=self.config.resume_training,
+                    resume_by_meta=not self.config.resume_by_last_timestamp_ckpt,
+                    gap_time=self.config.resume_gap_time if self.config.resume_gap_time else 5,
+                    limit_time=self.config.resume_limit_time if self.config.resume_limit_time else 7200,
+                )
 
         self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
 
@@ -525,13 +532,20 @@ class Trainer:
         self._check_config_rules()
         self._init_model(is_train=True)
 
-        if self.config.resume_training and os.path.isdir(self.config.load_checkpoint):
-            self.config.resume_training = get_resume_checkpoint(
-                checkpoint_dir=self.config.load_checkpoint,
-                resume_training=self.config.resume_training,
-                gap_time=self.config.resume_gap_time if self.config.resume_gap_time else 5,
-                limit_time=self.config.resume_limit_time if self.config.resume_limit_time else 7200,
-            )
+        if self.config.resume_training:
+            if os.path.isfile(self.config.load_checkpoint) and \
+                isinstance(self.config.resume_training, str):
+                logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
+                               "when `load_checkpoint` is a file path.")
+                self.config.resume_training = True
+            elif os.path.isdir(self.config.load_checkpoint):
+                self.config.resume_training = get_resume_checkpoint(
+                    checkpoint_dir=self.config.load_checkpoint,
+                    resume_training=self.config.resume_training,
+                    resume_by_meta=not self.config.resume_by_last_timestamp_ckpt,
+                    gap_time=self.config.resume_gap_time if self.config.resume_gap_time else 5,
+                    limit_time=self.config.resume_limit_time if self.config.resume_limit_time else 7200,
+                )
 
         self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
 
