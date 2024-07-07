@@ -229,8 +229,21 @@ def convert_qkv_concat_weight(param_dict):
         print("transform: {}".format(qkv_concat_bias_name))
     return param_dict
 
+def transpose_w2_weight(param_dict):
+    """transpose w2 weight"""
+    assume_num_layers = 500
+    for i in range(assume_num_layers):
+        ffn_w2_weight_name = f"model.layers.{i}.feed_forward.w2.weight"
+        if ffn_w2_weight_name not in param_dict:
+            break
+        ffn_w2_weight = param_dict[ffn_w2_weight_name].asnumpy()
+        ffn_w2_weight = np.transpose(ffn_w2_weight, (1, 0))
+        param_dict[ffn_w2_weight_name] = ms.Parameter(ffn_w2_weight,
+                                                      name=ffn_w2_weight_name)
+        print("transform: {}".format(ffn_w2_weight_name))
+    return param_dict
 
-def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path):
+def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path, w2_transb=False):
     """convert previous ckpt to qkv concat ckpt"""
     if os.path.isdir(pre_ckpt_path):
         rank_dir_list = os.listdir(pre_ckpt_path)
@@ -241,7 +254,8 @@ def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path):
             print("checkpoint_path: {}".format(checkpoint_path))
             params = ms.load_checkpoint(checkpoint_path)
             params = convert_qkv_concat_weight(params)
-
+            if w2_transb:
+                params = transpose_w2_weight(params)
             save_dir = os.path.join(mindspore_ckpt_path, rank_dir_name)
             if not os.path.exists(save_dir):
                 os.makedirs(save_dir)
@@ -250,8 +264,9 @@ def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path):
     else:
         params = ms.load_checkpoint(pre_ckpt_path)
         params = convert_qkv_concat_weight(params)
+        if w2_transb:
+            params = transpose_w2_weight(params)
         ms.save_checkpoint(params, mindspore_ckpt_path)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -260,10 +275,11 @@ if __name__ == "__main__":
     parser.add_argument('--pre_ckpt_path', default=None)
     parser.add_argument('--config_path', default=None)
     parser.add_argument('--qkv_concat', default=False, type=str2bool)
+    parser.add_argument('--w2_transb', default=False, type=str2bool)
     args = parser.parse_args()
 
     if args.qkv_concat:
-        convert_to_qkv_concat(args.pre_ckpt_path, args.mindspore_ckpt_path)
+        convert_to_qkv_concat(args.pre_ckpt_path, args.mindspore_ckpt_path, args.w2_transb)
     elif args.pre_ckpt_path is not None and args.config_path is not None:
         convert_to_new_ckpt(args.pre_ckpt_path, args.config_path)
     else:
