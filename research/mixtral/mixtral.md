@@ -15,7 +15,7 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 }
 ```
 
-## 仓库介绍
+## 模型文件
 
 `Mixtral` 基于 `mindformers` 实现，主要涉及的文件有：
 
@@ -36,7 +36,8 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 
    ```bash
    mixtral
-    ├── pretrain_mixtral-8x7b.yaml        # 8x7b模型预训练启动配置
+    ├── pretrain_mixtral-8x7b.yaml        # 8x7b模型4k预训练启动配置
+    ├── pretrain_mixtral-8x7b_32k.yaml    # 8x7b模型32k预训练启动配置
     ├── finetune_mixtral-8x7b.yaml        # 8x7b模型全参微调启动配置
     ├── predict_mixtral-8x7b.yaml         # 8x7b模型推理启动配置
     ├── convert_weight.py                 # 权重转换脚本（torch_to_ms）
@@ -51,26 +52,116 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
        └── llama_preprocess.py     # llama模型的mindrecord数据处理脚本
    ```
 
-## 前期准备
+## 环境及数据准备
 
-### 环境要求
+### 安装环境
 
-- 硬件：Ascend910B
-- MindSpore：2.3.0
-- CANN: 7.2
-- MindFormers版本：dev
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
 
-注：910B推理单机2卡即可推理.全参微调910B至少需要二机16卡。
+注：Atlas 800T A2芯片推理单机2卡即可推理.全参微调Atlas 800T A2芯片至少需要二机16卡。
 
-### 模型权重准备
+### 数据及权重准备
 
-#### torch权重转mindspore权重
+#### 数据集下载
 
-开发者可以下载获取官方权重后，通过下面提供的**权重转换脚本**，将官方权重转换为MindSpore权重。
+当前提供WikiText-103和alpaca_data数据集分别作为预训练和微调的数据集。
 
-从huggingface下载预训练权重（权重来源于mistralai）：
+| 数据集名称             |               适用模型               |      适用阶段       |                                                 下载链接                                                  |
+|:------------------|:--------------------------------:|:---------------:|:-----------------------------------------------------------------------------------------------------:|
+| WikiText-103 | Mixtral-8x7b | pretrain | [Link](https://dagshub.com/DagsHub/WIkiText-103/src/main/dataset/tokens/wiki.train.tokens) |
+| alpaca_data | Mixtral-8x7b | finetune / lora | [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json) |
 
-- [Mixtral-8x7B-v0.1](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1)
+1. 分词模型下载，参考模型权重下载的tokenizer.model
+
+2. 使用以下预处理脚本生成mindrecord训练数据
+
+``` bash
+# 使用tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理+Mindrecord数据生成
+python llama_preprocess.py \
+--dataset_type wiki \
+--input_glob  /{path}/wiki.train.tokens \
+--model_file /{path}/tokenizer.model \
+--seq_length 4096 \
+--output_file /{path}/wiki4096.mindrecord
+```
+
+数据处理时候注意bos，eos，pad等特殊ids要和yaml配置中model_config里保持一致，默认bos_token_id=1, eos_token_id=2, pad_token_id=0, 如果有所修改，yaml中对应的配置也需要修改； 一般预训练的数据中不包含pad_token，此时建议pad_token_id设为-1。
+
+- alpaca数据集原始格式样例：
+
+```text
+# alpaca examples:
+    {
+        "instruction": "Describe a time when you had to make a difficult decision.",
+        "input": "",
+        "output": "I had to make a difficult decision when I was working as a project manager at a construction company. I was in charge of a project that needed to be completed by a certain date in order to meet the client\u2019s expectations. However, due to unexpected delays, we were not able to meet the deadline and so I had to make a difficult decision. I decided to extend the deadline, but I had to stretch the team\u2019s resources even further and increase the budget. Although it was a risky decision, I ultimately decided to go ahead with it to ensure that the project was completed on time and that the client\u2019s expectations were met. The project was eventually successfully completed and this was seen as a testament to my leadership and decision-making abilities."
+    },
+    {
+        "instruction": "Identify the odd one out.",
+        "input": "Twitter, Instagram, Telegram",
+        "output": "Telegram"
+    },
+```
+
+- step 1. 执行`alpaca_converter.py`，使用fastchat工具添加prompts模板，将原始数据集转换为多轮对话格式。
+
+``` bash
+# 脚本路径：tools/dataset_preprocess/llama/alpaca_converter.py
+# 执行转换脚本
+python alpaca_converter.py \
+--data_path /{path}/alpaca_data.json \
+--output_path /{path}/alpaca-data-conversation.json
+```
+
+```text
+# 参数说明
+data_path: 存放alpaca数据的路径
+output_path: 输出转换后对话格式的数据路径
+```
+
+转换后格式样例：
+
+```text
+{
+    "id": "1",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\nGive three tips for staying healthy.\n\n### Response:"
+      },
+      {
+        "from": "gpt",
+        "value": "1.Eat a balanced diet and make sure to include plenty of fruits and vegetables. \n2. Exercise regularly to keep your body active and strong. \n3. Get enough sleep and maintain a consistent sleep schedule."
+      }
+    ]
+  },
+```
+
+- step 2. 执行`llama_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
+
+```bash
+# 脚本路径：tools/dataset_preprocess/llama/llama_preprocess.py
+# 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13 python = 3.9
+python llama_preprocess.py \
+--dataset_type qa \
+--input_glob /{path}/alpaca-data-conversation.json \
+--model_file /{path}/tokenizer.model \
+--seq_length 4096 \
+--output_file /{path}/alpaca-fastchat4096.mindrecord
+```
+
+#### 模型权重下载
+
+目前，MindFormers 未提供已经转换完成的预训练权重，用户需要从huggingface下载预训练权重，然后使用权重转换脚本将官方权重转换成Mindspore权重。
+
+| 模型名称               |                                                    MindSpore权重                                                     |                         HuggingFace权重                          |
+|:-------------------|:------------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------------------:|
+| Mixtral-8x7b  | / | [Link](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1)  |
+|tokenizer.model|[Link](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1/blob/main/tokenizer.model)|/|
+
+#### 模型权重转换
+
+1. torch权重转mindspore权重
 
 下载完成后，运行如下转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
@@ -92,7 +183,7 @@ output_path: ms权重保存文件路径，需指定到保存权重的名称。
 dtype: 指定转换出的ms权重的数据类型。
 ```
 
-#### mindspore权重转torch权重
+2. mindspore权重转torch权重
 
 在生成mindspore权重之后如需使用torch运行，可根据如下命令转换：
 
@@ -136,17 +227,7 @@ dtype: 指定转换出的torch权重的数据类型。
 strategy_dir: 待转换mindspore权重的strategy文件路径
 ```
 
-### 模型权重切分和合并
-
-从huggingface转换而来的权重通常是完整权重。
-
-- 基于完整权重进行多卡分布式训练，需要将完整权重转换为分布式权重。
-
-- 基于训完的分布式权重进行多卡推理，需要将分布式权重转换为多卡推理权重。
-
-- 修改分布式策略训练，需要将权重转换为对应分布式权重。
-
-### [分布式训练/微调权重合并](../feature_cards/Transform_Ckpt.md)
+#### [分布式训练/微调权重合并](../feature_cards/Transform_Ckpt.md)
 
 分布式训练/微调后所得到的权重文件为根据策略切分后的权重，需要手动将切分权重合一，以用于评估和推理。
 
@@ -178,33 +259,7 @@ prefix: ckpt文件前缀名
 
 ## 预训练
 
-### 数据集准备
-
-以Wikitext2数据集为例:
-
-- 数据集下载：[WikiText2数据集](https://gitee.com/link?target=https%3A%2F%2Fascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com%2FMindFormers%2Fdataset%2Fwikitext-2%2Fwikitext-2-v1.zip)
-
-- 分词模型下载：[tokenizer文件](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1/blob/main/tokenizer.model)
-
-- 使用以下预处理脚本生成mindrecord训练数据
-
-``` bash
-# 使用tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理+Mindrecord数据生成
-python llama_preprocess.py \
---dataset_type wiki \
---input_glob  /{path}/wiki.train.tokens \
---model_file /{path}/tokenizer.model \
---seq_length 4096 \
---output_file /{path}/wiki4096.mindrecord
-```
-
-数据处理时候注意bos，eos，pad等特殊ids要和yaml配置中model_config里保持一致，默认bos_token_id=1, eos_token_id=2, pad_token_id=0, 如果有所修改，yaml中对应的配置也需要修改； 一般预训练的数据中不包含pad_token，此时建议pad_token_id设为-1。
-
-### 脚本启动（Mixtral 8*7b为例）
-
-#### 多卡训练
-
-##### 多机多卡
+### 多机训练
 
 - step 1. 在模型对应的配置文件`research/mixtral/pretrain_mixtral-8x7b.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练) 通过配置中的`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
 
@@ -272,80 +327,7 @@ train_data: 训练数据集文件夹路径
 
 ## 微调
 
-### 数据集准备
-
-目前提供alpaca数据集的预处理脚本用于全参微调任务。
-
-数据集下载链接如下：
-
-- [alpaca_data](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)
-
-alpaca数据集原始格式样例：
-
-```text
-# alpaca examples:
-    {
-        "instruction": "Describe a time when you had to make a difficult decision.",
-        "input": "",
-        "output": "I had to make a difficult decision when I was working as a project manager at a construction company. I was in charge of a project that needed to be completed by a certain date in order to meet the client\u2019s expectations. However, due to unexpected delays, we were not able to meet the deadline and so I had to make a difficult decision. I decided to extend the deadline, but I had to stretch the team\u2019s resources even further and increase the budget. Although it was a risky decision, I ultimately decided to go ahead with it to ensure that the project was completed on time and that the client\u2019s expectations were met. The project was eventually successfully completed and this was seen as a testament to my leadership and decision-making abilities."
-    },
-    {
-        "instruction": "Identify the odd one out.",
-        "input": "Twitter, Instagram, Telegram",
-        "output": "Telegram"
-    },
-```
-
-- step 1. 执行`alpaca_converter.py`，使用fastchat工具添加prompts模板，将原始数据集转换为多轮对话格式。
-
-``` bash
-# 脚本路径：tools/dataset_preprocess/llama/alpaca_converter.py
-# 执行转换脚本
-python alpaca_converter.py \
---data_path /{path}/alpaca_data.json \
---output_path /{path}/alpaca-data-conversation.json
-```
-
-```text
-# 参数说明
-data_path: 存放alpaca数据的路径
-output_path: 输出转换后对话格式的数据路径
-```
-
-转换后格式样例：
-
-```text
-{
-    "id": "1",
-    "conversations": [
-      {
-        "from": "human",
-        "value": "Below is an instruction that describes a task. Write a response that appropriately completes the request.\n\n### Instruction:\nGive three tips for staying healthy.\n\n### Response:"
-      },
-      {
-        "from": "gpt",
-        "value": "1.Eat a balanced diet and make sure to include plenty of fruits and vegetables. \n2. Exercise regularly to keep your body active and strong. \n3. Get enough sleep and maintain a consistent sleep schedule."
-      }
-    ]
-  },
-```
-
-- step 2. 执行`llama_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
-
-```bash
-# 脚本路径：tools/dataset_preprocess/llama/llama_preprocess.py
-# 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13 python = 3.9
-python llama_preprocess.py \
---dataset_type qa \
---input_glob /{path}/alpaca-data-conversation.json \
---model_file /{path}/tokenizer.model \
---seq_length 4096 \
---output_file /{path}/alpaca-fastchat4096.mindrecord
-```
-
 ### 全参微调
-
-当前模型已支持使用`Flash Attention`算法进行全参微调，推荐开启flash_attention，可加速训练。详请参考 [Flash Attention使用文档](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Training_Algorithms.md#flash-attention)
 
 - step 1. 将`../research/mixtral/finetune_mixtral-8x7b.yaml`中训练数据集路径改为微调数据集路径。
 
@@ -429,7 +411,26 @@ train_data: 训练数据集文件夹路径
 
 ## 推理
 
-微调后可通过以下命令进行单机多卡推理
+Mixtal-8x7b使用单机多卡推理，使能 gmm 算子优化需要对权重进行转换，转换命令如下：
+
+```shell
+# pytorch 权重 转换 ms_gmm权重
+python convert_weight.py --use_gmm=True --dtype='float16' --torch_ckpt_idr=/path/to/mixtral_torch_ckpt_dir --mindspore_ckpt_path=/path/to/new_mixtral.ckpt
+
+# pytorch 权重 转换 mindspore权重
+python convert_weight.py --use_gmm=False --dtype='float16' --torch_ckpt_idr=/path/to/mixtral_torch_ckpt_dir --mindspore_ckpt_path=/path/to/new_mixtral.ckpt
+
+# mindspore权重 转换 ms_gmm权重
+python convert_weight.py --use_gmm=True --dtype='float16' --pre_ckpt_path=/path/to/mixtral.ckpt --mindspore_ckpt_path=/path/to/new_mixtral.ckpt
+
+# 参数说明
+use_gmm: 是否进行gmm转换
+dtype: 数据类型，可选择: 'float16'，'float32'，'bfloat16', 默认值为 'float16'
+pre_ckpt_path: 需要转换的权重的路径
+mindspore_ckpt_path: 转换后gmm的权重的存储路径
+ ```
+
+ 模型权重转换完成后，可以用如下命令进行单机多卡推理：
 
 ```shell
 cd mindformers/research
@@ -439,8 +440,10 @@ bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
  --use_parallel True \
  --load_checkpoint model_dir \
  --auto_trans_ckpt True \
- --predict_data \"mixtral is a\"" \
+ --predict_data \"I love Beijing, because\"" \
  8 8118 output/msrun_log False 300
+
+# 输出推理结果：I love Beijing, because it is a city of contrats. It is a city of the old and the new, the traditional ... ... the future.
 
 # 参数说明，启动命令中的参数会覆盖yaml文件中的相同参数
 config: 配置文件路径
