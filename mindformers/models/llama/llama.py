@@ -152,6 +152,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          norm_eps=config.rms_norm_eps,
                                          qkv_has_bias=config.qkv_has_bias,
                                          qkv_concat=config.qkv_concat,
+                                         w2_transb=config.w2_transb,
                                          compute_dtype=config.compute_dtype,
                                          layernorm_compute_dtype=config.layernorm_compute_type,
                                          softmax_compute_dtype=config.softmax_compute_type,
