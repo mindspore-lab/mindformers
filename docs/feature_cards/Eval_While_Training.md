@@ -25,7 +25,7 @@
 
 ```shell
 python run_mindformer.py \
---config configs/gpt2/run_gpt2.yaml \
+--config configs/gpt2/pretrain_gpt2_small_fp16.yaml \
 --run_mode train \
 --train_dataset_dir /your_path/wikitext-2-train-mindrecord \
 --eval_dataset_dir /your_path/wikitext-2-eval-mindrecord \

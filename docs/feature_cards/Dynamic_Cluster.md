@@ -42,5 +42,5 @@ step 2. 运行动态组网脚本，启动分布式训练
 
 ```bash
 cd scripts
-bash run_distribute_ps_auto.sh /path/to/run_gpt2.yaml train
+bash run_distribute_ps_auto.sh /path/to/pretrain_gpt2_small_fp16.yaml train
 ```
