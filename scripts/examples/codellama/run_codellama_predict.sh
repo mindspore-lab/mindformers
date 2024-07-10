@@ -13,20 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
-PARALLEL=$1
-CONFIG_PATH=$2
-CKPT_PATH=$3
-DEVICE_NUM=$4
+CONFIG_PATH=$1
+CKPT_PATH=$2
+DEVICE_NUM=$3
 
 script_path="$(realpath "$(dirname "$0")")"
 
-if [ "$PARALLEL" = "parallel" ]; then
-  bash "$script_path"/../../msrun_launcher.sh \
-    "$script_path/run_codellama_generate.py \
-    --config_path $CONFIG_PATH \
-    --load_checkpoint $CKPT_PATH \
-    --use_parallel" "$DEVICE_NUM"
-else
-  echo "Only support 'parallel', but got $PARALLEL."
-fi
+bash "$script_path"/../../msrun_launcher.sh \
+ "$script_path/run_codellama_generate.py \
+ --config_path $CONFIG_PATH \
+ --load_checkpoint $CKPT_PATH \
+ --use_parallel" "$DEVICE_NUM"
