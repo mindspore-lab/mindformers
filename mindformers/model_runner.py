@@ -199,8 +199,9 @@ class MindIEModelRunner:
                               (block_size * self.num_kv_heads * self.head_size * 2 * 2 * self.num_layers)
         self.cpu_num_blocks = (cpu_mem_size * 1024 * 1024 * 1024) // \
                               (block_size * self.num_kv_heads * self.head_size * 2 * 2 * self.num_layers)
-        self.model_config.num_blocks = self.npu_num_blocks
         self.model_config.block_size = block_size
+        self.model_config.num_blocks = self.npu_num_blocks
+        self.model_config.checkpoint_name_or_path = None
         if not hasattr(self.model_config, "max_position_embedding") or not self.model_config.max_position_embedding:
             self.model_config.max_position_embedding = self.model_config.seq_length
 
@@ -208,7 +209,6 @@ class MindIEModelRunner:
 
         if self.config.use_parallel:
             build_parallel_config(self.config)
-            self.model_config.checkpoint_name_or_path = None
             self.model_config.parallel_config = self.config.parallel_config
 
         if not self.config.use_parallel and npu_device_ids:
@@ -220,18 +220,17 @@ class MindIEModelRunner:
         logger.info(f"Build context finished.")
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=True)
-        self.model_config.block_size = block_size
-        self.model_config.num_blocks = self.npu_num_blocks
+        logger.info(f"Build tokenizer finished.")
         self.model = AutoModel.from_config(self.model_config)
-        logger.info(f"Create model finished.")
+        logger.info(f"Build model finished.")
 
-        if self.config.use_parallel:
-            ms_model = ms.Model(self.model)
-            batch_size = self.model_config.batch_size
-            seq_length = self.model_config.seq_length
-            input_ids = np.ones(shape=tuple([batch_size, seq_length]))
-            inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
-            transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
+        ms_model = ms.Model(self.model)
+        batch_size = self.model_config.batch_size
+        seq_length = self.model_config.seq_length
+        input_ids = np.ones(shape=tuple([batch_size, seq_length]))
+        inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
+        transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
+        logger.info(f"Load checkpoints finished.")
 
         if self.model_config.is_dynamic:
             self.model.set_dynamic_inputs()
