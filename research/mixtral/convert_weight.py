@@ -22,6 +22,13 @@ from pathlib import Path
 import torch
 import mindspore as ms
 from safetensors.torch import load_file
+from mindformers.tools.utils import str2bool
+
+dtype_map = {
+    'fp32': ms.float32,
+    'bf16': ms.bfloat16,
+    'fp16': ms.float16
+}
 
 def name_replace(name: str):
     """replace hf param name to ms."""
@@ -37,7 +44,7 @@ def name_replace(name: str):
     return name
 
 # pylint: disable=W0613
-def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
+def convert_pt_to_ms(input_path, output_path, dtype=None, use_gmm=False, **kwargs):
     """convert hf weight to ms."""
     print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
     try:
@@ -84,13 +91,19 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
                     name_w3 = str_front + 'ffn.w3.weight'
                     w1_value = torch.stack(list_w1, 0).to(torch.float32).numpy()
                     print(f'\rprocessing parameter: {name_w1} {w1_value.shape}     ', end='', flush=True)
-                    ckpt_list.append({'name': name_w1, 'data': ms.Tensor(w1_value, dtype=dtype)})
+                    ckpt_list.append({'name': name_w1,
+                                      'data': ms.Tensor(w1_value if not use_gmm else w1_value.transpose((0, 2, 1)),
+                                                        dtype=dtype)})
                     w2_value = torch.stack(list_w2, 0).to(torch.float32).numpy()
                     print(f'\rprocessing parameter: {name_w2} {w2_value.shape}     ', end='', flush=True)
-                    ckpt_list.append({'name': name_w2, 'data': ms.Tensor(w2_value, dtype=dtype)})
+                    ckpt_list.append({'name': name_w2,
+                                      'data': ms.Tensor(w2_value if not use_gmm else w2_value.transpose((0, 2, 1)),
+                                                        dtype=dtype)})
                     w3_value = torch.stack(list_w3, 0).to(torch.float32).numpy()
                     print(f'\rprocessing parameter: {name_w3} {w3_value.shape}     ', end='', flush=True)
-                    ckpt_list.append({'name': name_w3, 'data': ms.Tensor(w3_value, dtype=dtype)})
+                    ckpt_list.append({'name': name_w3,
+                                      'data': ms.Tensor(w3_value if not use_gmm else w3_value.transpose((0, 2, 1)),
+                                                        dtype=dtype)})
                     count = 0
                     list_w1 = []
                     list_w2 = []
@@ -100,11 +113,33 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     print(f"\rConvert finished, the mindspore ckpt is saved in '{output_path}'.", flush=True)
     return True
 
+def convert_ms_to_gmm(input_path, output_path, **kwargs):
+    """convert ms weight to gmm."""
+    params = ms.load_checkpoint(input_path)
+    for k, v in params.items():
+        if 'feed_forward.ffn.w1.weight' in k or \
+                'feed_forward.ffn.w2.weight' in k or \
+                'feed_forward.ffn.w3.weight' in k:
+            orig_tensor = ms.Tensor(v)
+            gmm_tensor = orig_tensor.transpose((0, 2, 1))
+            params[k] = ms.Parameter(gmm_tensor)
+            print(f"\rConvert {params[k]} to gmm weight.", flush=True)
+    ms.save_checkpoint(params, output_path)
+    print(f"\rConvert finished, the mindspore ckpt is saved in '{output_path}'.", flush=True)
+    return True
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--torch_ckpt_dir', default='./mixtral/torch_ckpt/')
     parser.add_argument('--mindspore_ckpt_path', default='./mixtral/ms_ckpt/')
-    parser.add_argument('--dtype', default=None, choices=['fp16', 'fp32', 'bf16'])
+    parser.add_argument('--use_gmm', type=str2bool, default=False)
+    parser.add_argument('--pre_ckpt_path', default=None)
+    parser.add_argument('--dtype', default='fp16', type=str, choices=['fp16', 'fp32', 'bf16'])
     args = parser.parse_args()
-    convert_pt_to_ms(input_path=args.torch_ckpt_dir, output_path=args.mindspore_ckpt_path,
-                     dtype=args.dtype, **extra_kwargs)
+
+    if args.pre_ckpt_path:
+        convert_ms_to_gmm(input_path=args.pre_ckpt_path, output_path=args.mindspore_ckpt_path)
+    else:
+        convert_pt_to_ms(input_path=args.torch_ckpt_dir, output_path=args.mindspore_ckpt_path,
+                         dtype=dtype_map[args.dtype], use_gmm=args.use_gmm)
