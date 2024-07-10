@@ -1149,7 +1149,7 @@ class RotaryEmbedding(Cell):
             layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
             layout_add = (layout("dp", "mp", "cp", "None"), layout("dp", "mp", "cp", "None"))
             layout_bmm_swap = (layout("dp", "mp", "cp", "None"), layout("None", "None"))
-            layout_mul = (layout("dp", "mp", "cp", "None"), layout("dp", "None", "cp", "None"))
+            layout_mul = (layout("dp", "mp", "cp", "None"), layout("None", "None", "cp", "None"))
             self.add.shard(in_strategy=layout_add)
             self.bmm_swap.shard(in_strategy=layout_bmm_swap)
             self.mul.shard(in_strategy=layout_mul)
