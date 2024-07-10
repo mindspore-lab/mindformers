@@ -63,10 +63,10 @@
    docs/feature_cards/Transform_Ckpt.md
    docs/feature_cards/Transform_Lorackpt.md
    docs/feature_cards/Text_Generator.md
-   docs/feature_cards/Inference.md
    docs/feature_cards/Chat_Web.md
    docs/feature_cards/Dynamic_Cluster.md
    docs/feature_cards/Offset_Recompute.md
+   docs/feature_cards/Convert_Weight.md
 
 .. toctree::
    :glob:

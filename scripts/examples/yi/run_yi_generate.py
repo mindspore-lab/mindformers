@@ -12,40 +12,53 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-# -*- coding: utf-8 -*-
-
 """Yi predict example."""
+import os
 import argparse
 
 import mindspore as ms
 from mindspore import Tensor, Model
 from mindspore.common import initializer as init
 
-from mindformers import MindFormerConfig, LlamaConfig, TransformerOpParallelConfig, LlamaTokenizer, LlamaForCausalLM, \
-    logger
-from mindformers import init_context
+from mindformers import MindFormerConfig, logger
+from mindformers.models.llama import LlamaConfig, LlamaTokenizer, LlamaForCausalLM
 from mindformers.trainer.utils import transform_and_load_checkpoint
+from mindformers.core.context import build_context
+from mindformers.core.parallel_config import build_parallel_config
 
 
-def main(config_path, predict_mode):
+def main(config_path, use_parallel, load_checkpoint, vocab_file, predict_mode):
     """main function."""
-    # 多batch输入
-    inputs = ["以雷霆之力", "小明和小红", "生活就像一盒巧克力"]
+    inputs = ["以雷霆之力", "小明和小红"]
+    batch_size = len(inputs)
 
-    # set model config
+    # init config with yaml
     config = MindFormerConfig(config_path)
+    config.use_parallel = use_parallel
+    device_num = os.getenv('MS_WORKER_NUM')
+    logger.info(f"Use device number: {device_num}, it will override config.model_parallel.")
+    config.parallel_config.model_parallel = int(device_num) if device_num else 1
+    config.parallel_config.data_parallel = 1
+    config.parallel_config.pipeline_stage = 1
+    config.load_checkpoint = load_checkpoint
 
-    # 初始化环境
-    init_context(use_parallel=config.use_parallel,
-                 context_config=config.context,
-                 parallel_config=config.parallel)
+    os.environ["RUN_MODE"] = config.run_mode
 
+    # init context
+    build_context(config)
+    build_parallel_config(config)
+
+    # init model
+    config.model.model_config.parallel_config = config.parallel_config
     model_config = LlamaConfig(**config.model.model_config)
-    model_config.parallel_config = TransformerOpParallelConfig(**config.parallel_config)
-    model_config.batch_size = len(inputs)
+    model_config.checkpoint_name_or_path = None
+    model_config.batch_size = batch_size
 
     # build tokenizer
+    config.processor.tokenizer.vocab_file = vocab_file
     tokenizer = LlamaTokenizer(**config.processor.tokenizer)
+
+    # build model
     network = LlamaForCausalLM(model_config)
     model = Model(network)
 
@@ -53,34 +66,49 @@ def main(config_path, predict_mode):
     if config.load_checkpoint:
         logger.info("----------------Transform and load checkpoint----------------")
         seq_length = config.model.model_config.seq_length
+        # set auto transform ckpt
+        if os.path.isdir(config.load_checkpoint) or config.use_parallel:
+            config.auto_trans_ckpt = True
+        else:
+            config.auto_trans_ckpt = False
         input_ids = Tensor(shape=(1, seq_length), dtype=ms.int32, init=init.One())
         infer_data = network.prepare_inputs_for_predict_layout(input_ids)
         transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
 
-    with open('text_generation_result.txt', 'w') as writers:
-        for prompt in inputs:
-            if predict_mode == 'Chat':
-                message = [{"role": "user", "content": prompt}]
-                input_id = tokenizer.apply_chat_template(conversation=message,
-                                                         tokenize=True,
-                                                         add_generation_prompt=True)
-            else:
-                input_id = tokenizer.encode(prompt)
+    for prompt in inputs:
+        if predict_mode == 'Chat':
+            message = [{"role": "user", "content": prompt}]
+            input_id = tokenizer.apply_chat_template(conversation=message,
+                                                     tokenize=True,
+                                                     add_generation_prompt=True)
+        else:
+            input_id = tokenizer.encode(prompt)
 
-            outputs = network.generate(input_id,
-                                       max_length=model_config.max_decode_length,
-                                       do_sample=model_config.do_sample)
-            result = tokenizer.decode(outputs[0][len(input_id):], skip_special_tokens=True)
-            print(result)
-            writers.write(f'text_generation:\n{result}\n')
-    writers.close()
+        outputs = network.generate(input_id,
+                                   max_length=model_config.max_decode_length,
+                                   do_sample=model_config.do_sample)
+        result = tokenizer.decode(outputs[0][len(input_id):], skip_special_tokens=True)
+        print(result)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_path', default="", type=str,
-                        help='predict yaml path')
+    parser.add_argument('--config_path', default='predict_yi_6b.yaml', type=str,
+                        help='model config file path.')
+    parser.add_argument('--use_parallel', action='store_true',
+                        help='if run model prediction in parallel mode.')
+    parser.add_argument('--load_checkpoint', type=str,
+                        help='load model checkpoint path or directory.')
+    parser.add_argument('--vocab_file', type=str,
+                        help='tokenizer.model file path.')
     parser.add_argument('--predict_mode', default="Base", type=str,
-                        help='predict_mode is Base or Chat')
+                        help="predict mode is 'Base' or 'Chat'")
+
     args = parser.parse_args()
-    main(args.config_path, args.predict_mode)
+    main(
+        args.config_path,
+        args.use_parallel,
+        args.load_checkpoint,
+        args.vocab_file,
+        args.predict_mode
+    )

@@ -18,21 +18,21 @@ Yi系列是由零一万物研究的大规模语言预训练模型，目前开源
 
 ## 模型性能
 
-| Config                                                            |      Task       |        Datasets        |   Performance   |  Phase   |
-|:------------------------------------------------------------------|:---------------:|:----------------------:|:---------------:|:--------:|
-| [finetune_yi_6b](../../research/yi/finetune_yi_6b.yaml)           | text_generation |  alpaca_gpt4_data_zh   | 3324 tokens/s/p | Finetune |
-| [finetune_yi_34b](../../research/yi/finetune_yi_34b.yaml)         | text_generation |         alpaca         |  660 tokens/s/p | Finetune |
-| [pretrain_yi_34b](../../research/yi/pretrain_yi_34b.yaml)         | text_generation |        wikitext2       |  660 tokens/s/p | Pretrain |
-| [predict_yi_6b](../../research/yi/predict_yi_6b.yaml)             | text_generation |           /            |   39 tokens/s   | Predict  |
-| [predict_yi_34b](../../research/yi/predict_yi_34b.yaml)           | text_generation |           /            |   39 tokens/s   | Predict  |
-| [predict_yi_34b_chat](../../research/yi/predict_yi_34b_chat.yaml) | text_generation |           /            |   39 tokens/s   | Predict  |
+| Config                                            |      Task       |      Datasets       | SeqLength |   Performance   |  Phase   |
+|:--------------------------------------------------|:---------------:|:-------------------:|:---------:|:---------------:|:--------:|
+| [finetune_yi_6b](./finetune_yi_6b.yaml)           | text_generation | alpaca_gpt4_data_zh |   2048    | 3324 tokens/s/p | Finetune |
+| [finetune_yi_34b](./finetune_yi_34b.yaml)         | text_generation |       alpaca        |   4096    | 660 tokens/s/p  | Finetune |
+| [pretrain_yi_34b](./pretrain_yi_34b.yaml)         | text_generation |      wikitext2      |   4096    | 660 tokens/s/p  | Pretrain |
+| [predict_yi_6b](./predict_yi_6b.yaml)             | text_generation |          -          |    512    |   39 tokens/s   | Predict  |
+| [predict_yi_34b](./predict_yi_34b.yaml)           | text_generation |          -          |   4096    |   39 tokens/s   | Predict  |
+| [predict_yi_34b_chat](./predict_yi_34b_chat.yaml) | text_generation |          -          |   16384   |   39 tokens/s   | Predict  |
 
 ## 模型文件
 
 1. 模型配置：
 
    ```text
-    yi
+    research/yi
      ├── finetune_yi_6b.yaml               # 6B 全参微调启动配置
      ├── finetune_yi_34b.yaml              # 34B 全参微调启动配置
      ├── pretrain_yi_34b.yaml              # 34B 预训练启动配置
@@ -44,19 +44,19 @@ Yi系列是由零一万物研究的大规模语言预训练模型，目前开源
 2. 环境准备和任务启动脚本：
 
    ```text
-    yi
+    research/yi
      ├── alpaca_converter.py           # alpaca数据集格式转换脚本
      ├── yi_preprocess.py              # 数据集预处理脚本
      ├── convert_ckpt_bf16.py          # 权重转换脚本
      ├── predict_yi_34b_chat.py        # 34B chat在线推理启动脚本
-     └── run_yi.py                     # Qwen高阶接口脚本
+     └── run_yi.py                     # Yi高阶接口脚本
    ```
 
 ## 环境及数据准备
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#二mindformers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
 
 > 注：Atlas 800T A2芯片支持6b单卡推理，全参微调至少需要4卡，建议8卡；34b推理需要4卡，全参微调需要双机32卡。
 
@@ -64,122 +64,78 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 #### 数据集下载
 
-| 数据集名称            |      适用模型       | 适用阶段  |                                                         下载链接                                                        |
+| 数据集名称               |        适用模型        |   适用阶段   |                                                         下载链接                                                          |
 |:--------------------|:------------------:|:--------:|:---------------------------------------------------------------------------------------------------------------------:|
-| Wikitext2           | yi-34b             | Pretrain | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip) |
-| alpaca              | yi-6b <br/> yi-34b | Finetune | [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)                                       |
-| alpaca_gpt4_data_zh | yi-6b <br/> yi-34b | Finetune | [Link](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh/resolve/main/alpaca_gpt4_data_zh.json)             |
+| Wikitext2           |       yi-34b       | Pretrain | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip) |
+| alpaca              | yi-6b <br/> yi-34b | Finetune |                    [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)                    |
+| alpaca_gpt4_data_zh | yi-6b <br/> yi-34b | Finetune |       [Link](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh/resolve/main/alpaca_gpt4_data_zh.json)       |
 
-#### 预训练数据集
+数据集处理过程中使用的`tokenizer.model`可以通过[链接](https://huggingface.co/01-ai/Yi-6B/blob/main/tokenizer.model)下载。
 
-使用Yi-6B-Base或Yi-34B-Base进行预训练时，需要使用配套的tokenizer.model处理数据集。
+- **Wikitext2 数据预处理**
 
-以Wikitext2数据集为例:
+  使用`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`对下载后的数据进行预处理，并生成Mindrecord数据。
 
-- 数据集下载：[WikiText2数据集](https://gitee.com/link?target=https%3A%2F%2Fascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com%2FMindFormers%2Fdataset%2Fwikitext-2%2Fwikitext-2-v1.zip)
+  ```shell
+  python llama_preprocess.py \
+    --dataset_type wiki \
+    --input_glob /{path}/wiki.train.tokens \
+    --model_file /{path}/tokenizer.model \
+    --seq_length 4096 \
+    --output_file /{path}/wiki4096.mindrecord
 
-- 使用以下预处理脚本生成mindrecord训练数据
+  # 参数说明
+  dataset_type: 预处理数据类型
+  input_glob:   输入下载后wiki.train.tokens的文件路径
+  model_file:   模型tokenizer.model文件路径
+  seq_length:   输出数据的序列长度
+  output_file:  输出文件的保存路径
+  ```
 
-``` bash
-# 使用tools/dataset_preprocess/llama/llama_preprocess.py进行数据预处理+Mindrecord数据生成
-python llama_preprocess.py \
---dataset_type wiki \
---input_glob  /{path}/wiki.train.tokens \
---model_file /{path}/tokenizer.model \
---seq_length 4096 \
---output_file /{path}/wiki4096.mindrecord
-```
+- **alpaca_gpt4_data_zh 数据预处理**
 
-#### 微调数据集
+  1. 执行`research/yi/alpaca_converter.py`，将原始数据集转换为对话格式。
 
-使用Yi-6B-Base或Yi-34B-Base进行全参微调时，需要使用配套的tokenizer.model处理数据集。
+     ```shell
+     python research/yi/alpaca_converter.py \
+      --data_path /{path}/alpaca_gpt4_data_zh.json \
+      --output_path /{path}/alpaca_gpt4_data_zh-conversation.json
 
-目前提供[alpaca数据集](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)（json格式）[alpaca_gpt4_data_zh数据集](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh/resolve/main/alpaca_gpt4_data_zh.json) （jsonl格式）数据集的预处理脚本用于全参微调任务。
+     # 参数说明
+     data_path:   输入下载的数据集路径
+     output_path: 输出转换后数据集保存路径
+     ```
 
-alpaca数据集样式
+  2. 执行`research/yi/yi_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
 
-```text
-  {
-    "instruction": "保持健康的三个提示。",
-    "input": "",
-    "output": "以下是保持健康的三个提示：\n\n1. 保持身体活动。每天做适当的身体运动，如散步、跑步或游泳，能促进心血管健康，增强肌肉力量，并有助于减少体重。\n\n2. 均衡饮食。每天食用新鲜的蔬菜、水果、全谷物和脂肪含量低的蛋白质食物，避免高糖、高脂肪和加工食品，以保持健康的饮食习惯。\n\n3. 睡眠充足。睡眠对人体健康至关重要，成年人每天应保证 7-8 小时的睡眠。良好的睡眠有助于减轻压力，促进身体恢复，并提高注意力和记忆力。"
-  }
-```
+     ```shell
+     # 由于此工具依赖fschat工具包解析prompt模板, 请提前安装fschat >= 0.2.13 python = 3.9
+     python research/yi/yi_preprocess.py \
+      --dataset_type qa \
+      --input_glob /{path}/alpaca_gpt4_data_zh-conversation.json \
+      --model_file /{path}/tokenizer.model \
+      --seq_length 2048 \
+      --output_file /{path}/alpaca_gpt4_data_zh.mindrecord
 
-- step 1. 执行`alpaca_converter.py`，将原始数据集转换为对话格式。
-
-``` bash
-# 脚本路径：yi/alpaca_converter.py
-# 执行转换脚本
-python alpaca_converter.py \
---data_path /{path}/alpaca_gpt4_data_zh.json \
---output_path /{path}/alpaca_gpt4_data_zh-conversation.json
-```
-
-```text
-# 参数说明
-data_path: 存放原始数据的路径
-output_path: 输出转换后对话格式的数据路径
-```
-
-转换后格式样例：
-
-```text
-[
-  {
-    "id": "1",
-    "conversations": [
-      {
-        "from": "human",
-        "value": "保持健康的三个提示。"
-      },
-      {
-        "from": "gpt",
-        "value": "以下是保持健康的三个提示：\n\n1. 保持身体活动。每天做适当的身体运动，如散步、跑步或游泳，能促进心血管健康，增强肌肉力量，并有助于减少体重。\n\n2. 均衡饮食。每天食用新鲜的蔬菜、水果、全谷物和脂肪含量低的蛋白质食物，避免高糖、高脂肪和加工食品，以保持健康的饮食习惯。\n\n3. 睡眠充足。睡眠对人体健康至关重要，成年人每天应保证 7-8 小时的睡眠。良好的睡眠有助于减轻压力，促进身体恢复，并提高注意力和记忆力。"
-      }
-    ]
-  }
-]
-```
-
-- step 2. 执行`yi_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
-
-```bash
-# 脚本路径：yi/yi_preprocess.py
-# 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13 python = 3.9
-python yi_preprocess.py \
---dataset_type qa \
---input_glob /{path}/alpaca_gpt4_data_zh-conversation.json \
---model_file /{path}/tokenizer.model \
---seq_length 2048 \
---output_file /{path}/alpaca_gpt4_data_zh.mindrecord
-```
-
-```text
-# 参数说明
-input_file_path：数据集输入文件路径
-output_file：生成的mindrecord目标文件路径
-dataset_type：数据集类型，目前仅支持"text"和"qa"
-model_file：tokenizer.model文件路径
-seq_length：数据长度
-```
+     # 参数说明
+     input_file_path: 输入数据集文件路径
+     output_file:     输出文件的保存路径
+     dataset_type:    数据集类型, 目前仅支持'text'和'qa'
+     model_file:      模型词表文件路径
+     seq_length:      数据序列长度
+     ```
 
 #### 模型权重下载
 
-- 从huggingface下载原始权重后转换
+MindFormers提供下载HuggingFace官方权重的下载链接，用户可通过链接下载权重并经过[模型权重转换](#模型权重转换)后进行使用。
 
-需要将整个工程下载下来。
+词表下载链接：[tokenizer.model](https://huggingface.co/01-ai/Yi-6B/blob/main/tokenizer.model)
 
-- [Yi-6B-Base](https://huggingface.co/01-ai/Yi-6B)
-- [Yi-34B-Base](https://huggingface.co/01-ai/Yi-34B)
-- [Yi-34B-Chat](https://huggingface.co/01-ai/Yi-34B-Chat)
-
-如果使用git命令下载，下载前请先确保已安装git-lfs。
-
-```shell
-git lfs install
-git clone https://huggingface.co/01-ai/Yi-6B
-```
+| 模型名称        | MindSpore权重 |                  HuggingFace权重                   |
+|:------------|:-----------:|:------------------------------------------------:|
+| Yi-6B-Base  |      -      |    [Link](https://huggingface.co/01-ai/Yi-6B)    |
+| Yi-34B-Base |      -      |   [Link](https://huggingface.co/01-ai/Yi-34B)    |
+| Yi-34B-Chat |      -      | [Link](https://huggingface.co/01-ai/Yi-34B-Chat) |
 
 #### 模型权重转换
 
@@ -194,207 +150,159 @@ input_path:  下载HuggingFace权重的文件夹路径
 output_path: 转换后的MindSpore权重文件保存路径
 ```
 
-**注**: 请安装torch>=2.2.0和transformers>=4.37.2版本。如果执行报错，请检查并安装requests、decorator、pandas、sympy。
-
-#### 模型权重切分与合并
-
-从huggingface或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
-
-通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
-
-以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+> 请安装torch>=2.2.0和transformers>=4.37.2版本。如果执行报错，请检查并安装requests、decorator、pandas、sympy。
 
 ## 预训练
 
-以Yi-34b为例。
+MindFormers提供`Yi-34b`多机多卡预训练示例，目前`Yi-34b`模型不支持进行单机预训练任务，预训练数据集可通过[数据集下载](#数据集下载)获得。
 
-1. 修改模型配置文件`research/yi/pretrain_yi_34b.yaml`
+多机多卡拉起任务需要多机同时执行命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)。
 
-   ```yaml
-   processor:
-    tokenizer:
-      vocab_file: "/{path}/tokenizer.model"        # 词表文件路径
-   ```
+以下为`Yi-34b`2机16卡执行命令：
 
-   `ymal`配置文件中各参数含义详见[Config配置说明](../../configs/README.md)，
-
-2. 执行msrun启动脚本，进行双机16卡分布式训练
-
-   在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考ms_run快速使用
-
-```bash
-# 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
+```shell
+# 节点0，节点ip为{ip_addr}，作为主节点，总共16卡且每个节点8卡
 bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
---config research/yi/pretrain_yi_34b.yaml \
---use_parallel True \
---run_mode train \
---auto_trans_ckpt True \
---train_dataset /{path}/alpaca.mindrecord" \
-16 8 {ip_addr} 8118 0 output/msrun_log False 300
+ --config research/yi/pretrain_yi_34b.yaml \
+ --use_parallel True \
+ --run_mode train \
+ --auto_trans_ckpt False \
+ --train_dataset /{path}/wiki4096.mindrecord" \
+ 16 8 {ip_addr} 8118 0 output/msrun_log False 300
 
-# 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+# 节点1，节点0与节点1启动命令仅参数NODE_RANK不同
 bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
---config research/yi/pretrain_yi_34b.yaml \
---use_parallel True \
---run_mode train \
---auto_trans_ckpt True \
---train_dataset /{path}/alpaca.mindrecord" \
-16 8 {ip_addr} 8118 1 output/msrun_log False 300
+ --config research/yi/pretrain_yi_34b.yaml \
+ --use_parallel True \
+ --run_mode train \
+ --auto_trans_ckpt False \
+ --train_dataset /{path}/wiki4096.mindrecord" \
+ 16 8 {ip_addr} 8118 1 output/msrun_log False 300
 
 # 参数说明
-# config: 配置文件路径
-# load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_0/xxx.ckpt'格式存放
-# auto_trans_ckpt: 自动权重转换开关
-# run_mode: 运行模式，微调时设置为finetune
-# train_dataset: 训练数据集文件夹路径
+config:          配置文件路径
+use_parallel:    是否开启并行训练
+run_mode:        运行模式, 预训练时设置为train
+auto_trans_ckpt: 是否开启自动权重转换
+train_dataset:   训练数据集路径
 ```
 
 ## 微调
 
 ### 全参微调
 
+MindFormers提供`Yi-6b`单机微调以及`Yi-34b`多机微调示例，目前`Yi-34b`模型不支持进行单机微调任务，微调数据集可通过[数据集下载](#数据集下载)获得。
+
 #### 单机训练
 
-以Yi-6b全参微调为例。
+以`Yi-6b`全参微调为例，使用配置文件`research/yi/finetune_yi_6b.yaml`，执行如下命令拉起单机8卡微调任务。
 
-1. 修改模型配置文件`research/yi/finetune_yi_6b.yaml`
-
-```yaml
-processor:
- tokenizer:
-  vocab_file: "/{path}/tokenizer.model"        # 词表文件路径
-```
-
-   `ymal`配置文件中各参数含义详见[Config配置说明](../../configs/README.md)，
-
-2. 执行msrun启动脚本，进行8卡分布式微调
-
-```bash
-bash scripts/msrun_launcher.sh " \
- python research/yi/run_yi.py \
+```shell
+bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
  --config research/yi/finetune_yi_6b.yaml \
  --run_mode finetune \
  --load_checkpoint /{path}/yi_6b.ckpt \
  --train_dataset /{path}/alpaca_gpt4_data_zh.mindrecord \
  --auto_trans_ckpt True \
  --use_parallel True" 8
+
+# 参数说明
+config:          配置文件路径
+run_mode:        运行模式, 微调时设置为finetune
+load_checkpoint: 预训练权重路径
+train_data:      训练数据集路径
+auto_trans_ckpt: 是否开启自动权重转换
+use_parallel:    是否开启并行训练
 ```
 
 #### 多机训练
 
-以Yi-34b全参微调为例。
+以`Yi-34b`全参微调为例，使用配置文件`research/yi/finetune_yi_34b.yaml`，执行如下命令拉起2机16卡微调任务。
 
-1. 修改模型配置文件`research/yi/finetune_yi_34b.yaml`
+多机多卡拉起任务需要多机同时执行命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)。
 
-```yaml
-processor:
- tokenizer:
-  vocab_file: "/{path}/tokenizer.model"        # 词表文件路径
-```
-
-   `ymal`配置文件中各参数含义详见[Config配置说明](../../configs/README.md)，
-
-2. 执行msrun启动脚本，进行8卡分布式微调
-
-在多机上同时拉起任务，将参数MASTER_ADDR设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，具体可参考ms_run快速使用
-
-```bash
-# 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
+```shell
+# 节点0，节点ip为{ip_addr}，作为主节点，总共16卡且每个节点8卡
 bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
---config research/yi/finetune_yi_34b.yaml \
---load_checkpoint /path/model_dir \
---use_parallel True \
---run_mode finetune \
---auto_trans_ckpt True \
---train_dataset /path/alpaca.mindrecord" \
-16 8 {ip_addr} 8118 0 output/msrun_log False 300
+ --config research/yi/finetune_yi_34b.yaml \
+ --load_checkpoint /path/model_dir \
+ --use_parallel True \
+ --run_mode finetune \
+ --auto_trans_ckpt True \
+ --train_dataset /path/alpaca.mindrecord" \
+ 16 8 {ip_addr} 8118 0 output/msrun_log False 300
 
-# 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+# 节点1，节点0与节点1启动命令仅参数NODE_RANK不同
 bash scripts/msrun_launcher.sh "research/yi/run_yi.py \
---config research/yi/finetune_yi_34b.yaml \
---load_checkpoint /path/model_dir \
---use_parallel True \
---run_mode finetune \
---auto_trans_ckpt True \
---train_dataset /path/alpaca.mindrecord" \
-16 8 {ip_addr} 8118 1 output/msrun_log False 300
+ --config research/yi/finetune_yi_34b.yaml \
+ --load_checkpoint /path/model_dir \
+ --use_parallel True \
+ --run_mode finetune \
+ --auto_trans_ckpt True \
+ --train_dataset /path/alpaca.mindrecord" \
+ 16 8 {ip_addr} 8118 1 output/msrun_log False 300
 
 # 参数说明
-# config: 配置文件路径
-# load_checkpoint: 权重文件夹路径，权重按照'model_dir/rank_0/xxx.ckpt'格式存放
-# auto_trans_ckpt: 自动权重转换开关
-# run_mode: 运行模式，微调时设置为finetune
-# train_dataset: 训练数据集文件夹路径
+config:          配置文件路径
+load_checkpoint: 权重文件夹路径, 权重按照'model_dir/rank_0/xxx.ckpt'格式存放
+auto_trans_ckpt: 自动权重转换开关
+run_mode:        运行模式, 微调时设置为finetune
+train_dataset:   训练数据集路径
 ```
 
 ### 分布式训练权重合并
 
 分布式训练（微调）后所得到的权重文件为根据策略切分后的权重，可以手动将切分权重合一，以用于评估和推理。
 
-涉及到模型权重的单卡或多卡转换，详细教程请参考特性文档模型[权重切分与合并](../feature_cards/Transform_Ckpt.md)。
-
-1. 获取模型切分策略文件：
-
-   在执行微调脚本时，模型完成编译后，将会在`output/strategy`路径下生成各卡的切分策略文件，用于权重合并。
-
-2. 运行`mindformers/tools/transform_ckpt.py`脚本进行多卡权重合并：
-
-   ```shell
-   python transform_ckpt.py \
-     --src_ckpt_strategy {path}/output/strategy/ \
-     --src_ckpt_dir {path}/output/checkpoint/ \
-     --dst_ckpt_dir {path}/target_checkpoint/ \
-     --prefix yi_6b
-
-   # 参数说明
-   src_ckpt_strategy: 切分策略文件路径
-   src_ckpt_dir:      原切分权重文件夹
-   dst_ckpt_dir:      目标路径
-   prefix:            ckpt文件前缀
-   ```
-
-   > 注：`transform_checkpoints` 接口当前仅mindspore 2.0以上版本支持，如当前硬件环境只支持2.0以下版本，可以通过mindspore 2.0的cpu版本以执行该脚本。
+MindFormers提供自动权重转换和离线权重转换功能，可参考[自动转换案例](../feature_cards/Transform_Ckpt.md#自动转换案例)和[离线权重转换](../feature_cards/Transform_Ckpt.md#离线权重转换)进行分布式模型权重转换。
 
 ## 推理
 
-MindFormers提供`yi_6b/34b`的Base/Chat快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡、多卡以及多batch推理。
+MindFormers提供`Yi-6b`和`Yi-34b`的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡、多卡以及多batch推理。
 
 ```shell
 # 脚本使用
-bash scripts/examples/yi/run_yi_predict.sh CONFIG_PATH PREDICT_MODE DEVICE_NUM
+bash scripts/examples/yi/run_yi_predict.sh PARALLEL CONFIG_PATH CKPT_PATH TOKENIZER PREDICT_MODE DEVICE_NUM
 
 # 参数说明
-CONFIG_PATH: 模型配置文件路径
-PREDICT_MODE:   模型推理模式, 使用Base或Chat区分
-DEVICE_NUM:  使用卡数, 1为单卡, 其他为多卡
+PARALLEL:     是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
+CONFIG_PATH:  模型配置文件路径
+CKPT_PATH:    模型权重文件路径
+TOKENIZER:    模型tokenizer文件路径
+PREDICT_MODE: 模型推理模式, 可使用'Base'或'Chat'
+DEVICE_NUM:   使用卡数, 仅开启多卡推理时生效
 ```
 
 ### 单卡推理
 
-当前yi_34b模型较大，不支持单卡推理，以6b为例
+`Yi-6b-Base`支持单卡推理，`Yi-34b`模型规模较大，仅支持多卡卡推理。
 
 ```shell
-bash scripts/examples/yi/run_yi_predict.sh \
+bash scripts/examples/yi/run_yi_predict.sh single \
  research/yi/predict_yi_6b.yaml \
- Base 1
+ /path/yi_6b_base.ckpt \
+ /path/tokenizer.model Base
+
+# 推理输入
+# ["以雷霆之力", "小明和小红"]
+# 推理结果
+# 以雷霆之力，将这股力量化为一道道剑气。“噗！”一柄长枪被斩断成两截后，...
+# 小明和小红，他们俩个是好朋友。有一天小红对小明说：...
 ```
 
 ### 多卡推理
 
-以`yi_34b_base`4卡推理为例。
+以`Yi-34b-Chat`4卡推理为例，执行如下命令进行推理。
 
 ```shell
-bash scripts/examples/yi/run_yi_predict.sh \
- research/yi/predict_yi_34b.yaml \
- Base 4
-```
-
-### Chat推理
-
-以`yi_34b_Chat`4卡推理为例。
-
-```shell
-bash scripts/examples/yi/run_yi_predict.sh \
+bash scripts/examples/yi/run_yi_predict.sh parallel \
  research/yi/predict_yi_34b_chat.yaml \
- Chat 4
+ /path/yi_34b_chat.ckpt \
+ /path/tokenizer.model Chat 4
+
+# 推理输入
+# ["以雷霆之力", "小明和小红"]
+# 推理结果
+# "以雷霆之力"这个短语通常用来形容力量巨大或行动迅猛，可以用来描述自然现象、军事行动、商业竞争等。在不同的语境中，...
+# "小明和小红" 是一个非常普遍的中文名字，通常用于举例或者作为代号来指代两个人。他们可以是任何性别，...
 ```

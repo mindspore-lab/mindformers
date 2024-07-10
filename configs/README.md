@@ -67,7 +67,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
         - gradient_accumulation_shard: 设置累加梯度变量是否在数据并行维度上进行切分。
         - parallel_optimizer_threshold: 设置参数切分的阈值。
         - optimizer_weight_shard_size: 设置指定优化器权重切分通信域的大小。多机训练dp数较大时可以适当设置为一个较小的值（需要能整除dp值）。
-- parallel_config: 并行策略配置，可以参考mindformers.modules.transformer.TransformerOpParallelConfig
+- parallel_config: 并行策略配置，可以参考`mindformers.modules.transformer.TransformerOpParallelConfig`，并行配置涉及**算子级并行**，可参考[文档](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3.0rc2/parallel/operator_parallel.html)。
     - data_parallel: 数据并行，自动并行双递归策略搜索算法下无需配置
     - model_parallel: 模型并行，自动并行双递归策略搜索算法下无需配置
     - mem_coeff: 自动并行双递归策略搜索算法下需配置，控制策略生成更倾向于数据并行或者模型并行，数值越大，模型并行数越大。配置值范围为[0.125, 1024], 配置值为0.125时，生成纯数据并行策略；配置值为2014时，生成纯模型并行策略；

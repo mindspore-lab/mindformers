@@ -54,7 +54,7 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#二mindformers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
 
 > 注：Atlas 800T A2芯片支持Baichuan2-7b和Baichuan2-13b进行单机8卡全参微调和LoRA微调，以及单机单卡推理。
 
@@ -68,7 +68,7 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 |:------------------|:--------------------------------:|:---------------:|:-----------------------------------------------------------------------------------------------------:|
 | belle_chat_ramdon | Baichuan2-7B <br/> Baichuan2-13B | finetune / lora | [Link](https://github.com/baichuan-inc/Baichuan2/blob/main/fine-tune/data/belle_chat_ramdon_10k.json) |
 
-下载数据集后，需要执行`belle_preprocess.py`脚本进行数据预处理，将原始数据转换为mindrecord格式。
+下载数据集后，需要执行`belle_preprocess.py`脚本进行数据预处理，将原始数据转换为mindrecord格式。`tokenizer.model`可点击[链接](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/tokenizer.model)进行下载。
 
 ```shell
 cd research/baichuan2
@@ -91,13 +91,14 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于训练
 
 也可选择从HuggingFace下载所有工程文件后进行[模型权重转换](#模型权重转换)使用。
 
+词表下载链接：[tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/tokenizer.model)
+
 | 模型名称               |                                                    MindSpore权重                                                     |                         HuggingFace权重                          |
 |:-------------------|:------------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------------------:|
 | Baichuan2-7B-Base  | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2_7B_Base.ckpt)  | [Link](https://huggingface.co/baichuan-inc/Baichuan2-7B-Base)  |
 | Baichuan2-7B-Chat  | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2_7B_Chat.ckpt)  | [Link](https://huggingface.co/baichuan-inc/Baichuan2-7B-Chat)  |
 | Baichuan2-13B-Base | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2_13B_Base.ckpt) | [Link](https://huggingface.co/baichuan-inc/Baichuan2-13B-Base) |
 | Baichuan2-13B-Chat | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/Baichuan2-13B-Chat.ckpt) | [Link](https://huggingface.co/baichuan-inc/Baichuan2-13B-Chat) |
-| tokenizer.model    |     [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/baichuan2/tokenizer.model)     |                               /                                |
 
 #### 模型权重转换
 
@@ -133,7 +134,7 @@ MindFormers提供了默认微调配置`finetune_baichuan2_7b.yaml`和`finetune_b
 
 以Baichuan2-7B为例，Baichuan2-13B只需要修改配置文件和权重即可。
 
-使用msrun方式拉起分布式训练，默认使用8卡进行训练，如果需要修改使用卡数参考[msrun方式启动](../../README.md#方式一使用已有脚本启动)进行配置。
+使用msrun方式拉起分布式训练，默认使用8卡进行训练，如果需要修改使用卡数参考[使用指南](../../README.md#三使用指南)进行配置。
 
 ```shell
 cd research/baichuan2
@@ -175,7 +176,8 @@ train_data: 训练数据集文件夹路径或mindrecord文件路径
 
 3. 使用msrun脚本训练
 
-   多机训练需要分别在不同节点执行命令，以下为2机8卡训练过程，参数说明以及使用更多节点参考[msrun方式启动](../../README.md#方式一使用已有脚本启动)多机多卡部分进行配置。
+   多机训练需要分别在不同节点执行命令，以下为2机8卡训练过程，参数说明以及使用更多节点参考[使用指南](../../README.md#三使用指南)多机多卡部分进行配置。
+
    > 注：如果各节点间使用共享存储存放工程文件，则可以使用**支持权重自动转换**功能，否则需要修改配置文件`auto_trans_ckpt=False`或在运行命令时设置`--auto_trans_ckpt False`，
    此时，预训练权重可以使用[权重转换工具](../../docs/feature_cards/Transform_Ckpt.md)转换得到。
 
@@ -251,7 +253,7 @@ INPUT_DATA:  输入模型预测数据
 DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 ```
 
-> 注：如果输入数据中包含空格等符号，需要添加转义字符`'\'`。例如，预测`"I love you."`，则`INPUT_DATA`应该为`"I\ love\ you."`
+> 注：如果输入数据中前后`"`需要添加转义字符`'\'`。例如，推理`"I love you."`，则`INPUT_DATA`应该为`\"I love you.\"`。
 
 ### 单卡推理
 
