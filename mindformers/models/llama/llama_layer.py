@@ -255,7 +255,6 @@ class LlamaFeedForward(Cell):
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
                  ffn_concat=False,
-                 w2_transb=True,
                  is_dynamic=False,
                  parallel_config=default_dpmp_config):
         super().__init__()
@@ -284,7 +283,6 @@ class LlamaFeedForward(Cell):
         self.hidden_dim = hidden_dim
         self.expert_num = expert_num
         self.ffn_concat = ffn_concat
-        self.w2_transb = w2_transb
 
         self.mul = P.Mul()
         self.cast = P.Cast()
@@ -305,7 +303,6 @@ class LlamaFeedForward(Cell):
                              expert_num=expert_num,
                              outer_batch=dp_moe,
                              has_bias=False,
-                             transpose_b=w2_transb,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type,
                              skip_redistribution=is_dynamic)
@@ -325,7 +322,6 @@ class LlamaFeedForward(Cell):
                              expert_num=expert_num,
                              outer_batch=dp_moe,
                              has_bias=False,
-                             transpose_b=w2_transb,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type,
                              skip_redistribution=is_dynamic)
@@ -373,20 +369,14 @@ class LlamaFeedForward(Cell):
             if self.ffn_concat:
                 self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
                 self.activate.shard(((dp, 1, mp),))
-                if self.w2_transb:
-                    self.w2.shard(((dp, mp), (1, mp)))
-                else:
-                    self.w2.shard(((dp, mp), (mp, 1)))
+                self.w2.shard(((dp, mp), (1, mp)))
                 self.split.add_prim_attr("skip_redistribution", True)
                 self.split.shard(((dp, 1, mp),))
                 self.mul.shard(((dp, mp), (dp, mp)))
             else:
                 self.w1.shard(((dp * cp, 1), (mp, 1)), strategy_activation=((dp * cp, mp),))
                 self.w1.activation.shard(((dp * cp, mp),))
-                if self.w2_transb:
-                    self.w2.shard(((dp * cp, mp), (1, mp)))
-                else:
-                    self.w2.shard(((dp * cp, mp), (mp, 1)))
+                self.w2.shard(((dp * cp, mp), (1, mp)))
                 self.w3.shard(((dp * cp, 1), (mp, 1)))
                 self.mul.shard(((dp, cp, mp), (dp, cp, mp)))
         else:

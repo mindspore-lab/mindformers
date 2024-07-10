@@ -455,7 +455,6 @@ class LLamaDecodeLayer(nn.Cell):
                  ffn_dim_multiplier: Optional[int] = None,
                  norm_eps: float = 1e-5,
                  qkv_concat=False,
-                 w2_transb=True,
                  compute_dtype=mstype.float16,
                  layernorm_compute_dtype=mstype.float32,
                  softmax_compute_dtype=mstype.float32,
@@ -528,7 +527,6 @@ class LLamaDecodeLayer(nn.Cell):
                                    compute_dtype=compute_dtype,
                                    param_init_type=param_init_type,
                                    ffn_concat=qkv_concat,
-                                   w2_transb=w2_transb,
                                    is_dynamic=is_dynamic,
                                    parallel_config=parallel_config)
         if self.expert_num == 1:
