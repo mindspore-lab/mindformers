@@ -49,10 +49,6 @@ def build_parallel_config(config):
     if config.parallel_config:
         if not isinstance(config.parallel_config, TransformerOpParallelConfig):
             logger.info("initial parallel_config from dict: %s", config.parallel_config)
-            if config.parallel_config.auto_parallel or config.parallel_config.pipeline_stage > 1:
-                logger.info("pipeline_stage = %s > 1, vocab_emd_dp will be reset to False.",
-                            config.parallel_config.pipeline_stage)
-                config.parallel_config.vocab_emb_dp = False
             _set_rp_matmul_mem_coef(config.parallel_config.pop('mem_coeff', 0.1))
             config.parallel_config = TransformerOpParallelConfig(recompute=config.recompute_config,
                                                                  **config.parallel_config)
