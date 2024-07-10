@@ -25,8 +25,6 @@ class QwenConfig(LlamaConfig):
     """
     Qwen config class.
 
-    Args:
-        intermediate_size (Optional[int]): size which defines QwenFeedForward hidden dim.
     Returns:
         Class, QwenConfig.
     """
@@ -34,7 +32,6 @@ class QwenConfig(LlamaConfig):
     _support_list = MindFormerBook.get_config_support_list()['qwen']
 
     def __init__(self,
-                 intermediate_size,
                  embedding_parallel_optimizer: bool = True,
                  enable_slice_dp: bool = True,
                  enable_emb_opt: bool = False,
@@ -52,7 +49,6 @@ class QwenConfig(LlamaConfig):
                 kwargs['num_heads'] = num_heads
 
         super().__init__(**kwargs)
-        self.intermediate_size = intermediate_size
         self.embedding_parallel_optimizer = embedding_parallel_optimizer
         self.enable_slice_dp = enable_slice_dp
         self.enable_emb_opt = enable_emb_opt
