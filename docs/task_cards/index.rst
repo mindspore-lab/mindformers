@@ -11,6 +11,7 @@
 
    contrastive_language_image_pretrain
    image_classification
+   masked_image_modeling
    question_answering
    text_classification
    text_generation

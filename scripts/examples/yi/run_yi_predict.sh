@@ -13,11 +13,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-CONFIG_PATH=$1
-PREDICT_MODE=$2
-DEVICE_NUM=$3
+PARALLEL=$1
+CONFIG_PATH=$2
+CKPT_PATH=$3
+TOKENIZER=$4
+PREDICT_MODE=$5
+DEVICE_NUM=$6
+
 script_path="$(realpath "$(dirname "$0")")"
-bash "$script_path"/../../msrun_launcher.sh \
-  "$script_path/run_yi_generate.py \
-  --config_path $CONFIG_PATH \
-  --predict_mode $PREDICT_MODE" "$DEVICE_NUM"
+
+# set PYTHONPATH for research directory
+export PYTHONPATH=$script_path/../../../:$script_path/../../../research/:$script_path/../../../research/yi/:$PYTHONPATH
+
+if [ "$PARALLEL" = "single" ]; then
+  python "$script_path"/run_yi_generate.py \
+    --config_path "$CONFIG_PATH" \
+    --load_checkpoint "$CKPT_PATH" \
+    --vocab_file "$TOKENIZER" \
+    --predict_mode "$PREDICT_MODE"
+elif [ "$PARALLEL" = "parallel" ]; then
+  bash "$script_path"/../../msrun_launcher.sh \
+    "$script_path/run_yi_generate.py \
+    --config_path $CONFIG_PATH \
+    --load_checkpoint $CKPT_PATH \
+    --vocab_file $TOKENIZER \
+    --use_parallel \
+    --predict_mode $PREDICT_MODE" "$DEVICE_NUM"
+else
+  echo "Only support 'single' or 'parallel', but got $PARALLEL."
+fi
