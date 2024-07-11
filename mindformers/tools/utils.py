@@ -19,6 +19,7 @@ import re
 import time
 import shutil
 import random
+import tempfile
 from multiprocessing import Process
 from typing import Dict, List, Tuple, Union
 
@@ -640,3 +641,19 @@ def check_ckpt_file_name(ckpt_file):
     if match:
         return True
     return False
+
+
+def create_and_write_info_to_txt(txt_path, info=None):
+    """create and write info to txt"""
+    dir_path = os.path.dirname(txt_path)
+    with tempfile.NamedTemporaryFile('w', delete=False, dir=dir_path) as temp_file:
+        if info:
+            if isinstance(info, str):
+                temp_file.write(info)
+            elif isinstance(info, list):
+                for sub_info in info:
+                    temp_file.write(sub_info + "\n")
+            else:
+                raise ValueError(f"The info to write should be str or list, but get {info}")
+        temp_file_path = temp_file.name
+    os.replace(temp_file_path, txt_path)
