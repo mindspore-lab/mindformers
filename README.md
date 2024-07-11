@@ -60,7 +60,7 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
       <td style="text-align: center"> PPL </td>
     </tr>
     <tr>
-      <td> 34B </td>
+      <td> 13B </td>
       <td> 4K </td>
       <td style="text-align: center"> &#x2713 </td>
       <td style="text-align: center"> &#x2713 </td>
