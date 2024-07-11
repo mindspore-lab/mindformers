@@ -2,5 +2,5 @@ pillow
 sphinx
 docutils
 myst_parser
-sphinx_rtd_theme == 0.5.2
-mindspore
+sphinx_rtd_theme==0.5.2
+mindspore>=2.3.0.rc2

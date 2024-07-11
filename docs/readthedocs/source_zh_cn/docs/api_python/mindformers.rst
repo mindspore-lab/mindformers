@@ -12,4 +12,3 @@ mindformers
     mindformers.AutoModel
     mindformers.AutoProcessor
     mindformers.AutoTokenizer
-
