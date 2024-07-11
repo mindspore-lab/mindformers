@@ -74,7 +74,7 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, gap_time=5, limit_time=3600):
     rank_id = get_real_rank()
     device_num = get_real_group_size()
     resume_record_dir = os.path.join(get_output_root_path(), "resume_record")
-    remake_folder(resume_record_dir, permissions=0o755)
+    remake_folder(resume_record_dir, permissions=0o750)
     get_resume_ckpt_failed_txt = os.path.join(resume_record_dir, "get_resume_ckpt_failed.txt")
     get_resume_ckpt_succeed_txt = os.path.join(resume_record_dir, "get_resume_ckpt_succeed.txt")
     if is_main_rank():
