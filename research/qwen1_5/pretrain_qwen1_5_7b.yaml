@@ -108,14 +108,14 @@ parallel_config:
   vocab_emb_dp: False
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 2
+micro_batch_interleave_num: 1
 
 # recompute config
 recompute_config:
-  recompute: True
+  recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: False
-  mp_comm_recompute: True
+  mp_comm_recompute: False
   recompute_slice_activation: False
 
 # callbacks
@@ -135,7 +135,7 @@ context:
   device_target: "Ascend"
   enable_graph_kernel: False
   max_call_depth: 10000
-  max_device_memory: "55GB"
+  max_device_memory: "60GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
