@@ -29,7 +29,7 @@
     ```text
     research/internlm2
       ├── predict_internlm2_chat_20b.yaml  # InternLM2-chat-20B推理Atlas 800T A2启动配置
-      ├── predict_internlm2_chat_7b.yaml        # InternLM2-7B推理Atlas 800T A2启动配置
+      ├── predict_internlm2_chat_7b.yaml   # InternLM2-7B推理Atlas 800T A2启动配置
       └── finetune_internlm2_7b.yaml       # InternLM2-7B微调Atlas 800T A2启动配置
     ```
 
@@ -39,7 +39,7 @@
     research/internlm2
       ├── convert_weight.py             # hf->mf权重转换
       ├── convert_reversed.py           # mf->hf权重转换
-      └── run_internlm2.py               # 高阶接口使用脚本
+      └── run_internlm2.py              # 高阶接口使用脚本
     ```
 
 ## 环境及数据准备
@@ -93,9 +93,9 @@ python convert_weight.py \
   --qkv_concat   True
 
   # 参数说明
-  input_path: huggingface权重保存目录路径
-  output_path: 权重保存文件名, 可以指定自定义保存路径
-  qkv_concat: 是否qkv融合
+  input_path:   huggingface权重保存目录路径
+  output_path:  权重保存文件名, 可以指定自定义保存路径
+  qkv_concat:   是否qkv融合
 ```
 
 ## 微调
