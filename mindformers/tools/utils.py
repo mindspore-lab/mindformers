@@ -429,7 +429,7 @@ def check_shared_disk(disk_path):
             # Check if the partition is a network file system (NFS) or other network storage
             fstype = partition.fstype.lower()
             opts = partition.opts.lower()
-            if fstype in ['nfs', 'dpc'] or 'fuse.sshfs' in opts:
+            if fstype in ['nfs', 'dpc', 'nfs4'] or 'fuse.sshfs' in opts:
                 return True
     return False
 
