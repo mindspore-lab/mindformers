@@ -172,7 +172,7 @@ def convert_to_new_ckpt(ckpt_path, config_path):
     ms.save_checkpoint(ckpt_list, save_path)
 
 
-def convert_qkv_concat_weight(param_dict):
+def convert_qkv_concat_weight(param_dict, n_head):
     """convert qkv concat weight"""
     assume_num_layers = 500
     for i in range(assume_num_layers):
@@ -186,7 +186,14 @@ def convert_qkv_concat_weight(param_dict):
         wq_weight = param_dict[wq_weight_name].asnumpy()
         wk_weight = param_dict[wk_weight_name].asnumpy()
         wv_weight = param_dict[wv_weight_name].asnumpy()
-        qkv_weight = np.concatenate((wq_weight, wk_weight, wv_weight), 0)
+        parallel_hidden_size = wq_weight.shape[0]
+        hidden_size = wq_weight.shape[1]
+        head_dim = hidden_size // n_head
+        parallel_n_head = parallel_hidden_size // head_dim
+        wq_weight = wq_weight.reshape((parallel_n_head, head_dim, 1, hidden_size))
+        wk_weight = wk_weight.reshape((parallel_n_head, head_dim, 1, hidden_size))
+        wv_weight = wv_weight.reshape((parallel_n_head, head_dim, 1, hidden_size))
+        qkv_weight = np.concatenate((wq_weight, wk_weight, wv_weight), 2).reshape((parallel_hidden_size*3, hidden_size))
         param_dict[qkv_concat_weight_name] = ms.Parameter(qkv_weight, name=qkv_concat_weight_name)
 
         # gate hidden weight concat
@@ -196,7 +203,16 @@ def convert_qkv_concat_weight(param_dict):
 
         ffn_gate_weight = param_dict[ffn_gate_weight_name].asnumpy()
         ffn_hidden_weight = param_dict[ffn_hidden_weight_name].asnumpy()
-        gate_hidden_weight = np.concatenate((ffn_gate_weight, ffn_hidden_weight), 0)
+
+        parallel_hidden_size = ffn_gate_weight.shape[0]
+        hidden_size = ffn_gate_weight.shape[1]
+        head_dim = hidden_size // n_head
+        parallel_n_head = parallel_hidden_size // head_dim
+        ffn_gate_weight = ffn_gate_weight.reshape((parallel_n_head, head_dim, 1, hidden_size))
+        ffn_hidden_weight = ffn_hidden_weight.reshape((parallel_n_head, head_dim, 1, hidden_size))
+
+        gate_hidden_weight = np.concatenate((ffn_gate_weight, ffn_hidden_weight), 2)\
+            .reshape((parallel_hidden_size * 2, hidden_size))
         param_dict[gate_hidden_concat_weight_name] = ms.Parameter(gate_hidden_weight,
                                                                   name=gate_hidden_concat_weight_name)
 
@@ -220,7 +236,13 @@ def convert_qkv_concat_weight(param_dict):
         wq_bias_weight = param_dict[wq_bias_name].asnumpy()
         wk_bias_weight = param_dict[wk_bias_name].asnumpy()
         wv_bias_weight = param_dict[wv_bias_name].asnumpy()
-        qkv_bias_weight = np.concatenate((wq_bias_weight, wk_bias_weight, wv_bias_weight), 0)
+
+        oc = wq_bias_weight.shape[0]
+        wq_bias_weight = wq_bias_weight.reshape((oc, 1))
+        wk_bias_weight = wk_bias_weight.reshape((oc, 1))
+        wv_bias_weight = wv_bias_weight.reshape((oc, 1))
+
+        qkv_bias_weight = np.concatenate((wq_bias_weight, wk_bias_weight, wv_bias_weight), 1).reshape((oc*3))
         param_dict[qkv_concat_bias_name] = ms.Parameter(qkv_bias_weight, name=qkv_concat_bias_name)
 
         param_dict.pop(wq_bias_name)
@@ -230,8 +252,10 @@ def convert_qkv_concat_weight(param_dict):
     return param_dict
 
 
-def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path):
+def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path, n_head):
     """convert previous ckpt to qkv concat ckpt"""
+    if n_head == -1:
+        raise ValueError("Please provide n_head for qkv_concat")
     if os.path.isdir(pre_ckpt_path):
         rank_dir_list = os.listdir(pre_ckpt_path)
         for rank_dir in rank_dir_list:
@@ -240,7 +264,7 @@ def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path):
             checkpoint_path = os.path.join(pre_ckpt_path, rank_dir_name, "checkpoint_{}.ckpt".format(rank_id))
             print("checkpoint_path: {}".format(checkpoint_path))
             params = ms.load_checkpoint(checkpoint_path)
-            params = convert_qkv_concat_weight(params)
+            params = convert_qkv_concat_weight(params, n_head)
 
             save_dir = os.path.join(mindspore_ckpt_path, rank_dir_name)
             if not os.path.exists(save_dir):
@@ -249,7 +273,7 @@ def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path):
             ms.save_checkpoint(params, save_path)
     else:
         params = ms.load_checkpoint(pre_ckpt_path)
-        params = convert_qkv_concat_weight(params)
+        params = convert_qkv_concat_weight(params, n_head)
         ms.save_checkpoint(params, mindspore_ckpt_path)
 
 
@@ -260,10 +284,11 @@ if __name__ == "__main__":
     parser.add_argument('--pre_ckpt_path', default=None)
     parser.add_argument('--config_path', default=None)
     parser.add_argument('--qkv_concat', default=False, type=str2bool)
+    parser.add_argument('--n_head', default=-1, type=int)
     args = parser.parse_args()
 
     if args.qkv_concat:
-        convert_to_qkv_concat(args.pre_ckpt_path, args.mindspore_ckpt_path)
+        convert_to_qkv_concat(args.pre_ckpt_path, args.mindspore_ckpt_path, args.n_head)
     elif args.pre_ckpt_path is not None and args.config_path is not None:
         convert_to_new_ckpt(args.pre_ckpt_path, args.config_path)
     else:

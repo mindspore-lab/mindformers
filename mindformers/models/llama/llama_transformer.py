@@ -139,8 +139,9 @@ class LLamaAttention(nn.Cell):
         self.cast = P.Cast()
 
         if self.qkv_concat:
+            self.qkv_oc = self.hidden_size + self.kv_dim * 2
             self.w_qkv = Linear(in_channels=self.hidden_size,
-                                out_channels=self.hidden_size + self.kv_dim * 2,
+                                out_channels=self.qkv_oc,
                                 has_bias=qkv_has_bias,
                                 compute_dtype=compute_dtype,
                                 param_init_type=param_init_type,
@@ -151,7 +152,8 @@ class LLamaAttention(nn.Cell):
                 self.w_qkv.shard(((dp, 1), (mp, 1)))
             self.split_qkv = ms.ops.auto_generate.SplitWithSize()
             self.split_qkv.add_prim_attr("skip_redistribution", True)
-            self.split_qkv.shard(((dp, 1, mp),))
+            self.split_qkv.shard(((dp, 1, mp, 1),))
+            self.split_reshape = ms.ops.Reshape()
         else:
             self.wq = Linear(self.hidden_size,
                              self.hidden_size,
@@ -273,7 +275,11 @@ class LLamaAttention(nn.Cell):
         bs, seq_len, _ = self.shape(x)
         if self.qkv_concat:
             qkv = self.cast(self.w_qkv(x), self.dtype)
-            query, key, value = self.split_qkv(qkv, (self.hidden_size, self.kv_dim, self.kv_dim), 2)
+            qkv = self.split_reshape(qkv, (bs, seq_len, self.qkv_oc // 3, 3))
+            query, key, value = self.split_qkv(qkv, (1, 1, 1), 3)
+            query = self.split_reshape(query, (bs, seq_len, self.qkv_oc // 3))
+            key = self.split_reshape(key, (bs, seq_len, self.qkv_oc // 3))
+            value = self.split_reshape(value, (bs, seq_len, self.qkv_oc // 3))
         else:
             query = self.cast(self.wq(x), self.dtype)  # dp, 1 -> dp, mp
             key = self.cast(self.wk(x), self.dtype)  # dp, 1 -> dp, mp
