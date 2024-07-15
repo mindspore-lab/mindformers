@@ -811,6 +811,12 @@ class GenerationMixin:
 
             prefill = True
             model_kwargs["origin_inputs"] = origin_inputs
+
+            if hasattr(self.config, 'pet_config') and self.config.pet_config.pet_type == "slora":
+                adapter_id = kwargs.pop("adapter_id", None)
+                adapter_ids = [adapter_id] * batch_size if adapter_id is not None else None
+                model_kwargs["adapter_ids"] = adapter_ids
+
             while np.sum(is_finished) != batch_size:
                 block_tables = None
                 slot_mapping = None

@@ -73,7 +73,7 @@ def main(config):
         trainer.evaluate(eval_checkpoint=config.load_checkpoint)
     elif config.run_mode == 'predict':
         trainer.predict(predict_checkpoint=config.load_checkpoint, input_data=config.input_data,
-                        batch_size=config.predict_batch_size)
+                        batch_size=config.predict_batch_size, adapter_id=config.adapter_id)
 
 
 if __name__ == "__main__":
@@ -125,6 +125,10 @@ if __name__ == "__main__":
     parser.add_argument(
         '--predict_batch_size', default=None, type=int,
         help='batch size for predict data, set to perform batch predict.'
+             'Default: None')
+    parser.add_argument(
+        '--adapter_id', default=None, type=str,
+        help='LoRA ID for predict.'
              'Default: None')
     parser.add_argument(
         '--load_checkpoint', default=None, type=str,
@@ -285,6 +289,8 @@ if __name__ == "__main__":
         config_.input_data = args_.predict_data
         if args_.predict_batch_size is not None:
             config_.predict_batch_size = args_.predict_batch_size
+        if config_.model.model_config.pet_config and config_.model.model_config.pet_config.pet_type == "slora":
+            config_.adapter_id = args_.adapter_id
     if args_.epochs is not None:
         config_.runner_config.epochs = args_.epochs
     if args_.batch_size is not None:
