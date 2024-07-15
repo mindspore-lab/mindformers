@@ -38,13 +38,13 @@ class TestBloomPredict:
         Description: Test base model prediction.
         Expectation: AssertionError
         """
-        runner = ModelTester(run_mode='predict', batch_size=4, experiment_mode=False)
+        runner = ModelTester(run_mode='predict', batch_size=2, experiment_mode=False)
 
         model_config = get_config()
         model_config.batch_size = runner.batch_size  # set batch size for prediction
-        model_config.vocab_size = 50000  # default to use gpt2 tokenizer
+        model_config.vocab_size = 32000  # default to use llama2 tokenizer
 
         model = get_model(model_config)
 
-        outputs = ['hello world..................']
+        outputs = 'hello world.................'
         runner.set_predict(model=model, expect_outputs=outputs)
