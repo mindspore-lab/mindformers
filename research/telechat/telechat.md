@@ -436,7 +436,7 @@ optimizer:
   eps: 1.e-5
   learning_rate: 1.e-5
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 1.e-5

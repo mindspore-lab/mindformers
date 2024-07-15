@@ -207,7 +207,7 @@ model:
     loss_type: SoftTargetCrossEntropy # loss type
     checkpoint_name_or_path: swin_base_p4w7
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: cosine
   learning_rate: 0.00125

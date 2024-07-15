@@ -203,7 +203,7 @@ model:
     loss_type: SoftTargetCrossEntropy  # loss type
     checkpoint_name_or_path: 'vit_base_p16'
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: cosine
   learning_rate: 0.0005

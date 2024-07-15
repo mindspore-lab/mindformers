@@ -133,7 +133,7 @@ model:
   arch:
     type: BertForPreTraining
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: cosine
   learning_rate: 0.0001

@@ -173,7 +173,7 @@ model:
   arch:
     type: BertForQuestionAnswering
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: linear
   learning_rate: 0.00003  # 3e-5

@@ -147,7 +147,7 @@ model:
     logit_scale_init_value: 2.6592
 
 
-# lr sechdule
+# lr schedule
 layer_scale: False
 layer_decay: 0.65
 

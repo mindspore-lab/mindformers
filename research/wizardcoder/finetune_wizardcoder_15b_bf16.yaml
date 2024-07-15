@@ -52,7 +52,7 @@ parallel_config:
   pipeline_stage: 2
   optimizer_shard: True
   micro_batch_num: 8
-  vocab_emb_dp: True
+  vocab_emb_dp: False
   gradient_aggregation_group: 4
 micro_batch_interleave_num: 1
 
@@ -163,7 +163,7 @@ model:
   arch:
     type: WizardCoderLMHeadModel
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 0.000002

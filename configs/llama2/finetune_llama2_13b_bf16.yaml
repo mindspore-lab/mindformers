@@ -29,7 +29,7 @@ optimizer:
   beta2: 0.95
   eps: 1.e-8 # 1e-8
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 1.e-5

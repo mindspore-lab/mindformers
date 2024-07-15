@@ -44,7 +44,7 @@ moe_config:
   router_dense_type: "float32"
   use_fused_ops_topkrouter: False
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 1.e-4

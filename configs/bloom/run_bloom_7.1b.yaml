@@ -123,7 +123,7 @@ parallel_config:
   model_parallel: 4
   pipeline_stage: 2
   micro_batch_num: 16
-  vocab_emb_dp: True
+  vocab_emb_dp: False
   gradient_aggregation_group: 4
 
 recompute_config:

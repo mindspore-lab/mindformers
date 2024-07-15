@@ -264,7 +264,7 @@ processor:
 4. total_steps：总步数，表示模型在整个训练过程中处理数据的次数。总步数等于epoch数乘以迭代次数。如果设置为-1，表示不限制总步数，只根据epoch数来决定训练的终止条件4。
 
 ```yaml
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: AnnealingLR
   learning_rate: 0.00001

@@ -31,7 +31,7 @@ optimizer:
   eps: 1.e-8 # 1e-8
   learning_rate: 1.e-5
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 1.e-5
@@ -94,7 +94,7 @@ parallel_config:
   pipeline_stage: 8
   use_seq_parallel: True
   micro_batch_num: 128
-  vocab_emb_dp: True
+  vocab_emb_dp: False
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1

@@ -93,7 +93,7 @@ parallel_config:
   pipeline_stage: 2
   use_seq_parallel: True
   micro_batch_num: 16
-  vocab_emb_dp: True
+  vocab_emb_dp: False
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1

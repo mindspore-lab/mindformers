@@ -42,7 +42,7 @@ optimizer:
   learning_rate: 1.e-6
   weight_decay: 0.01
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 1.e-6

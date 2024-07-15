@@ -93,7 +93,7 @@ model:
     checkpoint_name_or_path:
   arch:
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: cosine
   learning_rate: 0.00015
