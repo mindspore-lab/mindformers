@@ -40,10 +40,8 @@ BASE_CONFIG = {
     'extend_method': 'None',
     # 'compute_in_2d': True,  # deprecated
     'use_flash_attention': True,
-    # 'block_size': 16,
-    # 'num_blocks': 512,
-    'block_size': 4,
-    'num_blocks': 4096,
+    'block_size': 16,
+    'num_blocks': 512,
     'is_dynamic': False,
     'offset': 0,
     # 'use_past_shard': False,  # deprecated

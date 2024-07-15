@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """
-Test codegeex2 evaluate.
+Test llama2 evaluate.
 How to run this:
-    pytest tests/st/test_model/test_codegeex2_model/test_eval.py
+    pytest tests/st/test_model/test_llama2_model/test_eval.py
 """
 import pytest
 import mindspore as ms
@@ -26,10 +26,10 @@ from .base_model import get_config, get_model
 ms.set_context(mode=0)
 
 
-class TestCodeGeeX2Eval:
+class TestLlama2Eval:
     """A test class for testing model evaluate."""
 
-    @pytest.mark.level1
+    @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_base_model(self):
@@ -38,13 +38,12 @@ class TestCodeGeeX2Eval:
         Description: Test base model evaluate.
         Expectation: AssertionError
         """
-        runner = ModelTester(run_mode='eval', batch_size=4, use_label=True)
+        runner = ModelTester(run_mode='eval', batch_size=2, use_label=True)
 
         model_config = get_config()
         model_config.batch_size = runner.batch_size  # set batch size for prediction
-        model_config.vocab_size = 32000  # default to use llama2 tokenizer
-        model_config.padded_vocab_size = model_config.vocab_size
-
+        # In generate evaluate mode, model.model_config.max_decode_length is 1024
+        model_config.seq_length = 1024
         model = get_model(model_config)
 
-        runner.set_eval(model, model_config, metric='PerplexityMetric')
+        runner.set_eval(model, model_config)

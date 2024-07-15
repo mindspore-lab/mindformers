@@ -20,10 +20,8 @@ import numpy as np
 from mindspore import set_seed
 from mindspore.dataset import GeneratorDataset
 
-from mindformers import CosineWithWarmUpLR, FP32StateAdamWeightDecay
 from mindformers.trainer import Trainer, TrainingArguments
-from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
-from mindformers.models.auto import AutoTokenizer
+from mindformers.models.build_tokenizer import build_tokenizer
 
 from tests.st.training_checker import TrainingChecker
 
@@ -64,7 +62,6 @@ class ModelTester:
                  num_train_epochs: int = 1,
                  use_label: bool = False,
                  experiment_mode: bool = False,
-                 tokenizer: str = 'gpt2',
                  **kwargs):
         os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         set_seed(0)
@@ -75,23 +72,54 @@ class ModelTester:
         self.use_label = use_label
         self.experiment_mode = experiment_mode
 
+        optimizer_config = {
+            # optimizer config
+            'optim': 'fp32_adamw',
+            'adam_beta1': 0.9,
+            'adam_beta2': 0.95,
+            'adam_epsilon': 1.e-8,
+            # lr schedule config
+            'lr_scheduler_type': 'cosine',
+            'learning_rate': 2.e-5,
+            'lr_end': 1.e-6,
+            'warmup_steps': 0
+        }
+        kwargs.update(optimizer_config)
+
         self.args = TrainingArguments(
             batch_size=batch_size,
             num_train_epochs=num_train_epochs,
             **kwargs)
 
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
-
         support_run_mode = ['train', 'predict', 'eval', 'finetune']
         assert run_mode in support_run_mode, f"run_mode should in {support_run_mode}, but got {run_mode}."
+
+        os.environ["RUN_MODE"] = run_mode
+
         self.run_mode = run_mode
         if self.run_mode == 'eval':
             self.step_num = 1
 
     @staticmethod
+    def build_tokenizer(tokenizer_config):
+        """build tokenizer from name."""
+        if tokenizer_config is None:
+            cur_dir = os.path.dirname(os.path.realpath(__file__))
+            tokenizer_config = {
+                'unk_token': '<unk>',
+                'bos_token': '<s>',
+                'eos_token': '</s>',
+                'pad_token': '<unk>',
+                'type': 'LlamaTokenizer',
+                'vocab_file': f"{cur_dir}/llama2_tokenizer/tokenizer.model"}
+
+        tokenizer = build_tokenizer(config=tokenizer_config)
+        return tokenizer
+
+    @staticmethod
     def generate_data(seq_len, vocab_size, batch_size=4, step_num=20,
                       use_label=False, is_eval=False):
-        """generate data for test model."""
+        """generate data for testing model."""
         input_ids = np.random.randint(
             low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
 
@@ -127,7 +155,8 @@ class ModelTester:
         dataset = dataset.batch(batch_size=self.batch_size)
         return dataset
 
-    def set_train(self, model, config, dataset=None, loss_std=None, avg_time_std=None, **kwargs):
+    def set_train(self, model, config, dataset=None, loss_std=None, avg_time_std=None,
+                  checker_config=None, parallel_config=None):
         """set model train."""
         if not self.experiment_mode:
             assert isinstance(loss_std, list) and self.step_num == len(loss_std)
@@ -135,55 +164,53 @@ class ModelTester:
 
         dataset = self.get_dataset(config) if dataset is None else dataset
 
-        lr_schedule = CosineWithWarmUpLR(learning_rate=2.e-5,
-                                         lr_end=1.e-6,
-                                         warmup_steps=0,
-                                         total_steps=self.step_num)
-        group_params = get_optimizer_grouped_parameters(model=model)
-        optimizer = FP32StateAdamWeightDecay(params=group_params,
-                                             beta1=0.9,
-                                             beta2=0.95,
-                                             eps=1.e-8,
-                                             learning_rate=lr_schedule)
+        if checker_config is None:
+            checker_config = dict()
         callback = TrainingChecker(loss_list_std=loss_std,
                                    avg_step_time_std=avg_time_std,
                                    experiment_mode=self.experiment_mode,
-                                   **kwargs)
+                                   **checker_config)
 
         task_trainer = Trainer(task='text_generation',
                                model=model,
                                args=self.args,
                                train_dataset=dataset,
-                               callbacks=callback,
-                               optimizers=optimizer)
+                               callbacks=callback)
 
         task_trainer.config.runner_config.epochs = 1
         task_trainer.config.runner_config.sink_mode = False
         task_trainer.config.runner_wrapper.scale_sense.loss_scale_value = 1024
         task_trainer.config.callbacks = task_trainer.config.callbacks[:1]
 
+        if parallel_config is not None:
+            task_trainer.set_parallel_config(**parallel_config)
+
         task_trainer.train()
         if self.experiment_mode:
             callback.get_experiment_results()
 
-    def set_predict(self, model, predict_data='hello world.', expect_outputs=None):
+    def set_predict(self, model, predict_data='hello world.', expect_outputs='', tokenizer_config=None):
         """set model predict."""
+        tokenizer = self.build_tokenizer(tokenizer_config)
         task_trainer = Trainer(task='text_generation',
                                model=model,
                                args=self.args,
-                               tokenizer=self.tokenizer)
+                               tokenizer=tokenizer)
+        predict_data = [predict_data] * self.batch_size
         outputs = task_trainer.predict(input_data=predict_data,
                                        max_length=20,
                                        repetition_penalty=1,
                                        top_k=3,
-                                       top_p=1)
+                                       top_p=1,
+                                       batch_size=self.batch_size)
         outputs = outputs[0]['text_generation_text']
         print(outputs)
 
         if not self.experiment_mode:
+            expect_outputs = [expect_outputs] * self.batch_size
             assert outputs == expect_outputs
 
-    def set_eval(self, model, config, metric='ADGENMetric'):
+    def set_eval(self, model, config, metric='ADGENMetric', tokenizer_config=None):
         """set model evaluate.
 
         evaluate function of models have 2 branches:
@@ -193,11 +220,12 @@ class ModelTester:
         metric = {'type': metric}
         dataset = self.get_dataset(config)
 
+        tokenizer = self.build_tokenizer(tokenizer_config)
         task_trainer = Trainer(task='text_generation',
                                model=model,
                                args=self.args,
                                eval_dataset=dataset,
-                               tokenizer=self.tokenizer)
+                               tokenizer=tokenizer)
         task_trainer.config.metric = metric
 
         task_trainer.evaluate()

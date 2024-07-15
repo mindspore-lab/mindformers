@@ -44,7 +44,7 @@ class TestBaichuan2Eval:
         model_config.batch_size = runner.batch_size  # set batch size for prediction
         # if set 4096, cause Memory pool not enough by large alibi tensor
         model_config.seq_length = 512
-        model_config.vocab_size = 50000  # default to use gpt2 tokenizer
+        model_config.vocab_size = 32000  # default to use llama2 tokenizer
 
         model = get_model(model_config)
 

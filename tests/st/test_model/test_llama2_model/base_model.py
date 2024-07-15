@@ -43,8 +43,9 @@ BASE_CONFIG = {
     'top_p': 1,
     'type': 'LlamaConfig',
     'use_flash_attention': True,
-    'use_past': False,
-    'vocab_size': 32000}
+    'use_past': True,
+    'vocab_size': 32000
+}
 
 
 def get_config():

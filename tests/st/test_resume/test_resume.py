@@ -30,7 +30,7 @@ from mindspore.dataset import GeneratorDataset
 from mindformers.trainer import Trainer, TrainingArguments
 from mindformers.tools.utils import get_real_rank
 
-from tests.st.test_model.test_llama_model.base_model import get_model, get_config
+from tests.st.test_model.test_llama2_model.base_model import get_model, get_config
 from tests.utils.resume_train import extract_loss_values, get_file_mtime
 
 ms.set_context(mode=0)
