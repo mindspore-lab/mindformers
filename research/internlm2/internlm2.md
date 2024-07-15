@@ -28,7 +28,7 @@
 
     ```text
     research/internlm2
-      ├── predict_internlm2_chat_20b.yaml  # InternLM2-chat-20B推理Atlas 800T A2启动配置
+      ├── predict_internlm2_20b.yaml  # InternLM2-chat-20B推理Atlas 800T A2启动配置
       ├── predict_internlm2_chat_7b.yaml   # InternLM2-7B推理Atlas 800T A2启动配置
       └── finetune_internlm2_7b.yaml       # InternLM2-7B微调Atlas 800T A2启动配置
     ```
@@ -151,7 +151,7 @@ TOKENIZER_PATH:  Tokenizer模型路径
 ```shell
 bash scripts/examples/internlm2/run_internlm2_predict.sh \
   single \
-  configs/internlm2/predict_internlm2_chat_20b.yaml \
+  configs/internlm2/predict_internlm2_20b.yaml \
   path/to/internlm2_chat_20b.ckpt \
   1 \
   path/to/tokenizer.model
@@ -172,7 +172,7 @@ bash scripts/examples/internlm2/run_internlm2_predict.sh \
 ```shell
 bash scripts/examples/internlm2/run_internlm2_predict.sh \
   parallel \
-  configs/internlm2/predict_internlm2_chat_20b.yaml \
+  configs/internlm2/predict_internlm2_20b.yaml \
   path/to/internlm2_chat_20b.ckpt \
   8 \
   path/to/tokenizer.model
