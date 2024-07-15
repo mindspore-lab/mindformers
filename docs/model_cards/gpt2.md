@@ -237,7 +237,7 @@ python mindformers/models/gpt2/convert_weight.py --layers 40 --torch_path gpt_13
 
 通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Transform_Ckpt.md)
+以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](../feature_cards/Transform_Ckpt.md)
 
 ## 基于API的快速使用
 
@@ -363,7 +363,7 @@ bash run_standalone.sh ../configs/gpt2/run_gpt2.yaml [DEVICE_ID] train
 
 - 单机多卡
 
-请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](../readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-并行配置)
 
 **请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
 
@@ -376,7 +376,7 @@ bash run_distribute.sh RANK_TABLE_FILE ../configs/gpt2/run_gpt2.yaml [0,8] train
 
 在每台机器上启动`bash run_distribute.sh`。
 
-请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](../readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-并行配置)
 
 **请提前将yaml文件中train_dataset配置中的dataset_dir设置为处理好的mindrecord数据路径**
 
@@ -443,6 +443,25 @@ bash run_standalone.sh ../configs/gpt2/run_gpt2.yaml [DEVICE_ID] finetune
 
 - 单机多卡
 
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](../readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-并行配置)，以单机八卡为例：
+
+```yaml
+# parallel
+use_parallel: True
+parallel:
+  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  gradients_mean: True
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: True
+parallel_config:
+  data_parallel: 8
+  model_parallel: 1
+  pipeline_stage: 1
+  use_seq_parallel: False
+```
+
+> 注：data_parallel\*model_parallel\*pipeline_stage须等于总卡数
+
 **请提前将yaml文件中`train_dataset`配置中的`dataset_dir`设置为处理好的`mindrecord`数据路径，并指定`load_checkpoint`为预训练权重路径。**
 
 ```bash
@@ -453,6 +472,25 @@ bash run_distribute.sh RANK_TABLE_FILE ../configs/gpt2/run_gpt2.yaml [0,8] finet
 多机多卡运行需要合并不同机器的RANK_FILE_TABLE，参考前期准备-[多机RANK_TABLE_FILE合并](#多机rank_table_file合并多机多卡必备环节)
 
 - 多机多卡
+
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](../readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-并行配置)，以双机十六卡为例：
+
+```yaml
+# parallel
+use_parallel: True
+parallel:
+  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  gradients_mean: True
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: True
+parallel_config:
+  data_parallel: 8
+  model_parallel: 1
+  pipeline_stage: 2
+  use_seq_parallel: False
+```
+
+> 注：data_parallel\*model_parallel\*pipeline_stage须等于总卡数
 
 **请提前将yaml文件中`train_dataset`配置中的`dataset_dir`设置为处理好的`mindrecord`数据路径，并指定`load_checkpoint`为预训练权重路径。**
 
@@ -498,7 +536,7 @@ bash run_standalone.sh ../configs/gpt2/run_gpt2_lora.yaml [DEVICE_ID] finetune
 
 #### 多卡微调
 
-请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](../readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-并行配置)
 
 多卡运行需要RANK_FILE_TABLE，请参考前期准备-[生成RANK_TABLE_FILE](#生成rank_table_file多卡运行必备环节)
 
@@ -513,7 +551,7 @@ bash run_distribute.sh RANK_TABLE_FILE path/to/config_lora.yaml [0,8] finetune 8
 
 - 多机多卡
 
-请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](https://gitee.com/mindspore/mindformers/blob/dev/docs/readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-%E5%B9%B6%E8%A1%8C%E9%85%8D%E7%BD%AE)
+请提前在yaml文件中修改并行模式`parallel_mode`为`1`，即`半自动并行模式`，并修改相应的分布式配置，配置参考[并行配置](../readthedocs/source_zh_cn/docs/design/Parallel_Design.md#config-并行配置)
 
 在每台机器上启动`bash run_distribute.sh`。
 
