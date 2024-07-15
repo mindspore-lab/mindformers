@@ -410,7 +410,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         if self.config.is_dynamic and "origin_inputs" in kwargs:
             input_ids = kwargs["origin_inputs"]
         return {
-            "input_ids": Tensor(input_ids, mstype.int32)
+            "input_ids": input_ids.astype(np.int32)
         }
 
     # pylint: disable=W0613
@@ -435,11 +435,11 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None, None], dtype=mstype.float16)
             self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, dynamic_prefix_keys_values)
+                            dynamic_slot_mapping, dynamic_prefix_keys_values, None)
         else:
             self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, None)
+                            dynamic_slot_mapping, None, None)
         logger.info("Set dynamic input for llama.")
 
     def add_flags_custom(self, is_first_iteration):

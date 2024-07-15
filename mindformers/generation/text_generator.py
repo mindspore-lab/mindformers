@@ -81,6 +81,8 @@ class GenerationMixin:
         self.use_kbk_infer = False
         self.use_mint_op = version_control.use_mint_op()
         self.argmax = mint.argmax if self.use_mint_op else ms.ops.argmax
+        self.false_ms_tensor = Tensor.from_numpy(np.array([False], dtype=np.bool_))
+        self.true_ms_tensor = Tensor.from_numpy(np.array([True], dtype=np.bool_))
 
     def _set_block_mgr(self, batch_size):
         """ Set model block table mgr function. """
@@ -136,20 +138,12 @@ class GenerationMixin:
     def slice_incremental_inputs(self, model_inputs: dict, current_index):
         """used for non-first iterations, slice the inputs to length 1."""
         input_ids = model_inputs.pop("input_ids")
-        if isinstance(input_ids, Tensor):
-            if input_ids.shape[-1] == 1:
-                model_inputs["input_ids"] = input_ids
-                return
-            input_ids = input_ids.asnumpy()
-        inputs_tmp = []
-        for i, index_value in enumerate(current_index):
-            current_index_tmp = (
-                int(index_value) - i * input_ids.shape[1]
-            )  # multibatch
-            # use numpy to slice array to avoid complie ascend slice op
-            inputs_tmp.append(input_ids[i][current_index_tmp: current_index_tmp + 1])
-        inputs_tmp = np.array(inputs_tmp, dtype=np.int32)
-        model_inputs["input_ids"] = Tensor(inputs_tmp, mstype.int32)
+        if input_ids.shape[-1] == 1:
+            model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
+            return
+        current_index_tmp = current_index - np.arange(len(current_index) * input_ids.shape[1], step=input_ids.shape[1])
+        inputs_tmp = input_ids[:, current_index_tmp.reshape(-1, 1)[0]]
+        model_inputs["input_ids"] = Tensor.from_numpy(inputs_tmp.astype(np.int32))
 
     def process_logits(self, logits, current_index=None, keep_all=False):
         """Process the logits"""
@@ -302,9 +296,9 @@ class GenerationMixin:
         if prefill:
             self.phase = "prefill"
             self.add_flags_custom(is_first_iteration=True)
-            model_inputs["input_position"] = Tensor.from_numpy(np.array(current_index, dtype=np.int32))
-            model_inputs["init_reset"] = Tensor.from_numpy(
-                np.array([False], dtype=np.bool_))  # init_reset (1,) bool False
+            model_inputs["input_ids"] = Tensor.from_numpy(model_inputs.pop("input_ids"))
+            model_inputs["input_position"] = Tensor.from_numpy(current_index.astype(np.int32))
+            model_inputs["init_reset"] = self.false_ms_tensor
             model_inputs["batch_valid_length"] = Tensor.from_numpy(
                 np.array([valid_length_each_example], dtype=np.int32))
             if block_tables is not None:
@@ -326,9 +320,8 @@ class GenerationMixin:
             if attention_metadata is not None:
                 model_inputs["input_ids"] = self._padding_decode(model_inputs["input_ids"])
                 model_inputs["attention_metadata"] = attention_metadata
-            model_inputs["input_position"] = Tensor.from_numpy(np.array(current_index, dtype=np.int32))
-            model_inputs["init_reset"] = Tensor.from_numpy(
-                np.array([True], dtype=np.bool_))  # init_reset (1,) bool True
+            model_inputs["input_position"] = Tensor.from_numpy(current_index.astype(np.int32))
+            model_inputs["init_reset"] = self.true_ms_tensor
             model_inputs["batch_valid_length"] = Tensor.from_numpy(
                 np.array([valid_length_each_example], dtype=np.int32))
             if block_tables is not None:
@@ -1084,11 +1077,7 @@ class GenerationMixin:
         input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
         batch_size = input_ids.shape[0]
         seq_length = input_ids.shape[1]
-        current_index = [
-            valid_length_each_example[i] - 1 + i * seq_length
-            for i in range(batch_size)
-        ]
-
+        current_index = valid_length_each_example - 1 + np.arange(batch_size * seq_length, step=seq_length)
         if self.config.is_encoder_decoder:
             inputs = Tensor(input_ids, mstype.int32)
             # pylint: disable=E1102
@@ -1106,10 +1095,7 @@ class GenerationMixin:
             real_input_ids = model_inputs["input_ids"]
             batch_size = real_input_ids.shape[0]
             seq_length = real_input_ids.shape[1]
-            current_index = [
-                valid_length_each_example[i] - 1 + i * seq_length
-                for i in range(batch_size)
-            ]
+            current_index = valid_length_each_example - 1 + np.arange(batch_size * seq_length, step=seq_length)
             model_kwargs["current_index"] = current_index
 
             if use_past:
