@@ -364,9 +364,6 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
         warmup_steps = _get_warmup_steps(warmup_steps, warmup_ratio, total_steps)
         decay_steps = max(1, decay_steps) \
             if decay_steps is not None else max(1, total_steps - warmup_steps)
-        if decay_steps > total_steps - warmup_steps:
-            raise ValueError(f"decay_steps ({decay_steps}) must be be smaller than \
-                             steps interval ({total_steps - warmup_steps})")
         if not learning_rate > lr_end:
             raise ValueError(f"lr_end ({lr_end}) must be be smaller than initial lr ({learning_rate})")
         self.kwargs = kwargs
