@@ -157,7 +157,7 @@ model:
     offset: 0
     use_past: False
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: polynomial
   learning_rate: 0.00005

@@ -163,7 +163,7 @@ model:
   arch:
     type: WizardCoderLMHeadModel
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 0.000002

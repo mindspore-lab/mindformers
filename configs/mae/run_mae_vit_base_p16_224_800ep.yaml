@@ -149,7 +149,7 @@ model:
     norm_pix_loss: True  # if using norm pixel loss
     checkpoint_name_or_path: 'mae_vit_base_p16'
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: cosine
   learning_rate: 0.00015

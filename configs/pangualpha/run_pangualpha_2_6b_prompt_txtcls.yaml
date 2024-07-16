@@ -144,7 +144,7 @@ model:
   arch:
     type: PanguAlphaPromptTextClassificationModel
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: polynomial
   learning_rate: 0.00005

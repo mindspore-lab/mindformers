@@ -131,7 +131,7 @@ runner_wrapper:
     scale_window: 1000
   use_clip_grad: False
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: polynomial
   learning_rate: 1.e-4

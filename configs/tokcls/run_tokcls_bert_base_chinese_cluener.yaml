@@ -191,7 +191,7 @@ model:
   arch:
     type: BertForTokenClassification
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: linear
   learning_rate: 0.00003  # 3e-5

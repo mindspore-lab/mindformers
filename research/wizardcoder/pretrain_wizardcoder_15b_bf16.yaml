@@ -53,7 +53,7 @@ parallel_config:
   pipeline_stage: 2
   optimizer_shard: True
   micro_batch_num: 8
-  vocab_emb_dp: True            # 默认按mp切，设为True是按照dp切
+  vocab_emb_dp: False            # 默认按mp切，设为True是按照dp切
   gradient_aggregation_group: 4
 micro_batch_interleave_num: 1   # 多副本并行，设为2有效果
 
@@ -164,7 +164,7 @@ model:
   arch:
     type: WizardCoderLMHeadModel
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR  # 直线找下
   learning_rate: 0.000002

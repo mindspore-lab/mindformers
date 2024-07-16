@@ -239,7 +239,7 @@ model:
     # std
     checkpoint_name_or_path: "sam_vit_h"
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: cosine
   learning_rate: 0.0005

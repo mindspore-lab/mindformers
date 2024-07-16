@@ -55,7 +55,7 @@ optimizer:
   eps: 0.00000001 # 1e-8
   weight_decay: 0.05
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: TestCosineDecayLR
   max_lr: 0.00015

@@ -249,7 +249,7 @@ processor:
     max_length: 2048
     vocab_file: "/path_to_vocab/ice_text.model"
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: AnnealingLR
   learning_rate: 0.00001
