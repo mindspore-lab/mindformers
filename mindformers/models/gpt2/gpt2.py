@@ -106,8 +106,12 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
         self.all_ones_attention_mask = P.Ones()((1, 1, 1), mstype.float32)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        current_index = kwargs.get("current_index")
+        prefill = kwargs.get("prefill")
         return {
-            "input_ids": Tensor(input_ids, mstype.int32)
+            "input_ids": Tensor(input_ids, mstype.int32),
+            "input_position": Tensor(current_index, mstype.int32),
+            "init_reset": Tensor([not prefill], mstype.bool_)
         }
 
     def add_flags_custom(self, is_first_iteration):
