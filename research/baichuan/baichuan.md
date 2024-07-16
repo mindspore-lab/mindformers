@@ -27,6 +27,7 @@ License: Baichuan-7B License
 执行权重转换脚本
 
 ```shell
+pip install torch transformers
 python research/baichuan/convert_weight.py --torch_ckpt_path TORCH_CKPT_PATH --mindspore_ckpt_path MS_CKPT_NAME
 ```
 
@@ -36,11 +37,11 @@ torch_ckpt_path: huggingface权重保存目录下任意权重bin文件，根据�
 mindspore_ckpt_path: mindspore权重文件保存路径
 ```
 
-#### [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md#方案1源码执行)
+#### [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md)
 
 #### 脚本启动
 
-> 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/transformer/wikis/API/)
+> 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/mindformers/tree/dev/docs/readthedocs/source_zh_cn/docs/api_python)
 > `遵从Baichuan-7B的license，本模型需要用户自行下载权重进行处理，故使用时和llama存在一定区别，具体如下：`
 
 - Trainer接口开启训练/推理：
@@ -103,7 +104,7 @@ print(peline_result)
 
 #### 训练与微调
 
-基于Baichuan-7B，目前提供了模型的基础配置文件`configs/baichuan/run_baichuan_7b.yaml`。可参考[llama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md)的训练与微调章节进行数据准备，而后启动微调，不在此赘述。
+基于Baichuan-7B，目前提供了模型的基础配置文件`research/baichuan/run_baichuan_7b.yaml`。可参考[llama](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/llama.md)的训练与微调章节进行数据准备，而后启动微调，不在此赘述。
 
 `注：使用Baichuan-7B进行训练或者微调时，需要使用Baichuan-7B配套的tokenizer.model处理数据集，以及选用Baichuan-7B的yaml配置文件进行任务启动。`
 
@@ -135,6 +136,7 @@ License: Baichuan-13B-base License
 执行权重转换脚本
 
 ```shell
+pip install torch transformers
 python research/baichuan/convert_weight.py --torch_ckpt_path TORCH_CKPT_PATH --mindspore_ckpt_path MS_CKPT_NAME
 ```
 
@@ -144,13 +146,13 @@ torch_ckpt_path: huggingface权重保存目录下任意权重bin文件,根据该
 mindspore_ckpt_path: mindspore权重文件保存路径
 ```
 
-#### [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md#方案1源码执行)
+#### [多卡权重切分](../../docs/feature_cards/Transform_Ckpt.md)
 
 非单卡运行，无论是train, finetune, eval, predict均需要把权重按照并行配置进行切分！
 
 #### 脚本启动Baichuan-13B-Base
 
-> 需开发者提前pip安装。具体接口说明请参考[API接口](../../README.md#二mindformers安装)
+> 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/mindformers/tree/dev/docs/readthedocs/source_zh_cn/docs/api_python)
 > `遵从Baichuan-13B-base的license，本模型需要用户自行下载权重进行处理`
 
 `Baichuan-13B-base`的高阶接口使用脚本已集成在`run_baichuan_13b_base.py`脚本中
@@ -210,7 +212,7 @@ bash run_multinode.sh "python baichuan/run_baichuan_13b_base.py --config baichua
   `config`: huggingface权重保存目录路径(即刚刚从hugging face下载的工程目录)
   `load_checkpoint`: 推理所使用的的权重，需从huggingface获取，通过conver_weight转换为mindspore单卡权重，参考[权重切分](../../docs/feature_cards/Transform_Ckpt.md)转换为多卡权重
   `run_mode`：运行模式，包括train，finetune，eval，predict
-  `train_data`：train数据，训练时需要填入，数据获取方法参考[llama数据准备](../../docs/model_cards/llama.md#数据集准备)，注意tokenzier需使用baichuan的。
+  `train_data`：train数据，训练时需要填入，数据获取方法参考[llama数据准备](../../docs/model_cards/llama.md#数据集准备-微调)，注意tokenzier需使用baichuan的。
   `eval_data`：eval数据，eval是需要填入，同train。
   `predict_data`：predict数据，predict时需要填入
 
@@ -218,7 +220,7 @@ bash run_multinode.sh "python baichuan/run_baichuan_13b_base.py --config baichua
 
 #### 脚本启动Baichuan-13B-Chat
 
-> 需开发者提前pip安装。具体接口说明请参考[API接口](../../README.md#二mindformers安装)
+> 需开发者提前pip安装。具体接口说明请参考[API接口](https://gitee.com/mindspore/mindformers/tree/dev/docs/readthedocs/source_zh_cn/docs/api_python)
 > `遵从Baichuan-13B-chat的license，本模型需要用户自行下载权重进行处理`
 
 `Baichuan-13B-chat`的高阶接口使用脚本已集成在`run_baichuan_13b_chat.py`脚本中
