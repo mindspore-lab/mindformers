@@ -98,7 +98,7 @@ python convert_weight.py --torch_path TORCH_CKPT_DIR --vit_mindspore_path VIT_CK
 
 **注意**:
 
-- 请安装torch=2.0.1和transformers=4.33.2版本，cuda版本11.6及以上
+- 请安装torch>=2.0.1和transformers>=4.33.2版本，cuda版本11.6及以上
 - 该脚本会在glm模型的路径下生成glm_6b_for_lite.ckpt文件，该权重是用于lite推理的。
 
 ## MindSpore推理
