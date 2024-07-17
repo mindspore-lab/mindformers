@@ -34,7 +34,7 @@ from sphinx.util import logging
 
 project = 'mindformers'
 # pylint: disable=W0622
-copyright = '2023, mindformers contributors'
+copyright = '2024, mindformers contributors'
 author = 'mindformers contributors'
 
 # The full version, including alpha/beta/rc tags
@@ -121,9 +121,9 @@ for file_path in copy_path:
 
 # split README into 4 parts
 with open('README.md', 'r') as f:
-    title_list = ['Introduction', 'Install', 'Version_Match',
-                  'Quick_Tour', 'Contribution', 'License']
-    title_for_index = ['# 介绍', '# 安装', '# 版本配套', '# 快速开始', '-', '-']
+    title_list = ['Introduction', 'Install', 'User_Guide',
+                  'Contribution', 'License']
+    title_for_index = ['# 介绍', '# 安装与版本配套', '# 使用指南', '-', '-']
     file_count = 0
     fn = None
     for line in f:
