@@ -18,10 +18,18 @@ import os
 import mindspore as ms
 from mindspore import nn, Parameter
 from mindspore import _checkparam as validator
+try:
+    from mindspore import default_generator, set_rng_state
+except ImportError:
+    from mindspore.nn.generator import default_generator, set_rng_state
 from mindspore.communication import get_rank, get_group_size, create_group, GlobalComm
 from mindspore.train.serialization import _convert_save_obj_to_param_list
 from mindspore.ops.operations import Broadcast, Zeros, AllGather, ReduceScatter
 from mindformers.tools.logger import logger
+from mindformers.experimental.distri_cores.random import (
+    get_rng_tracer,
+    CANDIDATE_MODES
+)
 
 # Distribution configurations.
 _ckpt_rank = 0
@@ -74,9 +82,11 @@ def save_checkpoint(model, optimizer=None, ckpt_path="./", **kwargs):
         param_list = _convert_save_obj_to_param_list(optimizer, True, None, None)
     else:
         param_list = _convert_save_obj_to_param_list(model, True, None, None)
+    append_dict = get_rng_tracer().get_state()
+    append_dict["default_generator"] = default_generator
     # optimizer parallel is not enabled
     if not optimizer or not hasattr(optimizer, "use_parallel") or not optimizer.use_parallel:
-        ms.save_checkpoint(param_list, ckpt_name)
+        ms.save_checkpoint(param_list, ckpt_name, append_dict=append_dict)
         return
     # update distributed config
     global _optim_comm_group
@@ -88,7 +98,7 @@ def save_checkpoint(model, optimizer=None, ckpt_path="./", **kwargs):
             param_dict['data'] = AllGather(group=_optim_comm_group)(param_dict['data'])
     # save checkpoint in process of _ckpt_rank
     if get_rank() == _ckpt_rank:
-        ms.save_checkpoint(param_list, ckpt_name)
+        ms.save_checkpoint(param_list, ckpt_name, append_dict=append_dict)
 
 
 def load_checkpoint(ckpt_path, model, optimizer=None, **kwargs):
@@ -108,11 +118,23 @@ def load_checkpoint(ckpt_path, model, optimizer=None, **kwargs):
     validator.check_value_type("model", model, [nn.Cell], "load_checkpoint")
     validator.check_value_type("optimizer", optimizer, [nn.Cell, type(None)], "load_checkpoint")
     ckpt_name = get_checkpoint_name(ckpt_path)
+
+    def load_rng_state(param_dict):
+        # set default rng tracer state
+        target_state = {
+            mode: param_dict[mode] for mode in CANDIDATE_MODES if mode in param_dict
+        }
+        get_rng_tracer().set_state(target_state)
+        # set default generator state
+        default_generator_loaded = param_dict["default_generator"]
+        set_rng_state(default_generator_loaded)
+
     for key, _ in kwargs.items():
         logger.warning(f"The parameter {key} is not used in load_checkpoint.")
     # optimizer parallel is not enabled
     if not optimizer or not hasattr(optimizer, "use_parallel") or not optimizer.use_parallel:
-        ms.load_checkpoint(ckpt_name, model)
+        param_dict = ms.load_checkpoint(ckpt_name, model)
+        load_rng_state(param_dict)
         if optimizer:
             ms.load_checkpoint(ckpt_name, optimizer)
         return
@@ -124,6 +146,7 @@ def load_checkpoint(ckpt_path, model, optimizer=None, **kwargs):
     # load checkpoint in process of _ckpt_rank
     if get_rank() == _ckpt_rank:
         param_dict = ms.load_checkpoint(ckpt_name)
+        load_rng_state(param_dict)
     else:
         param_dict = {}
     # update parameters

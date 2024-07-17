@@ -41,6 +41,8 @@ __all__ = [
 DATA_PARALLEL_GENERATOR = "dp_rng_generator"
 TENSOR_PARALLEL_GENERATOR = "tp_rng_generator"
 EXPERT_PARALLEL_GENERATOR = "exp_rng_generator"
+IS_SEED_SET = False
+CANDIDATE_MODES = [DATA_PARALLEL_GENERATOR, TENSOR_PARALLEL_GENERATOR, EXPERT_PARALLEL_GENERATOR]
 
 class RNGStateTracer:
     """
@@ -78,9 +80,10 @@ class RNGStateTracer:
     # pylint: disable=W0101
     @contextmanager
     def rng_fork(self, mode=TENSOR_PARALLEL_GENERATOR):
-        "rng_fork"
-        yield
-        return # temporarily return directly
+        "fork rng state if seed is already set, otherwise keep the rng state unchanged"
+        if not IS_SEED_SET:
+            yield
+            return
         # if mode not exists, raise exception
         if mode not in self._states:
             raise ValueError(f"not initialize or the parallel mode {mode} not exists ")
@@ -129,3 +132,5 @@ def set_rng_seed(seed, dp_random_init=False):
     random.seed(seed)
     np.random.seed(seed)
     parallel_mode_manual_seed(seed) # for parallel rng tracer
+    global IS_SEED_SET
+    IS_SEED_SET = True
