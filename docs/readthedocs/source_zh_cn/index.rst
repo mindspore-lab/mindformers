@@ -15,7 +15,6 @@
    :maxdepth: 1
    :caption: 安装
 
-   Version_Match.md
    Install.md
 
 
@@ -35,9 +34,9 @@
 .. toctree::
    :glob:
    :maxdepth: 1
-   :caption: 快速入门
+   :caption: 使用指南
 
-   Quick_Tour.md
+   User_Guide.md
 
 
 .. toctree::
@@ -56,6 +55,7 @@
 
    docs/feature_cards/LLM_DataLoader.md
    docs/feature_cards/Training_Algorithms.md
+   docs/feature_cards/Long_Sequence_Training.md
    docs/feature_cards/Resume_Training.md
    docs/feature_cards/Pet_Tuners.md
    docs/feature_cards/Auto_Parallel.md

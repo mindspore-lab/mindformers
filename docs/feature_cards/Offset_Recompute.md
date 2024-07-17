@@ -3,7 +3,7 @@
 在大模型训练调优过程中，设备内存的合理使用和分配是一项重要的环节，除了通过各种并行方式将模型、优化器状态等数据切分到不同设备外，还可以通过调整流水并行的负载偏置与重计算来精细调整内存的使用。
 在mindformers/models/utils.py中提供了set_layer_stage_recompute函数，用于灵活配置每一层的stage_id与重计算。
 
-# 配置流水并行的负载均衡
+## 配置流水并行的负载均衡
 
 流水并行默认网络层数num_layers可以被pp数pipeline_stage整除，每个stage中包含num_layers/pipeline_stage层。
 如果网络层数num_layers不能被pp数pipeline_stage整除，或者调整每个stage中包含的层数，那么可以通过offset参数进行配置。
@@ -13,7 +13,7 @@ offset可以传入一个list或tuple，此时，list的元素个数需要等于p
 
 例如，一个网络有48层，pp数为5,offset设为[0,1,1,1,0]，那么这5个stage的层数为9,10,10,10,9。
 
-# 配置重计算与选择重计算
+## 配置重计算与选择重计算
 
 重计算可以显著降低训练时使用的内存，但会额外增加一些计算。
 
