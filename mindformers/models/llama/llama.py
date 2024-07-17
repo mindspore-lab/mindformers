@@ -26,7 +26,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.models.utils import set_layer_stage_recompute, check_fine_grain_interleave_valid
+from mindformers.models.utils import LayerSetting, check_fine_grain_interleave_valid
 from mindformers.modules.layers import Linear, FreqsMgr
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
@@ -117,6 +117,10 @@ class LlamaModel(LlamaPreTrainedModel):
         self.fine_grain_interleave = check_fine_grain_interleave_valid(config.fine_grain_interleave,
                                                                        config.parallel_config)
         self.layers = nn.CellList()
+        self.layer_setting = LayerSetting(config.num_layers,
+                                          config.offset,
+                                          config.parallel_config,
+                                          config.pp_interleave_num)
         for layer_id in range(config.num_layers):
             if self.fine_grain_interleave:
                 layer = LLamaDecodeLayerInterleave(config.batch_size,
@@ -166,7 +170,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          use_rope_slice=config.use_rope_slice,
                                          moe_config=config.moe_config,
                                          parallel_config=config.parallel_config)
-            set_layer_stage_recompute(layer, layer_id, config.offset, config.parallel_config, config.num_layers)
+            self.layer_setting(layer, layer_id)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type)

@@ -39,7 +39,7 @@ from mindformers.modules.layers import Linear, _check_input_dtype, build_alibi_t
 from mindformers.modules.transformer import TransformerOpParallelConfig, LowerTriangularMaskWithDynamic
 from mindformers.modules.infer_attention import InferAttention
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.models.utils import set_layer_stage_recompute
+from mindformers.models.utils import LayerSetting
 from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaFeedForward, LlamaRMSNorm
 from mindformers.tools.logger import logger
@@ -293,6 +293,10 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
                                              param_init_type=config.param_init_type,
                                              parallel_optimizer=True)
         self.layers = nn.CellList()
+        self.layer_setting = LayerSetting(config.num_layers,
+                                          config.offset,
+                                          config.parallel_config,
+                                          config.pp_interleave_num)
         for layer_id in range(config.num_layers):
             layer = Baichuan13BDecodeLayer(config.batch_size,
                                            config.seq_length,
@@ -314,7 +318,7 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
                                            block_size=self.block_size,
                                            num_blocks=self.num_blocks,
                                            parallel_config=config.parallel_config)
-            set_layer_stage_recompute(layer, layer_id, config.offset, config.parallel_config, config.num_layers)
+            self.layer_setting(layer, layer_id)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type)
