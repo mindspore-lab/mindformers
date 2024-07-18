@@ -263,8 +263,8 @@ bash scripts/examples/baichuan2/run_baichuan2_predict.sh single \
  research/baichuan2/predict_baichuan2_7b.yaml \
  path/to/baichuan2_7b_chat.ckpt \
  path/to/tokenizer.model \
- "你好。"
-# 输出推理结果：你好，很高兴和您交流。请问有什么问题我可以帮助您解答？
+ "你是谁？"
+# 输出推理结果：我是百川大模型，是由百川智能的工程师们创造的大语言模型，我可以和人类进行自然交流、解答问题、协助创作，帮助大众轻松、普惠的获得世界知识和专业服务。如果你有任何问题，可以随时向我提问
 
 # baichuan2 13b
 bash scripts/examples/baichuan2/run_baichuan2_predict.sh single \
