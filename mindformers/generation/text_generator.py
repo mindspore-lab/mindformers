@@ -141,7 +141,8 @@ class GenerationMixin:
                 return
             input_ids = input_ids.asnumpy()
         current_index_tmp = current_index - np.arange(len(current_index) * input_ids.shape[1], step=input_ids.shape[1])
-        inputs_tmp = input_ids[:, current_index_tmp.reshape(-1, 1)[0]]
+        arg = np.arange(0, input_ids.shape[0])
+        inputs_tmp = input_ids[arg, current_index_tmp].reshape(-1, 1)
         model_inputs["input_ids"] = Tensor.from_numpy(inputs_tmp.astype(np.int32))
 
     def process_logits(self, logits, current_index=None, keep_all=False):
