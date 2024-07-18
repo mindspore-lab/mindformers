@@ -275,7 +275,7 @@ DEVICE_NUM:   使用卡数, 仅开启多卡推理时生效
 
 ### 单卡推理
 
-`Yi-6b-Base`支持单卡推理，`Yi-34b`模型规模较大，仅支持多卡卡推理。
+`Yi-6b-Base`支持单卡推理，`Yi-34b`模型规模较大，仅支持多卡推理。
 
 ```shell
 bash scripts/examples/yi/run_yi_predict.sh single \

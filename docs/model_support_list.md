@@ -6,31 +6,26 @@
 
 |        模型 <br> model        | 模型规格<br>type      | 数据集 <br> dataset | 评估指标 <br> metric | 评估得分 <br> score |                               配置<br>config                               |
 |:---------------------------:|-------------------|:----------------:|:----------------:|:---------------:|:------------------------------------------------------------------------:|
-| [bert](model_cards/bert.md) | bert_base_uncased |       wiki       |        -         |        -        | [configs](https://gitee.com/mindspore/mindformers/tree/dev/configs/bert) |
 
 ### [text_classification](task_cards/text_classification.md)
 
 |                  模型 <br> model                   | 模型规格<br/>type                                              | 数据集 <br> dataset |     评估指标 <br> metric     | 评估得分 <br> score |                                配置<br>config                                |
 |:------------------------------------------------:|------------------------------------------------------------|:----------------:|:------------------------:|:---------------:|:--------------------------------------------------------------------------:|
-| [txtcls_bert](task_cards/text_classification.md) | txtcls_bert_base_uncased<br/>txtcls_bert_base_uncased_mnli |  Mnli <br> Mnli  | Entity F1 <br> Entity F1 | - <br>   84.80% | [configs](https://gitee.com/mindspore/mindformers/tree/dev/configs/txtcls) |
 
 ### [token_classification](task_cards/token_classification.md)
 
 |                   模型 <br> model                   | 模型规格<br/>type                                                 |   数据集 <br> dataset   |     评估指标 <br> metric     | 评估得分 <br> score  |                                配置<br>config                                |
 |:-------------------------------------------------:|---------------------------------------------------------------|:--------------------:|:------------------------:|:----------------:|:--------------------------------------------------------------------------:|
-| [tokcls_bert](task_cards/token_classification.md) | tokcls_bert_base_chinese<br/>tokcls_bert_base_chinese_cluener | CLUENER <br> CLUENER | Entity F1 <br> Entity F1 | - <br>    0.7905 | [configs](https://gitee.com/mindspore/mindformers/tree/dev/configs/tokcls) |
 
 ### [question_answering](task_cards/question_answering.md)
 
 |                模型 <br> model                | 模型规格<br/>type                                         |      数据集 <br> dataset      |   评估指标 <br> metric   |   评估得分 <br> score    |                              配置<br>config                              |
 |:-------------------------------------------:|-------------------------------------------------------|:--------------------------:|:--------------------:|:--------------------:|:----------------------------------------------------------------------:|
-| [qa_bert](task_cards/question_answering.md) | qa_bert_base_uncased<br/>qa_bert_base_chinese_uncased | SQuAD v1.1 <br> SQuAD v1.1 | EM / F1 <br> EM / F1 | 80.74 / 88.33 <br> - | [configs](https://gitee.com/mindspore/mindformers/tree/dev/configs/qa) |
 
 ### translation
 
 |      模型 <br> model      | 模型规格<br/>type | 数据集 <br> dataset | 评估指标 <br> metric | 评估得分 <br> score |                              配置<br>config                              |
 |:-----------------------:|---------------|:----------------:|:----------------:|:---------------:|:----------------------------------------------------------------------:|
-| [t5](model_cards/t5.md) | t5_small      |      WMT16       |        -         |        -        | [configs](https://gitee.com/mindspore/mindformers/tree/dev/configs/t5) |
 
 ### [text_generation](task_cards/text_generation.md)
 
@@ -58,14 +53,11 @@
 
 |       模型 <br> model       | 模型规格<br/>type    | 数据集 <br> dataset | 评估指标 <br> metric | 评估得分 <br> score |                                                配置<br>config                                                 |
 |:-------------------------:|------------------|:----------------:|:----------------:|:---------------:|:-----------------------------------------------------------------------------------------------------------:|
-| [mae](model_cards/mae.md) | mae_vit_base_p16 |   ImageNet-1k    |        -         |        -        | [configs](https://gitee.com/mindspore/mindformers/tree/dev/configs/mae/run_mae_vit_base_p16_224_800ep.yaml) |
 
 ### [image_classification](task_cards/image_classification.md)
 
 |        模型 <br> model        | 模型规格<br/>type  | 数据集 <br> dataset | 评估指标 <br> metric | 评估得分 <br> score |                                                配置<br>config                                                |
 |:---------------------------:|----------------|:----------------:|:----------------:|:---------------:|:----------------------------------------------------------------------------------------------------------:|
-|  [vit](model_cards/vit.md)  | vit_base_p16   |   ImageNet-1k    |     Accuracy     |     83.71%      |  [configs](https://gitee.com/mindspore/mindformers/tree/dev/configs/vit/run_vit_base_p16_224_100ep.yaml)   |
-| [swin](model_cards/swin.md) | swin_base_p4w7 |   ImageNet-1k    |     Accuracy     |     83.44%      | [configs](https://gitee.com/mindspore/mindformers/tree/dev/configs/swin/run_swin_base_p4w7_224_100ep.yaml) |
 
 ## Multi-Modal
 
@@ -73,8 +65,6 @@
 
 |                  模型 <br> model                  | 模型规格<br/>type                                                            |                  数据集 <br> dataset                  |                      评估指标 <br> metric                       |              评估得分 <br> score               |                                                         配置<br>config                                                          |
 |:-----------------------------------------------:|--------------------------------------------------------------------------|:--------------------------------------------------:|:-----------------------------------------------------------:|:------------------------------------------:|:-----------------------------------------------------------------------------------------------------------------------------:|
-|           [clip](model_cards/clip.md)           | clip_vit_b_32<br/>clip_vit_b_16 <br/>clip_vit_l_14<br/>clip_vit_l_14@336 | Cifar100 <br> Cifar100 <br> Cifar100 <br> Cifar100 | Accuracy   <br>  Accuracy   <br>  Accuracy   <br>  Accuracy | 57.24% <br> 61.41% <br> 69.67% <br> 68.19% |       [configs](https://gitee.com/mindspore/mindformers/tree/dev/configs/clip/run_clip_vit_b_32_pretrain_flickr8k.yaml)       |
-| [visualglm](../research/visualglm/visualglm.md) | visualglm                                                                |                    fewshot-data                    |                              -                              |                     -                      | [configs](https://gitee.com/mindspore/mindformers/tree/dev/research/visualglm/run_visualglm_6b_image_to_text_generation.yaml) |
 
 ### image_to_text_generation
 
