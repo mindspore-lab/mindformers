@@ -166,7 +166,6 @@ class LlamaModel(LlamaPreTrainedModel):
                                          use_attn_mask_compression=config.use_attn_mask_compression,
                                          block_size=config.block_size,
                                          num_blocks=config.num_blocks,
-                                         is_dynamic=config.is_dynamic,
                                          use_rope_slice=config.use_rope_slice,
                                          moe_config=config.moe_config,
                                          parallel_config=config.parallel_config)

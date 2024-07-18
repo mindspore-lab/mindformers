@@ -674,7 +674,8 @@ class BaseTrainer:
         if network is None and self.network is None:
             network = self.create_network(
                 default_args={"parallel_config": config.parallel_config,
-                              "moe_config": config.moe_config})
+                              "moe_config": config.moe_config,
+                              "dataset_config": config.train_dataset})
         elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
@@ -737,6 +738,15 @@ class BaseTrainer:
         # define Model and begin training
         logger.info(".........Starting Init Train Model..........")
         if wrapper is not None:
+            if config.train_dataset.dynamic_batch:
+                from mindspore import Symbol
+                divisor = config.train_dataset.divisor if config.train_dataset.divisor else 2
+                remainder = config.train_dataset.remainder if config.train_dataset.remainder else 1
+                s = Symbol(divisor=divisor, remainder=remainder)
+                dyn_inputs = []
+                for _ in config.train_dataset.input_columns:
+                    dyn_inputs.append(Tensor(shape=(config.train_dataset.batch_size, s), dtype=ms.int32))
+                wrapper.set_inputs(*dyn_inputs)
             model = Model(wrapper, metrics=compute_metrics, eval_network=eval_network)
         else:
             model = Model(network, optimizer=optimizer, metrics=compute_metrics, eval_network=eval_network)
