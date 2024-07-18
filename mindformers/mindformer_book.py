@@ -253,16 +253,10 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/bloom/run_bloom_65b.yaml")),
             ("bloom_176b", os.path.join(
                 _PROJECT_PATH, "configs/bloom/run_bloom_176b.yaml")),
-            ("baichuan_7b", os.path.join(
-                _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
             ("baichuan2_7b", os.path.join(
                 _PROJECT_PATH, "research/baichuan2/run_baichuan2_7b.yaml")),
             ("baichuan2_13b", os.path.join(
                 _PROJECT_PATH, "research/baichuan2/run_baichuan2_13b.yaml")),
-            ("ziya_13b", os.path.join(
-                _PROJECT_PATH, "research/ziya/run_ziya_13b.yaml")),
-            ("skywork_13b", os.path.join(
-                _PROJECT_PATH, "research/skywork/run_skywork_13b.yaml")),
             ("internlm_7b", os.path.join(
                 _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
             ("internlm_7b_lora", os.path.join(
@@ -430,16 +424,10 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/bloom/run_bloom_65b.yaml")),
             ("bloom_176b", os.path.join(
                 _PROJECT_PATH, "configs/bloom/run_bloom_176b.yaml")),
-            ("baichuan_7b", os.path.join(
-                _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
             ("baichuan2_7b", os.path.join(
                 _PROJECT_PATH, "research/baichuan2/run_baichuan2_7b.yaml")),
             ("baichuan2_13b", os.path.join(
                 _PROJECT_PATH, "research/baichuan2/run_baichuan2_13b.yaml")),
-            ("ziya_13b", os.path.join(
-                _PROJECT_PATH, "research/ziya/run_ziya_13b.yaml")),
-            ("skywork_13b", os.path.join(
-                _PROJECT_PATH, "research/skywork/run_skywork_13b.yaml")),
             ("internlm_7b", os.path.join(
                 _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
             ("internlm_7b_lora", os.path.join(
