@@ -40,7 +40,7 @@ from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_va
     FreqsMgr
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaSiLU, LlamaRMSNorm
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
-from mindformers.models.utils import set_layer_stage_recompute
+from mindformers.models.utils import LayerSetting
 from mindformers.version_control import check_valid_flash_attention
 
 from qwen_config import QwenConfig
@@ -248,6 +248,10 @@ class QwenModel(QwenPreTrainedModel):
 
         # 4. h hidden layers for transformer
         self.layers = nn.CellList()
+        self.layer_setting = LayerSetting(config.num_layers,
+                                          config.offset,
+                                          config.parallel_config,
+                                          config.pp_interleave_num)
         for layer_id in range(config.num_layers):
             layer = QwenDecodeLayer(layer_id,
                                     dim=config.hidden_size,
@@ -266,7 +270,7 @@ class QwenModel(QwenPreTrainedModel):
                                     num_blocks=config.num_blocks,
                                     parallel_config=config.parallel_config)
 
-            set_layer_stage_recompute(layer, layer_id, config.offset, config.parallel_config, config.num_layers)
+            self.layer_setting(layer, layer_id)
 
             self.layers.append(layer)
 

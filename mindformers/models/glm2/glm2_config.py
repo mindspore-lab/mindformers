@@ -82,6 +82,7 @@ class ChatGLM2Config(PretrainedConfig):
                  checkpoint_name_or_path=None,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  offset=0,
+                 pp_interleave_num=1,
                  **kwargs):
         super().__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -131,3 +132,4 @@ class ChatGLM2Config(PretrainedConfig):
         self.num_heads = self.num_attention_heads
         self.n_kv_heads = self.multi_query_group_num if self.multi_query_attention else None
         self.offset = offset
+        self.pp_interleave_num = pp_interleave_num

@@ -138,6 +138,7 @@ class LlamaConfig(PretrainedConfig):
                  use_attn_mask_compression: bool = False,
                  parallel_optimizer: bool = False,
                  fine_grain_interleave: int = 1,
+                 pp_interleave_num: int = 1,
                  offset: int = 0,
                  checkpoint_name_or_path: str = "",
                  repetition_penalty: float = 1.0,
@@ -193,6 +194,7 @@ class LlamaConfig(PretrainedConfig):
         self.use_attn_mask_compression = use_attn_mask_compression
         self.parallel_optimizer = parallel_optimizer
         self.fine_grain_interleave = fine_grain_interleave
+        self.pp_interleave_num = pp_interleave_num
         self.offset = offset
         self.repetition_penalty = repetition_penalty
         self.max_decode_length = max_decode_length

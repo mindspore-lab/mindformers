@@ -23,7 +23,7 @@ from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules import LayerNorm
 from mindformers.modules.layers import Linear
 from mindformers.modules.flash_attention import FlashAttention
-from mindformers.models.utils import set_layer_stage_recompute
+from mindformers.models.utils import LayerSetting
 from mindformers.pet.tuners.ptuning2_adapter import Ptuning2Adapter
 from mindformers.version_control import get_dropout
 
@@ -474,9 +474,13 @@ class ChatGLM2Transformer(nn.Cell):
             return ChatGLM2Block(config, layer_number)
 
         self.layers = nn.CellList()
+        self.layer_setting = LayerSetting(config.num_layers,
+                                          config.offset,
+                                          config.parallel_config,
+                                          config.pp_interleave_num)
         for i in range(self.num_layers):
             layer = build_layer(i + 1)
-            set_layer_stage_recompute(layer, i, config.offset, config.parallel_config, self.num_layers)
+            self.layer_setting(layer, i)
             self.layers.append(layer)
 
         if self.post_layer_norm:

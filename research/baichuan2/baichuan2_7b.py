@@ -31,7 +31,7 @@ from mindspore.common.initializer import initializer, HeUniform
 
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.models.utils import lazy_inline, set_layer_stage_recompute
+from mindformers.models.utils import lazy_inline, LayerSetting
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.layers import FreqsMgr
@@ -117,6 +117,10 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
                                              param_init_type=config.param_init_type,
                                              parallel_optimizer=True)
         self.layers = nn.CellList()
+        self.layer_setting = LayerSetting(config.num_layers,
+                                          config.offset,
+                                          config.parallel_config,
+                                          config.pp_interleave_num)
         for layer_id in range(config.num_layers):
             layer = LLamaDecodeLayer(layer_id,
                                      dim=config.hidden_size,
@@ -140,7 +144,7 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
                                      num_blocks=config.num_blocks,
                                      use_rope_slice=config.use_rope_slice,
                                      parallel_config=config.parallel_config)
-            set_layer_stage_recompute(layer, layer_id, config.offset, config.parallel_config, config.num_layers)
+            self.layer_setting(layer, layer_id)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type)
