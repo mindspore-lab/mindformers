@@ -15,7 +15,7 @@
 
 """mindformers init"""
 
-__version__ = "1.1"
+__version__ = "dev"
 
 from mindformers import core, dataset, experimental, \
     models, modules, wrapper, tools
@@ -33,6 +33,7 @@ from mindformers.generation import *
 from mindformers.pet import *
 from mindformers import model_runner
 from mindformers.model_runner import *
+from mindformers.run_check import run_check
 from .mindformer_book import MindFormerBook
 
 __all__ = []
