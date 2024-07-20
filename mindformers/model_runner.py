@@ -21,7 +21,7 @@ from typing import Optional, List, Union, Dict
 import numpy as np
 
 import mindspore as ms
-from mindspore import ops, Tensor
+from mindspore import Tensor
 from mindspore.communication.management import init
 from mindspore.common.initializer import Zero
 from mindspore._c_expression import swap_cache
@@ -274,10 +274,7 @@ class MindIEModelRunner:
                                               slot_mapping=slot_mapping,
                                               prefill=prefill,
                                               use_past=True)
-        if isinstance(res, tuple):
-            logits = ops.reshape(res[0], (-1, res[0].shape[-1]))
-        else:
-            logits = ops.reshape(res, (-1, res.shape[-1]))
+        logits = res[0] if isinstance(res, tuple) else res
         if prefill and logits.shape[0] > len(current_idx):
             logits = logits[Tensor(current_idx)]
 
