@@ -288,9 +288,8 @@ class LlamaFeedForward(Cell):
         self.cast = P.Cast()
 
         if self.ffn_concat:
-            self.gate_hidden_oc = hidden_dim * 2
             self.w_gate_hidden = Linear(in_channels=dim,
-                                        out_channels=self.gate_hidden_oc,
+                                        out_channels=hidden_dim * 2,
                                         expert_num=expert_num,
                                         outer_batch=dp_moe,
                                         has_bias=False,
@@ -299,7 +298,6 @@ class LlamaFeedForward(Cell):
                                         skip_redistribution=is_dynamic)
             self.activate = self.hidden_act()
             self.split = ms.ops.auto_generate.SplitWithSize()
-            self.split_reshape = ms.ops.Reshape()
             self.w2 = Linear(in_channels=hidden_dim,
                              out_channels=dim,
                              expert_num=expert_num,
@@ -343,12 +341,8 @@ class LlamaFeedForward(Cell):
         x = self.cast(x, self.dtype)
 
         if self.ffn_concat:
-            bs, seq_len, _ = P.Shape()(x)
             gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp
-            gate_hidden_out = self.split_reshape(gate_hidden_out, (bs, seq_len, self.gate_hidden_oc // 2, 2))
-            gate, hidden = self.split(gate_hidden_out, (1, 1), 3)
-            gate = self.split_reshape(gate, (bs, seq_len, self.gate_hidden_oc // 2))
-            hidden = self.split_reshape(hidden, (bs, seq_len, self.gate_hidden_oc // 2))
+            gate, hidden = self.split(gate_hidden_out, (self.hidden_dim, self.hidden_dim), 2)
             gate = self.activate(gate)
         else:
             # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
@@ -377,7 +371,7 @@ class LlamaFeedForward(Cell):
                 self.activate.shard(((dp, 1, mp),))
                 self.w2.shard(((dp, mp), (1, mp)))
                 self.split.add_prim_attr("skip_redistribution", True)
-                self.split.shard(((dp, 1, mp, 1),))
+                self.split.shard(((dp, 1, mp),))
                 self.mul.shard(((dp, mp), (dp, mp)))
             else:
                 self.w1.shard(((dp * cp, 1), (mp, 1)), strategy_activation=((dp * cp, mp),))
