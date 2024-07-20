@@ -275,6 +275,7 @@ class MindIEModelRunner:
                                               prefill=prefill,
                                               use_past=True)
         logits = res[0] if isinstance(res, tuple) else res
+        logits = logits.reshape(-1, logits.shape[-1])
         if prefill and logits.shape[0] > len(current_idx):
             logits = logits[Tensor(current_idx)]
 
