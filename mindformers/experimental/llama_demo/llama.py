@@ -14,30 +14,38 @@
 # ============================================================================
 """LLaMA models' APIs."""
 import math
-from typing import Optional, Tuple
+from typing import Tuple
+import numpy as np
 
 import mindspore as ms
 import mindspore.common.dtype as mstype
-import numpy as np
 from mindspore import Parameter, Tensor, nn, ops
 from mindspore.common.initializer import initializer
+from mindspore.ops import operations as P
 
 from mindformers.experimental.distri_cores.create_comm import (
-    get_pp_rank, get_tp_world_size)
+    get_tp_rank, get_pp_rank, get_tp_world_size)
+from mindformers.experimental.distri_cores.random import (
+    get_rng_tracer
+)
 from mindformers.experimental.distri_cores.tensor_parallel import (
-    ColumnParallelLinear, RowParallelLinear)
+    ReduceFromModelParallelRegion,
+    ReduceScatterToSequenceParallelRegion,
+)
 from mindformers.experimental.distri_cores.tensor_parallel.layers import (
     ColumnParallelLinear, RowParallelLinear)
 from mindformers.experimental.distri_cores.transformer import (
-    Module, get_attn_mask_func)
+    Module, get_attn_mask_func, get_norm)
 from mindformers.experimental.distri_cores.transformer.scale_mask_softmax import \
     ScaleMaskSoftmax
 from mindformers.experimental.distri_cores.transformer.transformer import \
     _merge_heads
 from mindformers.experimental.distri_cores.utils import divide
 from mindformers.models.llama.llama import LlamaPreTrainedModel
-from mindformers.models.llama.llama_layer import LlamaRMSNorm, LlamaSiLU
+from mindformers.models.llama.llama_layer import LlamaSiLU
 from mindformers.models.utils import lazy_inline
+from mindformers.modules import PagedAttentionMgr
+from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.tools.utils import get_predict_run_mode
@@ -138,7 +146,8 @@ class ParallelLlamaMLPWithGate(Module):
             param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
         )
-
+        tp_group_size = get_tp_world_size()
+        self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, tp_group_size)
         # self.bias_gelu_fusion = False
 
         self.act_type = self.config.hidden_act
@@ -161,9 +170,9 @@ class ParallelLlamaMLPWithGate(Module):
 
     def construct(self, hidden_states):
         """Construct function of mlp block."""
-
         gate_hidden_out = self.w_gate_hidden(hidden_states)
-        gate, hidden = ops.chunk(gate_hidden_out, 2, -1)
+        gate, hidden = self.split(gate_hidden_out,
+                                  (self.ffn_hidden_size_per_partition, self.ffn_hidden_size_per_partition), 2)
         gate = self.act_func(gate)
         hidden = self.mul(hidden, gate)
         output = self.w2(hidden)
@@ -179,6 +188,8 @@ class ParallelLlamaAttention(Module):
         self.layer_index = max(1, layer_number)
         self.param_init_dtype = self.config.param_init_dtype
         self.compute_dtype = self.config.compute_dtype
+        self.is_first_iteration = True
+        self.use_past = self.config.use_past
 
         self.attn_type = attention_type
         self.use_gqa = self.config.use_gqa
@@ -216,6 +227,9 @@ class ParallelLlamaAttention(Module):
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
             )
+            self.hidden_size_per_partition = divide(self.hidden_size, tp_group_size)
+            self.kv_hidden_size_per_partition = divide(self.kv_hidden_size, tp_group_size)
+            self.split_qkv = ms.ops.auto_generate.SplitWithSize()
         elif self.attn_type == "cross_attn":
             assert self.hidden_size == self.kv_hidden_size
 
@@ -257,6 +271,14 @@ class ParallelLlamaAttention(Module):
             param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
         )
+        if self.use_past:
+            kv_shape = (self.config.num_blocks, self.config.block_size, self.kv_num_heads_per_partition, self.head_dim)
+            self.paged_attention_mgr = PagedAttentionMgr(self.num_heads_per_partition,
+                                                         self.head_dim,
+                                                         self.kv_num_heads_per_partition,
+                                                         kv_shape,
+                                                         compute_dtype=self.compute_dtype)
+            self.rotary_embedding = InferRotaryEmbedding(rotary_cos_format=2)
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None):
@@ -270,84 +292,65 @@ class ParallelLlamaAttention(Module):
                 seq_len = seq_len * self.tp_group_size
             # [B, S, H] --> [B, S, H + 2 * kv_H]
             qkv = self.cast(self.w_qkv(x), self.compute_dtype)
+            query, key, value = self.split_qkv(qkv, (
+                self.hidden_size_per_partition, self.kv_hidden_size_per_partition, self.kv_hidden_size_per_partition),
+                                               2)
 
-            query = ops.strided_slice(
-                qkv,
-                (0, 0, 0),
-                (bs, seq_len, self.num_heads_per_partition * self.head_dim),
-                (1, 1, 1),
-            )
-            key = ops.strided_slice(
-                qkv,
-                (0, 0, self.num_heads_per_partition * self.head_dim),
-                (
-                    bs,
-                    seq_len,
-                    (self.num_heads_per_partition + self.kv_num_heads_per_partition) * self.head_dim,
-                ),
-                (1, 1, 1),
-            )
-            value = ops.strided_slice(
-                qkv,
-                (
-                    0,
-                    0,
-                    (self.num_heads_per_partition + self.kv_num_heads_per_partition) * self.head_dim,
-                ),
-                (
-                    bs,
-                    seq_len,
-                    (self.num_heads_per_partition + self.kv_num_heads_per_partition * 2) * self.head_dim,
-                ),
-                (1, 1, 1),
-            )
+        else:
+            raise NotImplementedError("LLaMAAttention don't support CrossAttention")
 
+        if self.use_past:
+            query, key = self.rotary_embedding(query, key, freqs_cis, batch_valid_length)
+            key_out = self.paged_attention_mgr(key, value, slot_mapping)
+            query = ops.depend(query, key_out)
+
+        if self.is_first_iteration:
             # [B, S, H] -> [B, N, S, D]
             query = query.reshape(bs, seq_len, -1, self.head_dim).transpose((0, 2, 1, 3))
             # [B, S, H] -> [B, S, N, D]
             key = key.reshape(bs, seq_len, -1, self.head_dim)
             value = value.reshape(bs, seq_len, -1, self.head_dim)
-        else:
-            raise NotImplementedError("LLaMAAttention don't support CrossAttention")
+            # expand the key_layer and value_layer [B, S, kv_N_per_tp, D]
+            # to [B, S, N_per_tp, D]
+            if self.num_heads_per_partition // self.kv_num_heads_per_partition > 1:
+                repeat_num = self.num_heads_per_partition - self.kv_num_heads_per_partition
+                key = self._repeat_kv(key, repeat_num)
+                value = self._repeat_kv(value, repeat_num)
+            else:
+                key = key.transpose((0, 2, 1, 3))
+                value = value.transpose((0, 2, 1, 3))
 
-        # expand the key_layer and value_layer [B, S, kv_N_per_tp, D]
-        # to [B, S, N_per_tp, D]
-        if self.num_heads_per_partition // self.kv_num_heads_per_partition > 1:
-            repeat_num = self.num_heads_per_partition - self.kv_num_heads_per_partition
-            key = self._repeat_kv(key, repeat_num)
-            value = self._repeat_kv(value, repeat_num)
-        else:
-            key = key.transpose((0, 2, 1, 3))
-            value = value.transpose((0, 2, 1, 3))
+            if not self.use_past:
+                # apply rotary position embedding
+                query, key = self.apply_rotary_emb(query, key, freqs_cis)
 
-        # apply rotary position embedding
-        query, key = self.apply_rotary_emb(query, key, freqs_cis)
-
-        if not self.use_flash_attention:
-            context_layer = self.core_attention(query, key, value, mask)
+            if not self.use_flash_attention:
+                context_layer = self.core_attention(query, key, value, mask)
+            else:
+                # if mask.ndim == 3:
+                #     mask = mask.expand_dims(axis=1)
+                # if query.dtype == mstype.float32:
+                #     query = query.astype(mstype.float16)
+                # if key.dtype == mstype.float32:
+                #     key = key.astype(mstype.float16)
+                # if value.dtype == mstype.float32:
+                #     value = value.astype(mstype.float16)
+                # mask = mask.astype(mstype.uint8)
+                output = ops.flash_attention_score(
+                    query,
+                    key,
+                    value,
+                    self.num_heads_per_partition,
+                    attn_mask=mask,
+                    scalar_value=1.0 / self.norm_factor,
+                    input_layout="BNSD",
+                    sparse_mode=0,
+                    pre_tokens=65536,
+                    next_tokens=0,
+                )
+                context_layer = _merge_heads(output)
         else:
-            # if mask.ndim == 3:
-            #     mask = mask.expand_dims(axis=1)
-            # if query.dtype == mstype.float32:
-            #     query = query.astype(mstype.float16)
-            # if key.dtype == mstype.float32:
-            #     key = key.astype(mstype.float16)
-            # if value.dtype == mstype.float32:
-            #     value = value.astype(mstype.float16)
-            # mask = mask.astype(mstype.uint8)
-            output = ops.flash_attention_score(
-                query,
-                key,
-                value,
-                self.num_heads_per_partition,
-                attn_mask=mask,
-                scalar_value=1.0 / self.norm_factor,
-                input_layout="BNSD",
-                sparse_mode=0,
-                pre_tokens=65536,
-                next_tokens=0,
-            )
-            context_layer = _merge_heads(output)
+            context_layer = self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables)
 
         # apply output projection
         output = self.wo(context_layer)
@@ -372,12 +375,12 @@ class ParallelLlamaAttention(Module):
 
 class ParallelLlamaTransformerLayer(Module):
     def __init__(
-        self,
-        config,
-        layer_number,
-        layer_type=None,
-        self_attn_mask_type=None,
-        drop_path_rate=0.0,
+            self,
+            config,
+            layer_number,
+            layer_type=None,
+            self_attn_mask_type=None,
+            drop_path_rate=0.0,
     ):
         super().__init__(config)
         if layer_type:
@@ -398,15 +401,13 @@ class ParallelLlamaTransformerLayer(Module):
         self.residual_connection_dtype = self.config.residual_connection_dtype
 
         # Normalize the input data.
-        self.attention_norm = LlamaRMSNorm(self.hidden_size, config.layernorm_epsilon,
-                                           compute_type=config.layernorm_compute_dtype)
+        self.attention_norm = get_norm(config)
 
         # Attention.
         self.attention = ParallelLlamaAttention(config, layer_number)
 
         # Normalize the attention output
-        self.ffn_norm = LlamaRMSNorm(self.hidden_size, config.layernorm_epsilon,
-                                     compute_type=config.layernorm_compute_dtype)
+        self.ffn_norm = get_norm(config)
 
         # MLP
         self.feed_forward = ParallelLlamaMLPWithGate(config)
@@ -455,14 +456,127 @@ class ParallelLlamaTransformerLayer(Module):
         return output
 
 
+class VocabParallelLlamaEmbedding(nn.Cell):
+    """
+    Embedding parallelized in the vocabulary dimension.
+
+    Args:
+        num_embeddings: vocabulary size.
+        embedding_dim: size of hidden state.
+        parallel_config (Optional[Union[dict, ParallelContextConfig]]):
+            Parallel Config For Running Environment. Default: None.
+        init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The values
+            of str refer to the function `initializer`. Default: 'normal'.
+        init_type (dtype.Number): The parameter initialization type. Default: mstype.float32.
+    """
+
+    def __init__(
+            self,
+            num_embeddings,
+            embedding_dim,
+            parallel_config,
+            init_method="normal",
+            init_type=mstype.float32,
+    ):
+        super().__init__()
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.sequence_parallel = parallel_config.use_sequence_parallel
+
+        self.tensor_model_parallel_size = get_tp_world_size()
+
+        (
+            self.vocab_start_index,
+            self.vocab_end_index,
+        ) = self._vocab_range_from_global_vocab_size(
+            self.num_embeddings, get_tp_rank(), self.tensor_model_parallel_size
+        )
+        self.num_embeddings_per_partition = (
+                self.vocab_end_index - self.vocab_start_index
+        )
+
+        with get_rng_tracer().rng_fork():
+            self.embedding_weight = Parameter(
+                initializer(
+                    init=init_method,
+                    shape=(self.num_embeddings_per_partition, self.embedding_dim),
+                    dtype=init_type,
+                ),
+                name="weight",
+            )
+        self.gather = ops.Gather()
+        self.reduce_from_mp_region = ReduceFromModelParallelRegion()
+        self.reduce_scatter_to_sp_region = ReduceScatterToSequenceParallelRegion()
+
+    def construct(self, x):
+        """ construct. """
+        input_mask = None
+        if self.tensor_model_parallel_size > 1:
+            # Build the mask.
+            input_mask = (x < self.vocab_start_index).astype(mstype.int32) | (
+                    x >= self.vocab_end_index
+            ).astype(mstype.int32)
+            input_mask = input_mask.astype(mstype.bool_)
+            # Mask the input.
+            masked_input = x.copy() - self.vocab_start_index
+            # masked_input[input_mask] = 0
+            masked_input = ops.masked_fill(
+                masked_input, input_mask, Tensor(0, masked_input.dtype)
+            )
+        else:
+            masked_input = x
+        # Get the embeddings.
+        output_parallel = self.gather(self.embedding_weight, masked_input, 0)
+        # Mask the output embedding.
+        if self.tensor_model_parallel_size > 1:
+            # output_parallel[input_mask, :] = 0.0
+            output_parallel = ops.masked_fill(
+                output_parallel,
+                input_mask.expand_dims(2),
+                Tensor(0.0, output_parallel.dtype),
+            )
+        embedding_table = self.embedding_weight.value()
+
+        if self.sequence_parallel:
+            output_parallel = output_parallel.swapaxes(0, 1).contiguous()
+            output = self.reduce_scatter_to_sp_region(output_parallel)
+            output = output.swapaxes(0, 1).contiguous()
+        else:
+            # Reduce across all the model parallel devices.
+            output = self.reduce_from_mp_region(output_parallel)
+        return output, embedding_table
+
+    # pylint: disable=W0613
+    def _vocab_range_from_global_vocab_size(self, global_vocab_size, rank, world_size):
+        if global_vocab_size % world_size != 0:
+            raise ValueError(f"The vocabulary size is {global_vocab_size},"
+                             f"which is not divisible by size of tensor parallel({world_size}).")
+        per_partition_vocab_size = divide(global_vocab_size, world_size)
+        index_f = rank * per_partition_vocab_size
+        index_l = index_f + per_partition_vocab_size
+        return index_f, index_l
+
+    def sharded_state_dict(self):
+        """provide the sharded state dict based on the config"""
+        tp_size = get_tp_world_size()
+        w_shard = (tp_size, 1)
+        state_dict = {}
+        state_dict[self.embedding_weight.name] = {'shape': self.embedding_weight.shape,
+                                                  'shard': w_shard,
+                                                  'opt_weight_shard_step': 0,
+                                                  'opt_weight_shard_size': -1}
+
+        return state_dict
+
+
 class LlamaEmbedding(nn.Cell):
     def __init__(
-        self,
-        num_embeddings,
-        embedding_dim,
-        parallel_config=None,
-        init_method="normal",
-        init_type=mstype.float32,
+            self,
+            num_embeddings,
+            embedding_dim,
+            parallel_config=None,
+            init_method="normal",
+            init_type=mstype.float32,
     ):
         super().__init__()
         self.num_embeddings = num_embeddings
@@ -500,14 +614,21 @@ class ParallelLlamaModel(LlamaPreTrainedModel):
         self.config = config
         self.use_past = config.use_past
         self.hidden_size = config.hidden_size
-
-        self.tok_embeddings = LlamaEmbedding(
-            num_embeddings=config.vocab_size,
-            embedding_dim=config.hidden_size,
-            parallel_config=config.parallel_config,
-            init_method="normal",
-            init_type=config.param_init_dtype,
-        )
+        self.is_first_iteration = True
+        if config.parallel_config.vocab_emb_dp:
+            self.tok_embeddings = LlamaEmbedding(
+                num_embeddings=config.vocab_size,
+                embedding_dim=config.hidden_size,
+                parallel_config=config.parallel_config,
+                init_method="normal",
+                init_type=config.param_init_dtype,
+            )
+        else:
+            self.tok_embeddings = VocabParallelLlamaEmbedding(num_embeddings=config.vocab_size,
+                                                              embedding_dim=config.hidden_size,
+                                                              parallel_config=config.parallel_config,
+                                                              init_method="normal",
+                                                              init_type=config.param_init_dtype)
         self.head_dim = config.hidden_size // config.num_heads
         self.num_layers = config.num_layers
         offset = get_pp_rank() * self.num_layers
@@ -524,18 +645,16 @@ class ParallelLlamaModel(LlamaPreTrainedModel):
                                   parallel_config=config.parallel_config)
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
-                                                          is_dynamic=config.is_dynamic,
+                                                          is_dynamic=True,
                                                           pad_token_id=config.pad_token_id,
                                                           use_flash_attention=config.use_flash_attention,
                                                           use_attn_mask_compression=config.use_attn_mask_compression)
 
-        self.norm_out = LlamaRMSNorm(self.hidden_size, config.layernorm_epsilon,
-                                     compute_type=config.layernorm_compute_dtype)
+        self.norm_out = get_norm(config)
         self.post_norm = config.post_norm
         if self.post_norm:
             # final layernorm before output.
-            self.final_norm = LlamaRMSNorm(self.hidden_size, config.layernorm_epsilon,
-                                           compute_type=config.layernorm_compute_dtype)
+            self.final_norm = get_norm(config)
 
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None):
@@ -551,7 +670,11 @@ class ParallelLlamaModel(LlamaPreTrainedModel):
         mask = None
         bs, seq_len = tokens.shape
         if self.use_past:
-            raise NotImplementedError("Don't support use_past now.")
+            if self.is_first_iteration:
+                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
+            else:
+                freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
             mask = self.casual_mask(tokens)
             freqs_cis = self.freqs_mgr(seq_len)
@@ -561,10 +684,13 @@ class ParallelLlamaModel(LlamaPreTrainedModel):
                 mask = ops.concat((prefix_mask, mask), -1)
 
         hidden_states = self.tok_embeddings(tokens)
+        if isinstance(hidden_states, tuple):
+            hidden_states = hidden_states[0]
 
         for layer in self.layers:
             prefix_kv = None  # No use_past
-            hidden_states = layer(hidden_states, freqs_cis, mask, batch_valid_length=batch_valid_length, block_tables=block_tables,
+            hidden_states = layer(hidden_states, freqs_cis, mask, batch_valid_length=batch_valid_length,
+                                  block_tables=block_tables,
                                   slot_mapping=slot_mapping, prefix_keys_values=prefix_kv)
         if self.post_norm:
             hidden_states = self.final_norm(hidden_states)
@@ -597,9 +723,6 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.is_first_iteration = True
 
         self.shape = ops.Shape()
-        self.reshape = ops.Reshape()
-        if config.is_dynamic:
-            self.reshape.add_prim_attr("skip_redistribution", True)
         self.cast = ops.Cast()
         self.slice = ops.StridedSlice()
         self.not_equal = ops.NotEqual()
@@ -609,21 +732,30 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.gather = ops.Gather(1)
         self.sub_batch_valid_len = ops.Sub()
         self.model = ParallelLlamaModel(config=config)
-        self.lm_head = nn.Dense(
-            in_channels=config.hidden_size,
-            out_channels=config.vocab_size,
-            weight_init="normal",
-            has_bias=False,
-            dtype=config.param_init_type,
-        )
+        if config.parallel_config.vocab_emb_dp:
+            self.lm_head = nn.Dense(
+                in_channels=config.hidden_size,
+                out_channels=config.vocab_size,
+                weight_init="normal",
+                has_bias=False,
+                dtype=config.param_init_type,
+            )
+        else:
+            self.lm_head = ColumnParallelLinear(
+                config.hidden_size,
+                output_size=config.vocab_size,
+                config=config.parallel_config,
+                bias=False,
+                gather_output=True,
+                param_init_type=config.param_init_dtype,
+                compute_dtype=config.compute_dtype,
+            )
 
         self.load_checkpoint(config)
         self.set_model_predict_config()
         self.predict_run_mode = get_predict_run_mode()
 
         self.use_past = config.use_past
-        if self.use_past:
-            raise NotImplementedError("Don't support use_past.")
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         if self.config.is_dynamic and "origin_inputs" in kwargs:
@@ -678,19 +810,17 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         """
         # input_ids = input_ids[:, :-1].contiguous()
         batch_size, seq_len = input_ids.shape
-        if self.use_past:
-            raise NotImplementedError("Don't support use_past now.")
         if self.training:
-            tokens = input_ids[:, :seq_len-1]
+            tokens = input_ids[:, :seq_len - 1]
         else:
             tokens = input_ids
         if batch_valid_length is not None:
-            batch_valid_length = self.reshape(batch_valid_length, (-1,))
+            batch_valid_length = batch_valid_length.reshape(-1, )
         output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables,
                             slot_mapping, prefix_keys_values)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
-            output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+            output = self.gather(output, batch_valid_length - 1, 1)
         logits = self.lm_head(output)
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
         if labels is None:

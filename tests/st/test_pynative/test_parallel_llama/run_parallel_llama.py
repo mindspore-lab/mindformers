@@ -82,7 +82,7 @@ def convert_model_config(configs):
     configs.ffn_hidden_size = hidden_dim
     configs.hidden_act = "silu"
     configs.hidden_dropout_rate = 0.0
-    configs.kv_num_heads = configs.num_heads
+    configs.kv_num_heads = configs.num_heads if configs.n_kv_heads is None else configs.n_kv_heads
     configs.layernorm_epsilon = configs.rms_norm_eps
     configs.mask_func_type = "attn_mask_add"
     configs.mlp_has_bias = False
