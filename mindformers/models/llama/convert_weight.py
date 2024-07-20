@@ -188,10 +188,12 @@ def convert_qkv_concat_weight(param_dict, n_head):
         wv_weight = param_dict[wv_weight_name].asnumpy()
         parallel_hidden_size = wq_weight.shape[0]
         hidden_size = wq_weight.shape[1]
-        wq_weight = wq_weight.reshape((parallel_hidden_size, 1, hidden_size))
-        wk_weight = wk_weight.reshape((parallel_hidden_size, 1, hidden_size))
-        wv_weight = wv_weight.reshape((parallel_hidden_size, 1, hidden_size))
-        qkv_weight = np.concatenate((wq_weight, wk_weight, wv_weight), 1).reshape((parallel_hidden_size*3, hidden_size))
+        head_dim = hidden_size // n_head
+        parallel_n_head = parallel_hidden_size // head_dim
+        wq_weight = wq_weight.reshape((parallel_n_head, head_dim, 1, hidden_size))
+        wk_weight = wk_weight.reshape((parallel_n_head, head_dim, 1, hidden_size))
+        wv_weight = wv_weight.reshape((parallel_n_head, head_dim, 1, hidden_size))
+        qkv_weight = np.concatenate((wq_weight, wk_weight, wv_weight), 2).reshape((parallel_hidden_size*3, hidden_size))
         param_dict[qkv_concat_weight_name] = ms.Parameter(qkv_weight, name=qkv_concat_weight_name)
 
         # gate hidden weight concat
@@ -204,10 +206,12 @@ def convert_qkv_concat_weight(param_dict, n_head):
 
         parallel_hidden_size = ffn_gate_weight.shape[0]
         hidden_size = ffn_gate_weight.shape[1]
-        ffn_gate_weight = ffn_gate_weight.reshape((parallel_hidden_size, 1, hidden_size))
-        ffn_hidden_weight = ffn_hidden_weight.reshape((parallel_hidden_size, 1, hidden_size))
+        head_dim = hidden_size // n_head
+        parallel_n_head = parallel_hidden_size // head_dim
+        ffn_gate_weight = ffn_gate_weight.reshape((parallel_n_head, head_dim, 1, hidden_size))
+        ffn_hidden_weight = ffn_hidden_weight.reshape((parallel_n_head, head_dim, 1, hidden_size))
 
-        gate_hidden_weight = np.concatenate((ffn_gate_weight, ffn_hidden_weight), 1)\
+        gate_hidden_weight = np.concatenate((ffn_gate_weight, ffn_hidden_weight), 2)\
             .reshape((parallel_hidden_size * 2, hidden_size))
         param_dict[gate_hidden_concat_weight_name] = ms.Parameter(gate_hidden_weight,
                                                                   name=gate_hidden_concat_weight_name)
