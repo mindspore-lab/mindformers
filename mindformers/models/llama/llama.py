@@ -346,7 +346,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             logger.info("Using SmoothQuant to quant LlamaForCausalLM.")
             from mindspore_gs.ptq import PTQConfig, PTQMode
             from mindspore_gs.common import BackendTarget
-            from mindspore_gs.ptq import SmoothQuant as SQ
+            from mindspore_gs.ptq.smooth_quant import SmoothQuant as SQ
             cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['w2', 'lm_head'])
             ptq = SQ(config=cfg)
             ptq.apply(self)
