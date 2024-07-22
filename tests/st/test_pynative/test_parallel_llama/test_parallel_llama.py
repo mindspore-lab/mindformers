@@ -20,6 +20,7 @@ import pytest
 
 class TestParallelLLaMa:
     """A test class for testing Linear."""
+
     @pytest.mark.level0
     @pytest.mark.run(order=1)
     def test_llama_golden(self):
@@ -36,13 +37,13 @@ class TestParallelLLaMa:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --generate_golden"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8238 "+\
-                    f"--log_dir=msrun_log_graph "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
-                    f"{scripts_cmd}"
+        cmd = f"msrun --worker_num={device_num} " + \
+              f"--local_worker_num={device_num} " + \
+              f"--master_port=8238 " + \
+              f"--log_dir=msrun_log_graph " + \
+              f"--join=True " + \
+              f"--cluster_time_out=300 " + \
+              f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_graph_transformer/worker_0.log -C 3")
@@ -64,13 +65,13 @@ class TestParallelLLaMa:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path}"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8238 "+\
-                    f"--log_dir=msrun_log_pynative "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
-                    f"{scripts_cmd}"
+        cmd = f"msrun --worker_num={device_num} " + \
+              f"--local_worker_num={device_num} " + \
+              f"--master_port=8238 " + \
+              f"--log_dir=msrun_log_pynative " + \
+              f"--join=True " + \
+              f"--cluster_time_out=300 " + \
+              f"{scripts_cmd}"
         ret = os.system(cmd)
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_pynative_transformer/worker_0.log -C 3")
         assert ret == 0, "msrun failed, please check msrun_log_pynative_transformer/worker_*.log"
