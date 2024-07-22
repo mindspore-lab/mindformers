@@ -20,7 +20,7 @@
 - **context_parallel**: 序列并行
 - **pipeline_stage**: 流水线并行
 
-此外，当前序列并行方案暂未兼容词表模型并行切分，开启序列并行时需要将参数vocab_emb_dp设置为True。并且本序列并行方案与use_seq_parallel使能的序列并行方案。
+此外，当前序列并行方案暂未兼容词表模型并行切分，开启序列并行时需要将参数vocab_emb_dp设置为True。并且本序列并行方案与use_seq_parallel使能的序列并行方案暂不兼容。
 
 序列并行配置参考样例：
 

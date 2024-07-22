@@ -245,7 +245,6 @@ class LLamaAttentionInterleave(nn.Cell):
                 self.merger_head_transpose.shard(in_strategy=layout_merger_head_transpose)
             else:
                 self.merger_head_transpose.shard(((dp, mp, 1, 1),))
-            self.merger_head_transpose.shard(((dp, mp, 1, 1),))
             self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
             self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
             self.mul.shard(((dp, mp, 1, 1), ()))
