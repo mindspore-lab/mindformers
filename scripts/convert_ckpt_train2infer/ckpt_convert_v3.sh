@@ -131,7 +131,7 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a16" ]; then
     dir_count=$(find  "$src_ckpt_path"  -mindepth 1 -maxdepth 1 -type d | wc -l)
     echo "Number of directories in '$src_ckpt_path' is: $dir_count"
     if [ "$dir_count" != "$world_size" ] ; then
-        if find "${Dst_ckpt_path}_${dir_count}p/rank_0/" -type f -name "*.ckpt" | read ; then
+        if find "${Dst_ckpt_path}_${dir_count}p/rank_0/" -type f -name "*.ckpt" | read; then
             echo "Has ${precision}_${dir_count}p ckpt, jump to step 2"
         else
             #1. 转换成dir_count的w8a16权重
@@ -144,11 +144,16 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a16" ]; then
             -o ${Dst_ckpt_path}_${dir_count}p \
             -w $dir_count \
             > ./log/log_fp16_to_${precision}_${dir_count}.log 2>&1
-            echo "-----1. End convert ${dir_count}p ${precision} weights time: $(date +%H:%M:%S) -----"
-            mv ${Dst_ckpt_path}_${dir_count}p/w8a16_ckpt/*  ${Dst_ckpt_path}_${dir_count}p/
-            rm -rf ${Dst_ckpt_path}_${dir_count}p/w8a16_ckpt
+            if find "${Dst_ckpt_path}_${dir_count}p/w8a16_ckpt/rank_0/" -type f -name "*.ckpt" | read; then
+                echo "-----1. End convert ${dir_count}p ${precision} weights time: $(date +%H:%M:%S) -----"
+                mv ${Dst_ckpt_path}_${dir_count}p/w8a16_ckpt/*  ${Dst_ckpt_path}_${dir_count}p/
+                rm -rf ${Dst_ckpt_path}_${dir_count}p/w8a16_ckpt
+            else
+                echo "ERROR"
+                exit 1
+            fi
         fi
-        if [ -f ${Infer_strategy_path}_${dir_count}p/strategy/ckpt_strategy_rank_0.ckpt ] ; then
+        if [ -f  ${Infer_strategy_path}_${dir_count}p/strategy/ckpt_strategy_rank_0.ckpt ] ; then
             echo "Has fp16_${dir_count}p strategy, jump to step 3"
         else
             #2. 生成dir_count的strategy
@@ -186,6 +191,15 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a16" ]; then
         --prefix="checkpoint_" \
         > ./log/log_transform_ckpt_${precision}_${world_size}.log 2>&1
         echo "-----4. End convert ${world_size}p ${precision} weights time: $(date +%H:%M:%S) -----"
+        #5. 转成worldsize的权重
+        echo "-----5. Start to adjust qkv from ${dir_count} to ${world_size} ${precision} time: $(date +%H:%M:%S) -----"
+        python adjust_qkv.py \
+        --src_ckpt_path=${Dst_ckpt_path}_${world_size}p \
+        --dst_ckpt_path=${Dst_ckpt_path}_${world_size}p_adjust_qkv \
+        --dir_count=${dir_count} \
+        --world_size=${world_size} \
+        > ./log/log_adjust_qkv_${dir_count}_to_${world_size}.log 2>&1
+        echo "-----5. End adjust qkv from ${dir_count} to ${world_size} ${precision} time: $(date +%H:%M:%S) -----"
     else
         echo "-----1. Start to convert ${world_size}p ${precision} weights time: $(date +%H:%M:%S) -----"
         msrun --worker_num=$world_size --local_worker_num=$world_size --master_port=8126 \
@@ -197,8 +211,8 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a16" ]; then
         -w $world_size \
         > ./log/log_fp16_to_${precision}_${world_size}.log 2>&1
         echo "-----1. End convert ${world_size}p ${precision} weights time: $(date +%H:%M:%S) -----"
-    mv ${Dst_ckpt_path}_${world_size}p/w8a16_ckpt/*  ${Dst_ckpt_path}_${world_size}p/
-    rm -rf ${Dst_ckpt_path}_${world_size}p/w8a16_ckpt
+        mv ${Dst_ckpt_path}_${world_size}p/w8a16_ckpt/*  ${Dst_ckpt_path}_${world_size}p/
+        rm -rf ${Dst_ckpt_path}_${world_size}p/w8a16_ckpt
     fi
 elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a8" ]; then
     echo "Converting checkpoint from fp16 inference to w8a8 inference"
@@ -239,9 +253,14 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a8" ]; then
             -s $boolq_dataset_path \
             -t boolq \
             > ./log/log_fp16_to_${precision}_${dir_count}.log 2>&1
-            echo "-----1. End convert ${dir_count}p ${precision} weights time: $(date +%H:%M:%S) -----"
-            mv ${Dst_ckpt_path}_${dir_count}p/w8a8_ckpt/*  ${Dst_ckpt_path}_${dir_count}p/
-            rm -rf ${Dst_ckpt_path}_${dir_count}p/w8a8_ckpt
+            if find "${Dst_ckpt_path}_${dir_count}p/w8a8_ckpt/rank_0/" -type f -name "*.ckpt" | read; then
+                echo "-----1. End convert ${dir_count}p ${precision} weights time: $(date +%H:%M:%S) -----"
+                mv ${Dst_ckpt_path}_${dir_count}p/w8a8_ckpt/*  ${Dst_ckpt_path}_${dir_count}p/
+                rm -rf ${Dst_ckpt_path}_${dir_count}p/w8a8_ckpt
+            else
+                echo "ERROR"
+                exit 1
+            fi
         fi
         if [ -f ${Infer_strategy_path}_${dir_count}p/strategy/ckpt_strategy_rank_0.ckpt ] ; then
             echo "Has fp16_${dir_count}p strategy, jump to step 3"
@@ -281,6 +300,15 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a8" ]; then
         --prefix="checkpoint_" \
         > ./log/log_transform_ckpt_${precision}_${world_size}.log 2>&1
         echo "-----4. End convert ${world_size}p ${precision} weights time: $(date +%H:%M:%S) -----"
+        #5. 转成worldsize的权重
+        echo "-----5. Start to adjust qkv from ${dir_count} to ${world_size} ${precision} time: $(date +%H:%M:%S) -----"
+        python adjust_qkv.py \
+        --src_ckpt_path=${Dst_ckpt_path}_${world_size}p \
+        --dst_ckpt_path=${Dst_ckpt_path}_${world_size}p_adjust_qkv \
+        --dir_count=${dir_count} \
+        --world_size=${world_size} \
+        > ./log/log_adjust_qkv_${dir_count}_to_${world_size}.log 2>&1
+        echo "-----5. End adjust qkv from ${dir_count} to ${world_size} ${precision} time: $(date +%H:%M:%S) -----"
     else
         if [ -z "$boolq_dataset_path" ]; then
             boolq_dataset_path="./boolq/dev.jsonl"

@@ -23,28 +23,27 @@ from mindformers.models.llama.convert_weight import convert_qkv_concat_weight
 # from convert_weight import transpose_w2_weight
 
 
-def add_qkv(i, src_ckpt_path, dst_ckpt_path, n_head):
+def add_qkv(i, src_ckpt_path, dst_ckpt_path):
     """convert previous ckpt to qkv concat ckpt"""
     rank_id = int(i)
     src_path = src_ckpt_path + "/rank_{}/".format(rank_id)
     dst_path = dst_ckpt_path + "/rank_{}/".format(rank_id)
     ckpt_name = os.listdir(src_path)[0]
     params = ms.load_checkpoint(src_path + ckpt_name)
-    params = convert_qkv_concat_weight(params, n_head)
+    params = convert_qkv_concat_weight(params)
     # if w2_transb:
     #     params = transpose_w2_weight(params)
-
     if not os.path.exists(dst_path):
         os.makedirs(dst_path)
     ms.save_checkpoint(params, dst_path + ckpt_name)
 
 
-def main(src_ckpt_path, dst_ckpt_path, world_size, n_head):
+def main(src_ckpt_path, dst_ckpt_path, world_size):
     """parallel run add_qkv function"""
     # 获取当前时间
     start_time = datetime.now().strftime("%H:%M:%S")
 
-    arguments = [(i, src_ckpt_path, dst_ckpt_path, n_head) for i in range(world_size)]
+    arguments = [(i, src_ckpt_path, dst_ckpt_path) for i in range(world_size)]
 
     # 创建一个进程池
     with multiprocessing.Pool(processes=world_size) as pool:
@@ -66,8 +65,6 @@ if __name__ == "__main__":
                         help='Checkpoint saved path from train process.')
     parser.add_argument('--world_size', default=8, type=int,
                         help='world size')
-    parser.add_argument('--n_head', default=64, type=int,
-                        help='head num')
     args = parser.parse_args()
 
-    main(args.src_ckpt_path, args.dst_ckpt_path, args.world_size, args.n_head)
+    main(args.src_ckpt_path, args.dst_ckpt_path, args.world_size)
