@@ -12,19 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Quant llama2 7b to w8a8."""
+"""Quant llama2 to w8a8."""
+
 import os
 import argparse
 import time
 
 import numpy as np
 import mindspore as ms
-from mindspore import log as logger
 from mindspore import Model
 from mindspore.communication import get_rank
-from mindspore_gs.ptq import PTQMode
-from mindspore_gs.common import BackendTarget
-from networks_for_w8a8 import NetworkRegister, BaseNetwork
+from mindformers import LlamaForCausalLM
+from mindspore_gs.ptq import PTQMode, PTQConfig
+from mindspore_gs.common import BackendTarget, logger
+from mindspore_gs.datasets import get_datasets
+from mindspore_gs.ptq.smooth_quant import SmoothQuant as SQ
+from mindspore_gs.ptq.network_helpers.mf_net_helpers import MFLlama2Helper
+from llama2 import Llama2Network
 
 
 def get_args():
@@ -42,13 +46,49 @@ def get_args():
     return args
 
 
+def quant_network(net: LlamaForCausalLM, mode=PTQMode.QUANTIZE, backend=BackendTarget.ASCEND, **kwargs):
+    """Quant llama2 model to w8a16 with RTN algorithm."""
+    start_time = time.time()
+    if mode == PTQMode.QUANTIZE:
+        logger.info("Use RTN algo to quant network and weight.")
+    else:
+        logger.info("Use RTN algo to quant network.")
+    cfg = PTQConfig(mode=mode, backend=backend, opname_blacklist=["w2", "lm_head"])
+    ptq = SQ(config=cfg)
+    logger.info(f'Create PTQ cost time is {time.time() - start_time} s.')
+    start_time = time.time()
+    ds_path = kwargs.get("ds_path", "")
+    if not ds_path:
+        raise ValueError("Please provide datasets for calibrating.")
+    ds_type = kwargs.get("ds_type", "")
+    if not ds_type:
+        raise ValueError("Please provide datasets type for calibrating.")
+    mfconfig = kwargs.get("mfconfig", None)
+    if not mfconfig:
+        raise ValueError("Please provide mfconfig for calibrating.")
+    net_helper = MFLlama2Helper(mfconfig)
+    bs_ = net_helper.get_spec('batch_size')
+    seq_ = net_helper.get_spec('seq_length')
+    max_decode_length = net_helper.get_spec('max_decode_length')
+    ignore_token_id = net_helper.get_spec('ignore_token_id')
+    tokenizer = net_helper.create_tokenizer()
+    ds = get_datasets(ds_type, ds_path, "train", bs_, seq_, max_decode_length, tokenizer, ignore_token_id, 1, False,
+                      n_samples=200)
+    net = ptq.apply(net, net_helper, ds=ds)
+    logger.info(f'Apply PTQ cost time is {time.time() - start_time} s.')
+    start_time = time.time()
+    net.phase = "quant_convert"
+    net = ptq.convert(net)
+    logger.info(f'Convert to real quantize cost time is {time.time() - start_time} s.')
+    return net
+
+
 if __name__ == "__main__":
     start = time.time()
     uargs = get_args()
     print('------------------------- Creating network...', flush=True)
-    net_mgr: BaseNetwork = NetworkRegister.instance().from_config(uargs.config_path)
+    net_mgr: Llama2Network = Llama2Network()
     config = net_mgr.create_mfconfig(uargs.config_path, uargs.load_checkpoint, uargs.output_dir, uargs.world_size)
-
     network = net_mgr.create_network(config)
     network.set_train(False)
     network.phase = 'predict'
@@ -73,8 +113,8 @@ if __name__ == "__main__":
     logger.info(f'Load ckpt cost time is {time.time() - start} s.')
     print('------------------------- Quantize-ing network...', flush=True)
     start = time.time()
-    network = net_mgr.quant_network(network, mode=PTQMode.QUANTIZE, backend=BackendTarget.ASCEND,
-                                    ds_path=uargs.dataset_path, ds_type=uargs.dataset_type, mfconfig=config)
+    network = quant_network(network, mode=PTQMode.QUANTIZE, backend=BackendTarget.ASCEND, ds_path=uargs.dataset_path,
+                            ds_type=uargs.dataset_type, mfconfig=config)
     logger.info(f'Quant Network cost time is {time.time() - start} s.')
     print('------------------------- Saving checkpoint...', flush=True)
     start = time.time()

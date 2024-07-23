@@ -50,7 +50,7 @@ bash ckpt_convert_v1.sh -t true -p fp16 -w 8 -y /home/checkpoint_download/llama5
 
 暂无
 
-## 2. fp16推理权重转量化(w8a16和w8a8)推理权重(ckpt_convert_v1.sh)
+## 2. fp16推理权重转量化(w8a16和w8a8)推理权重(ckpt_convert_v3.sh)
 
 ### 2.1 转换步骤
 
@@ -76,17 +76,18 @@ bash ckpt_convert_v1.sh -t true -p fp16 -w 8 -y /home/checkpoint_download/llama5
     - 生成 `dir_count` 卡数的策略文件
     - 生成 `world_size` 卡数的策略文件
     - 生成 `world_size` 卡数的量化权重文件
+    - 调整qkv排布
 
 ### 2.2 样例
 
 ```shell
 # w8a16 fp16-4p 转 w8a16_4p
-bash ckpt_convert_v1.sh -t false -p w8a16 -w 4 -y /home/checkpoint_download/llama57b_quant_w8a16/predict_llama2_57b_910b.yaml  -sc /home/predict/convert_ckpt_stage_0703/infer_ckpt/fp16_4p -is /home/predict/convert_ckpt_stage_0703/infer_strategy -dc /home/predict/convert_ckpt_stage_0703/infer_ckpt
+bash ckpt_convert_v3.sh -t false -p w8a16 -w 4 -y /home/checkpoint_download/llama57b_quant_w8a16/predict_llama2_57b_910b.yaml  -sc /home/predict/convert_ckpt_stage_0703/infer_ckpt/fp16_4p -is /home/predict/convert_ckpt_stage_0703/infer_strategy -dc /home/predict/convert_ckpt_stage_0703/infer_ckpt
 ```
 
 ```shell
 # w8a8 fp16-8p 转 w8a8_4p
-bash ckpt_convert_v1.sh -t false -p w8a8 -w 4 -y /home/checkpoint_download/llama57b_quant_w8a8/predict_llama2_57b_910b.yaml  -sc /home/predict/convert_ckpt_stage_0703/infer_ckpt/fp16_8p -is /home/predict/convert_ckpt_stage_0703/infer_strategy -dc /home/predict/convert_ckpt_stage_0703/infer_ckpt -b ./boolq/dev.jsonl
+bash ckpt_convert_v3.sh -t false -p w8a8 -w 4 -y /home/checkpoint_download/llama57b_quant_w8a8/predict_llama2_57b_910b.yaml  -sc /home/predict/convert_ckpt_stage_0703/infer_ckpt/fp16_8p -is /home/predict/convert_ckpt_stage_0703/infer_strategy -dc /home/predict/convert_ckpt_stage_0703/infer_ckpt -b ./boolq/dev.jsonl
 ```
 
 ### 2.3 注意事项

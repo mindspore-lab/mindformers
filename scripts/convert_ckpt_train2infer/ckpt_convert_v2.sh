@@ -131,7 +131,7 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a16" ]; then
     dir_count=$(find  "$src_ckpt_path"  -mindepth 1 -maxdepth 1 -type d | wc -l)
     echo "Number of directories in '$src_ckpt_path' is: $dir_count"
     if [ "$dir_count" != "$world_size" ] ; then
-        if [[ -e "${Infer_strategy_path}fp16_${dir_count}p/strategy/ckpt_strategy_rank_0.ckpt" ]] ; then
+        if [ -f ${Infer_strategy_path}fp16_${dir_count}p/strategy/ckpt_strategy_rank_0.ckpt ] ; then
             echo "Has fp16_${dir_count}p strategy, jump to step 2"
         else
             #1. 生成fp16 dir_count的strategy
@@ -146,7 +146,7 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a16" ]; then
             > ./log/log_save_strategy_fp16_${dir_count}.log 2>&1
             echo "-----1. End generate ${dir_count}p fp16 strategy time: $(date +%H:%M:%S) -----"
         fi
-        if [[ -e "${Infer_strategy_path}fp16_${world_size}p/strategy/ckpt_strategy_rank_0.ckpt" ]] ; then
+        if [ -f ${Infer_strategy_path}fp16_${world_size}p/strategy/ckpt_strategy_rank_0.ckpt ] ; then
             echo "Has fp16_${world_size}p strategy, jump to step 3"
         else
             #2. 生成fp16 world_size的strategy
@@ -161,7 +161,7 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a16" ]; then
             > ./log/log_save_strategy_fp16_${world_size}.log 2>&1
             echo "-----2. End generate ${world_size}p fp16 strategy time: $(date +%H:%M:%S) -----"
         fi
-        if [[ -e "${Dst_ckpt_path}fp16_${world_size}p/rank_0/*.ckpt" ]] ; then
+        if find "${Dst_ckpt_path}fp16_${world_size}p/rank_0/" -type f -name "*.ckpt" | read; then
             echo "Has fp16_${world_size}p ckpt, jump to step 4"
         else
             #3. 转成worldsize的权重
@@ -175,7 +175,7 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a16" ]; then
             > ./log/log_transform_ckpt_fp16_${world_size}.log 2>&1
             echo "-----3. End convert ${world_size}p fp16 weights time: $(date +%H:%M:%S) -----"
         fi
-        if [[ -e "${Dst_ckpt_path}fp16_${world_size}p_qkv/rank_0/*.ckpt" ]]; then
+        if find "${Dst_ckpt_path}fp16_${world_size}p_qkv/rank_0/" -type f -name "*.ckpt" | read; then
             echo "Has fp16_${world_size}p_qkv ckpt, jump to step 5"
         else
             #4. 生成fp16 world_size的qkv权重
@@ -198,13 +198,13 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a16" ]; then
         mv ${Dst_ckpt_path}${precision}_${world_size}p_qkv/w8a16_ckpt/*  ${Dst_ckpt_path}${precision}_${world_size}p_qkv/
         rm -rf ${Dst_ckpt_path}${precision}_${world_size}p_qkv/w8a16_ckpt
     else
-        if [[ -e "${Dst_ckpt_path}fp16_${world_size}p_qkv/rank_0/*.ckpt" ]]; then
+        if find "${Dst_ckpt_path}fp16_${world_size}p_qkv/rank_0/" -type f -name "*.ckpt" | read ; then
             echo "Has fp16_${world_size}p_qkv ckpt, jump to step 2"
         else
-          echo "-----1. Start to convert ${world_size}p fp16 qkv and ffn time: $(date +%H:%M:%S) -----"
-          python convert_qkv_ffn.py --world_size=$world_size  --src_ckpt_path=$src_ckpt_path \
-          --dst_ckpt_path=${Dst_ckpt_path}fp16_${world_size}p_qkv > ./log/log_convert_qkv_ffn.log 2>&1
-          echo "-----1. End convert ${world_size}p ${precision} qkv and ffn time: $(date +%H:%M:%S) -----"
+            echo "-----1. Start to convert ${world_size}p fp16 qkv and ffn time: $(date +%H:%M:%S) -----"
+            python convert_qkv_ffn.py --world_size=$world_size  --src_ckpt_path=$src_ckpt_path \
+            --dst_ckpt_path=${Dst_ckpt_path}fp16_${world_size}p_qkv > ./log/log_convert_qkv_ffn.log 2>&1
+            echo "-----1. End convert ${world_size}p ${precision} qkv and ffn time: $(date +%H:%M:%S) -----"
         fi
         echo "-----2. Start to convert ${world_size}p fp16 weights time: $(date +%H:%M:%S) -----"
         msrun --worker_num=$world_size --local_worker_num=$world_size --master_port=8126 \
@@ -240,7 +240,7 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a8" ]; then
     dir_count=$(find  "$src_ckpt_path"  -mindepth 1 -maxdepth 1 -type d | wc -l)
     echo "Number of directories in '$src_ckpt_path' is: $dir_count"
     if [ "$dir_count" != "$world_size" ] ; then
-        if [[ -e "${Infer_strategy_path}fp16_${dir_count}p/strategy/ckpt_strategy_rank_0.ckpt" ]]; then
+        if [ -f ${Infer_strategy_path}fp16_${dir_count}p/strategy/ckpt_strategy_rank_0.ckpt ]; then
             echo "Has fp16_${dir_count}p strategy, jump to step 2"
         else
             #1. 生成fp16 dir_count的strategy
@@ -255,7 +255,7 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a8" ]; then
             > ./log/log_save_strategy_fp16_${dir_count}.log 2>&1
             echo "-----1. End generate ${dir_count}p fp16 strategy time: $(date +%H:%M:%S) -----"
         fi
-        if [[ -e "${Infer_strategy_path}fp16_${world_size}p/strategy/ckpt_strategy_rank_0.ckpt" ]]; then
+        if [ -f ${Infer_strategy_path}fp16_${world_size}p/strategy/ckpt_strategy_rank_0.ckpt ]; then
             echo "Has fp16_${world_size}p strategy, jump to step 3"
         else
             #2. 生成fp16 world_size的strategy
@@ -270,7 +270,7 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a8" ]; then
             > ./log/log_save_strategy_fp16_${world_size}.log 2>&1
             echo "-----2. End generate ${world_size}p fp16 strategy time: $(date +%H:%M:%S) -----"
         fi
-        if [[ -e "${Dst_ckpt_path}fp16_${world_size}p/rank_0/*.ckpt" ]]; then
+        if find "${Dst_ckpt_path}fp16_${world_size}p/rank_0/" -type f -name "*.ckpt" | read ; then
             echo "Has fp16_${world_size}p ckpt, jump to step 4"
         else
             #3. 转成worldsize的权重
@@ -284,7 +284,7 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a8" ]; then
             > ./log/log_transform_ckpt_fp16_${world_size}.log 2>&1
             echo "-----3. End convert ${world_size}p fp16 weights time: $(date +%H:%M:%S) -----"
         fi
-        if [[ -e "${Dst_ckpt_path}fp16_${world_size}p_qkv/rank_0/*.ckpt" ]]; then
+        if find "${Dst_ckpt_path}fp16_${world_size}p_qkv/rank_0/" -type f -name "*.ckpt" | read ; then
             echo "Has fp16_${world_size}p_qkv ckpt, jump to step 5"
         else
             #4. 生成fp16 world_size的qkv权重
@@ -312,13 +312,13 @@ elif [ "$train_to_infer" == "false" ] && [ "$precision" == "w8a8" ]; then
         mv ${Dst_ckpt_path}${precision}_${world_size}p_qkv/w8a8_ckpt/*  ${Dst_ckpt_path}${precision}_${world_size}p_qkv/
         rm -rf ${Dst_ckpt_path}${precision}_${world_size}p_qkv/w8a8_ckpt
     else
-        if [[ -e "${Dst_ckpt_path}fp16_${world_size}p_qkv/rank_0/*.ckpt" ]]; then
+        if find "${Dst_ckpt_path}fp16_${world_size}p_qkv/rank_0/" -type f -name "*.ckpt" | read; then
             echo "Has fp16_${world_size}p_qkv ckpt, jump to step 2"
         else
-          echo "-----1. Start to convert ${world_size}p fp16 qkv and ffn time: $(date +%H:%M:%S) -----"
-          python convert_qkv_ffn.py --world_size=$world_size  --src_ckpt_path=$src_ckpt_path \
-          --dst_ckpt_path=${Dst_ckpt_path}fp16_${world_size}p_qkv > ./log/log_convert_qkv_ffn.log 2>&1
-          echo "-----1. End convert ${world_size}p ${precision} qkv and ffn time: $(date +%H:%M:%S) -----"
+            echo "-----1. Start to convert ${world_size}p fp16 qkv and ffn time: $(date +%H:%M:%S) -----"
+            python convert_qkv_ffn.py --world_size=$world_size  --src_ckpt_path=$src_ckpt_path \
+            --dst_ckpt_path=${Dst_ckpt_path}fp16_${world_size}p_qkv > ./log/log_convert_qkv_ffn.log 2>&1
+            echo "-----1. End convert ${world_size}p ${precision} qkv and ffn time: $(date +%H:%M:%S) -----"
         fi
         if [ -z "$boolq_dataset_path" ]; then
             boolq_dataset_path="./boolq/dev.jsonl"
