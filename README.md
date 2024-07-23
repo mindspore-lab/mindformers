@@ -22,8 +22,8 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
-- 📝 **[MindFormers教程文档](https://mindformers.readthedocs.io/zh_CN/latest)**
-- 📝 [大模型能力表一览](https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#llm)
+- 📝 **[MindFormers教程文档](https://mindformers.readthedocs.io/zh_CN/r1.2.0)**
+- 📝 [大模型能力表一览](https://mindformers.readthedocs.io/zh-cn/r1.2.0/docs/model_support_list.html#llm)
 - 📝 [MindPet指导教程](docs/feature_cards/Pet_Tuners.md)
 - 📝 [AICC指导教程](docs/readthedocs/source_zh_cn/docs/practice/AICC.md)
 
@@ -363,11 +363,11 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
 
 当前支持的硬件为[Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2)训练服务器。
 
-当前套件建议使用的Python版本为3.9。
+当前套件建议使用的Python版本为3.10。
 
-| MindFormers | MindPet |  MindSpore  | CANN | 驱动固件 | 镜像链接 | 备注          |
-|:-----------:|:-------:|:-----------:|:----:|:----:|:----:|-------------|
-|     dev     |  1.0.4  | 2.3版本(尚未发布) | 尚未发布 | 尚未发布 |  /   | 开发分支(非稳定版本) |
+| MindFormers | MindPet |                 MindSpore                  |                                                                                                                                           CANN                                                                                                                                            |                                  驱动固件                                  |                                 镜像链接                                  | 备注   |
+|:-----------:|:-------:|:------------------------------------------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:----------------------------------------------------------------------:|:---------------------------------------------------------------------:|------|
+|   r1.2.0    |  1.0.4  | [2.3.0](https://www.mindspore.cn/install/) | 8.0.RC2.beta1 <br/> [aarch64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%208.0.RC2/Ascend-cann-toolkit_8.0.RC2_linux-aarch64.run) <br/> [x86_64](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%208.0.RC2/Ascend-cann-toolkit_8.0.RC2_linux-x86_64.run) | [driver](https://www.hiascend.com/hardware/firmware-drivers/community) | [image](http://mirrors.cn-central-221.ovaijisuan.com/detail/138.html) | 版本分支 |
 
 **当前MindFormers仅支持如上的软件配套关系**。其中CANN和固件驱动的安装需与使用的机器匹配，请注意识别机器型号，选择对应架构的版本。
 
@@ -385,7 +385,7 @@ bash build.sh
 
 MindFormers支持模型启动预训练、微调、推理、评测等功能，可点击[支持模型](#支持模型)中模型名称查看文档完成上述任务，以下为模型分布式启动方式的说明与示例。
 
-MindFormers推荐使用分布式方式拉起模型训练、推理等功能，目前提供`scripts/msrun_launcher.sh`分布式启动脚本作为模型的主要启动方式，`msrun`特性说明可以参考[msrun启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3.0rc2/parallel/msrun_launcher.html)。
+MindFormers推荐使用分布式方式拉起模型训练、推理等功能，目前提供`scripts/msrun_launcher.sh`分布式启动脚本作为模型的主要启动方式，`msrun`特性说明可以参考[msrun启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3.0/parallel/msrun_launcher.html)。
 该脚本主要输入参数说明如下：
 
   | **参数**           | **单机是否必选** | **多机是否必选** |     **默认值**      | **说明**           |
