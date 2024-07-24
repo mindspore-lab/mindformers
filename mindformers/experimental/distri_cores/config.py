@@ -227,6 +227,9 @@ class ModelConfig:
         attention_dropout_rate (float): Dropout rate for attention socre. Default: 0.0.
         num_experts (Optional[int], None): Number of experts. Default: None.
         share_embedding_weight (bool): Share embedding table between embedding layer and llm head. Default: False.
+        recompute_method (Optional[str], None): Recompute method. Default: None.
+        recompute_num_layers (Optional[int], None): Number of layers to recompute. Default: None.
+        recompute_granularity (Optional[str], None): Recompute granularity. Default: None.
     """
     def __init__(self,
                  vocab_size: int,
@@ -256,6 +259,9 @@ class ModelConfig:
                  attention_dropout_rate: float = 0.0,
                  num_experts: Optional[int] = None,
                  share_embedding_weight: bool = False,
+                 recompute_method: str = None,
+                 recompute_num_layers: int = None,
+                 recompute_granularity: str = None,
                  **kwargs):
         super(ModelConfig, self).__init__()
         Validator.check_positive_int(vocab_size, "vocab_size")
@@ -285,6 +291,12 @@ class ModelConfig:
         Validator.check_float_range(attention_dropout_rate, 0, 1, Rel.INC_BOTH, "attention_dropout_rate")
         Validator.check_value_type("num_experts", num_experts, [int, type(None)])
         Validator.check_bool(share_embedding_weight, "share_embedding_weight")
+        if recompute_method is not None:
+            Validator.check_string(recompute_method, ["uniform", "block"], "recompute_method")
+        if recompute_num_layers is not None:
+            Validator.check_int_range(recompute_num_layers, 1, num_layers, Rel.INC_BOTH, "recompute_num_layers")
+        if recompute_granularity is not None:
+            Validator.check_string(recompute_granularity, ["selective", "full"], "recompute_granularity")
         self.vocab_size = vocab_size
         self.num_layers = num_layers
         self.num_heads = num_heads
@@ -312,6 +324,9 @@ class ModelConfig:
         self.attention_dropout_rate = attention_dropout_rate
         self.num_experts = num_experts
         self.share_embedding_weight = share_embedding_weight
+        self.recompute_method = recompute_method
+        self.recompute_num_layers = recompute_num_layers
+        self.recompute_granularity = recompute_granularity
         self.__dict__.update(kwargs)
 
     def __str__(self):
@@ -357,6 +372,11 @@ def init_arguments(file: str, **kwargs):
         config.lr_scheduler = None
     config.parallel_config = ParallelConfig(**raw_dict["parallel_config"])
     print(config.parallel_config)
+
+    if "recompute_activations" in raw_dict["model_config"]:
+        if raw_dict["model_config"]["recompute_activations"]:
+            raw_dict["model_config"]["recompute_granularity"] = "selective"
+        raw_dict["model_config"].pop("recompute_activations")
     config.model_config = ModelConfig(parallel_config=config.parallel_config, **raw_dict["model_config"])
     print(config.model_config)
 

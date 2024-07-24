@@ -15,29 +15,28 @@
 """ For transformer """
 import math
 
-from mindspore import nn, Tensor
-from mindspore import ops
+from mindspore import Tensor, nn, ops, mint
 from mindspore.ops import operations as P
 
-from mindformers.experimental.distri_cores.create_comm import (
-    get_tp_world_size,
-)
+from mindformers.experimental.distri_cores.create_comm import get_pp_rank, get_tp_world_size
+from mindformers.experimental.distri_cores.random import get_rng_tracer
 from mindformers.experimental.distri_cores.tensor_parallel import (
     ColumnParallelLinear,
     RowParallelLinear,
 )
+from mindformers.experimental.distri_cores.transformer import get_act_func, get_attn_mask_func, get_norm
 from mindformers.experimental.distri_cores.transformer.rotary_pos_embedding import (
     apply_rotary_pos_emb,
 )
 from mindformers.experimental.distri_cores.transformer.scale_mask_softmax import (
     ScaleMaskSoftmax,
 )
-from mindformers.experimental.distri_cores.transformer import get_norm,\
-    get_attn_mask_func, get_act_func
-from mindformers.experimental.distri_cores.utils import divide
-from mindformers.experimental.distri_cores.random import get_rng_tracer
-from .module import Module
 
+from mindformers.experimental.distri_cores.recompute import CheckpointedRecomputeOrientedCell
+
+from mindformers.experimental.distri_cores.utils import divide
+
+from .module import Module
 
 __all__ = [
     "ParallelMLP",
@@ -193,7 +192,7 @@ class CoreAttention(nn.Cell):
         self.scale_mask_softmax = ScaleMaskSoftmax(self.mask_func,
                                                    softmax_compute_type=self.softmax_compute_dtype)
 
-        self.attention_dropout = nn.Dropout(p=self.config.attention_dropout_rate)
+        self.attention_dropout = mint.nn.Dropout(p=self.config.attention_dropout_rate)
 
     def construct(self, query_layer, key_layer, value_layer, attention_mask):
         """construct."""
@@ -494,7 +493,15 @@ class ParallelTransformerLayer(Module):
         # MLP
         self.mlp = ParallelMLP(config)
 
-        self.hidden_states_dropout = nn.Dropout(p=self.config.hidden_dropout_rate)
+        self.hidden_states_dropout = mint.nn.Dropout(p=self.config.hidden_dropout_rate)
+
+        # selective recompute
+        if self.config.recompute_granularity == "selective":
+            self._set_selective_recompute()
+
+    def _set_selective_recompute(self):
+        """Set selective recompute for transformer layer."""
+        self.attention.core_attention.recompute()
 
     def construct(self, hidden_states, attention_mask, rotary_pos_emb=None):
         """ Construct function of transformer layer. """
@@ -583,28 +590,54 @@ class ParallelTransformer(Module):
         # number of layers.
         self.num_layers = config.num_layers
 
-        # transformer layers.
-        def build_layer(layer_index):
-            return ParallelTransformerLayer(config, layer_index)
-
-        offset = 0
-
-        self.layers = nn.SequentialCell(
-            [build_layer(i + 1 + offset) for i in range(self.num_layers)]
+        offset = get_pp_rank() * self.num_layers
+        self.layers = nn.CellList(
+            [ParallelTransformerLayer(config=config, layer_number=i + 1 + offset) for i in range(self.num_layers)]
         )
+
+        # gradient checkpointing for recompute.
+        self.checkpointed_recompute = (
+            self.config.recompute_method is not None
+            and self.config.recompute_granularity is not None
+            and self.config.recompute_num_layers is not None
+            and self.config.recompute_granularity == "full"
+        )
+        if self.checkpointed_recompute:
+            self._set_checkpointed_recompute(self.config.recompute_method, self.config.recompute_num_layers)
 
         if self.post_norm:
             # final layernorm before output.
             self.final_norm = get_norm(config)
 
-    def _get_layer(self, layer_number):
-        """ Get layer_number-th transformerlayer. """
-        return self.layers[layer_number]
+    def _set_checkpointed_recompute(self, recompute_method, recompute_num_layers):
+        """Set checkpointed recompute for transformer."""
+        self.checkpointed_recompute = True
+        self.checkpointed_layer_groups = nn.CellList()
+        if recompute_method == "uniform":
+            for idx in range(0, self.num_layers, recompute_num_layers):
+                checkpointed_layer_group = CheckpointedRecomputeOrientedCell(
+                    self.layers[idx : idx + recompute_num_layers]
+                )
+                checkpointed_layer_group.recompute()
+                self.checkpointed_layer_groups.append(checkpointed_layer_group)
+        elif recompute_method == "block":
+            self.checkpointed_layer_groups = nn.CellList(
+                [CheckpointedRecomputeOrientedCell(self.layers[:recompute_num_layers])]
+            )
+            for layer in self.layers[recompute_num_layers:]:
+                self.checkpointed_layer_groups.append(layer)
+            self.checkpointed_layer_groups[0].recompute()
+        else:
+            raise NotImplementedError(f"recompute_method should be uniform or blocks, but got {recompute_method}")
 
     def construct(self, hidden_states, attention_mask, rotary_pos_emb=None):
         """ Construct function of transformer. """
-        for index in range(self.num_layers):
-            layer = self._get_layer(index)
+        if self.checkpointed_recompute:
+            layers = self.checkpointed_layer_groups
+        else:
+            layers = self.layers
+
+        for layer in layers:
             hidden_states = layer(hidden_states, attention_mask, rotary_pos_emb)
 
         # final layernorm.
