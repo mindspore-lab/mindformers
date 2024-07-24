@@ -44,11 +44,16 @@ def get_optimizer_grouped_parameters(model: Optional[PreTrainedModel] = None,
         skip_keywords = model.no_weight_decay_keywords()
         logger.info('No weight decay keywords: %s', skip_keywords)
 
-    decay_parameters_names = [
-        param.name for param in model.trainable_params()
-        if not ((param.name in skip_params)
-                or check_keywords_in_name(param.name, skip_keywords))
-    ]
+    decay_parameters_names = []
+    for param in model.trainable_params():
+        if skip_params or skip_keywords:
+            if param.name in skip_params:
+                continue
+            if check_keywords_in_name(param.name, skip_keywords):
+                continue
+        elif len(param.shape) == 1 or param.name.endswith(".bias"):
+            continue
+        decay_parameters_names.append(param.name)
 
     get_layer_id_func = None
     scales_list = []
