@@ -259,7 +259,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 > 如果报错提示显存不足，可以通过`export HCCL_BUFFSIZE=100`将对应环境变量下调至100。
 
-`ymal`配置文件中各参数含义详见[Config配置说明](../../configs/README.md)，`parallel_speed_up`各参数含义详见[parallel_speed_up说明](https://www.mindspore.cn/docs/zh-CN/r2.3/api_python/mindspore/mindspore.set_context.html#mindspore.set_context)。
+`ymal`配置文件中各参数含义详见[Config配置说明](../../configs/README.md)，`parallel_speed_up`各参数含义详见[parallel_speed_up说明](https://www.mindspore.cn/docs/zh-CN/r2.3.0/api_python/mindspore/mindspore.set_context.html#mindspore.set_context)。
 
 ### 多机训练
 
@@ -420,7 +420,7 @@ DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 
 ### 单卡推理
 
-以`Llama2-7b`2卡推理为例。
+以`Llama2-7b`单卡推理为例。
 
 ```shell
 bash scripts/examples/llama2/run_llama2_predict.sh single \
