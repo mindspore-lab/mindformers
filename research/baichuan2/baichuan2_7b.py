@@ -42,7 +42,7 @@ from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import get_use_rope_self_define
+from mindformers.tools.utils import get_use_rope_self_define, get_predict_run_mode
 
 __all__ = ['Baichuan7BV2ForCausalLM', 'Baichuan7BV2Model']
 
@@ -93,7 +93,7 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
         self.use_rope_self_define = get_use_rope_self_define()
 
         self.shape = P.Shape()
-        self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
+        self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.tile = P.Tile()
         self.expand_dims = P.ExpandDims()
@@ -233,7 +233,6 @@ class NormHead(nn.Cell):
                  hidden_size,
                  vocab_size,
                  use_past,
-                 is_dynamic=False,
                  compute_dtype=mstype.float16,
                  eps=1e-5):
         super().__init__()
@@ -248,8 +247,6 @@ class NormHead(nn.Cell):
         self.add = P.Add()
         self.real_div = P.RealDiv()
         self.reshape = P.Reshape()
-        if is_dynamic:
-            self.reshape.add_prim_attr("skip_redistribution", True)
         self.sum = P.ReduceSum()
         self.eps = Tensor([eps], mstype.float16)
         self.is_first_iteration = True
@@ -340,8 +337,6 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        if config.is_dynamic:
-            self.reshape.add_prim_attr("skip_redistribution", True)
         self.cast = P.Cast()
         self.slice = P.StridedSlice()
         self.not_equal = P.NotEqual()
@@ -354,7 +349,6 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
         self.lm_head = NormHead(hidden_size=config.hidden_size,
                                 vocab_size=config.vocab_size,
                                 use_past=config.use_past,
-                                is_dynamic=config.is_dynamic,
                                 compute_dtype=config.compute_dtype)
 
         vocab_size = config.vocab_size
@@ -386,6 +380,7 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
 
         self.load_checkpoint(config)
         self.set_model_predict_config()
+        self.predict_run_mode = get_predict_run_mode()
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
@@ -438,8 +433,6 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
             tokens = input_ids
         if batch_valid_length is not None:
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
-        if not self.is_first_iteration:
-            batch_valid_length = self.sub_batch_valid_len(batch_valid_length, 1)
         output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables, slot_mapping)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
@@ -457,10 +450,10 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
                 input_mask = self.mul(input_mask, label_mask)
 
         if not self.training:
-            if not pre_gather:
-                logits = self.reshape(logits, (bsz, seqlen, -1))
             logits = self.cast(logits, mstype.float32)
-            # makes cast effective to avoid allgather issue in Mindspore1.10
+            if self.predict_run_mode:
+                logits = self.reshape(logits, (-1, logits.shape[-1]))
+                return logits
             input_mask = self.add(input_mask, 1)
             return logits, tokens, input_mask
 
