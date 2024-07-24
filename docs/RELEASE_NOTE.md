@@ -18,14 +18,14 @@ fix。
 
 以下为新支持模型：
 
-| 模型                                                                                           | 规格                                                           |
-|----------------------------------------------------------------------------------------------|--------------------------------------------------------------|
-| [Mixtral](https://gitee.com/mindspore/mindformers/tree/r1.2.0/research/mixtral/mixtral.md)   | Mixtral_8x7b（32k预训练）                                         |
-| [Qwen1.5](https://gitee.com/mindspore/mindformers/tree/r1.2.0/research/qwen1_5/qwen1_5.md)   | Qwen1.5_7b（预训练、微调、推理）、Qwen1.5_14b（预训练、微调、推理）、Qwen1.5_72b（预训练） |
-| [Llama3](https://gitee.com/mindspore/mindformers/tree/r1.2.0/research/llama3/llama3.md)      | Llama3_70b（预训练、微调）                                           |
-| [Deepseek](https://gitee.com/mindspore/mindformers/tree/r1.2.0/research/deepseek/deepseek.md) | Deepseek_33b（微调）                                             |
-| [Yi](https://gitee.com/mindspore/mindformers/tree/r1.2.0/research/yi/yi.md)                  | Yi_6b（微调）、Yi_34b（微调）                                         |
-| [QwenVL](https://gitee.com/mindspore/mindformers/tree/r1.2.0/research/qwenvl/qwenvl.md)      | QwenVL_9.6b（微调、推理）                                           |
+| 模型                                                                                            | 规格                                                            |
+|-----------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| [Mixtral](https://gitee.com/mindspore/mindformers/tree/r1.2.0/research/mixtral/mixtral.md)    | Mixtral_8x7b（32k预训练、推理）                                       |
+| [Qwen1.5](https://gitee.com/mindspore/mindformers/tree/r1.2.0/research/qwen1_5/qwen1_5.md)    | Qwen1.5_7b（预训练、微调、推理）、Qwen1.5_14b（预训练、微调、推理）、Qwen1.5_72b（预训练） |
+| [Llama3](https://gitee.com/mindspore/mindformers/tree/r1.2.0/research/llama3/llama3.md)       | Llama3_70b（预训练、微调）                                            |
+| [Deepseek](https://gitee.com/mindspore/mindformers/tree/r1.2.0/research/deepseek/deepseek.md) | Deepseek_33b（微调）                                              |
+| [Yi](https://gitee.com/mindspore/mindformers/tree/r1.2.0/research/yi/yi.md)                   | Yi_6b（微调）、Yi_34b（微调）                                          |
+| [QwenVL](https://gitee.com/mindspore/mindformers/tree/r1.2.0/research/qwenvl/qwenvl.md)       | QwenVL_9.6b（微调、推理）                                            |
 
 ## Bugfix
 
