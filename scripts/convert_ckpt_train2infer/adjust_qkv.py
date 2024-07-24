@@ -14,17 +14,115 @@
 # ============================================================================
 """ adjust qkv layout for quant transform different card numbers """
 
+import os
 import argparse
 from datetime import datetime
-from mindformers.models.llama.convert_weight import adjust_quant_qkv_concat
+import multiprocessing
+import numpy as np
+import mindspore as ms
+
+
+def adjust_single_param(params_dict, param_name, group, is_qkv):
+    """Adjust single param from checkpoint"""
+    if param_name not in params_dict:
+        return False
+    print(f"Processing {param_name}...", flush=True)
+    param = params_dict[param_name].asnumpy()
+    total = param.shape[0]
+    group_members = 3 if is_qkv else 2
+    segment = total // group // group_members
+    member0 = []
+    member1 = []
+    member2 = []
+    for j in range(group):
+        p0 = (j * group_members + 0) * segment
+        p1 = (j * group_members + 1) * segment
+        p2 = (j * group_members + 2) * segment
+        member0.append(param[p0:p1,])
+        member1.append(param[p1:p2,])
+        if is_qkv:
+            p3 = (j * group_members + 3) * segment
+            member2.append(param[p2:p3,])
+    if is_qkv:
+        orderd_list = member0 + member1 + member2
+    else:  # ffn
+        orderd_list = member0 + member1
+    params_dict[param_name] = ms.Parameter(np.concatenate(orderd_list, 0), name=param_name)
+    return True
+
+
+def adjust_single_ckpt(src_ckpt_file, dst_ckpt_file, src_tp=4, dst_tp=2):
+    """Adjust qkv"""
+    group = src_tp // dst_tp
+    if group == 0:
+        raise ValueError(f"Invalid src_tp({src_tp}) and dst_tp({dst_tp}).")
+    print(f"Loading {src_ckpt_file}...", flush=True)
+    params_dict = ms.load_checkpoint(src_ckpt_file)
+    changed = False
+    i = 0
+    while True:
+        changed = False
+        # qkv weight adjust
+        qkv_weight_name = f"model.layers.{i}.attention.w_qkv._handler.weight"
+        changed |= adjust_single_param(params_dict, qkv_weight_name, group, True)
+        # qkv bias adjust
+        qkv_bias_name = f"model.layers.{i}.attention.w_qkv._handler.bias"
+        changed |= adjust_single_param(params_dict, qkv_bias_name, group, True)
+        # qkv output quantizer scale adjust
+        qkv_oqscale_name = f"model.layers.{i}.attention.w_qkv._output_quantizer.scale"
+        changed |= adjust_single_param(params_dict, qkv_oqscale_name, group, True)
+        # qkv weight quantizer scale adjust
+        qkv_wscale_name = f"model.layers.{i}.attention.w_qkv._weight_quantizer.scale"
+        changed |= adjust_single_param(params_dict, qkv_wscale_name, group, True)
+        # qkv weight quantizer zp adjust
+        qkv_wzp_name = f"model.layers.{i}.attention.w_qkv._weight_quantizer.zp_neg"
+        changed |= adjust_single_param(params_dict, qkv_wzp_name, group, True)
+        # ffn weight adjust
+        ffn_weight_name = f"model.layers.{i}.feed_forward.w_gate_hidden._handler.weight"
+        changed |= adjust_single_param(params_dict, ffn_weight_name, group, False)
+        # ffn bias adjust
+        ffn_bias_name = f"model.layers.{i}.feed_forward.w_gate_hidden._handler.bias"
+        changed |= adjust_single_param(params_dict, ffn_bias_name, group, False)
+        # ffn output quantizer scale adjust
+        ffn_oqscale_name = f"model.layers.{i}.feed_forward.w_gate_hidden._output_quantizer.scale"
+        changed |= adjust_single_param(params_dict, ffn_oqscale_name, group, False)
+        # ffn weight quantizer scale adjust
+        ffn_wscale_name = f"model.layers.{i}.feed_forward.w_gate_hidden._weight_quantizer.scale"
+        changed |= adjust_single_param(params_dict, ffn_wscale_name, group, False)
+        # ffn weight quantizer zp adjust
+        ffn_wzp_name = f"model.layers.{i}.feed_forward.w_gate_hidden._weight_quantizer.zp_neg"
+        changed |= adjust_single_param(params_dict, ffn_wzp_name, group, False)
+        if changed:
+            i += 1
+        else:
+            break
+    ms.save_checkpoint(params_dict, dst_ckpt_file)
+    print(f"Saved ckpt file: {dst_ckpt_file}.", flush=True)
+
+
+def run_adjust_qkv(i, src_ckpt_path, dst_ckpt_path, src_tp, dst_tp):
+    """Run adjust qkv"""
+    rank_id = int(i)
+    src_path = os.path.join(src_ckpt_path, f"rank_{rank_id}")
+    dst_path = os.path.join(dst_ckpt_path, f"rank_{rank_id}")
+    ckpt_name = os.listdir(src_path)[0]
+    src_ckpt_file = os.path.join(src_path, ckpt_name)
+    os.makedirs(dst_path, exist_ok=True)
+    dst_ckpt_file = os.path.join(dst_path, ckpt_name)
+    adjust_single_ckpt(src_ckpt_file, dst_ckpt_file, src_tp, dst_tp)
 
 
 def main(args):
-    """Adjust qkv layout"""
+    """Parallel run run_adjust_qkv"""
     # 获取当前时间
     start_time = datetime.now().strftime("%H:%M:%S")
     if (args.dir_count == 8 and args.world_size == 4) or (args.dir_count == 4 and args.world_size == 2):
-        adjust_quant_qkv_concat(args.src_ckpt_path, args.dst_ckpt_path, args.dir_count, args.world_size)
+        arguments = [(i, args.src_ckpt_path, args.dst_ckpt_path, args.dir_count, args.world_size) for i in
+                     range(args.world_size)]
+        # 创建一个进程池
+        with multiprocessing.Pool(processes=args.world_size) as pool:
+            # 使用pool.starmap并行执行transform_ckpt函数，传入参数列表
+            pool.starmap(run_adjust_qkv, arguments)
     else:
         raise ValueError(f"Invalid input: {args.dir_count} and {args.world_size}. Available: 4to2, 8to4.")
     # 获取结束时间
