@@ -1,4 +1,4 @@
-# Copyright 2021 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -998,11 +998,57 @@ def build_alibi_tensor_v2(seq_len, num_heads, return_tensors='ms', dtype=mstype.
     return Tensor(alibi, dtype=dtype)
 
 
+def _check_llama3_scaling_factor(scaling_factor, max_position_embedding):
+    """check llama3 scaling factor"""
+    if scaling_factor is None or not isinstance(scaling_factor, dict):
+        raise ValueError(f"`scaling_factor` must be a dict for {SeqExtendMethod.LLAMA3.value} rope extend method,"
+                         f" but got {scaling_factor}")
+
+    required_keys = {"factor", "original_max_position_embeddings", "low_freq_factor", "high_freq_factor"}
+    received_keys = set(scaling_factor.keys())
+
+    missing_keys = required_keys - received_keys
+    if missing_keys:
+        raise KeyError(f"Missing required keys in `scaling_factor` for 'extend_method' LLAMA3': {missing_keys}")
+    unused_keys = received_keys - received_keys
+    if unused_keys:
+        raise KeyError(f"Unrecognized keys in `scaling_factor` for 'extend_method' LLAMA3': {unused_keys}")
+
+    factor = scaling_factor["factor"]
+    if factor is None or not isinstance(factor, float) or factor < 1.0:
+        raise ValueError(f"`scaling_factor`'s factor field must be a float >= 1, got {factor}")
+
+    low_freq_factor = scaling_factor["low_freq_factor"]
+    high_freq_factor = scaling_factor["high_freq_factor"]
+    if low_freq_factor is None or not isinstance(low_freq_factor, float):
+        raise ValueError(f"`scaling_factor`'s low_freq_factor field must be a float, got {low_freq_factor}")
+    if high_freq_factor is None or not isinstance(high_freq_factor, float):
+        raise ValueError(f"`scaling_factor`'s high_freq_factor field must be a float, got {high_freq_factor}")
+    if high_freq_factor < low_freq_factor:
+        raise ValueError(
+            "`scaling_factor`'s high_freq_factor field must be greater than low_freq_factor, got high_freq_factor="
+            f"{high_freq_factor} and low_freq_factor={low_freq_factor}"
+        )
+
+    original_max_position_embeddings = scaling_factor["original_max_position_embeddings"]
+    if original_max_position_embeddings is None or not isinstance(original_max_position_embeddings, int):
+        raise ValueError(
+            "`scaling_factor`'s original_max_position_embeddings field must be an integer, got "
+            f"{original_max_position_embeddings}"
+        )
+    if original_max_position_embeddings >= max_position_embedding:
+        raise ValueError(
+            "`scaling_factor`'s original_max_position_embeddings field must be less than max_position_embeddings, got "
+            f"{original_max_position_embeddings} and max_position_embeddings={max_position_embedding}"
+        )
+
+
 class SeqExtendMethod(Enum):
     """Stores the acceptable string identifiers for seq length extend method"""
     PI = "PI"
     NTK = "NTK"
     NONE = "None"
+    LLAMA3 = "LLAMA3"
 
 
 class FreqsMgr(Cell):
@@ -1024,6 +1070,34 @@ class FreqsMgr(Cell):
             theta *= scaling_factor
         freqs_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32)  # (head_dim // 2, )
         freqs = 1.0 / (theta ** (freqs_base / head_dim))  # (head_dim // 2, )
+
+        if extend_method == SeqExtendMethod.LLAMA3.value:
+            _check_llama3_scaling_factor(scaling_factor, max_position_embedding)
+
+            factor = scaling_factor["factor"]
+            if factor is None or not isinstance(factor, float) or factor < 1.0:
+                raise ValueError(f"`scaling_factor`'s factor field must be a float >= 1, got {factor}")
+
+            factor = scaling_factor["factor"]
+            low_freq_factor = scaling_factor["low_freq_factor"]
+            high_freq_factor = scaling_factor["high_freq_factor"]
+            old_context_len = scaling_factor["original_max_position_embeddings"]
+
+            low_freq_wavelen = old_context_len / low_freq_factor
+            high_freq_wavelen = old_context_len / high_freq_factor
+            new_freqs = []
+            for freq in freqs:
+                wavelen = 2 * math.pi / freq
+                if wavelen < high_freq_wavelen:
+                    new_freqs.append(freq)
+                elif wavelen > low_freq_wavelen:
+                    new_freqs.append(freq / factor)
+                else:
+                    assert low_freq_wavelen != high_freq_wavelen
+                    smooth = (old_context_len / wavelen - low_freq_factor) / (high_freq_factor - low_freq_factor)
+                    new_freqs.append((1 - smooth) * freq / factor + smooth * freq)
+            freqs = np.array(new_freqs, dtype=freqs.dtype)
+
         if extend_method == SeqExtendMethod.PI.value:
             t = np.arange(0, max_position_embedding / scaling_factor, 1 / scaling_factor).astype(np.float32)
         else:
