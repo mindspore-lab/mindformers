@@ -121,8 +121,6 @@ def main(task='text_generation',
     if micro_batch_num is not None:
         config.parallel_config.micro_batch_num = micro_batch_num
 
-    os.environ["RUN_MODE"] = run_mode
-
     # 定义任务，预先准备好相应数据集
     if run_mode == 'train':
         trainer = Trainer(args=config,

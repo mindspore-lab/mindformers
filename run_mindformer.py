@@ -35,8 +35,6 @@ def main(config):
     build_context(config)
 
     trainer = Trainer(config)
-    os.environ["RUN_MODE"] = config.run_mode
-
     if config.run_mode == 'train' or config.run_mode == 'finetune':
         trainer.train()
     elif config.run_mode == 'eval':

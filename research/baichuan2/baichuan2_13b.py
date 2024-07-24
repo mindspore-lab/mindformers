@@ -146,7 +146,6 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
             self.reshape.add_prim_attr("skip_redistribution", True)
 
         self.load_checkpoint(config)
-        self.set_model_predict_config()
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):

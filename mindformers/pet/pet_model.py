@@ -65,7 +65,6 @@ class PetModel(PreTrainedModel):
         self.load_checkpoint(self.config)
         PetAdapter.freeze_pretrained_model(self.pet_model, pet_type, pet_config.freeze_include,
                                            pet_config.freeze_exclude)
-        self.set_model_predict_config()
 
     def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
         return self.pet_model.update_model_kwargs_before_generate(input_ids, model_kwargs)

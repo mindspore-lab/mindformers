@@ -346,7 +346,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             self.model = ptq.convert(self.model)
 
         self.load_checkpoint(config)
-        self.set_model_predict_config()
         self.predict_run_mode = get_predict_run_mode()
 
         logger.info("Predict run mode:{}".format(self.predict_run_mode))

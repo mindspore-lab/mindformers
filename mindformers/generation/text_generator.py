@@ -77,7 +77,6 @@ class GenerationMixin:
 
     def __init__(self):
         self.block_mgr = None
-        self.use_kbk_infer = False
         self.use_mint_op = version_control.use_mint_op()
         self.argmax = mint.argmax if self.use_mint_op else ms.ops.argmax
 
@@ -90,12 +89,6 @@ class GenerationMixin:
         if self.block_mgr:
             self.block_mgr.init_cache_engine(batch_size)
 
-    def _set_kbk_infer(self):
-        jit_level = self.jit_config_dict.get("jit_level")
-        infer_boost = self.jit_config_dict.get("infer_boost")
-        self.use_kbk_infer = (jit_level == "O0" and infer_boost == "on")
-        logger.info(
-            "Set kbk infer :{}".format(self.use_kbk_infer))
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
@@ -731,9 +724,8 @@ class GenerationMixin:
             raise ValueError(
                 "`streamer` cannot be used with beam search yet. Make sure that `num_beams` is set to 1."
             )
-        self._set_kbk_infer()
 
-        if generation_config.use_past and self.use_kbk_infer:
+        if generation_config.use_past:
             self._set_block_mgr(batch_size)
             if self.config.is_dynamic:
                 self.set_dynamic_inputs()
@@ -827,12 +819,11 @@ class GenerationMixin:
             logger.debug("forward prepare time: %s s", prepare_time)
 
             prefill = True
-            if self.use_kbk_infer:
-                model_kwargs["origin_inputs"] = origin_inputs
+            model_kwargs["origin_inputs"] = origin_inputs
             while np.sum(is_finished) != batch_size:
                 block_tables = None
                 slot_mapping = None
-                if generation_config.use_past and self.use_kbk_infer:
+                if generation_config.use_past:
                     if prefill:
                         if self.config.is_dynamic:
                             max_input_length = len(origin_inputs[0])

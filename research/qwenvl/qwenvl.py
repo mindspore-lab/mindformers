@@ -531,7 +531,6 @@ class QwenVL(PreTrainedModel):
         self.base_index_adder = None
 
         self.freeze_component()
-        self.set_model_predict_config()
 
     def freeze_component(self):
         """freeze components according to config"""

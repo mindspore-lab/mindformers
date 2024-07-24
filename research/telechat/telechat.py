@@ -345,7 +345,6 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
                 self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
         self.load_checkpoint(config)
-        self.set_model_predict_config()
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):

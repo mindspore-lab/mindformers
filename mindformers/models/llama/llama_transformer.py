@@ -571,8 +571,6 @@ class LLamaDecodeLayer(nn.Cell):
                 self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
 
         self.predict_run_mode = get_predict_run_mode()
-        logger.info("Predict run mode:{}".format(self.predict_run_mode))
-
         if self.predict_run_mode:
             self.no_inline = False
 
