@@ -431,8 +431,11 @@ def build_model(config, model, dataset, do_eval=False, do_predict=False):
         elif do_predict:
             model.infer_predict_layout(*dataset)
         else:
+            build_time_start = time.time()
             model.build(train_dataset=dataset, epoch=config.runner_config.epochs,
                         sink_size=config.runner_config.sink_size)
+            build_time_end = time.time()
+            logger.info("Time spent building the model: %.2fs", build_time_end - build_time_start)
 
 
 def load_ckpt(config, network, optimizer=None):
