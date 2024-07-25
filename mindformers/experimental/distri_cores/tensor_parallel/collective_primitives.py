@@ -327,3 +327,27 @@ class AllToAll(nn.Cell):
 
         output = self.all_to_all_grad(dout)
         return (output,)
+
+
+class MinFromTensorParallelRegion(nn.Cell):
+    "Get argmin from tensor-parallel region"
+    def __init__(self):
+        super().__init__()
+        self.all_reduce = ops.AllReduce(op=ops.ReduceOp.MIN, group=get_tp_group())
+
+    def construct(self, input, axis=None, keepdims=False, *, initial=None, where=None):
+        output_parallel, _ = ops.min(input, axis, keepdims, initial=initial, where=where)
+        output = self.all_reduce(output_parallel)
+        return output, _
+
+
+class MaxFromTensorParallelRegion(nn.Cell):
+    "Get argmax from tensor-parallel region"
+    def __init__(self):
+        super().__init__()
+        self.all_reduce = ops.AllReduce(op=ops.ReduceOp.MAX, group=get_tp_group())
+
+    def construct(self, input, axis=None, keepdims=False, *, initial=None, where=None):
+        output_parallel, _ = ops.max(input, axis, keepdims, initial=initial, where=where)
+        output = self.all_reduce(output_parallel)
+        return output, _
