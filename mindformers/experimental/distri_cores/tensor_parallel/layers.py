@@ -547,3 +547,14 @@ class VocabParallelEmbedding(nn.Cell):
                                         'opt_weight_shard_size': -1}
 
         return state_dict
+
+
+def _update_shared_dict(network, shared_dict):
+    cells = network.name_cells()
+    for _, subcell in cells.items():
+        if subcell == network:
+            continue
+        if isinstance(subcell, (ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding)):
+            shared_dict.update(subcell.sharded_state_dict())
+        else:
+            _update_shared_dict(subcell, shared_dict)
