@@ -379,7 +379,6 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
                 self.lm_head.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
         self.load_checkpoint(config)
-        self.set_model_predict_config()
         self.predict_run_mode = get_predict_run_mode()
 
     # pylint: disable=W0613

@@ -97,7 +97,7 @@ def parallel_predict_mp2():
         'model_parallel': 2,
         'use_seq_parallel': False
     }
-
+    ms.set_context(jit_config={"jit_level": "O0", "infer_boost": "on"})
     runner = ModelTester(run_mode='predict', batch_size=2, experiment_mode=False, **parallel_config)
     build_context(runner.args)
 

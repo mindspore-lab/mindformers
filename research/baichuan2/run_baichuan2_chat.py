@@ -85,7 +85,6 @@ def main(config='./',
     if use_past is not None:
         config.model.model_config.use_past = use_past
 
-    os.environ["RUN_MODE"] = config.run_mode
     build_context(config)
     build_parallel_config(config)
     logger.info("context config is: %s", config.parallel_config)

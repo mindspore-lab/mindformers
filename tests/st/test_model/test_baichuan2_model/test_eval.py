@@ -38,6 +38,7 @@ class TestBaichuan2Eval:
         Description: Test base model evaluate.
         Expectation: AssertionError
         """
+        ms.set_context(jit_config={"jit_level": "O0", "infer_boost": "on"})
         runner = ModelTester(run_mode='eval', batch_size=2, use_label=True)
 
         model_config = get_config()

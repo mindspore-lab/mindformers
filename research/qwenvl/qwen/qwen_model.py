@@ -145,7 +145,6 @@ class QwenForCausalLM(QwenPreTrainedModel):
             lm_head_matmul = self.lm_head.matmul
             self.lm_head.matmul = MatMulPad(lm_head_matmul, config.vocab_size, 512, config.enable_emb_opt)
         self.load_checkpoint(config)
-        self.set_model_predict_config()
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):

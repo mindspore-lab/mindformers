@@ -33,8 +33,6 @@ def main(config_path, load_checkpoint):
     config.use_parallel = False
     config.load_checkpoint = load_checkpoint
 
-    os.environ["RUN_MODE"] = config.run_mode
-
     # init context
     build_context(config)
     build_parallel_config(config)

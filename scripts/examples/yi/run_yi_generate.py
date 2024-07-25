@@ -42,8 +42,6 @@ def main(config_path, use_parallel, load_checkpoint, vocab_file, predict_mode):
     config.parallel_config.pipeline_stage = 1
     config.load_checkpoint = load_checkpoint
 
-    os.environ["RUN_MODE"] = config.run_mode
-
     # init context
     build_context(config)
     build_parallel_config(config)

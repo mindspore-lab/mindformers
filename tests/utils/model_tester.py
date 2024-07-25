@@ -94,8 +94,6 @@ class ModelTester:
         support_run_mode = ['train', 'predict', 'eval', 'finetune']
         assert run_mode in support_run_mode, f"run_mode should in {support_run_mode}, but got {run_mode}."
 
-        os.environ["RUN_MODE"] = run_mode
-
         self.run_mode = run_mode
         if self.run_mode == 'eval':
             self.step_num = 1

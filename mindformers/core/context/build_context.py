@@ -43,6 +43,24 @@ def check_runtime_num_threads_version():
     return bool(ms.__version__ < "2.3")
 
 
+def set_predict_context_config(config):
+    """Set predict context config."""
+    run_mode = config.get('run_mode', None)
+    if run_mode is not None and run_mode.strip() == 'predict':
+        os.environ['RUN_MODE'] = run_mode
+        jit_level = config.context.get("jit_level", "O0")
+        infer_boost = config.context.get("infer_boost", "on")
+        logger.info(f"Predict context config, jit_level: {jit_level}, infer_boost: {infer_boost}")
+
+        if jit_level == "O1":
+            raise ValueError("jit_level O1 is not support in predict mode.")
+
+        if jit_level == "O2" and infer_boost == "on":
+            raise ValueError("Only infer_boost set off can set jit_level to O2 in predict mode.")
+
+        context.set_context(jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
+
+
 def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
     """Build context."""
     if isinstance(config, TrainingArguments):
@@ -51,6 +69,8 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
         config = MindFormerConfig(**config)
     if config.use_parallel:
         set_pipeline_stage(config)
+
+    set_predict_context_config(config)
     local_rank, device_num = init_context(use_parallel=config.use_parallel,
                                           context_config=config.context, parallel_config=config.parallel)
 

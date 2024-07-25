@@ -25,7 +25,7 @@ import yaml
 import numpy as np
 
 import mindspore as ms
-from mindspore import nn, JitConfig
+from mindspore import nn
 from mindspore import load_checkpoint, load_param_into_net
 from mindspore import context, Model
 
@@ -585,19 +585,6 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
                 val.__dict__.pop("type")
                 config.__dict__.update({key: val})
 
-    def set_model_predict_config(self):
-        """
-        Set predict config for model.
-        """
-        if self.config.use_past:
-            # jit_level = "O0" indicates that the operator is executed in the form of kernel by kernel mode.
-            # infer_boost = "on" indicates that the high performance inference is enabled.
-            jit_level = "O0"
-            infer_boost = "on"
-            jit_config = JitConfig(jit_level=jit_level, infer_boost=infer_boost)
-            self.set_jit_config(jit_config)
-            logger.info(
-                "Set jit config for jit level:{} and infer boost:{}.".format(jit_level, infer_boost))
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """
