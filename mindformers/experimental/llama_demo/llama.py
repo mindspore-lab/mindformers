@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,27 +15,23 @@
 """LLaMA models' APIs."""
 import math
 from typing import Tuple
-import numpy as np
 
 import mindspore as ms
 import mindspore.common.dtype as mstype
+import numpy as np
 from mindspore import Parameter, Tensor, nn, ops
 from mindspore.common.initializer import initializer
 from mindspore.ops import operations as P
 
 from mindformers.experimental.distri_cores.create_comm import (
-    get_tp_rank, get_pp_rank, get_tp_world_size)
-from mindformers.experimental.distri_cores.random import (
-    get_rng_tracer
-)
+    get_pp_rank, get_tp_rank, get_tp_world_size)
+from mindformers.experimental.distri_cores.random import get_rng_tracer
 from mindformers.experimental.distri_cores.tensor_parallel import (
-    ReduceFromModelParallelRegion,
-    ReduceScatterToSequenceParallelRegion,
-)
+    ReduceFromModelParallelRegion, ReduceScatterToSequenceParallelRegion)
 from mindformers.experimental.distri_cores.tensor_parallel.layers import (
     ColumnParallelLinear, RowParallelLinear)
 from mindformers.experimental.distri_cores.transformer import (
-    Module, get_attn_mask_func, get_norm)
+    Module, get_attn_mask_func)
 from mindformers.experimental.distri_cores.transformer.scale_mask_softmax import \
     ScaleMaskSoftmax
 from mindformers.experimental.distri_cores.transformer.transformer import \
@@ -49,8 +45,69 @@ from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.tools.utils import get_predict_run_mode
+from mindformers.version_control import check_rmsnorm_big_kernel_valid
 
-__all__ = ["ParallelLlamaTransformer", "ParallelLlamaModel", "ParallelLlamaForCausalLM"]
+from .utils import convert_model_config
+
+__all__ = ["ParallelLlamaModel", "ParallelLlamaForCausalLM"]
+
+
+class LlamaRMSNorm(nn.Cell):
+    r"""
+    A self-defined RMSNorm operation using reduce mean.
+
+        Args:
+            dim (tuple): The shape of the input tensor
+            eps (float): The epsilon value of the denominator. Default 1e-5.
+            compute_type: The compute type.
+        Inputs:
+            - **x** (Tensor) - Tensor of shape :math:`(batch, seq\_length, hidden\_size)`.
+
+        Outputs:
+            Tensor of shape :math:`(batch, seq_length, hidden_size)`.
+    """
+
+    def __init__(self, dim, eps=1e-6, compute_type=mstype.float32):
+        super(LlamaRMSNorm, self).__init__()
+        self.eps = eps
+        self.compute_type = compute_type
+        self.weight = Parameter(initializer('ones', (dim,), dtype=self.compute_type), parallel_optimizer=False)
+
+        if check_rmsnorm_big_kernel_valid():
+            self.norm = P.RmsNorm(eps)
+            self.rms_norm = self._rms_norm
+            self.self_define = False
+            self.cast = P.Cast()
+            self.rcast = P.Cast()
+        else:
+            self.cast = P.Cast()
+            self.mul = P.Mul()
+            self.mul2 = P.Mul()
+            self.square = P.Square()
+            self.mean = P.ReduceMean(keep_dims=True)
+            self.add = P.Add()
+            self.rsqrt = P.Rsqrt()
+            self.rms_norm = self._self_norm
+            self.self_define = True
+
+    def _self_norm(self, x):
+        original_type = x.dtype
+        norm_factor = self.square(self.cast(x, self.compute_type))
+        norm_factor = self.mean(norm_factor, -1)
+        norm_factor = self.add(norm_factor, self.eps)
+        norm_factor = self.rsqrt(norm_factor)
+        output = self.mul(x, self.cast(norm_factor, original_type))
+        output = self.mul2(output, self.cast(self.weight, original_type))
+        return output
+
+    def _rms_norm(self, x):
+        original_type = x.dtype
+        output = self.norm(self.cast(x, self.compute_type), self.weight)[0]
+        return self.rcast(output, original_type)
+
+    def construct(self, x):
+        """Forward of RMSNorm."""
+        return self.rms_norm(x)
 
 
 class CoreAttention(nn.Cell):
@@ -294,7 +351,7 @@ class ParallelLlamaAttention(Module):
             qkv = self.cast(self.w_qkv(x), self.compute_dtype)
             query, key, value = self.split_qkv(qkv, (
                 self.hidden_size_per_partition, self.kv_hidden_size_per_partition, self.kv_hidden_size_per_partition),
-                                               2)
+                2)
 
         else:
             raise NotImplementedError("LLaMAAttention don't support CrossAttention")
@@ -401,13 +458,15 @@ class ParallelLlamaTransformerLayer(Module):
         self.residual_connection_dtype = self.config.residual_connection_dtype
 
         # Normalize the input data.
-        self.attention_norm = get_norm(config)
+        self.attention_norm = LlamaRMSNorm(self.hidden_size, config.layernorm_epsilon,
+                                           compute_type=config.layernorm_compute_dtype)
 
         # Attention.
         self.attention = ParallelLlamaAttention(config, layer_number)
 
         # Normalize the attention output
-        self.ffn_norm = get_norm(config)
+        self.ffn_norm = LlamaRMSNorm(self.hidden_size, config.layernorm_epsilon,
+                                     compute_type=config.layernorm_compute_dtype)
 
         # MLP
         self.feed_forward = ParallelLlamaMLPWithGate(config)
@@ -492,7 +551,7 @@ class VocabParallelLlamaEmbedding(nn.Cell):
             self.num_embeddings, get_tp_rank(), self.tensor_model_parallel_size
         )
         self.num_embeddings_per_partition = (
-                self.vocab_end_index - self.vocab_start_index
+            self.vocab_end_index - self.vocab_start_index
         )
 
         with get_rng_tracer().rng_fork():
@@ -514,7 +573,7 @@ class VocabParallelLlamaEmbedding(nn.Cell):
         if self.tensor_model_parallel_size > 1:
             # Build the mask.
             input_mask = (x < self.vocab_start_index).astype(mstype.int32) | (
-                    x >= self.vocab_end_index
+                x >= self.vocab_end_index
             ).astype(mstype.int32)
             input_mask = input_mask.astype(mstype.bool_)
             # Mask the input.
@@ -611,7 +670,7 @@ class ParallelLlamaModel(LlamaPreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config)
-        self.config = config
+        self.config = convert_model_config(config)
         self.use_past = config.use_past
         self.hidden_size = config.hidden_size
         self.is_first_iteration = True
@@ -650,11 +709,13 @@ class ParallelLlamaModel(LlamaPreTrainedModel):
                                                           use_flash_attention=config.use_flash_attention,
                                                           use_attn_mask_compression=config.use_attn_mask_compression)
 
-        self.norm_out = get_norm(config)
+        self.norm_out = LlamaRMSNorm(self.hidden_size, config.layernorm_epsilon,
+                                     compute_type=config.layernorm_compute_dtype)
         self.post_norm = config.post_norm
         if self.post_norm:
             # final layernorm before output.
-            self.final_norm = get_norm(config)
+            self.final_norm = LlamaRMSNorm(self.hidden_size, config.layernorm_epsilon,
+                                           compute_type=config.layernorm_compute_dtype)
 
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None):

@@ -73,21 +73,6 @@ class Module(nn.Cell):
 
     def sharded_state_dict(self):
         """iterate over the subcells to construct the total sharded state dict"""
-        sharded_state_dict = {}
-        # Recurse into subcells
-        def update_sharded_dict_for_single_cell(subcell):
-            nonlocal sharded_state_dict
-            if hasattr(subcell, 'sharded_state_dict'):
-                sharded_state_dict.update(subcell.sharded_state_dict())
-            else:
-                if isinstance(subcell, nn.SequentialCell):
-                    for inner_layer in subcell:
-                        update_sharded_dict_for_single_cell(inner_layer)
-                else:
-                    sharded_state_dict.update(get_default_dict_for_module(subcell, recurse=True))
-        for subcell in self.cells():
-            update_sharded_dict_for_single_cell(subcell)
-        # Handle params in the current cell
-        sharded_state_dict.update(get_default_dict_for_module(self, recurse=False))
-
-        return sharded_state_dict
+        sharded_state_dict = get_default_dict_for_module(self)
+        from mindformers.experimental.distri_cores.tensor_parallel.layers import _update_shared_dict
+        _update_shared_dict(self, sharded_state_dict)

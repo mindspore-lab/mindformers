@@ -46,12 +46,13 @@ class TestParallelLLaMa:
               f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
-        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_graph_transformer/worker_0.log -C 3")
-        assert ret == 0, "msrun failed, please check msrun_log_graph_transformer/worker_*.log"
+        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_graph/worker_0.log -C 3")
+        assert ret == 0, "msrun failed, please check msrun_log_graph/worker_*.log"
 
     @pytest.mark.level0
     @pytest.mark.run(order=2)
-    def test_llama_pynative(self):
+    @pytest.mark.parametrize("mode", ["graph", "pynative"])
+    def test_llama_pynative(self, mode):
         """
         Feature: test llama pynative
         Description: run pynative mode llama to generate pynative loss
@@ -64,14 +65,14 @@ class TestParallelLLaMa:
         sh_path = os.path.split(os.path.realpath(__file__))[0]
         scripts_path = os.path.join(sh_path, scripts_name)
 
-        scripts_cmd = f"{scripts_path}"
+        scripts_cmd = f"{scripts_path}" + f" --mode {mode}"
         cmd = f"msrun --worker_num={device_num} " + \
               f"--local_worker_num={device_num} " + \
               f"--master_port=8238 " + \
-              f"--log_dir=msrun_log_pynative " + \
+              f"--log_dir=msrun_log_parallel_{mode} " + \
               f"--join=True " + \
               f"--cluster_time_out=300 " + \
               f"{scripts_cmd}"
         ret = os.system(cmd)
-        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_pynative_transformer/worker_0.log -C 3")
-        assert ret == 0, "msrun failed, please check msrun_log_pynative_transformer/worker_*.log"
+        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_parallel_{mode}/worker_0.log -C 3")
+        assert ret == 0, "msrun failed, please check msrun_log_parallel_{mode}/worker_*.log"
