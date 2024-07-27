@@ -591,7 +591,7 @@ class ParallelTransformer(Module):
         self.num_layers = config.num_layers
 
         offset = get_pp_rank() * self.num_layers
-        self.layers = nn.CellList(
+        self.layers = nn.SequentialCell(
             [ParallelTransformerLayer(config=config, layer_number=i + 1 + offset) for i in range(self.num_layers)]
         )
 
