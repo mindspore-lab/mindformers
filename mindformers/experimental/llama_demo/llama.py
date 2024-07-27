@@ -44,6 +44,8 @@ from mindformers.modules import PagedAttentionMgr
 from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
+from mindformers.tools.register.register import (MindFormerModuleType,
+                                                 MindFormerRegister)
 from mindformers.tools.utils import get_predict_run_mode
 from mindformers.version_control import check_rmsnorm_big_kernel_valid
 
@@ -761,6 +763,7 @@ class ParallelLlamaModel(LlamaPreTrainedModel):
         return output
 
 
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
 class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
     r"""
     Provide llama training loss or logits through network.
@@ -776,7 +779,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
     @lazy_inline
     def __init__(self, config):
         super().__init__(config, auto_prefix=True)
-        self.config = config
+        self.config = convert_model_config(config)
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
