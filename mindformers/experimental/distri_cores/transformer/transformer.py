@@ -15,6 +15,7 @@
 """ For transformer """
 import math
 
+import mindspore.common.dtype as mstype
 from mindspore import Tensor, nn, ops, mint
 from mindspore.ops import operations as P
 
@@ -258,6 +259,8 @@ class ParallelAttention(Module):
 
         self.sequence_parallel = self.config.parallel_config.use_sequence_parallel
         self.use_flash_attention = self.config.use_flash_attention
+        if self.use_flash_attention:
+            self.fa_config = self.config.fa_config
         self.norm_factor = math.sqrt(self.head_dim)
 
         tp_group_size = get_tp_world_size()
@@ -266,9 +269,8 @@ class ParallelAttention(Module):
 
         if self.use_gqa:
             if self.kv_num_heads % tp_group_size != 0:
-                raise NotImplementedError(
-                    "Currently the kv_num_heads should be "
-                    "a multiple of the tensor parallel size"
+                raise ValueError(
+                    "The kv_num_heads should be " "a multiple of the tensor parallel size"
                 )
             self.kv_num_heads_per_partition = divide(self.kv_num_heads, tp_group_size)
         else:
@@ -397,7 +399,7 @@ class ParallelAttention(Module):
         # expand the key_layer and value_layer [B, S, kv_N_per_tp, D]
         # to [B, S, N_per_tp, D]
         if self.num_heads_per_partition // self.kv_num_heads_per_partition > 1:
-            repeat_num = self.num_heads_per_partition - self.kv_num_heads_per_partition
+            repeat_num = divide(self.num_heads_per_partition, self.kv_num_heads_per_partition)
             key = self._repeat_kv(key, repeat_num)
             value = self._repeat_kv(value, repeat_num)
         else:
@@ -413,7 +415,34 @@ class ParallelAttention(Module):
         if not self.use_flash_attention:
             context_layer = self.core_attention(query, key, value, attention_mask)
         else:
-            raise NotImplementedError('use_flash_attention is not supported for now.')
+            if attention_mask.ndim == 3:
+                attention_mask = attention_mask.expand_dims(axis=1)
+            if query.dtype == mstype.float32:
+                query = query.astype(mstype.float16)
+            if key.dtype == mstype.float32:
+                key = key.astype(mstype.float16)
+            if value.dtype == mstype.float32:
+                value = value.astype(mstype.float16)
+            if self.fa_config:
+                output = ops.flash_attention_score(
+                    query,
+                    key,
+                    value,
+                    self.num_heads_per_partition,
+                    attn_mask=attention_mask,
+                    scalar_value=1.0 / self.norm_factor,
+                    **self.fa_config,
+                )
+            else:
+                output = ops.flash_attention_score(
+                    query,
+                    key,
+                    value,
+                    self.num_heads_per_partition,
+                    attn_mask=attention_mask,
+                    scalar_value=1.0 / self.norm_factor,
+                )
+            context_layer = _merge_heads(output)
 
         # apply output projection
         output = self.out_proj(context_layer)
@@ -425,7 +454,7 @@ class ParallelAttention(Module):
         """ Expand key, value on num_head dimension. """
         if rep == 1:
             return x
-        bs, seq_length, num_groups, head_dim = x.shape()
+        bs, seq_length, num_groups, head_dim = x.shape
         # [B, S, ng, D] -> [B, ng, S, D]
         x = x.transpose((0, 2, 1, 3))
         # [B, ng, S, D] -> [B, ng, 1, S*D]

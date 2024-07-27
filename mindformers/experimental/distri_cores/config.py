@@ -16,6 +16,7 @@
 import os
 from typing import Optional
 from collections import OrderedDict
+from functools import partial
 import yaml
 
 try:
@@ -167,6 +168,7 @@ class ParallelConfig:
                  micro_batch_num: int = 1,
                  use_sequence_parallel: bool = False,
                  recv_dtype: str = "float32",
+                 use_zero3: str = None,
                  **kwargs):
         super(ParallelConfig, self).__init__()
         Validator.check_positive_int(tensor_parallel, "tensor_parallel")
@@ -183,10 +185,34 @@ class ParallelConfig:
         self.micro_batch_num = micro_batch_num
         self.use_sequence_parallel = use_sequence_parallel
         self.recv_dtype = convert_mstype(recv_dtype)
+        self.use_zero3 = use_zero3
         self.__dict__.update(kwargs)
 
     def __str__(self):
         return _config_to_str(self)
+
+
+def check_fa_config(**kwargs):
+    """ check flash attention config validation. """
+    def _check_sparse_mode(sparse_mode):
+        support_sparse_mode = (0, 1, 2, 3, 4)
+        if sparse_mode not in support_sparse_mode:
+            raise NotImplementedError("For flash attention, sparse_mode only support"
+                                      "[0, 1, 2, 3, 4] for now, but got {}".format(str(sparse_mode)))
+    args_and_check_map = {
+        'keep_prob': partial(Validator.check_float_range, lower_limit=0, upper_limit=1,
+                             rel=Rel.INC_BOTH, arg_name='keep_prob'),
+        'pre_tokens': partial(Validator.check_int_range, lower_limit=-2147483647, upper_limit=2147483647,
+                              rel=Rel.INC_BOTH, arg_name='pre_tokens'),
+        'next_tokens': partial(Validator.check_int_range, lower_limit=-2147483647, upper_limit=2147483647,
+                               rel=Rel.INC_BOTH, arg_name='next_tokens'),
+        'input_layout': partial(Validator.check_string, valid_values=('BNSD'), arg_name='input_layout'),
+        'sparse_mode': _check_sparse_mode}
+    for arg_name, value in kwargs.items():
+        if arg_name not in args_and_check_map.keys():
+            raise ValueError("For FAConfig, only `keep_prob`, `pre_tokens`, `next_tokens`, `input_layout`, "
+                             "and `sparse_mode` are configuable, but got {}".format(arg_name))
+        args_and_check_map[arg_name](value)
 
 
 class ModelConfig:
@@ -245,6 +271,7 @@ class ModelConfig:
                  out_proj_has_bias: bool = True,
                  apply_query_key_layer_scaling: bool = False,
                  use_flash_attention: bool = False,
+                 fa_config=None,
                  mask_func_type: str = "attn_mask_add",
                  mlp_has_bias: bool = True,
                  hidden_act: str = "gelu",
@@ -310,6 +337,9 @@ class ModelConfig:
         self.out_proj_has_bias = out_proj_has_bias
         self.apply_query_key_layer_scaling = apply_query_key_layer_scaling
         self.use_flash_attention = use_flash_attention
+        if self.use_flash_attention and fa_config:
+            check_fa_config(**fa_config)
+            self.fa_config = fa_config
         self.mask_func_type = mask_func_type
         self.mlp_has_bias = mlp_has_bias
         self.hidden_act = hidden_act
