@@ -210,13 +210,22 @@ class _LogSoftmax(nn.Cell):
         self.on_value = Tensor(1.0, mstype.float32)
         self.off_value = Tensor(0.0, mstype.float32)
 
-        self.sum = P.ReduceSum(keep_dims=True).shard(((dp, mp),))
-        self.max = P.ReduceMax(keep_dims=True).shard(
-            ((dp, mp),))
-        self.sub = P.Sub().shard(((dp, mp), (dp, 1)))
-        self.exp = P.Exp().shard(((dp, mp),))
-        self.log = P.Log().shard(((dp, 1),))
-        self.onehot = P.OneHot().shard(((dp, mp), (), ()))
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sum = P.ReduceSum(keep_dims=True).shard(((dp, mp),))
+            self.max = P.ReduceMax(keep_dims=True).shard(
+                ((dp, mp),))
+            self.sub = P.Sub()
+            self.exp = P.Exp()
+            self.log = P.Log()
+            self.onehot = P.OneHot()
+        else:
+            self.sum = P.ReduceSum(keep_dims=True).shard(((dp, mp),))
+            self.max = P.ReduceMax(keep_dims=True).shard(
+                ((dp, mp),))
+            self.sub = P.Sub().shard(((dp, mp), (dp, 1)))
+            self.exp = P.Exp().shard(((dp, mp),))
+            self.log = P.Log().shard(((dp, 1),))
+            self.onehot = P.OneHot().shard(((dp, mp), (), ()))
 
     def construct(self, logits, label):
         """Forward process"""
