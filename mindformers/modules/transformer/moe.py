@@ -1085,6 +1085,7 @@ class TopkRouterV2(Cell):
         self.combine_gather = P.Gather(batch_dims=1).shard(((dp, 1, 1), (dp, 1, 1),))
         self.mul_router_coeff = P.Mul().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
         self.sum_router_coeff = P.ReduceSum(keep_dims=False).shard(((dp, 1, 1, 1),))
+        self.not_equal = P.NotEqual().shard(((dp, 1, 1), ()))
 
         # sort indexing
         self.range2 = Tensor(np.tile(np.arange(131072), (self.expert_dim, 1)), mstype.float32)
@@ -1266,6 +1267,9 @@ class TopkRouterV2(Cell):
         else:
             expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
         dispatch_index, combine_index = self.topkrouter(expert_index, expert_capacity, self.expert_dim)
+        within_capacity = self.mod(combine_index, expert_capacity + 1)
+        within_capacity = self.not_equal(self.cast(within_capacity, mstype.int32), 0)
+        expert_gate = self.mul_3d(within_capacity, expert_gate)
         router_coeff = self._normalize(expert_gate)
         return dispatch_index, combine_index, router_coeff
 
