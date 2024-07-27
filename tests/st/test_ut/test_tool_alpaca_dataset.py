@@ -22,7 +22,7 @@ from mindformers import ToolAlpacaDataLoader
 ms.set_context(mode=1, device_target='CPU')
 
 
-def make_test_tool_alpaca_dataset(dataset_root="./checkpoint_download", valid_num=8):
+def make_test_tool_alpaca_dataset(dataset_dir="./checkpoint_download", valid_num=8):
     """generate a fake ToolAlpaca Dataset"""
     valid_data = u'{"tools": ["tools"], "conversations": [' + \
                  u'{"role": "user", "content": "content"}, ' + \
@@ -67,9 +67,9 @@ def make_test_tool_alpaca_dataset(dataset_root="./checkpoint_download", valid_nu
                     u'{"role": "assistant", "content": "content"}]}'
     invalid_data = [invalid_data1, invalid_data2, invalid_data3, invalid_data4, invalid_data5, invalid_data6]
 
-    if not os.path.exists(dataset_root):
-        os.mkdir(dataset_root)
-    file_name = os.path.join(dataset_root, f'tool_alpaca_{valid_num}.jsonl')
+    if not os.path.exists(dataset_dir):
+        os.mkdir(dataset_dir)
+    file_name = os.path.join(dataset_dir, f'tool_alpaca_{valid_num}.jsonl')
     with open(file_name, mode='w') as fp:
         for _ in range(valid_num):
             fp.write(valid_data + '\n')
@@ -88,7 +88,8 @@ def test_tool_alpaca_dataset_correct():
     Description: Create ToolAlpacaDataLoader and iter it
     Expectation: The output data is different from expect data
     """
-    file_name = make_test_tool_alpaca_dataset(valid_num=8)
+    file_name = make_test_tool_alpaca_dataset(dataset_dir="./checkpoint_download_tool_alpaca_dataset_correct",
+                                              valid_num=8)
     data_loader = ToolAlpacaDataLoader(file_name)
     data_loader = data_loader.batch(1)
 
@@ -117,13 +118,13 @@ def test_tool_alpaca_dataset_invalid():
     Expectation: len(data_loader) is different from valid_num
     """
     valid_num = 7
-    file_name = make_test_tool_alpaca_dataset(valid_num=valid_num)
+    file_name = make_test_tool_alpaca_dataset(dataset_dir="./checkpoint_download_tool_alpaca_dataset_invalid",
+                                              valid_num=valid_num)
     data_loader = ToolAlpacaDataLoader(file_name)
     data_loader = data_loader.batch(1)
 
     assert len(data_loader) == valid_num, \
         f"test ToolAlpacaDataLoader `skip invalid data function` failed, please check your code."
-
 
 # @pytest.mark.level0
 # @pytest.mark.platform_x86_cpu
