@@ -28,7 +28,6 @@ import mindspore as ms
 from mindspore import Callback, Profiler, ModelCheckpoint, CheckpointConfig, context, save_checkpoint, Tensor
 from mindspore.train.callback import SummaryCollector
 from mindspore.nn.learning_rate_schedule import LearningRateSchedule
-from mindspore.train.callback._callback import set_cur_net
 from mindspore.train.serialization import _get_merged_param_data
 from mindspore.nn.cell import Cell
 from mindspore.ops.operations.comm_ops import Broadcast
@@ -606,9 +605,6 @@ class CheckpointMonitor(ModelCheckpoint):
         self._last_time_for_keep = time.time()
         self._last_triggered_step = cb_params.cur_step_num
 
-        if context.get_context("enable_ge") and os.getenv("MS_ENABLE_REF_MODE", "0") == "0":
-            set_cur_net(cb_params.train_network)
-            cb_params.train_network.exec_checkpoint_graph()
         if "epoch_num" in self._append_dict:
             self._append_dict["epoch_num"] = cb_params.cur_epoch_num
         if "step_num" in self._append_dict:
