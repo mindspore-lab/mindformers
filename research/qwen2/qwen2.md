@@ -12,6 +12,15 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
 }
 ```
 
+## 模型性能
+
+| Config                                     |       Task       |     Datasets      |  SeqLength  |        Phase        |  Performance  |
+|:-------------------------------------------|:----------------:|:-----------------:|:-----------:|:-------------------:|:-------------------------:|
+| [qwen2-0.5b](./predict_qwen2_0_5b_instruct.yaml)   | text_generation  |  -  |    8192    |  Predict   |          1907 tokens/s(mindie 16 batch_size 单卡)             |
+| [qwen2-1.5b](./predict_qwen2_1_5b_instruct.yaml) | text_generation  |  -  |    8192    |  Predict   |          1354 tokens/s(mindie 16 batch_size 单卡)           |
+| [qwen2-72b](./predict_qwen2_72b_instruct.yaml) | text_generation  |  -  |    8192    |  Predict   |            247 tokens/s(mindie 16 batch_size 四卡)           |
+| [qwen2-72b-128k](./predict_qwen2_72b_instruct_128k.yaml)   | text_generation  |  -  |    8192    |  Predict   |        9 tokens/s             |
+
 ## 模型文件
 
 `Qwen2` 基于 `MindFormers` 实现，主要涉及的文件有：
@@ -27,7 +36,10 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
 
    ```text
    research/qwen2
-     └── predict_qwen2_72b_instruct.yaml           # 72B 在线推理启动配置
+     ├── predict_qwen2_0_5b_instruct.yaml           # 0.5B 在线推理启动配置
+     ├── predict_qwen2_1_5b_instruct.yaml           # 1.5B 在线推理启动配置
+     ├── predict_qwen2_72b_instruct.yaml            # 72B 在线推理启动配置
+     └── predict_qwen2_72b_instruct_128k.yaml       # 72B 128k 在线推理启动配置
    ```
 
 3. 环境准备和任务启动脚本：

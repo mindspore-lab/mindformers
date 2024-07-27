@@ -93,6 +93,8 @@ class LlamaConfig(PretrainedConfig):
             The maximum number of tokens in one block can have when using paged attention.
         num_blocks (`int`, *optional*, defaults to 512):
             The maximum number of blocks when using paged attention.
+        tie_word_embeddings (`bool`, *optional*, defaults to `False`):
+            Whether to tie input and output embeddings.
         Returns:
             Class, LlamaConfig.
     """
@@ -149,6 +151,7 @@ class LlamaConfig(PretrainedConfig):
                  top_p: float = 1.0,
                  do_sample: bool = True,
                  quant: str = "",
+                 tie_word_embeddings: bool = False,
                  **kwargs):
         super(LlamaConfig, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -205,3 +208,4 @@ class LlamaConfig(PretrainedConfig):
         self.block_size = block_size
         self.num_blocks = num_blocks
         self.quant = quant
+        self.tie_word_embeddings = tie_word_embeddings
