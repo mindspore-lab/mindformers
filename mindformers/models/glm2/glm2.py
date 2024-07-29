@@ -225,14 +225,10 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """prepare inputs for generation."""
-        input_position = kwargs.get("current_index", None)
-        if input_position is not None:
-            input_position = Tensor(input_position, mstype.int32)
         if self.config.is_dynamic and "origin_inputs" in kwargs:
             input_ids = kwargs["origin_inputs"]
         return {
-            "input_ids": Tensor(input_ids, mstype.int32),
-            "input_position": input_position
+            "input_ids": Tensor(input_ids, mstype.int32)
         }
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -245,12 +241,10 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
 
     def set_dynamic_inputs(self, **kwargs):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
-        dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_init_reset = Tensor([False], mstype.bool_)
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
-        self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
+        self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                         dynamic_batch_valid_length, None, dynamic_block_tables, dynamic_slot_mapping, None, None)
         logger.info("Set dynamic input for glm.")
 
@@ -265,7 +259,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None,
+                  input_embeds=None, init_reset=None, batch_valid_length=None, prefix_key_values=None,
                   block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None):
         """ChatGLM2 for conditional generation model."""
         # input_ids: (bs, seq_len)

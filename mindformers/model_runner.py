@@ -267,7 +267,7 @@ class MindIEModelRunner:
         Returns:
             logits (Tensor)
         """
-
+        valid_length_each_example = np.array(valid_length_each_example)
         res, current_idx = self.model.forward(input_ids=input_ids,
                                               valid_length_each_example=valid_length_each_example,
                                               block_tables=block_tables,

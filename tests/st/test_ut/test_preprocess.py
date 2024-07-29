@@ -19,7 +19,7 @@ import time
 import pytest
 
 import numpy as np
-from mindspore import Tensor, set_context
+from mindspore import set_context, Tensor
 
 from mindformers.generation.text_generator import GenerationMixin
 
@@ -54,12 +54,12 @@ class TestGenerationMixin:
         return
 
     # pylint: disable=W0613
-    def call_perf(self, input_ids, input_position, init_reset, batch_valid_length, block_tables=None,
+    def call_perf(self, input_ids, input_position=None, init_reset=None, batch_valid_length=None, block_tables=None,
                   slot_mapping=None):
         time_end = time.time()
         return time_end
 
-    def call_accuracy(self, input_ids, input_position, init_reset, batch_valid_length, block_tables=None,
+    def call_accuracy(self, input_ids, input_position=None, init_reset=None, batch_valid_length=None, block_tables=None,
                       slot_mapping=None):
         return {"input_ids": input_ids, "input_position": input_position, "init_reset": init_reset,
                 "batch_valid_length": batch_valid_length, "block_tables": block_tables, "slot_mapping": slot_mapping}
@@ -164,8 +164,6 @@ def test_preprocess_accuracy(batch_size, seq_length, prefill):
                                           prefill=prefill, use_past=True)
     expected_outputs = get_expected_outputs(input_ids, valid_length_each_example, prefill)
     assert np.allclose(outputs["input_ids"].asnumpy(), expected_outputs["input_ids"])
-    assert np.allclose(outputs["input_position"].asnumpy(), expected_outputs["input_position"])
-    assert np.allclose(outputs["init_reset"].asnumpy(), expected_outputs["init_reset"])
     assert np.allclose(outputs["batch_valid_length"].asnumpy(), expected_outputs["batch_valid_length"])
     assert np.allclose(outputs["block_tables"].asnumpy(), block_tables)
     assert np.allclose(outputs["slot_mapping"].asnumpy(), slot_mapping)
