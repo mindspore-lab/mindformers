@@ -51,7 +51,7 @@ def adjust_single_param(params_dict, param_name, group, is_qkv):
     return True
 
 
-def adjust_single_ckpt(src_ckpt_file, dst_ckpt_file, src_tp=4, dst_tp=2):
+def adjust_single_ckpt(src_ckpt_file, dst_ckpt_file, src_tp=4, dst_tp=2, quant='True'):
     """Adjust qkv"""
     group = src_tp // dst_tp
     if group == 0:
@@ -60,47 +60,61 @@ def adjust_single_ckpt(src_ckpt_file, dst_ckpt_file, src_tp=4, dst_tp=2):
     params_dict = ms.load_checkpoint(src_ckpt_file)
     changed = False
     i = 0
-    while True:
-        changed = False
-        # qkv weight adjust
-        qkv_weight_name = f"model.layers.{i}.attention.w_qkv._handler.weight"
-        changed |= adjust_single_param(params_dict, qkv_weight_name, group, True)
-        # qkv bias adjust
-        qkv_bias_name = f"model.layers.{i}.attention.w_qkv._handler.bias"
-        changed |= adjust_single_param(params_dict, qkv_bias_name, group, True)
-        # qkv output quantizer scale adjust
-        qkv_oqscale_name = f"model.layers.{i}.attention.w_qkv._output_quantizer.scale"
-        changed |= adjust_single_param(params_dict, qkv_oqscale_name, group, True)
-        # qkv weight quantizer scale adjust
-        qkv_wscale_name = f"model.layers.{i}.attention.w_qkv._weight_quantizer.scale"
-        changed |= adjust_single_param(params_dict, qkv_wscale_name, group, True)
-        # qkv weight quantizer zp adjust
-        qkv_wzp_name = f"model.layers.{i}.attention.w_qkv._weight_quantizer.zp_neg"
-        changed |= adjust_single_param(params_dict, qkv_wzp_name, group, True)
-        # ffn weight adjust
-        ffn_weight_name = f"model.layers.{i}.feed_forward.w_gate_hidden._handler.weight"
-        changed |= adjust_single_param(params_dict, ffn_weight_name, group, False)
-        # ffn bias adjust
-        ffn_bias_name = f"model.layers.{i}.feed_forward.w_gate_hidden._handler.bias"
-        changed |= adjust_single_param(params_dict, ffn_bias_name, group, False)
-        # ffn output quantizer scale adjust
-        ffn_oqscale_name = f"model.layers.{i}.feed_forward.w_gate_hidden._output_quantizer.scale"
-        changed |= adjust_single_param(params_dict, ffn_oqscale_name, group, False)
-        # ffn weight quantizer scale adjust
-        ffn_wscale_name = f"model.layers.{i}.feed_forward.w_gate_hidden._weight_quantizer.scale"
-        changed |= adjust_single_param(params_dict, ffn_wscale_name, group, False)
-        # ffn weight quantizer zp adjust
-        ffn_wzp_name = f"model.layers.{i}.feed_forward.w_gate_hidden._weight_quantizer.zp_neg"
-        changed |= adjust_single_param(params_dict, ffn_wzp_name, group, False)
-        if changed:
-            i += 1
-        else:
-            break
+    if quant == 'True':
+        while True:
+            changed = False
+            # qkv weight adjust
+            qkv_weight_name = f"model.layers.{i}.attention.w_qkv._handler.weight"
+            changed |= adjust_single_param(params_dict, qkv_weight_name, group, True)
+            # qkv bias adjust
+            qkv_bias_name = f"model.layers.{i}.attention.w_qkv._handler.bias"
+            changed |= adjust_single_param(params_dict, qkv_bias_name, group, True)
+            # qkv output quantizer scale adjust
+            qkv_oqscale_name = f"model.layers.{i}.attention.w_qkv._output_quantizer.scale"
+            changed |= adjust_single_param(params_dict, qkv_oqscale_name, group, True)
+            # qkv weight quantizer scale adjust
+            qkv_wscale_name = f"model.layers.{i}.attention.w_qkv._weight_quantizer.scale"
+            changed |= adjust_single_param(params_dict, qkv_wscale_name, group, True)
+            # qkv weight quantizer zp adjust
+            qkv_wzp_name = f"model.layers.{i}.attention.w_qkv._weight_quantizer.zp_neg"
+            changed |= adjust_single_param(params_dict, qkv_wzp_name, group, True)
+            # ffn weight adjust
+            ffn_weight_name = f"model.layers.{i}.feed_forward.w_gate_hidden._handler.weight"
+            changed |= adjust_single_param(params_dict, ffn_weight_name, group, False)
+            # ffn bias adjust
+            ffn_bias_name = f"model.layers.{i}.feed_forward.w_gate_hidden._handler.bias"
+            changed |= adjust_single_param(params_dict, ffn_bias_name, group, False)
+            # ffn output quantizer scale adjust
+            ffn_oqscale_name = f"model.layers.{i}.feed_forward.w_gate_hidden._output_quantizer.scale"
+            changed |= adjust_single_param(params_dict, ffn_oqscale_name, group, False)
+            # ffn weight quantizer scale adjust
+            ffn_wscale_name = f"model.layers.{i}.feed_forward.w_gate_hidden._weight_quantizer.scale"
+            changed |= adjust_single_param(params_dict, ffn_wscale_name, group, False)
+            # ffn weight quantizer zp adjust
+            ffn_wzp_name = f"model.layers.{i}.feed_forward.w_gate_hidden._weight_quantizer.zp_neg"
+            changed |= adjust_single_param(params_dict, ffn_wzp_name, group, False)
+            if changed:
+                i += 1
+            else:
+                break
+    else:
+        while True:
+            changed = False
+            # qkv weight adjust
+            qkv_weight_name = f"model.layers.{i}.attention.w_qkv.weight"
+            changed |= adjust_single_param(params_dict, qkv_weight_name, group, True)
+            # ffn weight adjust
+            ffn_weight_name = f"model.layers.{i}.feed_forward.w_gate_hidden.weight"
+            changed |= adjust_single_param(params_dict, ffn_weight_name, group, False)
+            if changed:
+                i += 1
+            else:
+                break
     ms.save_checkpoint(params_dict, dst_ckpt_file)
     print(f"Saved ckpt file: {dst_ckpt_file}.", flush=True)
 
 
-def run_adjust_qkv(i, src_ckpt_path, dst_ckpt_path, src_tp, dst_tp):
+def run_adjust_qkv(i, src_ckpt_path, dst_ckpt_path, src_tp, dst_tp, quant):
     """Run adjust qkv"""
     rank_id = int(i)
     src_path = os.path.join(src_ckpt_path, f"rank_{rank_id}")
@@ -109,7 +123,7 @@ def run_adjust_qkv(i, src_ckpt_path, dst_ckpt_path, src_tp, dst_tp):
     src_ckpt_file = os.path.join(src_path, ckpt_name)
     os.makedirs(dst_path, exist_ok=True)
     dst_ckpt_file = os.path.join(dst_path, ckpt_name)
-    adjust_single_ckpt(src_ckpt_file, dst_ckpt_file, src_tp, dst_tp)
+    adjust_single_ckpt(src_ckpt_file, dst_ckpt_file, src_tp, dst_tp, quant)
 
 
 def main(args):
@@ -117,7 +131,7 @@ def main(args):
     # 获取当前时间
     start_time = datetime.now().strftime("%H:%M:%S")
     if (args.dir_count == 8 and args.world_size == 4) or (args.dir_count == 4 and args.world_size == 2):
-        arguments = [(i, args.src_ckpt_path, args.dst_ckpt_path, args.dir_count, args.world_size) for i in
+        arguments = [(i, args.src_ckpt_path, args.dst_ckpt_path, args.dir_count, args.world_size, args.quant) for i in
                      range(args.world_size)]
         # 创建一个进程池
         with multiprocessing.Pool(processes=args.world_size) as pool:
@@ -141,6 +155,8 @@ if __name__ == "__main__":
                         help='dst card number.')
     parser.add_argument('--dir_count', type=int,
                         help='src card number.')
+    parser.add_argument('--quant', default='True', type=str,
+                        help='Weight is quant or not')
     uargs = parser.parse_args()
 
     main(uargs)
