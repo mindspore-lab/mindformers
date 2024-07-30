@@ -54,7 +54,7 @@ def generator_train():
         yield input_ids[idx]
 
 
-@pytest.mark.level1
+@pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 class TestQwenTrainingPrecision:

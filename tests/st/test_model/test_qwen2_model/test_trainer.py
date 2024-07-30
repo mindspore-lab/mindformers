@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the qwen1_5 interface used for mindformers.
+Test module for testing the qwen2 interface used for mindformers.
 How to run this:
-pytest tests/st/test_model/test_qwen1_5_model/test_trainer.py
+pytest tests/st/test_model/test_qwen2_model/test_trainer.py
 """
 import pytest
 
