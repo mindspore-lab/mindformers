@@ -79,15 +79,22 @@ def _get_loss_output(output):
     scaling_sens = False
     loss = output
     learning_rate = None
+    global_norm = None
     if isinstance(output, (tuple, list)):
-        if len(output) == 3:
-            loss, overflow, scaling_sens = output
+        if len(output) in [3, 4, 5, 7]:
+            loss, overflow, scaling_sens, *res = output
+            if len(res) == 4:
+                learning_rate, global_norm, local_norm, norm_size = res[0], res[1], res[2], res[3]
+                logger.info(f" norm size: {norm_size}\nlocal norm:\n{local_norm}")
+            if len(res) == 2:
+                learning_rate, global_norm = res[0], res[1]
+            if len(res) == 1:
+                learning_rate = res[0]
             if isinstance(scaling_sens, ms.Tensor):
                 scaling_sens = scaling_sens.asnumpy()
-        elif len(output) == 4:
-            loss, overflow, scaling_sens, learning_rate = output
-            if isinstance(scaling_sens, ms.Tensor):
-                scaling_sens = scaling_sens.asnumpy()
+            if len(output) > 4:
+                if isinstance(global_norm, ms.Tensor):
+                    global_norm = global_norm.asnumpy()
         else:
             if isinstance(output[0], ms.Tensor) and isinstance(output[0].asnumpy(), np.ndarray):
                 loss = output[0]
@@ -106,7 +113,7 @@ def _get_loss_output(output):
     if isinstance(learning_rate, ms.Tensor):
         learning_rate = learning_rate.asnumpy()
 
-    return loss, overflow, scaling_sens, learning_rate
+    return loss, overflow, scaling_sens, learning_rate, global_norm
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
@@ -204,7 +211,7 @@ class MFLossMonitor(Callback):
         cb_params = run_context.original_args()
         step_seconds = (time.time() - self.step_time) * 1000
         net_outputs = cb_params.net_outputs
-        loss, overflow, scaling_sens, learning_rate = _get_loss_output(net_outputs)
+        loss, overflow, scaling_sens, learning_rate, global_norm = _get_loss_output(net_outputs)
         if learning_rate is not None:
             self.learning_rate = learning_rate
         loss = self._fix_loss_for_parallel(loss)
@@ -242,7 +249,7 @@ class MFLossMonitor(Callback):
             self.last_print_time = cb_params.cur_step_num
             self.print_output_info(cb_params, cur_epoch_num, origin_epochs, throughput,
                                    cur_step_num, steps_per_epoch, loss, per_step_seconds,
-                                   overflow, scaling_sens, time_remain, percent)
+                                   overflow, scaling_sens, time_remain, percent, global_norm)
 
 
         if check_in_modelarts() and get_real_rank() == get_real_group_size() - 1:
@@ -272,7 +279,7 @@ class MFLossMonitor(Callback):
 
     def print_output_info(self, cb_params, cur_epoch_num, origin_epochs, throughput,
                           cur_step_num, steps_per_epoch, loss, per_step_seconds,
-                          overflow, scaling_sens, time_remain, percent):
+                          overflow, scaling_sens, time_remain, percent, global_norm):
         """print output information."""
         if self.learning_rate is not None:
             if isinstance(self.learning_rate, (float, Tensor, np.ndarray)):
@@ -320,28 +327,28 @@ class MFLossMonitor(Callback):
         if current_lr is not None:
             if cb_params.dataset_sink_mode:
                 logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
-                            "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s",
+                            "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s",
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
-                            int(per_step_seconds), current_lr, overflow, scaling_sens)
+                            int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm)
             else:
                 logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss:[%5.3f/%5.3f], "
-                            "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s",
+                            "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s",
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
-                            int(per_step_seconds), current_lr, overflow, scaling_sens)
+                            int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm)
             show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
             logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
                         datetime.timedelta(seconds=int(time_remain)))
         else:
             if cb_params.dataset_sink_mode:
                 logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
-                            "per_step_time: %dms, overflow cond: %s, loss_scale: %s",
+                            "per_step_time: %dms, overflow cond: %s, loss_scale: %s, global_norm: %s",
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
-                            int(per_step_seconds), overflow, scaling_sens)
+                            int(per_step_seconds), overflow, scaling_sens, global_norm)
             else:
                 logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss:[%5.3f/%5.3f], "
-                            "per_step_time: %dms, overflow cond: %s, loss_scale: %s",
+                            "per_step_time: %dms, overflow cond: %s, loss_scale: %s, global_norm: %s",
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
-                            int(per_step_seconds), overflow, scaling_sens)
+                            int(per_step_seconds), overflow, scaling_sens, global_norm)
             show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
             logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
                         datetime.timedelta(seconds=int(time_remain)))
@@ -675,7 +682,6 @@ class CheckpointMonitor(ModelCheckpoint):
             "last_step": step,
             "last_ckpt_file": ckpt_file
         }
-
         with tempfile.NamedTemporaryFile('w', delete=False, dir=self._directory) as temp_file:
             json.dump(meta_data, temp_file)
             temp_file_path = temp_file.name

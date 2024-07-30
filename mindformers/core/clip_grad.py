@@ -95,6 +95,6 @@ class ClipGradNorm(Cell):
         square_sum = self.hyper_map(get_square_sum, x)
         global_norm = F.sqrt(F.addn(square_sum))
         cond = self.greater_equal(global_norm, self.clip_norm)
-        global_norm = F.select(cond, global_norm, self.clip_norm)
-        clip_x = self.hyper_map(F.partial(apply_global_norm, self.clip_norm, global_norm), x)
+        global_norm_clip = F.select(cond, global_norm, self.clip_norm)
+        clip_x = self.hyper_map(F.partial(apply_global_norm, self.clip_norm, global_norm_clip), x)
         return clip_x, global_norm
