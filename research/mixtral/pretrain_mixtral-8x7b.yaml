@@ -47,8 +47,8 @@ moe_config:
 # lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 1.e-4
-  lr_end: 1.e-5
+  learning_rate: 1.e-5
+  lr_end: 1.e-6
   warmup_ratio: 0.03
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
