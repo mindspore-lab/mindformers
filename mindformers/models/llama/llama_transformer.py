@@ -25,7 +25,7 @@ from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.parallel.shard import Layout
 
-from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaMoeInferFeedForward
+from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaMoeInferFeedForward, LlamaFeedForwardWithMoE
 from mindformers.models.utils import predict_lazy_inline
 from mindformers.modules.layers import _check_input_dtype, Linear, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
@@ -504,6 +504,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         parallel_config=parallel_config)
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
+        self.shared_expert_num = 0 if moe_config is None else moe_config.shared_expert_num
         # set kbk infer for moe structural models.
         self.use_moe_infer = use_past and (self.expert_num > 1)
         if self.use_moe_infer:
@@ -528,7 +529,7 @@ class LLamaDecodeLayer(nn.Cell):
                                    param_init_type=param_init_type,
                                    ffn_concat=qkv_concat,
                                    is_dynamic=is_dynamic,
-                                   parallel_config=parallel_config)
+                                   parallel_config=parallel_config) if self.shared_expert_num == 0 else None
         if self.expert_num == 1:
             self.feed_forward = ffn
         else:
@@ -538,12 +539,20 @@ class LLamaDecodeLayer(nn.Cell):
                     dim=self.hidden_size,
                     moe_config=moe_config,
                     parallel_config=parallel_config)
-            else:
+            elif self.shared_expert_num == 0:
                 self.feed_forward = MoEV2(
                     ffn=ffn,
                     dim=self.hidden_size,
                     moe_config=moe_config,
                     parallel_config=parallel_config)
+            else:
+                self.feed_forward = LlamaFeedForwardWithMoE(self.hidden_size,
+                                                            intermediate_size=intermediate_size,
+                                                            compute_dtype=compute_dtype,
+                                                            param_init_type=param_init_type,
+                                                            is_dynamic=is_dynamic,
+                                                            moe_config=moe_config,
+                                                            parallel_config=parallel_config)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
@@ -551,8 +560,10 @@ class LLamaDecodeLayer(nn.Cell):
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             if self.expert_num == 1:
                 self.feed_forward.shard(parallel_config)
-            else:
+            elif self.shared_expert_num == 0:
                 self.feed_forward.ffn.shard(parallel_config)
+            else:
+                self.feed_forward.shard(parallel_config)
             self.add.shard(((dp, cp, 1), (dp, cp, 1)))
             if cp > 1:
                 self.attention_norm.shard((dp, cp * mp, 1))

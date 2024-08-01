@@ -21,6 +21,7 @@ import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 from mindspore.nn.cell import Cell
+from mindspore.nn.layer import Dense
 
 try:
     from mindspore._checkparam import Validator
@@ -36,6 +37,7 @@ from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_va
     _valid_value_checks
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.version_control import check_rmsnorm_big_kernel_valid
+from mindformers.modules.transformer.moe import MoEV2
 
 
 class LlamaSiLU(Cell):
@@ -512,3 +514,82 @@ class LlamaMoeInferFeedForward(Cell):
                       strategy_activation=((1, 1, mp, 1),))
         self.w3.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)))
         self.w2.shard(strategy_matmul=(((1, mp),), ((1, mp, 1),), ((),), ((),), ((),), ((),), ((),), (1,)))
+
+
+
+class LlamaFeedForwardWithMoE(Cell):
+    r"""
+    LLaMA FeedForward with MoE
+    """
+    def __init__(self, hidden_size,
+                 intermediate_size=None,
+                 hidden_act=LlamaSiLU,
+                 compute_dtype=mstype.float16,
+                 param_init_type=mstype.float32,
+                 is_dynamic=False,
+                 moe_config=None,
+                 parallel_config=default_dpmp_config,
+                 ):
+        super().__init__()
+        self.expert_num = moe_config.expert_num
+        self.shared_expert_num = moe_config.shared_expert_num
+        self.use_shared_expert_gating = moe_config.use_shared_expert_gating
+        self.router_dense_type = moe_config.router_dense_type
+        self.compute_dtype = compute_dtype
+
+        self.mul = P.Mul()
+        self.add = P.Add()
+
+        self.routed_experts = MoEV2(
+            ffn=LlamaFeedForward(dim=hidden_size,
+                                 intermediate_size=intermediate_size,
+                                 hidden_act=hidden_act,
+                                 expert_num=self.expert_num,
+                                 compute_dtype=compute_dtype,
+                                 param_init_type=param_init_type,
+                                 is_dynamic=is_dynamic,
+                                 parallel_config=parallel_config),
+            dim=hidden_size,
+            moe_config=moe_config,
+            parallel_config=parallel_config
+            )
+
+        self.shared_experts = LlamaFeedForward(dim=hidden_size,
+                                               intermediate_size=int(intermediate_size * moe_config.shared_expert_num),
+                                               hidden_act=hidden_act,
+                                               expert_num=1,
+                                               compute_dtype=compute_dtype,
+                                               param_init_type=param_init_type,
+                                               is_dynamic=is_dynamic,
+                                               parallel_config=parallel_config)
+
+        if self.use_shared_expert_gating:
+            self.shared_experts_gate = Dense(in_channels=hidden_size,
+                                             out_channels=1,
+                                             has_bias=False,
+                                             dtype=self.router_dense_type)
+
+    def construct(self, x):
+        routed_experts_output = self.routed_experts(x)
+        shared_experts_output = self.shared_experts(x)
+        if self.use_shared_expert_gating:
+            gate = self.shared_experts_gate(self.cast(x, self.router_dense_type))
+            shared_experts_output = self.mul(shared_experts_output, self.cast(gate, self.compute_dtype))
+        output = self.add(routed_experts_output, shared_experts_output)
+        return output
+
+
+    def shard(self, parallel_config):
+        r"""set parallel strategy"""
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+
+        self.mul.shard(((dp, 1, 1), (dp, 1, 1)))
+        self.add.shard(((dp, 1, 1), (dp, 1, 1)))
+
+        self.routed_experts.ffn.shard(parallel_config)
+        self.shared_experts.shard(parallel_config)
+        self.shared_experts.mul.shard(((dp, 1, mp), (dp, 1, mp)))
+
+        if self.use_shared_expert_gating:
+            self.shared_experts_gate.matmul.shard(((dp, 1), (1, 1)))
