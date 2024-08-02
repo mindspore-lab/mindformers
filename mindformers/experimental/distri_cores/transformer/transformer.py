@@ -396,9 +396,8 @@ class ParallelAttention(Module):
             else:
                 rotary_pos_emb = (rotary_pos_emb,) * 2
 
-        # expand the key_layer and value_layer [B, S, kv_N_per_tp, D]
-        # to [B, S, N_per_tp, D]
-        if self.num_heads_per_partition // self.kv_num_heads_per_partition > 1:
+        if divide(self.num_heads_per_partition, self.kv_num_heads_per_partition) > 1 and not self.use_flash_attention:
+            # expand the key_layer and value_layer [B, S, kv_N_per_tp, D] to [B, S, N_per_tp, D]
             repeat_num = divide(self.num_heads_per_partition, self.kv_num_heads_per_partition)
             key = self._repeat_kv(key, repeat_num)
             value = self._repeat_kv(value, repeat_num)
