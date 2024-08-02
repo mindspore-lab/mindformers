@@ -35,7 +35,7 @@ class TestGLM32kTrainerMethod:
 
     def setup_method(self):
         """init task trainer."""
-        context.set_context(mode=0, device_target="Ascend")
+        context.set_context(mode=0, device_target="Ascend", jit_config={"jit_level": "O0", "infer_boost": "on"})
 
         args = TrainingArguments(num_train_epochs=1, batch_size=2)
 
