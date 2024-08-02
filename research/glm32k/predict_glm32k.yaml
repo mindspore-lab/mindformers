@@ -1,5 +1,5 @@
 seed: 0
-run_mode: 'predcit'
+run_mode: 'predict'
 output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
