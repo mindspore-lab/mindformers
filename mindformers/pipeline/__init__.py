@@ -19,6 +19,7 @@ from .base_pipeline import Pipeline
 from .image_classification_pipeline import ImageClassificationPipeline
 from .zero_shot_image_classification_pipeline import ZeroShotImageClassificationPipeline
 from .image_to_text_generation_pipeline import ImageToTextPipeline
+from .multi_modal_to_text_generation_pipeline import MultiModalToTextPipeline
 from .translation_pipeline import TranslationPipeline
 from .fill_mask_pipeline import FillMaskPipeline
 from .text_classification_pipeline import TextClassificationPipeline
@@ -43,3 +44,4 @@ __all__.extend(text_generation_pipeline.__all__)
 __all__.extend(masked_image_modeling_pipeline.__all__)
 __all__.extend(image_to_text_generation_pipeline.__all__)
 __all__.extend(segment_anything_pipeline.__all__)
+__all__.extend(multi_modal_to_text_generation_pipeline.__all__)

@@ -32,6 +32,7 @@ from .sam import *
 from .tokenization_utils import *
 from .tokenization_utils_fast import PreTrainedTokenizerFast
 from .modeling_utils import *
+from .multi_modal import *
 from .configuration_utils import *
 from .base_config import BaseConfig
 from .base_model import BaseModel
@@ -65,3 +66,4 @@ __all__.extend(sam.__all__)
 __all__.extend(tokenization_utils.__all__)
 __all__.extend(modeling_utils.__all__)
 __all__.extend(configuration_utils.__all__)
+__all__.extend(multi_modal.__all__)
