@@ -18,7 +18,7 @@ For text generation
 """
 import copy
 import time
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Dict
 
 import numpy as np
 import mindspore as ms
@@ -36,6 +36,7 @@ from mindformers.generation.logits_process import (LogitNormalization, LogitsPro
                                                    TopPLogitsWarper, MinLengthLogitsProcessor,
                                                    MinNewTokensLengthLogitsProcessor)
 from mindformers import version_control
+from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.generation.streamers import BaseStreamer
 from mindformers.generation.utils import softmax_with_threads, topk, GenerateOutput, InferOutput
 from mindformers.modules.block_tables import BlockTables
@@ -1235,3 +1236,99 @@ class GenerationMixin:
             _pynative_executor.sync()
             _pynative_executor.set_async_for_graph(False)
         return target_list, next_probs_cache, next_logits_cache, is_finished
+
+    def chat(self,
+             tokenizer: PreTrainedTokenizer,
+             query: str,
+             history: Optional[List[Dict[str, str]]] = None,
+             system_role_name: Optional[str] = "system",
+             user_role_name: Optional[str] = "user",
+             assistant_role_name: Optional[str] = "assistant",
+             instruction: Optional[str] = "",
+             max_length: Optional[int] = 512,
+             max_new_tokens: Optional[int] = None,
+             min_length: Optional[int] = 0,
+             min_new_tokens: Optional[int] = None,
+             do_sample: Optional[bool] = True,
+             temperature: Optional[float] = 1.0,
+             top_k: Optional[int] = 50,
+             top_p: Optional[float] = 1.0,
+             repetition_penalty: Optional[float] = 1.0):
+        """
+        Dia-logical text generation inference with large language models. The query from the user will be inference
+        using generate() after adding the chat template via the provided tokenizer.
+
+        Args:
+            tokenizer(PreTrainedTokenizer):
+                The tokenized used to decode the tokens.
+            query(str):
+                User input for inference.
+            history(List[Dict[str, str]], optional):
+                A Conversation object or list of dicts with "role" and "content" keys,
+                representing the chat history so far.
+            system_role_name(str):
+                The name of system role. Defaults to "system".
+            user_role_name(str):
+                The name of user role. Defaults to "user".
+            assistant_role_name(str):
+                The name of assistant role. Defaults to "assistant".
+            instruction(str, optional):
+                Instruction message to the model. Defaults to "".
+            max_length(int, optional):
+                The maximum length the generated tokens can have. Corresponds to the length of
+                the input prompt + `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
+                Defaults to 512.
+            max_new_tokens (int, optional):
+                The maximum numbers of tokens to generate, ignoring the number of
+                tokens in the prompt. Defaults to None.
+            min_length (int, optional):
+                The minimum length of the sequence to be generated. Corresponds to the length of the
+                input prompt + `min_new_tokens`. Its effect is overridden by `min_new_tokens`, if also set.
+                Defaults to 0.
+            min_new_tokens (int, optional):
+                The minimum numbers of tokens to generate, ignoring the number of tokens
+                in the prompt. Defaults to None.
+            do_sample(bool, optional):
+                Whether to do sampling on the candidate ids. If set True it will be enabled,
+                and set it to be False to disable the sampling, equivalent to topk 1.
+                If set None, it follows the setting in the configuration in the model. Defaults to True.
+            temperature(float, optional):
+                The value used to modulate the next token probabilities. Defaults to 1.0.
+            top_k(int, optional):
+                Determine the topK numbers token id as candidate. This should be a positive number.
+                If set None, it follows the setting in the configuration in the model. Defaults to 50.
+            top_p(float, optional):
+                The accumulation probability of the candidate token ids below the top_p
+                will be select as the candidate ids. The valid value of top_p is between (0, 1]. If the value
+                is larger than 1, top_K algorithm will be enabled. If set None, it follows the setting in the
+                configuration in the model. Defaults to 1.0.
+            repetition_penalty(float, optional):
+                The penalty factor of the frequency that generated words. The If set 1,
+                the repetition_penalty will not be enabled. If set None, it follows the setting in the
+                configuration in the model. Defaults to 1.0.
+
+        Returns:
+            response: str
+            history: List[Dict[str, str]]
+        """
+        if history is None:
+            history = []
+            if instruction:
+                history.append({"role": system_role_name, "content": instruction})
+
+        history.append({"role": user_role_name, "content": query})
+        input_ids = tokenizer.apply_chat_template(conversation=history, add_generation_prompt=True)
+        output_ids = self.generate(input_ids=input_ids,
+                                   max_length=max_length,
+                                   max_new_tokens=max_new_tokens,
+                                   min_length=min_length,
+                                   min_new_tokens=min_new_tokens,
+                                   do_sample=do_sample,
+                                   temperature=temperature,
+                                   top_k=top_k,
+                                   top_p=top_p,
+                                   repetition_penalty=repetition_penalty)
+        output_ids = output_ids[0][len(input_ids):]
+        response = tokenizer.decode(output_ids, skip_special_tokens=True)
+        history.append({"role": assistant_role_name, "content": response})
+        return response, history
