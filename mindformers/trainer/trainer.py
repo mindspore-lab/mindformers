@@ -1087,7 +1087,8 @@ class Trainer:
                 start_profile=start_profile,
                 profile_communication=profile_communication,
                 profile_memory=self.config.profile_memory,
-                output_path=self.config.profile_output)
+                output_path=self.config.profile_output,
+                config=self.config)
             logger.warning(
                 "Please reduce the data sample size with 'num_samples' in MindSpore data format according to "
                 "https://www.mindspore.cn/mindinsight/docs/zh-CN/master/performance_profiling_ascend.html.")
