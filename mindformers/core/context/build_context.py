@@ -46,7 +46,7 @@ def check_runtime_num_threads_version():
 def set_predict_context_config(config):
     """Set predict context config."""
     run_mode = config.get('run_mode', None)
-    if run_mode is not None and run_mode.strip() == 'predict':
+    if run_mode is not None and run_mode.strip() in ["predict", "eval"] and config.model.model_config.use_past:
         os.environ['RUN_MODE'] = run_mode
         jit_level = config.context.get("jit_level", "O0")
         infer_boost = config.context.get("infer_boost", "on")

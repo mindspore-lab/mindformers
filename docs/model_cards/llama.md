@@ -351,7 +351,7 @@ import mindspore
 from mindformers.pipeline import pipeline
 
 # 指定图模式，指定使用训练卡id
-mindspore.set_context(mode=0, device_id=0)
+mindspore.set_context(mode=0, device_id=0, jit_config={"infer_boost": "on"})
 
 pipeline_task = pipeline("text_generation", model='llama_7b', max_length=20)
 pipeline_result = pipeline_task("I love Beijing, because", do_sample=True, top_k=3)

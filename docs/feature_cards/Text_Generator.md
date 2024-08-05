@@ -14,7 +14,7 @@ Mindformers大模型套件的`text generator`方法支持增量推理逻辑，�
 
 ```python
 # mindspore设置图模式和环境
-import mindspore; mindspore.set_context(mode=0, device_id=0)
+import mindspore; mindspore.set_context(mode=0, device_id=0, jit_config={"infer_boost": "on"})
 from mindformers import AutoConfig, AutoModel, AutoTokenizer
 
 # 按需设置模型类型名，高阶接口将根据类型名实例化相应模型
@@ -53,7 +53,7 @@ print(tokenizer.decode(output))
 以下给出测试batch推理能力的**标准测试脚本**，仅上述增量推理测试脚本仅有少数区别
 
 ```python
-import mindspore;mindspore.set_context(mode=0, device_id=0)
+import mindspore;mindspore.set_context(mode=0, device_id=0, jit_config={"infer_boost": "on"})
 from mindformers import AutoConfig, AutoModel, AutoTokenizer
 
 model_type = "glm_6b"
