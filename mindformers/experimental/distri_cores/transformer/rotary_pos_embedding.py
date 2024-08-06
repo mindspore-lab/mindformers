@@ -15,7 +15,7 @@
 """Rotary position embedding."""
 import numpy as np
 
-from mindspore import Tensor, ops
+from mindspore import Tensor, ops, mint
 
 from mindformers.experimental.distri_cores.transformer import Module
 
@@ -94,11 +94,11 @@ def apply_rotary_pos_emb(x, freqs) -> Tensor:
     Supported Platforms:
         ``Ascend``
     """
-    cos_ = ops.cos(freqs).astype(x.dtype)
-    sin_ = ops.sin(freqs).astype(x.dtype)
+    cos_ = mint.cos(freqs).astype(x.dtype)
+    sin_ = mint.sin(freqs).astype(x.dtype)
 
     # rotate
-    x_splited = ops.chunk(x, 2, axis=-1)
+    x_splited = mint.split(x, x.shape[-1]//2, dim=-1)
     x_1 = x_splited[0]
     x_2 = x_splited[1]
     x_rotate = ops.cat((-x_2, x_1), axis=-1)

@@ -16,7 +16,7 @@
 import mindspore.ops.operations as P
 import mindspore.common.dtype as mstype
 
-from mindspore import nn, Parameter, Tensor
+from mindspore import nn, Parameter, Tensor, mint
 from mindspore.common.initializer import initializer
 
 __all__ = ["get_norm"]
@@ -43,15 +43,16 @@ class LayerNorm(nn.Cell):
         if param_init_type not in [mstype.float32, mstype.float16, mstype.bfloat16]:
             raise TypeError("The type of parameter 'param_init_type' should in [float32, float16], "
                             "but got the type : {}.".format(type(param_init_type)))
-        self.layer_norm = P.LayerNorm(begin_norm_axis=-1, begin_params_axis=-1, epsilon=eps)
         self.gamma = Parameter(initializer('ones', normalized_shape, param_init_type), name="gamma",
                                parallel_optimizer=False)
         self.beta = Parameter(initializer('zeros', normalized_shape, param_init_type), name="beta",
                               parallel_optimizer=False)
+        self.eps = eps
+        self.normalized_shape = normalized_shape
 
     def construct(self, x):
         """construct method"""
-        output, _, _ = self.layer_norm(x, self.gamma, self.beta)
+        output = mint.nn.functional.layer_norm(x, self.normalized_shape, self.gamma, self.beta, self.eps)
         return output
 
 
@@ -76,21 +77,14 @@ class RMSNorm(nn.Cell):
         self.eps = Tensor(float(eps), dtype=param_init_type)
         self.weight = Parameter(initializer("ones", (dim,), dtype=param_init_type))
 
-        self.square = P.Square()
-        self.mean = P.ReduceMean(keep_dims=True)
-        self.add = P.Add()
-        self.rsqrt = P.Rsqrt()
-        self.mul = P.Mul()
-        self.mul2 = P.Mul()
-
     def construct(self, x):
         """Forward of RMSNorm."""
-        norm_factor = self.square(x)
-        norm_factor = self.mean(norm_factor, -1)
-        norm_factor = self.add(norm_factor, self.eps)
-        norm_factor = self.rsqrt(norm_factor)
-        output = self.mul(x, norm_factor)
-        output = self.mul2(output, self.weight)
+        norm_factor = mint.square(x)
+        norm_factor = mint.mean(norm_factor, dim=-1, keepdim=True)
+        norm_factor = mint.add(norm_factor, self.eps)
+        norm_factor = mint.rsqrt(norm_factor)
+        output = mint.mul(x, norm_factor)
+        output = mint.mul(output, self.weight)
         return output
 
 

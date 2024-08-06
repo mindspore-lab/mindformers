@@ -16,7 +16,7 @@
 import mindspore.common.dtype as mstype
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
-from mindspore import Parameter, Tensor, nn, ops
+from mindspore import Parameter, Tensor, nn, ops, mint
 from mindspore.common.initializer import initializer
 
 from mindformers.experimental.distri_cores.create_comm import (
@@ -187,7 +187,6 @@ class ColumnParallelLinear(nn.Cell):
                 ),
                 name="bias",
             )
-            self.bias_add = P.Add()
 
         self.explicit_expert_comm = self.is_expert and (
             self.sequence_parallel or self.expert_parallel
@@ -221,7 +220,7 @@ class ColumnParallelLinear(nn.Cell):
             input_parallel = input_parallel.swapaxes(0, 1).contiguous()
         output_parallel = self.matmul(input_parallel, weight)
         if self.has_bias:
-            output_parallel = self.bias_add(
+            output_parallel = mint.add(
                 output_parallel, self.cast(self.bias, self.compute_dtype)
             )
         output_parallel = self.cast(output_parallel, origin_dtype)
@@ -377,7 +376,6 @@ class RowParallelLinear(nn.Cell):
             self.bias = Parameter(
                 initializer(bias_init, (self.output_size), param_init_type), name="bias"
             )
-            self.bias_add = P.Add()
 
         self.explicit_expert_comm = self.is_expert and (
             self.sequence_parallel or self.expert_parallel
@@ -412,7 +410,7 @@ class RowParallelLinear(nn.Cell):
             output = self.reduce_from_mp_region(output_parallel)
 
         if self.has_bias:
-            output = self.bias_add(output, self.cast(self.bias, self.compute_dtype))
+            output = mint.add(output, self.cast(self.bias, self.compute_dtype))
         output = self.cast(output, origin_dtype)
         return output
 

@@ -16,6 +16,7 @@
 import mindspore.ops.operations as P
 import mindspore.ops.functional as F
 
+from mindspore import mint
 from mindspore.common import dtype as mstype
 from mindformers.experimental.distri_cores.transformer import Module
 
@@ -47,7 +48,6 @@ class ScaleMaskSoftmax(Module):
         self.softmax_compute_type = softmax_compute_type
         self.scale = scale
 
-        self.softmax = P.Softmax()
         self.cast = P.Cast()
 
         assert (
@@ -64,7 +64,7 @@ class ScaleMaskSoftmax(Module):
             x = x * self.scale
         masked_input = self.mask_func(x, mask) if mask is not None else x
 
-        probs = self.softmax(masked_input)
+        probs = mint.nn.functional.softmax(masked_input, dim=-1)
 
         if self.softmax_compute_type != origin_dtype:
             probs = self.cast(probs, origin_dtype)
