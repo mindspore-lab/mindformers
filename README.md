@@ -397,7 +397,7 @@ MindFormers推荐使用分布式方式拉起模型训练、推理等功能，目
   | NODE_RANK        |     -      |  &check;   |        0         | 指定当前节点的rank id   |
   | LOG_DIR          |     -      |  &check;   | output/msrun_log | 日志输出路径，若不存在则递归创建 |
   | JOIN             |     -      |  &check;   |      False       | 是否等待所有分布式进程退出    |
-  | CLUSTER_TIME_OUT |     -      |  &check;   |       600        | 分布式启动的等待时间，单位为秒  |
+  | CLUSTER_TIME_OUT |     -      |  &check;   |       7200       | 分布式启动的等待时间，单位为秒  |
 
 > 注：如果需要指定`device_id`启动，可以设置环境变量`ASCEND_RT_VISIBLE_DEVICES`，如要配置使用2、3卡则输入`export ASCEND_RT_VISIBLE_DEVICES=2,3`。
 
