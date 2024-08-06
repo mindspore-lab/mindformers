@@ -58,7 +58,7 @@ MindFormers提供**alpaca**作为[微调](#微调)数据集。
 |:----------|:------------------------------------------------------:|:-----------------------:|:---------------------------------------------------------------------------------------------------------------------:|
 | alpaca    |                      InternLM2-7b                      |        Finetune         |                    [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)                    |
 
-下载数据集后，使用预处理脚本`research/internlm/alpaca_data_preprocess.py`生成mindrecord训练数据:
+下载数据集后，使用预处理脚本`research/internlm2/alpaca_data_preprocess.py`生成mindrecord训练数据:
 
 ```shell
 python alpaca_data_preprocess.py \
@@ -111,14 +111,14 @@ MindFormers提供`InternLM2-7b`的微调示例， 过程中使用alpaca数据集
 ```shell
 bash scripts/msrun_launcher.sh "research/internlm2/run_internlm2.py \
   --config research/internlm2/finetune_internlm2_7b.yaml \
-  --trian_dataset path/to/tain_dataset \
+  --train_dataset path/to/tain_dataset \
   --load_checkpoint path/to/checkpoint \
   --run_mode finetune \
   --use_parallel True" 8
 
   # 参数说明
   config:           模型配置文件路径
-  trian_dataset:    微调数据集路径
+  train_dataset:    微调数据集路径
   load_checkpoint:  模型权重文件路径
   run_mode:         运行模式
   use_parallel:     是否开启并行
