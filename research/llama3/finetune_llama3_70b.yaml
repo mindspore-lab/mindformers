@@ -100,8 +100,8 @@ micro_batch_interleave_num: 1
 # recompute config
 recompute_config:
   recompute: False
-  select_recompute: [10,8,6,4,2,0,0,0,0,0]
-  select_comm_recompute: [10,8,6,4,2,0,0,0,0,0]
+  select_recompute: [10,8,6,4,2,0,0,0]
+  select_comm_recompute: [10,8,6,4,2,0,0,0]
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
   recompute_slice_activation: True
