@@ -5,13 +5,13 @@ src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-use_parallel: True
+use_parallel: False
 run_mode: 'predict'
 
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'qwen2_32b'
+  model_name: 'qwen1_5_1_8b'
 
 # runner config
 runner_config:
@@ -31,7 +31,7 @@ runner_wrapper:
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
   data_parallel: 1
-  model_parallel: 2
+  model_parallel: 1
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: False
@@ -44,22 +44,22 @@ model:
     type: LlamaConfig
     batch_size: 1
     seq_length: 8192
-    hidden_size: 5120
-    num_layers: 64
-    num_heads: 40
-    n_kv_heads: 8
-    vocab_size: 152064
-    intermediate_size: 27392
+    hidden_size: 2048
+    num_layers: 24
+    num_heads: 16
+    n_kv_heads: 16
+    vocab_size: 151936
+    intermediate_size: 5504
     max_position_embeddings: 32768
     qkv_has_bias: True
     rms_norm_eps: 1.0e-6
     theta: 1000000.0
     emb_dropout_prob: 0.0
-    eos_token_id: [151643, 151645]
+    eos_token_id: [151643,151645]
     pad_token_id: 151643
     bos_token_id: 151645
     compute_dtype: "bfloat16"
-    layernorm_compute_type: "bfloat16"
+    layernorm_compute_type: "float32"
     softmax_compute_type: "float32"
     rotary_dtype: "bfloat16"
     param_init_type: "bfloat16"
@@ -70,7 +70,7 @@ model:
     use_past_shard: False
     offset: 0
     checkpoint_name_or_path: ""
-    repetition_penalty: 1.05
+    repetition_penalty: 1.1
     max_decode_length: 512
     top_k: 0
     top_p: 0.8

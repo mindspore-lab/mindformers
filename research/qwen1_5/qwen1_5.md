@@ -23,6 +23,13 @@
 | [qwen1.5-7b](./finetune_qwen1_5_7b.yaml)   | text_generation  |      alpaca       |    4096     |  [Finetune](#全参微调)  |           2457            |
 | [qwen1.5-14b](./finetune_qwen1_5_14b.yaml) | text_generation  |      alpaca       |    4096     |  [Finetune](#全参微调)  |           1077            |
 | [qwen1.5-72b](./finetune_qwen1_5_72b.yaml) | text_generation  |      alpaca       |    2048     |  [Finetune](#全参微调)  |           180.2           |
+| [qwen1.5-0.5b](./predict_qwen1_5_0_5b_chat.yaml)  | text_generation  |      -       |    8192     |  Predict  |           1491 (mindie 16 batch_size 单卡)           |
+| [qwen1.5-1.8b](./predict_qwen1_5_1_8b_chat.yaml) | text_generation  |      -       |    8192     |  Predict  |           1179 (mindie 16 batch_size 单卡)           |
+| [qwen1.5-4b](./predict_qwen1_5_4b_chat.yaml) | text_generation  |      -       |    8192     |  Predict  |           625 (mindie 16 batch_size 单卡)        |
+| [qwen1.5-7b](./predict_qwen1_5_7b_chat.yaml) | text_generation  |      -       |    8192     |  Predict  |            539 (mindie 16 batch_size 单卡)          |
+| [qwen1.5-14b](./predict_qwen1_5_14b_chat.yaml) | text_generation  |      -       |    8192     |  Predict  |           284 (mindie 16 batch_size 单卡)           |
+| [qwen1.5-32b](./predict_qwen1_5_32b_chat.yaml) | text_generation  |      -       |    8192     |  Predict  |           245 (mindie 16 batch_size 双卡)           |
+| [qwen1.5-72b](./predict_qwen1_5_72b_chat.yaml) | text_generation  |      -       |    8192     |  Predict  |           260 (mindie 16 batch_size 四卡)           |
 
 ## 模型文件
 
@@ -45,8 +52,13 @@
      ├── pretrain_qwen1_5_7b.yaml          # 7B 预训练启动配置  
      ├── pretrain_qwen1_5_14b.yaml         # 14B 预训练启动配置
      ├── pretrain_qwen1_5_72b.yaml         # 72B 预训练启动配置  
-     ├── predict_qwen1_5_14b.yaml          # 14B 在线推理启动配置
-     └── predict_qwen1_5_72b.yaml          # 72B 在线推理启动配置
+     ├── predict_qwen1_5_0_5b_chat.yaml          # 0.5B 在线推理启动配置
+     ├── predict_qwen1_5_1_8b_chat.yaml          # 1.8B 在线推理启动配置
+     ├── predict_qwen1_5_4b_chat.yaml          # 4B 在线推理启动配置
+     ├── predict_qwen1_5_7b_chat.yaml          # 7B 在线推理启动配置
+     ├── predict_qwen1_5_14b_chat.yaml          # 14B 在线推理启动配置
+     ├── predict_qwen1_5_32b_chat.yaml          # 32B 在线推理启动配置
+     └── predict_qwen1_5_72b_chat.yaml          # 72B 在线推理启动配置
    ```
 
 3. 环境准备和任务启动脚本：

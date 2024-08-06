@@ -306,6 +306,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                               compute_dtype=config.compute_dtype,
                               param_init_type=config.param_init_type,
                               weight_init="normal")  # meta default: xavier_normal
+        if config.tie_word_embeddings:
+            self.lm_head.weight = self.model.tok_embeddings.embedding_weight
 
         mp = config.parallel_config.model_parallel
         vocab_size = config.vocab_size
