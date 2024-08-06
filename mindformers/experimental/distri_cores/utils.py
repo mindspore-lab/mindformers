@@ -14,6 +14,10 @@
 # ============================================================================
 """utils"""
 import inspect
+from collections import OrderedDict
+
+import yaml
+
 import mindspore.common.dtype as mstype
 from mindspore.communication import get_group_size
 from mindspore.nn.optim.optimizer import Optimizer
@@ -22,6 +26,17 @@ from mindformers.experimental.distri_cores.create_comm import (
     get_pp_rank,
     get_pp_world_size,
 )
+
+class DictWithValueError(dict):
+    """
+    A dictionary subclass that raises a custom error with a helpful message when a key is not found.
+    """
+
+    def __getitem__(self, key):
+        try:
+            return super().__getitem__(key)
+        except KeyError:
+            raise ValueError(f"'{key}' is not supported, please select one of {list(self.keys())}")
 
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
@@ -221,3 +236,23 @@ def save_strategy_file(state_dict, strategy_file_name):
         logger.critical(f"Failed to save the checkpoint file {strategy_file_name}. Maybe don't have "
                         "the permission to write files, or the disk space is insufficient and so on.")
         raise e
+
+
+def load_yaml(stream, yaml_loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
+    """Load yaml file in orderedly.
+
+    Args:
+        stream: yaml file stream.
+        yaml_loader (yaml.Loader, optional): yaml loader.
+        object_pairs_hook (optional): object pairs hook.
+    """
+
+    class OrderedLoader(yaml_loader):
+        pass
+
+    def _construct_mapping(loader, node):
+        loader.flatten_mapping(node)
+        return object_pairs_hook(loader.construct_pairs(node))
+
+    OrderedLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping)
+    return yaml.load(stream, OrderedLoader)
