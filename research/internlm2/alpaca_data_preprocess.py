@@ -31,10 +31,9 @@ def preprocess(sources, tokenizer, seq_length):
     """From alpaca to mindrecord."""
     input_ids = []
     labels = []
-    special_tokenize = {"<s>": tokenizer.encode9('')[0],
+    special_tokenize = {"<s>": tokenizer.encode('')[0],
                         "</s>": tokenizer.encode('</s>', add_special_tokens=False)[0],
                         "newline": tokenizer.encode('\n', add_special_tokens=False)[0]}
-
 
     # 对话格式为
     # <|im_start|>system\n
@@ -43,7 +42,6 @@ def preprocess(sources, tokenizer, seq_length):
     # source['input']<|im_end|>\n
     # <|im_start|>assistant\n
     # source['output']<|im_end|>\n
-
 
     start_usr_token = tokenizer.encode('<|im_start|>user', add_special_tokens=False) + [special_tokenize["newline"]]
     start_ass_token = tokenizer.encode('<|im_start|>assistant', add_special_tokens=False) \
