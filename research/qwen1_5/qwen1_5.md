@@ -225,12 +225,6 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
    在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)
 
-   针对多机的场景，建议用户配置`HCCL_BUFFSIZE`环境变量。集合通信网络中，每一个HCCL通信域都会占用`HCCL_BUFFSIZE`大小的缓存区，若业务的模型数据量较小，但通信数据量较大，则可通过此环境变量增大HCCL通信域占用的缓存区大小，提升数据通信效率。
-
-   ```shell
-   export HCCL_BUFFSIZE=2
-   ```
-
    在mindformers工作目录下，执行：
 
    ```shell

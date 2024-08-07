@@ -153,6 +153,7 @@ pip install torch==2.0.1 transformers==4.32.0 transformers_stream_generator eino
 ```shell
 cd research/qwen
 export MS_ASCEND_CHECK_OVERFLOW_MODE="INFNAN_MODE"
+export HCCL_BUFFSIZE=2 # 对于jit_level: "O2"的模型需要配置此环境变量
 bash ../../scripts/msrun_launcher.sh "python run_qwen.py \
  --config finetune_qwen_7b.yaml \
  --load_checkpoint /path/to/ckpt \
