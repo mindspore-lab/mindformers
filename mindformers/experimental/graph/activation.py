@@ -18,6 +18,8 @@ Activation functions for transformer.
 """
 from mindspore import nn, dtype, Tensor
 from mindspore.ops import operations as P
+from mindspore.context import ParallelMode
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers.experimental.graph.transformer.transformer_config import ModelParallelConfig
 
 __all__ = [
@@ -45,7 +47,11 @@ class SwiGlu(nn.Cell):
         self.silu = P._inner_ops.SiLU()
         self.mul = P.Mul()
         self.add = P.Add()
-        self.shard(config)
+        if config is not None:
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+                self.sharding_propagation(config)
+            else:
+                self.shard(config)
 
     def construct(self, x: Tensor, bias: Tensor = None) -> Tensor:
         if bias is not None:
@@ -72,6 +78,9 @@ class SwiGlu(nn.Cell):
         self.slice.shard(slice_in_strategy)
         mul_in_strategy = ((dp, cp, 1), (dp, cp, 1)) if not compute_2d else ((dp, 1), (dp, 1))
         self.mul.shard(mul_in_strategy)
+
+    def sharding_propagation(self, config: ModelParallelConfig):
+        pass
 
 
 class GELU(nn.Cell):
@@ -101,7 +110,11 @@ class GELU(nn.Cell):
             self.const2 = Tensor(2.0, dtype.float32)
             self.cast = P.Cast()
 
-        self.shard(config)
+        if config is not None:
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+                self.sharding_propagation(config)
+            else:
+                self.shard(config)
 
     def construct(self, x: Tensor, bias: Tensor = None) -> Tensor:
         """
@@ -149,6 +162,9 @@ class GELU(nn.Cell):
             mul_tensor_in_strategy = ((dp, cp, tp), (dp, cp, tp)) if not compute_2d else ((dp, tp), (dp, tp))
             self.mul_tensor.shard(mul_tensor_in_strategy)
 
+    def sharding_propagation(self, config: ModelParallelConfig):
+        pass
+
 
 class SiLU(nn.Cell):
     """
@@ -163,7 +179,11 @@ class SiLU(nn.Cell):
         # pylint: disable=W0212
         self.silu = P._inner_ops.SiLU()
         self.add = P.Add()
-        self.shard(config)
+        if config is not None:
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+                self.sharding_propagation(config)
+            else:
+                self.shard(config)
 
     def construct(self, x: Tensor, bias: Tensor = None) -> Tensor:
         if bias is not None:
@@ -184,6 +204,8 @@ class SiLU(nn.Cell):
         silu_in_strategy = ((dp, cp, tp),) if not compute_2d else ((dp, tp),)
         self.silu.shard(silu_in_strategy)
 
+    def sharding_propagation(self, config: ModelParallelConfig):
+        pass
 
 ACTIVATION_MAP = {
     'gelu': GELU,

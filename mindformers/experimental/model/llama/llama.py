@@ -18,7 +18,8 @@ import numpy as np
 from mindspore import Tensor
 from mindspore import dtype
 from mindspore.ops import operations as P
-
+from mindspore.context import ParallelMode
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers import LlamaConfig
 from mindformers.core.context import get_context
 from mindformers.experimental.parallel_core.pynative.transformer.enums import AttnMaskType
@@ -102,7 +103,10 @@ class LlamaForCausalLM(Module, LlamaPretrainedModel):
         self.not_equal = P.NotEqual()
         self.reshape = P.Reshape()
         self.mul = P.Mul()
-        self.shard(transformer_config)
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(transformer_config)
+        else:
+            self.shard(transformer_config)
 
     def construct(self,
                   input_ids: Tensor,
@@ -260,3 +264,6 @@ class LlamaForCausalLM(Module, LlamaPretrainedModel):
         self.not_equal.shard(in_strategy=not_equal_in_strategy)
         mul_in_strategy = ((dp, 1), (dp, 1))
         self.mul.shard(in_strategy=mul_in_strategy)
+
+    def sharding_propagation(self, config: TransformerConfig):
+        pass

@@ -23,11 +23,13 @@ try:
 except ImportError:
     import mindspore._checkparam as Validator
 from mindspore import nn, Tensor
+from mindspore.context import ParallelMode
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.common import dtype
 from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.utils import init_method_zero
@@ -133,7 +135,12 @@ class ColumnParallelLinear(nn.Cell):
         if not skip_bias_add:
             self.add = P.Add()
         self.reshape = P.Reshape()
-        self.shard(config)
+
+        if config is not None:
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+                self.sharding_propagation(config)
+            else:
+                self.shard(config)
 
     def construct(self, input_: Tensor, weight: Tensor = None) -> tuple[Tensor, Tensor]:
         """Forward of ColumnParallelLinear.
@@ -191,6 +198,23 @@ class ColumnParallelLinear(nn.Cell):
         if not self.skip_bias_add:
             add_in_strategy = ((dp * cp, tp), (tp,))
             self.add.shard(in_strategy=add_in_strategy)
+
+    def sharding_propagation(self, config: TransformerConfig) -> None:
+        """Shard the operators in ColumnParallelLinear in sharding propagation mode.
+
+        Args:
+            config (TransformerConfig): The config of the transformer model.
+        """
+        dp = config.data_parallel if config.data_parallel is not None else 1
+        tp = config.tensor_parallel if config.tensor_parallel is not None else 1
+        cp = config.context_parallel if config.context_parallel is not None else 1
+
+        if self.transpose_b:
+            weight_strategy = (tp, 1)
+        else:
+            weight_strategy = (1, tp)
+        matmul_in_strategy = ((dp * cp, 1), weight_strategy)
+        self.matmul.shard(in_strategy=matmul_in_strategy)
 
 
 class RowParallelLinear(nn.Cell):
@@ -266,7 +290,12 @@ class RowParallelLinear(nn.Cell):
         if not skip_bias_add:
             self.add = P.Add()
         self.reshape = P.Reshape()
-        self.shard(config)
+
+        if config is not None:
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+                self.sharding_propagation(config)
+            else:
+                self.shard(config)
 
     def construct(self, input_: Tensor) -> tuple[Tensor, Tensor]:
         """Forward of RowParallelLinear.
@@ -318,6 +347,23 @@ class RowParallelLinear(nn.Cell):
         if not self.skip_bias_add:
             add_in_strategy = ((dp * cp, 1), (1,))
             self.add.shard(in_strategy=add_in_strategy)
+
+    def sharding_propagation(self, config: TransformerConfig) -> None:
+        """Shard the operators in RowParallelLinear in sharding propagation mode.
+
+        Args:
+            config (TransformerConfig): The config of the transformer model.
+        """
+        dp = config.data_parallel if config.data_parallel is not None else 1
+        cp = config.context_parallel if config.context_parallel is not None else 1
+        tp = config.tensor_parallel if config.tensor_parallel is not None else 1
+
+        if self.transpose_b:
+            weight_strategy = (1, tp)
+        else:
+            weight_strategy = (tp, 1)
+        matmul_in_strategy = ((dp * cp, tp), weight_strategy)
+        self.matmul.shard(in_strategy=matmul_in_strategy)
 
 
 class VocabParallelEmbedding(nn.Cell):

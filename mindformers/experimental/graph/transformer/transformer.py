@@ -19,8 +19,10 @@ import mindspore as ms
 from mindspore import nn, Tensor
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
+from mindspore.context import ParallelMode
 from mindspore.parallel.shard import Layout
 import mindspore.common.dtype as mstype
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.experimental.graph.transformer.dropout import Dropout
 from mindformers.experimental.graph.transformer.fused_softmax import FusedScaleMaskSoftmax
@@ -134,7 +136,10 @@ class ParallelMLP(nn.Cell):
                                             init_method=self.init_method
                                             )
         self.add = P.Add()
-        self.shard(self.parallel_config)
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(self.parallel_config)
+        else:
+            self.shard(self.parallel_config)
 
     def construct(self, hidden_states: Tensor) -> tuple[Tensor, Tensor]:
         """ Construct function of mlp block. """
@@ -172,6 +177,9 @@ class ParallelMLP(nn.Cell):
 
             if config.sequence_parallel and cp == 1:
                 self.projection.matmul.shard(in_strategy=((dp, tp), (1, tp)), out_strategy=((dp * tp, 1),))
+
+    def sharding_propagation(self, config: TransformerConfig):
+        pass
 
 
 class CoreAttention(nn.Cell):
@@ -251,7 +259,10 @@ class CoreAttention(nn.Cell):
         self.mul = P.Mul()
         self.cast = P.Cast()
 
-        self.shard(config)
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(config)
+        else:
+            self.shard(config)
 
     def construct(self, query_layer, key_layer, value_layer, attention_mask):
         """construct function."""
@@ -298,6 +309,15 @@ class CoreAttention(nn.Cell):
         self.mul.shard(((dp, tp, cp, 1), ()))
         self.bmm_qk.shard(((dp, tp, cp, 1), (dp, tp, 1, 1)))
         self.merge_head_transpose.shard(((dp, tp, cp, 1),))
+
+    def sharding_propagation(self, config: TransformerConfig):
+        """sharding parameters"""
+        dp = 1 if config is None else config.data_parallel
+        tp = 1 if config is None else config.tensor_parallel
+        cp = 1 if config is None else config.context_parallel
+
+        self.bmm_qkv.shard(((dp, tp, cp, 1), (dp, tp, 1, 1)))
+        self.bmm_qk.shard(((dp, tp, cp, 1), (dp, tp, 1, 1)))
 
 
 class ParallelAttention(nn.Cell):
@@ -794,7 +814,10 @@ class ParallelTransformerLayer(nn.Cell):
         self.mlp = ParallelMLP(config)
         self.hidden_states_droupout = Dropout(drop_prob=self.hidden_dropout_rate)
         self.add_bias = P.Add()
-        self.shard(config)
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(config)
+        else:
+            self.shard(config)
 
     def construct(self, hidden_states: Tensor, attention_mask: Tensor, encoder_output=None, enc_dec_attn_mask=None,
                   retriever_input=None, retriever_output=None, retriever_attn_mask=None, inference_params=None,
@@ -866,6 +889,9 @@ class ParallelTransformerLayer(nn.Cell):
             self.add.shard(((dp, cp, 1), (dp, cp, 1)))
             self.hidden_states_droupout.shard((dp, cp, 1))
             self.add_bias.shard(((dp, cp, 1), (1,)))
+
+    def sharding_propagation(self, config: TransformerConfig):
+        pass
 
 
 class ParallelTransformer(nn.Cell):
@@ -1036,7 +1062,10 @@ class CausalMaskGenerate(nn.Cell):
         self.mul = P.Mul()
         self.sub = P.Sub()
         self.expand_dim_post = P.ExpandDims()
-        self.shard(config)
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(config)
+        else:
+            self.shard(config)
 
     def construct(self, tokens=None, masks=None):
         """Forward process of the CausalMask
@@ -1087,6 +1116,9 @@ class CausalMaskGenerate(nn.Cell):
         self.mul.shard(((dp, 1, 1), (1, 1, 1)))
         self.sub.shard(((1,), (dp, 1, 1)))
         self.expand_dim_post.shard(((dp, 1, 1),))
+
+    def sharding_propagation(self, config: TransformerConfig):
+        pass
 
 
 class ParallelLMLogits(nn.Cell):
