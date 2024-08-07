@@ -153,6 +153,11 @@ def _check_parallel(config):
                                f" = {config.model.model_config.hidden_size % device_num} != 0, which "
                                f"may cause the optimizer parallel of the relevant parameters to fail")
 
+        if cp > 1 and not config.model.model_config.use_flash_attention:
+            raise ValueError(f"context_parallel is only available for flash attention for now, but got "
+                             f"use_flash_attention {config.model.model_config.use_flash_attention}, please "
+                             f"set use_flash_attention=True")
+
 
 def _check_keyword_gen_dataset(config, mode, **kwargs):
     """

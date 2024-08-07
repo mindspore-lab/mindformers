@@ -166,8 +166,15 @@ class FlashAttention(Cell):
             self.keep_prob_tensor = Tensor(keep_prob, dtype=mstype.float16)
             self.drop_gen_mask = ops.DropoutGenMask()
 
-    def _generate_flash_attention_strategy(self, dp, mp, cp):
+    def _generate_flash_attention_strategy(self, dp, mp, cp, cp_ds=1):
         """get FA generate strategies"""
+        # ulysses fa strategy
+        if cp_ds > 1:
+            cp_co = cp // cp_ds
+            # from (dp, cp, mp) to (dp, cp_co, cp_ds * mp)
+            cp = cp_co
+            mp = cp_ds * mp
+
         kv_head_split_num = 1 if self.use_mqa else mp
         if self.input_layout == "BSH":
             fa_strategies = ((dp, cp, mp),
@@ -222,8 +229,9 @@ class FlashAttention(Cell):
         dp = 1 if parallel_config is None else parallel_config.data_parallel
         mp = 1 if parallel_config is None else parallel_config.model_parallel
         cp = 1 if parallel_config is None else parallel_config.context_parallel
+        cp_ds = parallel_config.get_ulysses_cp_num()
 
-        fa_strategies = self._generate_flash_attention_strategy(dp, mp, cp)
+        fa_strategies = self._generate_flash_attention_strategy(dp, mp, cp, cp_ds)
         self.flash_attention.shard(fa_strategies)
 
         if self.use_alibi_mask:
