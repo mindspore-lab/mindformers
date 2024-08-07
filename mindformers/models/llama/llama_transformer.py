@@ -22,6 +22,7 @@ import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
+from mindspore.ops import functional as F
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.parallel.shard import Layout
 
@@ -122,19 +123,32 @@ class LLamaAttention(nn.Cell):
         self.use_attn_mask_compression = use_attn_mask_compression
         self.qkv_concat = qkv_concat
 
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+        cp = parallel_config.context_parallel
+        self.data_parallel = dp
+        self.model_parallel = mp
+        self.context_parallel = cp
+        # define ulysses context parallel
+        self.cp_ds = parallel_config.get_ulysses_cp_num()
+        # define colossal ai context parallel
+        self.cp_co = cp // self.cp_ds
+
         if self.hidden_size % self.n_head != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
                              "of 'n_head', but got the hidden_size is {} and the n_head is {}."
                              .format(self.hidden_size, self.n_head))
-        if self.n_kv_head % parallel_config.model_parallel != 0:
+        if self.n_head % (mp * self.cp_ds) != 0:
+            raise ValueError("For 'MultiHeadAttention', the class variable 'n_head' must be a multiple of "
+                             "'parallel_config.model_parallel * ulysses_cp_num', but got the n_head is {}, "
+                             "the parallel_config.model_parallel is {}, and ulysses_cp_num is {}"
+                             .format(self.n_head, mp, self.cp_ds))
+        if self.n_kv_head % (mp * self.cp_ds) != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'n_kv_head' must be a multiple of "
-                             "'parallel_config.model_parallel', but got the n_kv_head is {} "
-                             "and the parallel_config.model_parallel  is {}."
-                             .format(self.n_kv_head, parallel_config.model_parallel))
-        dp = parallel_config.data_parallel
-        mp = parallel_config.model_parallel
-        cp = parallel_config.context_parallel
-        self.context_parallel = cp
+                             "'parallel_config.model_parallel * ulysses_cp_num', but got the n_kv_head is {}, "
+                             "the parallel_config.model_parallel is {}, and ulysses_cp_num is {}"
+                             .format(self.n_kv_head, mp, self.cp_ds))
+
         self.shape = P.Shape()
         self.cast = P.Cast()
 
@@ -219,6 +233,10 @@ class LLamaAttention(nn.Cell):
 
             self.apply_rotary_emb = RotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
 
+            # ulysses context parallel, initial related ops
+            if self.cp_ds > 1:
+                self._ulysses_initial()
+
             if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
                 self.transpose.shard(((dp, cp, mp, 1),))
                 if cp > 1:
@@ -265,6 +283,27 @@ class LLamaAttention(nn.Cell):
                                                       use_attention_mask=True)
                 self.flash_attention.shard(parallel_config)
 
+    def _ulysses_initial(self):
+        """initial ulysses related ops."""
+        self.transpose_back = P.Transpose()
+        self.transpose_ulysses = P.Transpose()
+        self.transpose_a2a = P.Transpose()
+        self.transpose_ulysses_merger_a2a = P.Transpose()
+        self.transpose_ulysses_merger = P.Transpose()
+        dp = self.data_parallel
+        mp = self.model_parallel
+        cp = self.context_parallel
+        # ulysses shard strategy
+        if self.is_first_iteration:
+            self.wo.shard(((dp * cp, mp), (1, mp)), out_strategy_matmul=((dp * cp * mp, 1),))
+            layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
+            layout_transpose_back = (layout("dp", "mp", "cp", "None"),)
+            self.transpose_back.shard(in_strategy=layout_transpose_back)
+            self.transpose_ulysses.shard(((dp, cp, mp, 1, 1),))
+            self.transpose_a2a.shard(((dp, self.cp_co, self.cp_ds, mp, 1),))
+            self.transpose_ulysses_merger_a2a.shard(((dp, self.cp_co, self.cp_ds, mp, 1),))
+            self.transpose_ulysses_merger.shard(((dp, cp, 1, mp, 1),))
+
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None):
         """Forward process of the MultiHeadAttention"""
@@ -286,8 +325,17 @@ class LLamaAttention(nn.Cell):
         else:
             query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
             key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
-            query, key = self.apply_rotary_emb(query, key, freqs_cis)  # dp, mp, 1, 1
-            if self.context_parallel > 1:
+            query, key = self.apply_rotary_emb(query, key, freqs_cis)  # dp, mp, cp, 1
+            # with ulysses context parallel, insert all to all before FA
+            if self.context_parallel > 1 and self.cp_ds > 1:
+                # for query & key, transpose from BNSD back to BSND
+                query = self.transpose_back(query, (0, 2, 1, 3))
+                query = self._ulysses_qkv_a2a(query)
+                key = self.transpose_back(key, (0, 2, 1, 3))
+                key = self._ulysses_qkv_a2a(key)
+                # value is BSND, no need for transpose back
+                value = self._ulysses_qkv_a2a(value)
+            elif self.context_parallel > 1:
                 query = self._merge_heads(query)
                 key = self._merge_heads(key)
             else:
@@ -295,7 +343,12 @@ class LLamaAttention(nn.Cell):
                 key, value = self._cat_prefix(key, value, prefix_keys_values)
 
             if self.use_flash_attention:
-                if self.context_parallel > 1:
+                # with ulysses context parallel, insert all to all after FA
+                if self.context_parallel > 1 and self.cp_ds > 1:
+                    mask = self.cast(mask, mstype.uint8)
+                    context_layer = self.flash_attention(query, key, value, mask)
+                    context_layer = self._ulysses_context_layer_a2a(context_layer)
+                elif self.context_parallel > 1:
                     mask = self.cast(mask, mstype.uint8)
                     context_layer = self.flash_attention(query, key, value, mask)
                 else:
@@ -356,6 +409,50 @@ class LLamaAttention(nn.Cell):
         new_shape = (bs, seq_len, n_head * head_dim)
         x_merge = self.reshape(x, new_shape)
         return x_merge
+
+    def _ulysses_qkv_a2a(self, qkv):
+        """Given a qkv tensor with shape of (bs, seq_len, n_head, head_dim),
+        insert all to all in right place using transpose with specific shard strategy.
+        refers to <https://arxiv.org/abs/2309.14509>
+
+        Args:
+            qkv (Tensor): qkv after rotary embedding and before attention, with shape of (B, S, N, D)
+
+        Returns:
+            Tensor: qkv tensor after all to all commu.
+        """
+        bs, seq_len, _, _ = F.shape(qkv)
+        new_shape = (bs, seq_len, self.n_head // self.cp_ds, self.cp_ds, -1)
+        # [bs, seq_len, n_head, head_dim] -> [bs, seq_len, n_head/cp_ds, cp_ds, head_dim]
+        qkv = self.reshape(qkv, new_shape)
+        # [bs, seq_len, n_head/cp_ds, cp_ds, head_dim] -> [bs, seq_len, cp_ds, n_head/cp_ds, head_dim]
+        qkv = self.transpose_ulysses(qkv, (0, 1, 3, 2, 4))
+        # insert all-to-all (dp, cp, 1, mp, 1) -> (dp, cp_co, cp_ds, mp, 1)
+        qkv = self.transpose_a2a(qkv, (0, 1, 2, 3, 4))
+        # reshape to BSH
+        qkv = F.reshape(qkv, (bs, seq_len, self.hidden_size))
+        return qkv
+
+    def _ulysses_context_layer_a2a(self, context_layer):
+        """Given the context_layer tensor after fa, with shape of (bs, seq_len, hidden_size),
+        insert all to all in right place using transpose with specific shard strategy.
+        refers to <https://arxiv.org/abs/2309.14509>
+
+        Args:
+            context_layer (Tensor): context layer after attention, with shape of (B, S, H)
+
+        Returns:
+            Tensor: context layer tensor after all to all commu.
+        """
+        bs, seq_len, _ = F.shape(context_layer)
+        new_shape = (bs, seq_len, self.cp_ds, self.n_head // self.cp_ds, -1)
+        context_layer = F.reshape(context_layer, new_shape)
+        # insert all-to-all back (dp, cp_co, cp_ds, mp, 1) -> (dp, cp, 1, mp, 1)
+        context_layer = self.transpose_ulysses_merger_a2a(context_layer, (0, 1, 2, 3, 4))
+        context_layer = self.transpose_ulysses_merger(context_layer, (0, 1, 3, 2, 4))
+        # reshape back to BSH
+        context_layer = F.reshape(context_layer, (bs, seq_len, self.hidden_size))
+        return context_layer
 
     def _attn(self, query, key, value, mask):
         """
