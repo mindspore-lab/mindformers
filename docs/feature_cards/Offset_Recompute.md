@@ -2,6 +2,9 @@
 
 在大模型训练调优过程中，设备内存的合理使用和分配是一项重要的环节，除了通过各种并行方式将模型、优化器状态等数据切分到不同设备外，还可以通过调整流水并行的负载偏置与重计算来精细调整内存的使用。
 在实际大集群训练时，往往会限制global batch size，导致micro_batch_num开不大，产生较大的bubble。pp-interleave会将每个stage进一步划分为pp_interleave_num份mini stage，通过合理排布流水线降低bubble，从而提升端到端性能。
+
+> 参考上文，pp-interleave 使用场景限制较大，只在pipeline stage >1 且micro batch num 无法开大(micro batch num==pipeline stage)的场景下（通常该场景下bubble较大）有效果，开启pp-interleave 时内存占用变大且增加额外通信，因此当bubble不大时会产生负收益，性能反而降低。
+
 在mindformers/models/utils.py中提供了LayerSetting类，用于灵活配置每个stage包含的层数、重计算开启的层数、选择重计算的算子及开启的层数。
 
 ## 配置多流水交织
