@@ -204,10 +204,6 @@ class TrainingArguments:
         default=False,
         metadata={"help": "Whether to enable graph fusion. Default: False."}
     )
-    graph_kernel_flags: str = field(
-        default="--opt_level=0",
-        metadata={"help": "Graph fusion level."}
-    )
     max_call_depth: int = field(
         default=10000,
         metadata={"help": "Maximum depth of function calls. Default: 10000."}
@@ -1586,8 +1582,6 @@ class TrainingArguments:
             task_config.context.device_target, self.device_target)
         task_config.context.enable_graph_kernel = _check_training_args(
             task_config.context.enable_graph_kernel, self.enable_graph_kernel)
-        task_config.context.graph_kernel_flags = _check_training_args(
-            task_config.context.graph_kernel_flags, self.graph_kernel_flags)
         task_config.context.max_call_depth = _check_training_args(
             task_config.context.max_call_depth, self.max_call_depth)
         task_config.context.max_device_memory = _check_training_args(

@@ -293,7 +293,6 @@ context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   enable_graph_kernel: False
-  graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
   max_device_memory: "30GB" # 59GB for Atlas 800T A2
   save_graphs: False
@@ -571,7 +570,6 @@ context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   enable_graph_kernel: False
-  graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
   max_device_memory: "31GB"
   save_graphs: False
@@ -838,7 +836,6 @@ context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   enable_graph_kernel: False
-  graph_kernel_flags: "--disable_expand_ops=Softmax,Dropout --enable_parallel_fusion=true --reduce_fuse_depth=8 --enable_auto_tensor_inplace=true"
   max_call_depth: 10000
   max_device_memory: "30GB"
   save_graphs: False
