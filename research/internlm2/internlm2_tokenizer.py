@@ -69,6 +69,16 @@ class InternLM2Tokenizer(PreTrainedTokenizer):
         self.sp_model.Load(vocab_file)
         self._no_prefix_space_tokens = None
 
+        if kwargs.get("chat_template") is None:
+            kwargs["chat_template"] = "{{ bos_token }}" \
+                                      "{% for message in messages %}" \
+                                      "{{'<|im_start|>' + message['role'] + '\n' + " \
+                                      "message['content'] + '<|im_end|>' + '\n'}}" \
+                                      "{% endfor %}" \
+                                      "{% if add_generation_prompt %}" \
+                                      "{{ '<|im_start|>assistant\n' }}" \
+                                      "{% endif %}"
+
         if kwargs.get("added_tokens_decoder") is None:
             kwargs["added_tokens_decoder"] = {}
 
@@ -103,7 +113,7 @@ class InternLM2Tokenizer(PreTrainedTokenizer):
     def no_prefix_space_tokens(self):
         if self._no_prefix_space_tokens is None:
             vocab = self.convert_ids_to_tokens(list(range(self.vocab_size)))
-            self._no_prefix_space_tokens = {i for i, tok in enumerate(vocab) if not tok.startswith("▁")}
+            self._no_prefix_space_tokens = {tok for tok in vocab if not tok.startswith("▁")}
         return self._no_prefix_space_tokens
 
     @property
@@ -147,22 +157,17 @@ class InternLM2Tokenizer(PreTrainedTokenizer):
         """Converts a sequence of tokens (string) in a single string."""
         current_sub_tokens = []
         out_string = ""
-        prev_is_special = False
         for token in tokens:
             # make sure that special tokens are not decoded using sentencepiece model
             if token in self.all_special_tokens:
-                if not prev_is_special:
-                    out_string += " "
                 out_string += self.sp_model.decode(current_sub_tokens) + token
-                prev_is_special = True
                 current_sub_tokens = []
             else:
                 current_sub_tokens.append(token)
-                prev_is_special = False
         out_string += self.sp_model.decode(current_sub_tokens)
         out_string = self.clean_up_tokenization(out_string)
         out_string = self._maybe_add_prefix_space(tokens=tokens, decoded=out_string)
-        return out_string[1:]
+        return out_string
 
     def save_vocabulary(self, save_directory, filename_prefix: Optional[str] = None) -> Tuple[str]:
         """
