@@ -16,13 +16,17 @@
 import math
 
 import mindspore.common.dtype as mstype
-from mindspore import Tensor, nn, ops, mint
+from mindspore import Tensor, nn, ops, mint, Parameter
+import mindspore.ops.functional as F
 
 from mindformers.experimental.distri_cores.create_comm import get_pp_rank, get_tp_world_size
 from mindformers.experimental.distri_cores.random import get_rng_tracer
 from mindformers.experimental.distri_cores.tensor_parallel import (
     ColumnParallelLinear,
     RowParallelLinear,
+    CopyToModelParallelRegion,
+    GatherFromModelParallelRegion,
+    LinearWithGradAccumulationAndAsyncCommunication
 )
 from mindformers.experimental.distri_cores.transformer import get_act_func, get_attn_mask_func, get_norm
 from mindformers.experimental.distri_cores.transformer.rotary_pos_embedding import (
@@ -43,6 +47,7 @@ __all__ = [
     "ParallelAttention",
     "ParallelTransformerLayer",
     "ParallelTransformer",
+    "ParallelLMLogits"
 ]
 
 
@@ -721,3 +726,75 @@ class ParallelTransformer(Module):
             hidden_states = self.final_norm(hidden_states)
 
         return hidden_states
+
+
+class ParallelLMLogits(nn.Cell):
+    r"""
+    Head to get the logits of each token in the vocab.
+
+    Args:
+        config (dict): Parallel configuration.
+        bias (bool): Specifies whether the layer uses a bias vector. Default: True.
+        transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
+        compute_dtype (dtype.Number): The computation type. Default: None.
+
+    Inputs:
+        - **input_** (Tensor) - Tensor of hidden states.
+        - **word_embedding_table** (Parameter) - Weight matrix passed from embedding layer.
+        - **parallel_output** (bool) - Specifies whether return paralleled output on each tensor parallel rank.
+          Default: True.
+        - **bias** (Tensor) - The trainable bias parameter.
+
+    Outputs:
+        Tensor of logits.
+
+    Supported Platforms:
+        ``Ascend``
+    """
+
+    def __init__(self, config, bias=True, compute_dtype=None):
+        super(ParallelLMLogits, self).__init__()
+        self.compute_dtype = compute_dtype if compute_dtype else config.compute_dtype
+        self.sequence_parallel = config.use_sequence_parallel
+        self.allreduce_dgrad = (
+            get_tp_world_size() > 1 and not self.sequence_parallel
+        )
+
+        self.copy_to_mp_region = CopyToModelParallelRegion()
+        self.gradient_accumulation_fusion = config.gradient_accumulation_fusion
+        self.forward_impl_ = LinearWithGradAccumulationAndAsyncCommunication(
+            bias=bias,
+            gradient_accumulation_fusion=self.gradient_accumulation_fusion,
+            sequence_parallel=self.sequence_parallel,
+            allreduce_dgrad=self.allreduce_dgrad
+        )
+        self.gather_from_mp_region = GatherFromModelParallelRegion()
+
+    def construct(self, input_, word_embeddings_weight, parallel_output=True, bias=None):
+        """LM logits using word embedding table"""
+        if (
+                self.sequence_parallel
+                or self.allreduce_dgrad
+        ):
+            input_parallel = input_
+        else:
+            input_parallel = self.copy_to_mp_region(input_)
+
+        origin_dtype = F.dtype(input_parallel)
+        weight = ops.cast(word_embeddings_weight, self.compute_dtype)
+        weight_param = None
+        if self.gradient_accumulation_fusion and isinstance(word_embeddings_weight, Parameter):
+            weight_param = word_embeddings_weight
+        input_parallel = ops.cast(input_parallel, self.compute_dtype)
+
+        bias = ops.cast(bias, self.compute_dtype) if bias else None
+
+        # Matrix multiply.
+        logits_parallel = self.forward_impl_(input_parallel, weight, bias, weight_param=weight_param)
+        logits_parallel = ops.cast(logits_parallel, origin_dtype)
+
+        # Gather if needed.
+        if parallel_output:
+            return logits_parallel
+
+        return self.gather_from_mp_region(logits_parallel)

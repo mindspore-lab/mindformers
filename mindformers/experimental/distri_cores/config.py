@@ -597,6 +597,8 @@ class ModelParallelConfig(BaseConfig):
         recv_dtype (bool): Communication data type of p2p communication when using pipeline
             parallel. Default: 'float32'.
         use_zero3 (Union[bool, None]): Enable zero3 optimization. Default: None.
+        gradient_accumulation_fusion (bool): Enable gradient accumulation
+            during linear backward execution. Default: False.
     """
 
     # set config name for identifying while using init_configs methods
@@ -612,6 +614,7 @@ class ModelParallelConfig(BaseConfig):
             use_sequence_parallel: bool = False,
             recv_dtype: str = "float32",
             zero_level: bool = None,
+            gradient_accumulation_fusion: bool = False,
             **kwargs,
     ):
         super(ModelParallelConfig, self).__init__()
@@ -623,6 +626,7 @@ class ModelParallelConfig(BaseConfig):
         self.use_sequence_parallel = use_sequence_parallel
         self.recv_dtype = recv_dtype
         self.zero_level = zero_level
+        self.gradient_accumulation_fusion = gradient_accumulation_fusion
 
         self.update_attrs(**kwargs)
 
@@ -679,6 +683,13 @@ def validate_recv_dtype(config_instance, recv_dtype):
 def validate_use_zero3(config_instance, use_zero3):
     """Validate use_zero3."""
     Validator.check_value_type("use_zero3", use_zero3, [bool, type(None)])
+
+
+@ModelParallelConfig.validator("gradient_accumulation_fusion")
+def validate_gradient_accumulation_fusion(config_instance, gradient_accumulation_fusion):
+    """Validate gradient_accumulation_fusion."""
+    Validator.check_bool(gradient_accumulation_fusion, "gradient_accumulation_fusion")
+    return gradient_accumulation_fusion
 
 
 class TransformerConfig(BaseConfig):
