@@ -4024,7 +4024,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         # Convert inputs to python lists
         token_ids = to_py_obj(token_ids)
 
-        if isinstance(token_ids[0], list):
+        if token_ids and isinstance(token_ids[0], list):
             output = []
             for item in token_ids:
                 new_strs = self._decode(
