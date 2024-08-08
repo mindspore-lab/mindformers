@@ -15,6 +15,4 @@
 
 """mindformers init"""
 
-from .adamw import AdamWeightDecayZeRO2
-
-__all__ = ["AdamWeightDecayZeRO2"]
+from .adamw_zero import AdamW

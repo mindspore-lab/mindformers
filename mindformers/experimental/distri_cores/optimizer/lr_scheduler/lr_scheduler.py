@@ -13,19 +13,17 @@
 # limitations under the License.
 # ============================================================================
 """Learning rate scheduler"""
+
 import numpy as np
 import mindspore.common.dtype as mstype
 
-from mindspore import Tensor
-from mindspore.nn.learning_rate_schedule import (
-    LearningRateSchedule,
-    PolynomialDecayLR,
-    WarmUpLR,
-    CosineDecayLR,
-)
-from mindspore.ops import operations as P
+from mindspore import Tensor, mint
+from mindspore.nn.learning_rate_schedule import LearningRateSchedule, \
+    PolynomialDecayLR, WarmUpLR, CosineDecayLR
+from mindformers.experimental.distri_cores.register import ModuleType, ModuleRegistry
 
 
+@ModuleRegistry.register_decorator(ModuleType.LR_SCHEDULER)
 class LearningRateScheduler(LearningRateSchedule):
     """
     Warmup-decay learning rate for PanguAlpha network.
@@ -55,7 +53,7 @@ class LearningRateScheduler(LearningRateSchedule):
             decay_steps,
             power=1.0,
             use_cosine=True,
-        ):
+    ):
         super(LearningRateScheduler, self).__init__()
         self.warmup_flag = False
         if warmup_steps > 0:
@@ -68,9 +66,7 @@ class LearningRateScheduler(LearningRateSchedule):
         )
         self.warmup_steps = Tensor(np.array([warmup_steps]).astype(np.float32))
 
-        self.greater = P.Greater()
         self.one = Tensor(np.array([1.0]).astype(np.float32))
-        self.cast = P.Cast()
         self.use_cosine = use_cosine
 
     def construct(self, global_step):
@@ -84,11 +80,30 @@ class LearningRateScheduler(LearningRateSchedule):
         """
         decay_lr = self.decay_lr_scheduler(global_step)
         if self.warmup_flag:
-            is_warmup = self.cast(
-                self.greater(self.warmup_steps, global_step), mstype.float32
-            )
+            is_warmup = mint.gt(self.warmup_steps, global_step).astype(mstype.float32)
             warmup_lr = self.warmup_lr_scheduler(global_step)
             lr = (self.one - is_warmup) * decay_lr + is_warmup * warmup_lr
         else:
             lr = decay_lr
         return lr
+
+
+def get_learning_rate_scheduler(optimizer_config, return_instance: bool = True):
+    """
+    Get the learning rate scheduler.
+
+    Args:
+        optimizer_config (OptimizerConfig): The configuration object for the optimizer.
+
+    Returns:
+        LearningRateScheduler: The learning rate scheduler.
+    """
+    # only one lr scheduler is supported
+    lr_scheduler_type = "LearningRateScheduler"
+    lr_scheduler_cls = ModuleRegistry.get_item(module_type=ModuleType.LR_SCHEDULER, item_name=lr_scheduler_type)
+
+    if return_instance:
+        kwargs = optimizer_config.learning_rate_scheduler_kwargs.copy()
+        kwargs["learning_rate"] = optimizer_config.learning_rate
+        return lr_scheduler_cls(**kwargs)
+    return lr_scheduler_cls

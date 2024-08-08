@@ -15,10 +15,8 @@
 
 """mindformers init"""
 
-from .optimizer import *
 from .training import TrainOneStepCell
 from .transformer import *
 
 __all__ = ["TrainOneStepCell"]
-__all__.extend(optimizer.__all__)
 __all__.extend(transformer.__all__)
