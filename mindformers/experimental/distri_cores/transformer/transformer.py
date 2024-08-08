@@ -17,7 +17,6 @@ import math
 
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, nn, ops, mint
-from mindspore.ops import operations as P
 
 from mindformers.experimental.distri_cores.create_comm import get_pp_rank, get_tp_world_size
 from mindformers.experimental.distri_cores.random import get_rng_tracer
@@ -86,7 +85,6 @@ class ParallelMLP(Module):
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
             )
-            self.mul = P.Mul()
 
         self.mapping = ColumnParallelLinear(
             self.hidden_size,
@@ -125,7 +123,7 @@ class ParallelMLP(Module):
             gate = self.gating(hidden_states)
             gate = self.act_func(gate)
             intermediate_parallel = self.mapping(hidden_states)
-            intermediate_parallel = self.mul(intermediate_parallel, gate)
+            intermediate_parallel = mint.mul(intermediate_parallel, gate)
         else:
             intermediate_parallel = self.mapping(hidden_states)
             intermediate_parallel = self.act_func(intermediate_parallel)
@@ -347,21 +345,12 @@ class ParallelAttention(Module):
             # [B, S, H] --> [B, S, H + 2 * kv_H]
             qkv = self.cast(self.qkv_proj(hidden_states), self.compute_dtype)
 
-            query = ops.strided_slice(qkv,
-                                      (0, 0, 0),
-                                      (bs, seq_len, self.num_heads_per_partition * self.head_dim),
-                                      (1, 1, 1))
-            key = ops.strided_slice(qkv,
-                                    (0, 0, self.num_heads_per_partition * self.head_dim),
-                                    (bs, seq_len, (self.num_heads_per_partition +
-                                                   self.kv_num_heads_per_partition) * self.head_dim),
-                                    (1, 1, 1))
-            value = ops.strided_slice(qkv,
-                                      (0, 0, (self.num_heads_per_partition +
-                                              self.kv_num_heads_per_partition) * self.head_dim),
-                                      (bs, seq_len, (self.num_heads_per_partition +
-                                                     self.kv_num_heads_per_partition * 2) * self.head_dim),
-                                      (1, 1, 1))
+            split_sections = [
+                self.num_heads_per_partition * self.head_dim,
+                self.kv_num_heads_per_partition * self.head_dim,
+                self.kv_num_heads_per_partition * self.head_dim
+            ]
+            (query, key, value) = mint.split(qkv, split_sections, dim=-1)
 
             # [B, S, H] -> [B, N, S, D]
             query = query.reshape(bs, seq_len, -1, self.head_dim).transpose((0, 2, 1, 3))
@@ -373,7 +362,7 @@ class ParallelAttention(Module):
 
             # split tensor along last dimension.
             last_dim = kv.ndim - 1
-            (key, value) = ops.Split(axis=last_dim, output_num=2)(kv)
+            (key, value) = mint.split(kv, split_size_or_sections=kv.shape[last_dim]//2, dim=last_dim)
 
             new_tensor_shape = kv.shape[:-1] + (
                 self.num_heads_per_partition,

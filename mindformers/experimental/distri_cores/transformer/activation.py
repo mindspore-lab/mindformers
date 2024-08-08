@@ -17,7 +17,7 @@ import inspect
 import mindspore.common.dtype as mstype
 
 from mindspore import nn, Tensor
-from mindspore import ops
+from mindspore import ops, mint
 
 __all__ = ["get_act_func"]
 
@@ -84,11 +84,7 @@ class GELU(nn.Cell):
         """Initialize GELU."""
         super(GELU, self).__init__()
         self.approximate = approximate
-        if self.approximate:
-            self.gelu = ops.GeLU()
-        else:
-            self.erf = ops.Erf()
-            self.sqrt = ops.Sqrt()
+        if not self.approximate:
             self.const0 = Tensor(0.5, mstype.float32)
             self.const1 = Tensor(1.0, mstype.float32)
             self.const2 = Tensor(2.0, mstype.float32)
@@ -96,13 +92,13 @@ class GELU(nn.Cell):
     def construct(self, x):
         """construct method"""
         if self.approximate:
-            return self.gelu(x)
+            return mint.nn.functional.gelu(x, approximate='tanh')
         return (
             x
             * ops.cast(self.const0, x.dtype)
             * (
                 ops.cast(self.const1, x.dtype)
-                + self.erf(x / self.sqrt(ops.cast(self.const2, x.dtype)))
+                + mint.erf(x / mint.sqrt(ops.cast(self.const2, x.dtype)))
             )
         )
 
@@ -168,8 +164,8 @@ def swiglu(x):
     Outputs:
         - Tensor with the same type and shape as the `x`.
     """
-    x = ops.chunk(x, 2, axis=-1)
-    return ops.silu(x[0]) * x[1]
+    x0, x1 = mint.split(x, x.shape[-1] // 2, dim=-1)
+    return mint.nn.functional.silu(x0) * x1
 
 
 def squared_relu(x):
@@ -183,7 +179,7 @@ def squared_relu(x):
     Outputs:
         - Tensor with the same type and shape as the `x`.
     """
-    return ops.pow(ops.relu(x), 2)
+    mint.pow(mint.nn.functional.relu(x), 2)
 
 
 ACTIVATION_MAP = {
