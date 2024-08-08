@@ -98,8 +98,6 @@ class ContextConfig(BaseArgsConfig):
     |                         +------------------------------+----------------------------+
     |                         |  enable_graph_kernel         |  Ascend/GPU                |
     |                         +------------------------------+----------------------------+
-    |                         |  graph_kernel_flags          |  Ascend/GPU                |
-    |                         +------------------------------+----------------------------+
     |                         |  enable_reduce_precision     |  Ascend                    |
     |                         +------------------------------+----------------------------+
     |                         |  check_bprop                 |  CPU/GPU/Ascend            |
@@ -240,26 +238,6 @@ class ContextConfig(BaseArgsConfig):
             For details of graph kernel fusion, please check
             `Enabling Graph Kernel Fusion
             <https://www.mindspore.cn/tutorials/experts/en/r2.1/optimize/graph_fusion_engine.html>`_.
-        graph_kernel_flags (str):
-            Optimization options of graph kernel fusion, and the priority is higher when it conflicts
-            with enable_graph_kernel. Only for experienced users.
-            For example, mindspore.set_context(graph_kernel_flags="--opt_level=2 --dump_as_text"). Some general options:
-
-            - opt_level: Set the optimization level.
-              Default: ``2`` . Graph kernel fusion can be enabled equivalently by setting opt_level greater than 0.
-              Available values are:
-
-              - 0: disables graph kernel fusion;
-              - 1: enables the basic fusion of operators;
-              - 2: includes all optimizations of level 1,
-                and turns on more optimizations such as CSE, arithmetic simplification and so on;
-              - 3: includes all optimizations of level 2, and turns on more optimizations such as SitchingFusion,
-                ParallelFusion and so on. Optimizations of this level are radical and unstable in some scenarios.
-                Be caution when using this level.
-
-            - dump_as_text: dumps detail info as text files. Default: ``False`` .
-
-            More options can refer to the implementation code.
         enable_reduce_precision (bool):
             Whether to enable precision reduction.
             If the operator does not support the user-specified precision, the precision will
@@ -461,7 +439,7 @@ class ContextConfig(BaseArgsConfig):
         'enable_profiling', 'profiling_options', 'enable_auto_mixed_precision',
         'enable_graph_kernel', 'reserve_class_name_in_scope', 'check_bprop',
         'max_device_memory', 'print_file_path', 'enable_sparse', 'max_call_depth',
-        'env_config_path', 'graph_kernel_flags', 'save_compile_cache', 'runtime_num_threads',
+        'env_config_path', 'save_compile_cache', 'runtime_num_threads',
         'load_compile_cache', 'grad_for_scalar', 'pynative_synchronize', 'mempool_block_size'
     ]
 
