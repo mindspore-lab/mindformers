@@ -708,7 +708,7 @@ class ProfileMonitor(Callback):
 
     def __init__(self, start_step=1, stop_step=10,
                  output_path=None, start_profile=True,
-                 profile_communication=False, profile_memory=True, **kwargs):
+                 profile_communication=False, profile_memory=True, config=None, **kwargs):
         super(ProfileMonitor, self).__init__()
         self.start_step = start_step
         self.stop_step = stop_step
@@ -732,7 +732,7 @@ class ProfileMonitor(Callback):
         self.profiler = Profiler(
             start_profile=start_profile, output_path=output_path,
             profile_communication=profile_communication, profile_memory=profile_memory, **kwargs)
-
+        self._record_metadata(config)
         self.run_context = None
         self.output_path = output_path
 
@@ -763,6 +763,32 @@ class ProfileMonitor(Callback):
             logger.info("End of Profiling, please view the profile data under %s and analyze it using mindinsight."
                         "MindInsight order as follow: "
                         "mindinsight start --summary-base-dir %s", self.output_path, self.output_path)
+
+    def _record_metadata(self, config):
+        """
+        Record metadata from config.
+
+        Args:
+            config (dict): config of the train running.
+        """
+        if config is None:
+            return
+
+        parallel = config.parallel
+        parallel_config = parallel.parallel_config.to_dict()
+
+        try:
+            self.profiler.add_metadata_json('distributed_args', json.dumps({
+                'tensor_model_parallel_size': parallel_config.get('model_parallel', 1),
+                'pipeline_model_parallel_size': parallel_config.get('pipeline_stage', 1),
+                'data_parallel_size': parallel_config.get('data_parallel', 1),
+                'expert_model_parallel_size': parallel_config.get('expert_parallel', 1),
+                'sequence_parallel': parallel_config.get('use_seq_parallel', False),
+                'parallel_mode': parallel.get('parallel_mode', None),
+                'world_size': parallel.get('device_num', None)
+            }))
+        except AttributeError as e:
+            logger.warning("Profiler failed to record distributed args,  %s", e)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
