@@ -29,6 +29,8 @@ from .llama import *
 from .pangualpha import *
 from .bloom import *
 from .sam import *
+from .cogvlm2 import *
+from .eva02 import *
 from .tokenization_utils import *
 from .tokenization_utils_fast import PreTrainedTokenizerFast
 from .modeling_utils import *
@@ -63,6 +65,8 @@ __all__.extend(llama.__all__)
 __all__.extend(pangualpha.__all__)
 __all__.extend(bloom.__all__)
 __all__.extend(sam.__all__)
+__all__.extend(cogvlm2.__all__)
+__all__.extend(eva02.__all__)
 __all__.extend(tokenization_utils.__all__)
 __all__.extend(modeling_utils.__all__)
 __all__.extend(configuration_utils.__all__)
