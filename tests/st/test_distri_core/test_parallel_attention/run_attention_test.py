@@ -26,7 +26,7 @@ from mindspore.nn import AdamWeightDecay
 from mindspore.nn import SoftmaxCrossEntropyWithLogits
 from mindspore.communication.management import init
 
-from mindformers.experimental.distri_cores.config import ParallelConfig, ModelConfig
+from mindformers.experimental.distri_cores.config import ModelParallelConfig, TransformerConfig
 from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
 from mindformers.experimental.distri_cores.transformer import ParallelAttention
 from mindformers.experimental.distri_cores.transformer.rotary_pos_embedding import RotaryEmbedding
@@ -84,31 +84,31 @@ def run_parallel_attention_with_rope(use_fa=False, use_gqa=False):
     dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels', "attention_mask"])
     dataset = dataset.batch(batch_size)
 
-    parallel_config = ParallelConfig(tensor_parallel=tensor_parallel)
-    config = ModelConfig(vocab_size=1,
-                         num_layers=1,
-                         seq_length=seq_length,
-                         num_heads=num_heads,
-                         use_gqa=use_gqa,
-                         kv_num_heads=kv_num_heads,
-                         hidden_size=hidden_size,
-                         ffn_hidden_size=hidden_size,
-                         attn_type='self_attn',
-                         qkv_has_bias=True,
-                         out_proj_has_bias=False,
-                         parallel_config=parallel_config,
-                         param_init_dtype='float32',
-                         compute_dtype='float32',
-                         softmax_compute_dtype='float32',
-                         attention_dropout_rate=0.0,
-                         mask_func_type="attn_mask_add",
-                         use_flash_attention=use_fa,
-                         fa_config={
-                             'pre_tokens': 65536,
-                             'next_tokens': 0,
-                             'sparse_mode': 0,
-                             'input_layout': 'BNSD',
-                         })
+    parallel_config = ModelParallelConfig(tensor_parallel=tensor_parallel)
+    config = TransformerConfig(vocab_size=1,
+                               num_layers=1,
+                               seq_length=seq_length,
+                               num_heads=num_heads,
+                               use_gqa=use_gqa,
+                               kv_num_heads=kv_num_heads,
+                               hidden_size=hidden_size,
+                               ffn_hidden_size=hidden_size,
+                               attn_type='self_attn',
+                               qkv_has_bias=True,
+                               out_proj_has_bias=False,
+                               parallel_config=parallel_config,
+                               param_init_dtype='float32',
+                               compute_dtype='float32',
+                               softmax_compute_dtype='float32',
+                               attention_dropout_rate=0.0,
+                               mask_func_type="attn_mask_add",
+                               use_flash_attention=use_fa,
+                               fa_config={
+                                   'pre_tokens': 65536,
+                                   'next_tokens': 0,
+                                   'sparse_mode': 0,
+                                   'input_layout': 'BNSD',
+                               })
     network = ParallelAttentionNet(config=config, with_rope=True)
     kv_hidden_size = hidden_size // num_heads * kv_num_heads if use_gqa else None
 
