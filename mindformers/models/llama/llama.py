@@ -342,6 +342,17 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             ptq = RTN(config=cfg)
             ptq.apply(self)
             ptq.convert(self)
+        elif config.quant == "c8":
+            logger.info("Using RoundToNearest to quant LlamaForCausalLM KVCache.")
+            from mindspore_gs.ptq import PTQConfig, PTQMode
+            from mindspore_gs.common import BackendTarget
+            from mindspore_gs.ptq import RoundToNearest as RTN
+            from mindspore import dtype as msdtype
+            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, weight_dtype=msdtype.float_,
+                            kvcache_dtype=msdtype.int8)
+            ptq = RTN(config=cfg)
+            ptq.apply(self)
+            ptq.convert(self)
         elif config.quant == "w8a8":
             logger.info("Using SmoothQuant to quant LlamaForCausalLM.")
             from mindspore_gs.ptq import PTQConfig, PTQMode
