@@ -17,7 +17,7 @@ import mindspore.common.dtype as mstype
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, nn, ops, mint
-from mindspore.common.initializer import initializer
+from mindspore.common.initializer import initializer, Zero
 
 from mindformers.experimental.distri_cores.create_comm import (
     get_tp_rank,
@@ -57,25 +57,29 @@ class ColumnParallelLinear(nn.Cell):
         input_size (int): The number of channels in the input space.
         output_size (int): The number of channels in the output space.
         config (dict): Parallel configuration.
-        weight_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The values
+        init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The values
             of str refer to the function `initializer`. Default: 'normal'.
-        bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The values
-            of str refer to the function `initializer`. Default: 'zeros'.
         bias (bool): Specifies whether the layer uses a bias vector. Default: True.
         gather_output (bool): Specifies whether gather the output on each tensor parallel rank. Default: False.
         skip_weight_param_allocation (bool): Specifies whether skip the initialization of weight parameter.
             When set True, an weight tensor should be passed to construct function. Default: False.
         is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
+        bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The values
+            of str refer to the function `initializer`. Default: Zero().
+        param_init_dtype (dtype.Number): The parameter initialization type. Default: None.
+        compute_dtype (dtype.Number): The computation type. Default: None.
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
-        param_init_type (dtype.Number): The parameter initialization type. Default: mstype.float32.
-        compute_dtype (dtype.Number): The computation type. Default: mstype.float16.
+            Default: True.
 
     Inputs:
-        - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
-          to :math:`in\_channels` in `Inputs`.
+        - **input_** (Tensor) - Tensor of shape :math:`(*, input\_size)`. The `input_size` in `Args` should be equal
+          to :math:`input\_size` in `Inputs`.
+        - **weight** (Tensor) - Tensor of shape :math:`(input\_size, output\_size)`/:math`(output\_size, input\_size)`.
+          When `skip_weight_param_allocation=True`, this input must be provided. Default: None.
 
     Outputs:
-        Tensor of shape :math:`(*, out\_channels)`.
+        - **output** (Tensor): Result of linear with shape :math:`(*, output\_size)`.
+        - **output_bias** (Parameter): Bias parameter when `skip_bias_add=True` with shape :math:`(output\_size)`.
 
     Raises:
         ValueError: `skip_weight_param_allocation=True` but weight_tensor is not passed to construct function.
@@ -87,9 +91,9 @@ class ColumnParallelLinear(nn.Cell):
             self,
             input_size,
             output_size,
+            *,
             config,
-            weight_init="normal",
-            bias_init="zeros",
+            init_method,
             bias=True,
             gather_output=False,
             stride=1,
@@ -101,9 +105,10 @@ class ColumnParallelLinear(nn.Cell):
             is_expert=False,
             tp_comm_buffer_name=None,
             disable_grad_reduce=False,
+            bias_init=Zero(),
+            param_init_dtype=None,
+            compute_dtype=None,
             transpose_b=True,
-            param_init_type=mstype.float32,
-            compute_dtype=mstype.float16,
         ):
         super(ColumnParallelLinear, self).__init__()
         if stride > 1:
@@ -130,17 +135,20 @@ class ColumnParallelLinear(nn.Cell):
         self.output_size = output_size
         self.has_bias = bias
         self.gather_output = gather_output
-        tensor_parallel_group_size = get_tp_world_size()
+        self.skip_bias_add = skip_bias_add
 
+        tensor_parallel_group_size = get_tp_world_size()
         self.output_size_per_partition = divide(output_size, tensor_parallel_group_size)
+
         self.is_expert = is_expert
         self.skip_weight_param_allocation = skip_weight_param_allocation
-        self.parallel_config = config
-        self.compute_dtype = compute_dtype
+        self.config = config
+        self.param_init_dtype = param_init_dtype if param_init_dtype else self.config.param_init_dtype
+        self.compute_dtype = compute_dtype if compute_dtype else self.config.compute_dtype
 
-        self.expert_parallel = self.parallel_config.expert_parallel > 1
-        self.sequence_parallel = self.parallel_config.use_sequence_parallel
-        self.use_zero3 = self.parallel_config.use_zero3
+        self.expert_parallel = self.config.parallel_config.expert_parallel > 1
+        self.sequence_parallel = self.config.parallel_config.use_sequence_parallel
+        self.use_zero3 = self.config.parallel_config.zero_level == 'z3'
         self.transpose_b = transpose_b
         if self.use_zero3:
             try:
@@ -170,9 +178,9 @@ class ColumnParallelLinear(nn.Cell):
             if not self.skip_weight_param_allocation:
                 self.weight = Parameter(
                     initializer(
-                        weight_init,
+                        init_method,
                         weight_shape,
-                        param_init_type,
+                        self.param_init_dtype,
                     ),
                     name="weight",
                 )
@@ -183,7 +191,7 @@ class ColumnParallelLinear(nn.Cell):
                 self.output_size_per_partition = divide(self.output_size_per_partition, dp_size)
             self.bias = Parameter(
                 initializer(
-                    bias_init, (self.output_size_per_partition), param_init_type
+                    bias_init, (self.output_size_per_partition), self.param_init_dtype
                 ),
                 name="bias",
             )
@@ -202,6 +210,10 @@ class ColumnParallelLinear(nn.Cell):
             raise ValueError("For ColumnParallelLinear, when skip_weight_param_allocation=True,"
                              " weight should be passed to construct(), but got None.")
 
+        if weight and not self.skip_weight_param_allocation:
+            raise ValueError("For ColumnParallelLinear, when skip_weight_param_allocation=False,"
+                             "weight should not be passed to construct(), but got {}".format(weight))
+
         if self.sequence_parallel or self.explicit_expert_comm:
             input_parallel = input_
         else:
@@ -219,17 +231,21 @@ class ColumnParallelLinear(nn.Cell):
             input_parallel = self.gather_from_sp_region(input_parallel)
             input_parallel = input_parallel.swapaxes(0, 1).contiguous()
         output_parallel = self.matmul(input_parallel, weight)
-        if self.has_bias:
-            output_parallel = mint.add(
-                output_parallel, self.cast(self.bias, self.compute_dtype)
-            )
+
+        bias = self.cast(self.bias, self.compute_dtype) if self.has_bias and not self.skip_bias_add else None
+
+        if self.has_bias and not self.skip_bias_add:
+            output_parallel = mint.add(output_parallel, bias)
         output_parallel = self.cast(output_parallel, origin_dtype)
 
         if self.gather_output:
             output = self.gather_from_mp_region(output_parallel)
         else:
             output = output_parallel
-        return output
+
+        output_bias = self.bias if self.has_bias and self.skip_bias_add else None
+
+        return output, output_bias
 
     def sharded_state_dict(self):
         """provide the sharded state dict based on the config"""
@@ -269,23 +285,25 @@ class RowParallelLinear(nn.Cell):
         input_size (int): The number of channels in the input space.
         output_size (int): The number of channels in the output space.
         config (dict): Parallel configuration.
-        input_is_parallel (bool): Specifies whether the input tensor has already been sliced on last dimension.
-        weight_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The values
+        init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The values
             of str refer to the function `initializer`. Default: 'normal'.
-        bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The values
-            of str refer to the function `initializer`. Default: 'zeros'.
         bias (bool): Specifies whether the layer uses a bias vector. Default: True.
+        input_is_parallel (bool): Specifies whether the input tensor has already been sliced on last dimension.
         is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
+        bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The values
+            of str refer to the function `initializer`. Default: Zero().
+        param_init_dtype (dtype.Number): The parameter initialization type. Default: None.
+        compute_dtype (dtype.Number): The computation type. Default: None.
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
-        param_init_type (dtype.Number): The parameter initialization type. Default: mstype.float32.
-        compute_dtype (dtype.Number): The computation type. Default: mstype.float16.
+            Default: True.
 
     Inputs:
-        - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
+        - **input_** (Tensor) - Tensor of shape :math:`(*, output\_size)`. The `input_size` in `Args` should be equal
           to :math:`in\_channels` in `Inputs`.
 
     Outputs:
-        Tensor of shape :math:`(*, out\_channels)`.
+        - **output** (Tensor): Result of linear with shape :math:`(*, output\_size)`.
+        - **output_bias** (Parameter): Bias parameter when `skip_bias_add=True` with shape :math:`(output\_size)`.
 
     Supported Platforms:
         ``Ascend``
@@ -294,19 +312,20 @@ class RowParallelLinear(nn.Cell):
             self,
             input_size,
             output_size,
+            *,
             config,
+            init_method,
+            bias,
             input_is_parallel,
-            weight_init="normal",
-            bias_init="zeros",
-            bias=True,
-            skip_bias_add=False,
+            skip_bias_add,
             stride=1,
             keep_master_weight_for_test=False,
             is_expert=False,
             tp_comm_buffer_name=None,
+            bias_init=Zero(),
+            param_init_dtype=None,
+            compute_dtype=None,
             transpose_b=True,
-            param_init_type=mstype.float32,
-            compute_dtype=mstype.float16,
         ):
         super(RowParallelLinear, self).__init__()
         if skip_bias_add:
@@ -326,14 +345,18 @@ class RowParallelLinear(nn.Cell):
         self.output_size = output_size
         self.has_bias = bias
         self.input_is_parallel = input_is_parallel
+        self.skip_bias_add = skip_bias_add
+
         tensor_parallel_group_size = get_tp_world_size()
         self.input_size_per_partition = divide(input_size, tensor_parallel_group_size)
-        self.parallel_config = config
-        self.compute_dtype = compute_dtype
+
+        self.config = config
+        self.param_init_dtype = param_init_dtype if param_init_dtype else self.config.param_init_dtype
+        self.compute_dtype = compute_dtype if compute_dtype else self.config.compute_dtype
         self.is_expert = is_expert
-        self.expert_parallel = self.parallel_config.expert_parallel > 1
-        self.sequence_parallel = self.parallel_config.use_sequence_parallel
-        self.use_zero3 = self.parallel_config.use_zero3
+        self.expert_parallel = self.config.parallel_config.expert_parallel > 1
+        self.sequence_parallel = self.config.parallel_config.use_sequence_parallel
+        self.use_zero3 = self.config.parallel_config.zero_level == 'z3'
         self.transpose_b = transpose_b
         if self.use_zero3:
             try:
@@ -362,9 +385,9 @@ class RowParallelLinear(nn.Cell):
         with get_rng_tracer().rng_fork(mode):
             self.weight = Parameter(
                 initializer(
-                    weight_init,
+                    init_method,
                     weight_shape,
-                    param_init_type,
+                    self.param_init_dtype,
                 ),
                 name="weight",
             )
@@ -374,7 +397,7 @@ class RowParallelLinear(nn.Cell):
             if self.use_zero3 and not self.transpose_b:
                 self.output_size = divide(self.output_size, dp_size)
             self.bias = Parameter(
-                initializer(bias_init, (self.output_size), param_init_type), name="bias"
+                initializer(bias_init, (self.output_size), self.param_init_dtype), name="bias"
             )
 
         self.explicit_expert_comm = self.is_expert and (
@@ -409,10 +432,12 @@ class RowParallelLinear(nn.Cell):
         else:
             output = self.reduce_from_mp_region(output_parallel)
 
-        if self.has_bias:
+        if self.has_bias and not self.skip_bias_add:
             output = mint.add(output, self.cast(self.bias, self.compute_dtype))
-        output = self.cast(output, origin_dtype)
-        return output
+        output = ops.cast(output, origin_dtype)
+        output_bias = self.bias if self.has_bias and self.skip_bias_add else None
+
+        return output, output_bias
 
     def sharded_state_dict(self):
         """provide the sharded state dict based on the config"""
@@ -453,14 +478,17 @@ class VocabParallelEmbedding(nn.Cell):
             self,
             num_embeddings,
             embedding_dim,
-            parallel_config,
-            init_method="normal",
-            init_type=mstype.float32,
+            *,
+            init_method,
+            reduce_scatter_embeddings=False,
+            config,
+            param_init_dtype=None
         ):
         super().__init__()
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
-        self.sequence_parallel = parallel_config.use_sequence_parallel
+        self.reduce_scatter_embeddings = reduce_scatter_embeddings
+        self.param_init_dtype = param_init_dtype if param_init_dtype else config.param_init_dtype
 
         self.tensor_model_parallel_size = get_tp_world_size()
 
@@ -479,7 +507,7 @@ class VocabParallelEmbedding(nn.Cell):
                 initializer(
                     init=init_method,
                     shape=(self.num_embeddings_per_partition, self.embedding_dim),
-                    dtype=init_type,
+                    dtype=self.param_init_dtype,
                 ),
                 name="weight",
             )
@@ -513,16 +541,15 @@ class VocabParallelEmbedding(nn.Cell):
                 input_mask.expand_dims(2),
                 Tensor(0.0, output_parallel.dtype),
             )
-        embedding_table = self.weight.value()
 
-        if self.sequence_parallel:
+        if self.reduce_scatter_embeddings:
             output_parallel = output_parallel.swapaxes(0, 1).contiguous()
             output = self.reduce_scatter_to_sp_region(output_parallel)
             output = output.swapaxes(0, 1).contiguous()
         else:
             # Reduce across all the model parallel devices.
             output = self.reduce_from_mp_region(output_parallel)
-        return output, embedding_table
+        return output
 
     # pylint: disable=W0613
     def _vocab_range_from_global_vocab_size(self, global_vocab_size, rank, world_size):

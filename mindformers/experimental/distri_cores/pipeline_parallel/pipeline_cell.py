@@ -324,7 +324,7 @@ class PipelineCell(Module):
         if self.first_stage:
             embedding_inputs = self.get_layer_inputs(self.embedding_input_signatures, public_tensors)
             # pylint: disable=E1102
-            outputs, _ = self.embedding(input_ids, **embedding_inputs)
+            outputs = self.embedding(input_ids, **embedding_inputs)
 
         # transformer layers
         transformer_layer_inputs = self.get_layer_inputs(self.transformer_layer_input_signatures,

@@ -59,6 +59,7 @@ class ParallelMLP(Module):
 
     Outputs:
         - **output** (Tensor) - Output tensor of shape :math:`(B, S, H)`.
+        - **output_bias** (Parameter) - Output projection bias weight when `projection.skip_bias_add=True`.
 
     Supported Platforms:
         ``Ascend``
@@ -77,25 +78,27 @@ class ParallelMLP(Module):
             self.gating = ColumnParallelLinear(
                 self.hidden_size,
                 self.ffn_hidden_size,
-                config=self.config.parallel_config,
+                config=self.config,
+                init_method=self.config.init_method,
                 bias=self.has_bias,
-                transpose_b=False,
                 gather_output=False,
                 is_expert=is_expert,
-                param_init_type=self.config.param_init_dtype,
+                param_init_dtype=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
+                bias_init=self.config.bias_init,
             )
 
         self.mapping = ColumnParallelLinear(
             self.hidden_size,
             self.ffn_hidden_size,
-            config=self.config.parallel_config,
+            config=self.config,
+            init_method=self.config.init_method,
             bias=self.has_bias,
-            transpose_b=False,
             gather_output=False,
             is_expert=is_expert,
-            param_init_type=self.config.param_init_dtype,
+            param_init_dtype=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
+            bias_init=self.config.bias_init,
         )
 
         self.bias_gelu_fusion = False
@@ -107,30 +110,32 @@ class ParallelMLP(Module):
         self.projection = RowParallelLinear(
             self.ffn_hidden_size,
             self.hidden_size,
-            input_is_parallel=True,
-            config=self.config.parallel_config,
+            config=self.config,
+            init_method=self.config.init_method,
             bias=self.has_bias,
-            transpose_b=False,
+            input_is_parallel=True,
+            skip_bias_add=False,
             is_expert=is_expert,
-            param_init_type=self.config.param_init_dtype,
+            param_init_dtype=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
+            bias_init=self.config.bias_init,
         )
 
     def construct(self, hidden_states):
         """ Construct function of mlp block. """
         # [B, S, H] -> [B, S, ffn_H]
         if self.config.mlp_has_gate:
-            gate = self.gating(hidden_states)
+            gate, _ = self.gating(hidden_states)
             gate = self.act_func(gate)
-            intermediate_parallel = self.mapping(hidden_states)
+            intermediate_parallel, _ = self.mapping(hidden_states)
             intermediate_parallel = mint.mul(intermediate_parallel, gate)
         else:
-            intermediate_parallel = self.mapping(hidden_states)
+            intermediate_parallel, _ = self.mapping(hidden_states)
             intermediate_parallel = self.act_func(intermediate_parallel)
 
         # [B, S, ffn_H] -> [B, S, H]
-        output = self.projection(intermediate_parallel)
-        return output
+        output, output_bias = self.projection(intermediate_parallel)
+        return output, output_bias
 
 
 def _merge_heads(x):
@@ -161,7 +166,7 @@ class CoreAttention(nn.Cell):
         - **attention_mask** (Tensor) - Tensor of attention mask matrix.
 
     Outputs:
-        - **attn_output** (Tensor) - Tensor of shape :math:`(B, S, H)`.
+        - **context_layer** (Tensor) - Tensor of shape :math:`(B, S, H)`.
 
     Supported Platforms:
         ``Ascend``
@@ -211,9 +216,9 @@ class CoreAttention(nn.Cell):
         # [B, N, S, S] * [B, N, S, D] -> [B, N, S, D]
         weighted_values = ops.bmm(attention_probs, value_layer)
         # [B, N, S, D] -> [B, S, N*D]
-        attn_output = _merge_heads(weighted_values)
+        context_layer = _merge_heads(weighted_values)
 
-        return attn_output
+        return context_layer
 
 
 class ParallelAttention(Module):
@@ -234,6 +239,7 @@ class ParallelAttention(Module):
 
     Outputs:
         - **output** (Tensor) - Tensor of shape :math:`(B, S, H)`.
+        - **bias** (Tensor) - Output out_proj dense layer's bias weight when `projection.skip_bias_add=True`.
 
     Supported Platforms:
         ``Ascend``
@@ -278,12 +284,12 @@ class ParallelAttention(Module):
             self.qkv_proj = ColumnParallelLinear(
                 self.hidden_size,
                 self.hidden_size + 2 * self.kv_hidden_size,
-                config=self.config.parallel_config,
+                config=self.config,
+                init_method=self.config.init_method,
                 bias=self.config.qkv_has_bias,
                 gather_output=False,
-                transpose_b=False,
-                param_init_type=self.config.param_init_dtype,
-                compute_dtype=self.config.compute_dtype,
+                skip_bias_add=False,
+                bias_init=self.config.bias_init,
             )
         elif self.attn_type == 'cross_attn':
             assert self.hidden_size == self.kv_hidden_size
@@ -291,23 +297,23 @@ class ParallelAttention(Module):
             self.q_proj = ColumnParallelLinear(
                 self.hidden_size,
                 self.hidden_size,
-                config=self.config.parallel_config,
+                config=self.config,
+                init_method=self.config.init_method,
                 bias=self.config.qkv_has_bias,
                 gather_output=False,
-                transpose_b=False,
-                param_init_type=self.config.param_init_dtype,
-                compute_dtype=self.config.compute_dtype,
+                skip_bias_add=False,
+                bias_init=self.config.bias_init,
             )
 
             self.kv_proj = ColumnParallelLinear(
                 self.hidden_size,
                 2 * self.kv_hidden_size,
-                config=self.config.parallel_config,
+                config=self.config,
+                init_method=self.config.init_method,
                 bias=self.config.qkv_has_bias,
                 gather_output=False,
-                transpose_b=False,
-                param_init_type=self.config.param_init_dtype,
-                compute_dtype=self.config.compute_dtype,
+                skip_bias_add=False,
+                bias_init=self.config.bias_init,
             )
         else:
             raise NotImplementedError(f"attention_type should be self_attn or cross_attn, but got {self.attn_type}")
@@ -317,12 +323,12 @@ class ParallelAttention(Module):
         self.out_proj = RowParallelLinear(
             self.hidden_size,
             self.hidden_size,
-            input_is_parallel=True,
-            config=self.config.parallel_config,
+            config=self.config,
+            init_method=self.config.init_method,
             bias=self.config.out_proj_has_bias,
-            transpose_b=False,
-            param_init_type=self.config.param_init_dtype,
-            compute_dtype=self.config.compute_dtype,
+            input_is_parallel=True,
+            skip_bias_add=False,
+            bias_init=self.config.bias_init,
         )
 
         self.cast = ops.Cast()
@@ -332,9 +338,13 @@ class ParallelAttention(Module):
             hidden_states,
             attention_mask,
             encoder_output=None,
+            inference_params=None,
             rotary_pos_emb=None,
         ):
         """ Construct function of attention block. """
+        if inference_params:
+            raise NotImplementedError("inference_params is not supported for now.")
+
         # hidden_states: [B, S, H]
         ori_dtype = hidden_states.dtype
         bs, seq_len, _ = hidden_states.shape
@@ -343,7 +353,8 @@ class ParallelAttention(Module):
             if self.sequence_parallel:
                 seq_len = seq_len * self.tp_group_size
             # [B, S, H] --> [B, S, H + 2 * kv_H]
-            qkv = self.cast(self.qkv_proj(hidden_states), self.compute_dtype)
+            qkv, _ = self.qkv_proj(hidden_states)
+            qkv = self.cast(qkv, self.compute_dtype)
 
             split_sections = [
                 self.num_heads_per_partition * self.head_dim,
@@ -358,7 +369,8 @@ class ParallelAttention(Module):
             key = key.reshape(bs, seq_len, -1, self.head_dim)
             value = value.reshape(bs, seq_len, -1, self.head_dim)
         else:
-            kv = self.cast(self.kv_proj(encoder_output), self.compute_dtype)
+            kv, _ = self.kv_proj(encoder_output)
+            kv = self.cast(kv, self.compute_dtype)
 
             # split tensor along last dimension.
             last_dim = kv.ndim - 1
@@ -372,7 +384,8 @@ class ParallelAttention(Module):
             key = key.view(*new_tensor_shape)
             value = value.view(*new_tensor_shape)
 
-            q = self.cast(self.q_proj(hidden_states), self.compute_dtype)
+            q, _ = self.q_proj(hidden_states)
+            q = self.cast(q, self.compute_dtype)
             new_tensor_shape = q.shape[:-1] + \
                                (self.num_heads_per_partition,
                                 self.head_dim)
@@ -433,10 +446,10 @@ class ParallelAttention(Module):
             context_layer = _merge_heads(output)
 
         # apply output projection
-        output = self.out_proj(context_layer)
+        output, bias = self.out_proj(context_layer)
         output = self.cast(output, ori_dtype)
 
-        return output
+        return output, bias
 
     def _repeat_kv(self, x, rep):
         """ Expand key, value on num_head dimension. """
@@ -520,16 +533,38 @@ class ParallelTransformerLayer(Module):
         """Set selective recompute for transformer layer."""
         self.attention.core_attention.recompute()
 
-    def construct(self, hidden_states, attention_mask, rotary_pos_emb=None):
+    def construct(self,
+                  hidden_states,
+                  attention_mask,
+                  encoder_output=None,
+                  enc_dec_attn_mask=None,
+                  retriever_input=None,
+                  retriever_output=None,
+                  retriever_attn_mask=None,
+                  inference_params=None,
+                  rotary_pos_emb=None):
         """ Construct function of transformer layer. """
+        if encoder_output is not None:
+            raise NotImplementedError("encoder_output is not supported for now.")
+        if enc_dec_attn_mask is not None:
+            raise NotImplementedError("enc_dec_attn_mask is not supported for now.")
+        if retriever_input is not None:
+            raise NotImplementedError("retriever_input is not supported for now.")
+        if retriever_output is not None:
+            raise NotImplementedError("retriever_output is not supported for now.")
+        if retriever_attn_mask is not None:
+            raise NotImplementedError("retriever_attn_mask is not supported for now.")
+        if inference_params is not None:
+            raise NotImplementedError("inference_params is not supported for now.")
+
         # hidden_states: [B, S, H]
         # layernorm at the beginning of the transformer layer.
         norm_output = self.input_norm(hidden_states)
 
         # attention.
-        attention_output = self.attention(
-            norm_output, attention_mask, rotary_pos_emb=rotary_pos_emb
-        )
+        attention_output, _ = self.attention(hidden_states=norm_output,
+                                             attention_mask=attention_mask,
+                                             rotary_pos_emb=rotary_pos_emb)
 
         # residual-connection.
         if self.apply_residual_connection_post_norm:
@@ -544,7 +579,7 @@ class ParallelTransformerLayer(Module):
         norm_output = self.post_attention_norm(norm_input)
 
         # MLP.
-        mlp_output = self.mlp(norm_output)
+        mlp_output, _ = self.mlp(norm_output)
 
         # residual-connection.
         if self.apply_residual_connection_post_norm:
@@ -647,15 +682,39 @@ class ParallelTransformer(Module):
         else:
             raise NotImplementedError(f"recompute_method should be uniform or blocks, but got {recompute_method}")
 
-    def construct(self, hidden_states, attention_mask, rotary_pos_emb=None):
+    def construct(self,
+                  hidden_states,
+                  attention_mask,
+                  encoder_output=None,
+                  enc_dec_attn_mask=None,
+                  retriever_input=None,
+                  retriever_output=None,
+                  retriever_attn_mask=None,
+                  inference_params=None,
+                  rotary_pos_emb=None):
         """ Construct function of transformer. """
+        if encoder_output is not None:
+            raise NotImplementedError("encoder_output is not supported for now.")
+        if enc_dec_attn_mask is not None:
+            raise NotImplementedError("enc_dec_attn_mask is not supported for now.")
+        if retriever_input is not None:
+            raise NotImplementedError("retriever_input is not supported for now.")
+        if retriever_output is not None:
+            raise NotImplementedError("retriever_output is not supported for now.")
+        if retriever_attn_mask is not None:
+            raise NotImplementedError("retriever_attn_mask is not supported for now.")
+        if inference_params is not None:
+            raise NotImplementedError("inference_params is not supported for now.")
+
         if self.checkpointed_recompute:
             layers = self.checkpointed_layer_groups
         else:
             layers = self.layers
 
         for layer in layers:
-            hidden_states = layer(hidden_states, attention_mask, rotary_pos_emb)
+            hidden_states = layer(hidden_states=hidden_states,
+                                  attention_mask=attention_mask,
+                                  rotary_pos_emb=rotary_pos_emb)
 
         # final layernorm.
         if self.post_norm:

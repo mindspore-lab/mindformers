@@ -262,15 +262,17 @@ class AdamWeightDecay(Optimizer):
                     self.pre_backward_function = func
                     self.used_bprop_inputs = []
 
-                def construct(self, input):
-                    return ops.stop_gradient(input)
+                def construct(self, input, input_bias):
+                    return ops.stop_gradient(input), ops.stop_gradient(input_bias)
 
                 def bprop(self, *args):
                     self.pre_backward_function(self.cell)
                     return args[-1]
 
             pre_back_cell = PreBackwardCell(cell, _run_before_backward_function)
-            output = pre_back_cell(output)
+            output, output_bias = output
+            output = pre_back_cell(output, output_bias)
+
             return output
 
         def _post_backward_cell_hook(cell, input):
