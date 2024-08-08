@@ -134,14 +134,15 @@ class LlamaEmbedding(Cell):
             self.gather.shard(((1, 1), (dp, cp)))
             logger.info(f"Using {dp*cp} data parallel for the embedding lookup.")
         else:
-            if self.vocab_table_size % mp != 0:
-                logger.warning("The vocab size of Loss is: %s, it is not divide by model_parallel: %s",
-                               self.vocab_table_size, mp)
+            if self.vocab_table_size % (mp * cp) != 0:
+                logger.warning("The vocab size of Loss is: %s, it is not divide by model_parallel: %s"
+                               "model_parallel: %s * context_parallel: %s.",
+                               self.vocab_table_size, mp, cp)
                 logger.warning("Now, the model_parallel num of Loss will be changed: mp = 1")
                 self.gather.shard(((1, 1), (dp, cp)))
             else:
-                self.gather.shard(((mp, 1), (dp, cp)))
-                logger.info(f"Using {dp*cp} data parallel and {mp} "
+                self.gather.shard(((mp * cp, 1), (dp, 1)))
+                logger.info(f"Using {dp} data parallel, {cp} context parallel and {mp} "
                             f"model parallel for the embedding lookup.")
 
 
