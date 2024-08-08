@@ -12,4 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""test infer."""
+""" infer init """
+
+from .core import layers, transformer
+from .models import llama
+
+__all__ = []
+__all__.extend(core.__all__)
+__all__.extend(models.__all__)

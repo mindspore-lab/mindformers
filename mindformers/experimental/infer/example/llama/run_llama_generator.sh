@@ -1,3 +1,4 @@
+#!/bin/bash
 # Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,4 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""test infer."""
+
+# run parallel-llama generator
+CONFIG_PATH=$1
+CKPT_PATH=$2
+DEVICE_NUM=$3
+
+script_path="$(realpath "$(dirname "$0")")"
+
+msrun --worker_num $DEVICE_NUM --local_worker_num $DEVICE_NUM --master_port 8124 --log_dir llama_log --cluster_time_out 500 \
+"$script_path/run_llama_generator.py" \
+--config_path $CONFIG_PATH \
+--load_checkpoint $CKPT_PATH \
+--use_parallel

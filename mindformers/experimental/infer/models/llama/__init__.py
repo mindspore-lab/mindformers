@@ -12,4 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""test infer."""
+""" init """
+
+from .llama import ParallelLlamaForCausalLM
+
+__all__ = []
+__all__.extend(llama.__all__)

@@ -657,3 +657,9 @@ def create_and_write_info_to_txt(txt_path, info=None):
                 raise ValueError(f"The info to write should be str or list, but get {info}")
         temp_file_path = temp_file.name
     os.replace(temp_file_path, txt_path)
+
+
+def is_pynative():
+    """get whether the mode is pynative"""
+    mode = context.get_context("mode")
+    return mode == context.PYNATIVE_MODE
