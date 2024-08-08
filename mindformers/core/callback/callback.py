@@ -775,7 +775,7 @@ class ProfileMonitor(Callback):
             return
 
         parallel = config.parallel
-        parallel_config = parallel.parallel_config.to_dict()
+        parallel_config = config.parallel_config.to_dict()
 
         try:
             self.profiler.add_metadata_json('distributed_args', json.dumps({
