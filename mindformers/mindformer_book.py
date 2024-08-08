@@ -158,6 +158,10 @@ class MindFormerBook:
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/general/run_general_task.yaml"))])
          ),
+        ("multi_modal_to_text_generation", OrderedDict([
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/general/run_general_task.yaml"))])
+         ),
         ("translation", OrderedDict([
             ("t5_small", os.path.join(
                 _PROJECT_PATH, "configs/t5/run_t5_small_on_wmt16.yaml")),
@@ -317,6 +321,10 @@ class MindFormerBook:
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/general/run_general_task.yaml"))
         ])),
+        ("multi_modal_to_text_generation", OrderedDict([
+            ("common", os.path.join(
+                _PROJECT_PATH, "configs/general/run_general_task.yaml"))])
+         ),
         ('masked_image_modeling', OrderedDict([
             ('mae_vit_base_p16', os.path.join(
                 _PROJECT_PATH, "configs/mae/run_mae_vit_base_p16_224_800ep.yaml")),

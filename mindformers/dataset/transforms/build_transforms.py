@@ -51,14 +51,20 @@ def build_transforms(
             config = MindFormerConfig(**config)
         cfg_transforms = config
         if not isinstance(cfg_transforms, list):
-            return MindFormerRegister.get_instance_from_cfg(
-                cfg_transforms, MindFormerModuleType.TRANSFORMS, default_args=default_args)
+            cfg_transforms = [cfg_transforms]
+
+        if len(cfg_transforms) > 1:
+            default_args = None
+
         transforms = []
         for transform in cfg_transforms:
+            if hasattr(transform, "model_transform_template") and \
+                    getattr(transform, "model_transform_template") is not None:
+                transform.model_transform_template = build_transforms(transform.model_transform_template)
             transform_op = MindFormerRegister.get_instance_from_cfg(
-                transform, MindFormerModuleType.TRANSFORMS)
+                transform, MindFormerModuleType.TRANSFORMS, default_args=default_args)
             transforms.append(transform_op)
-        return transforms
+        return transforms if len(transforms) > 1 else transforms[0]
     return MindFormerRegister.get_instance(module_type, class_name, **kwargs)
 
 

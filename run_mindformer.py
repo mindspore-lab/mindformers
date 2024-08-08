@@ -87,6 +87,10 @@ if __name__ == "__main__":
         help='input data for predict, it support real data path or data directory.'
              'Default: None')
     parser.add_argument(
+        '--modal_type', default=None, type=str,
+        help='modal type of input data for predict.'
+             'Default: None')
+    parser.add_argument(
         '--predict_batch_size', default=None, type=int,
         help='batch size for predict data, set to perform batch predict.'
              'Default: None')
@@ -234,6 +238,19 @@ if __name__ == "__main__":
                 args_.predict_data = predict_data
             else:
                 args_.predict_data = args_.predict_data.replace(r"\n", "\n")
+        if args_.modal_type is not None:
+            if not isinstance(args_.predict_data, list):
+                raise ValueError("when modal_type is specified, the predict_data should be a list and should contain "
+                                 "modal path and text input")
+            query = []
+            for predict_data in args_.predict_data:
+                extension = predict_data.split(".")[-1]
+                if extension.lower() in ("jpg", "png", "jpeg", "bmp", "mp4", "avi", "mkv"):
+                    query.append({args_.modal_type: predict_data})
+                else:
+                    query.append({"text": predict_data})
+            args_.predict_data = [query]
+
         config_.input_data = args_.predict_data
         if args_.predict_batch_size is not None:
             config_.predict_batch_size = args_.predict_batch_size
