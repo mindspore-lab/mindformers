@@ -267,6 +267,7 @@ def use_mint_op():
     version_info = ms.__version__.split('rc')
     return is_version_ge(version_info[0], '2.3.0') and ms.__version__ != '2.3.0rc1'
 
+
 def check_valid_gmm_op():
     """check mindspore version is valid for groupedmatmul"""
     version_valid = is_version_ge(ms.__version__, "2.3.0")
@@ -275,6 +276,7 @@ def check_valid_gmm_op():
                        f"please upgrade to {version_valid} or later version.")
         return False
     return True
+
 
 def check_valid_moefinalizerouting_op():
     """check mindspore version is valid for groupedmatmul"""
