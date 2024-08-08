@@ -159,6 +159,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/general/run_general_task.yaml"))])
          ),
         ("multi_modal_to_text_generation", OrderedDict([
+            ("cogvlm2_video_llama3_chat_13b", os.path.join(
+                _PROJECT_PATH, "configs/cogvlm2/predict_cogvlm2_video_llama3_chat_13b.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/general/run_general_task.yaml"))])
          ),
@@ -322,6 +324,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/general/run_general_task.yaml"))
         ])),
         ("multi_modal_to_text_generation", OrderedDict([
+            ("cogvlm2_video_llama3_chat_13b", os.path.join(
+                _PROJECT_PATH, "configs/cogvlm2/predict_cogvlm2_video_llama3_chat_13b.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/general/run_general_task.yaml"))])
          ),
@@ -493,6 +497,9 @@ class MindFormerBook:
         ('itt', OrderedDict([
             ('blip2', ['itt_blip2_stage2_vit_g_baichuan_7b', 'itt_blip2_stage2_vit_g_llama_7b'])
         ])),
+        ("cogvlm2", [
+            'cogvlm2_video_llama3_chat_13b',
+        ]),
         ('mae', [
             'mae_vit_base_p16',
         ]),
@@ -619,6 +626,9 @@ class MindFormerBook:
         ('itt', OrderedDict([
             ('blip2', ['itt_blip2_stage2_vit_g_baichuan_7b', 'itt_blip2_stage2_vit_g_llama_7b'])
         ])),
+        ('cogvlm2', [
+            'cogvlm2_video_llama3_chat_13b',
+        ]),
         ('mae', [
             'mae_vit_base_p16',
         ]),
@@ -736,6 +746,9 @@ class MindFormerBook:
             'blip2_stage1_classification',
             'blip2_stage2_vit_g_baichuan_7b',
             'blip2_stage2_vit_g_llama_7b'
+        ]),
+        ('cogvlm2', [
+            'cogvlm2_video_llama3_chat_13b',
         ]),
         ('itt', OrderedDict([
             ('blip2', ['itt_blip2_stage2_vit_g_baichuan_7b', 'itt_blip2_stage2_vit_g_llama_7b'])
