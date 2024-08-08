@@ -669,7 +669,7 @@ class LLamaDecodeLayer(nn.Cell):
                 self.attention_norm.shard((dp, 1, 1))
                 self.ffn_norm.shard((dp, 1, 1))
             if moe_config is None or not moe_config.expert_num > 1:
-                self.feed_forward.mul.shard(((dp, 1, mp), (dp, 1, mp)))
+                self.feed_forward.mul.shard(((dp, cp, mp), (dp, cp, mp)))
 
         if parallel_config.use_seq_parallel and self.is_first_iteration:
             self.add.shard(((dp, mp, 1), (dp, mp, 1)))
