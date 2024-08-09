@@ -611,7 +611,7 @@ class ModelParallelConfig(BaseConfig):
             micro_batch_num: int = 1,
             use_sequence_parallel: bool = False,
             recv_dtype: str = "float32",
-            use_zero3: bool = None,
+            zero_level: bool = None,
             **kwargs,
     ):
         super(ModelParallelConfig, self).__init__()
@@ -622,7 +622,7 @@ class ModelParallelConfig(BaseConfig):
         self.micro_batch_num = micro_batch_num
         self.use_sequence_parallel = use_sequence_parallel
         self.recv_dtype = recv_dtype
-        self.use_zero3 = use_zero3
+        self.zero_level = zero_level
 
         self.update_attrs(**kwargs)
 
@@ -705,6 +705,7 @@ class TransformerConfig(BaseConfig):
         use_flash_attention (bool): Enable flash attention. Default: False.
         mask_func_type (str): Attention mask compute method. Default: 'attn_mask_add'.
         mlp_has_bis (bool): Linears in MLP block have bias parameters. Default: True.
+        mlp_has_gate (bool): Apply gating in MLP block. Default: False.
         hidden_act (str): Activation used in MLP block. Default: 'gelu'.
         normalization (str): Normalization used in transformerlayer block. Default: 'LayerNorm'.
         layernorm_epsilon (float): Epsilon of normalization. Default: 1.e-5.
@@ -745,6 +746,7 @@ class TransformerConfig(BaseConfig):
             fa_config=None,
             mask_func_type: str = "attn_mask_add",
             mlp_has_bias: bool = True,
+            mlp_has_gate: bool = False,
             hidden_act: str = "gelu",
             normalization: str = "LayerNorm",
             layernorm_epsilon: float = 1.0e-5,
@@ -753,6 +755,8 @@ class TransformerConfig(BaseConfig):
             param_init_dtype: str = "float32",
             compute_dtype: str = "float16",
             softmax_compute_dtype: str = "float32",
+            init_method: str = 'normal',
+            bias_init: str = 'zeros',
             hidden_dropout_rate: float = 0.0,
             attention_dropout_rate: float = 0.0,
             num_experts: int = None,
@@ -779,8 +783,10 @@ class TransformerConfig(BaseConfig):
         self.apply_query_key_layer_scaling = apply_query_key_layer_scaling
         self.use_flash_attention = use_flash_attention
         self.fa_config = fa_config
+        self.fa_config = fa_config
         self.mask_func_type = mask_func_type
         self.mlp_has_bias = mlp_has_bias
+        self.mlp_has_gate = mlp_has_gate
         self.hidden_act = hidden_act
         self.normalization = normalization
         self.layernorm_epsilon = layernorm_epsilon
@@ -789,6 +795,8 @@ class TransformerConfig(BaseConfig):
         self.param_init_dtype = param_init_dtype
         self.compute_dtype = compute_dtype
         self.softmax_compute_dtype = softmax_compute_dtype
+        self.init_method = init_method
+        self.bias_init = bias_init
         self.hidden_dropout_rate = hidden_dropout_rate
         self.attention_dropout_rate = attention_dropout_rate
         self.num_experts = num_experts
@@ -952,6 +960,13 @@ def validate_mlp_has_bias(config_instance, mlp_has_bias):
     """Validate mlp_has_bias."""
     Validator.check_bool(mlp_has_bias, "mlp_has_bias")
     return mlp_has_bias
+
+
+@TransformerConfig.validator("mlp_has_gate")
+def validate_mlp_has_gate(config_instance, mlp_has_gate):
+    """Validate mlp_has_gate."""
+    Validator.check_bool(mlp_has_gate, "mlp_has_gate")
+    return mlp_has_gate
 
 
 @TransformerConfig.validator("hidden_act")

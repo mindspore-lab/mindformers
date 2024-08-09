@@ -192,21 +192,21 @@ def transform_transformerlayer_params(params, hidden_size, kv_hidden_size=None, 
             new_param = param
             new_params[prefix+name.replace("attention_norm", "input_norm")] = ms.Parameter(new_param)
         if 'wo.weight' in name:
-            param_t = param.asnumpy().transpose()
-            start = tp_rank * (param_t.shape[0] // tp_world_size)
-            end = (tp_rank+1) * (param_t.shape[0] // tp_world_size)
-            new_param = param_t[start:end, :]
+            param = param.asnumpy()
+            start = tp_rank * (param.shape[0] // tp_world_size)
+            end = (tp_rank+1) * (param.shape[0] // tp_world_size)
+            new_param = param[:, start:end]
             new_params[prefix+name.replace("wo", "out_proj")] = ms.Parameter(new_param)
         if 'w_qkv.weight' in name:
-            param_t = param.asnumpy().transpose()
-            q = param_t[:, :hidden_size]
-            k = param_t[:, hidden_size:hidden_size+kv_hidden_size]
-            v = param_t[:, hidden_size+kv_hidden_size:]
-            q_start = tp_rank * (q.shape[1] // tp_world_size)
-            q_end = (tp_rank+1) * (q.shape[1] // tp_world_size)
-            kv_start = tp_rank * (k.shape[1] // tp_world_size)
-            kv_end = (tp_rank+1) * (k.shape[1] // tp_world_size)
-            new_param = np.concatenate([q[:, q_start:q_end], k[:, kv_start:kv_end], v[:, kv_start:kv_end]], axis=-1)
+            param = param.asnumpy()
+            q = param[:hidden_size, :]
+            k = param[hidden_size:hidden_size+kv_hidden_size, :]
+            v = param[hidden_size+kv_hidden_size:, :]
+            q_start = tp_rank * (q.shape[0] // tp_world_size)
+            q_end = (tp_rank+1) * (q.shape[0] // tp_world_size)
+            kv_start = tp_rank * (k.shape[0] // tp_world_size)
+            kv_end = (tp_rank+1) * (k.shape[0] // tp_world_size)
+            new_param = np.concatenate([q[q_start:q_end, :], k[kv_start:kv_end, :], v[kv_start:kv_end, :]], axis=0)
             new_params[prefix+name.replace("w_qkv.", "qkv_proj.")] = ms.Parameter(ms.Tensor(new_param))
         if 'w_qkv.bias' in name:
             param = param.asnumpy()
@@ -222,7 +222,7 @@ def transform_transformerlayer_params(params, hidden_size, kv_hidden_size=None, 
         if 'mapping.weight' in name:
             start = tp_rank * (param.shape[1] // tp_world_size)
             end = (tp_rank + 1) * (param.shape[1] // tp_world_size)
-            new_param = param[:, start: end]
+            new_param = param.transpose()[start:end]
             new_params[prefix+name] = ms.Parameter(new_param)
         if 'mapping.bias' in name:
             start = tp_rank * (param.shape[0] // tp_world_size)
@@ -232,7 +232,7 @@ def transform_transformerlayer_params(params, hidden_size, kv_hidden_size=None, 
         if 'projection.weight' in name:
             start = tp_rank * (param.shape[0] // tp_world_size)
             end = (tp_rank + 1) * (param.shape[0] // tp_world_size)
-            new_param = param[start: end]
+            new_param = param.transpose()[:, start:end]
             new_params[prefix+name] = ms.Parameter(new_param)
         if 'projection.bias' in name:
             new_param = param

@@ -47,16 +47,20 @@ class RotaryEmbedding(Module):
 
     def __init__(
             self,
-            head_dim,
+            kv_channels,
             rotary_percent=1.0,
+            rotary_interleaved=False,
             seq_len_interpolation_factor=None,
             rotary_base=10000,
         ):
         super().__init__()
 
-        dim = head_dim
+        dim = kv_channels
         if rotary_percent < 1.0:
             dim = int(dim * rotary_percent)
+        self.rotary_interleaved = rotary_interleaved
+        if self.rotary_interleaved:
+            raise NotImplementedError('Rotary interleaved is not supported for now.')
 
         self.seq_len_interpolation_factor = seq_len_interpolation_factor
         self.inv_freq = 1.0 / (
@@ -72,14 +76,17 @@ class RotaryEmbedding(Module):
 
         freqs = np.outer(seq, self.inv_freq)
 
-        emb = np.concatenate((freqs, freqs), axis=-1)
+        if not self.rotary_interleaved:
+            emb = np.concatenate((freqs, freqs), axis=-1)
+        else:
+            raise NotImplementedError('Rotary interleaved is not supported for now.')
 
         # emb [.., S, D]
         emb = emb[np.newaxis, np.newaxis, :, :]
         return Tensor(emb)
 
 
-def apply_rotary_pos_emb(x, freqs) -> Tensor:
+def apply_rotary_pos_emb(t, freqs, config=None, cu_seqlens=None) -> Tensor:
     """
     Apply rotary positional embedding to input tensor.
     Please check https://kexue.fm/archives/8265 for detailed formulas
@@ -94,14 +101,19 @@ def apply_rotary_pos_emb(x, freqs) -> Tensor:
     Supported Platforms:
         ``Ascend``
     """
-    cos_ = mint.cos(freqs).astype(x.dtype)
-    sin_ = mint.sin(freqs).astype(x.dtype)
+    if config is not None:
+        raise NotImplementedError('config input for apply_rotary_pos_emb() is not supported for now.')
+    if cu_seqlens is not None:
+        raise NotImplementedError('cu_seqlens input for apply_rotary_pos_emb() is not supported for now.')
+
+    cos_ = mint.cos(freqs).astype(t.dtype)
+    sin_ = mint.sin(freqs).astype(t.dtype)
 
     # rotate
-    x_splited = mint.split(x, x.shape[-1]//2, dim=-1)
-    x_1 = x_splited[0]
-    x_2 = x_splited[1]
-    x_rotate = ops.cat((-x_2, x_1), axis=-1)
+    t_splited = mint.split(t, t.shape[-1]//2, dim=-1)
+    t_1 = t_splited[0]
+    t_2 = t_splited[1]
+    t_rotate = ops.cat((-t_2, t_1), axis=-1)
 
-    output = (x * cos_) + (x_rotate * sin_)
+    output = (t * cos_) + (t_rotate * sin_)
     return output
