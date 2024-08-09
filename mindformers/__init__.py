@@ -17,13 +17,12 @@
 
 __version__ = "dev"
 
-from mindformers import core, dataset, experimental, \
+from mindformers import core, dataset, \
     models, modules, wrapper, tools
 from mindformers.pipeline import *
 from mindformers.trainer import *
 from mindformers.core import *
 from mindformers.dataset import *
-from mindformers.experimental import *
 from mindformers.models import *
 from mindformers.modules import *
 from mindformers.wrapper import *
@@ -38,7 +37,6 @@ from .mindformer_book import MindFormerBook
 
 __all__ = []
 __all__.extend(dataset.__all__)
-__all__.extend(experimental.__all__)
 __all__.extend(models.__all__)
 __all__.extend(core.__all__)
 __all__.extend(tools.__all__)
