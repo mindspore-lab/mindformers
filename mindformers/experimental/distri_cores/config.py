@@ -18,9 +18,11 @@
 import inspect
 import copy
 import os
+import re
 from collections import deque
 from functools import partial
 from abc import ABCMeta, abstractmethod
+from typing import List
 
 import yaml
 
@@ -167,20 +169,17 @@ class BaseConfig(metaclass=ABCMeta):
 
         # add validation function for the depended config
         if optional:
-
             def validate_config(config_instance, config):
                 if config is not None and not isinstance(config, config_class):
                     raise ValueError(f"{config} should be an instance of {config_class} or None.")
                 return config
         else:
-
             def validate_config(config_instance, config):
                 if not isinstance(config, config_class):
                     raise ValueError(f"{config} should be an instance of {config_class}.")
                 return config
 
         cls._validation_func_dict[config_class.__name__] = validate_config
-
         cls._depended_configs[config_class] = optional
 
     @classmethod
@@ -195,12 +194,9 @@ class BaseConfig(metaclass=ABCMeta):
             ValueError: If config_class is not a depended config of cls.
         """
         cls.is_depended_config(config_class, raise_error=True)
-
         # remove validation function for the depended config
         removed_class = cls._validation_func_dict.pop(config_class.__name__)
-
         removed_class_optional_flag = cls._depended_configs.pop(config_class)
-
         return removed_class, removed_class_optional_flag
 
     @classmethod
@@ -515,6 +511,139 @@ class GeneralConfig(BaseConfig):
         self.update_attrs(**kwargs)
 
 
+class LoraConfig(BaseConfig):
+    r"""LoRA config class.
+
+    Args:
+        use_lora (bool): Apply LoRA to the pretrain model. Default: False.
+        lora_rank (int): The dimension for LoRA modules. Default: 8.
+        lora_alpha (int): The alpha parameter for LoRA scaling. Default: 32.
+        lora_dropout (float): the dropout rate for LoRA. Default: 0.0.
+        target_cells (list[dict]): The names of the cells to build LoRA modules. If 'use_lora' is
+            True, this argument should at least contains a dict with the key 'targets_cells' and
+            the value of names of the cells to apply LoRA. In addition, if you want to set special
+            rank or alpha for cells in target_cells, you can add dict to the list.
+            For example:
+            case 1:
+                target_cells = [
+                  {'target_cells':[
+                      '.*.qkv_proj'
+                  ]},
+              ]
+            In this case, cells which name end with '.qkv_proj' will be applied LoRA.
+
+            case 2:
+                target_cells = [
+                  {'target_cells':[
+                      'backbone.layers.layers.0.attention.qkv_proj'
+                  ]},
+              ]
+            In this case, the cell 'backbone.layers.layers.0.attention.qkv_proj' will be applied LoRA.
+
+            case 3:
+                [
+                  {'target_cells':[
+                      '.*.qkv_proj',
+                  ]},
+                  {'cell':'backbone.layers.layers.0.attention.qkv_proj', 'rank':4, 'alpha':16},
+              ]
+            In this case, cells which name end with '.qkv_proj' will be applied LoRA. In addition, the rank
+            and alpha of the cell 'backbone.layers.layers.0.attention.qkv_proj' is 4 and 32, the rank and
+            alpha of other cells are set to 'lora_rank' and 'lora_alpha'.
+    """
+    config_name = "lora_config"
+
+    def __init__(
+            self,
+            use_lora: bool = False,
+            lora_rank: int = 8,
+            lora_alpha: int = 32,
+            lora_dropout: float = 0.0,
+            target_cells: List = None,
+            **kwargs,
+    ):
+        super().__init__()
+        self.use_lora = use_lora
+        if use_lora:
+            self.lora_rank = lora_rank
+            self.lora_alpha = lora_alpha
+            self.lora_dropout = lora_dropout
+            self.target_cells = target_cells
+            self.lora_module = None
+
+            self.update_attrs(**kwargs)
+
+
+@LoraConfig.validator("use_lora")
+def validate_use_lora(config_instance, use_lora):
+    """Validate lora_rank."""
+    Validator.check_bool(use_lora, "use_lora")
+    return use_lora
+
+
+@LoraConfig.validator("lora_rank")
+def validate_lora_rank(config_instance, lora_rank):
+    """Validate lora_rank."""
+    Validator.check_positive_int(lora_rank, "lora_rank")
+    return lora_rank
+
+
+@LoraConfig.validator("lora_alpha")
+def validate_lora_alpha(config_instance, lora_alpha):
+    """Validate lora_alpha."""
+    Validator.check_positive_int(lora_alpha, "lora_alpha")
+    return lora_alpha
+
+
+@LoraConfig.validator("lora_dropout")
+def validate_lora_dropout(config_instance, lora_dropout):
+    """Validate lora_dropout."""
+    Validator.check_non_negative_float(lora_dropout, "lora_dropout")
+    return lora_dropout
+
+
+@LoraConfig.validator("target_cells")
+def validate_target_cells(config_instance, target_cells):
+    """Validate target_cells."""
+    Validator.check_value_type("target_cells", target_cells, list)
+    if not target_cells:
+        raise ValueError("'target_cells' cannot not be empty.")
+
+    # valid target_cells
+    target_cells_defined = False
+    for item in target_cells:
+        if 'target_cells' in item.keys():
+            if target_cells_defined:
+                raise ValueError("'target_cells' cannot not be defined more than once.")
+            target_cells_defined = True
+            Validator.check_value_type("target_cells", item['target_cells'], list)
+            target_cells_lst = item['target_cells']
+            if not target_cells_lst:
+                raise ValueError("for 'target_cells', the list of target_cells name must be set.")
+    if not target_cells_defined:
+        raise ValueError("for 'target_cells', the list of target_cells name must be set.")
+
+    def _check_in_target_cells(cell_name):
+        target_cell_found = False
+        for target_key in target_cells_lst:
+            match = re.match(target_key, cell_name)
+            if match is not None and match.group() == cell_name:
+                return target_key
+        return target_cell_found
+
+    # valid rank and alpha for specific cells
+    specific_lora_cell = []
+    for item in target_cells:
+        if 'cell' in item.keys():
+            cell_name = item['cell']
+            if not _check_in_target_cells(cell_name):
+                raise ValueError(
+                    f"The cell need to set rank or alpha should be in the range defined by target_cells, but got name "
+                    f"'{cell_name}'.")
+            specific_lora_cell.append(item)
+    return target_cells_lst, specific_lora_cell
+
+
 class TrainingConfig(BaseConfig):
     """
     Training config.
@@ -692,6 +821,7 @@ class TransformerConfig(BaseConfig):
         hidden_size (int): Dimensionality of the encoder layers.
         ffn_hidden_size (int): Dimensionality the FeedForward block project to.
         parallel_config (ParallelConfig): Parallel config.
+        lora_config (LoraConfig): Lora config.
         attention_type (str): Attention type. Default: 'self_attn'.
         use_gqa (bool): Enable group query attention. Default: False.
         kv_num_heads (int): Number of heads for key and value when using group query attention.
@@ -736,6 +866,7 @@ class TransformerConfig(BaseConfig):
             hidden_size: int,
             ffn_hidden_size: int,
             parallel_config: ModelParallelConfig,
+            lora_config: LoraConfig = LoraConfig(),
             attention_type: str = "self_attn",
             use_gqa: bool = False,
             kv_num_heads: int = 32,
@@ -775,6 +906,7 @@ class TransformerConfig(BaseConfig):
         self.hidden_size = hidden_size
         self.ffn_hidden_size = ffn_hidden_size
         self.parallel_config = parallel_config
+        self.lora_config = lora_config
         self.attention_type = attention_type
         self.use_gqa = use_gqa
         self.kv_num_heads = kv_num_heads
@@ -813,8 +945,15 @@ class TransformerConfig(BaseConfig):
 
         self.update_attrs(**kwargs)
 
+    def update_lora_config(self, cell_name):
+        lora_module = self.lora_config.lora_module
+        self.lora_config.lora_module = None if lora_module is None else lora_module.get(cell_name, None)
 
-TransformerConfig.register_depended_config([ModelParallelConfig, DatasetConfig], optional=[False, True])
+
+TransformerConfig.register_depended_config([ModelParallelConfig,
+                                            LoraConfig,
+                                            DatasetConfig],
+                                           optional=[False, True, True])
 
 
 @TransformerConfig.validator("vocab_size")

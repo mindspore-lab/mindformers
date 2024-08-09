@@ -14,6 +14,8 @@
 # ============================================================================
 """Transformer Module"""
 
+import copy
+
 from mindspore import nn
 from mindformers.experimental.distri_cores.create_comm import (
     is_pipeline_first_stage,
@@ -91,3 +93,10 @@ class Module(nn.Cell):
         sharded_state_dict.update(get_default_dict_for_module(self, recurse=False))
 
         return sharded_state_dict
+
+    def _get_cell_lora_config(self, config, cell_name):
+        """get lora config by cell_name"""
+        cell_lora_config = copy.deepcopy(config)
+        cell_lora_config.update_lora_config(cell_name)
+        cell_lora_config = cell_lora_config.lora_config.lora_module
+        return cell_lora_config

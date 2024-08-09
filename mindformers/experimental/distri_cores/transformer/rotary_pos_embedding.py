@@ -17,7 +17,7 @@ import numpy as np
 
 from mindspore import Tensor, ops, mint
 
-from mindformers.experimental.distri_cores.transformer import Module
+from mindformers.experimental.distri_cores.transformer.module import Module
 
 
 __all__ = ["RotaryEmbedding", "apply_rotary_pos_emb"]

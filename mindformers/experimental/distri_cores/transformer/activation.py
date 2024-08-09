@@ -14,14 +14,16 @@
 # ============================================================================
 """Activations."""
 import inspect
-import mindspore.common.dtype as mstype
 
+import mindspore.common.dtype as mstype
 from mindspore import nn, Tensor
 from mindspore import ops, mint
 
-__all__ = ["get_act_func"]
+from mindformers.experimental.distri_cores.register import ModuleType, ModuleRegistry
 
+__all__ = ["get_act_func", "get_act_func_gated_version"]
 
+@ModuleRegistry.register_decorator(ModuleType.ACTIVATION_FUNC, 'gelu')
 class GELU(nn.Cell):
     r"""
     Gaussian error linear unit activation function.
@@ -38,7 +40,7 @@ class GELU(nn.Cell):
     of standard Gaussian distribution and :math:`x_i` is the element of the input.
 
     Args:
-        approximate (bool): Whether to enable approximation. Default: ``True`` .
+        approximate (bool): Whether to enable approximation. Default: ``False`` .
 
             If `approximate` is ``True``, The gaussian error linear activation is:
 
@@ -80,7 +82,7 @@ class GELU(nn.Cell):
          [ 1.9544997e+00 -1.4901161e-06  9.0000000e+00]]
     """
 
-    def __init__(self, approximate=True):
+    def __init__(self, approximate=False):
         """Initialize GELU."""
         super(GELU, self).__init__()
         self.approximate = approximate
@@ -102,7 +104,7 @@ class GELU(nn.Cell):
             )
         )
 
-
+@ModuleRegistry.register_decorator(ModuleType.ACTIVATION_FUNC, 'fast_gelu')
 class FastGelu(nn.Cell):
     r"""
     Fast Gaussian error linear unit activation function.
@@ -152,7 +154,7 @@ class FastGelu(nn.Cell):
         """construct method"""
         return self.fast_gelu(x)
 
-
+@ModuleRegistry.register_decorator(ModuleType.ACTIVATION_FUNC)
 def swiglu(x):
     r"""
     Swish-Gated Linear Unit activation function.
@@ -164,10 +166,10 @@ def swiglu(x):
     Outputs:
         - Tensor with the same type and shape as the `x`.
     """
-    x0, x1 = mint.split(x, x.shape[-1] // 2, dim=-1)
+    x0, x1 = mint.split(x, x.shape[-1]//2, dim=-1)
     return mint.nn.functional.silu(x0) * x1
 
-
+@ModuleRegistry.register_decorator(ModuleType.ACTIVATION_FUNC)
 def squared_relu(x):
     r"""
     Squared ReLU activation function.
@@ -179,35 +181,37 @@ def squared_relu(x):
     Outputs:
         - Tensor with the same type and shape as the `x`.
     """
-    mint.pow(mint.nn.functional.relu(x), 2)
+    return mint.pow(mint.nn.functional.relu(x), 2)
 
 
-ACTIVATION_MAP = {
-    "gelu": GELU,
-    "fast_gelu": FastGelu,
-    "swiglu": swiglu,
-    "squared_relu": squared_relu,
-}
+ModuleRegistry.register(mint.nn.functional.silu, ModuleType.ACTIVATION_FUNC, "silu", meta={"gated_version": "swiglu"})
 
 
-def get_act_func(activation_type, *args, **kwargs):
+def get_act_func(activation_type, **kwargs):
     r"""
     Get activation function by name and parameters.
 
     Args:
         activation_type (str): The name of the activation function.
-        *args: Variable length argument list for the activation function.
         **kwargs: Arbitrary keyword arguments for the activation function.
 
     Returns:
         callable, the activation function.
     """
-    if activation_type.lower() not in ACTIVATION_MAP:
-        raise NotImplementedError(
-            f"Invalid activation function: {activation_type}.\
-                Supported activation functions are: {ACTIVATION_MAP.keys()}"
-        )
-    activation_func = ACTIVATION_MAP[activation_type.lower()]
-    if inspect.isclass(activation_func):
-        return activation_func(*args, **kwargs)
-    return activation_func
+    activation_func_item = ModuleRegistry.get_item(ModuleType.ACTIVATION_FUNC, activation_type)
+    if inspect.isclass(activation_func_item):
+        kwargs = ModuleRegistry.get_needed_params_for_init(activation_func_item, kwargs)
+        return activation_func_item(**kwargs)
+    return activation_func_item
+
+def get_act_func_gated_version(activation_type):
+    r"""
+    Get the gated version of the activation function. If not exist, return None.
+
+    Args:
+        activation_type (str): The name of the activation function.
+
+    Returns:
+        Union[str, None], the name of the gated version of the activation function.
+    """
+    return ModuleRegistry.get_item_meta_info(ModuleType.ACTIVATION_FUNC, activation_type).get("gated_version", None)

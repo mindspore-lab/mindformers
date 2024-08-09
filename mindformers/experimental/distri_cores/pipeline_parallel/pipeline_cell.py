@@ -24,7 +24,7 @@ from mindformers.experimental.distri_cores.create_comm import get_pp_rank, get_p
                                                                   get_embedding_group, is_pipeline_first_stage, \
                                                                   is_pipeline_last_stage
 from mindformers.experimental.distri_cores.utils import get_layer_input_signatures
-from mindformers.experimental.distri_cores.transformer import Module
+from mindformers.experimental.distri_cores.transformer.module import Module
 
 class PipelineCell(Module):
     """ pipeline cell """
