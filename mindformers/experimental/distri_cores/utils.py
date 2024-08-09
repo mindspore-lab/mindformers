@@ -14,14 +14,16 @@
 # ============================================================================
 """utils"""
 import inspect
+import re
 from collections import OrderedDict
 
 import yaml
 
+from mindspore import log as logger
 import mindspore.common.dtype as mstype
 from mindspore.communication import get_group_size
 from mindspore.nn.optim.optimizer import Optimizer
-from mindformers.experimental.distri_cores.transformer import Module
+from mindformers.experimental.distri_cores.transformer.module import Module
 from mindformers.experimental.distri_cores.create_comm import (
     get_pp_rank,
     get_pp_world_size,
@@ -31,12 +33,12 @@ class DictWithValueError(dict):
     """
     A dictionary subclass that raises a custom error with a helpful message when a key is not found.
     """
-
     def __getitem__(self, key):
         try:
             return super().__getitem__(key)
         except KeyError:
             raise ValueError(f"'{key}' is not supported, please select one of {list(self.keys())}")
+
 
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
@@ -95,6 +97,7 @@ def convert_mstype(ms_type: str = "float16"):
     raise KeyError(f"Supported data type keywords include: "
                    f"[float16, float32, bfloat16], but get {ms_type}")
 
+
 def get_default_dict_for_optimizer(optimizer, model_sharded_state_dict):
     """get default sharded state dict for the optimizer with models' shard and no opt shard"""
     state_dict = {}
@@ -111,6 +114,7 @@ def get_default_dict_for_optimizer(optimizer, model_sharded_state_dict):
                 state_dict[optim_name] = {'shape': model_param.shape, 'shard': tuple(shard),
                                           'opt_weight_shard_step': 0, 'opt_weight_shard_size': -1}
     return state_dict
+
 
 def generate_state_dict(network: Module, optimizer: Optimizer):
     r"""
@@ -151,6 +155,7 @@ def generate_state_dict(network: Module, optimizer: Optimizer):
             state_dict['optimizer'] = get_default_dict_for_optimizer(optimizer, state_dict['model'])
     return state_dict
 
+
 def save_strategy_file(state_dict, strategy_file_name):
     r"""
     Save the strategy file according to the state_dict and strategy_file_name
@@ -164,7 +169,6 @@ def save_strategy_file(state_dict, strategy_file_name):
     """
     import os
     import stat
-    from mindspore import log as logger
     from mindspore.train.node_strategy_pb2 import ParallelStrategyMap as ckpt_strategy
     stra = ckpt_strategy()
 
@@ -179,8 +183,10 @@ def save_strategy_file(state_dict, strategy_file_name):
     for name, item in model_param.items():
         if "shard" not in item or "shape" not in item:
             continue
-        opt_weight_shard_step = item["opt_weight_shard_step"] if "opt_weight_shard_step" in item.keys() else 0
-        opt_weight_shard_size = item["opt_weight_shard_size"] if "opt_weight_shard_size" in item.keys() else -1
+        opt_weight_shard_step = item["opt_weight_shard_step"] \
+            if "opt_weight_shard_step" in item.keys() else 0
+        opt_weight_shard_size = item["opt_weight_shard_size"] \
+            if "opt_weight_shard_size" in item.keys() else -1
         strategy_item = stra.parallel_strategy_item.add()
         strategy_item.node_name = name
         parallel_strategys = strategy_item.parallel_strategys
@@ -256,3 +262,122 @@ def load_yaml(stream, yaml_loader=yaml.SafeLoader, object_pairs_hook=OrderedDict
 
     OrderedLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping)
     return yaml.load(stream, OrderedLoader)
+
+
+def valid_lora_config(model_config, params):
+    """valid target_cells in lora_config by params of the pretrain checkpoint.
+
+    Args:
+        model_config (TransformerConfig): Config of the model.
+        params (dict): parameters of the pretrain model.
+    """
+    lora_config = model_config.lora_config
+    target_cells_flag = {}
+    target_cells_lst = lora_config.target_cells[0]
+    specific_lora_cell = lora_config.target_cells[1]
+    for cell_name in target_cells_lst:
+        target_cells_flag.update({f'{cell_name}': False})
+
+    lora_module = {}
+    key_list = _get_cell_name_from_params(params)
+
+    for key in key_list:
+        match_result = _check_target_cell_exists(key, target_cells_lst)
+        if not match_result:
+            continue
+        target_cells_flag[match_result] = True
+
+        if _check_target_linear(key):
+            # find key in specific_rank and specific_alpha
+            rank, alpha = _get_specific_rank_alpha(key, specific_lora_cell, lora_config.lora_rank,
+                                                   lora_config.lora_alpha)
+            module_dict = _create_module_dict(key, (rank, alpha), lora_config.lora_dropout)
+            if not lora_module:
+                lora_module = module_dict
+            else:
+                _update_dic(lora_module, module_dict)
+
+    # valid if all target_cells are found
+    invalid_target_cell = [k for k, v in target_cells_flag.items() if v is False]
+
+    if invalid_target_cell:
+        logger.warning(
+            f"target_cells should be in parameters name of the model, but got '{invalid_target_cell}', "
+            f"these cells will be ignored.")
+    if not lora_module:
+        raise ValueError("target_cells in your lora config is invalid, please check your target_cells.")
+
+    model_config.lora_config.lora_module = lora_module
+    return model_config
+
+
+def _check_target_linear(key):
+    """check the cell is the Linear module"""
+    if any(p in key for p in ['norm', 'embedding']):
+        logger.warning(f"target_cells type should be Linear layers, but got '{key}', this cell will be ignored.")
+        return False
+    return True
+
+
+def _update_dic(total_dic, item_dic):
+    """update lora module dict"""
+    for item in item_dic.keys():
+        total_value = total_dic.get(item)
+        item_value = item_dic.get(item)
+
+        if total_value is None:
+            total_dic.update({item: item_value})
+        else:
+            _update_dic(total_value, item_value)
+            total_dic.update({item: total_value})
+    return total_dic
+
+
+def _get_cell_name_from_params(params):
+    """get cell name list from parameter dict"""
+    cell_name = []
+    for key in params.keys():
+        modules = key.split('.')
+        split = '.'
+        cell_name.append(split.join(modules[:-1]))
+    return list(set(cell_name))
+
+
+def _create_module_dict(key, val, dropout):
+    """create lora module dict by cell name and rank/alpha"""
+    key_lst = key.split('.')
+    rank, alpha = val
+    key_num = len(key_lst)
+    final_dict = tmp_dict = {}
+    for index, k in enumerate(key_lst):
+        tmp_dict.setdefault(k, {})
+        tmp_dict = tmp_dict[k]
+        if index == key_num - 1:
+            tmp_dict['rank'] = rank
+            tmp_dict['alpha'] = alpha
+            tmp_dict['dropout'] = dropout
+    return final_dict
+
+
+def _get_specific_rank_alpha(key, specific_lora_cell, rank, alpha):
+    """get rank and alpha value from target_cells config"""
+    if not specific_lora_cell:
+        return rank, alpha
+    default_rank, defult_alpha = rank, alpha
+    for rank_alpha_dict in specific_lora_cell:
+        cell_name = rank_alpha_dict['cell']
+        match = re.match(cell_name, key)
+        if match is not None and match.group() == key:
+            rank = rank_alpha_dict.get('rank', default_rank)
+            alpha = rank_alpha_dict.get('alpha', defult_alpha)
+    return rank, alpha
+
+
+def _check_target_cell_exists(key, target_cells_lst):
+    """check target_cell is in pretrain parameters"""
+    target_cell_found = False
+    for target_key in target_cells_lst:
+        match = re.match(target_key, key)
+        if match is not None and match.group() == key:
+            return target_key
+    return target_cell_found

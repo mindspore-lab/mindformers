@@ -12,9 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"mindformers init"
-
-from .transformer import *
-
-__all__ = []
-__all__.extend(transformer.__all__)
+"""ST."""

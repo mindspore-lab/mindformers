@@ -14,6 +14,8 @@
 # ============================================================================
 """ For transformer """
 import math
+import copy
+from collections import OrderedDict
 
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, nn, ops, mint, Parameter
@@ -28,14 +30,19 @@ from mindformers.experimental.distri_cores.tensor_parallel import (
     GatherFromModelParallelRegion,
     LinearWithGradAccumulationAndAsyncCommunication
 )
-from mindformers.experimental.distri_cores.transformer import get_act_func, get_attn_mask_func, get_norm
+from mindformers.experimental.distri_cores.tensor_parallel.lora_layers import (
+    ColumnParallelLoRA,
+    RowParallelLoRA,
+)
 from mindformers.experimental.distri_cores.transformer.rotary_pos_embedding import (
     apply_rotary_pos_emb,
 )
 from mindformers.experimental.distri_cores.transformer.scale_mask_softmax import (
     ScaleMaskSoftmax,
 )
-
+from mindformers.experimental.distri_cores.transformer.norm import get_norm
+from mindformers.experimental.distri_cores.transformer.activation import get_act_func, get_act_func_gated_version
+from mindformers.experimental.distri_cores.transformer.utils import get_attn_mask_func
 from mindformers.experimental.distri_cores.recompute import CheckpointedRecomputeOrientedCell
 
 from mindformers.experimental.distri_cores.utils import divide
@@ -79,20 +86,37 @@ class ParallelMLP(Module):
         self.hidden_size = self.config.hidden_size
         self.ffn_hidden_size = self.config.ffn_hidden_size
         self.mlp_has_gate = self.config.mlp_has_gate
-        if self.config.mlp_has_gate:
-            self.gating = ColumnParallelLinear(
-                self.hidden_size,
-                self.ffn_hidden_size,
-                config=self.config,
-                init_method=self.config.init_method,
-                bias=self.has_bias,
-                gather_output=False,
-                is_expert=is_expert,
-                param_init_dtype=self.config.param_init_dtype,
-                compute_dtype=self.config.compute_dtype,
-                bias_init=self.config.bias_init,
-            )
+        self.use_lora = config.lora_config.use_lora
+        self.act_type = self.config.hidden_act
+        self.is_expert = is_expert
 
+        self._init_mapping()
+        self.bias_gelu_fusion = False
+        self.act_func = get_act_func(self.act_type)
+
+        self._init_projection()
+
+    def _init_mapping(self):
+        """ initialize mapping cell """
+        mapping_output_size = self.ffn_hidden_size
+        if self.config.mlp_has_gate:
+            gated_act_type = get_act_func_gated_version(self.act_type)
+            if gated_act_type is not None:
+                self.mapping_gate_fusion = True
+                self.act_type = gated_act_type
+                mapping_output_size *= 2
+            else:
+                self.mapping_gate_fusion = False
+                self.gating = ColumnParallelLinear(
+                    self.hidden_size,
+                    mapping_output_size,
+                    config=self.config,
+                    init_method=self.config.init_method,
+                    bias=self.has_bias,
+                    gather_output=False,
+                    is_expert=self.is_expert,
+                    bias_init=self.config.bias_init,
+                )
         self.mapping = ColumnParallelLinear(
             self.hidden_size,
             self.ffn_hidden_size,
@@ -100,18 +124,47 @@ class ParallelMLP(Module):
             init_method=self.config.init_method,
             bias=self.has_bias,
             gather_output=False,
-            is_expert=is_expert,
+            is_expert=self.is_expert,
             param_init_dtype=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
             bias_init=self.config.bias_init,
         )
+        if self.use_lora:
+            mapping_lora = self._get_cell_lora_config(self.config, 'mapping')
+            if mapping_lora is not None:
+                self.mapping = ColumnParallelLoRA(
+                    self.hidden_size,
+                    self.ffn_hidden_size,
+                    config=self.config,
+                    init_method=self.config.init_method,
+                    bias=self.has_bias,
+                    gather_output=False,
+                    is_expert=self.is_expert,
+                    param_init_dtype=self.config.param_init_dtype,
+                    compute_dtype=self.config.compute_dtype,
+                    bias_init=self.config.bias_init,
+                    lora_rank=mapping_lora['rank'],
+                    lora_alpha=mapping_lora['alpha'],
+                    lora_dropout=mapping_lora['dropout'],
+                )
+            gating_lora = self._get_cell_lora_config(self.config, 'gating')
+            if self.config.mlp_has_gate and not self.mapping_gate_fusion and gating_lora is not None:
+                self.gating = ColumnParallelLoRA(
+                    self.hidden_size,
+                    mapping_output_size,
+                    config=self.config,
+                    init_method=self.config.init_method,
+                    bias=self.has_bias,
+                    gather_output=False,
+                    is_expert=self.is_expert,
+                    bias_init=self.config.bias_init,
+                    lora_rank=gating_lora['rank'],
+                    lora_alpha=gating_lora['alpha'],
+                    lora_dropout=gating_lora['dropout'],
+                )
 
-        self.bias_gelu_fusion = False
-
-        self.act_type = self.config.hidden_act
-        self.act_func = get_act_func(self.act_type)
-
-        # Project back to h.
+    def _init_projection(self):
+        """ initialize projection cell """
         self.projection = RowParallelLinear(
             self.ffn_hidden_size,
             self.hidden_size,
@@ -120,16 +173,35 @@ class ParallelMLP(Module):
             bias=self.has_bias,
             input_is_parallel=True,
             skip_bias_add=False,
-            is_expert=is_expert,
+            is_expert=self.is_expert,
             param_init_dtype=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
             bias_init=self.config.bias_init,
         )
+        if self.use_lora:
+            projection_lora = self._get_cell_lora_config(self.config, 'projection')
+            if projection_lora is not None:
+                self.projection = RowParallelLoRA(
+                    self.ffn_hidden_size,
+                    self.hidden_size,
+                    config=self.config,
+                    init_method=self.config.init_method,
+                    bias=self.has_bias,
+                    input_is_parallel=True,
+                    skip_bias_add=False,
+                    is_expert=self.is_expert,
+                    param_init_dtype=self.config.param_init_dtype,
+                    compute_dtype=self.config.compute_dtype,
+                    bias_init=self.config.bias_init,
+                    lora_rank=projection_lora['rank'],
+                    lora_alpha=projection_lora['alpha'],
+                    lora_dropout=projection_lora['dropout'],
+                )
 
     def construct(self, hidden_states):
         """ Construct function of mlp block. """
         # [B, S, H] -> [B, S, ffn_H]
-        if self.config.mlp_has_gate:
+        if self.config.mlp_has_gate and not self.mapping_gate_fusion:
             gate, _ = self.gating(hidden_states)
             gate = self.act_func(gate)
             intermediate_parallel, _ = self.mapping(hidden_states)
@@ -275,6 +347,7 @@ class ParallelAttention(Module):
         tp_group_size = get_tp_world_size()
         self.tp_group_size = tp_group_size
         self.num_heads_per_partition = divide(self.num_heads, tp_group_size)
+        self.use_lora = self.config.lora_config.use_lora
 
         if self.use_gqa:
             if self.kv_num_heads % tp_group_size != 0:
@@ -286,57 +359,98 @@ class ParallelAttention(Module):
             self.kv_num_heads_per_partition = self.num_heads_per_partition
 
         if self.attn_type == 'self_attn':
-            self.qkv_proj = ColumnParallelLinear(
+            self.qkv_proj = self._init_qkv_proj(
                 self.hidden_size,
                 self.hidden_size + 2 * self.kv_hidden_size,
-                config=self.config,
-                init_method=self.config.init_method,
-                bias=self.config.qkv_has_bias,
+                cell_name='qkv_proj',
                 gather_output=False,
-                skip_bias_add=False,
-                bias_init=self.config.bias_init,
             )
+
         elif self.attn_type == 'cross_attn':
             assert self.hidden_size == self.kv_hidden_size
-
-            self.q_proj = ColumnParallelLinear(
+            self.q_proj = self._init_qkv_proj(
                 self.hidden_size,
                 self.hidden_size,
-                config=self.config,
-                init_method=self.config.init_method,
-                bias=self.config.qkv_has_bias,
+                cell_name='q_proj',
                 gather_output=False,
-                skip_bias_add=False,
-                bias_init=self.config.bias_init,
             )
-
-            self.kv_proj = ColumnParallelLinear(
+            self.kv_proj = self._init_qkv_proj(
                 self.hidden_size,
                 2 * self.kv_hidden_size,
-                config=self.config,
-                init_method=self.config.init_method,
-                bias=self.config.qkv_has_bias,
+                cell_name='kv_proj',
                 gather_output=False,
-                skip_bias_add=False,
-                bias_init=self.config.bias_init,
             )
         else:
             raise NotImplementedError(f"attention_type should be self_attn or cross_attn, but got {self.attn_type}")
 
         self.core_attention = CoreAttention(self.layer_index, self.config)
 
-        self.out_proj = RowParallelLinear(
+        self.out_proj = self._init_out_proj(
             self.hidden_size,
             self.hidden_size,
+            cell_name='out_proj',
+            input_is_parallel=True,
+        )
+
+    def _init_qkv_proj(self, input_size, output_size, cell_name, gather_output=False):
+        """Construct qkv projection cell."""
+        proj = ColumnParallelLinear(
+            input_size,
+            output_size,
             config=self.config,
             init_method=self.config.init_method,
-            bias=self.config.out_proj_has_bias,
-            input_is_parallel=True,
+            bias=self.config.qkv_has_bias,
+            gather_output=gather_output,
             skip_bias_add=False,
             bias_init=self.config.bias_init,
         )
+        if self.use_lora:
+            proj_lora = self._get_cell_lora_config(self.config, cell_name)
+            if proj_lora is not None:
+                proj = ColumnParallelLoRA(
+                    input_size,
+                    output_size,
+                    config=self.config,
+                    init_method=self.config.init_method,
+                    bias=self.config.qkv_has_bias,
+                    gather_output=gather_output,
+                    skip_bias_add=False,
+                    bias_init=self.config.bias_init,
+                    lora_rank=proj_lora['rank'],
+                    lora_alpha=proj_lora['alpha'],
+                    lora_dropout=proj_lora['dropout'],
+                )
+        return proj
 
-        self.cast = ops.Cast()
+    def _init_out_proj(self, input_size, output_size, cell_name, input_is_parallel=True):
+        """Construct out projection cell."""
+        out_proj = RowParallelLinear(
+            input_size,
+            output_size,
+            config=self.config,
+            init_method=self.config.init_method,
+            bias=self.config.out_proj_has_bias,
+            input_is_parallel=input_is_parallel,
+            skip_bias_add=False,
+            bias_init=self.config.bias_init,
+        )
+        if self.use_lora:
+            out_proj_lora = self._get_cell_lora_config(self.config, cell_name)
+            if out_proj_lora is not None:
+                out_proj = RowParallelLoRA(
+                    input_size,
+                    output_size,
+                    config=self.config,
+                    init_method=self.config.init_method,
+                    bias=self.config.out_proj_has_bias,
+                    input_is_parallel=input_is_parallel,
+                    skip_bias_add=False,
+                    bias_init=self.config.bias_init,
+                    lora_rank=out_proj_lora['rank'],
+                    lora_alpha=out_proj_lora['alpha'],
+                    lora_dropout=out_proj_lora['dropout'],
+                )
+        return out_proj
 
     def construct(
             self,
@@ -515,18 +629,24 @@ class ParallelTransformerLayer(Module):
         )
 
         self.residual_connection_dtype = self.config.residual_connection_dtype
-
+        use_lora = config.lora_config.use_lora
         # Normalize the input data.
         self.input_norm = get_norm(config)
 
         # Attention.
-        self.attention = ParallelAttention(config, layer_number)
+        attention_config = copy.deepcopy(config)
+        if use_lora:
+            attention_config.update_lora_config('attention')
+        self.attention = ParallelAttention(attention_config, layer_number)
 
         # Normalize the attention output
         self.post_attention_norm = get_norm(config)
 
         # MLP
-        self.mlp = ParallelMLP(config)
+        mlp_config = copy.deepcopy(config)
+        if use_lora:
+            mlp_config.update_lora_config('mlp')
+        self.mlp = ParallelMLP(mlp_config)
 
         self.hidden_states_dropout = mint.nn.Dropout(p=self.config.hidden_dropout_rate)
 
@@ -565,7 +685,6 @@ class ParallelTransformerLayer(Module):
         # hidden_states: [B, S, H]
         # layernorm at the beginning of the transformer layer.
         norm_output = self.input_norm(hidden_states)
-
         # attention.
         attention_output, _ = self.attention(hidden_states=norm_output,
                                              attention_mask=attention_mask,
@@ -648,9 +767,25 @@ class ParallelTransformer(Module):
         self.num_layers = config.num_layers
 
         offset = get_pp_rank() * self.num_layers
-        self.layers = nn.SequentialCell(
-            [ParallelTransformerLayer(config=config, layer_number=i + 1 + offset) for i in range(self.num_layers)]
-        )
+
+        use_lora = config.lora_config.use_lora
+
+        layers_config = copy.deepcopy(config)
+        if use_lora:
+            layers_config.update_lora_config('layers')
+            layers_index_config = []
+            for i in range(self.num_layers):
+                layer_config_new = copy.deepcopy(layers_config)
+                layer_config_new.update_lora_config(f'{i}')
+                layers_index_config.append(layer_config_new)
+
+        # ensure the Parameter of each rank init as correct name
+        layers_dict = OrderedDict()
+        for i in range(self.num_layers):
+            layers_dict[str(i + offset)] = ParallelTransformerLayer(config=layers_index_config[i] \
+                if use_lora else layers_config,
+                                                                    layer_number=i + 1 + offset)
+        self.layers = nn.SequentialCell(layers_dict)
 
         # gradient checkpointing for recompute.
         self.checkpointed_recompute = (

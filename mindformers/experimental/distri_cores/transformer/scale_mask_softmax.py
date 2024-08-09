@@ -18,7 +18,7 @@ import mindspore.ops.functional as F
 
 from mindspore import mint
 from mindspore.common import dtype as mstype
-from mindformers.experimental.distri_cores.transformer import Module
+from mindformers.experimental.distri_cores.transformer.module import Module
 
 
 class ScaleMaskSoftmax(Module):
