@@ -17,6 +17,7 @@ Parallel Config for the Parallel Training
 This is an experimental interface that is subject to change and/or deletion.
 """
 from __future__ import absolute_import
+from enum import Enum
 # MindSpore 2.0 has changed the APIs of _checkparam, the following try except is for compatibility
 try:
     from mindspore._checkparam import Validator
@@ -114,6 +115,16 @@ class MoEParallelConfig(_Config):
         return self._dpmp
 
 
+class ContextParallelAlgo(Enum):
+    """context parallel algorithm type.
+
+    Args:
+        Enum (str): chosses context parallel type
+    """
+    colossalai_cp = "colossalai_cp"
+    ulysses_cp = "ulysses_cp"
+
+
 class OpParallelConfig(_Config):
     r"""
         OpParallelConfig for the setting data parallel and model parallel.
@@ -130,7 +141,7 @@ class OpParallelConfig(_Config):
     """
 
     def __init__(self, data_parallel=1, model_parallel=1, use_seq_parallel=False, context_parallel=1,
-                 select_recompute=False):
+                 select_recompute=False, context_parallel_algo: str = "colossalai_cp"):
         Validator.check_positive_int(data_parallel, "data_parallel")
         Validator.check_positive_int(model_parallel, "model_parallel")
         Validator.check_positive_int(context_parallel, "context_parallel")
@@ -140,6 +151,27 @@ class OpParallelConfig(_Config):
         self.context_parallel = context_parallel
         self.use_seq_parallel = use_seq_parallel
         self.select_recompute = select_recompute
+        self.context_parallel_algo = ContextParallelAlgo(context_parallel_algo)
+
+    def _check_context_parallel(self):
+        """check whether context parallel config is valid.
+        """
+        if self.context_parallel == 1 and self.context_parallel_algo != ContextParallelAlgo.colossalai_cp:
+            logger.warning(f"context_parallel_algo {self.context_parallel_algo.value} will not take effect "
+                           "when context_parallel == 1.")
+
+    def get_ulysses_cp_num(self):
+        """get ulysses context parallel num under this config.
+
+        Returns:
+            int: ulysses degrees.
+        """
+        if self.context_parallel == 1:
+            return 1
+        if self.context_parallel_algo == ContextParallelAlgo.colossalai_cp:
+            return 1
+        # ulysses_cp
+        return self.context_parallel
 
     @property
     def data_parallel(self):
@@ -178,7 +210,8 @@ class OpParallelConfig(_Config):
             'model_parallel': self.model_parallel,
             'context_parallel': self.context_parallel,
             'use_seq_parallel': self.use_seq_parallel,
-            'select_recompute': self.select_recompute
+            'select_recompute': self.select_recompute,
+            'context_parallel_algo': self.context_parallel_algo.value,
         }
         return config_dict
 
