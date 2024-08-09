@@ -125,13 +125,14 @@ class ColumnParallelLinear(nn.Cell):
             self.weight = Parameter(init_data, name="weight")
 
         if self.has_bias:
-            self.bias = Parameter(initializer(bias_init, (output_size,), param_init_type), name="bias")
+            self.bias_ = Parameter(initializer(bias_init, (output_size,), param_init_type), name="bias")
         else:
-            self.bias = None
+            self.bias_ = None
 
         self.matmul = P.MatMul(transpose_b=transpose_b)
         if not skip_bias_add:
             self.add = P.Add()
+        self.reshape = P.Reshape()
         self.shard(config)
 
     def construct(self, input_: Tensor, weight: Tensor = None) -> tuple[Tensor, Tensor]:
@@ -146,7 +147,7 @@ class ColumnParallelLinear(nn.Cell):
             - bias (Tensor): The bias
         """
         output_shape = input_.shape[:-1] + (self.output_size,)
-        input_ = input_.reshape(-1, self.input_size)
+        input_ = self.reshape(input_, (-1, self.input_size))
 
         ori_dtype = input_.dtype
         if weight is None:
@@ -160,14 +161,14 @@ class ColumnParallelLinear(nn.Cell):
         input_ = self.matmul(input_, weight)
 
         if not self.skip_bias_add and self.has_bias:
-            bias = self.cast(self.bias, self.compute_dtype)
+            bias = self.cast(self.bias_, self.compute_dtype)
             input_ = self.add(input_, bias)
             bias = None
         else:
-            bias = self.bias
+            bias = self.bias_
 
         input_ = self.cast(input_, ori_dtype)
-        output = input_.reshape(output_shape)
+        output = self.reshape(input_, output_shape)
         return output, bias
 
     def shard(self, config: TransformerConfig) -> None:
@@ -258,13 +259,14 @@ class RowParallelLinear(nn.Cell):
         self.weight = Parameter(init_data, name='weight')
 
         if self.has_bias:
-            self.bias = Parameter(initializer(bias_init, (output_size,), param_init_type), name='bias')
+            self.bias_ = Parameter(initializer(bias_init, (output_size,), param_init_type), name='bias')
         else:
-            self.bias = None
+            self.bias_ = None
 
         self.matmul = P.MatMul(transpose_b=transpose_b)
         if not skip_bias_add:
             self.add = P.Add()
+        self.reshape = P.Reshape()
         self.shard(config)
 
     def construct(self, input_: Tensor) -> tuple[Tensor, Tensor]:
@@ -278,7 +280,7 @@ class RowParallelLinear(nn.Cell):
             - bias (Tensor): The bias
         """
         output_shape = input_.shape[:-1] + (self.output_size,)
-        input_ = input_.reshape(-1, self.input_size)
+        input_ = self.reshape(input_, (-1, self.input_size))
 
         ori_dtype = input_.dtype
         weight = self.cast(self.weight, self.compute_dtype)
@@ -287,14 +289,14 @@ class RowParallelLinear(nn.Cell):
         input_ = self.matmul(input_, weight)
 
         if not self.skip_bias_add and self.has_bias:
-            bias = self.cast(self.bias, self.compute_dtype)
+            bias = self.cast(self.bias_, self.compute_dtype)
             input_ = self.add(input_, bias)
             bias = None
         else:
-            bias = self.bias
+            bias = self.bias_
 
         input_ = self.cast(input_, ori_dtype)
-        output = input_.reshape(output_shape)
+        output = self.reshape(input_, output_shape)
         return output, bias
 
     def shard(self, config: TransformerConfig) -> None:
@@ -358,12 +360,12 @@ class VocabParallelEmbedding(nn.Cell):
 
         return output
 
-    def shard(self, parallel_config):
+    def shard(self, config: TransformerConfig):
         """sharding for embedding"""
-        dp = 1 if parallel_config.data_parallel is None else parallel_config.data_parallel
-        tp = 1 if parallel_config.tensor_parallel is None else parallel_config.tensor_parallel
-        cp = 1 if parallel_config.context_parallel is None else parallel_config.context_parallel
-        if parallel_config.vocab_emb_dp:
+        dp = 1 if config.data_parallel is None else config.data_parallel
+        tp = 1 if config.tensor_parallel is None else config.tensor_parallel
+        cp = 1 if config.context_parallel is None else config.context_parallel
+        if config.vocab_emb_dp:
             self.gather.shard(((1, 1), (dp, cp)))
         else:
             if self.num_embeddings % tp != 0:

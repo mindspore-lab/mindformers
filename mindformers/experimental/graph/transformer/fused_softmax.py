@@ -27,12 +27,6 @@ __all__ = [
 ]
 
 
-def get_default_causal_mask(seq_len_: int) -> Tensor:
-    triu = P.Triu(1)
-    ones = P.Ones()
-    return triu(ones((seq_len_, seq_len_))).bool()
-
-
 class FusedScaleMaskSoftmax(nn.Cell):
     """Fused operation: scaling + mask + softmax
 
@@ -71,6 +65,8 @@ class FusedScaleMaskSoftmax(nn.Cell):
         self.causal_attn_mask_type = attn_mask_type == AttnMaskType.causal
         self.softmax = P.Softmax()
         self.cast = P.Cast()
+        self.triu = P.Triu(1)
+        self.ones = P.Ones()
 
         if self.scale is not None and not self.softmax_in_fp32:
             raise ValueError("softmax should be in fp32 when scaled")
@@ -92,7 +88,7 @@ class FusedScaleMaskSoftmax(nn.Cell):
 
         sq = input_.shape[-2]
         if self.causal_attn_mask_type and mask is None and sq > 1:
-            mask = get_default_causal_mask(sq)
+            mask = self.triu(self.ones((sq, sq))).bool()
 
         if mask is not None and self.mask_func:
             input_ = self.mask_func(input_, mask)
