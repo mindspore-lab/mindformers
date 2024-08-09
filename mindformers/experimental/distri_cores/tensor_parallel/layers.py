@@ -16,21 +16,23 @@
 import mindspore.common.dtype as mstype
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
-from mindspore import Parameter, Tensor, nn, ops, mint
+from mindspore import Parameter, Tensor, nn, ops, mint, hal
 from mindspore.common.initializer import initializer, Zero
 
 from mindformers.experimental.distri_cores.create_comm import (
     get_tp_rank,
     get_tp_world_size,
     get_dp_world_size,
+    get_tp_group,
+    get_stream
 )
 from mindformers.experimental.distri_cores.tensor_parallel import (
     CopyToModelParallelRegion,
     GatherFromModelParallelRegion,
-    GatherFromSequenceParallelRegion,
     ReduceFromModelParallelRegion,
     ReduceScatterToSequenceParallelRegion,
     ScatterToModelParallelRegion,
+    GatherFromSequenceParallelRegion
 )
 from mindformers.experimental.distri_cores.utils import divide
 from mindformers.experimental.distri_cores.random import (
@@ -39,7 +41,180 @@ from mindformers.experimental.distri_cores.random import (
     EXPERT_PARALLEL_GENERATOR,
 )
 
-__all__ = ["ColumnParallelLinear", "RowParallelLinear"]
+__all__ = [
+    "ColumnParallelLinear",
+    "RowParallelLinear",
+    "VocabParallelEmbedding",
+    "LinearWithGradAccumulationAndAsyncCommunication"
+]
+
+
+class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
+    r"""
+    Linear execution with asynchronous communication in backprop.
+
+    The gradient of weight is calculated simultaneously with
+    all reduce communication of input gradient under tensor parallel condition.
+
+    For sequence parallel, the calculation of weight gradient is overlapped with
+    reduce scatter communication of input gradient.
+
+    Args:
+        bias (bool): Specifies whether the layer uses a bias vector.
+        gradient_accumulation_fusion (bool): Specifies whether accumulate gradient in backprop.
+        sequence_parallel (bool): Specifies whether sequence parallel is enabled.
+        grad_output_buffer (Tensor): Buffer used to save output gradients.
+        wgrad_deferral_limit (int): Limit on the number of micro-batches. Default: 0.
+        allreduce_dgrad (bool): Specifies whether calculation and communication are overlapped.
+        transpose_b (bool): use transposed weight shape for initialization and compute.
+
+    """
+    def __init__(
+            self,
+            bias,
+            gradient_accumulation_fusion,
+            sequence_parallel,
+            grad_output_buffer=None,
+            wgrad_deferral_limit=0,
+            allreduce_dgrad=None,
+            transpose_b=True,
+        ):
+        super(LinearWithGradAccumulationAndAsyncCommunication, self).__init__()
+        if grad_output_buffer:
+            raise NotImplementedError("For LinearWithGradAccumulationAndAsyncCommunication, "
+                                      "`grad_output_buffer` is not supported for now.")
+        if wgrad_deferral_limit != 0:
+            raise NotImplementedError("For LinearWithGradAccumulationAndAsyncCommunication, "
+                                      "`wgrad_deferral_limit != 0` is not supported for now.")
+        self.use_bias = bias
+        self.allreduce_dgrad = allreduce_dgrad
+        self.sequence_parallel = sequence_parallel
+        self.gradient_accumulation_fusion = gradient_accumulation_fusion
+        self.transpose_b = transpose_b
+
+        self.matmul = P.BatchMatMul(transpose_b=self.transpose_b)
+        self.matmul_g_in = P.BatchMatMul(transpose_a=False, transpose_b=not self.transpose_b)
+        self.matmul_g_w = P.BatchMatMul(transpose_a=True, transpose_b=False)
+        if get_tp_world_size() > 1:
+            self.gather_from_sp_region = ops.AllGather(group=get_tp_group())
+            self.reduce_scatter_to_sp_region = ops.ReduceScatter(group=get_tp_group())
+            self.reduce_from_mp_region = ops.AllReduce(group=get_tp_group())
+        self.reduce_sum = P.ReduceSum()
+        self.stream = get_stream()
+        self.input_parallel = None
+        self.weight_param = None
+
+    # pylint: disable=C0111
+    def construct(self, x, weight, bias, weight_param=None):
+        if bias is None:
+            self.use_bias = False
+        self.weight_param = weight_param
+        if self.sequence_parallel:
+            self.input_parallel = x.swapaxes(0, 1).contiguous()
+            self.input_parallel = self.gather_from_sp_region(self.input_parallel.contiguous())
+            self.input_parallel = self.input_parallel.swapaxes(0, 1).contiguous()
+        else:
+            self.input_parallel = x
+
+        output_parallel = self.matmul(self.input_parallel, weight)
+        if self.use_bias:
+            output_parallel = mint.add(
+                output_parallel, bias
+            )
+
+        return output_parallel
+
+    # pylint: disable=W0613, C0111
+    def bprop(self, *args):
+        dout = args[-1]
+        weight = args[1]
+        weight_param = args[3]
+        grad_input = self.matmul_g_in(dout, weight).reshape(self.input_parallel.shape)
+
+        if self.allreduce_dgrad:
+            self.stream.wait_stream(hal.current_stream())
+            with hal.StreamCtx(self.stream):
+                grad_input = self.reduce_from_mp_region(grad_input)
+
+        if self.sequence_parallel:
+            assert not self.allreduce_dgrad
+            grad_input = grad_input.swapaxes(0, 1).contiguous()
+            self.stream.wait_stream(hal.current_stream())
+            with hal.StreamCtx(self.stream):
+                grad_input = self.reduce_scatter_to_sp_region(grad_input.contiguous())
+
+        if self.transpose_b:
+            grad_weight = self.matmul_g_w(dout, self.input_parallel)
+        else:
+            grad_weight = self.matmul_g_w(self.input_parallel, dout)
+
+        if len(dout.shape) > 2:     # b,s,h
+            grad_weight = self.reduce_sum(grad_weight, 0)
+            dout = dout.sum(axis=0)
+
+        grad_weight = grad_weight.reshape(weight.shape)
+        grad_bias = dout.sum(axis=0) if self.use_bias else None
+
+        if self.gradient_accumulation_fusion and self.weight_param is not None and \
+            isinstance(self.weight_param, Parameter):
+            if hasattr(self.weight_param, 'grad_accumulated'):
+                origin_dtype = None
+                if grad_weight.dtype != self.weight_param.dtype:
+                    grad_weight = ops.cast(grad_weight, self.weight_param.dtype)
+                    origin_dtype = grad_weight.dtype
+                self.weight_param.grad_view[:] = mint.add(self.weight_param.grad_view, grad_weight)
+                self.weight_param.grad_accumulated = True
+                if origin_dtype:
+                    grad_weight = ops.cast(grad_weight, origin_dtype)
+
+        if self.sequence_parallel or self.allreduce_dgrad:
+            hal.current_stream().wait_stream(self.stream)
+
+        if self.sequence_parallel:
+            grad_input = grad_input.swapaxes(0, 1).contiguous()
+
+        grad_weight_param = F.full(weight_param.shape,
+                                   0, dtype=weight_param.dtype) if weight_param is not None else None
+
+        return grad_input, grad_weight, grad_bias, grad_weight_param
+
+
+class LinearWithFrozenWeight(nn.Cell):
+    r"""
+    Linear execution with frozen weight.
+
+    The gradient of weight is not calculated during backward propagation.
+
+    Args:
+        bias (bool): Specifies whether the layer uses a bias vector.
+        allreduce_dgrad (bool): Specifies whether calculation and communication are overlapped.
+
+    """
+    def __init__(self, bias, allreduce_dgrad, transpose_b=True):
+        super(LinearWithFrozenWeight, self).__init__()
+        self.bias = bias
+        self.allreduce_dgrad = allreduce_dgrad
+        self.transpose_b = transpose_b
+        self.matmul = P.BatchMatMul(transpose_b=self.transpose_b)
+        self.matmul_g_in = P.BatchMatMul(transpose_a=False, transpose_b=not self.transpose_b)
+        if get_tp_world_size() > 1:
+            self.reduce_from_mp_region = ops.AllReduce(group=get_tp_group())
+        if bias:
+            self.bias_add = P.Add()
+
+    def construct(self, input_, weight, bias):
+        output = self.matmul(input_, weight)
+        if self.bias and bias is not None:
+            output = self.bias_add(output, bias)
+        return output
+
+    # pylint: disable=W0613
+    def bprop(self, x, weight, bias, out, dout):
+        grad_input = self.matmul_g_in(dout, weight).reshape(x.shape)
+        grad_bias = F.full(bias.shape, 0, dtype=bias.dtype) if self.bias else None
+        if self.allreduce_dgrad:
+            grad_input = self.reduce_from_mp_region(grad_input)
+        return grad_input, None, grad_bias
 
 
 class ColumnParallelLinear(nn.Cell):
@@ -203,6 +378,27 @@ class ColumnParallelLinear(nn.Cell):
         self.copy_to_mp_region = CopyToModelParallelRegion()
         self.gather_from_mp_region = GatherFromModelParallelRegion()
         self.gather_from_sp_region = GatherFromSequenceParallelRegion()
+        self.allreduce_dgrad = (
+            tensor_parallel_group_size > 1 and not self.sequence_parallel and not disable_grad_reduce
+        )
+        if self.allreduce_dgrad and self.sequence_parallel:
+            raise RuntimeError(
+                "`allreduce_dgrad` and `sequence_parallel` cannot be enabled at the same time."
+            )
+        self.gradient_accumulation_fusion = config.parallel_config.gradient_accumulation_fusion
+        self.forward_impl_ = LinearWithGradAccumulationAndAsyncCommunication(
+            bias=(self.has_bias and not self.skip_bias_add),
+            gradient_accumulation_fusion=self.gradient_accumulation_fusion,
+            sequence_parallel=False if self.explicit_expert_comm else self.sequence_parallel,
+            allreduce_dgrad=False if self.explicit_expert_comm else self.allreduce_dgrad,
+            transpose_b=self.transpose_b
+        )
+
+        self.frozen_weight_forward_impl_ = LinearWithFrozenWeight(
+            bias=(self.has_bias and not self.skip_bias_add),
+            allreduce_dgrad=False if self.explicit_expert_comm else self.allreduce_dgrad,
+            transpose_b=self.transpose_b
+        )
 
     def construct(self, input_, weight=None):
         """construct method."""
@@ -214,29 +410,38 @@ class ColumnParallelLinear(nn.Cell):
             raise ValueError("For ColumnParallelLinear, when skip_weight_param_allocation=False,"
                              "weight should not be passed to construct(), but got {}".format(weight))
 
-        if self.sequence_parallel or self.explicit_expert_comm:
+        if (
+                self.sequence_parallel
+                or self.explicit_expert_comm
+                or self.allreduce_dgrad
+        ):
             input_parallel = input_
         else:
             input_parallel = self.copy_to_mp_region(input_)
 
         origin_dtype = F.dtype(input_parallel)
         if self.skip_weight_param_allocation:
-            weight = self.cast(weight, self.compute_dtype)
+            weight_requires_grad = not isinstance(weight, Parameter) or weight.requires_grad
+            weight_param = weight
+            weight = ops.cast(weight, self.compute_dtype)
         else:
-            weight = self.cast(self.weight, self.compute_dtype)
-        input_parallel = self.cast(input_parallel, self.compute_dtype)
+            weight_requires_grad = self.weight.requires_grad
+            weight_param = self.weight
+            weight = ops.cast(self.weight, self.compute_dtype)
+        input_parallel = ops.cast(input_parallel, self.compute_dtype)
 
-        if self.sequence_parallel:
-            input_parallel = input_parallel.swapaxes(0, 1).contiguous()
-            input_parallel = self.gather_from_sp_region(input_parallel)
-            input_parallel = input_parallel.swapaxes(0, 1).contiguous()
-        output_parallel = self.matmul(input_parallel, weight)
+        bias = ops.cast(self.bias, self.compute_dtype) if self.has_bias and not self.skip_bias_add else None
 
-        bias = self.cast(self.bias, self.compute_dtype) if self.has_bias and not self.skip_bias_add else None
+        if not weight_requires_grad:
+            if self.sequence_parallel:
+                input_parallel = input_parallel.swapaxes(0, 1).contiguous()
+                input_parallel = self.gather_from_sp_region(input_parallel)
+                input_parallel = input_parallel.swapaxes(0, 1).contiguous()
+            output_parallel = self.frozen_weight_forward_impl_(input_parallel, weight, bias)
+        else:
+            output_parallel = self.forward_impl_(input_parallel, weight, bias, weight_param=weight_param)
 
-        if self.has_bias and not self.skip_bias_add:
-            output_parallel = mint.add(output_parallel, bias)
-        output_parallel = self.cast(output_parallel, origin_dtype)
+        output_parallel = ops.cast(output_parallel, origin_dtype)
 
         if self.gather_output:
             output = self.gather_from_mp_region(output_parallel)
@@ -411,6 +616,21 @@ class RowParallelLinear(nn.Cell):
         self.scatter_to_mp_region = ScatterToModelParallelRegion()
         self.reduce_scatter_to_sp_region = ReduceScatterToSequenceParallelRegion()
         self.reduce_from_mp_region = ReduceFromModelParallelRegion()
+        self.gradient_accumulation_fusion = config.parallel_config.gradient_accumulation_fusion
+
+        self.forward_impl_ = LinearWithGradAccumulationAndAsyncCommunication(
+            bias=False,
+            gradient_accumulation_fusion=self.gradient_accumulation_fusion,
+            sequence_parallel=False,
+            allreduce_dgrad=False,
+            transpose_b=self.transpose_b
+        )
+
+        self.frozen_weight_forward_impl_ = LinearWithFrozenWeight(
+            bias=False,
+            allreduce_dgrad=False,
+            transpose_b=self.transpose_b
+        )
 
     def construct(self, input_):
         """construct method"""
@@ -421,8 +641,12 @@ class RowParallelLinear(nn.Cell):
 
         origin_dtype = F.dtype(input_parallel)
         weight = self.cast(self.weight, self.compute_dtype)
-        input_parallel = self.cast(input_parallel, self.compute_dtype)
-        output_parallel = self.matmul(input_parallel, weight)
+        weight_param = self.weight if self.gradient_accumulation_fusion else None
+        input_parallel = ops.cast(input_parallel, self.compute_dtype)
+        if self.weight.requires_grad:
+            output_parallel = self.forward_impl_(input_parallel, weight, bias=None, weight_param=weight_param)
+        else:
+            output_parallel = self.frozen_weight_forward_impl_(input_parallel, weight, bias=None)
         if self.explicit_expert_comm:
             output = output_parallel
         elif self.sequence_parallel:
