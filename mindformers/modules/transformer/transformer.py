@@ -18,7 +18,6 @@ Note:
 """
 from __future__ import absolute_import
 
-from enum import Enum
 import math
 from typing import Union
 import numpy as np
@@ -54,8 +53,8 @@ from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.layers import LayerNorm, Linear, \
     _args_type_validator_check, _valid_type_checks, _valid_value_checks, \
     _check_past_none_input_none, _check_input_dtype
-from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, _PipeLineConfig, OpParallelConfig, \
-    _Config, _check_config, MoEParallelConfig
+from mindformers.modules.transformer.op_parallel_config import ContextParallelAlgo, default_dpmp_config, \
+    _PipeLineConfig, OpParallelConfig, _Config, _check_config, MoEParallelConfig
 from mindformers.modules.transformer.moe import default_moe_config, MoE, _check_moe_config
 from mindformers.version_control import get_dropout, choose_flash_attention_dtype, \
     check_valid_flash_attention
@@ -288,16 +287,6 @@ class TransformerRecomputeConfig(_Config):
             "recompute_slice_activation": self._recompute_slice_activation,
         }
         return config_dict
-
-
-class ContextParallelAlgo(Enum):
-    """context parallel algorithm type.
-
-    Args:
-        Enum (str): chosses context parallel type
-    """
-    colossalai_cp = "colossalai_cp"
-    ulysses_cp = "ulysses_cp"
 
 
 default_transformer_recompute_config = TransformerRecomputeConfig()
