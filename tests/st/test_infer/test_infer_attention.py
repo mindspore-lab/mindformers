@@ -48,7 +48,7 @@ def test_infer_attention():
     value = Tensor(np.ones((bsz, seq_len, hidden_size)), mstype.float16)
     batch_valid_length = Tensor(np.ones((bsz, 1)), mstype.int32)
     block_tables = Tensor(np.ones((bsz, num_blocks)), mstype.int64)
-    slot_mapping = Tensor(np.ones((bsz,)), mstype.int32)
+    slot_mapping = Tensor(np.ones((bsz * seq_len)), mstype.int32)
     attn_mask = Tensor(np.ones((bsz, 1, seq_len, seq_len)), mstype.uint8)
     freqs_cos = Tensor(np.ones((seq_len, head_dim)), mstype.float16)
     freqs_sin = Tensor(np.ones((seq_len, head_dim)), mstype.float16)

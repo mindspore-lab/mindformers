@@ -15,3 +15,4 @@ tokenizers==0.15.0
 astunparse>=1.6.3
 numpy<2.0.0
 tiktoken
+jinja2
