@@ -15,6 +15,4 @@
 
 """mindformers init"""
 
-from .lr_scheduler import LearningRateScheduler
-
-__all__ = ["LearningRateScheduler"]
+from .lr_scheduler import LearningRateScheduler, get_learning_rate_scheduler

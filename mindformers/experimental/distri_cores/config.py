@@ -808,10 +808,22 @@ def validate_recv_dtype(config_instance, recv_dtype):
     return _SUPPORT_DTYPE_DICT[recv_dtype]
 
 
-@ModelParallelConfig.validator("use_zero3")
-def validate_use_zero3(config_instance, use_zero3):
-    """Validate use_zero3."""
-    Validator.check_value_type("use_zero3", use_zero3, [bool, type(None)])
+@ModelParallelConfig.validator("zero_level")
+def validate_zero_level(config_instance, zero_level):
+    """Validate zero_level."""
+    if zero_level is not None:
+        Validator.check_string(zero_level, ["z1", "z2", "z3"], "zero_level")
+        if (
+                config_instance.use_sequence_parallel
+                or config_instance.pipeline_stage > 1
+                or config_instance.expert_parallel > 1
+                or config_instance.context_parallel > 1
+        ):
+            logger.warning(
+                "Accuracy is not guaranteed when zero is used with parallel"
+                + "strategies other than data parallel and tensor parallel."
+            )
+    return zero_level
 
 
 @ModelParallelConfig.validator("gradient_accumulation_fusion")
@@ -1229,3 +1241,94 @@ def validate_recompute_granularity(config_instance, recompute_granularity):
             if config_instance.recompute_num_layers is None:
                 logger.warning("recompute_num_layers should be set when recompute_granularity is set to 'full'.")
     return recompute_granularity
+
+class OptimizerConfig(BaseConfig):
+    r"""Optimizer config class.
+
+    Args:
+        parallel_config (ModelParallelConfig): Parallel config.
+        optimizer_type (str): Optimizer type. Default: 'AdamWeightDecay'.
+        learning_rate (float): Learning rate. Default: 0.01.
+        learning_rate_scheduler_kwargs (dict, optional): Learning rate scheduler kwargs.
+        weight_decay (float): Weight decay. Default: 0.0.
+        weight_decay_kwargs (dict, optional): Weight decay kwargs.
+        zero_config (dict, optional): ZeRO optimizer config.
+        - param_resident (bool): After the forward propagation, the parameters are resident and not split.
+          Default: Flase.
+
+        - allreduce_after_grad_accumulation (bool): Use allreduce in optimizer after gradient accumulation.
+          Default: Flase.
+
+        - grad_allreduce_op (str): Gradient allreduce operator. like `sum`, `mean`. Default: sum.
+
+        - opt_parallel_group (str): Name of communication group used by optimizer parallel. Default: None.
+
+        - cpu_offload (bool): The process of optimizer will be offload to host. The gradients, parameters and
+          optimizer status will be offload to host. Default: Flase.
+    """
+
+    # set config name for identifying while using init_configs methods
+    config_name = "optimizer_config"
+
+    def __init__(
+            self,
+            parallel_config: ModelParallelConfig,
+            optimizer_type: str = "AdamWeightDecay",
+            learning_rate: float = 1e-3,
+            learning_rate_scheduler_kwargs: dict = None,
+            weight_decay: float = 0.0,
+            weight_decay_kwargs: dict = None,
+            zero_config: dict = None,
+            **kwargs,
+    ):
+        super().__init__()
+
+        self.parallel_config = parallel_config
+        self.optimizer_type = optimizer_type
+        self.learning_rate = learning_rate
+        self.learning_rate_scheduler_kwargs = learning_rate_scheduler_kwargs
+        self.weight_decay = weight_decay
+        self.weight_decay_kwargs = weight_decay_kwargs
+        self.zero_config = zero_config
+
+        self.update_attrs(**kwargs)
+
+
+OptimizerConfig.register_depended_config(ModelParallelConfig)
+
+
+@OptimizerConfig.validator("optimizer_type")
+def validate_type(config_instance, optimizer_type):
+    """Validate type."""
+    Validator.check_value_type("optimizer_type", optimizer_type, [str])
+    return optimizer_type
+
+
+@OptimizerConfig.validator("learning_rate")
+def validate_learning_rate(config_instance, learning_rate):
+    """Validate learning_rate."""
+    Validator.check_positive_float(learning_rate, "learning_rate")
+    return learning_rate
+
+
+@OptimizerConfig.validator("learning_rate_scheduler_kwargs")
+def validate_learning_rate_scheduler_kwargs(config_instance, learning_rate_scheduler_kwargs):
+    """Validate learning_rate_scheduler_kwargs."""
+    if learning_rate_scheduler_kwargs is not None:
+        Validator.check_value_type("learning_rate_scheduler_kwargs", learning_rate_scheduler_kwargs, [dict])
+    return learning_rate_scheduler_kwargs
+
+
+@OptimizerConfig.validator("weight_decay")
+def validate_weight_decay(config_instance, weight_decay):
+    """Validate weight_decay."""
+    Validator.check_non_negative_float(weight_decay, "weight_decay")
+    return weight_decay
+
+
+@OptimizerConfig.validator("weight_decay_kwargs")
+def validate_weight_decay_kwargs(config_instance, weight_decay_kwargs):
+    """Validate weight_decay_kwargs."""
+    if weight_decay_kwargs is not None:
+        Validator.check_value_type("weight_decay_kwargs", weight_decay_kwargs, [dict])
+    return weight_decay_kwargs
