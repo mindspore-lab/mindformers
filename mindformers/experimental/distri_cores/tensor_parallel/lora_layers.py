@@ -204,9 +204,9 @@ class ColumnParallelLoRA(nn.Cell):
 
         self.explicit_expert_comm = self.is_expert and (self.sequence_parallel or self.expert_parallel)
 
-        lora_a_shape = (lora_rank, input_size) if self.transpose_b else (input_size, lora_rank)
-        lora_b_shape = (self.output_size_per_partition, lora_rank) if self.transpose_b else \
-                       (lora_rank, self.output_size_per_partition)
+        lora_a_shape = (lora_rank, weight_shape[1]) if self.transpose_b else (weight_shape[0], lora_rank)
+        lora_b_shape = (weight_shape[0], lora_rank) if self.transpose_b else \
+                       (lora_rank, weight_shape[1])
         self.lora_a_matmul = P.BatchMatMul(transpose_b=self.transpose_b)
         self.lora_b_matmul = P.BatchMatMul(transpose_b=self.transpose_b)
 
@@ -458,9 +458,9 @@ class RowParallelLoRA(nn.Cell):
             self.sequence_parallel or self.expert_parallel
         )
 
-        lora_a_shape = (lora_rank, self.input_size_per_partition) if self.transpose_b else \
-                       (self.input_size_per_partition, lora_rank)
-        lora_b_shape = (output_size, lora_rank) if self.transpose_b else (lora_rank, output_size)
+        lora_a_shape = (lora_rank, weight_shape[1]) if self.transpose_b else \
+                       (weight_shape[0], lora_rank)
+        lora_b_shape = (weight_shape[0], lora_rank) if self.transpose_b else (lora_rank, weight_shape[1])
         self.lora_a_matmul = P.BatchMatMul(transpose_b=self.transpose_b)
         self.lora_b_matmul = P.BatchMatMul(transpose_b=self.transpose_b)
 
