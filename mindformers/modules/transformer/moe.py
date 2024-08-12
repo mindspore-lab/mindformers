@@ -95,7 +95,7 @@ class MoEConfig:
                  save_token_distribution=False, cur_layer=0, enable_cold_hot_expert=False, update_step=10000,
                  hot_expert_num=0, cold_token_percent=1.0, moe_module_name="", routing_policy="TopkRouterV1",
                  enable_sdrop=False, use_fused_ops_topkrouter=False, router_dense_type="float32", shared_expert_num=0,
-                 use_shared_expert_gating=False):
+                 use_shared_expert_gating=False, max_router_load=128*1024):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
@@ -145,6 +145,7 @@ class MoEConfig:
         self.router_dense_type = dtype_map.get(router_dense_type)
         self.shared_expert_num = shared_expert_num
         self.use_shared_expert_gating = use_shared_expert_gating
+        self.max_router_load = max_router_load
 
     def __eq__(self, other) -> bool:
         return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())
@@ -1095,7 +1096,8 @@ class TopkRouterV2(Cell):
         self.num_experts_chosen = moe_config.num_experts_chosen
         self.on_value = Tensor(1.0, mstype.float32)
         self.off_value = Tensor(0.0, mstype.float32)
-        self.range = Tensor(np.tile(np.arange(131072)+1, (self.num_experts_chosen, 1)), mstype.float32)
+        self.range = Tensor(np.tile(np.arange(moe_config.max_router_load)+1,
+                                    (self.num_experts_chosen, 1)), mstype.float32)
 
         self.cast = P.Cast()
         self.reshape = P.Reshape()
