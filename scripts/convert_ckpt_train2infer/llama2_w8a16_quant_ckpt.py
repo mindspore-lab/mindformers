@@ -17,46 +17,61 @@ import os
 import argparse
 import time
 
-import numpy as np
 import mindspore as ms
-from mindspore import Model
+from mindspore import dtype as msdtype
 from mindspore.communication import get_rank
-from mindformers import LlamaForCausalLM
+
+from mindformers import LlamaForCausalLM, MindFormerConfig
+
 from mindspore_gs.ptq import PTQMode, PTQConfig
 from mindspore_gs.common import BackendTarget, logger
 from mindspore_gs.ptq import RoundToNearest as RTN
+from mindspore_gs.datasets import get_datasets
 from mindspore_gs.ptq.network_helpers.mf_net_helpers import MFLlama2Helper
-from llama2 import Llama2Network
+
 
 
 def get_args():
     """init user options"""
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', '-c', type=str, required=True)
+    parser.add_argument('--approach', '-a', type=str, required=True, help="Available: w8a16, c8")
+    parser.add_argument('--dataset_type', '-t', type=str, required=False)
+    parser.add_argument('--dataset_path', '-s', type=str, required=False)
     parser.add_argument('--load_checkpoint', '-l', type=str, required=True)
     parser.add_argument('--output_dir', '-o', type=str, required=True)
     parser.add_argument('--world_size', '-w', type=int, required=True)
     args = parser.parse_args()
-    print(f"-------------------------------------------------quant args: {args}", flush=True)
+    logger.info(f"quant args: {args}")
     return args
 
 
-def quant_network(net: LlamaForCausalLM, mode=PTQMode.QUANTIZE, backend=BackendTarget.ASCEND, **kwargs):
+def quant_network(net: LlamaForCausalLM, network_helper, backend=BackendTarget.ASCEND, approach='w8a16', ds_path='',
+                  ds_type=''):
     """Quant llama2 model to w8a16 with RTN algorithm."""
     start_time = time.time()
-    if mode == PTQMode.QUANTIZE:
-        logger.info("Use RTN algo to quant network and weight.")
+    ds = None
+    if approach == 'c8':
+        logger.info("Use RoundToNearest(KVCacheInt8) algo to quant network and weight.")
+        if not ds_path:
+            raise ValueError("Please provide `ds_path` for calibrating.")
+        if not ds_type:
+            raise ValueError("Please provide `ds_type` for calibrating.")
+        cfg = PTQConfig(mode=PTQMode.QUANTIZE, backend=backend, weight_dtype=msdtype.float_, kvcache_dtype=msdtype.int8)
+        bs_ = network_helper.get_spec('batch_size')
+        seq_ = network_helper.get_spec('seq_length')
+        max_decode_length = network_helper.get_spec('max_decode_length')
+        ignore_token_id = network_helper.get_spec('ignore_token_id')
+        tokenizer = network_helper.create_tokenizer()
+        ds = get_datasets(ds_type, ds_path, "train", bs_, seq_, max_decode_length, tokenizer, ignore_token_id, 1,
+                          False, n_samples=200)
     else:
-        logger.info("Use RTN algo to quant network.")
-    cfg = PTQConfig(mode=mode, backend=backend, opname_blacklist=["lm_head"])
+        logger.info("Use RoundToNearest(W8A16) algo to quant network and weight.")
+        cfg = PTQConfig(mode=PTQMode.QUANTIZE, backend=backend, opname_blacklist=["lm_head"])
     ptq = RTN(config=cfg)
-    logger.info(f'Create PTQ cost time is {time.time() - start_time} s.')
+    logger.info(f'Create RoundToNearest and datasets cost time is {time.time() - start_time} s.')
     start_time = time.time()
-    mfconfig = kwargs.get("mfconfig", None)
-    if not mfconfig:
-        raise ValueError("Please provide mfconfig for calibrating.")
-    network_helper = MFLlama2Helper(mfconfig)
-    net = ptq.apply(net, network_helper)
+    net = ptq.apply(net, network_helper, ds)
     logger.info(f'Apply PTQ cost time is {time.time() - start_time} s.')
     start_time = time.time()
     net.phase = "quant_convert"
@@ -68,41 +83,46 @@ def quant_network(net: LlamaForCausalLM, mode=PTQMode.QUANTIZE, backend=BackendT
 if __name__ == "__main__":
     start = time.time()
     uargs = get_args()
-    print('------------------------- Creating network...', flush=True)
-    net_mgr: Llama2Network = Llama2Network()
-    config = net_mgr.create_mfconfig(uargs.config_path, uargs.load_checkpoint, uargs.output_dir, uargs.world_size)
-    network = net_mgr.create_network(config)
-    network.set_train(False)
-    network.phase = 'predict'
+    if uargs.approach not in ['w8a16', 'c8']:
+        raise ValueError("uargs.approach = {} is unexpected, Available: w8a16, c8.".format(uargs.approach))
+    if uargs.approach == "c8" and (uargs.dataset_path is None or uargs.dataset_type is None):
+        raise ValueError("Please provide dataset_path and dataset_type in args when uargs.approach is c8.")
+    logger.info('Creating network...')
+
+    config = MindFormerConfig(uargs.config_path)
+    if uargs.load_checkpoint:
+        config.load_checkpoint = uargs.load_checkpoint
+    if uargs.output_dir:
+        config.output_dir = uargs.output_dir
+    if uargs.world_size:
+        if config.parallel_config.model_parallel != uargs.world_size:
+            logger.info(
+                f"world_size is {uargs.world_size}, not equal to \
+                config.parallel_config.model_parallel:{config.parallel_config.model_parallel}")
+            config.parallel_config.model_parallel = uargs.world_size
+            logger.info(f"reset config.parallel_config.model_parallel as :{uargs.world_size}")
+
+    config.model.model_config.quant = ''
+
+    helper = MFLlama2Helper(config)
+    network = helper.create_network()
+    config = helper.mf_config
     logger.info(f'Create Network cost time is {time.time() - start} s.')
+    logger.info('Quantize-ing network...')
     start = time.time()
-    rank_id = get_rank() or 0
-    ckpt_path = config.load_checkpoint
-    if os.path.isdir(ckpt_path):
-        for file in os.listdir(os.path.join(ckpt_path, f"rank_{rank_id}")):
-            if not file.endswith(".ckpt"):
-                continue
-            ckpt_path = os.path.join(ckpt_path, f"rank_{rank_id}", file)
-            model = Model(network)
-            bs = config.model.model_config.batch_size
-            seq = config.model.model_config.seq_length
-            inputs = network.prepare_inputs_for_predict_layout(input_ids=np.ones([bs, seq], dtype=np.int32))
-            model.infer_predict_layout(*inputs)
-            break
-    logger.info(f'Loading ckpt :{ckpt_path}.')
-    ms.load_checkpoint(ckpt_path, network)
-    ms.ms_memory_recycle()
-    logger.info(f'Load ckpt cost time is {time.time() - start} s.')
-    print('------------------------- Quantize-ing network...', flush=True)
-    start = time.time()
-    network = quant_network(network, mode=PTQMode.QUANTIZE, backend=BackendTarget.ASCEND, mfconfig=config)
+    network = quant_network(network, helper, backend=BackendTarget.ASCEND, approach=uargs.approach,
+                            ds_path=uargs.dataset_path, ds_type=uargs.dataset_type)
     logger.info(f'Quant Network cost time is {time.time() - start} s.')
-    print('------------------------- Saving checkpoint...', flush=True)
+    logger.info('Saving checkpoint...')
     start = time.time()
-    save_ckpt_path = os.path.join(config.output_dir, "w8a16_ckpt")
+    try:
+        rank_id = get_rank()
+    except RuntimeError:
+        rank_id = 0
+    save_ckpt_path = os.path.join(config.output_dir, f"{uargs.approach}_ckpt")
     save_path = os.path.join(save_ckpt_path, f"rank_{rank_id}")
     os.makedirs(save_path, exist_ok=True)
-    ms.save_checkpoint(network.parameters_dict(), os.path.join(save_path, "w8a16.ckpt"),
+    ms.save_checkpoint(network.parameters_dict(), os.path.join(save_path, f"{uargs.approach}.ckpt"),
                        choice_func=lambda x: "key_cache" not in x and "value_cache" not in x)
     logger.info(f'Save checkpoint cost time is {time.time() - start} s.')
-    print(f'------------------------- Checkpoint saved to {save_path}...', flush=True)
+    logger.info(f'Checkpoint saved to {save_path}...')
