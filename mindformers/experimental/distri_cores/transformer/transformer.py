@@ -109,7 +109,7 @@ class ParallelMLP(Module):
                 self.mapping_gate_fusion = False
                 self.gating = ColumnParallelLinear(
                     self.hidden_size,
-                    mapping_output_size,
+                    self.ffn_hidden_size,
                     config=self.config,
                     init_method=self.config.init_method,
                     bias=self.has_bias,
@@ -119,7 +119,7 @@ class ParallelMLP(Module):
                 )
         self.mapping = ColumnParallelLinear(
             self.hidden_size,
-            self.ffn_hidden_size,
+            mapping_output_size,
             config=self.config,
             init_method=self.config.init_method,
             bias=self.has_bias,
@@ -134,7 +134,7 @@ class ParallelMLP(Module):
             if mapping_lora is not None:
                 self.mapping = ColumnParallelLoRA(
                     self.hidden_size,
-                    self.ffn_hidden_size,
+                    mapping_output_size,
                     config=self.config,
                     init_method=self.config.init_method,
                     bias=self.has_bias,
@@ -151,7 +151,7 @@ class ParallelMLP(Module):
             if self.config.mlp_has_gate and not self.mapping_gate_fusion and gating_lora is not None:
                 self.gating = ColumnParallelLoRA(
                     self.hidden_size,
-                    mapping_output_size,
+                    self.ffn_hidden_size,
                     config=self.config,
                     init_method=self.config.init_method,
                     bias=self.has_bias,
