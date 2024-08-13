@@ -210,7 +210,7 @@ class CoreAttention(nn.Cell):
         self.inv_norm_factor = Tensor(1.0 / norm_factor, dtype=self.compute_dtype)
 
         self.mask_func = get_attn_mask_func(self.config.mask_func_type)(config)
-        self.scale_mask_softmax = FusedScaleMaskSoftmax(config, self.mask_func, scale=coeff,
+        self.scale_mask_softmax = FusedScaleMaskSoftmax(config=config, mask_func=self.mask_func, scale=coeff,
                                                         softmax_in_fp32=self.attention_softmax_in_fp32,
                                                         input_in_fp16=self.fp16,
                                                         input_in_bf16=self.bf16)
@@ -255,11 +255,11 @@ class CoreAttention(nn.Cell):
         x_merge = self.reshape(x, new_shape)
         return x_merge
 
-    def shard(self, parallel_config):
+    def shard(self, config: TransformerConfig):
         """sharding parameters"""
-        dp = 1 if parallel_config is None else parallel_config.data_parallel
-        tp = 1 if parallel_config is None else parallel_config.tensor_parallel
-        cp = 1 if parallel_config is None else parallel_config.context_parallel
+        dp = 1 if config is None else config.data_parallel
+        tp = 1 if config is None else config.tensor_parallel
+        cp = 1 if config is None else config.context_parallel
 
         dropout_strategy = (dp, tp, cp, 1)
         self.dropout.shard(strategy=dropout_strategy)
@@ -525,11 +525,11 @@ class ParallelAttention(nn.Cell):
         x = self.reshape(x, (bs, n_kv_head * rep, seqlen, head_dim))
         return x
 
-    def shard(self, parallel_config):
+    def shard(self, config: TransformerConfig):
         """sharding parameters"""
-        dp = 1 if parallel_config is None else parallel_config.data_parallel
-        tp = 1 if parallel_config is None else parallel_config.tensor_parallel
-        cp = 1 if parallel_config is None else parallel_config.context_parallel
+        dp = 1 if config is None else config.data_parallel
+        tp = 1 if config is None else config.tensor_parallel
+        cp = 1 if config is None else config.context_parallel
 
         if self.attn_type == 'self_attn':
             if self.qkv_concat:
@@ -538,7 +538,7 @@ class ParallelAttention(nn.Cell):
             self.split_kv.shard(((dp, cp, tp),))
 
         if self.use_flash_attention:
-            self.flash_attention.shard(parallel_config)
+            self.flash_attention.shard(config)
 
         self.transpose.shard(((dp, cp, tp, 1),))
         self.merge_head_transpose.shard(((dp, tp, cp, 1),))
@@ -572,9 +572,9 @@ class ParallelTransformerLayer(nn.Cell):
     def __init__(self,
                  config: TransformerConfig,
                  layer_number: int,
-                 layer_type=None,
                  self_attn_mask_type=None,
-                 drop_path_rate: float = 0.0):
+                 drop_path_rate: float = 0.0,
+                 layer_type=None):
         super(ParallelTransformerLayer, self).__init__()
         if layer_type:
             raise NotImplementedError("For ParallelTransformerLayer, `layer_type` is not supported for now")

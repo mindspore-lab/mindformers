@@ -58,6 +58,7 @@ class RotaryEmbedding(nn.Cell):
             self.stack = P.Stack(axis=-1)
         else:
             self.cat = P.Concat(axis=-1)
+        self.reshape = P.Reshape()
 
     def construct(self, max_seq_len: int, offset: int = 0) -> Tensor:
         """Generate rotary position embedding.
@@ -77,12 +78,13 @@ class RotaryEmbedding(nn.Cell):
         freqs = ops.outer(seq, self.inv_freq)
 
         if self.rotary_interleaved:
-            emb = self.stack(freqs.reshape(-1, 1), freqs.reshape(-1, 1)).reshape(freqs.shape[0], -1)
+            freqs_new_shape = (freqs.shape[0], -1)
+            emb = self.reshape(self.stack(self.reshape(freqs, (-1, 1)), self.reshape(freqs, (-1, 1))), freqs_new_shape)
         else:
             emb = self.cat((freqs, freqs))
 
         # emb[.., seq_length, dim]
-        return emb.reshape((1, 1, emb.shape[0], emb.shape[1]))
+        return self.reshape(emb, (1, 1, emb.shape[0], emb.shape[1]))
 
 
 class ApplyRotaryPosEmb(nn.Cell):
@@ -103,6 +105,7 @@ class ApplyRotaryPosEmb(nn.Cell):
         self.cat = P.Concat(axis=-1)
         self.stack = P.Stack(axis=-1)
         self.slice = P.StridedSlice()
+        self.reshape = P.Reshape()
         self.shard(config)
 
     def construct(self, t: Tensor, freqs: Tensor, rotary_interleaved: bool = False) -> Tensor:
@@ -138,7 +141,7 @@ class ApplyRotaryPosEmb(nn.Cell):
         if rotary_interleaved:
             t_1 = self.slice(t, (0, 0, 0, 0), (bs, n_heads, seq_len, head_dim), (1, 1, 1, 2))
             t_2 = self.slice(t, (0, 0, 0, 1), (bs, n_heads, seq_len, head_dim), (1, 1, 1, 2))
-            t_rot = self.stack((self.neg(t_2), t_1)).reshape(bs, n_heads, seq_len, -1)
+            t_rot = self.reshape(self.stack((self.neg(t_2), t_1)), (bs, n_heads, seq_len, -1))
         else:
             t_1, t_2 = self.split(t)
             t_rot = self.cat((self.neg(t_2), t_1))
