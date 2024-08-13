@@ -15,6 +15,7 @@
 |  --src_ckpt_path |  -sc | Source ckpt path  |  是 |
 |  --dst_ckpt_path  | -dc  |  Destination ckpt path |  否 |
 | --pt_to_ms  | -pm  | Pytorch pretrained weights convert to mindspore checkpoint (true or false)   | 否  |
+| --pipeline_stage  | -pp  | Pipeline_stage set during training   | 是  |
 |  --help | -h  |   Print this help message| 否  |
 
 ## 1. 训练权重转fp16推理权重
@@ -29,6 +30,7 @@
 - `--yaml` 为fp16的yaml文件路径
 - `--src_ckpt_path` 为训练权重路径
 - `--train_strategy_file` 为训练策略文件路径
+- `--pipeline_stage` 训练时配置的pp值
 
 可配置项
 
@@ -38,13 +40,13 @@
 #### 1.1.2 流程说明
 
 - 根据 `--yaml，--world_size` 生成相应的策略文件保存在`--infer_strategy_file`
-- 根据 `--src_ckpt_path --train_strategy_file --world_size` 生成fp16的推理权重保存在`--dst_ckpt_path`，其中流程包括：删除优化器、转换、合并、添加前端qkv融合
+- 根据 `--src_ckpt_path --train_strategy_file --world_size --pipeline_stage` 生成fp16的推理权重保存在`--dst_ckpt_path`，其中流程包括：删除优化器、转换、合并、添加前端qkv融合
 
 ### 1.2 样例
 
 ```shell
 # fp16
-bash ckpt_convert.sh -t true -p fp16 -w 8 -y /home/checkpoint_download/llama57b/predict_llama2_57b_910b.yaml  -sc /home/predict/57B/checkpoint/2024-05-20-283200 -ts /home/predict/57B/0520_strategy/strategy -is /home/predict/convert_ckpt_stage_0703/infer_strategy -dc /home/predict/convert_ckpt_stage_0703/infer_ckpt
+bash ckpt_convert.sh -t true -p fp16 -w 8 -y /home/checkpoint_download/llama57b/predict_llama2_57b_910b.yaml  -sc /home/predict/57B/checkpoint/2024-05-20-283200 -ts /home/predict/57B/0520_strategy/strategy -is /home/predict/convert_ckpt_stage_0703/infer_strategy -dc /home/predict/convert_ckpt_stage_0703/infer_ckpt -pp 7
 ```
 
 ### 1.3 注意事项
@@ -67,7 +69,8 @@ bash ckpt_convert.sh -t true -p fp16 -w 8 -y /home/checkpoint_download/llama57b/
 
 - `--infer_strategy_file` 生成策略文件的保存地址，不设置此参数时，策略文件保存在当前路径下`"./infer_strategy/"`；
 - `--dst_ckpt_path` 生成量化权重文件的保存地址，不设置此参数时策略文件保存在当前路径下`./infer_ckpt/`
-- `-d` 转w8a8量化权重时必要配置的数据集名称，当前只支持 `boolq、squad1.1、wikitext2` 三个数据集，`-dp` 为数据集路径，例如 './boolq/dev.jsonl'
+- `-d` **转w8a8量化权重时必要配置**的数据集名称，当前只支持 `boolq、squad1.1、wikitext2` 三个数据集，
+- `-dp` **转w8a8量化权重时必要配置**的数据集路径，例如 './boolq/dev.jsonl'
 
 #### 2.1.2 流程说明
 

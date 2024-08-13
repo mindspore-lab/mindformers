@@ -50,27 +50,45 @@ def del_optimize_param(i, train_ckpt_path, del_optim_path):
     print(f"del total time: {t2 - t1}")
 
 
-def run_del(train_ckpt_path, del_optim_path):
+def find_divisors(n):
+    divisors = set()
+    for i in range(1, int(n ** 0.5) + 1):
+        if n % i == 0:
+            divisors.add(i)
+            divisors.add(n // i)
+    return sorted(divisors)
+
+
+def run_del(train_ckpt_path, del_optim_path, train_folder_count):
     """parallel run del_optimize_param function"""
     # 获取当前时间
     start_time = datetime.now().strftime("%H:%M:%S")
 
-    # 定义要处理的数据列表
-    num_chunks = 3584 // 256
+    cpu_count = multiprocessing.cpu_count()
 
-    # 使用pool.map并行执行worker函数，传入每个输入值
-    for j in range(num_chunks):
-        start_chunk_time = datetime.now().strftime("%H:%M:%S")
-        print(f"Start chunk {j + 1}/{num_chunks} at {start_chunk_time}")
-
-        arguments = [(i, train_ckpt_path, del_optim_path) for i in range(j * 256, min((j + 1) * 256, 3584))]
-
+    if cpu_count >= train_folder_count:
+        arguments = [(i, train_ckpt_path, del_optim_path) for i in range(train_folder_count)]
         # 创建一个进程池，指定进程数量
-        with multiprocessing.Pool(processes=256) as pool:
+        with multiprocessing.Pool(processes=train_folder_count) as pool:
             pool.starmap(del_optimize_param, arguments)
+    else:
+        divisors = find_divisors(train_folder_count)
+        # 找到最接近但不超过CPU核心数*2的最大整除数
+        process_num = max(d for d in divisors if d <= cpu_count * 2)
+        # 定义要处理的数据列表
+        num_chunks = train_folder_count // process_num  # 3584 // 256
+        # 使用pool.map并行执行worker函数，传入每个输入值
+        for j in range(num_chunks):
+            start_chunk_time = datetime.now().strftime("%H:%M:%S")
+            print(f"Start chunk {j + 1}/{num_chunks} at {start_chunk_time}")
+            arguments = [(i, train_ckpt_path, del_optim_path) for i in
+                         range(j * process_num, min((j + 1) * process_num, train_folder_count))]
+            # 创建一个进程池，指定进程数量
+            with multiprocessing.Pool(processes=process_num) as pool:
+                pool.starmap(del_optimize_param, arguments)
 
-        end_chunk_time = datetime.now().strftime("%H:%M:%S")
-        print(f"End chunk {j + 1}/{num_chunks} at {end_chunk_time}")
+            end_chunk_time = datetime.now().strftime("%H:%M:%S")
+            print(f"End chunk {j + 1}/{num_chunks} at {end_chunk_time}")
 
     # 获取结束时间
     end_time = datetime.now().strftime("%H:%M:%S")
@@ -79,11 +97,12 @@ def run_del(train_ckpt_path, del_optim_path):
     print(f"delete optimize: start time: {start_time}, End time: {end_time}")
 
 
-def transform_ckpt(i, del_optim_path, save_checkpointint_file_dir, train_strategy_file, infer_strategy_file):
+def transform_ckpt(i, del_optim_path, save_checkpointint_file_dir, train_strategy_file, infer_strategy_file,
+                   pipeline_stage, train_folder_count):
     """transform training checkpoint to infer checkpoint"""
     ms.set_context(device_target="CPU")
     stage_id = int(i)
-    stage_device_num = 512  # 3584/7   #256 #3840/15
+    stage_device_num = train_folder_count // pipeline_stage  # 512 3584/7   #256 3840/15
 
     train_strategy_file = train_strategy_file + "/ckpt_strategy_rank_{}.ckpt".format(stage_id * stage_device_num)
     infer_strategy_file = infer_strategy_file + "/ckpt_strategy_rank_0.ckpt"
@@ -96,15 +115,17 @@ def transform_ckpt(i, del_optim_path, save_checkpointint_file_dir, train_strateg
     print("transform rank {} cost: {:.2f}".format(stage_id, time.time() - start_time))
 
 
-def run_transform(del_optim_path, train_2_infer_path, train_strategy_file, infer_strategy_file):
+def run_transform(del_optim_path, train_2_infer_path, train_strategy_file, infer_strategy_file, pipeline_stage,
+                  train_folder_count):
     """parallel run transform_ckpt function"""
     # 获取当前时间
     start_time = datetime.now().strftime("%H:%M:%S")
 
-    arguments = [(i, del_optim_path, train_2_infer_path, train_strategy_file, infer_strategy_file) for i in range(7)]
+    arguments = [(i, del_optim_path, train_2_infer_path, train_strategy_file, infer_strategy_file, pipeline_stage,
+                  train_folder_count) for i in range(pipeline_stage)]
 
     # 创建一个进程池
-    with multiprocessing.Pool(processes=7) as pool:
+    with multiprocessing.Pool(processes=pipeline_stage) as pool:
         # 使用pool.starmap并行执行transform_ckpt函数，传入参数列表
         pool.starmap(transform_ckpt, arguments)
 
@@ -146,8 +167,14 @@ def run_merge(train_2_infer_path, infer_ckpt_path, world_size):
 
 def main(args):
     """main function"""
-    run_del(args.train_ckpt_path, args.del_optim_path)
-    run_transform(args.del_optim_path, args.train_2_infer_path, args.train_strategy_file, args.infer_strategy_file)
+    # 获取目录中的所有条目
+    entries = os.listdir(args.train_ckpt_path)
+    # 过滤出文件夹数量
+    train_folder_count = sum(1 for entry in entries if
+                             os.path.isdir(os.path.join(args.train_ckpt_path, entry)) and entry.startswith('rank_'))
+    run_del(args.train_ckpt_path, args.del_optim_path, train_folder_count)
+    run_transform(args.del_optim_path, args.train_2_infer_path, args.train_strategy_file, args.infer_strategy_file,
+                  args.pipeline_stage, train_folder_count)
     run_merge(args.train_2_infer_path, args.infer_ckpt_path, args.world_size)
 
 
@@ -167,6 +194,8 @@ if __name__ == "__main__":
                         help='Checkpoint saved path from train process.')
     parser.add_argument('--world_size', default=8, type=int,
                         help='world size')
+    parser.add_argument('--pipeline_stage', default=7, type=int,
+                        help='training pipeline_stage')
     uargs = parser.parse_args()
 
     main(uargs)

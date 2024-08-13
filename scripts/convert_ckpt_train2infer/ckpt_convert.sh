@@ -15,6 +15,7 @@ print_usage() {
     echo "  -sc, --src_ckpt_path         Source ckpt path"
     echo "  -dc, --dst_ckpt_path         Destination ckpt path"
     echo "  -pm, --pt_to_ms              Pytorch pretrained weights convert to mindspore checkpoint (true or false) "
+    echo "  -pp, --pipeline_stage        Pipeline_stage set during training "
     echo "  -h,  --help                  Print this help message"
 }
 
@@ -32,6 +33,7 @@ while [[ "$#" -gt 0 ]]; do
         -sc|--src_ckpt_path) src_ckpt_path="$2"; shift ;;
         -dc|--dst_ckpt_path) dst_ckpt_path="$2"; shift ;;
         -pm|--pt_to_ms) pt_to_ms="$2"; shift ;;
+        -pp|--pipeline_stage) pipeline_stage="$2"; shift ;;
         -h|--help) print_usage; exit 0 ;;
         *) echo "Unknown option: $1"; print_usage; exit 1 ;;
     esac
@@ -72,14 +74,18 @@ if [ "$train_to_infer" == "true" ] && [ "$precision" == "fp16" ]; then
     fi
     #1. save strategy
     echo "-----1. Start to save strategy time: $(date +%H:%M:%S) -----"
-    msrun --worker_num=$world_size --local_worker_num=$world_size \
-    --log_dir=./log/msrun_log_save_strategy_${precision}_${world_size}p \
-    --master_port=8126 --join=True --bind_core=False \
-    python save_strategy.py \
-    --yaml_file=$yaml_path \
-    --save_strategy_path=${Infer_strategy_path}_no_qkv \
-    --world_size=$world_size \
-    --qkv_concat=False > ./log/log_save_strategy_${precision}_${world_size}p.log 2>&1
+    if [ -f  ${Infer_strategy_path}_no_qkv/strategy/ckpt_strategy_rank_0.ckpt ] ; then
+        echo "Has ${precision}_${world_size}p strategy, jump to step 2"
+    else
+        msrun --worker_num=$world_size --local_worker_num=$world_size \
+        --log_dir=./log/msrun_log_save_strategy_${precision}_${world_size}p \
+        --master_port=8126 --join=True --bind_core=False \
+        python save_strategy.py \
+        --yaml_file=$yaml_path \
+        --save_strategy_path=${Infer_strategy_path}_no_qkv \
+        --world_size=$world_size \
+        --qkv_concat=False > ./log/log_save_strategy_${precision}_${world_size}p.log 2>&1
+    fi
     echo "-----1. End save strategy  time: $(date +%H:%M:%S) -----"
     if [ -z "$src_ckpt_path" ] || [ -z "$train_strategy_file" ] ; then
         echo "Please set training checkpoint saved path and training strategy saved path."
@@ -96,10 +102,11 @@ if [ "$train_to_infer" == "true" ] && [ "$precision" == "fp16" ]; then
     --train_ckpt_path=$src_ckpt_path \
     --del_optim_path=$Infer_ckpt_path"/del_optim" \
     --train_strategy_file=$train_strategy_file \
-    --infer_strategy_file=$Infer_strategy_path"/strategy" \
+    --infer_strategy_file=${Infer_strategy_path}_no_qkv/strategy \
     --train_2_infer_path=$Infer_ckpt_path"/train_2_infer_ckpt" \
     --infer_ckpt_path=$Infer_ckpt_path \
-    --world_size=$world_size > ./log/log_train_2_infer_${world_size}.log 2>&1
+    --world_size=$world_size \
+    --pipeline_stage=$pipeline_stage > ./log/log_train_2_infer_${world_size}.log 2>&1
     echo "-----2. End convert train to infer weights time: $(date +%H:%M:%S) -----"
     #3. 增加前端融合算子
     echo "-----3. Start to convert qkv and ffn time: $(date +%H:%M:%S)-----"
