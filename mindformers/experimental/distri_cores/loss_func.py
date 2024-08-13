@@ -21,10 +21,10 @@ from mindformers.experimental.distri_cores.create_comm import get_tp_group, get_
 
 from mindformers.experimental.distri_cores.register import ModuleType, ModuleRegistry
 
-__all__ = ['VocabParallelCrossEntropyLoss']
+__all__ = ['VocabParallelCrossEntropy']
 
 
-class VocabParallelCrossEntropyLoss(nn.Cell):
+class VocabParallelCrossEntropy(nn.Cell):
     """
     Calculate the paralleled cross entropy loss.
 
@@ -43,8 +43,8 @@ class VocabParallelCrossEntropyLoss(nn.Cell):
         >>> import numpy as np
         >>> from mindspore import dtype as mstype
         >>> from mindspore import Tensor
-        >>> from mindformers.experimental.distri_cores import VocabParallelCrossEntropyLoss
-        >>> loss = VocabParallelCrossEntropyLoss()
+        >>> from mindformers.experimental.distri_cores import VocabParallelCrossEntropy
+        >>> loss = VocabParallelCrossEntropy()
         >>> logits = Tensor(np.array([[3, 5, 6, 9, 12, 33, 42, 12, 32, 72]]), mstype.float32)
         >>> labels_np = np.array([1]).astype(np.int32)
         >>> labels = Tensor(labels_np)
@@ -54,7 +54,7 @@ class VocabParallelCrossEntropyLoss(nn.Cell):
     """
     # pylint: disable=W0613
     def __init__(self, *args, **kwargs):
-        super(VocabParallelCrossEntropyLoss, self).__init__()
+        super(VocabParallelCrossEntropy, self).__init__()
         self.label_smoothing = None
         self.vocab_size = None
         self.saved_tensors = None
@@ -139,7 +139,7 @@ class VocabParallelCrossEntropyLoss(nn.Cell):
 
 
 ModuleRegistry.register(nn.CrossEntropyLoss, ModuleType.LOSS_FUNC)
-ModuleRegistry.register(VocabParallelCrossEntropyLoss, ModuleType.LOSS_FUNC)
+ModuleRegistry.register(VocabParallelCrossEntropy, ModuleType.LOSS_FUNC)
 
 
 class LossWithMask(nn.Cell):
@@ -202,7 +202,7 @@ def get_loss_func(training_config, return_instance: bool = True, **kwargs):
     loss_func_kwargs = training_config.loss_func_kwargs
     loss_func_kwargs["reduction"] = training_config.loss_reduction
     loss_func_type = loss_func_kwargs.pop("loss_func_type")
-    if "CrossEntropyLoss" in loss_func_type:
+    if "CrossEntropy" in loss_func_type:
         loss_func_kwargs["reduction"] = 'none'
     loss_func_cls = ModuleRegistry.get_item(module_type=ModuleType.LOSS_FUNC, item_name=loss_func_type)
     if return_instance:
