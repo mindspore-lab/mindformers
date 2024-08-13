@@ -16,6 +16,68 @@
 
 import mindspore.ops as ops
 import mindspore._checkparam as validator
+import mindspore.nn as nn
+
+from mindformers.experimental.distri_cores.register import ModuleType, ModuleRegistry
+
+
+def inplace_apply_to_tensor_list(func: callable):
+    """Apply a function to a list of tensors in place.
+
+    Args:
+        func (callable): The function to apply to each tensor in the list.
+    Returns:
+        callable: The function that applies the input function to each tensor in the list in place.
+    """
+
+    def inplace_apply_func(tensor_list, *args, **kwargs):
+        for idx in range(len(tensor_list)):
+            tensor_list[idx] = func(tensor_list[idx], *args, **kwargs)
+
+    return inplace_apply_func
+
+
+@ModuleRegistry.register_decorator(ModuleType.GRAD_PROCESS_FUNC)
+class GradClipByValue(nn.Cell):
+    """
+    Clips the gradients by a specified value inplace.
+
+    Args:
+        clip_value (float): The value to clip the gradients.
+
+    Inputs:
+        - **grads** (list[Tensor]) - The gradients of parameters, the shape is the same as parameters.
+    """
+    def __init__(self, clip_value):
+        super(GradClipByValue, self).__init__()
+        self.clip_value = clip_value
+        self.clip_func = inplace_apply_to_tensor_list(ops.clip_by_value)
+
+    def construct(self, grads):
+        self.clip_func(grads, -self.clip_value, self.clip_value)
+
+
+def get_grad_process_func(training_config, return_instance=True, **kwargs):
+    """
+    Get the gradient processing function based on the provided training configuration.
+
+    Args:
+        training_config (TrainingConfig): The training configuration object.
+        return_instance (bool, optional): Whether to return an instance of the gradient processing function.
+            Defaults to True.
+        **kwargs: Additional keyword arguments.
+
+    Returns:
+        Union[Type[GradProcessFunc], GradProcessFunc]: The gradient processing function or its instance.
+    """
+    grad_process_func_kwargs = training_config.grad_clip_kwargs.copy()
+    grad_clip_type = grad_process_func_kwargs.pop("grad_clip_type")
+    grad_clip_cls = ModuleRegistry.get_item(module_type=ModuleType.GRAD_PROCESS_FUNC, item_name=grad_clip_type)
+    if return_instance:
+        grad_process_func_kwargs.update(kwargs)
+        grad_process_func_kwargs = ModuleRegistry.get_needed_params_for_init(grad_clip_cls, grad_process_func_kwargs)
+        return grad_clip_cls(**grad_process_func_kwargs)
+    return grad_clip_cls
 
 
 class GradAccumulator:

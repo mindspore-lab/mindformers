@@ -12,11 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
-"""mindformers init"""
-
-from .training import TrainOneStepCell, train
-from .transformer import *
-
-__all__ = ["TrainOneStepCell", "train"]
-__all__.extend(transformer.__all__)
+"""ST."""
