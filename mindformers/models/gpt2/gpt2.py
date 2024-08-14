@@ -106,9 +106,14 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
         self.all_ones_attention_mask = P.Ones()((1, 1, 1), mstype.float32)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        return {
-            "input_ids": Tensor(input_ids, mstype.int32)
-        }
+        current_index = kwargs.get("current_index")
+        prefill = kwargs.get("prefill")
+        return_inputs = {"input_ids": Tensor(input_ids.astype(np.int32))}
+        if current_index is not None:
+            return_inputs.update({"input_position": Tensor(current_index, mstype.int32)})
+        if prefill is not None:
+            return_inputs.update({"init_reset": Tensor([not prefill], mstype.bool_)})
+        return return_inputs
 
     def add_flags_custom(self, is_first_iteration):
         """Add customized attributes for specific cells in the model."""

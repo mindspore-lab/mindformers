@@ -391,19 +391,17 @@ class CogVLM2VideoLM(LlamaPreTrainedModel):
     def set_dynamic_inputs(self, **kwargs):
         """Set dynamic inputs for model."""
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
-        dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_init_reset = Tensor([False], mstype.bool_)
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
         if have_prefix_keys_values:
             dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None, None], dtype=mstype.float16)
-            self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
+            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
                             dynamic_slot_mapping, dynamic_prefix_keys_values)
         else:
-            self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
+            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
                             dynamic_slot_mapping, None)
         logger.info("Set dynamic input for llama.")
@@ -422,7 +420,7 @@ class CogVLM2VideoLM(LlamaPreTrainedModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None):
         """CogVLM2VideoLM forward."""
         if input_ids is None and input_embeds is None:

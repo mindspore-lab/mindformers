@@ -605,13 +605,11 @@ class QwenVL(PreTrainedModel):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_images = Tensor(shape=[None, None, None, None, None], dtype=mstype.float32)
         dynamic_img_pos = Tensor(shape=[None, None, None, None], dtype=mstype.int32)
-        dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_init_reset = Tensor([False], mstype.bool_)
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
-        self.set_inputs(dynamic_input_ids, dynamic_images, dynamic_img_pos, None, dynamic_input_position, None,
-                        None, dynamic_init_reset, dynamic_batch_valid_length, None, None,
+        self.set_inputs(dynamic_input_ids, dynamic_images, dynamic_img_pos, None, None, None,
+                        None, None, dynamic_batch_valid_length, None, None,
                         dynamic_block_tables, dynamic_slot_mapping)
 
         self.llm_model.set_dynamic_inputs()
@@ -638,7 +636,7 @@ class QwenVL(PreTrainedModel):
         return text_embeds
 
     def construct(self, input_ids, images, img_pos: Tensor = None, labels=None,
-                  input_position=None, position_ids=None, attention_mask=None, init_reset=True, batch_valid_length=None,
+                  input_position=None, position_ids=None, attention_mask=None, init_reset=None, batch_valid_length=None,
                   batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None):
         """forward of QwenVL"""
         bs, seq_len = self.shape(input_ids)

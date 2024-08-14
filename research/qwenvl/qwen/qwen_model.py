@@ -169,13 +169,11 @@ class QwenForCausalLM(QwenPreTrainedModel):
         """Set inputs when is_dynamic=True."""
         # dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_input_embeds = Tensor(shape=[None, None, None], dtype=mstype.float32)
-        dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_init_reset = Tensor([False], mstype.bool_)
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
-        self.set_inputs(None, None, dynamic_input_position, None, None,
-                        dynamic_input_embeds, dynamic_init_reset, dynamic_batch_valid_length, None, None,
+        self.set_inputs(None, None, None, None, None,
+                        dynamic_input_embeds, None, dynamic_batch_valid_length, None, None,
                         dynamic_block_tables, dynamic_slot_mapping)
         logger.info("Set dynamic input for Qwen.")
 
@@ -189,7 +187,7 @@ class QwenForCausalLM(QwenPreTrainedModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None):
         """construct"""
 

@@ -90,7 +90,6 @@ class GenerationMixin:
         if self.block_mgr:
             self.block_mgr.init_cache_engine(batch_size)
 
-
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """
@@ -134,14 +133,10 @@ class GenerationMixin:
                 model_inputs["input_ids"] = input_ids
                 return
             input_ids = input_ids.asnumpy()
-        inputs_tmp = []
-        for i, index_value in enumerate(current_index):
-            current_index_tmp = (
-                int(index_value) - i * input_ids.shape[1]
-            )  # multibatch
-            # use numpy to slice array to avoid complie ascend slice op
-            inputs_tmp.append(input_ids[i][current_index_tmp: current_index_tmp + 1])
-        inputs_tmp = np.array(inputs_tmp, dtype=np.int32)
+
+        current_index_tmp = current_index - np.arange(input_ids.size, step=input_ids.shape[1])
+        arg = np.arange(input_ids.shape[0])
+        inputs_tmp = input_ids[arg, current_index_tmp].reshape(-1, 1)
         model_inputs["input_ids"] = Tensor.from_numpy(inputs_tmp.astype(np.int32))
 
     def process_logits(self, logits, current_index=None, keep_all=False):
@@ -295,9 +290,6 @@ class GenerationMixin:
         if prefill:
             self.phase = "prefill"
             self.add_flags_custom(is_first_iteration=True)
-            model_inputs["input_position"] = Tensor.from_numpy(np.array(current_index, dtype=np.int32))
-            model_inputs["init_reset"] = Tensor.from_numpy(
-                np.array([False], dtype=np.bool_))  # init_reset (1,) bool False
             model_inputs["batch_valid_length"] = Tensor.from_numpy(
                 np.array([valid_length_each_example], dtype=np.int32))
             if block_tables is not None:
@@ -314,9 +306,6 @@ class GenerationMixin:
         else:
             # slice model inputs for incremental infer
             self.slice_incremental_inputs(model_inputs, current_index)
-            model_inputs["input_position"] = Tensor.from_numpy(np.array(current_index, dtype=np.int32))
-            model_inputs["init_reset"] = Tensor.from_numpy(
-                np.array([True], dtype=np.bool_))  # init_reset (1,), bool True
             model_inputs["batch_valid_length"] = Tensor.from_numpy(
                 np.array([valid_length_each_example], dtype=np.int32))
             if block_tables is not None:
@@ -733,7 +722,7 @@ class GenerationMixin:
 
         # prepare dict outputs
         if generation_config.return_dict_in_generate and generation_config.output_logits \
-            and self.config.is_sample_acceleration:
+                and self.config.is_sample_acceleration:
             logger.warning("When `is_sample_acceleration` is True, logits can not be fetched. "
                            "Set `output_logits` to False.")
             generation_config.output_logits = False
@@ -1058,12 +1047,7 @@ class GenerationMixin:
             res, current_index
         """
         input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
-        batch_size = input_ids.shape[0]
-        seq_length = input_ids.shape[1]
-        current_index = [
-            valid_length_each_example[i] - 1 + i * seq_length
-            for i in range(batch_size)
-        ]
+        current_index = valid_length_each_example - 1 + np.arange(input_ids.size, step=input_ids.shape[1])
         if self.config.is_encoder_decoder:
             inputs = Tensor(input_ids, mstype.int32)
             # pylint: disable=E1102
@@ -1076,15 +1060,12 @@ class GenerationMixin:
             )
         else:
             model_kwargs["current_index"] = current_index
+            model_kwargs["prefill"] = prefill if use_past else None
             # pylint: disable=E1111
             model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
             real_input_ids = model_inputs["input_ids"]
-            batch_size = real_input_ids.shape[0]
-            seq_length = real_input_ids.shape[1]
-            current_index = [
-                valid_length_each_example[i] - 1 + i * seq_length
-                for i in range(batch_size)
-            ]
+            current_index = valid_length_each_example - 1 + np.arange(real_input_ids.numel(),
+                                                                      step=real_input_ids.shape[1])
             model_kwargs["current_index"] = current_index
 
             if use_past:
