@@ -91,8 +91,14 @@ def _update_params_opt_parallel(param, update, all_gather):
     param.assign_value(update)
 
 
-def _inner_grad_reduce_scatter(reduce_scatter, grads):
-    grads = reduce_scatter(grads)
+def _inner_grad_reduce_scatter(reduce_scatter, allreduce, grad_allreduce_sum, shard_size, grads, grads_splited,
+                               parameter_splited):
+    if grads_splited or parameter_splited:
+        grads = reduce_scatter(grads)
+    else:
+        grads = allreduce(grads)
+    if not grad_allreduce_sum:
+        grads = grads / shard_size
     return grads
 
 
@@ -445,9 +451,10 @@ class AdamW(Optimizer):
         if self.zero_level == "z1":
             grads = self.hyper_map(F.partial(_split_params, self.shard_id, self.split),
                                    grads, self._status_splited)
-        if self.allreduce_after_grad_accumulation:
-            grads = self.hyper_map(F.partial(_inner_grad_reduce_scatter, self.reduce_scatter), grads)
-
+        if self.allreduce_after_grad_accumulation and self.zero_level in ["z2", "z3"]:
+            grads = self.hyper_map(F.partial(_inner_grad_reduce_scatter, self.reduce_scatter, self.allreduce,
+                                             self.grad_allreduce_sum, self.shard_size),
+                                   grads, self._status_splited, self._parameter_splited)
         params = self.hyper_map(F.partial(_split_params, self.shard_id, self.split),
                                 self._parameters, self._status_splited)
         grads = self.flatten_gradients(grads)
