@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 
 
-class TestParallelCrossEntropyLoss:
+class TestVocabParallelCrossEntropy:
     """A test class for testing cross entropy loss."""
     @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
@@ -32,7 +32,7 @@ class TestParallelCrossEntropyLoss:
         Expectation: test success
         """
         os.environ['HCCL_BUFFSIZE'] = "1"
-        scripts_name = "run_parallel_cross_entropy_loss.py"
+        scripts_name = "run_vocab_parallel_cross_entropy.py"
         device_num = 2
 
         sh_path = os.path.split(os.path.realpath(__file__))[0]
@@ -55,31 +55,31 @@ class TestParallelCrossEntropyLoss:
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     @pytest.mark.run(order=2)
-    def test_vocab_parallel_cross_entropy_loss(self):
+    def test_vocab_parallel_cross_entropy(self):
         """
         Feature: test vocab parallel cross entropy loss
         Description: run vocab parallel cross entropy loss to generate loss
         Expectation: test success
         """
         os.environ['HCCL_BUFFSIZE'] = "1"
-        scripts_name = "run_parallel_cross_entropy_loss.py"
+        scripts_name = "run_vocab_parallel_cross_entropy.py"
         device_num = 2
 
         sh_path = os.path.split(os.path.realpath(__file__))[0]
         scripts_path = os.path.join(sh_path, scripts_name)
 
-        scripts_cmd = f"{scripts_path} --loss_func_type=VocabParallelCrossEntropyLoss --tp=2"
+        scripts_cmd = f"{scripts_path} --loss_func_type=VocabParallelCrossEntropy --tp=2"
         cmd = f"msrun --worker_num={device_num} " + \
               f"--local_worker_num={device_num} " + \
               "--master_port=8118 " + \
-              "--log_dir=msrun_log_VocabParallelCrossEntropyLoss " + \
+              "--log_dir=msrun_log_VocabParallelCrossEntropy " + \
               "--join=True " + \
               "--cluster_time_out=300 " + \
               f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
-        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_VocabParallelCrossEntropyLoss/worker_0.log -C 3")
-        assert ret == 0, "msrun failed, please check msrun_log_VocabParallelCrossEntropyLoss/worker_*.log"
+        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_VocabParallelCrossEntropy/worker_0.log -C 3")
+        assert ret == 0, "msrun failed, please check msrun_log_VocabParallelCrossEntropy/worker_*.log"
 
     @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
@@ -92,12 +92,12 @@ class TestParallelCrossEntropyLoss:
         Expectation: relative error smaller than 1e-3
         """
         golden_log_path = 'msrun_log/worker_0.log'
-        pynative_log_path = 'msrun_log_VocabParallelCrossEntropyLoss/worker_0.log'
+        pynative_log_path = 'msrun_log_VocabParallelCrossEntropy/worker_0.log'
 
         assert os.path.exists(golden_log_path) and os.path.exists(pynative_log_path), \
             f"{golden_log_path} or {pynative_log_path} did not exits, " + \
-            "please run test_parallel_cross_entropy_loss.py to generate them by running below command: \n" + \
-            "`pytest -sv test_parallel_cross_entropy_loss.py::TestParallelCrossEntropyLoss`"
+            "please run test_vocab_parallel_cross_entropy.py to generate them by running below command: \n" + \
+            "`pytest -sv test_vocab_parallel_cross_entropy.py::TestVocabParallelCrossEntropy`"
 
         golden_loss = []
         with open(golden_log_path, "r") as fp:
@@ -132,7 +132,7 @@ class TestParallelCrossEntropyLoss:
         Expectation: test success
         """
         os.environ['HCCL_BUFFSIZE'] = "1"
-        scripts_name = "run_parallel_cross_entropy_loss.py"
+        scripts_name = "run_vocab_parallel_cross_entropy.py"
         device_num = 1
 
         sh_path = os.path.split(os.path.realpath(__file__))[0]
@@ -155,20 +155,20 @@ class TestParallelCrossEntropyLoss:
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     @pytest.mark.run(order=2)
-    def test_vocab_parallel_cross_entropy_loss_single(self):
+    def test_vocab_parallel_cross_entropy_single(self):
         """
         Feature: test vocab parallel cross entropy loss
         Description: run vocab parallel cross entropy loss to generate loss
         Expectation: test success
         """
         os.environ['HCCL_BUFFSIZE'] = "1"
-        scripts_name = "run_parallel_cross_entropy_loss.py"
+        scripts_name = "run_vocab_parallel_cross_entropy.py"
         device_num = 1
 
         sh_path = os.path.split(os.path.realpath(__file__))[0]
         scripts_path = os.path.join(sh_path, scripts_name)
 
-        scripts_cmd = f"{scripts_path} --loss_func_type=VocabParallelCrossEntropyLoss"
+        scripts_cmd = f"{scripts_path} --loss_func_type=VocabParallelCrossEntropy"
         cmd = f"msrun --worker_num={device_num} " + \
               f"--local_worker_num={device_num} " + \
               "--master_port=8118 " + \
@@ -196,8 +196,8 @@ class TestParallelCrossEntropyLoss:
 
         assert os.path.exists(golden_log_path) and os.path.exists(pynative_log_path), \
             f"{golden_log_path} or {pynative_log_path} did not exits, " + \
-            "please run test_parallel_cross_entropy_loss.py to generate them by running below command: \n" + \
-            "`pytest -sv test_parallel_cross_entropy_loss.py::TestParallelCrossEntropyLoss`"
+            "please run test_vocab_parallel_cross_entropy.py to generate them by running below command: \n" + \
+            "`pytest -sv test_vocab_parallel_cross_entropy.py::TestVocabParallelCrossEntropy`"
 
         golden_loss = []
         with open(golden_log_path, "r") as fp:
@@ -232,7 +232,7 @@ class TestParallelCrossEntropyLoss:
         Expectation: test success
         """
         os.environ['HCCL_BUFFSIZE'] = "1"
-        scripts_name = "run_parallel_cross_entropy_loss.py"
+        scripts_name = "run_vocab_parallel_cross_entropy.py"
         device_num = 2
 
         sh_path = os.path.split(os.path.realpath(__file__))[0]
@@ -255,20 +255,20 @@ class TestParallelCrossEntropyLoss:
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     @pytest.mark.run(order=2)
-    def test_vocab_parallel_cross_entropy_loss_dp2(self):
+    def test_vocab_parallel_cross_entropy_dp2(self):
         """
         Feature: test vocab parallel cross entropy loss
         Description: run vocab parallel cross entropy loss to generate loss
         Expectation: test success
         """
         os.environ['HCCL_BUFFSIZE'] = "1"
-        scripts_name = "run_parallel_cross_entropy_loss.py"
+        scripts_name = "run_vocab_parallel_cross_entropy.py"
         device_num = 2
 
         sh_path = os.path.split(os.path.realpath(__file__))[0]
         scripts_path = os.path.join(sh_path, scripts_name)
 
-        scripts_cmd = f"{scripts_path} --loss_func_type=VocabParallelCrossEntropyLoss --dp=2"
+        scripts_cmd = f"{scripts_path} --loss_func_type=VocabParallelCrossEntropy --dp=2"
         cmd = f"msrun --worker_num={device_num} " + \
               f"--local_worker_num={device_num} " + \
               "--master_port=8118 " + \
@@ -296,8 +296,8 @@ class TestParallelCrossEntropyLoss:
 
         assert os.path.exists(golden_log_path) and os.path.exists(pynative_log_path), \
             f"{golden_log_path} or {pynative_log_path} did not exits, " + \
-            "please run test_parallel_cross_entropy_loss.py to generate them by running below command: \n" + \
-            "`pytest -sv test_parallel_cross_entropy_loss.py::TestParallelCrossEntropyLoss`"
+            "please run test_vocab_parallel_cross_entropy.py to generate them by running below command: \n" + \
+            "`pytest -sv test_vocab_parallel_cross_entropy.py::TestVocabParallelCrossEntropy`"
 
         golden_loss = []
         with open(golden_log_path, "r") as fp:
