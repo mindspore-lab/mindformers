@@ -348,8 +348,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             from mindspore_gs.common import BackendTarget
             from mindspore_gs.ptq import RoundToNearest as RTN
             from mindspore import dtype as msdtype
-            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, weight_dtype=msdtype.float_,
-                            kvcache_dtype=msdtype.int8)
+            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, weight_quant_dtype=None,
+                            kvcache_quant_dtype=msdtype.int8)
             ptq = RTN(config=cfg)
             ptq.apply(self)
             ptq.convert(self)
