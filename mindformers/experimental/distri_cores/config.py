@@ -22,7 +22,7 @@ import re
 from collections import deque
 from functools import partial
 from abc import ABCMeta, abstractmethod
-from typing import List
+from typing import List, Union
 
 import yaml
 
@@ -649,56 +649,35 @@ def validate_target_cells(config_instance, target_cells):
     return target_cells_lst, specific_lora_cell
 
 
-class TrainingConfig(BaseConfig):
-    """
-    Training config.
-
-    Args:
-        epochs (int): Epochs number for training. Default: 1.
-        batch_size (int): Batch size for training. Default: 1.
-    """
-
-    # set config name for identifying while using init_configs methods
-    config_name = "training_config"
-
-    def __init__(self, epochs: int = 1, batch_size: int = 1, **kwargs):
-        super().__init__()
-        self.epochs = epochs
-        self.batch_size = batch_size
-
-        self.update_attrs(**kwargs)
-
-
-@TrainingConfig.validator("epochs")
-def validate_epochs(config_instance, epochs):
-    """Validate epochs"""
-    Validator.check_positive_int(epochs, "epochs")
-    return epochs
-
-
-@TrainingConfig.validator("batch_size")
-def validate_batch_size(config_instance, batch_size):
-    """Validate batch_size"""
-    Validator.check_positive_int(batch_size, "batch_size")
-    return batch_size
-
-
 class DatasetConfig(BaseConfig):
-    """
-    Dataset config class.
+    """Dataset config class.
 
     Args:
-        dataset_dir (str): Dataset file directory. Default: './dataset'.
-        shuffle (Union[bool, None], optional): Shuffle dataset. Default: None.
+        dataset_dir (str, optional): Dataset file directory. Default: './dataset'.
+        shuffle (bool, optional): Shuffle dataset. Default: None.
+        kwargs (dict, optional): Other dataset config arguments.
+        batch_size (int, optional): batch size / micro_batch_size for training and evaluation. Default: 1.
+        micro_batch_num (int, optional): Number of micro batch when using pipeline parallel or
+            gradient accumulation. Defaults: 1.
     """
 
     # set config name for identifying while using init_configs methods
     config_name = "dataset_config"
 
-    def __init__(self, dataset_dir: str = "./dataset", shuffle: bool = None, **kwargs):
+    def __init__(
+            self,
+            dataset_dir: str = "./dataset",
+            shuffle: bool = False,
+            batch_size: int = 1,
+            micro_batch_num: int = 1,
+            **kwargs,
+    ):
         super().__init__()
+
         self.dataset_dir = dataset_dir
         self.shuffle = shuffle
+        self.batch_size = batch_size
+        self.micro_batch_num = micro_batch_num
 
         self.update_attrs(**kwargs)
 
@@ -713,8 +692,23 @@ def validate_dataset_dir(config_instance, dataset_dir):
 @DatasetConfig.validator("shuffle")
 def validate_shuffle(config_instance, shuffle):
     """Validate shuffle."""
-    Validator.check_value_type("shuffle", shuffle, [bool, type(None)])
+    if shuffle is not None:
+        Validator.check_bool(shuffle, "shuffle")
     return shuffle
+
+
+@DatasetConfig.validator("batch_size")
+def validate_batch_size(config_instance, batch_size):
+    """Validate batch_size."""
+    Validator.check_positive_int(batch_size, "batch_size")
+    return batch_size
+
+
+@DatasetConfig.validator("micro_batch_num")
+def validate_micro_batch_num(config_instance, micro_batch_num):
+    """Validate micro_batch_num."""
+    Validator.check_positive_int(micro_batch_num, "micro_batch_num")
+    return micro_batch_num
 
 
 class ModelParallelConfig(BaseConfig):
@@ -791,13 +785,6 @@ def validate_expert_parallel(config_instance, expert_parallel):
     """Validate expert_parallel."""
     Validator.check_positive_int(expert_parallel, "expert_parallel")
     return expert_parallel
-
-
-@ModelParallelConfig.validator("micro_batch_num")
-def validate_micro_batch_num(config_instance, micro_batch_num):
-    """Validate micro_batch_num."""
-    Validator.check_positive_int(micro_batch_num, "micro_batch_num")
-    return micro_batch_num
 
 
 @ModelParallelConfig.validator("use_sequence_parallel")
@@ -1337,3 +1324,220 @@ def validate_weight_decay_kwargs(config_instance, weight_decay_kwargs):
     if weight_decay_kwargs is not None:
         Validator.check_value_type("weight_decay_kwargs", weight_decay_kwargs, [dict])
     return weight_decay_kwargs
+
+class TrainingConfig(BaseConfig):
+    r"""
+    Training config.
+
+    Args:
+        parallel_config (ModelParallelConfig): Parallel config.
+        dataset_config (DatasetConfig): Dataset config.
+        seed (Union[int, None], optional): Random seed for initialization. Default: None.
+        output_dir (str, optional): Output directory for saving checkpoints, logs and so on. Default: './output'.
+        training_iters (int, optional) : Training iterations for training. Default: 1.
+        epochs (Union[int, None], optional) : Epochs for training. Default: None.
+        log_interval (Union[int, None], optional): Log interval for training. Default: None.
+        eval_interval (Union[int, None], optional): Evaluation interval for training. Default: None.
+        save_interval (Union[int, None], optional): Save interval for training. Default: None.
+        best_metric_comparison (Union[str, None], optional): the method to compare best metric. Default: None.
+        eval_metric(Union[str, None], optional): the name of evaluation metrics. Default: None
+        grad_clip_kwargs (dict, optional): Gradient clip arguments. Default: None.
+        loss_scale (Union[float, int, None], optional): Initial value of loss scale. If set,
+            will use static loss scaler. Default: None.
+        loss_scale_value (Union[float, int, None], optional): Initial value of dynamic loss scale. Default: None.
+        loss_scale_factor (Union[int, None], optional): Factor of dynamic loss scale. Default: None.
+        loss_scale_window (Union[int, None], optional): Window size of dynamic loss scale. Default: None.
+        loss_reduction (str, optional): Loss reduction method. Default: 'mean'.
+        kwargs (dict, optional): Other dataset config arguments.
+    """
+
+    # set config name for identifying while using init_configs methods
+    config_name = "training_config"
+
+    def __init__(
+            self,
+            parallel_config: ModelParallelConfig,
+            dataset_config: DatasetConfig = None,
+            lora_config: LoraConfig = LoraConfig(),
+            seed: int = None,
+            output_dir: str = "./output",
+            training_iters: int = 1,
+            epochs: int = None,
+            log_interval: int = None,
+            eval_interval: int = None,
+            save_interval: int = None,
+            best_metric_comparison: str = None,
+            eval_metric: str = None,
+            grad_clip_kwargs: dict = None,
+            loss_scale: Union[float, int] = None,
+            loss_scale_value: Union[float, int] = None,
+            loss_scale_factor: int = None,
+            loss_scale_window: int = None,
+            loss_reduction: str = "mean",
+            **kwargs,
+    ):
+        super().__init__()
+
+        self.parallel_config = parallel_config
+        self.dataset_config = dataset_config
+        self.lora_config = lora_config
+        self.seed = seed
+        self.output_dir = output_dir
+        self.training_iters = training_iters
+        self.epochs = epochs
+        self.log_interval = log_interval
+        self.eval_interval = eval_interval
+        self.save_interval = save_interval
+        self.best_metric_comparison = best_metric_comparison
+        self.eval_metric = eval_metric
+        self.loss_scale = loss_scale
+        self.loss_scale_value = loss_scale_value
+        self.loss_scale_factor = loss_scale_factor
+        self.loss_scale_window = loss_scale_window
+        self.grad_clip_kwargs = grad_clip_kwargs
+        self.loss_reduction = loss_reduction
+
+        self.update_attrs(**kwargs)
+
+
+TrainingConfig.register_depended_config([ModelParallelConfig, DatasetConfig, LoraConfig], optional=[False, True, True])
+
+
+@TrainingConfig.validator("seed")
+def validate_seed(config_instance, seed):
+    """Validate seed."""
+    if seed is not None:
+        Validator.check_positive_int(seed, "seed")
+    return seed
+
+
+@TrainingConfig.validator("output_dir")
+def validate_output_dir(config_instance, output_dir):
+    """Validate output_dir."""
+    Validator.check_value_type("output_dir", output_dir, [str])
+    return output_dir
+
+
+@TrainingConfig.validator("training_iters")
+def validate_training_iters(config_instance, training_iters):
+    """Validate training_iters."""
+    Validator.check_positive_int(training_iters, "training_iters")
+    return training_iters
+
+
+@TrainingConfig.validator("epochs")
+def validate_epochs(config_instance, epochs):
+    """Validate epochs."""
+    if epochs is not None:
+        Validator.check_positive_int(epochs, "epochs")
+    return epochs
+
+
+@TrainingConfig.validator("log_interval")
+def validate_log_interval(config_instance, log_interval):
+    """Validate log_interval."""
+    if log_interval is not None:
+        Validator.check_positive_int(log_interval, "log_interval")
+    return log_interval
+
+
+@TrainingConfig.validator("eval_interval")
+def validate_eval_interval(config_instance, eval_interval):
+    """Validate eval_interval."""
+    if eval_interval is not None:
+        Validator.check_positive_int(eval_interval, "eval_interval")
+    return eval_interval
+
+
+@TrainingConfig.validator("save_interval")
+def validate_save_interval(config_instance, save_interval):
+    """Validate save_interval."""
+    if save_interval is not None:
+        Validator.check_positive_int(save_interval, "save_interval")
+    return save_interval
+
+
+@TrainingConfig.validator("best_metric_comparison")
+def validate_best_metric_comparison(config_instance, best_metric_comparison):
+    """Validate best_metric_comparison."""
+    if best_metric_comparison is not None:
+        if config_instance.eval_interval is None:
+            logger.warning("eval_interval should be set when best_metric_comparison is set.")
+        Validator.check_string(
+            best_metric_comparison, ["less_equal", "greater_equal", "less", "greater"], "best_metric_comparison"
+        )
+    return best_metric_comparison
+
+
+@TrainingConfig.validator("eval_metric")
+def validate_eval_metric(config_instance, eval_metric):
+    """Validate eval_metric."""
+    if eval_metric is not None:
+        if config_instance.best_metric_comparison is None:
+            logger.warning("best_metric_comparison should be set when eval_metric is set.")
+        Validator.check_value_type("eval_metric", eval_metric, [str])
+    return eval_metric
+
+
+@TrainingConfig.validator("use_grad_clip")
+def validate_use_grad_clip(config_instance, use_grad_clip):
+    """Validate use_grad_clip."""
+    Validator.check_bool(use_grad_clip, "use_grad_clip")
+    return use_grad_clip
+
+
+@TrainingConfig.validator("loss_scale")
+def validate_loss_scale(config_instance, loss_scale):
+    """Validate loss_cale."""
+    if loss_scale is not None:
+        if isinstance(loss_scale, int):
+            Validator.check_positive_int(loss_scale, "loss_scale")
+        elif isinstance(loss_scale, float):
+            Validator.check_positive_float(loss_scale, "loss_scale")
+    return loss_scale
+
+
+@TrainingConfig.validator("loss_scale_value")
+def validate_loss_scale_value(config_instance, loss_scale_value):
+    """Validate loss_scale_value."""
+    if loss_scale_value is not None:
+        # check int and float
+        if isinstance(loss_scale_value, int):
+            Validator.check_positive_int(loss_scale_value, "loss_scale_value")
+        elif isinstance(loss_scale_value, float):
+            Validator.check_positive_float(loss_scale_value, "loss_scale_value")
+        else:
+            raise ValueError("loss_scale_value should be int or float.")
+        if config_instance.loss_scale is not None:
+            logger.warning(
+                "loss_scale and loss_scale_value should not be set together. "
+                "Will use static loss scaler with loss_scale."
+            )
+    return loss_scale_value
+
+
+@TrainingConfig.validator("loss_scale_factor")
+def validate_loss_scale_factor(config_instance, loss_scale_factor):
+    """Validate loss_scale_factor."""
+    if loss_scale_factor is not None:
+        Validator.check_positive_int(loss_scale_factor, "loss_scale_factor")
+        if config_instance.loss_scale_value is None:
+            raise ValueError("loss_scale_value, loss_scale_factor, and loss_scale_window should be set together.")
+    return loss_scale_factor
+
+
+@TrainingConfig.validator("loss_scale_window")
+def validate_loss_scale_window(config_instance, loss_scale_window):
+    """Validate loss_scale_window."""
+    if loss_scale_window is not None:
+        Validator.check_positive_int(loss_scale_window, "loss_scale_window")
+        if config_instance.loss_scale_value is None or config_instance.loss_scale_factor is None:
+            raise ValueError("loss_scale_value, loss_scale_factor, and loss_scale_window should be set together.")
+    return loss_scale_window
+
+
+@TrainingConfig.validator("loss_reduction")
+def validate_loss_reduction(config_instance, loss_reduction):
+    """Validate loss_reduction."""
+    Validator.check_string(loss_reduction, ["mean", "sum"], "loss_reduction")
+    return loss_reduction
