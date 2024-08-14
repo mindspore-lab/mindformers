@@ -13,7 +13,9 @@
 # limitations under the License.
 # ============================================================================
 "mindformers init"
-from .llama import ParallelLlamaModel, ParallelLlamaForCausalLM
+from .llama import (ParallelLlamaAttention, ParallelLlamaForCausalLM, ParallelLlamaMLPWithGate, ParallelLlamaModel,
+                    ParallelLlamaTransformerLayer)
 
-__all__ = ["ParallelLlamaModel", "ParallelLlamaForCausalLM"]
+__all__ = ["ParallelLlamaModel", "ParallelLlamaForCausalLM", "ParallelLlamaAttention",
+           "ParallelLlamaMLPWithGate", "ParallelLlamaTransformerLayer"]
 __all__.extend(llama.__all__)
