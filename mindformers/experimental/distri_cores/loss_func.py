@@ -201,11 +201,12 @@ def get_loss_func(training_config, return_instance: bool = True, **kwargs):
     """
     loss_func_kwargs = training_config.loss_func_kwargs
     loss_func_kwargs["reduction"] = training_config.loss_reduction
-    loss_func_type = loss_func_kwargs.pop("loss_func_type")
+    loss_func_type = loss_func_kwargs['loss_func_type']
     if "CrossEntropy" in loss_func_type:
         loss_func_kwargs["reduction"] = 'none'
     loss_func_cls = ModuleRegistry.get_item(module_type=ModuleType.LOSS_FUNC, item_name=loss_func_type)
     if return_instance:
         loss_func_kwargs.update(kwargs)
+        loss_func_kwargs = ModuleRegistry.get_needed_params_for_init(loss_func_cls, loss_func_kwargs)
         return LossWithMask(loss_func=loss_func_cls(**loss_func_kwargs))
     return loss_func_cls

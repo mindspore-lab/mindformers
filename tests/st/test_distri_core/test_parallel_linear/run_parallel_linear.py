@@ -153,7 +153,7 @@ def run_rowparallellinear(train_args):
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
 
     init()
-    initialize_model_parallel(tp_size=tensor_parallel)
+    initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
 
     print(f"dp: {get_dp_world_size()}, tp: {get_tp_world_size()}")
 
@@ -218,7 +218,7 @@ def run_columnparallellinear(train_args):
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
 
     init()
-    initialize_model_parallel(tp_size=tensor_parallel)
+    initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
 
     print(f"dp: {get_dp_world_size()}, tp: {get_tp_world_size()}")
 

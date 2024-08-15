@@ -696,7 +696,8 @@ class ParallelTransformerLayer(Module):
         else:
             residual = hidden_states
 
-        out = self.hidden_states_dropout(attention_output)
+        with get_rng_tracer().rng_fork():
+            out = self.hidden_states_dropout(attention_output)
         norm_input = residual + out
 
         # layernorm post attention.
@@ -711,7 +712,8 @@ class ParallelTransformerLayer(Module):
         else:
             residual = norm_input
 
-        out = self.hidden_states_dropout(mlp_output)
+        with get_rng_tracer().rng_fork():
+            out = self.hidden_states_dropout(mlp_output)
         output = residual + out
 
         return output

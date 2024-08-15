@@ -143,7 +143,7 @@ def run_train(config_path):
 
     init()
     initialize_model_parallel(
-        tp_size=parallel_config.tensor_parallel,
+        tensor_model_parallel_size=parallel_config.tensor_parallel,
     )
 
     ms.set_seed(training_config.seed)

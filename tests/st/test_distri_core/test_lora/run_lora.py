@@ -109,7 +109,7 @@ def run_parallel_transformer_pretrain():
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
 
     init()
-    initialize_model_parallel(tp_size=tensor_parallel)
+    initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
 
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length, hidden_size)).astype(np.float32)
@@ -167,7 +167,7 @@ def run_parallel_transformer_lora_standalone(target):
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
 
     init()
-    initialize_model_parallel(tp_size=tensor_parallel)
+    initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
 
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length, hidden_size)).astype(np.float32)
@@ -233,7 +233,7 @@ def run_parallel_transformer_lora_tp2(target, use_sequence_parallel=False):
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
 
     init()
-    initialize_model_parallel(tp_size=tensor_parallel)
+    initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
 
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length, hidden_size)).astype(np.float32)
@@ -305,7 +305,7 @@ def run_parallel_transformer_lora_dp2(target):
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
 
     init()
-    initialize_model_parallel(tp_size=tensor_parallel)
+    initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
 
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length, hidden_size)).astype(np.float32)
@@ -373,7 +373,7 @@ def run_parallel_transformer_lora_tp2_dp2(target, use_sequence_parallel=False):
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
 
     init()
-    initialize_model_parallel(tp_size=tensor_parallel)
+    initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
 
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length, hidden_size)).astype(np.float32)

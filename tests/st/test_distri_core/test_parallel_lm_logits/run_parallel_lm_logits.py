@@ -103,7 +103,7 @@ def run_parallel_lm_logits(training_config, model_config, dataset_config):
 
     # init
     init()
-    initialize_model_parallel(tp_size=args.tp)
+    initialize_model_parallel(tensor_model_parallel_size=args.tp)
 
     print(f"dp: {get_dp_world_size()}, tp: {get_tp_world_size()}")
 
