@@ -406,7 +406,7 @@ class ColumnParallelLinear(nn.Cell):
             raise ValueError("For ColumnParallelLinear, when skip_weight_param_allocation=True,"
                              " weight should be passed to construct(), but got None.")
 
-        if weight and not self.skip_weight_param_allocation:
+        if weight is not None and not self.skip_weight_param_allocation:
             raise ValueError("For ColumnParallelLinear, when skip_weight_param_allocation=False,"
                              "weight should not be passed to construct(), but got {}".format(weight))
 
