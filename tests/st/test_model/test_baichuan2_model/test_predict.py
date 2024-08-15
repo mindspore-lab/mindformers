@@ -23,7 +23,7 @@ from tests.utils.model_tester import ModelTester
 
 from .base_model import get_config, get_model
 
-ms.set_context(mode=0)
+ms.set_context(mode=0, jit_config={"jit_level": "O0", "infer_boost": "on"})
 
 
 class TestBaichuan2Predict:

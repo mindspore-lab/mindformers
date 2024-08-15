@@ -20,15 +20,14 @@ How to run this:
 import os
 import numpy as np
 import pytest
+import mindspore as ms
 from mindspore import Tensor
 from mindspore import dtype as mstype
-from mindformers.tools.register import MindFormerConfig
-from mindformers.models import build_network
-from mindformers.core.context.build_context import build_context
 
+from .base_model import get_config, get_model
 
 local_dir = os.path.dirname(os.path.realpath(__file__))
-
+ms.set_context(mode=0, jit_config={"jit_level": "O0", "infer_boost": "on"})
 
 class TestCogVLM2VideoPredict:
     """A test class for testing model prediction."""
@@ -44,14 +43,13 @@ class TestCogVLM2VideoPredict:
         """
         os.environ['USE_ROPE_SELF_DEFINE'] = 'True'
         os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
-        config = MindFormerConfig(f"{local_dir}/predict.yaml")
-        build_context(config)
-        network = build_network(config.model)
+        model_config = get_config()
+        model = get_model(model_config)
         input_ids = np.random.randint(0, 128, size=(1, 1280), dtype=np.int32)
         images = Tensor(np.random.random(size=(1, 3, 224, 224)), dtype=mstype.float32)
         video_context_pos = Tensor(np.array([[[0, i + 3] for i in range(66)]], dtype=np.int32))
         position_ids = Tensor(np.arange(2048, dtype=np.int32)).expand_dims(axis=0)
-        _ = network.generate(input_ids=input_ids,
-                             images=images,
-                             video_context_pos=video_context_pos,
-                             position_ids=position_ids)
+        _ = model.generate(input_ids=input_ids,
+                           images=images,
+                           video_context_pos=video_context_pos,
+                           position_ids=position_ids)
