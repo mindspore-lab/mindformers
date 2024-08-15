@@ -1,34 +1,42 @@
 #!/bin/bash
+# Copyright 2024 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
 
 # set default value
 run_mode="single"
-#model_name="llama2_7b"
-model_name="\"\""
-model_path="predict_model"
-config_path="predict_llama2_7b.yaml"
+model_name_or_dir="predict_model"
 predict_data="\"I love Beijing, because\" \"Huawei is a company that\""
 device_num=2
 
 
 # define help func
 usage() {
-  echo "Usage: bash $0 -m <mode> -n <name> -p <path> -c <config> -i <predict> -d <device> -a <args>"
-#  echo "  -f <file>: Specify the input file"
-#  echo "  -v: Enable verbose mode"
+  echo "Usage: bash $0 -m <mode> -n <name_or_dir> -i <predict> -d <device> -a <args>"
   exit 1
 }
 
 export TIME_RECORD='on'
 
 # parsing parameters
-OPTS=$(getopt -o m:n:p:c:i:d:a: --long mode:,name:,path:,config:,predict:,device:,args: -- "$@")
+OPTS=$(getopt -o m:n:i:d:a: --long mode:,name_or_dir:,predict:,device:,args: -- "$@")
 
 if [ $? -ne 0 ]; then
   usage
 fi
 
 eval set -- "$OPTS"
-#echo "$OPTS"
 
 while true; do
   case "$1" in
@@ -36,19 +44,11 @@ while true; do
       run_mode="$2"
       shift 2
       ;;
-    --name | -n )
-      model_name="$2"
+    --model_name_or_dir | -n )
+      model_name_or_dir="$2"
       shift 2
       ;;
-    --path | -p )
-      model_path="$2"
-      shift 2
-      ;;
-    --config | -c )
-      config_path="$2"
-      shift 2
-      ;;
-    --predict | -i )
+    --predict_data | -i )
       predict_data="$2"
       shift 2
       ;;
@@ -70,13 +70,6 @@ while true; do
   esac
 done
 
-#echo "run_parallel: $run_parallel"
-#echo "model_name: $model_name"
-#echo "model_path: $model_path"
-#echo "config_path: $config_path"
-#echo "predict_data: $predict_data"
-#echo "device_num: $device_num"
-
 # set environment
 SCRIPT_PATH=$(realpath "$(dirname "$0")")
 MF_ROOT_APTH=$(realpath "$SCRIPT_PATH/../../")
@@ -85,11 +78,9 @@ export PYTHONPATH=$MF_ROOT_APTH:$PYTHONPATH
 export RUN_MODE='predict'
 
 EXECUTION="$SCRIPT_PATH/run_inference.py \
- --model_name "$model_name" \
- --model_path "$model_path" \
- --config_path "$config_path" \
- --predict_data "$predict_data" \
- "$script_args""
+ --model_name_or_dir $model_name_or_dir \
+ --predict_data $predict_data \
+ $script_args"
 echo $EXECUTION
 
 if [ "$run_mode" = "single" ]; then
