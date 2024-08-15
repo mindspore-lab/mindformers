@@ -49,7 +49,7 @@ dp = args_.dp
 cp = args_.cp
 tp = args_.tp
 
-ms.set_context(mode=ms.GRAPH_MODE, save_graphs=True)
+ms.set_context(mode=ms.GRAPH_MODE)
 rank_id = os.environ.get('RANK_ID')
 if rank_id is not None:
     ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True)
@@ -111,6 +111,8 @@ config_.apply_residual_connection_post_layernorm = True
 config_.attention_dropout = 0.0
 config_.kv_num_heads = 8
 config_.layernorm_compute_type = dtype.float32
+config_.intermediate_size = None
+config_.multiple_of = None
 
 bs = 2
 seq_len_ = 2048

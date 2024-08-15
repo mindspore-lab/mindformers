@@ -19,13 +19,13 @@ import numpy as np
 
 import mindspore.nn as nn
 import mindspore as ms
-import mindspore.ops as ops
 from mindspore import Tensor
 from mindspore.communication import init
 from mindspore.ops import operations as P
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.graph.tensor_parallel.layers import RowParallelLinear
+from mindformers.experimental.utils import init_method_normal
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -47,22 +47,13 @@ parser.add_argument(
     type=int,
     help='tensor_parallel')
 parser.add_argument(
-    '--init_method',
-    default=False,
-    required=True,
-    type=bool,
-    help='init_method'
-)
-parser.add_argument(
     '--has_bias',
-    default=True,
-    required=True,
-    type=bool,
+    action='store_true',
     help='has_bias'
 )
 args_, rest_args_ = parser.parse_known_args()
 
-ms.set_context(mode=ms.GRAPH_MODE, save_graphs=True)
+ms.set_context(mode=ms.GRAPH_MODE)
 rank_id = os.environ.get('RANK_ID')
 if rank_id is not None:
     ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True)
@@ -75,15 +66,12 @@ np.random.seed(seed_value)
 
 class MyNet(nn.Cell):
     """MyNet for row parallel linear"""
-    def __init__(self, config: TransformerConfig, input_size, output_size, init_method=False, bias=True):
+    def __init__(self, config: TransformerConfig, input_size, output_size, bias=True):
         super(MyNet, self).__init__()
-
-        def init_weight():
-            return ms.tensor(ops.randn((output_size, input_size)), ms.dtype.float32)
 
         self.linear = RowParallelLinear(input_size=input_size, output_size=output_size,
                                         config=config, compute_dtype=ms.dtype.float32,
-                                        init_method=init_weight if init_method else None, bias=bias)
+                                        init_method=init_method_normal(), bias=bias)
         dp = config.data_parallel
         cp = config.context_parallel
         tp = config.tensor_parallel
@@ -101,7 +89,6 @@ config_.data_parallel = args_.dp
 config_.tensor_parallel = args_.tp
 config_.context_parallel = args_.cp
 
-init_method_ = args_.init_method
 has_bias = args_.has_bias
 
 bs = 2
@@ -110,6 +97,6 @@ dim = 8192
 input_shape = (bs, seq_len, dim)
 output_size_ = dim * 2
 
-net = MyNet(config_, dim, output_size_, init_method_, has_bias)
+net = MyNet(config_, dim, output_size_, has_bias)
 input_ = Tensor(np.random.standard_normal(input_shape).astype(np.float32))
 output = net(input_)

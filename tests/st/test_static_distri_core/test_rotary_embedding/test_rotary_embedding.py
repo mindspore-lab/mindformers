@@ -16,6 +16,14 @@
 import os
 import pytest
 
+base_command = ('msrun --worker_num={device_num} --local_worker_num={device_num} '
+                '--master_port=61371 --log_dir=msrun_log --join=True --cluster_time_out=300 '
+                'run_rotary_embedding.py --dp {dp} --cp {cp} --tp {tp}')
+
+
+def build_msrun_command(device_num, dp, cp, tp):
+    return base_command.format(device_num=device_num, dp=dp, cp=cp, tp=tp)
+
 
 class TestRotaryEmbedding:
     """A test class for testing RotaryEmbedding"""
@@ -47,6 +55,6 @@ class TestRotaryEmbedding:
         sh_path = os.path.split(os.path.realpath(__file__))[0]
         device_num = 8
         dp, cp, tp = (2, 2, 2)
-        ret = os.system(f"bash {sh_path}/msrun_launch.sh {device_num} {dp} {cp} {tp}")
+        ret = os.system(build_msrun_command(device_num, dp, cp, tp))
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_0.log -C 3")
         assert ret == 0

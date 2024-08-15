@@ -17,7 +17,7 @@ import mindspore.common.dtype as mstype
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.models.configuration_utils import PretrainedConfig
-from mindformers.experimental.graph.transformer.utils import init_method_normal, init_method_zero
+from mindformers.experimental.utils import init_method_normal, init_method_zero
 
 _CONFIG_MAPPING = {
     'vocab_size': 'padded_vocab_size',
