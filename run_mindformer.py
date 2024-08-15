@@ -24,6 +24,38 @@ from mindformers.tools.cloud_adapter import cloud_monitor
 from mindformers.tools.logger import logger
 from mindformers.tools import set_output_path
 
+SUPPORT_MULTI_MODAL_FILETYPES = {
+    "video": (".mp4", ".avi", ".mkv"),
+    "image": (".jpg", ".jpeg", ".png", ".bmp"),
+}
+
+
+def create_multi_modal_predict_data(predict_data_list, modal_type_list):
+    """create multi-modal predict data according to the predict_data_list and modal_type_list"""
+    if not isinstance(predict_data_list, list):
+        raise ValueError("when modal_type is specified, the predict_data should be a list and should contain "
+                         "modal path and text input")
+
+    if len(predict_data_list) != len(modal_type_list):
+        raise ValueError(f"the length of predict_data and modal_type should be the same, "
+                         f"{len(predict_data_list)} and {len(modal_type_list)} are got.")
+    query = []
+    modal_type_list = [modal_type.lower() for modal_type in modal_type_list]
+    for predict_data_, modal_type in zip(predict_data_list, modal_type_list):
+        if modal_type == "text":
+            query.append({modal_type: predict_data_})
+            continue
+
+        if modal_type not in SUPPORT_MULTI_MODAL_FILETYPES:
+            raise ValueError(f"The modal_type {modal_type} is not supported, "
+                             f"please check the predict_data `{predict_data_}` and its modal_type `{modal_type}`.")
+
+        if not predict_data_.endswith(SUPPORT_MULTI_MODAL_FILETYPES.get(modal_type)):
+            raise ValueError(f"the file type of {predict_data_} is not supported with modal_type={modal_type}, "
+                             f"the support filetypes are {SUPPORT_MULTI_MODAL_FILETYPES.get(modal_type)}")
+        query.append({modal_type: predict_data_})
+    return query
+
 
 @cloud_monitor()
 def main(config):
@@ -87,7 +119,7 @@ if __name__ == "__main__":
         help='input data for predict, it support real data path or data directory.'
              'Default: None')
     parser.add_argument(
-        '--modal_type', default=None, type=str,
+        '--modal_type', default=None, type=str, nargs='+',
         help='modal type of input data for predict.'
              'Default: None')
     parser.add_argument(
@@ -224,7 +256,7 @@ if __name__ == "__main__":
         if args_.predict_data is None:
             logger.info("dataset by config is used as input_data.")
         if isinstance(args_.predict_data, list):
-            if len(args_.predict_data) > 1:
+            if len(args_.predict_data) > 1 or args_.modal_type is not None:
                 logger.info("predict data is a list, take it as input text list.")
             else:
                 args_.predict_data = args_.predict_data[0]
@@ -239,17 +271,7 @@ if __name__ == "__main__":
             else:
                 args_.predict_data = args_.predict_data.replace(r"\n", "\n")
         if args_.modal_type is not None:
-            if not isinstance(args_.predict_data, list):
-                raise ValueError("when modal_type is specified, the predict_data should be a list and should contain "
-                                 "modal path and text input")
-            query = []
-            for predict_data in args_.predict_data:
-                extension = predict_data.split(".")[-1]
-                if extension.lower() in ("jpg", "png", "jpeg", "bmp", "mp4", "avi", "mkv"):
-                    query.append({args_.modal_type: predict_data})
-                else:
-                    query.append({"text": predict_data})
-            args_.predict_data = [query]
+            args_.predict_data = [create_multi_modal_predict_data(args_.predict_data, args_.modal_type)]
 
         config_.input_data = args_.predict_data
         if args_.predict_batch_size is not None:

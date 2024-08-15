@@ -179,8 +179,8 @@ class ModalContentTransformTemplate:
                     break
 
             if not modal_type:
-                logger.warning(f"The query {query_ele} is not supported, it will be ignore.")
-                continue
+                raise ValueError(f"The modal_type of {query_ele} is not supported by current model,"
+                                 f"please check the predict input.")
 
             text_list.append(
                 self.modal_builders[modal_type].regular_input_for_predict(inputs=query_ele,
