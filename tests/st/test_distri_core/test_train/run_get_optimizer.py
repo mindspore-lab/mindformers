@@ -75,7 +75,7 @@ def run_get_optimizer(config_path, group_params=False):
 
     init()
     initialize_model_parallel(
-        tp_size=parallel_config.tensor_parallel,
+        tensor_model_parallel_size=parallel_config.tensor_parallel,
     )
 
     net = TestNet()

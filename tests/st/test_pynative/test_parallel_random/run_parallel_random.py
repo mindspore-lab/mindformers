@@ -43,7 +43,7 @@ def run_random_tracer_parallel():
     tensor_parallel = 2
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
     init()
-    initialize_model_parallel(tp_size=tensor_parallel)
+    initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
 
     rank_id = get_rank()
 
@@ -131,7 +131,7 @@ def run_recompute_parallel():
 
     ms.set_context(mode=ms.PYNATIVE_MODE, device_target="Ascend")
     init()
-    initialize_model_parallel(tp_size=2)
+    initialize_model_parallel(tensor_model_parallel_size=2)
     set_rng_seed(1000)
     net = DropoutNet()
     net.set_train()

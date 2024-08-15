@@ -74,7 +74,7 @@ def run_selective_recompute():
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic="ON")
 
     init()
-    initialize_model_parallel(tp_size=tensor_parallel)
+    initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
     ms.set_seed(seed)
     ms.manual_seed(seed)
 
@@ -146,7 +146,7 @@ def run_gradient_checkpointed_recompute():
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic="ON")
 
     init()
-    initialize_model_parallel(tp_size=tensor_parallel)
+    initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
     ms.set_seed(seed)
     ms.manual_seed(seed)
 

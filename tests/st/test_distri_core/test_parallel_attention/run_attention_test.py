@@ -69,7 +69,7 @@ def run_parallel_attention_with_rope(use_fa=False, use_gqa=False):
 
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
     init()
-    initialize_model_parallel(tp_size=tensor_parallel)
+    initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
 
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length, hidden_size)).astype(np.float32)

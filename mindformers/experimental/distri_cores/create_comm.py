@@ -14,40 +14,48 @@
 # ======================
 
 """Model and data parallel groups."""
-
-import warnings
-
 import mindspore
-from mindspore.communication import create_group, get_group_size, get_rank
+from mindspore.communication import create_group, destroy_group, get_group_size, get_rank
 from mindspore import hal
+from mindformers.tools import logger
 
-_TP_GROUP = None
-_PP_GROUP = None
-_MODEL_PARALLEL_GROUP = None
-_EMBEDDING_GROUP = None
-_POSITION_EMBEDDING_GROUP = None
-_DP_GROUP = None
-_TENSOR_AND_DP_GROUP = None
-_TENSOR_MODEL_PARALLEL_WORLD_SIZE = None
-_PIPELINE_MODEL_PARALLEL_WORLD_SIZE = None
-_TENSOR_MODEL_PARALLEL_RANK = None
-_PIPELINE_MODEL_PARALLEL_RANK = None
-_EMBEDDING_GLOBAL_RANKS = None
-
-_PIPELINE_GLOBAL_RANKS = None
-_DATA_PARALLEL_GLOBAL_RANKS = None
-_TENSOR_MODEL_PARALLEL_GLOBAL_RANKS = None
-_CP_GROUP = None
-_CONTEXT_PARALLEL_GLOBAL_RANKS = None
-_DP_GROUP_WITH_CP = None
-_DATA_PARALLEL_GLOBAL_RANKS_WITH_CP = None
-_TENSOR_AND_DP_GROUP_WITH_CP = None
 _GLOBAL_STREAM = None
-
-_IS_INITIALIZED = False
-
 _SP_SEND_STREAM = None
+_SP_RECV_STREAM = None
+_SP_SEND_OML_STREAM = None
+_SP_RECV_OML_STREAM = None
 
+group_info_maps = {}
+
+# special_groups has a different initialization process compared to normal_groups
+normal_groups = ['tp', 'dp', 'pp', 'cp', 'dp-cp', 'tp-pp', 'tp-dp-cp', 'tp-dp', 'tp-cp']
+special_groups = ['ep', 'tp-ep', 'dp-independent_ep', 'vpp', 'embedding', 'position_embedding']
+valid_groups = normal_groups + special_groups
+
+class GroupInfo:
+    """ Comm Group Info """
+    def __init__(self):
+        self.group = None
+        self.world_size = None
+        self.rank = None
+        self.global_ranks = None
+        self.is_group_created = False
+
+    def reset(self):
+        if self.group is not None and self.is_group_created:
+            destroy_group(self.group)
+        self.group = None
+        self.world_size = None
+        self.rank = None
+        self.global_ranks = None
+        self.is_group_created = False
+
+def get_group_info(mode):
+    global group_info_maps
+    if mode not in group_info_maps:
+        assert mode in valid_groups
+        group_info_maps[mode] = GroupInfo()
+    return group_info_maps[mode]
 
 class CreateCommGroups():
     '''Generate ranks for each parallel type.'''
@@ -120,134 +128,53 @@ class CreateCommGroups():
         ranks = self._dispatch_comm_ranks(self.world_size, parallel_size, mask)
         return ranks
 
-    def create_dp_group(self):
+    def init_group(self, input_mode, independent_ep=False):
         '''Create data parallel group.'''
-        global _DP_GROUP
-        global _DATA_PARALLEL_GLOBAL_RANKS
+        mode = input_mode + '-independent_ep' if input_mode == 'dp' and independent_ep else input_mode
+        comm_group = get_group_info(mode)
 
-        assert _DP_GROUP is None, 'data parallel group is already initialized'
+        assert comm_group.group is None, f'{mode} parallel group is already initialized'
 
-        for ranks in self.get_ranks('dp'):
+        for ranks in self.get_ranks(input_mode, independent_ep=independent_ep):
             if self.rank in ranks:
-                group = 'dp-' + '-'.join([str(i) for i in ranks])
-                create_group(group, ranks)
-                _DP_GROUP = group
-                _DATA_PARALLEL_GLOBAL_RANKS = ranks
+                group = mode + '-' + '-'.join([str(i) for i in ranks])
+                comm_group.group = group
+                comm_group.global_ranks = ranks
+                comm_group.world_size = len(ranks)
 
-    def create_dp_cp_group(self):
-        global _DP_GROUP_WITH_CP
-        global _DATA_PARALLEL_GLOBAL_RANKS_WITH_CP
-        for ranks_with_cp in self.get_ranks('dp-cp'):
-            if self.rank in ranks_with_cp:
-                group_with_cp = 'dp-cp-' + '-'.join([str(i) for i in ranks_with_cp])
-                create_group(group_with_cp, ranks_with_cp)
-                _DP_GROUP_WITH_CP = group_with_cp
-                _DATA_PARALLEL_GLOBAL_RANKS_WITH_CP = ranks_with_cp
-
-    def create_cp_group(self):
-        '''Create context parallel group.'''
-        global _CP_GROUP
-        global _CONTEXT_PARALLEL_GLOBAL_RANKS
-        assert _CP_GROUP is None, 'context parallel group is already initialized'
-
-        for ranks in self.get_ranks('cp'):
-            if self.rank in ranks:
-                group = 'cp-' + '-'.join([str(i) for i in ranks])
-                create_group(group, ranks)
-                _CP_GROUP = group
-                _CONTEXT_PARALLEL_GLOBAL_RANKS = ranks
-
-    def create_tp_pp_group(self):
-        global _MODEL_PARALLEL_GROUP
-        assert _MODEL_PARALLEL_GROUP is None, 'model parallel group is already initialized'
-
-        for ranks in self.get_ranks('tp-pp'):
-            if self.rank in ranks:
-                group = 'tp-pp-' + '-'.join([str(i) for i in ranks])
-                create_group(group, ranks)
-                _MODEL_PARALLEL_GROUP = group
-
-    def create_tp_group(self):
-        '''Create tensor parallel group.'''
-        global _TP_GROUP
-        global _TENSOR_MODEL_PARALLEL_GLOBAL_RANKS
-        assert (_TP_GROUP is None
-                ), 'tensor model parallel group is already initialized'
-        for ranks in self.get_ranks('tp'):
-            if self.rank in ranks:
-                group = 'tp-' + '-'.join([str(i) for i in ranks])
-                create_group(group, ranks)
-                _TP_GROUP = group
-                _TENSOR_MODEL_PARALLEL_GLOBAL_RANKS = ranks
-
-    def create_pp_group(self, pp_split_rank):
-        '''Create pipeline parallel group.'''
-        global _PP_GROUP
-        global _PIPELINE_GLOBAL_RANKS
-        assert (
-            _PP_GROUP is None
-        ), 'pipeline model parallel group is already initialized'
-        global _EMBEDDING_GROUP
-        global _EMBEDDING_GLOBAL_RANKS
-        assert _EMBEDDING_GROUP is None, 'embedding group is already initialized'
-        global _POSITION_EMBEDDING_GROUP
-        assert _POSITION_EMBEDDING_GROUP is None, 'position embedding group is already initialized'
+    def init_embedding_group(self, pipeline_model_parallel_split_rank):
+        '''Init pipeline parallel group.'''
+        embedding_group = get_group_info('embedding')
+        position_embedding_group = get_group_info('position_embedding')
+        assert embedding_group.group is None, 'embedding group is already initialized'
+        assert position_embedding_group.group is None, 'position embedding group is already initialized'
         for ranks in self.get_ranks('pp'):
-            if self.rank in ranks:
-                group = 'pp-' + '-'.join([str(i) for i in ranks])
-                create_group(group, ranks)
-                _PP_GROUP = group
-                _PIPELINE_GLOBAL_RANKS = ranks
             # Setup embedding group (to exchange gradients between
             # first and last stages).
             if len(ranks) > 1:
                 embedding_ranks = [ranks[0], ranks[-1]]
                 position_embedding_ranks = [ranks[0]]
-                if pp_split_rank is not None:
-                    if ranks[pp_split_rank] not in embedding_ranks:
+                if pipeline_model_parallel_split_rank is not None:
+                    if ranks[pipeline_model_parallel_split_rank] not in embedding_ranks:
                         embedding_ranks = [
                             ranks[0],
-                            ranks[pp_split_rank],
+                            ranks[pipeline_model_parallel_split_rank],
                             ranks[-1],
                         ]
-                    if ranks[pp_split_rank] not in position_embedding_ranks:
-                        position_embedding_ranks = [ranks[0], ranks[pp_split_rank]]
+                    if ranks[pipeline_model_parallel_split_rank] not in position_embedding_ranks:
+                        position_embedding_ranks = [ranks[0], ranks[pipeline_model_parallel_split_rank]]
             else:
                 embedding_ranks = ranks
                 position_embedding_ranks = ranks
 
             if self.rank in embedding_ranks:
-                group = 'embedding-' + '-'.join([str(i) for i in ranks])
-                create_group(group, embedding_ranks)
-                _EMBEDDING_GROUP = group
-            if self.rank in ranks:
-                _EMBEDDING_GLOBAL_RANKS = embedding_ranks
-
+                group = 'embedding-' + '-'.join([str(i) for i in embedding_ranks])
+                embedding_group.group = group
+                embedding_group.global_ranks = embedding_ranks
             if self.rank in position_embedding_ranks:
                 group = 'position_embedding-' + '-'.join([str(i) for i in position_embedding_ranks])
-                create_group(group, position_embedding_ranks)
-                _POSITION_EMBEDDING_GROUP = group
-
-    def create_tp_dp_cp_group(self):
-        global _TENSOR_AND_DP_GROUP_WITH_CP
-        for ranks in self.get_ranks('tp-dp-cp'):
-            if self.rank in ranks:
-                group = 'tp-dp-cp-' + '-'.join([str(i) for i in ranks])
-                create_group(group, ranks)
-                _TENSOR_AND_DP_GROUP_WITH_CP = group
-
-    def create_tp_dp_group(self):
-        '''Create tensor parallel and data parallel group.'''
-        global _TENSOR_AND_DP_GROUP
-
-        assert (
-            _TENSOR_AND_DP_GROUP is None
-        ), 'Tensor + data parallel group is already initialized'
-        for ranks in self.get_ranks('tp-dp'):
-            if self.rank in ranks:
-                group = 'tp-dp-' + '-'.join([str(i) for i in ranks])
-                create_group(group, ranks)
-                _TENSOR_AND_DP_GROUP = group
+                position_embedding_group.group = group
+                position_embedding_group.global_ranks = position_embedding_ranks
 
     def _dispatch_comm_ranks(self, world_size, parallel_size, mask):
         """dispatch comm ranks"""
@@ -291,14 +218,16 @@ class CreateCommGroups():
             ranks.append(rank)
         return ranks
 
-
-def initialize_model_parallel(tp_size=1,
-                              pp_size=1,
-                              virtual_pp_size=None,
-                              pp_split_rank=None,
-                              cp_size=1,
-                              ep_size=1,
-                              order="tp-cp-ep-dp-pp"):
+# pylint: disable=W0613
+def initialize_model_parallel(tensor_model_parallel_size=1,
+                              pipeline_model_parallel_size=1,
+                              virtual_pipeline_model_parallel_size=None,
+                              pipeline_model_parallel_split_rank=None,
+                              context_parallel_size=1,
+                              expert_model_parallel_size=1,
+                              order="tp-cp-ep-dp-pp",
+                              communicator_config_path=None,
+                              **kwargs):
     """Initialize model data parallel groups.
     """
 
@@ -306,30 +235,35 @@ def initialize_model_parallel(tp_size=1,
     assert mindspore.communication._comm_helper._is_initialized()
     world_size = get_group_size()
 
-    if world_size % (tp_size * pp_size * cp_size) != 0:
+    minimum_world_size = (tensor_model_parallel_size * pipeline_model_parallel_size * context_parallel_size)
+
+    if world_size % minimum_world_size != 0:
         raise RuntimeError(
-            f"world_size ({world_size}) is not divisible by tp_size "
-            f"({tp_size}) x pp_size ({pp_size}) "
-            f"x cp_size ({cp_size})"
+            f"world_size ({world_size}) is not divisible by tensor_model_parallel_size "
+            f"({tensor_model_parallel_size}) x pipeline_model_parallel_size ({pipeline_model_parallel_size}) "
+            f"x context_parallel_size ({context_parallel_size})"
         )
 
-    dp_size = world_size // (tp_size * pp_size * cp_size)
+    data_parallel_size = world_size // minimum_world_size
 
-    if dp_size % ep_size != 0:
+    if data_parallel_size % expert_model_parallel_size != 0:
         raise RuntimeError(
-            f"dp_size ({dp_size}) is not divisible by ep_size "
+            f"data_parallel_size ({data_parallel_size}) is not divisible by expert_model_parallel_size "
         )
 
-    if ep_size > 1 and cp_size > 1:
+    if expert_model_parallel_size > 1 and context_parallel_size > 1:
         raise RuntimeError(
             f"combination of expert model prallellism and context parallelism is not supported"
         )
 
-    if virtual_pp_size is not None:
-        if pp_size <= 2:
+    if virtual_pipeline_model_parallel_size is not None:
+        if pipeline_model_parallel_size < 2:
             raise RuntimeError(
-                "pipeline-model-parallel size should be greater than 2 with interleaved schedule"
+                "pipeline-model-parallel size should be greater than 1 with interleaved schedule"
             )
+        vpp_group = get_group_info('vpp')
+        vpp_group.rank = 0
+        vpp_group.world_size = virtual_pipeline_model_parallel_size
 
     order = order.lower()
     order_list = order.split('-')
@@ -341,213 +275,227 @@ def initialize_model_parallel(tp_size=1,
         if 'ep-dp' not in order and 'dp-ep' not in order:
             raise RuntimeError(f"The ep and dp must be adjacent in order ({order}).")
 
-    rank_generator = CreateCommGroups(tp=tp_size, ep=ep_size, dp=dp_size, pp=pp_size,
-                                      cp=cp_size, order=order)
-    # Build the data-parallel groups.
-    if 'dp' in order:
-        rank_generator.create_dp_group()
+    for key, _ in kwargs.items():
+        logger.warning(f"The parameter {key} is not used in save_checkpoint.")
 
-        if 'cp' in order:
-            rank_generator.create_dp_cp_group()
+    rank_generator = CreateCommGroups(tp=tensor_model_parallel_size,\
+                                      ep=expert_model_parallel_size, \
+                                      dp=data_parallel_size, pp=pipeline_model_parallel_size, \
+                                      cp=context_parallel_size, order=order)
 
-    # Build the context-parallel groups.
-    if 'cp' in order:
-        rank_generator.create_cp_group()
+    # Build the basic parallel groups.
+    for mode in normal_groups:
+        rank_generator.init_group(mode)
 
-    # Build the model-parallel groups.
-    if 'tp' in order and 'pp' in order:
-        rank_generator.create_tp_pp_group()
+    # Build the expert-parallel groups which share ranks with DP.
+    rank_generator.init_group('ep', independent_ep=True)
+    rank_generator.init_group('tp-ep', independent_ep=True)
+    rank_generator.init_group('dp', independent_ep=True)
 
-    # Build the tensor model-parallel groups.
-    if 'tp' in order:
-        rank_generator.create_tp_group()
-
-    # Build the pipeline-parallel groups.
-    if 'pp' in order:
-        rank_generator.create_pp_group(pp_split_rank)
-
-    # Build the tensor + data parallel groups.
-    if 'tp' in order and 'dp' in order:
-        rank_generator.create_tp_dp_group()
-        if 'cp' in order:
-            rank_generator.create_tp_dp_cp_group()
+    # Build the pipeline-parallel related groups.
+    rank_generator.init_embedding_group(pipeline_model_parallel_split_rank)
 
     global _GLOBAL_STREAM
     assert (_GLOBAL_STREAM is None), 'Global stream is already initialized'
     _GLOBAL_STREAM = hal.Stream()
 
     global _SP_SEND_STREAM
-    if cp_size > 1:
+    global _SP_RECV_STREAM
+    global _SP_SEND_OML_STREAM
+    global _SP_RECV_OML_STREAM
+    if context_parallel_size > 1:
         _SP_SEND_STREAM = hal.Stream()
+        # _SP_RECV_STREAM = hal.Stream()
+        _SP_SEND_OML_STREAM = hal.Stream()
+        _SP_RECV_OML_STREAM = hal.Stream()
 
-    global _IS_INITIALIZED
-    _IS_INITIALIZED = True
-
-
-def is_initialized():
-    """Useful for code segments that may be accessed with or without mpu initialization"""
-    return _IS_INITIALIZED
-
-
-def is_unitialized() -> bool:
-    """Check if parallel state has been initialized
-
-    Deprecated. Use is_initialized instead.
-
-    """
-    warnings.warn(
-        "is_unitialized is deprecated, use is_initialized instead", DeprecationWarning,
-    )
-    return not is_initialized()
+    # a temporary workaround for dp group failure initialization in ms.dataset
+    if get_dp_world_size() > 1:
+        get_dp_group()
 
 
-def get_model_parallel_group():
-    """Get the model parallel group the caller rank belongs to."""
-    assert _MODEL_PARALLEL_GROUP is not None, \
-            ("model parallel group is not initialized. Please check whether communication "
-             "is initialized and 'tp-pp' in order.")
-    return _MODEL_PARALLEL_GROUP
-
-
+### get group
 # pylint: disable=C0330
-def get_tp_group(check_initialized=True):
-    """Get the tensor model parallel group the caller rank belongs to."""
-    if check_initialized:
-        assert _TP_GROUP is not None, \
-            ("tensor parallel group is not initialized. Please check whether communication "
-             "is initialized and 'tp' in order.")
-    return _TP_GROUP
+def _get_group_helper(mode):
+    comm_group = get_group_info(mode)
+    assert comm_group.group is not None, \
+        (f"{mode} parallel group is not initialized. Please check whether communication "
+         f"is initialized and {mode} in order.")
+    if not comm_group.is_group_created:
+        create_group(comm_group.group, comm_group.global_ranks)
+        comm_group.is_group_created = True
+    return comm_group.group
 
+def get_tp_group():
+    """Get the tensor model parallel group the caller rank belongs to."""
+    return _get_group_helper('tp')
+
+def get_cp_group():
+    """Get the context parallel group the caller rank belongs to."""
+    return _get_group_helper('cp')
+
+def get_ep_group():
+    return _get_group_helper('ep')
+
+def get_dp_group(with_context_parallel=False):
+    """Get the data parallel group the caller rank belongs to."""
+    return _get_group_helper('dp-cp') if with_context_parallel else _get_group_helper('dp')
 
 def get_pp_group():
     """Get the pipeline model parallel group the caller rank belongs to."""
-    assert _PP_GROUP is not None, \
-        ("pipeline parallel group is not initialized. Please check whether communication "
-         "is initialized and 'pp' in order.")
-    return _PP_GROUP
+    return _get_group_helper('pp')
+
+def get_embedding_group():
+    """Get the embedding group the caller rank belongs to."""
+    return _get_group_helper('embedding')
+
+def get_tensor_and_expert_parallel_group():
+    return _get_group_helper('tp-ep')
+
+def get_data_modulo_expert_parallel_group():
+    return _get_group_helper('dp-independent_ep')
+
+def get_model_parallel_group():
+    """Get the model parallel group the caller rank belongs to."""
+    return _get_group_helper('tp-pp')
+
+def get_tensor_and_context_parallel_group():
+    return _get_group_helper('tp-cp')
 
 
-# pylint: disable=C0330
-def get_dp_group(with_context_parallel=False):
-    """Get the data parallel group the caller rank belongs to."""
-    ret = None
-    if with_context_parallel:
-        assert _DP_GROUP_WITH_CP is not None, \
-            ("data parallel group with context parallel combined is not initialized. "
-             "Please check whether communication is initialized and 'dp-cp' in order.")
-        ret = _DP_GROUP_WITH_CP
-    else:
-        assert _DP_GROUP is not None, \
-            ("data parallel group is not initialized. Please check whether communication "
-             "is initialized and 'dp' in order.")
-        ret = _DP_GROUP
-    return ret
-
-
-def get_cp_group(check_initialized=True):
-    """Get the context parallel group the caller rank belongs to."""
+### get global ranks
+def _get_global_ranks_helper(mode, check_initialized=True):
+    comm_group = get_group_info(mode)
     if check_initialized:
-        assert _CP_GROUP is not None, \
-            ("context parallel group is not initialized. Please check whether communication "
-             "is initialized and 'cp' in order.")
-    return _CP_GROUP
-
+        assert comm_group.global_ranks is not None, \
+            (f"{mode} parallel group is not initialized. Please check whether communication "
+             f"is initialized and {mode} in order.")
+    return comm_group.group
 
 # pylint: disable=C0330
 def get_cp_global_ranks(check_initialized=True):
     """Get all global ranks of the context parallel group that the caller rank belongs to."""
-    if check_initialized:
-        assert _CONTEXT_PARALLEL_GLOBAL_RANKS is not None, \
-            ("context parallel group is not initialized. Please check whether communication "
-             "is initialized and 'cp' in order.")
-    return _CONTEXT_PARALLEL_GLOBAL_RANKS
+    return _get_global_ranks_helper('cp', check_initialized)
 
 
-def get_embedding_group():
-    """Get the embedding group the caller rank belongs to."""
-    assert _EMBEDDING_GROUP is not None, \
-        ("pipeline parallel group is not initialized. Please check whether communication "
-         "is initialized and 'pp' in order.")
-    return _EMBEDDING_GROUP
+### get world size
+def _get_world_size_helper(mode):
+    comm_group = get_group_info(mode)
+    return comm_group.world_size
 
 def get_tp_world_size():
     """Return world size for the tensor model parallel group."""
-    global _TENSOR_MODEL_PARALLEL_WORLD_SIZE
-    if _TENSOR_MODEL_PARALLEL_WORLD_SIZE is not None:
-        return _TENSOR_MODEL_PARALLEL_WORLD_SIZE
-    return get_group_size(group=get_tp_group())
+    return _get_world_size_helper('tp')
 
+def get_cp_world_size():
+    """Return world size for the context parallel group."""
+    return _get_world_size_helper('cp')
+
+def get_ep_world_size():
+    """Return world size for the expert model parallel group"""
+    tensor_and_expert_parallel_world_size = _get_world_size_helper('tp-ep')
+    return tensor_and_expert_parallel_world_size // get_tp_world_size()
+
+def get_dp_world_size(with_context_parallel=False):
+    """Return world size for the data parallel group."""
+    return _get_world_size_helper('dp-cp') if with_context_parallel else _get_world_size_helper('dp')
 
 def get_pp_world_size():
     """Return world size for the pipeline model parallel group."""
-    global _PIPELINE_MODEL_PARALLEL_WORLD_SIZE
-    if _PIPELINE_MODEL_PARALLEL_WORLD_SIZE is not None:
-        return _PIPELINE_MODEL_PARALLEL_WORLD_SIZE
-    return get_group_size(group=get_pp_group())
+    return _get_world_size_helper('pp')
 
+def get_vpp_world_size():
+    """Return world size for the virtual pipeline model parallel group."""
+    return _get_world_size_helper('vpp')
+
+def get_tensor_and_expert_parallel_world_size():
+    """Return world size for the expert model parallel group times model parallel group.
+       Currently, each expert will also be distributed across TP group by default.
+    """
+    return _get_world_size_helper('tp-ep')
+
+def get_tensor_and_context_parallel_world_size():
+    """Return world size for the tensor parallel group and context parallel group."""
+    return _get_world_size_helper('tp-cp')
+
+
+### get rank
+def _get_rank_helper(mode):
+    comm_group = get_group_info(mode)
+    if comm_group.rank is not None:
+        return comm_group.rank
+    comm_group.rank = 0 if _get_world_size_helper(mode) == 1 else get_rank(group=_get_group_helper(mode))
+    return comm_group.rank
 
 def get_tp_rank():
     """Return my rank for the tensor model parallel group."""
-    global _TENSOR_MODEL_PARALLEL_RANK
-    if _TENSOR_MODEL_PARALLEL_RANK is not None:
-        return _TENSOR_MODEL_PARALLEL_RANK
-    return get_rank(group=get_tp_group())
+    return _get_rank_helper('tp')
 
+def get_cp_rank():
+    """Return my rank for the context parallel group."""
+    return _get_rank_helper('cp')
+
+def get_ep_rank():
+    """Return my rank for the expert parallel group"""
+    tensor_and_expert_parallel_rank = _get_rank_helper('tp-ep')
+    return tensor_and_expert_parallel_rank // get_tp_world_size()
+
+def get_dp_rank(with_context_parallel=False):
+    """Return my rank for the data parallel group."""
+    return _get_rank_helper('dp-cp') if with_context_parallel else _get_rank_helper('dp')
 
 def get_pp_rank():
     """Return my rank for the pipeline model parallel group."""
-    global _PIPELINE_MODEL_PARALLEL_RANK
-    if _PIPELINE_MODEL_PARALLEL_RANK is not None:
-        return _PIPELINE_MODEL_PARALLEL_RANK
-    return get_rank(group=get_pp_group())
+    return _get_rank_helper('pp')
 
-
-def is_pipeline_first_stage():
+def is_pipeline_first_stage(ignore_virtual=False):
     """Return True if in the first pipeline model-parallel stage, False otherwise."""
+    if not ignore_virtual:
+        if get_vpp_world_size() is not None and get_vpp_rank() != 0:
+            return False
     return get_pp_rank() == 0
 
-
-def is_pipeline_last_stage():
+def is_pipeline_last_stage(ignore_virtual=False):
     """Return True if in the last pipeline model-parallel stage, False otherwise."""
+    if not ignore_virtual:
+        vpp_world_size = get_vpp_world_size()
+        if vpp_world_size is not None and get_vpp_rank() != (vpp_world_size - 1):
+            return False
     return get_pp_rank() == (get_pp_world_size() - 1)
-
 
 def is_rank_in_embedding_group(ignore_virtual=False):
     """Return true if current rank is in embedding group, False otherwise."""
     ret = False
     rank = get_rank()
-    global _EMBEDDING_GLOBAL_RANKS
+    embedding_group = get_group_info('embedding')
+    global_ranks = embedding_group.global_ranks
+    if global_ranks is None:
+        return False
     if ignore_virtual:
-        return rank in _EMBEDDING_GLOBAL_RANKS
-    if rank in _EMBEDDING_GLOBAL_RANKS:
-        if rank == _EMBEDDING_GLOBAL_RANKS[0]:
-            ret = is_pipeline_first_stage()
-        elif rank == _EMBEDDING_GLOBAL_RANKS[-1]:
-            ret = is_pipeline_last_stage()
+        return rank in global_ranks
+    if rank in global_ranks:
+        if rank == global_ranks[0]:
+            ret = is_pipeline_first_stage(ignore_virtual=False)
+        elif rank == global_ranks[-1]:
+            ret = is_pipeline_last_stage(ignore_virtual=False)
         else:
             ret = True
     return ret
 
+def get_vpp_rank():
+    """Get the virtual pipeline-parallel rank."""
+    comm_group = get_group_info('vpp')
+    return comm_group.rank
 
-def get_dp_world_size(with_context_parallel=False):
-    """Return world size for the data parallel group."""
+def set_vpp_rank(rank):
+    """Set the virtual pipeline-parallel rank."""
+    comm_group = get_group_info('vpp')
+    comm_group.rank = rank
 
-    return get_group_size(group=get_dp_group(with_context_parallel=with_context_parallel))
-
-
-def get_dp_rank(with_context_parallel=False):
-    """Return my rank for the data parallel group."""
-    return get_rank(group=get_dp_group(with_context_parallel=with_context_parallel))
-
-
-def get_cp_world_size():
-    """Return world size for the context parallel group."""
-    return get_group_size(group=get_cp_group())
-
-
-def get_cp_rank():
-    """Return my rank for the context parallel group."""
-    return get_rank(group=get_cp_group())
+def set_ep_rank(rank):
+    """Set expert model parallel rank."""
+    comm_group = get_group_info('ep')
+    comm_group.rank = rank
 
 
 def get_stream():
@@ -562,51 +510,36 @@ def get_sp_send_stream():
     return _SP_SEND_STREAM
 
 
+def get_sp_recv_stream():
+    """Return recv stream for sequence parallel."""
+    assert _SP_RECV_STREAM is not None, "Sp receive stream is not initialized"
+    return _SP_RECV_STREAM
+
+
+def get_sp_send_oml_stream():
+    """Return send stream for sequence parallel."""
+    assert _SP_SEND_OML_STREAM is not None, "Sp send oml stream is not initialized"
+    return _SP_SEND_OML_STREAM
+
+
+def get_sp_recv_oml_stream():
+    """Return recv stream for sequence parallel."""
+    assert _SP_RECV_OML_STREAM is not None, "Sp receive oml stream is not initialized"
+    return _SP_RECV_OML_STREAM
+
+
 def destroy_model_parallel():
     """Set the groups to none."""
-    global _MODEL_PARALLEL_GROUP
-    _MODEL_PARALLEL_GROUP = None
-    global _TP_GROUP
-    _TP_GROUP = None
-    global _PP_GROUP
-    _PP_GROUP = None
-    global _DP_GROUP
-    _DP_GROUP = None
-    global _DP_GROUP_WITH_CP
-    _DP_GROUP_WITH_CP = None
-    global _DATA_PARALLEL_GLOBAL_RANKS
-    _DATA_PARALLEL_GLOBAL_RANKS = None
-    global _DATA_PARALLEL_GLOBAL_RANKS_WITH_CP
-    _DATA_PARALLEL_GLOBAL_RANKS_WITH_CP = None
-    global _CP_GROUP
-    _CP_GROUP = None
-    global _CONTEXT_PARALLEL_GLOBAL_RANKS
-    _CONTEXT_PARALLEL_GLOBAL_RANKS = None
-    global _EMBEDDING_GROUP
-    _EMBEDDING_GROUP = None
-    global _EMBEDDING_GLOBAL_RANKS
-    _EMBEDDING_GLOBAL_RANKS = None
-    global _POSITION_EMBEDDING_GROUP
-    _POSITION_EMBEDDING_GROUP = None
-    global _TENSOR_AND_DP_GROUP
-    _TENSOR_AND_DP_GROUP = None
-    global _TENSOR_AND_DP_GROUP_WITH_CP
-    _TENSOR_AND_DP_GROUP_WITH_CP = None
-    global _TENSOR_MODEL_PARALLEL_WORLD_SIZE
-    _TENSOR_MODEL_PARALLEL_WORLD_SIZE = None
-    global _PIPELINE_MODEL_PARALLEL_WORLD_SIZE
-    _PIPELINE_MODEL_PARALLEL_WORLD_SIZE = None
-    global _PIPELINE_GLOBAL_RANKS
-    _PIPELINE_GLOBAL_RANKS = None
-    global _TENSOR_MODEL_PARALLEL_RANK
-    _TENSOR_MODEL_PARALLEL_RANK = None
-    global _TENSOR_MODEL_PARALLEL_GLOBAL_RANKS
-    _TENSOR_MODEL_PARALLEL_GLOBAL_RANKS = None
-    global _PIPELINE_MODEL_PARALLEL_RANK
-    _PIPELINE_MODEL_PARALLEL_RANK = None
+    global group_info_maps
+    for _, comm_group in group_info_maps.items():
+        comm_group.reset()
     global _GLOBAL_STREAM
     _GLOBAL_STREAM = None
     global _SP_SEND_STREAM
     _SP_SEND_STREAM = None
-    global _IS_INITIALIZED
-    _IS_INITIALIZED = False
+    global _SP_RECV_STREAM
+    _SP_RECV_STREAM = None
+    global _SP_SEND_OML_STREAM
+    _SP_SEND_OML_STREAM = None
+    global _SP_RECV_OML_STREAM
+    _SP_RECV_OML_STREAM = None

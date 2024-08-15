@@ -77,7 +77,7 @@ def run_ring_attention():
     # Init parameter
     dp = 2
     sp = 4
-    initialize_model_parallel(cp_size=sp, order="cp-dp")
+    initialize_model_parallel(context_parallel_size=sp, order="cp-dp")
 
     bs = 16
     n = 8

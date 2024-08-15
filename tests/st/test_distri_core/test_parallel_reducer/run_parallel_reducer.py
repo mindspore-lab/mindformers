@@ -42,7 +42,7 @@ def run_grads_reduce():
 
     init()
     initialize_model_parallel(
-        tp_size=parallel_config.tensor_parallel,
+        tensor_model_parallel_size=parallel_config.tensor_parallel,
     )
 
     params = [
@@ -83,8 +83,8 @@ def run_overflow_reduce():
 
     init()
     initialize_model_parallel(
-        tp_size=parallel_config.tensor_parallel,
-        pp_size=parallel_config.pipeline_stage,
+        tensor_model_parallel_size=parallel_config.tensor_parallel,
+        pipeline_model_parallel_size=parallel_config.pipeline_stage,
     )
 
     parallel_reducer = ParallelTrainingReducer([], training_config)
