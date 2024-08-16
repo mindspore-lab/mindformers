@@ -249,6 +249,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm2/run_glm2_6b_lora_800_32G.yaml")),
             ("glm3_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm3/run_glm3_6b.yaml")),
+            ("glm4_9b", os.path.join(
+                _PROJECT_PATH, "configs/glm4/predict_glm4_9b_chat.yaml")),
             ("codegeex2_6b", os.path.join(
                 _PROJECT_PATH, "configs/codegeex2/run_codegeex2_6b.yaml")),
             ("bloom_560m", os.path.join(
@@ -432,6 +434,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm2/run_glm2_6b_lora_800_32G.yaml")),
             ("glm3_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm3/run_glm3_6b.yaml")),
+            ("glm4_9b", os.path.join(
+                _PROJECT_PATH, "configs/glm4/predict_glm4_9b_chat.yaml")),
             ("codegeex2_6b", os.path.join(
                 _PROJECT_PATH, "configs/codegeex2/run_codegeex2_6b.yaml")),
             ("bloom_560m", os.path.join(
@@ -587,6 +591,9 @@ class MindFormerBook:
         ('glm3', [
             'glm3_6b',
         ]),
+        ('glm4', [
+            'glm4_9b',
+        ]),
         ('codegeex2', [
             'codegeex2_6b',
         ]),
@@ -715,6 +722,9 @@ class MindFormerBook:
         ('glm3', [
             'glm3_6b',
         ]),
+        ('glm4', [
+            'glm4_9b',
+        ]),
         ('codegeex2', [
             'codegeex2_6b',
         ]),
@@ -806,6 +816,9 @@ class MindFormerBook:
         ('glm3', [
             'glm3_6b',
         ]),
+        ('glm4', [
+            'glm4_9b',
+        ]),
         ('bloom', [
             'bloom_560m',
             'bloom_7.1b',
@@ -889,6 +902,9 @@ class MindFormerBook:
         ]),
         ('glm3', [
             'glm3_6b',
+        ]),
+        ('glm4', [
+            'glm4_9b',
         ]),
         ('codegeex2', [
             'codegeex2_6b'
@@ -1412,6 +1428,7 @@ class MindFormerBook:
         ('ChatGLMTokenizer', 'GLMProcessor'),
         ('ChatGLM2Tokenizer', 'GLMProcessor'),
         ('ChatGLM3Tokenizer', 'GLMProcessor'),
+        ('ChatGLM4Tokenizer', 'GLMProcessor'),
         ('CLIPTokenizer', 'CLIPProcessor'),
         ('BertTokenizer', 'BertProcessor'),
         ('T5Tokenizer', 'T5Processor'),

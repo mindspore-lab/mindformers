@@ -25,8 +25,7 @@ from mindformers import MindFormerConfig, logger
 from mindformers.core.context import build_context
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.trainer.utils import transform_and_load_checkpoint
-from mindformers.models.glm2 import ChatGLM2Config, ChatGLM2ForConditionalGeneration
-from mindformers.models.glm3 import ChatGLM3Tokenizer
+from mindformers.models.glm2 import ChatGLM2Config, ChatGLM2ForConditionalGeneration, ChatGLM3Tokenizer
 
 
 def get_model(config_path, load_checkpoint):

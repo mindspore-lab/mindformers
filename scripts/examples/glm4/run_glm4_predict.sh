@@ -1,4 +1,5 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+#!/bin/bash
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,16 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""The export function for ChatGLM2"""
-from .glm2_config import *
-from .glm2_tokenizer import *
-from .glm3_tokenizer import *
-from .glm4_tokenizer import *
-from .glm2 import *
 
-__all__ = []
-__all__.extend(glm2_config.__all__)
-__all__.extend(glm2_tokenizer.__all__)
-__all__.extend(glm3_tokenizer.__all__)
-__all__.extend(glm4_tokenizer.__all__)
-__all__.extend(glm2.__all__)
+CONFIG_PATH=$1
+CKPT_PATH=$2
+TOKENIZER=$3
+
+script_path="$(realpath "$(dirname "$0")")"
+
+python "$script_path"/run_glm4_generate.py \
+    --config_path "$CONFIG_PATH" \
+    --load_checkpoint "$CKPT_PATH" \
+    --vocab_file "$TOKENIZER"
