@@ -473,6 +473,8 @@ def load_ckpt(config, network, optimizer=None):
 
     # replace tk in checkpoint_dict.keys()
     checkpoint_dict = replace_tk_to_mindpet(checkpoint_dict)
+    if hasattr(network, 'llm_boost'):
+        network.llm_boost.set_weights(checkpoint_dict)
 
     # load params into net
     not_load_network_params = load_param_into_net(network, checkpoint_dict)
