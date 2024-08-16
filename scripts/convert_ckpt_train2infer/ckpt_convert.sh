@@ -152,6 +152,7 @@ elif [ "$train_to_infer" == "false" ]; then
                 -l $src_ckpt_path \
                 -o ${Dst_ckpt_path}_${dir_count}p \
                 -w $dir_count \
+                -a $precision \
                 > ./log/log_fp16_to_${precision}_${dir_count}.log 2>&1
                 if find "${Dst_ckpt_path}_${dir_count}p/w8a16_ckpt/rank_0/" -type f -name "*.ckpt" | read; then
                     echo "-----1. End convert ${dir_count}p ${precision} weights time: $(date +%H:%M:%S) -----"
@@ -272,6 +273,7 @@ elif [ "$train_to_infer" == "false" ]; then
             -l $src_ckpt_path  \
             -o ${Dst_ckpt_path}_${world_size}p \
             -w $world_size \
+            -a $precision \
             > ./log/log_fp16_to_${precision}_${world_size}.log 2>&1
             echo "-----1. End convert ${world_size}p ${precision} weights time: $(date +%H:%M:%S) -----"
             mv ${Dst_ckpt_path}_${world_size}p/w8a16_ckpt/*  ${Dst_ckpt_path}_${world_size}p/
