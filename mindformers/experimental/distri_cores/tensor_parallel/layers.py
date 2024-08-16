@@ -18,6 +18,7 @@ import mindspore.ops.functional as F
 import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, nn, ops, mint, hal
 from mindspore.common.initializer import initializer, Zero
+from mindspore.common.api import _pynative_executor
 
 from mindformers.experimental.distri_cores.create_comm import (
     get_tp_rank,
@@ -101,7 +102,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             self.reduce_from_mp_region = ops.AllReduce(group=get_tp_group())
         self.reduce_sum = P.ReduceSum()
         self.stream = get_stream()
-        self.input_parallel = None
+        self.input_parallel = []
         self.weight_param = None
 
     # pylint: disable=C0111
@@ -110,13 +111,14 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             self.use_bias = False
         self.weight_param = weight_param
         if self.sequence_parallel:
-            self.input_parallel = x.swapaxes(0, 1).contiguous()
-            self.input_parallel = self.gather_from_sp_region(self.input_parallel.contiguous())
-            self.input_parallel = self.input_parallel.swapaxes(0, 1).contiguous()
-        else:
-            self.input_parallel = x
+            x = x.swapaxes(0, 1)
+            x = self.gather_from_sp_region(x)
+            x = x.swapaxes(0, 1)
 
-        output_parallel = self.matmul(self.input_parallel, weight)
+        if _pynative_executor.grad_flag():
+            self.input_parallel.append(x)
+
+        output_parallel = self.matmul(x, weight)
         if self.use_bias:
             output_parallel = mint.add(
                 output_parallel, bias
@@ -129,7 +131,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         dout = args[-1]
         weight = args[1]
         weight_param = args[3]
-        grad_input = self.matmul_g_in(dout, weight).reshape(self.input_parallel.shape)
+        x = self.input_parallel.pop(0)
+        grad_input = self.matmul_g_in(dout, weight).reshape(x.shape)
 
         if self.allreduce_dgrad:
             self.stream.wait_stream(hal.current_stream())
@@ -144,9 +147,9 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
                 grad_input = self.reduce_scatter_to_sp_region(grad_input.contiguous())
 
         if self.transpose_b:
-            grad_weight = self.matmul_g_w(dout, self.input_parallel)
+            grad_weight = self.matmul_g_w(dout, x)
         else:
-            grad_weight = self.matmul_g_w(self.input_parallel, dout)
+            grad_weight = self.matmul_g_w(x, dout)
 
         if len(dout.shape) > 2:     # b,s,h
             grad_weight = self.reduce_sum(grad_weight, 0)

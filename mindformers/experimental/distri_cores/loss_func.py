@@ -17,6 +17,7 @@ import mindspore as ms
 from mindspore import nn, mint
 from mindspore import ops as P
 from mindspore.ops import ReduceOp
+from mindspore.common.api import _pynative_executor
 from mindformers.experimental.distri_cores.create_comm import get_tp_group, get_tp_rank, get_tp_world_size
 
 from mindformers.experimental.distri_cores.register import ModuleType, ModuleRegistry
@@ -57,7 +58,7 @@ class VocabParallelCrossEntropy(nn.Cell):
         super(VocabParallelCrossEntropy, self).__init__()
         self.label_smoothing = None
         self.vocab_size = None
-        self.saved_tensors = None
+        self.saved_tensors = [[], [], []]
         self.tp_world_size = get_tp_world_size()
 
         if self.tp_world_size > 1:
@@ -111,12 +112,16 @@ class VocabParallelCrossEntropy(nn.Cell):
 
         self.label_smoothing = label_smoothing
         self.vocab_size = vocab_size
-        self.saved_tensors = exp_logits, target_mask, masked_target_1d
+        if _pynative_executor.grad_flag():
+            self.saved_tensors[0].append(exp_logits)
+            self.saved_tensors[1].append(target_mask)
+            self.saved_tensors[2].append(masked_target_1d)
         return loss
 
     # pylint: disable=W0613, C0111
     def bprop(self, vocab_parallel_logits, target, label_smoothing, grad_output):
-        softmax, target_mask, masked_target_1d = self.saved_tensors
+        softmax, target_mask, masked_target_1d = self.saved_tensors[0].pop(0),\
+            self.saved_tensors[1].pop(0), self.saved_tensors[2].pop(0)
         partition_vocab_size = softmax.shape[-1]
         grad_2d = softmax.view(-1, partition_vocab_size)
         arange_1d = mint.arange(start=0, end=grad_2d.shape[0], step=1)
@@ -133,7 +138,7 @@ class VocabParallelCrossEntropy(nn.Cell):
         grad_2d = grad_2d.reshape(softmax.shape)
         grad_input = grad_2d.mul(grad_output.unsqueeze(dim=-1))
 
-        self.saved_tensors = []
+        self.saved_tensors = [[], [], []]
 
         return grad_input, None, None
 
