@@ -24,10 +24,29 @@ import mindspore as ms
 from mindspore import Tensor
 from mindspore import dtype as mstype
 
-from .base_model import get_config, get_model
+from .base_model import get_config, get_model, get_image_model, get_image_config
 
 local_dir = os.path.dirname(os.path.realpath(__file__))
 ms.set_context(mode=0, jit_config={"jit_level": "O0", "infer_boost": "on"})
+
+
+def generate_context_positions(token_mask, target_token_id, batch_index=0):
+    context_length = np.sum(token_mask.astype(np.int32))
+    pos = np.where(np.array(token_mask) == target_token_id)[0]
+    pos = np.expand_dims(pos, axis=0)
+    pos = np.insert(pos, 0, batch_index, axis=0)
+    pos = np.transpose(pos).reshape((-1, context_length, 2))
+    return pos
+
+
+def get_expert_mask(token_type_ids):
+    vision_token_mask = np.zeros_like(token_type_ids).astype(np.bool_)
+    vision_token_mask[:, :-1] = (token_type_ids[:, :-1] == 1) & (token_type_ids[:, 1:] == 1)
+    language_token_mask = ~vision_token_mask
+    if not vision_token_mask.any():
+        vision_token_mask = None
+    return vision_token_mask, language_token_mask
+
 
 class TestCogVLM2VideoPredict:
     """A test class for testing model prediction."""
@@ -53,3 +72,37 @@ class TestCogVLM2VideoPredict:
                            images=images,
                            video_context_pos=video_context_pos,
                            position_ids=position_ids)
+
+    @pytest.mark.level1
+    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.env_onecard
+    def test_image_model(self):
+        """
+        Feature: image model predict
+        Description: Test image model prediction.
+        Expectation: AssertionError
+        """
+        os.environ['USE_ROPE_SELF_DEFINE'] = 'True'
+        model_config = get_image_config()
+        model = get_image_model(model_config)
+        input_ids = np.random.randint(0, 128, size=(1, 4096), dtype=np.int32)
+        input_ids[:, 2048:] = 128002
+        images = np.random.random(size=(1, 3, 1344, 1344))
+        position_ids = np.expand_dims(np.arange(4096, dtype=np.int32), 0)
+        token_type_ids = np.zeros((1, 4096))
+        token_type_ids[:, 1:2307] = 1
+        vision_context_pos = generate_context_positions(token_type_ids[0], 1)
+        vision_token_mask, language_token_mask = get_expert_mask(token_type_ids)
+        vision_indices = generate_context_positions(vision_token_mask[0], True)
+        language_indices = generate_context_positions(language_token_mask[0], True)
+        _ = model.generate(
+            input_ids=input_ids,
+            images=images,
+            vision_context_pos=vision_context_pos,
+            position_ids=position_ids,
+            vision_token_mask=vision_token_mask,
+            language_token_mask=language_token_mask,
+            vision_indices=vision_indices,
+            language_indices=language_indices,
+            max_length=4096,
+        )

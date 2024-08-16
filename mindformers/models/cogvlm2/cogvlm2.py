@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # This file was refer to project:
-# https://huggingface.co/Qwen/Qwen-VL
+# https://huggingface.co/THUDM/cogvlm2-llama3-chat-19B
 # ============================================================================
 """CogVLM2 models' APIs."""
 import numpy as np
@@ -307,4 +307,147 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
             zactivate_len=zactivate_len,
             block_tables=block_tables,
             slot_mapping=slot_mapping
+        )
+
+
+# pylint: disable=W0223
+@MindFormerRegister.register(MindFormerModuleType.MODELS)
+class CogVLM2ImageForCausalLM(BaseXModalToTextModel):
+    """
+    Provide CogVLM2 training loss or logits through network.
+
+    Args:
+        config (CogVLM2Config): The config of CogVLM2 model.
+    """
+
+    def __init__(self, config: CogVLM2Config, **kwargs):
+        super().__init__(config, **kwargs)
+        self.config = config
+        self.vision_config = config.vision_model.model_config
+        self.llm_config = config.llm_model.model_config
+
+        self.image_size = self.vision_config.image_size
+        self.image_patch_size = self.vision_config.patch_size
+        self.image_grid_size = int(self.image_size / self.image_patch_size)
+
+        self.vision_encoder = build_network(config.vision_model)
+        self.llm_model = build_network(config.llm_model)
+        self.mlp_adapter = VisionMLPAdapter(
+            self.image_grid_size, vision_hidden_size=self.vision_config.hidden_size,
+            text_hidden_size=self.llm_config.hidden_size,
+            text_intermediate_size=self.llm_config.intermediate_size,
+            compute_dtype=convert_mstype(self.vision_config.compute_dtype),
+            param_init_type=convert_mstype(self.vision_config.param_init_type)
+        )
+
+        self.image_start_id = self.config.image_start_id
+        self.image_pad_id = self.config.image_pad_id
+        self.num_queries = self.config.num_queries
+
+        self.use_past = self.config.use_past
+        self.is_first_iteration = True
+        self.pad_token_id = config.pad_token_id
+        self.eos_token_id = config.eos_token_id
+        self.ignore_token_id = ms.Tensor(config.ignore_token_id, mstype.int32)
+
+        self.shape = P.Shape()
+        self.reshape = P.Reshape()
+        self.cast = P.Cast()
+        self.ones = P.Ones()
+        self.concat = P.Concat(axis=1)
+        self.gather_nd = P.GatherNd()
+        self.expand_dims = P.ExpandDims()
+
+        parallel_config = config.parallel_config
+        self.not_equal = P.NotEqual().shard(((parallel_config.data_parallel, 1), ()))
+        self.slice = P.StridedSlice().shard(((parallel_config.data_parallel, 1),))
+        self.masked_fill = P.MaskedFill().shard(
+            ((parallel_config.data_parallel, 1), (parallel_config.data_parallel, 1), ()))
+
+        self.gather = P.Gather().shard(((1, 1, 1), ()))
+        self.equal = P.Equal().shard(((parallel_config.data_parallel, 1), ()))
+
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        prefill = True if kwargs['prefill'] is None else kwargs['prefill']
+        position_ids = kwargs['position_ids']
+        batch_valid_length = np.array(kwargs["valid_length_each_example"])
+        batch_valid_length = np.expand_dims(batch_valid_length, 0) - 1
+        if self.use_past and not prefill:
+            batch_size = batch_valid_length.shape[1]
+            position_ids = position_ids[np.arange(batch_size), batch_valid_length[0]]
+            position_ids = np.expand_dims(position_ids, 0)
+        return {
+            "input_ids": ms.Tensor(input_ids, mstype.int32),
+            "images": self._to_tensor(kwargs['images']),
+            "image_context_pos": self._to_tensor(kwargs['image_context_pos']),
+            "position_ids": ms.Tensor(position_ids, mstype.int32),
+            "vision_token_mask": self._to_tensor(kwargs['vision_token_mask']),
+            "language_token_mask": self._to_tensor(kwargs['language_token_mask']),
+            "vision_indices": self._to_tensor(kwargs['vision_indices']),
+            "language_indices": self._to_tensor(kwargs['language_indices'])
+        }
+
+    def _to_tensor(self, x, dtype=None):
+        return x if x is None else ms.Tensor(x, dtype=dtype)
+
+    def add_flags_custom(self, is_first_iteration):
+        """Add customized attributes for specific cells in the model."""
+        self.add_flags(is_first_iteration=is_first_iteration)
+        self.llm_model.add_flags_custom(is_first_iteration=is_first_iteration)
+
+    def kvcache(self, layer_idx):
+        """Get kvcache from llm with input layer index."""
+        return self.llm_model.kvcache(layer_idx)
+
+    def construct(self, input_ids, images, image_context_pos: Tensor = None, labels=None,
+                  input_position=None, position_ids=None, attention_mask=None, init_reset=True, batch_valid_length=None,
+                  batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, vision_token_mask=None,
+                  language_token_mask=None, vision_indices=None, language_indices=None):
+        """Forward of CogVLM2"""
+        bs, seq_len = self.shape(input_ids)
+        if self.training:
+            tokens = self.stride_slice(input_ids, (0, 0), (bs, seq_len - 1), (1, 1))
+            if labels is None:
+                pad_input_ids_pos = self.equal(input_ids, self.pad_token_id)
+                labels = self.masked_fill(input_ids, pad_input_ids_pos, self.ignore_token_id)
+                pad_label_pos = self.equal(labels, self.pad_token_id)
+                labels = self.masked_fill(labels, pad_label_pos, self.ignore_token_id)
+        else:
+            tokens = input_ids
+
+        input_embeds = self.llm_model.to_embeddings(tokens)
+
+        if attention_mask is None:
+            attention_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
+
+        if images is not None and (self.is_first_iteration or self.training):
+            if images.ndim == 5:
+                images_shape = self.shape(images)
+                stack_shape = (images_shape[0] * images_shape[1], images_shape[2], images_shape[3], images_shape[4])
+                images = self.reshape(images, stack_shape)
+
+            image_embeds = self.vision_encoder(images)
+            image_embeds = self.mlp_adapter(image_embeds)
+            input_embeds = self.update_modal_to_text(image_embeds, input_embeds, image_context_pos)
+
+        if self.is_first_iteration:
+            position_ids = self.slice(position_ids, (0, 0), (bs, seq_len), (1, 1))
+
+        return self.llm_model(
+            input_ids=None,
+            labels=labels,
+            input_position=input_position,
+            position_ids=position_ids,
+            attention_mask=attention_mask,
+            input_embeds=input_embeds,
+            init_reset=init_reset,
+            batch_valid_length=batch_valid_length,
+            batch_index=batch_index,
+            zactivate_len=zactivate_len,
+            block_tables=block_tables,
+            slot_mapping=slot_mapping,
+            vision_token_mask=vision_token_mask,
+            language_token_mask=language_token_mask,
+            vision_indices=vision_indices,
+            language_indices=language_indices
         )

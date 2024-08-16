@@ -86,8 +86,24 @@ def name_replace_llama3(key, value):
     return name, value
 
 
+def name_replace_llama3_for_image(key, value):
+    """replace variable name in llama3 model."""
+    if key.startswith('model.embed_tokens'):
+        return 'llm_model.model.tok_embeddings.embedding_weight', value
+
+    name = f"llm_model.{key}"
+    name = name.replace('model.norm.weight', 'model.norm_out.weight')
+    name = name.replace('mlp.language_mlp.gate_proj', 'mlp.language_mlp.w1')
+    name = name.replace('mlp.language_mlp.up_proj', 'mlp.language_mlp.w3')
+    name = name.replace('mlp.language_mlp.down_proj', 'mlp.language_mlp.w2')
+    name = name.replace('mlp.vision_mlp.gate_proj', 'mlp.vision_mlp.w1')
+    name = name.replace('mlp.vision_mlp.up_proj', 'mlp.vision_mlp.w3')
+    name = name.replace('mlp.vision_mlp.down_proj', 'mlp.vision_mlp.w2')
+    return name, value
+
+
 # pylint: disable=W0613
-def convert_pt_to_ms(input_path, output_path, dtype=ms.float32, **kwargs):
+def convert_pt_to_ms(input_path, output_path, dtype=ms.float32, modal="video", **kwargs):
     """convert hf weight to ms."""
     ckpts = glob(os.path.join(input_path, '*.safetensors'))
     ckpts.sort()
@@ -112,7 +128,10 @@ def convert_pt_to_ms(input_path, output_path, dtype=ms.float32, **kwargs):
         elif k.startswith('model.vision'):
             k, v = name_replace_adapter(k, v)
         else:
-            k, v = name_replace_llama3(k, v)
+            if modal == "video":
+                k, v = name_replace_llama3(k, v)
+            else:
+                k, v = name_replace_llama3_for_image(k, v)
 
         if isinstance(k, list) and isinstance(v, list):
             for idx in range(len(k)):
@@ -127,6 +146,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=ms.float32, **kwargs):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CogVlm2 convert script")
+    parser.add_argument('--modal', default="video", choices=["video", "image"])
     parser.add_argument('--torch_ckpt_dir', default='./cogvlm2-video-llama3-chat/')
     parser.add_argument('--mindspore_ckpt_path', default='./cogvlm2-video-llama3-chat.ckpt')
     parser.add_argument('--dtype', default='float32', type=str, choices=['float16', 'float32', 'bfloat16'])
@@ -135,5 +155,6 @@ if __name__ == "__main__":
     dtype_map = {'float16': ms.float16, 'float32': ms.float32, 'bfloat16': ms.bfloat16}
 
     convert_pt_to_ms(
+        modal=args.modal,
         input_path=args.torch_ckpt_dir, output_path=args.mindspore_ckpt_path,
         dtype=dtype_map[args.dtype])
