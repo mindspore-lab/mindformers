@@ -313,7 +313,6 @@ class GenerationMixin:
             res = self(
                 **model_inputs,
             )
-            ms.hal.synchronize()
             self.phase = "increment"
             # first iter done, go to other iters
             self.add_flags_custom(is_first_iteration=False)
@@ -332,7 +331,6 @@ class GenerationMixin:
             res = self(
                 **model_inputs,
             )
-            ms.hal.synchronize()
 
         return res
 
