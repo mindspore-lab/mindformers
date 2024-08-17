@@ -97,14 +97,14 @@ MindFormers提供`CogVLM2-Video-Chat-13B`的推理示例，目前支持单卡推
     --config configs/cogvlm2/predict_cogvlm2_video_llama3_chat_13b.yaml \
     --run_mode predict \
     --predict_data "/path/video.mp4" "Please describe this video." \
-    --modal_type video \
+    --modal_type "video" "text" \
     --load_checkpoint /{path}/cogvlm2-video-llama3-chat.ckpt
 
    # 参数说明
    config:          模型配置文件路径
    run_mode:        模型执行模式, 'predict'表示推理
    predict_data:    模型推理输入, 第一个输入是视频文件路径, 第二个输入是prompt
-   modal_type:      模型推理模式, 目前仅支持'video'
+   modal_type:      模型推理输入的模态类型, 内容顺序对应predict_data中输入的模态类型，支持 "video"，"text"
    load_checkpoint: 模型权重文件路径
    ```
 
