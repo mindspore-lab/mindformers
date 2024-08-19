@@ -15,9 +15,16 @@
 """clip grad and scale grad"""
 
 import mindspore.ops as ops
+import mindspore.common.dtype as mstype
 import mindspore._checkparam as validator
 import mindspore.nn as nn
+from mindspore import mint
+from mindspore.ops import composite as C
+from mindspore.ops import operations as P
+from mindspore.communication import get_group_size
+from mindspore.communication.comm_func import all_reduce
 
+from mindformers.experimental.distri_cores.create_comm import get_tp_group, get_tp_rank
 from mindformers.experimental.distri_cores.register import ModuleType, ModuleRegistry
 
 
@@ -57,6 +64,83 @@ class GradClipByValue(nn.Cell):
         self.clip_func(grads, -self.clip_value, self.clip_value)
 
 
+get_square_sum = C.MultitypeFuncGraph("get_square_sum")
+
+
+@get_square_sum.register("Tensor")
+def _get_square_sum(grad):
+    norm = mint.sum(mint.square(P.Cast()(grad, mstype.float32)))
+    norm = norm.expand_dims(0)
+    return norm
+
+
+@ModuleRegistry.register_decorator(ModuleType.GRAD_PROCESS_FUNC)
+class ClipGlobalNorm(nn.Cell):
+    """
+    Clips the gradients by global norm value.
+
+    Args:
+        params (List): Parameters of the network.
+        reduce_comm_group: The communication group to reduce norm value.
+        clip_value (float): The value to clip the gradients. Default: 1.0.
+        norm_type (str): The type of global norm value. Default: 'l2'
+
+    Inputs:
+        - **grads** (list[Tensor]) - The gradients of parameters, the shape is the same as parameters.
+    """
+    def __init__(self, params, reduce_comm_group, clip_value=1.0, norm_type='l2'):
+        super(ClipGlobalNorm, self).__init__()
+        self.params = params
+        self.clip_value = clip_value
+        self.hyper_map = C.HyperMap()
+        self.norm_type = norm_type
+        self.reduce_comm_group = reduce_comm_group
+        self.clip_func = inplace_apply_to_tensor_list(self.grad_scale_func)
+
+    def grad_scale_func(self, grad, scale):
+        """ function of scaling grads """
+        return grad * scale
+
+    def get_grads(self, grads):
+        """
+        get grads to norm, include weight/bias(not duplicate) and layernorm(duplicate, only pick grad on rank0)
+        """
+        rank_id = get_tp_rank()
+        norm_grads = ()
+        for i, param in enumerate(self.params):
+            is_duplicate_grad = (
+                ("norm" in param.name)
+                or ("mlp.projection.bias" in param.name)
+                or ("attention.out_proj.bias" in param.name)
+            )
+            if is_duplicate_grad:
+                if rank_id == 0:
+                    norm_grads = norm_grads + (grads[i],)
+            else:
+                norm_grads = norm_grads + (grads[i],)
+        return norm_grads
+
+    def get_grad_norm_fp32(self, grads):
+        """Compute grad norm."""
+        if self.norm_type == "l2":
+            square_sum = self.hyper_map(get_square_sum, grads)
+            square_reduce_sum = ops.addn(square_sum)
+        else:
+            raise NotImplementedError("for global norm, l2 norm only support now.")
+        if get_group_size(self.reduce_comm_group) > 1:
+            square_reduce_sum = all_reduce(square_reduce_sum, "sum", self.reduce_comm_group)
+        total_norm = mint.sqrt(square_reduce_sum)
+        return total_norm
+
+    def construct(self, grads):
+        """clip grad by global norm."""
+        norm_grads = self.get_grads(grads)
+        total_norm = self.get_grad_norm_fp32(norm_grads)
+        clip_coeff = self.clip_value / (total_norm + 1.0e-6)
+        if clip_coeff < 1.0:
+            self.clip_func(grads, clip_coeff)
+
+
 def get_grad_process_func(training_config, return_instance=True, **kwargs):
     """
     Get the gradient processing function based on the provided training configuration.
@@ -76,6 +160,11 @@ def get_grad_process_func(training_config, return_instance=True, **kwargs):
     if return_instance:
         grad_process_func_kwargs.update(kwargs)
         grad_process_func_kwargs = ModuleRegistry.get_needed_params_for_init(grad_clip_cls, grad_process_func_kwargs)
+        if grad_clip_type == "ClipGlobalNorm":
+            if "params" not in kwargs:
+                raise ValueError("params is required for ClipGlobalNorm")
+            reduce_comm_group = get_tp_group()
+            grad_process_func_kwargs["reduce_comm_group"] = reduce_comm_group
         return grad_clip_cls(**grad_process_func_kwargs)
     return grad_clip_cls
 
