@@ -60,7 +60,8 @@ def build_transforms(
         for transform in cfg_transforms:
             if hasattr(transform, "model_transform_template") and \
                     getattr(transform, "model_transform_template") is not None:
-                transform.model_transform_template = build_transforms(transform.model_transform_template)
+                transform.model_transform_template = build_transforms(transform.model_transform_template,
+                                                                      default_args=default_args)
             transform_op = MindFormerRegister.get_instance_from_cfg(
                 transform, MindFormerModuleType.TRANSFORMS, default_args=default_args)
             transforms.append(transform_op)

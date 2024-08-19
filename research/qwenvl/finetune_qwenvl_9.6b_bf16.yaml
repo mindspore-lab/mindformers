@@ -10,25 +10,16 @@ run_mode: 'finetune'
 
 # trainer config
 trainer:
-  type: ContrastiveLanguageImagePretrainTrainer
+  type: MultiModalToTextGenerationTrainer
   model_name: 'qwenvl'
 
 # dataset
 train_dataset: &train_dataset
   data_loader:
-    type: QwenVLDataLoader
-    dataset_dir: "/location/of/images"
+    type: BaseMultiModalDataLoader
     annotation_file: "conversation_file.json"
-    column_names: [ "image", "text" ]
     shuffle: True
-    extra_kwargs:
-      max_img_len: 1
-      map_function_kwargs:
-        user_role_name: user
-        assistant_role_name: assistant
-  output_columns: [ "text", "img_start_pos", "label" ]
-  column_order: [ "text", "image", "img_start_pos", "label" ]
-  num_parallel_workers: 2
+  num_parallel_workers: 1
   python_multiprocessing: False
   drop_remainder: True
   batch_size: 1
@@ -36,27 +27,44 @@ train_dataset: &train_dataset
   numa_enable: False
   prefetch_size: 1
   seed: 2022
-  transforms:
+  modal_to_text_transform:
+    type: BaseXModalToTextTransform
+    model_transform_template:
+      type: QwenVLContentTransformTemplate
+      output_columns: ["input_ids", "images", "image_context_pos", "labels"]
+      mode: "train"
+      dataset_dir: ""
+      modal_content_padding_size: 1
+      image_size: 448
+      system_message: "You are a helpful assistant."  # 微调时，系统prompt
+      user_role_name: user                            # 根据数据集转换实际配置，修改为用户角色名，默认配置为user
+      assistant_role_name: assistant                  # 根据数据集转换实际配置，修改为助手角色名，默认配置为assistant
+      user_prompt: ""                  # user角色prompt
+      assistant_prompt: ""             # assistant角色prompt
+
+    max_length: 2048
+
+  modal_content_input_columns: [ "images" ]
+  modal_content_output_columns: [ "images" ]
+  modal_content_transforms:
     - type: BatchToTensor
     - type: BatchNormalize
       mean: [ 0.48145466, 0.4578275, 0.40821073 ]
       std: [ 0.26862954, 0.26130258, 0.27577711 ]
       is_hwc: False
-  text_transforms:
-    type: QwenVLTransform
-    max_length: 2049
+  net_input_columns: [ "input_ids", "images", "image_context_pos", "labels" ]
   tokenizer:
     type: QwenVLTokenizer
     # vocab_file: /path/to/vocab_file
 
 train_dataset_task:
-  type: QwenVLDataset
+  type: ModalToTextSFTDataset
   dataset_config: *train_dataset
 # runner config
 runner_config:
   epochs: 3
   batch_size: 4
-  sink_mode: True
+  sink_mode: False
   sink_size: 2
 runner_wrapper:
   type: MFTrainOneStepCell
@@ -213,7 +221,7 @@ context:
   save_graphs_path: "./graph"
   device_id: 0
   jit_config:
-    jit_level: "O2"
+    jit_level: "O1"
 
 # parallel context config
 parallel:

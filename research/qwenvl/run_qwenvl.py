@@ -18,8 +18,7 @@ import os
 import shutil
 from typing import Optional, List
 
-from mindformers import Trainer, MindFormerConfig, MindFormerRegister, MindFormerModuleType, \
-    BatchNormalize, BatchToTensor
+from mindformers import Trainer, MindFormerConfig, MindFormerRegister, MindFormerModuleType
 from mindformers.core.context import build_context
 from mindformers.models import build_network
 from mindformers.tools import get_output_root_path
@@ -31,8 +30,6 @@ from qwen.qwen_config import QwenConfig
 from qwen.qwen_model import QwenForCausalLM
 from qwenvl import QwenVL
 from qwenvl_config import QwenVLConfig
-from qwenvl_dataloader import QwenVLDataLoader
-from qwenvl_dataset import QwenVLDataset
 from qwenvl_processor import QwenVLImageProcessor
 from qwenvl_processor import QwenVLProcessor
 from qwenvl_tokenizer import QwenVLTokenizer
@@ -46,15 +43,10 @@ def register_modules():
     MindFormerRegister.register_cls(QwenForCausalLM, MindFormerModuleType.MODELS)
     MindFormerRegister.register_cls(QwenConfig, MindFormerModuleType.CONFIG)
     MindFormerRegister.register_cls(QwenVLConfig, MindFormerModuleType.CONFIG)
-    MindFormerRegister.register_cls(QwenVLDataset, MindFormerModuleType.DATASET)
-    MindFormerRegister.register_cls(QwenVLDataLoader, MindFormerModuleType.DATASET_LOADER)
     MindFormerRegister.register_cls(QwenVLTokenizer, MindFormerModuleType.TOKENIZER)
     MindFormerRegister.register_cls(QwenVLTransform, MindFormerModuleType.TRANSFORMS)
     MindFormerRegister.register_cls(QwenVLProcessor, MindFormerModuleType.PROCESSOR)
     MindFormerRegister.register_cls(QwenVLImageProcessor, MindFormerModuleType.PROCESSOR)
-
-    MindFormerRegister.register_cls(BatchNormalize, MindFormerModuleType.TRANSFORMS)
-    MindFormerRegister.register_cls(BatchToTensor, MindFormerModuleType.TRANSFORMS)
 
 
 if check_in_modelarts():
@@ -150,11 +142,12 @@ def check_finetune_config(
 
     if seq_length is not None:
         update_llm_model_config(config, "seq_length", seq_length)
-        config.train_dataset.text_transforms.max_length = seq_length + 1
+        config.train_dataset.modal_to_text_transform.max_length = seq_length
 
     if image_size is None:
         image_size = get_vision_model_config(config, "image_size")
     update_vision_model_config(config, "image_size", image_size)
+    config.train_dataset.modal_to_text_transform.model_transform_template.image_size = image_size
 
     config.model.model_config.use_past = False
     update_llm_model_config(config, "use_past", False)
@@ -262,7 +255,7 @@ def main(config="finetune_qwenvl_910b.yaml",
         print(result)
     elif in_finetune_mode(run_mode):
         check_finetune_config(config, vocab_file=vocab_file, image_size=image_size, seq_length=seq_length)
-        trainer = Trainer(args=config, task="image_to_text_generation")
+        trainer = Trainer(args=config, task="multi_modal_to_text_generation")
         trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt)
     else:
         raise NotImplementedError(f"run_mode {run_mode} not supported yet.")

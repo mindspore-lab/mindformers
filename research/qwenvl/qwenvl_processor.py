@@ -16,7 +16,6 @@
 """
 QwenVLProcessor
 """
-
 import re
 from typing import Optional, Union, List
 
@@ -24,32 +23,17 @@ import PIL
 import PIL.Image
 import numpy as np
 import mindspore as ms
-from mindspore.dataset import vision
-from mindformers.dataset.transforms.vision_transforms import (
-    BatchPILize,
-    BatchResize,
-    BatchToTensor,
-    BatchNormalize
-)
+from mindformers import MindFormerModuleType, MindFormerRegister, logger
+from mindformers.dataset.transforms.vision_transforms import BatchPILize, BatchToTensor, BatchNormalize
 from mindformers.models.base_processor import BaseProcessor
 from mindformers.models.image_processing_utils import BaseImageProcessor
+from mindformers.models.multi_modal.base_multi_modal_processor import BatchResizeV2
+from mindformers.models.multi_modal.modal_content import ModalContentTransformTemplate, BaseTextContentBuilder, \
+    BaseImageContentBuilder
+from mindformers.models.multi_modal.utils import DataRecord
 from mindformers.tools.image_tools import load_image
 
 from qwenvl_transform import QwenVLTransform
-
-
-class BatchResizeV2(BatchResize):
-    """
-    Resize a batch of image to the given shape.
-
-    Args:
-         image_resolution (int): the target size.
-         interpolation (str): interpolate method, default is 'cubic'.
-    """
-
-    def __init__(self, image_resolution, interpolation='cubic'):
-        super().__init__(image_resolution, interpolation)
-        self.resize = vision.Resize(image_resolution, self.interpolation)
 
 
 class QwenVLImageProcessor(BaseImageProcessor):
@@ -113,6 +97,146 @@ class QwenVLImageProcessor(BaseImageProcessor):
         if isinstance(image_batch, (list, PIL.Image.Image)):
             return True
         return False
+
+
+class QwenVLImageContentBuilder(BaseImageContentBuilder):
+    """
+       QwenVL Image Content Builder.
+    """
+    def __init__(
+            self,
+            context_pad_token,
+            context_length,
+            image_size=448,
+            image_location="",
+            start_token="<img>",
+            end_token="</img>",
+            tokenizer=None,
+            modal_content_max_size=1,
+            mode="predict",
+            max_length=2048
+    ):
+        super().__init__(
+            context_pad_token=context_pad_token,
+            context_length=context_length,
+            use_custom_token=False,
+            start_token=start_token,
+            end_token=end_token,
+            tokenizer=tokenizer,
+            need_padding_context=False,
+            modal_content_max_size=modal_content_max_size,
+            mode=mode,
+            max_length=max_length
+        )
+        self.image_location = image_location
+
+        self.start_token_id = 151857
+        self.end_token_id = 151858
+
+        self.image_mapping = BatchResizeV2((image_size, image_size), interpolation="cubic")
+
+    def regular_input_for_predict(self, inputs, result_recorder: DataRecord = None, **kwargs):
+        raise NotImplementedError
+
+    def regular_input_for_train(self, inputs, result_recorder: DataRecord = None, **kwargs):
+        return super().regular_input_for_train(inputs, result_recorder=result_recorder, **kwargs)
+
+
+class QwenVLTextContentBuilder(BaseTextContentBuilder):
+    """
+       QwenVL Text Content Builder.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.ref_start_tag = "<ref>"
+        self.ref_end_tag = "</ref>"
+        self.box_start_tag = "<box>"
+        self.box_end_tag = "</box>"
+
+    # pylint: disable=W0613
+    def regular_input_for_train(self, inputs, result_recorder: DataRecord = None, **kwargs):
+        return inputs
+
+
+@MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
+class QwenVLContentTransformTemplate(ModalContentTransformTemplate):
+    """
+    QwenVL Modal Content Transform Template
+    """
+
+    # pylint: disable=W1113
+    def __init__(self, output_columns, tokenizer, image_size=448, num_queries=256, dataset_dir="", mode="predict",
+                 modal_content_padding_size=1, **kwargs):
+        super().__init__(output_columns=output_columns, tokenizer=tokenizer, mode=mode,
+                         modal_content_padding_size=modal_content_padding_size, **kwargs)
+        self.dataset_dir = dataset_dir
+
+        self.modal_builders = {
+            "image": QwenVLImageContentBuilder("<imgpad>", num_queries, start_token="<img>", end_token="</img>",
+                                               image_location=dataset_dir,
+                                               modal_content_max_size=modal_content_padding_size,
+                                               mode=mode, max_length=self.max_length, image_size=image_size),
+            "text": QwenVLTextContentBuilder()
+        }
+
+        self.system_message = kwargs.get("system_message", "You are a helpful assistant.")
+
+        self.user_role_name = kwargs.get("user_role_name", "user")
+        self.user_prompt = kwargs.get("user_prompt", "")
+
+        self.assistant_role_name = kwargs.get("assistant_role_name", "assistant")
+        self.assistant_prompt = kwargs.get("assistant_prompt", "")
+        self.assistant_token_ids_length = len(self.tokenizer(f"{self.assistant_role_name}")["input_ids"])
+
+        self.ignore_token_id = -100
+
+        self.prompt_map = {
+            self.user_role_name: self.user_prompt,
+            self.assistant_role_name: self.assistant_prompt
+        }
+
+    def build_conversation_input_text(self, raw_inputs, result_recorder: DataRecord):
+        if self.mode == "train":
+            return self.build_sft_conversation_input(raw_inputs, result_recorder)
+        raise NotImplementedError("build_conversation_input_text is only support train mode.")
+
+    def build_sft_conversation_input(self, conversations: List[List], result_recorder: DataRecord):
+        """build sft conversation inputs"""
+        text_list = [f"<|im_start|>system\n{self.system_message}<|im_end|>\n"]
+        role_info = ["system"]
+        for conversation in conversations:
+            from_, value = conversation
+            if from_ in (self.user_role_name, self.assistant_role_name):
+                prompt = self.prompt_map.get(from_)
+            else:
+                logger.warning("role_name `%s` is invalid in conversation %s, it will be ignored!", from_, conversation)
+                continue
+
+            text_list.append(f"<|im_start|>{from_}\n{prompt}{value}<|im_end|>\n")
+            role_info.append(from_)
+        result_recorder.put("role_info", role_info)
+        return text_list
+
+    # pylint: disable=W0613
+    def build_labels(self, text_id_list, result_recorder: DataRecord, **kwargs):
+        """build labels for qwenvl"""
+        role_info_list = result_recorder.get("role_info")
+        labels = []
+        for index, role_name in enumerate(role_info_list):
+            labels_item = text_id_list[index].copy()
+            if role_name in (self.user_role_name, "system"):
+                labels_item[1:-2] = self.ignore_token_id  # ignore role info, system massage and question
+            elif role_name == self.assistant_role_name:
+                labels_item[1:self.assistant_token_ids_length + 2] = self.ignore_token_id  # ignore assistant role info
+            else:
+                raise ValueError(f"role_name `{role_name}` is invalid")
+            labels.extend(labels_item)
+        return labels
+
+    def get_need_update_output_items(self, result: DataRecord):
+        update_items = {"images": self.modal_builders["image"].padding_images_to_max_content_size(result.get("images"))}
+        return update_items
 
 
 class QwenVLProcessor(BaseProcessor):

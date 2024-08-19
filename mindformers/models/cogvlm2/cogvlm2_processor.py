@@ -299,7 +299,7 @@ class CogVLM2ContentTransformTemplate(ModalContentTransformTemplate):
         }
 
     # pylint: disable=W0613
-    def build_conversion_input_text(self, raw_inputs, result_recorder):
+    def build_conversation_input_text(self, raw_inputs, result_recorder):
         """Build conversion input text."""
         if self.signal_type == "base":
             return "".join(raw_inputs)

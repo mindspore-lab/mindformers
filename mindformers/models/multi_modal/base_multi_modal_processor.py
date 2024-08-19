@@ -124,7 +124,8 @@ class BaseXModalToTextTransform:
         self.tokenizer = tokenizer
 
         if isinstance(model_transform_template, dict):
-            model_transform_template = build_transforms(model_transform_template, default_args={"tokenizer": tokenizer})
+            model_transform_template = build_transforms(model_transform_template,
+                                                        default_args={"tokenizer": tokenizer, "max_length": max_length})
 
         self.model_transform_template = model_transform_template
 
@@ -145,8 +146,9 @@ class BaseXModalToTextTransform:
 
     def perform_predict_transform(self, query_ele_list: List[Dict], batch_index=0, **kwargs):
         """perform transform for prediction"""
+        self.result_recorder.clear()
         text_list = self.model_transform_template.process_predict_query(query_ele_list, self.result_recorder)
-        text = self.model_transform_template.build_conversion_input_text(text_list, self.result_recorder)
+        text = self.model_transform_template.build_conversation_input_text(text_list, self.result_recorder)
 
         text_id = self.tokenizer(text, add_special_tokens=False)["input_ids"]
         text_id = self.model_transform_template.build_modal_context(text_id, self.result_recorder, **kwargs)
@@ -168,17 +170,57 @@ class BaseXModalToTextTransform:
     def post_process_for_predict(self, output_ids, **kwargs):
         return self.model_transform_template.post_process_for_predict(output_ids, **kwargs)
 
-    def perform_train_transform(self, query_ele_list: List[Dict]):
-        raise NotImplementedError()
+    def perform_train_transform(self, conversations, **kwargs):
+        """perform transform for training"""
+        self.result_recorder.clear()
+        text_list = self.model_transform_template.process_train_item(conversations, self.result_recorder)
+        text_list = self.model_transform_template.build_conversation_input_text(text_list, self.result_recorder)
+
+        text_id_list = []
+        for text in text_list:
+            text_id = self.tokenizer(text, add_special_tokens=False)["input_ids"]
+            text_id = self.model_transform_template.build_modal_context(text_id, self.result_recorder, **kwargs)
+            text_id_list.append(text_id)
+
+        labels = self.model_transform_template.build_labels(text_id_list, self.result_recorder, **kwargs)
+        concat_text_id = np.concatenate(text_id_list)
+        context_pos_dict = self.model_transform_template.generate_modal_context_positions(concat_text_id, **kwargs)
+
+        text_id, labels = self.padding_input_ids_and_labels_for_train(concat_text_id, labels)
+        self.result_recorder.put("input_ids", text_id.astype(np.int32))
+        self.result_recorder.put("labels", labels.astype(np.int32))
+        self.result_recorder.put_from_dict(context_pos_dict)
+
+        self.update_result_before_output()
+
+        output_columns = self.model_transform_template.output_columns
+        return self.result_recorder.output(output_columns, format_="tuple")
+
+    def padding_input_ids_and_labels_for_train(self, text_ids, labels):
+        """padding input_ids and labels to max_length"""
+        if isinstance(text_ids, list):
+            text_ids = np.array(text_ids)
+
+        if isinstance(labels, list):
+            labels = np.array(labels)
+
+        cur_length = len(text_ids)
+        target_length = self.max_length + 1
+
+        if cur_length < target_length:
+            padding_length = target_length - cur_length
+            text_ids = np.pad(text_ids, (0, padding_length), "constant", constant_values=self.tokenizer.pad_token_id)
+            labels = np.pad(labels, (0, padding_length), "constant", constant_values=-100)
+        else:
+            text_ids = text_ids[:target_length]
+            labels = labels[:target_length]
+        return text_ids, labels
 
     def post_process(self, output_ids, **kwargs):
         return self.model_transform_template.post_process(output_ids, **kwargs)
 
-    def __call__(self, raw_text: Union[str, List[Dict]], batch_index: int = 0, **kwargs):
-        self.result_recorder.clear()
-        if self.mode == "predict":
-            return self.perform_predict_transform(raw_text, batch_index, **kwargs)
-        return self.perform_train_transform(raw_text)
+    def __call__(self, conversations, **kwargs):
+        return self.perform_train_transform(conversations)
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
@@ -232,7 +274,7 @@ class BaseXModalToTextProcessor(BaseProcessor):
             else:
                 history = None
 
-            data = self.modal_transform(query, batch_index=index, history=history)
+            data = self.modal_transform.perform_predict_transform(query, batch_index=index, history=history)
             batch_data.append(data)
             max_length = max(max_length, len(data.get("input_ids")))
 

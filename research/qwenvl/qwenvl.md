@@ -46,10 +46,7 @@ Qwen-VL 是阿里云研发的大规模视觉语言模型（Large Vision Language
 
    ```text
    qwenvl
-     ├── qwenvl_dataset.py        # 实际传入训练的数据集，实现了batch，transform等操作操作
-     ├── qwenvl_dataloader.py     # 加载json格式的qwenvl数据
-     ├── qwenvl_transform.py      # 数据加载时使用的数据转换
-     ├── qwenvl_processor.py      # 推理时候使用的数据处理
+     ├── qwenvl_processor.py      # 训练和推理时候使用的数据处理
      ├── convert_weight.py        # 权重转换脚本
      ├── data_convert.py          # 数据预处理转换脚本
      └── run_qwenvl.py            # QwenVL高阶接口脚本
@@ -167,44 +164,39 @@ MindFormers提供了默认微调配置`finetune_qwenvl_9.6b.yaml`，默认配置
 
    train_dataset: &train_dataset
      data_loader:
-      type: QwenVLDataLoader
-      dataset_dir: "/location/of/coco/train2014"     # 根据实际位置进行配置，当使用示例数据集时为train2014文件夹所在路径，配置项不包含train2014
+      type: BaseMultiModalDataLoader
       annotation_file: "/path/to/converted/json"     # 根据实际位置，填写对话json文件所在路径
       column_names: [ "image", "text" ]
       shuffle: True
-      extra_kwargs:
-        max_img_len: 1                              # 根据数据集中对话实际包含图片数量进行配置，在使用示例数据集时为1
-      map_function_kwargs:
-        user_role_name: user                        # 根据数据集转换实际配置，修改为用户角色名，默认可不更改
-        assistant_role_name: assistant              # 根据数据集转换实际配置，修改为助手角色名，默认可不更改
-
-      tokenizer:
-        type: QwenVLTokenizer
-        vocab_file: "/path/to/qwen.tiktoken"         # 根据词表所在位置，填写词表所在路径，也可通过启动命令传入
+     modal_to_text_transform:
+        type: BaseXModalToTextTransform
+        model_transform_template:
+          type: QwenVLContentTransformTemplate      # QwenVL关于数据集数据处理模板
+          output_columns: ["input_ids", "images", "image_context_pos", "labels"] # 文本处理后数据数据的列名，不需要配置
+          mode: "train"
+          dataset_dir: "/location/of/coco/train2014" # 该处配置文件夹位置与json数据集中图片路径拼接得到图片的绝对路径，如果数据集中路径已是绝对路径，该处不需要配置；当使用示例数据集时为train2014文件夹所在路径，配置项不包含train2014,
+          modal_content_padding_size: 1             # 根据数据集中对话实际包含图片数量进行配置，在使用示例数据集时为1
+          system_message: "You are a helpful assistant."  # 微调时，系统prompt
+          user_role_name: user                            # 根据数据集转换实际配置，修改为用户角色名，默认配置为user
+          assistant_role_name: assistant                  # 根据数据集转换实际配置，修改为助手角色名，默认配置为assistant
+          user_prompt: ""                  # user角色prompt
+          assistant_prompt: ""             # assistant角色prompt
+          image_size: 448                  # 数据集加载将图片放缩至该尺寸
+        max_length: 2048                   # 训练时使用seq_length
+     modal_content_input_columns: [ "images"]      # 模态内容转换输入列名，该处固定为images
+     modal_content_output_columns: [ "images" ]    # 模态内容转换输出列名，该处固定为images
+     modal_content_transforms:                     # 模态内容转换，不需要配置，仅为示意
+      - type: BatchToTensor
+      - type: BatchNormalize
+        mean: [ 0.48145466, 0.4578275, 0.40821073 ]
+        std: [ 0.26862954, 0.26130258, 0.27577711 ]
+        is_hwc: False
+     net_input_columns: [ "input_ids", "images", "image_context_pos", "labels" ]  # 最终从数据集流水线中取所配置列名及其顺序送入到网络输入
 
    processor:
     tokenizer:
       vocab_file: "/path/to/qwen.tiktoken"          # 根据词表所在位置，填写词表所在路径，也可通过启动命令传入
     ```
-
-data_loader的参数解释：
-
-- `type`: 数据集加载器的类型，固定为QwenVLDataLoader。
-- `dataset_dir`: 图片数据所在文件夹。对话数据中`<img>relative_path_to_img.jpg</img>`
-  对应图片路径为`os.path.join(dataset_dir, relative_path_to_img.jpg)`。
-- `annotation_file`: json格式的对话数据路径。
-- `column_names`: 数据集输出的列名。一般为image和text。
-- `shuffle`: 是否打乱数据集。
-- `extra_kwargs`: 额外的参数。
-    - `max_img_len`: 对话中内容中支持的最大图片数量。
-    - `map_function_kwargs`: map_function的参数。
-        - `user_role_name`: 提出问题方的名称，对应数据集中的from。
-        - `assistant_role_name`: 回答问题方的名称，对应数据集中另外一个的from。
-
-text_transforms的参数解释：
-
-- `type`: 数据集加载器的类型，固定为QwenVLTransform。
-- `max_length`: 语言模型的`seq_length+1`，当修改语言模型的`seq_length`时需要同步修改该值。
 
 2. 启动微调任务
 
@@ -213,7 +205,7 @@ text_transforms的参数解释：
 ```shell
 cd research/qwenvl
 bash ../../scripts/msrun_launcher.sh "python run_qwenvl.py \
---config finetune_qwenvl_9.6b.yaml \
+--config finetune_qwenvl_9.6b_bf16.yaml \
 --run_mode finetune \
 --load_checkpoint /path/to/ckpt \
 --use_parallel True \
@@ -259,7 +251,7 @@ bash ../../scripts/msrun_launcher.sh "python run_qwenvl.py \
   # 以使用共享盘为例
   cd research/qwenvl
   bash ../../scripts/msrun_launcher.sh "python run_qwenvl.py \
-  --config finetune_qwenvl_9.6b.yaml \
+  --config finetune_qwenvl_9.6b_bf16.yaml \
   --run_mode finetune \
   --load_checkpoint /path/to/ckpt \
   --use_parallel True \
@@ -273,7 +265,7 @@ bash ../../scripts/msrun_launcher.sh "python run_qwenvl.py \
   ```shell
   cd research/qwenvl
   bash ../../scripts/msrun_launcher.sh "python run_qwenvl.py \
-  --config finetune_qwenvl_9.6b.yaml \
+  --config finetune_qwenvl_9.6b_bf16.yaml \
   --run_mode finetune \
   --load_checkpoint /path/to/ckpt \
   --use_parallel True \

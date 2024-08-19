@@ -38,13 +38,15 @@ from .zero_shot_image_classification_dataset import ZeroShotImageClassificationD
 from .multi_turn_dataset import MultiTurnDataset
 from .general_dataset import GeneralDataset
 from .utils import check_dataset_config, check_dataset_iterable
+from .modal_to_text_sft_dataset import ModalToTextSFTDataset
 
 
 __all__ = ['BaseDataset', 'CausalLanguageModelDataset', 'ContrastiveLanguageImagePretrainDataset',
            'ImageCLSDataset', 'KeyWordGenDataset', 'MaskLanguageModelDataset',
            'MIMDataset', 'QuestionAnsweringDataset', 'RewardModelDataset', 'TextClassificationDataset',
            'TokenClassificationDataset', 'TranslationDataset', 'ZeroShotImageClassificationDataset',
-           'MultiTurnDataset', 'GeneralDataset', 'check_dataset_config', 'check_dataset_iterable']
+           'MultiTurnDataset', 'GeneralDataset', 'check_dataset_config', 'check_dataset_iterable',
+           'ModalToTextSFTDataset']
 
 __all__.extend(dataloader.__all__)
 __all__.extend(mask.__all__)

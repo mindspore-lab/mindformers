@@ -17,6 +17,8 @@
 ModalContent Tools
 """
 import abc
+import os
+import re
 from typing import Dict, Any, List
 
 import numpy as np
@@ -25,6 +27,7 @@ from mindspore import Tensor, ops
 
 from mindformers.tools.logger import logger
 from .utils import DataRecord
+from ...tools.image_tools import load_image
 
 
 class ModalContentBuilder:
@@ -39,7 +42,11 @@ class ModalContentBuilder:
             start_token=None,
             end_token=None,
             tokenizer=None,
-            need_create_context_pos=True
+            need_create_context_pos=True,
+            need_padding_context=True,
+            modal_content_max_size=1,
+            mode="predict",
+            max_length=2048
     ):
         self.type = type_
         self.context_pad_token = context_pad_token
@@ -60,6 +67,13 @@ class ModalContentBuilder:
 
         self.tokenizer = tokenizer
         self.need_create_context_pos = need_create_context_pos
+        self.need_padding_context = need_padding_context
+        self.modal_content_max_size = modal_content_max_size
+        self.mode = mode
+        self.max_length = max_length
+
+        if mode not in ["train", "predict"]:
+            raise ValueError(f"only mode `train` and `predict` are supported, {mode} is got.")
 
         self.has_add_custom_token = False
         self.start_token_id = None
@@ -92,11 +106,59 @@ class ModalContentBuilder:
         return input_ids
 
     def generate_context_positions(self, input_ids, batch_index=0, result_recorder: DataRecord = None, **kwargs):
+        """generate context positions in the text, it will pad fake positions in the training task"""
         pos = np.where(np.array(input_ids) == self.context_pad_token_id)[0]
+
+        if self.mode == "train":
+            if pos.shape[0] == 0:
+                pos = np.tile(np.array(list(range(self.max_length - self.context_length, self.max_length))),
+                              self.modal_content_max_size)
+            elif len(pos) <= self.modal_content_max_size * self.context_length:
+                padding_size = (self.modal_content_max_size * self.context_length - len(pos)) // self.context_length
+                padding_array = np.array(list(range(self.max_length - self.context_length, self.max_length)))
+                pos = np.concatenate([pos, np.tile(padding_array, padding_size)])
+            else:
+                pos = pos[:self.modal_content_max_size * self.context_length]
+                logger.warning("context pos items is greater than modal_content_max_size, it will be truncated.")
+
         pos = np.expand_dims(pos, axis=0)
         pos = np.insert(pos, 0, batch_index, axis=0)
         pos = np.transpose(pos).reshape((-1, self.context_length, 2))
-        return Tensor(pos, dtype=ms.int32)
+        return pos
+
+    @staticmethod
+    def find_tag_and_extract(text, start_tag, end_tag, check_close=True):
+        """find specific tag in the text and extract content in the tags"""
+        start_tag_index = []
+        end_tag_index = []
+        for match in re.finditer(re.escape(start_tag), text):
+            start_tag_index.append((match.start(), match.end()))
+
+        for match in re.finditer(re.escape(end_tag), text):
+            end_tag_index.append((match.start(), match.end()))
+
+        if check_close and len(start_tag_index) != len(end_tag_index):
+            raise ValueError(f"the text has unclosed {start_tag}{end_tag} in {text}")
+
+        replaced_text = []
+        content = []
+        last_end = 0
+        for start_tag_index_item, end_tag_index_item in zip(start_tag_index, end_tag_index):
+            start_tag_start_idx, start_tag_end_idx = start_tag_index_item
+            end_tag_start_idx, end_tag_end_idx = end_tag_index_item
+
+            if start_tag_end_idx > end_tag_start_idx:
+                raise ValueError(f"the `text` {text} has error start and end tag order")
+
+            replaced_text.append(text[last_end:start_tag_start_idx])
+            content.append(text[start_tag_end_idx:end_tag_start_idx])
+            last_end = end_tag_end_idx
+
+        replaced_text.append(text[last_end:])
+
+        tag_padding = f"{start_tag}{end_tag}"
+        padded_text = tag_padding.join(replaced_text)
+        return padded_text, content
 
 
 class BaseTextContentBuilder(ModalContentBuilder):
@@ -119,7 +181,84 @@ class BaseTextContentBuilder(ModalContentBuilder):
         return ""
 
     def regular_input_for_train(self, inputs, result_recorder: DataRecord = None, **kwargs):
+        return inputs
+
+
+class BaseImageContentBuilder(ModalContentBuilder):
+    """
+    Base image modal builder, it returns the padded input in training task after calling
+    method `padding_images_to_max_content_size`
+    """
+    def __init__(
+            self,
+            context_pad_token,
+            context_length,
+            image_size=448,
+            image_location="",
+            use_custom_token=False,
+            start_token="<img>",
+            end_token="</img>",
+            tokenizer=None,
+            need_padding_context=True,
+            modal_content_max_size=1,
+            mode="train",
+            max_length=2048
+    ):
+        super().__init__(
+            type_="image",
+            context_pad_token=context_pad_token,
+            context_length=context_length,
+            use_custom_token=use_custom_token,
+            start_token=start_token,
+            end_token=end_token,
+            tokenizer=tokenizer,
+            need_padding_context=need_padding_context,
+            modal_content_max_size=modal_content_max_size,
+            mode=mode,
+            max_length=max_length
+        )
+        self.image_size = image_size
+        self.image_location = image_location
+        self.image_mapping = None
+
+    def regular_input_for_train(self, inputs, result_recorder: DataRecord = None, **kwargs):
+        text, image_path_list = self.find_tag_and_extract(inputs, self.start_token, self.end_token)
+        images = self.load_images(image_path_list)
+        result_recorder.put("images", images, append=True)
+        return text
+
+    def regular_input_for_predict(self, inputs, result_recorder: DataRecord = None, **kwargs):
         raise NotImplementedError
+
+    def load_images(self, image_path_list):
+        """load images"""
+        image_list = []
+        for image_path in image_path_list:
+            image = np.array(load_image(os.path.join(self.image_location, image_path)))
+            if self.image_mapping is not None and callable(self.image_mapping):
+                # pylint: disable=E1102
+                image = self.image_mapping(image)
+            image_list.append(image)
+        return np.stack(image_list)
+
+    def padding_images_to_max_content_size(self, images):
+        """padding images to max content size"""
+        if images is None:
+            padding_shape = (self.modal_content_max_size, self.image_size, self.image_size, 3)
+            padded_images = np.ones(padding_shape, dtype=np.uint8)
+        else:
+            images = np.vstack(images)
+            cur_image_len = images.shape[0]
+            if cur_image_len == self.modal_content_max_size:
+                padded_images = images
+            elif cur_image_len < self.modal_content_max_size:
+                padding_images = np.tile(images[-1], (self.modal_content_max_size - cur_image_len, 1, 1, 1))
+                padded_images = np.vstack([images, padding_images])
+            else:
+                logger.warning(f"The number of images is greater than the `modal_content_max_size`, {cur_image_len} > "
+                               f"{self.modal_content_max_size}. it will reserve {self.modal_content_max_size} images.")
+                padded_images = images[:self.modal_content_max_size]
+        return padded_images
 
 
 class ModalContentTransformTemplate:
@@ -138,7 +277,8 @@ class ModalContentTransformTemplate:
 
     # pylint: disable=W0613
     def __init__(self, output_columns: List[str] = None, tokenizer=None, mode="predict",
-                 vstack_columns: List[str] = None, **kwargs):
+                 vstack_columns: List[str] = None, modal_content_padding_size=1, max_length=2048,
+                 **kwargs):
         if output_columns is None:
             self.output_columns = self._DEFAULT_OUTPUT_COLUMNS
         else:
@@ -146,6 +286,7 @@ class ModalContentTransformTemplate:
 
         self.tokenizer = tokenizer
         self.mode = mode
+        self.modal_content_padding_size = modal_content_padding_size
 
         if vstack_columns is not None:
             new_vstack_columns = [column for column in vstack_columns if column in self.output_columns]
@@ -160,6 +301,8 @@ class ModalContentTransformTemplate:
         self.history = []
         self.modal_builders: Dict[str, ModalContentBuilder] = {}
         self._supported_modal = []
+        self._supported_modal_tag = []
+        self.max_length = max_length
 
         self.has_init_modal_builder_tokens = False
         if self.tokenizer is not None:
@@ -187,6 +330,27 @@ class ModalContentTransformTemplate:
                                                                           result_recorder=result_recorder))
         return text_list
 
+    def process_train_item(self, conversation_list: List[List], result_recorder: DataRecord):
+        """Find the corresponding modal builder by traversing and process it"""
+        text_list = []
+        for key_from, conversation in conversation_list:
+            modal_type = ""
+            for supported_modal_type in self.supported_modal:
+                modal_start_tag = self.modal_builders[supported_modal_type].start_token
+                if modal_start_tag in conversation:
+                    modal_type = supported_modal_type
+                    break
+
+            if not modal_type:
+                logger.warning("The %s is not recognized by any modal_builders, it will be regard as pure text",
+                               conversation)
+                modal_type = "text"
+
+            text_list.append(
+                [key_from, self.modal_builders[modal_type].regular_input_for_train(inputs=conversation,
+                                                                                   result_recorder=result_recorder)])
+        return text_list
+
     @property
     def supported_modal(self):
         if not self._supported_modal:
@@ -194,7 +358,7 @@ class ModalContentTransformTemplate:
         return self._supported_modal
 
     @abc.abstractmethod
-    def build_conversion_input_text(self, raw_inputs, result_recorder: DataRecord):
+    def build_conversation_input_text(self, raw_inputs, result_recorder: DataRecord):
         if self.mode == "predict":
             return "".join(raw_inputs)
         raise ValueError(f"building {self.mode} mode conversion inputs is not supported.")
@@ -204,16 +368,25 @@ class ModalContentTransformTemplate:
             input_ids = np.array(input_ids)
 
         for modal_builder in self.modal_builders.values():
+            if not modal_builder.need_padding_context:
+                continue
             input_ids = modal_builder.padding_context(input_ids, result_recorder, **kwargs)
         return input_ids
 
+    def build_labels(self, text_id_list, result_recorder, **kwargs):
+        pass
+
     def generate_modal_context_positions(self, input_ids, batch_index: int = 0, **kwargs):
+        """generate modal context positions in the text by traversing all modal builders"""
         context_positions = {}
         for modal_builder in self.modal_builders.values():
             if not modal_builder.need_create_context_pos:
                 continue
 
             context_pos = modal_builder.generate_context_positions(input_ids, batch_index=batch_index, **kwargs)
+            context_pos = context_pos.astype(np.int32)
+            if self.mode == "predict":
+                context_pos = Tensor(context_pos, dtype=ms.int32)
             context_positions[f"{modal_builder.type}_context_pos"] = context_pos
         return context_positions
 
