@@ -20,9 +20,14 @@ ChatGLM3 是智谱AI和清华大学 KEG 实验室联合发布的新一代对话�
 1. 模型具体实现：
 
     ```text
-    mindformers/models/glm3      # glm3模型继承glm2的代码
+    mindformers/models/glm2      # glm3模型继承glm2的代码
     ├── __init__.py
-    └── glm3_tokenizer.py        # tokenizer
+    ├── convert_weight.py          # huggingface权重转ckpt实现
+    ├── glm2.py                    # 模型实现
+    ├── glm2_config.py             # 模型配置项
+    ├── glm2_modules.py            # 模组实现
+    ├── glm3_tokenizer.py          # tokenizer
+    └── glm2_transformer.py        # transformer层实现
     ```
 
 2. 模型配置：

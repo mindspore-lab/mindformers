@@ -33,7 +33,7 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
         ├── glm2.py                    # 模型实现
         ├── glm2_config.py             # 模型配置项
         ├── glm2_modules.py            # 模组实现
-        ├── glm2_tokenizer.py          # tokenizer
+        ├── glm3_tokenizer.py          # tokenizer
         └── glm2_transformer.py        # transformer层实现
     ```
 
