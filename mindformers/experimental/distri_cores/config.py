@@ -649,6 +649,129 @@ def validate_target_cells(config_instance, target_cells):
     return target_cells_lst, specific_lora_cell
 
 
+class MoEConfig(BaseConfig):
+    r"""MoE config class.
+
+    Args:
+        num_experts (int): The number of experts. Default: 1.
+        moe_grouped_gemm (bool): Use grouped gemm or not.
+        moe_router_topk (int): Router TopK number. Default: 2.
+        moe_router_load_balancing_type (str): type of moe router load balancing algorithm. Choose from:
+                                              ["aux_loss", "none"]. Default: "none".
+        add_bias_linear (bool): add bias linear or not. Default: False.
+        moe_token_dispatcher_type (str): type of moe token dispatcher algorithm. Choose from:
+                                              ["alltoall"]. Default: "alltoall".
+        use_self_defined_alltoall (bool): Use self-defined `alltoall` operators. Default: False.
+        moe_expert_capacity_factor (float): The capacity factor for each expert. Default: None.
+        moe_pad_expert_input_to_capacity (bool): Whether pads the input for each expert
+                                                 to match the expert capacity length. Default: False.
+        moe_token_drop_policy (str): The policy to drop tokens. Default: "probs".
+        moe_aux_loss_coeff (float): Scaling coefficient for the aux loss. Default: 0.0.
+        moe_z_loss_coeff (float): Scaling coefficient for the z-loss. Default: None.
+        moe_input_jitter_eps (float): Add noise to the input tensor by
+                                      applying jitter with a specified epsilon value. Default: None.
+    """
+    config_name = "moe_config"
+
+    def __init__(
+            self,
+            num_experts: int = 1,
+            moe_grouped_gemm: bool = False,
+            moe_router_topk: int = 2,
+            moe_router_load_balancing_type: str = "none",
+            add_bias_linear: bool = False,
+            moe_token_dispatcher_type: str = 'alltoall',
+            use_self_defined_alltoall: bool = False,
+            moe_expert_capacity_factor: float = None,
+            moe_pad_expert_input_to_capacity: bool = False,
+            moe_token_drop_policy: str = "probs",
+            moe_aux_loss_coeff: float = 0.0,
+            moe_z_loss_coeff: float = None,
+            moe_input_jitter_eps: float = None,
+            **kwargs,
+    ):
+        super().__init__()
+        self.num_experts = num_experts
+        self.moe_grouped_gemm = moe_grouped_gemm
+        self.moe_router_topk = moe_router_topk
+        self.moe_router_load_balancing_type = moe_router_load_balancing_type
+        self.add_bias_linear = add_bias_linear
+        self.moe_token_dispatcher_type = moe_token_dispatcher_type
+        self.use_self_defined_alltoall = use_self_defined_alltoall
+        self.moe_expert_capacity_factor = moe_expert_capacity_factor
+        self.moe_pad_expert_input_to_capacity = moe_pad_expert_input_to_capacity
+        self.moe_token_drop_policy = moe_token_drop_policy
+        self.moe_aux_loss_coeff = moe_aux_loss_coeff
+        self.moe_z_loss_coeff = moe_z_loss_coeff
+        self.moe_input_jitter_eps = moe_input_jitter_eps
+        self.update_attrs(**kwargs)
+
+
+@MoEConfig.validator("moe_grouped_gemm")
+def validate_moe_grouped_gemm(config_instance, moe_grouped_gemm):
+    """ensure moe_grouped_gemm is bool."""
+    Validator.check_bool(moe_grouped_gemm, "moe_grouped_gemm")
+    return moe_grouped_gemm
+
+
+@MoEConfig.validator("moe_router_topk")
+def validate_moe_router_topk(config_instance, moe_router_topk):
+    """ensure moe_router_topk is int."""
+    Validator.check_positive_int(moe_router_topk, "moe_router_topk")
+    return moe_router_topk
+
+
+@MoEConfig.validator("moe_router_load_balancing_type")
+def validate_moe_router_load_balancing_type(config_instance, moe_router_load_balancing_type):
+    """ensure moe_router_load_balancing_type choose from ["aux_loss", "none"]."""
+    Validator.check_string(moe_router_load_balancing_type, ["aux_loss", "none"], "moe_router_load_balancing_type")
+    return moe_router_load_balancing_type
+
+
+@MoEConfig.validator("add_bias_linear")
+def validate_add_bias_linear(config_instance, add_bias_linear):
+    """ensure add_bias_linear is bool."""
+    Validator.check_bool(add_bias_linear, "add_bias_linear")
+    return add_bias_linear
+
+
+@MoEConfig.validator("moe_token_dispatcher_type")
+def validate_moe_token_dispatcher_type(config_instance, moe_token_dispatcher_type):
+    """ensure moe_router_load_balancing_type choose from ["alltoall"]."""
+    Validator.check_string(moe_token_dispatcher_type, ["alltoall"], "moe_token_dispatcher_type")
+    return moe_token_dispatcher_type
+
+
+@MoEConfig.validator("use_self_defined_alltoall")
+def validate_use_self_defined_alltoall(config_instance, use_self_defined_alltoall):
+    """ensure use_self_defined_alltoall is bool"""
+    Validator.check_bool(use_self_defined_alltoall, "use_self_defined_alltoall")
+    return use_self_defined_alltoall
+
+
+@MoEConfig.validator("moe_expert_capacity_factor")
+def validate_moe_expert_capacity_factor(config_instance, moe_expert_capacity_factor):
+    """ensure moe_expert_capacity_factor is reasonable."""
+    if moe_expert_capacity_factor is not None:
+        if config_instance.moe_token_dispatcher_type != "alltoall":
+            raise ValueError("moe_expert_capacity_factor only works with alltoall token dispatcher.")
+        if moe_expert_capacity_factor < 0:
+            moe_expert_capacity_factor = None
+        if config_instance.moe_router_load_balancing_type not in ["aux_loss", "none"]:
+            raise ValueError("moe_expert_capacity_factor only works with aux_loss or none load balancing.")
+    return moe_expert_capacity_factor
+
+
+@MoEConfig.validator("moe_pad_expert_input_to_capacity")
+def validate_moe_pad_expert_input_to_capacity(config_instance, moe_pad_expert_input_to_capacity):
+    """ensure moe_pad_expert_input_to_capacity is bool."""
+    Validator.check_bool(moe_pad_expert_input_to_capacity, "moe_pad_expert_input_to_capacity")
+    if moe_pad_expert_input_to_capacity is None and \
+        config_instance.moe_expert_capacity_factor is None:
+        raise ValueError("moe_expert_capacity_factor must be set to use moe_pad_expert_input_to_capacity.")
+    return moe_pad_expert_input_to_capacity
+
+
 class DatasetConfig(BaseConfig):
     """Dataset config class.
 
@@ -837,6 +960,7 @@ class TransformerConfig(BaseConfig):
         ffn_hidden_size (int): Dimensionality the FeedForward block project to.
         parallel_config (ParallelConfig): Parallel config.
         lora_config (LoraConfig): Lora config.
+        moe_config (MoEConfig, optional): MoE config. Default: None.
         attention_type (str): Attention type. Default: 'self_attn'.
         use_gqa (bool): Enable group query attention. Default: False.
         kv_num_heads (int): Number of heads for key and value when using group query attention.
@@ -882,6 +1006,7 @@ class TransformerConfig(BaseConfig):
             ffn_hidden_size: int,
             parallel_config: ModelParallelConfig,
             lora_config: LoraConfig = LoraConfig(),
+            moe_config: MoEConfig = None,
             attention_type: str = "self_attn",
             use_gqa: bool = False,
             kv_num_heads: int = 32,
@@ -922,6 +1047,7 @@ class TransformerConfig(BaseConfig):
         self.ffn_hidden_size = ffn_hidden_size
         self.parallel_config = parallel_config
         self.lora_config = lora_config
+        self.moe_config = moe_config
         self.attention_type = attention_type
         self.use_gqa = use_gqa
         self.kv_num_heads = kv_num_heads
@@ -967,8 +1093,9 @@ class TransformerConfig(BaseConfig):
 
 TransformerConfig.register_depended_config([ModelParallelConfig,
                                             LoraConfig,
-                                            DatasetConfig],
-                                           optional=[False, True, True])
+                                            DatasetConfig,
+                                            MoEConfig],
+                                           optional=[False, True, True, True])
 
 
 @TransformerConfig.validator("vocab_size")

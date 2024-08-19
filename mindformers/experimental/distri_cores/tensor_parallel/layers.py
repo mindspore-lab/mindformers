@@ -303,8 +303,6 @@ class ColumnParallelLinear(nn.Cell):
             raise NotImplementedError("For ColumnParallelLinear, `tp_comm_buffer_name` is not supported for now.")
         if disable_grad_reduce:
             raise NotImplementedError("For ColumnParallelLinear, `disable_grad_reduce=True` is not supported for now.")
-        if is_expert:
-            raise NotImplementedError("For ColumnParallelLinear, `is_expert=True` is not supported for now.")
 
         self.input_size = input_size
         self.output_size = output_size
@@ -541,8 +539,6 @@ class RowParallelLinear(nn.Cell):
         if keep_master_weight_for_test:
             raise NotImplementedError("For ColumnParallelLinear, `keep_master_weight_for_test=True` "
                                       "is not supported for now.")
-        if is_expert:
-            raise NotImplementedError("For RowParallelLinear, `is_expert=True` is not supported for now.")
         if tp_comm_buffer_name:
             raise NotImplementedError("For ColumnParallelLinear, `tp_comm_buffer_name` is not supported for now.")
 
