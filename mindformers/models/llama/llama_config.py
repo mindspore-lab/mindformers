@@ -150,7 +150,7 @@ class LlamaConfig(PretrainedConfig):
                  top_k: int = 5,
                  top_p: float = 1.0,
                  do_sample: bool = True,
-                 quant: str = "",
+                 quant_config: dict = None,
                  tie_word_embeddings: bool = False,
                  **kwargs):
         super(LlamaConfig, self).__init__(**kwargs)
@@ -207,5 +207,5 @@ class LlamaConfig(PretrainedConfig):
         self.theta = theta
         self.block_size = block_size
         self.num_blocks = num_blocks
-        self.quant = quant
+        self.quant_config = quant_config
         self.tie_word_embeddings = tie_word_embeddings
