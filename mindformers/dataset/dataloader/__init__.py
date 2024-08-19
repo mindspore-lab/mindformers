@@ -26,7 +26,8 @@ from .sft_dataloader import SFTDataLoader
 from .training_dataloader import TrainingDataLoader
 from .toolaplaca_dataloader import ToolAlpacaDataLoader
 from .multi_modal_dataloader import BaseMultiModalDataLoader
+from .indexed_dataset import IndexedDataLoader
 
 __all__ = ['Flickr8kDataLoader', 'Cifar100DataLoader', 'WMT16DataLoader', 'CLUENERDataLoader', 'SQuADDataLoader',
            'ADGenDataLoader', 'MultiImgCapDataLoader', 'MultiSourceDataLoader', 'SFTDataLoader', 'TrainingDataLoader',
-           'ToolAlpacaDataLoader', 'BaseMultiModalDataLoader']
+           'ToolAlpacaDataLoader', 'BaseMultiModalDataLoader', 'IndexedDataLoader']
