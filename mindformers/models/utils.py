@@ -265,6 +265,7 @@ class LayerSetting:
     def set_pattern_recompute(layer, p_list, add_prim_attr=False, info=''):
         """Set an operator recompute for a given key-value pair in select_recompute dict."""
         log_list = []
+        log = ''
         if p_list:
             p = p_list.pop(0)
         else:
@@ -277,7 +278,6 @@ class LayerSetting:
                     if log:
                         log_list.append(log[1:])
         else:
-            log = ''
             for attr in dir(layer):
                 if re.fullmatch(p, attr):
                     operator = getattr(layer, attr)
