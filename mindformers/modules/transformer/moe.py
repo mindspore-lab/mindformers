@@ -94,8 +94,8 @@ class MoEConfig:
                  expert_group_size=None, group_wise_a2a=False, comp_comm_parallel=False, comp_comm_parallel_degree=2,
                  save_token_distribution=False, cur_layer=0, enable_cold_hot_expert=False, update_step=10000,
                  hot_expert_num=0, cold_token_percent=1.0, moe_module_name="", routing_policy="TopkRouterV1",
-                 enable_sdrop=False, use_fused_ops_topkrouter=False, router_dense_type="float32", shared_expert_num=0,
-                 use_shared_expert_gating=False, max_router_load=128*1024):
+                 norm_topk_prob=True, enable_sdrop=False, use_fused_ops_topkrouter=False, router_dense_type="float32",
+                 shared_expert_num=0, use_shared_expert_gating=False, max_router_load=128*1024):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
@@ -140,6 +140,7 @@ class MoEConfig:
         self.cold_token_percent = cold_token_percent
         self.moe_module_name = moe_module_name
         self.routing_policy = routing_policy
+        self.norm_topk_prob = norm_topk_prob
         self.enable_sdrop = enable_sdrop
         self.use_fused_ops_topkrouter = use_fused_ops_topkrouter
         self.router_dense_type = dtype_map.get(router_dense_type)
@@ -1374,6 +1375,7 @@ class MoEInfer(Cell):
         super(MoEInfer, self).__init__()
         self.hidden_size = dim
         self.expert_dim = moe_config.expert_num
+        self.topk_norm_prob = moe_config.norm_topk_prob
         self.num_experts_chosen = moe_config.num_experts_chosen
 
         self.ffn = ffn
@@ -1439,7 +1441,9 @@ class MoEInfer(Cell):
                                              self.num_experts_chosen) # (N, E) -> (N, 2), (N, 2)
 
         expert_val = self.cast(expert_val, mstype.float32)
-        expert_weight = expert_val / (self.expand_dims(ops.sum(expert_val, -1), -1) + 1e-9)
+        expert_weight = expert_val
+        if self.topk_norm_prob is True:
+            expert_weight = expert_val / (self.expand_dims(ops.sum(expert_val, -1), -1) + 1e-9)
         expert_weight = self.cast(expert_weight, input_dtype)
 
         sorted_input_tensor, group_list, unsort_map = self.tensor_sort(input_tensor, expert_index)

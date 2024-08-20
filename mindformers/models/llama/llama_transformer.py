@@ -630,18 +630,19 @@ class LLamaDecodeLayer(nn.Cell):
         if self.expert_num == 1:
             self.feed_forward = ffn
         else:
-            if self.use_moe_infer:
-                self.feed_forward = MoEInfer(
-                    ffn=ffn,
-                    dim=self.hidden_size,
-                    moe_config=moe_config,
-                    parallel_config=parallel_config)
-            elif self.shared_expert_num == 0:
-                self.feed_forward = MoEV2(
-                    ffn=ffn,
-                    dim=self.hidden_size,
-                    moe_config=moe_config,
-                    parallel_config=parallel_config)
+            if self.shared_expert_num == 0:
+                if self.use_moe_infer:
+                    self.feed_forward = MoEInfer(
+                        ffn=ffn,
+                        dim=self.hidden_size,
+                        moe_config=moe_config,
+                        parallel_config=parallel_config)
+                else:
+                    self.feed_forward = MoEV2(
+                        ffn=ffn,
+                        dim=self.hidden_size,
+                        moe_config=moe_config,
+                        parallel_config=parallel_config)
             else:
                 self.feed_forward = LlamaFeedForwardWithMoE(self.hidden_size,
                                                             intermediate_size=intermediate_size,

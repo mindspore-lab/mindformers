@@ -14,13 +14,14 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
 
 ## 模型性能
 
-| Config                                     |       Task       |     Datasets      |  SeqLength  |        Phase        |  Performance  |
-|:-------------------------------------------|:----------------:|:-----------------:|:-----------:|:-------------------:|:-------------------------:|
-| [qwen2-0.5b](./predict_qwen2_0_5b_instruct.yaml)   | text_generation  |  -  |    8192    |  Predict   |          1907 tokens/s(mindie 16 batch_size 单卡)             |
-| [qwen2-1.5b](./predict_qwen2_1_5b_instruct.yaml) | text_generation  |  -  |    8192    |  Predict   |          1354 tokens/s(mindie 16 batch_size 单卡)           |
-| [qwen2-7b](./predict_qwen2_7b_instruct.yaml) | text_generation  |  -  |    8192    |  Predict   |            653 tokens/s (mindie 16 batch_size 单卡)          |
-| [qwen2-72b](./predict_qwen2_72b_instruct.yaml) | text_generation  |  -  |    8192    |  Predict   |            247 tokens/s(mindie 16 batch_size 四卡)           |
-| [qwen2-72b-128k](./predict_qwen2_72b_instruct_128k.yaml)   | text_generation  |  -  |    8192    |  Predict   |        9 tokens/s             |
+| Config                                                   |       Task       |     Datasets      |  SeqLength  |        Phase        |              Performance               |
+|:---------------------------------------------------------|:----------------:|:-----------------:|:-----------:|:-------------------:|:--------------------------------------:|
+| [qwen2-0.5b](./predict_qwen2_0_5b_instruct.yaml)         | text_generation  |  -  |    8192    |  Predict   | 1907 tokens/s(mindie 16 batch_size 单卡) |
+| [qwen2-1.5b](./predict_qwen2_1_5b_instruct.yaml)         | text_generation  |  -  |    8192    |  Predict   | 1354 tokens/s(mindie 16 batch_size 单卡) |
+| [qwen2-7b](./predict_qwen2_7b_instruct.yaml)             | text_generation  |  -  |    8192    |  Predict   | 653 tokens/s (mindie 16 batch_size 单卡) |
+| [qwen2-57b-A14b](./predict_qwen2_57b_a14b_instruct.yaml) | text_generation  |  -  |    8192    |  Predict   |  - tokens/s (mindie 16 batch_size 四卡)  |
+| [qwen2-72b](./predict_qwen2_72b_instruct.yaml)           | text_generation  |  -  |    8192    |  Predict   | 247 tokens/s(mindie 16 batch_size 四卡)  |
+| [qwen2-72b-128k](./predict_qwen2_72b_instruct_128k.yaml) | text_generation  |  -  |    8192    |  Predict   |               9 tokens/s               |
 
 ## 模型文件
 
@@ -39,7 +40,8 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
    research/qwen2
      ├── predict_qwen2_0_5b_instruct.yaml           # 0.5B 在线推理启动配置
      ├── predict_qwen2_1_5b_instruct.yaml           # 1.5B 在线推理启动配置
-     ├── predict_qwen2_7b_instruct.yaml            # 7B 在线推理启动配置
+     ├── predict_qwen2_7b_instruct.yaml             # 7B 在线推理启动配置
+     ├── predict_qwen2_57b_a14b_instruct.yaml       # 57B-A14B 在线推理启动配置
      ├── predict_qwen2_72b_instruct.yaml            # 72B 在线推理启动配置
      └── predict_qwen2_72b_instruct_128k.yaml       # 72B 128k 在线推理启动配置
    ```
@@ -49,6 +51,7 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
    ```text
    research/qwen2
      ├── convert_weight.py                         # 权重转换脚本
+     ├── convert_moe_weight.py                     # 针对Qwen2-57B-A14B的MoE模型权重转换脚本
      └── run_qwen2.py                              # Qwen2多轮对话脚本
    ```
 
@@ -66,10 +69,11 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 词表下载链接：[vocab.json](https://huggingface.co/Qwen/Qwen2-72B-Instruct/blob/main/vocab.json)和[merges.txt](https://huggingface.co/Qwen/Qwen2-72B-Instruct/blob/main/merges.txt)
 
-| 模型名称        |                     Base权重（建议训练和微调使用）                     |                         Instruct权重（建议推理使用）                         |
-|:------------|:---------------------------------------------------------:|:--------------------------------------------------------------:|
-| qwen2-72b-Instruct | [Link](https://huggingface.co/Qwen/Qwen2-72B/tree/main) | [Link](https://huggingface.co/Qwen/Qwen2-72B-Instruct/tree/main) |
-| qwen2-7b-Instruct | [Link](https://huggingface.co/Qwen/Qwen2-7B/tree/main) | [Link](https://huggingface.co/Qwen/Qwen2-7B-Instruct/tree/main) |
+| 模型名称                    |                      Base权重（建议训练和微调使用）                       |                          Instruct权重（建议推理使用）                           |
+|:------------------------|:------------------------------------------------------------:|:---------------------------------------------------------------------:|
+| qwen2-72b-Instruct      |   [Link](https://huggingface.co/Qwen/Qwen2-72B/tree/main)    |   [Link](https://huggingface.co/Qwen/Qwen2-72B-Instruct/tree/main)    |
+| qwen2-57b-A14B-Instruct | [Link](https://huggingface.co/Qwen/Qwen2-57B-A14B/tree/main) | [Link](https://huggingface.co/Qwen/Qwen2-57B-A14B-Instruct/tree/main) |
+| qwen2-7b-Instruct       |    [Link](https://huggingface.co/Qwen/Qwen2-7B/tree/main)    |    [Link](https://huggingface.co/Qwen/Qwen2-7B-Instruct/tree/main)    |
 
 #### 模型权重转换
 
