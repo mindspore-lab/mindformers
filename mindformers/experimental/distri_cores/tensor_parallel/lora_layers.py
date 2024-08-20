@@ -140,8 +140,6 @@ class ColumnParallelLoRA(nn.Cell):
             raise NotImplementedError("For ColumnParallelLoRA, `tp_comm_buffer_name` is not supported for now.")
         if disable_grad_reduce:
             raise NotImplementedError("For ColumnParallelLoRA, `disable_grad_reduce=True` is not supported for now.")
-        if is_expert:
-            raise NotImplementedError("For ColumnParallelLinear, `is_expert=True` is not supported for now.")
 
         self.input_size = input_size
         self.output_size = output_size
@@ -384,8 +382,6 @@ class RowParallelLoRA(nn.Cell):
         if keep_master_weight_for_test:
             raise NotImplementedError("For RowParallelLoRA, `keep_master_weight_for_test=True` "
                                       "is not supported for now.")
-        if is_expert:
-            raise NotImplementedError("For RowParallelLoRA, `is_expert=True` is not supported for now.")
         if tp_comm_buffer_name:
             raise NotImplementedError("For RowParallelLoRA, `tp_comm_buffer_name` is not supported for now.")
 
