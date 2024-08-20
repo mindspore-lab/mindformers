@@ -429,8 +429,8 @@ class LLamaAttention(nn.Cell):
         qkv = self.transpose_ulysses(qkv, (0, 1, 3, 2, 4))
         # insert all-to-all (dp, cp, 1, mp, 1) -> (dp, cp_co, cp_ds, mp, 1)
         qkv = self.transpose_a2a(qkv, (0, 1, 2, 3, 4))
-        # reshape to BSH
-        qkv = F.reshape(qkv, (bs, seq_len, self.hidden_size))
+        # reshape to BSH, here set -1 to H, for kv head could be different from q head
+        qkv = F.reshape(qkv, (bs, seq_len, -1))
         return qkv
 
     def _ulysses_context_layer_a2a(self, context_layer):
