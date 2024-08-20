@@ -110,7 +110,7 @@ def apply_rotary_pos_emb(t, freqs, config=None, cu_seqlens=None) -> Tensor:
     sin_ = mint.sin(freqs).astype(t.dtype)
 
     # rotate
-    t_splited = mint.split(t, t.shape[-1]//2, dim=-1)
+    t_splited = mint.split(t, t.shape[-1] // 2, dim=-1)
     t_1 = t_splited[0]
     t_2 = t_splited[1]
     t_rotate = ops.cat((-t_2, t_1), axis=-1)

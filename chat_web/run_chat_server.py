@@ -87,12 +87,12 @@ async def create_chat_completion(request: ChatCompletionRequest):
         )
         sem.release()
         return ChatCompletionResponse(choices=[choice_data], object="chat.completion")
-    except ValueError as e:
+    except ValueError as err:
         if request.stream:
-            return EventSourceResponse(_error_generator(repr(e)), media_type='text/event-stream')
+            return EventSourceResponse(_error_generator(repr(err)), media_type='text/event-stream')
         choice_data = ChatErrorOutResponseChoice(
             index=0,
-            message=repr(e),
+            message=repr(err),
             finish_reason="error"
         )
         sem.release()

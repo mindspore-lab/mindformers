@@ -24,13 +24,15 @@ from io import StringIO
 from pathlib import Path
 import numpy as np
 
+import mindspore as ms
+from mindspore import JitConfig
+from mindspore.dataset import GeneratorDataset
+
 import mindformers as mf
 from mindformers import Trainer, TrainingArguments, AdamW
 from mindformers.models.llama import LlamaForCausalLM, LlamaConfig
 from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
-import mindspore as ms
-from mindspore import JitConfig
-from mindspore.dataset import GeneratorDataset
+
 from .tools.logger import logger, get_logger, validate_level
 
 VERSION_MAPPING = {

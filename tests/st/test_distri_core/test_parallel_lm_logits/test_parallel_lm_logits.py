@@ -38,12 +38,12 @@ class TestParallelLMLogits:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path}"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8132 "+\
-                    f"--log_dir={log_dir} "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8132 " + \
+                    f"--log_dir={log_dir} " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
@@ -89,12 +89,12 @@ class TestParallelLMLogits:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --tp=2"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8132 "+\
-                    f"--log_dir={log_dir} "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8132 " + \
+                    f"--log_dir={log_dir} " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
@@ -140,12 +140,12 @@ class TestParallelLMLogits:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --tp=2 --parallel_output"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8132 "+\
-                    f"--log_dir={log_dir} "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8132 " + \
+                    f"--log_dir={log_dir} " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
@@ -191,12 +191,12 @@ class TestParallelLMLogits:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --dp=2"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8132 "+\
-                    f"--log_dir={log_dir} "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8132 " + \
+                    f"--log_dir={log_dir} " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)

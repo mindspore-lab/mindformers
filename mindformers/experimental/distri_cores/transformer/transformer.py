@@ -423,7 +423,7 @@ class ParallelAttention(Module):
 
             # split tensor along last dimension.
             last_dim = kv.ndim - 1
-            (key, value) = mint.split(kv, split_size_or_sections=kv.shape[last_dim]//2, dim=last_dim)
+            (key, value) = mint.split(kv, split_size_or_sections=kv.shape[last_dim] // 2, dim=last_dim)
 
             new_tensor_shape = kv.shape[:-1] + (
                 self.num_heads_per_partition,

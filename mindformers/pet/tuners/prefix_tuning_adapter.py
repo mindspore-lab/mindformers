@@ -33,10 +33,10 @@ try:
 except ImportError:
     import mindspore._checkparam as Validator
     INC_LEFT = Validator.INC_LEFT
+from mindpet.utils.version_control import get_dropout
 
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.pet.pet_config import PrefixTuningConfig
-from mindpet.utils.version_control import get_dropout
 
 
 class PrefixEmbedding(nn.Cell):
@@ -233,7 +233,7 @@ class PrefixTuningAdapter(PetAdapter):
             config = PrefixTuningConfig(**config)
         num_layers = model.config.num_layers
         num_heads = model.config.num_heads
-        kv_channels = model.config.hidden_size//model.config.num_heads  #128
+        kv_channels = model.config.hidden_size // model.config.num_heads #128
         parallel_config = model.config.parallel_config
         prefix_projection = True
         projection_dim = config["mid_dim"]

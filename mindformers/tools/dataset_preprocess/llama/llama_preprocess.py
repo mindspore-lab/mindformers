@@ -34,7 +34,7 @@ IGNORE_TOKEN_ID = -100
 def chunks(lst, n):
     """ yield n sized chunks from list"""
     for i in range(0, len(lst), n):
-        yield lst[i:i+n]
+        yield lst[i:i + n]
 
 
 def package_file(it, n):

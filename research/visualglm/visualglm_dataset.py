@@ -47,7 +47,7 @@ def get_input_data_batch_slice_map(input_ids, eod_token_id, dis, rank_id: int = 
         batch_attention_mask: the attention mask considering eod reset
     """
     rank = int(rank_id)
-    input_ids = input_ids[rank*dis: (rank + 1)*dis]
+    input_ids = input_ids[rank * dis: (rank + 1) * dis]
     seq_length = input_ids.shape[1] - 1
     # Initialize position_ids and attention_mask
     batch_input_ids = input_ids
@@ -185,7 +185,7 @@ class VisualGLMDataset(BaseDataset):
             image = image_processor(Image.open(img).convert("RGB"))
             input0 = tokenizer.encode("<img>", add_special_tokens=False)
             input1 = [tokenizer.pad_token_id] * 32
-            input2 = tokenizer.encode("</img>问："+prompt+"\n答：", add_special_tokens=False)
+            input2 = tokenizer.encode("</img>问：" + prompt + "\n答：", add_special_tokens=False)
             a_ids = sum([input0, input1, input2], [])
             b_ids = tokenizer.encode(text=label, add_special_tokens=False)
             if len(a_ids) > max_source_length - 1:

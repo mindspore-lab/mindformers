@@ -95,7 +95,7 @@ class MoEConfig:
                  save_token_distribution=False, cur_layer=0, enable_cold_hot_expert=False, update_step=10000,
                  hot_expert_num=0, cold_token_percent=1.0, moe_module_name="", routing_policy="TopkRouterV1",
                  norm_topk_prob=True, enable_sdrop=False, use_fused_ops_topkrouter=False, router_dense_type="float32",
-                 shared_expert_num=0, use_shared_expert_gating=False, max_router_load=128*1024):
+                 shared_expert_num=0, use_shared_expert_gating=False, max_router_load=128 * 1024):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
@@ -343,12 +343,12 @@ class MoE(Cell):
                 self.hot_expert_index = Parameter(
                     initializer(Tensor([[i for i in range(self.hot_expert_num)]], mstype.int32),
                                 (1, self.hot_expert_num,), mstype.int32),
-                    name="hot_expert_index"+str(self.cur_layer),
+                    name="hot_expert_index" + str(self.cur_layer),
                     requires_grad=False, parallel_optimizer=False)
                 self.cold_expert_index = Parameter(
                     initializer(Tensor([[i for i in range(self.hot_expert_num, self.expert_dim)]], mstype.int32),
                                 (1, self.expert_dim - self.hot_expert_num,), mstype.int32),
-                    name="cold_expert_index"+str(self.cur_layer),
+                    name="cold_expert_index" + str(self.cur_layer),
                     requires_grad=False, parallel_optimizer=False)
                 mlp_parallel_config = MoEParallelConfig(data_parallel=self.dp,
                                                         model_parallel=self.mp,
@@ -958,7 +958,7 @@ class TopkRouter(Cell):
             if self.enable_cold_hot_expert:
                 self.cur_layer = moe_config.cur_layer
                 self.cumsum_value = Parameter(initializer('zeros', (self.expert_dim,), mstype.int32),
-                                              name="cumsum_value"+str(self.cur_layer), requires_grad=False,
+                                              name="cumsum_value" + str(self.cur_layer), requires_grad=False,
                                               parallel_optimizer=False)
                 self.assign = P.Assign().shard(((1,), (1,)))
 
@@ -1098,7 +1098,7 @@ class TopkRouterV2(Cell):
         self.num_experts_chosen = moe_config.num_experts_chosen
         self.on_value = Tensor(1.0, mstype.float32)
         self.off_value = Tensor(0.0, mstype.float32)
-        self.range = Tensor(np.tile(np.arange(moe_config.max_router_load)+1,
+        self.range = Tensor(np.tile(np.arange(moe_config.max_router_load) + 1,
                                     (self.num_experts_chosen, 1)), mstype.float32)
 
         self.cast = P.Cast()
@@ -1199,9 +1199,9 @@ class TopkRouterV2(Cell):
                 - **output_tensor** (Tensor) - Tensor of shape :math:`(data\_parallel, tokens\_per\_group,
                 hidden\_size)`.(dp, N, h).
         """
-        expert_output = self.concat((self.cast(self.zeros, F.dtype(expert_output)), expert_output))  # (dp, E, 1+n, h) <-- (dp, E, n, h)
-        expert_output = self.reshape(expert_output, (expert_output.shape[0], expert_output.shape[1]*expert_output.shape[2], expert_output.shape[3]))  # (dp, E*(1+n), h) <-- (dp, E, 1+n, h)
-        output_tensor = self.combine_gather(expert_output, combine_index, 1)  # (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
+        expert_output = self.concat((self.cast(self.zeros, F.dtype(expert_output)), expert_output)) # (dp, E, 1+n, h) <-- (dp, E, n, h)
+        expert_output = self.reshape(expert_output, (expert_output.shape[0], expert_output.shape[1] * expert_output.shape[2], expert_output.shape[3])) # (dp, E*(1+n), h) <-- (dp, E, 1+n, h)
+        output_tensor = self.combine_gather(expert_output, combine_index, 1) # (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
         router_coeff = self.cast(router_coeff, F.dtype(expert_output))
         output_tensor = self.mul_router_coeff(output_tensor, self.reshape(router_coeff, (router_coeff.shape[0], router_coeff.shape[1], router_coeff.shape[2], 1)))  # (dp, N, k, h) <-- (dp, N, k, h) (dp, N, k, 1)
         output_tensor = self.sum_router_coeff(output_tensor, 2)  #reduce sum # (dp, N, h) <-- (dp, N, k, h)
@@ -1238,14 +1238,14 @@ class TopkRouterV2(Cell):
         else:
             expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
         # calculate combine_index from cumsum
-        expert_index = self.reshape(self.transpose_3d(expert_index, (0, 2, 1)), (expert_index.shape[0], -1))  # (dp, kN) <-- (dp, N, k) account for topk priority
-        expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value)  # (dp, kN, E)fp32 <-- (dp, kN)int32
-        position_in_expert = self.mul_3d(self.cumsum(expert_mask, 1), expert_mask)  # (dp, kN, E)fp16 <-- (dp, kN, E)fp32, (dp, kN, E)fp32
-        position_in_expert = self.mul_3d(position_in_expert, self.less(position_in_expert, expert_capacity+1))  # (dp, kN, E)fp32 <-- (dp, kN, E)fp32, (dp, kN, E)bool, where 0<=position_in_expert<(1+n)
-        position_in_expert_2d = self.reduce_sum(position_in_expert, -1)  # (dp, kN)fp32 <-- (dp, kN, E)fp32
-        combine_index = self.add_2d(self.mul_2d_1d(expert_index, expert_capacity + 1), position_in_expert_2d)  # (dp, kN)fp32 <-- (dp, kN)fp32, (dp, kN)fp32 where 0<= combine_index <E*(1+n), combine_index = expert_id *(1+n) + position_in_expert_2d
-        combine_index = self.transpose_3d(self.reshape(combine_index, (combine_index.shape[0], k, tokens_per_group)), (0, 2, 1))  # (dp, N, k) <-- (dp, kN) account for topk priority
-        within_capacity = self.cast(self.gt(position_in_expert_2d, 0), mstype.float32)  # (dp, kN)bool
+        expert_index = self.reshape(self.transpose_3d(expert_index, (0, 2, 1)), (expert_index.shape[0], -1)) # (dp, kN) <-- (dp, N, k) account for topk priority
+        expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value) # (dp, kN, E)fp32 <-- (dp, kN)int32
+        position_in_expert = self.mul_3d(self.cumsum(expert_mask, 1), expert_mask) # (dp, kN, E)fp16 <-- (dp, kN, E)fp32, (dp, kN, E)fp32
+        position_in_expert = self.mul_3d(position_in_expert, self.less(position_in_expert, expert_capacity + 1)) # (dp, kN, E)fp32 <-- (dp, kN, E)fp32, (dp, kN, E)bool, where 0<=position_in_expert<(1+n)
+        position_in_expert_2d = self.reduce_sum(position_in_expert, -1) # (dp, kN)fp32 <-- (dp, kN, E)fp32
+        combine_index = self.add_2d(self.mul_2d_1d(expert_index, expert_capacity + 1), position_in_expert_2d) # (dp, kN)fp32 <-- (dp, kN)fp32, (dp, kN)fp32 where 0<= combine_index <E*(1+n), combine_index = expert_id *(1+n) + position_in_expert_2d
+        combine_index = self.transpose_3d(self.reshape(combine_index, (combine_index.shape[0], k, tokens_per_group)), (0, 2, 1)) # (dp, N, k) <-- (dp, kN) account for topk priority
+        within_capacity = self.cast(self.gt(position_in_expert_2d, 0), mstype.float32) # (dp, kN)bool
 
         # calculate dispatch_index from position_in_expert_onehot
         safe_kn = 2 * kn # factor=2 for safety
@@ -1279,14 +1279,14 @@ class TopkRouterV2(Cell):
         else:
             expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
         # calculate combine_index from cumsum
-        expert_index = self.reshape(expert_index, (expert_index.shape[0], -1))  # (dp, Nk) <-- (dp, N, k) account for topk priority
-        expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value)  # (dp, Nk, E)fp32 <-- (dp, Nk)int32
-        position_in_expert = self.mul_3d(self.cumsum(expert_mask, 1), expert_mask)  # (dp, Nk, E)fp16 <-- (dp, Nk, E)fp32, (dp, Nk, E)fp32
-        position_in_expert = self.mul_3d(position_in_expert, self.less(position_in_expert, expert_capacity+1))  # (dp, Nk, E)fp32 <-- (dp, Nk, E)fp32, (dp, Nk, E)bool, where 0<=position_in_expert<(1+n)
-        position_in_expert_2d = self.reduce_sum(position_in_expert, -1)  # (dp, Nk)fp32 <-- (dp, Nk, E)fp32
-        combine_index = self.add_2d(self.mul_2d_1d(expert_index, expert_capacity + 1), position_in_expert_2d)  # (dp, Nk)fp32 <-- (dp, Nk)fp32, (dp, Nk)fp32 where 0<= combine_index <E*(1+n), combine_index = expert_id *(1+n) + position_in_expert_2d
-        combine_index = self.reshape(combine_index, (combine_index.shape[0], tokens_per_group, k))  # (dp, N, k) <-- (dp, Nk) account for topk priority
-        within_capacity = self.cast(self.gt(position_in_expert_2d, 0), mstype.float32)  # (dp, Nk)bool
+        expert_index = self.reshape(expert_index, (expert_index.shape[0], -1)) # (dp, Nk) <-- (dp, N, k) account for topk priority
+        expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value) # (dp, Nk, E)fp32 <-- (dp, Nk)int32
+        position_in_expert = self.mul_3d(self.cumsum(expert_mask, 1), expert_mask) # (dp, Nk, E)fp16 <-- (dp, Nk, E)fp32, (dp, Nk, E)fp32
+        position_in_expert = self.mul_3d(position_in_expert, self.less(position_in_expert, expert_capacity + 1)) # (dp, Nk, E)fp32 <-- (dp, Nk, E)fp32, (dp, Nk, E)bool, where 0<=position_in_expert<(1+n)
+        position_in_expert_2d = self.reduce_sum(position_in_expert, -1) # (dp, Nk)fp32 <-- (dp, Nk, E)fp32
+        combine_index = self.add_2d(self.mul_2d_1d(expert_index, expert_capacity + 1), position_in_expert_2d) # (dp, Nk)fp32 <-- (dp, Nk)fp32, (dp, Nk)fp32 where 0<= combine_index <E*(1+n), combine_index = expert_id *(1+n) + position_in_expert_2d
+        combine_index = self.reshape(combine_index, (combine_index.shape[0], tokens_per_group, k)) # (dp, N, k) <-- (dp, Nk) account for topk priority
+        within_capacity = self.cast(self.gt(position_in_expert_2d, 0), mstype.float32) # (dp, Nk)bool
 
         # calculate dispatch_index from position_in_expert_onehot
         safe_kn = 2 * kn  # factor=2 for safety

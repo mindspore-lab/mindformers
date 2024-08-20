@@ -40,7 +40,7 @@ class ParallelAttentionNet(nn.Cell):
         super(ParallelAttentionNet, self).__init__()
         self.with_rope = with_rope
         if with_rope:
-            self.rope = RotaryEmbedding(kv_channels=config.hidden_size//config.num_heads,
+            self.rope = RotaryEmbedding(kv_channels=config.hidden_size // config.num_heads,
                                         rotary_percent=1.0)
         self.attention = ParallelAttention(layer_number=1, config=config)
         self.loss = SoftmaxCrossEntropyWithLogits()
@@ -77,9 +77,9 @@ def run_parallel_attention_with_rope(use_fa=False, use_gqa=False):
     for i in range(label_data.shape[0]):
         label_data[i][0] = 1
     if use_fa:
-        attn_mask = (1-np.tril(np.ones(shape=(1, seq_length, seq_length)))).astype(np.uint8)
+        attn_mask = (1 - np.tril(np.ones(shape=(1, seq_length, seq_length)))).astype(np.uint8)
     else:
-        attn_mask = ((1-np.tril(np.ones(shape=(1, seq_length, seq_length)))) * -10000).astype(np.float16)
+        attn_mask = ((1 - np.tril(np.ones(shape=(1, seq_length, seq_length)))) * -10000).astype(np.float16)
     dataset = TestData(input_data=input_data, label_data=label_data, attn_mask=attn_mask)
     dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels', "attention_mask"])
     dataset = dataset.batch(batch_size)

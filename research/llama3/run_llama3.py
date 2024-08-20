@@ -19,6 +19,8 @@ import shutil
 import argparse
 
 # pylint: disable=W0611
+import mindspore as ms
+
 from mindformers import Trainer, MindFormerConfig
 from mindformers import init_context, ContextConfig, ParallelContextConfig
 from mindformers.tools.utils import check_in_modelarts, str2bool
@@ -29,7 +31,6 @@ from mindformers.tools import get_output_root_path
 
 from llama3_tokenizer import Llama3Tokenizer
 
-import mindspore as ms
 import optim
 
 if check_in_modelarts():

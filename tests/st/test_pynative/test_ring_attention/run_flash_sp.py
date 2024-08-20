@@ -14,9 +14,6 @@
 # ============================================================================
 """Test Ring Attention."""
 import numpy as np
-from mindformers.experimental.distri_cores.sequence_parallel.utils import get_sp_chuncks
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
-from mindformers.experimental.distri_cores.sequence_parallel.flash_sp import FlashSP
 
 import mindspore as ms
 from mindspore.communication import init
@@ -25,6 +22,9 @@ from mindspore import ops
 from mindspore.common.tensor import Tensor
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 
+from mindformers.experimental.distri_cores.sequence_parallel.utils import get_sp_chuncks
+from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
+from mindformers.experimental.distri_cores.sequence_parallel.flash_sp import FlashSP
 
 def generate_inputs(b, n1, n2, s1, s2, d1, input_layout, dtype, return_tensor=True):
     '''generate inputs'''

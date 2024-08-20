@@ -37,12 +37,12 @@ class TestRingAttention:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path}"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8118 "+\
-                    f"--log_dir=msrun_log_ring_attention "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8118 " + \
+                    f"--log_dir=msrun_log_ring_attention " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
@@ -64,12 +64,12 @@ class TestRingAttention:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path}"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
                     f"--master_port=8118 "+\
-                    f"--log_dir=msrun_log_flash_sp "+\
+                    f"--log_dir=msrun_log_flash_sp " + \
                     f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)

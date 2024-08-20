@@ -80,16 +80,16 @@ def hf_to_ms(hf_weights, args, ms_dtype=mindspore.float32, for_save=False):
                 v_list = v.tensor_split(3, dim=1)
                 for i in range(1, 4):
                     tmp_name = new_name.format(i)
-                    print(v_list[i-1].shape)
-                    tmp_tensor = Tensor(v_list[i-1].reshape(-1, v_list[i-1].shape[-1]).float().numpy(), ms_dtype)
+                    print(v_list[i - 1].shape)
+                    tmp_tensor = Tensor(v_list[i - 1].reshape(-1, v_list[i - 1].shape[-1]).float().numpy(), ms_dtype)
                     ms_params[tmp_name] = Parameter(tmp_tensor, name=tmp_name)
             else:
                 v = v.reshape(args.n_head, 3, args.hidden_size // args.n_head)
                 v_list = v.tensor_split(3, dim=1)
                 for i in range(1, 4):
                     tmp_name = new_name.format(i)
-                    print(v_list[i-1].shape)
-                    tmp_tensor = Tensor(v_list[i-1].reshape(-1).float().numpy(), ms_dtype)
+                    print(v_list[i - 1].shape)
+                    tmp_tensor = Tensor(v_list[i - 1].reshape(-1).float().numpy(), ms_dtype)
                     ms_params[tmp_name] = Parameter(tmp_tensor, name=tmp_name)
         else:
             if ('projection' in new_name or 'mapping' in new_name) and 'weight' in new_name:

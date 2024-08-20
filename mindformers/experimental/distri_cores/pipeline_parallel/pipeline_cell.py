@@ -160,7 +160,7 @@ class PipelineCell(Module):
             end_idx = stage_layers_list[0]
         else:
             start_idx = np.sum(stage_layers_list[:self.stage_id])
-            end_idx = np.sum(stage_layers_list[:self.stage_id+1])
+            end_idx = np.sum(stage_layers_list[:self.stage_id + 1])
         return (start_idx, end_idx)
 
     def partition_layers(self, map_dict, model, offset=None):
@@ -169,7 +169,7 @@ class PipelineCell(Module):
             stage_layers_list = np.array([self.num_layers // self.num_stages] * self.num_stages)
             remain_layer_nums = self.num_layers - np.sum(stage_layers_list)
             for i in range(remain_layer_nums):
-                stage_layers_list[-i-2] += 1
+                stage_layers_list[-i - 2] += 1
 
             if offset is not None:
                 stage_layers_list += np.array(offset)

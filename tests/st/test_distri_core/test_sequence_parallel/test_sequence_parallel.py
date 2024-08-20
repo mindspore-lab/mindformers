@@ -38,12 +38,12 @@ class TestSequenceParallel:
         scripts_path = os.path.join(sh_path, scripts_name)
         log_dir = "golden_log"
         scripts_cmd = f"{scripts_path} --generate_golden"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8027 "+\
-                    f"--log_dir={log_dir} "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8027 " + \
+                    f"--log_dir={log_dir} " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
@@ -68,12 +68,12 @@ class TestSequenceParallel:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path}"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8115 "+\
-                    f"--log_dir={log_dir} "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8115 " + \
+                    f"--log_dir={log_dir} " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
@@ -120,12 +120,12 @@ class TestSequenceParallel:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --overlap_grad_reduce --gradient_accumulation_fusion"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8115 "+\
-                    f"--log_dir={log_dir} "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8115 " + \
+                    f"--log_dir={log_dir} " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)

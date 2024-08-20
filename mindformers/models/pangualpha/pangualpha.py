@@ -68,7 +68,7 @@ class EmbeddingLayer(nn.Cell):
                                                  parallel_config=copied_parallel_config.embedding_dp_mp_config)
         self.add = P.Add().shard(
             ((config.parallel_config.data_parallel, 1, 1), (config.parallel_config.data_parallel, 1, 1)))
-        self.dropout = nn.Dropout(keep_prob=1-config.embedding_dropout_prob)
+        self.dropout = nn.Dropout(keep_prob=1 - config.embedding_dropout_prob)
         self.dropout.dropout.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.is_first_iteration = True
         self.use_past = config.use_past
@@ -225,7 +225,7 @@ def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config,
     # As the final layer is not included here, so we need to manually add here.
     # original:  if set two stages, layers on two stages will be [15, 16+1]
     # with 1 added, the layers on two stages will be [16, 15 +1]
-    pp_dis = max(int((layers + 1)/ parallel_config.pipeline_stage), 1)
+    pp_dis = max(int((layers + 1) / parallel_config.pipeline_stage), 1)
     # the pipeline stage must be in [0, parallel_config.pipeline_stage - 1]
     pp_id = min((layer_id + offset) // pp_dis, parallel_config.pipeline_stage - 1)
     network.pipeline_stage = pp_id

@@ -15,10 +15,6 @@
 """Test Ring Attention."""
 import math
 import numpy as np
-from mindformers.experimental.distri_cores.sequence_parallel.utils import get_sp_chuncks, \
-    get_sp_chuncks_attn_mask_general, get_sp_chuncks_general
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
-from mindformers.experimental.distri_cores.sequence_parallel.ring_attention import RingAttention
 
 import mindspore as ms
 from mindspore.communication import init
@@ -27,6 +23,10 @@ from mindspore import ops
 from mindspore.common.tensor import Tensor
 from mindspore.ops.auto_generate.gen_ops_prim import FlashAttentionScore
 
+from mindformers.experimental.distri_cores.sequence_parallel.utils import get_sp_chuncks, \
+    get_sp_chuncks_attn_mask_general, get_sp_chuncks_general
+from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
+from mindformers.experimental.distri_cores.sequence_parallel.ring_attention import RingAttention
 
 def generate_inputs(b, n1, n2, s1, s2, d1, input_layout,
                     dtype, return_tensor=True):

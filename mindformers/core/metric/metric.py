@@ -666,9 +666,9 @@ class PromptAccMetric(nn.Metric):
         """The main calculate logic."""
         logits, input_ids, input_mask, labels = inputs[0], inputs[1], inputs[2], inputs[3]
         batch_size, num_labels, seq_length, _ = logits.shape
-        logits = self.reshape(logits, (batch_size*num_labels, seq_length, -1))
+        logits = self.reshape(logits, (batch_size * num_labels, seq_length, -1))
         ppl_list = []
-        for index in range(batch_size*num_labels):
+        for index in range(batch_size * num_labels):
             sub_logits, sub_tokens, sub_mask_list = logits[index], input_ids[index], input_mask[index]
 
             sub_logits = sub_logits[:-1, ::]

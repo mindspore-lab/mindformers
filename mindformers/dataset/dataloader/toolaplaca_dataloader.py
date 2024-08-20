@@ -100,7 +100,7 @@ class ToolAlpacaDataset:
                     # avoid json loading error
                     try:
                         line = json.loads(line, strict=False)
-                        if self._is_data_valid(line, i+1):
+                        if self._is_data_valid(line, i + 1):
                             data.append(line)
                     except json.JSONDecodeError as e:
                         logger.info("Drop %s:%d due to '%s', line is:\n%s", dataset_dir, i, e, line)
@@ -133,7 +133,7 @@ class ToolAlpacaDataset:
         res2 = self._is_last_conv_valid(conv2, i)
 
         # remain conversations should be "assistant" and 'tool' pair , so len(conversations)%2 == 0
-        if conversations and len(conversations)%2 != 0:
+        if conversations and len(conversations) % 2 != 0:
             logger.info("Drop %s:%d, remain conversations should be 'assistant' and 'tool' pair, "
                         "but got %s", self.dataset_dir, i, conversations)
             return False

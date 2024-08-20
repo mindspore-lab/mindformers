@@ -274,7 +274,7 @@ class LayerSetting:
             # pylint: disable=W0212
             for name, cell in layer._cells.items():
                 if re.fullmatch(p, name):
-                    log = LayerSetting.set_pattern_recompute(cell, p_list, add_prim_attr, info+f'.{name}')
+                    log = LayerSetting.set_pattern_recompute(cell, p_list, add_prim_attr, info + f'.{name}')
                     if log:
                         log_list.append(log[1:])
         else:

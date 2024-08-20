@@ -31,8 +31,6 @@ import baichuan2_7b
 import baichuan2_13b
 from baichuan2_tokenizer import Baichuan2Tokenizer
 
-import mindspore as ms
-
 if check_in_modelarts():
     import moxing as mox
 

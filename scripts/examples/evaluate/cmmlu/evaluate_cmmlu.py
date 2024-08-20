@@ -1,10 +1,9 @@
 import os
-import pandas as pd
-import numpy as np
 import argparse
 from collections import defaultdict
-
 from typing import List
+import pandas as pd
+import numpy as np
 from tqdm import tqdm
 
 import mindspore as ms
@@ -164,7 +163,7 @@ def eval_subject(
         generate_few_shot_prompt(k, subject_name, dev_df) if few_shot else []
     )
     all_probs = {"prob_A": [], "prob_B": [], "prob_C": [], "prob_D": []}
-    if args.debug:
+    if global_args.debug:
         print(f"few_shot_prompt: {few_shot_prompt}")
 
     for _, row in tqdm(test_df.iterrows(), total=len(test_df)):
@@ -197,13 +196,13 @@ def eval_subject(
         if "Answer" in row:
             correct = 1 if pred == row["Answer"] else 0
             score.append(correct)
-            if args.debug:
+            if global_args.debug:
                 print(f'{question} pred: {pred} ref: {row["Answer"]}')
         result.append(pred)
 
     if score:
         correct_ratio = 100 * sum(score) / len(score)
-        if args.debug:
+        if global_args.debug:
             print(subject_name, correct_ratio)
     else:
         correct_ratio = 0
@@ -330,15 +329,17 @@ categories = {
 }
 
 TASK_NAME_MAPPING = defaultdict(list)
-for k, v in categories.items():
-    for subject, subcat in subcategories.items():
-        for c in subcat:
-            if c in v:
-                TASK_NAME_MAPPING[k].append(subject)
 
+def init_task_name_mapping():
+    global TASK_NAME_MAPPING
+    for k, v in categories.items():
+        for subject, subcat in subcategories.items():
+            for c in subcat:
+                if c in v:
+                    TASK_NAME_MAPPING[k].append(subject)
+                    
 
 choices = ["A", "B", "C", "D"]
-
 
 def main(args):
     ms.set_context(mode=ms.GRAPH_MODE, device_target='Ascend', device_id=args.device_id)
@@ -381,7 +382,8 @@ if __name__ == "__main__":
     group.add_argument("--debug", action="store_true", default=False, help="Print infos.")
     group.add_argument("--config", type=str, required=True, help="Path to config")
 
-    args = parser.parse_args()
-    set_seed(args.seed)
+    global_args = parser.parse_args()
+    set_seed(global_args.seed)
+    init_task_name_mapping()
 
-    main(args)
+    main(global_args)

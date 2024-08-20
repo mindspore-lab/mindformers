@@ -64,7 +64,7 @@ if __name__ == '__main__':
     schema = {'input_ids': {"type": "int32", "shape": [-1]},}
     writer = FileWriter(file_name=args.output_file,
                         shard_num=args.file_partition)
-    writer.set_page_size(256*1024*1024)
+    writer.set_page_size(256 * 1024 * 1024)
     writer.add_schema(schema, args.mindrecord_schema)
 
     # Start to load tokenizer

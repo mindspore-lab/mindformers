@@ -208,7 +208,7 @@ def main():
     total_length = (total_length // block_size) * block_size
     print("total_length", total_length)
     for i in range(total_length // block_size):
-        ids = total_ids[block_size*i:block_size*(i+1)]
+        ids = total_ids[block_size * i:block_size * (i + 1)]
 
         output = create_instance(tokenizer, sentence, ids, args.max_length)
 

@@ -27,9 +27,9 @@ from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.core.context import build_context
 from mindformers.core.parallel_config import build_parallel_config
 
-from baichuan2_7b import Baichuan7BV2ForCausalLM
-from baichuan2_13b import Baichuan13BV2ForCausalLM
-from baichuan2_tokenizer import Baichuan2Tokenizer
+from research.baichuan2.baichuan2_7b import Baichuan7BV2ForCausalLM
+from research.baichuan2.baichuan2_13b import Baichuan13BV2ForCausalLM
+from research.baichuan2.baichuan2_tokenizer import Baichuan2Tokenizer
 
 MODEL_MAP = {
     "baichuan2_7b": Baichuan7BV2ForCausalLM,

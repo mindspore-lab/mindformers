@@ -69,7 +69,7 @@ def get_input_data_batch_slice_map(input_ids, eod_token_id, dis, rank_id: int = 
         batch_attention_mask: the attention mask considering eod reset
     """
     rank = int(rank_id)
-    input_ids = input_ids[rank*dis: (rank + 1)*dis]
+    input_ids = input_ids[rank * dis: (rank + 1) * dis]
     seq_length = input_ids.shape[1] - 1
     # Initialize position_ids and attention_mask
     batch_input_ids = input_ids

@@ -1,11 +1,12 @@
 import os
-import pandas as pd
-import numpy as np
 import argparse
 from collections import defaultdict
 
 from typing import List
 from tqdm import tqdm
+
+import pandas as pd
+import numpy as np
 
 import mindspore as ms
 from mindspore.common import set_seed
@@ -178,7 +179,7 @@ def eval_subject(
         generate_few_shot_prompt(k, subject_name, dev_df) if few_shot else []
     )
     all_probs = {"prob_A": [], "prob_B": [], "prob_C": [], "prob_D": []}
-    if args.debug:
+    if global_args.debug:
         print(f"few_shot_prompt: {few_shot_prompt}")
 
     for _, row in tqdm(test_df.iterrows(), total=len(test_df)):
@@ -209,13 +210,13 @@ def eval_subject(
         if "Answer" in row:
             correct = 1 if pred == row["Answer"] else 0
             score.append(correct)
-            if args.debug:
+            if global_args.debug:
                 print(f'{question} pred: {pred} ref: {row["Answer"]}')
         result.append(pred)
 
     if score:
         correct_ratio = 100 * sum(score) / len(score)
-        if args.debug:
+        if global_args.debug:
             print(subject_name, correct_ratio)
     else:
         correct_ratio = 0
@@ -340,12 +341,14 @@ categories = {
 }
 
 TASK_NAME_MAPPING = defaultdict(list)
-for k, v in categories.items():
-    for subject, subcat in subcategories.items():
-        for c in subcat:
-            if c in v:
-                TASK_NAME_MAPPING[k].append(subject)
 
+def init_task_name_mapping():
+    global TASK_NAME_MAPPING
+    for k, v in categories.items():
+        for subject, subcat in subcategories.items():
+            for c in subcat:
+                if c in v:
+                    TASK_NAME_MAPPING[k].append(subject)
 
 choices = ["A", "B", "C", "D"]
 
@@ -395,7 +398,9 @@ if __name__ == "__main__":
     parser.add_argument('--inc_model_path', default=None, type=str, help="load mindir inc checkpoint")
     group.add_argument("--config_path", type=str, required=False, help="Path to GE config")
 
-    args = parser.parse_args()
-    set_seed(args.seed)
+    global_args = parser.parse_args()
+    set_seed(global_args.seed)
 
-    main(args)
+    init_task_name_mapping()
+
+    main(global_args)

@@ -143,7 +143,7 @@ def get_data_generate(data_path, en2zh_labels, tokenizer, shot_examples, pad_tok
     for instance in data:
         true_label = en2zh_labels[instance['label_desc']]
         tmp0 = sorted(list(set(id_to_label.values()) - {true_label}))
-        fake_label = [tmp0[x] for x in np_rng.permutation(len(tmp0))[:NUM_LABELS-1]]  # [:3]
+        fake_label = [tmp0[x] for x in np_rng.permutation(len(tmp0))[:NUM_LABELS - 1]]  # [:3]
         instance_tf_label = [true_label] + fake_label
         instance_tf_label = [instance_tf_label[x] for x in
                              np_rng.permutation(len(instance_tf_label))]  # shuffle

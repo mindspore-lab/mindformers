@@ -167,7 +167,7 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
         """Get Baichuan13BV2 model input tuple for transform ckpt."""
         input_ids = Tensor(input_ids, mstype.int32)
         bs, seq = input_ids.shape[0], input_ids.shape[1]
-        slot_mapping = Tensor(np.ones(shape=tuple([bs*seq])), mstype.int32)
+        slot_mapping = Tensor(np.ones(shape=tuple([bs * seq])), mstype.int32)
         return input_ids, None, None, None, None, None, None, None, None, None, None, slot_mapping
 
     def add_flags_custom(self, is_first_iteration):

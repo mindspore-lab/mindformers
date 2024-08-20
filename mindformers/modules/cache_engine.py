@@ -63,7 +63,7 @@ class BlockMemPool:
 class CacheEngine:
     """allocate a big chunk memory."""
     # pylint: disable=C0326
-    def __init__(self, block_size: int, pool: BlockMemPool=None):
+    def __init__(self, block_size: int, pool: BlockMemPool = None):
         self.block_size = block_size
         self.pool = pool
         self.num_token = 0

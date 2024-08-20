@@ -16,10 +16,10 @@
 import argparse
 import os
 
+from transformers import AutoModel
 import mindspore as ms
 
 from mindformers.utils.convert_utils import pt2ms
-from transformers import AutoModel
 
 
 # pylint: disable=W0613

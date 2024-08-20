@@ -23,8 +23,8 @@ import os
 import mindspore as ms
 import numpy as np
 import torch
-from mindformers.tools import str2bool
 from transformers import AutoModelForCausalLM
+from mindformers.tools import str2bool
 
 QWEN_ATTENTION_WEIGHT_NAME = "attn.c_attn.weight"
 QWEN_ATTENTION_BIAS_NAME = "attn.c_attn.bias"

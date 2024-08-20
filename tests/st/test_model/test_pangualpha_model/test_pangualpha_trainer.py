@@ -67,7 +67,7 @@ class TestPanguAlphaTrainerMethod:
 
         model_config = PanguAlphaConfig(num_layers=2,
                                         hidden_size=128,
-                                        ffn_hidden_size=128*4,
+                                        ffn_hidden_size=128 * 4,
                                         num_heads=2,
                                         seq_length=128)
         model = PanguAlphaHeadModel(model_config)

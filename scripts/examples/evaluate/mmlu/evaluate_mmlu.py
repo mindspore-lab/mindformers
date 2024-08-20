@@ -1,8 +1,8 @@
 import os
 from typing import List
+import argparse
 import pandas as pd
 import numpy as np
-import argparse
 from tqdm import tqdm
 
 import mindspore as ms
@@ -98,7 +98,7 @@ def eval_subject(
         generate_few_shot_prompt(k, subject_name, dev_df) if few_shot else []
     )
     all_probs = {"prob_A": [], "prob_B": [], "prob_C": [], "prob_D": []}
-    if args.debug:
+    if global_args.debug:
         print(f"few_shot_prompt: {few_shot_prompt}")
 
     for _, row in tqdm(test_df.iterrows(), total=len(test_df)):
@@ -131,7 +131,7 @@ def eval_subject(
         if "answer" in row:
             correct = 1 if pred == row["answer"] else 0
             score.append(correct)
-            if args.debug:
+            if global_args.debug:
                 print(f'{question} pred: {pred} ref: {row["answer"]}')
         result.append(pred)
 
@@ -308,7 +308,7 @@ if __name__ == "__main__":
         "--config", type=str, required=True, help="Path to config"
     )
 
-    args = parser.parse_args()
-    set_seed(args.seed)
+    global_args = parser.parse_args()
+    set_seed(global_args.seed)
 
-    main(args)
+    main(global_args)

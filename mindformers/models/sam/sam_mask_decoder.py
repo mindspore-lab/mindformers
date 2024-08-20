@@ -270,8 +270,8 @@ class TwoWayTransformer(nn.Cell):
         """
         # BxCxHxW -> BxHWxC == B x N_image_tokens x C
         bs, c, h, w = image_embedding.shape
-        image_embedding = image_embedding.reshape(bs, c, h*w).permute(0, 2, 1)
-        image_pe = image_pe.reshape(bs, c, h*w).permute(0, 2, 1)
+        image_embedding = image_embedding.reshape(bs, c, h * w).permute(0, 2, 1)
+        image_pe = image_pe.reshape(bs, c, h * w).permute(0, 2, 1)
 
         # Prepare queries
         queries = point_embedding

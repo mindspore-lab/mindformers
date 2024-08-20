@@ -420,9 +420,9 @@ class CompareLoss(nn.Cell):
         bs = rewards.shape[0] // 2 # a sample has two bs responses
         seq_len = rewards.shape[-1]
         chosen_rewards = self.slice(rewards, (0, 0), (bs, seq_len), (1, 1))
-        rejected_rewards = self.slice(rewards, (bs, 0), (2*bs, seq_len), (1, 1))
+        rejected_rewards = self.slice(rewards, (bs, 0), (2 * bs, seq_len), (1, 1))
         end_ind_chosen = self.slice_ind(end_ind, (0,), (bs,), (1,))
-        end_ind_reject = self.slice_ind(end_ind, (bs,), (2*bs,), (1,))
+        end_ind_reject = self.slice_ind(end_ind, (bs,), (2 * bs,), (1,))
         temp = P.Concat()((end_ind_chosen, end_ind_reject))
         temp = temp.reshape((2, -1))
         temp = P.Cast()(temp, mstype.float16)
@@ -433,8 +433,8 @@ class CompareLoss(nn.Cell):
         loss_mask_final = loss_mask
         c_truncated_reward = self.mul(chosen_rewards, loss_mask_final)
         r_truncated_reward = self.mul(rejected_rewards, loss_mask_final)
-        chosen_end_scores = self.gatherd(chosen_rewards, 1, end_ind_final-1)
-        reject_end_scores = self.gatherd(rejected_rewards, 1, end_ind_final-1)
+        chosen_end_scores = self.gatherd(chosen_rewards, 1, end_ind_final - 1)
+        reject_end_scores = self.gatherd(rejected_rewards, 1, end_ind_final - 1)
         compare_len = self.reduce_sum(P.cast(loss_mask_final, mstype.float32), -1)
         temp_loss = -self.log(P.sigmoid(self.sub(c_truncated_reward, r_truncated_reward)))
         loss = self.reduce_sum(self.mul(temp_loss, loss_mask_final), -1)/compare_len

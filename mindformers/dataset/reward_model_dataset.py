@@ -37,12 +37,12 @@ def get_input_data_batch_slice_map(chosen_input_ids, chosen_attention_mask,
     Generate position_id and attention_mask according to input_ids considering eos reset
     """
     rank = int(rank)
-    chosen_input_ids = chosen_input_ids[rank*dis: (rank + 1)*dis]
-    rejected_input_ids = rejected_input_ids[rank*dis: (rank + 1)*dis]
-    chosen_attention_mask = chosen_attention_mask[rank*dis: (rank + 1)*dis]
-    rejected_attention_mask = rejected_attention_mask[rank*dis: (rank + 1)*dis]
-    position_id = position_id[rank*dis: (rank + 1)*dis]
-    loss_mask = loss_mask[rank*dis: (rank + 1)*dis]
+    chosen_input_ids = chosen_input_ids[rank * dis: (rank + 1) * dis]
+    rejected_input_ids = rejected_input_ids[rank * dis: (rank + 1) * dis]
+    chosen_attention_mask = chosen_attention_mask[rank * dis: (rank + 1) * dis]
+    rejected_attention_mask = rejected_attention_mask[rank * dis: (rank + 1) * dis]
+    position_id = position_id[rank * dis: (rank + 1) * dis]
+    loss_mask = loss_mask[rank * dis: (rank + 1) * dis]
 
     input_ids = np.concatenate((chosen_input_ids, rejected_input_ids))
     attention_mask = np.concatenate((chosen_attention_mask, rejected_attention_mask))

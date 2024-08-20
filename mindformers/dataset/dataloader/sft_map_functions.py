@@ -122,7 +122,7 @@ def multi_round_chat_map_fn(example, **kwargs):
         if from_ == user_role_name:
             value_ids = tokenizer.encode(user_prompt + value, add_special_tokens=False)
             raw_input_id += value_ids
-            raw_label += [ignore_token_id]*len(value_ids)
+            raw_label += [ignore_token_id] * len(value_ids)
         elif from_ == assistant_role_name:
             value_ids = tokenizer.encode(assistant_prompt + value, add_special_tokens=False)
             raw_input_id += value_ids
@@ -136,12 +136,12 @@ def multi_round_chat_map_fn(example, **kwargs):
 
     if len(raw_input_id) >= max_length:
         input_id = raw_input_id[: max_length]
-        attention_mask = [1]*max_length
+        attention_mask = [1] * max_length
         label = raw_label[: max_length]
     else:
-        input_id = raw_input_id + [tokenizer.pad_token_id]*(max_length - len(raw_input_id))
-        attention_mask = [1]*len(raw_input_id) + [0]*(max_length - len(raw_input_id))
-        label = raw_label + [ignore_token_id]*(max_length - len(raw_label))
+        input_id = raw_input_id + [tokenizer.pad_token_id] * (max_length - len(raw_input_id))
+        attention_mask = [1] * len(raw_input_id) + [0] * (max_length - len(raw_input_id))
+        label = raw_label + [ignore_token_id] * (max_length - len(raw_label))
     return dict(input_ids=input_id, attention_mask=attention_mask, labels=label)
 
 
