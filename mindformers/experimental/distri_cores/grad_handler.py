@@ -139,6 +139,7 @@ class ClipGlobalNorm(nn.Cell):
         clip_coeff = self.clip_value / (total_norm + 1.0e-6)
         if clip_coeff < 1.0:
             self.clip_func(grads, clip_coeff)
+        return total_norm
 
 
 def get_grad_process_func(training_config, return_instance=True, **kwargs):
@@ -161,7 +162,7 @@ def get_grad_process_func(training_config, return_instance=True, **kwargs):
         grad_process_func_kwargs.update(kwargs)
         grad_process_func_kwargs = ModuleRegistry.get_needed_params_for_init(grad_clip_cls, grad_process_func_kwargs)
         if grad_clip_type == "ClipGlobalNorm":
-            if "params" not in kwargs:
+            if "params" not in grad_process_func_kwargs:
                 raise ValueError("params is required for ClipGlobalNorm")
             reduce_comm_group = get_tp_group()
             grad_process_func_kwargs["reduce_comm_group"] = reduce_comm_group
