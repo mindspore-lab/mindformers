@@ -195,6 +195,7 @@ class Linear(layers.Linear):
 
         self.activation_compute_type = activation_compute_type
 
+    # pylint: disable=W0221
     def construct(self, x):
         """construct of layer"""
         out_shape = P.Shape()(x)[:-1] + (self.out_channels,)
