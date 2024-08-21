@@ -27,6 +27,33 @@ from .dataloader import build_dataset_loader
 from .base_dataset import BaseDataset
 
 
+def dyn_batch_wrapper(divisor, remainder, pad_token_id=0):
+    "Generate dynamic batch process function for padding each batch data."
+    def batch_map_process(*cols):
+        max_length = max([len(c) for c in cols[0]])
+        if divisor and remainder:
+            max_length = ((max_length - remainder - 1) // divisor + 1) * divisor + remainder
+        else:
+            logger.info("divisor or remainder are not set in yaml")
+        output = []
+        for col in cols[:-1]:
+            res = []
+            pad = 0
+            if isinstance(col[0], list) and col[0][0] == -100:
+                pad = -100
+            if pad_token_id != 0:
+                pad = pad_token_id
+            for c in col:
+                if len(c) < max_length:
+                    c_pad = np.append(c, [pad] * (max_length - len(c)))
+                    res.append(c_pad)
+                else:
+                    res.append(c)
+            output.append(res)
+        return tuple(output)
+    return batch_map_process
+
+
 def get_input_data_batch_slice_map(input_ids, eod_token_id, dis, rank_id: int = 0):
     """
     Generate position_id and attention_mask according to input_ids considering eod reset
@@ -170,6 +197,7 @@ class CausalLanguageModelDataset(BaseDataset):
         rank_id, device_num = cls._generate_shard_info()
         dataset_config.rank_id = rank_id
         dataset_config.device_num = device_num
+        pad_token_id = 0 if dataset_config.pad_token_id is None else dataset_config.pad_token_id
 
         if isinstance(dataset_config.data_loader, dict):
             if dataset_config.data_loader.type != "MindDataset" and \
@@ -193,9 +221,17 @@ class CausalLanguageModelDataset(BaseDataset):
                         f"batch size {dataset_config.batch_size} should be a multiple of device number {device_num}."
                         " You should change the args: per_batch_size.")
 
-            dataset = dataset.batch(dataset_config.batch_size,
-                                    drop_remainder=dataset_config.drop_remainder,
-                                    output_columns=dataset_config.input_columns)
+            if dataset_config.dynamic_batch:
+                dataset = dataset.batch(dataset_config.batch_size,
+                                        drop_remainder=dataset_config.drop_remainder,
+                                        output_columns=dataset_config.input_columns,
+                                        per_batch_map=dyn_batch_wrapper(dataset_config.divisor,
+                                                                        dataset_config.remainder,
+                                                                        pad_token_id=pad_token_id))
+            else:
+                dataset = dataset.batch(dataset_config.batch_size,
+                                        drop_remainder=dataset_config.drop_remainder,
+                                        output_columns=dataset_config.input_columns)
             map_func = lambda input_ids: get_input_data_batch_slice_map(input_ids,
                                                                         eod_token_id=dataset_config.eod_token_id,
                                                                         rank_id=rank_id,
@@ -209,10 +245,20 @@ class CausalLanguageModelDataset(BaseDataset):
                 dataset = get_dataset_map(dataset, type_cast_op,
                                           input_columns=input_arg)
         else:
-            dataset = dataset.batch(dataset_config.batch_size,
-                                    drop_remainder=dataset_config.drop_remainder,
-                                    output_columns=dataset_config.input_columns,
-                                    num_parallel_workers=dataset_config.num_parallel_workers)
+            if dataset_config.dynamic_batch:
+                dataset = dataset.batch(dataset_config.batch_size,
+                                        drop_remainder=dataset_config.drop_remainder,
+                                        output_columns=dataset_config.input_columns,
+                                        num_parallel_workers=dataset_config.num_parallel_workers,
+                                        per_batch_map=dyn_batch_wrapper(dataset_config.divisor,
+                                                                        dataset_config.remainder,
+                                                                        pad_token_id=pad_token_id))
+            else:
+                dataset = dataset.batch(dataset_config.batch_size,
+                                        drop_remainder=dataset_config.drop_remainder,
+                                        output_columns=dataset_config.input_columns,
+                                        num_parallel_workers=dataset_config.num_parallel_workers)
+
             dataset = dataset.project(columns=dataset_config.input_columns)
             for input_arg in dataset_config.input_columns:
                 dataset = get_dataset_map(dataset, type_cast_op,
@@ -227,6 +273,7 @@ class CausalLanguageModelDataset(BaseDataset):
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_dir': dataset_dir,
                                                       'num_shards': dataset_config.device_num,
+                                                      'column_names': dataset_config.input_columns,
                                                       'shard_id': dataset_config.rank_id})
         return dataset
 
