@@ -55,6 +55,7 @@ convert_map = {
     'yi': 'research.yi.convert_weight.convert_pt_to_ms',
     'deepseek': 'research.deepseek.convert_weight.convert_pt_to_ms',
     'qwen2': 'research.qwen2.convert_weight.convert_pt_to_ms',
+    'qwen2-moe': 'research.qwen2.convert_moe_weight.convert_pt_to_ms',
     'cogvlm2': 'mindformers.models.cogvlm2.convert_weight.convert_pt_to_ms'
 }
 reversed_convert_map = {
