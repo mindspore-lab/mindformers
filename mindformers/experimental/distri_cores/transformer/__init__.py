@@ -14,7 +14,8 @@
 # ============================================================================
 "mindformers init"
 
+from .module import Module
 from .transformer import *
 
-__all__ = []
+__all__ = ['Module']
 __all__.extend(transformer.__all__)

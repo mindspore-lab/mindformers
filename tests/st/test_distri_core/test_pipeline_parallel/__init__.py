@@ -12,17 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
-"""mindformers init"""
-
-from .p2p_primitives import P2P_Primitive
-from .pipeline_cell import PipelineCell
-from .schedules import forward_backward_pipelining_without_interleaving, \
-                       forward_backward_pipelining_with_interleaving
-
-__all__ = [
-    "P2P_Primitive",
-    "PipelineCell",
-    "forward_backward_pipelining_without_interleaving",
-    "forward_backward_pipelining_with_interleaving",
-]
+"""ST."""

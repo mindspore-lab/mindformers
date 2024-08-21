@@ -28,7 +28,7 @@ from mindformers.experimental.distri_cores.transformer.module import Module
 __all__ = ["CheckpointedRecomputeOrientedCell"]
 
 
-class _RecomputeCellWithRngPersistent(_RecomputeCell):
+class _RecomputeCellWithRng(_RecomputeCell):
     """
     Recompute cell considering rng state tracer.
     Note:
@@ -58,14 +58,15 @@ class _RecomputeCellWithRngPersistent(_RecomputeCell):
         self.args.pop()
         self.kwargs.pop()
         if kwargs:
-            input_args = list(input_args) + list(kwargs.values())
+            input_args_for_check = list(input_args) + list(kwargs.values())
+        kwargs['sens'] = grad_input
         try:
             pre_rng_state = get_rng_state()
             pre_rng_tracer_state = get_rng_tracer().get_state()
             set_rng_state(self.cpu_rng_state)
             get_rng_tracer().set_state(self.rng_tracer_state)
             _pynative_executor.set_is_run_recompute(True)
-            grads = self.grad(self.net, self.internal_params)(*input_args, grad_input)
+            grads = self.grad(self.net, self.internal_params)(*input_args, **kwargs)
             _pynative_executor.set_is_run_recompute(False)
             set_rng_state(pre_rng_state)
             get_rng_tracer().set_state(pre_rng_tracer_state)
@@ -74,7 +75,7 @@ class _RecomputeCellWithRngPersistent(_RecomputeCell):
             raise err
         weights = OrderedDict()
         input_grads = list(grads[0])
-        _padding_input_grads(input_args, input_grads)
+        _padding_input_grads(input_args_for_check, input_grads)
         for i, param in enumerate(self.internal_params):
             weights[param] = grads[1][i]
         return tuple(input_grads), weights
@@ -86,7 +87,7 @@ def recompute_generator(block):
     :param block:
     :return:
     """
-    return _RecomputeCellWithRngPersistent(block)
+    return _RecomputeCellWithRng(block)
 
 
 recompute_registry.register(recompute_generator)
@@ -112,8 +113,8 @@ class CheckpointedRecomputeOrientedCell(Module):
         super(CheckpointedRecomputeOrientedCell, self).__init__()
         self.layers = layers
 
-    def construct(self, hidden_states, attention_mask, rotary_pos_emb=None):
+    def construct(self, hidden_states, *args, **kwargs):
         """Construct function of recompute layer group."""
         for layer in self.layers:
-            hidden_states = layer(hidden_states, attention_mask, rotary_pos_emb)
+            hidden_states = layer(hidden_states, *args, **kwargs)
         return hidden_states

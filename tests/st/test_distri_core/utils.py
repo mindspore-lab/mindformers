@@ -14,6 +14,7 @@
 # ============================================================================
 """some utility functions"""
 
+import re
 import numpy as np
 
 import mindspore as ms
@@ -239,3 +240,14 @@ def transform_transformerlayer_params(params, hidden_size, kv_hidden_size=None, 
             new_params[prefix+name] = ms.Parameter(new_param)
 
     return new_params
+
+def read_loss_from_log(file_path):
+    """ reading loss from log """
+    losses = []
+    with open(file_path, 'r') as file:
+        for line in file:
+            match_str = re.search(r'Loss: (\d+\.\d+)', line)
+            if match_str:
+                loss_value = float(match_str.group(1))
+                losses.append(loss_value)
+    return losses
