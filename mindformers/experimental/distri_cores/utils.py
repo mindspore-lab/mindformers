@@ -13,12 +13,13 @@
 # limitations under the License.
 # ============================================================================
 """utils"""
-import inspect
+
 import re
 from collections import OrderedDict
 
 import yaml
 
+import mindspore.ops as P
 from mindspore import log as logger
 import mindspore.common.dtype as mstype
 from mindspore.communication import get_group_size
@@ -27,6 +28,7 @@ from mindformers.experimental.distri_cores.transformer.module import Module
 from mindformers.experimental.distri_cores.create_comm import (
     get_pp_rank,
     get_pp_world_size,
+    is_pipeline_last_stage
 )
 
 class DictWithValueError(dict):
@@ -52,22 +54,16 @@ def divide(numerator, denominator):
     return numerator // denominator
 
 
-def get_layer_input_signatures(func):
-    """except for 'input_ids', get all of input signatures for layer's construct."""
-    params = inspect.signature(func).parameters
-    # remove 'input_ids' argument
-    layer_input_signatures = list(params.keys())[1:]
-    if not layer_input_signatures:
-        layer_input_signatures = None
-    return layer_input_signatures
-
 
 def add_attr_for_shared_weight(layer, weight_name='weight'):
     """ add 'share' attr for embedding or head layer weight """
+    if get_pp_world_size() == 1:
+        return
+
     cur_layer = layer
     param_name = weight_name
-    if '.' in weight_name:
-        sub_module = [item for item in weight_name.split('.')]
+    if "." in weight_name:
+        sub_module = [item for item in weight_name.split(".")]
         param_name = sub_module[-1]
         sub_module = sub_module[:-1]
         for next_layer in sub_module:
@@ -76,12 +72,15 @@ def add_attr_for_shared_weight(layer, weight_name='weight'):
         param_instance = getattr(cur_layer, param_name)
         if param_instance is not None:
             setattr(param_instance, 'share', True)
+            weight_sum = param_instance.value().sum()
+            if is_pipeline_last_stage() and weight_sum != 0.0:
+                P.assign(param_instance, P.zeros_like(param_instance, dtype=param_instance.value().dtype))
         else:
-            print(f"[WARNING]For 'add_attr_for_shared_weight' function, "
-                  f"class '{type(layer).__name__}' weight is None, so the 'share' attr cannot be added.")
+            raise RuntimeError(f"For 'add_attr_for_shared_weight' function, class '{type(layer).__name__}' "
+                               f"weight is None, so the 'share' attribute cannot be added.")
     else:
-        print(f"[WARNING]For 'add_attr_for_shared_weight' function, "
-              f"class '{type(layer).__name__}' have no weight for adding 'share' attr")
+        raise RuntimeError(f"For 'add_attr_for_shared_weight' function, "
+                           f"class '{type(layer).__name__}' have no weight for adding 'share' attribute")
 
 
 def convert_mstype(ms_type: str = "float16"):

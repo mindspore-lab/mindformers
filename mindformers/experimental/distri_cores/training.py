@@ -19,6 +19,7 @@ For training
 
 import time
 import os
+import contextlib
 from copy import deepcopy
 
 import mindspore as ms
@@ -48,7 +49,16 @@ from mindformers.experimental.distri_cores.create_comm import (
     get_pp_world_size,
     get_pp_group,
     is_pipeline_last_stage,
+    set_vpp_rank,
+    is_pipeline_first_stage
 )
+from mindformers.experimental.distri_cores.pipeline_parallel import PipelineCell
+from mindformers.experimental.distri_cores.pipeline_parallel.schedules import (
+    forward_backward_pipelining_without_interleaving,
+    forward_backward_pipelining_with_interleaving
+)
+from mindformers.experimental.distri_cores.config import GeneralConfig
+
 
 # pylint: disable=W0613
 def save_checkpoint(train_one_step_cell, save_dir, step=None, is_best=False):
@@ -187,6 +197,35 @@ class ParallelTrainingReducer:
         return is_finite.astype(mstype.bool_)
 
 
+def get_model(model_provider_func, parallel_config):
+    """ get model """
+    model = nn.CellList(auto_prefix=False)
+    if get_pp_world_size() > 1:
+        if parallel_config.virtual_pipeline_model_parallel_size is not None and \
+           parallel_config.virtual_pipeline_model_parallel_size > 1:
+            for i in range(parallel_config.virtual_pipeline_model_parallel_size):
+                set_vpp_rank(i)
+                pre_process = is_pipeline_first_stage()
+                post_process = is_pipeline_last_stage()
+                this_model = model_provider_func(pre_process=pre_process,
+                                                 post_process=post_process)
+                model.append(PipelineCell(this_model, model_customize_staged=True))
+        else:
+            pre_process = is_pipeline_first_stage()
+            post_process = is_pipeline_last_stage()
+            this_model = model_provider_func(pre_process=pre_process,
+                                             post_process=post_process)
+            # wrap with PP cell if pipeline parallelism is used
+            this_model = PipelineCell(this_model, model_customize_staged=True)
+            model.append(this_model)
+    else:
+        model.append(model_provider_func(pre_process=True, post_process=True))
+
+    if len(model) == 1:
+        model = model[0]
+    return model
+
+
 def get_forward_backward_func(network_with_loss, params, training_config, model_config):
     """
     Returns a forward-backward function for training a network with or without pipeline parallelism.
@@ -203,102 +242,174 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
     Raises:
         NotImplementedError: If pipeline parallelism is not implemented yet.
     """
+    forward_backward_func = None
+    seq_length = model_config.seq_length
     micro_batch_num = training_config.dataset_config.micro_batch_num
     micro_batch_size = training_config.dataset_config.batch_size
 
-    if get_pp_world_size() > 1:
-        raise NotImplementedError("Pipeline parallelism is not implemented yet.")
+    # no pipeline parallel
+    if get_pp_world_size() == 1:
 
-    # non pp forward_backward_func
-
-    def forward_with_loss_scale(*inputs_tuple, loss_scale=None, **inputs_dict):
-        logits = None
-        output = network_with_loss(*inputs_tuple, **inputs_dict)
-        if isinstance(output, tuple):
-            loss, logits = output[0], output[1]
-        else:
-            loss = output
-        if loss_scale is not None:
-            loss = mint.mul(loss, loss_scale.astype(loss.dtype))
-        return loss, logits
-
-    grad_position = None
-    # If parallel_config.zero_level == z3, gradient with respect to inputs and weights
-    if model_config.parallel_config.zero_level == "z3":
-        grad_position = 0
-    forward_backward_once_func = value_and_grad(
-        forward_with_loss_scale, grad_position=grad_position, weights=params, has_aux=True)
-
-    if micro_batch_num > 1:
-        grad_accumulator = GradAccumulator(micro_batch_num, op="sum")
-
-    def forward_backward_func_with_grad_acc(
-            *inputs_tuple, loss_scale=None, forward_only=False, **inputs_dict
-    ):
-        loss = None
-        logits = None
-        grads = None
-
-        # fuse loss scale and grad accumulation if do grad acc
-        if training_config.loss_reduction == "mean" and micro_batch_num > 1:
-            if loss_scale is None:
-                loss_scale = Tensor(1, mstype.float32)
-            actual_loss_scale = mint.div(loss_scale, micro_batch_num)
-        else:
-            actual_loss_scale = loss_scale
-
-        def forward_backward_on_microbatch(idx):
-            nonlocal loss
-            nonlocal logits
-            nonlocal grads
-
-            # slice inputs over batch size dimension
-            inputs_tuple_micro = [
-                input_data[idx * micro_batch_size : (idx + 1) * micro_batch_size] for input_data in inputs_tuple
-            ]
-            inputs_dict_micro = {
-                key: value[idx * micro_batch_size : (idx + 1) * micro_batch_size]
-                for key, value in inputs_dict.items()
-            }
-
-            # step on micro batch
-            if forward_only:
-                loss_micro, logits_micro = forward_with_loss_scale(
-                    *inputs_tuple_micro, loss_scale=actual_loss_scale, **inputs_dict_micro)
+        def forward_with_loss_scale(*inputs_tuple, loss_scale=None, **inputs_dict):
+            logits = None
+            output = network_with_loss(*inputs_tuple, **inputs_dict)
+            if isinstance(output, tuple):
+                loss, logits = output[0], output[1]
             else:
-                (loss_micro, logits_micro), grads_micro = forward_backward_once_func(
-                    *inputs_tuple_micro, loss_scale=actual_loss_scale, **inputs_dict_micro)
-                if grad_position == 0:
-                    grads_micro = grads_micro[1]
-                # accumulate grads
-                if micro_batch_num > 1:
-                    grads = grad_accumulator(grads_micro)
-                else:
-                    grads = grads_micro
-
-            # process output, loss will be averaged in loss unscaling
-            loss = loss_micro if loss is None else loss + loss_micro
-
-            if logits is None:
-                logits = logits_micro
-            else:
-                logits = mint.cat((logits, logits_micro), dim=0)
-
-        # trigger dp reduce only on last step
-        for idx in range(micro_batch_num - 1):
-            forward_backward_on_microbatch(idx)
-        forward_backward_on_microbatch(micro_batch_num - 1)
-
-        # unscale loss
-        if loss_scale is not None:
-            loss = mint.div(loss, loss_scale)
-
-        if forward_only:
+                loss = output
+            if loss_scale is not None:
+                loss = mint.mul(loss, loss_scale.astype(loss.dtype))
             return loss, logits
 
-        return (loss, logits), grads
+        grad_position = None
+        # If parallel_config.zero_level == z3, gradient with respect to inputs and weights
+        if model_config.parallel_config.zero_level == "z3":
+            grad_position = 0
+        forward_backward_once_func = value_and_grad(
+            forward_with_loss_scale, grad_position=grad_position, weights=params, has_aux=True
+        )
 
-    return forward_backward_func_with_grad_acc
+        overlap_grad_reduce = model_config.parallel_config.overlap_grad_reduce
+
+        # if overlap_grad_reduce, grad will be accumulate in grad buffer
+        if micro_batch_num > 1 and not overlap_grad_reduce:
+            grad_accumulator = GradAccumulator(micro_batch_num, op="sum")
+
+        def forward_backward_func_with_grad_acc(
+                *inputs_tuple, loss_scale=None, forward_only=False, **inputs_dict
+        ):
+            loss = None
+            logits = None
+            grads = None
+
+            # reset grad buffer
+            if overlap_grad_reduce:
+                network_with_loss.zero_grad_buffer()
+
+            # fuse loss scale and grad accumulation if do grad acc
+            if training_config.loss_reduction == "mean" and micro_batch_num > 1:
+                if loss_scale is None:
+                    loss_scale = Tensor(1, mstype.float32)
+                actual_loss_scale = mint.div(loss_scale, micro_batch_num)
+            else:
+                actual_loss_scale = loss_scale
+
+            if overlap_grad_reduce:
+                no_sync_func = network_with_loss.no_sync
+            else:
+                no_sync_func = contextlib.nullcontext
+
+            def forward_backward_on_microbatch(idx):
+                nonlocal loss
+                nonlocal logits
+                nonlocal grads
+
+                # slice inputs over batch size dimension
+                inputs_tuple_micro = [
+                    input_data[idx * micro_batch_size : (idx + 1) * micro_batch_size] for input_data in inputs_tuple
+                ]
+                inputs_dict_micro = {
+                    key: value[idx * micro_batch_size : (idx + 1) * micro_batch_size]
+                    for key, value in inputs_dict.items()
+                }
+
+                # step on micro batch
+                if forward_only:
+                    loss_micro, logits_micro = forward_with_loss_scale(
+                        *inputs_tuple_micro, loss_scale=actual_loss_scale, **inputs_dict_micro
+                    )
+                else:
+                    (loss_micro, logits_micro), grads_micro = forward_backward_once_func(
+                        *inputs_tuple_micro, loss_scale=actual_loss_scale, **inputs_dict_micro
+                    )
+                    if grad_position == 0:
+                        grads_micro = grads_micro[1]
+                    # accumulate grads
+                    if micro_batch_num > 1 and not overlap_grad_reduce:
+                        grads = grad_accumulator(grads_micro)
+                    else:
+                        grads = grads_micro
+
+                # process output, loss will be averaged in loss unscaling
+                loss = loss_micro if loss is None else loss + loss_micro
+
+                if logits is None:
+                    logits = logits_micro
+                else:
+                    logits = mint.cat((logits, logits_micro), dim=0)
+
+            # trigger dp reduce only on last step
+            with no_sync_func():
+                for idx in range(micro_batch_num - 1):
+                    forward_backward_on_microbatch(idx)
+            forward_backward_on_microbatch(micro_batch_num - 1)
+
+            # unscale loss
+            if loss_scale is not None:
+                loss = mint.div(loss, loss_scale)
+
+            if forward_only:
+                return loss, logits
+
+            # finalize ddp grad reduce
+            if overlap_grad_reduce:
+                network_with_loss.final_grad_reduce()
+                grads = tuple([x.contiguous() for x in network_with_loss.grad_views])
+            return (loss, logits), grads
+
+        forward_backward_func = forward_backward_func_with_grad_acc
+
+    else:
+        all_config = GeneralConfig(
+            model_config=model_config,
+            training_config=training_config,
+        )
+
+        def forward_backward_with_pipelining(
+                *inputs_tuple, loss_scale=None, forward_only=False, **inputs_dict
+        ):
+            if loss_scale is None:
+                loss_scale = Tensor(1, mstype.float32)
+            if model_config.parallel_config.virtual_pipeline_model_parallel_size is not None and \
+               model_config.parallel_config.virtual_pipeline_model_parallel_size > 1:
+                loss, logits, grads = forward_backward_pipelining_with_interleaving(
+                    network_with_loss,
+                    micro_batch_num,
+                    seq_length,
+                    micro_batch_size,
+                    *inputs_tuple,
+                    decoder_seq_length=None,
+                    forward_only=forward_only,
+                    collect_non_loss_data=False,
+                    first_val_step=None,
+                    config=all_config,
+                    total_tokens_nums=None,
+                    scale_sense=loss_scale,
+                    **inputs_dict
+                )
+            else:
+                loss, logits, grads = forward_backward_pipelining_without_interleaving(
+                    network_with_loss,
+                    micro_batch_num,
+                    seq_length,
+                    micro_batch_size,
+                    *inputs_tuple,
+                    decoder_seq_length=None,
+                    forward_only=forward_only,
+                    collect_non_loss_data=False,
+                    first_val_step=None,
+                    config=all_config,
+                    total_tokens_nums=None,
+                    scale_sense=loss_scale,
+                    **inputs_dict
+                )
+            if forward_only:
+                return loss, logits
+            return (loss, logits), grads
+
+        forward_backward_func = forward_backward_with_pipelining
+
+    return forward_backward_func
 
 
 class TrainOneStepCell(nn.Cell):
@@ -331,7 +442,6 @@ class TrainOneStepCell(nn.Cell):
     # pylint: disable=W0613
     def __init__(self, network_with_loss, optimizer, training_config, model_config, **kwargs):
         super(TrainOneStepCell, self).__init__(auto_prefix=False)
-        self.network_with_loss = network_with_loss
         self.optimizer = optimizer
 
         # init loss scaler
@@ -353,17 +463,19 @@ class TrainOneStepCell(nn.Cell):
         self.use_grad_clip = training_config.grad_clip_kwargs is not None
         if self.use_grad_clip:
             self.grad_clip_func = get_grad_process_func(
-                training_config, params=self.network_with_loss.trainable_params())
+                training_config, params=network_with_loss.trainable_params()
+            )
         # init grad scale func
         self.grad_scale_func = inplace_apply_to_tensor_list(mint.mul)
 
         # init parallel reducer
-        self.parallel_reducer = ParallelTrainingReducer(self.network_with_loss.trainable_params(), training_config)
+        self.parallel_reducer = ParallelTrainingReducer(network_with_loss.trainable_params(), training_config)
 
         self.micro_batch_num = training_config.dataset_config.micro_batch_num
         # init forward_backward_func
         self.forward_backward_func = get_forward_backward_func(
-            self.network_with_loss, self.network_with_loss.trainable_params(), training_config, model_config)
+            network_with_loss, network_with_loss.trainable_params(), training_config, model_config
+        )
 
         # get pp size to adjust scale_sense
         self.pp_size = get_pp_world_size()

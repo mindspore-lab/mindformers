@@ -254,7 +254,7 @@ class P2P_Primitive():
         recv_prev_shape = tensor_shape
         recv_next_shape = tensor_shape
 
-        recv_dtype = self.config.recv_dtype
+        recv_dtype = self.config.parallel_config.recv_dtype
         if recv_prev:
             if tensor_shape is None:
                 raise RuntimeError("Now receiving tensor from the previous stage, but the recv_shape is None.")
@@ -263,6 +263,13 @@ class P2P_Primitive():
             if tensor_shape is None:
                 raise RuntimeError("Now receiving tensor from the next stage, but the recv_shape is None.")
             tensor_recv_next = ms.numpy.empty(recv_next_shape, dtype=recv_dtype)
+
+        # cast
+        if tensor_send_prev is not None:
+            tensor_send_prev = tensor_send_prev.astype(recv_dtype)
+
+        if tensor_send_next is not None:
+            tensor_send_next = tensor_send_next.astype(recv_dtype)
 
         # if tensor_send_prev or tensor_send_next is not None, send a tensor to specific stage
         # if tensor_recv_prev or tensor_recv_next is not None, recv a tensor from specific stage
@@ -279,6 +286,14 @@ class P2P_Primitive():
             for req in reqs:
                 req.synchronize()
             reqs = None
+
+        # cast
+        if tensor_recv_prev is not None:
+            tensor_recv_prev = tensor_recv_prev.astype(self.config.compute_dtype)
+
+        if tensor_recv_next is not None:
+            tensor_recv_next = tensor_recv_next.astype(self.config.compute_dtype)
+
         return tensor_recv_prev, tensor_recv_next, reqs
 
 

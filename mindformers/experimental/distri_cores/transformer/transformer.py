@@ -21,7 +21,13 @@ import mindspore.common.dtype as mstype
 from mindspore import Tensor, nn, ops, mint, Parameter
 import mindspore.ops.functional as F
 
-from mindformers.experimental.distri_cores.create_comm import get_pp_rank, get_tp_world_size
+from mindformers.experimental.distri_cores.create_comm import (
+    get_pp_rank,
+    get_tp_world_size,
+    get_pp_world_size,
+    get_vpp_rank,
+    get_vpp_world_size
+)
 from mindformers.experimental.distri_cores.random import get_rng_tracer
 from mindformers.experimental.distri_cores.tensor_parallel import (
     ColumnParallelLinear,
@@ -50,12 +56,94 @@ from .module import Module
 from .mlp import ParallelMLP
 
 __all__ = [
+    "BasePublicLayer",
+    "PublicLayer",
     "ParallelAttention",
     "ParallelTransformerLayer",
     "ParallelTransformer",
     "ParallelLMLogits"
 ]
 
+class BasePublicLayer(nn.Cell):
+    r"""
+    A base class for public layer.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.add_attr_for_public_layer()
+
+    def add_attr_for_public_layer(self):
+        """add attr for public layer"""
+        self.is_public_layer = True
+
+class PublicLayer(BasePublicLayer):
+    r"""
+    Public layer class for building pipeline parallel model.
+
+    Args:
+        config (dict): Configuration.
+
+    Inputs:
+        - **input_ids** (Tensor) - The tokenized inputs with datatype int32, shape :math:`(B, S)`.
+        - **labels** (Tensor) - The tokenized labels with datatype int32, shape :math:`(B, S)`.
+        - **input_mask** (Tensor) - The mask for input_ids, shape:math:`(B, S)`.
+        - **attention_mask** (Tensor) - Attention mask, shape :math:`(B, S, S)` or math:`(B, 1, S, S)`.
+        - **position_ids** (Tensor) - Position ids for position embedding, shape :math:`(B, S)`.
+
+    Outputs:
+        - **output_dict** (dict) - A public dict for each pipeline stage.
+
+    Supported Platforms:
+        ``Ascend``
+    """
+
+    def __init__(self, config, **kwargs):
+        super(PublicLayer, self).__init__(**kwargs)
+        self.pad_token = config.pad_token_id
+        self.vocab_size = config.vocab_size
+        self.seq_length = config.seq_length
+        self.compute_type = config.compute_dtype
+        self.flatten_labels_and_input_mask = config.flatten_labels_and_input_mask
+        self.output_dict = {}
+
+    def construct(self,
+                  input_ids,
+                  labels=None,
+                  input_mask=None,
+                  attention_mask=None,
+                  position_ids=None,
+                  ) -> dict:
+        """public layer forward"""
+        if labels is None and self.seq_length == len(input_ids) - 1:
+            input_ids, labels = input_ids[:, : self.seq_length], input_ids[:, 1:]
+        if attention_mask is None:
+            if input_mask is None:
+                input_mask = mint.ne(input_ids, self.vocab_size + 1).astype(
+                    self.compute_type
+                )
+            attention_mask = self.get_attention_mask(input_mask)
+
+        if self.flatten_labels_and_input_mask:
+            labels = labels.reshape((-1,))
+            input_mask = input_mask.reshape((-1,))
+
+        self.output_dict["input_ids"] = input_ids
+        self.output_dict["attention_mask"] = attention_mask
+        self.output_dict["labels"] = labels
+        self.output_dict["position_ids"] = position_ids
+        return self.output_dict
+
+    def get_attention_mask(self, input_mask):
+        """get attention mask base on input_mask"""
+        input_shape = input_mask.shape
+        ones = mint.ones((self.seq_length, self.seq_length), dtype=input_mask.dtype)
+        attention_mask_left = input_mask.reshape((input_shape[0], input_shape[1], 1))
+        attention_mask_right = input_mask.reshape((input_shape[0], 1, input_shape[1]))
+        attention_mask = mint.matmul(attention_mask_left, attention_mask_right)
+        lower_triangle_mask = ops.tril(ones).unsqueeze(0)
+        attention_mask = mint.mul(attention_mask, lower_triangle_mask)
+        return attention_mask
 
 def _merge_heads(x):
     """ Merge attention heads. """
@@ -561,6 +649,50 @@ class ParallelTransformerLayer(Module):
         return output
 
 
+def _get_num_layers(config, model_type, is_decoder=False):
+    """get transformer layers nums for current rank"""
+    if model_type is not None:
+        raise NotImplementedError(
+            "For _get_num_layers function, `model_type` is not supported for now."
+        )
+    if is_decoder:
+        raise NotImplementedError(
+            "For _get_num_layers function, `is_decoder` is not supported for now."
+        )
+    standalone_embedding_stage = config.parallel_config.standalone_embedding_stage
+    if get_pp_world_size() > 1:
+        if standalone_embedding_stage and get_pp_rank() == 0:
+            num_layers = 0
+            offset = 0
+        else:
+            def divide_layers(num_layers, stage, rank):
+                num_layer_list = [num_layers // stage] * stage
+                remain_layer_nums = num_layers - sum(num_layer_list)
+                for i in range(remain_layer_nums):
+                    num_layer_list[-i - 2] += 1
+                num_layers = num_layer_list[rank]
+                offset = sum(num_layer_list[:rank])
+                return num_layers, offset
+
+            num_layers = config.num_layers
+            offset = 0
+
+            vpp_stage = get_vpp_world_size()
+            if vpp_stage is not None:
+                vpp_rank = get_vpp_rank()
+                num_layers, offset_vpp = divide_layers(num_layers, vpp_stage, vpp_rank)
+                offset = offset + offset_vpp
+
+            pp_stage = get_pp_world_size() - 1 if standalone_embedding_stage else get_pp_world_size()
+            pp_rank = get_pp_rank() - 1 if standalone_embedding_stage else get_pp_rank()
+            num_layers, offset_pp = divide_layers(num_layers, pp_stage, pp_rank)
+            offset = offset + offset_pp
+    else:
+        num_layers = config.num_layers
+        offset = get_pp_rank() * num_layers
+    return num_layers, offset
+
+
 class ParallelTransformer(Module):
     r"""
     Parallel transformer class.
@@ -598,21 +730,20 @@ class ParallelTransformer(Module):
             raise NotImplementedError("For ParallelTransformer, `layer_type` is not supported for now.")
         if self_attn_mask_type:
             raise NotImplementedError("For ParallelTransformer, `self_attn_mask_type` is not supported for now.")
-        if pre_process:
-            raise NotImplementedError("For ParallelTransformer, `pre_process=True` is not supported.")
-        if post_process:
-            raise NotImplementedError("For ParallelTransformer, `post_process=True` is not supported.")
         if drop_path_rate > 0.0:
             raise NotImplementedError("For ParallelTransformer, `drop_path_rate > 0` is not supported for now, "
                                       "but got `drop_path_rate={}`".format(drop_path_rate))
         self.config = config
+        self.pre_process = pre_process
+        self.post_process = post_process
         self.post_norm = post_norm
         # number of layers.
-        self.num_layers = config.num_layers
-
-        offset = get_pp_rank() * self.num_layers
-
+        self.num_layers, offset = _get_num_layers(
+            config, model_type=None, is_decoder=False
+        )
         use_lora = config.lora_config.use_lora
+        seq_length = config.seq_length
+        hidden_size = config.hidden_size
 
         layers_config = copy.deepcopy(config)
         if use_lora:
@@ -626,9 +757,10 @@ class ParallelTransformer(Module):
         # ensure the Parameter of each rank init as correct name
         layers_dict = OrderedDict()
         for i in range(self.num_layers):
-            layers_dict[str(i + offset)] = ParallelTransformerLayer(config=layers_index_config[i] \
-                if use_lora else layers_config,
-                                                                    layer_number=i + 1 + offset)
+            layers_dict[str(i + offset)] = ParallelTransformerLayer(
+                config=layers_index_config[i] if use_lora else layers_config,
+                layer_number=i + 1 + offset,
+            )
         self.layers = nn.SequentialCell(layers_dict)
 
         # gradient checkpointing for recompute.
@@ -641,9 +773,20 @@ class ParallelTransformer(Module):
         if self.checkpointed_recompute:
             self._set_checkpointed_recompute(self.config.recompute_method, self.config.recompute_num_layers)
 
-        if self.post_norm:
+        if self.post_process and self.post_norm:
             # final layernorm before output.
             self.final_norm = get_norm(config)
+
+        self.pipeline_parallel = get_pp_world_size() > 1
+        if self.pipeline_parallel:
+            batch_size = config.dataset_config.batch_size
+            self.set_hidden_states = Parameter(
+                mint.zeros(
+                    (batch_size, seq_length, hidden_size), dtype=config.compute_dtype
+                ),
+                requires_grad=False,
+                name="set_hidden_states",
+            )
 
     def _set_checkpointed_recompute(self, recompute_method, recompute_num_layers):
         """Set checkpointed recompute for transformer."""
@@ -657,14 +800,20 @@ class ParallelTransformer(Module):
                 checkpointed_layer_group.recompute()
                 self.checkpointed_layer_groups.append(checkpointed_layer_group)
         elif recompute_method == "block":
-            self.checkpointed_layer_groups = nn.CellList(
-                [CheckpointedRecomputeOrientedCell(self.layers[:recompute_num_layers])]
-            )
-            for layer in self.layers[recompute_num_layers:]:
-                self.checkpointed_layer_groups.append(layer)
-            self.checkpointed_layer_groups[0].recompute()
+            for idx in range(0, min(self.num_layers, recompute_num_layers)):
+                self.layers[idx].recompute()
+            self.checkpointed_layer_groups = self.layers
         else:
-            raise NotImplementedError(f"recompute_method should be uniform or blocks, but got {recompute_method}")
+            raise NotImplementedError(
+                f"recompute_method should be uniform or blocks, but got {recompute_method}"
+            )
+
+    def set_input_tensor(self, input_tensor):
+        """
+        In pipeline parallel, the receiving data from previous stage will be set into class.
+        Construct function's input will be replace by self.set_hidden_states.
+        """
+        self.set_hidden_states.set_data(input_tensor, slice_shape=True)
 
     def construct(self,
                   hidden_states,
@@ -695,13 +844,17 @@ class ParallelTransformer(Module):
         else:
             layers = self.layers
 
+        # self.hidden_states instead of input
+        if not self.pre_process and self.pipeline_parallel:
+            hidden_states = self.set_hidden_states.value()
+
         for layer in layers:
             hidden_states = layer(hidden_states=hidden_states,
                                   attention_mask=attention_mask,
                                   rotary_pos_emb=rotary_pos_emb)
 
         # final layernorm.
-        if self.post_norm:
+        if self.post_process and self.post_norm:
             hidden_states = self.final_norm(hidden_states)
 
         return hidden_states

@@ -843,6 +843,8 @@ class ModelParallelConfig(BaseConfig):
         pipeline_stage (int): Number of stages when using pipeline parallel. Default: 1.
         context_parallel (int): Dimensionality of context parallel. Default: 1.
         expert_parallel (int): Dimensionality of expert parallel. Default: 1.
+        virtual_pipeline_model_parallel_size (int): Number of virtual stages when using pipeline parallel.
+            Default: None.
         micro_batch_num (int): Number of micro batch when using pipeline parallel. Default: 1.
         use_sequence_parallel (bool): Enable sequence parallel. Default: False.
         recv_dtype (bool): Communication data type of p2p communication when using pipeline
@@ -850,6 +852,9 @@ class ModelParallelConfig(BaseConfig):
         use_zero3 (Union[bool, None]): Enable zero3 optimization. Default: None.
         gradient_accumulation_fusion (bool): Enable gradient accumulation
             during linear backward execution. Default: False.
+        standalone_embedding_stage (bool): In pipeline parallel, the first stage contain only embedding layer.
+            Default: False.
+        overlap_p2p_comm (bool): Enable overlap p2p commucation in pipeline interleaved. Default: False.
     """
 
     # set config name for identifying while using init_configs methods
@@ -861,11 +866,14 @@ class ModelParallelConfig(BaseConfig):
             pipeline_stage: int = 1,
             context_parallel: int = 1,
             expert_parallel: int = 1,
+            virtual_pipeline_model_parallel_size: int = None,
             micro_batch_num: int = 1,
             use_sequence_parallel: bool = False,
             recv_dtype: str = "float32",
             zero_level: bool = None,
             gradient_accumulation_fusion: bool = False,
+            standalone_embedding_stage: bool = False,
+            overlap_p2p_comm: bool = False,
             **kwargs,
     ):
         super(ModelParallelConfig, self).__init__()
@@ -873,11 +881,14 @@ class ModelParallelConfig(BaseConfig):
         self.pipeline_stage = pipeline_stage
         self.context_parallel = context_parallel
         self.expert_parallel = expert_parallel
+        self.virtual_pipeline_model_parallel_size = virtual_pipeline_model_parallel_size
         self.micro_batch_num = micro_batch_num
         self.use_sequence_parallel = use_sequence_parallel
         self.recv_dtype = recv_dtype
         self.zero_level = zero_level
         self.gradient_accumulation_fusion = gradient_accumulation_fusion
+        self.standalone_embedding_stage = standalone_embedding_stage
+        self.overlap_p2p_comm = overlap_p2p_comm
 
         self.update_attrs(**kwargs)
 
@@ -909,6 +920,13 @@ def validate_expert_parallel(config_instance, expert_parallel):
     Validator.check_positive_int(expert_parallel, "expert_parallel")
     return expert_parallel
 
+@ModelParallelConfig.validator("virtual_pipeline_model_parallel_size")
+def validate_virtual_pipeline_model_parallel_size(config_instance, virtual_pipeline_model_parallel_size):
+    """Validate virtual pipeline stage."""
+    if virtual_pipeline_model_parallel_size is not None:
+        Validator.check_positive_int(virtual_pipeline_model_parallel_size,
+                                     "virtual_pipeline_model_parallel_size")
+    return virtual_pipeline_model_parallel_size
 
 @ModelParallelConfig.validator("use_sequence_parallel")
 def validate_use_sequence_parallel(config_instance, use_sequence_parallel):
@@ -988,10 +1006,12 @@ class TransformerConfig(BaseConfig):
             Default: 0.0.
         attention_dropout_rate (float): Dropout rate for attention socre. Default: 0.0.
         num_experts (Optional[int], None): Number of experts. Default: None.
-        share_embedding_weight (bool): Share embedding table between embedding layer and llm head. Default: False.
+        untie_embeddings_and_output_weights (bool): If false, share embedding with head layer. Default: False.
+        flatten_labels_and_input_mask (bool): flatten labels and input mask in public layer. Default: True.
         recompute_method (Optional[str], None): Recompute method. Default: None.
         recompute_num_layers (Optional[int], None): Number of layers to recompute. Default: None.
         recompute_granularity (Optional[str], None): Recompute granularity. Default: None.
+        dataset_config (dict): dataset config. Default: None.
     """
 
     # set config name for identifying while using init_configs methods
@@ -1031,7 +1051,8 @@ class TransformerConfig(BaseConfig):
             hidden_dropout_rate: float = 0.0,
             attention_dropout_rate: float = 0.0,
             num_experts: int = None,
-            share_embedding_weight: bool = False,
+            untie_embeddings_and_output_weights: bool = False,
+            flatten_labels_and_input_mask: bool = True,
             recompute_method: str = None,
             recompute_num_layers: int = None,
             recompute_granularity: str = None,
@@ -1056,7 +1077,6 @@ class TransformerConfig(BaseConfig):
         self.apply_query_key_layer_scaling = apply_query_key_layer_scaling
         self.use_flash_attention = use_flash_attention
         self.fa_config = fa_config
-        self.fa_config = fa_config
         self.mask_func_type = mask_func_type
         self.mlp_has_bias = mlp_has_bias
         self.mlp_has_gate = mlp_has_gate
@@ -1073,7 +1093,8 @@ class TransformerConfig(BaseConfig):
         self.hidden_dropout_rate = hidden_dropout_rate
         self.attention_dropout_rate = attention_dropout_rate
         self.num_experts = num_experts
-        self.share_embedding_weight = share_embedding_weight
+        self.untie_embeddings_and_output_weights = untie_embeddings_and_output_weights
+        self.flatten_labels_and_input_mask = flatten_labels_and_input_mask
         self.recompute_method = recompute_method
         self.recompute_num_layers = recompute_num_layers
         self.recompute_granularity = recompute_granularity
@@ -1475,6 +1496,7 @@ class TrainingConfig(BaseConfig):
         loss_scale_factor (Union[int, None], optional): Factor of dynamic loss scale. Default: None.
         loss_scale_window (Union[int, None], optional): Window size of dynamic loss scale. Default: None.
         loss_reduction (str, optional): Loss reduction method. Default: 'mean'.
+        calculate_per_token_loss (bool): Apply grad and loss calculation base on num of tokens. Default: False.
         kwargs (dict, optional): Other dataset config arguments.
     """
 
@@ -1501,6 +1523,7 @@ class TrainingConfig(BaseConfig):
             loss_scale_factor: int = None,
             loss_scale_window: int = None,
             loss_reduction: str = "mean",
+            calculate_per_token_loss: bool = False,
             **kwargs,
     ):
         super().__init__()
@@ -1523,6 +1546,7 @@ class TrainingConfig(BaseConfig):
         self.loss_scale_window = loss_scale_window
         self.grad_clip_kwargs = grad_clip_kwargs
         self.loss_reduction = loss_reduction
+        self.calculate_per_token_loss = calculate_per_token_loss
 
         self.update_attrs(**kwargs)
 
