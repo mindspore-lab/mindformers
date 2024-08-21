@@ -54,7 +54,7 @@ model:
     compute_dtype: "bfloat16"
     layernorm_compute_type: "float32"
     use_past: False
-    use_flash_attention: False # when use FlashAttention, seq_length should be multiple of 16
+    use_flash_attention: True # when use FlashAttention, seq_length should be multiple of 16
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0
