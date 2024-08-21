@@ -17,6 +17,7 @@ from mindspore.ops import operations as P
 
 from mindspore import nn, Tensor
 from mindspore.common import dtype as mstype
+from mindspore.common.initializer import initializer, Normal, Zero
 
 __all__ = ["get_attn_mask_func"]
 
@@ -86,3 +87,18 @@ def get_attn_mask_func(mask_func_type):
                        "mask function are ['attn_mask_fill', 'attn_mask_add'] "
                        ", but got {}.".format(mask_func_type))
     return ATTNMASK_FUNC_MAP[mask_func_type]
+
+def init_method_normal(sigma: float, params_dtype: mstype = mstype.float32):
+    """Init method based on N(0, sigma)."""
+    def init_(tensor: Tensor):
+        return initializer(Normal(mean=0.0, sigma=sigma), tensor.shape, params_dtype)
+
+    return init_
+
+
+def init_method_zero(params_dtype: mstype = mstype.float32):
+    """Init method based on zeros."""
+    def init_(tensor: Tensor):
+        return initializer(Zero(), tensor.shape, params_dtype)
+
+    return init_
