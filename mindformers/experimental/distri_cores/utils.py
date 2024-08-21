@@ -20,6 +20,7 @@ from collections import OrderedDict
 import yaml
 
 import mindspore.ops as P
+import mindspore.nn as nn
 from mindspore import log as logger
 import mindspore.common.dtype as mstype
 from mindspore.communication import get_group_size
@@ -144,7 +145,14 @@ def generate_state_dict(network: Module, optimizer: Optimizer):
         'stage_rank_size': get_group_size() // pp_size,
         'stage': pp_rank,
     }
-    state_dict['model'] = network.sharded_state_dict()
+
+    state_dict['model'] = {}
+    if isinstance(network, (nn.SequentialCell, nn.CellList)):
+        for model_chunk in network:
+            state_dict['model'].update(model_chunk.sharded_state_dict())
+    else:
+        state_dict['model'].update(network.sharded_state_dict())
+
     state_dict['optimizer'] = {}
     if optimizer is not None:
         if hasattr(optimizer, 'sharded_state_dict'):
@@ -152,6 +160,7 @@ def generate_state_dict(network: Module, optimizer: Optimizer):
         else:
             print(f"The optimizer {type(optimizer).__name__} has no sharded_state_dict overridden")
             state_dict['optimizer'] = get_default_dict_for_optimizer(optimizer, state_dict['model'])
+
     return state_dict
 
 
