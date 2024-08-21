@@ -181,7 +181,7 @@ import xxx
 ```python
     import os
     import sys
-    
+
     try:
         print(os.listdir(sys.argv[1]))
     except Exception as ex:
