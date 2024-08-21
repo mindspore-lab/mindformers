@@ -61,7 +61,7 @@ np.random.seed(seed_value)
 
 
 def get_default_causal_mask(seq_len__: int) -> Tensor:
-    return ms.tensor(np.triu(np.ones((seq_len__, seq_len__)), 1)).bool()
+    return ms.tensor(np.triu(np.ones((seq_len__, seq_len__)), 1), dtype.uint8)
 
 
 class MyNet(nn.Cell):
@@ -110,6 +110,7 @@ config_.mask_func_type = 'attn_mask_fill'
 config_.apply_residual_connection_post_layernorm = True
 config_.attention_dropout = 0.0
 config_.kv_num_heads = 8
+config_.layernorm_compute_type = dtype.float32
 
 bs = 2
 seq_len_ = 2048

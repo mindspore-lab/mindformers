@@ -263,21 +263,21 @@ def get_norm(config):
         return LayerNorm(
             config.hidden_size,
             eps=config.layernorm_epsilon,
-            param_init_type=config.param_init_dtype)
+            param_init_type=config.layernorm_compute_type)
     if config.normalization == "FusedLayerNorm":
         return FusedLayerNorm(
             config.hidden_size,
             eps=config.layernorm_epsilon,
-            param_init_type=config.param_init_dtype)
+            param_init_type=config.layernorm_compute_type)
     if config.normalization == "RMSNorm":
         return RMSNorm(
             dim=config.hidden_size,
             eps=config.layernorm_epsilon,
-            param_init_type=config.param_init_dtype)
+            param_init_type=config.layernorm_compute_type)
     if config.normalization == "FusedRMSNorm":
         return FusedRMSNorm(
             dim=config.hidden_size,
             eps=config.layernorm_epsilon,
-            param_init_type=config.param_init_dtype)
+            param_init_type=config.layernorm_compute_type)
 
     raise Exception(f"unsupported norm type '{config.normalization}'.")
