@@ -376,17 +376,20 @@ class ModalContentTransformTemplate:
     def build_labels(self, text_id_list, result_recorder, **kwargs):
         pass
 
-    def generate_modal_context_positions(self, input_ids, batch_index: int = 0, **kwargs):
+    def generate_modal_context_positions(self, input_ids, batch_index: int = 0,
+                                         result_recorder: DataRecord = None, **kwargs):
         """generate modal context positions in the text by traversing all modal builders"""
         context_positions = {}
         for modal_builder in self.modal_builders.values():
             if not modal_builder.need_create_context_pos:
                 continue
 
-            context_pos = modal_builder.generate_context_positions(input_ids, batch_index=batch_index, **kwargs)
+            context_pos = modal_builder.generate_context_positions(input_ids, batch_index=batch_index,
+                                                                   result_recorder=result_recorder, **kwargs)
             context_pos = context_pos.astype(np.int32)
             if self.mode == "predict":
                 context_pos = Tensor(context_pos, dtype=ms.int32)
+
             context_positions[f"{modal_builder.type}_context_pos"] = context_pos
         return context_positions
 
@@ -478,6 +481,7 @@ class ModalContentTransformTemplate:
                 if not batch_success:
                     logger.warning("batching %s failed, try to create a separate process for this data.", column_name)
             else:
+                batched_data[column_name] = None
                 logger.warning(f"the data {column_name} is empty when batching data, please check the query data.")
         return batched_data
 

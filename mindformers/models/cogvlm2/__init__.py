@@ -14,15 +14,20 @@
 # ============================================================================
 """The export function for cogvlm2"""
 
-from .cogvlm2 import CogVLM2ForCausalLM
+from .cogvlm2 import CogVLM2ForCausalLM, CogVLM2ImageForCausalLM
 from .cogvlm2_processor import CogVLM2ContentTransformTemplate
+from .cogvlm2image_processor import CogVLM2ImageContentTransformTemplate
 from .cogvlm2_llm import CogVLM2VideoLM, CogVLM2VideoLMModel
+from .cogvlm2image_llm import LlamaForCausalLMForCogVLM2Image
 from .cogvlm2_tokenizer import CogVLM2Tokenizer
 from .cogvlm2_config import CogVLM2Config
 
 __all__ = ['CogVLM2ForCausalLM',
+           "CogVLM2ImageForCausalLM",
            'CogVLM2VideoLM',
            'CogVLM2VideoLMModel',
+           'LlamaForCausalLMForCogVLM2Image',
            'CogVLM2Tokenizer',
            'CogVLM2Config',
-           'CogVLM2ContentTransformTemplate']
+           'CogVLM2ContentTransformTemplate',
+           'CogVLM2ImageContentTransformTemplate']

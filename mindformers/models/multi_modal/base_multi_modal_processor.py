@@ -154,6 +154,7 @@ class BaseXModalToTextTransform:
         text_id = self.model_transform_template.build_modal_context(text_id, self.result_recorder, **kwargs)
 
         context_pos_dict = self.model_transform_template.generate_modal_context_positions(text_id, batch_index,
+                                                                                          self.result_recorder,
                                                                                           **kwargs)
         self.result_recorder.put("raw_query", text)
         self.result_recorder.put("input_ids", text_id)
