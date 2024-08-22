@@ -287,8 +287,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        if config.is_dynamic:
-            self.reshape.add_prim_attr("skip_redistribution", True)
         self.cast = P.Cast()
         self.slice = P.StridedSlice()
         self.not_equal = P.NotEqual()
@@ -446,6 +444,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         if not self.training:
             logits = self.cast(logits, mstype.float32)
             if self.predict_run_mode:
+                logits = self.reshape(logits, (-1, logits.shape[-1]))
                 return logits
             return logits, tokens, input_mask
 
