@@ -14,14 +14,15 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
 
 ## 模型性能
 
-| Config                                                   |       Task       |     Datasets      |  SeqLength  |        Phase        |              Performance               |
-|:---------------------------------------------------------|:----------------:|:-----------------:|:-----------:|:-------------------:|:--------------------------------------:|
-| [qwen2-0.5b](./predict_qwen2_0_5b_instruct.yaml)         | text_generation  |  -  |    8192    |  Predict   | 1907 tokens/s(mindie 16 batch_size 单卡) |
-| [qwen2-1.5b](./predict_qwen2_1_5b_instruct.yaml)         | text_generation  |  -  |    8192    |  Predict   | 1354 tokens/s(mindie 16 batch_size 单卡) |
-| [qwen2-7b](./predict_qwen2_7b_instruct.yaml)             | text_generation  |  -  |    8192    |  Predict   | 653 tokens/s (mindie 16 batch_size 单卡) |
+| Config                                                   |      Task       |     Datasets      | SeqLength |  Phase   |              Performance               |
+|:---------------------------------------------------------|:---------------:|:-----------------:|:---------:|:--------:|:--------------------------------------:|
+| [qwen2-0.5b](./predict_qwen2_0_5b_instruct.yaml)         | text_generation |  -  |   8192    | Predict  | 1907 tokens/s(mindie 16 batch_size 单卡) |
+| [qwen2-1.5b](./predict_qwen2_1_5b_instruct.yaml)         | text_generation |  -  |   8192    | Predict  | 1354 tokens/s(mindie 16 batch_size 单卡) |
+| [qwen2-7b](./predict_qwen2_7b_instruct.yaml)             | text_generation |  -  |   8192    | Predict  | 653 tokens/s (mindie 16 batch_size 单卡) |
+| [qwen2-7b](./finetune_qwen2_7b.yaml)                     |   alpaca_data   |  -  |   32768   | Finetune |           1480 tokens/s (八卡)           |
 | [qwen2-57b-A14b](./predict_qwen2_57b_a14b_instruct.yaml) | text_generation  |  -  |    8192    |  Predict   |  - tokens/s (mindie 16 batch_size 四卡)  |
-| [qwen2-72b](./predict_qwen2_72b_instruct.yaml)           | text_generation  |  -  |    8192    |  Predict   | 247 tokens/s(mindie 16 batch_size 四卡)  |
-| [qwen2-72b-128k](./predict_qwen2_72b_instruct_128k.yaml) | text_generation  |  -  |    8192    |  Predict   |               9 tokens/s               |
+| [qwen2-72b](./predict_qwen2_72b_instruct.yaml)           | text_generation |  -  |   8192    | Predict  | 247 tokens/s(mindie 16 batch_size 四卡)  |
+| [qwen2-72b-128k](./predict_qwen2_72b_instruct_128k.yaml) | text_generation |  -  |   8192    | Predict  |               9 tokens/s               |
 
 ## 模型文件
 
@@ -41,6 +42,7 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
      ├── predict_qwen2_0_5b_instruct.yaml           # 0.5B 在线推理启动配置
      ├── predict_qwen2_1_5b_instruct.yaml           # 1.5B 在线推理启动配置
      ├── predict_qwen2_7b_instruct.yaml             # 7B 在线推理启动配置
+     │── finetune_qwen2_7b.yaml                     # 7B 32k 微调启动配置
      ├── predict_qwen2_57b_a14b_instruct.yaml       # 57B-A14B 在线推理启动配置
      ├── predict_qwen2_72b_instruct.yaml            # 72B 在线推理启动配置
      └── predict_qwen2_72b_instruct_128k.yaml       # 72B 128k 在线推理启动配置
@@ -62,6 +64,51 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
 MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
 
 ### 数据及权重准备
+
+#### 数据集下载
+
+MindFormers提供`alpaca`作为[微调](#微调)数据集。
+
+| 数据集名称        |   适用模型   |   适用阶段   |                                            下载链接                                            |
+|:-------------|:--------:|:--------:|:------------------------------------------------------------------------------------------:|
+| alpaca       | qwen2-7b | Finetune |      [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)       |
+
+数据预处理中所用的`vocab.json`和`merges.txt`可以参考[模型权重下载](#模型权重下载)进行下载。
+
+- **alpaca 数据预处理**
+
+  1. 执行`research/qwen2/alpaca_converter.py`，将原始数据集转换为指定格式。(静态shape)
+  2. 执行`research/qwen2/alpaca_converter_json.py`，将原始数据集转换为指定格式。(动态shape)
+
+  ```shell
+  python alpaca_converter.py \
+   --data_path path/alpaca_data.json \
+   --output_path /path/alpaca-data-messages.json
+
+  # 参数说明
+  data_path:   输入下载的文件路径
+  output_path: 输出文件的保存路径
+  ```
+
+  执行`research/qwen2/qwen2_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
+
+  ```shell
+  python qwen2_preprocess.py \
+   --dataset_type 'qa' \
+   --input_glob /path/alpaca-data-messages.json \
+   --vocab_file /path/vocab.json \
+   --merges_file /path/merges.txt \
+   --seq_length 32768 \
+   --output_file /path/alpaca-messages.mindrecord
+
+  # 参数说明
+  dataset_type: 预处理数据类型
+  input_glob:   转换后的alpaca的文件路径
+  vocab_file:   vocab.json文件路径
+  merges_file:  merges.txt文件路径
+  seq_length:   输出数据的序列长度
+  output_file:  输出文件的保存路径
+  ```
 
 #### 模型权重下载
 
@@ -96,6 +143,95 @@ dtype:       转换权重的精度
   通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
   以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+
+## 微调
+
+注意事项：
+
+1. 当前支持模型已提供推理相关配置文件，请根据实际使用模型更改配置文件。
+
+2. 运行下面的代码需要在`research/qwen2`目录下，或者先将`research/qwen2`目录所在路径加入到`PYTHONPATH`环境变量中。
+
+以``qwen2-7b` 8卡微调为例，执行如下命令进行微调，微调前请参考[权重转换](../../docs/feature_cards/Transform_Ckpt.md)切分权重。
+
+3. 主要参数配置参考:
+
+- 基本配置：
+
+  ```yaml
+   load_checkpoint: './path/qwen2_7b.ckpt' # 权重转换后的文件
+   train_dataset: &train_dataset
+    data_loader:
+      type: MindDataset
+      dataset_dir: "./path/alpaca-data.mindrecord" # 实际微调数据集
+      shuffle: True
+   # parallel config
+   parallel_config:
+    data_parallel: 2
+    model_parallel: 4
+    pipeline_stage: 1
+    use_seq_parallel: True
+    micro_batch_num: 1
+    vocab_emb_dp: False
+    gradient_aggregation_group: 4
+   micro_batch_interleave_num: 2
+   # processor config
+   processor:
+    return_tensors: ms
+    tokenizer:
+      model_max_length: 32768
+      vocab_file: "./path/vocab.json" # 参考qwen2-7b官网下载的词表
+      merges_file: "./path/merges.txt" # # 参考qwen2-7b官网下载的merge文件
+  ```
+
+- 动态shape配置：
+
+```yaml
+# model config
+model:
+  model_config:
+    is_dynamic: True
+# dataset
+train_dataset: &train_dataset
+  data_loader:
+    type: SFTDataLoader
+    dataset_dir: "./path/alpaca-data-json.json"
+    tokenizer:
+      unk_token: '<|endoftext|>'
+      eos_token: '<|endoftext|>'
+      pad_token: '<|endoftext|>'
+      type: Qwen2Tokenizer
+      vocab_file: "./path/vocab.json"
+      merges_file: "./path/merges.txt"
+    max_length: 32768
+    file_format: json
+    dataset_name: multi-round-chat-dyn-alpaca
+    shuffle: False
+    map_function_kwargs: {"user_prompt":"system\nYou are a helpful assistant.", "user_prompt_role":"user\n", "assistant_prompt_role":"assistant\n"}
+    num_samples: 20000
+  pad_token_id: 151643
+  divisor: 4
+  remainder: 1
+  input_columns: ["input_ids", "labels"]
+  num_parallel_workers: 8
+  python_multiprocessing: False
+  drop_remainder: True
+  batch_size: 1
+  repeat: 1
+  numa_enable: False
+  prefetch_size: 1
+  dynamic_batch: True
+```
+
+4. 启动微调:
+
+   ```shell
+   cd research/qwen2
+   bash ../../scripts/msrun_launcher.sh "run_qwen2.py \
+    --config finetune_qwen2_7b.yaml \
+    --run_mode finetune \
+    --train_data ./path/alpaca-data.mindrecord "
+   ```
 
 ## 推理
 

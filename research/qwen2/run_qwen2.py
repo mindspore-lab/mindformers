@@ -66,6 +66,7 @@ def main(task='text_generation',
          predict_data='',
          seq_length=None,
          max_length=8192,
+         train_dataset='',
          device_id=0,
          do_sample=None,
          top_k=None,
@@ -113,6 +114,11 @@ def main(task='text_generation',
         config.model.model_config.top_p = top_p
     config.model.model_config.batch_size = batch_size
 
+    if run_mode in ['train', 'finetune']:
+        if train_dataset:
+            config.train_dataset.data_loader.dataset_dir = train_dataset
+        train_dataset = config.train_dataset.data_loader.dataset_dir
+
     if run_mode == 'predict':
         task = Trainer(args=config, task=task)
         batch_input = [
@@ -121,6 +127,12 @@ def main(task='text_generation',
         for input_prompt in batch_input:
             task.predict(input_data=input_prompt,
                          predict_checkpoint=ckpt, max_length=int(max_length), seq_length=max_length)
+    elif run_mode == 'finetune':
+        trainer = Trainer(args=config, task=task, train_dataset=train_dataset)
+        trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt)
+    elif run_mode == 'train':
+        trainer = Trainer(args=config, task=task, train_dataset=train_dataset)
+        trainer.train(auto_trans_ckpt=auto_trans_ckpt)
     else:
         raise NotImplementedError(f"run_mode '${run_mode}' not supported yet.")
 
@@ -159,6 +171,8 @@ if __name__ == "__main__":
                         help='top_k')
     parser.add_argument('--top_p', default=None, type=float,
                         help='top_p')
+    parser.add_argument('--train_dataset', default='', type=str,
+                        help='set train dataset.')
     parser.add_argument('--remote_save_url', default=None, type=str,
                         help='remote save url.')
     parser.add_argument('--batch_size', default=1, type=int,
@@ -180,6 +194,7 @@ if __name__ == "__main__":
          vocab_file=args.vocab_file,
          merges_file=args.merges_file,
          predict_data=args.predict_data,
+         train_dataset=args.train_dataset,
          seq_length=args.seq_length,
          max_length=args.predict_length,
          device_id=args.device_id,

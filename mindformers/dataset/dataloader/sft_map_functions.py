@@ -13,7 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Map functions for the SFT data."""
-
+import numpy as np
 
 def _prepare_for_model(tokenizer, max_length, prompt, answer=None):
     """Prepare input data for model fine-tuning or evaluation."""
@@ -229,6 +229,51 @@ def multi_instruct_dyn_map_fn(example, **kwargs):
         label = raw_label + [ignore_token_id] * (len(raw_input_id) - len(raw_label))
     return dict(input_ids=input_id, attention_mask=attention_mask, labels=label)
 
+def multi_round_chat_dyn_map_fn_alpaca(example, **kwargs):
+    """Parsing the dataset of multiple rounds of chat."""
+    tokenizer, max_length = kwargs.get("tokenizer"), kwargs.get("max_length")
+    data_field = kwargs.get("data_field", "conversations")
+    from_keyword, value_keyword = kwargs.get("from_keyword", "from"), kwargs.get("value_keyword", "value")
+    user_role_name = kwargs.get("user_role_name", "human")
+    assistant_role_name = kwargs.get("assistant_role_name", "gpt")
+    user_prompt, assistant_prompt = kwargs.get("user_prompt", ""), kwargs.get("assistant_prompt", "")
+    user_prompt_role, assistant_prompt_role = kwargs.get("user_prompt_role", ""), \
+    kwargs.get("assistant_prompt_role", "")
+    bos_token, sep_token = kwargs.get("bos_token", "<|im_start|>"), kwargs.get("sep_token", "<|im_end|>\n<|im_start|>")
+
+    raw_input_id = []
+    raw_label = []
+    for message in example[data_field]:
+        from_ = message[from_keyword]
+        value = message[value_keyword]
+        if from_ == user_role_name:
+            user_value_ids = tokenizer.encode(bos_token + user_prompt + sep_token + user_prompt_role + \
+            value + sep_token, add_special_tokens=False)
+            assistant_value_ids = tokenizer.encode(assistant_prompt + assistant_prompt_role, add_special_tokens=False)
+            value_ids = user_value_ids + assistant_value_ids
+            raw_input_id += value_ids
+            raw_label += value_ids
+        elif from_ == assistant_role_name:
+            value = value + "<|im_end|>\n"
+            value_ids = tokenizer.encode(value, add_special_tokens=False)
+            raw_input_id += value_ids
+            raw_label += value_ids
+        else:
+            raise ValueError(f"Incorrect role name: {from_}. Check the values of `user_role_name` "
+                             f"and `assistant_role_name` in `map_function_kwargs`.")
+    raw_input_id.append(tokenizer.eos_token_id)
+    raw_label.append(tokenizer.eos_token_id)
+
+    if len(raw_input_id) >= max_length:
+        input_id = raw_input_id[: max_length]
+        attention_mask = [1]*max_length
+        label = raw_label[: max_length]
+    else:
+        input_id = raw_input_id
+        attention_mask = [1]*len(raw_input_id)
+        label = raw_label
+    attention_mask = np.where(input_id == tokenizer.pad_token_id, 0, 1).astype(np.int32)
+    return dict(input_ids=input_id, attention_mask=attention_mask, labels=label)
 
 _SFT_MAP_FUNCTIONS = {
     "default": default_map_fn,
@@ -241,5 +286,6 @@ _SFT_MAP_FUNCTIONS = {
     "tnews": tnews_map_fn,
     "multi-round-chat": multi_round_chat_map_fn,
     "multi-round-chat-dyn": multi_round_chat_dyn_map_fn,
+    "multi-round-chat-dyn-alpaca": multi_round_chat_dyn_map_fn_alpaca,
     "multi-instruct-dyn": multi_instruct_dyn_map_fn,
 }
