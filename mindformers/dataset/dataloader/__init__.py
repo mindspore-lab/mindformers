@@ -14,6 +14,7 @@
 # ============================================================================
 """MindFormers DataLoader."""
 from .build_dataloader import build_dataset_loader
+from .common_dataloader import CommonDataLoader
 from .flickr8k_dataloader import Flickr8kDataLoader
 from .multi_image_cap_dataloader import MultiImgCapDataLoader
 from .cifar100_dataloader import Cifar100DataLoader
@@ -30,4 +31,4 @@ from .indexed_dataset import IndexedDataLoader
 
 __all__ = ['Flickr8kDataLoader', 'Cifar100DataLoader', 'WMT16DataLoader', 'CLUENERDataLoader', 'SQuADDataLoader',
            'ADGenDataLoader', 'MultiImgCapDataLoader', 'MultiSourceDataLoader', 'SFTDataLoader', 'TrainingDataLoader',
-           'ToolAlpacaDataLoader', 'BaseMultiModalDataLoader', 'IndexedDataLoader']
+           'ToolAlpacaDataLoader', 'CommonDataLoader', 'BaseMultiModalDataLoader', 'IndexedDataLoader']

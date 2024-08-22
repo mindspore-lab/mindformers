@@ -17,13 +17,13 @@ import json
 import os
 
 from mindspore.dataset import GeneratorDataset
-
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
+from .base_dataloader import BaseDataLoader
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
-class ADGenDataLoader:
+class ADGenDataLoader(BaseDataLoader):
     """ADGen Dataloader"""
     def __new__(cls, dataset_dir, phase, shuffle, origin_columns, **kwargs):
         r"""
@@ -51,34 +51,37 @@ class ADGenDataLoader:
             >>>     print(item)
             >>>     break
         """
-        dataset_dir = os.path.realpath(dataset_dir)
-        if not os.path.isfile(dataset_dir):
-            raise ValueError(f"{dataset_dir} is not existed.")
-
-        if phase not in ["train", "eval"]:
-            raise ValueError(f"phase should be in train or eval.")
-
+        logger.info(f"dataset_dir: {dataset_dir}, dataset_path : {dataset_path}")
+        logger.info(f"origin_columns: {origin_columns}")
         column_names = ["prompt", "answer"]
+        if dataset_path is not None and dataset_path.strip() != "":
+            adgen_dataset = ADGenFromRemoteDataset(dataset_path, origin_columns, data_files, phase, token)
+        else:
+            dataset_dir = os.path.realpath(dataset_dir)
+            if not os.path.isfile(dataset_dir):
+                raise ValueError(f"{dataset_dir} is not existed.")
 
-        # verify dataset column names
-        if not isinstance(column_names, (tuple, list)):
-            raise TypeError(f"column_names should be a tuple or a list"
-                            f" of string with length 2, but got {type(column_names)}, length {len(column_names)}")
+            if phase not in ["train", "eval"]:
+                raise ValueError(f"phase should be in train or eval.")
 
-        for name in column_names:
-            if not isinstance(name, str):
-                raise ValueError(f"the item type of column_names should be string,"
-                                 f" but got {type(name)}")
 
-        # verify origin column names
-        if not isinstance(origin_columns, (tuple, list)) or len(origin_columns) != 2:
-            raise TypeError(f"origin_columns should be a tuple or a list"
-                            f" of string with length 2, but got {type(origin_columns)}, length {len(origin_columns)}")
+            # verify dataset column names
+            if not isinstance(column_names, (tuple, list)):
+                raise TypeError(f"column_names should be a tuple or a list"
+                                f" of string with length 2, but got {type(column_names)}, length {len(column_names)}")
 
+            for name in column_names:
+                if not isinstance(name, str):
+                    raise ValueError(f"the item type of column_names should be string,"
+                                     f" but got {type(name)}")
+
+            # verify origin column names
+            if not isinstance(origin_columns, (tuple, list)) or len(origin_columns) != 2:
+                raise TypeError(f"origin_columns should be a tuple or a list of string with length 2, "
+                                f" but got {type(origin_columns)}, length {len(origin_columns)}")
+            adgen_dataset = ADGenDataset(dataset_dir, origin_columns, phase)
 
         kwargs.pop("None", None)
-        adgen_dataset = ADGenDataset(dataset_dir, origin_columns, phase)
-
         info = f"[DATASET] shuffle status is {shuffle}, phase is {phase}."
         logger.info(info)
         kwargs.pop("version", None)
@@ -144,6 +147,69 @@ class ADGenDataset:
 
             examples[self.prompt_column] = content_list
             examples[self.response_column] = summary_list
+        self.examples = examples
+        assert self.__len__() > 0, f"valid data less then 1, loading data failed, please check your data file."
+        logger.info("Loading %d data success.", self.__len__())
+
+    def __len__(self):
+        """Get the size of dataset"""
+        return len(self.examples[self.prompt_column])
+
+    def __getitem__(self, i):
+        """Return input data for model"""
+        prompt, answer = self.examples[self.prompt_column][i], self.examples[self.response_column][i]
+
+        return prompt, answer
+
+
+class ADGenFromRemoteDataset:
+    """ADGen Dataset"""
+
+    def __init__(self, dataset_path, origin_columns, data_files, phase="train", token=None):
+        r"""
+        ADGen Dataset
+
+        Args:
+            dataset_dir (str): The directory to ADGen dataset.
+            phase (str): The supported keywords are in ["train", "dev"]
+
+        Return:
+            A iterable dataset for ADGen dataset
+
+        Raises:
+            ValueError: Error input for dataset_dir, phase.
+        """
+        self.phase = phase
+        examples = {}
+        content_list = []
+        summary_list = []
+        self.prompt_column = origin_columns[0]
+        self.response_column = origin_columns[1]
+        dataset = BaseDataLoader.load_dataset(dataset_path, data_files=data_files, split=self.phase, token=token)
+
+        def deal(example):
+            if example == "":
+                logger.info("Drop %s due to empty line.", example)
+                return
+
+            # avoid incompelete keys
+            if self.prompt_column not in example or self.response_column not in example:
+                logger.info("Drop due to invalid keys, line is:\n%s", example)
+                return
+            prompt = example[self.prompt_column]
+            response = example[self.response_column]
+
+            # avoid null value
+            if prompt.strip() != "" and response.strip() != "":
+                content_list.append(prompt)
+                summary_list.append(response)
+            else:
+                logger.info("Drop due to null value, line is:\n%s", example)
+
+        dataset.map(deal)
+
+        examples[self.prompt_column] = content_list
+        examples[self.response_column] = summary_list
         self.examples = examples
         assert self.__len__() > 0, f"valid data less then 1, loading data failed, please check your data file."
         logger.info("Loading %d data success.", self.__len__())

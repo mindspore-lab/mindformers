@@ -21,7 +21,6 @@ import os
 import sys
 # from glob import glob
 from multiprocessing.pool import Pool
-import pytest
 
 import mindspore as ms
 
@@ -67,10 +66,6 @@ def get_yaml_files(prefix):
     return configs
 
 
-@pytest.mark.level0
-@pytest.mark.platform_x86_cpu
-@pytest.mark.platform_arm_cpu
-@pytest.mark.env_onecard
 def test_configs():
     """
     Feature: Model configs

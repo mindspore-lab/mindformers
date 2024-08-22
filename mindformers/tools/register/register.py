@@ -51,6 +51,7 @@ class MindFormerModuleType:
     CONFIG = 'config'
     TOOLS = 'tools'
     FEATURE_EXTRACTOR = 'feature_extractor'
+    DATA_HANDLER = 'data_handler'
 
 
 class MindFormerRegister:

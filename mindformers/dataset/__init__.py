@@ -17,6 +17,7 @@ from .dataloader import *
 from .mask import *
 from .transforms import *
 from .sampler import *
+from .handler import *
 from .build_dataset import build_dataset
 from .dataloader.build_dataloader import build_dataset_loader
 from .mask.build_mask import build_mask
@@ -52,3 +53,4 @@ __all__.extend(dataloader.__all__)
 __all__.extend(mask.__all__)
 __all__.extend(transforms.__all__)
 __all__.extend(sampler.__all__)
+__all__.extend(handler.__all__)

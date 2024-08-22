@@ -222,7 +222,8 @@ class KeyWordGenDataset(BaseDataset):
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_dir': dataset_dir,
                                                       'num_shards': dataset_config.device_num,
-                                                      'shard_id': dataset_config.rank_id})
+                                                      'shard_id': dataset_config.rank_id,
+                                                      'dataset_path': dataset_config.data_loader.dataset_path})
 
         dataset = cls._tokenizer_map(dataset, dataset_config)
         return dataset
@@ -253,11 +254,20 @@ class KeyWordGenDataset(BaseDataset):
                              f"but get {dataset_config.data_loader}.")
 
         logger.info("Using args %s to instance the dataset.", dataset_config.data_loader)
+
+        # 防止新增加dataloader的配置项对历史mindrecord类型数据集的影响
+        dataset_config.data_loader.pop("dataset_path", None)
+        dataset_config.data_loader.pop("split", None)
+        dataset_config.data_loader.pop("handler", None)
+        dataset_config.data_loader.pop("data_files", None)
+        dataset_config.data_loader.pop("token", None)
+
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_files': dataset_files,
                                                       'num_shards': dataset_config.device_num,
                                                       'shard_id': dataset_config.rank_id,
-                                                      'columns_list': dataset_config.input_columns})
+                                                      'columns_list': dataset_config.input_columns,
+                                                      'dataset_path': dataset_config.data_loader.dataset_path})
         return dataset
 
     @classmethod
