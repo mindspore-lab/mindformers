@@ -16,6 +16,19 @@
 import os
 import pytest
 
+base_command = ('msrun --worker_num={device_num} --local_worker_num={device_num} '
+                '--master_port=61371 --log_dir=msrun_log --join=True --cluster_time_out=300 '
+                'run_column.py --dp {dp} --cp {cp} --tp {tp}')
+
+
+def build_msrun_command(device_num, dp, cp, tp, skip_weight=False, has_bias=False):
+    command = base_command.format(device_num=device_num, dp=dp, cp=cp, tp=tp)
+    if skip_weight:
+        command += ' --skip_weight'
+    if has_bias:
+        command += ' --has_bias'
+    return command
+
 
 class TestColumnParallelLinear:
     """A test class for testing ColumnParallelLinear"""
@@ -32,11 +45,10 @@ class TestColumnParallelLinear:
         sh_path = os.path.split(os.path.realpath(__file__))[0]
         dp, cp, tp = (1, 1, 1)
         skip_weight = False
-        init_method = False
         has_bias = True
         ret = os.system(
             f"python {sh_path}/run_column.py --dp {dp} --cp {cp} --tp {tp} --skip_weight {skip_weight} "
-            f"--init_method {init_method} --has_bias {has_bias}"
+            f"--has_bias {has_bias}"
         )
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_0.log -C 3")
         assert ret == 0
@@ -54,11 +66,8 @@ class TestColumnParallelLinear:
         device_num = 8
         dp, cp, tp = (2, 2, 2)
         skip_weight = False
-        init_method = False
         has_bias = True
-        ret = os.system(
-            f"bash {sh_path}/msrun_launch.sh {device_num} {dp} {cp} {tp} {skip_weight} {init_method} {has_bias}"
-        )
+        ret = os.system(build_msrun_command(device_num, dp, cp, tp, skip_weight, has_bias))
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_0.log -C 3")
         assert ret == 0
 
@@ -75,30 +84,8 @@ class TestColumnParallelLinear:
         device_num = 8
         dp, cp, tp = (2, 2, 2)
         skip_weight = True
-        init_method = False
         has_bias = True
-        ret = os.system(
-            f"bash {sh_path}/msrun_launch.sh {device_num} {dp} {cp} {tp} {skip_weight} {init_method} {has_bias}")
-        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_0.log -C 3")
-        assert ret == 0
-
-    @pytest.mark.level1
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
-    def test_column_parallel_linear_has_init_method_on_parallel(self):
-        """
-        Feature: ColumnParallelLinear
-        Description: Test ColumnParallelLinear
-        Exception: AssertionError
-        """
-        sh_path = os.path.split(os.path.realpath(__file__))[0]
-        device_num = 8
-        dp, cp, tp = (2, 2, 2)
-        skip_weight = False
-        init_method = True
-        has_bias = True
-        ret = os.system(
-            f"bash {sh_path}/msrun_launch.sh {device_num} {dp} {cp} {tp} {skip_weight} {init_method} {has_bias}")
+        ret = os.system(build_msrun_command(device_num, dp, cp, tp, skip_weight, has_bias))
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_0.log -C 3")
         assert ret == 0
 
@@ -115,9 +102,7 @@ class TestColumnParallelLinear:
         device_num = 8
         dp, cp, tp = (2, 2, 2)
         skip_weight = False
-        init_method = False
         has_bias = False
-        ret = os.system(
-            f"bash {sh_path}/msrun_launch.sh {device_num} {dp} {cp} {tp} {skip_weight} {init_method} {has_bias}")
+        ret = os.system(build_msrun_command(device_num, dp, cp, tp, skip_weight, has_bias))
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_0.log -C 3")
         assert ret == 0

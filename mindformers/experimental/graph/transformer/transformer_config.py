@@ -17,7 +17,7 @@ from typing import Callable
 
 import mindspore.common.dtype as mstype
 
-from mindformers.experimental.graph.transformer.utils import init_method_normal
+from mindformers.experimental.utils import init_method_normal
 
 class ModelParallelConfig:
     r"""
@@ -211,7 +211,6 @@ class TransformerConfig(ModelParallelConfig):
         self.position_embedding_type = position_embedding_type
         self.init_method = init_method
         self.output_layer_init_method = output_layer_init_method
-        self.weight_init = "normal"  # TO DO: Delete
         self.post_init_checks()
 
     def post_init_checks(self):
@@ -247,8 +246,6 @@ class TransformerConfig(ModelParallelConfig):
 
         if self.init_method is None:
             self.init_method = init_method_normal(self.init_method_std, self.params_dtype)
-
-        self.init_method = None # TO DO: Delete
 
     def update(self):
         """Modify attributes after covert."""

@@ -48,7 +48,9 @@ class FusedScaleMaskSoftmax(nn.Cell):
                  mask_func: Callable = None,
                  softmax_in_fp32: bool = True,
                  scale: float = None,
-                 config: TransformerConfig = None):
+                 config: TransformerConfig = None,
+                 softmax_compute_dtype: dtype = None
+                 ):
         super(FusedScaleMaskSoftmax, self).__init__()
         if scaled_masked_softmax_fusion:
             raise NotImplementedError("For FusedScaleMaskSoftmax, "
@@ -57,11 +59,15 @@ class FusedScaleMaskSoftmax(nn.Cell):
         self.input_in_bf16 = input_in_bf16
 
         if self.input_in_fp16 and self.input_in_bf16:
-            raise ValueError("both fp16 and bf16 flags cannot be active at the same time")
+            raise ValueError("Both fp16 and bf16 flags cannot be active at the same time")
         self.input_in_float16 = self.input_in_fp16 or self.input_in_bf16
         self.mask_func = mask_func
         self.scale = scale
         self.softmax_in_fp32 = softmax_in_fp32
+        self.softmax_compute_dtype = softmax_compute_dtype
+        if (self.softmax_in_fp32
+                and (self.softmax_compute_dtype is not None and self.softmax_compute_dtype != dtype.float32)):
+            raise ValueError("softmax_compute_dtype should be float32 when softmax_in_fp32 is True")
         self.causal_attn_mask_type = attn_mask_type == AttnMaskType.causal
         self.softmax = P.Softmax()
         self.cast = P.Cast()
@@ -93,7 +99,14 @@ class FusedScaleMaskSoftmax(nn.Cell):
         if mask is not None and self.mask_func:
             input_ = self.mask_func(input_, mask)
 
+        if self.softmax_compute_dtype is not None:
+            ori_dtype = input_.dtype
+            input_ = self.cast(input_, self.softmax_compute_dtype)
+        else:
+            ori_dtype = None
         output = self.softmax(input_)
+        if ori_dtype is not None:
+            output = self.cast(output, ori_dtype)
         if self.input_in_float16 and self.softmax_in_fp32:
             if self.input_in_fp16:
                 output = self.cast(output, dtype.float16)

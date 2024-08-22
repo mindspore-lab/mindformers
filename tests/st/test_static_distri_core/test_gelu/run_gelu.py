@@ -46,7 +46,7 @@ parser.add_argument(
     help='tensor_parallel')
 args_, rest_args_ = parser.parse_known_args()
 
-ms.set_context(mode=ms.GRAPH_MODE, save_graphs=True)
+ms.set_context(mode=ms.GRAPH_MODE)
 rank_id = os.environ.get('RANK_ID')
 if rank_id is not None:
     ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True)

@@ -26,6 +26,7 @@ from mindspore.ops import operations as P
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallelLinear
+from mindformers.experimental.utils import init_method_normal
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -48,28 +49,17 @@ parser.add_argument(
     help='tensor_parallel')
 parser.add_argument(
     '--skip_weight',
-    default=False,
-    required=True,
-    type=bool,
+    action='store_true',
     help='skip_weight_param_allocation'
 )
 parser.add_argument(
-    '--init_method',
-    default=False,
-    required=True,
-    type=bool,
-    help='init_method'
-)
-parser.add_argument(
     '--has_bias',
-    default=True,
-    required=True,
-    type=bool,
+    action='store_true',
     help='has_bias'
 )
 args_, rest_args_ = parser.parse_known_args()
 
-ms.set_context(mode=ms.GRAPH_MODE, save_graphs=True)
+ms.set_context(mode=ms.GRAPH_MODE)
 rank_id = os.environ.get('RANK_ID')
 if rank_id is not None:
     ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True)
@@ -83,16 +73,13 @@ np.random.seed(seed_value)
 class MyNet(nn.Cell):
     """MyNet for test column parallel linear"""
     def __init__(self, config: TransformerConfig, input_size, output_size, skip_weight_param_allocation=False,
-                 init_method=False, has_bias=True):
+                 has_bias=True):
         super(MyNet, self).__init__()
-
-        def init_weight():
-            return ms.tensor(ops.randn((output_size, input_size)), dtype=ms.float32)
 
         self.linear = ColumnParallelLinear(input_size=input_size, output_size=output_size,
                                            config=config, compute_dtype=ms.dtype.float32,
                                            skip_weight_param_allocation=skip_weight_param_allocation,
-                                           init_method=init_weight if init_method else None,
+                                           init_method=init_method_normal(),
                                            bias=has_bias, skip_bias_add=not has_bias)
         self.skip_weight_param_allocation = skip_weight_param_allocation
         if self.skip_weight_param_allocation:
@@ -119,7 +106,6 @@ config_.tensor_parallel = args_.tp
 config_.context_parallel = args_.cp
 
 skip_weight = args_.skip_weight
-init_method_ = args_.init_method
 has_bias_ = args_.has_bias
 
 bs = 2
@@ -128,6 +114,6 @@ dim = 8192
 input_shape = (bs, seq_len, dim)
 output_size_ = dim * 2
 
-net = MyNet(config_, dim, output_size_, skip_weight, init_method_, has_bias_)
+net = MyNet(config_, dim, output_size_, skip_weight, has_bias_)
 input_ = Tensor(np.random.standard_normal(input_shape).astype(np.float32))
 output = net(input_)

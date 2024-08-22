@@ -46,7 +46,7 @@ parser.add_argument(
     help='tensor_parallel')
 args_, rest_args_ = parser.parse_known_args()
 
-ms.set_context(mode=ms.GRAPH_MODE, save_graphs=True)
+ms.set_context(mode=ms.GRAPH_MODE)
 rank_id = os.environ.get('RANK_ID')
 if rank_id is not None:
     ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True)
@@ -79,6 +79,8 @@ config_.gated_linear_unit = False
 config_.hidden_act = 'gelu'
 config_.param_init_dtype = ms.dtype.float32
 config_.compute_dtype = ms.dtype.float32
+config_.intermediate_size = None
+config_.multiple_of = None
 
 bs = 2
 seq_len = 4096

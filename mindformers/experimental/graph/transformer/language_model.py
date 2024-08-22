@@ -13,8 +13,13 @@
 # limitations under the License.
 # ============================================================================
 """ For language model """
+from typing import Union
+
 from mindspore import nn
 from mindspore.ops import operations as P
+
+from mindformers.experimental.graph.transformer.enums import AttnMaskType
+from mindformers.experimental.utils import init_method_normal, scaled_init_method_normal
 from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.experimental.graph.transformer.dropout import Dropout
 from mindformers.experimental.graph.tensor_parallel.layers import VocabParallelEmbedding
@@ -25,7 +30,8 @@ from mindformers.experimental.graph.transformer.transformer import ParallelTrans
 __all__ = [
     "Pooler",
     "Embedding",
-    "TransformerLanguageModel"
+    "TransformerLanguageModel",
+    "get_language_model"
 ]
 
 
@@ -47,12 +53,8 @@ class Pooler(nn.Cell):
 
     def __init__(self, hidden_size, init_method, config: TransformerConfig):
         super(Pooler, self).__init__()
-        self.param_init_dtype = config.param_init_dtype
         self.compute_dtype = config.compute_dtype
         self.dense = ColumnParallelLinear(hidden_size, hidden_size, config, bias=True,
-                                          weight_init=config.weight_init,  # TO DO
-                                          bias_init='zeros',  # TO DO
-                                          param_init_type=self.param_init_dtype,
                                           compute_dtype=self.compute_dtype,
                                           is_expert=False,
                                           skip_bias_add=True,
@@ -105,7 +107,7 @@ class Embedding(nn.Cell):
         self.param_init_dtype = config.param_init_dtype
         self.compute_dtype = config.compute_dtype
         self.num_tokentypes = num_tokentypes
-        self.init_method = config.weight_init  # TODO self.init_method = config.init_method
+        self.init_method = config.init_method
 
         # Word embedding
         self.word_embeddings = VocabParallelEmbedding(vocab_size,
@@ -379,3 +381,56 @@ class TransformerLanguageModel(nn.Cell):
         cp = 1 if config is None else config.context_parallel
 
         self.concat_prefix.shard(((dp, 1, cp, 1), (dp, 1, cp, 1)))
+
+
+def get_language_model(config: TransformerConfig,
+                       num_tokentypes: int,
+                       add_pooler: bool,
+                       encoder_attn_mask_type: Union[AttnMaskType, None],
+                       add_encoder: bool = True,
+                       add_decoder: bool = False,
+                       decoder_attn_mask_type: Union[AttnMaskType, None] = AttnMaskType.causal,
+                       pre_process: bool = True,
+                       post_process: bool = True
+                       ) -> (TransformerLanguageModel, str):
+    """Build language model and its key for checkpoints.
+
+    Args:
+        config (TransformerConfig): Configuration for the model.
+        num_tokentypes (int): Number of token types.
+        add_pooler (bool): Whether to add a pooler.
+        encoder_attn_mask_type (AttnMaskType): Attention mask type for encoder.
+        add_encoder (bool): Whether to add an encoder.
+        add_decoder (bool): Whether to add a decoder.
+        decoder_attn_mask_type (AttnMaskType): Attention mask type for decoder.
+        pre_process (bool): Whether to add pre-process.
+        post_process (bool): Whether to add post-process.
+
+    Returns:
+        language_model (TransformerLanguageModel): Language model.
+        language_model_key (str): Key used for checkpoints.
+    """
+    if config.init_method is None:
+        config.init_method = init_method_normal(config.init_method_std, config.params_dtype)
+
+    if config.output_layer_init_method is None:
+        config.output_layer_init_method = scaled_init_method_normal(config.init_method_std,
+                                                                    config.num_layers,
+                                                                    config.params_dtype)
+
+    # Language model.
+    language_model = TransformerLanguageModel(
+        config,
+        encoder_attn_mask_type,
+        num_tokentypes=num_tokentypes,
+        add_encoder=add_encoder,
+        add_decoder=add_decoder,
+        decoder_attn_mask_type=decoder_attn_mask_type,
+        add_pooler=add_pooler,
+        pre_process=pre_process,
+        post_process=post_process
+    )
+    # key used for checkpoints.
+    language_model_key = 'language_model'
+
+    return language_model, language_model_key

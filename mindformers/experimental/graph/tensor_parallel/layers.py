@@ -30,6 +30,7 @@ from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
+from mindformers.experimental.utils import init_method_zero
 
 __all__ = [
     "ColumnParallelLinear",
@@ -48,9 +49,7 @@ class ColumnParallelLinear(nn.Cell):
         input_size (int): The number of input units.
         output_size (int): The number of output units.
         config (TransformerConfig): The config of the transformer model.
-        weight_init (str): The initialization method for weight. Default: 'normal'.
         bias_init (str): The initialization method for bias. Default: 'zeros'.
-        param_init_type (dtype): The data type of the initialization. Default: dtype.float32.
         bias (bool): Whether to include bias in the linear layer. Default: True.
         gather_output (bool): Whether to gather the output. Default: False.
         stride (int): The stride of the linear layer. Default: 1.
@@ -84,9 +83,8 @@ class ColumnParallelLinear(nn.Cell):
                  disable_grad_reduce: bool = False,
                  transpose_b: bool = True,
                  compute_dtype: dtype = dtype.float16,
-                 weight_init: str = 'normal',
-                 bias_init: str = 'zeros',
-                 param_init_type: dtype = dtype.float32):
+                 bias_init: Callable = None
+                 ):
         super(ColumnParallelLinear, self).__init__()
         if gather_output:
             raise NotImplementedError("For ColumnParallelLinear, `gather_output` is not supported for now")
@@ -115,17 +113,19 @@ class ColumnParallelLinear(nn.Cell):
         self.transpose_b = transpose_b
         self.skip_weight_param_allocation = skip_weight_param_allocation
         self.has_bias = bias
+        self.params_dtype = config.params_dtype
 
         if skip_weight_param_allocation:
             self.weight = None
         else:
             weight_shape = (output_size, input_size) if transpose_b else (input_size, output_size)
-            init_data = init_method() if init_method is not None else initializer(weight_init, weight_shape,
-                                                                                  param_init_type)
-            self.weight = Parameter(init_data, name="weight")
+            # we use `zeros` to generate a tensor as the `init_method` parameter.
+            self.weight = Parameter(init_method(initializer('zeros', weight_shape)), name='weight')
 
         if self.has_bias:
-            self.bias_ = Parameter(initializer(bias_init, (output_size,), param_init_type), name="bias")
+            if bias_init is None:
+                bias_init = init_method_zero(self.params_dtype)
+            self.bias_ = Parameter(bias_init(initializer('zeros', (output_size,))), name='bias')
         else:
             self.bias_ = None
 
@@ -203,9 +203,7 @@ class RowParallelLinear(nn.Cell):
         input_size (int): The number of input units.
         output_size (int): The number of output units.
         config (TransformerConfig): The config of the transformer model.
-        weight_init (str): The initialization method for weight. Default: 'normal'.
         bias_init (str): The initialization method for bias. Default: 'zeros'.
-        param_init_type (dtype): The data type of the initialization. Default: dtype.float32.
         bias (bool): Whether to include bias in the linear layer. Default: True.
         input_is_parallel (bool): Whether the input is already parallelized. Default: False.
         skip_bias_add (bool): Whether to skip bias add. Default: False.
@@ -231,9 +229,8 @@ class RowParallelLinear(nn.Cell):
                  tp_comm_buffer_name: str = None,
                  transpose_b: bool = True,
                  compute_dtype: dtype = dtype.float16,
-                 weight_init: str = 'normal',
-                 bias_init: str = 'zeros',
-                 param_init_type: dtype = dtype.float32):
+                 bias_init: Callable = None
+                 ):
         super(RowParallelLinear, self).__init__()
         if input_is_parallel:
             raise NotImplementedError("For RowParallelLinear, `input_is_parallel` is not supported for now")
@@ -250,16 +247,18 @@ class RowParallelLinear(nn.Cell):
         self.transpose_b = transpose_b
         self.skip_bias_add = skip_bias_add
         self.compute_dtype = compute_dtype
+        self.params_dtype = config.params_dtype
         self.cast = P.Cast()
         self.has_bias = bias
 
         weight_shape = (output_size, input_size) if transpose_b else (input_size, output_size)
-        init_data = init_method() if init_method is not None else initializer(weight_init, weight_shape,
-                                                                              param_init_type)
-        self.weight = Parameter(init_data, name='weight')
+        # we use `zeros` to generate a tensor as the `init_method` parameter.
+        self.weight = Parameter(init_method(initializer('zeros', weight_shape)), name='weight')
 
         if self.has_bias:
-            self.bias_ = Parameter(initializer(bias_init, (output_size,), param_init_type), name='bias')
+            if bias_init is None:
+                bias_init = init_method_zero(self.params_dtype)
+            self.bias_ = Parameter(bias_init(initializer('zeros', (output_size,))), name='bias')
         else:
             self.bias_ = None
 
@@ -339,15 +338,16 @@ class VocabParallelEmbedding(nn.Cell):
             num_embeddings,
             embedding_dim,
             parallel_config,
-            init_method="normal",
+            init_method: Callable,
             init_type=dtype.float32,
     ):
         super().__init__()
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
         self.weight = Parameter(
-            initializer(init_method, [self.num_embeddings, self.embedding_dim], dtype=init_type),
-            name="weight"
+            init_method(
+                initializer('zeros', [self.num_embeddings, self.embedding_dim], dtype=init_type)
+            ), name="weight"
         )
         self.gather = P.Gather()
         self.parallel_config = parallel_config

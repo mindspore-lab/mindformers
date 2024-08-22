@@ -1,4 +1,3 @@
-#!/bin/bash
 # Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,20 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-set -e
-BASE_PATH=$(cd "$(dirname $0)"; pwd)
-USE_DEVICE_NUM=$1
-dp=$2
-cp=$3
-tp=$4
-skip_weight=$5
-init_method=$6
-has_bias=$7
-msrun --worker_num=${USE_DEVICE_NUM} \
-    --local_worker_num=${USE_DEVICE_NUM} \
-    --master_port=61371 \
-    --log_dir=msrun_log \
-    --join=True \
-    --cluster_time_out=300 \
-    ${BASE_PATH}/run_column.py --dp ${dp} --cp ${cp} --tp ${tp} --skip_weight ${skip_weight} --init_method ${init_method} \
-    --has_bias ${has_bias}
+"""mindformers models"""
+
+from .llama import LlamaForCausalLM
+
+__all__ = []
+__all__.extend(llama.__all__)

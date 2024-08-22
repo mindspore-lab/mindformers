@@ -65,16 +65,23 @@ class ParallelMLP(nn.Cell):
             raise NotImplementedError("For ParallelMPL, `is_expert` is not supported for now")
         self.hidden_size = config.hidden_size
         self.ffn_hidden_size = config.ffn_hidden_size
+        if config.intermediate_size is not None:
+            self.ffn_hidden_size = config.intermediate_size
+        elif config.multiple_of is not None:
+            if config.ffn_dim_multiplier is not None:
+                self.ffn_hidden_size = int((config.ffn_dim_multiplier + 0.01) * self.ffn_hidden_size)
+            self.ffn_hidden_size = int(2 * self.ffn_hidden_size / 3)
+            self.ffn_hidden_size = config.multiple_of * (
+                (self.ffn_hidden_size + config.multiple_of - 1) // config.multiple_of
+            )
         self.mlp_has_bias = config.add_bias_linear
-        self.mlp_has_gate = config.mlp_has_gate if hasattr(config, 'mlp_has_gate') else False
-        self.gated_linear_unit = config.gated_linear_unit if hasattr(config, 'gated_linear_unit') else False
+        self.mlp_has_gate = getattr(config, 'mlp_has_gate', False)
+        self.gated_linear_unit = getattr(config, 'gated_linear_unit', False)
         if self.mlp_has_gate and self.gated_linear_unit:
             raise ValueError(
                 "For 'ParallelMLP', 'mlp_has_gate' and 'gated_linear_unit' cannot be True at the same time.")
-        self.weight_init = config.weight_init
         self.init_method = config.init_method
         self.activation_type = config.hidden_act
-        self.param_init_dtype = config.param_init_dtype
         self.compute_dtype = config.compute_dtype
         self.parallel_config = config
 
@@ -88,8 +95,6 @@ class ParallelMLP(nn.Cell):
                                                self.ffn_hidden_size,
                                                self.parallel_config,
                                                bias=self.mlp_has_bias,
-                                               weight_init=self.weight_init,
-                                               param_init_type=self.param_init_dtype,
                                                compute_dtype=self.compute_dtype,
                                                is_expert=is_expert,
                                                skip_bias_add=True,
@@ -101,22 +106,21 @@ class ParallelMLP(nn.Cell):
                                             self.mapping_ffn_hidden_size,
                                             self.parallel_config,
                                             bias=self.mlp_has_bias,
-                                            weight_init=self.weight_init,
-                                            param_init_type=self.param_init_dtype,
                                             compute_dtype=self.compute_dtype,
                                             is_expert=is_expert,
                                             skip_bias_add=True,
                                             init_method=self.init_method
                                             )
 
-        self.activation_func = get_activation(self.activation_type, config=self.parallel_config)
+        if self.activation_type is not None:
+            self.activation_func = get_activation(self.activation_type, config=self.parallel_config)
+        else:
+            self.activation_func = None
 
         self.projection = RowParallelLinear(self.ffn_hidden_size,
                                             self.hidden_size,
                                             self.parallel_config,
                                             bias=self.mlp_has_bias,
-                                            weight_init=self.weight_init,
-                                            param_init_type=self.param_init_dtype,
                                             compute_dtype=self.compute_dtype,
                                             is_expert=is_expert,
                                             skip_bias_add=True,
@@ -132,7 +136,8 @@ class ParallelMLP(nn.Cell):
         if self.mlp_has_gate:
             # [bs, seq_len, hidden_size] -> [bs, seq_len, ffn_hidden_size]
             gate, gate_bias = self.gating(hidden_states)
-            gate = self.activation_func(gate, gate_bias)
+            if self.activation_func is not None:
+                gate = self.activation_func(gate, gate_bias)
             if bias_parallel is not None:
                 intermediate_parallel = self.add(intermediate_parallel, bias_parallel)
             # [bs, seq_len, ffn_hidden_size]
@@ -217,7 +222,8 @@ class CoreAttention(nn.Cell):
                                                         scale=coeff,
                                                         softmax_in_fp32=self.attention_softmax_in_fp32,
                                                         input_in_fp16=self.fp16,
-                                                        input_in_bf16=self.bf16)
+                                                        input_in_bf16=self.bf16,
+                                                        softmax_compute_dtype=config.softmax_compute_dtype)
         self.dropout = Dropout(self.dropout_rate)
         self.bmm_qk = P.BatchMatMul(transpose_b=True)
         self.bmm_qkv = P.BatchMatMul(transpose_b=False)
@@ -336,26 +342,26 @@ class ParallelAttention(nn.Cell):
                 self.qkv_proj = ColumnParallelLinear(self.hidden_size, self.hidden_size + 2 * self.kv_hidden_size,
                                                      config=self.config,
                                                      bias=self.config.add_qkv_bias or self.config.add_bias_linear,
-                                                     param_init_type=self.config.param_init_dtype,
                                                      compute_dtype=self.config.compute_dtype,
+                                                     init_method=self.config.init_method
                                                      )
                 self.reshape_concat = P.Reshape()
                 self.split_qkv = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
             else:
                 self.q_proj = ColumnParallelLinear(self.hidden_size, self.hidden_size, config=self.config,
                                                    bias=self.config.add_qkv_bias or self.config.add_bias_linear,
-                                                   param_init_type=self.config.param_init_dtype,
                                                    compute_dtype=self.config.compute_dtype,
+                                                   init_method=self.config.init_method
                                                    )
                 self.k_proj = ColumnParallelLinear(self.hidden_size, self.kv_hidden_size, config=self.config,
                                                    bias=self.config.add_qkv_bias or self.config.add_bias_linear,
-                                                   param_init_type=self.config.param_init_dtype,
                                                    compute_dtype=self.config.compute_dtype,
+                                                   init_method=self.config.init_method
                                                    )
                 self.v_proj = ColumnParallelLinear(self.hidden_size, self.kv_hidden_size, config=self.config,
                                                    bias=self.config.add_qkv_bias or self.config.add_bias_linear,
-                                                   param_init_type=self.config.param_init_dtype,
                                                    compute_dtype=self.config.compute_dtype,
+                                                   init_method=self.config.init_method
                                                    )
         elif self.attn_type == 'cross_attn':
             self.q_proj, self.kv_proj, self.split_kv = self._cross_attn_init()
@@ -366,8 +372,8 @@ class ParallelAttention(nn.Cell):
         self.out_proj = RowParallelLinear(self.hidden_size, self.hidden_size, input_is_parallel=False,
                                           config=self.config,
                                           bias=self.config.add_bias_linear,
-                                          param_init_type=self.config.param_init_dtype,
                                           compute_dtype=self.config.compute_dtype,
+                                          init_method=self.config.init_method
                                           )
         if self.use_flash_attention:
             self.input_layout = "BNSD"
@@ -403,16 +409,16 @@ class ParallelAttention(nn.Cell):
             self.hidden_size,
             config=self.config,
             bias=self.config.add_bias_linear,
-            param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
+            init_method=self.config.init_method
         )
         kv_proj = ColumnParallelLinear(
             self.hidden_size,
             2 * self.kv_hidden_size,
             config=self.config,
             bias=self.config.add_bias_linear,
-            param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
+            init_method=self.config.init_method
         )
         split_kv = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
 
