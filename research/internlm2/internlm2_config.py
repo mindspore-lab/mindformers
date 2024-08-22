@@ -99,8 +99,8 @@ class InternLM2Config(LlamaConfig):
                  n_kv_heads: Optional[int] = 8,
                  max_position_embedding: Optional[int] = None,
                  intermediate_size: Optional[int] = 14336,
-                 vocab_size: int = 92544,   # defined later by tokenizer
-                 multiple_of: int = 256,    # make SwiGLU hidden layer size multiple of large power of 2
+                 vocab_size: int = 92544,  # defined later by tokenizer
+                 multiple_of: int = 256,  # make SwiGLU hidden layer size multiple of large power of 2
                  ffn_dim_multiplier: Optional[int] = None,
                  rms_norm_eps: float = 1e-5,
                  bos_token_id: int = 1,
@@ -133,6 +133,8 @@ class InternLM2Config(LlamaConfig):
                  do_sample: bool = True,
                  **kwargs):
         super().__init__(**kwargs)
+        if isinstance(parallel_config, dict):
+            parallel_config = TransformerOpParallelConfig(**parallel_config)
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.vocab_size = vocab_size

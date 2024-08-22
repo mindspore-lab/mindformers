@@ -294,7 +294,6 @@ class AutoConfig:
 
         config = cls.get_config_experimental_mode(yaml_name_or_path, **kwargs) if is_experimental_mode(
             yaml_name_or_path) else cls.get_config_origin_mode(yaml_name_or_path, **kwargs)
-
         return config
 
     @classmethod
@@ -361,7 +360,6 @@ class AutoConfig:
         config_args.model.model_config.update(**kwargs)
         config = build_model_config(config_args.model.model_config)
         MindFormerBook.set_model_config_to_name(id(config), config_args.model.arch.type)
-
         return config
 
     @classmethod
