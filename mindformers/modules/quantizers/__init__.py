@@ -14,7 +14,8 @@
 # ============================================================================
 """MindFormers Quantizers API."""
 from .base import Quantizer
+from .auto import AutoQuantizer, AutoQuantizationConfig
 from .ptq_quantizer import PtqQuantizer
 from .smooth_quant_quantizer import SmoothQuantQuantizer
 
-__all__ = ['Quantizer', 'PtqQuantizer', 'SmoothQuantQuantizer']
+__all__ = ['Quantizer', 'PtqQuantizer', 'SmoothQuantQuantizer', 'AutoQuantizer', 'AutoQuantizationConfig']
