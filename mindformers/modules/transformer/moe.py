@@ -1382,6 +1382,7 @@ class MoEInfer(Cell):
         self.router = Router(d_model=self.hidden_size, moe_config=moe_config, routing_policy=None,
                              training=True, parallel_config=parallel_config)
         self.gating = self.router.dense
+        self.noise = 1e-9
 
         self.reshape = P.Reshape()
         self.shape = P.Shape()
@@ -1443,7 +1444,7 @@ class MoEInfer(Cell):
         expert_val = self.cast(expert_val, mstype.float32)
         expert_weight = expert_val
         if self.topk_norm_prob is True:
-            expert_weight = expert_val / (self.expand_dims(ops.sum(expert_val, -1), -1) + 1e-9)
+            expert_weight = expert_val / (self.expand_dims(ops.sum(expert_val, -1), -1) + self.noise)
         expert_weight = self.cast(expert_weight, input_dtype)
 
         sorted_input_tensor, group_list, unsort_map = self.tensor_sort(input_tensor, expert_index)
