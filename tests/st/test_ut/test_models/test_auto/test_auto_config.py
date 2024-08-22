@@ -38,7 +38,7 @@ class TestAutoConfig:
         """init test class."""
         self.temp_dir = tempfile.TemporaryDirectory()
         self.path = self.temp_dir.name
-        self.config_path = self.path + "/config.json"
+        self.config_path = os.path.join(self.path, "config.json")
 
     def test_autoconfig_from_repo(self):
         """test init AutoConfig from usr_name/repo_name."""

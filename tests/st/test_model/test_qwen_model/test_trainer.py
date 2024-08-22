@@ -17,6 +17,7 @@ Test module for testing the wizardcoder interface used for mindformers.
 How to run this:
 pytest tests/st/test_model/test_wizardcoder_model/test_trainer.py
 """
+import os
 import sys
 import numpy as np
 import pytest
@@ -28,9 +29,14 @@ from mindformers import Trainer, TrainingArguments
 
 for path in sys.path:
     if path.endswith('/testcases'):
-        sys.path.append(path + '/research')
+        new_path = os.path.join(path, 'research')
+        if new_path not in sys.path:
+            sys.path.append(new_path)
+
     if path.endswith('/research'):
-        sys.path.append(path + '/qwen')
+        new_path = os.path.join(path, 'qwen')
+        if new_path not in sys.path:
+            sys.path.append(new_path)
 # pylint: disable=C0413
 from research.qwen.qwen_config import QwenConfig
 from research.qwen.qwen_model import QwenForCausalLM

@@ -17,6 +17,7 @@ Test module for testing the internlm interface used for mindformers.
 How to run this:
 pytest tests/st/test_model/test_internlm_model/test_training_precision.py
 """
+import os
 import sys
 import numpy as np
 import pytest
@@ -30,11 +31,16 @@ from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_group
 
 from tests.st.training_checker import TrainingChecker
 
+
 for path in sys.path:
     if path.endswith('/testcases'):
-        sys.path.append(path + '/research')
+        new_path = os.path.join(path, 'research')
+        if new_path not in sys.path:
+            sys.path.append(new_path)
     if path.endswith('/research'):
-        sys.path.append(path + '/internlm')
+        new_path = os.path.join(path, 'internlm')
+        if new_path not in sys.path:
+            sys.path.append(new_path)
 # pylint: disable=C0413
 from research.internlm.internlm import InternLMForCausalLM
 from research.internlm.internlm_config import InternLMConfig

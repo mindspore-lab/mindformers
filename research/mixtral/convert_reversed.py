@@ -49,7 +49,7 @@ def merge_ms_ckpt(ckpt_dir, strategy_dir, rank_id=0):
     if not os.path.exists(strategy_dir):
         raise Exception("Trying convert mindspore distributed ckpt, but strategy ckpt path is not exit. \
                         Please make sure your path is correct.")
-    merge_strategy_name = strategy_dir + '/merge_strategy.ckpt'
+    merge_strategy_name = os.path.join(strategy_dir, 'merge_strategy.ckpt')
     ms.merge_pipeline_strategys(strategy_dir, merge_strategy_name)
     print("Now merging distributed ckpt...")
     merge_ckpt_save_path = os.path.join(ckpt_dir, "merge_ckpt")

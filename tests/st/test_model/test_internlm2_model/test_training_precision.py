@@ -18,6 +18,7 @@ How to run this:
 pytest tests/st/test_model/test_internlm2_model/test_training_precision.py
 """
 import sys
+import os
 import numpy as np
 import pytest
 
@@ -32,10 +33,17 @@ from tests.st.training_checker import TrainingChecker
 
 for path in sys.path:
     if path.endswith('/testcases'):
-        sys.path.append(path + '/research')
+        new_path = os.path.join(path, 'research')
+        if new_path not in sys.path:
+            sys.path.append(new_path)
     if path.endswith('/research'):
-        sys.path.append(path + '/internlm2')
-sys.path.append('/root/mindformers/research/internlm2')
+        new_path = os.path.join(path, 'internlm2')
+        if new_path not in sys.path:
+            sys.path.append(new_path)
+
+research_path = os.path.join('/root', 'mindformers', 'research', 'internlm2')
+if research_path not in sys.path:
+    sys.path.append(research_path)
 # pylint: disable=C0413
 from research.internlm2.internlm2 import InternLM2ForCausalLM
 from research.internlm2.internlm2_config import InternLM2Config
