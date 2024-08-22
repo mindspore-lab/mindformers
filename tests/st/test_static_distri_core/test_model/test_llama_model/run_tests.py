@@ -44,7 +44,7 @@ def _save_or_load_ckpt(model, save_ckpt: bool, load_ckpt: bool, ckpt_rel_path: s
         ms.load_checkpoint(ckpt_file_path, model)
 
 
-def _base_train(args, loss_std, time_std, base_parallel_config, new_parallel_config=None):
+def _base_train(args, loss_std, base_parallel_config, new_parallel_config=None):
     """base llama train"""
     if args.experiment_mode is None or args.save_ckpt is None or args.load_ckpt is None:
         raise ValueError("Unexpected argument value: any of experiment_mode or save_ckpt or load_ckpt is None.")
@@ -62,7 +62,7 @@ def _base_train(args, loss_std, time_std, base_parallel_config, new_parallel_con
     model = get_model(model_config)
 
     _save_or_load_ckpt(model, args.save_ckpt, args.load_ckpt)
-    runner.set_train(model, model_config, loss_std=loss_std, avg_time_std=time_std, dataset=dataset)
+    runner.set_train(model, model_config, loss_std=loss_std, dataset=dataset)
 
 
 def single_train(args):
@@ -90,8 +90,7 @@ def single_train(args):
     else:
         loss_std = old_loss_std
 
-    time_std = 350
-    _base_train(args, loss_std, time_std, parallel_config)
+    _base_train(args, loss_std, parallel_config)
 
 
 def parallel_train_dp2(args):
@@ -112,8 +111,7 @@ def parallel_train_dp2(args):
                 10.622215, 10.610016, 10.618230, 10.605141, 10.615884,
                 10.599818, 10.616759, 10.620478, 10.610780, 10.614862]
 
-    time_std = 250
-    _base_train(args, loss_std, time_std, base_parallel_config, new_parallel_config)
+    _base_train(args, loss_std, base_parallel_config, new_parallel_config)
 
 
 def parallel_train_mp2(args):
@@ -135,8 +133,7 @@ def parallel_train_mp2(args):
                 10.610808, 10.607621, 10.610729, 10.600761, 10.600204,
                 10.586555, 10.591313, 10.595157, 10.594136, 10.600330]
 
-    time_std = 300
-    _base_train(args, loss_std, time_std, base_parallel_config, new_parallel_config)
+    _base_train(args, loss_std, base_parallel_config, new_parallel_config)
 
 
 def parallel_train_dp2_mp2(args):
@@ -158,8 +155,7 @@ def parallel_train_dp2_mp2(args):
                 10.617392, 10.608209, 10.630942, 10.613029, 10.611053,
                 10.607447, 10.618746, 10.607036, 10.602592, 10.620325]
 
-    time_std = 165
-    _base_train(args, loss_std, time_std, base_parallel_config, new_parallel_config)
+    _base_train(args, loss_std, base_parallel_config, new_parallel_config)
 
 
 TEST_MAP = {
