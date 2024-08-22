@@ -656,6 +656,7 @@ class _BaseAutoModelClass:
             raise TypeError(f"pretrained_model_name_or_dir should be a str,"
                             f" but got {type(pretrained_model_name_or_dir)}")
         config_args = cls._get_config_args(pretrained_model_name_or_dir, **kwargs)
+        config_args.model.model_config.parallel_config = config_args.parallel_config
         if not download_checkpoint:
             config_args.model.model_config.checkpoint_name_or_path = None
         model = build_network(config_args.model)

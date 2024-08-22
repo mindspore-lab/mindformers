@@ -70,10 +70,15 @@ def build_model(
 
 def build_network(
         config: dict = None, default_args: dict = None):
-    """Create the pet network For MindFormer"""
+    """Create the quant/pet network For MindFormer"""
     ckpt_cfg = config.model_config.checkpoint_name_or_path
     pet_config = config.model_config.pet_config
+    quant_config = config.model_config.quantization_config
     network = build_model(config, default_args=default_args)
+    if quant_config:
+        from mindformers.modules.quantizers import AutoQuantizer
+        quantizer = AutoQuantizer.from_config(quant_config)
+        network = quantizer.preprocess_model(network)
     if pet_config:
         from mindformers.pet import get_pet_model, is_supported_pet_type
         if is_supported_pet_type(pet_config.pet_type):
