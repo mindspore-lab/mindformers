@@ -851,7 +851,7 @@ class TrainingArguments:
         # logging_steps must be non-zero for logging_strategy that is other than 'no'
         if self.logging_strategy == IntervalStrategy.EPOCH:
             logger.warning("--logging_strategy temporarily does not support epoch-level output, changing to `steps`.")
-            self.logging_strategy == IntervalStrategy.STEPS
+
         if self.logging_strategy == IntervalStrategy.STEPS:
             self.logging_steps = self.check_step_rules(self.logging_steps, info="--logging_steps")
 
