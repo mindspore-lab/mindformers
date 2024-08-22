@@ -569,17 +569,18 @@ class VocabParallelLlamaEmbedding(nn.Cell):
         self.reduce_scatter_to_sp_region = ReduceScatterToSequenceParallelRegion()
         self.max_index_per_partition = Tensor(self.num_embeddings_per_partition - 1, dtype=mstype.int32)
         self.reshape = ops.Reshape()
+        self.gather = ops.Gather()
 
     def construct(self, x):
         """ construct. """
         if self.tensor_model_parallel_size > 1:
             displaced_x = mint.sub(x, self.vocab_start_index)
-            down_truncated_x = mint.relu(displaced_x)
+            down_truncated_x = mint.nn.functional.relu(displaced_x)
             truncated_x = mint.minimum(down_truncated_x, self.max_index_per_partition)
         else:
             truncated_x = x
         # Get the embeddings.
-        output_parallel = mint.embedding(truncated_x, self.weight)
+        output_parallel = self.gather(self.weight, truncated_x, 0)
         # Mask the output embedding.
         if self.tensor_model_parallel_size > 1:
             input_mask = mint.eq(displaced_x, truncated_x)
@@ -639,9 +640,10 @@ class LlamaEmbedding(nn.Cell):
             ),
             name="embedding_weight",
         )
+        self.gather = ops.Gather()
 
     def construct(self, input_ids):
-        output = mint.embedding(input_ids, self.embedding_weight)
+        output = self.gather(self.weight, input_ids, 0)
         return output
 
 
