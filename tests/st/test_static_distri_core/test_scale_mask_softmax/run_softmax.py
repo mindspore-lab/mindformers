@@ -71,9 +71,7 @@ class MyNet(nn.Cell):
         cp = config.context_parallel
         tp = config.tensor_parallel
         self.batch_matmul = P.BatchMatMul(transpose_b=True).shard(((dp, tp, cp, 1), (dp, tp, 1, 1)))
-        triu = P.Triu(1)
-        ones = P.Ones()
-        self.mask = triu(ones((seq_len, seq_len))).bool()
+        self.mask = ms.Tensor(np.triu(np.ones((seq_len, seq_len)), 1), dtype.uint8)
         self.reshape = P.Reshape()
 
     def construct(self, x):

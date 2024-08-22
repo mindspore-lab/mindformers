@@ -14,7 +14,7 @@
 # ============================================================================
 """ For transformer """
 import math
-
+import numpy as np
 import mindspore as ms
 from mindspore import nn, Tensor
 from mindspore.ops import operations as P
@@ -23,7 +23,7 @@ from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallel
 from mindformers.experimental.graph.transformer.dropout import Dropout
 from mindformers.experimental.graph.transformer.fused_softmax import FusedScaleMaskSoftmax
 from mindformers.experimental.graph.transformer.rotary_pos_embedding import ApplyRotaryPosEmb
-from mindformers.experimental.graph.transformer.utils import get_attn_mask_func
+from mindformers.experimental.graph.transformer.utils import get_attn_mask_func, LayerSetting
 from mindformers.experimental.graph.activation import get_activation
 from mindformers.experimental.graph.transformer.norm import get_norm
 from mindformers.experimental.graph.transformer.flash_attention import FlashAttention
@@ -34,7 +34,8 @@ __all__ = [
     "CoreAttention",
     "ParallelAttention",
     "ParallelTransformerLayer",
-    "ParallelTransformer"
+    "ParallelTransformer",
+    "CausalMaskGenerate"
 ]
 
 
@@ -210,7 +211,10 @@ class CoreAttention(nn.Cell):
         self.inv_norm_factor = Tensor(1.0 / norm_factor, dtype=self.compute_dtype)
 
         self.mask_func = get_attn_mask_func(self.config.mask_func_type)(config)
-        self.scale_mask_softmax = FusedScaleMaskSoftmax(config=config, mask_func=self.mask_func, scale=coeff,
+        self.scale_mask_softmax = FusedScaleMaskSoftmax(config=config,
+                                                        mask_func=get_attn_mask_func(self.config.mask_func_type)(
+                                                            config),
+                                                        scale=coeff,
                                                         softmax_in_fp32=self.attention_softmax_in_fp32,
                                                         input_in_fp16=self.fp16,
                                                         input_in_bf16=self.bf16)
@@ -303,7 +307,7 @@ class ParallelAttention(nn.Cell):
         self.compute_dtype = self.config.compute_dtype
         self.use_gqa = self.config.group_query_attention
         self.num_heads = self.config.num_attention_heads
-        self.kv_num_heads = self.config.kv_num_heads if self.use_gqa else self.num_heads
+        self.kv_num_heads = self.config.num_query_groups if self.use_gqa else self.num_heads
         self.hidden_size = self.config.hidden_size
         self.use_flash_attention = self.config.use_flash_attn
         self.parallel_config = self.config
@@ -334,7 +338,6 @@ class ParallelAttention(nn.Cell):
                                                      bias=self.config.add_qkv_bias or self.config.add_bias_linear,
                                                      param_init_type=self.config.param_init_dtype,
                                                      compute_dtype=self.config.compute_dtype,
-                                                     transpose_b=False,
                                                      )
                 self.reshape_concat = P.Reshape()
                 self.split_qkv = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
@@ -343,19 +346,16 @@ class ParallelAttention(nn.Cell):
                                                    bias=self.config.add_qkv_bias or self.config.add_bias_linear,
                                                    param_init_type=self.config.param_init_dtype,
                                                    compute_dtype=self.config.compute_dtype,
-                                                   transpose_b=False,
                                                    )
                 self.k_proj = ColumnParallelLinear(self.hidden_size, self.kv_hidden_size, config=self.config,
                                                    bias=self.config.add_qkv_bias or self.config.add_bias_linear,
                                                    param_init_type=self.config.param_init_dtype,
                                                    compute_dtype=self.config.compute_dtype,
-                                                   transpose_b=False,
                                                    )
                 self.v_proj = ColumnParallelLinear(self.hidden_size, self.kv_hidden_size, config=self.config,
                                                    bias=self.config.add_qkv_bias or self.config.add_bias_linear,
                                                    param_init_type=self.config.param_init_dtype,
                                                    compute_dtype=self.config.compute_dtype,
-                                                   transpose_b=False,
                                                    )
         elif self.attn_type == 'cross_attn':
             self.q_proj, self.kv_proj, self.split_kv = self._cross_attn_init()
@@ -368,7 +368,6 @@ class ParallelAttention(nn.Cell):
                                           bias=self.config.add_bias_linear,
                                           param_init_type=self.config.param_init_dtype,
                                           compute_dtype=self.config.compute_dtype,
-                                          transpose_b=False,
                                           )
         if self.use_flash_attention:
             self.input_layout = "BNSD"
@@ -388,6 +387,7 @@ class ParallelAttention(nn.Cell):
         self.transpose = P.Transpose()
         self.merge_head_transpose = P.Transpose()
         self.tile_kv = P.Tile()
+        self.cat = P.Concat(2)
         self.shard(self.config)
 
     def _cross_attn_init(self):
@@ -405,7 +405,6 @@ class ParallelAttention(nn.Cell):
             bias=self.config.add_bias_linear,
             param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
-            transpose_b=False,
         )
         kv_proj = ColumnParallelLinear(
             self.hidden_size,
@@ -414,7 +413,6 @@ class ParallelAttention(nn.Cell):
             bias=self.config.add_bias_linear,
             param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
-            transpose_b=False,
         )
         split_kv = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
 
@@ -426,7 +424,8 @@ class ParallelAttention(nn.Cell):
             attention_mask,
             encoder_output=None,
             inference_params=None,
-            rotary_pos_emb=None
+            rotary_pos_emb=None,
+            prefix_keys_values=None
     ):
         """ Construct function of attention block. """
         if inference_params is not None:
@@ -473,6 +472,8 @@ class ParallelAttention(nn.Cell):
             query = self.apply_rotary_pos_emb(query, q_pos_emb)
             key = self.apply_rotary_pos_emb(key, k_pos_emb)
 
+        key, value = self._cat_prefix(key, value, prefix_keys_values)
+
         if not self.use_flash_attention:
             key = self._repeat_kv(key, self.n_rep)
             value = self._repeat_kv(value, self.n_rep)
@@ -496,6 +497,23 @@ class ParallelAttention(nn.Cell):
         output = self.cast(output, ori_dtype)
 
         return output, bias
+
+    def _cat_prefix(self, key, value, prefix_keys_values):
+        r'''
+        concat prefix_keys_values to key and value
+        prefix_keys_values: shape(2, bs, pre_len, num_heads * kv_channels)
+        '''
+        if prefix_keys_values is not None:
+            bs, n_kv_head, _, head_dim = key.shape
+            past_key = prefix_keys_values[0]
+            past_value = prefix_keys_values[1]
+            past_key = self.transpose(self.reshape(past_key, (bs, -1, n_kv_head, head_dim)), (0, 2, 1, 3))
+            past_value = self.transpose(self.reshape(past_value, (bs, -1, n_kv_head, head_dim)), (0, 2, 1, 3))
+            past_key = self.cast(past_key, self.compute_dtype)
+            past_value = self.cast(past_value, self.compute_dtype)
+            key = self.cat((past_key, key))
+            value = self.cat((past_value, value))
+        return key, value
 
     def _merge_heads(self, x):
         """
@@ -543,6 +561,7 @@ class ParallelAttention(nn.Cell):
         self.transpose.shard(((dp, cp, tp, 1),))
         self.merge_head_transpose.shard(((dp, tp, cp, 1),))
         self.tile_kv.shard(((dp, tp, 1, cp),))
+        self.cat.shard(((dp, tp, 1, 1), (dp, tp, 1, 1)))
 
 
 class ParallelTransformerLayer(nn.Cell):
@@ -596,7 +615,7 @@ class ParallelTransformerLayer(nn.Cell):
 
     def construct(self, hidden_states: Tensor, attention_mask: Tensor, encoder_output=None, enc_dec_attn_mask=None,
                   retriever_input=None, retriever_output=None, retriever_attn_mask=None, inference_params=None,
-                  rotary_pos_emb: Tensor = None):
+                  rotary_pos_emb: Tensor = None, prefix_keys_values: Tensor = None):
         """ Construct function of transformer layer. """
         if (encoder_output is not None or enc_dec_attn_mask is not None or
                 retriever_input is not None or retriever_output is not None or
@@ -610,7 +629,8 @@ class ParallelTransformerLayer(nn.Cell):
 
         # Self-Attention
         attention_output, attention_bias = self.self_attention(hidden_states_norm_output, attention_mask,
-                                                               rotary_pos_emb=rotary_pos_emb)
+                                                               rotary_pos_emb=rotary_pos_emb,
+                                                               prefix_keys_values=prefix_keys_values)
         if attention_bias is not None:
             attention_output = self.add_bias(attention_output, attention_bias)
 
@@ -708,14 +728,16 @@ class ParallelTransformer(nn.Cell):
         self.post_norm = post_norm
         self.num_layers = config.num_layers
 
-        def build_layer(layer_number):
-            return ParallelTransformerLayer(config, layer_number)
-
         offset = 0
-
-        self.layers = nn.SequentialCell(
-            [build_layer(i + 1 + offset) for i in range(self.num_layers)]
-        )
+        self.layers = nn.CellList()
+        self.layer_setting = LayerSetting(config.num_layers,
+                                          config.offset,
+                                          config.parallel_config,
+                                          config.pp_interleave_num)
+        for layer_id in range(config.num_layers):
+            layer = ParallelTransformerLayer(config, layer_id + 1 + offset)
+            self.layer_setting(layer, layer_id)
+            self.layers.append(layer)
 
         if self.post_norm:
             self.final_norm = get_norm(config)
@@ -723,14 +745,123 @@ class ParallelTransformer(nn.Cell):
     def _get_layer(self, layer_number):
         return self.layers[layer_number]
 
-    def construct(self, hidden_states: Tensor, attention_mask: Tensor, rotary_pos_emb: Tensor = None):
+    def construct(self, hidden_states: Tensor, attention_mask: Tensor, rotary_pos_emb: Tensor = None,
+                  prefix_keys_values=None):
         """ Construct function of transformer. """
         for index in range(self.num_layers):
             layer = self._get_layer(index)
-            hidden_states = layer(hidden_states, attention_mask, rotary_pos_emb)
+            prefix_kv = prefix_keys_values[index] if prefix_keys_values is not None else None
+            hidden_states = layer(hidden_states, attention_mask, rotary_pos_emb=rotary_pos_emb,
+                                  prefix_keys_values=prefix_kv)
 
         # final layernorm.
         if self.post_norm:
             hidden_states = self.final_norm(hidden_states)
 
         return hidden_states
+
+
+class CausalMaskGenerate(nn.Cell):
+    """Get the upper triangular matrix from the input_ids.
+
+    Args:
+        seq_length (int): The length of the input sequence.
+        compute_type (mstype): The compute type of the input tensor. Default: mstype.float16.
+        is_dynamic (bool): Whether the input_ids is dynamic. Default: False.
+        pad_token_id (int): The pad token id. Default: 0.
+        use_flash_attention (bool): Whether to use the flash attention. Default: False.
+        use_prompt_flash_attention (bool): Whether to use the prompt flash attention. Default: False.
+        use_incre_flash_attention (bool): Whether to use the incremental flash attention. Default: False.
+        use_attn_mask_compression (bool): Whether to use the attention mask compression. Default: False.
+    """
+
+    def __init__(self,
+                 seq_length: int,
+                 compute_type: mstype = mstype.float16,
+                 is_dynamic: bool = False,
+                 pad_token_id: int = 0,
+                 use_flash_attention: bool = False,
+                 use_prompt_flash_attention: bool = False,
+                 use_incre_flash_attention: bool = False,
+                 use_attn_mask_compression: bool = False,
+                 config: TransformerConfig = None
+                 ):
+        super().__init__()
+        self.dtype = compute_type
+        self.is_dynamic = is_dynamic
+        self.pad_token_id = pad_token_id
+        self.use_flash_attention = use_flash_attention
+        self.use_attn_mask_compression = use_attn_mask_compression
+        self.seq_length = seq_length
+        self.use_prompt_flash_attention = use_prompt_flash_attention
+        self.use_incre_flash_attention = use_incre_flash_attention
+        self.is_first_iteration = True
+        self.multiply_data = Tensor([-10000.0], dtype=compute_type)
+        self.one = Tensor([1.0], dtype=compute_type)
+        if use_attn_mask_compression:
+            if seq_length < 2048:
+                raise ValueError("seq_length should be larger than 2048 when use mask_compression")
+            self.lower_triangle_mask = ms.Tensor(np.triu(np.ones((2048, 2048), dtype=np.int8), k=1), dtype=ms.uint8)
+        else:
+            self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length), dtype=np.int8)),
+                                              dtype=compute_type)
+        self.shape = P.Shape()
+        self.cast = P.Cast()
+        self.reshape = P.Reshape()
+        self.not_equal = P.NotEqual()
+        self.expand_dim = P.ExpandDims()
+        self.slice = P.StridedSlice()
+        self.mul = P.Mul()
+        self.sub = P.Sub()
+        self.expand_dim_post = P.ExpandDims()
+        self.shard(config)
+
+    def construct(self, tokens=None, masks=None):
+        """Forward process of the CausalMask
+
+        Args:
+            tokens (Tensor): The input tokens. Default: None.
+            masks (Tensor): The input masks. Default: None.
+
+        Returns:
+            Tensor, the upper triangle attention mask carrying 0 and 1 values
+        """
+        if self.use_attn_mask_compression:
+            attention_mask = self.lower_triangle_mask
+            return attention_mask
+        if tokens is not None:
+            bs = self.shape(tokens)[0]
+            seq_len = self.shape(tokens)[1]
+            input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), self.dtype)
+        else:
+            bs = self.shape(masks)[0]
+            seq_len = self.shape(masks)[1]
+            input_mask = self.cast(masks, self.dtype)
+        shape_right = (bs, 1, seq_len)
+
+        # Mask the padded inputs
+        mask_right = self.reshape(input_mask, shape_right)
+        attention_mask = mask_right
+        if not self.is_dynamic:
+            lower_triangle = self.expand_dim(self.lower_triangle_mask, 0)
+        else:
+            lower_triangle_mask = self.slice(self.lower_triangle_mask, (0, 0), (seq_len, seq_len), (1, 1))
+            lower_triangle = self.expand_dim(lower_triangle_mask, 0)
+
+        # the returned shape is [bs, 1, seq_length, seq_length]
+        attention_mask = self.mul(attention_mask, lower_triangle)
+        attention_mask = self.sub(self.one, attention_mask)
+        attention_mask = self.expand_dim_post(attention_mask, 1)
+        if self.use_flash_attention or self.use_prompt_flash_attention:
+            attention_mask = self.cast(attention_mask, mstype.uint8)
+        return attention_mask
+
+    def shard(self, config: TransformerConfig):
+        """sharding operators
+        """
+        dp = config.data_parallel if config.data_parallel is not None else 1
+        self.not_equal.shard(((dp, 1), ()))
+        self.expand_dim.shard(((1, 1),))
+        self.mul.shard(((dp, 1, 1), (1, 1, 1)))
+        self.sub.shard(((1,), (dp, 1, 1)))
+        self.expand_dim_post.shard(((dp, 1, 1),))
