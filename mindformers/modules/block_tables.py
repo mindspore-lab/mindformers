@@ -70,10 +70,8 @@ class BlockTables:
             if not is_finished[i]:
                 logger.debug("prepare cache for full: %s", batch_valid_length[i])
                 self.cache_engines[i].prepare_cache(batch_valid_length[i])
-
-            block_table = self.cache_engines[i].block_table
-            padded_table = block_table + [-1 for _ in range(
-                self.max_num_blocks_per_seq - len(self.cache_engines[i].block_table))]
+            padded_table = self.cache_engines[i].block_table + \
+                            [-1] * (self.max_num_blocks_per_seq - len(self.cache_engines[i].block_table))
             block_tables.append(padded_table)
         block_tables = np.array(block_tables, dtype=np.int32)
 
@@ -109,8 +107,7 @@ class BlockTables:
                 self.cache_engines[i].prepare_cache(1)
 
             block_table = self.cache_engines[i].block_table
-            padded_table = block_table + [-1 for _ in range(
-                self.max_num_blocks_per_seq - len(self.cache_engines[i].block_table))]
+            padded_table = block_table + [-1] * (self.max_num_blocks_per_seq - len(self.cache_engines[i].block_table))
             block_tables.append(padded_table)
 
             curent_idx = batch_valid_length[i] - 1

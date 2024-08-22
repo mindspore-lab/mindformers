@@ -262,11 +262,11 @@ if __name__ == "__main__":
                 args_.predict_data = args_.predict_data[0]
         if isinstance(args_.predict_data, str):
             if os.path.isdir(args_.predict_data):
-                predict_data = [os.path.join(root, file)
-                                for root, _, file_list in os.walk(os.path.join(args_.predict_data)) for file in
-                                file_list
-                                if file.endswith(".jpg") or file.endswith(".png") or file.endswith(".jpeg")
-                                or file.endswith(".JPEG") or file.endswith("bmp")]
+                predict_data = []
+                for root, _, file_list in os.walk(os.path.join(args_.predict_data)):
+                    for file in file_list:
+                        if file.lower().endswith((".jpg", ".png", ".jpeg", ".JPEG", ".bmp")):
+                            predict_data.append(os.path.join(root, file))
                 args_.predict_data = predict_data
             else:
                 args_.predict_data = args_.predict_data.replace(r"\n", "\n")
