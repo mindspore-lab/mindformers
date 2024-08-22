@@ -19,7 +19,7 @@ from typing import Tuple
 import mindspore as ms
 import mindspore.common.dtype as mstype
 import numpy as np
-from mindspore import Parameter, Tensor, nn, ops
+from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
 from mindspore.ops import operations as P
 
@@ -565,38 +565,27 @@ class VocabParallelLlamaEmbedding(nn.Cell):
                 ),
                 name="weight",
             )
-        self.gather = ops.Gather()
         self.reduce_from_mp_region = ReduceFromModelParallelRegion()
         self.reduce_scatter_to_sp_region = ReduceScatterToSequenceParallelRegion()
+        self.max_index_per_partition = Tensor(self.num_embeddings_per_partition - 1, dtype=mstype.int32)
+        self.reshape = ops.Reshape()
 
     def construct(self, x):
         """ construct. """
-        input_mask = None
         if self.tensor_model_parallel_size > 1:
-            # Build the mask.
-            input_mask = (x < self.vocab_start_index).astype(mstype.int32) | (
-                x >= self.vocab_end_index
-            ).astype(mstype.int32)
-            input_mask = input_mask.astype(mstype.bool_)
-            # Mask the input.
-            masked_input = x.copy() - self.vocab_start_index
-            # masked_input[input_mask] = 0
-            masked_input = ops.masked_fill(
-                masked_input, input_mask, Tensor(0, masked_input.dtype)
-            )
+            displaced_x = mint.sub(x, self.vocab_start_index)
+            down_truncated_x = mint.relu(displaced_x)
+            truncated_x = mint.minimum(down_truncated_x, self.max_index_per_partition)
         else:
-            masked_input = x
+            truncated_x = x
         # Get the embeddings.
-        output_parallel = self.gather(self.embedding_weight, masked_input, 0)
+        output_parallel = mint.embedding(truncated_x, self.weight)
         # Mask the output embedding.
         if self.tensor_model_parallel_size > 1:
-            # output_parallel[input_mask, :] = 0.0
-            output_parallel = ops.masked_fill(
-                output_parallel,
-                input_mask.expand_dims(2),
-                Tensor(0.0, output_parallel.dtype),
-            )
-        embedding_table = self.embedding_weight.value()
+            input_mask = mint.eq(displaced_x, truncated_x)
+            input_mask = self.reshape(input_mask, (input_mask.shape + (1,)))
+            output_parallel = mint.mul(output_parallel, input_mask)
+        embedding_table = self.weight.value()
 
         if self.sequence_parallel:
             output_parallel = output_parallel.swapaxes(0, 1).contiguous()
@@ -650,10 +639,9 @@ class LlamaEmbedding(nn.Cell):
             ),
             name="embedding_weight",
         )
-        self.gather = ops.Gather()
 
     def construct(self, input_ids):
-        output = self.gather(self.embedding_weight, input_ids, 0)
+        output = mint.embedding(input_ids, self.embedding_weight)
         return output
 
 
@@ -692,7 +680,10 @@ class ParallelLlamaModel(LlamaPreTrainedModel):
                                                               init_type=config.param_init_dtype)
         self.head_dim = config.hidden_size // config.num_heads
         self.num_layers = config.num_layers
-        offset = get_pp_rank() * self.num_layers
+        try:
+            offset = get_pp_rank() * self.num_layers
+        except:
+            offset = 0
         self.layers = nn.SequentialCell(
             [ParallelLlamaTransformerLayer(config=config, layer_number=i + 1 + offset) for i in range(self.num_layers)]
         )
@@ -862,7 +853,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.model.add_flags(is_first_iteration=is_first_iteration)
         for layer in self.model.layers:
             layer.add_flags(is_first_iteration=is_first_iteration)
-            layer.attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
+            layer.attention.add_flags(is_first_iteration=is_first_iteration)
 
     # pylint: disable=W0613
 

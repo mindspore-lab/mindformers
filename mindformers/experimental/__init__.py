@@ -17,7 +17,9 @@
 
 from .distri_cores import *
 from .distri_ckpt import *
+from .llama_demo import *
 
 __all__ = []
 __all__.extend(distri_cores.__all__)
 __all__.extend(distri_ckpt.__all__)
+__all__.extend(llama_demo.__all__)
