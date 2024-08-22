@@ -286,3 +286,13 @@ def check_valid_moefinalizerouting_op():
                        f"please upgrade to {version_valid} or later version.")
         return False
     return True
+
+def check_valid_mindspore_gs():
+    """check mindspore golden-stick version is valid or not"""
+    import mindspore_gs
+    version_valid = is_version_ge(mindspore_gs.__version__, "0.6.0")
+    if not version_valid:
+        logger.warning(f"Current MindSpore Gloden-Stick version does not match"
+                       f"the MindFormers version, please upgrade to {version_valid} or later version.")
+        return False
+    return True

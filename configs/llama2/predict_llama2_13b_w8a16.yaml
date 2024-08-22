@@ -39,7 +39,7 @@ eval_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *eval_dataset
 
-use_parallel: True
+use_parallel: False
 # parallel context config
 parallel:
   parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
@@ -54,12 +54,12 @@ parallel:
     parallel_optimizer_threshold: 64
 # default parallel of device num = 16 for Atlas 800T A2
 parallel_config:
-  data_parallel: 8
-  model_parallel: 1 # write npu num as much as you need to export
+  data_parallel: 1
+  model_parallel: 2 # write npu num as much as you need to export
   pipeline_stage: 1
   use_seq_parallel: False
   micro_batch_num: 16
-  vocab_emb_dp: True
+  vocab_emb_dp: False
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
@@ -105,7 +105,7 @@ model:
     block_size: 16
     num_blocks: 512
     is_dynamic: True
-    qkv_concat: False
+    qkv_concat: True
     offset: 0
     checkpoint_name_or_path: ""
     repetition_penalty: 1
@@ -113,7 +113,13 @@ model:
     top_k: 3
     top_p: 1
     do_sample: False
-    quant: '' # 'w8a16'
+    quantization_config:
+      quant_method: 'ptq'
+      weight_dtype: 'int8'
+      activation_dtype: None
+      kvcache_dtype: None
+      modules_to_not_convert: ['lm_head']
+      algorithm_args: {}
   arch:
     type: LlamaForCausalLM
 

@@ -336,16 +336,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             if config.parallel_config.pipeline_stage > 1:
                 self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
-        if config.quant == "w8a16":
-            logger.info("Using RoundToNearest to quant LlamaForCausalLM.")
-            from mindspore_gs.ptq import PTQConfig, PTQMode
-            from mindspore_gs.common import BackendTarget
-            from mindspore_gs.ptq import RoundToNearest as RTN
-            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND)
-            ptq = RTN(config=cfg)
-            self.model = ptq.apply(self.model)
-            self.model = ptq.convert(self.model)
-
         self.load_checkpoint(config)
         self.predict_run_mode = get_predict_run_mode()
 
