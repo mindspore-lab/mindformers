@@ -626,11 +626,9 @@ class QwenVL(PreTrainedModel):
     def concat_image_text(self, text_embeds, image_embeds, img_pos):
         """update the value at a specific position of the text embedding with the image embedding"""
         if self.training:
-            batch_size = self.shape(text_embeds)[0]
-            batch_index_adder = ms.Tensor([[i, 0] for i in range(batch_size)], ms.int32).reshape(batch_size, 1, 1, 2)
+            img_pos = img_pos.reshape((-1, self.num_queries, 2))
         else:
-            batch_index_adder = self.base_index_adder
-        img_pos = self.img_pos_add(img_pos, batch_index_adder).reshape((-1, self.num_queries, 2))
+            img_pos = self.img_pos_add(img_pos, self.base_index_adder).reshape((-1, self.num_queries, 2))
         image_embeds = self.cast(image_embeds, text_embeds.dtype)
         text_embeds = self.tensor_scatter_update(text_embeds, img_pos, image_embeds)
         return text_embeds

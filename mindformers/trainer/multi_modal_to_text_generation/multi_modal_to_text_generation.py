@@ -54,8 +54,36 @@ class MultiModalToTextGenerationTrainer(BaseTrainer):
               wrapper: Optional[TrainOneStepCell] = None,
               callbacks: Optional[Union[Callback, List[Callback]]] = None,
               **kwargs):
-        raise NotImplementedError(
-            "The MultiModalToTextGenerationTrainer task does not support evaluate.")
+        """
+        Train For MultiModalToTextGenerationTrainer.
+
+        Args:
+            config (Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]]):
+                The task config which is used to configure the dataset, the hyper-parameter, optimizer, etc.
+                It supports config dict or MindFormerConfig or TrainingArguments or ConfigArguments class.
+                Default: None.
+            network (Optional[Union[Cell, PreTrainedModel]]):
+                The network for trainer.It supports model name or PreTrainedModel or MindSpore Cell class.
+                Default: None.
+            dataset (Optional[Union[BaseDataset, GeneratorDataset]]):
+                The training dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
+                Default: None.
+            optimizer (Optional[Optimizer]):
+                The optimizer used for training. Default: None.
+            wrapper (Optional[TrainOneStepCell]):
+                Wraps the `network` with the `optimizer`. It support TrainOneStepCell class of MindSpore.
+                Default: None.
+            callbacks (Optional[Union[Callback, List[Callback]]]):
+                The training callback function. It supports CallBack or CallBack List of MindSpore. Default: None.
+        """
+        self.training_process(
+            config=config,
+            network=network,
+            callbacks=callbacks,
+            dataset=dataset,
+            optimizer=optimizer,
+            wrapper=wrapper,
+            **kwargs)
 
     def evaluate(self, *args, **kwargs):
         raise NotImplementedError(

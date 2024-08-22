@@ -17,19 +17,24 @@
 utils for multi modal model
 """
 
-from mindformers.tools.logger import logger
-
 
 class DataRecord:
     """Record data"""
     def __init__(self):
         self.data = {}
 
-    def put(self, key, value):
+    def put(self, key, value, append=False):
+        """put value into data, it allows appending to an existed value if assign append=True"""
         if key in self.data:
-            logger.warning(f"The key={key} has existed in the multimodal transform results, it will be override.")
-
-        self.data[key] = value
+            if append:
+                self.data[key].append(value)
+            else:
+                self.data[key] = value
+        else:
+            if append:
+                self.data[key] = [value]
+            else:
+                self.data[key] = value
 
     def put_from_dict(self, dict_):
         for key, value in dict_.items():
