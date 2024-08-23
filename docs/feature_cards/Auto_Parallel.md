@@ -2,10 +2,10 @@
 
 自动并行模式让用户可以无需为网络中的每一个算子配置并行策略，即可达到高效并行训练的效果。当前MindSpore支持如下两种不同的自动并行方案：
 
-- [切分策略传播算法(sharding_propagation)](https://www.mindspore.cn/tutorials/experts/zh-CN/master/parallel/sharding_propagation.html)：由少量使用shard接口配置并行策略的算子，向未配置的算子传播并行策略。在传播时，算法会尽量选取最少引发张量重排布通信的策略。
-- [双递归策略搜索算法(recursive_programming)](https://www.mindspore.cn/tutorials/experts/zh-CN/master/parallel/sapp.html)：用户无需进行任何算子并行策略配置。其基于符号运算的代价模型可以自由适配不同的加速器集群，对于巨大网络以及大规模多卡切分能够保证快速生成最优策略。
+- [切分策略传播算法(sharding_propagation)](https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/sharding_propagation.html)：由少量使用shard接口配置并行策略的算子，向未配置的算子传播并行策略。在传播时，算法会尽量选取最少引发张量重排布通信的策略。
+- [双递归策略搜索算法(recursive_programming)](https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/sapp.html)：用户无需进行任何算子并行策略配置。其基于符号运算的代价模型可以自由适配不同的加速器集群，对于巨大网络以及大规模多卡切分能够保证快速生成最优策略。
 
-详情参考官网关于[自动并行](https://www.mindspore.cn/tutorials/experts/zh-CN/master/parallel/auto_parallel.html)的说明。
+详情参考官网关于[自动并行](https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/auto_parallel.html)的说明。
 
 ## 使用说明
 
@@ -123,3 +123,24 @@ $$
 ## auto_pipeline
 
 在 yaml 配置文件下新增了 `auto_pipeline` 配置项，用来决定是否由自动并行模式为流水线并行（pipeline stage）生成策略（pipeline stage number）。如果设置成True，那么用户无需配置流水线并行，自动并行模式会自动生成合适的流水线并行策略。如果设置为False，那么模型会执行用户配置的流水线并行，同时自动并行模式会在LOG中建议一个合适的流水线并行策略。请注意，自动并行功能生成的流水线并行策略（pipeline stage number）不会超过用户定义的`micro_batch_num`。
+
+## Performance benchmarks
+
+Comparison between performances of semi parallel versus SAPP.
+The SpeedUp is given by the ratio of average "tokens per second" of auto parallel and average "tokens per second" of semi parallel. Hence a SpeedUp above 100% means that auto parallel runs faster than the semi parallel version.
+
+| model | parallel_config in semi | mem_coeff in auto | SpeedUp |
+|---|---|---|---|
+| Baichuan2-7B | dp=8, mp=1, pp=1 | 0.01 | 97.4% |
+| Baichuan2-13B | dp=8, mp=1, pp=1 | 0.01 | 98.0% |
+| Qwen-7B | dp=2, mp=4, pp=1 | 4.5 | 96.2% |
+| Qwen-14B | dp=1, mp=8, pp=1 | 4.5 |  111.3% |
+| LLaMA2-7B | dp=8, mp=1, pp=1 | 0.1 | 101.2% |
+| LLaMA2-13B | dp=8, mp=1, pp=1 | 0.1 | 99.8% |
+
+These benchmarks have been carried out on a machine with 8 devices Ascend using the default .yaml files in the mindformers repository.
+The software configuration is:
+
+- MindSpore v2.3.0
+- Mindformers 1.2.0
+
