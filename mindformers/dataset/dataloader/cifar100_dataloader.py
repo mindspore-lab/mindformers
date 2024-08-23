@@ -27,6 +27,7 @@ from ...tools.register import MindFormerRegister, MindFormerModuleType
 class Cifar100DataLoader:
     """Cifar100 Dataloader with class name as text column"""
     _default_column_names = ["image", "text", "label"]
+
     def __new__(cls, dataset_dir: str, column_names: Optional[Union[List[str], Tuple[str]]] = None,
                 stage: Optional[str] = "train", fine_label: Optional[bool] = True,
                 shuffle: Optional[bool] = False,
@@ -96,6 +97,7 @@ class Cifar100DataLoader:
         cifar100_dataloader = GeneratorDataset(cifar100_dataset, column_names, shuffle=shuffle)
         setattr(cifar100_dataloader, "label_names", cifar100_dataset.label_names)
         return cifar100_dataloader
+
 
 class Cifar100DataSet:
     """Cifar100 dataSet with class name"""

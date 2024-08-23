@@ -29,6 +29,7 @@ from mindformers.experimental.distri_cores.create_comm import (
     is_rank_in_embedding_group
 )
 
+
 # Helper function for handling cell's own params
 def get_default_dict_for_module(cell, recurse=False):
     state_dict = {}
@@ -38,6 +39,7 @@ def get_default_dict_for_module(cell, recurse=False):
         state_dict[name] = {'shape': shape, 'shard': shard,
                             'opt_weight_shard_step': 0, 'opt_weight_shard_size': -1}
     return state_dict
+
 
 class LayerList:
     """ Layer list for building sub model"""
@@ -69,6 +71,7 @@ class LayerList:
         else:
             layer = self._model.pop(index)
         return layer
+
 
 class Module(nn.Cell):
     """specific extensions of cell with support for pipelining."""
@@ -174,6 +177,7 @@ class Module(nn.Cell):
     def sharded_state_dict(self):
         """iterate over the subcells to construct the total sharded state dict"""
         sharded_state_dict = {}
+
         # Recurse into subcells
         def update_sharded_dict_for_single_cell(subcell):
             nonlocal sharded_state_dict

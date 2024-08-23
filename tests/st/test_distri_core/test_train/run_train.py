@@ -43,6 +43,7 @@ from mindformers.experimental.distri_cores.optimizer import get_optimizer
 
 from dataset import get_random_dataset
 
+
 class TestNetWithLoss(nn.Cell):
     """ ParallelTransformerNet. """
     def __init__(self, model_config, loss):
@@ -129,6 +130,7 @@ def evaluation(train_one_step_cell, val_dataset_iterator, metrics, **kwargs):
     train_one_step_cell.set_train(True)
 
     return results
+
 
 def run_train(config_path):
     """run train process"""

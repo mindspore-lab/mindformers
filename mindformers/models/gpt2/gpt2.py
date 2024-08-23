@@ -44,15 +44,13 @@ class GPT2PreTrainedModel(PreTrainedModel):
     An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
     models.
     """
-
     config_class = GPT2Config
     base_model_prefix = "gpt2"
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class GPT2LMHeadModel(GPT2PreTrainedModel):
-    r"""
-        Provide gpt training loss or logits through network.
+    """Provide gpt training loss or logits through network.
         Args:
             config (GPT2Config): The config of Gpt2Model.
 
@@ -64,7 +62,7 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
             >>> model = GPT2LMHeadModel.from_pretrained('gpt2')
             >>> type(model)
             <class 'mindformers.models.gpt2.gpt2.GPT2LMHeadModel'>
-        """
+    """
     _support_list = MindFormerBook.get_model_support_list()['gpt2']
 
     def __init__(self, config: GPT2Config = None):
@@ -194,8 +192,7 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class GPT2ForSequenceClassification(GPT2PreTrainedModel):
-    r"""
-        Provide gpt training loss or logits through network.
+    """Provide gpt training loss or logits through network.
         Args:
             config (GPT2Config): The config of Gpt2Model.
 
@@ -207,7 +204,7 @@ class GPT2ForSequenceClassification(GPT2PreTrainedModel):
             >>> model = GPT2ForSequenceClassification.from_pretrained('gpt2')
             >>> type(model)
             <class 'mindformers.models.gpt2.gpt2.GPT2ForSequenceClassification'>
-        """
+    """
     _support_list = MindFormerBook.get_model_support_list()['gpt2']
 
     def __init__(self, config: GPT2Config = None):

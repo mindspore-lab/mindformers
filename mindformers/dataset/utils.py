@@ -16,6 +16,7 @@
 import inspect
 from collections.abc import Iterable
 
+
 def check_dataset_config(config):
     """Check dataset config."""
     if config.train_dataset is not None:
@@ -44,12 +45,14 @@ def check_dataset_config(config):
             config.eval_dataset.output_columns = config.eval_dataset.input_columns
         config.eval_dataset_task.dataset_config = config.eval_dataset
 
+
 def check_dataset_iterable(dataset):
     """check dataset iterable"""
     if isinstance(dataset, Iterable) or hasattr(dataset, '__getitem__') \
        or is_generator_function(dataset):
         return True
     return False
+
 
 def is_generator_function(func):
     """check function is a generator or not."""

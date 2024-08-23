@@ -32,6 +32,7 @@ from mindformers.experimental.distri_cores.create_comm import (
     is_pipeline_last_stage
 )
 
+
 class DictWithValueError(dict):
     """
     A dictionary subclass that raises a custom error with a helpful message when a key is not found.
@@ -49,8 +50,7 @@ def ensure_divisibility(numerator, denominator):
 
 
 def divide(numerator, denominator):
-    """Ensure that numerator is divisible by the denominator and return
-    the division value."""
+    """Ensure that numerator is divisible by the denominator and return the division value."""
     ensure_divisibility(numerator, denominator)
     return numerator // denominator
 

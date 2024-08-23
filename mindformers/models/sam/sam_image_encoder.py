@@ -215,6 +215,7 @@ class Block(nn.Cell):
 
         return x
 
+
 class Attention(nn.Cell):
     """
     Multi-head Attention block with relative position embeddings.

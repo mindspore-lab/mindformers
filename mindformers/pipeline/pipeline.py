@@ -473,8 +473,7 @@ def get_ms_experimental_pipeline(
 
 
 def clean_custom_task(task_info):
-    """clean custom task dict,
-    transform default model from str to class name."""
+    """clean custom task dict, transform default model from str to class name."""
     import mindformers
 
     if "impl" not in task_info:

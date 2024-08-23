@@ -30,6 +30,7 @@ except ImportError:
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+
 def download_chunk(url, start, end, file, pbar, lock, chunk_size=1024):
     '''Download a chunk of a file from the given URL and write it to the provided file object.
 
@@ -58,6 +59,7 @@ def download_chunk(url, start, end, file, pbar, lock, chunk_size=1024):
                 pbar.update(chunk_size)
     else:
         logger.error("%s is unconnected!", url)
+
 
 def download_with_progress_bar(url, filepath, num_threads=1, timeout=4):
     """Downloads a file from the given URL with multi-threading support, resuming from breakpoints,

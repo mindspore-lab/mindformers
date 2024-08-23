@@ -29,6 +29,7 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from .sam_layers import LayerNorm2d
 from .sam_config import PromptEncoderConfig
 
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class SamPromptEncoder(PreTrainedModel):
     """

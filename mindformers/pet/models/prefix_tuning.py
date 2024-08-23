@@ -22,6 +22,7 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.pet.pet_config import PrefixTuningConfig
 from mindformers.pet.tuners.prefix_tuning_adapter import PrefixTuningAdapter
 
+
 class PrefixTuningModel(PreTrainedModel):
     """
     PrefixTuning Model for llm model.

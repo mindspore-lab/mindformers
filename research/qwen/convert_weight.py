@@ -62,6 +62,7 @@ def convert_attention_bias(name, value, ckpt_weights):
         cur_name = name.replace(ATTENTION_BIAS_NAME, attention_bias_names[index])
         ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(split_value[index])})
 
+
 # pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert huggingface weights files to mindspore."""

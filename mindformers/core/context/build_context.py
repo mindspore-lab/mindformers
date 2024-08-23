@@ -92,6 +92,7 @@ class _Context:
             logger.info("The current MindSpore version is %s,"
                         "and set the default runtime_num_threads to 1.", ms.__version__)
 
+
     def init_ms_context(self):
         """Context initialization for MindSpore.
 

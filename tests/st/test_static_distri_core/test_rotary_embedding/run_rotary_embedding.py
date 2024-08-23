@@ -57,6 +57,7 @@ seed_value = 42
 ms.set_seed(seed_value)
 np.random.seed(seed_value)
 
+
 class MyAttention(nn.Cell):
     def __init__(self, config: TransformerConfig):
         super(MyAttention, self).__init__()

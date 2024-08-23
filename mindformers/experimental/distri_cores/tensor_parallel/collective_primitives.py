@@ -196,6 +196,7 @@ class GatherFromTensorAndExpertParallelRegion(nn.Cell):
         output = self.reduce_scatter(dout.contiguous())
         return (output,)
 
+
 class GatherFromModelParallelRegion(nn.Cell):
     "Gather the input from model parallel region and concatinate."
 
@@ -347,6 +348,7 @@ class ScatterToSequenceParallelRegion(nn.Cell):
             return (dout,)
         output = self.all_gather(dout.contiguous())
         return (output,)
+
 
 class GatherFromSequenceParallelRegion(nn.Cell):
     """Gather From Sequence Parallel Region"""
@@ -524,6 +526,7 @@ class AllToAll(nn.Cell):
                               self.output_splits,
                               self.group)
         return (dout2,)
+
 
 # pylint: disable=W0613
 def all_to_all_self_defined(output_shape, input_, output_split_sizes=None, input_split_sizes=None, group=None):

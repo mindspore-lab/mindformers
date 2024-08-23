@@ -47,6 +47,7 @@ TOKENIZER_SUPPORT_LIST = MindFormerBook.get_tokenizer_support_list()
 EXP_ERROR_MSG = "The input yaml_name_or_path should be a path to directory which has " \
                 "yaml file, or a model name supported, e.g. llama2_7b."
 
+
 def is_experimental_mode(path):
     """Check whether AutoTokenizer.from_pretrained() should go into original or experimental mode
 
@@ -152,8 +153,7 @@ def get_tokenizer_config(
         subfolder: str = "",
         **kwargs,
 ):
-    """
-    Loads the tokenizer configuration from a pretrained model tokenizer configuration.
+    """Loads the tokenizer configuration from a pretrained model tokenizer configuration.
 
     Args:
         pretrained_model_name_or_path (`str` or `os.PathLike`):
@@ -212,7 +212,8 @@ def get_tokenizer_config(
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.save_pretrained("tokenizer-test", save_json=True)
     tokenizer_config = get_tokenizer_config("tokenizer-test")
-    ```"""
+    ```
+    """
     use_auth_token = kwargs.pop("use_auth_token", None)
     if use_auth_token is not None:
         warnings.warn(

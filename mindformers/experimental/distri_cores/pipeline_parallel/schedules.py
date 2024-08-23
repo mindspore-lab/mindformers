@@ -218,6 +218,7 @@ def run_backward(*input_tensor,
 
     return dout, accumulate_grads
 
+
 # pylint: disable=C0103
 def forward_backward_pipelining_with_interleaving(
         model,

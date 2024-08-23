@@ -65,6 +65,7 @@ def expand_input_list(input_list, batch_size):
     input_list = input_list[:batch_size]
     return input_list
 
+
 def run_predict(task, input_list, batch_size, ckpt, max_length):
     prompt = expand_input_list(input_list, batch_size)
 

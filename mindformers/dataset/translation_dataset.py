@@ -172,6 +172,7 @@ class TranslationDataset(BaseDataset):
             tgt_max_length = cls.tgt_max_length
 
         logger.info("Start tokenize on the dataset using tokenizer: %s", tokenizer_config)
+
         def pad_max_function(src, tgt):
             src = src.tolist()
             if isinstance(src, bytes):

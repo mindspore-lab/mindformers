@@ -81,6 +81,7 @@ def _get_stack_info(frame):
     sinfo = stack_prefix + "".join(traceback.format_stack(frame))
     return sinfo
 
+
 # pylint: disable=W0613
 def _find_caller(stack_info=False, stacklevel=1):
     """

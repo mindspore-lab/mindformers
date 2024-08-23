@@ -27,11 +27,12 @@ from mindformers.version_control import get_dropout
 
 default_dpmp_config = OpParallelConfig()
 
+
 def divide(numerator, denominator):
-    """Ensure that numerator is divisible by the denominator and return
-    the division value."""
+    """Ensure that numerator is divisible by the denominator and return the division value."""
     assert numerator % denominator == 0, f'{numerator} is not divisible by {denominator}'
     return numerator // denominator
+
 
 class RotaryEmbedding(nn.Cell):
     """

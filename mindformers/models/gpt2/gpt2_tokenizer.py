@@ -27,6 +27,7 @@ from ...mindformer_book import MindFormerBook
 
 __all__ = ['GPT2Tokenizer']
 
+
 @lru_cache()
 def bytes_to_unicode():
     """

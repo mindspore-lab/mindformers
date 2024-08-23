@@ -255,15 +255,11 @@ class LlamaModel(LlamaPreTrainedModel):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class LlamaForCausalLM(LlamaPreTrainedModel):
-    r"""
-        Provide llama training loss or logits through network.
-
+    """Provide llama training loss or logits through network.
         Args:
             config (LlamaConfig): The config of llama model.
-
         Returns:
             output: Tensor, the output of llama decoderlayer
-
         Examples:
             >>> from mindformers.models.llama import LlamaConfig, LlamaForCausalLM
             >>> config = LlamaConfig(batch_size=2)
@@ -274,7 +270,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             >>> network = LlamaForCausalLM.from_pretrained('llama_7b')
             >>> type(network)
             <class 'mindformers.models.llama.llama.LlamaForCausalLM'>
-        """
+    """
     _support_list = MindFormerBook.get_model_support_list()['llama']
 
     @lazy_inline

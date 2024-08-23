@@ -253,6 +253,7 @@ AutoModelForSeq2SeqLM = auto_class_update(
     AutoModelForSeq2SeqLM, head_doc="sequence-to-sequence language modeling", checkpoint_for_example="t5-base"
 )
 
+
 class AutoModelForSequenceClassification(_BaseAutoModelClass):
     _model_mapping = MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING
 

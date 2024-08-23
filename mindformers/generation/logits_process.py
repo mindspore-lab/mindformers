@@ -27,6 +27,7 @@ __all__ = ["LogitsProcessor", "LogitsWarper", "LogitsProcessorList", "Repetition
            "LogitNormalization", "TemperatureLogitsWarper", "TopKLogitsWarper", "TopPLogitsWarper",
            "MinLengthLogitsProcessor", "MinNewTokensLengthLogitsProcessor", "LogitsProcessorAcceleration"]
 
+
 class LogitsProcessorAcceleration:
     """
     LogitsProcessor: PostProcess for logits.
@@ -142,9 +143,7 @@ class LogitsProcessor:
 
 
 class LogitsWarper:
-    """Abstract base class for all logit warpers that can be applied during generation
-    with multinomial sampling."""
-
+    """Abstract base class for all logit warpers that can be applied during generation with multinomial sampling."""
     def __call__(self, input_ids, scores):
         """Torch method for warping logits."""
         raise NotImplementedError(

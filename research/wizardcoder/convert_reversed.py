@@ -91,6 +91,7 @@ def generate_weight_map(total_layers,
 
     return map_dict
 
+
 # pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """

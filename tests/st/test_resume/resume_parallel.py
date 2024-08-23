@@ -32,6 +32,7 @@ from mindformers.tools.utils import (
 from mindformers.trainer import Trainer, TrainingArguments
 from mindformers.models.gpt2 import GPT2LMHeadModel, GPT2Config
 
+
 def generator():
     """dataset generator"""
     np.random.seed(42)
@@ -41,6 +42,7 @@ def generator():
     train_data = (input_ids, input_mask)
     for _ in range(32):
         yield train_data
+
 
 def gpt_trainer_train_from_instance():
     """

@@ -29,6 +29,7 @@ from .bloom import BloomModel, BloomPreTrainedModel
 
 __all__ = ['BloomRewardModel', 'VHead']
 
+
 class VHead(nn.Cell):
     r"""Head for Bloom to get the logits of each token in the vocab."""
     def __init__(self, config=None):
@@ -40,22 +41,23 @@ class VHead(nn.Cell):
                             has_bias=False).to_float(mstype.float16)
         self.vhead.shard(strategy_matmul=((dp, mp), (mp, 1)))
         self.vhead.pipeline_stage = config.parallel_config.pipeline_stage - 1
+
     def construct(self, output_states):
         """
         construct function for vhead
         """
         return self.vhead(output_states)
 
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class BloomRewardModel(BloomPreTrainedModel):
-    r"""
-        Provide bloom reward model training loss or logits through network.
+    """Provide bloom reward model training loss or logits through network.
         Args:
             config (BloomConfig): The config of BloomModel.
 
         Returns:
             Tensor, the loss or logits of the network.
-        """
+    """
 
     def __init__(self, config=None):
         config = config if config is not None else BloomConfig()

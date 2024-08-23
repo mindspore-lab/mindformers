@@ -20,6 +20,7 @@ from mindspore.communication import get_group_size, get_rank
 from mindformers.experimental.distri_cores.create_comm import *
 import pytest
 
+
 def run_initialize_and_destroy_model_parallel(order):
     """ run basic test for initialize and destroy comm groups """
     with pytest.raises(AssertionError):

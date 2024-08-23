@@ -135,9 +135,7 @@ class VocabEmbeddingNet(nn.Cell):
 
 
 class VocabParallelEmbeddingNet(nn.Cell):
-    """VocabparallelEmbedding, ColumnParallelLinear and
-    RowParallelLinear with sequence parallel network."""
-
+    """VocabparallelEmbedding, ColumnParallelLinear and RowParallelLinear with sequence parallel network."""
     def __init__(
             self,
             vocab_size: int,

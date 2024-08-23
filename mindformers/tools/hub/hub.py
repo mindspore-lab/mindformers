@@ -39,7 +39,7 @@ SESSION_ID = uuid4().hex
 OPENMIND_DYNAMIC_MODULE_NAME = "openmind_modules"
 _is_offline_mode = os.environ.get("TRANSFORMERS_OFFLINE", "0").upper() in ENV_VARS_TRUE_VALUES
 _staging_mode = os.environ.get("OPENMIND_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
-_default_endpoint = "https://hub-ci.openmind.cn" if _staging_mode else "https://openmind.cn"  # TODO confirm real default endpoint address
+_default_endpoint = "https://hub-ci.openmind.cn" if _staging_mode else "https://openmind.cn"  # confirm real default endpoint address
 OPENMIND_CO_RESOLVE_ENDPOINT = os.environ.get("MDS_ENDPOINT", _default_endpoint)
 
 
@@ -313,7 +313,7 @@ def cached_file(
 
     if _commit_hash is not None and not force_download:
         # If the file is cached under that commit hash, we return it directly.
-        # FIXME param `repo_type` is not supported now, remove it temporary
+        # param `repo_type` is not supported now, remove it temporary
         resolved_file = try_to_load_from_cache(
             path_or_repo_id,
             full_filename,
@@ -352,7 +352,8 @@ def cached_file(
             "by passing `token=<your_token>`."
         ) from e
     except RepositoryNotFoundError as e:
-        raise EnvironmentError(  #TODO: replace xxx to openmind.cn
+        # replace xxx to openmind.cn
+        raise EnvironmentError(
             f"{path_or_repo_id} is not a local folder and is not a valid model identifier "
             "listed on 'xxxxxxxxxxxxx'\nIf this is a private repository, make sure to pass a token "
             "having permission to this repo by passing "

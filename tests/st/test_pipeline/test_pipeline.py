@@ -83,6 +83,7 @@ class TestPipeline:
         print(output)
         assert "An increasing sequence: one, two," in output[0]['text_generation_text'][0]
 
+
 class TestPipelineExperiment:
     """A test class for testing experiment pipeline features."""
     def setup_method(self):

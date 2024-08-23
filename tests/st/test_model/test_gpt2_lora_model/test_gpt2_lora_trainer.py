@@ -78,6 +78,7 @@ class TestGPT2LoraTrainerMethod:
                                     args=args,
                                     train_dataset=train_dataset,
                                     eval_dataset=eval_dataset)
+
     def test_finetune(self):
         """
         Feature: Trainer.finetune()

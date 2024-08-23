@@ -17,6 +17,7 @@ import argparse
 
 from mindformers.tools.ckpt_transform import TransformCkpt
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--src_checkpoint',

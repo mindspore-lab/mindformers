@@ -607,8 +607,7 @@ class ADGENMetric(nn.Metric):
 
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
 class PromptAccMetric(nn.Metric):
-    r"""
-        Computes the prompt acc of each entity. The prompt acc is the accuracy of text classification base on building
+    r"""Computes the prompt acc of each entity. The prompt acc is the accuracy of text classification base on building
         prompt. The accurate index is the index of the prompt which has the minimum perplexity.
         1. Build the prompt for this metric is described as follows:
             这是关于**体育**的文章：$passage
@@ -627,7 +626,7 @@ class PromptAccMetric(nn.Metric):
         .. math::
             \text{accuracy} =\frac{\text{correct_sample_nums}}{\text{total_sample_nums}}
 
-        """
+    """
 
     def __init__(self):
         super(PromptAccMetric, self).__init__()

@@ -27,6 +27,7 @@ from ...tools.register import MindFormerRegister, MindFormerModuleType
 class Flickr8kDataLoader:
     """Flicker8k Dataloader"""
     _default_column_names = ["image", "text"]
+
     def __new__(cls, dataset_dir: str,
                 column_names: Optional[Union[List[str], Tuple[str]]] = None,
                 stage: Optional[str] = "train", **kwargs):
@@ -97,6 +98,7 @@ class Flickr8kDataLoader:
         kwargs.pop("None", None)
         flick8k_dataset = Flickr8kDataSet(dataset_dir, annotation_dir, stage)
         return GeneratorDataset(flick8k_dataset, column_names, **kwargs)
+
 
 class Flickr8kDataSet:
     """Flickr8k DataSet"""

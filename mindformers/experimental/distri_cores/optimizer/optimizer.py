@@ -24,6 +24,7 @@ ModuleRegistry.register(Adam, ModuleType.OPTIMIZER)
 ModuleRegistry.register(SGD, ModuleType.OPTIMIZER)
 ModuleRegistry.register(Came, ModuleType.OPTIMIZER)
 
+
 def get_optimizer(optimizer_config, params=None, network=None, return_instance: bool = True, **kwargs):
     """
     Get an optimizer instance or class based on the provided optimizer configuration.

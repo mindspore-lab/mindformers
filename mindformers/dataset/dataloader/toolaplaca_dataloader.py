@@ -22,6 +22,7 @@ from mindspore.dataset import GeneratorDataset
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.logger import logger
 
+
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
 class ToolAlpacaDataLoader:
     """ToolAlpaca Dataloader"""
@@ -58,6 +59,7 @@ class ToolAlpacaDataLoader:
         dataset = GeneratorDataset(multiturn_dataset, column_names=['data'], shuffle=shuffle, **kwargs)
 
         return dataset
+
 
 class ToolAlpacaDataset:
     """ToolAlpaca Dataset"""

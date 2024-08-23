@@ -20,6 +20,7 @@ import torch
 import mindspore
 from mindspore import Tensor, Parameter
 
+
 def layer_name_mapping(model_name, key):
     """Convert huggingface PP weights mapping in MindSpore.
 
@@ -56,6 +57,7 @@ def layer_name_mapping(model_name, key):
     text = match.group(2)
     return f"{prefix}model.layers.{layer_number}." + layer_rename_map[text]
 
+
 def hf_to_ms(hf_weights, model_name, ms_dtype=mindspore.float16, for_save=False):
     """Convert hf layers to ms."""
     ms_params = {}
@@ -66,6 +68,7 @@ def hf_to_ms(hf_weights, model_name, ms_dtype=mindspore.float16, for_save=False)
     if for_save:
         return [{'name': k, 'data': v} for k, v in ms_params.items()]
     return ms_params
+
 
 def process_shard_files(files, config, ms_dtype=mindspore.float16):
     ''' torch ckpt files loop'''

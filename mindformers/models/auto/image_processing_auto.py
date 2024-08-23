@@ -82,8 +82,7 @@ def get_image_processor_config(
         revision: Optional[str] = None,
         local_files_only: bool = False,
 ):
-    """
-    Loads the image processor configuration from a pretrained model image processor configuration.
+    """Loads the image processor configuration from a pretrained model image processor configuration.
 
     Args:
         pretrained_model_name_or_path (`str` or `os.PathLike`):
@@ -139,7 +138,8 @@ def get_image_processor_config(
     image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
     image_processor.save_pretrained("image-processor-test")
     image_processor_config = get_image_processor_config("image-processor-test")
-    ```"""
+    ```
+    """
 
     resolved_config_file = get_file_from_repo(
         pretrained_model_name_or_path,

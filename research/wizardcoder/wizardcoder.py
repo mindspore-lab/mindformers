@@ -51,14 +51,13 @@ class WizardCoderPreTrainedModel(PreTrainedModel):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class WizardCoderLMHeadModel(WizardCoderPreTrainedModel):
-    r"""
-        Provide wizardcoder training loss or logits through network.
+    """Provide wizardcoder training loss or logits through network.
         Args:
             config (WizardCoderConfig): The config of WizardCoderModel.
 
         Returns:
             Tensor, the loss or logits of the network.
-        """
+    """
     @lazy_inline
     def __init__(self, config: WizardCoderConfig = None):
         config = config if config is not None else WizardCoderConfig()

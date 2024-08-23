@@ -45,6 +45,7 @@ class SamModel(SamPreTrainedModel):
     image_format: str = "RGB"
 
     _support_list = MindFormerBook.get_model_support_list()['sam']
+
     def __init__(self, config) -> None:
         super().__init__(config)
         self.image_encoder = build_network(config.image_encoder)

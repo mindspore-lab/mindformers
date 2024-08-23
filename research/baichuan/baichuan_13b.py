@@ -56,8 +56,7 @@ class BaichuanPreTrainedModel(PreTrainedModel):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class Baichuan13BForCausalLM(BaichuanPreTrainedModel):
-    r"""
-        Provide baichuan_13B training loss or logits through network.
+    r"""Provide baichuan_13B training loss or logits through network.
         Args:
             config (LlamaConfig): The config of baichuan_13B model.
 
@@ -81,8 +80,7 @@ class Baichuan13BForCausalLM(BaichuanPreTrainedModel):
             >>> from research.baichuan.baichuan_13b import Baichuan13BForCausalLM
             >>> config = LlamaConfig(batch_size=2)
             >>> network = Baichuan13BForCausalLM(config=config)
-        """
-
+    """
     @lazy_inline
     def __init__(self, config: LlamaConfig = None):
         super(Baichuan13BForCausalLM, self).__init__(config, auto_prefix=True)

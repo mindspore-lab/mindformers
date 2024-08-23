@@ -17,6 +17,7 @@
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from ..mindformer_book import MindFormerBook
 
+
 def check_and_add_vocab_file_path(config, **kwargs):
     """And the vocab file path to the config if there is not vocab file in the config"""
     if 'vocab_file' in config:

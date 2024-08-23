@@ -39,6 +39,7 @@ from tests.st.test_distri_core.utils import train
 ms.set_seed(2024)
 ds.set_seed(2024)
 
+
 class FakeData():
     """ generate fake data for language model test """
     def __init__(self, data_num, seq_length, input_data=None):

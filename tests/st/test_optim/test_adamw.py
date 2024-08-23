@@ -27,6 +27,7 @@ from tests.st.test_optim.optimizer_util import build_network, FakeNet, default_f
 
 ms.set_context(mode=0)
 
+
 @pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard

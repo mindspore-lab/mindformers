@@ -24,6 +24,7 @@ from mindformers import MindFormerConfig, logger
 from mindformers.core.context import build_context
 from mindformers.core.parallel_config import build_parallel_config
 
+
 def main(config_path, use_parallel, load_checkpoint, load_tokenizer):
     # multi batch inputs
     inputs = ["I love Beijing, because",

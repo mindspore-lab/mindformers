@@ -18,6 +18,7 @@ import argparse
 
 import mindspore as ms
 
+
 def get_strategy(startegy_path, rank_id=None):
     """Merge strategy if strategy path is dir
 

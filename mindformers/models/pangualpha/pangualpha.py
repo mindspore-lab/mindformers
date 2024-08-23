@@ -511,8 +511,7 @@ class PanguAlphaHeadModel(PanguAlphaPreTrainedModel):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class PanguAlphaPromptTextClassificationModel(PanguAlphaHeadModel):
-    """
-        The PanguAlpha network for prompt text classification consisting of two parts the backbone and the head
+    """The PanguAlpha network for prompt text classification consisting of two parts the backbone and the head
         Args:
             config(PanguAlphaConfig): the config of network
         Inputs:
@@ -530,8 +529,7 @@ class PanguAlphaPromptTextClassificationModel(PanguAlphaHeadModel):
             >>> from mindformers import AutoConfig
             >>> config = AutoConfig.from_pretrained('pangualpha_2_6b')
             >>> model_b = PanguAlphaPromptTextClassificationModel(config)
-        """
-
+    """
     def __init__(self, config: PanguAlphaConfig = None):
         config = config if config is not None else PanguAlphaConfig()
         super().__init__(config)

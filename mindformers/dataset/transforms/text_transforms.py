@@ -47,6 +47,7 @@ class RandomChoiceTokenizerForward:
         )["input_ids"]
         return token_id
 
+
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class TokenizerForward:
     """Tokenizer Forward"""
@@ -65,6 +66,7 @@ class TokenizerForward:
             text, max_length=self.max_length,
             padding=self.padding)["input_ids"]
         return token_id
+
 
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class TokenizeWithLabel:
@@ -89,6 +91,7 @@ class TokenizeWithLabel:
         attention_mask = np.array(output["attention_mask"], dtype=np.int32)
 
         return input_ids, token_type_ids, attention_mask, label_id
+
 
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class LabelPadding:

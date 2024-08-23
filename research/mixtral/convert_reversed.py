@@ -30,6 +30,7 @@ from mindformers.trainer.utils import get_last_checkpoint
 ms.set_context(device_target='CPU')
 cpu_cast = Cast().set_device('CPU')
 
+
 def name_replace(name: str):
     """replace hf param name to ms."""
     name = name.replace('tok_embeddings.embedding_weight', 'embed_tokens.weight')
@@ -42,6 +43,7 @@ def name_replace(name: str):
     name = name.replace('.attention_norm.', '.input_layernorm.')
     name = name.replace('.ffn_norm.', '.post_attention_layernorm.')
     return name
+
 
 def merge_ms_ckpt(ckpt_dir, strategy_dir, rank_id=0):
     """merge ms weight with strategy files."""
@@ -64,6 +66,7 @@ def merge_ms_ckpt(ckpt_dir, strategy_dir, rank_id=0):
     print("Merge mindspore distributed ckpt completed")
     return os.path.join(merge_ckpt_save_path, \
                         f'rank_{rank_id}/' + merge_ckpt_name + f'{rank_id}.ckpt')
+
 
 # pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, strategy_dir=None, **kwargs):
@@ -88,6 +91,7 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, strategy_dir=None, **k
                         3.File dir of containing distributed ckpt folder, \
                           multiple ckpt folder format should be: \
                           rank_{0..n}/*.ckpt")
+
 
 def ms_ckpt_convertor(ckpt_path, output_name, dtype):
     """convert ms weight to hf."""

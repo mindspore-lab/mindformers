@@ -1382,6 +1382,7 @@ def validate_recompute_granularity(config_instance, recompute_granularity):
                 logger.warning("recompute_num_layers should be set when recompute_granularity is set to 'full'.")
     return recompute_granularity
 
+
 class OptimizerConfig(BaseConfig):
     r"""Optimizer config class.
 
@@ -1472,6 +1473,7 @@ def validate_weight_decay_kwargs(config_instance, weight_decay_kwargs):
     if weight_decay_kwargs is not None:
         Validator.check_value_type("weight_decay_kwargs", weight_decay_kwargs, [dict])
     return weight_decay_kwargs
+
 
 class TrainingConfig(BaseConfig):
     r"""

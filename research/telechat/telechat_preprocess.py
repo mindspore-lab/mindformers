@@ -23,6 +23,7 @@ from tqdm import tqdm
 from mindspore.mindrecord import FileWriter
 from telechat_tokenizer import TelechatTokenizer
 
+
 class TelechatDataset:
     """TelechatDataset"""
     def __init__(self, output_path, seed, dataset_name):
@@ -81,7 +82,7 @@ def process_dataset(current_dataset, tokenizer, max_seq_len):
         if not input_data.startswith("<_user>"):
             input_data = "<_user>" + input_data
         output = tmp_data['output']
-        if "<_bot>" in input_data: ### multiturn
+        if "<_bot>" in input_data:  # multiturn
             concat_line = ""
             input_turns = input_data.split("<_user>")[1:]
             for item in input_turns:
@@ -90,7 +91,7 @@ def process_dataset(current_dataset, tokenizer, max_seq_len):
                 else:
                     concat_line += "<_user>" + item + "<_bot>"
             concat_line += output + "<_end>"
-        else: ####single turn
+        else:  #single turn
             concat_line = str(input_data) + "<_bot>" + str(output) + "<_end>"
         assert concat_line.count("<_user>") == concat_line.count("<_bot>") == concat_line.count("<_end>")
         all_lines.append(concat_line)

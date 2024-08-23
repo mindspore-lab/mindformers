@@ -30,6 +30,7 @@ dtype_map = {
     'fp16': ms.float16
 }
 
+
 def name_replace(name: str):
     """replace hf param name to ms."""
     name = name.replace('embed_tokens.weight', 'tok_embeddings.embedding_weight')
@@ -42,6 +43,7 @@ def name_replace(name: str):
     name = name.replace('.input_layernorm.', '.attention_norm.')
     name = name.replace('.post_attention_layernorm.', '.ffn_norm.')
     return name
+
 
 # pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, use_gmm=False, **kwargs):
@@ -112,6 +114,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, use_gmm=False, **kwarg
     ms.save_checkpoint(ckpt_list, output_path)
     print(f"\rConvert finished, the mindspore ckpt is saved in '{output_path}'.", flush=True)
     return True
+
 
 def convert_ms_to_gmm(input_path, output_path, **kwargs):
     """convert ms weight to gmm."""

@@ -139,8 +139,7 @@ class ViTModel(VitPreTrainedModel):
                 rescale(block.output.projection.weight, layer_id + 1)
 
     def init_weights_vit(self):
-        """init weights vit
-         ViT weight initialization, original timm impl (for reproducibility) """
+        """init weights vit. ViT weight initialization, original timm impl (for reproducibility) """
         for name, cell in self.cells_and_names():
 
             if isinstance(cell, Linear):

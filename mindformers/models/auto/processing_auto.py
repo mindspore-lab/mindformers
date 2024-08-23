@@ -144,7 +144,7 @@ class AutoProcessor:
             raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}\', '
                              f'please select from {local_model_list}')
         local_model_name = yaml_name_or_path.split('_')[cls._model_name]
-        if not yaml_name_or_path in local_model_list[local_model_name]:
+        if yaml_name_or_path not in local_model_list[local_model_name]:
             raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}_{local_model_name}\', '
                              f'please select from {local_model_list[local_model_name]}')
         return False

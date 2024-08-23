@@ -28,8 +28,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class LlamaModelForBlip2(LlamaModel):
-    r"""
-        Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`LlamaDecoderLayer`],
+    """Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`LlamaDecoderLayer`],
         it inherits from LlamaModel and is used to adapt blip2.
         Args:
             config(LlamaConfig): the config of network
@@ -39,7 +38,7 @@ class LlamaModelForBlip2(LlamaModel):
 
         Returns:
             output: Tensor, the output of llama decoder layer
-        """
+    """
 
     def __init__(self, config):
         super().__init__(config)
@@ -74,8 +73,7 @@ class LlamaModelForBlip2(LlamaModel):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class LlamaForBlip2(LlamaForCausalLM, ImageTextEmbeddingPreparationMixIn):
-    r"""
-        Provide llama inference loss or logits through network for blip2.
+    r"""Provide llama inference loss or logits through network for blip2.
         Args:
             config (LlamaConfig): The config of llama model.`
 
@@ -95,7 +93,7 @@ class LlamaForBlip2(LlamaForCausalLM, ImageTextEmbeddingPreparationMixIn):
             >>> network = LlamaForBlip2(config=config)
             >>> type(network)
             <class 'mindformers.models.blip2.blip2_llama.LlamaForBlip2'>
-        """
+    """
 
     def __init__(self, config: LlamaConfig = None):
         checkpoint_name_or_path = config.checkpoint_name_or_path

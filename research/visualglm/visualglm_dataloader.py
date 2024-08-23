@@ -34,6 +34,7 @@ def custom_map_func(row_dict, **kwargs):
         return dict(img=values[0], prompt=values[1], label="")
     return dict(img=values[0], prompt=values[1], label=values[2])
 
+
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
 class VisualGLMDataLoader:
     """VisualGLM DataLoader"""

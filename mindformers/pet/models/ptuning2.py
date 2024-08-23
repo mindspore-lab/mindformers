@@ -22,6 +22,7 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.pet.pet_config import Ptuning2Config
 from mindformers.pet.tuners.ptuning2_adapter import Ptuning2Adapter
 
+
 class Ptuning2Model(PreTrainedModel):
     """
     PTuning2 Model for llm model.

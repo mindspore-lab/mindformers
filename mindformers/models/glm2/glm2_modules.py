@@ -25,6 +25,7 @@ from mindformers.version_control import check_rmsnorm_big_kernel_valid, check_va
 
 from .glm2_config import ChatGLM2Config
 
+
 class FreqsMgr(nn.Cell):
     r"""freqs_cis manager."""
 
@@ -77,6 +78,7 @@ class FreqsMgr(nn.Cell):
         freqs_cos = self.gather(self.freqs_cos, indices, 0)
         freqs_sin = self.gather(self.freqs_sin, indices, 0)
         return freqs_cos, freqs_sin, self.cache
+
 
 class ChatGLM2RMSNorm(nn.Cell):
     r"""
