@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""ST."""
+"""test test_distri_core parallel reducer."""
