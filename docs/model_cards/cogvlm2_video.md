@@ -75,7 +75,9 @@ dtype:       转换后的MindSpore权重参数类型
 
 ## 推理
 
-MindFormers提供`CogVLM2-Video-Chat-13B`的推理示例，目前支持单卡推理。
+MindFormers提供`CogVLM2-Video-Chat-13B`的推理示例，支持单卡推理、多卡推理。
+
+### 单卡推理
 
 1. 修改模型配置文件`configs/cogvlm2/predict_cogvlm2_video_llama3_chat_13b.yaml`
 
@@ -85,6 +87,7 @@ MindFormers提供`CogVLM2-Video-Chat-13B`的推理示例，目前支持单卡推
        use_past: True                         # 开启增量推理
        is_dynamic: True                       # 开启动态shape
 
+   processor:
      tokenizer:
        vocab_file: "/{path}/tokenizer.model"  # 指定tokenizer文件路径
    ```
@@ -113,6 +116,47 @@ MindFormers提供`CogVLM2-Video-Chat-13B`的推理示例，目前支持单卡推
    ```text
    inputs: "run.mp4" "Please describe this video."
    outputs: "The video features a series of close-up shots of a person's feet running on a sidewalk.
-   The footage is captured in a slow-motion style, with each frame highlighting the person's feet and the details of their running shoes.
-   The background is a green screen, which remains consistent throughout the video..."
+   The footage is captured in a slow-motion style, with each frame highlighting the feet' movement and the texture of the shoes..."
+   ```
+
+### 多卡推理
+
+以`CogVLM2-Video-Chat-13B`2卡推理为例。
+
+1. 修改模型配置文件`configs/cogvlm2/predict_cogvlm2_video_llama3_chat_13b.yaml`
+
+   ```yaml
+   auto_trans_ckpt: True                      # 开启权重自动转换
+   use_parallel: True
+   parallel_config:
+     model_parallel: 2                        # 可根据使用device数进行修改
+
+   model:
+     model_config:
+       use_past: True                         # 开启增量推理
+       is_dynamic: True                       # 开启动态shape
+
+   processor:
+     tokenizer:
+       vocab_file: "/{path}/tokenizer.model"  # 指定tokenizer文件路径
+   ```
+
+2. 启动推理脚本
+
+   ```shell
+   export USE_ROPE_SELF_DEFINE=True
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config configs/cogvlm2/predict_cogvlm2_video_llama3_chat_13b.yaml \
+    --run_mode predict \
+    --predict_data \"/path/video.mp4\" \"Please describe this video.\" \
+    --modal_type video text \
+    --load_checkpoint /{path}/cogvlm2-video-llama3-chat.ckpt" 2
+   ```
+
+   推理结果示例：
+
+   ```text
+   inputs: "run.mp4" "Please describe this video."
+   outputs: "The video features a series of close-up shots of a person's feet running on a sidewalk.
+   The footage is captured in a slow-motion style, with each frame highlighting the feet' movement and the texture of the shoes..."
    ```

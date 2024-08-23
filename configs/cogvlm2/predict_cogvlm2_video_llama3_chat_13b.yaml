@@ -29,8 +29,8 @@ callbacks:
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
-  data_parallel: 8
-  model_parallel: 1
+  data_parallel: 1
+  model_parallel: 2
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: False
@@ -49,6 +49,8 @@ recompute_config:
 model:
   model_config:
     type: CogVLM2Config
+    batch_size: 1
+    num_queries: 66
     use_past: True
     is_dynamic: True
     block_size: 16
@@ -127,7 +129,7 @@ processor:
 
   model_transform_template:
     type: CogVLM2ContentTransformTemplate
-    output_columns: [ "input_ids", "position_ids", "images", "video_context_pos" ]
+    output_columns: [ "input_ids", "position_ids", "images", "video_context_pos", "valid_position" ]
     vstack_columns: [ "images", "video_context_pos" ]
     signal_type: "chat"
 
@@ -136,12 +138,12 @@ processor:
     add_eos_token: False
     max_length: 2048
     pad_token: "<|reserved_special_token_0|>"
-    vocab_file: ""
+    vocab_file: "/{path}/tokenizer.model"
     type: CogVLM2Tokenizer
 
 # mindspore context init config
 context:
-  mode: 0 #0--Graph Mode; 1--Pynative Mode
+  mode: 0 # 0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   enable_graph_kernel: False
   ascend_config:
@@ -161,7 +163,7 @@ parallel:
   enable_alltoall: False
   full_batch: True
   search_mode: "sharding_propagation"
-  enable_parallel_optimizer: True
+  enable_parallel_optimizer: False
   strategy_ckpt_config:
     save_file: "./ckpt_strategy.ckpt"
     only_trainable_params: False

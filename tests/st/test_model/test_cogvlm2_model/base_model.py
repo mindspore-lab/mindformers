@@ -19,6 +19,8 @@ from mindformers.models.cogvlm2.cogvlm2 import CogVLM2ForCausalLM, CogVLM2ImageF
 
 # copy from predict_cogvlm2_video_llama3_chat_13b.yaml
 BASE_CONFIG = {
+    'batch_size': 1,
+    'num_queries': 66,
     'block_size': 16,
     'is_dynamic': True,
     'llm_model': {
@@ -84,7 +86,7 @@ BASE_CONFIG = {
                          'with_cls_token': False}}
 }
 
-
+# copy from predict_cogvlm2_image_llama3_chat_19b.yaml
 IMAGE_BASE_CONFIG = {
     'block_size': 16,
     'is_dynamic': False,
@@ -151,19 +153,23 @@ IMAGE_BASE_CONFIG = {
                          'with_cls_token': False}}
 }
 
+
 def get_config():
     """get instanced model config."""
     model_config = MindFormerConfig(**BASE_CONFIG)
     return CogVLM2Config(**model_config)
+
 
 def get_image_config():
     """get instanced model config."""
     model_config = MindFormerConfig(**IMAGE_BASE_CONFIG)
     return CogVLM2Config(**model_config)
 
+
 def get_model(config):
     """get instanced model."""
     return CogVLM2ForCausalLM(config)
+
 
 def get_image_model(config):
     """get instanced model."""

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # This file was refer to project:
-# https://huggingface.co/Qwen/Qwen-VL
+# https://huggingface.co/THUDM/cogvlm2-llama3-chat-19B
 # ============================================================================
 """CogVLM2 LLM APIs."""
 import copy
@@ -27,13 +27,14 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.modules.layers import Linear, SeqExtendMethod
-from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
+from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.models.utils import LayerSetting, check_fine_grain_interleave_valid
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_ms_enable_asd_op, get_predict_run_mode, get_use_rope_self_define
+from mindformers.tools.logger import logger
 
+from ..utils import lazy_inline
 from ..llama.llama import LlamaPreTrainedModel
 from ..llama.llama_config import LlamaConfig
 from ..llama.llama_layer import LlamaEmbedding, LlamaRMSNorm
@@ -59,59 +60,57 @@ class FreqsMgr(nn.Cell):
             max_position_embedding = seq_length
         if extend_method == SeqExtendMethod.NTK.value:
             theta *= scaling_factor
+        self.rotary_dtype = rotary_dtype
         freqs_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32)  # (head_dim // 2, )
         freqs = 1.0 / (theta ** (freqs_base / head_dim))  # (head_dim // 2, )
-        self.freqs = Parameter(Tensor(freqs, mstype.float32), requires_grad=False, name='freqs')
+        self.freqs = Parameter(Tensor(freqs, self.rotary_dtype), requires_grad=False, name='freqs')
         logger.info("init parameter freqs in FreqsMgr.")
         if extend_method == SeqExtendMethod.PI.value:
             t = np.arange(0, max_position_embedding / scaling_factor, 1 / scaling_factor).astype(np.float32)
         else:
             t = np.arange(0, max_position_embedding, 1).astype(np.float32)
-        self.t = Tensor(t, dtype=mstype.float32)
-        self.rotary_dtype = rotary_dtype
-        self.freqs_cos, self.freqs_sin = self._prepare_freqs()
+        self.t = Tensor(t, dtype=self.rotary_dtype)
         swap_mask = FreqsMgr.get_swap_mask(head_dim)
 
         self.head_dim = head_dim
-        self.swap_mask = Tensor(swap_mask, dtype=rotary_dtype)
+        self.swap_mask = Tensor(swap_mask, dtype=self.rotary_dtype)
 
         self.reshape = P.Reshape()
-        self.gather = P.Gather()
         self.expand_dims = P.ExpandDims()
-        self.slice = P.StridedSlice()
         self.gather = P.Gather()
         self.tile = P.Tile()
-
-    def _prepare_freqs(self):
-        freqs = ops.outer(self.t, self.freqs)
-        emb = ops.concat((freqs, freqs), axis=-1)
-        freqs_cos = ops.cast(ops.cos(emb), self.rotary_dtype)
-        freqs_sin = ops.cast(ops.sin(emb), self.rotary_dtype)
-        return freqs_cos, freqs_sin
+        self.add = P.Add()
+        self.concat = P.Concat(axis=-1)
+        self.cos = P.Cos()
+        self.sin = P.Sin()
 
     def construct(self, position_ids):
         """Gather freqs_cos and freqs_sin from input position_ids."""
+        # prepare freqs
+        freqs = ops.outer(self.t, self.freqs)
+        emb = self.concat((freqs, freqs))
+        freqs_cos = self.cast(self.cos(emb), self.rotary_dtype)
+        freqs_sin = self.cast(self.sin(emb), self.rotary_dtype)
+
         # 1. not use_past, position_ids -> (bs, seq_length)
-        # 2. use_past,     position_ids -> (bs, 1)
+        # 2. use_past,     position_ids -> (bs, seq_length/1)
         # freqs_cos, freqs_sin          -> (bs, seq_length, head_dim)
-        freqs_cos = self.gather(self.freqs_cos, position_ids, 0)
-        freqs_sin = self.gather(self.freqs_sin, position_ids, 0)
+        freqs_cos = self.gather(freqs_cos, position_ids, 0)
+        freqs_sin = self.gather(freqs_sin, position_ids, 0)
         # freqs_cos, freqs_sin          -> (bs, 1, seq_length, head_dim)
         freqs_cos = self.expand_dims(freqs_cos, 1)
         freqs_sin = self.expand_dims(freqs_sin, 1)
-
         return freqs_cos, freqs_sin, self.swap_mask
 
     @staticmethod
     def get_swap_mask(head_dim):
-        """Swap matrix"""
+        """Swap matrix."""
         zero_block = np.zeros((head_dim // 2, head_dim // 2), dtype=np.float32)
         id_block = np.identity(head_dim // 2, dtype=np.float32)
         return np.block([[zero_block, id_block], [-id_block, zero_block]])
 
     def shard(self):
-        self.slice.shard(((1, 1),))
-        self.gather.shard(((1, 1), (1,)))
+        self.gather.shard(((1, 1), (1, 1)))
         self.tile.shard(((1, 1),))
 
 
@@ -182,7 +181,10 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type)
         dp = config.parallel_config.data_parallel
+        mp = config.parallel_config.model_parallel
         cp = config.parallel_config.context_parallel
+        if cp > 1:
+            raise ValueError("CogVLM2 does not support cp > 1.")
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.tok_embeddings.pipeline_stage = 0
             if config.parallel_config.pipeline_stage > 1:
@@ -201,6 +203,14 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
             else:
                 self.norm_out.shard((dp, cp, 1))
             self.freqs_mgr.shard()
+
+            for layer in self.layers:
+                if self.use_past:
+                    layer.attention.infer_attention.rotary_embedding.mul.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
+                    layer.attention.infer_attention.rotary_embedding.mul_inc.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
+                else:
+                    layer.attention.apply_rotary_emb.mul.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
+                    layer.attention.apply_rotary_emb.mul_inc.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
 
     def build_decoderlayer(self, layer_id, config):
         """Build llama decoderlayer."""
@@ -270,9 +280,9 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
             if input_embeds is None or input_attention_masks is None:
                 raise ValueError("input_embeds and input_attention_masks should not be None when tokens is None.")
             h = self.cast(input_embeds, self.dtype)
-        freqs_cis = self.freqs_mgr(position_ids)
 
         bs, seq_len, _ = self.shape(h)
+        freqs_cis = self.freqs_mgr(position_ids)
         mask = None
         if self.use_past and self.is_first_iteration:
             if self.use_flash_attention:
@@ -318,6 +328,7 @@ class CogVLM2VideoLM(LlamaPreTrainedModel):
         output: Tensor, the output of CogVLM2VideoLM.
     """
 
+    @lazy_inline
     def __init__(self, config: LlamaConfig = None):
         super(CogVLM2VideoLM, self).__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)
@@ -377,7 +388,7 @@ class CogVLM2VideoLM(LlamaPreTrainedModel):
         self.load_checkpoint(config)
         self.predict_run_mode = get_predict_run_mode()
 
-        logger.info("Predict run mode:{}".format(self.predict_run_mode))
+        logger.info(f"Predict kbk mode: {self.predict_run_mode}")
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """Get model input tuple for transform ckpt."""
@@ -422,7 +433,7 @@ class CogVLM2VideoLM(LlamaPreTrainedModel):
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None):
-        """CogVLM2VideoLM forward."""
+        """Forward of CogVLM2VideoLM."""
         if input_ids is None and input_embeds is None:
             raise ValueError("input_ids and input_embeds should not be None at the same time.")
 
