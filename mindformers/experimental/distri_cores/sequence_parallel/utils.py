@@ -14,11 +14,15 @@
 # ============================================================================
 """Ring Attention utils."""
 from mindspore import Tensor
+from mindspore import ops
 from mindspore.communication import get_group_size, get_rank
+import numpy as np
 
 from mindformers.experimental.distri_cores.create_comm import get_cp_rank, get_dp_world_size, get_cp_world_size
 
-def get_sp_chuncks(batch, input_layout, enable_dp_shard=True, enable_flash_sp=False):
+
+def get_sp_chuncks(batch, input_layout, enable_dp_shard=True,
+                   enable_flash_sp=False):
     """
     Slice batch input along sequence dimension into multiple chunks,
     which are parallelized across NPUs in a sequence parallel group.
@@ -29,7 +33,8 @@ def get_sp_chuncks(batch, input_layout, enable_dp_shard=True, enable_flash_sp=Fa
     sp = get_cp_world_size()
 
     if not isinstance(enable_flash_sp, bool):
-        raise TypeError(f"The type of enable_flash_sp must be bool, but got the {type(enable_flash_sp)}")
+        raise TypeError(
+            f"The type of enable_flash_sp must be bool, but got the {type(enable_flash_sp)}")
     if not enable_flash_sp:
         if input_layout == "BSH":
             seq_dim = 1
@@ -41,16 +46,19 @@ def get_sp_chuncks(batch, input_layout, enable_dp_shard=True, enable_flash_sp=Fa
             seq_dim = 0
             batch_dim = 1
         else:
-            raise ValueError(f"Only input_layout = 'BSH' or 'BNSD' or 'SBH' is supported")
+            raise ValueError(
+                f"Only input_layout = 'BSH' or 'BNSD' or 'SBH' is supported")
     else:
         if input_layout == "BSH":
             seq_dim = 1
             batch_dim = 0
         else:
-            raise ValueError(f"For FlashSP, only input_layout = 'BSH' is supported")
+            raise ValueError(
+                f"For FlashSP, only input_layout = 'BSH' is supported")
 
     if not isinstance(enable_dp_shard, bool):
-        raise TypeError(f"The type of enable_dp_shard must be bool, but got the {type(enable_dp_shard)}")
+        raise TypeError(
+            f"The type of enable_dp_shard must be bool, but got the {type(enable_dp_shard)}")
 
     if dp * sp != world_size:
         raise ValueError(f"The product of dp and sp should be equal to total device number,"
@@ -85,7 +93,8 @@ def get_sp_chuncks(batch, input_layout, enable_dp_shard=True, enable_flash_sp=Fa
                 )
             sp_group_index = get_rank() // sp
             sp_group_index = Tensor([sp_group_index])
-            batch = batch.index_select(batch_dim, sp_group_index).squeeze(batch_dim)
+            batch = batch.index_select(
+                batch_dim, sp_group_index).squeeze(batch_dim)
 
     if sp > 1:
         if seq_dim == 0:
@@ -111,6 +120,144 @@ def get_sp_chuncks(batch, input_layout, enable_dp_shard=True, enable_flash_sp=Fa
         if seq_dim == 0:
             batch = batch.view(-1, *batch.shape[(seq_dim + 2):])
         else:
-            batch = batch.view(*batch.shape[0:seq_dim], -1, *batch.shape[(seq_dim + 2):])
+            batch = batch.view(
+                *batch.shape[0:seq_dim], -1, *batch.shape[(seq_dim + 2):])
 
     return batch
+
+
+def get_sp_chuncks_attn_mask_general(attn_mask):
+    """
+    Slice attention_mask input along sequence dimension into multiple chunks,
+    which are parallelized across NPUs in a sequence parallel group.
+    No head-to-tail data rearrangement
+    """
+    sp_rank = get_cp_rank()
+    sp = get_cp_world_size()
+
+    if len(attn_mask.shape) != 2:
+        raise AssertionError("The fusion attention operator currently only support 2D attention mask.")
+    attn_mask = ops.chunk(attn_mask, sp, axis=0)[sp_rank]
+
+    return attn_mask
+
+
+def get_sp_chuncks_general(batch, input_layout):
+    """
+    Slice batch input along sequence dimension into multiple chunks,
+    which are parallelized across NPUs in a sequence parallel group.
+    No head-to-tail data rearrangement
+    """
+    sp_rank = get_cp_rank()
+    sp = get_cp_world_size()
+
+    if input_layout == "BSH":
+        seq_dim = 1
+    elif input_layout == "BNSD":
+        seq_dim = 2
+    elif input_layout == "SBH":
+        seq_dim = 0
+    else:
+        raise ValueError(
+            f"Only input_layout = 'BSH' or 'BNSD' or 'SBH' is supported")
+
+    val = ops.chunk(batch, sp, axis=seq_dim)[sp_rank]
+
+    return val
+
+
+def get_batch_on_this_cp_rank_with_ringattention(
+        input_ids, labels, attention_mask):
+    """
+    Transformed batch data to support ringattention.
+    """
+    return get_batch_on_this_cp_rank(
+        input_ids, labels, attention_mask, enable_flash_sp=False)
+
+
+def get_batch_on_this_cp_rank_with_flashsp(input_ids, labels, attention_mask):
+    """
+    Transformed batch data to support flashsp.
+    """
+    return get_batch_on_this_cp_rank(
+        input_ids, labels, attention_mask, enable_flash_sp=True)
+
+
+def get_batch_on_this_cp_rank(
+        input_ids, labels, attention_mask, enable_flash_sp=True):
+    """
+    Transformed batch data to support sequence parallelism.
+    """
+    sp_size = get_cp_world_size()
+    if sp_size <= 1:
+        return input_ids, labels, attention_mask
+    sp_rank = get_cp_rank()
+    for i in range(3):
+        if i == 0:
+            val = input_ids
+            seq_dim = 1
+        elif i == 1:
+            val = labels
+            seq_dim = 1
+        else:
+            val = attention_mask
+            seq_dim = 2
+
+        val = val.reshape(
+            *val.shape[0:seq_dim],
+            2 * sp_size,
+            val.shape[seq_dim] // (2 * sp_size),
+            *val.shape[(seq_dim + 1):],
+        )
+        if enable_flash_sp:
+            index = ([2 * sp_rank, 2 * sp_rank + 1])
+        else:
+            index = [sp_rank, (2 * sp_size - sp_rank - 1)]
+        val = np.take(val, index, axis=seq_dim)
+        val = val.reshape(
+            *val.shape[0:seq_dim], -1, *val.shape[(seq_dim + 2):])
+
+        if i == 0:
+            input_ids = val
+        elif i == 1:
+            labels = val
+        else:
+            attention_mask = val
+
+    return input_ids, labels, attention_mask
+
+
+def get_batch_on_this_cp_rank_general(
+        input_ids, labels, attention_mask):
+    """
+    Args:
+        batch (dict): Dictionary containing batch data.
+
+    Returns:
+        dict: Transformed batch data to support sequence parallelism.
+    """
+    sp_size = get_cp_world_size()
+    sp_rank = get_cp_rank()
+
+    if sp_size <= 1:
+        return input_ids, labels, attention_mask
+    for i in range(3):
+        if i == 0:
+            val = input_ids
+            seq_dim = 1
+        elif i == 1:
+            val = labels
+            seq_dim = 1
+        else:
+            val = attention_mask
+            seq_dim = 2
+
+        val = np.split(val, sp_size, axis=seq_dim)[sp_rank]
+
+        if i == 0:
+            input_ids = val
+        elif i == 1:
+            labels = val
+        else:
+            attention_mask = val
+    return input_ids, labels, attention_mask
