@@ -26,7 +26,6 @@ from mindspore import dtype as mstype
 
 from .base_model import get_config, get_model, get_image_model, get_image_config
 
-local_dir = os.path.dirname(os.path.realpath(__file__))
 ms.set_context(mode=0, jit_config={"jit_level": "O0", "infer_boost": "on"})
 
 
@@ -56,7 +55,7 @@ class TestCogVLM2VideoPredict:
     @pytest.mark.env_onecard
     def test_base_model(self):
         """
-        Feature: Base model predict
+        Feature: Video model predict
         Description: Test base model prediction.
         Expectation: AssertionError
         """
@@ -64,21 +63,28 @@ class TestCogVLM2VideoPredict:
         os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         model_config = get_config()
         model = get_model(model_config)
-        input_ids = np.random.randint(0, 128, size=(1, 1280), dtype=np.int32)
+        input_ids = np.random.randint(0, 128, size=(1, 1024), dtype=np.int32)
+        input_ids = np.pad(input_ids, ((0, 0), (0, 1024)), 'constant', constant_values=128002)
         images = Tensor(np.random.random(size=(1, 3, 224, 224)), dtype=mstype.float32)
         video_context_pos = Tensor(np.array([[[0, i + 3] for i in range(66)]], dtype=np.int32))
         position_ids = Tensor(np.arange(2048, dtype=np.int32)).expand_dims(axis=0)
+        valid_position = np.array([[1]], dtype=np.int32)
         _ = model.generate(input_ids=input_ids,
                            images=images,
                            video_context_pos=video_context_pos,
-                           position_ids=position_ids)
+                           position_ids=position_ids,
+                           valid_position=valid_position)
+
+
+class TestCogVLM2ImagePredict:
+    """A test class for testing model prediction."""
 
     @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
-    def test_image_model(self):
+    def test_base_model(self):
         """
-        Feature: image model predict
+        Feature: Image model predict
         Description: Test image model prediction.
         Expectation: AssertionError
         """
@@ -91,18 +97,16 @@ class TestCogVLM2VideoPredict:
         position_ids = np.expand_dims(np.arange(4096, dtype=np.int32), 0)
         token_type_ids = np.zeros((1, 4096))
         token_type_ids[:, 1:2307] = 1
-        vision_context_pos = generate_context_positions(token_type_ids[0], 1)
+        image_context_pos = generate_context_positions(token_type_ids[0], 1)
         vision_token_mask, language_token_mask = get_expert_mask(token_type_ids)
         vision_indices = generate_context_positions(vision_token_mask[0], True)
         language_indices = generate_context_positions(language_token_mask[0], True)
-        _ = model.generate(
-            input_ids=input_ids,
-            images=images,
-            vision_context_pos=vision_context_pos,
-            position_ids=position_ids,
-            vision_token_mask=vision_token_mask,
-            language_token_mask=language_token_mask,
-            vision_indices=vision_indices,
-            language_indices=language_indices,
-            max_length=4096,
-        )
+        _ = model.generate(input_ids=input_ids,
+                           images=images,
+                           image_context_pos=image_context_pos,
+                           position_ids=position_ids,
+                           vision_token_mask=vision_token_mask,
+                           language_token_mask=language_token_mask,
+                           vision_indices=vision_indices,
+                           language_indices=language_indices,
+                           max_length=4096)

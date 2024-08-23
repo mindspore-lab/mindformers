@@ -59,6 +59,9 @@ class CogVLM2Config(PretrainedConfig):
                  **kwargs):
         super().__init__(**kwargs)
 
+        if isinstance(parallel_config, dict):
+            parallel_config = TransformerOpParallelConfig(**parallel_config)
+
         self.vision_model = vision_model
         self.llm_model = llm_model
 

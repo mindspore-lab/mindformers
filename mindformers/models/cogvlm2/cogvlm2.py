@@ -30,10 +30,12 @@ from mindformers.modules.activation import GELU, SiLU
 from mindformers.modules.layers import Linear, LayerNorm
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
+
 from .cogvlm2_config import CogVLM2Config
 from ..multi_modal.base_model import BaseXModalToTextModel
+from ..utils import lazy_inline
 
-__all__ = ['CogVLM2ForCausalLM']
+__all__ = ['CogVLM2ForCausalLM', 'CogVLM2ImageForCausalLM']
 
 
 class GLU(nn.Cell):
@@ -116,7 +118,7 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
         config (CogVLM2Config): The config of CogVLM2 model.
     """
 
-    # @lazy_inline
+    @lazy_inline
     def __init__(self, config: CogVLM2Config, **kwargs):
         super().__init__(config, **kwargs)
         self.config = config
@@ -146,58 +148,43 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
         self.is_first_iteration = True
         self.pad_token_id = config.pad_token_id
         self.eos_token_id = config.eos_token_id
-        self.ignore_token_id = ms.Tensor(config.ignore_token_id, mstype.int32)
+        self.ignore_token_id = ms.Tensor(config.ignore_token_id, mstype.int64)
+        self.context_token_id = ms.Tensor(128004, mstype.int64)
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.cast = P.Cast()
-        self.ones = P.Ones()
-        self.concat = P.Concat(axis=1)
-        self.gather_nd = P.GatherNd()
-        self.expand_dims = P.ExpandDims()
 
         parallel_config = config.parallel_config
         self.not_equal = P.NotEqual().shard(((parallel_config.data_parallel, 1), ()))
-        self.slice = P.StridedSlice().shard(((parallel_config.data_parallel, 1),))
+        self.stride_slice = P.StridedSlice().shard(((parallel_config.data_parallel, 1),))
         self.masked_fill = P.MaskedFill().shard(
             ((parallel_config.data_parallel, 1), (parallel_config.data_parallel, 1), ()))
 
         self.gather = P.Gather().shard(((1, 1, 1), ()))
         self.equal = P.Equal().shard(((parallel_config.data_parallel, 1), ()))
 
-        self.batch_idx = None
-
-    def generate_batch_idx(self, batch_size):
-        """Generate batched index."""
-        if self.batch_idx is None:
-            self.batch_idx = Tensor([[i] for i in range(batch_size)], dtype=mstype.int32)
-
-    # pylint: disable=W0613
-    def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
-        """Update model kwargs before generate."""
-        batch_size, _ = input_ids.shape
-        self.generate_batch_idx(batch_size)
+        self.iter_num = 0
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """Prepare inputs for generation in inference."""
-        is_first_iteration = self.is_first_iteration
-        if self.config.is_dynamic and "origin_inputs" in kwargs:
-            input_ids = kwargs.get("origin_inputs")
-            is_first_iteration = True
-        batch_size, _ = input_ids.shape
-
+        images = kwargs.pop("images")
+        video_context_pos = kwargs.pop("video_context_pos")
         position_ids = kwargs.pop("position_ids")
-        if is_first_iteration or not self.use_past:
-            images = kwargs.pop("images")
-            video_context_pos = kwargs.pop("video_context_pos")
-        else:
-            # generate data not used in incremental predict
-            img_shape = (batch_size * 24, 3, self.image_size, self.image_size)
-            images = self.ones(img_shape, ms.float32)
-            video_context_pos = self.ones((batch_size * 24, self.config.num_queries, 2), mstype.int32)
+        valid_position = kwargs.pop("valid_position")
 
+        is_first_iteration = kwargs.get('prefill')
+        if not is_first_iteration:
+            if isinstance(position_ids, Tensor):
+                position_ids = position_ids.numpy()
+            cur_valid_pos = valid_position + self.iter_num
+            position_ids = np.take_along_axis(position_ids, cur_valid_pos, axis=1)
+            position_ids = Tensor(position_ids, ms.int32)
+            self.iter_num += 1
+        else:
+            self.iter_num = 0
         return {
-            "input_ids": ms.Tensor(input_ids, mstype.int32),
+            "input_ids": Tensor(input_ids, mstype.int32),
             "images": images,
             "video_context_pos": video_context_pos,
             "position_ids": position_ids
@@ -207,37 +194,33 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
         """Prepare inputs for predict layout."""
         input_ids = Tensor(input_ids, mstype.int32)
         bs, seq_length = F.shape(input_ids)
-
         if "images" in kwargs:
             images = Tensor(kwargs.get("images"))
         else:
-            images = Tensor(np.random.random((bs, 3, self.image_size, self.image_size)), ms.float32)
-
-        if "img_pos" in kwargs:
-            img_pos = Tensor(kwargs.get("img_pos"))
+            images = Tensor(np.random.random((bs, 3, self.image_size, self.image_size)), mstype.float32)
+        if "video_context_pos" in kwargs:
+            video_context_pos = Tensor(kwargs.get("video_context_pos"))
         else:
-            img_pos = Tensor(np.random.randint(0, self.num_queries, (bs, self.num_queries, 2)), ms.int32)
-
+            video_context_pos = Tensor(np.random.randint(0, self.num_queries, (bs, self.num_queries, 2)), mstype.int32)
         if 'position_ids' in kwargs:
             position_ids = Tensor(kwargs.get("position_ids"))
         else:
-            position_ids = Tensor(np.tile(np.arange(seq_length), bs).reshape((bs, seq_length)), ms.int32)
-
-        self.generate_batch_idx(bs)
-        slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
-        return input_ids, images, img_pos, None, None, position_ids, None, None, None, None, None, None, slot_mapping
+            position_ids = Tensor(np.tile(np.arange(seq_length), bs).reshape((bs, seq_length)), mstype.int32)
+        slot_mapping = Tensor(np.ones(shape=tuple([bs * seq_length])), mstype.int32)
+        return (input_ids, images, video_context_pos, position_ids, None, None, None, None,
+                None, None, None, None, slot_mapping)
 
     def set_dynamic_inputs(self, **kwargs):
         """Set dynamic inputs for model."""
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_images = Tensor(shape=[None, None, None, None], dtype=mstype.float32)
-        dynamic_video_context_pos = Tensor(shape=[None, None, None], dtype=mstype.int32)
+        dynamic_video_context_pos = Tensor(shape=[None, self.num_queries, 2], dtype=mstype.int32)
         dynamic_position_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
-        self.set_inputs(dynamic_input_ids, dynamic_images, dynamic_video_context_pos, None, None,
-                        dynamic_position_ids, None, None, dynamic_batch_valid_length, None, None,
+        self.set_inputs(dynamic_input_ids, dynamic_images, dynamic_video_context_pos, dynamic_position_ids,
+                        None, None, None, None, dynamic_batch_valid_length, None, None,
                         dynamic_block_tables, dynamic_slot_mapping)
 
         self.llm_model.set_dynamic_inputs()
@@ -252,30 +235,24 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
         """Get kvcache from llm with input layer index."""
         return self.llm_model.kvcache(layer_idx)
 
-    def gat_batched_position(self, batch_valid_length, position_ids):
-        """Get batched position_ids when use dynamic inputs."""
-        batch_size, _ = F.shape(position_ids)
-        position_idx = self.concat((self.batch_idx, self.reshape(batch_valid_length, (batch_size, -1))))
-        position_ids = self.reshape(self.gather_nd(position_ids, position_idx), (batch_size, -1))
-        return position_ids
-
-    def construct(self, input_ids, images, video_context_pos: Tensor = None, labels=None,
-                  input_position=None, position_ids=None, attention_mask=None, init_reset=None, batch_valid_length=None,
+    def construct(self, input_ids, images, video_context_pos=None, position_ids=None, labels=None,
+                  input_position=None, attention_mask=None, init_reset=None, batch_valid_length=None,
                   batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None):
-        """Forward of CogVLM2"""
+        """Forward of CogVLM2."""
         bs, seq_len = self.shape(input_ids)
         if self.training:
             tokens = self.stride_slice(input_ids, (0, 0), (bs, seq_len - 1), (1, 1))
+            position_ids = self.stride_slice(position_ids, (0, 0), (bs, seq_len - 1), (1, 1))
             if labels is None:
                 pad_input_ids_pos = self.equal(input_ids, self.pad_token_id)
                 labels = self.masked_fill(input_ids, pad_input_ids_pos, self.ignore_token_id)
-                pad_label_pos = self.equal(labels, self.pad_token_id)
-                labels = self.masked_fill(labels, pad_label_pos, self.ignore_token_id)
+                pad_content_pos = self.equal(input_ids, self.context_token_id)
+                labels = self.masked_fill(labels, pad_content_pos, self.ignore_token_id)
         else:
             tokens = input_ids
+            position_ids = self.stride_slice(position_ids, (0, 0), (bs, seq_len), (1, 1))
 
         input_embeds = self.llm_model.to_embeddings(tokens)
-
         if attention_mask is None:
             attention_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
 
@@ -288,11 +265,6 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
             image_embeds = self.vision_encoder(images)
             image_embeds = self.mlp_adapter(image_embeds)
             input_embeds = self.update_modal_to_text(image_embeds, input_embeds, video_context_pos)
-
-        if self.is_first_iteration:
-            position_ids = self.slice(position_ids, (0, 0), (bs, seq_len), (1, 1))
-        else:
-            position_ids = self.gat_batched_position(batch_valid_length, position_ids)
 
         return self.llm_model(
             input_ids=None,

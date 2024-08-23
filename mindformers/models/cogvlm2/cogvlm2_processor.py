@@ -30,6 +30,7 @@ from mindformers.dataset.transforms.vision_transforms import (
     BatchNormalize, BatchCenterCrop
 )
 from mindformers.models.image_processing_utils import BaseImageProcessor
+from mindformers.tools.logger import logger
 
 from ..multi_modal import ModalContentTransformTemplate, BaseTextContentBuilder
 from ..multi_modal.base_multi_modal_processor import BatchResizeV2
@@ -47,34 +48,26 @@ class VideoProcessor:
     def __init__(self,
                  num_frames=1,
                  pad_frames=False,
-                 frames_per_sec=None):
+                 frames_interval=1):
         self.num_frames = num_frames
         self.pad_frames = pad_frames
-        self.frames_per_sec = frames_per_sec
+        self.frames_interval = frames_interval
 
     def __call__(self, video_file_path):
+        if not isinstance(video_file_path, str):
+            video_file_path = str(video_file_path)
         frames = self.cv_video_to_image(video_file_path)
         return frames
 
     # pylint: disable=W0640
     def cv_video_to_image(self, video_path):
-        """Extract input video frames with strategy."""
+        """Extract input video frames with cv2."""
         cap = cv2.VideoCapture(video_path)
         fps = cap.get(cv2.CAP_PROP_FPS)
         frame_nums = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        seconds = [_ / fps for _ in range(frame_nums)]
-        max_second = round(max(seconds)) + 1
-
-        if self.frames_per_sec is None:
-            frame_ids = []
-            for sec in range(max_second):
-                closest_num = min(seconds, key=lambda x: abs(x - sec))
-                index = seconds.index(closest_num)
-                frame_ids.append(index)
-                if len(frame_ids) >= self.num_frames:
-                    break
-
-        elif isinstance(self.frames_per_sec, int) and self.frames_per_sec > 0:
+        if isinstance(self.frames_interval, int) and self.frames_interval > 0:
+            seconds = [_ / fps for _ in range(frame_nums)]
+            max_second = round(max(seconds)) + 1
             sec_idx = []
             for sec in range(max_second):
                 closest_num = min(seconds, key=lambda x: abs(x - sec))
@@ -85,24 +78,28 @@ class VideoProcessor:
             for idx in range(len(sec_idx) - 1):
                 start_idx = sec_idx[idx]
                 end_idx = sec_idx[idx + 1]
-                for _ in range(self.frames_per_sec):
-                    fetch_idx = (_ / self.frames_per_sec) * (end_idx - start_idx) + start_idx
+                for _ in range(self.frames_interval):
+                    fetch_idx = (_ / self.frames_interval) * (end_idx - start_idx) + start_idx
                     frame_ids.append(fetch_idx)
                     if len(frame_ids) >= self.num_frames:
                         is_full = True
                         break
                 if is_full:
                     break
-
+        elif self.frames_interval == 'average':
+            frame_ids = np.linspace(0, frame_nums,
+                                    num=self.num_frames, endpoint=False, dtype=np.int32)
         else:
-            raise ValueError(f"unsupported input strategy frames_per_sec: {self.frames_per_sec}.")
+            raise ValueError(f"unsupported video frames_interval strategy: {self.frames_interval}.")
 
         frames = []
         for idx in frame_ids:
             cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
             ret, frame = cap.read()
             if not ret:
-                raise ValueError("video frame corruption.")
+                logger.error(f"{video_path} frames in video may corrupt, it may cause interruption of training.")
+                cap.release()
+                return None
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frames.append(frame)
         cap.release()
@@ -148,7 +145,7 @@ class CogVLM2ImageProcessor(BaseImageProcessor):
         Preprocess Required By Base Processor.
 
         Args:
-            images (ms.Tensor, PIL.Image, numpy.array, List[PIL.Image]): A batch of images.
+            images (ms.Tensor, PIL.Image, numpy.ndarray, List[PIL.Image]): A batch of images.
 
         Return:
             A 4-rank tensor for a batch of images.
@@ -195,8 +192,8 @@ class CogVLM2VideoContentBuilder(ModalContentBuilder):
             tokenizer=None,
             num_frames=24,
             pad_frames=False,
-            frames_per_sec=None,
-            image_size=224
+            image_size=224,
+            frames_interval=1
     ):
         super(CogVLM2VideoContentBuilder, self).__init__(
             type_="video",
@@ -207,14 +204,11 @@ class CogVLM2VideoContentBuilder(ModalContentBuilder):
             end_token=end_token,
             tokenizer=tokenizer
         )
-
-        self.num_frames = 0
-        self.vision_token_type = 0
-        self.language_token_type = 1
-
+        self.vision_token_type = 1
+        self.language_token_type = 0
         self.video_reader = VideoProcessor(num_frames=num_frames,
                                            pad_frames=pad_frames,
-                                           frames_per_sec=frames_per_sec)
+                                           frames_interval=frames_interval)
         self.image_processor = CogVLM2ImageProcessor(image_size)
 
     # pylint: disable=W0613
@@ -223,9 +217,9 @@ class CogVLM2VideoContentBuilder(ModalContentBuilder):
         video_path = inputs["video"]
         images = self.video_reader(video_path)
         images = self.image_processor(images)
-        self.num_frames = images.shape[0]
         text = self.start_token + self.end_token
         result_recorder.put("images", images)
+        result_recorder.put('frame_num', images.shape[0])
         return text
 
     def regular_input_for_train(self, inputs, result_recorder: DataRecord = None, **kwargs):
@@ -247,7 +241,7 @@ class CogVLM2VideoContentBuilder(ModalContentBuilder):
         video_token_ids = []
         types = []
         cur_position = 1
-        for time_index in range(self.num_frames):
+        for time_index in range(result_recorder.get('frame_num')):
             video_token_ids += [self.context_pad_token_id] * self.context_length
 
             types += [self.vision_token_type] * self.context_length
@@ -276,7 +270,7 @@ class CogVLM2VideoContentBuilder(ModalContentBuilder):
                               end_values=(0, cur_position + padding_length - 1))
 
         result_recorder.put("position_ids", position_ids)
-
+        result_recorder.put("valid_position", np.array([position_ids.size]))
         return input_ids
 
 
@@ -330,9 +324,8 @@ class CogVLM2ContentTransformTemplate(ModalContentTransformTemplate):
         """Update result before output."""
         update_items = {}
         if not result.has_key("position_ids"):
-            position_ids = [i for i in range(len(result.get("input_ids")))]
-            update_items["position_ids"] = position_ids
-
+            position_ids = np.arange(len(result.get("input_ids")), dtype=np.int32)
+            update_items["position_ids"] = ms.Tensor(position_ids)
         return update_items
 
     def batch(self, data_list, token_padding_length, **kwargs):
