@@ -418,6 +418,9 @@ def get_tensor_and_context_parallel_world_size():
     """Return world size for the tensor parallel group and context parallel group."""
     return _get_world_size_helper('tp-cp')
 
+def get_data_modulo_expert_parallel_world_size():
+    return _get_world_size_helper('dp-independent_ep')
+
 
 ### get rank
 def _get_rank_helper(mode):

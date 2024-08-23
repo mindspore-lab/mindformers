@@ -50,7 +50,9 @@ from mindformers.experimental.distri_cores.create_comm import (
     get_pp_group,
     is_pipeline_last_stage,
     set_vpp_rank,
-    is_pipeline_first_stage
+    is_pipeline_first_stage,
+    get_data_modulo_expert_parallel_group,
+    get_ep_world_size
 )
 from mindformers.experimental.distri_cores.pipeline_parallel import PipelineCell
 from mindformers.experimental.distri_cores.pipeline_parallel.schedules import (
@@ -101,6 +103,7 @@ class ParallelTrainingReducer:
             "dp": False,
             "pp": False,
             "tp": False,  # only valid in the case of sequence parallel
+            "ep-dp": False
         }
 
         self.enable_loss_reduce = {
@@ -116,6 +119,7 @@ class ParallelTrainingReducer:
         }
 
         self.sp_reduce_params = get_sp_params(training_config)
+        self.expert_params = ["mlp.experts.local_experts"]
 
         self.batch_reduction = training_config.loss_reduction
 
@@ -140,16 +144,32 @@ class ParallelTrainingReducer:
         if get_pp_world_size() > 1:
             self.enable_grad_flag_reduce["pp"] = True
 
+        # ep
+        if get_ep_world_size() > 1:
+            self.enable_grad_reduce["ep-dp"] = True
+            self.expert_filter = [
+                any([ep_param in param.name for ep_param in self.expert_params]) for param in params
+            ]
+
+    def get_reduce_group(self, idx):
+        if self.enable_grad_reduce["ep-dp"] and self.expert_filter[idx]:
+            group = get_data_modulo_expert_parallel_group()
+        else:
+            group = get_dp_group()
+        return group
+
     def inplace_reduce_dp_grad(self, grads):
         """Reduce the gradients in data parallel mode."""
         if not self.enable_grad_reduce["dp"]:
             return
         if self.batch_reduction == "mean":
             for idx, grad in enumerate(grads):
-                grads[idx] = mint.div(all_reduce(grad, "sum", get_dp_group()), get_dp_world_size())
+                group = self.get_reduce_group(idx)
+                grads[idx] = mint.div(all_reduce(grad, "sum", group), get_dp_world_size())
         elif self.batch_reduction == "sum":
             for idx, grad in enumerate(grads):
-                grads[idx] = all_reduce(grad, "sum", get_dp_group())
+                group = self.get_reduce_group(idx)
+                grads[idx] = all_reduce(grad, "sum", group)
 
     def inplace_reduce_sp_grad(self, grads):
         """Reduce the gradients in sequence parallel mode over tp group."""
