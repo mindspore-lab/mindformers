@@ -19,11 +19,10 @@ import os
 from mindspore.dataset import GeneratorDataset
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
-from .base_dataloader import BaseDataLoader
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
-class ADGenDataLoader(BaseDataLoader):
+class ADGenDataLoader:
     """ADGen Dataloader"""
     def __new__(cls, dataset_dir, phase, shuffle, origin_columns, **kwargs):
         r"""
@@ -51,35 +50,29 @@ class ADGenDataLoader(BaseDataLoader):
             >>>     print(item)
             >>>     break
         """
-        logger.info(f"dataset_dir: {dataset_dir}, dataset_path : {dataset_path}")
-        logger.info(f"origin_columns: {origin_columns}")
         column_names = ["prompt", "answer"]
-        if dataset_path is not None and dataset_path.strip() != "":
-            adgen_dataset = ADGenFromRemoteDataset(dataset_path, origin_columns, data_files, phase, token)
-        else:
-            dataset_dir = os.path.realpath(dataset_dir)
-            if not os.path.isfile(dataset_dir):
-                raise ValueError(f"{dataset_dir} is not existed.")
+        dataset_dir = os.path.realpath(dataset_dir)
+        if not os.path.isfile(dataset_dir):
+            raise ValueError(f"{dataset_dir} is not existed.")
 
-            if phase not in ["train", "eval"]:
-                raise ValueError(f"phase should be in train or eval.")
+        if phase not in ["train", "eval"]:
+            raise ValueError(f"phase should be in train or eval.")
 
+        # verify dataset column names
+        if not isinstance(column_names, (tuple, list)):
+            raise TypeError(f"column_names should be a tuple or a list"
+                            f" of string with length 2, but got {type(column_names)}, length {len(column_names)}")
 
-            # verify dataset column names
-            if not isinstance(column_names, (tuple, list)):
-                raise TypeError(f"column_names should be a tuple or a list"
-                                f" of string with length 2, but got {type(column_names)}, length {len(column_names)}")
+        for name in column_names:
+            if not isinstance(name, str):
+                raise ValueError(f"the item type of column_names should be string,"
+                                 f" but got {type(name)}")
 
-            for name in column_names:
-                if not isinstance(name, str):
-                    raise ValueError(f"the item type of column_names should be string,"
-                                     f" but got {type(name)}")
-
-            # verify origin column names
-            if not isinstance(origin_columns, (tuple, list)) or len(origin_columns) != 2:
-                raise TypeError(f"origin_columns should be a tuple or a list of string with length 2, "
-                                f" but got {type(origin_columns)}, length {len(origin_columns)}")
-            adgen_dataset = ADGenDataset(dataset_dir, origin_columns, phase)
+        # verify origin column names
+        if not isinstance(origin_columns, (tuple, list)) or len(origin_columns) != 2:
+            raise TypeError(f"origin_columns should be a tuple or a list of string with length 2, "
+                            f" but got {type(origin_columns)}, length {len(origin_columns)}")
+        adgen_dataset = ADGenDataset(dataset_dir, origin_columns, phase)
 
         kwargs.pop("None", None)
         info = f"[DATASET] shuffle status is {shuffle}, phase is {phase}."

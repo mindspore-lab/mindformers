@@ -1,4 +1,17 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+# Copyright 2024 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
 """Base Dataset Handler."""
 import abc
 from dataclasses import dataclass
@@ -84,11 +97,14 @@ class BaseInstructDataHandler:
 
     def get_tokenizer(self, config):
         """get tokenizer"""
+        tokenizer_name = config.tokenizer_name
         if tokenizer_name is not None and tokenizer_name.strip() != "":
             word_tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-        else:
+        elif config.tokenizer:
             tokenizer_dict = config.tokenizer
             word_tokenizer = build_tokenizer(tokenizer_dict)
+        else:
+            return None
 
         if hasattr(word_tokenizer, 'add_bos_token'):
             word_tokenizer.add_bos_token = True
