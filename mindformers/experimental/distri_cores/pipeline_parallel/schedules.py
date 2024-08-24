@@ -45,6 +45,12 @@ def get_set_hidden_states_parameter(model):
     if param is None:
         raise RuntimeError("Parameter 'set_hidden_states' is not found.")
 
+def rename_hidden_states_parameter(model, model_chunk_id=None):
+    weight_untrainable = model.untrainable_params()
+    for param in weight_untrainable:
+        if "set_hidden_states" in param.name:
+            param.name = param.name + f"_{model_chunk_id}_chunk"
+
 # pylint: disable=W0613
 def run_forward(*input_data,
                 model,

@@ -180,7 +180,7 @@ class Module(nn.Cell):
             if hasattr(subcell, 'sharded_state_dict'):
                 sharded_state_dict.update(subcell.sharded_state_dict())
             else:
-                if isinstance(subcell, nn.SequentialCell):
+                if isinstance(subcell, (nn.SequentialCell, nn.CellList)):
                     for inner_layer in subcell:
                         update_sharded_dict_for_single_cell(inner_layer)
                 else:

@@ -505,3 +505,31 @@ class AdamW(Optimizer):
             )
 
         self.hyper_map(_update_params, self._parameters, optim_result, self.all_gather_ops)
+
+    def sharded_state_dict(self, model_sharded_state_dict):
+        """provide optim's sharded state dict based on the model's sharding info"""
+        state_dict = {}
+        for idx, param in enumerate(self._parameters):
+            moment1 = self.moments1[idx]
+            moment2 = self.moments2[idx]
+            model_name = param.name
+            if model_name in model_sharded_state_dict and 'shard' in model_sharded_state_dict[model_name]:
+                shard = list(model_sharded_state_dict[model_name]['shard'])
+            else:
+                raise Exception(f"the input dict has no shard info for '{model_name}'.")
+            if self._status_splited[idx] or self._parameter_splited[idx]:
+                opt_weight_shard_step = np.prod(shard)
+                opt_weight_shard_size = get_dp_world_size()
+            else:
+                opt_weight_shard_step = 0
+                opt_weight_shard_size = -1
+            state_dict[moment1.name] = {'shape': moment1.shape,
+                                        'shard': tuple(shard),
+                                        'opt_weight_shard_step': opt_weight_shard_step,
+                                        'opt_weight_shard_size': opt_weight_shard_size}
+            state_dict[moment2.name] = {'shape': moment2.shape,
+                                        'shard': tuple(shard),
+                                        'opt_weight_shard_step': opt_weight_shard_step,
+                                        'opt_weight_shard_size': opt_weight_shard_size}
+
+        return state_dict

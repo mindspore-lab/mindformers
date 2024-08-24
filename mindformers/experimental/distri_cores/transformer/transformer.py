@@ -64,7 +64,7 @@ __all__ = [
     "ParallelLMLogits"
 ]
 
-class BasePublicLayer(nn.Cell):
+class BasePublicLayer(Module):
     r"""
     A base class for public layer.
     """

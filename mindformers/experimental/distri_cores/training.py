@@ -18,15 +18,12 @@ For training
 """
 
 import time
-import os
 import contextlib
 from copy import deepcopy
 
-import mindspore as ms
 import mindspore.common.dtype as mstype
 from mindspore import nn, Tensor, Parameter, mint, value_and_grad
 from mindspore.amp import DynamicLossScaler, StaticLossScaler, all_finite
-from mindspore.communication import get_local_rank
 from mindspore.communication.comm_func import all_reduce
 from mindspore.ops import composite as C
 from mindspore.ops import functional as F
@@ -41,7 +38,6 @@ from mindformers.experimental.distri_cores.grad_handler import (
     GradAccumulator,
 )
 from mindformers.experimental.distri_cores.create_comm import (
-    get_rank,
     get_dp_world_size,
     get_dp_group,
     get_tp_world_size,
@@ -57,22 +53,11 @@ from mindformers.experimental.distri_cores.create_comm import (
 from mindformers.experimental.distri_cores.pipeline_parallel import PipelineCell
 from mindformers.experimental.distri_cores.pipeline_parallel.schedules import (
     forward_backward_pipelining_without_interleaving,
-    forward_backward_pipelining_with_interleaving
+    forward_backward_pipelining_with_interleaving,
+    rename_hidden_states_parameter
 )
 from mindformers.experimental.distri_cores.config import GeneralConfig
-
-
-# pylint: disable=W0613
-def save_checkpoint(train_one_step_cell, save_dir, step=None, is_best=False):
-    # check if the save_dir exists
-    if get_local_rank() == 0:
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-
-    rank = get_rank()
-    ckpt_path = save_dir + f"/step_{step}_rank_{rank}.ckpt" if not is_best else save_dir + f"/best_rank_{rank}.ckpt"
-    logger.warning(f"Saving model to {ckpt_path}")
-    ms.save_checkpoint(train_one_step_cell.network_with_loss, ckpt_path)
+from mindformers.experimental.distri_cores.checkpointing import save_checkpoint
 
 
 def get_sp_params(training_config):
@@ -462,7 +447,9 @@ class TrainOneStepCell(nn.Cell):
     # pylint: disable=W0613
     def __init__(self, network_with_loss, optimizer, training_config, model_config, **kwargs):
         super(TrainOneStepCell, self).__init__(auto_prefix=False)
+        self.network_with_loss = network_with_loss
         self.optimizer = optimizer
+        self.model_config = model_config
 
         # init loss scaler
         if training_config.loss_scale is not None:
@@ -499,6 +486,9 @@ class TrainOneStepCell(nn.Cell):
 
         # get pp size to adjust scale_sense
         self.pp_size = get_pp_world_size()
+        if self.pp_size > 1 and isinstance(self.network_with_loss, nn.CellList):
+            for i in range(len(self.network_with_loss)):
+                rename_hidden_states_parameter(self.network_with_loss[i], i)
 
     def unscale_and_clip_grads(self, grads, loss_scale=None):
         """Handle grads with scaling and clipping.
@@ -588,6 +578,7 @@ def train(
         None
     """
     train_one_step_cell.set_train()
+    model_config = train_one_step_cell.model_config
     # set input to use dynamic shape
     model_input_data = next(train_dataset_iterator.create_tuple_iterator())
     set_input_data = [
@@ -658,17 +649,26 @@ def train(
                 if is_best and save_ckpt_flag:
                     logger.warning("saving best checkpoint")
                     if save_ckpt_flag:
-                        save_checkpoint(train_one_step_cell, training_config.output_dir, is_best=True)
+                        ckpt_path = training_config.output_dir + "/best"
+                        save_checkpoint(model_config,
+                                        train_one_step_cell.network_with_loss,
+                                        train_one_step_cell.optimizer,
+                                        ckpt_path)
 
             if save_ckpt_flag and (global_step + 1) % training_config.save_interval == 0:
-                save_checkpoint(train_one_step_cell, training_config.output_dir, step=global_step)
+                ckpt_path = training_config.output_dir + f"/step_{global_step}"
+                save_checkpoint(model_config,
+                                train_one_step_cell.network_with_loss,
+                                train_one_step_cell.optimizer,
+                                ckpt_path)
 
             global_step += 1
 
         current_epoch += 1
 
     if save_ckpt_flag:
-        save_checkpoint(train_one_step_cell, training_config.output_dir, step=global_step)
+        ckpt_path = training_config.output_dir + f"/step_{global_step}"
+        save_checkpoint(model_config, train_one_step_cell.network_with_loss, train_one_step_cell.optimizer, ckpt_path)
 
 
 class PipelineTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):

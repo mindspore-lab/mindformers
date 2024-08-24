@@ -15,6 +15,8 @@
 """some utility functions"""
 
 import re
+import os
+import time
 import numpy as np
 
 import mindspore as ms
@@ -22,7 +24,10 @@ import mindspore.common.dtype as mstype
 import mindspore.ops as ops
 from mindspore import Tensor
 from mindspore.nn import DistributedGradReducer
+from mindspore.communication import get_rank
 
+from mindformers.experimental.distri_cores.checkpointing import save_pre_process, get_checkpoint_name
+from mindformers.experimental.distri_cores.utils import generate_state_dict, save_strategy_file
 from mindformers.experimental.distri_cores.create_comm import (
     get_dp_group,
     get_dp_world_size,
@@ -240,6 +245,26 @@ def transform_transformerlayer_params(params, hidden_size, kv_hidden_size=None, 
             new_params[prefix+name] = ms.Parameter(new_param)
 
     return new_params
+
+def _transform_ckpt_helper(config, model, optimizer, src_ckpt_path, dst_ckpt_path, ckpt_prefix="network", timeout=15):
+    """ helper function for transform ckpt """
+    shard_info = generate_state_dict(model, optimizer)
+    shard_info, _ = save_pre_process(shard_info, model, optimizer, config)
+
+    _, dst_strategy_file = get_checkpoint_name(dst_ckpt_path)
+    save_strategy_file(shard_info, dst_strategy_file)
+    time.sleep(5)
+    if get_rank() == 0:
+        src_merged_strategy_file = dst_ckpt_path + "/src_merged_strategy.ckpt"
+        dst_merged_strategy_file = dst_ckpt_path + "/dst_merged_strategy.ckpt"
+        ms.merge_pipeline_strategys(os.path.join(src_ckpt_path, "strategy"), src_merged_strategy_file)
+        ms.merge_pipeline_strategys(os.path.join(dst_ckpt_path, "strategy"), dst_merged_strategy_file)
+        ms.transform_checkpoints(src_ckpt_path, dst_ckpt_path, ckpt_prefix,
+                                 src_merged_strategy_file,
+                                 dst_merged_strategy_file,
+                                 output_format='safetensors')
+    else:
+        time.sleep(timeout)
 
 def read_loss_from_log(file_path):
     """ reading loss from log """

@@ -539,6 +539,6 @@ class RowParallelLoRA(nn.Cell):
         if self.has_bias:
             state_dict[self.bias.name] = {'shape': self.bias.shape,
                                           'shard': (1,),
-                                          'opt_weight_shard_step': 0,
-                                          'opt_weight_shard_size': -1}
+                                          'opt_weight_shard_step': opt_weight_shard_step,
+                                          'opt_weight_shard_size': opt_weight_shard_size}
         return state_dict
