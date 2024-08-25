@@ -262,7 +262,7 @@ def config2dict(config):
     return new_dict
 
 
-def load_distributed_checkpoint(checkpoint_dir, choice_func=None):
+def load_distributed_checkpoint(checkpoint_dir, choice_func=None, checkpoint_format='ckpt'):
     """Load Checkpoint in Parallel Mode."""
     if os.path.isdir(checkpoint_dir):
         logger.info(
@@ -271,13 +271,13 @@ def load_distributed_checkpoint(checkpoint_dir, choice_func=None):
             "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/**.ckpt")
         distribute_checkpoint_dir = os.path.join(
             checkpoint_dir, "rank_{}".format(get_real_rank()))
-        distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir)
+        distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir, checkpoint_format)
     elif os.path.isfile(checkpoint_dir):
         logger.info("Your load_checkpoint is file, it will be load in network.")
         distribute_checkpoint_path = checkpoint_dir
     else:
         raise FileNotFoundError(f"{checkpoint_dir} is not found.")
-    checkpoint_dict = load_checkpoint(distribute_checkpoint_path, choice_func=choice_func)
+    checkpoint_dict = load_checkpoint(distribute_checkpoint_path, choice_func=choice_func, format=checkpoint_format)
     logger.info("Distribute load is success.")
     return checkpoint_dict
 
@@ -350,7 +350,7 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
                                 f"but get {config.load_checkpoint}")
 
     if not config.auto_trans_ckpt and not config.only_save_strategy and \
-        check_path_include_total_ckpt(config.load_checkpoint):
+            check_path_include_total_ckpt(config.load_checkpoint):
         load_ckpt(config, network, optimizer=optimizer)
         return
 
@@ -460,7 +460,11 @@ def load_ckpt(config, network, optimizer=None):
                 checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{config.rank_id}", config.resume_training)
                 checkpoint_dict = load_checkpoint(checkpoint_tmp)
             elif config.use_parallel:
-                checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint)
+                if config.checkpoint_format:
+                    checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint,
+                                                                  checkpoint_format=config.checkpoint_format)
+                else:
+                    checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint)
             else:
                 checkpoint_dict = load_checkpoint(get_last_checkpoint(os.path.join(config.load_checkpoint,
                                                                                    "rank_{}".format(rank_id))))
@@ -479,7 +483,7 @@ def load_ckpt(config, network, optimizer=None):
         logger.info("Optimizer parameters are not loaded: %s", str(not_load_optim_params))
 
 
-def get_last_checkpoint(checkpoint_dir):
+def get_last_checkpoint(checkpoint_dir, checkpoint_format='ckpt'):
     """get last checkpoint for resuming or finetune."""
     if not os.path.isdir(checkpoint_dir):
         raise NotADirectoryError(
@@ -487,10 +491,15 @@ def get_last_checkpoint(checkpoint_dir):
             "When distributed loads are sliced weights,"
             "load_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
             "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/**.ckpt")
-    output_checkpoint_path = [
-        checkpoint for checkpoint in os.listdir(checkpoint_dir)
-        if checkpoint.endswith('.ckpt')
-    ]
+    output_checkpoint_path = []
+    for checkpoint in os.listdir(checkpoint_dir):
+        if checkpoint_format == 'safetensors':
+            if checkpoint.endswith('.safetensors'):
+                output_checkpoint_path.append(checkpoint)
+        else:
+            if checkpoint.endswith('.ckpt'):
+                output_checkpoint_path.append(checkpoint)
+
     if not output_checkpoint_path:
         return None
     output_checkpoint_path = sorted(output_checkpoint_path,
