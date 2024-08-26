@@ -185,7 +185,7 @@ class Came(Optimizer):
     Updates gradients by the Confidence-guided Adaptive Memory Efficient Optimization (Came) algorithm.
 
     The Came algorithm is proposed in `CAME: Confidence-guided Adaptive Memory Efficient Optimization
-    <https://arxiv.org/abs/2307.02047>`.
+    <https://arxiv.org/abs/2307.02047>`_ .
 
     Args:
         params (Union[list[Parameter], list[dict]]): When the `params` is a list of `Parameter` which will be updated,
@@ -230,9 +230,6 @@ class Came(Optimizer):
         TypeError: If `use_locking` or `use_nesterov` is not a bool.
         ValueError: If `loss_scale` or `eps` is less than or equal to 0.
         ValueError: If `decay_rate`, `weight_decay`, `beta1` or `beta3` is not in range [0.0, 1.0].
-
-    Supported Platforms:
-        ``Ascend``
     """
     _support_parallel_optimizer = True
 
