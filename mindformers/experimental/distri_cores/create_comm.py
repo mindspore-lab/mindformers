@@ -14,6 +14,7 @@
 # ======================
 
 """Model and data parallel groups."""
+import warnings
 import mindspore
 from mindspore.communication import create_group, destroy_group, get_group_size, get_rank
 from mindspore import hal
@@ -29,7 +30,7 @@ group_info_maps = {}
 
 # special_groups has a different initialization process compared to normal_groups
 normal_groups = ['tp', 'dp', 'pp', 'cp', 'dp-cp', 'tp-pp', 'tp-dp-cp', 'tp-dp', 'tp-cp']
-special_groups = ['ep', 'tp-ep', 'dp-independent_ep', 'vpp', 'embedding', 'position_embedding']
+special_groups = ['ep', 'tp-ep', 'tp-ep-pp', 'dp-independent_ep', 'vpp', 'embedding', 'position_embedding']
 valid_groups = normal_groups + special_groups
 
 
@@ -294,6 +295,7 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     # Build the expert-parallel groups which share ranks with DP.
     rank_generator.init_group('ep', independent_ep=True)
     rank_generator.init_group('tp-ep', independent_ep=True)
+    rank_generator.init_group('tp-ep-pp', independent_ep=True)
     rank_generator.init_group('dp', independent_ep=True)
 
     # Build the pipeline-parallel related groups.
@@ -317,6 +319,28 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     if get_dp_world_size() > 1:
         get_dp_group()
 
+def is_initialized():
+    """Useful for code segments that may be accessed with or without mpu initialization"""
+    comm_group = get_group_info('dp')
+    return comm_group.group is not None
+
+def is_uninitialized() -> bool:
+    """Check if parallel state has been initialized
+
+    Deprecated. Use is_initialized instead.
+    """
+    warnings.warn(
+        "is_uninitialized is deprecated, use is_initialized instead", DeprecationWarning,
+    )
+    return not is_initialized()
+
+def model_parallel_is_initialized():
+    """Check if model and data parallel groups are initialized."""
+    for name in ['tp', 'pp', 'dp']:
+        comm_group = get_group_info(name)
+        if comm_group.group is None:
+            return False
+    return True
 
 ### get group
 # pylint: disable=C0330
@@ -360,6 +384,11 @@ def get_embedding_group():
     return _get_group_helper('embedding')
 
 
+def get_position_embedding_group():
+    """Get the position embedding group the caller rank belongs to."""
+    return _get_group_helper('position_embedding')
+
+
 def get_tensor_and_expert_parallel_group():
     return _get_group_helper('tp-ep')
 
@@ -368,9 +397,13 @@ def get_data_modulo_expert_parallel_group():
     return _get_group_helper('dp-independent_ep')
 
 
-def get_model_parallel_group():
+def get_model_parallel_group(with_expert_parallel=False):
     """Get the model parallel group the caller rank belongs to."""
-    return _get_group_helper('tp-pp')
+    return _get_group_helper('tp-ep-pp') if with_expert_parallel else _get_group_helper('tp-pp')
+
+
+def get_tensor_and_data_parallel_group(with_context_parallel=False):
+    return _get_group_helper('tp-dp-cp') if with_context_parallel else _get_group_helper('tp-dp')
 
 
 def get_tensor_and_context_parallel_group():
