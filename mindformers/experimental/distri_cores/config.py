@@ -977,6 +977,7 @@ class TransformerConfig(BaseConfig):
         hidden_size (int): Dimensionality of the encoder layers.
         ffn_hidden_size (int): Dimensionality the FeedForward block project to.
         parallel_config (ParallelConfig): Parallel config.
+        seq_length (int): Sequence length.
         lora_config (LoraConfig): Lora config.
         moe_config (MoEConfig, optional): MoE config. Default: None.
         attention_type (str): Attention type. Default: 'self_attn'.
@@ -1025,6 +1026,7 @@ class TransformerConfig(BaseConfig):
             hidden_size: int,
             ffn_hidden_size: int,
             parallel_config: ModelParallelConfig,
+            seq_length: int = None,
             lora_config: LoraConfig = LoraConfig(),
             moe_config: MoEConfig = None,
             attention_type: str = "self_attn",
@@ -1068,6 +1070,7 @@ class TransformerConfig(BaseConfig):
         self.ffn_hidden_size = ffn_hidden_size
         self.parallel_config = parallel_config
         self.lora_config = lora_config
+        self.seq_length = seq_length
         self.moe_config = moe_config
         self.attention_type = attention_type
         self.use_gqa = use_gqa

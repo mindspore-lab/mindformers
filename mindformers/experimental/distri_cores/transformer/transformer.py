@@ -742,8 +742,6 @@ class ParallelTransformer(Module):
             config, model_type=None, is_decoder=False
         )
         use_lora = config.lora_config.use_lora
-        seq_length = config.seq_length
-        hidden_size = config.hidden_size
 
         layers_config = copy.deepcopy(config)
         if use_lora:
@@ -780,6 +778,8 @@ class ParallelTransformer(Module):
         self.pipeline_parallel = get_pp_world_size() > 1
         if self.pipeline_parallel:
             batch_size = config.dataset_config.batch_size
+            seq_length = config.seq_length
+            hidden_size = config.hidden_size
             self.set_hidden_states = Parameter(
                 mint.zeros(
                     (batch_size, seq_length, hidden_size), dtype=config.compute_dtype
