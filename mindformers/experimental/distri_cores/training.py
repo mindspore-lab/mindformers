@@ -274,10 +274,7 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
             forward_with_loss_scale, grad_position=grad_position, weights=params, has_aux=True
         )
 
-        overlap_grad_reduce = model_config.parallel_config.overlap_grad_reduce
-
-        # if overlap_grad_reduce, grad will be accumulate in grad buffer
-        if micro_batch_num > 1 and not overlap_grad_reduce:
+        if micro_batch_num > 1:
             grad_accumulator = GradAccumulator(micro_batch_num, op="sum")
 
         def forward_backward_func_with_grad_acc(
@@ -287,10 +284,6 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
             logits = None
             grads = None
 
-            # reset grad buffer
-            if overlap_grad_reduce:
-                network_with_loss.zero_grad_buffer()
-
             # fuse loss scale and grad accumulation if do grad acc
             if training_config.loss_reduction == "mean" and micro_batch_num > 1:
                 if loss_scale is None:
@@ -299,10 +292,7 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
             else:
                 actual_loss_scale = loss_scale
 
-            if overlap_grad_reduce:
-                no_sync_func = network_with_loss.no_sync
-            else:
-                no_sync_func = contextlib.nullcontext
+            no_sync_func = contextlib.nullcontext
 
             def forward_backward_on_microbatch(idx):
                 nonlocal loss
@@ -330,10 +320,8 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
                     if grad_position == 0:
                         grads_micro = grads_micro[1]
                     # accumulate grads
-                    if micro_batch_num > 1 and not overlap_grad_reduce:
+                    if micro_batch_num > 1:
                         grads = grad_accumulator(grads_micro)
-                    else:
-                        grads = grads_micro
 
                 # process output, loss will be averaged in loss unscaling
                 loss = loss_micro if loss is None else loss + loss_micro
@@ -356,10 +344,6 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
             if forward_only:
                 return loss, logits
 
-            # finalize ddp grad reduce
-            if overlap_grad_reduce:
-                network_with_loss.final_grad_reduce()
-                grads = tuple([x.contiguous() for x in network_with_loss.grad_views])
             return (loss, logits), grads
 
         forward_backward_func = forward_backward_func_with_grad_acc

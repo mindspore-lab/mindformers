@@ -59,6 +59,8 @@ class _RecomputeCellWithRng(_RecomputeCell):
         self.kwargs.pop()
         if kwargs:
             input_args_for_check = list(input_args) + list(kwargs.values())
+        else:
+            input_args_for_check = list(input_args)
         kwargs['sens'] = grad_input
         try:
             pre_rng_state = get_rng_state()
