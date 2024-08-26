@@ -281,7 +281,7 @@ class CogVLM2ImageContentTransformTemplate(ModalContentTransformTemplate):
         return prompt
 
     # pylint: disable=W0613
-    def build_conversion_input_text(self, raw_inputs, result_recorder):
+    def build_conversation_input_text(self, raw_inputs, result_recorder):
         """apply conversion prompt"""
         images = []
         texts = []
