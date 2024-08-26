@@ -143,7 +143,7 @@ def convert_megatron_to_ms(input_path, output_path, dtype=None, **kwargs):
         if kv_n_head is None:
             raise ValueError('kv_n_head must be set when use group query attention.')
     try:
-        megatron_ckpt = torch.load(input_path)
+        megatron_ckpt = torch.load(input_path, map_location='cpu')
     # pylint: disable=W0703
     except Exception as e:
         print(f"Fail to load meagtron checkpoint '{os.path.dirname(input_path)}', Error {e.message}.", flush=True)
