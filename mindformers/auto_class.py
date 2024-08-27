@@ -85,7 +85,7 @@ class AutoConfig:
             raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}\', '
                              f'please select from {local_model_list}')
         local_model_name = yaml_name_or_path.split('_')[cls._model_name]
-        if not yaml_name_or_path in local_model_list[local_model_name]:
+        if yaml_name_or_path not in local_model_list[local_model_name]:
             raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}_{local_model_name}\', '
                              f'please select from {local_model_list[local_model_name]}')
         return False
@@ -240,7 +240,7 @@ class AutoModel:
             raise ValueError(f'\'{pretrained_model_name_or_dir}\' is not supported by \'{local_model_type}\', '
                              f'please select from {local_model_list}')
         local_model_name = pretrained_model_name_or_dir.split('_')[cls._model_name]
-        if not pretrained_model_name_or_dir in local_model_list[local_model_name]:
+        if pretrained_model_name_or_dir not in local_model_list[local_model_name]:
             raise ValueError(f'\'{pretrained_model_name_or_dir}\' is not supported by '
                              f'\'{local_model_type}_{local_model_name}\', please select from '
                              f'{local_model_list[local_model_name]}')
@@ -499,7 +499,7 @@ class AutoProcessor:
             raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}\', '
                              f'please select from {local_model_list}')
         local_model_name = yaml_name_or_path.split('_')[cls._model_name]
-        if not yaml_name_or_path in local_model_list[local_model_name]:
+        if yaml_name_or_path not in local_model_list[local_model_name]:
             raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}_{local_model_name}\', '
                              f'please select from {local_model_list[local_model_name]}')
         return False
@@ -653,7 +653,7 @@ class AutoTokenizer:
             raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}\', '
                              f'please select from {local_model_list}')
         local_model_name = yaml_name_or_path.split('_')[cls._model_name]
-        if not yaml_name_or_path in local_model_list[local_model_name]:
+        if yaml_name_or_path not in local_model_list[local_model_name]:
             raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}_{local_model_name}\', '
                              f'please select from {local_model_list[local_model_name]}')
         return False

@@ -145,6 +145,7 @@ class TestModel(PreTrainedModel):
         self.model_config = config
         self.params = Parameter(Tensor([0.1]))
 
+
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class TestTokenizer:
     """Test Tokenizer API For Register."""

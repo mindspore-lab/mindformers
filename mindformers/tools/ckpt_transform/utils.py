@@ -18,6 +18,7 @@ import shutil
 
 from mindformers.tools.logger import logger
 
+
 def show_progress(progress, prefix=''):
     """Show progress."""
     show_str = ('|%%-%ds|' % 50) % (int(50 * progress / 100) * "▮")

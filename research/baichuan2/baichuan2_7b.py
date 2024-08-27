@@ -298,8 +298,7 @@ class NormHead(nn.Cell):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
-    r"""
-        Provide baichuan2_7b training loss or logits through network.
+    r"""Provide baichuan2_7b training loss or logits through network.
         Args:
             config (LlamaConfig): The config of baichuan2_7b model.
 
@@ -321,8 +320,7 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
 
         Returns:
             Tensor, the loss or logits of the network.
-        """
-
+    """
     @lazy_inline
     def __init__(self, config: LlamaConfig = None):
         super(Baichuan7BV2ForCausalLM, self).__init__(config, auto_prefix=True)

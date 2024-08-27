@@ -816,6 +816,7 @@ class BertEncoder(nn.Cell):
                       all_hidden_states, all_self_attentions, all_cross_attentions]
         return tuple(value_list)
 
+
 class BertPredictionHeadTransform(nn.Cell):
     """ BertPredictionHeadTransform """
 
@@ -1360,6 +1361,7 @@ class BertModel(BertPreTrainedModel):
         sequence_output = encoder_outputs[0]
 
         return (sequence_output,) + encoder_outputs[1:]
+
 
 class BertLMHeadModel(BertPreTrainedModel):
     """ BertLMHeadModel, the main model for Qformer

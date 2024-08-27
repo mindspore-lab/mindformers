@@ -23,6 +23,7 @@ from mindformers.tools.utils import str2bool
 # pylint: disable=W0611
 import codegeex
 
+
 def context_init(use_parallel=False, optimizer_parallel=False):
     """init context for mindspore."""
     context_config = ContextConfig(mode=0, device_target="Ascend", device_id=0, max_device_memory='57GB')

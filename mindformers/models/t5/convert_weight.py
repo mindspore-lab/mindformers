@@ -56,6 +56,7 @@ def generate_params_dict(total_layers,
 
     return list(zip(ms_extend_param_list, torch_extend_param_list))
 
+
 def get_converted_ckpt(mapped_params, weight_dict):
     """
     Print the keys of the loaded checkpoint

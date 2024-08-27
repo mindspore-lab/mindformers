@@ -26,6 +26,7 @@ import mindspore.common.dtype as mstype
 
 ms.set_context(device_id=1)
 
+
 def convert_vit_weight(pt_weight_params, vit_mindspore_path):
     """
     convert vit weight from torch

@@ -25,6 +25,7 @@ PROMPT_DICT = {
 
 }
 
+
 def main(args_param):
     data_path = pathlib.Path(args_param.data_path)
     with data_path.open() as f:

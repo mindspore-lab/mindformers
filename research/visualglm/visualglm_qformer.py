@@ -46,6 +46,7 @@ def choose_idx_with_prob(weight: Tensor):
     idx = np.argmax(weight_acc > rand_x)
     return idx
 
+
 class AllGatherWithGrad(nn.Cell):
     """
     AllGather Layer which does not cut gradients.
@@ -62,6 +63,7 @@ class AllGatherWithGrad(nn.Cell):
         x = x
         out = out
         return (self.reduce_scatter(dout),)
+
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class VisualGLMQformer(VisualGLMBase):

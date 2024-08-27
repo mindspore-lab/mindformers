@@ -23,6 +23,7 @@ from mindspore.ops import operations as P
 
 from mindformers.models.configuration_utils import PretrainedConfig
 
+
 class ImageTextEmbeddingConcat(nn.Cell):
     """
     Layer to concat image embedding and text embedding

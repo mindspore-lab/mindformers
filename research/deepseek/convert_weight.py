@@ -41,6 +41,7 @@ def name_replace(weight_name: str):
     weight_name = weight_name.replace('.post_attention_layernorm.', '.ffn_norm.')
     return weight_name
 
+
 # pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """

@@ -750,6 +750,7 @@ class BatchEncoding(UserDict):
         if tensor_type == TensorType.MINDSPORE:
             tensor_dtype = ms.int32
             as_tensor = ms.Tensor
+
             def is_ms_tensor(x):
                 return isinstance(x, ms.Tensor)
             is_tensor = is_ms_tensor
@@ -849,7 +850,7 @@ class SpecialTokensMixin:
 
         # We directly set the hidden value to allow initialization with special tokens
         # which are not yet in the vocabulary. Necessary for serialization/de-serialization
-        # TODO clean this up at some point (probably by switching to fast tokenizers)
+        # clean this up at some point (probably by switching to fast tokenizers)
         for key, value in kwargs.items():
             if value is None:
                 continue
@@ -879,8 +880,7 @@ class SpecialTokensMixin:
     def add_special_tokens(
             self, special_tokens_dict: Dict[str, Union[str, AddedToken]], replace_additional_special_tokens=True
     ) -> int:
-        """
-        Add a dictionary of special tokens (eos, pad, cls, etc.) to the encoder and link them to class attributes. If
+        """Add a dictionary of special tokens (eos, pad, cls, etc.) to the encoder and link them to class attributes. If
         special tokens are NOT in the vocabulary, they are added to it (indexed starting from the last index of the
         current vocabulary).
 
@@ -933,7 +933,8 @@ class SpecialTokensMixin:
         model.resize_token_embeddings(len(tokenizer))
 
         assert tokenizer.cls_token == "<CLS>"
-        ```"""
+        ```
+        """
         if not special_tokens_dict:
             return 0
 
@@ -980,8 +981,7 @@ class SpecialTokensMixin:
     def add_tokens(
             self, new_tokens: Union[str, AddedToken, List[Union[str, AddedToken]]], special_tokens: bool = False
     ) -> int:
-        """
-        Add a list of new tokens to the tokenizer class. If the new tokens are not in the vocabulary, they are added to
+        """Add a list of new tokens to the tokenizer class. If the new tokens are not in the vocabulary, they are added to
         it with indices starting from length of the current vocabulary and and will be isolated before the tokenization
         algorithm is applied. Added tokens and tokens from the vocabulary of the tokenization algorithm are therefore
         not treated in the same way.
@@ -1017,7 +1017,8 @@ class SpecialTokensMixin:
         print("We have added", num_added_toks, "tokens")
         # Notice: resize_token_embeddings expect to receive the full size of the new vocabulary, i.e., the length of the tokenizer.
         model.resize_token_embeddings(len(tokenizer))
-        ```"""
+        ```
+        """
         if not new_tokens:
             return 0
 
@@ -1683,8 +1684,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         raise NotImplementedError()
 
     def get_vocab(self) -> Dict[str, int]:
-        """
-        Returns the vocabulary as a dictionary of token to index.
+        """Returns the vocabulary as a dictionary of token to index.
 
         `tokenizer.get_vocab()[token]` is equivalent to `tokenizer.convert_tokens_to_ids(token)` when `token` is in the
         vocab.
@@ -1706,43 +1706,42 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
             return_tensors: Optional[Union[str, TensorType]] = None,
             **tokenizer_kwargs,
     ) -> Union[str, List[int]]:
+        """Converts a Conversation object or a list of dictionaries with `"role"` and `"content"` keys to a list
+        of token ids. This method is intended for use with chat models, and will read the tokenizer's
+        chat_template attribute to determine the format and control tokens to use when converting.
+        When chat_template is None, it will fall back to the default_chat_template specified at the class level.
+
+            Args:
+                conversation (Union[List[Dict[str, str]], "Conversation"]): A Conversation object or list of dicts
+                    with "role" and "content" keys, representing the chat history so far.
+                chat_template (str, *optional*): A Jinja template to use for this conversion. If
+                    this is not passed, the model's default chat template will be used instead.
+                add_generation_prompt (bool, *optional*): Whether to end the prompt with the token(s) that indicate
+                    the start of an assistant message. This is useful when you want to generate a response from
+                    the model. Note that this argument will be passed to the chat template, and so it must be
+                    supported in the template for this argument to have any effect.
+                tokenize (`bool`, defaults to `True`):
+                    Whether to tokenize the output. If `False`, the output will be a string.
+                padding (`bool`, defaults to `False`):
+                    Whether to pad sequences to the maximum length. Has no effect if tokenize is `False`.
+                truncation (`bool`, defaults to `False`):
+                    Whether to truncate sequences at the maximum length. Has no effect if tokenize is `False`.
+                max_length (`int`, *optional*):
+                    Maximum length (in tokens) to use for padding or truncation. Has no effect if tokenize
+                    is `False`. If not specified, the tokenizer's `max_length` attribute will be used as a default.
+                return_tensors (`str` or [`~utils.TensorType`], *optional*):
+                    If set, will return tensors of a particular framework. Has no effect if tokenize is `False`.
+                    Acceptable values are:
+                        - `'tf'`: Return TensorFlow `tf.Tensor` objects.
+                        - `'pt'`: Return PyTorch `torch.Tensor` objects.
+                        - `'np'`: Return NumPy `np.ndarray` objects.
+                        - `'jax'`: Return JAX `jnp.ndarray` objects.
+                **tokenizer_kwargs: Additional kwargs to pass to the tokenizer.
+
+            Returns:
+                `List[int]`: A list of token ids representing the tokenized chat so far, including control tokens.
+        This output is ready to pass to the model, either directly or via methods like `generate()`.
         """
-                Converts a Conversation object or a list of dictionaries with `"role"` and `"content"` keys to a list
-                of token ids. This method is intended for use with chat models, and will read the tokenizer's
-                chat_template attribute to determine the format and control tokens to use when converting.
-                When chat_template is None, it will fall back to the default_chat_template specified at the class level.
-
-                    Args:
-                    conversation (Union[List[Dict[str, str]], "Conversation"]): A Conversation object or list of dicts
-                        with "role" and "content" keys, representing the chat history so far.
-                    chat_template (str, *optional*): A Jinja template to use for this conversion. If
-                        this is not passed, the model's default chat template will be used instead.
-                    add_generation_prompt (bool, *optional*): Whether to end the prompt with the token(s) that indicate
-                        the start of an assistant message. This is useful when you want to generate a response from
-                        the model. Note that this argument will be passed to the chat template, and so it must be
-                        supported in the template for this argument to have any effect.
-                    tokenize (`bool`, defaults to `True`):
-                        Whether to tokenize the output. If `False`, the output will be a string.
-                    padding (`bool`, defaults to `False`):
-                        Whether to pad sequences to the maximum length. Has no effect if tokenize is `False`.
-                    truncation (`bool`, defaults to `False`):
-                        Whether to truncate sequences at the maximum length. Has no effect if tokenize is `False`.
-                    max_length (`int`, *optional*):
-                        Maximum length (in tokens) to use for padding or truncation. Has no effect if tokenize
-                        is `False`. If not specified, the tokenizer's `max_length` attribute will be used as a default.
-                    return_tensors (`str` or [`~utils.TensorType`], *optional*):
-                        If set, will return tensors of a particular framework. Has no effect if tokenize is `False`.
-                        Acceptable values are:
-                            - `'tf'`: Return TensorFlow `tf.Tensor` objects.
-                            - `'pt'`: Return PyTorch `torch.Tensor` objects.
-                            - `'np'`: Return NumPy `np.ndarray` objects.
-                            - `'jax'`: Return JAX `jnp.ndarray` objects.
-                    **tokenizer_kwargs: Additional kwargs to pass to the tokenizer.
-
-                Returns:
-                    `List[int]`: A list of token ids representing the tokenized chat so far, including control tokens.
-                    This output is ready to pass to the model, either directly or via methods like `generate()`.
-                """
 
         if hasattr(conversation, "messages"):
             # Indicates it's a Conversation object

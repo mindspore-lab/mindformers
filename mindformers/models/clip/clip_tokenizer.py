@@ -38,6 +38,7 @@ __all__ = ['CLIPTokenizer']
 
 VOCAB_FILES_NAMES = {'vocab_file': 'bpe_simple_vocab_16e6.txt.gz'}
 
+
 @lru_cache()
 def default_bpe():
     r"""Bpe path"""

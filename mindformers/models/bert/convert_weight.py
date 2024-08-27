@@ -18,6 +18,7 @@ import numpy as np
 import torch
 from mindspore import save_checkpoint, Tensor
 
+
 def generate_params_dict(total_layers,
                          mindspore_params_per_layer,
                          torch_params_per_layer,
@@ -54,6 +55,7 @@ def generate_params_dict(total_layers,
         torch_extend_param_list.append(torch_para)
 
     return list(zip(ms_extend_param_list, torch_extend_param_list))
+
 
 def get_converted_ckpt(mapped_params, weight_dict):
     """

@@ -85,6 +85,7 @@ class PadDataset(Dataset):
         return (item[:self.seq_len],) if self.seq_len <= len(item) else (
             np.concatenate((item, np.ones(self.seq_len - len(item)) * self.eod_id), axis=0),)
 
+
 def get_code_data_train(code_data_path, args, process_fn=None):
     """Get train data"""
     if os.path.exists(os.path.join(code_data_path, 'data.mdb')):
@@ -100,6 +101,7 @@ def get_code_data_train(code_data_path, args, process_fn=None):
         args.eod_id,
     )
     return data
+
 
 def generate_mindrecord(args, file_name="codegeex.mindrecord"):
     """Generate mindrecord format data."""

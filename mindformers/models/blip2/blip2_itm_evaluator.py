@@ -30,6 +30,7 @@ from mindformers.models.blip2.blip2_qformer import Blip2Qformer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class Blip2ItmEvaluator(Blip2PreTrainedModel):
     """
@@ -104,6 +105,7 @@ class Blip2ItmEvaluator(Blip2PreTrainedModel):
 
         return sims_matrix, vit_outputs, text_ids
 
+
 class Blip2TextForwarder(nn.Cell):
     """
     TextForwarder, same function as blip2_qformer.forward_text.
@@ -136,6 +138,7 @@ class Blip2TextForwarder(nn.Cell):
         text_feat = self.normalize(self.text_proj(text_embed[:, 0, :]))
         # text embeddings and features
         return text_embed, text_feat
+
 
 class Blip2ImageForwarder(nn.Cell):
     """
@@ -179,6 +182,7 @@ class Blip2ImageForwarder(nn.Cell):
         image_feat = self.normalize(image_embed)
 
         return image_feat, image_embeds_frozen
+
 
 class Blip2ItmComputer(nn.Cell):
     """
@@ -226,6 +230,7 @@ class Blip2ItmComputer(nn.Cell):
         itm_logit = self.itm_head(vl_embeddings)
         itm_logit = itm_logit[:, :, 1].mean(axis=1)
         return itm_logit
+
 
 class ScoreReducer(nn.Cell):
     """

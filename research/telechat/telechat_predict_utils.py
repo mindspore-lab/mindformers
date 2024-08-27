@@ -17,6 +17,7 @@
 from collections import deque
 import copy
 
+
 class History:
     """Init from a list of dict, use deque to meet some special situation."""
     def __init__(self, tokenizer, history):

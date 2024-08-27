@@ -28,6 +28,7 @@ from ..labels import cluener_labels
 class CLUENERDataLoader:
     """CLUENER Dataloader"""
     _default_column_names = ["text", "label_id"]
+
     def __new__(cls, dataset_dir: str,
                 column_names: Optional[Union[List[str], Tuple[str]]] = None,
                 stage: Optional[str] = "train", **kwargs):
@@ -82,6 +83,7 @@ class CLUENERDataLoader:
         kwargs.pop("None", None)
         cluener_dataset = CLUENERDataSet(dataset_dir, stage)
         return GeneratorDataset(cluener_dataset, column_names)
+
 
 class CLUENERDataSet:
     """CLUENER DataSet"""

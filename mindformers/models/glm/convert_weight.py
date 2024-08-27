@@ -21,6 +21,7 @@ import mindspore as ms
 from mindformers.utils.convert_utils import pt2ms
 from transformers import AutoModel
 
+
 # pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """ Convert pytorch model file to MindSpore model file. """

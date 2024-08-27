@@ -407,7 +407,6 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
 
         return encoded_inputs
 
-
     # pylint: disable=W0221
     def apply_chat_template(self, conversation, return_tensors=None, **tokenizer_kwargs):
         if not conversation:

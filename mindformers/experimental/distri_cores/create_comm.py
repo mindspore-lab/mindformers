@@ -32,6 +32,7 @@ normal_groups = ['tp', 'dp', 'pp', 'cp', 'dp-cp', 'tp-pp', 'tp-dp-cp', 'tp-dp', 
 special_groups = ['ep', 'tp-ep', 'dp-independent_ep', 'vpp', 'embedding', 'position_embedding']
 valid_groups = normal_groups + special_groups
 
+
 class GroupInfo:
     """ Comm Group Info """
     def __init__(self):
@@ -50,12 +51,14 @@ class GroupInfo:
         self.global_ranks = None
         self.is_group_created = False
 
+
 def get_group_info(mode):
     global group_info_maps
     if mode not in group_info_maps:
         assert mode in valid_groups
         group_info_maps[mode] = GroupInfo()
     return group_info_maps[mode]
+
 
 class CreateCommGroups():
     '''Generate ranks for each parallel type.'''
@@ -218,6 +221,7 @@ class CreateCommGroups():
             ranks.append(rank)
         return ranks
 
+
 # pylint: disable=W0613
 def initialize_model_parallel(tensor_model_parallel_size=1,
                               pipeline_model_parallel_size=1,
@@ -326,38 +330,48 @@ def _get_group_helper(mode):
         comm_group.is_group_created = True
     return comm_group.group
 
+
 def get_tp_group():
     """Get the tensor model parallel group the caller rank belongs to."""
     return _get_group_helper('tp')
+
 
 def get_cp_group():
     """Get the context parallel group the caller rank belongs to."""
     return _get_group_helper('cp')
 
+
 def get_ep_group():
     return _get_group_helper('ep')
+
 
 def get_dp_group(with_context_parallel=False):
     """Get the data parallel group the caller rank belongs to."""
     return _get_group_helper('dp-cp') if with_context_parallel else _get_group_helper('dp')
 
+
 def get_pp_group():
     """Get the pipeline model parallel group the caller rank belongs to."""
     return _get_group_helper('pp')
+
 
 def get_embedding_group():
     """Get the embedding group the caller rank belongs to."""
     return _get_group_helper('embedding')
 
+
 def get_tensor_and_expert_parallel_group():
     return _get_group_helper('tp-ep')
+
 
 def get_data_modulo_expert_parallel_group():
     return _get_group_helper('dp-independent_ep')
 
+
 def get_model_parallel_group():
     """Get the model parallel group the caller rank belongs to."""
     return _get_group_helper('tp-pp')
+
 
 def get_tensor_and_context_parallel_group():
     return _get_group_helper('tp-cp')
@@ -372,6 +386,7 @@ def _get_global_ranks_helper(mode, check_initialized=True):
              f"is initialized and {mode} in order.")
     return comm_group.group
 
+
 # pylint: disable=C0330
 def get_cp_global_ranks(check_initialized=True):
     """Get all global ranks of the context parallel group that the caller rank belongs to."""
@@ -383,36 +398,44 @@ def _get_world_size_helper(mode):
     comm_group = get_group_info(mode)
     return comm_group.world_size
 
+
 def get_tp_world_size():
     """Return world size for the tensor model parallel group."""
     return _get_world_size_helper('tp')
 
+
 def get_cp_world_size():
     """Return world size for the context parallel group."""
     return _get_world_size_helper('cp')
+
 
 def get_ep_world_size():
     """Return world size for the expert model parallel group"""
     tensor_and_expert_parallel_world_size = _get_world_size_helper('tp-ep')
     return tensor_and_expert_parallel_world_size // get_tp_world_size()
 
+
 def get_dp_world_size(with_context_parallel=False):
     """Return world size for the data parallel group."""
     return _get_world_size_helper('dp-cp') if with_context_parallel else _get_world_size_helper('dp')
+
 
 def get_pp_world_size():
     """Return world size for the pipeline model parallel group."""
     return _get_world_size_helper('pp')
 
+
 def get_vpp_world_size():
     """Return world size for the virtual pipeline model parallel group."""
     return _get_world_size_helper('vpp')
+
 
 def get_tensor_and_expert_parallel_world_size():
     """Return world size for the expert model parallel group times model parallel group.
        Currently, each expert will also be distributed across TP group by default.
     """
     return _get_world_size_helper('tp-ep')
+
 
 def get_tensor_and_context_parallel_world_size():
     """Return world size for the tensor parallel group and context parallel group."""
@@ -430,26 +453,32 @@ def _get_rank_helper(mode):
     comm_group.rank = 0 if _get_world_size_helper(mode) == 1 else get_rank(group=_get_group_helper(mode))
     return comm_group.rank
 
+
 def get_tp_rank():
     """Return my rank for the tensor model parallel group."""
     return _get_rank_helper('tp')
 
+
 def get_cp_rank():
     """Return my rank for the context parallel group."""
     return _get_rank_helper('cp')
+
 
 def get_ep_rank():
     """Return my rank for the expert parallel group"""
     tensor_and_expert_parallel_rank = _get_rank_helper('tp-ep')
     return tensor_and_expert_parallel_rank // get_tp_world_size()
 
+
 def get_dp_rank(with_context_parallel=False):
     """Return my rank for the data parallel group."""
     return _get_rank_helper('dp-cp') if with_context_parallel else _get_rank_helper('dp')
 
+
 def get_pp_rank():
     """Return my rank for the pipeline model parallel group."""
     return _get_rank_helper('pp')
+
 
 def is_pipeline_first_stage(ignore_virtual=False):
     """Return True if in the first pipeline model-parallel stage, False otherwise."""
@@ -458,6 +487,7 @@ def is_pipeline_first_stage(ignore_virtual=False):
             return False
     return get_pp_rank() == 0
 
+
 def is_pipeline_last_stage(ignore_virtual=False):
     """Return True if in the last pipeline model-parallel stage, False otherwise."""
     if not ignore_virtual:
@@ -465,6 +495,7 @@ def is_pipeline_last_stage(ignore_virtual=False):
         if vpp_world_size is not None and get_vpp_rank() != (vpp_world_size - 1):
             return False
     return get_pp_rank() == (get_pp_world_size() - 1)
+
 
 def is_rank_in_embedding_group(ignore_virtual=False):
     """Return true if current rank is in embedding group, False otherwise."""
@@ -485,15 +516,18 @@ def is_rank_in_embedding_group(ignore_virtual=False):
             ret = True
     return ret
 
+
 def get_vpp_rank():
     """Get the virtual pipeline-parallel rank."""
     comm_group = get_group_info('vpp')
     return comm_group.rank
 
+
 def set_vpp_rank(rank):
     """Set the virtual pipeline-parallel rank."""
     comm_group = get_group_info('vpp')
     comm_group.rank = rank
+
 
 def set_ep_rank(rank):
     """Set expert model parallel rank."""

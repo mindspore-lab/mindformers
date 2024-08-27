@@ -200,7 +200,7 @@ class Pipeline(_ScikitCompat):
         if self.feature_extractor is not None:
             self.feature_extractor.save_pretrained(save_directory, save_name)
 
-        # todo: save image_processor dep
+        # save image_processor dep
         if self.image_processor is not None:
             self.image_processor.save_pretrained(save_directory, save_name)
 

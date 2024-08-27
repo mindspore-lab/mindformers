@@ -44,6 +44,7 @@ __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor',
 _cur_dir = os.getcwd()
 SAVE_DIR = _cur_dir
 
+
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class ObsMonitor:
     """

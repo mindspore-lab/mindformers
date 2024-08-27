@@ -391,8 +391,7 @@ def get_class_from_dynamic_module(
         code_revision: Optional[str] = None,
         **kwargs,
 ) -> typing.Type:
-    """
-    Extracts a class from a module file, present in the local folder or repository of a model.
+    """Extracts a class from a module file, present in the local folder or repository of a model.
 
     <Tip warning={true}>
 
@@ -463,7 +462,8 @@ def get_class_from_dynamic_module(
     # Download module `modeling.py` from a given repo and cache then extract the class `MyBertModel` from this
     # module.
     cls = get_class_from_dynamic_module("sgugger/my-bert-model--modeling.MyBertModel", "sgugger/another-bert-model")
-    ```"""
+    ```
+    """
     use_auth_token = kwargs.pop("use_auth_token", None)
     if use_auth_token is not None:
         warnings.warn(

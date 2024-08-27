@@ -194,7 +194,7 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
 
         return (out_vocab_file,)
 
-    # TODO ArthurZ let's rely on the template processor instead, refactor all fast tokenizers
+    # ArthurZ let's rely on the template processor instead, refactor all fast tokenizers
     # Copied from transformers.models.llama.tokenization_llama.LlamaTokenizer.build_inputs_with_special_tokens
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
         bos_token_id = [self.bos_token_id] if self.add_bos_token else []

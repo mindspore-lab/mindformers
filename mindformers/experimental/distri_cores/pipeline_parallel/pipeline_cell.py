@@ -24,6 +24,7 @@ from mindformers.experimental.distri_cores.create_comm import get_pp_rank, get_p
                                                                   is_pipeline_last_stage
 from mindformers.experimental.distri_cores.transformer import Module
 
+
 class PipelineCell(Module):
     """ pipeline cell """
     def __init__(

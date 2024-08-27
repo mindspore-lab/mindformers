@@ -48,11 +48,13 @@ def tensor_grad_scale_row_tensor(scale, grad):
 get_square_sum = C.MultitypeFuncGraph("get_square_sum")
 get_size = C.MultitypeFuncGraph("get_size")
 
+
 @get_square_sum.register("Tensor", "Number")
 def _get_square_sum(grad, value):
     norm = P.ReduceSum(False)(F.square(F.cast(grad, mstype.float32)), ()) * value
     norm = F.expand_dims(norm, 0)
     return norm
+
 
 # pylint: disable=E0102
 @get_square_sum.register("Tensor")
@@ -61,10 +63,12 @@ def _get_square_sum(grad):
     norm = F.expand_dims(norm, 0)
     return norm
 
+
 @get_size.register("Tensor")
 def _get_size(grad):
     size = P.Size()(grad)
     return size
+
 
 class LocalNorm(nn.Cell):
     def __init__(self):

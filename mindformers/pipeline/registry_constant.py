@@ -56,9 +56,9 @@ TASK_ALIASES = {
     "zero_shot_image_classification": "zero-shot-image-classification",
 }
 
-# TODO: default model repo need to be filled.
+# default model repo need to be filled.
 SUPPORTED_TASKS = {
-    # TODO: fill mask model
+    # fill mask model
     "fill-mask": {
         "impl": FillMaskPipeline,
         "ms": (AutoModel,),

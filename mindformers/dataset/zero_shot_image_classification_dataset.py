@@ -22,6 +22,7 @@ from ..tools import logger
 from ..tools.register import MindFormerRegister, MindFormerModuleType
 from ..models.build_tokenizer import build_tokenizer
 
+
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class ZeroShotImageClassificationDataset(BaseDataset):
     r"""

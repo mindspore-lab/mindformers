@@ -25,6 +25,7 @@ from ..tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['TokenClassificationPipeline']
 
+
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="token_classification")
 class TokenClassificationPipeline(Pipeline):
     """Pipeline for token classification

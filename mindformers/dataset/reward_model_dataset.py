@@ -50,6 +50,7 @@ def get_input_data_batch_slice_map(chosen_input_ids, chosen_attention_mask,
     end_ind = np.sum(input_ids != pad_id, axis=1)
     return input_ids, position_id, attention_mask, loss_mask, end_ind
 
+
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class RewardModelDataset(BaseDataset):
     """Reward Model dataset.

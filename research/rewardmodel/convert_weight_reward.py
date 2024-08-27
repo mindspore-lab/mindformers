@@ -67,6 +67,7 @@ def layer_name_mapping(key):
         split = True
     return split, f"{prefix}blocks.{layer_number}." + layer_rename_map[text]
 
+
 def hf_to_ms(hf_weights, args, ms_dtype=mindspore.float32, for_save=False):
     """Convert hf layers to ms."""
     ms_params = {}
@@ -101,6 +102,7 @@ def hf_to_ms(hf_weights, args, ms_dtype=mindspore.float32, for_save=False):
         return [{'name': k, 'data': v} for k, v in ms_params.items()]
 
     return ms_params
+
 
 def process_hf_shard_files(file_list, args, save_dir=None, combine=False, ms_dtype=mindspore.float32):
     ''' torch ckpt files loop'''

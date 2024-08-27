@@ -26,6 +26,7 @@ from baichuan_13b import Baichuan13BForCausalLM
 USER_TOKEN_ID = 195
 ASSISTANT_TOKEN_ID = 196
 
+
 def main(tk_config='./', ckpt=None, max_new_tokens=512):
     """main function."""
 

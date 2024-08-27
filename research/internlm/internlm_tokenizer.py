@@ -34,6 +34,7 @@ VOCAB_FILES_NAMES = {"vocab_file": "./tokenizer.model"}
 
 PRETRAINED_VOCAB_FILES_MAP = {}
 
+
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class InternLMTokenizer(PreTrainedTokenizer):
     """

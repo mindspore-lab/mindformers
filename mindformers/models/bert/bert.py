@@ -326,8 +326,7 @@ class BertForMultipleChoice(BertPreTrainedModel):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class BertForQuestionAnswering(BertPreTrainedModel):
-    """
-        Bert with dense layer for question answering task.
+    """Bert with dense layer for question answering task.
 
         Args:
             config (BertConfig): The config of BertModel.
@@ -340,7 +339,7 @@ class BertForQuestionAnswering(BertPreTrainedModel):
             >>> model = BertForQuestionAnswering.from_pretrained('qa_bert_base_uncased')
             >>> type(model)
             <class 'mindformers.models.bert.bert.BertForQuestionAnswering'>
-        """
+    """
     _support_list = MindFormerBook.get_model_support_list()['qa']['bert']
 
     def __init__(self, config=BertConfig()):

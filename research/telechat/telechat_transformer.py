@@ -32,6 +32,7 @@ from mindformers.modules.infer_attention import InferAttention
 from mindformers.models.llama.llama_layer import LlamaRMSNorm
 from telechat_layer import TelechatLinear, TelechatFeedForward
 
+
 class TelechatAttention(nn.Cell):
     r"""
     This is an implementation of multihead attention in Telechat.

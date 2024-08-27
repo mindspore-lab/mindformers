@@ -23,6 +23,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['BloomProcessor']
 
+
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
 class BloomProcessor(ProcessorMixin):
     """

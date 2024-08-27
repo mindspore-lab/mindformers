@@ -233,6 +233,7 @@ class TelechatModel(TelechatPreTrainedModel):
         output = self.norm_out(h)
         return output, embedding_weight
 
+
 class TelechatHead(nn.Cell):
     """Head for Telechat to get the logits of each token in the vocab."""
     def __init__(self,
@@ -265,17 +266,16 @@ class TelechatHead(nn.Cell):
         output = self.reshape(x, out_shape)
         return output
 
+
 class TelechatForCausalLM(TelechatPreTrainedModel):
-    r"""
-        Provide telechat training loss or logits through network.
+    """Provide telechat training loss or logits through network.
 
         Args:
             config (TelechatConfig): The config of telechat model.
 
         Returns:
             output: Tensor, the output of telechat decoderlayer
-        """
-
+    """
     @lazy_inline
     def __init__(self, config: TelechatConfig = None):
         super(TelechatForCausalLM, self).__init__(config, auto_prefix=True)

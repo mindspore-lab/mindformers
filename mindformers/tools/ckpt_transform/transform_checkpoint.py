@@ -52,6 +52,7 @@ if check_in_modelarts():
 
 __all__ = ['TransformCkpt']
 
+
 class TransformCkpt:
     """Transform src_checkpoint from src_strategy to dst_strategy."""
     def __init__(self,

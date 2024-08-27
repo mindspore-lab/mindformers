@@ -55,6 +55,7 @@ def layer_name_mapping(model_name, key):
     # Handle transformer blocks
     return f"{prefix}h.{layer_number}." + layer_rename_map[text]
 
+
 def ms_to_torch(model_name, ms_weights):
     """Convert ms layers to torch."""
     torch_params = {}
@@ -62,6 +63,7 @@ def ms_to_torch(model_name, ms_weights):
         new_name = layer_name_mapping(model_name, k)
         torch_params[new_name] = torch.from_numpy(v.asnumpy())
     return torch_params
+
 
 def process_shard_files(config):
     if config.torch_path and not os.path.exists(config.torch_path):

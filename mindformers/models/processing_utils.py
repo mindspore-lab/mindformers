@@ -108,7 +108,7 @@ class ProcessorMixin(PushToHubMixin):
                 f"{len(args)} arguments instead."
             )
 
-        # TODO: this feature depends on lazy module, and will be implemented in future
+        # this feature depends on lazy module, and will be implemented in future
         # Dynamically import the Mindformers module to grab the attribute classes of the processor form their names.
         mindformers_module = direct_mindformers_import(Path(__file__).parent.parent)
 
@@ -620,7 +620,7 @@ class ProcessorMixin(PushToHubMixin):
         """verify and get args from pretrained"""
         args = []
 
-        # TODO: can be extracted from method in future (wait for lazy module)
+        # can be extracted from method in future (wait for lazy module)
         mindformers_module = direct_mindformers_import(Path(__file__).parent.parent)
         for attribute_name in cls.attributes:
             class_name = getattr(cls, f"{attribute_name}_class")

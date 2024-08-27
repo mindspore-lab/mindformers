@@ -175,7 +175,7 @@ class GPT2Converter(Converter):
                 ],
             )
         else:
-            # XXX trim_offsets=False actually means this post_processor doesn't
+            # trim_offsets=False actually means this post_processor doesn't
             # really do anything.
             tokenizer.post_processor = processors.ByteLevel(trim_offsets=False)
         return tokenizer

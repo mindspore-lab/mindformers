@@ -139,7 +139,7 @@ class GLMForPreTrainingForBlip2(GLMForPreTraining, ImageTextEmbeddingPreparation
         self.not_equal_1d = P.NotEqual().shard(((1,), ()))
         self.batch_size = config.batch_size
         self.vocab_size = config.vocab_size
-        self.load_checkpoint(config) # todo lite推理注释，ms放开
+        self.load_checkpoint(config)  # lite推理注释，ms放开
 
     def to_text_embeddings(self, text_input_ids):
         """

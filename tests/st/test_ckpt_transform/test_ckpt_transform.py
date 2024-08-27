@@ -40,6 +40,7 @@ OUTPUT_8TO4_SINGLE = os.path.join(WORK_DIR, "ckpt_transform_8to4_single_process"
 OUTPUT_8TO4_MULTI = os.path.join(WORK_DIR, "ckpt_transform_8to4_multi_process")
 OUTPUT_4TO1_SINGLE = os.path.join(WORK_DIR, "ckpt_transform_4to1_single_process")
 
+
 @pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_single

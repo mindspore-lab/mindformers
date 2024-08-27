@@ -21,8 +21,7 @@ import numpy as np
 
 
 def log_softmax(x, axis=None):
-    """numpy implemented log softmax function.
-    refers to https://github.com/scipy/scipy/blob/v1.11.1/scipy/special/_logsumexp.py"""
+    """numpy implemented log softmax function. refers to https://github.com/scipy/scipy/blob/v1.11.1/scipy/special/_logsumexp.py"""
     x_max = np.amax(x, axis=axis, keepdims=True)
 
     if x_max.ndim > 0:
@@ -43,8 +42,7 @@ def log_softmax(x, axis=None):
 
 
 def softmax(x, axis=None):
-    """numpy implemented softmax function.
-    refers to https://github.com/scipy/scipy/blob/v1.11.1/scipy/special/_logsumexp.py"""
+    """numpy implemented softmax function. refers to https://github.com/scipy/scipy/blob/v1.11.1/scipy/special/_logsumexp.py"""
     x_max = np.amax(x, axis=axis, keepdims=True)
     exp_x_shifted = np.exp(x - x_max)
     return exp_x_shifted / np.sum(exp_x_shifted, axis=axis, keepdims=True)

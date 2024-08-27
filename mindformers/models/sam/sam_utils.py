@@ -41,6 +41,7 @@ __all__ = [
     "nms"
 ]
 
+
 class MaskData:
     """
     A structure for storing masks and their related data in batched format.
@@ -462,6 +463,7 @@ def uncrop_masks(masks: np.ndarray,
     # Pad the masks
     return np.pad(masks, pad_width, mode='constant', constant_values=0)
 
+
 def remove_small_regions(mask: np.ndarray,
                          area_thresh: float,
                          mode: str) -> Tuple[np.ndarray, bool]:
@@ -579,6 +581,7 @@ def box_area(boxes):
     """
     return (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
 
+
 def box_iou(box1: np.ndarray, box2: np.ndarray):
     """
     Calculate the Intersection over Union (IoU) between two sets of bounding boxes.
@@ -610,6 +613,7 @@ def box_iou(box1: np.ndarray, box2: np.ndarray):
     inter = wh[:, :, 0] * wh[:, :, 1]
     iou = inter / (area1[:, np.newaxis] + area2 - inter)
     return iou
+
 
 def nms(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float):
     """

@@ -17,6 +17,7 @@ import time
 import argparse
 import numpy as np
 
+
 import mindspore as ms
 try:
     from mindspore import default_generator
@@ -35,8 +36,10 @@ from mindformers.experimental.distri_cores.random import (
 )
 from mindformers.experimental.distri_ckpt.checkpointing import save_checkpoint, load_checkpoint
 
+
 def generate_random_input(shape):
     return np.random.randn(*shape).astype(np.float32)
+
 
 def run_random_tracer_parallel():
     """test ColumnParallelLinear."""
@@ -53,6 +56,7 @@ def run_random_tracer_parallel():
 
     mean = Tensor(generate_random_input((5, 5)))
     std = Tensor(generate_random_input((5, 5)))
+
     def step():
         return mint.normal(mean, std)
 
@@ -91,15 +95,15 @@ def run_random_tracer_parallel():
         candidate = [[] for _ in range(world_size)]
         for rank_id in range(world_size):
             candidate[rank_id] = np.load(f"./result{mode}-rank{rank_id}.npy", allow_pickle=True)
-        if mode == 0: #in raw mode, the value should be the same in each rank
+        if mode == 0:  # in raw mode, the value should be the same in each rank
             assert np.allclose(candidate[0], candidate[1], rtol=1e-4, atol=1e-4)
             assert np.allclose(candidate[1], candidate[2], rtol=1e-4, atol=1e-4)
             assert np.allclose(candidate[2], candidate[3], rtol=1e-4, atol=1e-4)
-        elif mode == 1: #in tp mode, the value should be the different in different tp rank
+        elif mode == 1:  # in tp mode, the value should be the different in different tp rank
             assert np.allclose(candidate[0], candidate[2], rtol=1e-4, atol=1e-4)
             assert np.allclose(candidate[1], candidate[3], rtol=1e-4, atol=1e-4)
             assert not np.allclose(candidate[0], candidate[1], rtol=1e-4, atol=1e-4)
-        else: #in default dp mode, the value should be the same in each rank
+        else:  # in default dp mode, the value should be the same in each rank
             assert np.allclose(candidate[0], candidate[1], rtol=1e-4, atol=1e-4)
             assert np.allclose(candidate[1], candidate[2], rtol=1e-4, atol=1e-4)
             assert np.allclose(candidate[2], candidate[3], rtol=1e-4, atol=1e-4)
@@ -107,9 +111,11 @@ def run_random_tracer_parallel():
     save_checkpoint(empty_cell)
     load_checkpoint("./", empty_cell)
 
+
 def run_recompute_parallel():
     """run recompute with rng tracer in pynative parallel mode"""
     result = []
+
     class DropoutNet(nn.Cell):
         """tiny dropout net"""
         def __init__(self):

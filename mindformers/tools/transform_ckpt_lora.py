@@ -22,6 +22,7 @@ from mindspore import Parameter, Tensor
 import mindspore.ops as P
 from mindformers.tools.logger import logger
 
+
 def get_strategy(startegy_path, rank_id=None):
     """Merge strategy if strategy path is dir
 
@@ -53,6 +54,7 @@ def get_strategy(startegy_path, rank_id=None):
         return merge_path
 
     return None
+
 
 def transpose(weight, fan_in_fan_out):
     return weight.T if fan_in_fan_out else weight
@@ -109,7 +111,7 @@ if __name__ == '__main__':
     logger.info("......Start Merge Lorackpt......")
     param_dict = ms.load_checkpoint(src_lora_ckpt_path)
     lora_keys = [k for k in param_dict if 'lora_a' in k]
-    non_lora_keys = [k for k in param_dict if not 'lora_' in k]
+    non_lora_keys = [k for k in param_dict if 'lora_' not in k]
     param_dict_lora = OrderedDict()
     for k in non_lora_keys:
         param_dict_lora[k] = param_dict[k].clone()

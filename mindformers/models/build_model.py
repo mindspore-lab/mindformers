@@ -68,6 +68,7 @@ def build_model(
         return None
     return None
 
+
 def build_network(
         config: dict = None, default_args: dict = None):
     """Create the quant/pet network For MindFormer"""
@@ -86,6 +87,7 @@ def build_network(
         network.checkpoint_name_or_path = ckpt_cfg
         network = get_pet_model(network, pet_config)
     return network
+
 
 def build_encoder(
         config: dict = None, default_args: dict = None,

@@ -23,6 +23,7 @@ from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['BertProcessor']
 
+
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
 class BertProcessor(ProcessorMixin):
     """

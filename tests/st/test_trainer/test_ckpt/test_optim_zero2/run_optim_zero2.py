@@ -34,6 +34,7 @@ ms.set_context(mode=ms.PYNATIVE_MODE)
 context.set_auto_parallel_context(parallel_mode=ms.ParallelMode.DATA_PARALLEL)
 init()
 
+
 class Net(Cell):
     """
     Define a network contains three layers: mul, add and mul.

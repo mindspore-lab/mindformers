@@ -30,6 +30,7 @@ from mindformers.modules.layers import _check_input_dtype, Linear, RotaryEmbeddi
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.flash_attention import FlashAttention
 
+
 class _MicroBatch(nn.Cell):
     """
     transform mini-batch to micro-batch in pipeline parallel.

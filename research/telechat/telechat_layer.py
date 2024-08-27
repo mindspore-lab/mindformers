@@ -92,6 +92,7 @@ class TelechatEmbedding(Cell):
                 logger.info(f"Using {dp} data parallel and {mp} "
                             f"model parallel for the embedding lookup.")
 
+
 class TelechatLinear(Linear):
     # pylint: disable=W0212
     """

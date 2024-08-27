@@ -23,6 +23,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['GPT2Processor']
 
+
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
 class GPT2Processor(ProcessorMixin):
     """

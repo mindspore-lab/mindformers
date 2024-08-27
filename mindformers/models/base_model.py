@@ -36,6 +36,7 @@ from ..tools.utils import try_sync_file, replace_tk_to_mindpet
 
 IGNORE_KEYS = ["_name_or_path"]
 
+
 class BaseModel(nn.Cell, GenerationMixin):
     """
     The base model that contains the class method `from_pretained` and `save_pretrained`, any new model that should

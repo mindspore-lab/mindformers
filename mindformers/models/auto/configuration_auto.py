@@ -73,6 +73,7 @@ MODEL_NAMES_MAPPING = OrderedDict(
 EXP_ERROR_MSG = "The input yaml_name_or_path should be a path to yaml file, e.g. " \
                 "'run_xxx_model.yaml', or a model name supported, e.g. llama2_7b."
 
+
 def config_class_to_model_type(config):
     """Converts a config class name to the corresponding model type"""
     for key, cls in CONFIG_MAPPING_NAMES.items():
@@ -258,7 +259,7 @@ class AutoConfig:
             raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}\', '
                              f'please select from {local_model_list}')
         local_model_name = yaml_name_or_path.split('_')[cls._model_name]
-        if not yaml_name_or_path in local_model_list[local_model_name]:
+        if yaml_name_or_path not in local_model_list[local_model_name]:
             raise ValueError(f'\'{yaml_name_or_path}\' is not supported by \'{local_model_type}_{local_model_name}\', '
                              f'please select from {local_model_list[local_model_name]}')
         return False

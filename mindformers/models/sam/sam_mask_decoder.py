@@ -29,6 +29,7 @@ from mindformers.modules.layers import Linear, LayerNorm
 from .sam_layers import MLPBlock, LayerNorm2d
 from .sam_config import MaskDecoderConfig
 
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class SamMaskDecoder(PreTrainedModel):
     """
@@ -189,6 +190,7 @@ class SamMaskDecoder(PreTrainedModel):
         iou_pred = self.iou_prediction_head(iou_token_out)
 
         return masks, iou_pred
+
 
 class TwoWayTransformer(nn.Cell):
     """

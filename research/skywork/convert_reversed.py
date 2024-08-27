@@ -36,6 +36,7 @@ def name_replace(weight_name: str):
 
     return weight_name
 
+
 # pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """

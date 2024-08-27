@@ -149,8 +149,7 @@ def _check_param_value(beta1, beta2, eps, prim_name):
 
 @MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
 class FusedAdamWeightDecay(Optimizer):
-    """
-    Implements the Adam algorithm to fix the weight decay. It is a complete operator, not a combination of other ops.
+    """Implements the Adam algorithm to fix the weight decay. It is a complete operator, not a combination of other ops.
 
     Note:
         When separating parameter groups, the weight decay in each group will be applied on the parameters if the
@@ -224,7 +223,7 @@ class FusedAdamWeightDecay(Optimizer):
         >>>
         >>> loss = nn.SoftmaxCrossEntropyWithLogits()
         >>> model = Model(net, loss_fn=loss, optimizer=optim)
-   """
+    """
 
     def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0,
                  offload=False):
@@ -329,8 +328,7 @@ def clone_state(parameters, prefix, init):
 
 @MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
 class FP32StateAdamWeightDecay(nn.AdamWeightDecay):
-    r"""
-        This class is almost same with the mindspore's AdamWeightDecay implements, the
+    """This class is almost same with the mindspore's AdamWeightDecay implements, the
         only difference is the optimizer's state will be always initialized with float32,
         where the original AdamWeightDecay will initialize the optimizer's state with float16,
         if the parameters are initialized with fp16.
@@ -430,7 +428,7 @@ class FP32StateAdamWeightDecay(nn.AdamWeightDecay):
         >>>
         >>> loss = nn.SoftmaxCrossEntropyWithLogits()
         >>> model = ms.Model(net, loss_fn=loss, optimizer=optim)
-   """
+    """
 
     def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0):
         super(nn.AdamWeightDecay, self).__init__(learning_rate, params, weight_decay)
@@ -465,8 +463,7 @@ def _update_run_kernel(opt, clip_value, beta1, beta2, eps, lr, weight_decay,
 
 
 class FusedCastAdamWeightDecay(Optimizer):
-    """
-    Implements the Adam algorithm to fix the weight decay. It is a complete operator, not a combination of other ops.
+    """Implements the Adam algorithm to fix the weight decay. It is a complete operator, not a combination of other ops.
 
     Note:
         When separating parameter groups, the weight decay in each group will be applied on the parameters if the
@@ -535,7 +532,7 @@ class FusedCastAdamWeightDecay(Optimizer):
         >>>
         >>> loss = nn.SoftmaxCrossEntropyWithLogits()
         >>> model = Model(net, loss_fn=loss, optimizer=optim)
-   """
+    """
 
     def __init__(self, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0,
                  clip_norm=1.0):

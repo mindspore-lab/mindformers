@@ -320,7 +320,8 @@ class VersionCheck(BaseCheck):
                 cann_pth = Path('/usr/local/Ascend/ascend-toolkit/latest')
 
             cann_info_file = f'{str(cann_pth)}/{arch}-linux/ascend_toolkit_install.info'
-            if not Path(cann_info_file).exists(): raise RuntimeError('Cannot find cann info file')
+            if not Path(cann_info_file).exists():
+                raise RuntimeError('Cannot find cann info file')
 
             cann_info = subprocess.run(f'cat {cann_info_file}', shell=True, capture_output=True).stdout.decode(
                 'utf-8')
@@ -328,7 +329,8 @@ class VersionCheck(BaseCheck):
             logger.info(f'Ascend-cann-toolkit version: {cann_version}')
 
             driver_info_file = f'{str(cann_pth.parent.parent)}/driver/version.info'
-            if not Path(driver_info_file).exists(): raise RuntimeError('Cannot find driver info file')
+            if not Path(driver_info_file).exists():
+                raise RuntimeError('Cannot find driver info file')
 
             driver_info = subprocess.run(f'cat {driver_info_file}', shell=True, capture_output=True).stdout.decode(
                 'utf-8')

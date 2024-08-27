@@ -30,6 +30,7 @@ from mindformers.generation import GenerationConfig
 USER_TOKEN_ID = 20
 BOT_TOKEN_ID = 21
 
+
 def chat(model, tokenizer, question: str = '', history: Union[List[Dict], History] = None,
          generation_config: Optional[GenerationConfig] = None):
     """
@@ -69,6 +70,7 @@ def chat(model, tokenizer, question: str = '', history: Union[List[Dict], Histor
     response = tokenizer.decode(outputs[0][len(inputs):-1])
     history.append({"role": "bot", "content": response})
     return response, history
+
 
 def build_inputs_for_chat(tokenizer, question, history, generation_config, usr_id, bot_id):
     """

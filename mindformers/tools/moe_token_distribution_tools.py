@@ -37,6 +37,7 @@ def append_all_npy_path(path):
             path_list_temp.append(real_path)
     return path_list_temp
 
+
 def merge_npy_files(str_layer, path_npy_list):
     """
     Merge the npy files of each MOE layer into a complete file
@@ -60,6 +61,7 @@ def merge_npy_files(str_layer, path_npy_list):
         real_data = np.load(path, allow_pickle=True)
         temp.append(real_data)
     return temp
+
 
 def pyplot_show(str_layer, layer_capital, layer_data, save_path_prefix):
     """

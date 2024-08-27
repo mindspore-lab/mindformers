@@ -30,6 +30,7 @@ import qwen2_tokenizer
 if check_in_modelarts():
     import moxing as mox
 
+
 def clear_auto_trans_output(config):
     """clear transformed_checkpoint and strategy"""
     if check_in_modelarts():

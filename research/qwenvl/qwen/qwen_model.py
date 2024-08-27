@@ -95,15 +95,13 @@ class MatMulPad(nn.Cell):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class QwenForCausalLM(QwenPreTrainedModel):
-    r"""
-        Provide qwen training loss or logits through network.
+    """Provide qwen training loss or logits through network.
         Args:
             config (QwenConfig): The config of Qwen model.
 
         Returns:
             Tensor, the loss or logits of the network.
-        """
-
+    """
     @lazy_inline
     def __init__(self, config=None):
         super().__init__(config)
@@ -286,6 +284,7 @@ class QwenForCausalLM(QwenPreTrainedModel):
         key_cache = self.transformer.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache
         value_cache = self.transformer.layers[layer_idx].attention.infer_attention.paged_attention_mgr.value_cache
         return key_cache, value_cache
+
 
 class QwenModel(QwenPreTrainedModel):
     """transformer"""

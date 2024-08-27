@@ -38,6 +38,7 @@ if check_in_modelarts():
 
 sys.path.insert(0, os.getcwd().split('research')[0])
 
+
 def clear_auto_trans_output(config):
     """clear transformed_checkpoint and strategy"""
     if check_in_modelarts():

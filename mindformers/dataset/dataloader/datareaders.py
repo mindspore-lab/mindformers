@@ -77,6 +77,7 @@ def agnews_reader(path):
 def wikitext_reader(path):
     """Reading wikitext datasets. Returns a list of many sentences."""
     path = os.path.realpath(path)
+
     def wikitext_clean(string):
         """ string clean """
         # contractions

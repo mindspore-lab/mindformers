@@ -683,6 +683,7 @@ class RowParallelLinear(nn.Cell):
                                           'opt_weight_shard_size': opt_weight_shard_size}
         return state_dict
 
+
 class VocabParallelEmbedding(nn.Cell):
     """
     Embedding parallelized in the vocabulary dimension.

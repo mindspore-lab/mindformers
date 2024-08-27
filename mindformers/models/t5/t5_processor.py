@@ -23,6 +23,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['T5Processor']
 
+
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
 class T5Processor(ProcessorMixin):
     """

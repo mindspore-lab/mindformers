@@ -23,6 +23,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['LlamaProcessor']
 
+
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
 class LlamaProcessor(ProcessorMixin):
     """

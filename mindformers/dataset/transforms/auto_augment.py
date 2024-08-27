@@ -759,7 +759,7 @@ class AugMixAugment:
         # This is my first crack and implementing a slightly faster mixed augmentation. Instead
         # of accumulating the mix for each chain in a Numpy array and then blending with original,
         # it recomputes the blending coefficients and applies one PIL image blend per chain.
-        # TODO the results appear in the right ballpark but they differ by more than rounding.
+        # the results appear in the right ballpark but they differ by more than rounding.
         img_orig = img.copy()
         ws = self._calc_blended_weights(mixing_weights, m)
         for w in ws:

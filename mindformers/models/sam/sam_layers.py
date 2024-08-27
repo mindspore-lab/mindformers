@@ -23,6 +23,7 @@ from mindspore.ops import operations as P
 
 from mindformers.modules.layers import Linear
 
+
 class MLPBlock(nn.Cell):
     """
     Multi-Layer Perceptron (MLP) block.
@@ -52,6 +53,7 @@ class MLPBlock(nn.Cell):
 
     def construct(self, x: ms.Tensor) -> ms.Tensor:
         return self.lin2(self.act(self.lin1(x)))
+
 
 # From https://github.com/facebookresearch/detectron2/blob/main/detectron2/layers/batch_norm.py # noqa
 # Itself from https://github.com/facebookresearch/ConvNeXt/blob/d1fa8f6fef0a165b27399986cc2bdacc92777e40/models/convnext.py#L119  # noqa

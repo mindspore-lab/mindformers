@@ -167,7 +167,7 @@ class KVCacheMgr(nn.Cell):
 
     def construct(self, key, value, kvcache_inputs=None):
         """The forward compute of KVCacheMgr."""
-        # TODO: add inputs check
+        # add inputs check
         batch_valid_length, zactivate_len, batch_index_pad, seq_length_tensor_pad = kvcache_inputs
         if not self.use_kvcache_op:
             batch_valid_length = self.cast(batch_valid_length, self.dtype)

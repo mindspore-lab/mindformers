@@ -20,6 +20,7 @@ from mindspore.dataset import GeneratorDataset
 from mindformers.tools.logger import logger
 from mindformers.generation.utils import topk
 
+
 def append_text_outputs(eval_network, text_input, text_feats, text_ids):
     """append_text_outputs
 
@@ -40,6 +41,7 @@ def append_text_outputs(eval_network, text_input, text_feats, text_ids):
         text_feats.append(text_feat.asnumpy())
         text_ids.append(text_input.asnumpy())
 
+
 def append_image_outputs(eval_network, image_input, image_feats, vit_outputs):
     """append_image_outputs
 
@@ -59,6 +61,7 @@ def append_image_outputs(eval_network, image_input, image_feats, vit_outputs):
         image_feat, vit_output = eval_network.image_forwarder(image_input)
         image_feats.append(image_feat.asnumpy())
         vit_outputs.append(vit_output.asnumpy())
+
 
 def prepare_inputs_for_itm_eval(eval_network, dataloader):
     """
@@ -87,6 +90,7 @@ def prepare_inputs_for_itm_eval(eval_network, dataloader):
            Tensor.from_numpy(text_feats),  \
            Tensor.from_numpy(vit_outputs), \
            Tensor.from_numpy(text_ids)
+
 
 def extract_image_text_mapping(eval_dataloader, score_i2t, score_t2i):
     """extract_image_text_mapping from eval_dataloader.
@@ -129,6 +133,7 @@ def extract_image_text_mapping(eval_dataloader, score_i2t, score_t2i):
         return bigger_inds, smaller_inds
     return smaller_inds, bigger_inds
 
+
 def compute_extra_itm(model, vit_outputs, text_ids, i, k_test, topk_idx, i2t=True):
     """ compute extra_itm score, for those model have
         its own itm computing method, like blip-2.
@@ -157,6 +162,7 @@ def compute_extra_itm(model, vit_outputs, text_ids, i, k_test, topk_idx, i2t=Tru
         )
 
     return score.asnumpy()
+
 
 def compute_itm_scores(network,
                        sims_matrix,
@@ -249,6 +255,7 @@ def compute_itm_scores(network,
     score_matrix_t2i = Tensor.from_numpy(score_matrix_t2i)
     score_matrix_i2t, score_matrix_t2i = network.score_reducer(score_matrix_i2t, score_matrix_t2i)
     return score_matrix_i2t.asnumpy(), score_matrix_t2i.asnumpy()
+
 
 def report_metrics(scores_i2t, scores_t2i, img2txt, txt2img):
     """
