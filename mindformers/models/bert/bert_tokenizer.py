@@ -19,7 +19,7 @@ import os
 import re
 import unicodedata
 from typing import List, Optional
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from ...mindformer_book import MindFormerBook

@@ -27,7 +27,7 @@ from dataclasses import asdict, dataclass, field, fields
 
 from mindformers.modules.transformer import TransformerRecomputeConfig, TransformerOpParallelConfig, MoEConfig
 from mindformers.tools.register import MindFormerConfig
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank, get_real_group_size
 from .utils import (
     LrSchedulerType,

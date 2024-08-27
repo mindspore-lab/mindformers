@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import sentencepiece as spm
 
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 

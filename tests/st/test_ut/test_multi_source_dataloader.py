@@ -25,7 +25,7 @@ from mindspore.ops import operations as P
 
 from mindformers import MindFormerConfig
 from mindformers.dataset import build_dataset
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 
 def make_flickr_formate_dataset(dataset_root, dataset_index, sample_nums):

@@ -17,7 +17,7 @@
 import mindspore
 from mindspore.communication import create_group, destroy_group, get_group_size, get_rank
 from mindspore import hal
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 _GLOBAL_STREAM = None
 _SP_SEND_STREAM = None

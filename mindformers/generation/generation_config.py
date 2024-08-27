@@ -17,7 +17,7 @@ import copy
 from typing import Any, Dict
 
 from mindformers.models.configuration_utils import PretrainedConfig
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 __all__ = ["GenerationConfig"]
 

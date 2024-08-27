@@ -24,7 +24,7 @@ import os
 import shutil
 from mindformers import MindFormerBook, AutoModel, AutoConfig
 from mindformers.models import BertForMultipleChoice
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 
 class TestModelMethod:

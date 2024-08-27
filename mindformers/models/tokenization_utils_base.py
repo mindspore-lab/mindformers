@@ -32,7 +32,8 @@ from packaging import version
 import yaml
 import numpy as np
 import mindspore as ms
-from ..tools import logger, add_model_info_to_auto_map
+from ..tools.logger import logger
+from ..tools.generic import add_model_info_to_auto_map
 from ..utils.import_utils import is_tokenizers_available
 from ..tools.register import MindFormerConfig
 from .build_tokenizer import build_tokenizer

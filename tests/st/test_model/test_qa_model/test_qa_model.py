@@ -24,7 +24,7 @@ import os
 
 from mindformers import MindFormerBook, AutoModel, AutoConfig
 from mindformers.models import BertForQuestionAnswering, PreTrainedModel
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 
 class TestModelMethod:

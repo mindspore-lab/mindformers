@@ -30,7 +30,7 @@ from mindspore.dataset import (
 )
 from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset
 
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.mindformer_book import print_dict
 from mindformers.models import BaseModel, BaseImageProcessor, PreTrainedTokenizerBase
 from mindformers.models.modeling_utils import PreTrainedModel

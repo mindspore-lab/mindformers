@@ -24,7 +24,7 @@ import yaml
 
 from ..mindformer_book import MindFormerBook
 from ..mindformer_book import print_path_or_list
-from ..tools import logger
+from ..tools.logger import logger
 from ..tools.register.config import MindFormerConfig
 from ..models.build_config import build_model_config
 

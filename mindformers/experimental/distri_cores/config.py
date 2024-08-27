@@ -35,7 +35,8 @@ except ImportError:
     import mindspore._checkparam as Rel
 from mindspore.common.initializer import _INITIALIZER_ALIAS
 
-from mindformers.tools import DictConfig, logger
+from mindformers.tools.logger import logger
+from mindformers.tools.register import DictConfig
 from mindformers.experimental.distri_cores.utils import load_yaml, DictWithValueError
 
 

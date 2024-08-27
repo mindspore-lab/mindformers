@@ -25,7 +25,7 @@ from multiprocessing.pool import Pool
 import mindspore as ms
 
 from mindformers import MindFormerConfig
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.models.llama.llama import LlamaForCausalLM
 from mindformers.models.llama.llama_config import LlamaConfig
 

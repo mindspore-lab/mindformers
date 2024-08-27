@@ -15,7 +15,7 @@
 # https://github.com/microsoft/SimMIM
 # ============================================================================
 """group parameters for masked image modeling."""
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 
 def get_group_parameters(config, model):

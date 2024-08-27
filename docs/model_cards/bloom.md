@@ -740,7 +740,7 @@ from mindformers import BloomLMHeadModel, BloomConfig, AutoTokenizer
 from mindformers import init_context
 from mindformers.modules import TransformerOpParallelConfig
 from mindformers.trainer.utils import get_last_checkpoint
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 SEQ_LENGTH = 256
 DISTRIBUTED_CKPT_PATH = os.getenv("DISTRIBUTED_CKPT_PATH", "")

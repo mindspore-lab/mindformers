@@ -25,7 +25,7 @@ from typing import List, Optional
 import ftfy
 import regex as re
 
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.tools.utils import try_sync_file
 from ...mindformer_book import MindFormerBook
 from ...tools.register import MindFormerRegister, MindFormerModuleType

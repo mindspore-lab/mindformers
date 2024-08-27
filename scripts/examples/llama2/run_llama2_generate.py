@@ -20,7 +20,8 @@ import mindspore as ms
 from mindspore import Tensor, Model
 from mindspore.common import initializer as init
 
-from mindformers import MindFormerConfig, logger
+from mindformers import MindFormerConfig
+from mindformers.tools.logger import logger
 from mindformers.models.llama import LlamaConfig, LlamaTokenizer, LlamaForCausalLM
 from mindformers.core.context import build_context
 from mindformers.core.parallel_config import build_parallel_config

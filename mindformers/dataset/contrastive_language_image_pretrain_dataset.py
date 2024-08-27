@@ -19,7 +19,7 @@ from .dataloader import build_dataset_loader
 from .transforms import build_transforms
 from .sampler import build_sampler
 from .base_dataset import BaseDataset
-from ..tools import logger
+from ..tools.logger import logger
 from ..models.build_tokenizer import build_tokenizer
 from ..tools.register import MindFormerRegister, MindFormerModuleType
 

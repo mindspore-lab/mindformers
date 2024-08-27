@@ -17,6 +17,9 @@
 """ Class Register Module For MindFormers."""
 
 import inspect
+import os
+
+from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
 
 
 class MindFormerModuleType:
@@ -162,6 +165,10 @@ class MindFormerRegister:
             raise TypeError(
                 "Cfg must be a Config, but got {}".format(type(cfg))
             )
+
+        if 'auto_register' in cfg:
+            cls.auto_register(class_reference=cfg.pop('auto_register'), module_type=module_type)
+
         if 'type' not in cfg:
             raise KeyError(
                 '`cfg` or `default_args` must contain the key "type",'
@@ -218,3 +225,30 @@ class MindFormerRegister:
             return obj_cls(**kwargs)
         except Exception as e:
             raise type(e)('{}: {}'.format(obj_cls.__name__, e))
+
+    @classmethod
+    def auto_register(cls, class_reference: str, module_type=MindFormerModuleType.TOOLS):
+        """Auto register function.
+        Args:
+            class_reference: The full name of the class to load.
+            module_type : module type.
+        """
+        if not isinstance(class_reference, str):
+            raise ValueError(f"auto_map must be the type of string, but get {type(class_reference)} ."
+                             f"Please fill in the following format: module_file.function_name, such as,"
+                             f"llama_model.LlamaForCausalLM")
+        register_path = os.getenv("REGISTER_PATH", '')
+        if not register_path:
+            raise EnvironmentError("When configuring the 'auto_map' automatic registration function, "
+                                   "REGISTER_PATH must be specified. "
+                                   "It is recommended to complete this action"
+                                   "through the official startup script "
+                                   "'run_mindformer.py --register_path=module_file_path' "
+                                   "or use 'export REGISTER_PATH=module_file_path' to complete this action.")
+        if not os.path.realpath(register_path):
+            raise EnvironmentError(f"REGISTER_PATH must be real path, but get {register_path}, "
+                                   f"please specify the correct directory path.")
+        register_path = os.path.realpath(os.getenv("REGISTER_PATH"))
+        module_class = get_class_from_dynamic_module(
+            class_reference=class_reference, pretrained_model_name_or_path=register_path)
+        cls.register_cls(module_class, module_type=module_type)

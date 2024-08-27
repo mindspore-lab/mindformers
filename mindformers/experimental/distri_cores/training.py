@@ -31,7 +31,7 @@ from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_enable_parallel_optimizer
 from mindformers.core.clip_grad import ClipGradNorm
 
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.experimental.distri_cores.grad_handler import (
     inplace_apply_to_tensor_list,
     get_grad_process_func,

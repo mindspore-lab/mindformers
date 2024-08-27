@@ -23,7 +23,7 @@ linux:  pytest ./tests/st/test_model/test_gpt2_model/test_txtcls_model.py
 import os
 import shutil
 from mindformers import MindFormerBook, AutoModel, AutoConfig, GPT2ForSequenceClassification
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 
 class TestModelMethod:

@@ -42,7 +42,7 @@ from .tokenization_utils_base import (
     PaddingStrategy,
     TensorType
 )
-from ..tools import logger
+from ..tools.logger import logger
 
 __all__ = ["PreTrainedTokenizer", "PreTrainedTokenizerBase"]
 

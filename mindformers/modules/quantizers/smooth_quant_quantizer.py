@@ -15,7 +15,7 @@
 """Smooth Quant Quantizer."""
 from mindspore import dtype as msdtype
 
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.utils.quantization_config import PTQConfig
 from mindformers.modules.quantizers import Quantizer
 from mindformers.version_control import check_valid_mindspore_gs

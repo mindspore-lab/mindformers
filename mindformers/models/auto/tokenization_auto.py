@@ -32,7 +32,7 @@ from ...tools import (
 )
 from ...tools.hub import get_class_from_dynamic_module, resolve_trust_remote_code
 from ...utils.import_utils import is_sentencepiece_available, is_tokenizers_available
-from ...tools import logger
+from ...tools.logger import logger
 from .configuration_auto import (
     CONFIG_MAPPING_NAMES,
     PretrainedConfig,

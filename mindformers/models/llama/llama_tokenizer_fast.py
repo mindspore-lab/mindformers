@@ -19,7 +19,7 @@ from shutil import copyfile
 from typing import Optional, Tuple
 
 from tokenizers import processors
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.mindformer_book import MindFormerBook
 from ..tokenization_utils_fast import PreTrainedTokenizerFast

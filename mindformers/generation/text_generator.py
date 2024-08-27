@@ -40,7 +40,7 @@ from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.generation.streamers import BaseStreamer
 from mindformers.generation.utils import softmax_with_threads, topk, GenerateOutput, InferOutput
 from mindformers.modules.block_tables import BlockTables
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 __all__ = ["GenerationMixin"]
 

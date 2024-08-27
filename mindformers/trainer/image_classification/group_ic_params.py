@@ -19,7 +19,7 @@ import json
 from functools import partial
 
 from mindformers.core.lr import LearningRateWiseLayer
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 
 def get_group_parameters(config, model, base_lr):
