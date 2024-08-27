@@ -650,7 +650,8 @@ class LLamaDecodeLayer(nn.Cell):
                                                             param_init_type=param_init_type,
                                                             is_dynamic=is_dynamic,
                                                             moe_config=moe_config,
-                                                            parallel_config=parallel_config)
+                                                            parallel_config=parallel_config,
+                                                            use_moe_infer=self.use_moe_infer)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
