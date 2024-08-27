@@ -376,7 +376,7 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
 MindFormers目前支持源码编译安装，用户可以执行如下命令进行安装。
 
 ```shell
-git clone -b dev https://gitee.com/mindspore/mindformers.git
+git clone -b r1.2.0 https://gitee.com/mindspore/mindformers.git
 cd mindformers
 bash build.sh
 ```
