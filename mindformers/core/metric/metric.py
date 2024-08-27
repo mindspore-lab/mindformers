@@ -289,7 +289,8 @@ class SQuADMetric(nn.Metric):
                 output["end_logit"] = entry.end_logit
                 nbest_json.append(output)
 
-            assert len(nbest_json) >= 1
+            if not nbest_json:
+                raise ValueError(f"len(nbest_json) should not less than 1, but got {len(nbest_json)}.")
 
             all_predictions[example["qas_id"]] = nbest_json[0]["text"]
         return all_predictions
@@ -389,7 +390,8 @@ class SQuADMetric(nn.Metric):
         if not nbest:
             nbest.append(_NbestPrediction(text="empty", start_logit=0.0, end_logit=0.0))
 
-        assert len(nbest) >= 1
+        if not nbest:
+            raise ValueError(f"nbest should not be empty.")
         return nbest
 
     def _compute_softmax(self, scores):

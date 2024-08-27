@@ -1284,13 +1284,15 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         """Get src checkpoint for ckpt transform."""
         if state_dict is None:
             if isinstance(resolved_archive_file, str):
-                assert os.path.exists(resolved_archive_file), f"{resolved_archive_file} not found!"
+                if not os.path.exists(resolved_archive_file):
+                    raise ValueError(f"resolved_archive_file:{resolved_archive_file} not found!")
                 make_soft_link(src_checkpoint, resolved_archive_file)
                 return src_checkpoint
             if isinstance(resolved_archive_file, (list, tuple)):
                 state_dict = {}
                 for resolved_archive_file_ in resolved_archive_file:
-                    assert os.path.exists(resolved_archive_file_), f"{resolved_archive_file_} not found!"
+                    if not os.path.exists(resolved_archive_file_):
+                        raise ValueError(f"resolved_archive_file_:{resolved_archive_file_} not found!")
                     state_dict.update(load_checkpoint(resolved_archive_file_))
             else:
                 raise ValueError(f"`resolved_archive_file` should be str, list or tuple,"
@@ -1317,10 +1319,12 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             if isinstance(resolved_archive_file, (list, tuple)):
                 state_dict = {}
                 for resolved_archive_file_ in resolved_archive_file:
-                    assert os.path.exists(resolved_archive_file_), f"{resolved_archive_file_} not found!"
+                    if not os.path.exists(resolved_archive_file_):
+                        raise ValueError(f"resolved_archive_file_:{resolved_archive_file_} not found!")
                     state_dict.update(load_checkpoint(resolved_archive_file_))
             elif isinstance(resolved_archive_file, str):
-                assert os.path.exists(resolved_archive_file), f"{resolved_archive_file} not found!"
+                if not os.path.exists(resolved_archive_file):
+                    raise ValueError(f"resolved_archive_file:{resolved_archive_file} not found!")
                 state_dict = load_checkpoint(resolved_archive_file)
             else:
                 raise ValueError(f"`resolved_archive_file` should be str, list or tuple,"

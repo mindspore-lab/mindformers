@@ -146,7 +146,8 @@ class SegmentAnythingPipeline(Pipeline):
                 model_inputs["original_size"] = original_size
                 model_inputs["input_size"] = input_size
             else:
-                assert self.is_image_set, "image must be set when image not in inputs"
+                if not self.is_image_set:
+                    raise ValueError("image must be set when image not in inputs")
                 original_size = self.original_size
                 model_inputs["image"] = None
                 model_inputs["features"] = self.features
@@ -172,7 +173,8 @@ class SegmentAnythingPipeline(Pipeline):
             model_inputs["mask_inputs"] = masks
         else:
             image = inputs.get("image", None)
-            assert image is not None, "An image must be supported, when 'seg_image' is True."
+            if image is None:
+                raise ValueError("An image must be supported, when 'seg_image' is True.")
 
             if isinstance(image, str):
                 image = cv2.imread(image)
@@ -416,10 +418,8 @@ class SegmentAnythingPipeline(Pipeline):
             image = cv2.imread(image)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        assert image_format in [
-            "RGB",
-            "BGR",
-        ], f"image_format must be in ['RGB', 'BGR'], is {image_format}."
+        if image_format not in ["RGB", "BGR"]:
+            raise ValueError(f"image_format must be in ['RGB', 'BGR'], but got {image_format}.")
         if image_format != self.network.image_format:
             image = image[..., ::-1]
 
@@ -500,10 +500,9 @@ class SegmentAnythingPipeline(Pipeline):
         the embedding spatial dimension of SAM (typically C=256, H=W=64).
         """
         if not self.is_image_set:
-            raise RuntimeError(
-                "An image must be set with .set_image(...) to generate an embedding."
-            )
-        assert self.features is not None
+            raise RuntimeError("An image must be set with .set_image(...) to generate an embedding.")
+        if self.features is None:
+            raise ValueError("self.features should not be None.")
         return self.features
 
     def reset_config(self,
@@ -537,9 +536,8 @@ class SegmentAnythingPipeline(Pipeline):
         self.min_mask_region_area = min_mask_region_area or kwargs.get('min_mask_region_area', 0)
         self.output_mode = output_mode or kwargs.get('output_mode', "binary_mask")
 
-        assert (self.points_per_side is None) != (
-            self.point_grids is None
-        ), "Exactly one of points_per_side or point_grid must be provided."
+        if  (self.points_per_side is None) == (self.point_grids is None):
+            raise ValueError("Exactly one of points_per_side or point_grid must be provided.")
         if self.points_per_side is not None:
             self.point_grids = build_all_layer_point_grids(
                 self.points_per_side,
@@ -547,11 +545,8 @@ class SegmentAnythingPipeline(Pipeline):
                 self.crop_n_points_downscale_factor
             )
 
-        assert self.output_mode in [
-            "binary_mask",
-            "uncompressed_rle",
-            "coco_rle",
-        ], f"Unknown output_mode {self.output_mode}."
+        if self.output_mode not in ["binary_mask", "uncompressed_rle", "coco_rle"]:
+            raise ValueError(f"Unknown output_mode: {self.output_mode}.")
 
     def postprocess_small_regions(self,
                                   mask_data: MaskData,

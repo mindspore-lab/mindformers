@@ -427,7 +427,9 @@ class Attention(nn.Cell):
         self.layernorm_compute_type = layernorm_compute_type
         self.softmax_compute_type = softmax_compute_type
         self.param_init_type = param_init_type
-        assert self.internal_dim % num_heads == 0, "num_heads must divide embedding_dim."
+        if self.internal_dim % num_heads != 0:
+            raise ValueError(f"num_heads must divide embedding_dim, but internal_dim got {self.internal_dim},"
+                             f"num_heads got {num_heads}.")
 
         self.inv_norm_factor = ms.Tensor(1.0 / math.sqrt(self.internal_dim // self.num_heads))
 

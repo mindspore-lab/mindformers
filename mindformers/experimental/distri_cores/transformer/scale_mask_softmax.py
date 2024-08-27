@@ -50,9 +50,8 @@ class ScaleMaskSoftmax(Module):
 
         self.cast = P.Cast()
 
-        assert (
-            self.scale is None or softmax_compute_type == mstype.float32
-        ), "softmax should be in fp32 when scaled"
+        if self.scale is not None and softmax_compute_type != mstype.float32:
+            raise ValueError("softmax should be in fp32 when scaled.")
 
     def construct(self, x, mask):
         """construct method"""

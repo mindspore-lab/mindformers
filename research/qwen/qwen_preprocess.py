@@ -49,7 +49,9 @@ def preprocess(sources, tokenizer, seq_length):
         system = [im_start] + system_base + tokenizer(system_message)['input_ids'] + [im_end] + nl_tokens
         input_id += system
         target += [im_start] + [IGNORE_TOKEN_ID] * (len(system) - 3) + [im_end] + nl_tokens
-        assert len(input_id) == len(target)
+        if len(input_id) != len(target):
+            raise ValueError("The len(input_id) should equal to the len(target), but len(input_id) got"
+                             f"{len(input_id)}, len(target) got {len(target)}.")
         for _, sentence in enumerate(source):
             role = roles[sentence["from"]]
             input_id_part = tokenizer(role)['input_ids'] + nl_tokens + tokenizer(sentence["value"])['input_ids'] + [
@@ -63,7 +65,9 @@ def preprocess(sources, tokenizer, seq_length):
             else:
                 raise NotImplementedError
             target += target_part
-        assert len(input_id) == len(target)
+        if len(input_id) != len(target):
+            raise ValueError("The len(input_id) should equal to the len(target), but len(input_id) got"
+                             f"{len(input_id)}, len(target) got {len(target)}.")
         input_id += [tokenizer.pad_token_id] * (seq_length - len(input_id))
         target += [IGNORE_TOKEN_ID] * (seq_length - len(target))
         input_ids.append(input_id[:seq_length])

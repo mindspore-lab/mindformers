@@ -36,7 +36,8 @@ def get_strategy(startegy_path, rank_id=None):
     if not startegy_path or startegy_path == "None":
         return None
 
-    assert os.path.exists(startegy_path), f'{startegy_path} not found!'
+    if not os.path.exists(startegy_path):
+        raise ValueError(f'{startegy_path} not found!')
 
     if os.path.isfile(startegy_path):
         return startegy_path
@@ -120,7 +121,8 @@ if __name__ == '__main__':
             continue
         logger.info(f'Merging {k}')
         original_key = k.replace('_lora_a', '').replace('mindpet_delta', 'weight')
-        assert original_key in param_dict
+        if original_key not in param_dict:
+            raise ValueError(f"The original_key should in the param_dict, but got {original_key}.")
         lora_a_key = k
         lora_b_key = k.replace('lora_a', 'lora_b')
         original_value = param_dict_lora[original_key]

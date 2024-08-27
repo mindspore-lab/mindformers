@@ -54,7 +54,8 @@ def get_2d_sincos_pos_embed(embed_dim, grid_size, cls_token=False):
 
 
 def get_2d_sincos_pos_embed_from_grid(embed_dim, grid):
-    assert embed_dim % 2 == 0
+    if embed_dim % 2 != 0:
+        raise ValueError("embed_dim should be divisible by 2")
 
     # use half of dimensions to encode grid_h
     emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0])  # (H*W, D/2)
@@ -70,7 +71,8 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
     pos: a list of positions to be encoded: size (M,)
     out: (M, D)
     """
-    assert embed_dim % 2 == 0
+    if embed_dim % 2 != 0:
+        raise ValueError("embed_dim should be divisible by 2")
     omega = np.arange(embed_dim // 2, dtype=np.float32)
     omega /= embed_dim / 2.
     omega = 1. / 10000 ** omega  # (D/2,)
@@ -844,7 +846,8 @@ class UnPatchify(nn.Cell):
             dp = 1
         self.p = patch_size
         self.h = self.w = int(seq_length ** .5)
-        assert self.h * self.w == seq_length
+        if self.h * self.w != seq_length:
+            raise ValueError("self.h * self.w should equal to seq_length")
 
         self.reshape = P.Reshape()
         self.transpose = P.Transpose().shard(((dp, 1, 1, 1, 1, 1),))

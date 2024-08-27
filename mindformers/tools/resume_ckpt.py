@@ -237,7 +237,8 @@ def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, device_num):
         if check_checkpoints_by_rank(valid_ckpts[key], device_num):
             ckpt_file = replace_rank_id_in_ckpt_name(valid_ckpts[key][0], rank_id)
             resume_ckpt = os.path.join(checkpoint_dir, f"rank_{rank_id}", ckpt_file)
-            assert os.path.exists(resume_ckpt), f"{resume_ckpt} is not found!"
+            if not os.path.exists(resume_ckpt):
+                raise ValueError(f"{resume_ckpt} is not found!")
             resume_ckpt_list.append(resume_ckpt)
     if not resume_ckpt_list:
         raise RuntimeError("No checkpoint could be resumed.")

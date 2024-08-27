@@ -78,14 +78,17 @@ def main(task='text_generation',
     """main function."""
 
     yaml_path = os.path.expanduser(config)
-    assert os.path.exists(yaml_path)
+    if not os.path.exists(yaml_path):
+        raise ValueError("The yaml_path should exist.")
 
     config = MindFormerConfig(os.path.realpath(yaml_path))
     if vocab_file:
-        assert os.path.exists(vocab_file)
+        if not os.path.exists(vocab_file):
+            raise ValueError("The vocab_file should exis.t")
         config.processor.tokenizer.vocab_file = vocab_file
     if merges_file:
-        assert os.path.exists(merges_file)
+        if not os.path.exists(merges_file):
+            raise ValueError("The merges_file should exist.")
         config.processor.tokenizer.merges_file = merges_file
     if use_parallel is not None:
         config.use_parallel = use_parallel

@@ -83,7 +83,8 @@ def build_chat_input(config, tokenizer, messages, max_new_tokens=None):
         r = []
         for i, message in enumerate(messages):
             if message["role"] == "system":
-                assert i == 0
+                if i != 0:
+                    raise ValueError(f"i should be 0,but got {i}")
                 system = message["content"]
                 continue
             if message["role"] == split_role and r:

@@ -29,7 +29,8 @@ class SPTokenizer:
 
     def __init__(self, model_path: str):
         # reload tokenizer
-        assert os.path.isfile(model_path), model_path
+        if not os.path.isfile(model_path):
+            raise ValueError(f"{model_path} is not file.")
         self.sp_model = SentencePieceProcessor(model_file=model_path)
 
         # BOS / EOS token IDs
@@ -37,7 +38,10 @@ class SPTokenizer:
         self.bos_id: int = self.sp_model.bos_id()
         self.eos_id: int = self.sp_model.eos_id()
         self.pad_id: int = self.sp_model.unk_id()
-        assert self.sp_model.vocab_size() == self.sp_model.get_piece_size()
+        if self.sp_model.vocab_size() != self.sp_model.get_piece_size():
+            raise ValueError(f"self.sp_model.vocab_size() should equal to self.sp_model.get_piece_size(), "
+                             f"but sp_model.vocab_size() got {self.sp_model.vocab_size()}, "
+                             f"sp_model.get_piece_size() got {self.sp_model.get_piece_size()}.")
 
         special_tokens = ["[MASK]", "[gMASK]", "[sMASK]", "sop", "eop"]
         self.special_tokens = {}
@@ -53,7 +57,8 @@ class SPTokenizer:
         return self.sp_model.EncodeAsPieces(s)
 
     def encode(self, s: str, bos: bool = False, eos: bool = False) -> List[int]:
-        assert isinstance(s, str)
+        if not isinstance(s, str):
+            raise ValueError(f"s should be str, but got {s}.")
         t = self.sp_model.encode(s)
         if bos:
             t = [self.bos_id] + t
@@ -158,7 +163,8 @@ class ChatGLM2Tokenizer(PreTrainedTokenizer):
     def get_command(self, token):
         if token in self.special_tokens:
             return self.special_tokens[token]
-        assert token in self.tokenizer.special_tokens, f"{token} is not a special token for {self.name}"
+        if token not in self.tokenizer.special_tokens:
+            raise ValueError(f"{token} is not a special token for {self.name}.")
         return self.tokenizer.special_tokens[token]
 
     @property

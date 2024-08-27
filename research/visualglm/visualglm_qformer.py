@@ -509,20 +509,17 @@ class VisualGLMQformer(VisualGLMBase):
         text_ids = samples.get("text_input")
 
         # assert mode is one of "image", "text", "multimodal"
-        assert mode in [
-            "image",
-            "text",
-            "multimodal",
-        ], "mode must be one of 'image', 'text', 'multimodal'"
+        if mode not in ["image", "text", "multimodal"]:
+            raise ValueError("mode must be one of 'image', 'text', 'multimodal', "
+                             f"but got {mode}.")
 
         # initialize output
         image_embeds, text_embeds, multimodal_embeds = None, None, None
         image_features, text_features = None, None
 
         if mode == "image":
-            assert (
-                image is not None
-            ), "Image is not provided for mode 'image' or 'multimodal'"
+            if  image is None:
+                raise ValueError("Image is not provided for mode 'image' or 'multimodal'.")
             # return query features
             forward_image_outputs = self.forward_image(image, use_cache=False)
             image_embeds = forward_image_outputs[0]
@@ -530,7 +527,8 @@ class VisualGLMQformer(VisualGLMBase):
                 axis=-1, epsilon=1e-12)(self.vision_proj(image_embeds))
 
         elif mode == "text":
-            assert text_ids is not None, "text input is None for mode 'text' or 'multimodal'"
+            if text_ids is None:
+                raise ValueError("text input is None for mode 'text' or 'multimodal'.")
             forward_text_outputs = self.forward_text(text_ids)
             text_embeds = forward_text_outputs[0]
             text_features = ops.L2Normalize(

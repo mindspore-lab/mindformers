@@ -106,7 +106,8 @@ class ToolAlpacaDataset:
                         logger.info("Drop %s:%d due to '%s', line is:\n%s", dataset_dir, i, e, line)
                         continue
         self.data = data
-        assert self.__len__() > 0, f"valid data less then 1, loading data failed, please check your data file."
+        if self.__len__() <= 0:
+            raise ValueError(f"valid data less then 1, loading data failed, please check your data file.")
         logger.info("loading %d data success!", self.__len__())
 
     def _is_data_valid(self, line, i):

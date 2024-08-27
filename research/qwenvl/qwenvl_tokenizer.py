@@ -72,7 +72,10 @@ def _replace_closed_tag(
         start_tags = (start_tags,)
     if isinstance(end_tags, (str, int)):
         end_tags = (end_tags,)
-    assert len(start_tags) == len(end_tags)
+    if len(start_tags) != len(end_tags):
+        raise ValueError("len(start_tags) should equal to len(end_tags),"
+                         f"but len(start_tags) got {len(start_tags)},"
+                         f"len(end_tags) got {len(end_tags)}.")
 
     output_tokens = []
     end = 0
@@ -159,9 +162,10 @@ class QwenVLTokenizer(PreTrainedTokenizer):
             mergeable_ranks=self.mergeable_ranks,
             special_tokens=self.special_tokens,
         )
-        assert (len(self.mergeable_ranks) + len(
-            self.special_tokens) == enc.n_vocab), f"{len(self.mergeable_ranks) + len(self.special_tokens)} != " \
-                                                  f"{enc.n_vocab} in encoding"
+        if len(self.mergeable_ranks) + len(self.special_tokens) != enc.n_vocab:
+            raise ValueError(f"len(mergeable_ranks) + len(special_tokens): "
+                             f"{len(self.mergeable_ranks) + len(self.special_tokens)} != "
+                             f"n_vocab: {enc.n_vocab} in encoding.")
 
         self.decoder = {
             v: k for k, v in self.mergeable_ranks.items()
@@ -257,7 +261,10 @@ class QwenVLTokenizer(PreTrainedTokenizer):
             tokens.append(self.decoder[t])
 
         def _encode_img_url(img_tokens):
-            assert img_tokens[0] == self.image_start_tag and img_tokens[-1] == self.image_end_tag
+            if img_tokens[0] != self.image_start_tag or img_tokens[-1] != self.image_end_tag:
+                raise ValueError(f"img_tokens[0]: {img_tokens[0]} should equal image_start_tag:"
+                                 f" {self.image_start_tag} and img_tokens: {img_tokens[-1]} "
+                                 f"should equal to image_end_tag: {self.image_end_tag}.")
             img_tokens = img_tokens[1:-1]
             img_url = b''.join(img_tokens)
             out_img_tokens = list(map(self.decoder.get, img_url))

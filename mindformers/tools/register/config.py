@@ -240,8 +240,9 @@ class ActionDict(Action):
         note:
             '(' and ')' or '[' and']' must appear in pairs or not exist.
         """
-        assert (val_str.count('(') == val_str.count(')')) and \
-               (val_str.count('[') == val_str.count(']'))
+        if val_str.count('(') != val_str.count(')') or \
+               (val_str.count('[') != val_str.count(']')):
+            raise ValueError("( and ) or [ and ] must appear in pairs or not exist.")
 
         end = len(val_str)
         for idx, char in enumerate(val_str):

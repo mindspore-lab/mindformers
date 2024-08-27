@@ -30,7 +30,8 @@ class SPTokenizer:
 
     def __init__(self, model_path: str):
         # reload tokenizer
-        assert os.path.isfile(model_path), model_path
+        if not os.path.isfile(model_path):
+            raise ValueError(f"{model_path} is not file.")
         self.sp_model = SentencePieceProcessor(model_file=model_path)
 
         # BOS / EOS token IDs
@@ -38,7 +39,10 @@ class SPTokenizer:
         self.bos_id: int = self.sp_model.bos_id()
         self.eos_id: int = self.sp_model.eos_id()
         self.pad_id: int = self.sp_model.unk_id()
-        assert self.sp_model.vocab_size() == self.sp_model.get_piece_size()
+        if self.sp_model.vocab_size() != self.sp_model.get_piece_size():
+            raise ValueError(f"self.sp_model.vocab_size() should equal to self.sp_model.get_piece_size(), "
+                             f"but sp_model.vocab_size() got {self.sp_model.vocab_size()}, "
+                             f"sp_model.get_piece_size() got {self.sp_model.get_piece_size()}.")
 
         special_tokens = ["[MASK]", "[gMASK]", "[sMASK]", "sop", "eop", "<|system|>", "<|user|>", "<|assistant|>",
                           "<|observation|>"]
@@ -55,7 +59,8 @@ class SPTokenizer:
         return self.sp_model.EncodeAsPieces(s)
 
     def encode(self, s: str, bos: bool = False, eos: bool = False) -> List[int]:
-        assert isinstance(s, str)
+        if not isinstance(s, str):
+            raise ValueError(f"s should be str, but got {s}.")
         t = self.sp_model.encode(s)
         if bos:
             t = [self.bos_id] + t
@@ -173,7 +178,8 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
     def get_command(self, token):
         if token in self.special_tokens:
             return self.special_tokens[token]
-        assert token in self.tokenizer.special_tokens, f"{token} is not a special token for {self.name}"
+        if token not in self.tokenizer.special_tokens:
+            raise ValueError(f"{token} is not a special token for {self.name}.")
         return self.tokenizer.special_tokens[token]
 
     @property
@@ -195,7 +201,9 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
         return vocab
 
     def build_single_message(self, role, metadata, message):
-        assert role in ["system", "user", "assistant", "observation"], role
+        if role not in ["system", "user", "assistant", "observation"]:
+            raise ValueError(f"role should be one of 'system', 'user', 'assistant'"
+                             f", 'observation', but got {role}.")
         role_tokens = [self.get_command(f"<|{role}|>")] + self.tokenizer.encode(f"{metadata}\n")
         message_tokens = self.tokenizer.encode(message)
         tokens = role_tokens + message_tokens
@@ -227,10 +235,12 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
         if histories is None:
             histories = [[] for _ in range(batch_size)]
 
-        assert batch_size == len(histories), f"len(queries) should equals to len(histories), "+\
-                                             f"but got {len(queries) } and {len(histories)}"
-        assert batch_size == len(roles), f"len(queries) should equals to len(roles), "+\
-                                             f"but got {len(queries) } and {len(roles)}"
+        if batch_size != len(histories):
+            raise ValueError(f"len(queries) should equal to len(histories), "
+                             f"but got {len(queries) } and {len(histories)}.")
+        if batch_size != len(roles):
+            raise ValueError(f"len(queries) should equal to len(roles), "
+                             f"but got {len(queries) } and {len(roles)}.")
         batch_inputs = []
         for query, history, role in zip(queries, histories, roles):
             if history is None:
@@ -411,7 +421,7 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
     def apply_chat_template(self, conversation, return_tensors=None, **tokenizer_kwargs):
         if not conversation:
             return []
-        assert (isinstance(conversation, list) and len(conversation) == 1
-                and isinstance(conversation[0], Dict)), f"conversation {conversation} is invalid."
+        if not isinstance(conversation, list) or len(conversation) != 1 or not isinstance(conversation[0], Dict):
+            raise ValueError(f"conversation:{conversation} is invalid.")
         return self.build_chat_input(query=conversation[0].get("content"), role=conversation[0].get("role"),
                                      return_tensors=return_tensors)["input_ids"][0]

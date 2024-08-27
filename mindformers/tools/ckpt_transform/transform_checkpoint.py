@@ -104,18 +104,22 @@ class TransformCkpt:
         self.is_main_rank = is_main_rank()
         self.npu_num_per_node = npu_num_per_node or get_device_num_per_node()
         self.node_num = self.world_size // self.npu_num_per_node
-        assert is_power_of_two(self.npu_num_per_node), \
-            f"The `npu_num_per_node` must be a power of 2, but get {npu_num_per_node}"
+        if not is_power_of_two(self.npu_num_per_node):
+            raise ValueError(
+                f"The `npu_num_per_node` must be a power of 2, but get {npu_num_per_node}")
 
         # Before obtaining transform_rank_id_list, check 1 ≤ transform_process_num ≤ world_size.
-        assert transform_process_num >= 1, "`transform_process_num` should not smaller than 1."
+        if transform_process_num < 1:
+            raise ValueError("transform_process_num should not smaller than 1,"
+                             f"but got {transform_process_num}.")
         if transform_process_num > self.world_size:
             logger.warning("transform_process_num: %d should not bigger than world_size: %d. \
-                transform_process_num is set to %d",
+                transform_process_num is set to %d.",
                            transform_process_num, self.world_size, self.world_size)
             transform_process_num = self.world_size
-        assert self.world_size % transform_process_num == 0, \
-            f"transform_process_num: {transform_process_num} should be divided by world_size: {self.world_size}."
+        if self.world_size % transform_process_num != 0:
+            raise ValueError(f"transform_process_num: {transform_process_num} "
+                             f"should be divided by world_size: {self.world_size}.")
         if check_in_modelarts() and 1 < transform_process_num < self.node_num:
             logger.warning("transform_process_num: %d should not smaller than \
                 node_num = world_size // npu_num_per_node = %d when training on AICC. \
@@ -244,10 +248,12 @@ class TransformCkpt:
                 dst_strategy = None
 
             if check_in_modelarts():
-                assert mox.file.exists(self.transformed_checkpoint_dir_obs), \
-                    f"{self.transformed_checkpoint_dir_obs} is not found!"
-                if self.world_size > 1:
-                    assert mox.file.exists(self.dst_strategy_dir_obs), f"{self.dst_strategy_dir_obs} is not found!"
+                if not mox.file.exists(self.transformed_checkpoint_dir_obs):
+                    raise ValueError(f"transformed_checkpoint_dir_obs: "
+                                     f"{self.transformed_checkpoint_dir_obs} is not found!")
+                if self.world_size > 1 and not mox.file.exists(self.dst_strategy_dir_obs):
+                    raise ValueError(f"dst_strategy_dir_obs: {self.dst_strategy_dir_obs} is not found!")
+
 
             # Get final dst_strategy in auto_trans_ckpt mode.
             dst_strategy = self.get_dst_strategy(dst_strategy)
@@ -438,7 +444,8 @@ class TransformCkpt:
         if not strategy_path or strategy_path == "None":
             return None
 
-        assert os.path.exists(strategy_path), f'{strategy_path} not found!'
+        if not os.path.exists(strategy_path):
+            raise ValueError(f'strategy_path: {strategy_path} not found!')
 
         if os.path.isfile(strategy_path):
             return strategy_path
@@ -472,8 +479,10 @@ class TransformCkpt:
         if self.world_size == 1:
             return None
 
-        assert dst_strategy.endswith(f"_rank_{self.rank_id}.ckpt") and \
-            os.path.exists(dst_strategy), f"`dst_strategy`={dst_strategy} is not found!"
+        if not (dst_strategy.endswith(f"_rank_{self.rank_id}.ckpt") and
+                os.path.exists(dst_strategy)):
+            raise ValueError(f"dst_strategy: {dst_strategy} is not found!")
+
 
         logger.info(".........Collecting strategy.........")
         if check_in_modelarts():

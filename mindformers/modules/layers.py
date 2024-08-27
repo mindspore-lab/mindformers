@@ -980,8 +980,8 @@ def _get_interleave(n):
 
 def build_alibi_tensor_v2(seq_len, num_heads, return_tensors='ms', dtype=mstype.float32):
     """build alibi tensor"""
-    assert return_tensors in ['np', 'ms'], \
-        f"return tensors must be 'np' or 'ms', {return_tensors} not support."
+    if return_tensors not in ['np', 'ms']:
+        raise ValueError(f"return tensors must be 'np' or 'ms', {return_tensors} not support.")
     slopes = _get_interleave(num_heads)
     slopes = np.expand_dims(np.expand_dims(slopes, 1), 1)
     position_point = np.arange(seq_len) - seq_len + 1
@@ -1093,7 +1093,10 @@ class FreqsMgr(Cell):
                 elif wavelen > low_freq_wavelen:
                     new_freqs.append(freq / factor)
                 else:
-                    assert low_freq_wavelen != high_freq_wavelen
+                    if low_freq_wavelen == high_freq_wavelen:
+                        raise ValueError(f"low_freq_wavelen should not equal high_freq_wavelen, "
+                                         f"but low_freq_wavelen got {low_freq_wavelen},"
+                                         f"high_freq_wavelen got {high_freq_wavelen}.")
                     smooth = (old_context_len / wavelen - low_freq_factor) / (high_freq_factor - low_freq_factor)
                     new_freqs.append((1 - smooth) * freq / factor + smooth * freq)
             freqs = np.array(new_freqs, dtype=freqs.dtype)

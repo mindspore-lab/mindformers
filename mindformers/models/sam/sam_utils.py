@@ -56,9 +56,8 @@ class MaskData:
             **kwargs: Keyword arguments representing different mask-related data.
         """
         for v in kwargs.values():
-            assert isinstance(
-                v, (list, np.ndarray)
-            ), "MaskData only supports list, numpy arrays, and ms tensors."
+            if not isinstance(v, (list, np.ndarray)):
+                raise ValueError("MaskData only supports list, numpy arrays, and ms tensors.")
         self._stats = dict(**kwargs)
 
     def __setitem__(self, key: str, item: Any) -> None:
@@ -69,9 +68,8 @@ class MaskData:
             key (str): The key of the item.
             item (Any): The item to be set.
         """
-        assert isinstance(
-            item, (list, np.ndarray)
-        ), "MaskData only supports list, numpy arrays."
+        if not isinstance(item, (list, np.ndarray)):
+            raise ValueError("MaskData only supports list, numpy arrays.")
         self._stats[key] = item
 
     def __delitem__(self, key: str) -> None:
@@ -203,9 +201,8 @@ def batch_iterator(batch_size: int, *args) -> Generator[List[Any], None, None]:
     Yields:
         List[Any]: A batch of data containing corresponding elements from each input array.
     """
-    assert args and all(
-        len(a) == len(args[0]) for a in args
-    ), "Batched iteration must have inputs of all the same size."
+    if not args or not all(len(a) == len(args[0]) for a in args):
+        raise ValueError("Batched iteration must have inputs of all the same size.")
     n_batches = len(args[0]) // batch_size + int(len(args[0]) % batch_size != 0)
     for b in range(n_batches):
         yield [arg[b * batch_size : (b + 1) * batch_size] for arg in args]
@@ -478,7 +475,8 @@ def remove_small_regions(mask: np.ndarray,
     Returns:
         Tuple[np.ndarray, bool]: A tuple containing the modified mask and a boolean indicating if the mask was modified.
     """
-    assert mode in ["holes", "islands"]
+    if mode not in ["holes", "islands"]:
+        raise ValueError(f"mode should be one of holes or islands, but got {mode}.")
     correct_holes = mode == "holes"
     working_mask = (correct_holes ^ mask).astype(np.uint8)
     n_labels, regions, stats, _ = cv2.connectedComponentsWithStats(working_mask, 8)

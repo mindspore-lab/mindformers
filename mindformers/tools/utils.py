@@ -509,8 +509,9 @@ def is_publicly_accessible_path(path):
 def create_file(file_path, info=None):
     """create file."""
     if Validator.is_obs_url(file_path):
-        assert check_in_modelarts(), f"When create {file_path}, \
-            it is detected that it is not in the ModelArts platform."
+        if not check_in_modelarts():
+            raise ValueError(f"When create {file_path}, \
+            it is detected that it is not in the ModelArts platform.")
         import moxing as mox
         with mox.file.File(file_path, 'w') as f:
             if info:
@@ -526,8 +527,9 @@ def create_file(file_path, info=None):
 def delete_file(file_path):
     """delete file"""
     if Validator.is_obs_url(file_path):
-        assert check_in_modelarts(), f"When create {file_path}, \
-            it is detected that it is not in the ModelArts platform."
+        if not check_in_modelarts():
+            raise ValueError(f"When create {file_path}, \
+            it is detected that it is not in the ModelArts platform.")
         import moxing as mox
         if mox.file.exists(file_path):
             mox.file.remove(file_path, recursive=False)
@@ -543,8 +545,9 @@ def remake_folder(folder_path, permissions=None):
     rank_id = get_real_rank()
     logger.info("Wait remake folder: %s", folder_path)
     if Validator.is_obs_url(folder_path):
-        assert check_in_modelarts(), f"When remaking {folder_path}, \
-            it is detected that it is not in the ModelArts platform."
+        if not check_in_modelarts():
+            raise ValueError(f"When remaking {folder_path}, \
+            it is detected that it is not in the ModelArts platform.")
         import moxing as mox
         if not rank_id:
             if mox.file.exists(folder_path):
@@ -572,8 +575,9 @@ def remove_folder(folder_path, rank_id=None):
     rank_id = rank_id or get_real_rank()
     logger.info("Wait remove folder: %s", folder_path)
     if Validator.is_obs_url(folder_path):
-        assert check_in_modelarts(), f"When removing {folder_path}, \
-            it is detected that it is not in the ModelArts platform."
+        if not check_in_modelarts():
+            raise ValueError(f"When removing {folder_path}, \
+            it is detected that it is not in the ModelArts platform.")
         import moxing as mox
         if mox.file.exists(folder_path) and not rank_id:
             mox.file.remove(folder_path, recursive=True)

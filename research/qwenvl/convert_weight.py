@@ -110,8 +110,9 @@ def convert_vit_resampler_attention(name, value, ckpt_weights, dtype=ms.float16)
 def convert_vit_transformer_attn(name, value, ckpt_weights, dtype=ms.float16, vit_num_head=16):
     """convert attention bias of vit transformer"""
     if "in_proj" in name:
-        assert value.shape[0] % (3 * vit_num_head) == 0, (f"The 3 * vit_num_head({3 * vit_num_head}) must be divisible "
-                                                          f"by value.shape[0]({value.shape[0]})")
+        if value.shape[0] % (3 * vit_num_head) != 0:
+            raise ValueError(f"The 3 * vit_num_head({3 * vit_num_head}) must be divisible "
+                             f"by value.shape[0]({value.shape[0]}).")
         value = np.array_split(value, 3 * vit_num_head)
         if "weight" in name:
             value = [np.vstack(value[i::3]) for i in range(3)]

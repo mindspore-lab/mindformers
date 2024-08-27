@@ -662,8 +662,8 @@ class BertLayer(nn.Cell):
             query_attention_output = attention_output[:, :query_length, :]
 
             if self.has_cross_attention:
-                assert encoder_hidden_states is not None, \
-                    "encoder_hidden_states must be given for cross-attention layers"
+                if encoder_hidden_states is None:
+                    raise ValueError("encoder_hidden_states must be given for cross-attention layers")
                 cross_attention_outputs = self.crossattention(
                     query_attention_output,
                     attention_mask,
@@ -708,7 +708,8 @@ class BertLayer(nn.Cell):
 
     def apply_chunking_to_forward(self, forward_fn, *input_tensors):
         """ apply chunking to forward computation """
-        assert input_tensors, f"{input_tensors} has to be a tuple/list of tensors"
+        if input_tensors is None:
+            raise ValueError(f"{input_tensors} has to be a tuple/list of tensors")
 
         if self.chunk_size_feed_forward > 0:
             tensor_shape = input_tensors[0].shape[self.seq_len_dim]
@@ -1000,11 +1001,10 @@ class BertPreTrainedModel(PreTrainedModel, nn.Cell):
             return old_embeddings
 
         if not isinstance(old_embeddings, nn.Embedding):
-            raise TypeError(
-                f"Old embeddings are of type {type(old_embeddings)}, which is not an instance of {nn.Embedding}. You"
-                " should either use a different resize function or make sure that `old_embeddings` are an instance of"
-                f" {nn.Embedding}."
-            )
+            raise TypeError(f"Old embeddings are of type {type(old_embeddings)}, "
+                            f"which is not an instance of {nn.Embedding}. You"
+                            f" should either use a different resize function or make sure "
+                            f"that `old_embeddings` are an instance of {nn.Embedding}.")
 
         # Build new embeddings
         new_embeddings = nn.Embedding(new_num_tokens, old_embedding_dim)
@@ -1104,8 +1104,8 @@ class BertPreTrainedModel(PreTrainedModel, nn.Cell):
             head_mask = self.expand_dims(self.expand_dims(head_mask, 1), -1)
             # We can specify head_mask for each layer
             head_mask = self.expand_dims(head_mask, -1)
-        assert head_mask.dim(
-        ) == 5, f"head_mask.dim != 5, instead {head_mask.dim()}"
+        if head_mask.dim() != 5:
+            raise ValueError(f"head_mask.dim != 5, instead {head_mask.dim()}")
         return head_mask
 
 
@@ -1273,7 +1273,8 @@ class BertModel(BertPreTrainedModel):
         )
 
         if input_ids is None:
-            assert query_embeds is not None, "You have to specify query_embeds when input_ids is None"
+            if query_embeds is None:
+                raise ValueError("You have to specify query_embeds when input_ids is None")
 
         # past_key_values_length
         past_key_values_length = (

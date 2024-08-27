@@ -101,7 +101,8 @@ def preprocess(sources, tokenizer, seq_length):
         conv.messages = []
         for j, sentence in enumerate(source):
             role = roles[sentence["from"]]
-            assert role == conv.roles[j % 2], f"{i}"
+            if role != conv.roles[j % 2]:
+                raise ValueError(f"sources[{i}] is wrong.")
             conv.append_message(role, sentence["value"])
         conversations.append(conv.get_prompt())
 

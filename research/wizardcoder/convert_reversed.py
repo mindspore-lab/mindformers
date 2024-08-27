@@ -101,8 +101,13 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     print(f"Trying to convert mindspore checkpoint in {input_path}.")
     model_ms = ms.load_checkpoint(input_path)
 
-    assert len(ms_name) == len(torch_name)
-    assert len(addition_mindspore) == len(addition_torch)
+    if len(ms_name) != len(torch_name):
+        raise ValueError("len(ms_name) should equal to len(torch_name), but len(ms_name)"
+                         f"got {len(ms_name)}, len(torch_name) got {len(torch_name)}.")
+    if len(addition_mindspore) != len(addition_torch):
+        raise ValueError("len(addition_mindspore) should equal to len(addition_torch),"
+                         f" but len(addition_mindspore) got {len(addition_mindspore)},"
+                         f" len(addition_torch) got {len(addition_torch)}.")
     total_layers, flag = divmod(len(model_ms) - len(addition_mindspore), len(ms_name))
     if flag:
         raise Exception("The weight names don't match.")

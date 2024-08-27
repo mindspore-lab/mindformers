@@ -48,10 +48,12 @@ def main(task='text_generation',
     config_args = MindFormerConfig(config)
 
     if vocab_file:
-        assert os.path.exists(vocab_file)
+        if not os.path.exists(vocab_file):
+            raise ValueError("The vocab_file should exist.")
         config_args.processor.tokenizer.vocab_file = vocab_file
     if output_dir:
-        assert os.path.exists(output_dir)
+        if not os.path.exists(output_dir):
+            raise ValueError("The output_dir should exist.")
         config_args.output_dir = output_dir
     if remote_save_url:
         config_args.remote_save_url = remote_save_url
