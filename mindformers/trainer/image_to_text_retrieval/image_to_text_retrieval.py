@@ -147,9 +147,8 @@ class ImageToTextRetrievalTrainer(BaseTrainer):
         img2txt, txt2img = extract_image_text_mapping(dataset, score_i2t, score_t2i)
 
         # ground-truth type validation
-        assert isinstance(img2txt, (np.ndarray, list, dict)) and \
-               isinstance(txt2img, (np.ndarray, list, dict)), \
-        "img2txt and txt2img should both be numpy.ndarray, list or dict."
+        if not isinstance(img2txt, (np.ndarray, list, dict)) or not isinstance(txt2img, (np.ndarray, list, dict)):
+            raise ValueError("img2txt and txt2img should both be numpy.ndarray, list or dict.")
 
         # report evaluation results
         eval_result = report_metrics(

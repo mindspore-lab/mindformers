@@ -284,7 +284,8 @@ class EvaAttention(nn.Cell):
         if attn_mask is not None:
             attn_bool = self.cast(attn, mstype.bool_)
             attn_shape = F.shape(attn)
-            assert len(attn_shape) == 2
+            if len(attn_shape) != 2:
+                raise ValueError(f"len(attn_shape) should be 2, but got {len(attn_shape)}")
             attn = F.broadcast_to(~attn, (attn_shape[0], 1, 1, attn_shape[1]))
             attn = self.masked_fill(attn, attn_bool, float("-inf"))
         attn = self.softmax(attn)

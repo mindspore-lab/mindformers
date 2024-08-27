@@ -109,8 +109,13 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
         if n.format(0) not in model_ms:
             count += 1
 
-    assert len(ms_name) == len(torch_name)
-    assert len(addition_mindspore) == len(addition_torch)
+    if len(ms_name) != len(torch_name):
+        raise ValueError(f"len(ms_name) should equal len(torch_name), but len(ms_name) got {len(ms_name)},"
+                         f"len(torch_name) got {len(torch_name)}.")
+    if len(addition_mindspore) != len(addition_mindspore):
+        raise ValueError(f"len(addition_mindspore) should equal to len(addition_mindspore), "
+                         f"but len(addition_mindspore) got {len(addition_mindspore)},"
+                         f"len(addition_mindspore) got {len(addition_mindspore)}.")
     total_layers, flag = divmod(len(model_ms) - len(addition_mindspore), len(ms_name) - count)
     if flag:
         raise Exception("The weight names don't match.")

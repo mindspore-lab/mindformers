@@ -63,7 +63,10 @@ def make_input_mask(labels, tokenizer):
     indices_user = np.where(np.array(labels) == user_token_id)[0]
     indices_bot = np.where(np.array(labels) == bot_token_id)[0]
     indices_end = np.where(np.array(labels) == end_token_id)[0]
-    assert len(indices_user) == len(indices_bot) == len(indices_end)
+    if not len(indices_user) == len(indices_bot) == len(indices_end):
+        raise ValueError("The len(indices_user),the len(indices_bot),the len(indices_end) should be equal,"
+                         f"but len(indices_user) got {len(indices_user)}, len(indices_bot) got"
+                         f"{len(indices_bot)}, len(indices_end) got {len(indices_end)}.")
     for i in range(len(indices_bot)):
         user_idx = indices_user[i]
         bot_idx = indices_bot[i]
@@ -93,7 +96,9 @@ def process_dataset(current_dataset, tokenizer, max_seq_len):
             concat_line += output + "<_end>"
         else:  #single turn
             concat_line = str(input_data) + "<_bot>" + str(output) + "<_end>"
-        assert concat_line.count("<_user>") == concat_line.count("<_bot>") == concat_line.count("<_end>")
+        if not concat_line.count("<_user>") == concat_line.count("<_bot>") == concat_line.count("<_end>"):
+            raise ValueError("concat_line.count(<_user>), concat_line.count(<_bot>),"
+                             "concat_line.count(<_end>) should be equal.")
         all_lines.append(concat_line)
     shuffle(all_lines)
     previous_corpus_token_cnt = 0
@@ -107,7 +112,8 @@ def process_dataset(current_dataset, tokenizer, max_seq_len):
         else:
             shard_output = "".join(shard)
             shard_output = (args.max_length - previous_corpus_token_cnt) * tokenizer.pad_token + shard_output
-            assert len(tokenizer(shard_output)["input_ids"]) == max_seq_len
+            if len(tokenizer(shard_output)["input_ids"]) != max_seq_len:
+                raise ValueError("len(tokenizer(shard_output)[input_ids]) should equal to max_seq_len.")
             if shard_output.count("<_user>") >= 1:
                 padding_out.append(shard_output)
             if len(corpus_ids["input_ids"]) < max_seq_len:

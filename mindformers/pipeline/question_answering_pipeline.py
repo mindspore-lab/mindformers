@@ -331,7 +331,8 @@ class QuestionAnsweringPipeline(Pipeline):
         if not nbest:
             nbest.append(_NbestPrediction(text="empty", start_logit=0.0, end_logit=0.0))
 
-        assert len(nbest) >= 1
+        if not nbest:
+            raise ValueError(f"nbest should not be empty.")
         return nbest
 
     def _get_answer_index(self, context_text, orig_doc_start, orig_doc_end):

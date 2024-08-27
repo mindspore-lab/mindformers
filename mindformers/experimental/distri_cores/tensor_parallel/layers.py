@@ -140,7 +140,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
                 grad_input = self.reduce_from_mp_region(grad_input)
 
         if self.sequence_parallel:
-            assert not self.allreduce_dgrad
+            if self.allreduce_dgrad:
+                raise ValueError("allreduce_dgrad should be false.")
             grad_input = grad_input.swapaxes(0, 1).contiguous()
             self.stream.wait_stream(hal.current_stream())
             with hal.StreamCtx(self.stream):

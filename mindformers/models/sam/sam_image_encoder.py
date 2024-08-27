@@ -251,9 +251,8 @@ class Attention(nn.Cell):
 
         self.use_rel_pos = use_rel_pos
         if self.use_rel_pos:
-            assert (
-                input_size is not None
-            ), "Input size must be provided if using relative positional encoding."
+            if input_size is None:
+                raise ValueError("Input size must be provided if using relative positional encoding.")
             # initialize relative positional embeddings
             self.rel_pos_h = Parameter(P.Zeros()((2 * input_size[0] - 1, head_dim), self.compute_dtype))
             self.rel_pos_w = Parameter(P.Zeros()((2 * input_size[1] - 1, head_dim), self.compute_dtype))

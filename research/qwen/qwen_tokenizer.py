@@ -76,10 +76,10 @@ class QwenTokenizer(PreTrainedTokenizer):
             mergeable_ranks=self.mergeable_ranks,
             special_tokens=self.special_tokens,
         )
-        assert (len(self.mergeable_ranks) + len(
-            self.special_tokens) == enc.n_vocab), f"{len(self.mergeable_ranks) + len(self.special_tokens)} != " \
-                                                  f"{enc.n_vocab} in encoding"
-
+        if len(self.mergeable_ranks) + len(self.special_tokens) != enc.n_vocab:
+            raise ValueError(f"len(mergeable_ranks)+ len(special_tokens): "
+                             f"{len(self.mergeable_ranks) + len(self.special_tokens)} != "
+                             f"n_vocab: {enc.n_vocab} in encoding.")
         self.decoder = {
             v: k for k, v in self.mergeable_ranks.items()
         }  # type: dict[int, bytes|str]

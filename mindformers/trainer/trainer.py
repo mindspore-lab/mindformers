@@ -226,8 +226,9 @@ class Trainer:
             self.is_model_instance = False
             if isinstance(self.model, str):
                 self.model = self.model + '_{}'.format(self.pet_method) if self.pet_method else self.model
-                assert self.model in SUPPORT_MODEL_NAMES, \
-                    f"model must be in {SUPPORT_MODEL_NAMES} when model's type is string, but get {self.model}."
+                if self.model not in SUPPORT_MODEL_NAMES:
+                    raise ValueError(f"model must be in {SUPPORT_MODEL_NAMES} "
+                                     f"when model's type is string, but got {self.model}.")
                 if isinstance(self.model_name, str):
                     logger.warning("Detected both the `model` and the `model_name` are set simultaneously, "
                                    "`model_name` will be overridden by `model`.")
@@ -722,10 +723,10 @@ class Trainer:
             input_data = build_dataset_loader(self.config.eval_dataset.data_loader)
             logger.info("dataset by config is used as input_data.")
 
-        assert isinstance(input_data, (GeneratorDataset, BaseDataset, RepeatDataset, BatchDataset, Tensor,
-                                       np.ndarray, Image, str, list)), \
-            "Input data's type must be one of [GeneratorDataset," \
-            " str, ms.Tensor, np.ndarray, PIL.Image.Image]"
+        if not isinstance(input_data, (GeneratorDataset, BaseDataset, RepeatDataset, BatchDataset, Tensor,
+                                       np.ndarray, Image, str, list)):
+            raise ValueError("Input data's type must be one of [GeneratorDataset, "
+                             "str, ms.Tensor, np.ndarray, PIL.Image.Image]")
 
         output_result = self.trainer.predict(
             config=self.config, input_data=input_data,
@@ -1046,10 +1047,10 @@ class Trainer:
             config_path = None
             task_config = args
         elif isinstance(args, str):
-            assert os.path.realpath(args) and os.path.exists(args), \
-                f"config path must be exist, but get {args}."
-            assert args.endswith(('.yaml', '.yml')), \
-                f"config file must be end with .yaml or .yml, but get {args}"
+            if not (os.path.realpath(args) and os.path.exists(args)):
+                raise ValueError(f"config path must be exist, but get {args}.")
+            if not args.endswith(('.yaml', '.yml')):
+                raise ValueError(f"config file must be end with .yaml or .yml, but get {args}.")
             config_path = args
             logger.info(f"Load configs in {config_path} to build trainer.")
             task_config = MindFormerConfig(config_path)
@@ -1103,8 +1104,8 @@ class Trainer:
         if isinstance(self.model, (Cell, PreTrainedModel)):
             self.is_model_instance = True
         else:
-            assert self.config.model is not None, \
-                "When `model` is not instance, `self.config.model` must not be None."
+            if self.config.model is None:
+                raise ValueError("When `model` is not instance, `self.config.model` must not be None.")
 
         if self.is_model_instance and (self.reset_model or is_train):
             self._reset_model_instance(is_train)
@@ -1122,14 +1123,14 @@ class Trainer:
         """init dataset"""
         if isinstance(self.train_dataset, str):
             logger.info("..........Init Train Dataset..........")
-            assert os.path.exists(self.train_dataset), \
-                f"train dataset path must be exist, but get {self.train_dataset}."
+            if not os.path.exists(self.train_dataset):
+                raise ValueError(f"train dataset path must be exist, but got {self.train_dataset}.")
             self.config.train_dataset.data_loader.dataset_dir = self.train_dataset
             self.train_dataset = None
         if isinstance(self.eval_dataset, str):
             logger.info("..........Init Eval Dataset..........")
-            assert os.path.exists(self.eval_dataset), \
-                f"eval dataset path must be exist, but get {self.eval_dataset}."
+            if not os.path.exists(self.eval_dataset):
+                raise ValueError(f"eval dataset path must be exist, but got {self.eval_dataset}.")
             self.config.eval_dataset.data_loader.dataset_dir = self.eval_dataset
             self.eval_dataset = None
         check_dataset_config(self.config)
@@ -1142,8 +1143,8 @@ class Trainer:
             if isinstance(self.callbacks, list):
                 for callback in self.callbacks:
                     callback = callback() if isinstance(callback, type) else callback
-                    assert isinstance(callback, Callback), \
-                        f"The callback must be an instance of the Callback class, but get {callback}"
+                    if not isinstance(callback, Callback):
+                        raise ValueError(f"The callback must be an instance of the Callback class, but got {callback}.")
                     callbacks.append(callback)
             elif isinstance(self.callbacks, Callback):
                 callbacks.append(self.callbacks)

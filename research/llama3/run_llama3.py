@@ -97,7 +97,8 @@ def main(task='text_generation',
          micro_batch_num=None):
     """main function."""
 
-    assert os.path.exists(config) and config.endswith(('.yaml', '.yml'))
+    if not (os.path.exists(config) and config.endswith(('.yaml', '.yml'))):
+        raise ValueError("The config should exist and endswith .yaml or .yml")
 
     # init config
     config = MindFormerConfig(os.path.realpath(config))

@@ -556,8 +556,8 @@ class BertLayer(nn.Cell):
             query_attention_output = attention_output[:, :query_length, :]
 
             if self.has_cross_attention:
-                assert encoder_hidden_states is not None, \
-                    "encoder_hidden_states must be given for cross-attention layers"
+                if encoder_hidden_states is None:
+                    raise ValueError("encoder_hidden_states must be given for cross-attention layers.")
                 cross_attention_outputs = self.crossattention(
                     query_attention_output,
                     attention_mask,
@@ -602,7 +602,8 @@ class BertLayer(nn.Cell):
 
     def apply_chunking_to_forward(self, forward_fn, *input_tensors):
         """ apply chunking to forward computation """
-        assert input_tensors, f"{input_tensors} has to be a tuple/list of tensors"
+        if input_tensors is None:
+            raise ValueError(f"input_tensors has to be a tuple/list of tensors.")
 
         if self.chunk_size_feed_forward > 0:
             tensor_shape = input_tensors[0].shape[self.seq_len_dim]

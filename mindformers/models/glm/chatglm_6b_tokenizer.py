@@ -63,7 +63,8 @@ class SPTokenizer:
             max_blank_length=80,
             byte_fallback=True,
     ):
-        assert vocab_file is not None
+        if vocab_file is None:
+            raise ValueError("vocab_file should not be None.")
         self.vocab_file = vocab_file
         self.num_image_tokens = num_image_tokens
         self.special_tokens = ["[MASK]", "[gMASK]", "[sMASK]", "<unused_0>", "<sop>", "<eop>", "<ENC>", "<dBLOCK>"]
@@ -73,7 +74,8 @@ class SPTokenizer:
 
     @staticmethod
     def get_blank_token(length: int):
-        assert length >= 2
+        if length < 2:
+            raise ValueError(f"length should not be less than 2, but got {length}.")
         return f"<|blank_{length}|>"
 
     @staticmethod

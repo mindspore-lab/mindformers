@@ -71,8 +71,8 @@ class MultiTurnDataset(BaseDataset):
 
     def __new__(cls, dataset_config: dict = None):
         logger.info("Now Create Multi-turn Dataset.")
-        assert is_version_python(sys.version, "3.9"), \
-               f"MultiTurnDataset needs python3.9 or larter, please upgrade your python."
+        if not is_version_python(sys.version, "3.9"):
+            raise ValueError("MultiTurnDataset needs python3.9 or later, please upgrade your python.")
 
         cls.init_dataset_config(dataset_config)
 
@@ -184,7 +184,8 @@ class MultiTurnDataset(BaseDataset):
 
         _update([tokenizer.eos_token_id], False)
 
-        assert len(tokens) == len(loss_masks), f"length mismatch: {len(tokens)} vs {len(loss_masks)}"
+        if len(tokens) != len(loss_masks):
+            raise ValueError(f"length mismatch: {len(tokens)} vs {len(loss_masks)}.")
 
         return tokens, loss_masks
 
@@ -207,7 +208,8 @@ class MultiTurnDataset(BaseDataset):
         # pad labels to max_seq_length
         labels += [-100] * (max_seq_length - len(labels))
 
-        assert len(input_ids) == len(labels), f"length mismatch: {len(input_ids)} vs {len(labels)}"
+        if len(input_ids) != len(labels):
+            raise ValueError(f"length mismatch: {len(input_ids)} vs {len(labels)}.")
 
         input_ids = np.array(input_ids, dtype=np.int32)
         labels = np.array(labels, dtype=np.int32)

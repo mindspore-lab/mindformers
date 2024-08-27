@@ -98,12 +98,12 @@ class SamModel(SamPreTrainedModel):
             shape BxCxHxW, where H=W=256. Can be passed as mask input
             to subsequent iterations of prediction.
         """
-        assert image is not None or features is not None, \
-               "image and feature can't be both None."
+        if image is None and features is None:
+            raise ValueError("image and feature can't be both None.")
 
         if point_coords is not None:
-            assert point_labels is not None, \
-               "point labels can't be None, when point coords is not None."
+            if point_labels is None:
+                raise ValueError("point labels can't be None, when point coords is not None.")
 
         if features is None:
             features = self.image_encoder(image)

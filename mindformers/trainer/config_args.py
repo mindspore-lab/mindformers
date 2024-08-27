@@ -36,8 +36,9 @@ class BaseArgsConfig:
     def __init__(self, **kwargs):
         if kwargs is not None:
             for key, value in kwargs.items():
-                assert key in self._support_kwargs, \
-                    f"The Config Class support input argument is {self._support_kwargs}, but get {key}"
+                if key not in self._support_kwargs:
+                    raise ValueError(f"The Config Class support input argument is {self._support_kwargs}"
+                                     f", but got {key}.")
                 if value is None:
                     continue
                 if isinstance(value, BaseArgsConfig):

@@ -332,9 +332,9 @@ class ScatterToSequenceParallelRegion(nn.Cell):
             return ops.stop_gradient(input_)
 
         dim_size = input_.shape[0]
-        assert (
-            dim_size % self.world_size == 0
-        ), "First dimension of the tensor should be divisible by tensor parallel size"
+        if dim_size % self.world_size != 0:
+            raise ValueError(f"First dimension of the tensor should be divisible by tensor parallel size, "
+                             f"but got dim_size: {dim_size} and world_size: {self.world_size}.")
         local_dim_size = dim_size // self.world_size
 
         dim_offset = self.rank * local_dim_size
@@ -376,9 +376,9 @@ class GatherFromSequenceParallelRegion(nn.Cell):
         if self.tensor_parallel_output_grad:
             return self.reduce_scatter(dout.contiguous())
         dim_size = dout.shape[0]
-        assert (
-            dim_size % self.world_size == 0
-        ), "First dimension of the tensor should be divisible by tensor parallel size"
+        if dim_size % self.world_size != 0:
+            raise ValueError(f"First dimension of the tensor should be divisible by tensor "
+                             f"parallel size, but got dim_size: {dim_size} and world_size: {self.world_size}.")
         local_dim_size = dim_size // self.world_size
 
         dim_offset = self.rank * local_dim_size

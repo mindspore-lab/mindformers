@@ -114,7 +114,9 @@ def extract_image_text_mapping(eval_dataloader, score_i2t, score_t2i):
     logger.warning("expect the eval dataset to be generate from " \
                    "MultiImgCapDataLoader.img2txt/txt2img, but not succeeded. " \
                    "will generate image-text mapping with accumulate indexes by default.")
-    assert (score_i2t.shape[0], score_i2t.shape[1]) == (score_t2i.shape[1], score_t2i.shape[0])
+    if (score_i2t.shape[0], score_i2t.shape[1]) != (score_t2i.shape[1], score_t2i.shape[0]):
+        raise ValueError(f"(score_i2t.shape[0], score_i2t.shape[1]) "
+                         f"should equal to (score_t2i.shape[1], score_t2i.shape[0])")
     image_num = score_i2t.shape[0]
     text_num = score_t2i.shape[0]
     if image_num == text_num:
@@ -273,7 +275,8 @@ def report_metrics(scores_i2t, scores_t2i, img2txt, txt2img):
     def get_lowest_from_ranks(ranks, ground_truth):
         if isinstance(ground_truth, int):
             return np.where(ranks == ground_truth)[0][0]
-        assert isinstance(ground_truth, list), "img2txt or txt2img should be list[int] or list[list[int]]!"
+        if not isinstance(ground_truth, list):
+            raise ValueError("img2txt or txt2img should be list[int] or list[list[int]]!")
         rank = 1e20
         for i in ground_truth:
             tmp = np.where(ranks == i)[0][0]

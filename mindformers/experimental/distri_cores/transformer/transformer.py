@@ -297,7 +297,9 @@ class ParallelAttention(Module):
             )
 
         elif self.attn_type == 'cross_attn':
-            assert self.hidden_size == self.kv_hidden_size
+            if self.hidden_size != self.kv_hidden_size:
+                raise ValueError(f"The hidden_size should equal to the kv_hidden_size, "
+                                 f"but got hidden_size: {self.hidden_size} and kv_hidden_size: {self.kv_hidden_size}.")
             self.q_proj = self._init_qkv_proj(
                 self.hidden_size,
                 self.hidden_size,

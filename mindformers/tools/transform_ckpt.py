@@ -32,7 +32,8 @@ def get_strategy(startegy_path, rank_id=None):
     if not startegy_path or startegy_path == "None":
         return None
 
-    assert os.path.exists(startegy_path), f'{startegy_path} not found!'
+    if not os.path.exists(startegy_path):
+        raise ValueError(f'{startegy_path} not found!')
 
     if os.path.isfile(startegy_path):
         return startegy_path

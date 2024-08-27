@@ -91,7 +91,8 @@ class GluMlp(nn.Cell):
         super().__init__()
         out_size = out_size or in_size
         hidden_size = hidden_size or in_size
-        assert hidden_size % 2 == 0
+        if hidden_size % 2 != 0:
+            raise ValueError(f"hidden_size should be divisible by 2, but got {hidden_size}.")
 
         bias = (bias, bias)
         drop_probs = (drop_prob, drop_prob)

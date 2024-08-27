@@ -118,7 +118,9 @@ def main():
     device_num_list = list(range(first_num, last_num))
     print("device_num_list:", device_num_list)
 
-    assert len(visible_devices) >= len(device_num_list)
+    if len(visible_devices) < len(device_num_list):
+        raise ValueError("The visible_devices should not less than device_num_list, but len(visible_devices) got"
+                         f"{len(visible_devices)}, len(device_num_list) got {len(device_num_list)}.")
 
     # construct hccn_table
     device_ips: Dict[Any, Any] = {}

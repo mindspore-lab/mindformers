@@ -545,7 +545,8 @@ class BaseTrainer:
 
         self.compute_metrics = {}
         for metric_config in self.config.metric:
-            assert "type" in metric_config, "The type of metric is not found!"
+            if "type" not in metric_config:
+                raise ValueError("The type of metric is not found!")
             metric = build_metric(metric_config)
             if metric_name is None:
                 metric_name = metric.__class__.__name__

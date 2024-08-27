@@ -838,7 +838,8 @@ class TrainingArguments:
         self._check_metric_rules()
 
         if self.warmup_ratio is not None:
-            assert self.warmup_ratio >= 0 and self.warmup_ratio <= 1, "warmup_ratio must lie in range [0,1]"
+            if self.warmup_ratio < 0 or self.warmup_ratio > 1:
+                raise ValueError(f"warmup_ratio must lie in range [0,1], but got {self.warmup_ratio}.")
             if self.warmup_ratio > 0 and self.warmup_steps > 0:
                 logger.info(
                     "Both warmup_ratio and warmup_steps given, warmup_steps will override any effect of warmup_ratio"
@@ -859,9 +860,10 @@ class TrainingArguments:
             self.do_eval = True
         if self.evaluation_strategy == IntervalStrategy.STEPS:
             if self.eval_steps is None or self.eval_steps == 0:
-                assert self.logging_steps > 0, f"evaluation strategy {self.evaluation_strategy} requires \
-                                                either non-zero --eval_steps or --logging_steps"
-                logger.info(f"using `logging_steps` to initialize `eval_steps` to {self.logging_steps}")
+                if self.logging_steps <= 0:
+                    raise ValueError(f"evaluation strategy {self.evaluation_strategy} requires"
+                                     "either non-zero --eval_steps or --logging_steps.")
+                logger.info(f"using `logging_steps` to initialize `eval_steps` to {self.logging_steps}.")
                 self.eval_steps = self.logging_steps
             self.eval_steps = self.check_step_rules(self.eval_steps, info="--eval_steps")
         if self.save_strategy == SaveIntervalStrategy.STEPS:
@@ -901,9 +903,11 @@ class TrainingArguments:
 
     @staticmethod
     def check_step_rules(steps, info="steps"):
-        assert steps > 0, f"{info} must bigger than 0: {steps}"
+        if steps <= 0:
+            raise ValueError(f"{info} must bigger than 0, but got {steps}.")
         if steps > 1:
-            assert steps == int(steps), f"{info} must be an integer if bigger than 1: {steps}"
+            if steps != int(steps):
+                raise ValueError(f"{info} must be an integer if bigger than 1, but got {steps}.")
             steps = int(steps)
         return steps
 
@@ -1843,13 +1847,13 @@ class TrainingArguments:
                                      OrderedDict([("type", "CheckpointMonitor")]),
                                      OrderedDict([("type", "ObsMonitor")])]
 
-        assert isinstance(task_config.callbacks, list),\
-            f"The type of config.callbacks should be List, but get {type(task_config.callbacks)}"
+        if not isinstance(task_config.callbacks, list):
+            raise ValueError(f"The type of config.callbacks should be List, but got {type(task_config.callbacks)}.")
 
         new_callbacks = []
         for callback in task_config.callbacks:
-            assert isinstance(callback, dict),\
-                f"The type of callback should be dict, but get {type(callback)}"
+            if not isinstance(callback, dict):
+                raise ValueError(f"The type of callback should be dict, but got {type(callback)}.")
             if callback['type'] == "CheckpointMonitor" and self.save_strategy == 'no':
                 continue
             new_callbacks.append(callback)

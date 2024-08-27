@@ -97,7 +97,8 @@ def main(task='text_generation',
     """main function."""
 
     # 环境初始化
-    assert os.path.exists(config) and config.endswith(('.yaml', '.yml'))
+    if not (os.path.exists(config) and config.endswith(('.yaml', '.yml'))):
+        raise ValueError("The config should exist and endswith .yaml or .yml")
 
     config = MindFormerConfig(os.path.realpath(config))
     if mode is not None:

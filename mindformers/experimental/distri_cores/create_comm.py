@@ -55,7 +55,8 @@ class GroupInfo:
 def get_group_info(mode):
     global group_info_maps
     if mode not in group_info_maps:
-        assert mode in valid_groups
+        if mode not in valid_groups:
+            raise ValueError(f"mode should in {valid_groups}, but got {mode}.")
         group_info_maps[mode] = GroupInfo()
     return group_info_maps[mode]
 
@@ -136,7 +137,8 @@ class CreateCommGroups():
         mode = input_mode + '-independent_ep' if input_mode == 'dp' and independent_ep else input_mode
         comm_group = get_group_info(mode)
 
-        assert comm_group.group is None, f'{mode} parallel group is already initialized'
+        if comm_group.group is not None:
+            raise ValueError(f'{mode} parallel group is already initialized.')
 
         for ranks in self.get_ranks(input_mode, independent_ep=independent_ep):
             if self.rank in ranks:
@@ -149,8 +151,10 @@ class CreateCommGroups():
         '''Init pipeline parallel group.'''
         embedding_group = get_group_info('embedding')
         position_embedding_group = get_group_info('position_embedding')
-        assert embedding_group.group is None, 'embedding group is already initialized'
-        assert position_embedding_group.group is None, 'position embedding group is already initialized'
+        if embedding_group.group is not None:
+            raise ValueError(f'{embedding_group} is already initialized.')
+        if position_embedding_group.group is not None:
+            raise ValueError(f'position {embedding_group} is already initialized.')
         for ranks in self.get_ranks('pp'):
             # Setup embedding group (to exchange gradients between
             # first and last stages).
@@ -192,9 +196,8 @@ class CreateCommGroups():
             if stride is None:
                 stride = prefix_product(shape)
             idx = [(index // d) % s for s, d in zip(shape, stride)]
-            assert (
-                sum([x * y for x, y in zip(idx, stride[:-1])]) == index
-            ), "idx {} with shape {} mismatch the return idx {}".format(index, shape, idx)
+            if sum([x * y for x, y in zip(idx, stride[:-1])]) != index:
+                raise ValueError("idx {} with shape {} mismatch the return idx {}".format(index, shape, idx))
             return idx
 
         masked_shape = [s for s, m in zip(parallel_size, mask) if m]
@@ -236,7 +239,8 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     """
 
     # pylint: disable=W0212
-    assert mindspore.communication._comm_helper._is_initialized()
+    if not mindspore.communication._comm_helper._is_initialized():
+        raise ValueError(f"{mindspore.communication._comm_helper._is_initialized()} should be True.")
     world_size = get_group_size()
 
     minimum_world_size = (tensor_model_parallel_size * pipeline_model_parallel_size * context_parallel_size)
@@ -300,7 +304,8 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     rank_generator.init_embedding_group(pipeline_model_parallel_split_rank)
 
     global _GLOBAL_STREAM
-    assert (_GLOBAL_STREAM is None), 'Global stream is already initialized'
+    if _GLOBAL_STREAM is not None:
+        raise ValueError('GLOBAL stream is already initialized')
     _GLOBAL_STREAM = hal.Stream()
 
     global _SP_SEND_STREAM
@@ -322,8 +327,8 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
 # pylint: disable=C0330
 def _get_group_helper(mode):
     comm_group = get_group_info(mode)
-    assert comm_group.group is not None, \
-        (f"{mode} parallel group is not initialized. Please check whether communication "
+    if comm_group.group is None:
+        raise ValueError(f"{mode} parallel group is not initialized. Please check whether communication."
          f"is initialized and {mode} in order.")
     if not comm_group.is_group_created:
         create_group(comm_group.group, comm_group.global_ranks)
@@ -381,8 +386,8 @@ def get_tensor_and_context_parallel_group():
 def _get_global_ranks_helper(mode, check_initialized=True):
     comm_group = get_group_info(mode)
     if check_initialized:
-        assert comm_group.global_ranks is not None, \
-            (f"{mode} parallel group is not initialized. Please check whether communication "
+        if comm_group.global_ranks is None:
+            raise ValueError(f"{mode} parallel group is not initialized. Please check whether communication."
              f"is initialized and {mode} in order.")
     return comm_group.group
 
@@ -537,31 +542,36 @@ def set_ep_rank(rank):
 
 def get_stream():
     """Return global stream. There is only one stream for each npu."""
-    assert _GLOBAL_STREAM is not None, "Global stream is not initialized"
+    if _GLOBAL_STREAM is None:
+        raise ValueError("Global stream is not initialized.")
     return _GLOBAL_STREAM
 
 
 def get_sp_send_stream():
     """Return send stream for sequence parallel."""
-    assert _SP_SEND_STREAM is not None, "Sp send stream is not initialized"
+    if _SP_SEND_STREAM is None:
+        raise ValueError("Sp send stream is not initialized.")
     return _SP_SEND_STREAM
 
 
 def get_sp_recv_stream():
     """Return recv stream for sequence parallel."""
-    assert _SP_RECV_STREAM is not None, "Sp receive stream is not initialized"
+    if _SP_RECV_STREAM is None:
+        raise ValueError("Sp receive stream is not initialized.")
     return _SP_RECV_STREAM
 
 
 def get_sp_send_oml_stream():
     """Return send stream for sequence parallel."""
-    assert _SP_SEND_OML_STREAM is not None, "Sp send oml stream is not initialized"
+    if _SP_SEND_OML_STREAM is None:
+        raise ValueError("Sp send oml stream is not initialized.")
     return _SP_SEND_OML_STREAM
 
 
 def get_sp_recv_oml_stream():
     """Return recv stream for sequence parallel."""
-    assert _SP_RECV_OML_STREAM is not None, "Sp receive oml stream is not initialized"
+    if _SP_RECV_OML_STREAM is None:
+        raise ValueError("Sp receive oml stream is not initialized.")
     return _SP_RECV_OML_STREAM
 
 

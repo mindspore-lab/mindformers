@@ -67,7 +67,8 @@ def main(config='./',
     if device_id is not None:
         config.context.device_id = device_id
     if ckpt is not None:
-        assert os.path.exists(ckpt), f"{ckpt} is not found!"
+        if not os.path.exists(ckpt):
+            raise ValueError(f"{ckpt} is not found!")
         if os.path.isfile(ckpt):
             config.load_checkpoint = None
             config.model.model_config.checkpoint_name_or_path = ckpt
@@ -79,8 +80,8 @@ def main(config='./',
     if auto_trans_ckpt is not None:
         config.auto_trans_ckpt = auto_trans_ckpt
     if vocab_file is None:
-        assert config.processor.tokenizer.vocab_file is not None, \
-            "vocab_file can't be None."
+        if config.processor.tokenizer.vocab_file is None:
+            raise ValueError("vocab_file can't be None.")
         vocab_file = config.processor.tokenizer.vocab_file
     if use_past is not None:
         config.model.model_config.use_past = use_past
@@ -165,7 +166,8 @@ def build_chat_input(config, tokenizer, messages, max_new_tokens=None):
         r = []
         for i, message in enumerate(messages):
             if message["role"] == "system":
-                assert i == 0
+                if i != 0:
+                    raise ValueError(f"i should be 0, but got {i}")
                 system = message["content"]
                 continue
             if message["role"] == split_role and r:
