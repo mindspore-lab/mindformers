@@ -118,7 +118,7 @@ def test_ring_attention():
     init()
 
     # Init parameter
-    dp = 1
+    # dp = 1 # Automatically calculated
     sp = 8
     initialize_model_parallel(context_parallel_size=sp)
 
@@ -163,8 +163,6 @@ def test_ring_attention():
         ring_attn_mask_output = get_sp_chuncks_attn_mask_general(ring_attn_mask)
     ring_attention = RingAttention(head_num=n,
                                    input_layout=test_layout,
-                                   dp=dp,
-                                   sp=sp,
                                    scale_value=scale)
 
     if test_mask_type == "user_defined":

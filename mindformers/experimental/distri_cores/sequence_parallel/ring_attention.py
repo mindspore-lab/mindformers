@@ -22,13 +22,11 @@ from mindspore import hal
 from mindspore.ops.auto_generate import FlashAttentionScoreGrad
 
 from mindformers.experimental.distri_cores.create_comm import get_cp_group, get_cp_world_size, get_cp_rank, \
-    get_sp_send_stream
+    get_sp_send_stream, get_tp_world_size, get_dp_world_size
 
 
 class RingAttention(nn.Cell):
-    """Attention implementation with sequence parallelism
-    This function contains the ring attention primitives used in RingAttention
-    Specifically, it includes an interface for calling ringattention operation.
+    """Sequence parallelism with ring attention.
 
     B -- Batch size
     S1 -- Sequence length of query. The value ranges from 1 to 32768 and is a multiple of 16.
@@ -71,9 +69,6 @@ class RingAttention(nn.Cell):
         use_alibi_mask (bool): The value is True if alibi_mask is passed. Default: False.
         Currently only use_alibi_mask = False is supported.
         use_mqa (bool): Specifies whether using MQA. Default: False. Currently only use_mqa = False is supported.
-        dp (int): Data parallel num.
-        mp (int): Model parallel num. Currently only mp = 1 is supported.
-        sp (int): Sequence parallel num.
 
     Inputs:
         - **query** (Tensor[float16, bfloat16]) - The query tensor.
@@ -94,7 +89,8 @@ class RingAttention(nn.Cell):
           Currently only padding_mask = None is supported.
         - **prefix** (Union[Tensor[int64], None]) - N value of each Batch in the prefix sparse calculation scenario.
           Not implemented yet. Input tensor of shape :math:`(B,)`. Currently only prefix = None is supported.
-        - **attn_mask_type** (str) - The attention mask type. Currently only value of "causal" and "full" are supported.
+        - **attn_mask_type** (str) - The attention mask type. Value of "causal" and "full" are supported.
+          If you want to use attn_mask_type to generate attention mask, set attn_mask to None.
           The value "causal" indicates the causal mask is used. The value "full" indicates the mask with all zeros.
 
     Outputs:
@@ -116,10 +112,7 @@ class RingAttention(nn.Cell):
                  sparse_mode=0,
                  use_attention_mask=False,
                  use_alibi_mask=False,
-                 use_mqa=False,
-                 dp=1,
-                 mp=1,
-                 sp=1
+                 use_mqa=False
                  ):
         super(RingAttention, self).__init__()
         self.head_num = head_num
@@ -132,9 +125,9 @@ class RingAttention(nn.Cell):
         self.use_attention_mask = use_attention_mask
         self.use_alibi_mask = use_alibi_mask
         self.use_mqa = use_mqa
-        self.dp = dp
-        self.mp = mp
-        self.sp = sp
+        self.dp = get_dp_world_size()
+        self.mp = get_tp_world_size()
+        self.sp = get_cp_world_size()
 
         if sparse_mode != 0:
             raise ValueError(f"Only sparse_mode = 0 is supported")
@@ -157,11 +150,6 @@ class RingAttention(nn.Cell):
                 ms.ParallelMode.STAND_ALONE, ms.ParallelMode.DATA_PARALLEL):
             raise ValueError(f"The ring-attention only supports stand_alone and data_parallel,"
                              f"but got the paralle mode of {parallel_mode}")
-
-        init_sp = get_cp_world_size()
-        if sp != init_sp:
-            raise ValueError(f"The sp group is initialized as {init_sp},"
-                             f"but got different sp = {sp} in RingAttention parameters")
 
         if self.use_alibi_mask:
             raise ValueError(f"Only use_alibi_mask = False is supported")
@@ -211,7 +199,7 @@ class RingAttention(nn.Cell):
     def p2p_communicate(self, rank, send_tensor, send_dst,
                         recv_src,
                         sp_group):
-        """Point-to-point communications of KV and dKV in Attention with sequence parallelism"""
+        """Point-to-point communications of KV and dKV in ring attention"""
 
         stream_send = self.stream_send
         stream_recv = self.stream_recv
@@ -245,7 +233,7 @@ class RingAttention(nn.Cell):
 
     def forward_update(self, prev_attn_out, prev_softmax_max, prev_softmax_sum,
                        cur_attn_out, cur_softmax_max, cur_softmax_sum):
-        '''Updata ring attention output'''
+        '''Update ring attention output'''
         softmax_max = ops.maximum(prev_softmax_max, cur_softmax_max)
         prev_scale = ops.exp(prev_softmax_max - softmax_max)
         cur_scale = ops.exp(cur_softmax_max - softmax_max)
@@ -741,6 +729,6 @@ class RingAttention(nn.Cell):
                                  *x.shape[(self.seq_dim + 2):]
                                  ) for x in [dq, dk, dv]]
 
-        if attn_mask_type is None:
+        if attn_mask_type == "user_defined":
             return dq, dk, dv, ops.zeros_like(attn_mask)
         return dq, dk, dv
