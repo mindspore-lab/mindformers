@@ -137,9 +137,13 @@ class ParallelMLP(Module):
 
     def _init_projection(self):
         """ initialize projection cell """
+        if self.config.out_hidden_size is None:
+            out_hidden_size = self.hidden_size
+        else:
+            out_hidden_size = self.config.out_hidden_size
         self.projection = RowParallelLinear(
             self.ffn_hidden_size,
-            self.hidden_size,
+            out_hidden_size,
             config=self.config,
             init_method=self.config.init_method,
             bias=self.has_bias,
@@ -155,7 +159,7 @@ class ParallelMLP(Module):
             if projection_lora is not None:
                 self.projection = RowParallelLoRA(
                     self.ffn_hidden_size,
-                    self.hidden_size,
+                    out_hidden_size,
                     config=self.config,
                     init_method=self.config.init_method,
                     bias=self.has_bias,

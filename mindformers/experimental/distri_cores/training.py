@@ -322,6 +322,8 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
                     # accumulate grads
                     if micro_batch_num > 1:
                         grads = grad_accumulator(grads_micro)
+                    else:
+                        grads = grads_micro
 
                 # process output, loss will be averaged in loss unscaling
                 loss = loss_micro if loss is None else loss + loss_micro
