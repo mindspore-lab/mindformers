@@ -21,7 +21,7 @@ from enum import Enum
 
 import numpy as np
 
-from mindspore import context, load_checkpoint, load_param_into_net
+from mindspore import context, load_checkpoint, load_param_into_net, load_checkpoint_async
 from mindspore import set_seed as ms_set_seed
 
 from mindformers.tools.logger import logger
@@ -262,7 +262,7 @@ def config2dict(config):
     return new_dict
 
 
-def load_distributed_checkpoint(checkpoint_dir, choice_func=None, checkpoint_format='ckpt'):
+def load_distributed_checkpoint(checkpoint_dir, choice_func=None, checkpoint_format='ckpt', load_async=False):
     """Load Checkpoint in Parallel Mode."""
     if os.path.isdir(checkpoint_dir):
         logger.info(
@@ -277,7 +277,11 @@ def load_distributed_checkpoint(checkpoint_dir, choice_func=None, checkpoint_for
         distribute_checkpoint_path = checkpoint_dir
     else:
         raise FileNotFoundError(f"{checkpoint_dir} is not found.")
-    checkpoint_dict = load_checkpoint(distribute_checkpoint_path, choice_func=choice_func, format=checkpoint_format)
+    if load_async:
+        pd_future = load_checkpoint_async(distribute_checkpoint_path, choice_func=choice_func, format=checkpoint_format)
+        checkpoint_dict = pd_future.result()
+    else:
+        checkpoint_dict = load_checkpoint(distribute_checkpoint_path, choice_func=choice_func, format=checkpoint_format)
     logger.info("Distribute load is success.")
     return checkpoint_dict
 
@@ -462,7 +466,8 @@ def load_ckpt(config, network, optimizer=None):
             elif config.use_parallel:
                 if config.checkpoint_format:
                     checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint,
-                                                                  checkpoint_format=config.checkpoint_format)
+                                                                  checkpoint_format=config.checkpoint_format,
+                                                                  load_async=config.load_checkpoint_async)
                 else:
                     checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint)
             else:
