@@ -1062,6 +1062,8 @@ class GenerationMixin:
             model_kwargs["current_index"] = current_index
             model_kwargs["prefill"] = prefill if use_past else None
             model_kwargs["valid_length_each_example"] = valid_length_each_example
+            model_kwargs["block_tables"] = block_tables
+            model_kwargs["slot_mapping"] = slot_mapping
             # pylint: disable=E1111
             model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
             real_input_ids = model_inputs["input_ids"]

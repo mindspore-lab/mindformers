@@ -39,6 +39,7 @@ from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_va
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.version_control import check_rmsnorm_big_kernel_valid
 from mindformers.modules.transformer.moe import MoEV2, MoEInfer
+from mindformers.tools.utils import get_predict_run_mode
 
 
 class LlamaSiLU(Cell):
@@ -176,7 +177,9 @@ class LlamaRMSNorm(nn.Cell):
             self.self_define = False
             self.cast = P.Cast()
             self.rcast = P.Cast()
-            self.cast.recompute()
+            is_predict_mode = get_predict_run_mode()
+            if not is_predict_mode:
+                self.cast.recompute()
         else:
             self.cast = P.Cast()
             self.mul = P.Mul()

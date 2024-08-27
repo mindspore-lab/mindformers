@@ -95,6 +95,8 @@ class LlamaConfig(PretrainedConfig):
             The maximum number of blocks when using paged attention.
         tie_word_embeddings (`bool`, *optional*, defaults to `False`):
             Whether to tie input and output embeddings.
+        llm_backend (`str`, *optional*, defaults to ``):
+            Llm boost backend.
         Returns:
             Class, LlamaConfig.
     """
@@ -152,6 +154,7 @@ class LlamaConfig(PretrainedConfig):
                  do_sample: bool = True,
                  quant_config: dict = None,
                  tie_word_embeddings: bool = False,
+                 llm_backend: str = "",
                  **kwargs):
         super(LlamaConfig, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -209,3 +212,4 @@ class LlamaConfig(PretrainedConfig):
         self.num_blocks = num_blocks
         self.quant_config = quant_config
         self.tie_word_embeddings = tie_word_embeddings
+        self.llm_backend = llm_backend
