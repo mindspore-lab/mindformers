@@ -122,7 +122,6 @@ class ModelPredict(BaseInitModel):
                                    padding="max_length")["input_ids"]
         else:
             inputs_ids = self.inputs
-        print(inputs_ids)
         outputs = self.network.generate(inputs_ids, generation_config=generate_config)
 
         if tokenizer:

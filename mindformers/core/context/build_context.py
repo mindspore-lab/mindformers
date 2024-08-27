@@ -33,7 +33,7 @@ from mindspore.communication.management import init, get_group_size, get_rank
 from mindspore.parallel import set_algo_parameters
 from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 
-CONTEXT_CONFIG = {
+CONTEXT = {
     'mode': 'GRAPH_MODE',
     'device_target': 'Ascend',
     'device_id': 0,
@@ -41,15 +41,18 @@ CONTEXT_CONFIG = {
 }
 
 MF_CONFIG = {
-    'run_mode': None
+    'run_mode': None,
+    'exclude_cann_cpu': False,
+    'train_precision_sync': False,
+    'infer_precision_sync': False
 }
 
-PARALLEL_CONFIG = {
-    'parallel_mode': 'DATA_PARALLEL',
+PARALLEL = {
+    'parallel_mode': 'SEMI_AUTO_PARALLEL',
     'gradients_mean': True
 }
 
-CONTEXT = None
+CONTEXT_INSTANCE = None
 
 
 class _Context:
@@ -105,37 +108,25 @@ class _Context:
             self.set_pipeline_stage()
 
         self.set_predict_context_config()
-        context_config = self.config.context
-        parallel_config = self.config.parallel
 
-        if isinstance(context_config, ContextConfig):
-            context_config = context_config.__dict__
-        if isinstance(parallel_config, ParallelContextConfig):
-            parallel_config = parallel_config.__dict__
-
-        if context_config is None:
-            context_config = CONTEXT_CONFIG
-        if parallel_config is None:
-            parallel_config = PARALLEL_CONFIG
-
-        self.set_check_context_config(context_config)
-        self.set_check_parallel_config(parallel_config)
+        self.set_check_context_config(self.config.context)
+        self.set_check_parallel_config(self.config.parallel)
 
         device_num = 1
         rank_id = 0
-        context_config['mode'] = MODE.get(context_config.get('mode'))
+        self.config.context['mode'] = MODE.get(self.config.context.get('mode'))
 
-        self.set_ms_context(max_device_memory=context_config.get('max_device_memory'),
-                            mode=context_config.get('mode'))
+        self.set_ms_context(max_device_memory=self.config.context.get('max_device_memory'),
+                            mode=self.config.context.get('mode'))
 
         if self.config.use_parallel:
             device_id = int(os.getenv('DEVICE_ID', '0'))  # 0 ~ 7
-            context_config['device_id'] = device_id
+            self.config.context['device_id'] = device_id
             if check_in_dynamic_cluster():
                 # for dynamic cluster, we should not set device id in context.
-                context_config.pop('device_id', None)
-            parallel_config['parallel_mode'] = PARALLEL_MODE.get(parallel_config.get('parallel_mode'))
-            self.set_ms_context(**context_config)
+                self.config.context.pop('device_id', None)
+            self.config.parallel['parallel_mode'] = PARALLEL_MODE.get(self.config.parallel.get('parallel_mode'))
+            self.set_ms_context(**self.config.context)
             try:
                 init()
             # pylint: disable=W0702
@@ -144,12 +135,12 @@ class _Context:
                                    "use_parallel=False. If not, please check the error message above.")
             rank_id = get_rank()  # local_rank
             device_num = get_group_size()  # world_size
-            parallel_config.setdefault('device_num', device_num)
+            self.config.parallel.setdefault('device_num', device_num)
             context.reset_auto_parallel_context()
-            set_strategy_save_path(parallel_config)
-            self.set_ms_auto_parallel_context(**parallel_config)
+            set_strategy_save_path(self.config.parallel)
+            self.set_ms_auto_parallel_context(**self.config.parallel)
         else:
-            self.set_ms_context(**context_config)
+            self.set_ms_context(**self.config.context)
 
         if context.get_auto_parallel_context("parallel_mode") == "auto_parallel":
             set_algo_parameters(elementwise_op_strategy_follow=False, fully_use_devices=False)
@@ -273,12 +264,12 @@ class _Context:
             os.environ['HCCL_DETERMINISTIC'] = 'true'
             os.environ['ASCEND_LAUNCH_BLOCKING'] = '1'
             os.environ['TE_PARALLEL_COMPILER'] = '1'
-            set_context(deterministic="ON")
+            self.set_ms_context(deterministic="ON")
         else:
             os.environ['HCCL_DETERMINISTIC'] = 'false'
             os.environ['ASCEND_LAUNCH_BLOCKING'] = '0'
             os.environ['TE_PARALLEL_COMPILER'] = '0'
-            set_context(deterministic="OFF")
+            self.set_ms_context(deterministic="OFF")
 
     def set_infer_precision_sync(self, switch):
         """Control infer precision synchronization"""
@@ -296,24 +287,65 @@ class _Context:
 
 def _context(config=None):
     """
-        Get the global _context, if context is not created, create a new one.
+    Get the global _context, if context is not created, create a new one.
 
-        Returns:
-            _Context, the global context in PyNative mode.
-        """
-    global CONTEXT
-    if CONTEXT is None:
-        CONTEXT = _Context(config)
-    return CONTEXT
+    Returns:
+        _Context, the global context in PyNative mode.
+    """
+    global CONTEXT_INSTANCE
+    if CONTEXT_INSTANCE is None:
+        CONTEXT_INSTANCE = _Context(config)
+    return CONTEXT_INSTANCE
 
 
-def build_context(config: Union[dict, MindFormerConfig, TrainingArguments], **kwargs):
+def init_context(use_parallel=False, context_config=None, parallel_config=None):
+    """
+    Group the inputs and convert their types
+
+    Args:
+        use_parallel (bool): Whether to use parallel, default=False.
+        context_config (Union[dict, ContextConfig]): The context config, default=None.
+        parallel_config (Union[dict, ParallelContextConfig]): The parallel context config, default=None.
+    """
+    if context_config is None:
+        context_config = CONTEXT
+    elif isinstance(context_config, ContextConfig):
+        context_config = context_config.__dict__
+
+    if parallel_config is None:
+        parallel_config = PARALLEL
+    elif isinstance(parallel_config, ParallelContextConfig):
+        parallel_config = parallel_config.__dict__
+
+    config = {
+        'use_parallel': use_parallel,
+        'context': context_config,
+        'parallel': parallel_config
+    }
+    build_context(config)
+
+
+def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
+    """
+    Initialize the context.
+
+    Args:
+        config (Union[dict, MindFormerConfig, TrainingArguments]): The configuration to initialize the context.
+          This can be a dictionary, a MindFormerConfig instance, or a TrainingArguments instance.
+
+    Returns:
+        ctx: The instantiated context.
+    """
     if isinstance(config, TrainingArguments):
         config = config.convert_args_to_mindformers_config()
-    if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
-        config = MindFormerConfig(**config)
-    _context(config)
-    set_context(**kwargs)
+
+    config['context'] = MindFormerConfig(**{**CONTEXT, **config['context']})
+    config['parallel'] = MindFormerConfig(**{**PARALLEL, **config['parallel']})
+    config['parallel_config'] = config.parallel_config if config.get('parallel_config', None) else MindFormerConfig()
+    config = MindFormerConfig(**{**MF_CONFIG, **config})
+
+    ctx = _context(config)
+    return ctx
 
 
 def set_context(run_mode=None, **kwargs):
@@ -335,6 +367,12 @@ def set_context(run_mode=None, **kwargs):
     ctx.set_run_mode(run_mode)
     ctx.set_train_precision_sync(kwargs.pop('train_precision_sync', None))
     ctx.set_infer_precision_sync(kwargs.pop('infer_precision_sync', None))
+
+    for k in list(kwargs.keys()):
+        if k in MF_CONFIG:
+            v = kwargs.pop(k)
+            ctx.config[k] = v
+
     ctx.set_ms_context(**kwargs)
     for k, v in kwargs.items():
         tmp = ctx.config.context.get(k, None)
