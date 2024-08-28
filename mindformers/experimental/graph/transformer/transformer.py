@@ -215,7 +215,6 @@ class CoreAttention(nn.Cell):
             norm_factor *= coeff
         self.inv_norm_factor = Tensor(1.0 / norm_factor, dtype=self.compute_dtype)
 
-        self.mask_func = get_attn_mask_func(self.config.mask_func_type)(config)
         self.scale_mask_softmax = FusedScaleMaskSoftmax(config=config,
                                                         mask_func=get_attn_mask_func(self.config.mask_func_type)(
                                                             config),
@@ -250,7 +249,7 @@ class CoreAttention(nn.Cell):
             value_layer = self.cast(value_layer, mstype.bfloat16)
 
         # [B, N, S, S] * [B, N, S, D] -> [B, N, S, D]
-        weighted_values = self.bmm_qkv(attention_probs, value_layer)
+        weighted_values = self.bmm_qkv(self.cast(attention_probs, self.compute_dtype), value_layer)
         # [B, N, S, D] -> [B, S, N*D]
         attn_output = self._merge_heads(weighted_values)
         attn_output = self.cast(attn_output, self.compute_dtype)
@@ -309,7 +308,6 @@ class ParallelAttention(nn.Cell):
         if attn_mask_type:
             raise NotImplementedError("For ParallelAttention, 'attn_mask_type' is not supported for now.")
         self.config = config
-        self.param_init_dtype = self.config.param_init_dtype
         self.compute_dtype = self.config.compute_dtype
         self.use_gqa = self.config.group_query_attention
         self.num_heads = self.config.num_attention_heads

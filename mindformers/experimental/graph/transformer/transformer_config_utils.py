@@ -26,7 +26,7 @@ _CONFIG_MAPPING = {
     'hidden_dropout_rate': 'hidden_dropout',
     'attention_dropout_rate': 'attention_dropout',
     'softmax_compute_type': 'softmax_compute_dtype',
-    'param_init_type': 'param_init_dtype',
+    'param_init_type': 'params_dtype',
     'qkv_has_bias': 'add_qkv_bias',
     'use_gqa': 'group_query_attention',
     'use_flash_attention': 'use_flash_attn',
