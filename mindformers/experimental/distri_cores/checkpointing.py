@@ -141,7 +141,7 @@ def save_pre_process(shard_info, model, optimizer, config):
             target_shard_info[v_proj_name] = v_dict
 
         ### moe layer
-        if get_ep_world_size() > 1 and "local_experts.0" in name:
+        if config.moe_config is not None and config.moe_config.num_experts > 1 and "local_experts.0" in name:
             local_expert_num = config.moe_config.num_experts // get_ep_world_size()
             local_experts_list = []
             target_shard_info = model_shard_info if name in model_shard_info else optimizer_shard_info
@@ -189,7 +189,7 @@ def load_post_process(config, params_dict):
             params_dict.pop(wv_weight_name)
 
         ### moe layer
-        if get_ep_world_size() > 1 and "local_experts.0" in name:
+        if config.moe_config is not None and config.moe_config.num_experts > 1 and "local_experts.0" in name:
             local_expert_num = config.moe_config.num_experts // get_ep_world_size()
             params_dict.pop(name)
             for shard_id in range(local_expert_num):

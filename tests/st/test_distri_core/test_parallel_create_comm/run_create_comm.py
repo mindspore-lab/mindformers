@@ -26,6 +26,8 @@ def run_initialize_and_destroy_model_parallel(order):
     with pytest.raises(AssertionError):
         assert initialize_model_parallel(order=order)
     init()
+    assert not is_initialized()
+    assert is_unitialized()
     world_size = get_group_size()
     with pytest.raises(RuntimeError):
         assert initialize_model_parallel(tensor_model_parallel_size=2*world_size, order=order)
@@ -34,13 +36,25 @@ def run_initialize_and_destroy_model_parallel(order):
     with pytest.raises(RuntimeError):
         assert initialize_model_parallel(pipeline_model_parallel_size=world_size, \
                                          tensor_model_parallel_size=world_size, order=order)
+    # Initialize
     initialize_model_parallel(tensor_model_parallel_size=2, pipeline_model_parallel_size=2, order=order)
+
+    assert is_initialized()
+    assert not is_unitialized()
+    assert model_parallel_is_initialized()
 
     assert get_tp_group() is not None
     assert get_pp_group() is not None
+    assert get_embedding_group is not None
+    assert get_position_embedding_group is not None
     assert get_model_parallel_group() is not None
     assert get_dp_group() is not None
+    assert get_model_parallel_group() is not None
+    assert get_tensor_and_data_parallel_group() is not None
+    # Destroy
     destroy_model_parallel()
+    assert not is_initialized()
+    assert is_unitialized()
     with pytest.raises(AssertionError):
         assert get_model_parallel_group()
 
