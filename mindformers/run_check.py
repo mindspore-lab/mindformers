@@ -89,7 +89,7 @@ class BaseCheck:
         self.next_check = next_check
 
     def check(self):
-        pass
+        """The actual checking flow control."""
 
     def _next(self):
         self.next_check.check()
@@ -163,8 +163,8 @@ class MFCheck(BaseCheck):
         """train dataset generator"""
         size = (self.step_num * self.args.batch_size, self.model_config.seq_length + 1,)
         input_ids = np.random.randint(low=0, high=self.vocab_size, size=size).astype(np.int32)
-        for idx in range(len(input_ids)):
-            yield input_ids[idx]
+        for _, input_id in enumerate(input_ids):
+            yield input_id
 
     def _train(self, jit_level='O1'):
         """
@@ -323,8 +323,8 @@ class VersionCheck(BaseCheck):
             if not Path(cann_info_file).exists():
                 raise RuntimeError('Cannot find cann info file')
 
-            cann_info = subprocess.run(["cat", cann_info_file], shell=False, capture_output=True).stdout.decode(
-                'utf-8')
+            cann_info = subprocess.run(["cat", cann_info_file], shell=False, capture_output=True,
+                                       check=True).stdout.decode('utf-8')
             cann_version = re.search(r'=(\d[\d.\w]+)', cann_info).group(1)
             logger.info(f'Ascend-cann-toolkit version: {cann_version}')
 
@@ -332,8 +332,8 @@ class VersionCheck(BaseCheck):
             if not Path(driver_info_file).exists():
                 raise RuntimeError('Cannot find driver info file')
 
-            driver_info = subprocess.run(["cat", driver_info_file], shell=False, capture_output=True).stdout.decode(
-                'utf-8')
+            driver_info = subprocess.run(["cat", driver_info_file], shell=False, capture_output=True,
+                                         check=True).stdout.decode('utf-8')
             driver_version = re.search(r'=(\d[\d.\w]+)', driver_info).group(1)
             logger.info(f'Ascend driver version: {driver_version}')
 
@@ -365,7 +365,7 @@ def timeout_handler(signum, frame):
     raise TimeoutError('Execution timed out, exceed 1 min')
 
 
-def run_check(log_level):
+def run_check(log_level='info'):
     """
     Check whether the environment is correctly set up
     MindSpore run_check -> pretrain -> predict -> version_check
