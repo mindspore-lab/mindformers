@@ -107,7 +107,7 @@ if __name__ == '__main__':
         logger.info("......Start Transckpt......")
         ms.transform_checkpoints(src_ckpt_path_or_dir, dst_ckpt_dir, prefix, src_ckpt_strategy, dst_ckpt_strategy)
         logger.info("......Complete Trans&Save......")
-        src_lora_ckpt_path = dst_ckpt_dir + "/rank_0/" + prefix + "0.ckpt"
+        src_lora_ckpt_path = os.path.join(dst_ckpt_dir, "rank_0", prefix + "0.ckpt")
         logger.info("src_lora_ckpt_path---------------", src_lora_ckpt_path)
     logger.info("......Start Merge Lorackpt......")
     param_dict = ms.load_checkpoint(src_lora_ckpt_path)
