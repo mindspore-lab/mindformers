@@ -362,7 +362,7 @@ class VersionCheck(BaseCheck):
 
 def timeout_handler(signum, frame):
     """Process timeout signal"""
-    raise TimeoutError('Execution timed out, exceed 1 min')
+    raise TimeoutError('Execution timed out, exceed 2 min')
 
 
 def run_check(log_level):
