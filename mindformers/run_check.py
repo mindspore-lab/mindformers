@@ -388,3 +388,4 @@ def run_check(log_level):
     mfc.set_next(vc)
 
     msrc.check()
+    signal.alarm(0)
