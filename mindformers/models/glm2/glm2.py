@@ -94,7 +94,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         self.freqs_mgr = FreqsMgr(
             dim=rotary_dim // 2,
             seq_length=config.seq_length,
-            rotary_dtype=config.compute_dtype,
+            rotary_dtype=config.rotary_dtype,
             base=10000,
             rope_ratio=config.rope_ratio)
 

@@ -20,18 +20,19 @@ Call）和长文本推理（支持最大 128K 上下文）等高级功能。 本
 
 ## 模型性能
 
-| Config                             |      Task       | Datasets | SeqLength |     Phase      |   Performance    |
-|:-----------------------------------|:---------------:|:--------:|:---------:|:--------------:|:----------------:|
-| [GLM-4-9B-Chat](predict_glm4.yaml) | text_generation |    /     |   8192    | [predict](#推理) | 256.814 tokens/s |
+| Config                             |      Task       | Datasets | SeqLength |      Phase      |   Performance    |
+|:-----------------------------------|:---------------:|:--------:|:---------:|:---------------:|:----------------:|
+| [GLM-4-9B-Chat](predict_glm4.yaml) | text_generation |    /     |   8192    | [predict](#推理)  | 256.814 tokens/s |
+| [GLM-4-9B](finetune_glm4_9b.yaml)  |    finetune     |  Alpaca  |   8192    | [finetune](#微调) | 2047 tokens/s/p  |
 
 ## 模型文件
 
-`GLM-4-9B-Chat` 基于 `mindformers` 实现，主要涉及的文件有：
+`GLM-4-9B-Chat`、`GLM-4-9B`  基于 `mindformers` 实现，主要涉及的文件有：
 
 1. 模型具体实现：
 
     ```text
-    mindformers/models/glm2            # glm4-9b-chat复用glm2的代码实现
+    mindformers/models/glm2            # glm4复用glm2的代码实现
         ├── __init__.py
         ├── convert_weight.py          # huggingface权重转ckpt实现
         ├── glm2.py                    # 模型实现
@@ -45,7 +46,8 @@ Call）和长文本推理（支持最大 128K 上下文）等高级功能。 本
 
     ```text
     configs/glm4
-        └── predict_glm4_9b_chat.yaml        # Atlas 800T A2推理配置
+        ├── predict_glm4_9b_chat.yaml        # Atlas 800T A2推理配置
+        └── finetune_glm4_9b.yaml            # Atlas 800T A2微调配置
     ```
 
 ## 环境及数据准备
@@ -55,16 +57,60 @@ Call）和长文本推理（支持最大 128K 上下文）等高级功能。 本
 MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)
 和[版本匹配关系](../../README.md#版本匹配关系)。
 
+### 数据及权重准备
+
+#### 数据集下载
+
+MindFormers提供`alpaca`数据集示例处理脚本制作[微调](#微调)示例数据集。
+
+| 数据集名称        |  适用模型   |   适用阶段   |                                            下载链接                                            |
+|:-------------|:-------:|:--------:|:------------------------------------------------------------------------------------------:|
+| alpaca       | glm4-9b | Finetune |      [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)       |
+
+数据预处理中所用的`tokenizer.model`可以参考[模型权重下载](#模型权重下载)进行下载。
+
+- **alpaca 数据预处理**
+
+  执行`mindformers/models/glm2/alpaca_converter.py`，将原始数据集转换为指定格式。
+
+  ```shell
+  python mindformers/models/glm2/alpaca_converter.py \
+   --data_path /path/alpaca_data.json \
+   --output_path /path/alpaca_glm4_data.jsonl
+
+  # 参数说明
+  data_path:   输入下载的文件路径
+  output_path: 输出文件的保存路径
+  ```
+
+  执行`mindformers/models/glm2/alpaca_converter.py`文件，进行数据预处理和Mindrecord数据生成。
+
+  ```shell
+  python mindformers/models/glm2/alpaca_converter.py \
+   --input_glob /path/alpaca_glm4_data.jsonl \
+   --vocab_file /path/tokenizer.model \
+   --seq_length 8192 \
+   --output_file /path/alpaca-messages.mindrecord
+
+  # 参数说明
+  input_glob:   转换后的alpaca的文件路径
+  vocab_file:   vocab.json文件路径
+  merges_file:  merges.txt文件路径
+  seq_length:   输出数据的序列长度
+  output_file:  输出文件的保存路径
+  ```
+
 #### 模型权重下载
 
 MindFormers提供已经转换完成的预训练权重、词表文件用于微调和推理，用户也可以下载HuggingFace官方权重经过[模型权重转换](#模型权重转换)
 后进行使用。
 
-词表下载链接：[tokenizer.model](https://huggingface.co/THUDM/glm-4-9b-chat/blob/main/tokenizer.model)
-
-| 模型名称            | MindSpore权重 |                    HuggingFace权重                     |
-|:----------------|:-----------:|:----------------------------------------------------:|
+| 模型名称          | MindSpore权重 |                   HuggingFace权重                    |
+|:--------------|:-----------:|:--------------------------------------------------:|
 | GLM-4-9B-Chat |      /      | [Link](https://huggingface.co/THUDM/glm-4-9b-chat) |
+| GLM-4-9B      |      /      |   [Link](https://huggingface.co/THUDM/glm-4-9b)    |
+
+注：词表文件为对应权重文件目录下tokenizer.model文件
 
 #### 模型权重转换
 
@@ -78,11 +124,36 @@ torch_ckpt_path:  下载HuggingFace权重的文件夹路径
 mindspore_ckpt_path: 转换后的MindSpore权重文件保存路径
 ```
 
+## 全参微调
+
+MindFormers提供`GLM4-9b`单机多卡微调示例，过程中使用`alpaca`数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
+
+设置如下环境变量：
+
+```bash
+export MS_ASCEND_CHECK_OVERFLOW_MODE=INFNAN_MODE
+```
+
+### 单机训练
+
+以`GLM4-9b`单机8卡微调为例，使用配置文件`configs/glm4/finetune_glm4_9b.yaml`。
+
+执行如下命令启动微调任务。
+
+```shell
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config configs/glm4/finetune_glm4_9b.yaml \
+ --load_checkpoint /path/GLM4_9b.ckpt \
+ --auto_trans_ckpt True \
+ --train_dataset /path/alpaca.mindrecord \
+ --run_mode finetune" 8
+```
+
 ## 推理
 
 MindFormers提供`GLM-4-9B-Chat`的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡多batch推理。
 注意：需添加环境变量使能atb的PA算子：export MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST=PagedAttention
-                               export MS_LLM_SEQ_LENGTH_INDEX=1
+export MS_LLM_SEQ_LENGTH_INDEX=1
 
 ```shell
 bash scripts/examples/glm4/run_glm4_predict.sh CONFIG_PATH CKPT_PATH TOKENIZER

@@ -69,6 +69,7 @@ class ChatGLM2Config(PretrainedConfig):
                  param_init_type: str = "float16",
                  compute_dtype: str = "float16",
                  layernorm_compute_type: str = "float32",
+                 rotary_dtype: str = None,
                  use_past=False,
                  use_flash_attention=False,
                  block_size=16,
@@ -117,6 +118,7 @@ class ChatGLM2Config(PretrainedConfig):
         self.param_init_type = convert_mstype(param_init_type)
         self.compute_dtype = convert_mstype(compute_dtype)
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
+        self.rotary_dtype = convert_mstype(rotary_dtype) if rotary_dtype is not None else self.compute_dtype
         self.use_past = use_past
         self.use_flash_attention = use_flash_attention
         self.eos_token_id = eos_token_id
