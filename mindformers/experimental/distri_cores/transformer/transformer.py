@@ -661,6 +661,12 @@ def _get_num_layers(config, model_type, is_decoder=False):
         raise NotImplementedError(
             "For _get_num_layers function, `is_decoder` is not supported for now."
         )
+    vpp = get_vpp_world_size() if get_vpp_world_size() is not None else 1
+    pp_split_num = vpp * get_pp_world_size()
+    if config.num_layers < pp_split_num:
+        raise RuntimeError(f"The number of model layers is {config.num_layers}, "
+                           f"but using pipeline parallel requires at least "
+                           f"'pp({get_pp_world_size()}) * vpp({vpp}) = {pp_split_num}' layers for splitting")
     standalone_embedding_stage = config.parallel_config.standalone_embedding_stage
     if get_pp_world_size() > 1:
         if standalone_embedding_stage and get_pp_rank() == 0:

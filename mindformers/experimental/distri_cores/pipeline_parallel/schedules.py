@@ -237,7 +237,8 @@ def forward_backward_pipelining_with_interleaving(
 ):
     """ Pipeline with interleaving wrapper for split model run forward and backward """
     if not isinstance(model, nn.CellList):
-        raise TypeError("The 'model' input of 'forward_backward_pipelining_with_interleaving' must be nn.CellList.")
+        raise TypeError("The 'model' input of 'forward_backward_pipelining_with_interleaving' must be nn.CellList. "
+                        "Here it is recommended to use the 'get_model' function to build the model")
     if len(model) < 2:
         raise TypeError("The length of 'model' must be greater than 1 ")
     model_type_correction = all(isinstance(model_chunk, PipelineCell) for model_chunk in model)
