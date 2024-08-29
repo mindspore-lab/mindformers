@@ -305,7 +305,8 @@ class GenerationMixin:
             self.add_flags_custom(is_first_iteration=False)
         else:
             # slice model inputs for incremental infer
-            self.slice_incremental_inputs(model_inputs, current_index)
+            if not (hasattr(self.config, 'parallel_decoding') and self.config.parallel_decoding):
+                self.slice_incremental_inputs(model_inputs, current_index)
             model_inputs["batch_valid_length"] = Tensor.from_numpy(
                 np.array([valid_length_each_example], dtype=np.int32))
             if block_tables is not None:
@@ -1046,7 +1047,11 @@ class GenerationMixin:
         Returns:
             res, current_index
         """
-        input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
+        if ((hasattr(self.config, 'parallel_decoding') and self.config.parallel_decoding != 'la')
+                and (('q_seq_lens' in model_kwargs) and (model_kwargs['q_seq_lens'] is not None))):
+            input_ids = np.reshape(input_ids, (1, -1))
+        else:
+            input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
         current_index = valid_length_each_example - 1 + np.arange(input_ids.size, step=input_ids.shape[1])
         if self.config.is_encoder_decoder:
             inputs = Tensor(input_ids, mstype.int32)

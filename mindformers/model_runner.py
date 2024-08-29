@@ -18,6 +18,7 @@ For text generation
 """
 import os
 from typing import Optional, List, Union, Dict
+import json
 import numpy as np
 
 import mindspore as ms
@@ -130,7 +131,7 @@ class ModelRunner:
     """
 
     def __new__(cls, model_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0, world_size=1,
-                npu_device_ids=None):
+                npu_device_ids=None, plugin_params=None):
         config_path = _get_model_config(model_path)
         config = MindFormerConfig(config_path)
         model_type = config.model.arch.type
@@ -144,7 +145,7 @@ class ModelRunner:
                             f"and will use the default one defined in mindformers.")
 
         model_runner = model_runner_cls(model_path, config_path, npu_mem_size, cpu_mem_size,
-                                        block_size, rank_id, world_size, npu_device_ids)
+                                        block_size, rank_id, world_size, npu_device_ids, plugin_params)
         return model_runner
 
 
@@ -174,7 +175,7 @@ class MindIEModelRunner:
     """
 
     def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0,
-                 world_size=1, npu_device_ids=None):
+                 world_size=1, npu_device_ids=None, plugin_params=None):
         self.config = MindFormerConfig(config_path)
         # register to Auto Class
         register_auto_class(self.config, model_path, class_type="AutoConfig")
@@ -189,8 +190,12 @@ class MindIEModelRunner:
             if rank_id == 0 and os.fork() == 0:
                 os.environ['MS_ROLE'] = 'MS_SCHED'
                 init()
-
         self.model_config = AutoConfig.from_pretrained(config_path)
+
+        self.model_config.parallel_decoding = None
+        if plugin_params:
+            self.model_config.parallel_decoding = json.loads(plugin_params)['plugin_type']
+        self.model_config.checkpoint_path = self.config.load_checkpoint
         self.num_layers = self.model_config.num_layers
         self.num_kv_heads = self.model_config.num_heads if self.model_config.n_kv_heads is None \
             else self.model_config.n_kv_heads
@@ -248,7 +253,10 @@ class MindIEModelRunner:
                 valid_length_each_example: List[int],
                 block_tables: Optional[Tensor] = None,
                 slot_mapping: Optional[Tensor] = None,
-                prefill: bool = True,):
+                prefill: bool = True,
+                position_ids: Optional[Tensor] = None,
+                spec_mask: Optional[Tensor] = None,
+                q_seq_lens: Optional[Tensor] = None):
         """
         Call self.model.infer() or self.model.forward() to do infer and return logits on next position, \
         can choose do prefill or decode predict.
@@ -264,6 +272,12 @@ class MindIEModelRunner:
                 Params for page attention
             prefill (bool):
                 Whether to do prefill predict or decode predict
+            position_ids (Tensor):
+                Params for position encoding
+            spec_mask (Tensor):
+                Params for page attention
+            q_seq_lens (Tensor):
+                Params for page attention
 
         Returns:
             logits (Tensor)
@@ -274,7 +288,10 @@ class MindIEModelRunner:
                                               block_tables=block_tables,
                                               slot_mapping=slot_mapping,
                                               prefill=prefill,
-                                              use_past=True)
+                                              use_past=True,
+                                              position_ids=position_ids,
+                                              spec_mask=spec_mask,
+                                              q_seq_lens=q_seq_lens)
         logits = res[0] if isinstance(res, tuple) else res
         if prefill and logits.shape[0] > len(current_idx):
             logits = logits[Tensor(current_idx)]

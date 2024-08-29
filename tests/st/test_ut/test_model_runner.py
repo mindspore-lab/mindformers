@@ -28,7 +28,8 @@ class TestModel:
     """
     Test Model.
     """
-    def forward(self, input_ids, valid_length_each_example, block_tables, slot_mapping, prefill, use_past):
+    def forward(self, input_ids, valid_length_each_example, block_tables, slot_mapping, prefill, use_past,
+                position_ids, spec_mask, q_seq_lens):
         """
         Check the info of inputs
 
@@ -39,6 +40,9 @@ class TestModel:
             slot_mapping (np.ndarray): rank is 1, and data type is int32.
             prefill (bool).
             use_past (bool).
+            position_ids (Union[np.ndarray, list]): rank is 1, and data type is int32.
+            spec_mask (np.ndarray): rank is 2 or 3, and data type is float16.
+            q_seq_lens (Union[np.ndarray, list]): rank is 1, and data type is int32.
 
         Return:
             res: (Tensor): given that shape is (2, 16000).
@@ -54,6 +58,18 @@ class TestModel:
         assert isinstance(slot_mapping, np.ndarray) and slot_mapping.ndim == 1 and slot_mapping.dtype == np.int32
         assert isinstance(prefill, bool)
         assert isinstance(use_past, bool)
+        if position_ids is not None:
+            if isinstance(position_ids, np.ndarray):
+                assert position_ids.ndim == 1 and position_ids.dtype == np.int32
+            else:
+                assert isinstance(position_ids[0], int)
+        if spec_mask is not None:
+            assert isinstance(spec_mask, np.ndarray) and (2 <= spec_mask.ndim <= 3) and spec_mask.dtype == np.float16
+        if q_seq_lens is not None:
+            if isinstance(q_seq_lens, np.ndarray):
+                assert q_seq_lens.ndim == 1 and q_seq_lens.dtype == np.int32
+            else:
+                assert isinstance(q_seq_lens[0], int)
         res = np.arange(32000).reshape(2, -1)
         current_index = [1]
         return Tensor.from_numpy(res), current_index
@@ -69,7 +85,7 @@ class TestMindIEModelRunner:
        if the `res` is `Tensor`, otherwise, `res` would be a list[Tensor], the shape of `res[0]` is compared.
     """
     def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0, world_size=1,
-                 npu_device_ids=None):
+                 npu_device_ids=None, plugin_params=None):
         """Test __init__ api"""
         self.model = TestModel()
         assert isinstance(model_path, str)
@@ -80,6 +96,8 @@ class TestMindIEModelRunner:
         assert isinstance(rank_id, int)
         assert isinstance(world_size, int)
         assert isinstance(npu_device_ids, list) and isinstance(npu_device_ids[0], int)
+        if plugin_params:
+            assert isinstance(plugin_params, str)
 
         assert config_path == os.path.join(model_path, 'test_config.yaml')
 
