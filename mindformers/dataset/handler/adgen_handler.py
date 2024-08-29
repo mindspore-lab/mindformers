@@ -12,12 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""MindFormers DataHandler."""
-from mindformers.dataset.handler.build_data_handler import build_data_handler
-from mindformers.dataset.handler.alpaca_handler import AlpacaInstructDataHandler
-from mindformers.dataset.handler.codealpaca_handler import CodeAlpacaInstructDataHandler
-from mindformers.dataset.handler.adgen_handler import AdgenInstructDataHandler
-from mindformers.dataset.handler.llava_handler import LlavaInstructDataHandler
+"""Adgen Dataset Handler."""
+from mindformers.tools.logger import logger
+from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
+from mindformers.dataset.handler.base_handler import BaseInstructDataHandler
 
-__all__ = ["build_data_handler", "AlpacaInstructDataHandler", "CodeAlpacaInstructDataHandler",
-           "AdgenInstructDataHandler", "LlavaInstructDataHandler"]
+
+@MindFormerRegister.register(MindFormerModuleType.DATA_HANDLER)
+class AdgenInstructDataHandler(BaseInstructDataHandler):
+    """adgen data handler"""
+    def handle(self, dataset):
+        """data handler"""
+        return dataset.rename_columns({"content": "prompt", "summary": "answer"})
+
+    def format_func(self, example):
+        logger.info(f"nothing to do")

@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,8 +13,13 @@
 # limitations under the License.
 # ============================================================================
 """Common DataLoader"""
-from typing import Optional, List, Union
+import importlib
+
+from typing import Optional
+from packaging import version
+from datasets import config
 from mindformers.dataset.handler import build_data_handler
+from mindformers.tools.logger import logger
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 from .base_dataloader import BaseDataLoader
 
@@ -25,20 +30,21 @@ class CommonDataLoader(BaseDataLoader):
     # pylint: disable=W0102
     def __new__(cls,
                 num_shards: Optional[int] = None,
-                split: Optional[str] = None,
                 shuffle: bool = True,
                 handler: Optional[dict] = None,
                 shard_id: Optional[int] = None,
-                dataset_path: Optional[str] = None,
+                path: Optional[str] = None,
                 input_columns: list = ["input_ids", "labels"],
-                token: Optional[str] = None,
-                data_files: Optional[Union[List[str], str]] = None):
-        if dataset_path is None or dataset_path.strip() == "":
+                **kwargs):
+        if path is None or path.strip() == "":
             raise ValueError(f"dataset_path is empty.")
 
-        dataset = cls.load_dataset(dataset_path, data_files=data_files, split=split, token=token)
+        if "split" not in kwargs:
+            kwargs["split"] = "train"
 
-        if handler:  # 离线预处理脚本逻辑
+        dataset = cls.load_dataset(path, **kwargs)
+
+        if handler:  # data preprocess
             data_handler = build_data_handler(handler)
             dataset = data_handler.handle(dataset)
 
@@ -49,3 +55,20 @@ class CommonDataLoader(BaseDataLoader):
                                         )
 
         return dataset
+
+def ms_adaptor_execution():
+    """ms adaptor execution"""
+    try:
+        ms_version = version.parse(importlib.metadata.version("mindspore"))
+        config.MS_VERSION = ms_version
+        logger.info(f"Mindspore version {ms_version} available.")
+
+        from datasets import Dataset
+        from .ms_ds_convertor import to_ms_dataset
+
+        setattr(Dataset, "to_ms_dataset", to_ms_dataset)
+    except importlib.metadata.PackageNotFoundError:
+        logger.error(f"to_ms_dataset adaptor failed.")
+
+
+ms_adaptor_execution()

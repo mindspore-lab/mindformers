@@ -221,7 +221,21 @@ class BaseXModalToTextTransform:
         return self.model_transform_template.post_process(output_ids, **kwargs)
 
     def __call__(self, conversations, **kwargs):
+        if conversations.shape == ():
+            return self.perform_train_transform(self.process_conversation(conversations))
         return self.perform_train_transform(conversations)
+
+    def process_conversation(self, conversations):
+        """process data"""
+        import json
+        dict_data = json.loads(np.array_str(conversations))
+
+        conversation_data = []
+        for message in dict_data:
+            from_ = message["from"]
+            value = message["value"]
+            conversation_data.append([from_, value])
+        return conversation_data
 
 
 @MindFormerRegister.register(MindFormerModuleType.PROCESSOR)
