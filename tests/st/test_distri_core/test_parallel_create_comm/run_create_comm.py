@@ -14,11 +14,12 @@
 # ============================================================================
 """ Test ParamAndGradBuffer """
 import argparse
+import pytest
+
 from mindspore.communication.management import init
 from mindspore.communication import get_group_size, get_rank
 # pylint: disable=W0401, W0614
 from mindformers.experimental.distri_cores.create_comm import *
-import pytest
 
 
 def run_initialize_and_destroy_model_parallel(order):
@@ -30,9 +31,9 @@ def run_initialize_and_destroy_model_parallel(order):
     assert is_unitialized()
     world_size = get_group_size()
     with pytest.raises(RuntimeError):
-        assert initialize_model_parallel(tensor_model_parallel_size=2*world_size, order=order)
+        assert initialize_model_parallel(tensor_model_parallel_size=2 * world_size, order=order)
     with pytest.raises(RuntimeError):
-        assert initialize_model_parallel(pipeline_model_parallel_size=2*world_size, order=order)
+        assert initialize_model_parallel(pipeline_model_parallel_size=2 * world_size, order=order)
     with pytest.raises(RuntimeError):
         assert initialize_model_parallel(pipeline_model_parallel_size=world_size, \
                                          tensor_model_parallel_size=world_size, order=order)
@@ -104,9 +105,9 @@ def run_basic_world_size_rank_parallel_test(order):
     set_vpp_rank(0)
     assert is_pipeline_first_stage() == (rank == 0 and get_vpp_rank() == 0)
     assert is_pipeline_first_stage(ignore_virtual=True) == (rank == 0)
-    set_vpp_rank(vpp_size-1)
-    assert is_pipeline_last_stage() == (rank == world_size-1 and get_vpp_rank() == vpp_size-1)
-    assert is_pipeline_last_stage(ignore_virtual=True) == (rank == world_size-1)
+    set_vpp_rank(vpp_size - 1)
+    assert is_pipeline_last_stage() == (rank == world_size - 1 and get_vpp_rank() == vpp_size - 1)
+    assert is_pipeline_last_stage(ignore_virtual=True) == (rank == world_size - 1)
     destroy_model_parallel()
 
 

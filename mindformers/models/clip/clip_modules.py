@@ -166,7 +166,7 @@ class VisionTransformer(nn.Cell):
         input_x = self.conv1(input_x)
         input_x = input_x.reshape(input_x.shape[0], input_x.shape[1], -1)
         input_x = input_x.transpose(0, 2, 1)
-        class_embedding = self.tile(self.class_embedding, (input_x.shape[0]+1, 1, 1)).astype(self.dtype)
+        class_embedding = self.tile(self.class_embedding, (input_x.shape[0] + 1, 1, 1)).astype(self.dtype)
         input_x = self.cat([
             self.slice(class_embedding,
                        (0, 0, 0),

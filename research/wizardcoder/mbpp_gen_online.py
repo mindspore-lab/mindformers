@@ -20,9 +20,9 @@ from tqdm import tqdm
 import mindspore as ms
 from mindformers.generation import GenerationConfig
 
-from wizardcoder_config import WizardCoderConfig
-from wizardcoder_tokenizer import WizardCoderTokenizer
-from wizardcoder import WizardCoderLMHeadModel
+from research.wizardcoder.wizardcoder_config import WizardCoderConfig
+from research.wizardcoder.wizardcoder_tokenizer import WizardCoderTokenizer
+from research.wizardcoder.wizardcoder import WizardCoderLMHeadModel
 
 
 def read_mbpp(path):

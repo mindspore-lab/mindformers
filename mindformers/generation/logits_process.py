@@ -173,8 +173,8 @@ class LogitsProcessorList(list):
 
     def process(self, i, input_ids, scores, **kwargs):
         """apply process"""
-        input_ids = input_ids[i:i+1]
-        scores_i = scores[i:i+1]
+        input_ids = input_ids[i : i + 1]
+        scores_i = scores[i : i + 1]
         for processor in self:
             function_args = inspect.signature(processor.__call__).parameters
             if len(function_args) > 2:

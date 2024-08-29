@@ -155,14 +155,14 @@ class TelechatAttention(nn.Cell):
         self.tile_kv = P.Tile()
         self.split = P.Split(output_num=2, axis=-1)
         self.apply_rotary_emb = RotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
-        self.attention_dropout = Dropout(1-self.attention_dropout_prob)
+        self.attention_dropout = Dropout(1 - self.attention_dropout_prob)
         self.wo = TelechatLinear(in_channels=self.hidden_size,
                                  out_channels=self.hidden_size,
                                  has_bias=True,
                                  compute_dtype=compute_dtype,
                                  param_init_type=param_init_type,
                                  skip_redistribution=is_dynamic,
-                                 keep_prob=1-self.hidden_dropout_prob)
+                                 keep_prob=1 - self.hidden_dropout_prob)
         self.wq = TelechatLinear(self.hidden_size,
                                  self.hidden_size,
                                  has_bias=qkv_has_bias,

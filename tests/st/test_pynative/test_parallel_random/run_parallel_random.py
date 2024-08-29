@@ -127,7 +127,7 @@ def run_recompute_parallel():
                 x = self.dropout(x)
 
             result.append(x.mean())
-            print('forward results mean', result[len(result)-1])
+            print('forward results mean', result[len(result) - 1])
             return x
 
     def forward(inputs, labels):

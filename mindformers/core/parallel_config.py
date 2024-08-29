@@ -13,10 +13,11 @@
 # limitations under the License.
 # ============================================================================
 """Parallel Config Init."""
+from mindspore.parallel._cost_model_context import _set_rp_matmul_mem_coef
+
 from mindformers.modules.transformer.moe import default_moe_config, MoEConfig
 from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
 from mindformers.tools.logger import logger
-from mindspore.parallel._cost_model_context import _set_rp_matmul_mem_coef
 
 default_recompute_config = TransformerRecomputeConfig()
 default_parallel_config = TransformerOpParallelConfig(recompute=default_recompute_config)

@@ -146,6 +146,6 @@ if __name__ == '__main__':
         for j in range(opt.hot_expert_num):
             hot_expert_index_list.append(int(str(hot_expert_index[j])))
         list_all.append(hot_expert_index_list)
-        if layer_num == opt.num_layers-1:
+        if layer_num == opt.num_layers - 1:
             print("All layers token_distribution generate successful")
     print("hot_expert_index: ", list_all)

@@ -15,11 +15,11 @@
 """ChatGLM2 Tokenizer."""
 import os
 from typing import List, Optional, Union
+from sentencepiece import SentencePieceProcessor
 
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
-from sentencepiece import SentencePieceProcessor
 
 __all__ = ['ChatGLM2Tokenizer']
 

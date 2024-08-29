@@ -280,10 +280,10 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             # compute time remaining
             avg_time = total_time / (i + 1)
             remain_time = (len_dataset - i - 1) * avg_time
-            logger.info(f"Step[{i+1}/{len_dataset}], cost time {end_time-start_time:.4f}s, "+
-                        f"every example cost time is {avg_cost_time:.4f}, "+
-                        f"generate speed: {tokens_num/(end_time-start_time):.4f} tokens/s, "+
-                        f"avg speed: {total_tokens_num/total_time:.4f} tokens/s, "
+            logger.info(f"Step[{i + 1} / {len_dataset}], cost time {end_time - start_time:.4f}s, " +
+                        f"every example cost time is {avg_cost_time:.4f}, " +
+                        f"generate speed: {tokens_num / (end_time - start_time):.4f} tokens/s, " +
+                        f"avg speed: {total_tokens_num / total_time:.4f} tokens/s, "
                         f"remaining time: {datetime.timedelta(seconds=int(remain_time))}")
 
             # decode input_id and label to string
@@ -414,10 +414,10 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 # compute time remaining
                 avg_time = total_time / (i + 1)
                 remain_time = (len_dataset - i - 1) * avg_time
-                logger.info(f"Step[{i+1}/{len_dataset}], cost time {end_time-start_time:.4f}s, "+
-                            f"every example cost time is {avg_cost_time:.4f}, "+
-                            f"generate speed: {tokens_num/(end_time-start_time):.4f} tokens/s, "+
-                            f"avg speed: {total_tokens_num/total_time:.4f} tokens/s, "
+                logger.info(f"Step[{i + 1} / {len_dataset}], cost time {end_time - start_time:.4f}s, " +
+                            f"every example cost time is {avg_cost_time:.4f}, " +
+                            f"generate speed: {tokens_num / (end_time - start_time):.4f} tokens/s, " +
+                            f"avg speed: {total_tokens_num / total_time:.4f} tokens/s, "
                             f"remaining time: {datetime.timedelta(seconds=int(remain_time))}")
 
                 # decode input_id and label to string

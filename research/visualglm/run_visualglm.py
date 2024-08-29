@@ -22,9 +22,9 @@ from mindspore.dataset.vision.utils import Inter
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import str2bool
 from mindformers.tools.image_tools import load_image
-from visualglm import VisualGLMImageToTextGeneration
-from visualglm_config import VisualGLMConfig
-from visualglm_processor import VisualGLMProcessor
+from research.visualglm.visualglm import VisualGLMImageToTextGeneration
+from research.visualglm.visualglm_config import VisualGLMConfig
+from research.visualglm.visualglm_processor import VisualGLMProcessor
 
 
 def init_context(device_id):

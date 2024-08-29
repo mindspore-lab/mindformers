@@ -1,9 +1,10 @@
 import os
 from typing import List
-import pandas as pd
-import numpy as np
 import argparse
 from tqdm import tqdm
+
+import pandas as pd
+import numpy as np
 
 import mindspore as ms
 from mindspore.common import set_seed
@@ -112,7 +113,7 @@ def eval_subject(
         generate_few_shot_prompt(k, subject_name, dev_df) if few_shot else []
     )
     all_probs = {"prob_A": [], "prob_B": [], "prob_C": [], "prob_D": []}
-    if args.debug:
+    if global_args.debug:
         print(f"few_shot_prompt: {few_shot_prompt}")
 
     for _, row in tqdm(test_df.iterrows(), total=len(test_df)):
@@ -143,7 +144,7 @@ def eval_subject(
         if "answer" in row:
             correct = 1 if pred == row["answer"] else 0
             score.append(correct)
-            if args.debug:
+            if global_args.debug:
                 print(f'{question} pred: {pred} ref: {row["answer"]}')
         result.append(pred)
 
@@ -322,9 +323,9 @@ if __name__ == "__main__":
     parser.add_argument('--inc_model_path', default=None, type=str, help="load mindir inc checkpoint")
     group.add_argument("--config_path", type=str, required=False, help="Path to GE config")
 
-    args = parser.parse_args()
-    set_seed(args.seed)
+    global_args = parser.parse_args()
+    set_seed(global_args.seed)
 
-    main(args)
+    main(global_args)
 
 # python skywork/evaluate_mmlu_lite.py -d ../skywork_data/mmlu/data --config_path skywork/context.cfg --token_path /home/zxw/skywork-13b_ckpt-new/tokenizer.model --full_model_path output/mindir_full_checkpoint_bs_1/rank_0_graph.mindir --device_id 7

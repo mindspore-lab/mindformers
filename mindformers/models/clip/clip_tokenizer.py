@@ -65,14 +65,14 @@ def get_pairs(input_wd):
 @lru_cache()
 def bytes_to_unicode():
     r"""Bytes_to_unicode"""
-    input_bt = list(range(ord("!"), ord("~")+1))\
-         +list(range(ord("¡"), ord("¬")+1))+list(range(ord("®"), ord("ÿ")+1))
+    input_bt = list(range(ord("!"), ord("~") + 1))\
+         + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
     output_cd = input_bt[:]
     num = 0
     for item in range(2**8):
         if item not in input_bt:
             input_bt.append(item)
-            output_cd.append(2**8+num)
+            output_cd.append(2**8 + num)
             num += 1
     output_cd = [chr(item) for item in output_cd]
     return dict(zip(input_bt, output_cd))
@@ -110,7 +110,7 @@ class TempTokenizer:
         pairs = get_pairs(word)
 
         if not pairs:
-            return input_tk+'</w>'
+            return input_tk + '</w>'
 
         while True:
             bigram = min(pairs, key=lambda pair: self.bpe_ranks.get(pair, float('inf')))
@@ -128,8 +128,8 @@ class TempTokenizer:
                     new_word.extend(word[i:])
                     break
 
-                if word[i] == first and i < len(word)-1 and word[i+1] == second:
-                    new_word.append(first+second)
+                if word[i] == first and i < len(word) - 1 and word[i + 1] == second:
+                    new_word.append(first + second)
                     i += 2
                 else:
                     new_word.append(word[i])
@@ -228,7 +228,7 @@ class CLIPTokenizer(PreTrainedTokenizer):
         )
 
     @staticmethod
-    def _read_merge_files(text_path, start_pos=1, end_pos=49152-256-2+1):
+    def _read_merge_files(text_path, start_pos=1, end_pos=49152 - 256 - 2 + 1):
         r"""Read the merge files"""
         with gzip.open(text_path) as fp:
             data = fp.read()

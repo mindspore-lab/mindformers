@@ -263,7 +263,7 @@ class Pipeline(_ScikitCompat):
                              f" should be multiple of batch size {batch_size}. Please check yout inputs.")
         outputs = []
         if batch_size > 1:
-            batch_inputs = [inputs[i:i+batch_size] for i in range(0, len(inputs), batch_size)]
+            batch_inputs = [inputs[i:i + batch_size] for i in range(0, len(inputs), batch_size)]
         else:
             batch_inputs = inputs
         for item in batch_inputs:

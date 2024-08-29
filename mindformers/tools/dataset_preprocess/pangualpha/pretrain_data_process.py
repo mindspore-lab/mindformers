@@ -36,7 +36,7 @@ from mindspore.mindrecord import FileWriter
 def chunks(lst, n):
     """ yield n sized chunks from list"""
     for i in range(0, len(lst), n):
-        yield lst[i:i+n]
+        yield lst[i:i + n]
 
 
 def package_file(it, n):
@@ -80,7 +80,7 @@ def clean_wikitext(string):
     string = string.replace("= = = =", "====")
     string = string.replace("= = =", "===")
     string = string.replace("= =", "==")
-    string = string.replace(" "+chr(176)+" ", chr(176))
+    string = string.replace(" " + chr(176) + " ", chr(176))
     string = string.replace(" \n", "\n")
     string = string.replace("\n ", "\n")
     string = string.replace(" N ", " 1 ")

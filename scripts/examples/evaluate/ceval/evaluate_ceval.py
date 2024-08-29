@@ -71,7 +71,6 @@ task2desc = {
     "accountant": "注册会计师",
 }
 
-
 def load_models_tokenizer(args):
     tokenizer = LlamaTokenizer(args.token_path)
     config = MindFormerConfig(args.config)
@@ -154,7 +153,7 @@ def eval_subject(
         generate_few_shot_prompt(k, subject_name, dev_df) if few_shot else ""
     )
     all_probs = {"prob_A": [], "prob_B": [], "prob_C": [], "prob_D": []}
-    if args.debug:
+    if global_args.debug:
         print(f"few_shot_prompt: {few_shot_prompt}")
 
     for _, row in tqdm(test_df.iterrows(), total=len(test_df)):
@@ -189,13 +188,13 @@ def eval_subject(
         if "answer" in row:
             correct = 1 if pred == row["answer"] else 0
             score.append(correct)
-            if args.debug:
+            if global_args.debug:
                 print(f'{question} pred: {pred} ref: {row["answer"]}')
         result.append(pred)
 
     if score:
         correct_ratio = 100 * sum(score) / len(score)
-        if args.debug:
+        if global_args.debug:
             print(subject_name, correct_ratio)
     else:
         correct_ratio = 0
@@ -453,10 +452,8 @@ def main(args):
         dev_file_path = os.path.join(
             args.eval_data_path, "dev", f"{subject_name}_dev.csv"
         )
-        # test_file_path = os.path.join(args.eval_data_path, 'test', f'{subject_name}_test.csv')
         val_df = pd.read_csv(val_file_path)
         dev_df = pd.read_csv(dev_file_path)
-        # test_df = pd.read_csv(test_file_path)
 
         score = eval_subject(
             model,
@@ -486,7 +483,7 @@ if __name__ == "__main__":
     group.add_argument("--debug", action="store_true", default=False, help="Print infos.")
     group.add_argument("--config", type=str, required=True, help="Path to config")
 
-    args = parser.parse_args()
-    set_seed(args.seed)
+    global_args = parser.parse_args()
+    set_seed(global_args.seed)
 
-    main(args)
+    main(global_args)

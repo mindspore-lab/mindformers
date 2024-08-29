@@ -49,7 +49,7 @@ class TestNetWithLoss(nn.Cell):
     def __init__(self, model_config, loss):
         super(TestNetWithLoss, self).__init__()
 
-        self.rope = RotaryEmbedding(kv_channels=model_config.hidden_size//model_config.num_heads,
+        self.rope = RotaryEmbedding(kv_channels=model_config.hidden_size // model_config.num_heads,
                                     rotary_percent=1.0)
         self.transformer = ParallelTransformer(config=model_config, post_norm=True)
         self.head = ColumnParallelLinear(

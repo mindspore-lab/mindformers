@@ -224,7 +224,7 @@ class GatherFromModelParallelRegion(nn.Cell):
     def bprop(self, x, out, dout):
         if self.world_size == 1:
             return (dout,)
-        last_dim = dout.ndim -1
+        last_dim = dout.ndim - 1
         last_dim_size = divide(dout.shape[last_dim], self.world_size)
         # 对按第零维allgather的结果重新按最后一维排列
         tensor_tuple = ops.split(dout, last_dim_size, axis=last_dim)
@@ -557,7 +557,7 @@ def all_to_all_self_defined(output_shape, input_, output_split_sizes=None, input
     num_group_max_token = max(group_inputs_sizes)
     if input_.shape:
         num_local_token = input_.shape[-2]
-        pad_len = num_group_max_token-num_local_token
+        pad_len = num_group_max_token - num_local_token
         # if current token is shorter than max length, pad it to longest length
         padded_local_token = ops.pad(input_, [0, 0, 0, pad_len], value=-100)
     else:

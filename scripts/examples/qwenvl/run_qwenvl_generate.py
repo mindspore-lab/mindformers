@@ -18,6 +18,8 @@ import os
 import shutil
 from typing import Optional, List
 
+from mindspore import Model
+
 from mindformers import MindFormerConfig, MindFormerRegister, MindFormerModuleType
 from mindformers.core.context import build_context
 from mindformers.models import build_network, build_processor
@@ -25,7 +27,6 @@ from mindformers.tools import get_output_root_path
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import str2bool
 from mindformers.trainer.utils import transform_and_load_checkpoint
-from mindspore import Model
 
 from qwen.qwen_config import QwenConfig
 from qwen.qwen_model import QwenForCausalLM

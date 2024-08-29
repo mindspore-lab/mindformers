@@ -38,12 +38,12 @@ class TestParallelRandom:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --testcase 0 "
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8899 "+\
-                    f"--log_dir=msrun_log_random "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8899 " + \
+                    f"--log_dir=msrun_log_random " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
@@ -66,12 +66,12 @@ class TestParallelRandom:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --testcase 1 "
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8899 "+\
-                    f"--log_dir=msrun_log_random "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8899 " + \
+                    f"--log_dir=msrun_log_random " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)

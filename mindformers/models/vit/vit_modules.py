@@ -238,7 +238,7 @@ class DropPath(nn.Cell):
     def construct(self, x):
         if not self.training:
             return x
-        mask = self.tile(self.mask, (x.shape[0],) + (1,) * (x.ndim-1))
+        mask = self.tile(self.mask, (x.shape[0],) + (1,) * (x.ndim - 1))
         out = self.drop(mask)
         out = self.mul(out, x)
         return out

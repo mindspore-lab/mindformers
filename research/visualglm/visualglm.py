@@ -22,12 +22,13 @@ import mindspore.common.dtype as mstype
 from mindspore import ops
 from mindspore.nn import CrossEntropyLoss
 from mindspore.ops import operations as P
+from mindpet.graph import freeze_delta
 
 from mindformers import MindFormerBook, LoraAdapter
 from mindformers.modules.layers import Linear
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindpet.graph import freeze_delta
+
 from visualglm_base import VisualGLMBase
 from visualglm_config import VisualGLMConfig
 from visualglm_text_generation_pipeline import register_pipeline_task

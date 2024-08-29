@@ -41,7 +41,7 @@ class ParallelTransformerNet(nn.Cell):
         super(ParallelTransformerNet, self).__init__()
         self.with_rope = with_rope
         if with_rope:
-            self.rope = RotaryEmbedding(kv_channels=config.hidden_size//config.num_heads,
+            self.rope = RotaryEmbedding(kv_channels=config.hidden_size // config.num_heads,
                                         rotary_percent=1.0)
         self.transformer = ParallelTransformer(config=config, post_norm=False)
         self.loss = SoftmaxCrossEntropyWithLogits()
@@ -78,7 +78,7 @@ def run_parallel_transformer():
     label_data = np.zeros((dataset_size, seq_length)).astype(np.float32)
     for i in range(label_data.shape[0]):
         label_data[i][0] = 1
-    attn_mask = ((1-np.tril(np.ones(shape=(1, seq_length, seq_length)))) * -10000).astype(np.float32)
+    attn_mask = ((1 - np.tril(np.ones(shape=(1, seq_length, seq_length)))) * -10000).astype(np.float32)
     dataset = TestData(input_data=input_data, label_data=label_data, attn_mask=attn_mask)
     dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels', "attention_mask"])
     dataset = dataset.batch(batch_size)
@@ -102,7 +102,7 @@ def run_parallel_transformer():
                                attention_dropout_rate=0.0,
                                mask_func_type="attn_mask_add",
                                mlp_has_bias=True,
-                               ffn_hidden_size=4*hidden_size,
+                               ffn_hidden_size=4 * hidden_size,
                                hidden_act='gelu',
                                apply_residual_connection_post_norm=False,
                                normalization='FusedRMSNorm',

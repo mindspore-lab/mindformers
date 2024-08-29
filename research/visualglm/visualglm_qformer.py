@@ -33,8 +33,8 @@ from mindformers import CrossEntropyLoss
 from mindformers.modules.layers import Linear
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from visualglm_base import VisualGLMBase
-from visualglm_config import VisualGLMConfig
+from research.visualglm.visualglm_base import VisualGLMBase
+from research.visualglm.visualglm_config import VisualGLMConfig
 
 
 def choose_idx_with_prob(weight: Tensor):

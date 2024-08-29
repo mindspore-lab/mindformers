@@ -44,7 +44,7 @@ class ParallelTransformerNet(nn.Cell):
         super(ParallelTransformerNet, self).__init__()
         self.with_rope = with_rope
         if with_rope:
-            self.rope = RotaryEmbedding(kv_channels=config.hidden_size//config.num_heads,
+            self.rope = RotaryEmbedding(kv_channels=config.hidden_size // config.num_heads,
                                         rotary_percent=1.0)
         self.transformer = ParallelTransformer(config=config, post_norm=True)
         self.loss = CrossEntropyLoss()
@@ -113,7 +113,7 @@ def run_parallel_transformer(use_sequence_parallel=True):
                                attention_dropout_rate=0.0,
                                mask_func_type="attn_mask_fill",
                                mlp_has_bias=True,
-                               ffn_hidden_size=4*hidden_size,
+                               ffn_hidden_size=4 * hidden_size,
                                hidden_act='gelu',
                                apply_residual_connection_post_norm=False,
                                normalization='FusedRMSNorm',
