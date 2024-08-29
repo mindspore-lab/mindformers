@@ -1216,12 +1216,23 @@ class TopkRouterV2(Cell):
 
         if self.moe_config.enable_sdrop:
             if self.moe_config.use_fused_ops_topkrouter:
-                dispatch_index, combine_index, router_coeff = self._maskout_overflowed_tokens_use_topkrouter(expert_index, expert_gate)  # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
+                # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
+                dispatch_idx, combine_idx, router_coeff = self._maskout_overflowed_tokens_use_topkrouter(expert_index,
+                                                                                                         expert_gate)
             else:
-                dispatch_index, combine_index, router_coeff = self._maskout_overflowed_tokens_sort_sdrop(expert_index, expert_gate)  # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
+                # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
+                dispatch_idx, combine_idx, router_coeff = self._maskout_overflowed_tokens_sort_sdrop(expert_index,
+                                                                                                     expert_gate)
         else:
-            dispatch_index, combine_index, router_coeff = self._maskout_overflowed_tokens_sort_kdrop(expert_index, expert_gate)  # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
-        return dispatch_index, combine_index, router_coeff # (dp, E, n)int32, (dp, N, k), (dp, N, k)
+            if self.moe_config.use_fused_ops_topkrouter:
+                # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
+                dispatch_idx, combine_idx, router_coeff = self._maskout_overflowed_tokens_use_topkrouter(expert_index,
+                                                                                                         expert_gate)
+            else:
+                 # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
+                dispatch_idx, combine_idx, router_coeff = self._maskout_overflowed_tokens_sort_kdrop(expert_index,
+                                                                                                     expert_gate)
+        return dispatch_idx, combine_idx, router_coeff # (dp, E, n)int32, (dp, N, k), (dp, N, k)
 
     def _maskout_overflowed_tokens_sort_kdrop(self, expert_index, expert_gate):
         """
@@ -1316,7 +1327,10 @@ class TopkRouterV2(Cell):
                                                            self.capacity_factor, self.expert_dim, self.mp)
         else:
             expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
-        dispatch_index, combine_index = self.topkrouter(expert_index, expert_capacity, self.expert_dim)
+        if self.moe_config.enable_sdrop:
+            dispatch_index, combine_index = self.topkrouter(expert_index, expert_capacity, self.expert_dim)
+        else:
+            dispatch_index, combine_index = self.topkrouter(expert_index, expert_capacity, self.expert_dim, 1)
         within_capacity = self.mod(combine_index, expert_capacity + 1)
         within_capacity = self.not_equal(self.cast(within_capacity, mstype.int32), 0)
         expert_gate = self.mul_3d(within_capacity, expert_gate)
