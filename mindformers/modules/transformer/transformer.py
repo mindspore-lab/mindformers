@@ -18,6 +18,7 @@ Note:
 """
 from __future__ import absolute_import
 
+from enum import Enum
 import math
 from typing import Union
 import numpy as np
@@ -53,8 +54,8 @@ from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.layers import LayerNorm, Linear, \
     _args_type_validator_check, _valid_type_checks, _valid_value_checks, \
     _check_past_none_input_none, _check_input_dtype
-from mindformers.modules.transformer.op_parallel_config import ContextParallelAlgo, default_dpmp_config, \
-    _PipeLineConfig, OpParallelConfig, _Config, _check_config, MoEParallelConfig
+from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, _PipeLineConfig, OpParallelConfig, \
+    _Config, _check_config, MoEParallelConfig
 from mindformers.modules.transformer.moe import default_moe_config, MoE, _check_moe_config
 from mindformers.version_control import get_dropout, choose_flash_attention_dtype, \
     check_valid_flash_attention
@@ -289,6 +290,17 @@ class TransformerRecomputeConfig(_Config):
         return config_dict
 
 
+class ContextParallelAlgo(Enum):
+    """context parallel algorithm type.
+
+    Args:
+        Enum (str): chosses context parallel type
+    """
+    colossalai_cp = "colossalai_cp"
+    ulysses_cp = "ulysses_cp"
+    hybird_cp = "hybird_cp"
+
+
 default_transformer_recompute_config = TransformerRecomputeConfig()
 
 
@@ -320,8 +332,10 @@ class TransformerOpParallelConfig(_Config):
             recompute (Union[TransformerRecomputeConfig, bool]): The configuration of recomputation for
                 the transformer block. Default: An instance of TransformerRecomputeConfig with default values.
             vocab_emb_dp (bool): Shard embedding in model parallel or data parallel. Default: True.
-            context_parallel_algo (str): Which type of context parallel algorithm to use. Supports `colossalai_cp`
-                and `ulysses_cp`. Only takes effect when context_parallel > 1. Default: `colossalai_cp`
+            context_parallel_algo (str): Which type of context parallel algorithm to use. Supports `colossalai_cp`,
+                `ulysses_cp` and `hybird_cp`. Only takes effect when context_parallel > 1. Default: `colossalai_cp`
+            ulysses_degree_in_cp (int): When using hybird_cp, how many cp should be used for ulysses. context_parallel
+                should be divisible by it. Only takes effect when `hybird_cp` algorithm is chosen. Default: 1
 
         Supported Platforms:
             ``Ascend`` ``GPU``
@@ -338,13 +352,14 @@ class TransformerOpParallelConfig(_Config):
                  expert_parallel=1, pipeline_stage=1, micro_batch_num=1,
                  recompute: Union[TransformerRecomputeConfig, dict] = default_transformer_recompute_config,
                  use_seq_parallel=False, optimizer_shard=None, gradient_aggregation_group=4, vocab_emb_dp=True,
-                 context_parallel_algo: str = "colossalai_cp"):
+                 context_parallel_algo: str = "colossalai_cp", ulysses_degree_in_cp=1):
         if isinstance(recompute, dict):
             recompute = TransformerRecomputeConfig(**recompute)
         self.recompute = recompute
         self.select_recompute = recompute.select_recompute
         self.use_seq_parallel = use_seq_parallel
         self.context_parallel_algo = ContextParallelAlgo(context_parallel_algo)
+        self.ulysses_degree_in_cp = ulysses_degree_in_cp
         self.optimizer_shard = optimizer_shard
         self.gradient_aggregation_group = gradient_aggregation_group
         self._embed_dp_mp_config = EmbeddingOpParallelConfig(
@@ -363,10 +378,28 @@ class TransformerOpParallelConfig(_Config):
 
     def _check_context_parallel(self):
         """check whether context parallel config is valid.
+
+        Raises:
+            ValueError: in hybird_cp algorithm, context_parallel should be divisible by ulysses_degree_in_cp
         """
-        if self.context_parallel == 1 and self.context_parallel_algo != ContextParallelAlgo.colossalai_cp:
-            logger.warning(f"context_parallel_algo {self.context_parallel_algo.value} will not take effect "
-                           "when context_parallel == 1.")
+        if self.context_parallel == 1:
+            if self.context_parallel_algo != ContextParallelAlgo.colossalai_cp:
+                logger.warning(f"context_parallel_algo {self.context_parallel_algo.value} will not take effect "
+                               "when context_parallel == 1.")
+            if self.ulysses_degree_in_cp > 1:
+                logger.warning(f"ulysses_degree_in_cp {self.ulysses_degree_in_cp} will not take effect "
+                               "when context_parallel == 1.")
+            return
+
+        # here context parallel > 1
+        if self.context_parallel_algo != ContextParallelAlgo.hybird_cp and self.ulysses_degree_in_cp > 1:
+            logger.warning(f"ulysses_degree_in_cp {self.ulysses_degree_in_cp} will not take effect when "
+                           f"context_parallel_algo {self.context_parallel_algo.value} is not `hybird_cp`.")
+        if (self.context_parallel_algo == ContextParallelAlgo.hybird_cp and
+                self.context_parallel % self.ulysses_degree_in_cp != 0):
+            raise ValueError(f"When using hybird_cp algorithm, context_parallel {self.context_parallel} "
+                             f"should be divisible by ulysses_degree_in_cp {self.ulysses_degree_in_cp}. "
+                             "Please check your `ulysses_degree_in_cp`.")
 
     def get_ulysses_cp_num(self):
         """get ulysses context parallel num under this config.
@@ -378,8 +411,10 @@ class TransformerOpParallelConfig(_Config):
             return 1
         if self.context_parallel_algo == ContextParallelAlgo.colossalai_cp:
             return 1
-        # ulysses_cp
-        return self.context_parallel
+        if self.context_parallel_algo == ContextParallelAlgo.ulysses_cp:
+            return self.context_parallel
+        # hybird
+        return self.ulysses_degree_in_cp
 
     def to_diff_dict(self):
         config_dict = self.to_dict()
@@ -407,6 +442,7 @@ class TransformerOpParallelConfig(_Config):
             'vocab_emb_dp': self.vocab_emb_dp,
             'recompute': self.recompute.to_dict(),
             'context_parallel_algo': self.context_parallel_algo.value,
+            'ulysses_degree_in_cp': self.ulysses_degree_in_cp
         }
         return config_dict
 
