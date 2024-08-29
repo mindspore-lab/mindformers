@@ -278,7 +278,7 @@ class ColumnParallelLoRA(nn.Cell):
         lora_b_shard = (tp_size, 1) if self.transpose_b else (1, tp_size)
         state_dict = {}
         opt_weight_shard_step = get_tp_world_size() if self.use_zero3 else 0
-        opt_weight_shard_size = get_dp_world_size() if self.use_zero3 else -1
+        opt_weight_shard_size = get_dp_world_size() if self.use_zero3 else 0
         if not self.skip_weight_param_allocation:
             state_dict[self.weight.name] = {'shape': self.weight.shape,
                                             'shard': w_shard,
@@ -522,7 +522,7 @@ class RowParallelLoRA(nn.Cell):
         lora_b_shard = (1, 1)
         state_dict = {}
         opt_weight_shard_step = get_tp_world_size() if self.use_zero3 else 0
-        opt_weight_shard_size = get_dp_world_size() if self.use_zero3 else -1
+        opt_weight_shard_size = get_dp_world_size() if self.use_zero3 else 0
         state_dict[self.weight.name] = {'shape': self.weight.shape,
                                         'shard': w_shard,
                                         'opt_weight_shard_step': opt_weight_shard_step,

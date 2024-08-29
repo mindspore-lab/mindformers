@@ -16,6 +16,7 @@
 """Model and parameters serialization."""
 import os
 import copy
+import glob
 import numpy as np
 import mindspore as ms
 from mindspore import nn
@@ -41,7 +42,8 @@ from mindformers.experimental.distri_cores.random import (
 _strategy_dir = "strategy"
 _format = "safetensors"
 
-def get_checkpoint_name(ckpt_path):
+# pylint: disable=W0622
+def get_checkpoint_name(ckpt_path, format=_format, get_name_from_file=False):
     """
     Get checkpoint file name of model and optimizer.
     The layout of the ckpt_path will be like:
@@ -58,16 +60,25 @@ def get_checkpoint_name(ckpt_path):
     """
     validator.check_value_type("ckpt_path", ckpt_path, [str])
     rank = get_rank()
-    ckpt_path = os.path.abspath(ckpt_path)
-    ckpt_path = os.path.normpath(ckpt_path)
+    # ensure ckpt path exist
+    ckpt_path = os.path.normpath(os.path.abspath(ckpt_path))
     ckpt_local_path = os.path.join(ckpt_path, f"rank_{rank}")
-    strategy_local_path = os.path.join(ckpt_path, _strategy_dir)
-    # ensure that file path is exist
     os.makedirs(ckpt_local_path, exist_ok=True)
-
-    ckpt_file = os.path.join(ckpt_local_path, f"network{rank}" + "." + _format)
+    # get default strategy file name
+    strategy_local_path = os.path.join(ckpt_path, _strategy_dir)
     strategy_file = os.path.join(strategy_local_path, f"stratey{rank}.ckpt")
-
+    # read ckpt name according to the ckpt path or return default name
+    if get_name_from_file:
+        rank_ckpts = glob.glob(os.path.join(ckpt_local_path, "*." + format))
+        if not rank_ckpts:
+            raise RuntimeError(f"{ckpt_local_path} has no .{format} ckpt file found")
+        for checkpoint_file in rank_ckpts:
+            if not os.path.isfile(checkpoint_file):
+                ms.log.warning("{} is not a checkpoint file.".format(checkpoint_file))
+                continue
+            ckpt_file = checkpoint_file
+    else:
+        ckpt_file = os.path.join(ckpt_local_path, f"network{rank}" + "." + format)
     return ckpt_file, strategy_file
 
 def save_rng_state():
@@ -198,7 +209,8 @@ def load_post_process(config, params_dict):
 
     return params_dict
 
-def save_checkpoint(config, model, optimizer=None, ckpt_path="./", **kwargs):
+# pylint: disable=W0622
+def save_checkpoint(config, model, optimizer=None, ckpt_path="./", format=_format, only_save_strategy=False, **kwargs):
     """
     Save checkpoint of distributed network to a specified file in the process of specified rank.
 
@@ -216,13 +228,10 @@ def save_checkpoint(config, model, optimizer=None, ckpt_path="./", **kwargs):
     # validator check
     validator.check_value_type("model", model, [nn.Cell], "save_checkpoint")
     validator.check_value_type("optimizer", optimizer, [nn.Cell, type(None)], "save_checkpoint")
-    ckpt_file, strategy_file = get_checkpoint_name(ckpt_path)
+    ckpt_file, strategy_file = get_checkpoint_name(ckpt_path, format=format)
     for key, _ in kwargs.items():
         logger.warning(f"The parameter {key} is not used in save_checkpoint.")
     logger.info(f"Saving model to {ckpt_path}")
-
-    # save random generator state
-    rng_state_dict = save_rng_state()
 
     # generate sharded info
     shard_info = generate_state_dict(model, optimizer)
@@ -230,11 +239,13 @@ def save_checkpoint(config, model, optimizer=None, ckpt_path="./", **kwargs):
 
     # saving
     save_strategy_file(shard_info, strategy_file)
-    ms.save_checkpoint(params_dict, ckpt_file, append_dict=rng_state_dict, format=_format)
+    if not only_save_strategy:
+        rng_state_dict = save_rng_state()
+        ms.save_checkpoint(params_dict, ckpt_file, append_dict=rng_state_dict, format=format)
     logger.info(f"ckpt saved")
 
-
-def load_checkpoint(config, model, optimizer=None, ckpt_path="./", **kwargs):
+# pylint: disable=W0622
+def load_checkpoint(config, model, optimizer=None, ckpt_path="./", format=_format, **kwargs):
     """
     Load checkpoint info from a specified file in process of rank 0.
 
@@ -251,12 +262,12 @@ def load_checkpoint(config, model, optimizer=None, ckpt_path="./", **kwargs):
     validator.check_value_type("model", model, [nn.Cell], "load_checkpoint")
     validator.check_value_type("optimizer", optimizer, [nn.Cell, type(None)], "load_checkpoint")
     logger.info(f"ckpt loading")
-    src_ckpt_file, _ = get_checkpoint_name(ckpt_path)
+    src_ckpt_file, _ = get_checkpoint_name(ckpt_path, format=format, get_name_from_file=True)
     for key, _ in kwargs.items():
         logger.warning(f"The parameter {key} is not used in load_checkpoint.")
 
     target = optimizer if optimizer is not None else model
-    param_dict = ms.load_checkpoint(src_ckpt_file, format=_format)
+    param_dict = ms.load_checkpoint(src_ckpt_file, format=format)
     param_dict = load_post_process(config, param_dict)
 
     load_rng_state(param_dict)

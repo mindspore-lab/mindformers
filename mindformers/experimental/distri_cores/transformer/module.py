@@ -37,7 +37,7 @@ def get_default_dict_for_module(cell, recurse=False):
         shape = param.shape
         shard = tuple([1] * param.ndim)
         state_dict[name] = {'shape': shape, 'shard': shard,
-                            'opt_weight_shard_step': 0, 'opt_weight_shard_size': -1}
+                            'opt_weight_shard_step': 0, 'opt_weight_shard_size': 0}
     return state_dict
 
 
