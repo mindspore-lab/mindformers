@@ -26,11 +26,15 @@ from mindformers.tools.logger import logger
 
 class LoraModel(PreTrainedModel):
     """
-    Lora Model for llm model.
+    LoRA model for LLM. Provide a flexible and efficient way to adjust and
+    optimize pre-trained models by adding LoRA structures to the base pre-trained models.
 
     Args:
-        config(LoraConfig): pet config,define parameters efficient tuning algorithm.
-        base_model(PreTrainedModel): pretrained model for tuning.
+        config (LoraConfig): Pet config, defines Parameter-Efficient Tuning (Pet) algorithm.
+        base_model (PreTrainedModel): Pre-trained model for tuning.
+
+    Returns:
+        An instance of LoraModel.
     """
 
     def __init__(self, config: LoraConfig, base_model: PreTrainedModel):
