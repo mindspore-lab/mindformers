@@ -26,10 +26,13 @@ __all__ = ['PetConfig', 'LoraConfig', 'Ptuning2Config', 'PrefixTuningConfig']
 
 class PetConfig(DictConfig):
     """
-    Pet model config class which defines the tuning algorithm and pretrained for tuning.
+    The configuration base class for Parameter-Efficient Tuning (Pet) algorithms.
 
     Args:
-        pet_type: (`str`, *optional*, defaults to None): The Pet method type.
+        pet_type (str, optional): The Pet method type. Default: ``None``.
+
+    Returns:
+        An instance of PetConfig.
     """
     def __init__(self,
                  pet_type: str = None,
@@ -40,37 +43,39 @@ class PetConfig(DictConfig):
 
 class LoraConfig(PetConfig):
     """
-    Lora tuning algorithm config.
+    LoRA algorithm config.
+    Used to set parameters for LoRA model runtime.
 
     Args:
-        lora_rank (`int`, *optional*, defaults to 8):
-            The number of rows(columns) in LoRA matrices.
-        lora_alpha (`int`, *optional*, defaults to 16):
-            A constant in lora_rank.
-        lora_dropout (`float`, *optional*, defaults to 0.01):
-            The dropout rate, greater equal than 0 and less than 1.
-        lora_a_init (`str`, *optional*, defaults to 'normal'):
-            The initialization strategy of LoRA A matrix.
-            Refers to (https://www.mindspore.cn/docs/zh-CN/master/api_python/mindspore.common.initializer.html)
-        lora_b_init (`str`, *optional*, defaults to 'zero'):
-            The initialization strategy of LoRA B matrix.
-            Refers to (https://www.mindspore.cn/docs/zh-CN/master/api_python/mindspore.common.initializer.html)
-        param_init_type (`str`, *optional*, defaults to 'float16'):
-            The type of data in initialized tensor.
-        compute_dtype (`str`, *optional*, defaults to 'float16'):
-            The compute type of data.
-        target_modules (`str`, *optional*, defaults None):
-            The Layers that require replacement with LoRa algorithm.
-        exclude_layers (`str`, *optional*, defaults None):
-            The layers that do not require replacement with the LoRa algorithm.
-        freeze_include (`List[str]`, *optional*, defaults None):
-            List of modules to be frozen.
-        freeze_exclude (`List[str]`, *optional*, defaults None):
-            List of modules that do not need to be frozen. When an item in the freeze_include and freeze_exclude list
-            conflicts, the module that matches this item is not processed.
+        lora_rank (int, optional): The number of rows(columns) in LoRA matrices. Default: ``8``.
+        lora_alpha (int, optional): A constant in lora_rank. Default: ``16``.
+        lora_dropout (float, optional): The dropout rate, greater equal than 0 and less than 1. Default: ``0.01``.
+        lora_a_init (str, optional): The initialization strategy of LoRA A matrix.
+            Refers to (https://www.mindspore.cn/docs/en/master/api_python/mindspore.common.initializer.html). Default: ``normal``.
+        lora_b_init (str, optional): The initialization strategy of LoRA B matrix.
+            Refers to (https://www.mindspore.cn/docs/en/master/api_python/mindspore.common.initializer.html). Default: ``zero``.
+        param_init_type (str, optional): The type of data in initialized tensor. Default: ``float16``.
+        compute_dtype (str, optional): The compute type of data. Default: ``float16``.
+        target_modules (str, optional): The layers that require replacement with LoRA algorithm. Default: ``None``.
+        exclude_layers (str, optional): The layers that do not require
+            replacement with the LoRA algorithm. Default: ``None``.
+        freeze_include (List[str], optional, defaults None): List of modules to be frozen. Default: ``None``.
+        freeze_exclude (List[str], optional): List of modules that do not need
+            to be frozen. When an item in the freeze_include and freeze_exclude list
+            conflicts, the module that matches this item is not processed. Default: ``None``.
 
     Returns:
-        Class, LoraConfig.
+        An instance of LoraConfig.
+
+    Examples:
+        >>> from mindformers.pet.pet_config import LoraConfig
+        >>> config = LoraConfig(target_modules: '.*wq|.*wk|.*wv|.*wo')
+        >>> print(config)
+        {'pet_type': 'lora', 'lora_rank': 8, 'lora_alpha': 16,
+        'lora_dropout': 0.01, 'lora_a_init': 'normal', 'lora_b_init'
+        : 'zero', 'param_init_type': mindspore.float16, 'compute_dtype':
+        mindspore.float16, 'target_modules': None, 'exclude_layers': None
+        , 'freeze_include': None, 'freeze_exclude': None}
     """
     def __init__(self,
                  lora_rank: int = 8,
