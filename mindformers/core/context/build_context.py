@@ -95,7 +95,6 @@ class _Context:
             logger.info("The current MindSpore version is %s,"
                         "and set the default runtime_num_threads to 1.", ms.__version__)
 
-
     def init_ms_context(self):
         """Context initialization for MindSpore.
 
@@ -186,7 +185,9 @@ class _Context:
 
     def set_pipeline_stage(self):
         """Set pipeline stage number."""
-        input_stages = self.config.parallel_config.get('pipeline_stage', 1)
+        input_stages = 1
+        if self.config.parallel_config.pipeline_stage:
+            input_stages = self.config.parallel_config.pipeline_stage
         if self.config.parallel.auto_pipeline:
             micro_batch = self.config.parallel_config.micro_batch_num
             servers = get_server_num()
