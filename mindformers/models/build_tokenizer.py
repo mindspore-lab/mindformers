@@ -71,6 +71,8 @@ def build_tokenizer(
     if config is not None:
         if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
             config = MindFormerConfig(**config)
+        if 'auto_register' in config:
+            MindFormerRegister.auto_register(class_reference=config.pop('auto_register'), module_type=module_type)
         check_and_add_vocab_file_path(config, **kwargs)
         return MindFormerRegister.get_instance_from_cfg(
             config, MindFormerModuleType.TOKENIZER, default_args=default_args)

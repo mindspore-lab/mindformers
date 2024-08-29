@@ -21,7 +21,7 @@ from mindspore import Tensor
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.pet.pet_config import LoraConfig
 from mindformers.pet.tuners.lora_adapter import LoraAdapter
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 
 class LoraModel(PreTrainedModel):

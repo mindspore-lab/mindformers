@@ -24,7 +24,7 @@ from mindformers import MindFormerConfig
 from mindformers.core.context import build_context
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.models import build_tokenizer
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.trainer.utils import transform_and_load_checkpoint
 
 import mindspore as ms

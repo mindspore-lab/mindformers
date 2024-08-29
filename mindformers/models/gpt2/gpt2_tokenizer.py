@@ -22,7 +22,7 @@ import regex as re
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.tokenization_utils import PreTrainedTokenizer, AddedToken
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from ...mindformer_book import MindFormerBook
 
 __all__ = ['GPT2Tokenizer']

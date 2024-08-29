@@ -22,7 +22,7 @@ linux:  pytest ./tests/st/test_mindformer_book.py
 """
 import pytest
 from mindformers import MindFormerBook
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 
 @pytest.mark.level0

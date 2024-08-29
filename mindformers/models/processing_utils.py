@@ -30,7 +30,8 @@ from .tokenization_utils import PreTrainedTokenizer
 from .tokenization_utils_base import PreTrainedTokenizerBase
 from .image_processing_utils import ImageProcessingMixin
 from .utils import PROCESSOR_NAME
-from ..tools import logger, add_model_info_to_auto_map
+from ..tools.logger import logger
+from ..tools.generic import add_model_info_to_auto_map
 from ..tools.register import MindFormerConfig
 from ..tools.hub.dynamic_module_utils import custom_object_save
 from ..tools.hub.hub import (

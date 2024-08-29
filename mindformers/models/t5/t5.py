@@ -43,7 +43,7 @@ from mindformers.models.modeling_utils import PreTrainedModel
 
 from .t5_config import T5Config
 
-from ...tools import logger
+from ...tools.logger import logger
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 from ...mindformer_book import MindFormerBook
 

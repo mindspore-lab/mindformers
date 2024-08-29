@@ -198,6 +198,9 @@ if __name__ == "__main__":
     parser.add_argument(
         '--output_dir', default=None, type=str,
         help='output directory.')
+    parser.add_argument(
+        '--register_path', default=None, type=str,
+        help='the register path of outer API.')
 
     args_, rest_args_ = parser.parse_known_args()
     rest_args_ = [i for item in rest_args_ for i in item.split("=")]
@@ -206,6 +209,12 @@ if __name__ == "__main__":
 
     if args_.config is not None and not os.path.isabs(args_.config):
         args_.config = os.path.join(work_path, args_.config)
+
+    if args_.register_path is not None:
+        if not os.path.isabs(args_.register_path):
+            args_.register_path = os.path.join(work_path, args_.register_path)
+        # Setting Environment Variables: REGISTER_PATH For Auto Register to Outer API
+        os.environ["REGISTER_PATH"] = args_.register_path
     config_ = MindFormerConfig(args_.config)
 
     if args_.device_id is not None:

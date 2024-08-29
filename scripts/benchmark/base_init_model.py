@@ -23,7 +23,7 @@ from mindformers.model_runner import register_auto_class
 from mindformers.models.auto.configuration_auto import AutoConfig
 from mindformers.models.auto.modeling_auto import AutoModel
 from mindformers.pet import get_pet_model
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers import MindFormerConfig
 from mindspore import Model
 

@@ -23,7 +23,7 @@ from mindspore.nn.learning_rate_schedule import LearningRateSchedule
 
 from mindformers.models import PreTrainedModel
 from mindformers.core.lr import LearningRateWiseLayer
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from .utils import check_keywords_in_name
 
 

@@ -17,7 +17,7 @@ import os
 
 from mindspore.dataset import GeneratorDataset
 
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 

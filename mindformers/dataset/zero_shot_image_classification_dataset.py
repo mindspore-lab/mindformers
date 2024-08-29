@@ -18,7 +18,7 @@ from mindformers.version_control import get_dataset_map
 from .dataloader import build_dataset_loader
 from .transforms import build_transforms
 from .base_dataset import BaseDataset
-from ..tools import logger
+from ..tools.logger import logger
 from ..tools.register import MindFormerRegister, MindFormerModuleType
 from ..models.build_tokenizer import build_tokenizer
 

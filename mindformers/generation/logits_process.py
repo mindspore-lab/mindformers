@@ -21,7 +21,7 @@ import numpy as np
 import mindspore as ms
 from mindspore import ops, Tensor
 from .utils import log_softmax, softmax, topk
-from ..tools import logger
+from ..tools.logger import logger
 
 __all__ = ["LogitsProcessor", "LogitsWarper", "LogitsProcessorList", "RepetitionPenaltyLogitsProcessor",
            "LogitNormalization", "TemperatureLogitsWarper", "TopKLogitsWarper", "TopPLogitsWarper",

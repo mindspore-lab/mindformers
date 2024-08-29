@@ -24,7 +24,7 @@ from typing import Dict, Optional, Union
 # Build the list of all image processors
 from mindformers.tools import get_file_from_repo, get_class_from_dynamic_module, resolve_trust_remote_code
 from mindformers.models.utils import CONFIG_NAME, IMAGE_PROCESSOR_NAME
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.image_processing_utils import ImageProcessingMixin
 from mindformers.models.auto.auto_factory import _LazyAutoMapping

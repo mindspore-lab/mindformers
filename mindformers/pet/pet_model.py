@@ -24,7 +24,7 @@ from mindformers.pet.models.ptuning2 import Ptuning2Model
 from mindformers.pet.models.prefix_tuning import PrefixTuningModel
 from mindformers.pet.pet_config import LoraConfig, PetConfig, Ptuning2Config, PrefixTuningConfig
 from mindformers.pet.tuners.pet_adapter import PetAdapter
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 # Mapping of pet models.
 PET_TYPE_TO_MODEL_MAPPING = {

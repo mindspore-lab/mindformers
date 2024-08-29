@@ -26,7 +26,7 @@ from mindspore.nn import AdamWeightDecay, CosineDecayLR, Accuracy,\
 from mindspore.train.callback import LossMonitor, TimeMonitor
 from mindspore import Parameter, Tensor
 
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.tools import MindFormerConfig, MindFormerRegister, MindFormerModuleType
 from mindformers.core import build_lr, build_optim, build_loss, build_metric
 from mindformers.trainer import build_trainer, BaseTrainer

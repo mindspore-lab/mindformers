@@ -34,7 +34,7 @@ from mindformers.models import (BaseAudioProcessor, BaseImageProcessor,
 from mindformers.models.auto import TOKENIZER_MAPPING, IMAGE_PROCESSOR_MAPPING
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import CONFIG_NAME
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.tools.hub.dynamic_module_utils import \
     get_class_from_dynamic_module
 from mindformers.tools.hub.hub import cached_file, extract_commit_hash

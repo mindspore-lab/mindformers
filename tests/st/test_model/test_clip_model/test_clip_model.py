@@ -27,7 +27,7 @@ import mindspore as ms
 
 from mindformers import MindFormerBook, AutoConfig, AutoModel
 from mindformers.models import CLIPModel, PreTrainedModel
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 ms.set_context(mode=0)
 

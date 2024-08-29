@@ -27,9 +27,10 @@ from mindspore.common.initializer import Zero
 from mindspore._c_expression import swap_cache
 
 from mindformers import models, MindFormerRegister, MindFormerModuleType
-from mindformers import build_context, logger, build_parallel_config, GenerationConfig
+from mindformers import build_context, build_parallel_config, GenerationConfig
 from mindformers import AutoModel, AutoConfig, AutoTokenizer
 from mindformers.models.utils import convert_mstype, ms_type_to_str
+from mindformers.tools.logger import logger
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module

@@ -15,7 +15,7 @@
 """Qwen Config API."""
 
 from mindformers import LlamaConfig, MindFormerBook
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['QwenConfig']

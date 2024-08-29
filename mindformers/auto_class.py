@@ -25,7 +25,7 @@ from .models.build_processor import build_processor
 from .models.base_config import BaseConfig
 from .models.build_model import build_network
 from .models.build_config import build_model_config
-from .tools import logger
+from .tools.logger import logger
 from .tools.register.config import MindFormerConfig
 
 

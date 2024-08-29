@@ -21,7 +21,7 @@ import os
 import copy
 from collections import OrderedDict
 
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 
 
 def print_dict(input_dict):

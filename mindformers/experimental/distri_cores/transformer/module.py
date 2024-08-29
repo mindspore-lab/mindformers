@@ -19,7 +19,7 @@ from collections import OrderedDict
 import mindspore as ms
 from mindspore import nn
 import mindspore.ops as P
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from mindformers.experimental.distri_cores.create_comm import (
     is_pipeline_first_stage,
     is_pipeline_last_stage,

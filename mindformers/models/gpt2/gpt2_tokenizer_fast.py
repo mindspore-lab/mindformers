@@ -21,7 +21,7 @@ from typing import Optional, Tuple
 from tokenizers import pre_tokenizers
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.tools import logger
+from mindformers.tools.logger import logger
 from ..tokenization_utils import BatchEncoding, PaddingStrategy, TruncationStrategy
 from ..tokenization_utils_fast import PreTrainedTokenizerFast
 from .gpt2_tokenizer import GPT2Tokenizer

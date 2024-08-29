@@ -30,7 +30,8 @@ example:
 import os
 import pytest
 from mindformers import MindFormerBook
-from mindformers.tools import MindFormerConfig, logger
+from mindformers.tools.register import MindFormerConfig
+from mindformers.tools.logger import logger
 
 
 @pytest.mark.level0
