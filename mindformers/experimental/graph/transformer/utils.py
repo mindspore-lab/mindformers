@@ -41,6 +41,7 @@ class AttnMaskFill(nn.Cell):
 
     def construct(self, attention_scores: Tensor, attention_mask, fill_value=-10000.0):
         """ Construct function of AttnMaskFill. """
+        ori_dtype = attention_scores.dtype
         if attention_mask.ndim == 2:
             bs, _, seq_length0, seq_length1 = self.shape(attention_scores)
             attention_mask = self.reshape(attention_mask, (1, 1, seq_length0, seq_length1))
@@ -51,6 +52,7 @@ class AttnMaskFill(nn.Cell):
         lower_triangle = self.sub(ones, attention_mask)
         attention_scores = self.mul(attention_scores, lower_triangle)
         attention_scores = self.add(attention_scores, self.mul2(attention_mask, fill_value))
+        attention_scores = self.cast(attention_scores, ori_dtype)
         return attention_scores
 
     def shard(self, parallel_config):

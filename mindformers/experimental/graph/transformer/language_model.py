@@ -104,7 +104,7 @@ class Embedding(nn.Cell):
                  num_tokentypes=0):
         super(Embedding, self).__init__()
 
-        self.param_init_dtype = config.param_init_dtype
+        self.embedding_init_type = config.embedding_init_type
         self.compute_dtype = config.compute_dtype
         self.num_tokentypes = num_tokentypes
         self.init_method = config.init_method
@@ -114,7 +114,7 @@ class Embedding(nn.Cell):
                                                       hidden_size,
                                                       config,
                                                       init_method=self.init_method,
-                                                      init_type=self.param_init_dtype)
+                                                      init_type=self.embedding_init_type)
         # Position embedding
         self.add_position_embedding = config.position_embedding_type == 'learned_absolute'
         if self.add_position_embedding:
@@ -122,14 +122,14 @@ class Embedding(nn.Cell):
                                                               hidden_size,
                                                               config,
                                                               init_method=self.init_method,
-                                                              init_type=self.param_init_dtype)
+                                                              init_type=self.embedding_init_type)
         # tokentypes embedding
         if num_tokentypes > 0:
             self.tokentype_embedding = VocabParallelEmbedding(num_tokentypes,
                                                               hidden_size,
                                                               config,
                                                               init_method=self.init_method,
-                                                              init_type=self.param_init_dtype)
+                                                              init_type=self.embedding_init_type)
         else:
             self.tokentype_embedding = None
         # Embedding dropout
@@ -242,7 +242,6 @@ class TransformerLanguageModel(nn.Cell):
 
         # get value from config
         self.init_method = config.init_method
-        self.param_init_dtype = config.param_init_dtype
         self.compute_dtype = config.compute_dtype
         self.hidden_size = config.hidden_size
         self.vocab_size = config.padded_vocab_size

@@ -19,6 +19,7 @@ import mindspore.common.dtype as mstype
 
 from mindformers.experimental.utils import init_method_normal
 
+
 class ModelParallelConfig:
     r"""
         Parallel config class for setting parallel configuration, such as the data parallel and model parallel.
@@ -149,6 +150,7 @@ class TransformerConfig(ModelParallelConfig):
                  compute_dtype: mstype = mstype.float32,
                  softmax_compute_dtype: mstype = mstype.float32,
                  params_dtype: mstype = mstype.float32,
+                 embedding_init_type: mstype = mstype.float32,
                  add_bias_linear: bool = False,
                  add_qkv_bias: bool = False,
                  mlp_has_gate: bool = True,
@@ -166,7 +168,7 @@ class TransformerConfig(ModelParallelConfig):
                  untie_embeddings_and_output_weights: bool = True,
                  hidden_act: str = "gelu",
                  mask_func_type: str = "attn_mask_fill",
-                 normalization: str = "RMSNorm",
+                 normalization: str = "FusedRMSNorm",
                  position_embedding_type: str = "rope",
                  init_method: Callable = None,
                  output_layer_init_method: Callable = None,
@@ -190,6 +192,7 @@ class TransformerConfig(ModelParallelConfig):
         self.compute_dtype = compute_dtype
         self.softmax_compute_dtype = softmax_compute_dtype
         self.params_dtype = params_dtype
+        self.embedding_init_type = embedding_init_type
         self.add_bias_linear = add_bias_linear
         self.add_qkv_bias = add_qkv_bias
         self.mlp_has_gate = mlp_has_gate
