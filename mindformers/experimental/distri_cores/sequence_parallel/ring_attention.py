@@ -193,8 +193,9 @@ class RingAttention(nn.Cell):
             inner_precise=0,
             sparse_mode=3)
 
-        self.stream_send = get_sp_send_stream()
-        self.stream_recv = get_sp_send_stream()
+        if self.sp > 1:
+            self.stream_send = get_sp_send_stream()
+            self.stream_recv = get_sp_send_stream()
 
     def p2p_communicate(self, rank, send_tensor, send_dst,
                         recv_src,
