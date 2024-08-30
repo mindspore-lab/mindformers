@@ -20,8 +20,8 @@ import mindspore as ms
 import mindspore.ops as P
 import mindspore.nn as nn
 from mindformers.experimental.distri_cores.create_comm import get_pp_rank, get_pp_world_size, \
-                                                                  get_embedding_group, is_pipeline_first_stage, \
-                                                                  is_pipeline_last_stage
+                                                              get_embedding_group, is_pipeline_first_stage, \
+                                                              is_pipeline_last_stage, get_vpp_world_size
 from mindformers.experimental.distri_cores.transformer import Module
 
 
@@ -40,7 +40,10 @@ class PipelineCell(Module):
         self.new_model = hasattr(model, "model_key")
         self.shared_weight_name_list = model.shared_weight_name_list
         self.untie_embeddings_and_output_weights = model.untie_embeddings_and_output_weights
-
+        vpp_size = get_vpp_world_size()
+        if vpp_size is not None and vpp_size > 1 and not self.new_model:
+            raise RuntimeError("When using pipline parallel with interleaved, "
+                               "please set 'self.model_key=xxx(str)' attribute for the model.")
         # if pp_size=1 or the model is imported from the distri_model directory, do not init anything
         if get_pp_world_size() == 1 or self.new_model:
             self.model = model
