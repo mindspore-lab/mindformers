@@ -23,6 +23,7 @@ import numpy as np
 
 from mindspore import context, load_checkpoint, load_param_into_net
 from mindspore import set_seed as ms_set_seed
+from mindspore import Parameter
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank
@@ -262,16 +263,18 @@ def config2dict(config):
     return new_dict
 
 
-def load_distributed_checkpoint(checkpoint_dir, choice_func=None):
+def load_distributed_checkpoint(checkpoint_dir, choice_func=None, rank_id=None):
     """Load Checkpoint in Parallel Mode."""
     if os.path.isdir(checkpoint_dir):
         logger.info(
             "When distributed loads are sliced weights,"
             "load_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
             "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/**.ckpt")
+        rank_id = rank_id if rank_id is not None else get_real_rank()
         distribute_checkpoint_dir = os.path.join(
-            checkpoint_dir, "rank_{}".format(get_real_rank()))
+            checkpoint_dir, "rank_{}".format(rank_id))
         distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir)
+        logger.info("distribute checkpoint dir: %s", distribute_checkpoint_dir)
     elif os.path.isfile(checkpoint_dir):
         logger.info("Your load_checkpoint is file, it will be load in network.")
         distribute_checkpoint_path = checkpoint_dir
@@ -289,25 +292,36 @@ def load_resume_context_from_checkpoint(config, dataset):
         raise FileNotFoundError(f"The load_checkpoint must be correct, "
                                 f"but get {config.load_checkpoint}")
 
-    if os.path.isdir(config.load_checkpoint) and not isinstance(config.resume_training, str):
-        resume_dict = load_distributed_checkpoint(config.load_checkpoint,
-                                                  choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num"])
-    else:
-        if isinstance(config.resume_training, str):
-            checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{config.rank_id}", config.resume_training)
+    if os.path.isdir(config.load_checkpoint):
+        if isinstance(config.resume_training, bool):
+            resume_dict = load_distributed_checkpoint(config.load_checkpoint,
+                                                      choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num", "global_batch_size"],
+                                                      rank_id=0)
         else:
-            checkpoint_tmp = config.load_checkpoint
-        resume_dict = load_checkpoint(checkpoint_tmp,
-                                      choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num"])
+            checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{config.rank_id}", config.resume_training)
+            resume_dict = load_checkpoint(checkpoint_tmp,
+                                          choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num", "global_batch_size"])
+
+    else:
+        resume_dict = load_checkpoint(config.load_checkpoint,
+                                      choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num", "global_batch_size"])
+
+    step_scale = 1.0
+    if "global_batch_size" in resume_dict:
+        last_global_batch_size = int(resume_dict["global_batch_size"])
+        step_scale = last_global_batch_size / config.runner_config.global_batch_size
+        logger.info("Detect global batch size is changed from %d to %d, scale: %f", \
+                    last_global_batch_size, config.runner_config.global_batch_size, step_scale)
+    config.runner_config.step_scale = step_scale
 
     if "step_num" in resume_dict:
-        config.runner_config.initial_step = int(resume_dict["step_num"])
+        config.runner_config.initial_step = int(resume_dict["step_num"] * step_scale)
     else:
         config.runner_config.initial_step = 0
 
     if "epoch_num" in resume_dict:
         if config.runner_config.sink_mode:
-            config.runner_config.initial_epoch = int(resume_dict["epoch_num"])
+            config.runner_config.initial_epoch = int(resume_dict["epoch_num"] * step_scale)
         else:
             data_size = dataset.get_dataset_size()
             not_last_step_in_epoch = int(config.runner_config.initial_step % data_size != 0)
@@ -323,6 +337,9 @@ def load_resume_context_from_checkpoint(config, dataset):
                 else:
                     config.runner_wrapper.scale_sense = resume_dict["loss_scale"]
             break
+    logger.info("initial epoch: %d", config.runner_config.initial_epoch)
+    logger.info("initial step: %d", config.runner_config.initial_step)
+    logger.info("step scale: %f", config.runner_config.step_scale)
 
 
 def delete_resume_record_dir(wait_time=5):
@@ -475,6 +492,12 @@ def load_ckpt(config, network, optimizer=None):
     checkpoint_dict = replace_tk_to_mindpet(checkpoint_dict)
     if hasattr(network, 'llm_boost'):
         network.llm_boost.set_weights(checkpoint_dict)
+
+    if "global_step" in checkpoint_dict and config.runner_config.step_scale is not None:
+        resume_global_step = int(checkpoint_dict["global_step"].data * config.runner_config.step_scale)
+        logger.info("Set global_step from %d to: %d", \
+            int(checkpoint_dict["global_step"]), resume_global_step)
+        checkpoint_dict["global_step"] = Parameter([resume_global_step])
 
     # load params into net
     not_load_network_params = load_param_into_net(network, checkpoint_dict)

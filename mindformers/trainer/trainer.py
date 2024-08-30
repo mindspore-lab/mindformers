@@ -318,6 +318,8 @@ class Trainer:
               train_checkpoint: Optional[Union[str, bool]] = False,
               resume_from_checkpoint: Optional[Union[str, bool]] = None,
               resume_training: Optional[Union[bool, str]] = None,
+              ignore_data_skip: Optional[bool] = None,
+              data_skip_steps: Optional[int] = None,
               auto_trans_ckpt: Optional[bool] = None,
               src_strategy: Optional[str] = None,
               transform_process_num: Optional[int] = None,
@@ -341,6 +343,14 @@ class Trainer:
                 If set to True, the checkpoint recorded in meta.json will be loaded to resume training.
                 If a checkpoint name is provided, that specific checkpoint will be loaded for resume training.
                 Default: None.
+            ignore_data_skip (`bool`, *optional*, defaults to `False`):
+                When resuming training, whether or not to skip the epochs and batches to get the data loading at the
+                same stage as in the previous training. If set to `True`, the training will begin faster (as that
+                skipping step can take a long time) but will not yield the same results as the interrupted training
+                would have.
+            data_skip_steps (`int`,  *optional*, defaults to None):
+                Specify the skip steps of train dataset when resume training.
+                It only takes effect when `ignore_data_skip` is set to False.
             auto_trans_ckpt:
                 auto transform checkpoint to load in distributed model.
             src_strategy (Optional[str]):
@@ -391,6 +401,10 @@ class Trainer:
 
         if resume_training is not None:
             self.config.resume_training = resume_training
+        if ignore_data_skip is not None:
+            self.config.ignore_data_skip = ignore_data_skip
+        if data_skip_steps is not None:
+            self.config.data_skip_steps = data_skip_steps
         if auto_trans_ckpt is not None:
             self.config.auto_trans_ckpt = auto_trans_ckpt
         if src_strategy is not None:
@@ -433,6 +447,8 @@ class Trainer:
                  finetune_checkpoint: Optional[Union[str, bool]] = False,
                  resume_from_checkpoint: Optional[Union[str, bool]] = None,
                  resume_training: Optional[Union[bool, str]] = None,
+                 ignore_data_skip: Optional[bool] = None,
+                 data_skip_steps: Optional[int] = None,
                  auto_trans_ckpt: Optional[bool] = None,
                  src_strategy: Optional[str] = None,
                  transform_process_num: Optional[int] = None,
@@ -460,6 +476,14 @@ class Trainer:
                 If set to True, the checkpoint recorded in meta.json will be loaded to resume training.
                 If a checkpoint name is provided, that specific checkpoint will be loaded for resume training.
                 Default: None.
+            ignore_data_skip (`bool`, *optional*, defaults to `False`):
+                When resuming training, whether or not to skip the epochs and batches to get the data loading at the
+                same stage as in the previous training. If set to `True`, the training will begin faster (as that
+                skipping step can take a long time) but will not yield the same results as the interrupted training
+                would have.
+            data_skip_steps (`int`,  *optional*, defaults to None):
+                Specify the skip steps of train dataset when resume training.
+                It only takes effect when `ignore_data_skip` is set to False.
             auto_trans_ckpt:
                 auto transform checkpoint to load in distributed model
             src_strategy (Optional[str]):
@@ -522,6 +546,10 @@ class Trainer:
 
         if resume_training is not None:
             self.config.resume_training = resume_training
+        if ignore_data_skip is not None:
+            self.config.ignore_data_skip = ignore_data_skip
+        if data_skip_steps is not None:
+            self.config.data_skip_steps = data_skip_steps
         if auto_trans_ckpt is not None:
             self.config.auto_trans_ckpt = auto_trans_ckpt
         if src_strategy is not None:

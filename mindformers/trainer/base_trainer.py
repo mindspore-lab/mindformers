@@ -228,6 +228,8 @@ class BaseTrainer:
             self.config.parallel_config.micro_batch_num = 1
             logger.info("parallel_config will be change to default config: %s.",
                         self.config.parallel_config)
+        self.config.runner_config.global_batch_size = self.global_batch_size
+
 
     def _check_grad_accumulation_steps(self):
         """check the gradient accumulation steps."""
@@ -494,12 +496,12 @@ class BaseTrainer:
                                "it will multiply the data size to represent the warmup steps")
                 self.config.lr_schedule.warmup_steps = int(warmup_epochs * train_data_size)
 
-            if warmup_ratio is not None:
-                self.config.lr_schedule.warmup_steps = int(total_steps * warmup_ratio)
-
             self.config.lr_schedule.total_steps = total_steps \
                 if self.config.lr_schedule.total_steps is None or self.config.lr_schedule.total_steps == -1 \
                 else int(self.config.lr_schedule.total_steps)
+
+            if warmup_ratio is not None:
+                self.config.lr_schedule.warmup_steps = int(self.config.lr_schedule.total_steps * warmup_ratio)
 
             self.config.lr_schedule.learning_rate = self.learning_rate_scale(
                 self.config.lr_schedule.learning_rate, scale_factor) \
@@ -655,14 +657,22 @@ class BaseTrainer:
                     resume_dict["loss_scale"] = config.runner_wrapper.scale_sense.loss_scale_value
                 else:
                     resume_dict["loss_scale"] = config.runner_wrapper.scale_sense
-            logger.info("initial epoch: %d", config.runner_config.initial_epoch)
-            logger.info("initial step: %d", config.runner_config.initial_step)
             append_info = [resume_dict]
-            dataset.set_init_step(config.runner_config.initial_step)
             delete_resume_record_dir(wait_time=config.resume_gap_time if config.resume_gap_time else 5)
         else:
             config.runner_config.initial_epoch = 0
             config.runner_config.initial_step = 0
+
+        # check if skip datasets
+        if config.data_skip_steps or config.resume_training:
+            if not config.ignore_data_skip:
+                data_skip_steps = config.data_skip_steps if config.data_skip_steps \
+                    else config.runner_config.initial_step
+                if data_skip_steps > 0:
+                    dataset.set_init_step(data_skip_steps)
+                    logger.info("dataset skip %d steps.", data_skip_steps)
+            else:
+                logger.info("ignore dataset skip.")
 
         self.set_train_dataset(dataset)
         check_runner_config(config, dataset)
@@ -722,7 +732,7 @@ class BaseTrainer:
                     "gradient_accumulation_steps": self.config.runner_config.gradient_accumulation_steps
                 }
             elif "type" in callback and callback["type"] == "CheckpointMonitor":
-                default_args = {"append_info": append_info}
+                default_args = {"append_info": append_info, "global_batch_size": self.global_batch_size}
 
             default_callbacks.append(build_callback(callback, default_args=default_args))
         if callbacks is not None:

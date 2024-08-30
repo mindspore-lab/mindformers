@@ -136,6 +136,15 @@ class TrainingArguments:
             )
         },
     )
+    data_skip_steps: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": (
+                "Specify the skip steps of train dataset when resume training."
+                "It only takes effect when `ignore_data_skip` is set to False. Default: None."
+            )
+        }
+    )
     do_train: bool = field(
         default=False,
         metadata={"help": "Whether to run training. Default: False."}
@@ -486,6 +495,15 @@ class TrainingArguments:
     warmup_steps: int = field(
         default=0,
         metadata={"help": "Linear warmup over warmup_steps."}
+    )
+    total_steps: int = field(
+        default=-1,
+        metadata={
+            "help": (
+                "Total number of steps used for calculating the learning rate, "
+                "-1 means it will load the total steps of the dataset."
+            )
+        },
     )
     lr_scale: bool = field(
         default=False,
@@ -1410,6 +1428,7 @@ class TrainingArguments:
             warmup_epochs: Optional[int] = None,
             warmup_ratio: Optional[float] = None,
             warmup_steps: int = 0,
+            total_steps: int = -1,
             **kwargs
     ):
         """
@@ -1428,6 +1447,9 @@ class TrainingArguments:
             warmup_steps (`int`, *optional*, defaults to 0):
                 Number of steps used for a linear warmup from 0 to `learning_rate`. Overrides any effect of
                 `warmup_ratio`.
+            total_steps (`int`, *optional*, default to -1):
+                Total number of steps used for calculating the learning rate,
+                -1 means it will load the total steps of the dataset.
 
         Example:
 
@@ -1446,6 +1468,7 @@ class TrainingArguments:
         self.warmup_epochs = warmup_epochs
         self.warmup_ratio = warmup_ratio
         self.warmup_steps = warmup_steps
+        self.total_steps = total_steps
         self.print_kwargs_unused(**kwargs)
         return self
 
@@ -1456,6 +1479,7 @@ class TrainingArguments:
             drop_last: bool = False,
             num_workers: int = 0,
             ignore_data_skip: bool = False,
+            data_skip_steps: Optional[int] = None,
             sampler_seed: Optional[int] = None,
             **kwargs
     ):
@@ -1478,6 +1502,9 @@ class TrainingArguments:
                 same stage as in the previous training. If set to `True`, the training will begin faster (as that
                 skipping step can take a long time) but will not yield the same results as the interrupted training
                 would have.
+            data_skip_steps (`int`,  *optional*, defaults to None):
+                Specify the skip steps of train dataset when resume training.
+                It only takes effect when `ignore_data_skip` is set to False.
             sampler_seed (`int`, *optional*):
                 Random seed to be used with data samplers. If not set, random generators for data sampling will use the
                 same seed as `self.seed`. This can be used to ensure reproducibility of data sampling, independent of
@@ -1499,6 +1526,7 @@ class TrainingArguments:
         self.dataloader_drop_last = drop_last
         self.dataloader_num_workers = num_workers
         self.ignore_data_skip = ignore_data_skip
+        self.data_skip_steps = data_skip_steps
         self.data_seed = sampler_seed
         self.print_kwargs_unused(**kwargs)
         return self
@@ -1548,6 +1576,7 @@ class TrainingArguments:
         task_config.load_checkpoint = _check_training_args(task_config.load_checkpoint, self.resume_from_checkpoint)
         task_config.resume_training = _check_training_args(task_config.resume_training, self.resume_training)
         task_config.ignore_data_skip = _check_training_args(task_config.ignore_data_skip, self.ignore_data_skip)
+        task_config.data_skip_steps = _check_training_args(task_config.data_skip_steps, self.data_skip_steps)
         task_config.do_train = _check_training_args(task_config.do_train, self.do_train)
         task_config.do_eval = _check_training_args(task_config.do_eval, self.do_eval)
         task_config.do_predict = _check_training_args(task_config.do_predict, self.do_predict)
@@ -1718,6 +1747,8 @@ class TrainingArguments:
             task_config.lr_schedule.warmup_ratio, self.warmup_ratio)
         task_config.lr_schedule.warmup_steps = _check_training_args(
             task_config.lr_schedule.warmup_steps, self.warmup_steps)
+        task_config.lr_schedule.total_steps = _check_training_args(
+            task_config.lr_schedule.total_steps, self.total_steps)
 
         task_config.lr_scale = _check_training_args(task_config.lr_scale, self.lr_scale)
         task_config.lr_scale_factor = _check_training_args(task_config.lr_scale_factor, self.lr_scale_factor)

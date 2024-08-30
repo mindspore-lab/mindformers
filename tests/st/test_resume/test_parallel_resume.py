@@ -36,15 +36,16 @@ class TestResumeTraining:
         """
         sh_path = os.path.split(os.path.realpath(__file__))[0]
         ret = os.system(f"bash {sh_path}/msrun_launch.sh 8")
-        os.system("grep -E 'ERROR|error' msrun_log/worker_7.log -C 3")
+        os.system("grep -E 'ERROR|error' {sh_path}/msrun_log/worker_7.log -C 3")
 
         assert ret == 0
         loss = extract_loss_values("msrun_log/worker_7.log")
-        assert abs(loss[2] - loss[4]) < 0.005
-        assert abs(loss[3] - loss[5]) < 0.005
+        assert abs(loss[4] - loss[8]) < 0.005
+        assert abs(loss[5] - loss[9]) < 0.005
+        assert abs(loss[6] - loss[10]) < 0.005
+        assert abs(loss[7] - loss[11]) < 0.005
 
-        assert abs(loss[2] - loss[6]) < 0.005
-        assert abs(loss[3] - loss[7]) < 0.005
+        assert abs(loss[12] - loss[10]) < 0.005
+        assert abs(loss[13] - loss[11]) < 0.005
 
-        assert abs(loss[4] - loss[6]) < 0.005
-        assert abs(loss[5] - loss[7]) < 0.005
+        assert abs(loss[14] - loss[12]) < 0.005
