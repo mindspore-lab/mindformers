@@ -167,7 +167,7 @@ bash scripts/examples/internlm2/run_internlm2_predict.sh \
 
 ### 多卡推理
 
-以`InternLM2-chat-20b`8卡推理为例。
+`InternLM2`多卡推理暂不支持`is_dynamic=True`。本示例以`InternLM2-chat-20b`8卡推理为例。
 
 ```shell
 bash scripts/examples/internlm2/run_internlm2_predict.sh \

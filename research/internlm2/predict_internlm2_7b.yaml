@@ -156,7 +156,7 @@ model:
     use_flash_attention: True
     block_size: 16
     num_blocks: 512
-    is_dynamic: True
+    is_dynamic: False
     scaling_factor: 1.0
     extend_method: "None"
     offset: 0
