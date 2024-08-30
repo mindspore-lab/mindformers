@@ -563,7 +563,7 @@ class VocabParallelLlamaEmbedding(nn.Cell):
                     shape=(self.num_embeddings_per_partition, self.embedding_dim),
                     dtype=init_type,
                 ),
-                name="weight",
+                name="embedding_weight",
             )
         self.reduce_from_mp_region = ReduceFromModelParallelRegion()
         self.reduce_scatter_to_sp_region = ReduceScatterToSequenceParallelRegion()
@@ -580,13 +580,12 @@ class VocabParallelLlamaEmbedding(nn.Cell):
         else:
             truncated_x = x
         # Get the embeddings.
-        output_parallel = self.gather(self.weight, truncated_x, 0)
+        output_parallel = self.gather(self.embedding_weight, truncated_x, 0)
         # Mask the output embedding.
         if self.tensor_model_parallel_size > 1:
             input_mask = mint.eq(displaced_x, truncated_x)
             input_mask = self.reshape(input_mask, (input_mask.shape + (1,)))
             output_parallel = mint.mul(output_parallel, input_mask)
-        embedding_table = self.weight.value()
 
         if self.sequence_parallel:
             output_parallel = output_parallel.swapaxes(0, 1).contiguous()
@@ -595,7 +594,7 @@ class VocabParallelLlamaEmbedding(nn.Cell):
         else:
             # Reduce across all the model parallel devices.
             output = self.reduce_from_mp_region(output_parallel)
-        return output, embedding_table
+        return output
 
     # pylint: disable=W0613
     def _vocab_range_from_global_vocab_size(self, global_vocab_size, rank, world_size):
