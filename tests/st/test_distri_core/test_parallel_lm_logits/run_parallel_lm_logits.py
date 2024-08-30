@@ -34,7 +34,7 @@ from mindformers.experimental.distri_cores.tensor_parallel import (
     VocabParallelEmbedding
 )
 
-from tests.st.test_distri_core.utils import train
+from tests.st.test_distri_core.utils import linear_train
 
 ms.set_seed(2024)
 ds.set_seed(2024)
@@ -130,7 +130,7 @@ def run_parallel_lm_logits(training_config, model_config, dataset_config):
 
     optimizer = Adam(params=network.trainable_params(), learning_rate=0.001, beta1=0.9, beta2=0.95)
 
-    losses = train(1, fake_dataset, network, optimizer, with_attn_input=True)
+    losses = linear_train(1, fake_dataset, network, optimizer, with_attn_input=True)
     golden_losses = [3.46581, 3.4658272]
 
     assert np.allclose(losses, golden_losses, atol=1.e-3, rtol=1.e-3)

@@ -40,7 +40,7 @@ from mindformers.experimental.distri_cores.tensor_parallel import (
     ScatterToSequenceParallelRegion
 )
 
-from tests.st.test_distri_core.utils import TestData
+from tests.st.test_distri_core.utils import LinearTestData
 
 
 def train(
@@ -236,7 +236,7 @@ def generate_golden_net():
     label_data = np.zeros(
         (dataset_size, seq_length, embedding_size)).astype(
             np.float32)
-    dataset = TestData(input_data=input_data, label_data=label_data)
+    dataset = LinearTestData(input_data=input_data, label_data=label_data)
     dataset = ds.GeneratorDataset(
         dataset, column_names=[
             "input_ids", "labels"])
@@ -289,7 +289,7 @@ def sequence_parallel_net():
     label_data = np.zeros(
         (dataset_size, seq_length, embedding_size)).astype(
             np.float32)
-    dataset = TestData(input_data=input_data, label_data=label_data)
+    dataset = LinearTestData(input_data=input_data, label_data=label_data)
     dataset = ds.GeneratorDataset(
         dataset, column_names=[
             "input_ids", "labels"])

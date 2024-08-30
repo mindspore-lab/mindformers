@@ -30,7 +30,7 @@ from mindformers.experimental.distri_cores.create_comm import initialize_model_p
 from mindformers.experimental.distri_cores.tensor_parallel import ColumnParallelLinear
 from mindformers.experimental.distri_cores.loss_func import get_loss_func
 
-from tests.st.test_distri_core.utils import TestData, train
+from tests.st.test_distri_core.utils import LinearTestData, linear_train
 
 
 class ColumnParallelLinearNet(nn.Cell):
@@ -80,7 +80,7 @@ def run_parallel_cross_entropy_loss(loss_func_type):
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length, seq_length)).astype(np.float32)
     label_data = np.zeros((dataset_size, seq_length)).astype(np.int32)
-    dataset = TestData(input_data=input_data, label_data=label_data)
+    dataset = LinearTestData(input_data=input_data, label_data=label_data)
     dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels'])
     dataset = dataset.batch(batch_size)
 
@@ -93,7 +93,7 @@ def run_parallel_cross_entropy_loss(loss_func_type):
                                parallel_config=parallel_config)
     loss_func_kwargs = {"loss_func_type": loss_func_type}
     training_config = TrainingConfig(parallel_config=parallel_config, loss_func_kwargs=loss_func_kwargs,
-                                     loss_reduction="none")
+                                     loss_reduction="mean")
     loss = get_loss_func(training_config)
     gather_output = False
     if loss_func_type == "CrossEntropyLoss":
@@ -109,7 +109,7 @@ def run_parallel_cross_entropy_loss(loss_func_type):
     network.set_inputs(input_ids, labels)
     optimizer = AdamWeightDecay(params=network.get_parameters())
 
-    train(1, dataset, network, optimizer, None)
+    linear_train(1, dataset, network, optimizer, None)
 
 
 if __name__ == '__main__':
