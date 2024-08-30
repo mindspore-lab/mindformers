@@ -440,3 +440,37 @@ class TransformerLanguageModel(Module):
             raise NotImplementedError("delimiter_position is not supported for now.")
         if image_embedding is not None:
             raise NotImplementedError("image_embedding is not supported for now.")
+
+def get_language_model(config, num_tokentypes, add_pooler,
+                       encoder_attn_mask_type,
+                       add_encoder=True,
+                       add_decoder=False,
+                       decoder_attn_mask_type=None,
+                       pre_process=True, post_process=True):
+    """
+    get language model
+
+    Args:
+        - **config** : model config
+        - **num_tokentypes** : if > 0, using tokentypes embedding
+        - **add_pooler** : if True, use pooler
+        - **encoder_attn_mask_type** : encoder attention mask type
+        - **add_encoder** : if True, use encoder
+        - **add_decoder** : if True, use decoder
+        - **decoder_attn_mask_type** : decoder attention mask type
+        - **pre_process** : when using pipeline parallel, indicate whether it's the first stage
+        - **post_process** : when using pipeline parallel, indicate whether it's the last stage
+    """
+    language_model = TransformerLanguageModel(
+        config=config,
+        encoder_attn_mask_type=encoder_attn_mask_type,
+        num_tokentypes=num_tokentypes,
+        add_encoder=add_encoder,
+        add_decoder=add_decoder,
+        decoder_attn_mask_type=decoder_attn_mask_type,
+        add_pooler=add_pooler,
+        pre_process=pre_process,
+        post_process=post_process
+    )
+    language_model_key = 'language_model'
+    return language_model, language_model_key

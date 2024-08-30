@@ -82,6 +82,10 @@ def get_optimizer(optimizer_config, params=None, network=None, return_instance: 
     optimizer_kwargs["learning_rate"] = learning_rate
     optimizer_kwargs["weight_decay"] = weight_decay
     optimizer_kwargs["params"] = params
+    if "grad_allreduce_op" in kwargs:
+        if optimizer_config.parallel_config.zero_level is not None:
+            optimizer_kwargs["grad_allreduce_op"] = kwargs["grad_allreduce_op"]
+        kwargs.pop("grad_allreduce_op", None)
     if optimizer_config.parallel_config.zero_level is not None:
         if network is None:
             raise ValueError("Network must be provided when get ZeRO optimizer instance.")
