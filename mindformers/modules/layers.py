@@ -40,7 +40,7 @@ try:
     from mindspore._checkparam import Validator
 except ImportError:
     import mindspore._checkparam as Validator
-from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore.parallel._utils import _get_parallel_mode
 from mindspore.context import ParallelMode
 
 from mindformers.tools.logger import logger
@@ -471,8 +471,10 @@ class Linear(Cell):
             self.expert_flag = False
             self.weight = Parameter(initializer(weight_init, weight_shape, param_init_type), name="weight")
             self.matmul = P.MatMul(transpose_b=transpose_b)
-        self.use_expert_group_size = _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) \
-                                     and not _is_sharding_propagation() and self.expert_flag is True
+        self.use_expert_group_size = _get_parallel_mode() not in (ParallelMode.STAND_ALONE,
+                                                                  ParallelMode.AUTO_PARALLEL,
+                                                                  ParallelMode.SEMI_AUTO_PARALLEL) \
+                                     and self.expert_flag is True
         if self.use_expert_group_size is True and self.expert_group_size is None:
             raise ValueError("'expert_group_size' should be configured as an integer in MoEConfig.")
         self.bias = None
