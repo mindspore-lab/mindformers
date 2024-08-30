@@ -113,7 +113,7 @@ def get_default_dict_for_optimizer(optimizer, model_sharded_state_dict):
             optim_name = optim_param.name
             if optim_name.endswith(model_name) and optim_name != model_name:
                 state_dict[optim_name] = {'shape': model_param.shape, 'shard': tuple(shard),
-                                          'opt_weight_shard_step': 0, 'opt_weight_shard_size': -1}
+                                          'opt_weight_shard_step': 0, 'opt_weight_shard_size': 0}
     return state_dict
 
 
@@ -195,7 +195,7 @@ def save_strategy_file(state_dict, strategy_file_name):
         opt_weight_shard_step = item["opt_weight_shard_step"] \
             if "opt_weight_shard_step" in item.keys() else 0
         opt_weight_shard_size = item["opt_weight_shard_size"] \
-            if "opt_weight_shard_size" in item.keys() else -1
+            if "opt_weight_shard_size" in item.keys() else 0
         strategy_item = stra.parallel_strategy_item.add()
         strategy_item.node_name = name
         parallel_strategys = strategy_item.parallel_strategys

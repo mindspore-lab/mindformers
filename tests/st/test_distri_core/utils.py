@@ -26,8 +26,7 @@ from mindspore import Tensor
 from mindspore.nn import DistributedGradReducer
 from mindspore.communication import get_rank
 
-from mindformers.experimental.distri_cores.checkpointing import save_pre_process, get_checkpoint_name
-from mindformers.experimental.distri_cores.utils import generate_state_dict, save_strategy_file
+from mindformers.experimental.distri_cores.checkpointing import save_checkpoint
 from mindformers.experimental.distri_cores.create_comm import (
     get_dp_group,
     get_dp_world_size,
@@ -380,11 +379,7 @@ def transform_transformerlayer_params(params, hidden_size, kv_hidden_size=None, 
 
 def _transform_ckpt_helper(config, model, optimizer, src_ckpt_path, dst_ckpt_path, ckpt_prefix="network", timeout=15):
     """ helper function for transform ckpt """
-    shard_info = generate_state_dict(model, optimizer)
-    shard_info, _ = save_pre_process(shard_info, model, optimizer, config)
-
-    _, dst_strategy_file = get_checkpoint_name(dst_ckpt_path)
-    save_strategy_file(shard_info, dst_strategy_file)
+    save_checkpoint(config, model, optimizer, dst_ckpt_path, only_save_strategy=True)
     time.sleep(5)
     if get_rank() == 0:
         src_merged_strategy_file = dst_ckpt_path + "/src_merged_strategy.ckpt"
