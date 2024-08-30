@@ -46,6 +46,7 @@ from mindformers.experimental.distri_cores.transformer.rotary_pos_embedding impo
 from mindformers.experimental.distri_cores.transformer.scale_mask_softmax import (
     ScaleMaskSoftmax,
 )
+from mindformers.experimental.distri_cores.transformer.moe.moe_layer import MoELayer
 from mindformers.experimental.distri_cores.transformer.norm import get_norm
 from mindformers.experimental.distri_cores.transformer.utils import get_attn_mask_func
 from mindformers.experimental.distri_cores.recompute import CheckpointedRecomputeOrientedCell
@@ -575,10 +576,14 @@ class ParallelTransformerLayer(Module):
         self.post_attention_norm = get_norm(config)
 
         # MLP
-        mlp_config = copy.deepcopy(config)
-        if use_lora:
-            mlp_config.update_lora_config('mlp')
-        self.mlp = ParallelMLP(mlp_config)
+        if self.config.moe_config is not None and self.config.moe_config.num_experts > 1:
+            moe_config = copy.deepcopy(config)
+            self.mlp = MoELayer(moe_config)
+        else:
+            mlp_config = copy.deepcopy(config)
+            if use_lora:
+                mlp_config.update_lora_config('mlp')
+            self.mlp = ParallelMLP(mlp_config)
 
         self.hidden_states_dropout = mint.nn.Dropout(p=self.config.hidden_dropout_rate)
 

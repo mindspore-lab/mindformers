@@ -214,6 +214,7 @@ def get_model(model_provider_func, parallel_config):
                 post_process = is_pipeline_last_stage()
                 this_model = model_provider_func(pre_process=pre_process,
                                                  post_process=post_process)
+                rename_hidden_states_parameter(this_model, i)
                 model.append(PipelineCell(this_model, model_customize_staged=True))
         else:
             pre_process = is_pipeline_first_stage()
@@ -469,12 +470,6 @@ class TrainOneStepCell(nn.Cell):
         self.forward_backward_func = get_forward_backward_func(
             network_with_loss, network_with_loss.trainable_params(), training_config, model_config
         )
-
-        # get pp size to adjust scale_sense
-        self.pp_size = get_pp_world_size()
-        if self.pp_size > 1 and isinstance(self.network_with_loss, nn.CellList):
-            for i in range(len(self.network_with_loss)):
-                rename_hidden_states_parameter(self.network_with_loss[i], i)
 
     def unscale_and_clip_grads(self, grads, loss_scale=None):
         """Handle grads with scaling and clipping.

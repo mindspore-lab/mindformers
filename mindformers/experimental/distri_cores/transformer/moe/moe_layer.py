@@ -14,7 +14,7 @@
 # ============================================================================
 """moe layer"""
 from mindformers.experimental.distri_cores.config import TransformerConfig
-from mindformers.experimental.distri_cores.create_comm import get_ep_rank, get_ep_world_size
+from mindformers.experimental.distri_cores.create_comm import get_ep_rank, get_ep_world_size, get_tp_world_size
 from mindformers.experimental.distri_cores.transformer.module import Module
 
 import mindspore as ms
@@ -44,7 +44,6 @@ class MoELayer(Module):
         num_experts = moe_config.num_experts
         rank_id = get_ep_rank()
 
-        self.tp = config.parallel_config.tensor_parallel
         self.sp = config.parallel_config.use_sequence_parallel
 
         if ep_world_size <= 0:
@@ -78,7 +77,7 @@ class MoELayer(Module):
 
     def construct(self, hidden_states: ms.Tensor):
         """moe layer forward"""
-        if self.training and self.tp > 1 and not self.sp:
+        if self.training and get_tp_world_size() > 1 and not self.sp:
             raise ValueError(
                 "During training, if tensor parallelism > 1 and not use sequence parallelism, "
                 "would result in low performance in MoE."
