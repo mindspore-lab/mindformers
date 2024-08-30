@@ -642,7 +642,7 @@ class LlamaEmbedding(nn.Cell):
         self.gather = ops.Gather()
 
     def construct(self, input_ids):
-        output = self.gather(self.weight, input_ids, 0)
+        output = self.gather(self.embedding_weight, input_ids, 0)
         return output
 
 
