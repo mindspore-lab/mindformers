@@ -27,6 +27,11 @@ from .base_dataloader import BaseDataLoader
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
 class CommonDataLoader(BaseDataLoader):
     """Common Dataloader"""
+    _support_parameters = ["path", "name", "data_dir", "data_files", "split", "cache_dir", "features",
+                           "download_config", "download_mode", "verification_mode", "ignore_verifications",
+                           "keep_in_memory", "save_infos", "revision", "token", "use_auth_token", "task",
+                           "streaming", "num_proc", "storage_options", "trust_remote_code"]
+
     # pylint: disable=W0102
     def __new__(cls,
                 num_shards: Optional[int] = None,
@@ -42,7 +47,9 @@ class CommonDataLoader(BaseDataLoader):
         if "split" not in kwargs:
             kwargs["split"] = "train"
 
-        dataset = cls.load_dataset(path, **kwargs)
+        kwargs = cls._filter_params(kwargs=kwargs)
+
+        dataset = cls.load_dataset(path=path, **kwargs)
 
         if handler:  # data preprocess
             data_handler = build_data_handler(handler)
@@ -55,6 +62,17 @@ class CommonDataLoader(BaseDataLoader):
                                         )
 
         return dataset
+
+    @classmethod
+    def _filter_params(cls, kwargs):
+        result = {}
+        for key in kwargs:
+            if key not in cls._support_parameters:
+                logger.info(f"dataset load_dataset not support params: {key}")
+                continue
+            result[key] = kwargs[key]
+        return result
+
 
 def ms_adaptor_execution():
     """ms adaptor execution"""

@@ -269,7 +269,7 @@ class CausalLanguageModelDataset(BaseDataset):
     @classmethod
     def _process_raw_text_data(cls, dataset_config):
         """Process the text data"""
-        dataset_dir = dataset_config.data_loader.pop("dataset_dir")
+        dataset_dir = dataset_config.data_loader.pop("dataset_dir", None)
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_dir': dataset_dir,
                                                       'num_shards': dataset_config.device_num,

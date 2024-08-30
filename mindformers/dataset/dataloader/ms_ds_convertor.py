@@ -115,14 +115,12 @@ def to_ms_dataset(
             raise ValueError("List of columns contains duplicates.")
     else:
         columns = []
-    print(f"columns =  {columns}")
     if self.format["type"] not in ["custom", "numpy"]:
-        print(f"self.format  {self.format['type']}")
         dataset = self.with_format("numpy")
     else:
         dataset = self
 
-    output_signature = get_ms_output_signature(dataset)
+    output_signature, _ = get_ms_output_signature(dataset)
 
     if "labels" in output_signature:
         if ("label_ids" in columns or "label" in columns) and "labels" not in columns:
