@@ -1042,11 +1042,83 @@ def _check_llama3_scaling_factor(scaling_factor, max_position_embedding):
             f"{original_max_position_embeddings} and max_position_embeddings={max_position_embedding}"
         )
 
+def _check_yarn_scaling_factor(scaling_factor, max_position_embedding):
+    """check YARN scaling factor"""
+    if scaling_factor is None or not isinstance(scaling_factor, dict):
+        raise ValueError(f"`scaling_factor` must be a dict for {SeqExtendMethod.YARN.value} rope extend method,"
+                         f" but got {scaling_factor}")
+
+    required_keys = {"factor", "original_max_position_embeddings", "beta_slow", "beta_fast",
+                     "mscale", "mscale_all_dim"}
+    received_keys = set(scaling_factor.keys())
+
+    missing_keys = required_keys - received_keys
+    if missing_keys:
+        raise KeyError(f"Missing required keys in `scaling_factor` for 'extend_method' YARN': {missing_keys}")
+    unused_keys = received_keys - received_keys
+    if unused_keys:
+        raise KeyError(f"Unrecognized keys in `scaling_factor` for 'extend_method' YARN': {unused_keys}")
+
+    factor = scaling_factor["factor"]
+    if factor is None or not isinstance(factor, float) or factor < 1.0:
+        raise ValueError(f"`scaling_factor`'s factor field must be a float >= 1, got {factor}")
+
+    beta_slow = scaling_factor["beta_slow"]
+    beta_fast = scaling_factor["beta_fast"]
+    if beta_slow is None or not isinstance(beta_slow, float):
+        raise ValueError(f"`scaling_factor`'s beta_slow field must be a float, got {beta_slow}")
+    if beta_fast is None or not isinstance(beta_fast, float):
+        raise ValueError(f"`scaling_factor`'s beta_fast field must be a float, got {beta_fast}")
+    if beta_fast < beta_slow:
+        raise ValueError(
+            "`scaling_factor`'s beta_fast field must be greater than beta_slow, got beta_fast="
+            f"{beta_fast} and beta_slow={beta_slow}"
+        )
+
+    original_max_position_embeddings = scaling_factor["original_max_position_embeddings"]
+    if original_max_position_embeddings is None or not isinstance(original_max_position_embeddings, int):
+        raise ValueError(
+            "`scaling_factor`'s original_max_position_embeddings field must be an integer, got "
+            f"{original_max_position_embeddings}"
+        )
+    if original_max_position_embeddings >= max_position_embedding:
+        raise ValueError(
+            "`scaling_factor`'s original_max_position_embeddings field must be less than max_position_embeddings, got "
+            f"{original_max_position_embeddings} and max_position_embeddings={max_position_embedding}"
+        )
+
+def _yarn_find_correction_dim(num_rotations, dim, base=10000, max_position_embeddings=2048):
+    """Inverse dim formula to find dim based on number of rotations"""
+    return (dim * math.log(max_position_embeddings / (num_rotations * 2 * math.pi))) / (2 * math.log(base))
+
+def _yarn_find_correction_range(low_rot, high_rot, dim, base=10000, max_position_embeddings=2048):
+    """Find dim range bounds based on rotations"""
+    low = math.floor(
+        _yarn_find_correction_dim(low_rot, dim, base, max_position_embeddings)
+    )
+    high = math.ceil(
+        _yarn_find_correction_dim(high_rot, dim, base, max_position_embeddings)
+    )
+    return max(low, 0), min(high, dim - 1)  # Clamp values just in case
+
+def _yarn_get_mscale(scale=1, mscale=1):
+    if scale <= 1:
+        return 1.0
+    return 0.1 * mscale * math.log(scale) + 1.0
+
+def _yarn_linear_ramp_mask(min_, max_, dim):
+    if min_ == max_:
+        max_ += 0.001  # Prevent singularity
+
+    linear_func = (np.arange(dim, dtype=np.float32) - min_) / (max_ - min_)
+    ramp_func = np.clip(linear_func, 0, 1, out=None)
+    return ramp_func
 
 class SeqExtendMethod(Enum):
     """Stores the acceptable string identifiers for seq length extend method"""
     PI = "PI"
     NTK = "NTK"
+    YARN = "YARN"
     NONE = "None"
     LLAMA3 = "LLAMA3"
 
@@ -1070,6 +1142,30 @@ class FreqsMgr(Cell):
             theta *= scaling_factor
         freqs_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32)  # (head_dim // 2, )
         freqs = 1.0 / (theta ** (freqs_base / head_dim))  # (head_dim // 2, )
+        mscale = 1.0
+
+        if extend_method == SeqExtendMethod.YARN.value:
+            _check_yarn_scaling_factor(scaling_factor, max_position_embedding)
+            factor = scaling_factor["factor"]
+            beta_fast = scaling_factor["beta_fast"]
+            beta_slow = scaling_factor["beta_slow"]
+            base = theta
+            original_max_position_embeddings = scaling_factor["original_max_position_embeddings"]
+            mscale_all_dim = scaling_factor["mscale_all_dim"]
+            mscale_ = scaling_factor["mscale"]
+
+            internal_freq_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32)
+            internal_freq = 1.0 / (factor * theta ** (internal_freq_base / head_dim))
+
+            extra_freq_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32)
+            extra_freq = 1.0 / (theta ** (extra_freq_base / head_dim))
+
+            low, high = _yarn_find_correction_range(beta_fast, beta_slow, head_dim, base,
+                                                    original_max_position_embeddings)
+            inv_freq_mask = 1.0 - _yarn_linear_ramp_mask(low, high, head_dim // 2)
+            freqs = internal_freq * (1 - inv_freq_mask) + extra_freq * inv_freq_mask
+            mscale = float(_yarn_get_mscale(factor, mscale_)
+                           / _yarn_get_mscale(factor, mscale_all_dim))
 
         if extend_method == SeqExtendMethod.LLAMA3.value:
             _check_llama3_scaling_factor(scaling_factor, max_position_embedding)
@@ -1105,10 +1201,11 @@ class FreqsMgr(Cell):
             t = np.arange(0, max_position_embedding / scaling_factor, 1 / scaling_factor).astype(np.float32)
         else:
             t = np.arange(0, max_position_embedding, 1).astype(np.float32)
+
         freqs = np.outer(t, freqs)  # (max_position_embedding, head_dim // 2)
         emb = np.concatenate((freqs, freqs), axis=-1)
-        freqs_cos = np.cos(emb)  # (seq_len, head_dim)
-        freqs_sin = np.sin(emb)  # (seq_len, head_dim)
+        freqs_cos = np.cos(emb) * mscale  # (seq_len, head_dim)
+        freqs_sin = np.sin(emb) * mscale # (seq_len, head_dim)
         swap_mask = FreqsMgr.get_swap_mask(head_dim)
 
         if parallel_config is not None and parallel_config.context_parallel > 1:
