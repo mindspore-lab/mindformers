@@ -225,9 +225,25 @@ def _check_env(config):
             logger.warning(f"ENABLE_LAZY_INLINE must be set in environment when use fine_grain_interleave"
                            f" (export ENABLE_LAZY_INLINE=1)")
 
+
+def _rule_recompute(pp, recompute, key):
+    if isinstance(recompute, list) and len(recompute) > pp:
+        if all(isinstance(n, int) for n in recompute):
+            raise ValueError(f"length of {key} should be equal or less than pipeline_stage number, but get "
+                             f"length of {key} ({recompute}) more than pp({pp})")
+
+
+def _check_recompute(config):
+    pp = config.parallel_config.pipeline_stage
+    _rule_recompute(pp, config.recompute_config.recompute, "recompute")
+    _rule_recompute(pp, config.recompute_config.select_recompute, "select_recompute")
+    _rule_recompute(pp, config.recompute_config.select_comm_recompute, "select_comm_recompute")
+
+
 def check_rules(config, mode='train', **kwargs):
     """check rules"""
     _check_mode(config, mode, **kwargs)
     _check_full_batch()
     _check_parallel(config)
     _check_env(config)
+    _check_recompute(config)
