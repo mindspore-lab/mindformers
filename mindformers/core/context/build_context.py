@@ -323,7 +323,8 @@ def init_context(use_parallel=False, context_config=None, parallel_config=None):
         'context': context_config,
         'parallel': parallel_config
     }
-    build_context(config)
+    ctx = build_context(config)
+    return ctx.config.local_rank, ctx.config.device_num
 
 
 def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
@@ -343,7 +344,12 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
     config['context'] = MindFormerConfig(**{**CONTEXT, **config['context']})
     config['parallel'] = MindFormerConfig(**{**PARALLEL, **config['parallel']})
     config['parallel_config'] = config.parallel_config if config.get('parallel_config', None) else MindFormerConfig()
-    config = MindFormerConfig(**{**MF_CONFIG, **config})
+    if isinstance(config, MindFormerConfig):
+        for k, v in MF_CONFIG.items():
+            if k not in config:
+                config[k] = v
+    else:
+        config = MindFormerConfig(**{**MF_CONFIG, **config})
 
     ctx = _context(config)
     return ctx
