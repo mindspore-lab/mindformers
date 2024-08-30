@@ -63,6 +63,11 @@ def register_auto_class(config, pretrained_model_name_or_path, class_type, use_f
             model_class = get_class_from_dynamic_module(class_ref, pretrained_model_name_or_path)
             MindFormerRegister.register_cls(model_class, module_type=MindFormerModuleType.MODELS)
 
+        if class_type == "AutoProcessor" and \
+            config.model.arch.type not in MindFormerRegister.registry[MindFormerModuleType.PROCESSOR]:
+            class_ref = class_auto[class_type]
+            processor_class = get_class_from_dynamic_module(class_ref, pretrained_model_name_or_path)
+            MindFormerRegister.register_cls(processor_class, module_type=MindFormerModuleType.PROCESSOR)
 
 def get_model(model_name_or_path: str,
               revision: Optional[str] = None,
