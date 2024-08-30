@@ -22,6 +22,8 @@ import copy
 import numpy as np
 
 from mindspore.mindrecord import FileWriter
+
+from mindformers.tools import logger
 from wizardcoder_tokenizer import WizardCoderTokenizer
 
 
@@ -134,16 +136,30 @@ class SupervisedDataset:
             labels=self.labels[i]
         )
 
-
+# pylint: disable=W0703
 def tokenize_qa(tokenizer, file_path, max_length, if_jsonl=True):
     """json or jsonl Dataset handling function"""
-
-    if not if_jsonl:
-        raw_data = json.load(open(file_path, "r"))
-    else:
-        raw_data = []
-        for line in open(file_path, 'r'):
-            raw_data.append(json.loads(line))
+    file = None
+    raw_data = None
+    try:
+        if not if_jsonl:
+            file = open(file_path, "r")
+            raw_data = json.load(file)
+        else:
+            raw_data = []
+            for line in open(file_path, 'r'):
+                raw_data.append(json.loads(line))
+    except FileNotFoundError as file_not_found_error:
+        logger.error(file_not_found_error)
+    except UnicodeDecodeError as decode_error:
+        logger.error(decode_error)
+    except IOError as io_error:
+        logger.error(io_error)
+    except Exception as exception:
+        logger.error(exception)
+    finally:
+        if file is not None:
+            file.close()
     dataset_cls = SupervisedDataset(raw_data, tokenizer, max_length)
     for i in range(len(dataset_cls)):
         yield dataset_cls[i]

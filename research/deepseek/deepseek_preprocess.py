@@ -23,6 +23,7 @@ import numpy as np
 
 from mindspore.mindrecord import FileWriter
 
+from mindformers.tools import logger
 from mindformers.models import build_tokenizer
 
 IGNORE_TOKEN_ID = -100
@@ -163,9 +164,25 @@ def tokenize_wiki(tokenizer, file_path, seq_length, repeat):
             sample['input_ids'] = np.array(chunk, dtype=np.int32)
             yield sample
 
-
+# pylint: disable=C0111
+# pylint: disable=W0703
 def tokenize_qa(tokenizer, file_path, seq_length):
-    raw_data = json.load(open(file_path, "r", encoding='utf-8'))
+    file = None
+    raw_data = None
+    try:
+        file = open(file_path, "r", encoding='utf-8')
+        raw_data = json.load(file)
+    except FileNotFoundError as file_not_found_error:
+        logger.error(file_not_found_error)
+    except UnicodeDecodeError as decode_error:
+        logger.error(decode_error)
+    except IOError as io_error:
+        logger.error(io_error)
+    except Exception as exception:
+        logger.error(exception)
+    finally:
+        if file is not None:
+            file.close()
     dataset_cls = SupervisedDataset(raw_data, tokenizer, seq_length)
     for i in range(len(dataset_cls)):
         yield dataset_cls[i]

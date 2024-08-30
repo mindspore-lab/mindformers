@@ -473,7 +473,8 @@ class DropPath(nn.Cell):
 
     def construct(self, x):
         """DropPath Forward."""
-        if self.drop_prob == 0. or not self.training:
+        epsilon = 1e-15
+        if abs(self.drop_prob - 0.) < epsilon or not self.training:
             return x
         shape = (x.shape[0],) + (1,) * (x.ndim - 1)  # work with diff dim tensors, not just 2D ConvNets
         random_tensor = self.tile(self.init_tensor, shape)

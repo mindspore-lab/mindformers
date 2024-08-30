@@ -98,24 +98,24 @@ def main(config_path, load_checkpoint):
 
 def process_response(output, history):
     """process predict results."""
-    content = ""
+    content_dict = None
     history = deepcopy(history)
     for response in output.split("<|assistant|>"):
         metadata, content = response.split("\n", maxsplit=1)
         if not metadata.strip():
             content = content.strip()
             history.append({"role": "assistant", "metadata": metadata, "content": content})
-            content = content.replace("[[训练时间]]", "2023年")
+            content_dict = content.replace("[[训练时间]]", "2023年")
         else:
             history.append({"role": "assistant", "metadata": metadata, "content": content})
             if history[0]["role"] == "system" and "tools" in history[0]:
                 content = "\n".join(content.split("\n")[1:-1])
                 # pylint: disable=eval-used
                 parameters = eval(content)
-                content = {"name": metadata.strip(), "parameters": parameters}
+                content_dict = {"name": metadata.strip(), "parameters": parameters}
             else:
-                content = {"name": metadata.strip(), "content": content}
-    return content, history
+                content_dict = {"name": metadata.strip(), "content": content}
+    return content_dict, history
 
 
 def multi_role_predict(config_path, load_checkpoint):

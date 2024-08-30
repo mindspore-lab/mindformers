@@ -91,10 +91,10 @@ def pyplot_show(str_layer, layer_capital, layer_data, save_path_prefix):
         layer_data_list.append(ki)
         str_expert = 'expert-' + str(i)
         str_expert_list.append(str_expert)
-    layer_data_list = tuple(layer_data_list)
+    layer_data_tuple = tuple(layer_data_list)
     fig = plt.figure(figsize=(10, 4), dpi=500)
     ax = fig.add_subplot(1, 1, 1)
-    plt.stackplot(x, layer_data_list, labels=str_expert_list)
+    plt.stackplot(x, layer_data_tuple, labels=str_expert_list)
     # Horizontal coordinate name
     plt.xlabel("num of step")
     # Vertical coordinate name

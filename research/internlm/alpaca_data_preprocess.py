@@ -22,9 +22,9 @@ import os
 import numpy as np
 
 from mindspore.mindrecord import FileWriter
+from mindformers.tools import logger
 
 from internlm_tokenizer import InternLMTokenizer
-
 
 IGNORE_TOKEN_ID = -100
 
@@ -118,9 +118,25 @@ class SupervisedDataset:
             labels=self.labels[i]
         )
 
-
+# pylint: disable=C0111
+# pylint: disable=W0703
 def tokenize_qa(tokenizer, file_path, seq_length):
-    raw_data = json.load(open(file_path, "r"))
+    file = None
+    raw_data = None
+    try:
+        file = open(file_path, "r")
+        raw_data = json.load(file)
+    except FileNotFoundError as file_not_found_error:
+        logger.error(file_not_found_error)
+    except UnicodeDecodeError as decode_error:
+        logger.error(decode_error)
+    except IOError as io_error:
+        logger.error(io_error)
+    except Exception as exception:
+        logger.error(exception)
+    finally:
+        if file is not None:
+            file.close()
     dataset_cls = SupervisedDataset(raw_data, tokenizer, seq_length)
     for i in range(len(dataset_cls)):
         yield dataset_cls[i]

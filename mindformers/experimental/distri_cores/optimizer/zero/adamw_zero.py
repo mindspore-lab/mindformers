@@ -429,8 +429,10 @@ class AdamW(Optimizer):
             if self._status_splited[i]:
                 param_shape = list(param_shape)
                 param_shape[0] = param_shape[0] // self.shard_size
-                param_shape = tuple(param_shape)
-            moment = ms.Parameter(initializer(init, shape=param_shape, dtype=mstype.float32),
+                param_shape_ = tuple(param_shape)
+            else:
+                param_shape_ = param_shape
+            moment = ms.Parameter(initializer(init, shape=param_shape_, dtype=mstype.float32),
                                   name=prefix + "." + param.name)
             moments_list.append(moment)
 

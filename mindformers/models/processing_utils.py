@@ -132,8 +132,8 @@ class ProcessorMixin(PushToHubMixin):
 
     def __repr__(self):
         attributes_repr = [f"- {name}: {repr(getattr(self, name))}" for name in self.attributes]
-        attributes_repr = "\n".join(attributes_repr)
-        return f"{self.__class__.__name__}:\n{attributes_repr}"
+        attributes_repr_str = "\n".join(attributes_repr)
+        return f"{self.__class__.__name__}:\n{attributes_repr_str}"
 
     @classmethod
     def from_pretrained(cls, yaml_name_or_path, **kwargs):

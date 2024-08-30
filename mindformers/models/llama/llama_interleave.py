@@ -595,13 +595,13 @@ class LLamaDecodeLayerInterleave(nn.Cell):
             self.interleave1_inputs.append(interleave_data1)
             self.interleave1_inputs_.append(interleave_data1_)
             self.interleave2_inputs.append(interleave_data2)
-        concat_stra1 = tuple(concat_stra1)
-        concat_stra2 = tuple(concat_stra2)
-        self.interleaved_concat1.shard(concat_stra1)
+        concat_stra3 = tuple(concat_stra1)
+        concat_stra4 = tuple(concat_stra2)
+        self.interleaved_concat1.shard(concat_stra3)
         self.interleaved_concat1.add_prim_attr("skip_redistribution", True)
-        self.interleaved_concat_1.shard(concat_stra1)
+        self.interleaved_concat_1.shard(concat_stra3)
         self.interleaved_concat_1.add_prim_attr("skip_redistribution", True)
-        self.interleaved_concat2.shard(concat_stra2)
+        self.interleaved_concat2.shard(concat_stra4)
         self.interleaved_concat2.add_prim_attr("skip_redistribution", True)
 
     def linear_layer1(self, x):

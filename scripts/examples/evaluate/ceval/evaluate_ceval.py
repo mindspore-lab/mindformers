@@ -242,7 +242,8 @@ def cal_ceval(res):
             print("%s acc: %.2f " % (k, acc_sum_dict[k] / cnt_dict[k]))
     if hard_cnt > 0:
         print("Hard acc:%.2f " % (hard_acc_sum / hard_cnt))
-    print("AVERAGE acc:%.2f " % (acc_sum / cnt))
+    if cnt != 0:
+        print("AVERAGE acc:%.2f " % (acc_sum / cnt))
 
 
 TASK_NAME_MAPPING = {

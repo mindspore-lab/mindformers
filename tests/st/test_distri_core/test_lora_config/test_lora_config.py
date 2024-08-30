@@ -100,9 +100,8 @@ def test_init_lora_configs():
                      "'not_a_valid_model_name'.")
 
     # wrong case 6:
-    target_cells = {}
     try:
-        _ = LoraConfig(use_lora=True, target_cells=target_cells)
+        _ = LoraConfig(use_lora=True, target_cells={})
     except TypeError as err:
         assert str(err) == "The type of 'target_cells' should be 'list', but got type 'dict'."
 

@@ -199,9 +199,8 @@ class SQuADMetric(nn.Metric):
                         self._f1_score, prediction, ground_truths)
 
         exact_match = 100.0 * exact_match / total
-        f1 = 100.0 * f1 / total
         self._remove_temp_data()
-        return {'exact_match': exact_match, 'f1': f1}
+        return {'exact_match': exact_match, 'f1': 100.0 * f1 / total}
 
     def _remove_temp_data(self):
         shutil.rmtree(self.temp_file_dir)
@@ -582,12 +581,12 @@ class ADGENMetric(nn.Metric):
                   f"label is:\n {label}")
             hypothesis = list(jieba.cut(pred))
             reference = list(jieba.cut(label))
+            hypothesis_str = ' '.join(hypothesis)
+            reference_str = ' '.join(reference)
             rouge = Rouge()
-            hypothesis = ' '.join(hypothesis)
-            reference = ' '.join(reference)
-            if hypothesis.strip() == "":
+            if hypothesis_str.strip() == "":
                 continue
-            scores = rouge.get_scores(hypothesis, reference)
+            scores = rouge.get_scores(hypothesis_str, reference_str)
             result = scores[0]
 
             for k, v in result.items():

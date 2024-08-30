@@ -8,6 +8,8 @@ import json
 
 import pathlib
 
+from mindformers.tools import logger
+
 # Prompt from stanford alpaca's training script
 
 PROMPT_DICT = {
@@ -25,7 +27,7 @@ PROMPT_DICT = {
 
 }
 
-
+# pylint: disable=W0703
 def main(args_param):
     data_path = pathlib.Path(args_param.data_path)
     with data_path.open() as f:
@@ -66,8 +68,21 @@ def main(args_param):
         )
 
         cnt += 1
-
-    json.dump(new_data, open(args_param.output_path, "w"), ensure_ascii=False, indent=2)
+    file = None
+    try:
+        file = open(args_param.output_path, "w")
+        json.dump(new_data, file, ensure_ascii=False, indent=2)
+    except FileNotFoundError as file_not_found_error:
+        logger.error(file_not_found_error)
+    except UnicodeDecodeError as decode_error:
+        logger.error(decode_error)
+    except IOError as io_error:
+        logger.error(io_error)
+    except Exception as exception:
+        logger.error(exception)
+    finally:
+        if file is not None:
+            file.close()
 
 if __name__ == "__main__":
 

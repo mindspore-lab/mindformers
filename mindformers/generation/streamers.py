@@ -278,5 +278,5 @@ class TextIteratorStreamer(TextStreamer):
     def __next__(self):
         value = self.text_queue.get(timeout=self.timeout)
         if value == self.stop_signal:
-            raise StopIteration()
+            return None
         return value
