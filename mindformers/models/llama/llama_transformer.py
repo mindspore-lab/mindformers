@@ -421,8 +421,8 @@ class LLamaAttention(nn.Cell):
         Returns:
             Tensor: qkv tensor after all to all commu.
         """
-        bs, seq_len, _, _ = F.shape(qkv)
-        new_shape = (bs, seq_len, self.n_head // self.cp_ds, self.cp_ds, -1)
+        bs, seq_len, head_num, hidden_size = F.shape(qkv)
+        new_shape = (bs, seq_len, head_num // self.cp_ds, self.cp_ds, hidden_size)
         # [bs, seq_len, n_head, head_dim] -> [bs, seq_len, n_head/cp_ds, cp_ds, head_dim]
         qkv = self.reshape(qkv, new_shape)
         # [bs, seq_len, n_head/cp_ds, cp_ds, head_dim] -> [bs, seq_len, cp_ds, n_head/cp_ds, head_dim]
