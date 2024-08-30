@@ -281,11 +281,39 @@ class LlamaModel(LlamaPreTrainedModel):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class LlamaForCausalLM(LlamaPreTrainedModel):
-    """Provide llama training loss or logits through network.
+    r"""Provide llama training loss or logits through network.
+
         Args:
-            config (LlamaConfig): The config of llama model.
-        Returns:
-            output: Tensor, the output of llama decoderlayer
+            config (LlamaConfig): The config of llama model. Default: `None` .
+
+        Inputs:
+            input_ids (Tensor) – the indices of input sequence tokens in the vocabulary with data type Int64/Int32,
+                Tensor of shape :math: `(batch, seq\_length)`.
+            labels (Tensor, optional) – the labels of inputs with data type Int64/Int32, Tensor of
+                shape :math: `(batch, seq\_length)` . Default: ``None`` .
+            input_position (Tensor, optional) – the position ids of inputs (at incremental reasoning mode) which is
+                an increasing sequence with data type Int64/Int32, Tensor :math:`(batch, seq\_length)`.
+                Default: ``None`` .
+            position_ids (Tensor, optional) – the position ids of inputs which is an increasing sequence with data type
+                Int64/Int32, Tensor :math:`(batch, seq\_length)`. Default: ``None`` .
+            attention_mask (Tensor, optional) – input sentences padding mask, where 0 indicates padding position with
+                data type Int64/Int32, Tensor of shape :math:`(batch, seq\_length)`. Default: ``None`` .
+            input_embeds (Tensor, optional) – the embedding of inputs with data type Float32/Float16, Tensor of
+                shape :math:`(batch, seq\_length, hidden_size). Default: ``None`` .
+            init_reset (bool, optional) – A Bool tensor with shape [1], used to clear the past key parameter and
+                past value parameter used in the incremental prediction. Only valid when use_past is True.
+                Tensor of shape :math:`(1)`. Default: ``Tensor([True])`` .
+            batch_valid_length (Tensor, optional) – Int32 tensor with shape [batch_size] the past calculated the index.
+                Used for incremental prediction when the use_past is True. Default: ``None`` .
+            block_tables (Tensor, optional) – Int64 type Tensor, Store mapping tables for each sequence.
+                Default: ``None`` .
+            slot_mapping (Tensor, optional) – Int32 type Tensor, token cache physical slot index. Default:``None`` .
+
+        Outputs:
+            Tensor. If it is in training mode, the output Tensor contains loss;
+            If it is in prediction mode, the output Tensor contains logits;
+            If it is in evaluation mode, the output Tensor contains logits, tokens, and input masks.
+
         Examples:
             >>> from mindformers.models.llama import LlamaConfig, LlamaForCausalLM
             >>> config = LlamaConfig(batch_size=2)
@@ -473,7 +501,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             q_seq_lens (Tensor[int32]): In parallel decoding, the query may be flattened. The Paged Attention operator
                 need `q_seq_lens` to obtain the length information.
         Returns:
-            Tensor: The loss or (logits, tokens, input_mask) of the network.
+            Tensor, The loss or (logits, tokens, input_mask) of the network.
         """
         if hasattr(self, 'llm_boost'):
             if not self.is_set_kvcache:

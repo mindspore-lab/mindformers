@@ -206,24 +206,17 @@ class ModuleUtilsMixin:
 
 
 class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin):
-    r"""
-    Base class for all models.
+    """
+    Base class for all models. Takes care of storing the configuration of the models and handles methods for loading,
+    downloading and saving models as well as a few methods common to all models
+    to resize the input embeddings and prune heads in the self-attention heads.
 
-    [`PreTrainedModel`] takes care of storing the configuration of the models and handles methods for loading,
-    downloading and saving models as well as a few methods common to all models to:
-
-        - resize the input embeddings,
-        - prune heads in the self-attention heads.
-
-    Class attributes (overridden by derived classes):
-
-        - **config_class** ([`PretrainedConfig`]) -- A subclass of [`PretrainedConfig`] to use as configuration class
-          for this model architecture.
-        - **base_model_prefix** (`str`) -- A string indicating the attribute associated to the base model in derived
-          classes of the same architecture adding modules on top of the base model.
-        - **is_parallelizable** (`bool`) -- A flag indicating whether this model supports model parallelization.
-        - **main_input_name** (`str`) -- The name of the principal input to the model (often `input_ids` for NLP
-          models, `pixel_values` for vision models and `input_values` for speech models).
+    Args:
+        config (PretrainedConfig): configuration class for this model architecture.
+        inputs (tuple, optional): A variable number of position parameters reserved
+            for the position parameters to be expanded.
+        kwargs (dict, optional): A variable number of keyword parameters reserved
+            for the keyword parameters to be expanded.
     """
     _support_list = []
     _model_type = 0
@@ -312,7 +305,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         Returns whether this model can generate sequences with `.generate()`.
 
         Returns:
-            `bool`: Whether this model can generate sequences with `.generate()`.
+            Boolean type, Whether this model can generate sequences with `.generate()`.
         """
         # Detects whether `prepare_inputs_for_generation` has been overwritten, which is a requirement for generation.
         # Alternativelly, the model can also have a custom `generate` function.
@@ -331,11 +324,13 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         (only supports standalone mode, and distribute mode waits for developing)
 
         Args:
-            save_directory(str): a directory to save the model weight and configuration.
+            save_directory (str): A directory to save the model weight and configuration.
                 If None, the directory will be  `./checkpoint_save`, which can be obtained by the
                 `MindFormerBook.get_default_checkpoint_save_folder()`. If set, the directory will be what is set.
-            save_name(str): the name of saved files, including model weight and configuration file.
-                Default mindspore_model.
+            save_name (str): The name of saved files, including model weight and configuration file.
+                Default: ``mindspore_model`` .
+            kwargs (dict, optional): A variable number of keyword parameters reserved
+                for the keyword parameters to be expanded.
 
         Examples:
             >>> import os
@@ -761,12 +756,11 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
                 `MindFormerBook.get_model_support_list()`. If `pretrained_model_name_or_dir` is a path to the local
                 directory where there should have model weights ended with `.ckpt` and configuration file ended
                 with `yaml`.
-            pretrained_model_name_or_path (Optional[str]): Equal to "pretrained_model_name_or_dir",
-                if "pretrained_model_name_or_path" is set, "pretrained_model_name_or_dir" is useless.
-
-        Examples:
-            >>> from mindformers import LlamaForCausalLM
-            >>> net = LlamaForCausalLM.from_pretrained('llama_7b')
+            model_args (str, optional): Model extension parameters. If included "pretrained_model_name_or_path",
+                equal to "pretrained_model_name_or_dir", if "pretrained_model_name_or_path" is set,
+                "pretrained_model_name_or_dir" is useless.
+            kwargs (dict, optional): A variable number of keyword parameters reserved
+                for the keyword parameters to be expanded.
 
         Returns:
             A model, which inherited from PreTrainedModel.
@@ -1442,15 +1436,12 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         Register this class with a given auto class. This should only be used for custom models as the ones in the
         library are already mapped with an auto class.
 
-        <Tip warning={true}>
-
-        This API is experimental and may have some slight breaking changes in the next releases.
-
-        </Tip>
+        .. warning::
+            This API is experimental and may have some slight breaking changes in the next releases.
 
         Args:
-            auto_class (`str` or `type`, *optional*, defaults to `"AutoModel"`):
-                The auto class to register this new model with.
+            auto_class (Union[str, type], optional):
+                The auto class to register this new model with. Default: ``AutoModel`` .
         """
         if not isinstance(auto_class, str):
             auto_class = auto_class.__name__
