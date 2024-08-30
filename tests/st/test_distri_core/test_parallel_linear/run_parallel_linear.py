@@ -32,7 +32,7 @@ from mindformers.experimental.distri_cores.create_comm import initialize_model_p
 from mindformers.experimental.distri_cores.tensor_parallel import RowParallelLinear, \
     ColumnParallelLinear
 
-from tests.st.test_distri_core.utils import TestData, train, transform_linear_params
+from tests.st.test_distri_core.utils import LinearTestData, linear_train, transform_linear_params
 
 
 class LinearNet(nn.Cell):
@@ -129,7 +129,7 @@ def generate_golden():
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length)).astype(np.float32)
     label_data = np.zeros((dataset_size, seq_length)).astype(np.float32)
-    dataset = TestData(input_data=input_data, label_data=label_data)
+    dataset = LinearTestData(input_data=input_data, label_data=label_data)
     dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels'])
     dataset = dataset.batch(batch_size)
 
@@ -140,7 +140,7 @@ def generate_golden():
         ms.save_checkpoint(network, "linear_golden.ckpt")
     optimizer = AdamWeightDecay(params=network.get_parameters())
 
-    train(1, dataset, network, optimizer, None)
+    linear_train(1, dataset, network, optimizer, None)
 
 
 def run_rowparallellinear(train_args):
@@ -160,7 +160,7 @@ def run_rowparallellinear(train_args):
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length)).astype(np.float32)
     label_data = np.zeros((dataset_size, seq_length)).astype(np.float32)
-    dataset = TestData(input_data=input_data, label_data=label_data)
+    dataset = LinearTestData(input_data=input_data, label_data=label_data)
     dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels'])
     dataset = dataset.batch(batch_size)
 
@@ -197,7 +197,7 @@ def run_rowparallellinear(train_args):
     network.set_inputs(input_ids, labels)
     optimizer = AdamWeightDecay(params=network.get_parameters())
 
-    losses = train(1, dataset, network, optimizer, None)
+    losses = linear_train(1, dataset, network, optimizer, None)
     losses = list(map(lambda x: x[0], losses))
     golden_losses = [2.7725887, 2.7203748, 2.6545675]
     if train_args.froze:
@@ -225,7 +225,7 @@ def run_columnparallellinear(train_args):
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length)).astype(np.float32)
     label_data = np.zeros((dataset_size, seq_length)).astype(np.float32)
-    dataset = TestData(input_data=input_data, label_data=label_data)
+    dataset = LinearTestData(input_data=input_data, label_data=label_data)
     dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels'])
     dataset = dataset.batch(batch_size)
 
@@ -261,7 +261,7 @@ def run_columnparallellinear(train_args):
     network.set_inputs(input_ids, labels)
     optimizer = AdamWeightDecay(params=network.get_parameters())
 
-    losses = train(1, dataset, network, optimizer, None)
+    losses = linear_train(1, dataset, network, optimizer, None)
     losses = list(map(lambda x: x[0], losses))
     golden_losses = [2.7725887, 2.7203748, 2.6545675]
     if train_args.froze:
