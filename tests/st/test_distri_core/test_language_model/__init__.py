@@ -12,14 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"mindformers init"
-
-from .module import Module
-from .transformer import *
-from .rotary_pos_embedding import *
-from .language_model import *
-from .mlp import *
-
-__all__ = ['Module']
-__all__.extend(transformer.__all__)
-__all__.extend(mlp.__all__)
+"""ST."""

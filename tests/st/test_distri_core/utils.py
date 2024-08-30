@@ -98,22 +98,35 @@ def train(epoch_num, dataset, network, optimizer, save_ckpt_path=None, with_attn
     return all_loss
 
 
-def generate_ckpt(hidden_size, module_type, num_layers=2, kv_hidden_size=None):
+def generate_ckpt(hidden_size,
+                  module_type,
+                  num_layers=2,
+                  kv_hidden_size=None,
+                  prefix=None,
+                  vocab_size=None,
+                  use_embedding=False):
     """ generate graph mode module checkpoints """
     ms.set_seed(1024)
     if not kv_hidden_size:
         kv_hidden_size = hidden_size
-    prefix = ''
     has_layer_index = False
-    if module_type == 'transformer':
-        prefix = ''
+    if module_type == "transformer":
         has_layer_index = True
-    if module_type == 'transformerlayer':
-        prefix = 'layer.'
-    if module_type in ['attention', 'mlp']:
-        prefix = ''
+    if prefix is None:
+        prefix = ""
+        if module_type == "transformer":
+            prefix = ""
+        if module_type == "transformerlayer":
+            prefix = "layer."
+        if module_type in ["attention", "mlp"]:
+            prefix = ""
 
     param_dict = {}
+    if use_embedding:
+        param_name = 'embedding.embedding_table'
+        param_dict[param_name] = ms.Parameter(
+            Tensor(np.random.random((vocab_size, hidden_size)), mstype.float32), name=param_name
+        )
     for i in range(num_layers):
         # generate ffn_norm.weight
         param_name = prefix + '{}ffn_norm.weight'.format(str(i) + '.' if has_layer_index else '')
@@ -191,6 +204,11 @@ def transform_transformerlayer_params(params, hidden_size, kv_hidden_size=None, 
     tp_world_size = get_tp_world_size()
     new_params = {}
     for name, param in params.items():
+        if 'embedding_table' in name:
+            new_param = param
+            new_params['language_model.embedding.word_embeddings.weight'] = (
+                ms.Parameter(new_param)
+            )
         if "ffn_norm" in name:
             new_param = param
             new_params[prefix + name.replace("ffn_norm", "post_attention_norm")] = ms.Parameter(new_param)

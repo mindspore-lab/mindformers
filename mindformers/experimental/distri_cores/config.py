@@ -982,6 +982,13 @@ class TransformerConfig(BaseConfig):
         lora_config (LoraConfig): Lora config.
         moe_config (MoEConfig, optional): MoE config. Default: None.
         attention_type (str): Attention type. Default: 'self_attn'.
+        position_embedding_type (str): Position embedding type. Default: 'absolute'
+        parallel_position_embedding (bool): Apply parallel vocab embedding layer when using
+            absolute position embedding. Default: False
+        rotary_config (dict): Rotary config. Default: None
+        use_query_layer (bool): Using query layer after transformer. Default: False.
+        use_visual_encoder (bool): Using visual encoder. Default: False.
+        use_retriever (bool): Using retriever. Default: False
         use_gqa (bool): Enable group query attention. Default: False.
         kv_num_heads (int): Number of heads for key and value when using group query attention.
             Default: 32.
@@ -1000,10 +1007,14 @@ class TransformerConfig(BaseConfig):
         layernorm_epsilon (float): Epsilon of normalization. Default: 1.e-5.
         apply_residual_connection_post_norm (bool): Apply residual connection after normalization.
             Default: False.
+        use_final_norm (bool): Apply final norm after transformer. Default: True.
         residual_connection_dtype (str): Compute data type of residual connection. Default: 'float32'.
+        init_method_std (float): Init method std value. Default: 0.01
         param_init_dtype (str): Parameter initialize data type. Default: 'float32'.
+        embedding_init_dtype (str): Embedding parameter initialize data type. Default: 'float32'.
         compute_dtype (str): Compute data type of linear module. Default: 'float16'.
         softmax_compute_dtype (str): Compute data type of softmax layer. Default: 'float32'.
+        fp16_lm_cross_entropy (bool): Apply float16 when calculating cross entropy. Default: False.
         hidden_dropout_rate (float): Dropout rate for output of attention block and mlp block in transformerlayer.
             Default: 0.0.
         attention_dropout_rate (float): Dropout rate for attention socre. Default: 0.0.
@@ -1031,6 +1042,12 @@ class TransformerConfig(BaseConfig):
             lora_config: LoraConfig = LoraConfig(),
             moe_config: MoEConfig = None,
             attention_type: str = "self_attn",
+            position_embedding_type: str = 'absolute',
+            parallel_position_embedding: bool = False,
+            rotary_config: dict = None,
+            use_query_layer: bool = False,
+            use_visual_encoder: bool = False,
+            use_retriever: bool = False,
             use_gqa: bool = False,
             kv_num_heads: int = 32,
             qkv_has_bias: bool = True,
@@ -1045,14 +1062,19 @@ class TransformerConfig(BaseConfig):
             normalization: str = "LayerNorm",
             layernorm_epsilon: float = 1.0e-5,
             apply_residual_connection_post_norm: bool = False,
+            use_final_norm: bool = True,
             residual_connection_dtype: str = "float32",
+            init_method_std: float = 0.01,
             param_init_dtype: str = "float32",
+            embedding_init_dtype: str = "float32",
             compute_dtype: str = "float16",
             softmax_compute_dtype: str = "float32",
             init_method: str = 'normal',
             bias_init: str = 'zeros',
+            fp16_lm_cross_entropy: bool = False,
             hidden_dropout_rate: float = 0.0,
             attention_dropout_rate: float = 0.0,
+            out_hidden_size: int = None,
             num_experts: int = None,
             untie_embeddings_and_output_weights: bool = False,
             flatten_labels_and_input_mask: bool = True,
@@ -1063,7 +1085,6 @@ class TransformerConfig(BaseConfig):
             **kwargs,
     ):
         super(TransformerConfig, self).__init__()
-
         self.vocab_size = vocab_size
         self.num_layers = num_layers
         self.num_heads = num_heads
@@ -1074,6 +1095,12 @@ class TransformerConfig(BaseConfig):
         self.seq_length = seq_length
         self.moe_config = moe_config
         self.attention_type = attention_type
+        self.position_embedding_type = position_embedding_type
+        self.parallel_position_embedding = parallel_position_embedding
+        self.rotary_config = rotary_config
+        self.use_query_layer = use_query_layer
+        self.use_visual_encoder = use_visual_encoder
+        self.use_retriever = use_retriever
         self.use_gqa = use_gqa
         self.kv_num_heads = kv_num_heads
         self.qkv_has_bias = qkv_has_bias
@@ -1088,14 +1115,19 @@ class TransformerConfig(BaseConfig):
         self.normalization = normalization
         self.layernorm_epsilon = layernorm_epsilon
         self.apply_residual_connection_post_norm = apply_residual_connection_post_norm
+        self.use_final_norm = use_final_norm
         self.residual_connection_dtype = residual_connection_dtype
+        self.init_method_std = init_method_std
         self.param_init_dtype = param_init_dtype
+        self.embedding_init_dtype = embedding_init_dtype
         self.compute_dtype = compute_dtype
         self.softmax_compute_dtype = softmax_compute_dtype
         self.init_method = init_method
         self.bias_init = bias_init
+        self.fp16_lm_cross_entropy = fp16_lm_cross_entropy
         self.hidden_dropout_rate = hidden_dropout_rate
         self.attention_dropout_rate = attention_dropout_rate
+        self.out_hidden_size = out_hidden_size
         self.num_experts = num_experts
         self.untie_embeddings_and_output_weights = untie_embeddings_and_output_weights
         self.flatten_labels_and_input_mask = flatten_labels_and_input_mask
@@ -1109,6 +1141,7 @@ class TransformerConfig(BaseConfig):
                 self.recompute_granularity = "selective"
             kwargs.pop("recompute_activations")
 
+        self.update_attrs(**self.rotary_config)
         self.update_attrs(**kwargs)
 
     def update_lora_config(self, cell_name):
@@ -1254,6 +1287,39 @@ def validate_fa_config(config_instance, fa_config):
     return fa_config
 
 
+@TransformerConfig.validator("rotary_config")
+def validate_rotary_config(config_instance, rotary_config):
+    """Validate fa_config."""
+    default_rotary_config = {'rotary_percent': 1.0,
+                             'rotary_interleaved': False,
+                             'seq_len_interpolation_factor': None,
+                             'rotary_base': 10000}
+    check_keys = default_rotary_config.keys()
+
+    if rotary_config is not None:
+        if not isinstance(rotary_config, dict):
+            raise TypeError("rotary_config should be a dict.")
+
+        for key, value in rotary_config.items():
+            # pylint: disable=R1720
+            if key not in check_keys:
+                raise ValueError(f"Key '{key}' is not supported in rotary_config.")
+            elif key in ('rotary_interleaved', 'seq_len_interpolation_factor'):
+                if not isinstance(value, bool):
+                    raise TypeError(f"Key '{key}' should be bool in rotary_config.")
+            elif key in 'rotary_percent':
+                if not isinstance(value, float):
+                    raise TypeError(f"Key '{key}' should be float in rotary_config.")
+            elif key in 'rotary_base':
+                if not isinstance(value, int):
+                    raise TypeError(f"Key '{key}' should be int in rotary_config.")
+            default_rotary_config[key] = value
+        rotary_config = default_rotary_config
+    else:
+        rotary_config = default_rotary_config
+    return rotary_config
+
+
 @TransformerConfig.validator("mask_func_type")
 def validate_mask_func_type(config_instance, mask_func_type):
     """Validate mask_func_type."""
@@ -1314,6 +1380,11 @@ def validate_param_init_dtype(config_instance, param_init_dtype):
     """Validate param_init_dtype."""
     return _SUPPORT_DTYPE_DICT[param_init_dtype]
 
+
+@TransformerConfig.validator("embedding_init_dtype")
+def validate_embedding_init_dtype(config_instance, embedding_init_dtype):
+    """Validate embedding_init_dtype."""
+    return _SUPPORT_DTYPE_DICT[embedding_init_dtype]
 
 @TransformerConfig.validator("compute_dtype")
 def validate_compute_dtype(config_instance, compute_dtype):
