@@ -45,11 +45,46 @@ class MultiTurnDataset(BaseDataset):
     """
     Multi-turn dataset.
 
+    The generated dataset has two columns: :py:obj:`[input_ids, labels]` .
+    The tensor of column :py:obj:`input_ids` is of the int32 type.
+    The tensor of column :py:obj:`labels` is of the int32 type.
+
     Args:
-        dataset_config (dict): Config for dataset.
+        dataset_config (dict): Required. Config for dataset. Must be `dict` which contains all keys below at least.
+
+            - data_loader: Config for data loader or a data loader object. When `data_loader` is a `dict`,
+              the string "type", "dataset_dir", "stage" and "column_names" are the keys can be parsed.
+
+              - type: Required. Indicates the type of dataset. The value must be string or class type.
+
+              - dataset_dir: Required. The directory of dataset.
+
+              - phase: Required. The dataset subset to be loaded. The value can be 'train' and "eval".
+
+              - shuffle: Required. Whether to perform shuffle on the dataset. Must be `bool`.
+
+              - origin_columns: Required. The column names corresponding to py:obj:`[prompt, answer]`
+                in the origin dataset files. Must be a list of two strings.
+
+            - tokenizer: Tokenizer configuration or object.
+            - batch_size: Size of each batch.
+            - drop_remainder: Whether to discard the last batch when the number of data items contained
+              in the last batch is smaller than batch_size. Default: True.
+            - num_parallel_workers: Specifies the number of concurrent processes or threads for map operations
+              to accelerate processing.
+            - python_multiprocessing: Enabling the Python Multi-Process Mode to Accelerate Map Operations.
+            - repeat: Number of times this dataset is repeated.
+            - max_seq_length: Maximum length of the sequence.
 
     Returns:
-        A dataset for MultiTurnDataset.
+        Instance of MultiTurnDataset.
+
+    Raises:
+        ValueError: If Python version earlier than 3.9.
+        ValueError: If `dataset_dir` is missing in `dataset_config.data_loader`,
+                    or `dataset_config.data_loader.dataset_dir` does not exist.
+        ValueError: If the length of tokens and loss masks mismatch.
+        ValueError: If the length of input ids and labels mismatch.
 
     Examples:
         >>> from mindformers import MultiTurnDataset

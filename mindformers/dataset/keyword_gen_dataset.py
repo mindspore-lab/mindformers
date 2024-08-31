@@ -36,14 +36,45 @@ class KeyWordGenDataset(BaseDataset):
     """
     Keyword generation dataset.
 
+    The columns of the generated dataset depend on the value of `phase` .
+
+    - When `phase` is ``'train'``, the columns are :py:obj:`[input_ids, labels, position_ids, attention_mask]` .
+    - When `phase` is ``'eval'``, the columns are :py:obj:`[input_ids, labels]` .
+
+    The tensor of each column will be cast to int32 type.
+
     Args:
-        dataset_config (Optional[dict]):
-            Config for dataset.
+        dataset_config (dict, optional):
+            Config for dataset. When `dataset_config` is an empty dict or is None, all arguments below
+            will build a non-empty `dataset_config`. Otherwise, they will be ignored. Default: None.
         data_loader (Union[dict, Callable]):
             Config for data loader or a data loader object.
-        tokenizer (Union[dict, list]):
+            when `data_loader` is a `dict`, this string "type", "dataset_dir", "dataset_files", "phase", "shuffle",
+            "origin_columns" and "version" are the keys can be parsed.
+
+            - type: Required. Indicates the type of dataset. The value must be string or class type.
+              When the value is "MindDataset", one of `dataset_dir` and `dataset_files` is required,
+              where `dataset_dir` takes effect first; otherwise `dataset_dir` is required.
+
+            - dataset_dir:  The directory of dataset. When `type` is "MindDataset",
+              search for files in `mindrecord` format recursively in the directory.
+
+            - dataset_files: The path of files in `mindrecord` format.
+              Take effect when `type` is "MindDataset", otherwise this key is ignored.
+              Must be `list` or `tuple`.
+
+            - phase: Required. The dataset subset to be loaded. The value can be 'train' and "eval".
+
+            - shuffle: Required. Whether to perform shuffle on the dataset. Must be `bool`.
+
+            - origin_columns: Required. The column names corresponding to py:obj:`[prompt, answer]`
+              in the origin dataset files. Must be a list of two strings.
+
+            - version: Optional. Version of the map function. The value can be 1 or 2. Default when missing: 1.
+
+        tokenizer (Union[dict, Callable]):
             Tokenizer configuration or object.
-        input_columns (list):
+        input_columns (list[str]):
             Column name before the map function.
         batch_size (int):
             Size of each batch. Default: 8.
@@ -62,9 +93,9 @@ class KeyWordGenDataset(BaseDataset):
         max_target_length (int):
             Maximum length of the target sequence.
         phase (int):
-            Phase of a task, which can be 'train' or 'eval'. Default: 'train'.
+            Phase of a task, which can be 'train' or 'eval'. Ignored when `data_loader` is `dict`. Default: 'train'.
         version (int):
-            Version of the map function. Version of the map function. The value can be 1 or 2. Default: 1.
+            Version of the map function, which can be 1 or 2. Ignored when `data_loader` is `dict`. Default: 1.
         seed (int):
             Random seed number. Default: 0.
         prefetch_size (int):
@@ -80,9 +111,11 @@ class KeyWordGenDataset(BaseDataset):
         profile (bool):
             Whether to enable data collection. Default: False.
 
-
     Returns:
-        A dataset for KeyWordGenDataset.
+        Instance of KeyWordGenDataset.
+
+    Raises:
+        ValueError: If `dataset_config` doesn't contain "dataset_dir" or "dataset_files" as its key.
 
     Examples:
         >>> # 1) Create an instance using a MindFormerConfig.
@@ -121,7 +154,7 @@ class KeyWordGenDataset(BaseDataset):
                 dataset_config: Optional[dict] = None,
                 data_loader: Union[dict, Callable] = None,
                 tokenizer: Union[dict, Callable] = None,
-                input_columns: list = None,
+                input_columns: list[str] = None,
                 batch_size: int = 8,
                 drop_remainder: bool = True,
                 num_parallel_workers: int = 8,
