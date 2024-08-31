@@ -13,12 +13,14 @@
 # limitations under the License.
 # ============================================================================
 
-"""mindformers init"""
+"""distributed init"""
+from .distributed_data_parallel_config import DistributedDataParallelConfig
+from .distributed_data_parallel import DistributedDataParallel
+from .param_and_grad_buffer import ParamAndGradBuffer, Bucket
 
-from .transformer import *
-from .training import TrainOneStepCell, train
-from .optimizer import get_optimizer, DistributedOptimizer
-from .loss_func import VocabParallelCrossEntropy
-
-__all__ = ["TrainOneStepCell", "train", "get_optimizer", "DistributedOptimizer", "VocabParallelCrossEntropy"]
-__all__.extend(transformer.__all__)
+__all__ = [
+    'DistributedDataParallelConfig',
+    'DistributedDataParallel',
+    'ParamAndGradBuffer',
+    'Bucket'
+]

@@ -18,3 +18,6 @@
 from .zero import *
 from .lr_scheduler import *
 from .optimizer import get_optimizer
+from .distributed_optimizer import DistributedOptimizer
+
+__all__ = ["get_optimizer", "DistributedOptimizer"]

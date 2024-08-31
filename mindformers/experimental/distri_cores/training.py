@@ -111,7 +111,8 @@ class ParallelTrainingReducer:
         # dp
         if get_dp_world_size() > 1:
             self.enable_loss_reduce["dp"] = True
-            if training_config.parallel_config.zero_level is None:
+            if training_config.parallel_config.zero_level is None \
+                and not training_config.wrap_with_ddp:
                 self.enable_grad_reduce["dp"] = True
             else:
                 self.enable_grad_flag_reduce["dp"] = True
@@ -275,7 +276,7 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
             forward_with_loss_scale, grad_position=grad_position, weights=params, has_aux=True
         )
 
-        if micro_batch_num > 1:
+        if micro_batch_num > 1 and not training_config.wrap_with_ddp:
             grad_accumulator = GradAccumulator(micro_batch_num, op="sum")
 
         def forward_backward_func_with_grad_acc(
@@ -285,6 +286,10 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
             logits = None
             grads = None
 
+            # reset grad buffer
+            if training_config.wrap_with_ddp:
+                network_with_loss.zero_grad_buffer()
+
             # fuse loss scale and grad accumulation if do grad acc
             if training_config.loss_reduction == "mean" and micro_batch_num > 1:
                 if loss_scale is None:
@@ -293,7 +298,10 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
             else:
                 actual_loss_scale = loss_scale
 
-            no_sync_func = contextlib.nullcontext
+            if training_config.wrap_with_ddp:
+                no_sync_func = network_with_loss.no_sync
+            else:
+                no_sync_func = contextlib.nullcontext
 
             def forward_backward_on_microbatch(idx):
                 nonlocal loss
@@ -321,7 +329,7 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
                     if grad_position == 0:
                         grads_micro = grads_micro[1]
                     # accumulate grads
-                    if micro_batch_num > 1:
+                    if micro_batch_num > 1 and not training_config.wrap_with_ddp:
                         grads = grad_accumulator(grads_micro)
                     else:
                         grads = grads_micro
@@ -346,6 +354,10 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
 
             if forward_only:
                 return loss, logits
+
+            # finalize ddp grad reduce
+            if training_config.wrap_with_ddp:
+                network_with_loss.final_grad_reduce()
 
             return (loss, logits), grads
 
@@ -437,6 +449,8 @@ class TrainOneStepCell(nn.Cell):
         self.network_with_loss = network_with_loss
         self.optimizer = optimizer
         self.model_config = model_config
+        self.wrap_with_ddp = training_config.wrap_with_ddp
+        self.use_distributed_optimizer = self.wrap_with_ddp and training_config.ddp_config.use_distributed_optimizer
 
         # init loss scaler
         if training_config.loss_scale is not None:
@@ -456,8 +470,12 @@ class TrainOneStepCell(nn.Cell):
         # init grad clip func
         self.use_grad_clip = training_config.grad_clip_kwargs is not None
         if self.use_grad_clip:
+            if self.use_distributed_optimizer:
+                main_params = self.optimizer.parameters
+            else:
+                main_params = network_with_loss.trainable_params()
             self.grad_clip_func = get_grad_process_func(
-                training_config, params=network_with_loss.trainable_params()
+                training_config, params=main_params
             )
         # init grad scale func
         self.grad_scale_func = inplace_apply_to_tensor_list(mint.mul)
@@ -500,7 +518,10 @@ class TrainOneStepCell(nn.Cell):
         grads_ = tuple(grads)
 
         # check overflow
-        is_finite = all_finite(grads_)
+        if not self.wrap_with_ddp:
+            is_finite = all_finite(grads_)
+        else:
+            is_finite = self.network_with_loss.all_finite()
         #    sync over tp and pp group
         is_finite = self.parallel_reducer.reduce_is_finite(is_finite)
 
@@ -509,12 +530,18 @@ class TrainOneStepCell(nn.Cell):
 
         if is_finite:
             # scale grads and clip grads if enabled
-            grads = list(grads)
-            self.unscale_and_clip_grads(grads, current_step_loss_scale)
-            grads_ = tuple(grads)
+            if self.use_distributed_optimizer:
+                self.unscale_and_clip_grads(self.optimizer.grads, current_step_loss_scale)
+            else:
+                grads = list(grads)
+                self.unscale_and_clip_grads(grads, current_step_loss_scale)
+                grads_ = tuple(grads)
 
             # optimizer step
-            self.optimizer(grads_)
+            if self.use_distributed_optimizer:
+                self.optimizer()
+            else:
+                self.optimizer(grads_)
 
         learning_rate = self.optimizer.get_lr()
         if isinstance(learning_rate, Parameter):

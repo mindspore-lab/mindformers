@@ -15,11 +15,16 @@
 "mindformers init"
 
 from .module import Module
-from .transformer import *
-from .rotary_pos_embedding import *
-from .language_model import *
+from .activation import *
 from .mlp import *
+from .norm import *
+from .rotary_pos_embedding import *
+from .transformer import *
+from .language_model import *
 
 __all__ = ['Module']
-__all__.extend(transformer.__all__)
+__all__.extend(activation.__all__)
 __all__.extend(mlp.__all__)
+__all__.extend(norm.__all__)
+__all__.extend(rotary_pos_embedding.__all__)
+__all__.extend(transformer.__all__)
