@@ -296,12 +296,12 @@ class VersionCheck(BaseCheck):
         if self.error_flag:
             logger.error(f"The run check failed in {end - self.start:.2f} "
                          f"seconds, It's recommended to install cann=={mfv_matching['cann']} "
-                         f"mindspore=={mfv_matching['ms']} mindformers=={mfv}")
+                         f"driver=={mfv_matching['driver']} mindspore=={mfv_matching['ms']} mindformers=={mfv}")
         else:
             logger.warning(f'The installed software are unmatched '
                            f'but all checks passed in {end - self.start:.2f} seconds')
             logger.info(f"It's recommended to install cann=={mfv_matching['cann']} "
-                        f"mindspore=={mfv_matching['ms']} mindformers=={mfv}")
+                        f"driver=={mfv_matching['driver']} mindspore=={mfv_matching['ms']} mindformers=={mfv}")
 
     def check(self):
         """Check whether the software versions are matched"""
