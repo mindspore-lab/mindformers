@@ -20,7 +20,7 @@ from mindformers import LlamaForCausalLM, LlamaConfig, LlamaTokenizer
 
 context.set_context(device_target="Ascend")
 with open("./knowlm.yaml", 'r') as file:
-    knowlm_data = yaml.load(file, Loader=yaml.FullLoader)
+    knowlm_data = yaml.load(file, Loader=yaml.SafeLoader)
 
 # init knowlm-13b-zhixi model
 knowlm_model_path = "/path/to/your/weight.ckpt" # knowlm-13B-zhixi ckpt path

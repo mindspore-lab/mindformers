@@ -60,8 +60,7 @@ def convert_qwen_attention_weight(name, value, ckpt_weights, dtype=ms.float16, u
             cur_name = name.replace(QWEN_ATTENTION_WEIGHT_NAME, attention_weight_names[index])
             ckpt_weights.append({"name": cur_name, "data": ms.Tensor(split_arr_item, dtype=dtype)})
     else:
-        attention_weight_names = "attention.w.weight"
-        cur_name = name.replace(QWEN_ATTENTION_WEIGHT_NAME, attention_weight_names)
+        cur_name = name.replace(QWEN_ATTENTION_WEIGHT_NAME, "attention.w.weight")
         ckpt_weights.append({"name": cur_name, "data": ms.Tensor(value, dtype=dtype)})
 
 
@@ -75,8 +74,7 @@ def convert_qwen_attention_bias(name, value, ckpt_weights, dtype=ms.float16, use
             cur_name = name.replace(QWEN_ATTENTION_BIAS_NAME, attention_bias_names[index])
             ckpt_weights.append({"name": cur_name, "data": ms.Tensor(split_arr_item, dtype=dtype)})
     else:
-        attention_bias_names = "attention.w.bias"
-        cur_name = name.replace(QWEN_ATTENTION_BIAS_NAME, attention_bias_names)
+        cur_name = name.replace(QWEN_ATTENTION_BIAS_NAME, "attention.w.bias")
         ckpt_weights.append({"name": cur_name, "data": ms.Tensor(value, dtype=dtype)})
 
 

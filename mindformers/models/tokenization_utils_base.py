@@ -976,8 +976,7 @@ class SpecialTokensMixin:
                     added_tokens.append(value)
 
         # if we are adding tokens that were not part of the vocab, we ought to add them
-        added_tokens = self.add_tokens(added_tokens, special_tokens=True)
-        return added_tokens
+        return self.add_tokens(added_tokens, special_tokens=True)
 
     def add_tokens(
             self, new_tokens: Union[str, AddedToken, List[Union[str, AddedToken]]], special_tokens: bool = False
@@ -1987,6 +1986,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
             logger.info("There is no matched format config['processor']['tokenizer']  in config %s", config)
         return class_name, tokenizer_args
 
+    # pylint: disable=W0703
     @classmethod
     def read_files_according_specific_by_tokenizer(cls, name_or_path):
         """Read the file path specific by the class variable in the tokenizer"""
@@ -2007,7 +2007,21 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         for item in cls.FILE_LIST:
             path = os.path.join(name_or_path, item)
             if os.path.isfile(path):
-                read_tokenizer_file_dict[item] = json.load(open(path, 'r'))
+                file = None
+                try:
+                    file = open(path, 'r')
+                    read_tokenizer_file_dict[item] = json.load(file)
+                except FileNotFoundError as file_not_found_error:
+                    logger.error(file_not_found_error)
+                except UnicodeDecodeError as decode_error:
+                    logger.error(decode_error)
+                except IOError as io_error:
+                    logger.error(io_error)
+                except Exception as exception:
+                    logger.error(exception)
+                finally:
+                    if file is not None:
+                        file.close()
         return read_vocab_file_dict, read_tokenizer_file_dict
 
     @classmethod

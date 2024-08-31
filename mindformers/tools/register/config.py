@@ -298,9 +298,11 @@ class ActionDict(Action):
             len_of_val = len(val)
 
         if is_tuple:
-            values = tuple(values)
+            cur_values = tuple(values)
+        else:
+            cur_values = values
 
-        return values
+        return cur_values
 
     def __call__(self, parser, namespace, values, option_string=None):
         options = {}

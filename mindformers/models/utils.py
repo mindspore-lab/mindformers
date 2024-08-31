@@ -242,10 +242,10 @@ class LayerSetting:
                 # print(log)
                 if log:
                     log_ops.append(log[1:])
-        log_ops = ', '.join(log_ops)
-        if log_ops:
+        log_ops_str = ', '.join(log_ops)
+        if log_ops_str:
             comm = 'comm ' if add_prim_attr else ''
-            logger.info(f"Set select {comm}recompute at layer {layer_id}: {log_ops}")
+            logger.info(f"Set select {comm}recompute at layer {layer_id}: {log_ops_str}")
 
     def _check_inputs(self):
         """Check the inputs of offset."""

@@ -176,7 +176,8 @@ def cal_mmlu(res):
     for k in TASK_NAME_MAPPING.keys():
         if k in cnt_dict:
             print("%s ACC: %.2f " % (k, acc_sum_dict[k] / cnt_dict[k] * 100))
-    print("AVERAGE ACC:%.2f " % (acc_sum / cnt * 100))
+    if cnt != 0:
+        print("AVERAGE ACC:%.2f " % (acc_sum / cnt * 100))
 
 
 def main(args):

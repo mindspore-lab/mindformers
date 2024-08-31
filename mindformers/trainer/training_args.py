@@ -656,7 +656,7 @@ class TrainingArguments:
         default="steps",
         metadata={"help": "The logging strategy to use."},
     )
-    logging_steps: float = field(
+    logging_steps: int = field(
         default=1,
         metadata={
             "help": (
@@ -678,7 +678,7 @@ class TrainingArguments:
         default='steps',
         metadata={"help": "The checkpoint save strategy to use. Default: 'steps'."},
     )
-    save_steps: float = field(
+    save_steps: int = field(
         default=500,
         metadata={
             "help": (
@@ -1065,7 +1065,7 @@ class TrainingArguments:
             learning_rate: float = 5e-5,
             batch_size: int = 8,
             weight_decay: float = 0,
-            num_epochs: float = 3,
+            num_epochs: int = 3,
             gradient_accumulation_steps: int = 1,
             seed: int = 42,
             **kwargs

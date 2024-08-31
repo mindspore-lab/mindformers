@@ -497,10 +497,10 @@ class TrainOneStepCell(nn.Cell):
         # apply grad reducer
         grads = list(grads)
         self.parallel_reducer.inplace_reduce_grad(grads)
-        grads = tuple(grads)
+        grads_ = tuple(grads)
 
         # check overflow
-        is_finite = all_finite(grads)
+        is_finite = all_finite(grads_)
         #    sync over tp and pp group
         is_finite = self.parallel_reducer.reduce_is_finite(is_finite)
 
@@ -511,10 +511,10 @@ class TrainOneStepCell(nn.Cell):
             # scale grads and clip grads if enabled
             grads = list(grads)
             self.unscale_and_clip_grads(grads, current_step_loss_scale)
-            grads = tuple(grads)
+            grads_ = tuple(grads)
 
             # optimizer step
-            self.optimizer(grads)
+            self.optimizer(grads_)
 
         learning_rate = self.optimizer.get_lr()
         if isinstance(learning_rate, Parameter):

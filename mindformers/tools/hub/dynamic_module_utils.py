@@ -365,11 +365,11 @@ def get_cached_module_file(
                 new_files.append(f"{module_needed}.py")
 
     if new_files and revision is None:
-        new_files = "\n".join([f"- {f}" for f in new_files])
+        new_file_ = "\n".join([f"- {f}" for f in new_files])
         repo_type_str = "" if repo_type is None else f"{repo_type}s/"
         url = f"{repo_type_str}{pretrained_model_name_or_path}"
         logger.warning(
-            f"A new version of the following files was downloaded from {url}:\n{new_files}"
+            f"A new version of the following files was downloaded from {url}:\n{new_file_}"
             "\n. Make sure to double-check they do not contain any added malicious code. To avoid downloading new "
             "versions of the code file, you can pin a revision."
         )

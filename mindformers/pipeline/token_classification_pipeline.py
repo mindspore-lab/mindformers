@@ -91,9 +91,8 @@ class TokenClassificationPipeline(Pipeline):
 
         preprocess_key_name = ['max_length', 'padding']
         preprocess_params = {k: v for k, v in pipeline_parameters.items() if k in preprocess_key_name}
-        postprocess_params = {k: v for k, v in pipeline_parameters.items() if k in postprocess_params}
 
-        return preprocess_params, {}, postprocess_params
+        return preprocess_params, {}, {k: v for k, v in pipeline_parameters.items() if k in postprocess_params}
 
     def preprocess(self, inputs, **preprocess_params):
         """

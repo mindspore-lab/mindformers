@@ -202,6 +202,7 @@ def preprocess_function(input_file, vocab_file, output_file, num_splits, max_sou
             total_written += 1
 
     writer.commit()
+    file.close()
     logger.info(f"Wrote {total_written} total instances")
 
 
