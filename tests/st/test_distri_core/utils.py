@@ -33,8 +33,6 @@ from mindformers.experimental.distri_cores.create_comm import (
     get_tp_rank,
     get_tp_world_size,
 )
-from mindformers.experimental.distri_cores.distributed.distributed_data_parallel import DistributedDataParallel
-from mindformers.experimental.distri_cores.optimizer.distributed_optimizer import DistributedOptimizer
 
 
 def get_res(file, pattern):
@@ -195,22 +193,15 @@ def train(epoch_num, dataset, network, optimizer, save_ckpt_path=None, with_attn
     for epoch in range(epoch_num):
         step = 0
         for data in dataset:
-            if isinstance(network, DistributedDataParallel):
-                network.zero_grad_buffer()
             input_ids, labels, attn_mask = data
             if with_attn_input:
                 loss, grads = grad_func(input_ids, attn_mask, labels)
             else:
                 loss, grads = grad_func(input_ids, labels)
-            if isinstance(network, DistributedDataParallel):
-                network.final_grad_reduce()
             if reduce_grad and get_dp_world_size() > 1:
                 print("reduce gradients on group {}".format(get_dp_group()))
                 grads = grad_reducer(grads)
-            if isinstance(optimizer, DistributedOptimizer):
-                optimizer()
-            else:
-                optimizer(grads)
+            optimizer(grads)
             print("Epoch {}, step {}, loss {}".format(epoch, step, loss))
             step += 1
             all_loss.append(loss.asnumpy())

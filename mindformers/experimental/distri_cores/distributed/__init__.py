@@ -15,12 +15,7 @@
 
 """distributed init"""
 from .distributed_data_parallel_config import DistributedDataParallelConfig
-from .distributed_data_parallel import DistributedDataParallel
-from .param_and_grad_buffer import ParamAndGradBuffer, Bucket
 
 __all__ = [
     'DistributedDataParallelConfig',
-    'DistributedDataParallel',
-    'ParamAndGradBuffer',
-    'Bucket'
 ]

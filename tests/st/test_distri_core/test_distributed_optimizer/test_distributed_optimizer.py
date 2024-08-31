@@ -19,9 +19,10 @@ import pytest
 
 class TestDistributedOptimizer:
     """A test class for testing DistributedOptimizer."""
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
+    @pytest.mark.skip(reason='need ci update ms version')
     def test_distributed_optimizer(self):
         """
         Feature: DistributedOptimizer based on DistributedDataParallel
