@@ -14,6 +14,7 @@
 # ============================================================================
 """Base Trainer."""
 import os
+import subprocess
 from pprint import pprint
 from functools import partial
 from typing import Optional, Union, List
@@ -81,6 +82,14 @@ class BaseTrainer:
     """
 
     def __init__(self, task: str = None, model_name: str = None):
+
+        host_name_output = subprocess.run(['hostname'], shell=False, stdout=subprocess.PIPE,
+                                          stderr=subprocess.PIPE, encoding='utf-8')
+        host_ip_output = subprocess.run(['hostname', '-I'], shell=False, stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE, encoding='utf-8')
+        host_name = host_name_output.stdout.strip()
+        host_ip = host_ip_output.stdout.strip().split(' ')[0]
+        logger.info("host_name: {}, host_ip: {}".format(host_name, host_ip))
 
         if model_name is None:
             model_name = "model name unspecified."
