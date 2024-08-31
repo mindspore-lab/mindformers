@@ -1,5 +1,5 @@
 mindformers.core.ConstantWarmUpLR
-==================================
+=================================
 
 .. py:class:: mindformers.core.ConstantWarmUpLR(learning_rate, warmup_steps=None, warmup_lr_init=0., warmup_ratio=None, total_steps=None, **kwargs)
 

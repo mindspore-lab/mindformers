@@ -44,7 +44,7 @@ mindformers.core
 回调函数
 --------
 
-.. autosummary::
+.. mscnautosummary::
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
@@ -58,7 +58,7 @@ mindformers.core
 Context
 --------
 
-.. autosummary::
+.. mscnautosummary::
     :toctree: core
     :nosignatures:
     :template: classtemplate.rst
@@ -67,3 +67,17 @@ Context
     mindformers.core.get_context
     mindformers.core.init_context
     mindformers.core.set_context
+
+评估指标
+--------
+
+.. mscnautosummary::
+    :toctree: core
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.core.EntityScore
+    mindformers.core.EmF1Metric
+    mindformers.core.PerplexityMetric
+    mindformers.core.PromptAccMetric
+    mindformers.core.SQuADMetric

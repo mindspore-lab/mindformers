@@ -1,5 +1,5 @@
 mindformers.core.LearningRateWiseLayer
-=======================================
+======================================
 
 .. py:class:: mindformers.core.LearningRateWiseLayer(base_lr, lr_scale)
 

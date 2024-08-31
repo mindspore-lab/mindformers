@@ -1,5 +1,5 @@
 mindformers.core.CosineWithRestartsAndWarmUpLR
-===============================================
+==============================================
 
 .. py:class:: mindformers.core.CosineWithRestartsAndWarmUpLR(learning_rate, warmup_steps=None, total_steps=None, num_cycles=1., lr_end=0., warmup_lr_init=0., warmup_ratio=None, decay_steps=None, **kwargs)
 
