@@ -75,7 +75,7 @@ class GenerationMode:
 
 
 class GenerationMixin:
-    """Generator For the nlp models"""
+    """A class providing all functions for autoregressive text generation, used as a mixin with PreTrainedModel."""
 
     def __init__(self):
         self.block_mgr = None
@@ -553,7 +553,7 @@ class GenerationMixin:
                  streamer: Optional[BaseStreamer] = None,
                  seed: Optional[int] = None,
                  **kwargs):
-        """
+        r"""
         Generate the words according to the given the input ids.
 
         Most generation-controlling parameters are set in `generation_config` which, if not passed,
@@ -562,28 +562,26 @@ class GenerationMixin:
         e.g. `.generate(inputs, top_k=3, do_sample=True)`.
 
         Args:
-            input_ids(List(str), List(List(str))): The token id list or a batch of token id list.
-                When input a batch of token id list, the length of each token id list
-                should be same.
-            generation_config (`GenerationConfig`, *optional*):
-                The generation configuration to be used as base parametrization for the generation
-                call. `**kwargs` passed to generate matching the attributes of `generation_config`
-                will override them. If `generation_config` is not provided, the default config
-                from the model configuration will be used. Please note that unspecified parameters
-                will inherit [`GenerationConfig`]'s default values, whose documentation should be
-                checked to parameterize generation.
-            logits_processor (`LogitsProcessorList`, *optional*):
-                Custom logits processors that complement the default logits processors built from arguments and
-                generation config. If a logit processor is passed that is already created with the arguments or a
-                generation config an error is thrown. This feature is intended for advanced users.
-            streamer: The streamer that generator uses.
-            seed: Random seed used in sample.
+            input_ids (List(str), List(List(str))): The token id list or a batch of token id list.
+                When input a batch of token id list, the length of each token id list should be same.
+            generation_config (`GenerationConfig`, optional): The generation configuration to be used as
+                base parametrization for the generation call.
+                `**kwargs` passed to generate matching the attributes of `generation_config` will override them.
+                If `generation_config` is not provided, the default config from the model configuration will be used.
+                Please note that unspecified parameters will inherit [`GenerationConfig`]'s default values,
+                whose documentation should be checked to parameterize generation. Default: ``None``.
+            logits_processor (`LogitsProcessorList`, optional): Custom logits processors that
+                complement the default logits processors built from arguments and generation config.
+                If a logit processor is passed that is already created with the arguments or a
+                generation config an error is thrown. This feature is intended for advanced users. Default: ``None``.
+            streamer (TextStreamer): The streamer that generator uses.
+            seed (int): Random seed used in sample.
             kwargs:
                 Specific parametrization of `generate_config` and/or additional model-specific kwargs that will be
                 forwarded to the `forward` function of the model. Supported `generate_config` keywords can be
                 checked in [`GenerationConfig`]'s documentation. Mainly used Keywords are shown below:
 
-                max_length(int): The maximum length the generated tokens can have. Corresponds to the length of
+                max_length (int): The maximum length the generated tokens can have. Corresponds to the length of
                     the input prompt + `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
                 max_new_tokens (int): The maximum numbers of tokens to generate, ignoring the number of
                     tokens in the prompt.
@@ -591,24 +589,24 @@ class GenerationMixin:
                     input prompt + `min_new_tokens`. Its effect is overridden by `min_new_tokens`, if also set.
                 min_new_tokens (int): The minimum numbers of tokens to generate, ignoring the number of tokens
                     in the prompt.
-                do_sample(bool): Whether to do sampling on the candidate ids.
+                do_sample (bool): Whether to do sampling on the candidate ids.
                     If set True it will be enabled, and set it to be False to disable the sampling,
-                    equivalent to topk 1.
+                    equivalent to top-k 1.
                     If set None, it follows the setting in the configureation in the model.
-                top_k(int): Determine the topK numbers token id as candidate. This should be a positive number.
+                top_k (int): Determine the top-k numbers token id as candidate. This should be a positive number.
                     If set None, it follows the setting in the configureation in the model.
-                top_p(float): The accumulation probability of the candidate token ids below the top_p
-                    will be select as the condaite ids. The valid value of top_p is between (0, 1]. If the value
-                    is larger than 1, top_K algorithm will be enabled. If set None, it follows the setting in the
+                top_p (float): The accumulation probability of the candidate token ids below the top-p
+                    will be select as the condaite ids. The valid value of top-p is between (0, 1]. If the value
+                    is larger than 1, top-k algorithm will be enabled. If set None, it follows the setting in the
                     configureation in the model.
-                eos_token_id(int): The end of sentence token id. If set None, it follows the setting in the
+                eos_token_id (int): The end of sentence token id. If set None, it follows the setting in the
                     configureation in the model.
-                pad_token_id(int): The pad token id. If set None, it follows the setting in the configureation
+                pad_token_id (int): The pad token id. If set None, it follows the setting in the configureation
                     in the model.
-                repetition_penalty(float): The penalty factor of the frequency that generated words. The If set 1,
+                repetition_penalty (float): The penalty factor of the frequency that generated words. The If set 1,
                     the repetition_penalty will not be enabled. If set None, it follows the setting in the
-                    configureation in the model. Default None.
-                num_beams(int): Number of beams for beam search. 1 means no beam search. If larger than 1, do_sample
+                    configureation in the model. Default: ``None``.
+                num_beams (int): Number of beams for beam search. 1 means no beam search. If larger than 1, do_sample
                     will be set to false.
 
         Examples:
@@ -621,12 +619,12 @@ class GenerationMixin:
             >>> output = tokenizer.decode(output[0], skip_special_tokens=True)
             >>> print(output)
             eful ONU declară că nu există o soluţie militară în Siria
-            >>> # Enable the top p sampling
+            >>> # Enable the top-p sampling
             >>> output = t5.generate(words, do_sample=True, top_p=0.4)
             >>> output = tokenizer.decode(output[0], skip_special_tokens=True)
             >>> print(output)
             eful ONU declară că nu există o soluţie militară în Siria
-            >>> # Enable the top k sampling.
+            >>> # Enable the top-k sampling.
             >>> output = t5.generate(words, do_sample=True, top_k=10, top_p=1)
             >>> output = tokenizer.decode(output[0], skip_special_tokens=True)
             >>> print(output)
@@ -921,40 +919,32 @@ class GenerationMixin:
               encoder_output: Optional[Tensor] = None,
               target_mask: Optional[Tensor] = None,
               **model_kwargs):
-        """
-        do infer and return logits on next position, can choose do prefill or decode predict.
+        r"""
+        Do infer and return logits on next position, can choose do prefill or decode predict.
 
         Args:
-            input_ids (List(List(int))):
-                Input ids after padding.
-            valid_length_each_example (List(int)):
-                Valid input length except padding.
-            generation_config (`GenerationConfig`):
-                The generation configuration to be used as base parametrization for the generation call.
-            logits_processor (`LogitsProcessorList`, *optional*):
-                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsProcessor`]
-                used to modify the prediction scores of the language modeling head applied at each generation step.
-            logits_warper (`LogitsProcessorList`, *optional*):
-                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsWarper`] used
-                to warp the prediction score distribution of the language modeling head applied before multinomial
-                sampling at each generation step.
-            block_tables (Tensor):
-                Params for page attention
-            slot_mapping (Tensor):
-                Params for page attention
-            prefill (bool):
-                Whether to do prefill predict or decode predict
-            is_finished (List(bool)):
-                Whether each sequence is finished its generation.
-            encoder_mask (Tensor):
-                Use for encoder-decoder construct, do not need for decoder only construct
-            encoder_output (Tensor):
-                Use for encoder-decoder construct, do not need for decoder only construct
-            target_mask (Tensor):
-                Use for encoder-decoder construct, do not need for decoder only construct
+            input_ids (List(List(int))): Input ids after padding.
+            valid_length_each_example (List(int)): Valid input length except padding.
+            generation_config (`GenerationConfig`): The generation configuration to be used
+                as base parametrization for the generation call.
+            logits_processor (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`].
+                List of instances of class derived from [`LogitsProcessor`] used to modify the prediction scores
+                of the language modeling head applied at each generation step. Default: ``None``.
+            logits_warper (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`].
+                List of instances of class derived from [`LogitsWarper`] used to warp the prediction score
+                distribution of the language modeling head applied before multinomial sampling
+                at each generation step. Default: ``None``.
+            block_tables (Tensor): Params for page attention.
+            slot_mapping (Tensor): Params for page attention.
+            prefill (bool): Whether to do prefill predict or decode predict.
+            is_finished (List(bool)): Whether each sequence is finished its generation.
+            encoder_mask (Tensor): Use for encoder-decoder construct, do not need for decoder only construct.
+            encoder_output (Tensor): Use for encoder-decoder construct, do not need for decoder only construct.
+            target_mask (Tensor): Use for encoder-decoder construct, do not need for decoder only construct.
 
         Returns:
-            next_token, is_finished
+            next_token, the next token to be generated.
+            is_finished, whether the sequence has completed its generation task.
         """
         max_valid_length = max(valid_length_each_example)
         if not self.config.is_encoder_decoder and max_valid_length > self.config.seq_length:
@@ -1022,31 +1012,23 @@ class GenerationMixin:
                 encoder_output: Optional[Tensor] = None,
                 target_mask: Optional[Tensor] = None,
                 **model_kwargs):
-        """
+        r"""
         Model forward process.
 
         Args:
-            input_ids (List(List(int))):
-                Input ids after padding.
-            valid_length_each_example (List(int)):
-                Valid input length except padding.
-            block_tables (Tensor):
-                Params for page attention
-            slot_mapping (Tensor):
-                Params for page attention
-            prefill (bool):
-                Whether to do prefill predict or decode predict
-            use_past (bool):
-                Whether to use past
-            encoder_mask (Tensor):
-                Use for encoder-decoder construct, do not need for decoder only construct
-            encoder_output (Tensor):
-                Use for encoder-decoder construct, do not need for decoder only construct
-            target_mask (Tensor):
-                Use for encoder-decoder construct, do not need for decoder only construct
+            input_ids (List(List(int))): Input ids after padding.
+            valid_length_each_example (List(int)): Valid input length except padding.
+            block_tables (Tensor): Params for page attention.
+            slot_mapping (Tensor): Params for page attention.
+            prefill (bool): Whether to do prefill predict or decode predict.
+            use_past (bool): Whether to use past.
+            encoder_mask (Tensor): Use for encoder-decoder construct, do not need for decoder only construct.
+            encoder_output (Tensor): Use for encoder-decoder construct, do not need for decoder only construct.
+            target_mask (Tensor): Use for encoder-decoder construct, do not need for decoder only construct.
 
         Returns:
-            res, current_index
+            res, the result after the forward process.
+            current_index, records the current index of the sequence.
         """
         if ((hasattr(self.config, 'parallel_decoding') and self.config.parallel_decoding != 'la')
                 and (('q_seq_lens' in model_kwargs) and (model_kwargs['q_seq_lens'] is not None))):
@@ -1109,31 +1091,31 @@ class GenerationMixin:
                     logits_processor: Optional[LogitsProcessorList] = None,
                     logits_warper: Optional[LogitsProcessorList] = None,
                     need_gather_logits: bool = True):
-        """
-        postprocess of the output from model generation.
+        r"""
+        Postprocess of the output from model generation.
 
         Args:
-            input_ids (List(List(int))):
-                Input ids after padding.
-            res (List(List(int))):
-                Logits after infer.
-            is_finished (List(bool)):
-                Whether each sequence is finished its generation.
-            generation_config (`GenerationConfig`):
-                The generation configuration to be used as base parametrization for the generation call.
-            valid_length_each_example (List(int)):
-                Valid input length except padding.
-            current_index (List(int)):
-                Current index of sequence.
-            logits_processor (`LogitsProcessorList`, *optional*):
-                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsProcessor`]
-                used to modify the prediction scores of the language modeling head applied at each generation step.
-            logits_warper (`LogitsProcessorList`, *optional*):
-                An instance of [`LogitsProcessorList`]. List of instances of class derived from [`LogitsWarper`] used
-                to warp the prediction score distribution of the language modeling head applied before multinomial
-                sampling at each generation step.
-            need_gather_logits (bool):
-                whether gather result, when decode predict and is first iteration, set True.
+            input_ids (List(List(int))): Input ids after padding.
+            res (List(List(int))): Logits after infer.
+            is_finished (List(bool)): Whether each sequence is finished its generation.
+            generation_config (`GenerationConfig`): The generation configuration to be used
+                as base parametrization for the generation call.
+            valid_length_each_example (List(int)): Valid input length except padding.
+            current_index (List(int)): Current index of sequence.
+            logits_processor (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`].
+                List of instances of class derived from [`LogitsProcessor`] used to modify the prediction scores
+                of the language modeling head applied at each generation step. Default: ``None``.
+            logits_warper (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`]. List of
+                instances of class derived from [`LogitsWarper`] used to warp
+                the prediction score distribution of the language modeling head applied
+                before multinomial sampling at each generation step. Default: ``None``.
+            need_gather_logits (bool): whether gather result, when decode predict and is first iteration, set True.
+
+        Returns:
+            target_list, contains the target values generated in each batch.
+            next_probs_cache, cache for probs, if needed in output.
+            next_logits_cache, cache for logits, if needed in output.
+            is_finished, whether the sequence has completed its generation task.
         """
         if self.use_mint_op:
             from mindspore.common.api import _pynative_executor
@@ -1252,62 +1234,46 @@ class GenerationMixin:
              top_k: Optional[int] = 50,
              top_p: Optional[float] = 1.0,
              repetition_penalty: Optional[float] = 1.0):
-        """
+        r"""
         Dia-logical text generation inference with large language models. The query from the user will be inference
         using generate() after adding the chat template via the provided tokenizer.
 
         Args:
-            tokenizer(PreTrainedTokenizer):
-                The tokenized used to decode the tokens.
-            query(str):
-                User input for inference.
-            history(List[Dict[str, str]], optional):
-                A Conversation object or list of dicts with "role" and "content" keys,
-                representing the chat history so far.
-            system_role_name(str):
-                The name of system role. Defaults to "system".
-            user_role_name(str):
-                The name of user role. Defaults to "user".
-            assistant_role_name(str):
-                The name of assistant role. Defaults to "assistant".
-            instruction(str, optional):
-                Instruction message to the model. Defaults to "".
-            max_length(int, optional):
-                The maximum length the generated tokens can have. Corresponds to the length of
-                the input prompt + `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
-                Defaults to 512.
-            max_new_tokens (int, optional):
-                The maximum numbers of tokens to generate, ignoring the number of
-                tokens in the prompt. Defaults to None.
-            min_length (int, optional):
-                The minimum length of the sequence to be generated. Corresponds to the length of the
-                input prompt + `min_new_tokens`. Its effect is overridden by `min_new_tokens`, if also set.
-                Defaults to 0.
-            min_new_tokens (int, optional):
-                The minimum numbers of tokens to generate, ignoring the number of tokens
-                in the prompt. Defaults to None.
-            do_sample(bool, optional):
-                Whether to do sampling on the candidate ids. If set True it will be enabled,
-                and set it to be False to disable the sampling, equivalent to topk 1.
-                If set None, it follows the setting in the configuration in the model. Defaults to True.
-            temperature(float, optional):
-                The value used to modulate the next token probabilities. Defaults to 1.0.
-            top_k(int, optional):
-                Determine the topK numbers token id as candidate. This should be a positive number.
-                If set None, it follows the setting in the configuration in the model. Defaults to 50.
-            top_p(float, optional):
-                The accumulation probability of the candidate token ids below the top_p
-                will be select as the candidate ids. The valid value of top_p is between (0, 1]. If the value
-                is larger than 1, top_K algorithm will be enabled. If set None, it follows the setting in the
-                configuration in the model. Defaults to 1.0.
-            repetition_penalty(float, optional):
-                The penalty factor of the frequency that generated words. The If set 1,
-                the repetition_penalty will not be enabled. If set None, it follows the setting in the
-                configuration in the model. Defaults to 1.0.
+            tokenizer (PreTrainedTokenizer): The tokenized used to decode the tokens.
+            query (str): User input for inference.
+            history (List[Dict[str, str]], optional): A Conversation object or list of dicts with "role"
+                and "content" keys, representing the chat history so far. Default: ``None``.
+            system_role_name (str): The name of system role. Default: ``"system"``.
+            user_role_name (str): The name of user role. Default: ``"user"``.
+            assistant_role_name (str): The name of assistant role. Default: "assistant".
+            instruction (str, optional): Instruction message to the model. Default: ``""``.
+            max_length (int, optional): The maximum length the generated tokens can have.
+                Corresponds to the length of the input prompt + `max_new_tokens`.
+                Its effect is overridden by `max_new_tokens`, if also set. Default: ``512``.
+            max_new_tokens (int, optional): The maximum numbers of tokens to generate, ignoring the number of
+                tokens in the prompt. Default: ``None``.
+            min_length (int, optional): The minimum length of the sequence to be generated.
+                Corresponds to the length of the input prompt + `min_new_tokens`.
+                Its effect is overridden by `min_new_tokens`, if also set. Default: 0.
+            min_new_tokens (int, optional): The minimum numbers of tokens to generate,
+                ignoring the number of tokens in the prompt. Default: ``None``.
+            do_sample (bool, optional): Whether to do sampling on the candidate ids. If set True it will be enabled,
+                and set it to be False to disable the sampling, equivalent to top-k 1.
+                If set None, it follows the setting in the configuration in the model. Default: ``True``.
+            temperature (float, optional): The value used to modulate the next token probabilities. Default: ``1.0``.
+            top_k (int, optional): Determine the top-k numbers token id as candidate. This should be a positive number.
+                If set None, it follows the setting in the configuration in the model. Default: ``50``.
+            top_p (float, optional): The accumulation probability of the candidate token ids below the top-p
+                will be select as the candidate ids. The valid value of top-p is between (0, 1].
+                If the value is larger than 1, top-k algorithm will be enabled.
+                If set None, it follows the setting in the configuration in the model. Default: ``1.0``.
+            repetition_penalty (float, optional): The penalty factor of the frequency that generated words.
+                If set 1, the repetition_penalty will not be enabled.
+                If set None, it follows the setting in the configuration in the model. Default: ``1.0``.
 
         Returns:
-            response: str
-            history: List[Dict[str, str]]
+            response, the reply from the LLM in this session.
+            history, the conversation history.
         """
         if history is None:
             history = []
