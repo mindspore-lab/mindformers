@@ -22,7 +22,7 @@ import re
 from collections import deque
 from functools import partial
 from abc import ABCMeta, abstractmethod
-from typing import List, Union
+from typing import List, Union, Optional
 
 import yaml
 
@@ -1574,6 +1574,15 @@ class TrainingConfig(BaseConfig):
         loss_scale_window (Union[int, None], optional): Window size of dynamic loss scale. Default: None.
         loss_reduction (str, optional): Loss reduction method. Default: 'mean'.
         calculate_per_token_loss (bool): Apply grad and loss calculation base on num of tokens. Default: False.
+        wrap_with_ddp (bool): Using DistributedDataParallel to wrap model. Default: False.
+        overlap_grad_reduce (bool): Enable gradient computing and synchronization communication overlap when using
+            DistributedDataParallel. Default: False.
+        use_distributed_optimizer (bool): Enable DistributedOptimizer when using DistributedDataParallel.
+            Default: False.
+        bucket_size (Optional[int]): Bucket size which is used to partition buffer into buckets when
+            overlap_grad_reduce=True. Default: None.
+        check_for_nan_in_grad (bool): If True, check gradients in buffer are finite after synchronization.
+            Default: False.
         kwargs (dict, optional): Other dataset config arguments.
     """
 
@@ -1601,6 +1610,11 @@ class TrainingConfig(BaseConfig):
             loss_scale_window: int = None,
             loss_reduction: str = "mean",
             calculate_per_token_loss: bool = False,
+            wrap_with_ddp: bool = False,
+            overlap_grad_reduce: bool = False,
+            use_distributed_optimizer: bool = False,
+            bucket_size: Optional[int] = None,
+            check_for_nan_in_grad: bool = False,
             **kwargs,
     ):
         super().__init__()
@@ -1624,6 +1638,11 @@ class TrainingConfig(BaseConfig):
         self.grad_clip_kwargs = grad_clip_kwargs
         self.loss_reduction = loss_reduction
         self.calculate_per_token_loss = calculate_per_token_loss
+        self.wrap_with_ddp = wrap_with_ddp
+        self.overlap_grad_reduce = overlap_grad_reduce
+        self.use_distributed_optimizer = use_distributed_optimizer
+        self.bucket_size = bucket_size
+        self.check_for_nan_in_grad = check_for_nan_in_grad
 
         self.update_attrs(**kwargs)
 
@@ -1769,3 +1788,52 @@ def validate_loss_reduction(config_instance, loss_reduction):
     """Validate loss_reduction."""
     Validator.check_string(loss_reduction, ["mean", "sum"], "loss_reduction")
     return loss_reduction
+
+
+@TrainingConfig.validator("wrap_with_ddp")
+def validate_wrap_with_ddp(config_instance, wrap_with_ddp):
+    """Validate wrap_with_ddp."""
+    Validator.check_bool(wrap_with_ddp, "wrap_with_ddp")
+    return wrap_with_ddp
+
+
+@TrainingConfig.validator("overlap_grad_reduce")
+def validate_overlap_grad_reduce(config_instance, overlap_grad_reduce):
+    """Validate overlap_grad_reduce."""
+    if not config_instance.wrap_with_ddp and overlap_grad_reduce:
+        logger.warning("For training config, overlap_grad_reduce only take effect when `wrap_with_ddp=True`",
+                       "overlap_grad_reduce has been set to `False`.")
+        overlap_grad_reduce = False
+    Validator.check_bool(overlap_grad_reduce, "overlap_grad_reduce")
+    return overlap_grad_reduce
+
+
+@TrainingConfig.validator("use_distributed_optimizer")
+def validate_use_distributed_optimizer(config_instance, use_distributed_optimizer):
+    """Validate use_distributed_optimizer."""
+    if not config_instance.wrap_with_ddp and use_distributed_optimizer:
+        logger.warning("For training config, overlap_grad_reduce only take effect when `wrap_with_ddp=True`",
+                       "overlap_grad_reduce has been set to `False`.")
+        use_distributed_optimizer = False
+    Validator.check_bool(use_distributed_optimizer, "use_distributed_optimizer")
+    return use_distributed_optimizer
+
+
+@TrainingConfig.validator("bucket_size")
+def validate_bucket_size(config_instance, bucket_size):
+    """Validate bucket_size."""
+    if bucket_size is not None:
+        Validator.check_positive_int(bucket_size, "bucket_size")
+        if not config_instance.wrap_with_ddp:
+            raise ValueError("bucket_size can only be set when `wrap_with_ddp=True`.")
+    return bucket_size
+
+@TrainingConfig.validator("check_for_nan_in_grad")
+def validate_check_for_nan_in_grad(config_instance, check_for_nan_in_grad):
+    """Validate check_for_nan_in_grad."""
+    if not config_instance.wrap_with_ddp and check_for_nan_in_grad:
+        logger.warning("For training config, check_for_nan_in_grad only take effect when `wrap_with_ddp=True`",
+                       "overlap_grad_reduce has been set to `False`.")
+        check_for_nan_in_grad = False
+    Validator.check_bool(check_for_nan_in_grad, "check_for_nan_in_grad")
+    return check_for_nan_in_grad

@@ -21,7 +21,7 @@ import mindspore.nn as nn
 from mindspore import mint
 from mindspore.ops import composite as C
 from mindspore.ops import operations as P
-from mindspore.communication import get_group_size
+from mindspore.communication import get_group_size, GlobalComm
 from mindspore.communication.comm_func import all_reduce
 
 from mindformers.experimental.distri_cores.create_comm import get_tp_group, get_tp_rank
@@ -39,7 +39,7 @@ def inplace_apply_to_tensor_list(func: callable):
 
     def inplace_apply_func(tensor_list, *args, **kwargs):
         for idx in range(len(tensor_list)):
-            tensor_list[idx] = func(tensor_list[idx], *args, **kwargs)
+            tensor_list[idx].copy_(func(tensor_list[idx], *args, **kwargs))
 
     return inplace_apply_func
 
@@ -164,7 +164,10 @@ def get_grad_process_func(training_config, return_instance=True, **kwargs):
         if grad_clip_type == "ClipGlobalNorm":
             if "params" not in grad_process_func_kwargs:
                 raise ValueError("params is required for ClipGlobalNorm")
-            reduce_comm_group = get_tp_group()
+            if training_config.ddp_config.use_distributed_optimizer:
+                reduce_comm_group = GlobalComm.WORLD_COMM_GROUP
+            else:
+                reduce_comm_group = get_tp_group()
             grad_process_func_kwargs["reduce_comm_group"] = reduce_comm_group
         return grad_clip_cls(**grad_process_func_kwargs)
     return grad_clip_cls
