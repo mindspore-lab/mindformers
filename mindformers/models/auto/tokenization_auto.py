@@ -255,9 +255,8 @@ def get_tokenizer_config(
 class AutoTokenizer:
     r"""
     This is a generic tokenizer class that will be instantiated as one of the tokenizer classes of the library when
-    created with the [`AutoTokenizer.from_pretrained`] class method.
-
-    This class cannot be instantiated directly using `__init__()` (throws an error).
+    created with the from_pretrained class method.
+    This class cannot be instantiated directly using `\_\_init\_\_()` (throws an error).
     """
 
     _model_type = 0
@@ -339,7 +338,23 @@ class AutoTokenizer:
 
     @classmethod
     def from_pretrained(cls, yaml_name_or_path, *args, **kwargs):
-        """compatible to yaml and json mode."""
+        r"""
+        From pretrain method, which instantiates a tokenizer by a directory or model_id from modelers.cn.
+
+        Warning:
+            The API is experimental and may have some slight breaking changes in the next releases.
+
+        Args:
+            yaml_name_or_path (str): a folder containing YAML file, a folder containing JAON file,
+                or a model_id from modelers.cn. The last two are experimental features.
+            args (additional arguments): Will be passed along to the underlying tokenzier \_\_init\_\_() method.
+                Only works in experimental mode.
+            kwargs (additional keyword arguments): The values in kwargs of any keys which are configuration
+                attributes will be used to override the loaded values.
+
+        Returns:
+            A tokenizer.
+        """
         pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
         if pretrained_model_name_or_path is not None:
             yaml_name_or_path = pretrained_model_name_or_path
@@ -613,17 +628,18 @@ class AutoTokenizer:
 
     @staticmethod
     def register(config_class, slow_tokenizer_class=None, fast_tokenizer_class=None, exist_ok=False):
-        """
-        Register a new tokenizer in this mapping.
+        r"""
+        Register new tokenizers for this class.
 
+        Warning:
+            The API is experimental and may have some slight breaking changes in the next releases.
 
         Args:
-            config_class ([`PretrainedConfig`]):
-                The configuration corresponding to the model to register.
-            slow_tokenizer_class ([`PretrainedTokenizer`], *optional*):
-                The slow tokenizer to register.
-            fast_tokenizer_class ([`PretrainedTokenizerFast`], *optional*):
-                The fast tokenizer to register.
+            config_class (PretrainedConfig): The model config class.
+            slow_tokenizer_class (PreTrainedTokenizer, optional): The slow_tokenizer class. Default: ``None`` .
+            fast_tokenizer_class (PreTrainedTokenizerFast, optional): The fast_tokenizer class. Default: ``None`` .
+            exist_ok (bool, optional): If set to True, no error will be raised even if config_class already exists.
+                Default: ``False`` .
         """
         if slow_tokenizer_class is None and fast_tokenizer_class is None:
             raise ValueError("You need to pass either a `slow_tokenizer_class` or a `fast_tokenizer_class")

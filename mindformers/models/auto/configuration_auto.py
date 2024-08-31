@@ -208,21 +208,21 @@ def replace_list_option_in_docstrings(config_to_class=None, use_model_types=True
 
 
 class AutoConfig:
-    """
-    AutoConfig class,
-    helps instantiates a config by yaml model name or path.
-    If using a model name, the config yaml will be downloaded from obs to ./checkpoint_download dir
+    r"""
+    This is a generic configuration class that will be instantiated as one of the configuration
+    classes of the library when created with the from_pretrained() class method.
+    This class cannot be instantiated directly using \_\_init\_\_() (throws an error).
 
     Examples:
         >>> from mindformers import AutoConfig
-        >>>
         >>> # 1)  instantiates a config by yaml model name
-        >>> config_a = AutoConfig.from_pretrained('clip_vit_b_32')
-        >>> # 2)  instantiates a config by yaml model path
-        >>> from mindformers.mindformer_book import MindFormerBook
-        >>> config_path = os.path.join(MindFormerBook.get_project_path(),
-        ...                            'configs', 'clip', 'run_clip_vit_b_32_pretrain_flickr8k.yaml')
-        >>> config_b = AutoConfig.from_pretrained(config_path)
+        >>> config_a = AutoConfig.from_pretrained('configs/llama2/predict_llama2_7b.yaml')
+        >>> # 2)  instantiates a config by json file
+        >>> config_b = AutoConfig.from_pretrained('./config.json')
+        >>> # 3)  instantiates a config by directory containing a configuration json file
+        >>> config_b = AutoConfig.from_pretrained('./dir/')
+        >>> # 4)  instantiates a config by model_id from modelers.cn
+        >>> config_b = AutoConfig.from_pretrained('MindSpore-Lab/glm2_6b')
     """
     _support_list = MindFormerBook.get_config_support_list()
     _model_type = 0
@@ -277,15 +277,16 @@ class AutoConfig:
     @classmethod
     def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
-        From pretrain method, which instantiates a config by yaml model name or path.
+        From pretrain method, which instantiates a config by YAML, JSON, directory or model_id from modelers.cn.
+
+        Warning:
+            The API is experimental and may have some slight breaking changes in the next releases.
 
         Args:
-            yaml_name_or_path (str): A supported model name or a path to model config (.yaml),
-                the supported model name could be selected from AutoConfig.show_support_list().
-                If yaml_name_or_path is model name, it supports model names beginning with mindspore or
-                the model name itself, such as "mindspore/vit_base_p16" or "vit_base_p16".
-            pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
-                if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
+            yaml_name_or_path (str): YAML file path, JSON file path, a folder containing a config.json file,
+                or a model_id from modelers.cn. The last three are experimental features.
+            kwargs (additional keyword arguments): The values in kwargs of any keys which are configuration
+                attributes will be used to override the loaded values.
 
         Returns:
             A model config, which inherited from PretrainedConfig.
@@ -433,12 +434,17 @@ class AutoConfig:
 
     @staticmethod
     def register(model_type, config, exist_ok=False):
-        """
+        r"""
         Register a new configuration for this class.
 
+        Warning:
+            The API is experimental and may have some slight breaking changes in the next releases.
+
         Args:
-            model_type (`str`): The model type like "bert" or "gpt".
-            config ([`PretrainedConfig`]): The config to register.
+            model_type (str): The model type like "bert" or "gpt".
+            config (PretrainedConfig): The config to register.
+            exist_ok (bool, optional): If set to True, no error will be raised even if model_type already exists.
+                Default: ``False`` .
         """
         if issubclass(config, PretrainedConfig) and config.model_type != model_type:
             raise ValueError(
