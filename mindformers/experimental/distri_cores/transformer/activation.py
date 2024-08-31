@@ -169,7 +169,7 @@ def swiglu(x):
     Outputs:
         - Tensor with the same type and shape as the `x`.
     """
-    x0, x1 = mint.split(x, x.shape[-1]//2, dim=-1)
+    x0, x1 = mint.split(x, x.shape[-1] // 2, dim=-1)
     return mint.nn.functional.silu(x0) * x1
 
 

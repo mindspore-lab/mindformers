@@ -536,7 +536,7 @@ class SegmentAnythingPipeline(Pipeline):
         self.min_mask_region_area = min_mask_region_area or kwargs.get('min_mask_region_area', 0)
         self.output_mode = output_mode or kwargs.get('output_mode', "binary_mask")
 
-        if  (self.points_per_side is None) == (self.point_grids is None):
+        if (self.points_per_side is None) == (self.point_grids is None):
             raise ValueError("Exactly one of points_per_side or point_grid must be provided.")
         if self.points_per_side is not None:
             self.point_grids = build_all_layer_point_grids(

@@ -342,6 +342,7 @@ categories = {
 
 TASK_NAME_MAPPING = defaultdict(list)
 
+
 def init_task_name_mapping():
     global TASK_NAME_MAPPING
     for k, v in categories.items():

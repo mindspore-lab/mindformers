@@ -374,7 +374,7 @@ class ParallelAttention(nn.Cell):
 
         if self.use_flash_attention:
             self.flash_attention = FlashAttention(head_num=self.num_heads_per_partition,
-                                                  scale_value=1.0/self.norm_factor,
+                                                  scale_value=1.0 / self.norm_factor,
                                                   next_tokens=0)
 
         if self.use_past:

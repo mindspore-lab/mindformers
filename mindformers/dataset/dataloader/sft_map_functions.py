@@ -15,6 +15,7 @@
 """Map functions for the SFT data."""
 import numpy as np
 
+
 def _prepare_for_model(tokenizer, max_length, prompt, answer=None):
     """Prepare input data for model fine-tuning or evaluation."""
     ids = tokenizer.encode(prompt, add_special_tokens=False)
@@ -169,7 +170,7 @@ def multi_round_chat_dyn_map_fn(example, **kwargs):
             assistant_value_ids = tokenizer.encode(assistant_prompt + assistant_prompt_role, add_special_tokens=False)
             value_ids = user_value_ids + assistant_value_ids
             raw_input_id += value_ids
-            raw_label += [ignore_token_id]*len(value_ids)
+            raw_label += [ignore_token_id] * len(value_ids)
         elif from_ == assistant_role_name:
             value = sep_token + value
             value_ids = tokenizer.encode(value, add_special_tokens=False)
@@ -183,12 +184,12 @@ def multi_round_chat_dyn_map_fn(example, **kwargs):
 
     if len(raw_input_id) >= max_length:
         input_id = raw_input_id[: max_length]
-        attention_mask = [1]*max_length
+        attention_mask = [1] * max_length
         label = raw_label[: max_length]
     else:
         input_id = raw_input_id
-        attention_mask = [1]*len(raw_input_id)
-        label = raw_label + [ignore_token_id]*(len(raw_input_id) - len(raw_label))
+        attention_mask = [1] * len(raw_input_id)
+        label = raw_label + [ignore_token_id] * (len(raw_input_id) - len(raw_label))
     return dict(input_ids=input_id, attention_mask=attention_mask, labels=label)
 
 
@@ -210,7 +211,7 @@ def multi_instruct_dyn_map_fn(example, **kwargs):
     instruction_ids = tokenizer.encode(user_prompt_role + instruction + input_ + assistant_prompt_role,
                                        add_special_tokens=False)
     raw_input_id += instruction_ids
-    raw_label += [ignore_token_id]*len(instruction_ids)
+    raw_label += [ignore_token_id] * len(instruction_ids)
 
     value_ids = tokenizer.encode(output, add_special_tokens=False)
     raw_input_id += value_ids
@@ -228,6 +229,7 @@ def multi_instruct_dyn_map_fn(example, **kwargs):
         attention_mask = [1] * len(raw_input_id)
         label = raw_label + [ignore_token_id] * (len(raw_input_id) - len(raw_label))
     return dict(input_ids=input_id, attention_mask=attention_mask, labels=label)
+
 
 def multi_round_chat_dyn_map_fn_alpaca(example, **kwargs):
     """Parsing the dataset of multiple rounds of chat."""
@@ -266,11 +268,11 @@ def multi_round_chat_dyn_map_fn_alpaca(example, **kwargs):
 
     if len(raw_input_id) >= max_length:
         input_id = raw_input_id[: max_length]
-        attention_mask = [1]*max_length
+        attention_mask = [1] * max_length
         label = raw_label[: max_length]
     else:
         input_id = raw_input_id
-        attention_mask = [1]*len(raw_input_id)
+        attention_mask = [1] * len(raw_input_id)
         label = raw_label
     attention_mask = np.where(input_id == tokenizer.pad_token_id, 0, 1).astype(np.int32)
     return dict(input_ids=input_id, attention_mask=attention_mask, labels=label)

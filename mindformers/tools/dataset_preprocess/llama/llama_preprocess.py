@@ -79,7 +79,7 @@ def clean_wikitext(string):
     string = string.replace("= = = =", "====")
     string = string.replace("= = =", "===")
     string = string.replace("= =", "==")
-    string = string.replace(" "+chr(176)+" ", chr(176))
+    string = string.replace(" " + chr(176) + " ", chr(176))
     string = string.replace(" \n", "\n")
     string = string.replace("\n ", "\n")
     string = string.replace(" N ", " 1 ")
@@ -220,6 +220,7 @@ def tokenize_wikipedia(tokenizer, dataset_dir, seq_length, samples_num):
                 'input_ids': np.array(input_id_list, dtype=np.int32)
             }
             yield sample
+
 
 # pylint: disable=W0703
 def tokenize_qa(tokenizer, file_path, seq_length):

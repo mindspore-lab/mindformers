@@ -518,7 +518,7 @@ class VisualGLMQformer(VisualGLMBase):
         image_features, text_features = None, None
 
         if mode == "image":
-            if  image is None:
+            if image is None:
                 raise ValueError("Image is not provided for mode 'image' or 'multimodal'.")
             # return query features
             forward_image_outputs = self.forward_image(image, use_cache=False)

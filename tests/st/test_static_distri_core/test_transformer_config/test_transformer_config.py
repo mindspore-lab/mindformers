@@ -23,6 +23,7 @@ from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.graph.transformer.transformer_config_utils import convert_to_transformer_config
 
+
 class ParallelConfig:
     """A test config class for testing TransformerConfig"""
     def __init__(self,
@@ -35,6 +36,7 @@ class ParallelConfig:
         self.model_parallel = model_parallel
         self.context_parallel = context_parallel
         self.vocab_emb_dp = vocab_emb_dp
+
 
 class TestConfig(PretrainedConfig):
     """A test config class for testing TransformerConfig"""
@@ -50,6 +52,7 @@ class TestConfig(PretrainedConfig):
         self.a = a
         self.parallel_config = parallel_config
 
+
 class TestTransformerConfig:
     """A test class for testing TransformerConfig"""
 
@@ -64,14 +67,14 @@ class TestTransformerConfig:
         config = TestConfig(vocab_size=2, hidden_size=768)
         transformer_config = TransformerConfig()
         assert transformer_config.hidden_size != config.hidden_size
-        assert transformer_config.ffn_hidden_size == 4*transformer_config.hidden_size
+        assert transformer_config.ffn_hidden_size == 4 * transformer_config.hidden_size
         assert not hasattr(transformer_config, "vocab_size")
         assert transformer_config.padded_vocab_size != config.vocab_size
         assert not hasattr(transformer_config, "a")
         assert transformer_config.tensor_parallel != config.parallel_config.model_parallel
         transformer_config = convert_to_transformer_config(config, transformer_config)
         assert transformer_config.hidden_size == config.hidden_size
-        assert transformer_config.ffn_hidden_size == 4*transformer_config.hidden_size
+        assert transformer_config.ffn_hidden_size == 4 * transformer_config.hidden_size
         assert not hasattr(transformer_config, "vocab_size")
         assert transformer_config.padded_vocab_size == config.vocab_size
         assert transformer_config.a == config.a

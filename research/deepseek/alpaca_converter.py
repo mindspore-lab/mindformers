@@ -24,6 +24,7 @@ PROMPT_DICT = {
     )
 }
 
+
 # pylint: disable=W0703
 def main(args_param):
     data_path = pathlib.Path(args_param.data_path)

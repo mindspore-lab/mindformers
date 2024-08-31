@@ -114,6 +114,7 @@ class SupervisedDataset:
             labels=self.labels[i]
         )
 
+
 # pylint: disable=C0111
 # pylint: disable=W0703
 def tokenize_qa(tokenizer, file_path, seq_length):

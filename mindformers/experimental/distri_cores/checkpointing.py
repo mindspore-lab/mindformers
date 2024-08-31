@@ -42,6 +42,7 @@ from mindformers.experimental.distri_cores.random import (
 _strategy_dir = "strategy"
 _format = "safetensors"
 
+
 # pylint: disable=W0622
 def get_checkpoint_name(ckpt_path, format=_format, get_name_from_file=False):
     """
@@ -81,10 +82,12 @@ def get_checkpoint_name(ckpt_path, format=_format, get_name_from_file=False):
         ckpt_file = os.path.join(ckpt_local_path, f"network{rank}" + "." + format)
     return ckpt_file, strategy_file
 
+
 def save_rng_state():
     rng_state_dict = get_rng_tracer().get_state()
     rng_state_dict["default_generator"] = default_generator
     return rng_state_dict
+
 
 def load_rng_state(param_dict):
     # set default rng tracer state
@@ -95,6 +98,7 @@ def load_rng_state(param_dict):
     # set default generator state
     default_generator_loaded = param_dict.pop("default_generator")
     set_rng_state(default_generator_loaded)
+
 
 def get_hidden_size(config):
     use_gqa = config.use_gqa
@@ -122,8 +126,8 @@ def save_pre_process(shard_info, model, optimizer, config):
             # slice q/k/v
             if "qkv_proj.weight" in name or "qkv_proj.lora_b" in name:
                 q = param[:hidden_size, :]
-                k = param[hidden_size:hidden_size+kv_hidden_size, :]
-                v = param[hidden_size+kv_hidden_size:, :]
+                k = param[hidden_size:hidden_size + kv_hidden_size, :]
+                v = param[hidden_size + kv_hidden_size:, :]
             elif "qkv_proj.bias" in name:
                 q = param[:hidden_size]
                 k = param[hidden_size: hidden_size + kv_hidden_size]
@@ -209,6 +213,7 @@ def load_post_process(config, params_dict):
 
     return params_dict
 
+
 # pylint: disable=W0622
 def save_checkpoint(config, model, optimizer=None, ckpt_path="./", format=_format, only_save_strategy=False, **kwargs):
     """
@@ -243,6 +248,7 @@ def save_checkpoint(config, model, optimizer=None, ckpt_path="./", format=_forma
         rng_state_dict = save_rng_state()
         ms.save_checkpoint(params_dict, ckpt_file, append_dict=rng_state_dict, format=format)
     logger.info(f"ckpt saved")
+
 
 # pylint: disable=W0622
 def load_checkpoint(config, model, optimizer=None, ckpt_path="./", format=_format, **kwargs):

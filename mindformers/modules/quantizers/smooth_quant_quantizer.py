@@ -24,6 +24,7 @@ from mindspore_gs.ptq.smooth_quant import SmoothQuant as SQ
 
 __all__ = ["SmoothQuantQuantizer"]
 
+
 class SmoothQuantQuantizer(Quantizer):
     """
     Quantizer of the Smooth Quant method - for Smooth Quant the quantizer support calibration of the model through

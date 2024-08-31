@@ -108,7 +108,7 @@ class GoldenMoENet(nn.Cell):
         output = self.cast(output, mstype.float32)
 
         output = ops.reshape(output, label.shape)
-        loss = ops.dist(output, label.to(ms.float32), p=1) / (16*8)
+        loss = ops.dist(output, label.to(ms.float32), p=1) / (16 * 8)
 
         return loss
 
@@ -133,11 +133,11 @@ class PynativeMoENet(Module):
         output = self.cast(output, mstype.float32)
 
         output = ops.reshape(output, label.shape)
-        loss = ops.dist(output, label.to(ms.float32), p=1) / (16*8)
+        loss = ops.dist(output, label.to(ms.float32), p=1) / (16 * 8)
 
         output_all = self.all_gather(output)
         label_all = self.all_gather(label)
-        loss_all = ops.dist(output_all, label_all.to(ms.float32), p=1) / (16*8)
+        loss_all = ops.dist(output_all, label_all.to(ms.float32), p=1) / (16 * 8)
         print(f"loss_all is {loss_all}")
         return loss
 
@@ -182,6 +182,7 @@ def generate_golden(model_config, args):
                       "loss": loss_list}
     np.save("./data/golden_moe_input_and_loss.npy", input_and_loss)
 
+
 def run_moe_pynative(model_config, args):
     """
     run pynative mode moe and load golden ckpt to generate pynative loss
@@ -200,7 +201,7 @@ def run_moe_pynative(model_config, args):
     print("data_parallel {}, tensor_parallel {}, expert_parallel {}, num_experts {}".format(dp, tp, ep, en))
     initialize_model_parallel(expert_model_parallel_size=ep, order='tp-ep-dp-pp-cp')
     print("dp group {}, tp group {}, pp group {}, ep group {}, cp group {}".format \
-          (get_dp_group(), get_tp_group(), get_pp_group(), get_ep_group(), get_cp_group()))
+        (get_dp_group(), get_tp_group(), get_pp_group(), get_ep_group(), get_cp_group()))
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE)
     rank_id = get_ep_rank()
     local_expert_idx = np.arange(en).reshape(ep, -1)[rank_id].tolist()
@@ -210,7 +211,7 @@ def run_moe_pynative(model_config, args):
     # load data
     golden_input_and_loss_path = "./data/golden_moe_input_and_loss.npy"
     assert os.path.exists(golden_input_and_loss_path), \
-           f"'{golden_input_and_loss_path}' did not exits, please run generate_golden() to "+\
+           f"'{golden_input_and_loss_path}' did not exits, please run generate_golden() to "+ \
             "generate one by running below command: \n`pytest -sv test_moe.py::TestMoE::test_moe_golden`"
 
     input_and_loss = np.load(golden_input_and_loss_path, allow_pickle=True).tolist()
@@ -225,7 +226,7 @@ def run_moe_pynative(model_config, args):
     # load golden ckpt
     golden_ckpt_path = "./data/golden_moe.ckpt"
     assert os.path.exists(golden_ckpt_path), \
-           "'./data/golden_moe.ckpt' did not exits, please run generate_golden() to "+\
+           "'./data/golden_moe.ckpt' did not exits, please run generate_golden() to "+ \
            "generate one by running below command: \n`pytest -sv test_moe.py::TestMoE::test_moe_golden`"
     golden_params = ms.load_checkpoint(golden_ckpt_path)
     pynative_params = transform_moe_golden_params_to_pynative_params(golden_params, local_expert_idx)

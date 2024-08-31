@@ -41,12 +41,12 @@ class TestPipelineParallel:
         scripts_path = os.path.join(sh_path, scripts_name)
         log_dir = "standalone_without_share_log"
         scripts_cmd = f"{scripts_path} --run_mode standalone_without_share"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8118 "+\
-                    f"--log_dir={log_dir} "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8118 " + \
+                    f"--log_dir={log_dir} " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
@@ -70,12 +70,12 @@ class TestPipelineParallel:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --run_mode pp_without_share"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8119 "+\
-                    f"--log_dir={log_dir} "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8119 " + \
+                    f"--log_dir={log_dir} " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)

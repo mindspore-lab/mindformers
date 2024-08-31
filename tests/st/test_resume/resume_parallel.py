@@ -44,25 +44,29 @@ HIDDEN_SIZE = 512
 SEQ_LENGTH = 1024
 DATA_SIZE = 64
 
+
 def generator_1():
     """dataset generator"""
     for i in range(DATA_SIZE):
         np.random.seed(SEED + i)
-        input_ids = np.random.randint(low=0, high=DATA_SIZE, size=(SEQ_LENGTH+1,)).astype(np.int32)
+        input_ids = np.random.randint(low=0, high=DATA_SIZE, size=(SEQ_LENGTH + 1,)).astype(np.int32)
         yield input_ids
+
 
 def generator_2():
     """dataset generator"""
-    for i in range(DATA_SIZE//2):
-        np.random.seed(SEED + DATA_SIZE//2 + i)
-        input_ids = np.random.randint(low=0, high=DATA_SIZE, size=(SEQ_LENGTH+1,)).astype(np.int32)
+    for i in range(DATA_SIZE // 2):
+        np.random.seed(SEED + DATA_SIZE // 2 + i)
+        input_ids = np.random.randint(low=0, high=DATA_SIZE, size=(SEQ_LENGTH + 1,)).astype(np.int32)
         yield input_ids
+
 
 def get_checkpoints_path(checkpoint_dir):
     """get checkpoints path"""
     checkpoints_path = glob(os.path.join(checkpoint_dir, "*.ckpt"))
     checkpoints_path.sort(key=get_epoch_and_step_from_ckpt_name)
     return checkpoints_path
+
 
 def wait_training_over():
     """wait current training task saving checkpoint over"""
@@ -93,6 +97,7 @@ def wait_training_over():
             break
         if time.time() - start_time > 60:
             raise TimeoutError("Wait current training task saving checkpoint over timeout!")
+
 
 def llama_trainer_train_from_instance():
     """
@@ -136,7 +141,7 @@ def llama_trainer_train_from_instance():
     checkpoint_dir = os.path.join(LOCAL_DEFAULT_PATH, "test_resume_parallel", "checkpoint",
                                   "rank_{}".format(get_real_rank()))
     checkpoints_path = get_checkpoints_path(checkpoint_dir)
-    for _ in range(len(checkpoints_path)//2):
+    for _ in range(len(checkpoints_path) // 2):
         os.remove(checkpoints_path.pop())
 
     # Resume training using the new second dataset.

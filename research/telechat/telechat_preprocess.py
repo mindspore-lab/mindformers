@@ -94,7 +94,7 @@ def process_dataset(current_dataset, tokenizer, max_seq_len):
                 else:
                     concat_line += "<_user>" + item + "<_bot>"
             concat_line += output + "<_end>"
-        else:  #single turn
+        else:  # single turn
             concat_line = str(input_data) + "<_bot>" + str(output) + "<_end>"
         if not concat_line.count("<_user>") == concat_line.count("<_bot>") == concat_line.count("<_end>"):
             raise ValueError("concat_line.count(<_user>), concat_line.count(<_bot>),"

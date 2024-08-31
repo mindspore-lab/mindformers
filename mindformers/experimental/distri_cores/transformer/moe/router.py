@@ -69,7 +69,7 @@ class TopKRouter(nn.Cell):
         logits = logits.reshape(-1, self.moe_config.num_experts)
 
         # Apply Z-Loss
-        logits = self.apply_z_loss(logits)  #[b*s/tp, experts_num]
+        logits = self.apply_z_loss(logits)  # [b*s/tp, experts_num]
 
         if get_tp_world_size() > 1 and self.moe_config.moe_token_dispatcher_type == "alltoall":
             # [b*s, experts_num]

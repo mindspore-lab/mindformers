@@ -26,6 +26,7 @@ from mindformers.experimental.distri_cores.sequence_parallel.utils import get_sp
 from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
 from mindformers.experimental.distri_cores.sequence_parallel.flash_sp import FlashSP
 
+
 def generate_inputs(b, n1, n2, s1, s2, d1, input_layout, dtype, return_tensor=True):
     '''generate inputs'''
     min_value = -1

@@ -23,6 +23,7 @@ import pathlib
 
 from mindformers.tools import logger
 
+
 # pylint: disable=W0703
 def main(data_path, output_path):
     data_path = pathlib.Path(data_path)

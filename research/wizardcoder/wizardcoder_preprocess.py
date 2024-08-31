@@ -136,6 +136,7 @@ class SupervisedDataset:
             labels=self.labels[i]
         )
 
+
 # pylint: disable=W0703
 def tokenize_qa(tokenizer, file_path, max_length, if_jsonl=True):
     """json or jsonl Dataset handling function"""

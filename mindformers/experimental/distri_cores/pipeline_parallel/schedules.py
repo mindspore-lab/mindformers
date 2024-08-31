@@ -26,11 +26,13 @@ from ..create_comm import get_pp_rank, get_pp_world_size, get_cp_world_size, \
                           get_tp_world_size, is_pipeline_last_stage, is_pipeline_first_stage, \
                           is_rank_in_embedding_group, get_embedding_group, set_vpp_rank
 
+
 def accumulate_grads_func(accumulate_grads, current_micro_grads):
     """ Accumulate grad """
     for i in range(len(accumulate_grads)):
         accumulate_grads[i] += current_micro_grads[i]
     return tuple(accumulate_grads)
+
 
 # pylint: disable=R1710
 def get_set_hidden_states_parameter(model):
@@ -45,11 +47,13 @@ def get_set_hidden_states_parameter(model):
     if param is None:
         raise RuntimeError("Parameter 'set_hidden_states' is not found.")
 
+
 def rename_hidden_states_parameter(model, model_chunk_id=None):
     weight_untrainable = model.untrainable_params()
     for param in weight_untrainable:
         if "set_hidden_states" in param.name:
             param.name = param.name + f"_{model_chunk_id}_chunk"
+
 
 # pylint: disable=W0613
 def run_forward(*input_data,
@@ -122,6 +126,7 @@ def run_forward(*input_data,
 
     input_data += (recv_data,)
     return output_tensor, accumulate_loss, list(input_data)
+
 
 # pylint: disable=W0613
 def run_backward(*input_tensor,
@@ -566,6 +571,7 @@ def forward_backward_pipelining_with_interleaving(
 
     return accumulate_loss, logits, all_model_chunk_grads
 
+
 # pylint: disable=C0103
 def forward_backward_pipelining_without_interleaving(
         model,
@@ -774,6 +780,7 @@ def forward_backward_pipelining_without_interleaving(
 
     return accumulate_loss, logits, accumulate_grads
 
+
 def get_model_chunk_id(microbatch_id, pp_world_size, num_model_chunks, forward):
     """ get model chunk id by micro batch id """
     micro_group = microbatch_id % (pp_world_size * num_model_chunks)
@@ -781,6 +788,7 @@ def get_model_chunk_id(microbatch_id, pp_world_size, num_model_chunks, forward):
     if not forward:
         model_chunk_id = num_model_chunks - model_chunk_id - 1
     return model_chunk_id
+
 
 def correct_p2p_shape(seq_length, hidden_size, micro_batch_size, use_sequence_parallel=False):
     """
@@ -914,6 +922,7 @@ def get_micro_input(i, micro_batch_size, model, *input_data_tuple, **input_data_
 
     return tuple(micro_inputs)
 
+
 def all_reduce_share_embedding(grads, weight_name, model):
     """ Reduce share embedding grads in embedding comm group """
     if is_rank_in_embedding_group(ignore_virtual=True):
@@ -937,6 +946,7 @@ def all_reduce_share_embedding(grads, weight_name, model):
             for idx in shared_weight_index:
                 grads[idx] = weight_grad
     return grads
+
 
 def calculate_loss_and_logits(accumulate_loss,
                               logits,

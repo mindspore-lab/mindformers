@@ -482,6 +482,6 @@ class CompareLoss(nn.Cell):
         reject_end_scores = self.gatherd(rejected_rewards, 1, end_ind_final - 1)
         compare_len = self.reduce_sum(P.cast(loss_mask_final, mstype.float32), -1)
         temp_loss = -self.log(P.sigmoid(self.sub(c_truncated_reward, r_truncated_reward)))
-        loss = self.reduce_sum(self.mul(temp_loss, loss_mask_final), -1)/compare_len
+        loss = self.reduce_sum(self.mul(temp_loss, loss_mask_final), -1) / compare_len
         loss = loss.mean()
         return loss, chosen_end_scores, reject_end_scores

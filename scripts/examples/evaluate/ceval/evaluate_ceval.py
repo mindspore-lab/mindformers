@@ -71,6 +71,7 @@ task2desc = {
     "accountant": "注册会计师",
 }
 
+
 def load_models_tokenizer(args):
     tokenizer = LlamaTokenizer(args.token_path)
     config = MindFormerConfig(args.config)

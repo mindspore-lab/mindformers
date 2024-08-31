@@ -65,6 +65,7 @@ __all__ = [
     "ParallelLMLogits"
 ]
 
+
 class BasePublicLayer(Module):
     r"""
     A base class for public layer.
@@ -77,6 +78,7 @@ class BasePublicLayer(Module):
     def add_attr_for_public_layer(self):
         """add attr for public layer"""
         self.is_public_layer = True
+
 
 class PublicLayer(BasePublicLayer):
     r"""
@@ -145,6 +147,7 @@ class PublicLayer(BasePublicLayer):
         lower_triangle_mask = ops.tril(ones).unsqueeze(0)
         attention_mask = mint.mul(attention_mask, lower_triangle_mask)
         return attention_mask
+
 
 def _merge_heads(x):
     """ Merge attention heads. """

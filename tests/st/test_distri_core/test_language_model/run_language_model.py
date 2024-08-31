@@ -34,6 +34,7 @@ from tests.st.test_distri_core.utils import generate_ckpt, transform_transformer
 ms.set_seed(1024)
 ds.set_seed(1024)
 
+
 class FakeData():
     """ generate fake data for language model test """
     def __init__(self, data_num, seq_length, input_data=None):

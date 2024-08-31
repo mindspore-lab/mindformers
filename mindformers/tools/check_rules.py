@@ -238,11 +238,13 @@ def _rule_recompute(pp, recompute, key):
             raise ValueError(f"length of {key} should be equal or less than pipeline_stage number, but get "
                              f"length of {key} ({recompute}) > pp({pp})")
 
+
 def _check_recompute(config):
     pp = config.parallel_config.pipeline_stage
     _rule_recompute(pp, config.recompute_config.recompute, "recompute")
     _rule_recompute(pp, config.recompute_config.select_recompute, "select_recompute")
     _rule_recompute(pp, config.recompute_config.select_comm_recompute, "select_comm_recompute")
+
 
 def check_rules(config, mode='train', **kwargs):
     """check rules"""

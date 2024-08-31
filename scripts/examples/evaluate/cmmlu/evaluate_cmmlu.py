@@ -330,6 +330,7 @@ categories = {
 
 TASK_NAME_MAPPING = defaultdict(list)
 
+
 def init_task_name_mapping():
     global TASK_NAME_MAPPING
     for k, v in categories.items():
@@ -340,6 +341,7 @@ def init_task_name_mapping():
                     
 
 choices = ["A", "B", "C", "D"]
+
 
 def main(args):
     ms.set_context(mode=ms.GRAPH_MODE, device_target='Ascend', device_id=args.device_id)

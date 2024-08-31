@@ -66,8 +66,8 @@ class TestParallelAttention:
 
         scripts_cmd = f"{scripts_path} --use_gqa"
         cmd = f"msrun --worker_num={device_num} " + \
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8218 "+\
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=8218 " + \
                     f"--log_dir=msrun_log_pynative_attention_gqa " + \
                     f"--join=True " + \
                     f"--cluster_time_out=300 " + \

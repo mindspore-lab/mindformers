@@ -251,7 +251,7 @@ class Ptuning2Adapter(PetAdapter):
             config = Ptuning2Config(**config)
         num_layers = model.config.num_layers
         num_heads = model.config.num_heads
-        kv_channels = model.config.hidden_size // model.config.num_heads #128
+        kv_channels = model.config.hidden_size // model.config.num_heads  # 128
         parallel_config = model.config.parallel_config
         prefix_projection = config["prefix_projection"]
         projection_dim = config["projection_dim"]

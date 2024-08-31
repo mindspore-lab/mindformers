@@ -1551,12 +1551,10 @@ class T5Model(T5PreTrainedModel):
         self.tfm_embedding_lookup = VocabEmbedding(vocab_size=config.vocab_size,
                                                    embedding_size=config.hidden_size,
                                                    parallel_config=embedding_config)
-        self.tfm_embedding_postprocessor_for_encoder = EmbeddingPostprocessor(embedding_size=
-                                                                              config.hidden_size,
-                                                                              max_position_embeddings=
-                                                                              config.max_position_embeddings,
-                                                                              dropout_prob=
-                                                                              config.embedding_dropout_prob)
+        self.tfm_embedding_postprocessor_for_encoder = EmbeddingPostprocessor(
+            embedding_size=config.hidden_size,
+            max_position_embeddings=config.max_position_embeddings,
+            dropout_prob=config.embedding_dropout_prob)
         self.tfm_embedding_postprocessor_for_decoder = EmbeddingPostprocessor(
             embedding_size=config.hidden_size,
             max_position_embeddings=config.max_position_embeddings,

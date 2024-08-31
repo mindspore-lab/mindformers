@@ -258,14 +258,14 @@ def generate_ckpt(hidden_size,
         # generate attention.w_qkv.weight
         param_name = prefix + '{}attention.w_qkv.weight'.format(str(i) + '.' if has_layer_index else '')
         param_dict[param_name] = ms.Parameter(
-            Tensor(np.random.random((hidden_size + 2*kv_hidden_size, hidden_size)), mstype.float32),
+            Tensor(np.random.random((hidden_size + 2 * kv_hidden_size, hidden_size)), mstype.float32),
             name=param_name
             )
 
         # generate attention.w_qkv.bias
         param_name = prefix + '{}attention.w_qkv.bias'.format(str(i) + '.' if has_layer_index else '')
         param_dict[param_name] = ms.Parameter(
-            Tensor(np.random.random((hidden_size + 2*kv_hidden_size)), mstype.float32),
+            Tensor(np.random.random((hidden_size + 2 * kv_hidden_size)), mstype.float32),
             name=param_name
             )
 
@@ -340,9 +340,9 @@ def transform_transformerlayer_params(params, hidden_size, kv_hidden_size=None, 
             k = param[hidden_size:hidden_size + kv_hidden_size, :]
             v = param[hidden_size + kv_hidden_size:, :]
             q_start = tp_rank * (q.shape[0] // tp_world_size)
-            q_end = (tp_rank+1) * (q.shape[0] // tp_world_size)
+            q_end = (tp_rank + 1) * (q.shape[0] // tp_world_size)
             kv_start = tp_rank * (k.shape[0] // tp_world_size)
-            kv_end = (tp_rank+1) * (k.shape[0] // tp_world_size)
+            kv_end = (tp_rank + 1) * (k.shape[0] // tp_world_size)
             new_param = np.concatenate([q[q_start:q_end, :], k[kv_start:kv_end, :], v[kv_start:kv_end, :]], axis=0)
             new_params[prefix + name.replace("w_qkv.", "qkv_proj.")] = ms.Parameter(ms.Tensor(new_param))
         if 'w_qkv.bias' in name:
@@ -377,6 +377,7 @@ def transform_transformerlayer_params(params, hidden_size, kv_hidden_size=None, 
 
     return new_params
 
+
 def _transform_ckpt_helper(config, model, optimizer, src_ckpt_path, dst_ckpt_path, ckpt_prefix="network", timeout=15):
     """ helper function for transform ckpt """
     save_checkpoint(config, model, optimizer, dst_ckpt_path, only_save_strategy=True)
@@ -392,6 +393,7 @@ def _transform_ckpt_helper(config, model, optimizer, src_ckpt_path, dst_ckpt_pat
                                  output_format='safetensors')
     else:
         time.sleep(timeout)
+
 
 def read_loss_from_log(file_path):
     """ reading loss from log """

@@ -18,6 +18,7 @@ from mindspore import nn
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
 from mindformers.core.loss.loss import CrossEntropyLoss
 
+
 class VocabParallelCrossEntropy(nn.Cell):
     """calculate cross entropy loss"""
 

@@ -213,7 +213,6 @@ def convert_megatron_to_ms(input_path, output_path, dtype=None, **kwargs):
     return True
 
 
-
 # pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert hf weight to ms."""
