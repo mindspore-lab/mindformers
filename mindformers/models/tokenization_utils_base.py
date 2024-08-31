@@ -2583,12 +2583,14 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                     if isinstance(token_value, AddedToken):
                         kwargs[token_key] = token_value.content
             merged_dict['processor']['tokenizer'] = kwargs
-            with open(yaml_file, 'w') as file_reader:
+            flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+            with os.fdopen(os.open(yaml_file, flags_, 0o750), 'w') as file_reader:
                 yaml.dump(merged_dict, file_reader)
         elif file_format == 'json':
             kwargs["tokenizer_class"] = self.__class__.__name__
             tokenizer_config_path = os.path.join(save_directory, TOKENIZER_CONFIG_NAME)
-            with open(tokenizer_config_path, 'w') as fp:
+            flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+            with os.fdopen(os.open(tokenizer_config_path, flags_, 0o750), 'w') as fp:
                 json.dump(kwargs, fp, indent=4)
         else:
             raise ValueError(f"file_format should be one of [json, yaml], but got {file_format}.")
@@ -2727,7 +2729,8 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
 
         # kept for forward compatibility, will be removed in transoformers 5. Typefields are not saved for FC, special should not be save either
         write_dict = self.convert_added_tokens(self.special_tokens_map_extended, save=True, add_type_field=False)
-        with open(special_tokens_map_file, "w", encoding="utf-8") as f:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(special_tokens_map_file, flags_, 0o750), 'w', encoding="utf-8") as f:
             out_str = json.dumps(write_dict, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
             f.write(out_str)
         logger.info(f"Special tokens file saved in {special_tokens_map_file}")
@@ -2778,7 +2781,8 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         # the new get_added_vocab() also returns special tokens and tokens that have an index < vocab_size
         added_vocab = {tok: index for tok, index in self.added_tokens_encoder.items() if index >= self.vocab_size}
         if added_vocab:
-            with open(added_tokens_file, "w", encoding="utf-8") as f:
+            flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+            with os.fdopen(os.open(added_tokens_file, flags_, 0o750), 'w', encoding="utf-8") as f:
                 out_str = json.dumps(added_vocab, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
                 f.write(out_str)
                 logger.info(f"added tokens file saved in {added_tokens_file}")

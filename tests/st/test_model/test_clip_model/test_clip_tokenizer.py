@@ -29,7 +29,8 @@ from mindformers import CLIPTokenizer, AutoTokenizer
 
 def generate_fake_vocab(output_path):
     vocabs = ["[PAD]", "[unused1]", "[UNK]", "[CLS]", "[SEP]", "[MASK]", "hello", "world", "!"]
-    with open(os.path.join(output_path, 'vocab_file.txt'), 'w') as fp:
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(os.path.join(output_path, 'vocab_file.txt'), flags_, 0o750), 'w') as fp:
         for item in vocabs:
             fp.write(item + '\n')
 

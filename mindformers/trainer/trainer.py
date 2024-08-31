@@ -1446,7 +1446,8 @@ def _save_config_to_yaml(save_file_path: str = None, save_config: dict = None):
     """
     if save_config is None:
         save_config = {}
-    with open(save_file_path, 'w', encoding='utf-8') as file_pointer:
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(save_file_path, flags_, 0o750), 'w', encoding='utf-8') as file_pointer:
         file_pointer.write(
             ordered_yaml_dump(
                 save_config,

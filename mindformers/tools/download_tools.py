@@ -95,7 +95,8 @@ def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     size = 0
     if response.status_code == StatusCode.succeed:
         logger.info('Start download %s', filepath)
-        with open(filepath, 'wb') as file:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(filepath, flags_, 0o750), 'wb') as file:
             if fcntl:
                 fcntl.flock(file.fileno(), fcntl.LOCK_EX)
 

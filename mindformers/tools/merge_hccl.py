@@ -68,7 +68,8 @@ if __name__ == "__main__":
     table_path = os.getcwd()
     table_name = os.path.join(table_path,
                               'hccl_{}s_{}p.json'.format(server_count, rank_id))
-    with open(table_name, 'w') as table_fp:
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(table_name, flags_, 0o750), 'w') as table_fp:
         json.dump(hccl_table, table_fp, indent=4)
     sys.stdout.flush()
     print("Completed: hccl file was save in :", table_name)

@@ -58,7 +58,8 @@ def main(data_path, image_location, output_path, user_role_name, assistant_role_
         else:
             print(f"{image} in conversation is not found! id={data_item.get('id')}, this data will be discarded.")
 
-    with open(output_path, "w", encoding="utf-8") as f:
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(output_path, flags_, 0o750), "w", encoding="utf-8") as f:
         json.dump(new_data, f)
 
 

@@ -159,7 +159,8 @@ class InternLMTokenizer(PreTrainedTokenizer):
         if os.path.abspath(self.vocab_file) != os.path.abspath(out_vocab_file) and os.path.isfile(self.vocab_file):
             copyfile(self.vocab_file, out_vocab_file)
         elif not os.path.isfile(self.vocab_file):
-            with open(out_vocab_file, "wb") as fi:
+            flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+            with os.fdopen(os.open(out_vocab_file, flags_, 0o750), "wb") as fi:
                 content_spiece_model = self.sp_model.serialized_model_proto()
                 fi.write(content_spiece_model)
 

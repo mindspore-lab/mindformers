@@ -43,22 +43,23 @@ def make_flickr_formate_dataset(dataset_root, dataset_index, sample_nums):
         image.save(os.path.join(image_dir, f"test_image_{dataset_index}_{index}.jpg"))
 
     token_file = os.path.join(annotation_dir, "Flickr8k.token.txt")
-    with open(token_file, "w", encoding="utf-8") as filer:
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(token_file, flags_, 0o750), "w", encoding="utf-8") as filer:
         for index in range(sample_nums):
             filer.write(f"test_image_{dataset_index}_{index}.jpg#\t{dataset_index} {index}\n")
 
     train_file = os.path.join(annotation_dir, "Flickr_8k.trainImages.txt")
-    with open(train_file, "w", encoding="utf-8") as filer:
+    with os.fdopen(os.open(train_file, flags_, 0o750), "w", encoding="utf-8") as filer:
         for index in range(sample_nums):
             filer.write(f"test_image_{dataset_index}_{index}.jpg\n")
 
     test_file = os.path.join(annotation_dir, "Flickr_8k.testImages.txt")
-    with open(test_file, "w", encoding="utf-8") as filer:
+    with os.fdopen(os.open(test_file, flags_, 0o750), "w", encoding="utf-8") as filer:
         for index in range(sample_nums):
             filer.write(f"test_image_{dataset_index}_{index}.jpg\n")
 
     dev_file = os.path.join(annotation_dir, "Flickr_8k.devImages.txt")
-    with open(dev_file, "w", encoding="utf-8") as filer:
+    with os.fdopen(os.open(dev_file, flags_, 0o750), "w", encoding="utf-8") as filer:
         for index in range(sample_nums):
             filer.write(f"test_image_{dataset_index}_{index}.jpg\n")
     return dataset_dir

@@ -321,12 +321,12 @@ class Qwen2Tokenizer(PreTrainedTokenizer):
             save_directory, (filename_prefix + "-" if filename_prefix else "") +
             VOCAB_FILES_NAMES["merges_file"]
         )
-
-        with open(vocab_file, "w", encoding="utf-8") as f:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(vocab_file, flags_, 0o750), "w", encoding="utf-8") as f:
             f.write(json.dumps(self.encoder, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
 
         index = 0
-        with open(merge_file, "w", encoding="utf-8") as writer:
+        with os.fdopen(os.open(merge_file, flags_, 0o750), "w", encoding="utf-8") as writer:
             writer.write("#version: 0.2\n")
             for bpe_tokens, token_index in sorted(self.bpe_ranks.items(), key=lambda kv: kv[1]):
                 if index != token_index:

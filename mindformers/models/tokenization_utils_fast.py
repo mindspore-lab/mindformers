@@ -678,7 +678,8 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
             # make sure to be forward compatible
             added_vocab = {tok: index for tok, index in self.added_tokens_encoder.items() if index >= self.vocab_size}
             if added_vocab:
-                with open(added_tokens_file, "w", encoding="utf-8") as f:
+                flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+                with os.fdopen(os.open(added_tokens_file, flags_, 0o750), 'w', encoding="utf-8") as f:
                     out_str = json.dumps(added_vocab, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
                     f.write(out_str)
 

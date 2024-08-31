@@ -5,6 +5,7 @@ fastchat stanford code_alpaca data convert tools.
 import argparse
 
 import json
+import os
 
 import pathlib
 
@@ -63,9 +64,10 @@ def main(args_param):
         cnt += 1
     print('1')
     file = None
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
     try:
-        file = open(args_param.output_path, "w", encoding='utf-8')
-        json.dump(new_data, file, ensure_ascii=False, indent=2)
+        with os.fdopen(os.open(args_param.output_path, flags_, 0o750), 'w', encoding='utf-8') as file:
+            json.dump(new_data, file, ensure_ascii=False, indent=2)
     except FileNotFoundError as file_not_found_error:
         logger.error(file_not_found_error)
     except UnicodeDecodeError as decode_error:

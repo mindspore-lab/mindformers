@@ -229,7 +229,8 @@ class BloomTokenizer(PreTrainedTokenizer):
         output_file_path = os.path.join(
             save_directory, (filename_prefix + "-" if filename_prefix else "") + VOCAB_FILES_NAMES["vocab_file"])
 
-        with open(output_file_path, "w", encoding="utf-8") as f:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(output_file_path, flags_, 0o750), 'w', encoding="utf-8") as f:
             f.write(json.dumps(self.encoder))
 
         return (output_file_path,)

@@ -17,6 +17,8 @@
 import glob
 import argparse
 import json
+import os
+
 from tqdm import tqdm
 
 
@@ -68,5 +70,6 @@ if __name__ == "__main__":
             res.append([completion])
     print("count: ", count)
     print("save to {}".format(args.out_path))
-    with open(args.out_path, "w", encoding="utf-8") as fout:
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(args.out_path, flags_, 0o750), "w", encoding='utf-8') as fout:
         json.dump(res, fout)

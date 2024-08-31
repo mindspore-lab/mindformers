@@ -175,7 +175,8 @@ class BaseModel(nn.Cell, GenerationMixin):
             file_reader.close()
         meraged_dict.update(wraped_config)
 
-        with open(config_path, 'w') as file_pointer:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(config_path, flags_, 0o750), 'w') as file_pointer:
             file_pointer.write(yaml.dump(meraged_dict))
         file_pointer.close()
         logger.info("model saved successfully!")

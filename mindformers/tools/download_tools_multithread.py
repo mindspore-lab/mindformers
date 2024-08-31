@@ -122,8 +122,8 @@ def download_with_progress_bar(url, filepath, num_threads=1, timeout=4):
 
         logger.info('File is not complete, resuming download: %s', filepath)
         start = file_size
-
-    with open(filepath, 'ab') as file:
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(filepath, flags_, 0o750), 'ab') as file:
         if fcntl:
             fcntl.flock(file.fileno(), fcntl.LOCK_EX)
 

@@ -975,8 +975,8 @@ class BaseTrainer:
                 output_info.append(one_output["info"])
             else:
                 output_info.append(one_output)
-
-        with open(save_file, 'w') as file:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(save_file, flags_, 0o750), 'w') as file:
             file.write(str(output_info))
         file.close()
 

@@ -400,7 +400,8 @@ class ChatGLMTokenizer(PreTrainedTokenizer):
         with open(self.vocab_file, 'rb') as fin:
             proto_str = fin.read()
 
-        with open(vocab_file, "wb") as writer:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(vocab_file, flags_, 0o750), 'wb') as writer:
             writer.write(proto_str)
 
         return (vocab_file,)

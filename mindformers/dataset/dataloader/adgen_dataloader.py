@@ -205,7 +205,8 @@ class ADGenFromRemoteDataset:
         examples[self.prompt_column] = content_list
         examples[self.response_column] = summary_list
         self.examples = examples
-        assert self.__len__() > 0, f"valid data less then 1, loading data failed, please check your data file."
+        if self.__len__() <= 0:
+            raise ValueError(f"valid data less then 1, loading data failed, please check your data file.")
         logger.info("Loading %d data success.", self.__len__())
 
     def __len__(self):

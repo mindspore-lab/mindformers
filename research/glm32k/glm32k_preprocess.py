@@ -31,7 +31,8 @@ def build_prompt(used_prompt, input_file, output_file):
             content = used_prompt.format_map(sample)
             summary = sample["answers"][0]
             new_samples.append({"content": content, "summary": summary})
-    with open(output_file, "a+", encoding='utf-8') as out_file:
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(output_file, flags_, 0o750), "a+", encoding='utf-8') as out_file:
         for new_sample in new_samples:
             json.dump(new_sample, out_file, ensure_ascii=False)
             out_file.write("\n")

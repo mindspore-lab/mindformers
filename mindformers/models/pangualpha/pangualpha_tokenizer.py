@@ -154,7 +154,8 @@ class PanguAlphaTokenizer(PreTrainedTokenizer):
         output_file_path = os.path.join(
             save_directory, (filename_prefix + "-" if filename_prefix else "") + VOCAB_FILES_NAMES["vocab_file"])
 
-        with open(output_file_path, 'w', encoding="utf8") as fp:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(output_file_path, flags_, 0o750), 'w', encoding="utf8") as fp:
             for k in self.encoder:
                 fp.write(k + '\n')
         return (output_file_path,)

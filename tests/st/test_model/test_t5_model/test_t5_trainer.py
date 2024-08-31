@@ -79,8 +79,9 @@ def write_raw_text_data(stage, data_record_path):
 
     src_path = os.path.join(data_record_path, f'{stage}.source')
     tgt_path = os.path.join(data_record_path, f'{stage}.target')
-    with open(src_path, 'w') as sfp:
-        with open(tgt_path, 'w') as tfp:
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(src_path, flags_, 0o750), 'w') as sfp:
+        with os.fdopen(os.open(tgt_path, flags_, 0o750), 'w') as tfp:
             for x, y in zip(source, target):
                 sfp.write(x + '\n')
                 tfp.write(y + '\n')
