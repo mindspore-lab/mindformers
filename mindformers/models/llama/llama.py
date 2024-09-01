@@ -378,6 +378,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                     return None
 
                 ptq_config = config.ptq_config
+                ptq_config.mode = PTQMode.DEPLOY
+                ptq_config.backend = BackendTarget.ASCEND
                 ptq_config.weight_quant_dtype = dtype_formatter(ptq_config.get('weight_quant_dtype', 'int8'))
                 ptq_config.act_quant_dtype = dtype_formatter(ptq_config.get('act_quant_dtype', 'None'))
                 ptq_config.kvcache_quant_dtype = dtype_formatter(ptq_config.get('kvcache_quant_dtype', 'None'))
