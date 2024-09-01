@@ -821,9 +821,15 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
             from mindspore_gs.ptq.ptq import PTQ
             from mindspore_gs.ptq.network_helpers.mf_parallel_llama2_helper import MFParallelLlama2Helper
             from mindformers import MindFormerConfig
-            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, weight_quant_dtype=mstype.int8,
-                            act_quant_dtype=mstype.int8, kvcache_quant_dtype=mstype.int8,
-                            outliers_suppression=OutliersSuppressionType.SMOOTH, opname_blacklist=['w2', 'lm_head'])
+            weight_quant_dtype = config.weight_quant_dtype if config.weight_quant_dtype else mstype.int8
+            act_quant_dtype = config.act_quant_dtype if config.act_quant_dtype else None
+            kvcache_quant_dtype = config.kvcache_quant_dtype if config.kvcache_quant_dtype else None
+            outliers_suppression = config.outliers_suppression if config.outliers_suppression else \
+                OutliersSuppressionType.NONE
+            opname_blacklist = config.opname_blacklist if config.v else ['lm_head']
+            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, weight_quant_dtype=weight_quant_dtype,
+                            act_quant_dtype=act_quant_dtype, kvcache_quant_dtype=kvcache_quant_dtype,
+                            outliers_suppression=outliers_suppression, opname_blacklist=opname_blacklist)
             mfconfig = MindFormerConfig(model={'model_config': vars(config)})
             helper = MFParallelLlama2Helper(mfconfig)
             ptq = PTQ(config=cfg)
