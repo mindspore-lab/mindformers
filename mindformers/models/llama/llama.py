@@ -362,6 +362,24 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             ptq = SQ(config=cfg)
             ptq.apply(self)
             ptq.convert(self)
+        elif config.quant == "ptq":
+            logger.info("Using PTQ to quant LlamaForCausalLM.")
+            from mindspore_gs.ptq import PTQConfig, PTQMode, OutliersSuppressionType
+            from mindspore_gs.common import BackendTarget
+            from mindspore_gs.ptq.ptq import PTQ
+            from mindspore_gs.ptq.network_helpers.mf_net_helpers import MFLlama2Helper
+            from mindformers import MindFormerConfig
+            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, weight_quant_dtype=mstype.int8,
+                            act_quant_dtype=mstype.int8, kvcache_quant_dtype=mstype.int8,
+                            outliers_suppression=OutliersSuppressionType.SMOOTH, opname_blacklist=['w2', 'lm_head'])
+            mfconfig = MindFormerConfig(model={'model_config': vars(config)})
+            helper = MFLlama2Helper(mfconfig)
+            ptq = PTQ(config=cfg)
+            ptq.apply(self, helper)
+            ptq.convert(self)
+        else:
+            if config.quant:
+                raise ValueError(f"Unsupported quant : {config.quant}")
 
         self.load_checkpoint(config)
         self.set_model_predict_config()

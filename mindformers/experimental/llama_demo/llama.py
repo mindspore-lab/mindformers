@@ -40,6 +40,7 @@ from mindformers.experimental.distri_cores.utils import divide
 from mindformers.models.llama.llama import LlamaPreTrainedModel
 from mindformers.models.llama.llama_layer import LlamaSiLU
 from mindformers.models.utils import lazy_inline
+from mindformers.tools.logger import logger
 from mindformers.modules import PagedAttentionMgr
 from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
@@ -812,6 +813,25 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.predict_run_mode = get_predict_run_mode()
 
         self.use_past = config.use_past
+
+        if config.quant == "ptq":
+            logger.info("Using PTQ to quant ParallelLlamaForCausalLM.")
+            from mindspore_gs.ptq import PTQConfig, PTQMode, OutliersSuppressionType
+            from mindspore_gs.common import BackendTarget
+            from mindspore_gs.ptq.ptq import PTQ
+            from mindspore_gs.ptq.network_helpers.mf_parallel_llama2_helper import MFParallelLlama2Helper
+            from mindformers import MindFormerConfig
+            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, weight_quant_dtype=mstype.int8,
+                            act_quant_dtype=mstype.int8, kvcache_quant_dtype=mstype.int8,
+                            outliers_suppression=OutliersSuppressionType.SMOOTH, opname_blacklist=['w2', 'lm_head'])
+            mfconfig = MindFormerConfig(model={'model_config': vars(config)})
+            helper = MFParallelLlama2Helper(mfconfig)
+            ptq = PTQ(config=cfg)
+            ptq.apply(self, helper)
+            ptq.convert(self)
+        else:
+            if config.quant:
+                raise ValueError(f"Unsupported quant : {config.quant}")
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         if self.config.is_dynamic and "origin_inputs" in kwargs:
