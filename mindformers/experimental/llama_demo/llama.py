@@ -821,15 +821,22 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
             from mindspore_gs.ptq.ptq import PTQ
             from mindspore_gs.ptq.network_helpers.mf_parallel_llama2_helper import MFParallelLlama2Helper
             from mindformers import MindFormerConfig
-            weight_quant_dtype = config.weight_quant_dtype if config.weight_quant_dtype else mstype.int8
-            act_quant_dtype = config.act_quant_dtype if config.act_quant_dtype else None
-            kvcache_quant_dtype = config.kvcache_quant_dtype if config.kvcache_quant_dtype else None
-            outliers_suppression = config.outliers_suppression if config.outliers_suppression else \
-                OutliersSuppressionType.NONE
-            opname_blacklist = config.opname_blacklist if config.v else ['lm_head']
-            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, weight_quant_dtype=weight_quant_dtype,
-                            act_quant_dtype=act_quant_dtype, kvcache_quant_dtype=kvcache_quant_dtype,
-                            outliers_suppression=outliers_suppression, opname_blacklist=opname_blacklist)
+            if not config.ptq_config:
+                ptq_config = {'mode': PTQMode.DEPLOY, 'backend': BackendTarget.ASCEND}
+            else:
+                def dtype_formatter(name: str):
+                    if name == 'int8':
+                        return mstype.int8
+                    return None
+                ptq_config = config.ptq_config
+                ptq_config.weight_quant_dtype = dtype_formatter(ptq_config.get('weight_quant_dtype', 'int8'))
+                ptq_config.act_quant_dtype = dtype_formatter(ptq_config.get('act_quant_dtype', 'None'))
+                ptq_config.kvcache_quant_dtype = dtype_formatter(ptq_config.get('kvcache_quant_dtype', 'None'))
+                outliers_suppression = ptq_config.get('outliers_suppression', 'None')
+                ptq_config.outliers_suppression = OutliersSuppressionType.SMOOTH if outliers_suppression == 'SMOOTH' \
+                    else OutliersSuppressionType.NONE
+            print(f"PTQConfig: {ptq_config}")
+            cfg = PTQConfig(**ptq_config)
             mfconfig = MindFormerConfig(model={'model_config': vars(config)})
             helper = MFParallelLlama2Helper(mfconfig)
             ptq = PTQ(config=cfg)
