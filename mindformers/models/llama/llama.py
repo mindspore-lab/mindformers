@@ -83,6 +83,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.is_first_iteration = True
         self.use_past = config.use_past
         self.use_flash_attention = config.use_flash_attention
+        self.use_ring_attention = config.use_ring_attention
         self.concat = P.Concat(-1)
         self.cast = P.Cast()
         self.shape = P.Shape()
@@ -94,6 +95,8 @@ class LlamaModel(LlamaPreTrainedModel):
             logger.info("MoE config is provided, use MoE FFN")
         else:
             logger.info("MoE config is None, use normal FFN")
+        if not self.use_flash_attention and self.use_ring_attention:
+            raise ValueError(f"When the ring_attention = True, the flash_attention must be True ")
         self.use_rope_self_define = get_use_rope_self_define()
 
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
@@ -142,6 +145,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                                    rotary_dtype=config.rotary_dtype,
                                                    param_init_type=config.param_init_type,
                                                    use_flash_attention=config.use_flash_attention,
+                                                   use_ring_attention=config.use_ring_attention,
                                                    use_attn_mask_compression=config.use_attn_mask_compression,
                                                    fine_grain_interleave=config.fine_grain_interleave,
                                                    parallel_config=config.parallel_config)
@@ -163,6 +167,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          param_init_type=config.param_init_type,
                                          use_past=config.use_past,
                                          use_flash_attention=config.use_flash_attention,
+                                         use_ring_attention=config.use_ring_attention,
                                          use_attn_mask_compression=config.use_attn_mask_compression,
                                          block_size=config.block_size,
                                          num_blocks=config.num_blocks,
@@ -234,7 +239,8 @@ class LlamaModel(LlamaPreTrainedModel):
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
-            mask = self.casual_mask(tokens)
+            if not self.use_ring_attention:
+                mask = self.casual_mask(tokens)
             freqs_cis = self.freqs_mgr(seq_len)
             if prefix_keys_values is not None:
                 prefix_length = prefix_keys_values[0].shape[2]

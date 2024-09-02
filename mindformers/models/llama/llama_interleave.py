@@ -148,6 +148,7 @@ class LLamaAttentionInterleave(nn.Cell):
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
                  use_flash_attention=False,
+                 use_ring_attention=False,
                  use_attn_mask_compression=False,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
@@ -165,6 +166,7 @@ class LLamaAttentionInterleave(nn.Cell):
         self.is_first_iteration = True
         self.qkv_concat = qkv_concat
         self.use_flash_attention = use_flash_attention
+        self.use_ring_attention = use_ring_attention
         self.use_attn_mask_compression = use_attn_mask_compression
 
         if self.hidden_size % self.n_head != 0:
@@ -228,7 +230,7 @@ class LLamaAttentionInterleave(nn.Cell):
                          param_init_type=param_init_type)
         if self.use_flash_attention:
             self.input_layout = "BSH" if cp > 1 else "BNSD"
-            self.sparse_mode = 2 if self.use_attn_mask_compression else 0
+            self.sparse_mode = 2 if self.use_attn_mask_compression and not self.use_ring_attention else 0
             self.flash_attention = FlashAttention(head_num=self.n_head,
                                                   pre_tokens=65536,
                                                   next_tokens=0,
@@ -236,7 +238,8 @@ class LLamaAttentionInterleave(nn.Cell):
                                                   scale_value=1. / math.sqrt(self.head_dim),
                                                   input_layout=self.input_layout,
                                                   sparse_mode=self.sparse_mode,
-                                                  use_attention_mask=True)
+                                                  use_attention_mask=True,
+                                                  use_ring_attention=self.use_ring_attention)
             self.flash_attention.shard(parallel_config)
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.transpose.shard(((dp, cp, mp, 1),))
@@ -482,6 +485,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                  qkv_has_bias=False,
                  qkv_concat=False,
                  use_flash_attention=False,
+                 use_ring_attention=False,
                  use_attn_mask_compression=False,
                  fine_grain_interleave=2,
                  parallel_config=TransformerOpParallelConfig()):
@@ -517,6 +521,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                                                   param_init_type=param_init_type,
                                                   qkv_has_bias=qkv_has_bias,
                                                   use_flash_attention=use_flash_attention,
+                                                  use_ring_attention=use_ring_attention,
                                                   use_attn_mask_compression=use_attn_mask_compression,
                                                   parallel_config=parallel_config)
         self.feed_forward = LlamaFeedForward(dim=self.hidden_size,

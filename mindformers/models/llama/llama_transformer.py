@@ -101,6 +101,7 @@ class LLamaAttention(nn.Cell):
                  is_dynamic=False,
                  use_rope_slice=False,
                  use_flash_attention=False,
+                 use_ring_attention=False,
                  use_attn_mask_compression=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
@@ -120,6 +121,7 @@ class LLamaAttention(nn.Cell):
         self.is_first_iteration = True
         self.use_past = use_past
         self.use_flash_attention = use_flash_attention
+        self.use_ring_attention = use_ring_attention
         self.use_attn_mask_compression = use_attn_mask_compression
         self.qkv_concat = qkv_concat
 
@@ -272,7 +274,7 @@ class LLamaAttention(nn.Cell):
 
             if self.use_flash_attention:
                 self.input_layout = "BSH" if cp > 1 else "BNSD"
-                self.sparse_mode = 2 if self.use_attn_mask_compression else 0
+                self.sparse_mode = 2 if self.use_attn_mask_compression and not self.use_ring_attention else 0
                 self.flash_attention = FlashAttention(head_num=self.n_head,
                                                       pre_tokens=65536,
                                                       next_tokens=0,
@@ -280,7 +282,8 @@ class LLamaAttention(nn.Cell):
                                                       keep_prob=1.,
                                                       scale_value=1. / math.sqrt(self.head_dim),
                                                       sparse_mode=self.sparse_mode,
-                                                      use_attention_mask=True)
+                                                      use_attention_mask=True,
+                                                      use_ring_attention=self.use_ring_attention)
                 self.flash_attention.shard(parallel_config)
 
     def _ulysses_initial(self):
@@ -345,11 +348,9 @@ class LLamaAttention(nn.Cell):
             if self.use_flash_attention:
                 # with ulysses context parallel, insert all to all after FA
                 if self.context_parallel > 1 and self.cp_ds > 1:
-                    mask = self.cast(mask, mstype.uint8)
                     context_layer = self.flash_attention(query, key, value, mask)
                     context_layer = self._ulysses_context_layer_a2a(context_layer)
                 elif self.context_parallel > 1:
-                    mask = self.cast(mask, mstype.uint8)
                     context_layer = self.flash_attention(query, key, value, mask)
                 else:
                     context_layer = self.flash_attention(query, key, value, mask)
@@ -563,6 +564,7 @@ class LLamaDecodeLayer(nn.Cell):
                  use_rope_slice=False,
                  moe_config=None,
                  use_flash_attention=False,
+                 use_ring_attention=False,
                  use_attn_mask_compression=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
@@ -595,6 +597,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         is_dynamic=is_dynamic,
                                         use_rope_slice=use_rope_slice,
                                         use_flash_attention=use_flash_attention,
+                                        use_ring_attention=use_ring_attention,
                                         use_attn_mask_compression=use_attn_mask_compression,
                                         block_size=block_size,
                                         num_blocks=num_blocks,
