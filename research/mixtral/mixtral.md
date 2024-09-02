@@ -279,7 +279,7 @@ parallel_config:
   gradient_aggregation_group: 4
 ```
 
-> **注：多机多卡并行配置中data_parallel\*model_parallel\*pipeline_stage == 总卡数，且expert_parallel不能超过data_parallel。**
+> **注：多机多卡并行配置中data_parallel\*model_parallel\*pipeline_stage == 总卡数，且expert_parallel不能超过data_parallel。此模型暂不支持配置`context_parallel`，因此暂不支持长序列。**
 
 - step 3. 调大`moe_config`中的专家容量因子`capacity_factor`(非必要步骤)
 
