@@ -20,7 +20,8 @@ from mindformers.tools.logger import logger
 
 class BaseDataLoader:
     """Base Dataloader"""
-    def load_dataset(self, path: str, **kwargs):
+    @classmethod
+    def load_dataset(cls, path: str, **kwargs):
         """load dataset"""
         try:
             # pylint: disable=W0611

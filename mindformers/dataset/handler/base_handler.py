@@ -17,6 +17,7 @@ import abc
 from dataclasses import dataclass
 
 from mindformers.auto_class import AutoTokenizer
+from mindformers.models.build_tokenizer import build_tokenizer
 
 
 @dataclass

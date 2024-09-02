@@ -153,7 +153,7 @@ train_dataset: &train_dataset
   data_loader:
     type: CommonDataLoader
     path: "xxx/ADGEN"
-    split: "validation"
+    split: "train"
     shuffle: True
     input_columns: ["prompt", "answer"]
     handler:
@@ -235,8 +235,8 @@ train_dataset: &train_dataset
     path: 'AI_Connect/CodeAlpaca-20K'
     split: 'train'
     handler:
-      type: DeepSeekInstructDataHandler
-      tokenizer_name: deepseek_33b
+      type: CodeAlpacaInstructDataHandler
+      tokenizer_name: ''
       seq_length: 4096
       prompt_key: "conversations"
       output_columns: ["input_ids", "labels"]

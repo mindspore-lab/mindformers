@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""code aplpaca instruct datahandler"""
+"""code alpaca instruct datahandler"""
 from mindformers.dataset.handler.base_handler import BaseInstructDataHandler
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 
