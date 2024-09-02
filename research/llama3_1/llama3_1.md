@@ -30,7 +30,8 @@ Llama 3.1模型是类GPT模型，是一个生成式的语言模型，主要是�
    research/llama3_1
        ├── predict_llama3_1_8b.yaml    # 8B推理配置
        ├── predict_llama3_1_70b.yaml   # 70B推理配置
-       └── finetune_llama3_1_8b.yaml   # 8B全量微调Atlas 800 A2启动配置
+       ├── finetune_llama3_1_8b.yaml   # 8B全量微调Atlas 800 A2启动配置
+       └── finetune_llama3_1_70b.yaml  # 70B全量微调Atlas 800 A2启动配置
    ```
 
 3. 数据预处理脚本和任务启动脚本：
@@ -39,8 +40,8 @@ Llama 3.1模型是类GPT模型，是一个生成式的语言模型，主要是�
    research/llama3_1
        ├── run_llama3_1.py           # llama3_1启动脚本
        ├── llama3_1_tokenizer.py     # llama3_1 tokenizer处理脚本
-       ├── conversation.py         # 微调数据集处理，将原始alpaca转换为对话形式alpaca
-       └── llama_preprocess.py     # llama模型的mindrecord数据处理脚本
+       ├── conversation.py           # 微调数据集处理，将原始alpaca转换为对话形式alpaca
+       └── llama_preprocess.py       # llama模型的mindrecord数据处理脚本
    ```
 
 ## 环境及数据准备
@@ -61,9 +62,9 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 MindFormers提供**alpaca**作为[微调](#微调)数据集。
 
-| 数据集名称   |    适用模型     |   适用阶段   |                                      下载链接                                       |
-|:--------|:-----------:|:--------:|:-------------------------------------------------------------------------------:|
-| alpaca  | llama3_1-8b | Finetune | [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json) |
+| 数据集名称   |              适用模型              |   适用阶段   |                                      下载链接                                       |
+|:--------|:------------------------------:|:--------:|:-------------------------------------------------------------------------------:|
+| alpaca  | llama3_1-8b <br/> llama3_1-70b | Finetune | [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json) |
 
 数据预处理中所用的`tokenizer.model`可以参考[模型权重下载](#模型权重下载)进行下载。
 
@@ -131,7 +132,7 @@ dtype:       转换权重的精度
 
 ## 全参微调
 
-MindFormers提供`Llama3_1-8b`单机多卡的微调示例，过程中使用`alpaca`
+MindFormers提供`Llama3_1-8b`单机多卡以及`Llama3_1-70b`多机多卡的的微调示例，过程中使用`alpaca`
 数据集对模型进行微调，数据集可以参考[数据集下载](#数据集下载)获得。
 
 ### 单机训练
@@ -160,6 +161,28 @@ load_checkpoint: 权重文件路径
 auto_trans_ckpt: 自动权重转换开关
 run_mode:        运行模式, 微调时设置为finetune
 train_data:      训练数据集路径
+```
+
+### 多机训练
+
+以llama3_1-70b为例，使用`finetune_llama3_1_70b.yaml`配置文件，执行8机64卡微调。需要先对权重进行切分，切分权重可以参见[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)（如果是共享盘也可以开启自动权重转换，使用完整权重）。
+
+多机多卡执行脚本进行分布式训练需要分别在不同节点运行脚本，并将参数MASTER_ADDR设置为主节点的ip地址，所有节点设置的ip地址相同，不同节点之间仅参数NODE_RANK不同，各个参数位置含义参见[使用指南](../../README.md#三使用指南)。
+
+在每台机器上运行以下命令，多机运行命令在每台机器上仅`node_num` 不同，从0开始计数，命令中主节点ip为第0个节点ip。
+
+```shell
+# 节点0，设0节点ip为192.168.1.1，作为主节点ip，总共64卡且每个节点8卡
+# 节点0、节点1、...节点7 依此修改node_num，比如8机，node_num为0~7。
+cd research/llama3_1
+bash ../../scripts/msrun_launcher.sh "run_llama3_1.py \
+ --config finetune_llama3_1_70b.yaml \
+ --load_checkpoint model_dir/xxx.ckpt \
+ --train_data dataset_dir \
+ --auto_trans_ckpt False \
+ --use_parallel True \
+ --run_mode finetune" \
+ 64 8 {主节点ip} 8118 {node_num} output/msrun_log False 300
 ```
 
 ## 推理
