@@ -52,7 +52,7 @@ def main(config_path, use_parallel, load_checkpoint):
 
     # init communication
     init()
-    initialize_model_parallel(tp_size=config.parallel_config.model_parallel,
+    initialize_model_parallel(tensor_model_parallel_size=config.parallel_config.model_parallel,
                               order='tp')
 
     config.model.model_config.parallel_config = config.parallel_config

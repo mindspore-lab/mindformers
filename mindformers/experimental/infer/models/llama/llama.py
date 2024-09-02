@@ -88,39 +88,70 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.use_past = config.use_past
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        model_inputs = {}
         if self.config.is_dynamic and "origin_inputs" in kwargs:
             input_ids = kwargs["origin_inputs"]
-        return {
-            "input_ids": Tensor(input_ids, mstype.int32)
-        }
+        model_inputs["input_ids"] = Tensor.from_numpy(
+            input_ids.astype(np.int32))
+        if hasattr(self, 'llm_boost'):
+            batch_valid_length = kwargs["valid_length_each_example"]
+            block_tables = kwargs["block_tables"]
+            slot_mapping = kwargs["slot_mapping"]
+            prefill = kwargs["prefill"]
+            bs = batch_valid_length.shape[0]
+            input_ids_list = []
+            position_ids_list = [
+                np.arange(context_len, dtype=np.int64) for context_len in batch_valid_length]
+            for i in range(bs):
+                context_len = batch_valid_length[i]
+                if prefill:
+                    input_ids_list.append(input_ids[i][:context_len])
+                else:
+                    input_ids_list.append(
+                        input_ids[i][context_len-1:context_len])
+
+            input_ids = np.concatenate(input_ids_list, 0)
+            position_ids = np.concatenate(position_ids_list, 0)
+            slot_mapping = np.delete(
+                slot_mapping, np.where(slot_mapping == -1))
+            lm_head_indices = np.cumsum(batch_valid_length, dtype=np.int64) - 1
+            seq_lens = batch_valid_length.tolist()
+            model_inputs["llm_boost_inputs"] = {
+                "input_ids": Tensor.from_numpy(input_ids),
+                "position_ids": Tensor.from_numpy(position_ids),
+                "lm_head_indices": Tensor.from_numpy(lm_head_indices),
+                "block_tables": Tensor.from_numpy(block_tables),
+                "slot_mapping": Tensor.from_numpy(slot_mapping),
+                "batch_valid_length": Tensor.from_numpy(batch_valid_length),
+                "seq_lens": seq_lens
+            }
+        return model_inputs
 
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """Get Llama model input tuple for transform ckpt."""
         input_ids = Tensor(input_ids, mstype.int32)
         labels = Tensor(kwargs["labels"]) if "labels" in kwargs else None
-        bs = input_ids.shape[0]
-        slot_mapping = Tensor(np.ones(shape=tuple([bs])), mstype.int32)
+        bs, seq = input_ids.shape[0], input_ids.shape[1]
+        slot_mapping = Tensor(np.ones(shape=tuple([bs * seq])), mstype.int32)
         prefix_keys_values = Tensor(kwargs["prefix_keys_values"]) if "prefix_keys_values" in kwargs else None
         return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping, prefix_keys_values
 
     def set_dynamic_inputs(self, **kwargs):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
-        dynamic_input_position = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_init_reset = Tensor([False], mstype.bool_)
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
         if have_prefix_keys_values:
             dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None, None], dtype=mstype.float16)
-            self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
+            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, dynamic_prefix_keys_values)
+                            dynamic_slot_mapping, dynamic_prefix_keys_values, None)
         else:
-            self.set_inputs(dynamic_input_ids, None, dynamic_input_position, None, None, None, dynamic_init_reset,
+            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, None)
+                            dynamic_slot_mapping, None, None)
 
     def add_flags_custom(self, is_first_iteration):
         """Add customized attributes for specific cells in the model."""
@@ -132,8 +163,8 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
+                  input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None):
         """
         Forward of llama model.
         """
