@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Tools."""
+from .logger import logger, StreamRedirector, AiLogFastStreamRedirect2File
 from .cloud_adapter import *
 from .register import *
-from .logger import logger, StreamRedirector, AiLogFastStreamRedirect2File
 from .utils import PARALLEL_MODE, MODE, DEBUG_INFO_PATH, \
     check_in_modelarts, str2bool, count_params, get_output_root_path, \
     get_output_subpath, set_output_path, set_strategy_save_path, check_shared_disk
