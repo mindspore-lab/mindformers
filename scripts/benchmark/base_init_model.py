@@ -110,6 +110,22 @@ class BaseInitModel:
         # set auto transform ckpt
         auto_trans_ckpt = self.config.use_parallel and os.path.isfile(self.config.load_checkpoint)
         self.config.auto_trans_ckpt = self.input_args.get('auto_trans_ckpt', auto_trans_ckpt)
+        self.config.model.model_config.batch_size = self.input_args.get(
+            'data_batch_size',
+            self.config.model.model_config.batch_size
+        )
+        self.config.model.model_config.seq_length = self.input_args.get(
+            'data_seq_len',
+            self.config.model.model_config.seq_length
+        )
+        self.config.model.model_config.num_layers = self.input_args.get(
+            'model_num_layers',
+            self.config.model.model_config.num_layers
+        )
+        self.config.src_strategy_path_or_dir = self.input_args.get(
+            'src_strategy',
+            self.config.src_strategy_path_or_dir
+        )
 
     def process_parallel_config(self):
         """Process parallel config"""
@@ -146,9 +162,10 @@ class BaseInitModel:
         """Process checkpoint"""
         ckpt_files = glob(f"{self.model_path}/*.ckpt")
         load_checkpoint = self.input_args.get('load_checkpoint', None)
+
         if load_checkpoint == "" or load_checkpoint is False:
             # not load checkpoint later
-            logger.warning(f"set load checkpoint: False.")
+            logger.warning(f"set load checkpoint: False. Running [pretrain].")
             self.config.load_checkpoint = ""
             return
 
@@ -162,15 +179,19 @@ class BaseInitModel:
                 os.symlink(src_path, load_checkpoint)
             except OSError:
                 logger.warning(f"link of {src_path} -> {load_checkpoint} is existed.")
+            logger.info(f"Checkpoint found. Running [finetune] with {load_checkpoint}.")
         elif ckpt_files:  # use first checkpoint file in model_path
             if not self.use_pet_model or len(ckpt_files) != 2:
-                logger.info(f"use pet model and find 2 ckpt files in {self.model_path}.")
+                logger.info(f"Using PET model and found 2 ckpt files in {self.model_path}.")
                 load_checkpoint = self.model_path
             else:
-                logger.info(f"find {len(ckpt_files)} ckpt files in {self.model_path}.")
+                logger.info(f"Found {len(ckpt_files)} ckpt files in {self.model_path}.")
                 load_checkpoint = ckpt_files[0]
+            logger.info(f"Running [finetune] with checkpoint {load_checkpoint}.")
         else:
-            logger.error(f"Currently dose not support downloading the ckpt file of {self.model_name} from online.")
-        logger.info(f"use checkpoint file: {load_checkpoint}.")
+            logger.warning(f"Currently does not support downloading the ckpt file of {self.model_name} from online.")
+            logger.info(f"Running [pretrain] as no checkpoint was loaded.")
+
+        logger.info(f"Using checkpoint file: {load_checkpoint}.")
 
         self.config.load_checkpoint = load_checkpoint
