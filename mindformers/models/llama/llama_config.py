@@ -73,6 +73,7 @@ class LlamaConfig(PretrainedConfig):
             an instance of `TransformerOpParallelConfig` with default args.
         extend_method(str): The extend method of seq length of inferencem,default None.
         use_flash_attention(bool): Whether enable flash attention ops, default False.
+        use_ring_attention(bool): Whether enable ring attention ops, default False.
         offset(int): Offset of transformer layer when set pipeline stage number.
         checkpoint_name_or_path (Optional[str]):
             checkpoint path or name used to load to the network.
@@ -139,6 +140,7 @@ class LlamaConfig(PretrainedConfig):
                  is_dynamic: bool = False,
                  use_rope_slice: bool = False,
                  use_flash_attention: bool = False,
+                 use_ring_attention: bool = False,
                  use_attn_mask_compression: bool = False,
                  parallel_optimizer: bool = False,
                  fine_grain_interleave: int = 1,
@@ -197,6 +199,7 @@ class LlamaConfig(PretrainedConfig):
         self.is_dynamic = is_dynamic
         self.use_rope_slice = use_rope_slice
         self.use_flash_attention = use_flash_attention
+        self.use_ring_attention = use_ring_attention
         self.use_attn_mask_compression = use_attn_mask_compression
         self.parallel_optimizer = parallel_optimizer
         self.fine_grain_interleave = fine_grain_interleave
