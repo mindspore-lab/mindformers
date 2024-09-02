@@ -386,7 +386,13 @@ class TrainingDataset:
         elif self.format and self.format in self._general_reader_map:
             table = self._general_reader_map[self.format](local_path)
             table_context = self._get_sentences_list(table, self.text_col)
-            sentences = [line.rstrip() for text in table_context for line in text.strip().split("\n") if line.strip()]
+            sentences = []
+            for text in table_context:
+                lines = text.strip().split("\n")
+                for line in lines:
+                    stripped_line = line.strip()
+                    if stripped_line:
+                        sentences.append(stripped_line.rstrip())
             del table_context
         else:
             raise ValueError("This dataset is not supported.")

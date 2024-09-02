@@ -136,14 +136,10 @@ class QwenVLTokenizer(PreTrainedTokenizer):
         self.errors = errors  # how to handle errors in decoding
         self.vocab_file = vocab_file
         self.mergeable_ranks = _load_tiktoken_bpe(vocab_file)  # type: dict[bytes, int]
-
-        self.special_tokens = {
-            token: index
-            for index, token in enumerate(
-                SPECIAL_TOKENS + self.image_token_set, start=len(self.mergeable_ranks),
-            )
-        }
-
+        combined_tokens = SPECIAL_TOKENS + self.image_token_set
+        start_index = len(self.mergeable_ranks)
+        token_with_index = enumerate(combined_tokens, start=start_index)
+        self.special_tokens = {token: index for index, token in token_with_index}
         self.img_start_id = self.special_tokens[self.image_start_tag]
         self.img_end_id = self.special_tokens[self.image_end_tag]
         self.img_pad_id = self.special_tokens[self.image_pad_tag]

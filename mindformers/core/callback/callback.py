@@ -879,9 +879,9 @@ class ColdHotExpertMointor(Callback):
         self.save_checkpoint_steps = save_checkpoint_steps
         self.rank_id = int(os.getenv("RANK_ID"))
         self.local_expert_num = self.expert_num // self.ep
-        self.local_expert_index = [i for i in range(
-            (self.rank_id // self.mp) * self.local_expert_num,
-            (self.rank_id // self.mp) * self.local_expert_num + self.local_expert_num)]
+        start_index = (self.rank_id // self.mp) * self.local_expert_num
+        end_index = start_index + self.local_expert_num
+        self.local_expert_index = [i for i in range(start_index, end_index)]
         self.rank_size = int(os.getenv("RANK_SIZE"))
 
     def on_train_step_end(self, run_context):

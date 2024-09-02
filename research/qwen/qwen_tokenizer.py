@@ -62,12 +62,10 @@ class QwenTokenizer(PreTrainedTokenizer):
         self.errors = errors  # how to handle errors in decoding
         self.vocab_file = vocab_file
         self.mergeable_ranks = _load_tiktoken_bpe(vocab_file)  # type: dict[bytes, int]
-
+        start_index = len(self.mergeable_ranks)
+        token_with_index = enumerate(SPECIAL_TOKENS, start=start_index)
         self.special_tokens = {
-            token: index
-            for index, token in enumerate(
-                SPECIAL_TOKENS, start=len(self.mergeable_ranks)
-            )
+            token: index for index, token in token_with_index
         }
 
         enc = tiktoken.Encoding(
