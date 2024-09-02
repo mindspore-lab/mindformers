@@ -31,11 +31,11 @@ from mindspore._c_expression.typing import Float, BFloat
 from mindformers import __version__
 from mindformers.tools import MindFormerConfig
 from mindformers.tools.generic import experimental_mode_func_checker, is_experimental_mode
+from mindformers.tools.logger import logger
 from mindformers.models.build_config import build_model_config
 from mindformers.models.utils import CONFIG_NAME, ms_type_to_str
 from mindformers.mindformer_book import MindFormerBook, print_path_or_list
 from mindformers.tools import (
-    logger,
     PushToHubMixin,
     DictConfig,
     custom_object_save,

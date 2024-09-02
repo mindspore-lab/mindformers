@@ -28,7 +28,7 @@ import warnings
 
 import requests
 
-from .. import logger
+from mindformers.tools.logger import logger
 from ..generic import working_or_temp_dir
 from ... import __version__
 
