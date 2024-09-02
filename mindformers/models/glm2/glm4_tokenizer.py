@@ -314,3 +314,26 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
             encoded_inputs[self.model_input_names[0]] = required_input + [self.pad_token_id] * difference
 
         return encoded_inputs
+
+    def build_chat_input(self, query, history=None, role="user", return_tensors="np"):
+        """build chat input with role."""
+        if history is None:
+            history = []
+        input_ids = []
+        for item in history:
+            content = item["content"]
+            if item["role"] == "system" and "tools" in item:
+                content = content + "\n" + json.dumps(item["tools"], indent=4, ensure_ascii=False)
+            input_ids.extend(self.build_single_message(item["role"], item.get("metadata", ""), content))
+        input_ids.extend(self.build_single_message(role, "", query))
+        input_ids.extend([self.convert_special_tokens_to_ids("<|assistant|>")])
+        return self.batch_encode_plus([input_ids], return_tensors=return_tensors, is_split_into_words=True)
+
+    # pylint: disable=W0221
+    def apply_chat_template(self, conversation, return_tensors=None, **tokenizer_kwargs):
+        if not conversation:
+            return []
+        assert (isinstance(conversation, list) and len(conversation) == 1
+                and isinstance(conversation[0], Dict)), f"conversation {conversation} is invalid."
+        return self.build_chat_input(query=conversation[0].get("content"), role=conversation[0].get("role"),
+                                     return_tensors=return_tensors)["input_ids"][0]
