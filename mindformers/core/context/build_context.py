@@ -301,12 +301,20 @@ def _context(config=None):
 
 def init_context(use_parallel=False, context_config=None, parallel_config=None):
     """
-    Group the inputs and convert their types
+    Initialize the context.
 
     Args:
-        use_parallel (bool): Whether to use parallel, default=False.
-        context_config (Union[dict, ContextConfig]): The context config, default=None.
-        parallel_config (Union[dict, ParallelContextConfig]): The parallel context config, default=None.
+        use_parallel (bool): Whether to use parallel, default: False.
+        context_config (Union[dict, ContextConfig]): The context config, default: None.
+        parallel_config (Union[dict, ParallelContextConfig]): The parallel context config, default: None.
+
+    Returns:
+        - Int, the local_rank number.
+        - Int, the total available devices number.
+
+    Examples:
+        >>> from mindformers.core import init_context
+        >>> init_context(use_parallel=False)
     """
     if context_config is None:
         context_config = CONTEXT
@@ -329,14 +337,22 @@ def init_context(use_parallel=False, context_config=None, parallel_config=None):
 
 def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
     """
-    Initialize the context.
+    Build the context from config.
+
+    Note:
+        parameter config must contain keys: 'context', 'parallel', when config is dict.
 
     Args:
         config (Union[dict, MindFormerConfig, TrainingArguments]): The configuration to initialize the context.
-          This can be a dictionary, a MindFormerConfig instance, or a TrainingArguments instance.
+            This can be a dictionary, a MindFormerConfig instance, or a TrainingArguments instance.
 
     Returns:
-        ctx: The instantiated context.
+        _Context, The instantiated context.
+
+    Examples:
+        >>> from mindformers.core import build_context
+        >>> config = {'context': {'mode': 'GRAPH_MODE'}, 'parallel':{}}
+        >>> build_context(config=config)
     """
     if isinstance(config, TrainingArguments):
         config = config.convert_args_to_mindformers_config()
