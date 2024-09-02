@@ -20,7 +20,17 @@ import mindspore.common.dtype as mstype
 from mindspore import nn, Parameter
 from mindspore.common.initializer import initializer
 
+from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
+
 __all__ = ["get_norm"]
+
+
+def get_strategy(config):
+    """Retrieves the parallel strategy"""
+    dp = 1 if config.data_parallel is None else config.data_parallel
+    tp = 1 if config.tensor_parallel is None else config.tensor_parallel
+    cp = 1 if config.context_parallel is None else config.context_parallel
+    return (dp, tp, cp)
 
 
 class LayerNorm(nn.Cell):
@@ -75,11 +85,9 @@ class LayerNorm(nn.Cell):
         output = self.cast(output, original_type)
         return output
 
-    def shard(self, strategy):
+    def shard(self, config: TransformerConfig):
         """shard method"""
-        if not strategy:
-            raise TypeError('The strategy length must bigger than 0! Strategy {} not supported'.format(strategy))
-
+        strategy = get_strategy(config)
         self.mean.shard((strategy,))
         self.sub.shard((strategy, strategy[:-1] + (1,)))
         self.square.shard((strategy,))
@@ -130,10 +138,9 @@ class FusedLayerNorm(nn.Cell):
         output = self.cast(output, original_type)
         return output
 
-    def shard(self, strategy):
+    def shard(self, config: TransformerConfig):
         """shard method"""
-        if not strategy:
-            raise TypeError('The strategy length must bigger than 0! Strategy {} not supported'.format(strategy))
+        strategy = get_strategy(config)
 
         if strategy[-1] != 1:
             raise TypeError(
@@ -188,10 +195,9 @@ class RMSNorm(nn.Cell):
         output = self.cast(output, original_type)
         return output
 
-    def shard(self, strategy):
+    def shard(self, config: TransformerConfig):
         """shard method"""
-        if not strategy:
-            raise TypeError('The strategy length must bigger than 0! Strategy {} not supported'.format(strategy))
+        strategy = get_strategy(config)
 
         self.square.shard((strategy,))
         self.mean.shard((strategy,))
@@ -237,10 +243,9 @@ class FusedRMSNorm(nn.Cell):
         output = self.cast(output, original_type)
         return output
 
-    def shard(self, strategy):
+    def shard(self, config: TransformerConfig):
         """shard method"""
-        if not strategy:
-            raise TypeError('The strategy length must bigger than 0! Strategy {} not supported'.format(strategy))
+        strategy = get_strategy(config)
 
         if strategy[-1] != 1 and ms.get_context('mode') == ms.GRAPH_MODE:
             raise TypeError(
