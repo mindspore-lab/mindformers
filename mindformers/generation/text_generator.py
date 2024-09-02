@@ -325,7 +325,8 @@ class GenerationMixin:
             pre_set_phase = os.environ.get('NETWORK_PHASE', '')
             if pre_set_phase:
                 self.phase = f"increment_{pre_set_phase}"
-            self.slice_incremental_inputs(model_inputs, current_index)
+            if not (hasattr(self.config, 'parallel_decoding') and self.config.parallel_decoding):
+                self.slice_incremental_inputs(model_inputs, current_index)
             model_inputs["input_position"] = Tensor.from_numpy(np.array(current_index, dtype=np.int32))
             model_inputs["init_reset"] = Tensor.from_numpy(
                 np.array([True], dtype=np.bool_))  # init_reset (1,) bool True
@@ -1070,7 +1071,11 @@ class GenerationMixin:
         Returns:
             res, current_index
         """
-        input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
+        if ((hasattr(self.config, 'parallel_decoding') and self.config.parallel_decoding != 'la')
+                and (('q_seq_lens' in model_kwargs) and (model_kwargs['q_seq_lens'] is not None))):
+            input_ids = np.reshape(input_ids, (1, -1))
+        else:
+            input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
         batch_size = input_ids.shape[0]
         seq_length = input_ids.shape[1]
         current_index = [
