@@ -101,11 +101,10 @@ parallel:
 # default parallel of device num = 32 910B
 parallel_config:
   data_parallel: 1
-  model_parallel: 2
+  model_parallel: 8
   pipeline_stage: 8
-  context_parallel: 4
-  context_parallel_algo: ulysses_cp
-  use_seq_parallel: False
+  context_parallel: 1
+  use_seq_parallel: True
   micro_batch_num: 64
   vocab_emb_dp: False
   gradient_aggregation_group: 4
@@ -114,8 +113,9 @@ micro_batch_interleave_num: 1
 
 # recompute config
 recompute_config:
-  recompute: True
+  recompute: [8, 8, 8, 7, 7, 5, 4, 2]
   select_recompute: False
+  select_comm_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
   recompute_slice_activation: True
@@ -170,13 +170,13 @@ model:
     bos_token_id: 151643
     compute_dtype: "bfloat16"
     layernorm_compute_type: "float32"
-    softmax_compute_type: "float16"
+    softmax_compute_type: "float32"
     rotary_dtype: "float16"
-    param_init_type: "float16"
+    param_init_type: "float32"
     use_past: False
     use_flash_attention: True
     use_past_shard: False
-    offset: 0
+    offset: [-1, 0, 0, 0, 0, 0, 1, 0]
     checkpoint_name_or_path: ""
     repetition_penalty: 1.05
     max_decode_length: 1024
