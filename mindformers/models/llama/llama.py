@@ -380,13 +380,13 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
                 ptq_config = {'mode': PTQMode.DEPLOY, 'backend': BackendTarget.ASCEND}
                 qconfig = config.quantization_config
-                ptq_config.weight_quant_dtype = dtype_formatter(qconfig.get('weight_dtype', 'int8'))
-                ptq_config.act_quant_dtype = dtype_formatter(qconfig.get('activation_dtype', 'None'))
-                ptq_config.kvcache_quant_dtype = dtype_formatter(qconfig.get('kvcache_dtype', 'None'))
+                ptq_config['weight_quant_dtype'] = dtype_formatter(qconfig.get('weight_dtype', 'int8'))
+                ptq_config['act_quant_dtype'] = dtype_formatter(qconfig.get('activation_dtype', 'None'))
+                ptq_config['kvcache_quant_dtype'] = dtype_formatter(qconfig.get('kvcache_dtype', 'None'))
                 outliers_suppression = qconfig.get('outliers_suppression', 'None')
-                ptq_config.outliers_suppression = OutliersSuppressionType.SMOOTH if outliers_suppression == 'SMOOTH' \
+                ptq_config['outliers_suppression'] = OutliersSuppressionType.SMOOTH if outliers_suppression == 'SMOOTH'\
                     else OutliersSuppressionType.NONE
-                ptq_config.opname_blacklist = qconfig.get('modules_to_not_convert', [])
+                ptq_config['opname_blacklist'] = qconfig.get('modules_to_not_convert', [])
             print(f"PTQConfig: {ptq_config}")
             cfg = PTQConfig(**ptq_config)
             mfconfig = MindFormerConfig(model={'model_config': vars(config)})
