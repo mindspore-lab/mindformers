@@ -23,7 +23,6 @@ __all__ = ["get_attn_mask_func"]
 
 def attn_mask_fill(attention_scores: Tensor, attention_mask, fill_value=-10000.0):
     """mask attention scores with the mask value"""
-    attention_mask = ops.sub(1.0, attention_mask)
     attention_scores = ops.masked_fill(
         attention_scores,
         attention_mask.astype(mstype.bool_),
