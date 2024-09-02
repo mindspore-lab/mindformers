@@ -287,6 +287,7 @@ def check_valid_moefinalizerouting_op():
         return False
     return True
 
+
 def check_valid_mindspore_gs():
     """check mindspore golden-stick version is valid or not"""
     import mindspore_gs

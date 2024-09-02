@@ -179,6 +179,7 @@ class Embedding(Module):
         embeddings = embeddings.astype(self.compute_dtype)
         return embeddings
 
+
 class TransformerLanguageModel(Module):
     """
     Transformer language model.
@@ -440,6 +441,7 @@ class TransformerLanguageModel(Module):
             raise NotImplementedError("delimiter_position is not supported for now.")
         if image_embedding is not None:
             raise NotImplementedError("image_embedding is not supported for now.")
+
 
 def get_language_model(config, num_tokentypes, add_pooler,
                        encoder_attn_mask_type,

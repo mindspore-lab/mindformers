@@ -72,6 +72,7 @@ task2desc = {
     "accountant": "注册会计师",
 }
 
+
 def load_models_tokenizer(args):
     tokenizer = LlamaTokenizer(args.token_path)
 
@@ -245,7 +246,7 @@ def cal_ceval(res):
             print("%s acc: %.2f " % (k, acc_sum_dict[k] / cnt_dict[k]))
     if hard_cnt > 0:
         print("Hard acc:%.2f " % (hard_acc_sum / hard_cnt))
-    if cnt !=0:
+    if cnt != 0:
         print("AVERAGE acc:%.2f " % (acc_sum / cnt))
 
 

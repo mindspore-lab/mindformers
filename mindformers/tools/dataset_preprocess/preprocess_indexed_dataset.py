@@ -41,6 +41,7 @@ class CustomLanguageVars(PunktLanguageVars):
             (?P<next_tok>\S+)     #  <-- Normally you would have \s+ here
         ))"""
 
+
 class IdentitySplitter:
     def tokenize(self, *text):
         return text
@@ -82,7 +83,7 @@ class Encoder:
         for key in self.args.json_keys:
             text = data[key]
             max_len = 1000000
-            tokens_list = [Encoder.splitter.tokenize(text[i:i+max_len]) for i in range(0, len(text), max_len)]
+            tokens_list = [Encoder.splitter.tokenize(text[i:i + max_len]) for i in range(0, len(text), max_len)]
             output[key] = [tokens for partial in tokens_list for tokens in partial]
         return json.dumps(output), len(json_line)
 
@@ -123,7 +124,7 @@ class Partition:
         if count % self.args.log_interval == 0:
             current = time.time()
             elapsed = current - proc_start
-            mbs = total_bytes_processed/elapsed/1024/1024
+            mbs = total_bytes_processed / elapsed / 1024 / 1024
             print(f"Processed {count} documents",
                   f"({count/elapsed} docs/s, {mbs} MB/s).",
                   file=sys.stderr)
@@ -206,10 +207,10 @@ class Partition:
             self.print_processing_stats(i, proc_start, total_bytes_processed)
 
         if self.args.pad_or_stitch == 'stitch':
-            for chunk in chunks(content, self.args.seq_length+1):
-                if len(chunk) == self.args.seq_length+1:
+            for chunk in chunks(content, self.args.seq_length + 1):
+                if len(chunk) == self.args.seq_length + 1:
                     sequence = np.array(chunk, dtype=np.int32)
-                    builders[key].add_document(sequence, [self.args.seq_length+1])
+                    builders[key].add_document(sequence, [self.args.seq_length + 1])
         fin.close()
         builders[key].finalize(output_idx_files[key])
 
@@ -339,7 +340,8 @@ def partition_file(args):
                 partitioned_input_file = open(in_ss_out_names[idx]['partition'], 'w')
                 partitioned_input_files.append(partitioned_input_file)
             index = 0
-            if args.keep_sequential_samples: line_count = 0
+            if args.keep_sequential_samples:
+                line_count = 0
             for in_file_name in in_file_names:
                 # support for gzip files
                 if in_file_name.endswith(".gz"):
@@ -353,13 +355,13 @@ def partition_file(args):
                         if line_count % partition_size == 0:
                             index += 1
                     else:
-                        index = (index + 1)%args.partitions
+                        index = (index + 1) % args.partitions
                 fin.close()
             for idx in range(args.partitions):
                 partitioned_input_files[idx].close()
 
     assert args.workers % args.partitions == 0
-    partition = Partition(args, args.workers//args.partitions)
+    partition = Partition(args, args.workers // args.partitions)
 
     return in_ss_out_names, partition
 

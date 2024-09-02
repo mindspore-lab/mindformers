@@ -324,10 +324,12 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     if get_dp_world_size() > 1:
         get_dp_group()
 
+
 def is_initialized():
     """Useful for code segments that may be accessed with or without mpu initialization"""
     comm_group = get_group_info('dp')
     return comm_group.group is not None
+
 
 def is_uninitialized() -> bool:
     """Check if parallel state has been initialized
@@ -339,6 +341,7 @@ def is_uninitialized() -> bool:
     )
     return not is_initialized()
 
+
 def model_parallel_is_initialized():
     """Check if model and data parallel groups are initialized."""
     for name in ['tp', 'pp', 'dp']:
@@ -346,6 +349,7 @@ def model_parallel_is_initialized():
         if comm_group.group is None:
             return False
     return True
+
 
 ### get group
 # pylint: disable=C0330
@@ -478,6 +482,7 @@ def get_tensor_and_expert_parallel_world_size():
 def get_tensor_and_context_parallel_world_size():
     """Return world size for the tensor parallel group and context parallel group."""
     return _get_world_size_helper('tp-cp')
+
 
 def get_data_modulo_expert_parallel_world_size():
     return _get_world_size_helper('dp-independent_ep')

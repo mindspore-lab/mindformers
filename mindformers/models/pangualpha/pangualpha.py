@@ -316,9 +316,8 @@ class PanguAlphaModel(PanguAlphaPreTrainedModel):
                 self.top_query_layer.recompute()
         else:
             if config.parallel_config.recompute.recompute:
-                self.top_query_layer.recompute(recompute_slice_activation=
-                                               config.parallel_config.recompute.recompute_slice_activation)
-
+                self.top_query_layer.recompute(
+                    recompute_slice_activation=config.parallel_config.recompute.recompute_slice_activation)
         self.top_query_layer.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
         self.top_query_layer.pipeline_stage = config.parallel_config.pipeline_stage - 1
 

@@ -83,6 +83,7 @@ def preprocess(sources, tokenizer, seq_length):
         attention_mask=attention_mask
     )
 
+
 # pylint: disable=C0111
 # pylint: disable=W0703
 def tokenize_qa(tokenizer, file_path, seq_length):

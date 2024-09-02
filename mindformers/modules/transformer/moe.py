@@ -1168,7 +1168,7 @@ class TopkRouterV2(Cell):
         output_tensor = self.combine_gather(expert_output, combine_index, 1) # (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
         router_coeff = self.cast(router_coeff, F.dtype(expert_output))
         output_tensor = self.mul_router_coeff(output_tensor, self.reshape(router_coeff, (router_coeff.shape[0], router_coeff.shape[1], router_coeff.shape[2], 1)))  # (dp, N, k, h) <-- (dp, N, k, h) (dp, N, k, 1)
-        output_tensor = self.sum_router_coeff(output_tensor, 2)  #reduce sum # (dp, N, h) <-- (dp, N, k, h)
+        output_tensor = self.sum_router_coeff(output_tensor, 2)  # reduce sum # (dp, N, h) <-- (dp, N, k, h)
         return output_tensor
 
     def construct(self, router_logits):
@@ -1193,7 +1193,7 @@ class TopkRouterV2(Cell):
                 dispatch_idx, combine_idx, router_coeff = self._maskout_overflowed_tokens_use_topkrouter(expert_index,
                                                                                                          expert_gate)
             else:
-                 # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
+                # (dp, E, n)int32, (dp, N, k), (dp, N, k) <-- (dp, N, k), (dp, N, k)
                 dispatch_idx, combine_idx, router_coeff = self._maskout_overflowed_tokens_sort_kdrop(expert_index,
                                                                                                      expert_gate)
         return dispatch_idx, combine_idx, router_coeff # (dp, E, n)int32, (dp, N, k), (dp, N, k)
@@ -1224,7 +1224,7 @@ class TopkRouterV2(Cell):
 
         # calculate dispatch_index from position_in_expert_onehot
         safe_kn = 2 * kn # factor=2 for safety
-        range_kn = self.slice_range(self.range2, (0, 0), (self.expert_dim, kn), (1, 1)).reshape(1, self.expert_dim, kn)  #(1, E, kN) fp32 <-- (E, 131072)
+        range_kn = self.slice_range(self.range2, (0, 0), (self.expert_dim, kn), (1, 1)).reshape(1, self.expert_dim, kn)  # (1, E, kN) fp32 <-- (E, 131072)
         select = self.transpose_3d(expert_mask, (0, 2, 1))  # (dp, E, kN) fp32 <-- (dp, kN, E) fp32
         dispatch_index_raw = self.add_3d(self.mul_range(select, range_kn), self.mul_range(self.sub_range(1, select), self.add_range(range_kn, safe_kn)))  # (dp, E, kN) <-- (dp, E, kN) fp32
         dispatch_index, _ = self.sort_range(dispatch_index_raw)  # (dp, E, k) <-- (dp, E, kN）
@@ -1265,7 +1265,7 @@ class TopkRouterV2(Cell):
 
         # calculate dispatch_index from position_in_expert_onehot
         safe_kn = 2 * kn  # factor=2 for safety
-        range_kn = self.slice_range(self.range2, (0, 0), (self.expert_dim, kn), (1, 1)).reshape(1, self.expert_dim, kn)  #(1, E, kN) fp32 <-- (E, 131072)
+        range_kn = self.slice_range(self.range2, (0, 0), (self.expert_dim, kn), (1, 1)).reshape(1, self.expert_dim, kn)  # (1, E, kN) fp32 <-- (E, 131072)
         select = self.transpose_3d(expert_mask, (0, 2, 1))  # (dp, E, Nk) fp32 <-- (dp, Nk, E) fp32
         dispatch_index_raw = self.add_3d(self.mul_range(select, range_kn), self.mul_range(self.sub_range(1, select), self.add_range(range_kn, safe_kn)))  # (dp, E, kN) <-- (dp, E, kN) fp32
         dispatch_index, _ = self.sort_range(dispatch_index_raw)  # (dp, E, k) <-- (dp, E, kN）

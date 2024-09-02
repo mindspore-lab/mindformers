@@ -29,6 +29,7 @@ from tests.st.test_static_distri_core.test_adamw.optimizer_util import build_net
 ms.set_context(mode=0)
 ms.set_context(device_id=0)
 
+
 class TestAdamW:
     """A test class for testing optimizer computation."""
     def test_computation(self):

@@ -45,6 +45,7 @@ _INIT_ATTRIBUTE = {
     'is_sample_acceleration'
 }
 
+
 def convert_to_transformer_config(config, transformer_config):
     r"""
     Convert a configuration object to a TransformerConfig.
@@ -79,6 +80,7 @@ def convert_to_transformer_config(config, transformer_config):
         return convert_pretrained_config(config, transformer_config)
 
     raise Exception(f"unsupported config type '{config}'.")
+
 
 def convert_pretrained_config(config: PretrainedConfig, transformer_config: TransformerConfig):
     """Convert the PretrainedConfig class to TransformerConfig class."""
@@ -116,6 +118,7 @@ def convert_pretrained_config(config: PretrainedConfig, transformer_config: Tran
     else:
         transformer_config.init_method = init_method_zero(transformer_config.params_dtype)
     return transformer_config
+
 
 def convert_mstype(ms_dtype: str = "float16"):
     """Convert the string type to MindSpore type."""

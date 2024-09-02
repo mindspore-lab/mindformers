@@ -35,6 +35,7 @@ from test_pipeline_net import PipelineTestNet, FakeData
 
 ms.set_seed(2024)
 
+
 def generate_ckpt(vocab_size, seq_length, hidden_size, num_layers, share_weight=False):
     """ get ckpt dict """
     ckpt = {}

@@ -244,7 +244,7 @@ class MFLossMonitor(Callback):
         throughput = self.global_batch_size / self.device_num / (per_step_seconds / 1000)
 
         # compute percent
-        percent = ((cur_epoch_num - 1) * steps_per_epoch +  cur_step_num) / origin_epochs / steps_per_epoch * 100
+        percent = ((cur_epoch_num - 1) * steps_per_epoch + cur_step_num) / origin_epochs / steps_per_epoch * 100
 
         if (cb_params.cur_step_num - self.last_print_time) >= self.per_print_times:
             self.last_print_time = cb_params.cur_step_num

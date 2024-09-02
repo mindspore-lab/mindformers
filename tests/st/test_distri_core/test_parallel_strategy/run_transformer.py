@@ -32,13 +32,15 @@ from mindformers.experimental.distri_cores.checkpointing import load_checkpoint,
 from mindformers.experimental.distri_cores.optimizer import get_optimizer
 from mindformers.experimental.distri_cores.transformer import Module
 from tests.st.test_distri_core.utils import TestData, train, _transform_ckpt_helper
+
+
 class ParallelTransformerNet(Module):
     """ ParallelTransformerNet. """
     def __init__(self, config, with_rope=False):
         super(ParallelTransformerNet, self).__init__()
         self.with_rope = with_rope
         if with_rope:
-            self.rope = RotaryEmbedding(kv_channels=config.hidden_size//config.num_heads,
+            self.rope = RotaryEmbedding(kv_channels=config.hidden_size // config.num_heads,
                                         rotary_percent=1.0)
         self.transformer = ParallelTransformer(config=config, post_norm=False)
         self.loss = SoftmaxCrossEntropyWithLogits()
@@ -53,6 +55,7 @@ class ParallelTransformerNet(Module):
         output = ops.sum(output, dim=-1, keepdim=False)
         loss = self.loss(output, labels)
         return loss
+
 
 def run_parallel_transformer(test_mode, tp_size, rng_mode):
     """ Test ParallelTransformer. """
@@ -78,7 +81,7 @@ def run_parallel_transformer(test_mode, tp_size, rng_mode):
     label_data = np.zeros((dataset_size, seq_length)).astype(np.float32)
     for i in range(label_data.shape[0]):
         label_data[i][0] = 1
-    attn_mask = ((1-np.tril(np.ones(shape=(1, seq_length, seq_length)))) * -10000).astype(np.float32)
+    attn_mask = ((1 - np.tril(np.ones(shape=(1, seq_length, seq_length)))) * -10000).astype(np.float32)
     dataset = TestData(input_data=input_data, label_data=label_data, attn_mask=attn_mask)
     dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels', "attention_mask"])
     dataset = dataset.batch(batch_size)
@@ -100,7 +103,7 @@ def run_parallel_transformer(test_mode, tp_size, rng_mode):
                                attention_dropout_rate=dropout_rate,
                                mask_func_type="attn_mask_add",
                                mlp_has_bias=True,
-                               ffn_hidden_size=4*hidden_size,
+                               ffn_hidden_size=4 * hidden_size,
                                hidden_act='gelu',
                                apply_residual_connection_post_norm=False,
                                normalization='FusedRMSNorm',

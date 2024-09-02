@@ -26,6 +26,7 @@ from mindspore.dataset import GeneratorDataset
 
 _INDEX_HEADER = b"MMIDIDX\x00\x00"
 
+
 class DType(Enum):
     """The NumPy data type Enum for writing/reading the IndexedDataset indices"""
     uint8 = 1
@@ -397,6 +398,7 @@ class _IndexWriter:
 class IndexedDataLoader:
     """Indexed DataLoader."""
     _default_column_names = ['input_ids']
+
     def __new__(cls,
                 path_prefix: str,
                 mutilmodal: bool = False,
@@ -613,6 +615,7 @@ def get_idx_path(path_prefix: str) -> str:
         str : The path to the index file
     """
     return path_prefix + ".idx"
+
 
 def get_bin_path(path_prefix: str) -> str:
     """Get the path to the data file from the prefix

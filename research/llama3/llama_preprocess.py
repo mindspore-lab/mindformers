@@ -201,6 +201,7 @@ def tokenize_wiki(tokenizer, file_path, seq_length, repeat):
             sample['input_ids'] = np.array(chunk, dtype=np.int32)
             yield sample
 
+
 # pylint: disable=C0111
 # pylint: disable=W0703
 def tokenize_qa(tokenizer, file_path, seq_length):

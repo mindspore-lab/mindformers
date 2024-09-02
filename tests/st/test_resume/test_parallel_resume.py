@@ -22,6 +22,7 @@ import pytest
 
 from tests.utils.resume_train import extract_loss_values
 
+
 class TestResumeTraining:
     """A test class for testing pipeline."""
 

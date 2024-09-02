@@ -104,7 +104,7 @@ def transform_moe_golden_params_to_pynative_params(
                     pynative_name = f"moe.experts.local_experts.{i}.mapping.weight"
                 if len(param.shape) == 3:
                     pynative_params[pynative_name] = ms.Parameter(param[local_expert_id])
-                    print(f"{name} {param[local_expert_id].shape} -> "+\
+                    print(f"{name} {param[local_expert_id].shape} -> " + \
                           f"{pynative_name} {pynative_params[pynative_name].shape}", flush=True)
                 elif len(param.shape) == 2:
                     pynative_params[pynative_name] = ms.Parameter(param)

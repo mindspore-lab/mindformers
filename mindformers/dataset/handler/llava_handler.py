@@ -27,6 +27,7 @@ class LlavaInstructDataHandler(BaseInstructDataHandler):
     def handle(self, dataset):
         """data handler"""
         image_dir = self.config.image_dir
+
         def convert_row_data(example):
             conversation = example.get("conversations")
             image = example.pop("image")

@@ -67,13 +67,13 @@ class TestParallelLMLogits(ms.nn.Cell):
     """ Test Parallel lm logits """
     def __init__(self, config, parallel_output):
         super().__init__()
-        self.word_embeddings = VocabParallelEmbedding(config.vocab_size,
-                                                      config.hidden_size,
-                                                      config=config.parallel_config,
-                                                      init_method=config.init_method,
-                                                      reduce_scatter_embeddings=
-                                                      config.parallel_config.use_sequence_parallel,
-                                                      param_init_dtype=config.param_init_dtype)
+        self.word_embeddings = VocabParallelEmbedding(
+            config.vocab_size,
+            config.hidden_size,
+            config=config.parallel_config,
+            init_method=config.init_method,
+            reduce_scatter_embeddings=config.parallel_config.use_sequence_parallel,
+            param_init_dtype=config.param_init_dtype)
         self.head = ParallelLMLogits(config=config.parallel_config,
                                      bias=False,
                                      compute_dtype=config.compute_dtype)

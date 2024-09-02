@@ -164,8 +164,7 @@ class QuantizationConfigMixin:
 
 @dataclass
 class PtqConfig(QuantizationConfigMixin, PTQConfig):
-    """
-        Config for post trainning quantization.
+    """Config for post trainning quantization.
 
         Args:
 
@@ -249,8 +248,7 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
 
 @dataclass
 class SmoothQuantConfig(QuantizationConfigMixin, PTQConfig):
-    """
-        Config for post trainning quantization.
+    """Config for post trainning quantization.
 
         Args:
 

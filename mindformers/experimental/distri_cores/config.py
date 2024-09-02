@@ -921,6 +921,7 @@ def validate_expert_parallel(config_instance, expert_parallel):
     Validator.check_positive_int(expert_parallel, "expert_parallel")
     return expert_parallel
 
+
 @ModelParallelConfig.validator("virtual_pipeline_model_parallel_size")
 def validate_virtual_pipeline_model_parallel_size(config_instance, virtual_pipeline_model_parallel_size):
     """Validate virtual pipeline stage."""
@@ -928,6 +929,7 @@ def validate_virtual_pipeline_model_parallel_size(config_instance, virtual_pipel
         Validator.check_positive_int(virtual_pipeline_model_parallel_size,
                                      "virtual_pipeline_model_parallel_size")
     return virtual_pipeline_model_parallel_size
+
 
 @ModelParallelConfig.validator("use_sequence_parallel")
 def validate_use_sequence_parallel(config_instance, use_sequence_parallel):
@@ -1385,6 +1387,7 @@ def validate_param_init_dtype(config_instance, param_init_dtype):
 def validate_embedding_init_dtype(config_instance, embedding_init_dtype):
     """Validate embedding_init_dtype."""
     return _SUPPORT_DTYPE_DICT[embedding_init_dtype]
+
 
 @TransformerConfig.validator("compute_dtype")
 def validate_compute_dtype(config_instance, compute_dtype):

@@ -51,12 +51,12 @@ class TestMoE:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --generate_golden --dp=1 --ep=1 --batch_size=2"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=3722 "+\
-                    f"--log_dir=msrun_log_graph "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=3722 " + \
+                    f"--log_dir=msrun_log_graph " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         ret = os.system(cmd)
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_graph/worker_0.log -C 3")
@@ -86,12 +86,12 @@ class TestMoE:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --dp=1 --ep=1 --batch_size=2"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=3721 "+\
-                    f"--log_dir=msrun_log_pynative_dp1 "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=3721 " + \
+                    f"--log_dir=msrun_log_pynative_dp1 " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd:\n{cmd}")
         ret = os.system(cmd)
@@ -116,7 +116,7 @@ class TestMoE:
 
         golden_input_and_loss_path = f"./data/golden_moe_input_and_loss.npy"
         assert os.path.exists(golden_input_and_loss_path), \
-            f"'{golden_input_and_loss_path}' did not exits, please run generate_golden() to "+\
+            f"'{golden_input_and_loss_path}' did not exits, please run generate_golden() to " + \
                 "generate one by running below command: \n`pytest -sv test_moe.py::TestMoE::test_moe_golden`"
 
         input_and_loss = np.load(golden_input_and_loss_path, allow_pickle=True).tolist()
@@ -158,12 +158,12 @@ class TestMoE:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path}"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=3721 "+\
-                    f"--log_dir=msrun_log_pynative_dp2 "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=3721 " + \
+                    f"--log_dir=msrun_log_pynative_dp2 " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd:\n{cmd}")
         ret = os.system(cmd)
@@ -186,7 +186,7 @@ class TestMoE:
 
         golden_input_and_loss_path = f"./data/golden_moe_input_and_loss.npy"
         assert os.path.exists(golden_input_and_loss_path), \
-            f"'{golden_input_and_loss_path}' did not exits, please run generate_golden() to "+\
+            f"'{golden_input_and_loss_path}' did not exits, please run generate_golden() to " + \
                 "generate one by running below command: \n`pytest -sv test_moe.py::TestMoE::test_moe_golden`"
 
         input_and_loss = np.load(golden_input_and_loss_path, allow_pickle=True).tolist()
@@ -230,12 +230,12 @@ class TestMoE:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --aux_loss"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=3721 "+\
-                    f"--log_dir=msrun_log_pynative_dp2_with_aux_loss "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=3721 " + \
+                    f"--log_dir=msrun_log_pynative_dp2_with_aux_loss " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd:\n{cmd}")
         ret = os.system(cmd)
@@ -259,7 +259,7 @@ class TestMoE:
 
         golden_input_and_loss_path = f"./data/golden_moe_input_and_loss.npy"
         assert os.path.exists(golden_input_and_loss_path), \
-            f"'{golden_input_and_loss_path}' did not exits, please run generate_golden() to "+\
+            f"'{golden_input_and_loss_path}' did not exits, please run generate_golden() to " + \
                 "generate one by running below command: \n`pytest -sv test_moe.py::TestMoE::test_moe_golden`"
 
         input_and_loss = np.load(golden_input_and_loss_path, allow_pickle=True).tolist()
@@ -301,12 +301,12 @@ class TestMoE:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --dp=1 --ep=1 --batch_size=2 --z_loss_coeff=1e-3"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=3721 "+\
-                    f"--log_dir=msrun_log_pynative_dp1_z_loss "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=3721 " + \
+                    f"--log_dir=msrun_log_pynative_dp1_z_loss " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd:\n{cmd}")
         ret = os.system(cmd)
@@ -331,7 +331,7 @@ class TestMoE:
 
         golden_input_and_loss_path = f"./data/golden_moe_input_and_loss.npy"
         assert os.path.exists(golden_input_and_loss_path), \
-            f"'{golden_input_and_loss_path}' did not exits, please run generate_golden() to "+\
+            f"'{golden_input_and_loss_path}' did not exits, please run generate_golden() to " + \
                 "generate one by running below command: \n`pytest -sv test_moe.py::TestMoE::test_moe_golden`"
 
         input_and_loss = np.load(golden_input_and_loss_path, allow_pickle=True).tolist()

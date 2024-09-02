@@ -18,6 +18,7 @@ import pytest
 
 test_parallel_order = ['tp-cp-ep-dp-pp', 'tp-ep-dp-cp-pp']
 
+
 class TestCreateComm:
     """A test class for testing creating communication."""
     # os.environ['ASCEND_RT_VISIBLE_DEVICES'] = "0,1,2,3"

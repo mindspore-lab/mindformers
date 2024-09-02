@@ -20,6 +20,7 @@ from mindformers.core.lr.lr_schedule import CosineWithWarmUpLR, PolynomialWithWa
 
 __all__ = ['LearningRateScheduler']
 
+
 class LearningRateScheduler(LearningRateSchedule):
     """learning scheduler"""
     def __init__(

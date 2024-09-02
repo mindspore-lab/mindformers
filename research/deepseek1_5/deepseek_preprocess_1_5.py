@@ -32,7 +32,7 @@ IGNORE_TOKEN_ID = -100
 def chunks(lst, n):
     """ yield n sized chunks from list"""
     for i in range(0, len(lst), n):
-        yield lst[i:i+n]
+        yield lst[i:i + n]
 
 
 def package_file(it, n):
@@ -76,7 +76,7 @@ def clean_wikitext(string):
     string = string.replace("= = = =", "====")
     string = string.replace("= = =", "===")
     string = string.replace("= =", "==")
-    string = string.replace(" "+chr(176)+" ", chr(176))
+    string = string.replace(" " + chr(176) + " ", chr(176))
     string = string.replace(" \n", "\n")
     string = string.replace("\n ", "\n")
     string = string.replace(" N ", " 1 ")
@@ -107,9 +107,9 @@ def preprocess(sources, tokenizer, seq_length, pad_token_id):
         len_inputid = len(d['input_ids'])
         l_target = len(target)
         if l_target < seq_length:
-            d['input_ids'] = np.pad(d['input_ids'], ((0), (seq_length-len_inputid)),
+            d['input_ids'] = np.pad(d['input_ids'], ((0), (seq_length - len_inputid)),
                                     mode='constant', constant_values=pad_token_id)
-            target = np.pad(target, ((0), (seq_length-l_target)),
+            target = np.pad(target, ((0), (seq_length - l_target)),
                             mode='constant', constant_values=IGNORE_TOKEN_ID)
 
         target[:conversation[1]] = IGNORE_TOKEN_ID

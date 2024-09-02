@@ -26,6 +26,7 @@ from mindformers.experimental.distri_cores.create_comm import (
     get_cp_world_size
 )
 
+
 class SelfDefinedGather(nn.Cell):
     """SelfDefinedGather"""
     def __init__(self, indices):
@@ -61,6 +62,7 @@ def token_sort(tokens, indices, topk: int = 1):
     sorted_tokens = mint.index_select(tokens, 0, sorted_indices // topk)
 
     return sorted_tokens, sorted_indices
+
 
 def token_unsort(sorted_tokens, sorted_indices, probs: ms.Tensor = None, topk: int = 1):
     """define token_unsort"""

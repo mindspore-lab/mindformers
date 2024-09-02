@@ -66,9 +66,9 @@ class TestRingAttention:
         scripts_cmd = f"{scripts_path}"
         cmd = f"msrun --worker_num={device_num} " + \
                     f"--local_worker_num={device_num} " + \
-                    f"--master_port=8118 "+\
+                    f"--master_port=8118 " + \
                     f"--log_dir=msrun_log_flash_sp " + \
-                    f"--join=True "+\
+                    f"--join=True " + \
                     f"--cluster_time_out=300 " + \
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
