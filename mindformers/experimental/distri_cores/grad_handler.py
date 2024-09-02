@@ -164,7 +164,7 @@ def get_grad_process_func(training_config, return_instance=True, **kwargs):
         if grad_clip_type == "ClipGlobalNorm":
             if "params" not in grad_process_func_kwargs:
                 raise ValueError("params is required for ClipGlobalNorm")
-            if training_config.ddp_config.use_distributed_optimizer:
+            if training_config.use_distributed_optimizer:
                 reduce_comm_group = GlobalComm.WORLD_COMM_GROUP
             else:
                 reduce_comm_group = get_tp_group()
