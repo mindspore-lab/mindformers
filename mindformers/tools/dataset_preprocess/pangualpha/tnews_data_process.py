@@ -80,8 +80,7 @@ def get_en2zh_label(label_path):
     print('loading label file ')
     # labels_ch.json is the results that translated from original labels
     with open(label_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
-        for line in lines:
+        for line in f:
             line_json = json.loads(line)
             if "label_desc_ch" in line_json:
                 en_label = line_json['label_desc']
