@@ -30,6 +30,7 @@ from .bloom import *
 from .sam import *
 from .cogvlm2 import *
 from .eva02 import *
+from .whisper import *
 from .tokenization_utils import *
 from .tokenization_utils_fast import PreTrainedTokenizerFast
 from .modeling_utils import *
@@ -69,3 +70,4 @@ __all__.extend(tokenization_utils.__all__)
 __all__.extend(modeling_utils.__all__)
 __all__.extend(configuration_utils.__all__)
 __all__.extend(multi_modal.__all__)
+__all__.extend(whisper.__all__)

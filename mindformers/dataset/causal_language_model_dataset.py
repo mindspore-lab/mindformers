@@ -27,6 +27,9 @@ from .dataloader import build_dataset_loader
 from .base_dataset import BaseDataset
 
 
+CAST_TO_INT_COLUMNS = ["input_ids", "labels"]
+
+
 def dyn_batch_wrapper(divisor, remainder, pad_token_id=0):
     "Generate dynamic batch process function for padding each batch data."
     def batch_map_process(*cols):
@@ -242,8 +245,9 @@ class CausalLanguageModelDataset(BaseDataset):
             dataset = dataset.project(columns=dataset_config.output_columns)
 
             for input_arg in dataset_config.output_columns:
-                dataset = get_dataset_map(dataset, type_cast_op,
-                                          input_columns=input_arg)
+                if input_arg in CAST_TO_INT_COLUMNS:
+                    dataset = get_dataset_map(dataset, type_cast_op,
+                                              input_columns=input_arg)
         else:
             if dataset_config.dynamic_batch:
                 dataset = dataset.batch(dataset_config.batch_size,
@@ -261,8 +265,9 @@ class CausalLanguageModelDataset(BaseDataset):
 
             dataset = dataset.project(columns=dataset_config.input_columns)
             for input_arg in dataset_config.input_columns:
-                dataset = get_dataset_map(dataset, type_cast_op,
-                                          input_columns=input_arg)
+                if input_arg in CAST_TO_INT_COLUMNS:
+                    dataset = get_dataset_map(dataset, type_cast_op,
+                                              input_columns=input_arg)
         dataset = dataset.repeat(dataset_config.repeat)
         return dataset
 

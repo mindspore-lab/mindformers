@@ -6,3 +6,5 @@ mindformers/mindformers/models/auto/image_processing_auto.py:from_pretrained
 mindformers/mindformers/models/tokenization_utils_base.py:from_experimental_pretrained
 mindformers/mindformers/models/auto/processing_auto.py:from_pretrained_experimental
 mindformers/mindformers/experimental/distri_cores/sequence_parallel/ring_attention.py:bprop
+mindformers/mindformers/models/whisper/tokenization_whisper.py:_decode_asr
+mindformers/mindformers/models/whisper/english_normalizer.py:process_words
