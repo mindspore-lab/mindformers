@@ -1,7 +1,7 @@
 mindformers
 ==================
 
-run_check
+Run Check
 -----------------
 
 .. autosummary::

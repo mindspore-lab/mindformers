@@ -17,7 +17,6 @@ import os
 import re
 import sys
 import time
-import signal
 import platform
 import subprocess
 from io import StringIO
@@ -33,7 +32,7 @@ from mindformers import Trainer, TrainingArguments, AdamW
 from mindformers.models.llama import LlamaForCausalLM, LlamaConfig
 from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
 
-from .tools.logger import logger, get_logger, validate_level
+from .tools.logger import logger
 
 VERSION_MAPPING = {
     '1.2.0': {
@@ -47,39 +46,14 @@ VERSION_MAPPING = {
 class BaseCheck:
     """The base check class, needs to be implemented"""
 
-    def __init__(self, start, log_level='INFO'):
+    def __init__(self, start):
         """
         Init function
 
         Args:
             start (float): The start time of run_check
-            log_level (str): The log level
         """
         self.start = start
-        self.log_level = log_level.upper()
-        validate_level('log_level', self.log_level)
-        # pylint: disable=W0212
-        self.ms_level = ms.log._get_logger().handlers[0].level
-        self.mf_level = get_logger().handlers[0].level
-
-    def _set_log_level(self, reset=False):
-        """
-        Set_log_level
-
-        Args:
-            reset (bool): If it is False, set the log level to specified level,
-                          If it is True, set the log level back
-        """
-        if reset:
-            ms_level = self.ms_level
-            mf_level = self.mf_level
-        else:
-            ms_level = self.log_level
-            mf_level = self.log_level
-
-        # pylint: disable=W0212
-        ms.log._get_logger().handlers[0].setLevel(ms_level)
-        get_logger().handlers[0].setLevel(mf_level)
 
     def set_next(self, next_check):
         """
@@ -109,7 +83,6 @@ class MSCheck(BaseCheck):
     def check(self):
         """MindSpore check"""
         logger.info('------------------------------Starting MindSpore Run Check------------------------------')
-        self._set_log_level()
         buffer = StringIO()
         sys.stdout = buffer
 
@@ -117,7 +90,6 @@ class MSCheck(BaseCheck):
         result = buffer.getvalue()
 
         sys.stdout = sys.__stdout__
-        self._set_log_level(reset=True)
         if re.search('failed', result):
             self._error(result=result)
             vc = VersionCheck(self.start, error_flag='MS')
@@ -138,14 +110,13 @@ class MSCheck(BaseCheck):
 class MFCheck(BaseCheck):
     """Mindformers run test"""
 
-    def __init__(self, start, log_level='INFO', batch_size=1, num_train_epochs=1, num_layers=2, seq_length=2,
+    def __init__(self, start, batch_size=1, num_train_epochs=1, num_layers=2, seq_length=2,
                  step_num=1, vocab_size=32000):
         """
         init function.
 
         Args:
             start (float): The start time of run_check
-            log_level (str): The log level
             batch_size (int): The batch size
             num_train_epochs (int): The train epochs
             num_layers (int): The number of layers
@@ -153,7 +124,7 @@ class MFCheck(BaseCheck):
             step_num (int): The step number
             vocab_size (int): The vocab size
         """
-        super().__init__(start, log_level)
+        super().__init__(start)
 
         self.step_num = step_num
         self.vocab_size = vocab_size
@@ -192,16 +163,8 @@ class MFCheck(BaseCheck):
     def check(self):
         """Run mindformers test"""
         logger.info('------------------------------Starting Pretrain Test------------------------------')
-        self._set_log_level()
         try:
-            if self.log_level in ['ERROR', 'CRITICAL']:
-                buffer = StringIO()
-                sys.stdout = buffer
-
             self._train(jit_level='O1')
-            self._train(jit_level='O2')
-
-            sys.stdout = sys.__stdout__
 
         # pylint: disable=W0702
         except:
@@ -214,7 +177,6 @@ class MFCheck(BaseCheck):
             self._success(test='Pretrain')
 
         logger.info('------------------------------Starting Predict Test------------------------------')
-        self._set_log_level()
         try:
             self.model.generate([1], do_sample=False, use_past=False)
             self.model.generate([2], do_sample=False, use_past=True)
@@ -226,19 +188,17 @@ class MFCheck(BaseCheck):
             vc.check()
 
         else:
-            self._success(test='Pretrain')
+            self._success(test='Predict')
             self._next()
 
     def _error(self, **kwargs):
         sys.stdout = sys.__stdout__
-        self._set_log_level(reset=True)
         error_flag = kwargs['error_flag']
         logger.error(f'{error_flag} test failed!', exc_info=True)
         logger.info('If you need any help, please open an issue in the MindFormers repository: '
                     'https://gitee.com/mindspore/mindformers/issues')
 
     def _success(self, **kwargs):
-        self._set_log_level(reset=True)
         test = kwargs['test']
         logger.info(f'{test} test passed!')
 
@@ -362,32 +322,25 @@ class VersionCheck(BaseCheck):
                 self._unmatched(end, mfv, mfv_matching)
 
 
-def timeout_handler(signum, frame):
-    """Process timeout signal"""
-    raise TimeoutError('Execution timed out, exceed 2 min')
-
-
-def run_check(log_level='info'):
+def run_check():
     """
-    Check whether the environment is correctly set up
-    MindSpore run_check -> pretrain -> predict -> version_check
+    Check whether the installed CANN, driver, MindSpore and MindFormers versions are matched.
 
-    Args:
-        log_level (str):  The log level
+    Examples:
+        >>> from mindformers import run_check
+        >>> run_check()
     """
+
     os.environ['MS_ALLOC_CONF'] = "enable_vmm:False"
 
     start = time.perf_counter()
     ms.set_context(mode=0)
-    signal.signal(signal.SIGALRM, timeout_handler)
-    signal.alarm(120)
 
-    msrc = MSCheck(start, log_level)
-    mfc = MFCheck(start, log_level=log_level)
+    msrc = MSCheck(start)
+    mfc = MFCheck(start)
     vc = VersionCheck(start)
 
     msrc.set_next(mfc)
     mfc.set_next(vc)
 
     msrc.check()
-    signal.alarm(0)
