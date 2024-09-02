@@ -70,23 +70,58 @@ def _check_decay_method(decay_steps: int, total_steps: int):
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class ConstantWarmUpLR(LearningRateSchedule):
-    """
+    r"""
     Constant Warm Up Learning Rate.
 
-    Args:
-        learning_rate (`float`):
-            Initial value of learning rate.
-        warmup_steps (`int`, *optional*, defaults to None):
-            The number of warm up steps.
-        warmup_lr_init (`float`, *optional*, defaults to 0.):
-            Initial learning rate in warm up steps.
-        warmup_ratio (`float`, *optional*, defaults to None):
-            Ratio of total training steps used for warmup.
-        total_steps (`int`, *optional*, defaults to None):
-            The number of warm up steps.
+    This learning rate strategy maintains a constant learning rate during the warm-up phase.
+    It is particularly suitable for scenarios where a stable, lower learning rate is needed at the
+    beginning of training to avoid issues such as gradient explosion, before transitioning to
+    the main learning rate schedule.
 
-    Returns:
-        Class, ConstantWarmUpLR
+    During the warm-up phase, the learning rate is kept at a fixed value, denoted as :math:`\eta_{\text{warmup}}` .
+    The formula for the learning rate during the warm-up phase is:
+
+    .. math::
+        \eta_t = \eta_{\text{warmup}}
+
+    Here, :math:`\eta_{\text{warmup}}` is the fixed learning rate applied during the warm-up steps,
+    and :math:`t` represents the current step.
+
+    After the warm-up phase concludes, the learning rate transitions to the main learning rate,
+    denoted as :math:`\eta_{\text{main}}` . The formula for the learning rate after the transition is:
+
+    .. math::
+        \eta_t = \eta_{\text{main}}
+
+    Args:
+        learning_rate (float): Initial value of learning rate.
+        warmup_steps (int, optional): The number of warm up steps. Default: None.
+        warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: 0.
+        warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: None.
+        total_steps (int, optional): The number of warm up steps. Default: None.
+
+    Inputs:
+        - **global_step** (int) - The global step.
+
+    Outputs:
+        Learning rate.
+
+    Examples:
+        >>> import mindspore as ms
+        >>> from mindformers.core import ConstantWarmUpLR
+        >>>
+        >>> ms.set_context(mode=ms.GRAPH_MODE)
+        >>> total_steps = 20
+        >>> warmup_steps = 10
+        >>> learning_rate = 0.005
+        >>>
+        >>> constant_warmup = ConstantWarmUpLR(learning_rate=learning_rate,
+        ...                                    warmup_steps=warmup_steps,
+        ...                                    total_steps=total_steps)
+        >>> print(constant_warmup(1))
+        0.0005
+        >>> print(constant_warmup(15))
+        0.005
     """
 
     @args_type_check(
@@ -117,23 +152,62 @@ class ConstantWarmUpLR(LearningRateSchedule):
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class LinearWithWarmUpLR(LearningRateSchedule):
-    """
+    r"""
     Linear with Warm Up Learning Rate.
 
-    Args:
-        learning_rate (`float`):
-            Initial value of learning rate.
-        total_steps (`int`):
-            The number of total steps.
-        warmup_steps (`int`, *optional*, defaults to None):
-            The number of warm up steps.
-        warmup_lr_init (`float`, *optional*, defaults to 0.):
-            Initial learning rate in warm up steps.
-        warmup_ratio (`float`, *optional*, defaults to None):
-            Ratio of total training steps used for warmup.
+    The LinearWithWarmUpLR scheduler uses a linear warm-up strategy to gradually increase the learning rate
+    for each parameter group, followed by a linear adjustment of the learning rate after the warm-up phase ends.
 
-    Returns:
-        Class, LinearWithWarmUpLR
+    During the warm-up phase, the learning rate increases linearly from a smaller initial value to the base
+    learning rate, as described by the following formula:
+
+    .. math::
+        \eta_t = \eta_{\text{warmup}} + t \times \frac{\eta_{\text{base}} - \eta_{\text{warmup}}}{\text{warmup_steps}}
+
+    where :math:`\eta_{\text{warmup}}` is the initial learning rate during the warm-up phase,
+    and :math:`\eta_{\text{base}}` is the base learning rate after the warm-up phase.
+
+    After the warm-up phase, the learning rate is adjusted according to the following linear schedule:
+
+    .. math::
+        \eta_t = \eta_{\text{base}} - t \times \frac{\eta_{\text{base}} - \eta_{\text{end}}}{\text{total_steps}
+        - \text{warmup_steps}}
+
+    where :math:`\eta_{\text{end}}` is the minimum learning rate at the end of training, :math:`\text{total_steps}`
+    is the total number of training steps, and :math:`\text{warmup_steps}` is the number of steps in the warm-up phase.
+
+    This method allows for a smooth increase in learning rate through linear warm-up, followed by a gradual
+    decrease during the remainder of the training, enhancing the stability and effectiveness of the training process.
+
+    Args:
+        learning_rate (float): Initial value of learning rate.
+        total_steps (int): The number of total steps.
+        warmup_steps (int, optional): The number of warm up steps. Default: None.
+        warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: 0.
+        warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: None.
+
+    Inputs:
+        - **global_step** (int) - The global step.
+
+    Outputs:
+        Learning rate.
+
+    Examples:
+        >>> import mindspore as ms
+        >>> from mindformers.core import LinearWithWarmUpLR
+        >>>
+        >>> ms.set_context(mode=ms.GRAPH_MODE)
+        >>> total_steps = 20
+        >>> warmup_steps = 10
+        >>> learning_rate = 0.005
+        >>>
+        >>> linear_warmup = LinearWithWarmUpLR(learning_rate=learning_rate,
+        ...                                    warmup_steps=warmup_steps,
+        ...                                    total_steps=total_steps)
+        >>> print(linear_warmup(1))
+        0.0005
+        >>> print(linear_warmup(15))
+        0.0025
     """
 
     @args_type_check(
@@ -171,30 +245,64 @@ class LinearWithWarmUpLR(LearningRateSchedule):
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class CosineWithWarmUpLR(LearningRateSchedule):
-    """
+    r"""
     Cosine with Warm Up Learning Rate.
 
-    Args:
-        learning_rate (`float`):
-            Initial value of learning rate.
-        warmup_steps (`int`, *optional*, defaults to None):
-            The number of warm up steps.
-        total_steps (`int`, *optional*, defaults to None):
-            The number of total steps.
-        num_cycles (`float`, *optional*, defaults to 0.5):
-            The number of waves in the cosine schedule (the defaults is to just decrease from the max value to 0
-            following a half-cosine).
-        lr_end (`float`, *optional*, defaults to 0.):
-            Final value of learning rate.
-        warmup_lr_init (`float`, *optional*, defaults to 0.):
-            Initial learning rate in warm up steps.
-        warmup_ratio (`float`, *optional*, defaults to None):
-            Ratio of total training steps used for warmup.
-        decay_steps (`int`, *optional*, defaults to None):
-            The number of decay steps.
+    The CosineWithWarmUpLR learning rate scheduler applies a cosine annealing schedule with warm-up steps to
+    set the learning rate for each parameter group. Initially, the learning rate increases linearly during
+    the warm-up phase, after which it follows a cosine function to decay.
 
-    Returns:
-        Class, CosineWithWarmUpLR
+    During the warm-up phase, the learning rate increases from a small initial value to the base
+    learning rate as follows:
+
+    .. math::
+        \eta_t = \eta_{\text{warmup}} + t \times \frac{\eta_{\text{base}} - \eta_{\text{warmup}}}{\text{warmup_steps}}
+
+    where :math:`\eta_{\text{warmup}}` is the initial learning rate, and :math:`\eta_{\text{base}}` is the
+    learning rate after the warm-up phase.
+
+    once the warm-up phase is completed, the learning rate follows a cosine decay schedule:
+
+    .. math::
+        \eta_t = \eta_{\text{end}} + \frac{1}{2}(\eta_{\text{base}} - \eta_{\text{end}})\left(1
+        + \cos\left(\frac{t_{cur}}{t_{max}}\pi\right)\right)
+
+    where :math:`t_{cur}` is the number of epochs since the end of the warm-up phase, and :math:`t_{max}` is
+    the total number of epochs until the next restart.
+
+    Args:
+        learning_rate (float): Initial value of learning rate.
+        warmup_steps (int, optional): The number of warm up steps. Default: None.
+        total_steps (int, optional): The number of total steps. Default: None.
+        num_cycles (float, optional): The number of waves in the cosine schedule (the defaults is to just
+            decrease from the max value to 0 following a half-cosine). Default: 0.5.
+        lr_end (float, optional): Final value of learning rate. Default: 0.
+        warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: 0.
+        warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: None.
+        decay_steps (int, optional): The number of decay steps. Default: None.
+
+    Inputs:
+        - **global_step** (int) - The global step.
+
+    Outputs:
+        Learning rate.
+
+    Examples:
+        >>> import mindspore as ms
+        >>> from mindformers.core import CosineWithWarmUpLR
+        >>>
+        >>> ms.set_context(mode=ms.GRAPH_MODE)
+        >>> total_steps = 20
+        >>> warmup_steps = 10
+        >>> learning_rate = 0.005
+        >>>
+        >>> cosine_warmup = CosineWithWarmUpLR(learning_rate=learning_rate,
+        ...                                    warmup_steps=warmup_steps,
+        ...                                    total_steps=total_steps)
+        >>> print(cosine_warmup(1))
+        0.0005
+        >>> print(cosine_warmup(15))
+        0.0024999997
     """
 
     @args_type_check(
@@ -246,30 +354,60 @@ class CosineWithWarmUpLR(LearningRateSchedule):
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
-    """
+    r"""
     Cosine with Restarts and Warm Up Learning Rate.
 
-    Args:
-        learning_rate (`float`):
-            Initial value of learning rate.
-        warmup_steps (`int`):
-            The number of warm up steps.
-        total_steps (`int`):
-            The number of total steps.
-        num_cycles (`float`, *optional*, defaults to 1.0):
-            The number of waves in the cosine schedule (the defaults is to just decrease from the max value to 0
-            following a half-cosine).
-        lr_end (`float`, *optional*, defaults to 0.):
-            Final value of learning rate.
-        warmup_lr_init (`float`, *optional*, defaults to 0.):
-            Initial learning rate in warm up steps.
-        warmup_ratio (`float`, *optional*, defaults to None):
-            Ratio of total training steps used for warmup.
-        decay_steps (`int`, *optional*, defaults to None):
-            The number of decay steps.
+    The CosineWithRestartsAndWarmUpLR schedule sets the learning rate for each parameter group using a cosine
+    annealing with restarts and warm-up, where :math:`\eta_{max}` is set to the initial learning rate,
+    and :math:`T_{cur}` represents the number of steps since the last restart:
 
-    Returns:
-        Class, CosineWithRestartsAndWarmUpLR
+    .. math::
+    \begin{aligned}
+        \eta_t & = \eta_{\text{min}} + \frac{1}{2}(\eta_{\text{max}} - \eta_{\text{min}})\left(1
+        + \cos\left(\frac{T_{cur}}{T_{i}}\pi\right)\right), & T_{cur} \neq (2k+1)T_{i}; \ \eta_{t+1}
+        & = \eta_{\text{max}}, & T_{cur} = (2k+1)T_{i}.
+    \end{aligned}
+
+    When last_epoch=-1, the initial learning rate is set to lr. During the restart phase, the learning rate begins
+    anew from the maximum value and gradually decreases to the set minimum value. This strategy helps avoid getting
+    trapped in local minima and accelerates convergence during training.
+
+    This method was proposed in SGDR: Stochastic Gradient Descent with Warm Restarts, extending the concept of
+    cosine annealing to allow for multiple restarts.
+
+    Args:
+        learning_rate (float): Initial value of learning rate.
+        warmup_steps (int): The number of warm up steps. Default: None.
+        total_steps (int): The number of total steps. Default: None.
+        num_cycles (float, optional): The number of waves in the cosine schedule (the defaults is to just decrease
+            from the max value to 0 following a half-cosine). Default: 1.0.
+        lr_end (float, optional): Final value of learning rate. Default: 0.
+        warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: 0.
+        warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: None.
+        decay_steps (int, optional): The number of decay steps. Default: None.
+
+    Inputs:
+        - **global_step** (int) - The global step.
+
+    Outputs:
+        Learning rate.
+
+    Examples:
+        >>> import mindspore as ms
+        >>> from mindformers.core import CosineWithRestartsAndWarmUpLR
+        >>>
+        >>> ms.set_context(mode=ms.GRAPH_MODE)
+        >>> total_steps = 20
+        >>> warmup_steps = 10
+        >>> learning_rate = 0.005
+        >>>
+        >>> cosine_warmup_restart = CosineWithRestartsAndWarmUpLR(learning_rate=learning_rate,
+        ...                                                       warmup_steps=warmup_steps,
+        ...                                                       total_steps=total_steps)
+        >>> print(cosine_warmup_restart(1))
+        0.0005
+        >>> print(cosine_warmup_restart(15))
+        0.0024999997
     """
 
     @args_type_check(
@@ -326,30 +464,69 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class PolynomialWithWarmUpLR(LearningRateSchedule):
-    """
+    r"""
     Polynomial with Warm Up Learning Rate.
 
-    Args:
-        learning_rate (`float`):
-            Initial value of learning rate.
-        warmup_steps (`int`):
-            The number of warm up steps.
-        total_steps (`int`):
-            The number of total steps.
-        power (`float`, *optional*, defaults to 1.0):
-            The power of the polynomial.
-        lr_end (`float`, *optional*, defaults to 0.):
-            Final value of learning rate.
-        warmup_lr_init (`float`, *optional*, defaults to 0.):
-            Initial learning rate in warm up steps.
-        warmup_ratio (`float`, *optional*, defaults to None):
-            Ratio of total training steps used for warmup.
-        decay_steps (`int`, *optional*, defaults to None):
-            The number of decay steps, which must be smaller than total_steps - warmup_steps.
-            If the value is None, decay steps will be total_steps - warmup_steps.
+    At the beginning of training, the learning rate gradually increases from a lower initial
+    value, :math:`\eta_{\text{warmup}}` , to the starting learning rate, :math:`\eta_{\text{start}}` .
+    The change in learning rate during the warm-up phase, depending on the step :math:`t` ,
+    is described by the following formula:
 
-    Returns:
-        Class, PolynomialWithWarmUpLR
+    .. math::
+        \eta_t = \eta_{\text{warmup}} + t \times \frac{\eta_{\text{start}} - \eta_{\text{warmup}}}{\text{warmup_steps}}
+
+    where :math:`\text{warmup\_steps}` represents the total number of steps in the warm-up phase.
+
+    After the warm-up phase concludes, the learning rate gradually decays according to a polynomial function,
+    reaching the final learning rate, :math:`\eta_{\text{end}}` . The change in learning rate over the total
+    number of steps :math:`\text{total\_steps}` is given by the formula:
+
+    .. math::
+        \eta_t = \eta_{\text{end}} + (\eta_{\text{start}} - \eta_{\text{end}}) \times \left(1
+        - \frac{t - \text{warmup_steps}}{\text{decay_steps}}\right)^{\text{power}}
+
+    where :math:`\text{power}` is the exponent of the polynomial, controlling the decay rate.
+
+    This learning rate strategy is well-suited for scenarios where a stable learning rate is needed during
+    the early stages of training, with a gradual decrease in the later stages. By preventing gradient explosion
+    initially and reducing the learning rate during the latter part of training, it helps the model achieve better
+    generalization as it converges.
+
+    Args:
+        learning_rate (float): Initial value of learning rate.
+        warmup_steps (int): The number of warm up steps.
+        total_steps (int): The number of total steps.
+        lr_end (float, optional): Final value of learning rate. Default: 1e-7.
+        power (float, optional): The power of the polynomial. Default: 1.0.
+        warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: 0.
+        warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: None.
+        decay_steps (int, optional): The number of decay steps, which must be smaller than total_steps - warmup_steps.
+            If the value is None, decay steps will be total_steps - warmup_steps. Default: None.
+
+    Inputs:
+        - **global_step** (int) - The global step.
+
+    Outputs:
+        Learning rate.
+
+    Examples:
+        >>> import mindspore as ms
+        >>> from mindformers.core import PolynomialWithWarmUpLR
+        >>>
+        >>> ms.set_context(mode=ms.GRAPH_MODE)
+        >>> total_steps = 20
+        >>> warmup_steps = 10
+        >>> learning_rate = 0.005
+        >>> lr_end = 0.0000001
+        >>>
+        >>> polynomial_warmup = PolynomialWithWarmUpLR(learning_rate=learning_rate,
+        ...                                            warmup_steps=warmup_steps,
+        ...                                            total_steps=total_steps,
+        ...                                            lr_end=lr_end)
+        >>> print(polynomial_warmup(1))
+        0.0005
+        >>> print(polynomial_warmup(15))
+        0.0025000498
     """
 
     @args_type_check(
@@ -398,17 +575,60 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class LearningRateWiseLayer(LearningRateSchedule):
-    """
+    r"""
     Learning Rate Wise Layer.
 
-    Args:
-        base_lr (`LearningRateSchedule`):
-            The base learning rate schedule.
-        lr_scale (`float`):
-            The value for learning rate scaling.
+    This approach allows each layer to adapt its learning rate according to its specific needs, leading
+    to more efficient and effective training. The learning rate for each layer is determined by a base
+    learning rate modulated by a scaling factor specific to that layer.
 
-    Returns:
-        Class, LearningRateWiseLayer
+    Initially, the learning rate for each layer is set based on a linear scaling strategy:
+
+    .. math::
+        \eta_{t,l} = \eta_{\text{base}} \times \alpha_l
+
+    where :math:`\eta_{t,l}` is the learning rate for layer :math:`l` at time :math:`t` , :math:`\eta_{\text{base}}`
+    is the base learning rate, and :math:`\alpha_l` is the scaling factor for layer :math:`l` .
+
+    As training progresses, the learning rate for each layer is adjusted according to the
+    following cosine annealing schedule:
+
+    .. math::
+        \eta_{t,l} = \eta_{\text{end}} + \frac{1}{2}(\eta_{\text{base}} \times \alpha_l - \eta_{\text{end}})\left(1
+        + \cos\left(\frac{T_{cur}}{T_{max}}\pi\right)\right)
+
+    where :math:`T_{cur}` is the number of epochs completed since the learning rate was last reset,
+    and :math:`T_{max}` is the total number of epochs before the next reset. :math:`\eta_{\text{end}}` represents
+    the minimum learning rate at the end of the training.
+
+    Args:
+        base_lr (mindspore.nn.learning_rate_schedule.LearningRateSchedule): The base learning rate schedule.
+        lr_scale (float): The value for learning rate scaling.
+
+    Inputs:
+        - **global_step** (int) - The global step.
+
+    Outputs:
+        Learning rate.
+
+    Examples:
+        >>> import mindspore as ms
+        >>> from mindformers.core import LinearWithWarmUpLR
+        >>> from mindformers.core import LearningRateWiseLayer
+        >>>
+        >>> ms.set_context(mode=ms.GRAPH_MODE)
+        >>> total_steps = 20
+        >>> warmup_steps = 10
+        >>> learning_rate = 0.005
+        >>>
+        >>> linear_warmup = LinearWithWarmUpLR(learning_rate=learning_rate,
+        ...                                    warmup_steps=warmup_steps,
+        ...                                    total_steps=total_steps)
+        >>> learning_rate_wise_layer = LearningRateWiseLayer(linear_warmup, 0.5)
+        >>> print(learning_rate_wise_layer(1))
+        0.00025
+        >>> print(learning_rate_wise_layer(15))
+        0.00125
     """
 
     def __init__(self, base_lr, lr_scale):
@@ -423,7 +643,11 @@ class LearningRateWiseLayer(LearningRateSchedule):
 
 @MindFormerRegister.register(MindFormerModuleType.LR)
 class CosineAnnealingLR(LearningRateSchedule):
-    r"""Set the learning rate of each parameter group using a cosine annealing
+    r"""
+    It has been proposed in `SGDR: Stochastic Gradient Descent with Warm Restarts <https://arxiv.org/abs/1608.03983>`_ .
+    Note that this only implements the cosine annealing part of SGDR, and not the restarts.
+
+    Set the learning rate of each parameter group using a cosine annealing
     schedule, where :math:`\eta_{max}` is set to the initial lr and
     :math:`T_{cur}` is the number of epochs since the last restart in SGDR:
 
@@ -446,20 +670,31 @@ class CosineAnnealingLR(LearningRateSchedule):
         \eta_t = \eta_{min} + \frac{1}{2}(\eta_{max} - \eta_{min})\left(1 +
         \cos\left(\frac{T_{cur}}{T_{max}}\pi\right)\right)
 
-    It has been proposed in
-    `SGDR: Stochastic Gradient Descent with Warm Restarts`_. Note that this only
-    implements the cosine annealing part of SGDR, and not the restarts.
-
     Args:
-        base_lr (`float`):
-            Initial value of learning rate.
-        t_max (`int`):
-            Maximum number of iterations.
-        eta_min (`float`, optional):
-            Minimum learning rate. Default: 0.
+        base_lr (float): Initial value of learning rate.
+        t_max (int): Maximum number of iterations.
+        eta_min (float, optional): Minimum learning rate. Default: 0.
 
-    .. _SGDR\: Stochastic Gradient Descent with Warm Restarts:
-        https://arxiv.org/abs/1608.03983
+    Inputs:
+        - **global_step** (int) - The global step.
+
+    Outputs:
+        Learning rate.
+
+    Examples:
+        >>> import mindspore as ms
+        >>> from mindformers.core import CosineAnnealingLR
+        >>>
+        >>> ms.set_context(mode=ms.GRAPH_MODE)
+        >>> base_lr = 0.005
+        >>> t_max = 10
+        >>> eta_min = 0.0000001
+        >>>
+        >>> cosine_annealing = CosineAnnealingLR(base_lr=base_lr, t_max=t_max, eta_min=eta_min)
+        >>> print(cosine_annealing(1))
+        0.0048776437
+        >>> print(cosine_annealing(15))
+        0.0025000498
     """
 
     @args_type_check(base_lr=(int, float), t_max=int, eta_min=(int, float))
@@ -500,21 +735,38 @@ class CosineAnnealingWarmRestarts(LearningRateSchedule):
     When :math:`T_{cur}=T_{i}`, set :math:`\eta_t = \eta_{min}`.
     When :math:`T_{cur}=0` after restart, set :math:`\eta_t=\eta_{max}`.
 
-    It has been proposed in
-    `SGDR: Stochastic Gradient Descent with Warm Restarts`_.
+    It has been proposed in `SGDR: Stochastic Gradient Descent with Warm Restarts <https://arxiv.org/abs/1608.03983>`_ .
 
     Args:
-        base_lr (`float`):
-            Initial value of learning rate.
-        t_0 (`int`):
-            Number of iterations for the first restart.
-        t_mult (`int`, optional):
-            A factor increases :math:`T_{i}` after a restart. Default: 1.
-        eta_min (`float`, optional):
-            Minimum learning rate. Default: 0.
+        base_lr (float): Initial value of learning rate.
+        t_0 (int): Number of iterations for the first restart.
+        t_mult (int, optional): A factor increases :math:`T_{i}` after a restart. Default: 1.
+        eta_min (float, optional): Minimum learning rate. Default: 0.
 
-    .. _SGDR\: Stochastic Gradient Descent with Warm Restarts:
-        https://arxiv.org/abs/1608.03983
+    Inputs:
+        - **global_step** (int) - The global step.
+
+    Outputs:
+        Learning rate.
+
+    Examples:
+        >>> import mindspore as ms
+        >>> from mindformers.core import CosineAnnealingWarmRestarts
+        >>>
+        >>> ms.set_context(mode=ms.GRAPH_MODE)
+        >>> base_lr = 0.005
+        >>> t_0 = 10
+        >>> t_mult = 2
+        >>> eta_min = 0.0000001
+        >>>
+        >>> cosine_annealing_restart = CosineAnnealingWarmRestarts(base_lr=base_lr,
+        ...                                                        t_0=t_0,
+        ...                                                        t_mult=t_mult,
+        ...                                                        eta_min=eta_min)
+        >>> print(cosine_annealing_restart(1))
+        0.0048776437
+        >>> print(cosine_annealing_restart(15))
+        0.0042677815
     """
 
     @args_type_check(base_lr=(int, float), t_0=int, t_mult=int, eta_min=(int, float))

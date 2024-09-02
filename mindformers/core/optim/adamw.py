@@ -86,8 +86,43 @@ def _check_param_value(betas, eps, weight_decay, prim_name):
 
 @MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
 class AdamW(Optimizer):
-    """
+    r"""
     This is the implementation of AdamW.
+
+    .. math::
+        \begin{array}{l}
+            &\newline
+            &\hline \\
+            &\textbf{Parameters}: \: 1^{\text {st }}\text {moment vector} \: m , \: 2^{\text {nd}} \:
+             \text{moment vector} \: v , \\
+            &\: gradients \: g, \: \text{learning rate} \: \gamma,
+             \text {exponential decay rates for the moment estimates} \: \beta_{1} \: \beta_{2} , \\
+            &\:\text {parameter vector} \: w_{0}, \:\text{timestep} \: t, \: \text{weight decay} \: \lambda \\
+            &\textbf{Init}:  m_{0} \leftarrow 0, \: v_{0} \leftarrow 0, \: t \leftarrow 0, \:
+             \text{init parameter vector} \: w_{0} \\[-1.ex]
+            &\newline
+            &\hline \\
+            &\textbf{repeat} \\
+            &\hspace{5mm} t \leftarrow t+1 \\
+            &\hspace{5mm}\boldsymbol{g}_{t} \leftarrow \nabla f_{t}\left(\boldsymbol{w}_{t-1}\right) \\
+            &\hspace{5mm}\boldsymbol{m}_{t} \leftarrow \beta_{1} \boldsymbol{m}_{t-1}+\left(1-\beta_{1}\right)
+             \boldsymbol{g}_{t} \\
+            &\hspace{5mm}\boldsymbol{v}_{t} \leftarrow \beta_{2} \boldsymbol{v}_{t-1}+\left(1-\beta_{2}\right)
+             \boldsymbol{g}_{t}^{2} \\
+            &\hspace{5mm}\boldsymbol{w}_{t} \leftarrow \boldsymbol{w}_{t-1}-\gamma\left({\boldsymbol{m}}_{t}
+             /\left(\sqrt{{\boldsymbol{v}}_{t}}+\epsilon\right)+\lambda \boldsymbol{w}_{t-1}\right) \\
+            &\textbf{until}\text { stopping criterion is met } \\[-1.ex]
+            &\newline
+            &\hline \\[-1.ex]
+            &\textbf{return} \: \boldsymbol{w}_{t} \\[-1.ex]
+            &\newline
+            &\hline \\[-1.ex]
+        \end{array}
+
+    :math:`m` represents the first moment vector moment1, :math:`v` represents the second moment vector moment2,
+    :math:`g` represents gradients, :math:`\gamma` represents learning_rate, :math:`\beta_1`, `\beta_2` represent
+    beta1 and beta2, :math:`t` represents the current step, :math:`w` represents params, and :math:`\lambda`
+    represents weight_decay.
 
     Args:
         params (Union[list[Parameter], list[dict]]): Must be list of `Parameter` or list of `dict`. When the
@@ -156,15 +191,13 @@ class AdamW(Optimizer):
         ValueError: If `betas[0]`, `betas[1]` is not in range (0.0, 1.0).
         ValueError: If `weight_decay` is less than 0.
 
-    Supported Platforms:
-        ``Ascend`` ``GPU`` ``CPU``
-
     Examples:
         >>> import mindspore as ms
         >>> import mindspore.nn as nn
         >>> from mindformers import AutoModel
         >>> from mindformers.core.optim import AdamW
         >>>
+        >>> ms.set_context(mode=ms.context.GRAPH_MODE)
         >>> net = AutoModel.from_pretrained("llama2_7b", num_layers=2)
         >>> #1) All parameters use the same learning rate and weight decay
         >>> optim = AdamW(params=net.trainable_params())
