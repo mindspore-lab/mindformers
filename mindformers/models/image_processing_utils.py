@@ -419,7 +419,8 @@ class ImageProcessingMixin(PushToHubMixin):
             json_file_path (`str` or `os.PathLike`):
                 Path to the JSON file in which this image_processor instance's parameters will be saved.
         """
-        with open(json_file_path, "w", encoding="utf-8") as writer:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(json_file_path, flags_, 0o750), 'w', encoding="utf-8") as writer:
             writer.write(self.to_json_string())
 
     def __repr__(self):

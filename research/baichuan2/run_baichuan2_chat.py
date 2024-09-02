@@ -151,7 +151,8 @@ def main(config='./',
         response = tokenizer.decode(outputs[0][len(input_ids):], skip_speical_tokens=True)
         logger.info(response)
         messages.append({"role": "assistant", "content": response})
-        with open("question_answer.txt", 'a') as file:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open("question_answer.txt", flags_, 0o750), 'a') as file:
             question = messages[-2]["content"]
             answer = messages[-1]["content"]
             file.write(f"Q: {question}\n")

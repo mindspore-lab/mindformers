@@ -519,7 +519,8 @@ def create_file(file_path, info=None):
             else:
                 f.write("Hugging ModelArts.")
     else:
-        with open(file_path, 'w') as f:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(file_path, flags_, 0o750), 'w') as f:
             if info:
                 f.write(info)
 

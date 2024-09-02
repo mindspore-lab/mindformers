@@ -497,7 +497,8 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         else:
             save_index_file = os.path.join(save_directory, _add_variant(WEIGHTS_INDEX_NAME, variant))
             # Save the index as well
-            with open(save_index_file, "w", encoding="utf-8") as f:
+            flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+            with os.fdopen(os.open(save_index_file, flags_, 0o750), 'w', encoding="utf-8") as f:
                 content = json.dumps(index, indent=2, sort_keys=True) + "\n"
                 f.write(content)
             logger.info(
@@ -570,7 +571,8 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             file_reader.close()
         meraged_dict.update(wraped_config)
 
-        with open(config_path, 'w') as file_pointer:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(config_path, flags_, 0o750), 'w') as file_pointer:
             file_pointer.write(yaml.dump(meraged_dict))
         file_pointer.close()
         logger.info("model saved successfully!")

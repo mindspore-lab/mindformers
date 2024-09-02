@@ -244,7 +244,8 @@ class WizardCoderTokenizer(PreTrainedTokenizer):
     def save_vocabulary(self, save_directory, filename_prefix):
         """write the word to the files"""
         output_file_path = os.path.join(save_directory, filename_prefix)
-        with open(output_file_path, 'w') as fp:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(output_file_path, flags_, 0o750), 'w') as fp:
             for k in self.vocab_dict.keys():
                 fp.write(k + '\n')
         return output_file_path

@@ -206,11 +206,12 @@ class SQuADDataset:
         temp_examples_file = os.path.join(temp_file_dir, "temp_examples.json")
         temp_features_file = os.path.join(temp_file_dir, "temp_features.json")
 
-        with open(temp_examples_file, 'w', encoding='utf-8') as f:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(temp_examples_file, flags_, 0o750), 'w', encoding='utf-8') as f:
             for example in self.examples:
                 f.write(json.dumps(example.__dict__) + '\n')
 
-        with open(temp_features_file, 'w', encoding='utf-8') as f:
+        with os.fdopen(os.open(temp_features_file, flags_, 0o750), 'w', encoding='utf-8') as f:
             for feature in self.input_features:
                 f.write(json.dumps(feature.__dict__) + '\n')
 

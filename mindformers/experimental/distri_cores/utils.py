@@ -243,7 +243,8 @@ def save_strategy_file(state_dict, strategy_file_name):
         if "/" in strategy_file_name:
             real_path = os.path.abspath(strategy_file_name[:strategy_file_name.rfind("/")])
             os.makedirs(real_path, exist_ok=True)
-        with open(strategy_file_name, "wb") as f:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(strategy_file_name, flags_, 0o750), 'wb') as f:
             f.write(stra.SerializeToString())
             os.chmod(strategy_file_name, stat.S_IRUSR)
 

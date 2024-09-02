@@ -16,6 +16,8 @@
 
 import json
 import argparse
+import os
+
 from tqdm import tqdm
 import mindspore as ms
 from mindformers.generation import GenerationConfig
@@ -122,5 +124,6 @@ if __name__ == "__main__":
         output = model.generate(input_ids=prompt_batch, generation_config=gen_config, max_length=args.seq_length)
         decode_output = tokenizer.decode(output)
         print(decode_output)
-        with open(output_file, "w", encoding='utf-8') as f:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(output_file, flags_, 0o750), "w", encoding='utf-8') as f:
             json.dump({"output": decode_output}, f)

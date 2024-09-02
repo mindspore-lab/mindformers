@@ -458,9 +458,9 @@ class PretrainedConfig(PushToHubMixin):
             file_reader.close()
         meraged_dict.update(wraped_config)
 
-        with open(save_path, 'w') as file_pointer:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(save_path, flags_, 0o750), 'w') as file_pointer:
             file_pointer.write(yaml.dump(meraged_dict))
-        file_pointer.close()
 
         logger.info("config saved successfully!")
 
@@ -733,7 +733,8 @@ class PretrainedConfig(PushToHubMixin):
                 If set to `True`, only the difference between the config instance and the default `PretrainedConfig()`
                 is serialized to JSON file.
         """
-        with open(json_file_path, "w", encoding="utf-8") as writer:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(json_file_path, flags_, 0o750), 'w', encoding="utf-8") as writer:
             writer.write(self.to_json_string(use_diff=use_diff))
 
     def to_json_string(self, use_diff: bool = True) -> str:

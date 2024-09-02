@@ -108,7 +108,8 @@ class TestAutoTokenizer:
 
         # test experimental type: del tokenizer_config.json, and build through config.json - tokenizer_class
         config = {"tokenizer_class": "GPT2Tokenizer"}
-        with open(config_path, "w", encoding="utf-8") as w:
+        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+        with os.fdopen(os.open(config_path, flags_, 0o750), "w", encoding="utf-8") as w:
             w.write(json.dumps(config))
         tokenizer = AutoTokenizer.from_pretrained(self.gpt_saved_exp_dir)
         output = tokenizer(self.str_input, add_special_tokens=False)["input_ids"]
@@ -116,7 +117,7 @@ class TestAutoTokenizer:
 
         # test experimental type: del tokenizer_config.json, and build through config.json - model_type
         config = {"model_type": "gpt2"}
-        with open(config_path, "w", encoding="utf-8") as w:
+        with os.fdopen(os.open(config_path, flags_, 0o750), "w", encoding="utf-8") as w:
             w.write(json.dumps(config))
         tokenizer = AutoTokenizer.from_pretrained(self.gpt_saved_exp_dir)
         output = tokenizer(self.str_input, add_special_tokens=False)["input_ids"]

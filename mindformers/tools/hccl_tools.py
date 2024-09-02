@@ -167,7 +167,8 @@ def main():
     table_fn = os.path.join(table_path,
                             'hccl_{}p_{}_{}.json'.format(len(device_num_list), "".join(map(str, device_num_list)),
                                                          server_id))
-    with open(table_fn, 'w') as table_fp:
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(table_fn, flags_, 0o750), 'w') as table_fp:
         json.dump(hccn_table, table_fp, indent=4)
     sys.stdout.flush()
     print("Completed: hccl file was save in :", table_fn)

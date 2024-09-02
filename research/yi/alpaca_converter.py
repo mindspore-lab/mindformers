@@ -18,6 +18,7 @@ fastchat stanford alpaca data convert tools.
 """
 import argparse
 import json
+import os
 
 import pathlib
 
@@ -66,9 +67,10 @@ def main(data_path, output_path):
 
         cnt += 1
     file = None
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
     try:
-        file = open(output_path, "w")
-        json.dump(new_data, file, ensure_ascii=False, indent=2)
+        with os.fdopen(os.open(output_path, flags_, 0o750), "w") as f:
+            json.dump(new_data, f, ensure_ascii=False, indent=2)
     except FileNotFoundError as file_not_found_error:
         logger.error(file_not_found_error)
     except UnicodeDecodeError as decode_error:
