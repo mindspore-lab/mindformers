@@ -117,6 +117,8 @@ bash ./scripts/msrun_launcher.sh "./run_mindformer.py \
 - run_mode：固定值，train
 - train_data：数据集所在位置，具体到文件夹
 
+> 注：此模型暂不支持配置`context_parallel`，因此暂不支持长序列。
+
 ## 推理
 
 大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合算大算子降低推理时延，有效¡提升网络吞吐量。
