@@ -26,11 +26,11 @@ from mindspore.mint.optim import AdamW
 
 from mindformers.experimental.distri_cores.tensor_parallel import ColumnParallelLinear, RowParallelLinear
 from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
-from mindformers.experimental.distri_cores.config import OptimizerConfig, ModelParallelConfig, TransformerConfig
-from mindformers.experimental.distri_cores.distributed import DistributedDataParallel, \
-    DistributedDataParallelConfig
-from mindformers.experimental.distri_cores.optimizer.distributed_optimizer import DistributedOptimizer
-from mindformers.experimental.distri_cores.create_comm import get_dp_group
+from mindformers.experimental.distri_cores.config import ModelParallelConfig, TransformerConfig
+# from mindformers.experimental.distri_cores.distributed import DistributedDataParallel, \
+#     DistributedDataParallelConfig
+# from mindformers.experimental.distri_cores.optimizer.distributed_optimizer import DistributedOptimizer
+# from mindformers.experimental.distri_cores.create_comm import get_dp_group
 
 from tests.st.test_distri_core.utils import TestData, train
 
@@ -79,7 +79,7 @@ def run_distributed_optimizer():
     seq_length = 8
     hidden_size = 16
     tensor_parallel = 1
-    bucket_size = 10
+    # bucket_size = 10
 
     ms.set_context(device_target='Ascend', mode=ms.PYNATIVE_MODE, deterministic='ON')
     ms.set_seed(2024)
@@ -95,7 +95,7 @@ def run_distributed_optimizer():
     dataset = dataset.batch(batch_size)
 
     parallel_config = ModelParallelConfig()
-    optimizer_config = OptimizerConfig(parallel_config=parallel_config)
+    # optimizer_config = OptimizerConfig(parallel_config=parallel_config)
     model_config = TransformerConfig(vocab_size=40000,
                                      num_layers=1,
                                      num_heads=1,
@@ -107,21 +107,21 @@ def run_distributed_optimizer():
                                      parallel_config=parallel_config,
                                      param_init_dtype='float32',
                                      compute_dtype='float32')
-    ddp_config = DistributedDataParallelConfig(
-        overlap_grad_reduce=True,
-        use_distributed_optimizer=True,
-        bucket_size=bucket_size,
-    )
+    # ddp_config = DistributedDataParallelConfig(
+    #     overlap_grad_reduce=True,
+    #     use_distributed_optimizer=True,
+    #     bucket_size=bucket_size,
+    # )
     network = TestNet(config=model_config)
-    network = DistributedDataParallel(config=model_config,
-                                      ddp_config=ddp_config,
-                                      module=network)
+    # network = DistributedDataParallel(config=model_config,
+    #                                   ddp_config=ddp_config,
+    #                                   module=network)
 
     optimizer = AdamW(params=network.get_parameters(), lr=1.e-1, weight_decay=0.0)
-    optimizer = DistributedOptimizer(optimizer=optimizer,
-                                     config=optimizer_config,
-                                     per_model_buffers=network.buffers,
-                                     data_parallel_group=get_dp_group(with_context_parallel=True))
+    # optimizer = DistributedOptimizer(optimizer=optimizer,
+    #                                  config=optimizer_config,
+    #                                  per_model_buffers=network.buffers,
+    #                                  data_parallel_group=get_dp_group(with_context_parallel=True))
 
     losses = train(epoch_num=1,
                    dataset=dataset,

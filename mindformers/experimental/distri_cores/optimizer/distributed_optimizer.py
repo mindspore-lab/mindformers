@@ -333,18 +333,19 @@ class DistributedOptimizer(nn.Cell):
     def _update_optimizer_attr(self):
         """ Update attributes of self.optimizer according to shard information. """
         # reset optimizer.parameter
+        self.optimizer.ori_parameters = self.optimizer.parameters
         self.optimizer.parameters = []
         for group_idx, _ in enumerate(self.optimizer.param_groups):
             # update params in this group
             self.optimizer.param_groups[group_idx]['params'] = \
                 [*self.sharded_param_fp32_groups[group_idx],\
                  *self.sharded_param_fp32_from_fp16_groups[group_idx]]
-            self.optimizer.group_start_id[group_idx+1] = \
+            self.optimizer.group_start_id[group_idx+1] = self.optimizer.group_start_id[-1] + \
                 len(self.optimizer.param_groups[group_idx]['params'])
             self.optimizer.lrs[group_idx] = self.optimizer.param_groups[group_idx]['lr']
             self.optimizer.parameters += tuple(self.optimizer.param_groups[group_idx]['params'])
 
-        self.parameters = self.optimizer.parameters
+        self.parameters = self.optimizer.ori_parameters
         self.defaults = self.optimizer.defaults
 
         _update_adamw_var(self.optimizer)

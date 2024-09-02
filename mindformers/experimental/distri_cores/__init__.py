@@ -17,8 +17,8 @@
 
 from .transformer import *
 from .training import TrainOneStepCell, train
-from .optimizer import get_optimizer, DistributedOptimizer
+from .optimizer import get_optimizer
 from .loss_func import VocabParallelCrossEntropy
 
-__all__ = ["TrainOneStepCell", "train", "get_optimizer", "DistributedOptimizer", "VocabParallelCrossEntropy"]
+__all__ = ["TrainOneStepCell", "train", "get_optimizer", "VocabParallelCrossEntropy"]
 __all__.extend(transformer.__all__)
