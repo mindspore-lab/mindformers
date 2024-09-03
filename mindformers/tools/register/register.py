@@ -23,7 +23,60 @@ from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_mo
 
 
 class MindFormerModuleType:
-    """Class module type for vision pretrain"""
+    """
+    Enumerated class of the MindFormers module type, which includes:
+
+    .. list-table::
+    :widths: 25 25
+    :header-rows: 1
+
+    * - Enumeration Name
+        - Value
+    * - CALLBACK
+        - 'CALLBACK'
+    * - CONFIG
+        - 'config'
+    * - CONTEXT
+        - 'context'
+    * - DATASET
+        - 'dataset'
+    * - DATASET_LOADER
+        - 'dataset_loader'
+    * - DATASET_SAMPLER
+        - 'dataset_sampler'
+    * - DATA_HANDLER
+        - 'data_handler'
+    * - ENCODER
+        - 'encoder'
+    * - FEATURE_EXTRACTOR
+        - 'feature_extractor'
+    * - LOSS
+        - 'loss'
+    * - LR
+        - 'lr'
+    * - MASK_POLICY
+        - 'mask_policy'
+    * - METRIC
+        - 'metric'
+    * - MODELS
+        - 'models'
+    * - OPTIMIZER
+        - 'optimizer'
+    * - PIPELINE
+        - 'pipeline'
+    * - PROCESSOR
+        - 'processor'
+    * - TOKENIZER
+        - 'tokenizer'
+    * - TOOLS
+        - 'tools'
+    * - TRAINER
+        - 'trainer'
+    * - TRANSFORMS
+        - 'transforms'
+    * - WRAPPER
+        - 'wrapper'
+    """
 
     def __init__(self):
         pass
@@ -59,7 +112,7 @@ class MindFormerModuleType:
 
 class MindFormerRegister:
     """
-    Module class factory for ring-mo.
+    The registration interface for MindFormers, provides methods for registering and obtaining the interface.
     """
 
     def __init__(self):
@@ -69,14 +122,16 @@ class MindFormerRegister:
 
     @classmethod
     def register(cls, module_type=MindFormerModuleType.TOOLS, alias=None):
-        """Register class into registry
+        """
+        A decorator that registers the class in the registry.
+
         Args:
-            module_type (ModuleType) :
-                module type name, default ModuleType.GENERAL
-            alias (str) : class alias
+            module_type (MindFormerModuleType, optional): Module type name of MindFormers.
+                Default: ``MindFormerModuleType.TOOLS``.
+            alias (str, optional) : Alias for the class. Default: ``None``.
 
         Returns:
-            wrapper
+            Wrapper, decorates the registered class.
         """
 
         def wrapper(register_class):
@@ -99,12 +154,14 @@ class MindFormerRegister:
 
     @classmethod
     def register_cls(cls, register_class, module_type=MindFormerModuleType.TOOLS, alias=None):
-        """Register class with type name.
+        """
+        A method that registers a class into the registry.
 
         Args:
-            register_class : class need to register
-            module_type :  module type name, default ModuleType.COMMON
-            alias : class name
+            register_class (type): The class that need to be registered.
+            module_type (MindFormerModuleType, optional): Module type name of MindFormers.
+                Default: ``MindFormerModuleType.TOOLS``.
+            alias (str, optional) : Alias for the class. Default: ``None``.
         """
         class_name = alias if alias is not None else register_class.__name__
         if module_type not in cls.registry:
@@ -115,14 +172,16 @@ class MindFormerRegister:
 
     @classmethod
     def is_exist(cls, module_type, class_name=None):
-        """Determine whether class name is in the current type group.
+        """
+        Determines whether the given class name is in the current type group. If `class_name` is not given,
+        determines if the given class name is in the current registered dictionary.
 
         Args:
-            module_type : Module type
-            class_name : class name
+            module_type (MindFormerModuleType): Module type name of MindFormers.
+            class_name (str, optional): Class name. Default: ``None``.
 
         Returns:
-            True/False
+            A boolean value, indicating whether it exists or not.
         """
         if not class_name:
             return module_type in cls.registry
@@ -131,14 +190,19 @@ class MindFormerRegister:
 
     @classmethod
     def get_cls(cls, module_type, class_name=None):
-        """Get class
+        """
+        Get the class from the registry.
 
         Args:
-            module_type : Module type
-            class_name : class name
+            module_type (MindFormerModuleType): Module type name of MindFormers.
+            class_name (str, optional): Class name. Default: ``None``.
 
         Returns:
-            register_class
+            A registered class.
+
+        Raises:
+            ValueError: Can't find class `class_name` of type `module_type` in the registry.
+            ValueError: Can't find type `module_type` in the registry.
         """
         if not cls.is_exist(module_type, class_name):
             raise ValueError("Can't find class type {} class name {} \
@@ -152,14 +216,23 @@ class MindFormerRegister:
 
     @classmethod
     def get_instance_from_cfg(cls, cfg, module_type=MindFormerModuleType.TOOLS, default_args=None):
-        """Get instance.
+        """
+        Get instances of the class in the registry via configuration.
+
         Args:
-            cfg (dict) : Config dict. It should at least contain the key "type".
-            module_type : module type
-            default_args (dict, optional) : Default initialization arguments.
+            cfg (dict): Configuration dictionary. It should contain at least the key "type".
+            module_type (MindFormerModuleType, optional): Module type name of MindFormers.
+                Default: ``MindFormerModuleType.TOOLS``.
+            default_args (dict, optional): Default initialization arguments. Default: ``None``.
 
         Returns:
-            obj : The constructed object.
+            An instance of the class.
+
+        Raises:
+            TypeError: `cfg` must be a configuration.
+            KeyError: `cfg` or `default_args` must contain the key "type".
+            TypeError: `default_args` must be a dictionary or ``None``.
+            ValueError: Can't find class `class_name` of type `module_type` in the registry.
         """
         if not isinstance(cfg, dict):
             raise TypeError(
@@ -203,12 +276,21 @@ class MindFormerRegister:
 
     @classmethod
     def get_instance(cls, module_type=MindFormerModuleType.TOOLS, class_name=None, **kwargs):
-        """Get instance.
+        """
+        Gets an instance of the class in the registry.
+
         Args:
-            module_type : module type
-            class_name : class type
+            module_type (MindFormerModuleType, optional): Module type name of MindFormers.
+                Default: ``MindFormerModuleType.TOOLS``.
+            class_name (str, optional): Class name. Default: ``None``.
+            kwargs (Any): Additional keyword arguments for constructing instances of the class.
+
         Returns:
-            object : The constructed object
+            An instance of the class.
+
+        Raises:
+            ValueError: `class_name` cannot be ``None``.
+            ValueError: Can't find class `class_name` of type `module_type` in the registry.
         """
         if class_name is None:
             raise ValueError("Class name cannot be None.")
