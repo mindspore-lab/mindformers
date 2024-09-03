@@ -16,7 +16,7 @@
 
 from collections import OrderedDict
 from mindspore.common._register_for_recompute import recompute_registry
-from mindspore.common.api import _pynative_executor
+from mindspore.common.api import _pynative_executor, _no_grad
 from mindspore.common.recompute import (
     _RecomputeCell,
     _check_input_args_validate,
@@ -44,7 +44,8 @@ class _RecomputeCellWithRng(_RecomputeCell):
         if self.save_rng_state:
             self.cpu_rng_state = get_rng_state()
             self.rng_tracer_state = get_rng_tracer().get_state()
-        return self.net(*args, **kwargs)
+        with _no_grad():
+            return self.net(*args, **kwargs)
 
     def bprop(self, *args):
         """

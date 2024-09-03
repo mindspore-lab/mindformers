@@ -115,7 +115,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             x = self.gather_from_sp_region(x)
             x = x.swapaxes(0, 1)
 
-        if _pynative_executor.grad_flag():
+        if _pynative_executor.enable_grad():
             self.input_parallel.append(x)
 
         output_parallel = self.matmul(x, weight)

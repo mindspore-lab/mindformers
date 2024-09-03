@@ -113,7 +113,7 @@ class VocabParallelCrossEntropy(nn.Cell):
 
         self.label_smoothing = label_smoothing
         self.vocab_size = vocab_size
-        if _pynative_executor.grad_flag():
+        if _pynative_executor.enable_grad():
             self.saved_tensors[0].append(exp_logits)
             self.saved_tensors[1].append(target_mask)
             self.saved_tensors[2].append(masked_target_1d)
