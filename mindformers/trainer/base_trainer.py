@@ -18,6 +18,7 @@ import subprocess
 from pprint import pprint
 from functools import partial
 from typing import Optional, Union, List
+from collections import OrderedDict
 import numpy as np
 from PIL.Image import Image
 import mindspore as ms
@@ -726,6 +727,10 @@ class BaseTrainer:
         default_callbacks = []
         if self.config.profile:
             default_callbacks.append(self.config.profile_cb)
+        if isinstance(self.config.runner_config.stop_step, int) and self.config.runner_config.stop_step > 0:
+            stop_step_dict = OrderedDict()
+            stop_step_dict['type'] = "TrainCallBack"
+            stop_step_dict['stop_step'] = self.config.runner_config.stop_step
         for callback in self.config.callbacks:
             default_args = None
             if "type" in callback and callback["type"] == "MFLossMonitor":
