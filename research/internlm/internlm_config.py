@@ -149,7 +149,10 @@ class InternLMConfig(LlamaConfig):
         self.softmax_compute_type = convert_mstype(softmax_compute_type)
         self.rotary_dtype = convert_mstype(rotary_dtype)
         self.compute_dtype = convert_mstype(compute_dtype)
-        self.parallel_config = parallel_config
+        if isinstance(parallel_config, dict):
+            self.parallel_config = TransformerOpParallelConfig(**parallel_config)
+        else:
+            self.parallel_config = parallel_config
         self.checkpoint_name_or_path = checkpoint_name_or_path
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id
