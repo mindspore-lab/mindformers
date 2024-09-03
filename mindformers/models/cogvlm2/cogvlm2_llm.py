@@ -478,9 +478,10 @@ class CogVLM2VideoLM(LlamaPreTrainedModel):
         if labels is None:
             labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
         else:
+            labels_bsz, labels_seqlen = self.shape(labels)
             if labels.ndim > 1:
                 if self.training:
-                    labels = self.slice(labels, (0, 1), (bsz, seqlen), (1, 1))
+                    labels = self.slice(labels, (0, 1), (labels_bsz, labels_seqlen), (1, 1))
                 label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
                 input_mask = self.mul(input_mask, label_mask)
 

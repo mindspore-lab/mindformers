@@ -84,6 +84,9 @@ class PetModel(PreTrainedModel):
     def add_flags_custom(self, is_first_iteration):
         return self.pet_model.add_flags_custom(is_first_iteration)
 
+    def to_embeddings(self, tokens):
+        return self.pet_model.to_embeddings(tokens)
+
     def construct(self, input_ids, labels=None, position_ids=None, attention_mask=None, input_position=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None,
                   zactivate_len=None, block_tables=None, slot_mapping=None):

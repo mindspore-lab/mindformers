@@ -111,7 +111,7 @@ class EVA02Config(PretrainedConfig):
         self.checkpoint_name_or_path = checkpoint_name_or_path
 
         self.compute_dtype = convert_mstype(compute_dtype)
-        self.layer_norm_dtype = convert_mstype(layer_norm_type)
+        self.layer_norm_type = convert_mstype(layer_norm_type)
         self.rotary_emb_type = convert_mstype(rotary_emb_type)
         self.param_init_type = convert_mstype(param_init_type)
 

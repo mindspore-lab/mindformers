@@ -47,6 +47,9 @@ class CogVLM2Config(PretrainedConfig):
     def __init__(self,
                  vision_model: PretrainedConfig,
                  llm_model: PretrainedConfig,
+                 freeze_vision: bool = False,
+                 freeze_adapter: bool = False,
+                 freeze_llm: bool = False,
                  is_video: bool = False,
                  use_past: bool = False,
                  is_dynamic: bool = False,
@@ -64,6 +67,10 @@ class CogVLM2Config(PretrainedConfig):
 
         self.vision_model = vision_model
         self.llm_model = llm_model
+
+        self.freeze_vision = freeze_vision
+        self.freeze_adapter = freeze_adapter
+        self.freeze_llm = freeze_llm
 
         self.num_queries = num_queries
         self.proj_output_dim = proj_output_dim
