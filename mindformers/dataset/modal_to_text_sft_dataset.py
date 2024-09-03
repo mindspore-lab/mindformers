@@ -49,12 +49,15 @@ class ModalToTextSFTDataset(BaseDataset):
         dataset_config = cls.check_dataset_config(dataset_config, locals())
         cls.init_dataset_config(dataset_config)
         rank_id, device_num = cls._generate_shard_info()
+
+        # build dataloader
         if isinstance(dataset_config.data_loader, dict):
             dataset = build_dataset_loader(dataset_config.data_loader,
                                            default_args={'num_shards': device_num, 'shard_id': rank_id})
         else:
             dataset = dataset_config.data_loader
 
+        # build tokenizer
         if isinstance(dataset_config.tokenizer, dict):
             tokenizer = build_tokenizer(dataset_config.tokenizer)
         else:
@@ -64,6 +67,7 @@ class ModalToTextSFTDataset(BaseDataset):
             raise ValueError("ModalToTextSFTDataset should have a `modal_to_text_transform` to transform raw text to "
                              "multi_modal data")
 
+        # build transforms
         if isinstance(dataset_config.modal_to_text_transform, dict):
             max_length = dataset_config.modal_to_text_transform.get("max_length")
             if max_length is None:
@@ -73,6 +77,7 @@ class ModalToTextSFTDataset(BaseDataset):
         else:
             modal_to_text_transform = dataset_config.modal_to_text_transform
 
+        # build modal content transforms
         if (isinstance(dataset_config.modal_content_transforms, list)
                 and isinstance(dataset_config.modal_content_transforms[0], dict)) \
                 or isinstance(dataset_config.modal_content_transforms, dict):

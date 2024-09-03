@@ -53,18 +53,18 @@ def name_replace_adapter(key, value):
     return name, value
 
 
-def name_replace_llama3(key, value):
+def name_replace_llama3(key, value, lora_name=''):
     """replace variable name in llama3 model."""
     if key == 'model.norm.weight':
-        return 'llm_model.model.norm_out.weight', value
+        return f'llm_model.{lora_name}model.norm_out.weight', value
     if key == 'lm_head.weight':
-        return 'llm_model.lm_head.weight', value
+        return f'llm_model.{lora_name}lm_head.weight', value
 
     if key.startswith('model.embed_tokens'):
-        return 'llm_model.model.tok_embeddings.embedding_weight', value
+        return f'llm_model.{lora_name}model.tok_embeddings.embedding_weight', value
 
     if key.endswith('self_attn.language_expert_query_key_value.weight'):
-        cur_key = f"llm_model.{key}"
+        cur_key = f"llm_model.{lora_name}{key}"
         q_value = value[:4096, :]
         k_value = value[4096:5120, :]
         v_value = value[5120:, :]
@@ -75,7 +75,7 @@ def name_replace_llama3(key, value):
         ]
         return name, [q_value, k_value, v_value]
 
-    name = f"llm_model.{key}"
+    name = f"llm_model.{lora_name}{key}"
     name = name.replace('input_layernorm', 'attention_norm')
     name = name.replace('self_attn.language_expert_dense', 'attention.wo')
     name = name.replace('mlp.language_mlp.gate_proj', 'feed_forward.w1')
@@ -113,12 +113,16 @@ def convert_pt_to_ms(input_path, output_path, dtype=ms.float32, modal="video", *
             for k in f.keys():
                 model_params[k] = f.get_tensor(k)
 
+    if kwargs.get('sft') == 'lora':
+        lora_name = 'pet_model.lora_model.'
+    else:
+        lora_name = ''
     checkpoints = []
     saved_freq = False
     for k, v in model_params.items():
         if k.endswith('self_attn.rotary_emb.inv_freq'):
             if not saved_freq:
-                k = 'llm_model.model.freqs_mgr.freqs'
+                k = f'llm_model.{lora_name}model.freqs_mgr.freqs'
                 saved_freq = True
             else:
                 continue
@@ -129,7 +133,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=ms.float32, modal="video", *
             k, v = name_replace_adapter(k, v)
         else:
             if modal == "video":
-                k, v = name_replace_llama3(k, v)
+                k, v = name_replace_llama3(k, v, lora_name=lora_name)
             else:
                 k, v = name_replace_llama3_for_image(k, v)
 
@@ -150,6 +154,7 @@ if __name__ == "__main__":
     parser.add_argument('--torch_ckpt_dir', default='./cogvlm2-video-llama3-chat/')
     parser.add_argument('--mindspore_ckpt_path', default='./cogvlm2-video-llama3-chat.ckpt')
     parser.add_argument('--dtype', default='float32', type=str, choices=['float16', 'float32', 'bfloat16'])
+    parser.add_argument('--sft', default='full', type=str, choices=['full', 'lora'])
     args = parser.parse_args()
 
     dtype_map = {'float16': ms.float16, 'float32': ms.float32, 'bfloat16': ms.bfloat16}
@@ -157,4 +162,6 @@ if __name__ == "__main__":
     convert_pt_to_ms(
         modal=args.modal,
         input_path=args.torch_ckpt_dir, output_path=args.mindspore_ckpt_path,
-        dtype=dtype_map[args.dtype])
+        dtype=dtype_map[args.dtype],
+        sft=args.sft
+    )

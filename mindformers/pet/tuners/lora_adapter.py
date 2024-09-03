@@ -53,7 +53,7 @@ def recursive_replace_dense_cell(net, config):
                                       has_bias=cell.has_bias,
                                       activation=cell.activation)
 
-                # load weight of oriangal layers.
+                # load weight of original layers.
                 dest_cell.matmul = cell.matmul
                 dest_cell.weight = cell.weight
                 if cell.has_bias:

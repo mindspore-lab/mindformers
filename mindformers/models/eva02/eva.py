@@ -90,7 +90,7 @@ class EVAModel(EVA02PreTrainedModel):
                                            feat_shape=self.patch_embed.grid_size,
                                            ref_feat_shape=ref_feat_shape,
                                            in_pixels=False,
-                                           rotary_emb_dtype=config.rotary_emb_type)
+                                           rotary_emb_type=config.rotary_emb_type)
 
         # stochastic depth decay rule
         dpr = [x.item() for x in np.linspace(0, config.drop_path_rate, config.num_hidden_layers)]
@@ -116,8 +116,8 @@ class EVAModel(EVA02PreTrainedModel):
                      use_attn_norm=config.use_attn_norm,
                      use_post_norm=config.use_post_norm,
                      compute_dtype=config.compute_dtype,
-                     layer_norm_dtype=config.layer_norm_dtype,
-                     param_init_dtype=config.param_init_type)
+                     layer_norm_type=config.layer_norm_type,
+                     param_init_type=config.param_init_type)
             for i in range(config.num_hidden_layers)])
 
         if self.post_norm:
@@ -143,7 +143,7 @@ class EVAModel(EVA02PreTrainedModel):
 
         if self.cls_token is not None:
             cls_tokens = self.tile(self.cls_token, (b, 1, 1))
-            x = self.cat((cls_tokens, x))
+            x = self.cat((self.cast(cls_tokens, F.dtype(x)), x))
         if pos_embed is not None:
             x = self.add(x, pos_embed)
         # leak module to obtain shared rotary position embedding and apply patch dropout

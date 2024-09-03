@@ -124,8 +124,8 @@ class BaseXModalToTextTransform:
         self.tokenizer = tokenizer
 
         if isinstance(model_transform_template, dict):
-            model_transform_template = build_transforms(model_transform_template,
-                                                        default_args={"tokenizer": tokenizer, "max_length": max_length})
+            model_transform_template = build_transforms(
+                model_transform_template, default_args={"tokenizer": tokenizer, "max_length": max_length})
 
         self.model_transform_template = model_transform_template
 

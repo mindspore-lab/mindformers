@@ -35,7 +35,8 @@ CogVLM2 是智谱开发的多模态理解系列大模型，该系列中包含了
 
    ```text
    configs/cogvlm2
-       └── predict_cogvlm2_video_llama3_chat_13b.yaml  # cogvlm2-video-13b模型推理启动配置
+       ├── finetune_cogvlm2_video_llama3_chat_13b_lora.yaml  # cogvlm2-video-13b模型LoRA微调启动配置
+       └── predict_cogvlm2_video_llama3_chat_13b.yaml        # cogvlm2-video-13b模型推理启动配置
    ```
 
 ## 环境及数据准备
@@ -45,6 +46,31 @@ CogVLM2 是智谱开发的多模态理解系列大模型，该系列中包含了
 MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
 
 ### 数据及权重准备
+
+#### 数据集下载
+
+MindFormers提供`RWF2000`作为[微调](#微调)数据集，用户可通过如下链接进行下载。
+
+| 数据集名称   |       适用模型        |   适用阶段   |                            下载链接                             |
+|:--------|:-----------------:|:--------:|:-----------------------------------------------------------:|
+| RWF2000 | CogVLM2-Video-13B | Finetune | [Link](https://www.kaggle.com/datasets/vulamnguyen/rwf2000) |
+
+数据预处理中所用的`tokenizer.model`可以参考[模型权重下载](#模型权重下载)进行下载。
+
+- **RWF2000 数据预处理**
+
+  执行数据预处理脚本`mindformers/tools/dataset_preprocess/cogvlm2/rwf2000_process.py`制作数据集。
+
+  ```shell
+  cd mindformers/tools/dataset_preprocess/cogvlm2
+  python rwf2000_process.py \
+   --data_dir /path/RWF-2000/ \
+   --output_file /path/RWF-2000/train.json
+
+  # 参数说明
+  data_dir:   下载后保存数据的文件夹路径, 文件夹内包含'train'和'val'文件夹
+  output_dir: 生成数据集标签文件路径
+  ```
 
 #### 模型权重下载
 
@@ -72,6 +98,51 @@ input_path:  下载HuggingFace权重的文件夹路径
 output_path: 转换后的MindSpore权重文件保存路径
 dtype:       转换后的MindSpore权重参数类型
 ```
+
+## 微调
+
+### LoRA微调
+
+MindFormers支持对`CogVLM2-Video-Chat-13B`进行LoRA微调，微调数据集可参考[数据集下载](#数据集下载)部分获取。
+
+1. 将HuggingFace权重转换为可加载的LoRA权重
+
+   ```shell
+   pip install transformers torch
+   cd mindformers/models/cogvlm2
+   python convert_weight.py --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME --sft 'lora'
+
+   # 参数说明
+   input_path:  下载HuggingFace权重的文件夹路径
+   output_path: 转换后的MindSpore权重文件保存路径
+   sft:         转换微调权重类型, 'lora'表示将原始权重转换为可加载的LoRA权重
+   ```
+
+2. 修改模型配置文件`configs/cogvlm2/finetune_cogvlm2_video_llama3_chat_13b_lora.yaml`
+
+   ```yaml
+   train_dataset:
+     data_loader:
+       annotation_file: "/{path}/RWF-2000/train.json"  # 预处理后的数据集文件路径
+       shuffle: True                                   # 开启数据集随机采样
+     tokenizer:
+       vocab_file: "/{path}/tokenizer.model"           # 指定tokenizer文件路径
+   ```
+
+3. 启动微调脚本
+
+   ```shell
+   export USE_ROPE_SELF_DEFINE=True
+   python run_mindformer.py \
+    --config configs/cogvlm2/finetune_cogvlm2_video_llama3_chat_13b_lora.yaml \
+    --run_mode finetune \
+    --load_checkpoint /{path}/cogvlm2-video-llama3-chat_lora.ckpt
+
+   # 参数说明
+   config:          模型配置文件路径
+   run_mode:        模型执行模式, 'finetune'表示微调
+   load_checkpoint: 模型权重文件路径
+   ```
 
 ## 推理
 

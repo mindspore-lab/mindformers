@@ -52,6 +52,8 @@ class LoraModel(PreTrainedModel):
             base_model.model = LoraAdapter.get_pet_model(base_model.model, self.config.pet_config)
         elif hasattr(base_model, "transformer"):
             base_model.transformer = LoraAdapter.get_pet_model(base_model.transformer, self.config.pet_config)
+        elif hasattr(base_model, "llm_model"):
+            base_model.llm_model = LoraAdapter.get_pet_model(base_model.llm_model, self.config.pet_config)
         else:
             logger.warning("The base model must has an attribute named in \'backbone\',"
                            "\'model\', or \'transformer\', which define transformer blocks.")
@@ -84,6 +86,9 @@ class LoraModel(PreTrainedModel):
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                         dynamic_batch_valid_length, None, None, dynamic_block_tables, dynamic_slot_mapping)
+
+    def to_embeddings(self, tokens):
+        return self.lora_model.to_embeddings(tokens)
 
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None,

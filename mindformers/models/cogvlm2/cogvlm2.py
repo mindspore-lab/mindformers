@@ -75,7 +75,6 @@ class VisionMLPAdapter(nn.Cell):
     def __init__(self, vision_grid_size, vision_hidden_size, text_hidden_size, text_intermediate_size,
                  compute_dtype=ms.float16, param_init_type=ms.float16):
         super().__init__()
-
         self.grid_size = vision_grid_size
 
         self.linear_proj = GLU(in_features=vision_hidden_size,
@@ -83,7 +82,7 @@ class VisionMLPAdapter(nn.Cell):
                                intermediate_size=text_intermediate_size,
                                compute_dtype=compute_dtype, param_init_type=param_init_type)
         self.conv = nn.Conv2d(in_channels=vision_hidden_size, out_channels=vision_hidden_size,
-                              kernel_size=2, stride=2, dtype=param_init_type, has_bias=True)
+                              kernel_size=2, stride=2, dtype=param_init_type, has_bias=True).to_float(compute_dtype)
         self.boi = Parameter(ops.zeros((1, 1, text_hidden_size), dtype=param_init_type))
         self.eoi = Parameter(ops.zeros((1, 1, text_hidden_size), dtype=param_init_type))
 
@@ -165,6 +164,22 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
         self.equal = P.Equal().shard(((parallel_config.data_parallel, 1), ()))
 
         self.iter_num = 0
+        self.freeze_component()
+
+    def freeze_component(self):
+        """freeze model components."""
+        if self.config.freeze_vision:
+            logger.info("freeze vision encoder.")
+            for param in self.vision_encoder.trainable_params():
+                param.requires_grad = False
+        if self.config.freeze_adapter:
+            logger.info("freeze mlp adapter.")
+            for param in self.mlp_adapter.trainable_params():
+                param.requires_grad = False
+        if self.config.freeze_llm:
+            logger.info("freeze llm model.")
+            for param in self.llm_model.trainable_params():
+                param.requires_grad = False
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """Prepare inputs for generation in inference."""
@@ -173,7 +188,8 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
         position_ids = kwargs.pop("position_ids")
         valid_position = kwargs.pop("valid_position")
 
-        is_first_iteration = kwargs.get('prefill')
+        prefill = kwargs.get('prefill')
+        is_first_iteration = True if prefill is None else prefill
         if not is_first_iteration:
             if isinstance(position_ids, Tensor):
                 position_ids = position_ids.numpy()
@@ -264,6 +280,9 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
 
             image_embeds = self.vision_encoder(images)
             image_embeds = self.mlp_adapter(image_embeds)
+
+            if self.training:
+                video_context_pos = video_context_pos.reshape((-1, self.num_queries, 2))
             input_embeds = self.update_modal_to_text(image_embeds, input_embeds, video_context_pos)
 
         return self.llm_model(

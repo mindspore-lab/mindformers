@@ -20,6 +20,8 @@ import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 
+from mindformers.modules.layers import Linear
+
 
 class Mlp(nn.Cell):
     """
@@ -35,31 +37,36 @@ class Mlp(nn.Cell):
                  drop_prob=0.,
                  conv_linear=False,
                  layer_norm_eps=1e-6,
-                 compute_dtype=mstype.float32,
-                 layer_norm_dtype=mstype.float32):
+                 compute_dtype=mstype.float16,
+                 param_init_type=mstype.float32,
+                 layer_norm_type=mstype.float32):
         super().__init__()
+        # self.dtype = compute_dtype
         out_size = out_size or in_size
         hidden_size = hidden_size or in_size
         bias = (bias, bias)
         drop_probs = (drop_prob, drop_prob)
 
         if conv_linear:
-            self.fc1 = nn.Conv2d(in_size, hidden_size, has_bias=bias[0], dtype=compute_dtype)
-            self.fc2 = nn.Conv2d(hidden_size, out_size, bias=bias[1], dtype=compute_dtype)
+            self.fc1 = nn.Conv2d(in_size, hidden_size, has_bias=bias[0], dtype=param_init_type)
+            self.fc2 = nn.Conv2d(hidden_size, out_size, bias=bias[1], dtype=param_init_type)
         else:
-            self.fc1 = nn.Dense(in_size, hidden_size, has_bias=bias[0], dtype=compute_dtype)
-            self.fc2 = nn.Dense(hidden_size, out_size, has_bias=bias[1], dtype=compute_dtype)
+            self.fc1 = Linear(in_size, hidden_size, has_bias=bias[0],
+                              param_init_type=param_init_type, compute_dtype=compute_dtype)
+            self.fc2 = Linear(hidden_size, out_size, has_bias=bias[1],
+                              param_init_type=param_init_type, compute_dtype=compute_dtype)
 
         self.act = nn.GELU(approximate=False)
-        self.drop1 = nn.Dropout(p=drop_probs[0], dtype=compute_dtype)
+        self.drop1 = nn.Dropout(p=drop_probs[0], dtype=param_init_type)
         if norm_layer:
-            self.norm = nn.LayerNorm((hidden_size,), epsilon=layer_norm_eps, dtype=layer_norm_dtype)
+            self.norm = nn.LayerNorm((hidden_size,), epsilon=layer_norm_eps, dtype=layer_norm_type)
         else:
             self.norm = nn.Identity()
-        self.drop2 = nn.Dropout(p=drop_probs[1], dtype=compute_dtype)
+        self.drop2 = nn.Dropout(p=drop_probs[1], dtype=param_init_type)
 
     def construct(self, x):
         """Mlp Forward."""
+        # x = self.cast(x, self.dtype)
         x = self.fc1(x)
         x = self.act(x)
         x = self.drop1(x)
@@ -87,12 +94,12 @@ class GluMlp(nn.Cell):
                  gate_last=True,
                  layer_norm_eps=1e-6,
                  compute_dtype=mstype.float32,
-                 layer_norm_dtype=mstype.float32):
+                 param_init_type=mstype.float32,
+                 layer_norm_type=mstype.float32):
         super().__init__()
         out_size = out_size or in_size
         hidden_size = hidden_size or in_size
-        if hidden_size % 2 != 0:
-            raise ValueError(f"hidden_size should be divisible by 2, but got {hidden_size}.")
+        assert hidden_size % 2 == 0
 
         bias = (bias, bias)
         drop_probs = (drop_prob, drop_prob)
@@ -101,15 +108,17 @@ class GluMlp(nn.Cell):
             self.fc1 = nn.Conv2d(in_size, hidden_size, has_bias=bias[0], dtype=compute_dtype)
             self.fc2 = nn.Conv2d(hidden_size // 2, out_size, has_bias=bias[1], dtype=compute_dtype)
         else:
-            self.fc1 = nn.Dense(in_size, hidden_size, has_bias=bias[0], dtype=compute_dtype)
-            self.fc2 = nn.Dense(hidden_size // 2, out_size, has_bias=bias[1], dtype=compute_dtype)
+            self.fc1 = Linear(in_size, hidden_size, has_bias=bias[0],
+                              param_init_type=param_init_type, compute_dtype=compute_dtype)
+            self.fc2 = Linear(hidden_size // 2, out_size, has_bias=bias[1],
+                              param_init_type=param_init_type, compute_dtype=compute_dtype)
 
         self.chunk_dim = 1 if conv_linear else -1
         self.gate_last = gate_last  # use second half of width for gate
 
         self.act = act_layer()
         if norm_layer:
-            self.norm = nn.LayerNorm((hidden_size // 2,), epsilon=layer_norm_eps, dtype=layer_norm_dtype)
+            self.norm = nn.LayerNorm((hidden_size // 2,), epsilon=layer_norm_eps, dtype=layer_norm_type)
         else:
             self.norm = nn.Identity()
         self.drop1 = nn.Dropout(p=drop_probs[0], dtype=compute_dtype)
@@ -148,23 +157,27 @@ class SwiGLU(nn.Cell):
                  drop_prob=0.,
                  layer_norm_eps=1e-6,
                  compute_dtype=mstype.float32,
-                 layer_norm_dtype=mstype.float32):
+                 param_init_type=mstype.float32,
+                 layer_norm_type=mstype.float32):
         super().__init__()
         out_size = out_size or in_size
         hidden_size = hidden_size or in_size
         bias = (bias, bias)
         drop_probs = (drop_prob, drop_prob)
 
-        self.fc1_g = nn.Dense(in_size, hidden_size, has_bias=bias[0], dtype=compute_dtype)
-        self.fc1_x = nn.Dense(in_size, hidden_size, has_bias=bias[0], dtype=compute_dtype)
+        self.fc1_g = Linear(in_size, hidden_size, has_bias=bias[0],
+                            param_init_type=param_init_type, compute_dtype=compute_dtype)
+        self.fc1_x = Linear(in_size, hidden_size, has_bias=bias[0],
+                            param_init_type=param_init_type, compute_dtype=compute_dtype)
         self.act = act_layer()
         self.drop1 = nn.Dropout(p=drop_probs[0], dtype=compute_dtype)
         if norm_layer:
-            self.norm = nn.LayerNorm((hidden_size,), epsilon=layer_norm_eps, dtype=layer_norm_dtype)
+            self.norm = nn.LayerNorm((hidden_size,), epsilon=layer_norm_eps, dtype=layer_norm_type)
         else:
             self.norm = nn.Identity()
 
-        self.fc2 = nn.Dense(hidden_size, out_size, has_bias=bias[1], dtype=compute_dtype)
+        self.fc2 = Linear(hidden_size, out_size, has_bias=bias[1],
+                          param_init_type=param_init_type, compute_dtype=compute_dtype)
         self.drop2 = nn.Dropout(p=drop_probs[1], dtype=compute_dtype)
 
         self.mul = P.Mul()

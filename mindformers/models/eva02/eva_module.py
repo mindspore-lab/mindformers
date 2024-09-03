@@ -24,6 +24,8 @@ from mindspore import nn, ops, Parameter, Tensor
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 
+from mindformers.modules.layers import Linear
+
 from .eva_mlp import SwiGLU, GluMlp, Mlp
 
 
@@ -86,7 +88,7 @@ class RotaryEmbeddingCat(nn.Cell):
                  max_res=224.,
                  linear_bands=False,
                  in_pixels=True,
-                 rotary_emb_dtype=mstype.float32):
+                 rotary_emb_type=mstype.float32):
         super().__init__()
         self.in_pixels = in_pixels
         self.feat_shape = feat_shape
@@ -102,7 +104,7 @@ class RotaryEmbeddingCat(nn.Cell):
             feat_shape=feat_shape,
             ref_feat_shape=ref_feat_shape,
             in_pixels=in_pixels,
-            dtype=rotary_emb_dtype
+            dtype=rotary_emb_type
         )
         self.pos_embed = F.cat(embeds, -1)
 
@@ -195,46 +197,50 @@ class EvaAttention(nn.Cell):
                  use_attn_norm: bool = True,
                  attn_head_dim=None,
                  compute_dtype=mstype.float32,
-                 layer_norm_dtype=mstype.float32,
-                 param_init_dtype=mstype.float32):
+                 layer_norm_type=mstype.float32,
+                 param_init_type=mstype.float32):
         super().__init__()
-
         self.num_attn_heads = num_attn_heads
         head_dim = hidden_size // num_attn_heads
         if attn_head_dim is not None:
             head_dim = attn_head_dim
         real_head_dim = head_dim * self.num_attn_heads
-        self.scale = Tensor(head_dim ** -0.5, dtype=compute_dtype)
+        self.scale = Tensor(head_dim ** -0.5, dtype=param_init_type)
 
         self.use_qkv_fused = use_qkv_fused
         self.use_qkv_simple = use_qkv_simple
         if not use_qkv_fused:  # for eva-clip use_qkv_fused is equal to use_attn_norm
-            self.q_proj = nn.Dense(hidden_size, real_head_dim, has_bias=qkv_bias, dtype=compute_dtype)
-            self.k_proj = nn.Dense(hidden_size, real_head_dim, has_bias=False, dtype=compute_dtype)
-            self.v_proj = nn.Dense(hidden_size, real_head_dim, has_bias=qkv_bias, dtype=compute_dtype)
+            self.q_proj = Linear(hidden_size, real_head_dim, has_bias=qkv_bias,
+                                 param_init_type=param_init_type, compute_dtype=compute_dtype)
+            self.k_proj = Linear(hidden_size, real_head_dim, has_bias=False,
+                                 param_init_type=param_init_type, compute_dtype=compute_dtype)
+            self.v_proj = Linear(hidden_size, real_head_dim, has_bias=qkv_bias,
+                                 param_init_type=param_init_type, compute_dtype=compute_dtype)
             self.qkv = None
             self.q_bias = self.k_bias = self.v_bias = None
         elif use_qkv_simple:
-            self.qkv = nn.Dense(hidden_size, real_head_dim * 3, has_bias=True, dtype=compute_dtype)
+            self.qkv = Linear(hidden_size, real_head_dim * 3, has_bias=True,
+                              param_init_type=param_init_type, compute_dtype=compute_dtype)
             self.q_proj = self.k_proj = self.v_proj = None
         else:
-            self.qkv = nn.Dense(hidden_size, real_head_dim * 3, has_bias=False, dtype=compute_dtype)
+            self.qkv = Linear(hidden_size, real_head_dim * 3, has_bias=False,
+                              param_init_type=param_init_type, compute_dtype=compute_dtype)
             if qkv_bias:
-                self.q_bias = Parameter(ops.zeros(real_head_dim, dtype=param_init_dtype))
+                self.q_bias = Parameter(ops.zeros(real_head_dim, dtype=param_init_type))
                 # k_bias not used in network
-                self.k_bias = Parameter(ops.zeros(real_head_dim, dtype=param_init_dtype), requires_grad=False)
-                self.v_bias = Parameter(ops.zeros(real_head_dim, dtype=param_init_dtype))
+                self.k_bias = Parameter(ops.zeros(real_head_dim, dtype=param_init_type), requires_grad=False)
+                self.v_bias = Parameter(ops.zeros(real_head_dim, dtype=param_init_type))
             else:
                 self.q_bias = self.k_bias = self.v_bias = None
             self.q_proj = self.k_proj = self.v_proj = None
 
-        self.attn_drop = nn.Dropout(p=attn_drop, dtype=compute_dtype)
+        self.attn_drop = nn.Dropout(p=attn_drop, dtype=param_init_type)
         if use_attn_norm:
-            self.layer_norm = nn.LayerNorm((real_head_dim,), layer_norm_eps, layer_norm_dtype)
+            self.layer_norm = nn.LayerNorm((real_head_dim,), layer_norm_eps, layer_norm_type)
         else:
             self.layer_norm = nn.Identity()
-        self.proj = nn.Dense(real_head_dim, hidden_size, dtype=compute_dtype)
-        self.proj_drop = nn.Dropout(p=proj_drop, dtype=compute_dtype)
+        self.proj = Linear(real_head_dim, hidden_size, param_init_type=param_init_type, compute_dtype=compute_dtype)
+        self.proj_drop = nn.Dropout(p=proj_drop, dtype=param_init_type)
 
         self.reshape = P.Reshape()
         self.transpose = P.Transpose()
@@ -285,7 +291,7 @@ class EvaAttention(nn.Cell):
             attn_bool = self.cast(attn, mstype.bool_)
             attn_shape = F.shape(attn)
             if len(attn_shape) != 2:
-                raise ValueError(f"len(attn_shape) should be 2, but got {len(attn_shape)}")
+                raise ValueError(f"attn_shape length should be 2, but got {len(attn_shape)}")
             attn = F.broadcast_to(~attn, (attn_shape[0], 1, 1, attn_shape[1]))
             attn = self.masked_fill(attn, attn_bool, float("-inf"))
         attn = self.softmax(attn)
@@ -371,8 +377,8 @@ class EvaBlock(nn.Cell):
                  use_post_norm: bool = False,
                  layer_norm=nn.LayerNorm,
                  compute_dtype=mstype.float32,
-                 layer_norm_dtype=mstype.float32,
-                 param_init_dtype=mstype.float32):
+                 layer_norm_type=mstype.float32,
+                 param_init_type=mstype.float32):
         super().__init__()
         self.use_post_norm = use_post_norm
 
@@ -386,10 +392,10 @@ class EvaBlock(nn.Cell):
                                  use_qkv_simple=use_qkv_simple,
                                  use_attn_norm=use_attn_norm,
                                  compute_dtype=compute_dtype,
-                                 layer_norm_dtype=layer_norm_dtype,
-                                 param_init_dtype=param_init_dtype)
+                                 layer_norm_type=layer_norm_type,
+                                 param_init_type=param_init_type)
 
-        self.norm1 = layer_norm((hidden_size,), layer_norm_eps, layer_norm_dtype)
+        self.norm1 = layer_norm((hidden_size,), layer_norm_eps, layer_norm_type)
         self.drop_path1 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
         if swiglu_mlp:
@@ -401,7 +407,8 @@ class EvaBlock(nn.Cell):
                     norm_layer=scale_mlp,
                     drop_prob=proj_drop,
                     compute_dtype=compute_dtype,
-                    layer_norm_dtype=layer_norm_dtype
+                    param_init_type=param_init_type,
+                    layer_norm_type=layer_norm_type
                 )
             else:
                 # w/o any extra norm, an impl with packed fc1 weights is used, matches existing GluMLP
@@ -413,7 +420,8 @@ class EvaBlock(nn.Cell):
                     gate_last=False,
                     drop_prob=proj_drop,
                     compute_dtype=compute_dtype,
-                    layer_norm_dtype=layer_norm_dtype
+                    param_init_type=param_init_type,
+                    layer_norm_type=layer_norm_type
                 )
         else:
             self.mlp = Mlp(
@@ -422,9 +430,10 @@ class EvaBlock(nn.Cell):
                 norm_layer=scale_mlp,
                 drop_prob=proj_drop,
                 compute_dtype=compute_dtype,
-                layer_norm_dtype=layer_norm_dtype
+                param_init_type=param_init_type,
+                layer_norm_type=layer_norm_type
             )
-        self.norm2 = layer_norm((hidden_size,), layer_norm_eps, layer_norm_dtype)
+        self.norm2 = layer_norm((hidden_size,), layer_norm_eps, layer_norm_type)
         self.drop_path2 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
         self.add = P.Add()
