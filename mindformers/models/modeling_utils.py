@@ -1517,6 +1517,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
                 logger.info("start to read the ckpt file: %s", os.path.getsize(ckpt_file))
                 param = load_checkpoint(ckpt_file)
 
+            param = self.fuse_weight_from_ckpt(param)
             param = replace_tk_to_mindpet(param)
             load_param_into_net(self, param)
             logger.info("weights in %s are loaded", ckpt_file)
@@ -1538,3 +1539,15 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
 
     def kvcache(self, layer_idx):
         raise RuntimeError("Override the kvcache method to get key cache value cache for swap.")
+
+    def fuse_weight_from_ckpt(self, ckpt_dict):
+        """
+        Fuse weight function, which fuse the weight and update parameter dictionary before loading weight into network.
+
+        Args:
+            ckpt_dict (dict): dictionary containing weights.
+
+        Returns:
+            ckpt_dict (dict) after fusing.
+        """
+        return ckpt_dict
