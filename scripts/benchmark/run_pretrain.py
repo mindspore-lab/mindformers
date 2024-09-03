@@ -115,11 +115,7 @@ class ModelPretrain(BaseInitModel):
         self.config.load_checkpoint = load_checkpoint
 
         train = Trainer(args=self.config)
-
-        if load_checkpoint:
-            train.finetune(finetune_checkpoint=True)
-        else:
-            train.train()
+        train.train()
 
     def generate_pretrain_data(self, pretrain_data, temp_dir) -> str:
         """
