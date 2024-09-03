@@ -114,7 +114,7 @@ def get_model(model_name_or_path: str,
 
 class ModelRunner:
     """
-    ModelRunner API, supports MF to be a backend of MindIEServer.
+    ModelRunner API, supports MindFormers to be a backend of MindIEServer.
 
     Args:
         model_path (str):
@@ -125,12 +125,14 @@ class ModelRunner:
             Cpu memory size used for kv-cache.
         block_size (int):
             Block size used for kv-cache.
-        rank_id (int):
-            Rank id used for infer.
-        world_size (int):
-            Rank size used for infer.
-        npu_device_ids (list[int]):
-            Get npu_device_ids from MindIE config.
+        rank_id (int, optional):
+            Rank id used for infer. Default: ``0``.
+        world_size (int, optional):
+            Rank size used for infer. Default: ``1``.
+        npu_device_ids (list[int], optional):
+            Get npu_device_ids from MindIE config. Default: ``None``.
+        plugin_params (str, optional):
+            A JSON string that contains additional plugin parameters. Default: ``None``.
 
     Returns:
         A MindIERunner object.
@@ -178,6 +180,8 @@ class MindIEModelRunner:
             Rank size used for infer.
         npu_device_ids (list[int]):
             Get npu_device_ids from MindIE config.
+        plugin_params (str):
+            A JSON string that contains additional plugin parameters.
     """
 
     def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0,
