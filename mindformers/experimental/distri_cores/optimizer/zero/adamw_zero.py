@@ -524,7 +524,7 @@ class AdamW(Optimizer):
                 opt_weight_shard_size = get_dp_world_size()
             else:
                 opt_weight_shard_step = 0
-                opt_weight_shard_size = -1
+                opt_weight_shard_size = 0
             state_dict[moment1.name] = {'shape': moment1.shape,
                                         'shard': tuple(shard),
                                         'opt_weight_shard_step': opt_weight_shard_step,
