@@ -21,7 +21,7 @@ import mindspore
 from mindspore import nn, Tensor
 from mindspore.ops import operations as P
 
-from mindformers.experimental.graph.optimizer.adamw import AdamW
+from mindformers.experimental.parallel_core import AdamW
 
 
 np.random.seed(1024)

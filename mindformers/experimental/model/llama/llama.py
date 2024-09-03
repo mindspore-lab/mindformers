@@ -24,7 +24,7 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallelLinear
-from mindformers.experimental.graph.transformer.language_model import get_language_model
+from mindformers.experimental.parallel_core import get_language_model
 from mindformers.experimental.graph.transformer.transformer_config_utils import convert_to_transformer_config
 from mindformers.tools.logger import logger
 
