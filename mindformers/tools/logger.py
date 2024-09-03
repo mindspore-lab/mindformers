@@ -557,7 +557,8 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
     for i, level in enumerate(file_level):
         file_handler = LimitedRepeatFileHandler(filename=file_path[i],
                                                 maxBytes=max_file_size,
-                                                backupCount=max_num_of_files)
+                                                backupCount=max_num_of_files,
+                                                encoding='utf-8')
         file_handler.setLevel(level)
         file_handler.setFormatter(file_formatter)
         mf_logger.addHandler(file_handler)
