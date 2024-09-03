@@ -154,7 +154,7 @@ class ModelTester:
         return dataset
 
     def set_train(self, model, config, dataset=None, loss_std=None, avg_time_std=None,
-                  checker_config=None, parallel_config=None):
+                  checker_config=None, parallel_config=None, task='text_generation'):
         """set model train."""
         if not self.experiment_mode:
             assert isinstance(loss_std, list) and self.step_num == len(loss_std)
@@ -169,7 +169,7 @@ class ModelTester:
                                    experiment_mode=self.experiment_mode,
                                    **checker_config)
 
-        task_trainer = Trainer(task='text_generation',
+        task_trainer = Trainer(task=task,
                                model=model,
                                args=self.args,
                                train_dataset=dataset,

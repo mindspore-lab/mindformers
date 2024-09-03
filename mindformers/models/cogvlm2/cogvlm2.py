@@ -104,7 +104,7 @@ class VisionMLPAdapter(nn.Cell):
         x = self.linear_proj(x)
         boi = self.broadcast_to(self.boi, (bs, -1, -1))
         eoi = self.broadcast_to(self.eoi, (bs, -1, -1))
-        x = self.concat((boi, x, eoi))
+        x = self.concat((self.cast(boi, F.dtype(x)), x, self.cast(eoi, F.dtype(x))))
         return x
 
 
