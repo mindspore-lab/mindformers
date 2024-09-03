@@ -105,7 +105,9 @@ class LLamaAttention(nn.Cell):
                  use_attn_mask_compression=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
-                 parallel_config=TransformerOpParallelConfig()):
+                 parallel_config=TransformerOpParallelConfig(),
+                 parallel_decoding=False,
+                 ):
         super().__init__()
         self.hidden_size = dim
         self.n_head = n_heads
@@ -217,7 +219,9 @@ class LLamaAttention(nn.Cell):
                                                   use_flash_attention=self.use_flash_attention,
                                                   rotary_cos_format=2,
                                                   rotary_dtype=rotary_dtype,
-                                                  compute_dtype=compute_dtype)
+                                                  compute_dtype=compute_dtype,
+                                                  parallel_decoding=parallel_decoding,
+                                                  )
             self.infer_attention.shard(parallel_config)
         else:
             self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
@@ -308,7 +312,7 @@ class LLamaAttention(nn.Cell):
             self.transpose_ulysses_merger.shard(((dp, cp, 1, mp, 1),))
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, q_seq_lens=None):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
@@ -324,7 +328,8 @@ class LLamaAttention(nn.Cell):
         # key and value for current token(s)
         if self.use_past:
             context_layer = self.infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping,
-                                                 freqs_cis, mask, prefix_keys_values=prefix_keys_values)
+                                                 freqs_cis, mask, prefix_keys_values=prefix_keys_values,
+                                                 q_seq_lens=q_seq_lens)
         else:
             query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
             key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
@@ -568,7 +573,9 @@ class LLamaDecodeLayer(nn.Cell):
                  use_attn_mask_compression=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
-                 parallel_config=TransformerOpParallelConfig()):
+                 parallel_config=TransformerOpParallelConfig(),
+                 parallel_decoding=False,
+                 ):
         super().__init__()
         self.layer_id = layer_id
         self.hidden_size = dim
@@ -601,7 +608,9 @@ class LLamaDecodeLayer(nn.Cell):
                                         use_attn_mask_compression=use_attn_mask_compression,
                                         block_size=block_size,
                                         num_blocks=num_blocks,
-                                        parallel_config=parallel_config)
+                                        parallel_config=parallel_config,
+                                        parallel_decoding=parallel_decoding,
+                                        )
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
         self.shared_expert_num = 0 if moe_config is None else moe_config.shared_expert_num
@@ -688,7 +697,7 @@ class LLamaDecodeLayer(nn.Cell):
             self.no_inline = False
 
     def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, prefix_keys_values=None):
+                  slot_mapping=None, prefix_keys_values=None, q_seq_lens=None):
         """ Forward of transformer block. """
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
@@ -696,7 +705,7 @@ class LLamaDecodeLayer(nn.Cell):
         input_x = self.attention_norm(x)
         # [bs, seq/1, hidden_dim]
         h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
-                           slot_mapping, prefix_keys_values)
+                           slot_mapping, prefix_keys_values, q_seq_lens)
         h = self.add(x, h)
         ffn_norm = self.ffn_norm(h)
         # [bs, seq/1, hidden_dim]
