@@ -133,7 +133,7 @@ def _test_module(module):
 
     # init communication
     init()
-    initialize_model_parallel(tp_size=2)
+    initialize_model_parallel(tensor_model_parallel_size=2)
 
     # test module
     net = get_module(module)
