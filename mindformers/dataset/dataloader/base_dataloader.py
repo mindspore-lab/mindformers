@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Base DataLoader"""
+import os
 import datasets
 
 from mindformers.tools.logger import logger
@@ -24,6 +25,7 @@ class BaseDataLoader:
     def load_dataset(cls, path: str, **kwargs):
         """load dataset"""
         try:
+            logger.info(f"USE_OM : {os.environ['USE_OM']}")
             # pylint: disable=W0611
             import openmind_datasets
             logger.info("connect openmind")

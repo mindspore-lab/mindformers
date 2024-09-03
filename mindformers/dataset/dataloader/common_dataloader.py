@@ -48,7 +48,7 @@ class CommonDataLoader(BaseDataLoader):
             kwargs["split"] = "train"
 
         kwargs = cls._filter_params(kwargs=kwargs)
-
+        ms_adaptor_execution()
         dataset = cls.load_dataset(path=path, **kwargs)
 
         if handler:  # data preprocess
@@ -87,6 +87,3 @@ def ms_adaptor_execution():
         setattr(Dataset, "to_ms_dataset", to_ms_dataset)
     except importlib.metadata.PackageNotFoundError:
         logger.error(f"to_ms_dataset adaptor failed.")
-
-
-ms_adaptor_execution()
