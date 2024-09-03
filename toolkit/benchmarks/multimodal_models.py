@@ -114,7 +114,7 @@ class MFModel(BaseModel):
         data = self.processor(inputs)
         res = self.model.generate(
             **data,
-            config=self.generation_config,
+            generation_config=self.generation_config,
         )
         input_id_length = np.max(np.argwhere(data["input_ids"][0] != self.tokenizer.pad_token_id)) + 1
         result = self.tokenizer.decode(res[0][input_id_length:], skip_special_tokens=True)
