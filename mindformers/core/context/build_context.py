@@ -44,7 +44,8 @@ MF_CONFIG = {
     'run_mode': None,
     'exclude_cann_cpu': False,
     'train_precision_sync': False,
-    'infer_precision_sync': False
+    'infer_precision_sync': False,
+    'postprocess_use_numpy': False
 }
 
 PARALLEL = {
