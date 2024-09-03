@@ -158,6 +158,7 @@ class LlamaRMSNorm(nn.Cell):
             dim (tuple): The shape of the input tensor
             eps (float): The epsilon value of the denominator. Default 1e-5.
             compute_type: The compute type.
+            fused_kernel (bool): whether to use fused kernel. Default True.
         Inputs:
             - **x** (Tensor) - Tensor of shape :math:`(batch, seq\_length, hidden\_size)`.
 
@@ -165,13 +166,13 @@ class LlamaRMSNorm(nn.Cell):
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
 
-    def __init__(self, dim, eps=1e-6, compute_type=mstype.float32):
+    def __init__(self, dim, eps=1e-6, compute_type=mstype.float32, fused_kernel=True):
         super(LlamaRMSNorm, self).__init__()
         self.eps = eps
         self.compute_type = compute_type
         self.weight = Parameter(initializer('ones', (dim,), dtype=self.compute_type), parallel_optimizer=False)
 
-        if check_rmsnorm_big_kernel_valid():
+        if fused_kernel and check_rmsnorm_big_kernel_valid():
             self.norm = P.RmsNorm(eps)
             self.rms_norm = self._rms_norm
             self.self_define = False
@@ -193,12 +194,13 @@ class LlamaRMSNorm(nn.Cell):
 
     def _self_norm(self, x):
         original_type = x.dtype
-        norm_factor = self.square(self.cast(x, self.compute_type))
+        h = self.cast(x, self.compute_type)
+        norm_factor = self.square(h)
         norm_factor = self.mean(norm_factor, -1)
         norm_factor = self.add(norm_factor, self.eps)
         norm_factor = self.rsqrt(norm_factor)
-        output = self.mul(x, self.cast(norm_factor, original_type))
-        output = self.mul2(output, self.cast(self.weight, original_type))
+        output = self.mul(h, norm_factor)
+        output = self.mul2(self.cast(output, original_type), self.cast(self.weight, original_type))
         return output
 
     def _rms_norm(self, x):
@@ -535,6 +537,7 @@ class LlamaFeedForwardWithMoE(Cell):
                  moe_config=None,
                  parallel_config=default_dpmp_config,
                  use_moe_infer=True,
+                 return_extra_loss=False,
                  ):
         super().__init__()
         self.expert_num = moe_config.expert_num
@@ -543,6 +546,7 @@ class LlamaFeedForwardWithMoE(Cell):
         self.router_dense_type = moe_config.router_dense_type
         self.compute_dtype = compute_dtype
         self.use_moe_infer = use_moe_infer
+        self.return_extra_loss = return_extra_loss
 
         self.sigmoid = Sigmoid()
         self.mul = P.Mul()
@@ -574,7 +578,8 @@ class LlamaFeedForwardWithMoE(Cell):
                                      parallel_config=parallel_config),
                 dim=hidden_size,
                 moe_config=moe_config,
-                parallel_config=parallel_config
+                parallel_config=parallel_config,
+                return_extra_loss=return_extra_loss
             )
 
         self.shared_experts = LlamaFeedForward(dim=hidden_size,
@@ -592,12 +597,18 @@ class LlamaFeedForwardWithMoE(Cell):
                                              has_bias=False,
                                              dtype=self.router_dense_type)
 
-    def construct(self, x):
-        routed_experts_output = self.routed_experts(x)
+    def construct(self, x, extra_loss=0.):
+        r"""Forward process of the LlamaFeedForwardWithMoE"""
         shared_experts_output = self.shared_experts(x)
         if self.use_shared_expert_gating:
             gate = self.sigmoid(self.shared_experts_gate(self.cast(x, self.router_dense_type)))
             shared_experts_output = self.mul(shared_experts_output, self.cast(gate, self.compute_dtype))
+        if self.return_extra_loss:
+            routed_experts_output, extra_loss = self.routed_experts(x, extra_loss)
+            output = self.add(routed_experts_output, shared_experts_output)
+            return output, extra_loss
+
+        routed_experts_output = self.routed_experts(x)
         output = self.add(routed_experts_output, shared_experts_output)
         return output
 
