@@ -185,14 +185,47 @@ class ChatGLM2Model(GLM2PreTrainedModel):
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
-    r"""
-    Provide gpt training loss or logits through network.
+    """
+    Provide ChatGLM2 training loss or logits through network.
 
     Args:
         config (GLMConfig): The config of ChatGLM2Model.
 
-    Returns:
-        Tensor, the loss or logits of the network.
+    Inputs:
+        - **input_ids** (Tensor, optional) - A tokenized input tensor, which is of int32 integer type and has a shape of
+          (batch, seq_length). Default: ``None`` .
+        - **labels** (Tensor, optional) - A tokenized label tensor, which is of int32 integer type and has a shape of
+          (batch, seq_length). Default: ``None`` .
+        - **input_position** (Tensor, optional) - The current position, used in predict. Default: ``None`` .
+        - **position_ids** (Tensor, optional) - Keep the parameter unused. Default: ``None`` .
+        - **attention_mask** (Tensor, optional) - Keep the parameter unused. Default: ``None`` .
+        - **input_embeds** (Tensor, optional) - Keep the parameter unused. Default: ``None`` .
+        - **init_reset** (Tensor, optional) - A bool tensor with shape [1], used to clear previous key-value pairs in
+          incremental inference. Default: ``None`` .
+        - **batch_valid_length** (Tensor, optional) - In incremental inference, a tensor used for calculating the index
+          of the previous step. It is of int32 type and has a shape of [batch_size]. Default: ``None`` .
+        - **prefix_key_values** (Tensor, optional) - A set of additional key-value pairs added before the regular
+          key-value pairs. These prefix key-value pairs can be used to capture long-term dependencies or provide prior
+          knowledge, thereby helping the model better understand and generate sequences. Default: ``None`` .
+        - **block_tables** (Tensor, optional) - Store the mapping table for each sequence. Default: ``None`` .
+        - **slot_mapping** (Tensor, optional) - Store the physical slot index of the sequence cache. Default: ``None`` .
+        - **batch_index** (Tensor, optional) - Keep the parameter unused. Default: ``None`` .
+        - **zactivate_len** (Tensor, optional) - Keep the parameter unused. Default: ``None`` .
+
+    Outputs:
+        output(Tensor), including an on-line loss value or a logical value, a sequence of predictive text, an input
+            mask.
+
+    Examples:
+        >>> from mindformers.models.glm2 import ChatGLM2Config, ChatGLM2ForConditionalGeneration
+        >>> config = ChatGLM2Config(batch_size=2)
+        >>> network = ChatGLM2ForConditionalGeneration(config=config)
+        >>> type(network)
+        <class 'mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration'>
+        >>> from mindformers import ChatGLM2ForConditionalGeneration
+        >>> network = ChatGLM2ForConditionalGeneration.from_pretrained('glm3_6b')
+        >>> type(network)
+        <class 'mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration'>
     """
     _support_list = MindFormerBook.get_model_support_list()['glm2']
     _support_list.extend(MindFormerBook.get_model_support_list()['glm3'])

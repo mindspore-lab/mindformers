@@ -95,7 +95,15 @@ class ChatGLM2Tokenizer(PreTrainedTokenizer):
 
     Args:
         vocab_file(str): The vocabulary file path.
-        padding_side(str): ["left", "right"] Lower input text. Default False.
+        bos_token (str, tokenizers.AddedToken): The beginning of sequence token that was used during pretraining. Can be
+            used a sequence classifier token. Default: `"<sop>"` .
+        eos_token (str, tokenizers.AddedToken): The end of sequence token. Default: `"</s>"` .
+        end_token (str, tokenizers.AddedToken): The end of sequence token. Default: `"</s>"` .
+        mask_token (str, tokenizers.AddedToken): The masked token. Default: `"[MASK]"` .
+        gmask_token (str, tokenizers.AddedToken): The special masked token. Default: ``"[gMASK]"` .
+        pad_token (str, tokenizers.AddedToken): A special token used to make arrays of tokens the same size for batching
+            purpose. Will then be ignored by attention mechanisms or loss computation. Default: `"<pad>"` .
+        unk_token (str, tokenizers.AddedToken): The unknown token. Default: `"<unk>"` .
         **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
 
     Examples:

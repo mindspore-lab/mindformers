@@ -33,6 +33,11 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
 
     Args:
         vocab_file(str): The vocabulary file path.
+        clean_up_tokenization_spaces(bool, optional): Whether to delete redundant spaces. Default: ``False`` .
+        encode_special_tokens(bool, optional): Whether to encode the special tokens. Default: ``False`` .
+        eos_token (str, tokenizers.AddedToken): The end of sequence token. Default: `"<|endoftext|>"` .
+        pad_token (str, tokenizers.AddedToken): A special token used to make arrays of tokens the same size for batching
+            purpose. Will then be ignored by attention mechanisms or loss computation. Default: `"<|endoftext|>"` .
         **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
 
     Examples:
@@ -42,7 +47,7 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
         >>> token_id = tokenizer(prompts)
         >>> input_ids = token_id['input_ids']
         >>> print(input_ids)
-        [[64790, 64792, 30910, 32820, 54266, 31876, 35153]]
+        [[151331, 151333, 101160, 120410, 99379, 103298]]
         >>> response = tokenizer.decode(input_ids)
         >>> print(response)
         ['晚上睡不着应该怎么办']
