@@ -147,7 +147,7 @@ model:
     bos_token_id: 128000
     eos_token_id: 128001
     pad_token_id: 128002
-    ignore_token_id: 128002
+    ignore_token_id: -100
     compute_dtype: "bfloat16"
     layernorm_compute_type: "float32"
     softmax_compute_type: "float32"
