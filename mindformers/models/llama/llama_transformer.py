@@ -280,7 +280,7 @@ class LLamaAttention(nn.Cell):
                 self.input_layout = "BSH" if cp > 1 else "BNSD"
                 self.sparse_mode = 2 if self.use_attn_mask_compression and not self.use_ring_attention else 0
                 self.flash_attention = FlashAttention(head_num=self.n_head,
-                                                      pre_tokens=65536,
+                                                      pre_tokens=2147483647,
                                                       next_tokens=0,
                                                       input_layout=self.input_layout,
                                                       keep_prob=1.,
