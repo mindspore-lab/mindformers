@@ -195,7 +195,8 @@ class InferAttention(Cell):
                  use_rope_rotary_emb=True,
                  rotary_cos_format=0,
                  rotary_dtype=mstype.float32,
-                 compute_dtype=mstype.float16
+                 compute_dtype=mstype.float16,
+                 parallel_decoding=False,
                  ):
         super(InferAttention, self).__init__()
         self.n_head = n_head
@@ -256,12 +257,15 @@ class InferAttention(Cell):
                                                      self.head_dim,
                                                      self.pa_n_kv_head_split,
                                                      kv_shape,
-                                                     compute_dtype=self.compute_dtype)
+                                                     compute_dtype=self.compute_dtype,
+                                                     parallel_decoding=parallel_decoding,
+                                                     )
         if use_rope_rotary_emb:
             if self.use_rope_self_define:
                 self.rotary_embedding = RotaryEmbedding(self.head_dim, self.rotary_dtype)
             else:
                 self.rotary_embedding = InferRotaryEmbedding(self.rotary_cos_format)
+        self.parallel_decoding = parallel_decoding
 
     def _core_attention(self, query, key, value, attn_mask, alibi_mask=None):
         """
@@ -369,6 +373,8 @@ class InferAttention(Cell):
         prefill attention
         """
         if self.use_flash_attention:
+            if self.parallel_decoding:
+                attn_mask = None
             return self.flash_attention(query, key, value, attn_mask, alibi_mask)
         bs, seq_len, _ = query.shape
         key_seq_len = key.shape[1]
@@ -380,13 +386,15 @@ class InferAttention(Cell):
         value = self._repeat_kv(value, self.n_rep)
         return self._core_attention(query, key, value, attn_mask, alibi_mask)
 
-    def _incre_attention(self, query, batch_valid_length, block_tables, alibi_mask=None):
+    def _incre_attention(self, query, batch_valid_length, block_tables, alibi_mask=None, attn_mask=None,
+                         q_seq_lens=None):
         if self.use_alibi_mask:
             return self.paged_attention_mgr.paged_attn_with_alibi(query, batch_valid_length, block_tables, alibi_mask)
-        return self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables)
+        return self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables, attn_mask=attn_mask,
+                                                   q_seq_lens=q_seq_lens)
 
     def construct(self, query, key, value, batch_valid_length, block_tables, slot_mapping, freqs_cis=None,
-                  attn_mask=None, alibi_mask=None, prefix_keys_values=None):
+                  attn_mask=None, alibi_mask=None, prefix_keys_values=None, q_seq_lens=None):
         """Forward process of the Infer Attention Cell"""
         if self.use_rope_rotary_emb:
             query, key = self._apply_rotary_pos_emb(query, key, freqs_cis, batch_valid_length)
@@ -402,7 +410,7 @@ class InferAttention(Cell):
 
         if self.is_first_iteration:
             return self._prefill_attention(query, key, value, attn_mask, alibi_mask)
-        return self._incre_attention(query, batch_valid_length, block_tables, alibi_mask)
+        return self._incre_attention(query, batch_valid_length, block_tables, alibi_mask, attn_mask, q_seq_lens)
 
     def shard(self, parallel_config):
         """Parallel strategy configuratiuon interface."""

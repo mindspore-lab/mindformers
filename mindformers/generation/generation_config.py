@@ -127,6 +127,12 @@ class GenerationConfig:
         self.bos_token_id = kwargs.pop("bos_token_id", None)
         self.eos_token_id = kwargs.pop("eos_token_id", [])
 
+        # parallel_decoding
+        self.parallel_decoding = kwargs.pop("parallel_decoding", False)
+        self.window_size = kwargs.pop("window_size", 5)
+        self.level = kwargs.pop("level", 5)
+        self.guess_set_size = kwargs.pop("guess_set_size", 3)
+
         if isinstance(self.eos_token_id, int):
             self.eos_token_id = [self.eos_token_id]
 

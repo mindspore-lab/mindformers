@@ -1146,6 +1146,12 @@ class FreqsMgr(Cell):
         freqs_sin = self.gather(self.freqs_sin, indices, 0)
         return freqs_cos, freqs_sin, self.swap_mask
 
+    def increment_multi_ids(self, indices):
+        indices = indices.reshape(-1)
+        freqs_cos = self.gather(self.freqs_cos, indices, 0)
+        freqs_sin = self.gather(self.freqs_sin, indices, 0)
+        return freqs_cos, freqs_sin, self.swap_mask
+
     @staticmethod
     def get_swap_mask(head_dim):
         """Swap matrix"""

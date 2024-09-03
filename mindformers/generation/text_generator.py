@@ -41,6 +41,7 @@ from mindformers.generation.streamers import BaseStreamer
 from mindformers.generation.utils import softmax_with_threads, topk, GenerateOutput, InferOutput
 from mindformers.modules.block_tables import BlockTables
 from mindformers.tools.logger import logger
+from mindformers.generation.parallel_decoding import parallel_decoding_control, parallel_decoding_process
 
 __all__ = ["GenerationMixin"]
 
@@ -1052,7 +1053,10 @@ class GenerationMixin:
             input_ids = np.reshape(input_ids, (1, -1))
         else:
             input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
-        current_index = valid_length_each_example - 1 + np.arange(input_ids.size, step=input_ids.shape[1])
+        if parallel_decoding_control(self.config):
+            current_index = None
+        else:
+            current_index = valid_length_each_example - 1 + np.arange(input_ids.size, step=input_ids.shape[1])
         if self.config.is_encoder_decoder:
             inputs = Tensor(input_ids, mstype.int32)
             # pylint: disable=E1102
@@ -1072,9 +1076,14 @@ class GenerationMixin:
             # pylint: disable=E1111
             model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
             real_input_ids = model_inputs["input_ids"]
-            current_index = valid_length_each_example - 1 + np.arange(real_input_ids.numel(),
-                                                                      step=real_input_ids.shape[1])
-            model_kwargs["current_index"] = current_index
+            if parallel_decoding_control(self.config):
+                model_inputs, block_tables, slot_mapping = parallel_decoding_process(
+                    self.config, input_ids, **model_kwargs
+                )
+            else:
+                current_index = valid_length_each_example - 1 + np.arange(real_input_ids.numel(),
+                                                                          step=real_input_ids.shape[1])
+                model_kwargs["current_index"] = current_index
 
             if use_past:
                 res = self._incremental_infer(

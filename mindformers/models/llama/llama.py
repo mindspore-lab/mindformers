@@ -173,7 +173,9 @@ class LlamaModel(LlamaPreTrainedModel):
                                          num_blocks=config.num_blocks,
                                          use_rope_slice=config.use_rope_slice,
                                          moe_config=config.moe_config,
-                                         parallel_config=config.parallel_config)
+                                         parallel_config=config.parallel_config,
+                                         parallel_decoding=config.parallel_decoding,
+                                         )
             self.layer_setting(layer, layer_id)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
@@ -197,10 +199,12 @@ class LlamaModel(LlamaPreTrainedModel):
                 self.norm_out.shard((dp * cp, 1))
             else:
                 self.norm_out.shard((dp, cp, 1))
+        self.parallel_decoding = config.parallel_decoding
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, attention_mask=None,
+                  position_ids=None, q_seq_lens=None):
         """
         Forward of llama model.
 
@@ -215,37 +219,53 @@ class LlamaModel(LlamaPreTrainedModel):
         """
         # preprocess
         bs, seq_len = self.shape(tokens)
-        mask = None
-        if self.use_past:
+        if self.parallel_decoding:
+            mask = attention_mask
             if self.is_first_iteration:
                 if self.use_rope_self_define:
                     freqs_cis = self.freqs_mgr(seq_len)
                 else:
                     freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-
                 if self.use_flash_attention:
                     if self.enable_asd_op:  # only support fp16
                         mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
                         mask = self.cast(mask, mstype.float16)
                 else:
                     mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
+            else:
+                freqs_cis = self.freqs_mgr.increment_multi_ids(position_ids)
+        else:
+            mask = None
+            if self.use_past:
+                if self.is_first_iteration:
+                    if self.use_rope_self_define:
+                        freqs_cis = self.freqs_mgr(seq_len)
+                    else:
+                        freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
 
+                    if self.use_flash_attention:
+                        if self.enable_asd_op:  # only support fp16
+                            mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
+                            mask = self.cast(mask, mstype.float16)
+                    else:
+                        mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
+
+                    if prefix_keys_values is not None:
+                        if mask is None:
+                            mask = self.casual_mask(tokens)
+                        prefix_length = prefix_keys_values[0].shape[2]
+                        prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
+                        mask = self.concat((prefix_mask, mask))
+                else:
+                    freqs_cis = self.freqs_mgr.increment(batch_valid_length)
+            else:
+                if not self.use_ring_attention:
+                    mask = self.casual_mask(tokens)
+                freqs_cis = self.freqs_mgr(seq_len)
                 if prefix_keys_values is not None:
-                    if mask is None:
-                        mask = self.casual_mask(tokens)
                     prefix_length = prefix_keys_values[0].shape[2]
                     prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
                     mask = self.concat((prefix_mask, mask))
-            else:
-                freqs_cis = self.freqs_mgr.increment(batch_valid_length)
-        else:
-            if not self.use_ring_attention:
-                mask = self.casual_mask(tokens)
-            freqs_cis = self.freqs_mgr(seq_len)
-            if prefix_keys_values is not None:
-                prefix_length = prefix_keys_values[0].shape[2]
-                prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
-                mask = self.concat((prefix_mask, mask))
 
         # tokens: [bs, seq/1]
         h = self.cast(self.tok_embeddings(tokens), self.dtype)
@@ -254,7 +274,7 @@ class LlamaModel(LlamaPreTrainedModel):
         for i in range(self.num_layers):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
             h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length, block_tables=block_tables,
-                               slot_mapping=slot_mapping, prefix_keys_values=prefix_kv)
+                               slot_mapping=slot_mapping, prefix_keys_values=prefix_kv, q_seq_lens=q_seq_lens)
         output = self.norm_out(h)
         return output
 
@@ -349,6 +369,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             self.llm_boost = LlmBoostRegister.get_instance(config.llm_backend, "Llama", **llm_boost_kwargs)
             self.llm_boost.init()
             self.is_set_kvcache = False
+        self.parallel_decoding = config.parallel_decoding
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         model_inputs = {}
@@ -406,15 +427,18 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
+        dynamic_position_ids = Tensor(shape=[None, None], dtype=mstype.int32) if self.parallel_decoding else None
+        dynamic_mask = Tensor(shape=[None, None, None], dtype=mstype.float16) if self.parallel_decoding else None
+        dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32) if self.parallel_decoding else None
         if have_prefix_keys_values:
             dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None, None], dtype=mstype.float16)
-            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
+            self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, dynamic_prefix_keys_values, None)
+                            dynamic_slot_mapping, dynamic_prefix_keys_values, None, dynamic_q_seq_lens)
         else:
-            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
+            self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, None, None)
+                            dynamic_slot_mapping, None, None, dynamic_q_seq_lens)
         logger.info("Set dynamic input for llama.")
 
     def add_flags_custom(self, is_first_iteration):
@@ -428,7 +452,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None,
+                  q_seq_lens=None):
         r"""
         LlamaForCausalLM forward.
 
@@ -445,6 +470,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 prediction. Tensor of shape :math:`(batch_size,)`. Default None.
             block_tables (Tensor[int64]): Store mapping tables for each sequence.
             slot_mapping (Tensor[int32]): Store token cache physical slot index.
+            q_seq_lens (Tensor[int32]): In parallel decoding, the query may be flattened. The Paged Attention operator
+                need `q_seq_lens` to obtain the length information.
         Returns:
             Tensor: The loss or (logits, tokens, input_mask) of the network.
         """
@@ -467,9 +494,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             tokens = input_ids
         if batch_valid_length is not None:
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
-        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables, \
-                            slot_mapping, prefix_keys_values)
+        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables,
+                            slot_mapping, prefix_keys_values, attention_mask, position_ids, q_seq_lens)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
+        pre_gather = pre_gather and not self.parallel_decoding
         if pre_gather:
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)

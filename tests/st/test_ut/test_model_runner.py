@@ -29,7 +29,7 @@ class TestModel:
     Test Model.
     """
     def forward(self, input_ids, valid_length_each_example, block_tables, slot_mapping, prefill, use_past,
-                position_ids, spec_mask, q_seq_lens):
+                position_ids=None, spec_mask=None, q_seq_lens=None):
         """
         Check the info of inputs
 
