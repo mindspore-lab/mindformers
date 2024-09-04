@@ -23,78 +23,99 @@ __all__ = ["GenerationConfig"]
 
 
 class GenerationConfig:
-    """Class that holds a configuration for a generation task.
+    r"""
+    Class that holds a configuration for a generation task.
+
+    Some parameters have specific functions, see the table below for details：
+
+    +------------------------------------------------------------+------------------------------+
+    | Functional classification                                  |  Configuration parameter     |
+    +============================================================+==============================+
+    | Parameters that control the length of the output           |  max_length                  |
+    |                                                            +------------------------------+
+    |                                                            |  max_new_tokens              |
+    |                                                            +------------------------------+
+    |                                                            |  min_length                  |
+    |                                                            +------------------------------+
+    |                                                            |  min_new_tokens              |
+    +------------------------------------------------------------+------------------------------+
+    | Parameters that control the generation strategy used       |  do_sample                   |
+    |                                                            +------------------------------+
+    |                                                            |  use_past                    |
+    +------------------------------------------------------------+------------------------------+
+    | Parameters for manipulation of the model output logits     |  temperature                 |
+    |                                                            +------------------------------+
+    |                                                            |  top_k                       |
+    |                                                            +------------------------------+
+    |                                                            |  top_p                       |
+    |                                                            +------------------------------+
+    |                                                            |  repetition_penalty          |
+    |                                                            +------------------------------+
+    |                                                            |  encoder_repetition_penalty  |
+    |                                                            +------------------------------+
+    |                                                            |  renormalize_logits          |
+    +------------------------------------------------------------+------------------------------+
+    | Parameters that define the output variables of `generate`  |  output_scores               |
+    |                                                            +------------------------------+
+    |                                                            |  output_logits               |
+    |                                                            +------------------------------+
+    |                                                            |  return_dict_in_generate     |
+    +------------------------------------------------------------+------------------------------+
+    | Special tokens that can be used at generation time         |  pad_token_id                |
+    |                                                            +------------------------------+
+    |                                                            |  bos_token_id                |
+    |                                                            +------------------------------+
+    |                                                            |  eos_token_id                |
+    +------------------------------------------------------------+------------------------------+
+
     Args:
-        > Parameters that control the length of the output
+        max_length (int, optional): The maximum length the generated tokens can have.
+            Corresponds to the length of the input prompt + `max_new_tokens`.
+            If `max_new_tokens` is also set, the effect of `max_length` is overridden by `max_new_tokens`.
+            Default: ``20`` .
+        max_new_tokens (int, optional): The maximum numbers of tokens to generate,
+            ignoring the number of tokens in the prompt. Default: ``None`` .
+        min_length (int, optional): The minimum length of the sequence to be generated.
+            Corresponds to the length of the input prompt + `min_new_tokens`.
+            If `min_new_tokens` is also set, the effect of `min_length` is overridden by `min_new_tokens`.
+            Default: ``0`` .
+        min_new_tokens (int, optional): The minimum numbers of tokens to generate,
+            ignoring the number of tokens in the prompt. Default: ``None`` .
+        do_sample (bool, optional): Whether to use sampling ; ``True`` means using sampling encoding,
+            ``False`` means using greedy decoding. Default: ``False`` .
+        use_past (bool, optional): Whether the model should use the past last key/values attentions
+            (if applicable to the model) to speed up decoding. Default: ``False`` .
+        temperature (float, optional): The value used to modulate the next token probabilities.
+            Default: ``1.0`` .
+        top_k (int, optional): The number of highest probability vocabulary tokens to keep for top-k-filtering.
+            Default: ``50`` .
+        top_p (float, optional): If set to ``float < 1``, only the smallest set of most probable tokens with
+            probabilities that add up to `top_p` or higher are kept for generation. Default: ``1.0`` .
+        repetition_penalty (float, optional): The parameter for repetition penalty. 1.0 means no penalty.
+            See `this paper <https://arxiv.org/pdf/1909.05858.pdf>`_ for more details. Default: ``1.0`` .
+        encoder_repetition_penalty (float, optional): The parameter for encoder_repetition_penalty.
+            An exponential penalty on sequences that are not in the original input.
+            1.0 means no penalty. Default: ``1.0`` .
+        renormalize_logits (bool, optional): Whether to renormalize the logits after applying all the logits
+            processors or warpers (including the custom ones). It's highly recommended to set this flag to `True` as
+            the search algorithms suppose the score logits are normalized but some logit processors or warpers break
+            the normalization. Default: ``False`` .
+        output_scores (bool, optional): Whether to return the prediction scores before softmax.
+            Default: ``False`` .
+        output_logits (bool, optional): Whether to return the unprocessed prediction logit scores.
+            Default: ``False`` .
+        return_dict_in_generate (bool, optional): Whether to return a dictionary output instead of a
+            tuple with output_ids. Only when this is set to True, can generate other output items besides output_ids.
+            Default: ``False`` .
+        pad_token_id (int, optional): The id of the padding token.
+        bos_token_id (int, optional): The id of the beginning-of-sequence token.
+        eos_token_id (Union[int, List[int]], optional): The id of the end-of-sequence token.
+            Optionally, use a list to set multiple *end-of-sequence* tokens.
 
-        max_length (`int`, *optional*, defaults to 20):
-            The maximum length the generated tokens can have. Corresponds to the length of the input prompt +
-            `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
-        max_new_tokens (`int`, *optional*, defaults to None):
-            The maximum numbers of tokens to generate, ignoring the number of tokens in the prompt.
-        min_length (`int`, *optional*, defaults to 0):
-            The minimum length of the sequence to be generated. Corresponds to the length of the input prompt +
-            `min_new_tokens`. Its effect is overridden by `min_new_tokens`, if also set.
-        min_new_tokens (`int`, *optional*, defaults to None):
-            The minimum numbers of tokens to generate, ignoring the number of tokens in the prompt.
-
-        > Parameters that control the generation strategy used
-
-        do_sample (`bool`, *optional*, defaults to `False`):
-            Whether to use sampling ; use greedy decoding otherwise.
-        use_past (`bool`, *optional*, defaults to `False`):
-            Whether the model should use the past last key/values attentions
-            (if applicable to the model) to speed up decoding.
-        num_beams(`int`, *optional*, defaults to 1):
-            Number of beams for beam search. 1 means no beam search. If larger than 1, use beam search strategy.
-
-        > Parameters for manipulation of the model output logits
-
-        temperature (`float`, *optional*, defaults to 1.0):
-            The value used to modulate the next token probabilities.
-        top_k (`int`, *optional*, defaults to 50):
-            The number of highest probability vocabulary tokens to keep for top-k-filtering.
-        top_p (`float`, *optional*, defaults to 1.0):
-            If set to float < 1, only the smallest set of most probable tokens with probabilities
-            that add up to `top_p` or higher are kept for generation.
-        repetition_penalty (`float`, *optional*, defaults to 1.0):
-            The parameter for repetition penalty. 1.0 means no penalty. See [this
-            paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
-        encoder_repetition_penalty (`float`, *optional*, defaults to 1.0):
-            The parameter for encoder_repetition_penalty. An exponential penalty on sequences
-            that are not in the original input. 1.0 means no penalty.
-        renormalize_logits (`bool`, *optional*, defaults to `False`):
-            Whether to renormalize the logits after applying all the logits processors or warpers (including the custom
-            ones). It's highly recommended to set this flag to `True` as the search algorithms suppose the score logits
-            are normalized but some logit processors or warpers break the normalization.
-
-        > Parameters that define the output variables of `generate`
-
-        output_scores (`bool`, *optional*, defaults to `False`):
-            Whether or not to return the prediction scores before softmax.
-        output_logits (`bool`, *optional*, defaults to `False`):
-            Whether or not to return the unprocessed prediction logit scores.
-        return_dict_in_generate (`bool`, *optional*, defaults to `False`):
-            Whether or not to return a dictionary output instead of a tuple with output_ids.
-            Only when this is set to True, can generate other output items besides output_ids.
-
-        > Special tokens that can be used at generation time
-
-        pad_token_id (`int`, *optional*):
-            The id of the *padding* token.
-        bos_token_id (`int`, *optional*):
-            The id of the *beginning-of-sequence* token.
-        eos_token_id (`Union[int, List[int]]`, *optional*):
-            The id of the *end-of-sequence* token. Optionally, use a list to
-            set multiple *end-of-sequence* tokens.
-
-        > Wild card
-
-        generation_kwargs:
-            Additional generation kwargs will be forwarded to the `generate` function of the model.
-            Kwargs that are not present in `generate`'s signature will be used in the
-            model forward pass.
+    Returns:
+        Instance of GenerationConfig.
     """
+
     def __init__(self, **kwargs):
         # max generate length
         self.max_length = kwargs.pop("max_decode_length", 20)
