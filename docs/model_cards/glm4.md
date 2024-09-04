@@ -152,8 +152,9 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 ## 推理
 
 MindFormers提供`GLM-4-9B-Chat`的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡多batch推理。
-注意：需添加环境变量使能atb的PA算子：export MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST=PagedAttention
-export MS_LLM_SEQ_LENGTH_INDEX=1
+注意：需添加环境变量使能atb的PA算子：export MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST=PagedAttention;
+                               export MS_LLM_SEQ_LENGTH_INDEX=1;
+                               export MS_LLM_FORCE_RESIZE_KERNELS=PagedAttention
 
 ```shell
 bash scripts/examples/glm4/run_glm4_predict.sh CONFIG_PATH CKPT_PATH TOKENIZER
