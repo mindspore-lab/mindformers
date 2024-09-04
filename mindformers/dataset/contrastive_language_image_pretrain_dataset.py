@@ -27,22 +27,39 @@ from ..tools.register import MindFormerRegister, MindFormerModuleType
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class ContrastiveLanguageImagePretrainDataset(BaseDataset):
     """
-    Contrastive Language Image Pretrain Dataset API.
-        output image and text columns
+    CLIP (Contrastive Language Image Pre-training) dataset.
+
+    The generated dataset has two columns: :py:obj:`[image, text]` .
+    The data type of tensor of each column depend on the dataset files format and data transform operations in use.
 
     Args:
-        dataset_config (Optional[dict]):
-            Config for dataset.
+        dataset_config (dict, optional):
+            Config for dataset. When `dataset_config` is an empty dict or is None, all arguments below
+            will build a non-empty `dataset_config`. Otherwise, they will be ignored. Default: None.
         data_loader (Union[dict, Callable]):
-            Config for data loader or a data loader object.
+            Config for data loader or a data loader object. When `data_loader` is a `dict`,
+            the string "type", "dataset_dir", "stage" and "column_names" are the keys can be parsed.
+
+            - type: Required. Indicates the type of dataset. The value must be string or class type.
+
+            - dataset_dir: Required. The directory of dataset.
+
+            - stage: Optional. The dataset subset to be loaded. The value can be 'train', "test", "dev" and "all".
+              Default when missing: 'train'.
+
+            - column_names: Optional. The column names of dataset. Must be a list or tuple of string.
+              Default when missing: py:obj:`[image, text]` .
+
         transforms (Union[dict, list]):
             Configurations or objects of one or more transformers.
+            Default: None, no image transform operation to use.
         text_transforms (Union[dict, list]):
             Configurations or objects of one or more transformers of text.
-        tokenizer (Union[dict, list]):
-            Tokenizer configuration or object.
-        sampler (Union[dict, list]):
-            Sampler configuration or object.
+            Default: None, no text transform operation to use.
+        tokenizer (Union[dict, Callable]):
+            Tokenizer configuration or object. Default: None, no tokenizer to use.
+        sampler (Union[dict, Callable]):
+            Sampler configuration or object. Default: None, no sampler to use.
         batch_size (int):
             Size of each batch. Default: 8.
         drop_remainder (bool):
@@ -71,7 +88,7 @@ class ContrastiveLanguageImagePretrainDataset(BaseDataset):
             Whether to enable data collection. Default: False.
 
     Returns:
-        A dataset for ContrastiveLanguageImagePretrainTrainer.
+        Instance of ContrastiveLanguageImagePretrainDataset.
 
     Examples:
         >>> # 1) Create an instance using a MindFormerConfig.

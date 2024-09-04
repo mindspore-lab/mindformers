@@ -101,17 +101,37 @@ def get_input_data_batch_slice_map(input_ids, eod_token_id, dis, rank_id: int = 
 class CausalLanguageModelDataset(BaseDataset):
     """
     Causal Language Model pretrain dataset.
-    output input_ids columns
+
+    The columns of generated dataset depend on the config provided by user.
+    The tensor of each column will be cast to int32 type.
 
     Args:
-        dataset_config (Optional[dict]):
-            Config for dataset.
+        dataset_config (dict, optional):
+            Config for dataset. When `dataset_config` is an empty dict or is None, all arguments below
+            will build a non-empty `dataset_config`. Otherwise, they will be ignored. Default: None.
         data_loader (Union[dict, Callable]):
-            Config for data loader or a data loader object.
-        input_columns (list):
-            Column name before the map function.
-        output_columns (list):
-            Column name after the map function.
+            Config for data loader or a data loader object. When `data_loader` is a `dict`,
+            the string "type", "dataset_dir", "dataset_files" and "shuffle" are the keys can be parsed.
+
+            - type: Required. Indicates the type of dataset. The value must be string or class type.
+              When the value is "MindDataset" or "TFRecordDataset",
+              one of `dataset_dir` and `dataset_files` is required, where `dataset_dir` takes effect first;
+              otherwise `dataset_dir` is required.
+
+            - dataset_dir: The directory of dataset. When `type` is "MindDataset" or "TFRecordDataset",
+              search for files in `mindrecord` or `tfrecord` format recursively in the directory.
+
+            - dataset_files: The path of files in `mindrecord` or `tfrecord` format.
+              Take effect when `type` is "MindDataset" or "TFRecordDataset", otherwise this key is ignored.
+              Must be `list` or `tuple`.
+
+            - shuffle: Optional. Whether to perform shuffle on the dataset. Must be `bool`.
+
+        input_columns (list[str]):
+            Column names before the map function.
+        output_columns (list[str]):
+            Column names after the map function.
+            Reuired when `eod_reset` is True; otherwise ignored. Default: None.
         batch_size (int):
             Size of each batch. Default: 8.
         drop_remainder (bool):
@@ -132,8 +152,8 @@ class CausalLanguageModelDataset(BaseDataset):
             Indicates whether to use the NUMA binding function. Default: False.
         eod_reset (bool):
             Specifies whether to reset the EOD. Default: False.
-        eod_token_id (int):
-            Indicates the token id of the EOD.
+        eod_token_id (int, optional):
+            Indicates the token id of the EOD. Default: None, don't set the token id of the EOD manually.
         auto_tune (bool):
             Indicates whether to enable automatic optimization of data processing parameters. Default: False.
         autotune_per_step (int):
@@ -144,7 +164,12 @@ class CausalLanguageModelDataset(BaseDataset):
             Whether to enable data collection. Default: False.
 
     Returns:
-        A dataset for CausalLanguageModelDataset.
+        Instance of CausalLanguageModelDataset.
+
+    Raises:
+        ValueError: If `dataset_config.batch_size` is not a multiple of device number
+                    when `dataset_config.eod_reset` is True and dataset isn't imported in full.
+        ValueError: If `dataset_config` doesn't contain "dataset_dir" or "dataset_files" as its key.
 
     Examples:
         >>> # 1) Create an instance using a MindFormerConfig.
@@ -176,8 +201,8 @@ class CausalLanguageModelDataset(BaseDataset):
     def __new__(cls,
                 dataset_config: Optional[dict] = None,
                 data_loader: Union[dict, Callable] = None,
-                input_columns: list = None,
-                output_columns: list = None,
+                input_columns: list[str] = None,
+                output_columns: list[str] = None,
                 batch_size: int = 8,
                 drop_remainder: bool = True,
                 num_parallel_workers: int = 8,
