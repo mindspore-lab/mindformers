@@ -132,7 +132,6 @@ else
     "$MASTER_PORT" \
     "$NODE_RANK" \
     "$LOG_DIR" \
-
     "$JOIN" \
     "$CLUSTER_TIME_OUT"
 
