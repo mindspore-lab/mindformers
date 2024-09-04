@@ -23,6 +23,7 @@ from copy import deepcopy
 
 import mindspore.common.dtype as mstype
 from mindspore import nn, Tensor, Parameter, mint, value_and_grad
+from mindspore.experimental.optim.optimizer import Optimizer as mintOptimizer
 from mindspore.amp import DynamicLossScaler, StaticLossScaler, all_finite
 from mindspore.communication.comm_func import all_reduce
 from mindspore.ops import composite as C
@@ -543,13 +544,16 @@ class TrainOneStepCell(nn.Cell):
             else:
                 self.optimizer(grads_)
 
-        learning_rate = self.optimizer.get_lr()
-        if isinstance(learning_rate, Parameter):
+        if isinstance(self.optimizer, mintOptimizer):
+            learning_rate = self.optimizer.lrs
+        else:
+            learning_rate = self.optimizer.get_lr()
+        if isinstance(learning_rate, (Parameter, Tensor)):
             learning_rate = learning_rate.value()
-        if isinstance(learning_rate, tuple):
+        if isinstance(learning_rate, (tuple, list)):
             learning_rate = tuple([
                 individual_learning_rate.value()
-                if isinstance(individual_learning_rate, Parameter)
+                if isinstance(individual_learning_rate, (Parameter, Tensor))
                 else individual_learning_rate
                 for individual_learning_rate in learning_rate
             ])
