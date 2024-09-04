@@ -10,3 +10,13 @@ mindformers
     :template: classtemplate.rst
 
     mindformers.run_check
+
+面向服务化
+-----------------
+
+.. mscnautosummary::
+    :toctree: mindformers
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.ModelRunner
