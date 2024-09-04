@@ -30,25 +30,26 @@ MF_SCRIPTS_ROOT=$(realpath "$(dirname "$0")")
 export PYTHONPATH=$MF_SCRIPTS_ROOT/../:$PYTHONPATH
 
 # Set the log suffix
-LOCAL_TIME=$(date "+%Y%m%d%H%M%S")
-if [ -z "${MF_LOG_SUFFIX+x}" ]
+if [ -z "${MF_LOG_SUFFIX+x}" ] || [ "$MF_LOG_SUFFIX" == "" ]
 then
-  MF_LOG_SUFFIX=$LOCAL_TIME
-else
   MF_LOG_SUFFIX=$MF_LOG_SUFFIX
+else
+  MF_LOG_SUFFIX=_$MF_LOG_SUFFIX
 fi
 
 # Add the suffix to the MF_LOG
-export LOG_MF_PATH=$MF_SCRIPTS_ROOT/../output/log_$MF_LOG_SUFFIX
+export LOG_MF_PATH=$MF_SCRIPTS_ROOT/../output/log$MF_LOG_SUFFIX
 
 # Add the suffix to the msrun_log
-LOG_DIR=${LOG_DIR}_${MF_LOG_SUFFIX}
+LOG_DIR=${LOG_DIR}${MF_LOG_SUFFIX}
 
 # Set the PLOG path
-if [ -z "${PLOG_PATH_CHANGE+x}" ] || [ $PLOG_PATH_CHANGE == True ]
+if [ -z "${PLOG_REDICT_TO_OUTPUT+x}" ] || [ $PLOG_REDICT_TO_OUTPUT == False ]
 then
-  export ASCEND_PROCESS_LOG_PATH=$MF_SCRIPTS_ROOT/../output/plog_$MF_LOG_SUFFIX
-  echo "PLOG_PATH_CHANGE=$PLOG_PATH_CHANGE, set the path of plog to $ASCEND_PROCESS_LOG_PATH"
+  echo "No change the path of plog, the path of plog is /root/ascend"
+else
+  export ASCEND_PROCESS_LOG_PATH=$MF_SCRIPTS_ROOT/../output/plog$MF_LOG_SUFFIX
+  echo "PLOG_REDICT_TO_OUTPUT=$PLOG_REDICT_TO_OUTPUT, set the path of plog to $ASCEND_PROCESS_LOG_PATH"
 fi
  
 if [ $# != 1 ] && [ $# != 2 ] && [ $# != 6 ] && [ $# != 9 ]
