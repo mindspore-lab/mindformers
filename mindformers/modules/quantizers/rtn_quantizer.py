@@ -12,22 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Smooth Quant Quantizer."""
+"""PTQ Quantizer."""
 from mindspore import dtype as msdtype
 
 from mindformers.tools.logger import logger
 from mindformers.utils.quantization_config import PTQConfig
 from mindformers.modules.quantizers import Quantizer
 from mindformers.version_control import check_valid_mindspore_gs
-from mindspore_gs.ptq.smooth_quant import SmoothQuant as SQ
+from mindspore_gs.ptq import RoundToNearest as RTN
 
 
-__all__ = ["SmoothQuantQuantizer"]
+__all__ = ["RtnQuantizer"]
 
 
-class SmoothQuantQuantizer(Quantizer):
+class RtnQuantizer(Quantizer):
     """
-    Quantizer of the Smooth Quant method - for Smooth Quant the quantizer support calibration of the model through
+    Quantizer of the PTQ method - for PTQ the quantizer support calibration of the model through
     `mindspore_gs` package.
     """
 
@@ -45,7 +45,7 @@ class SmoothQuantQuantizer(Quantizer):
         """
         if self.quant_config is not None and not check_valid_mindspore_gs:
             raise ValueError(
-                "SmoothQuantQuantizer doesn't support convert quant model with this mindspore_gs version."
+                "RtnQuantizer doesn't support convert quant model with this mindspore_gs version."
             )
 
     def update_ms_dtype(self, ms_dtype: "mindspore.dtype") -> "mindspore.dtype":
@@ -62,7 +62,7 @@ class SmoothQuantQuantizer(Quantizer):
     def _process_model_before_weight_loading(
             self, model: "PreTrainedModel", **kwargs
     ):
-        ptq = SQ(config=self.quant_config)
+        ptq = RTN(config=self.quant_config)
         model = ptq.apply(model)
         model = ptq.convert(model)
         return model

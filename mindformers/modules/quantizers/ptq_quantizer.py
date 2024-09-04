@@ -13,13 +13,10 @@
 # limitations under the License.
 # ============================================================================
 """PTQ Quantizer."""
-from mindspore import dtype as msdtype
 
-from mindformers.tools.logger import logger
 from mindformers.utils.quantization_config import PTQConfig
 from mindformers.modules.quantizers import Quantizer
 from mindformers.version_control import check_valid_mindspore_gs
-from mindspore_gs.ptq import RoundToNearest as RTN
 
 
 __all__ = ["PtqQuantizer"]
@@ -48,13 +45,6 @@ class PtqQuantizer(Quantizer):
                 "PtqQuantizer doesn't support convert quant model with this mindspore_gs version."
             )
 
-    def update_ms_dtype(self, ms_dtype: "mindspore.dtype") -> "mindspore.dtype":
-        if ms_dtype is None:
-            ms_dtype = msdtype.float16
-        elif ms_dtype != msdtype.float16:
-            logger.info("We suggest you to set `ms_dtype=msdtype.float16` for better efficiency with PTQ.")
-        return ms_dtype
-
     def _dequantize(self, model):
         pass
 
@@ -62,8 +52,21 @@ class PtqQuantizer(Quantizer):
     def _process_model_before_weight_loading(
             self, model: "PreTrainedModel", **kwargs
     ):
-        ptq = RTN(config=self.quant_config)
-        model = ptq.apply(model)
+        from mindspore_gs.ptq import PTQ
+        from mindformers import MindFormerConfig
+        config = kwargs.get('config')
+        mfconfig = MindFormerConfig(model=config)
+        if mfconfig.model.arch.type == "ParallelLlamaForCausalLM":
+            from mindspore_gs.ptq.network_helpers.mf_net_helpers import MFParallelLlama2Helper
+            helper = MFParallelLlama2Helper(mfconfig)
+        elif mfconfig.model.arch.type == "LlamaForCausalLM":
+            from mindspore_gs.ptq.network_helpers.mf_net_helpers import MFLlama2Helper
+            helper = MFLlama2Helper(mfconfig)
+        else:
+            raise ValueError(f"PTQ do not support {mfconfig.model.arch.type} now,"
+                             "only support ParallelLlamaForCausalLM or LlamaForCausalLM. ")
+        ptq = PTQ(config=self.quant_config)
+        model = ptq.apply(model, helper)
         model = ptq.convert(model)
         return model
 

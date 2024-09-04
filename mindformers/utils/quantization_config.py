@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Union
 from dataclasses import dataclass, field
 
 from mindspore import dtype as msdtype
-from mindspore_gs.ptq import PTQConfig, PTQMode
+from mindspore_gs.ptq import PTQConfig, PTQMode, OutliersSuppressionType
 from mindspore_gs.common import BackendTarget
 
 dtype_map = {"None": None,
@@ -45,8 +45,11 @@ dtype_map = {"None": None,
              "complex64": msdtype.complex64,
              "complex128": msdtype.complex128}
 
+outliers_map = {"None": OutliersSuppressionType.NONE,
+                "smooth": OutliersSuppressionType.SMOOTH}
 
 class QuantizationMethod(str, Enum):
+    RTN = "rtn"
     PTQ = "ptq"
     SMOOTH_QUANT = 'smooth_quant'
 
@@ -163,8 +166,9 @@ class QuantizationConfigMixin:
 
 
 @dataclass
-class PtqConfig(QuantizationConfigMixin, PTQConfig):
-    """Config for post trainning quantization.
+class RtnConfig(QuantizationConfigMixin, PTQConfig):
+    """
+        Config for post trainning quantization.
 
         Args:
 
@@ -183,6 +187,8 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
                 SmoothQuant, and OmniQuant.
             modules_to_not_convert (List[str]): Blacklist of opname. Layers in network with name fuzzy matched with this
                 blacklist will not being quanted.
+            outliers_suppression (OutliersSuppressionType): the method of outliers suprression,
+                support None and smooth currently.
 
         Raises:
             ValueError: If `mode` is not PTQMode.QUANTIZE or PTQMode.DEPLOY.
@@ -191,23 +197,25 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
             ValueError: If `weight_dtype` is not mindspore.dtype.int8 or None.
             ValueError: If `activation_dtype` is not mindspore.dtype.int8 or None.
             ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
+            ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
 
         Example:
-            >>> from mindformers.utils import SmoothQuantConfig
-            >>> SmoothQuantConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['layer0'])
+            >>> from mindformers.utils.quantization_config import RtnConfig
+            >>> RtnConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['layer0'])
             SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
                                 opname_blacklist=['layer0'], algo_args={})
         """
     # pylint: disable=W0613
     def __init__(
             self,
-            quant_method: QuantizationMethod.PTQ,
+            quant_method: QuantizationMethod.RTN,
             mode: PTQMode = PTQMode.DEPLOY,
             backend: BackendTarget = BackendTarget.ASCEND,
             weight_dtype: msdtype = msdtype.int8,
             activation_dtype: msdtype = None,
             kvcache_dtype: msdtype = None,
             modules_to_not_convert: List[str] = field(default_factory=list),
+            outliers_suppression: OutliersSuppressionType = OutliersSuppressionType.NONE,
             algorithm_args: Union[dict, object] = field(default_factory=dict),
             **kwargs
     ):
@@ -220,6 +228,7 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         self.weight_quant_dtype = dtype_map[weight_dtype]
         self.kvcache_quant_dtype = dtype_map[kvcache_dtype]
         self.act_quant_dtype = dtype_map[activation_dtype]
+        self.outliers_suppression = outliers_map[outliers_suppression]
         self.init_check()
 
     def init_check(self):
@@ -244,6 +253,106 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
                 f"Only support activation weights in {accepted_activations} but found {self.act_quant_dtype}")
         if self.kvcache_quant_dtype not in accepted_kvcache:
             raise ValueError(f"Only support kvcache weights in {accepted_kvcache} but found {self.kvcache_quant_dtype}")
+        if self.act_quant_dtype is not None or self.outliers_suppression != OutliersSuppressionType.NONE:
+            raise ValueError(f"RTN algorithm only support A16W8、C8、A16W8C8, please set the correct configuration."
+                             f"Now the configuration is act_quant_dtype={self.act_quant_dtype},"
+                             f"weight_quant_dtype={self.weight_quant_dtype},"
+                             f"kvcache_quant_dtype={self.kvcache_quant_dtype},"
+                             f"outliers_suppression={self.outliers_suppression}")
+
+@dataclass
+class PtqConfig(QuantizationConfigMixin, PTQConfig):
+    """Config for post trainning quantization.
+
+        Args:
+
+            mode (:class:`mindspore_gs.ptq.PTQMode`): Flag for ptq mode, ``QUANTIZATION`` for quantization mode,
+                ``DEPLOY`` for deploy mode, MindFormers only supports deploy mode now.
+            backend (:class:`mindspore_gs.ptq.BackendTarget`): Flag for backend target,
+                ``NONE`` for no specific backend, ``ASCEND`` for ascend backend.
+            weight_dtype (mindspore.dtype): Used to configure the quantization type of weight. mindspore.dtype.int8
+                indicates that the weight is quantized by 8 bits, and None indicates that it is not quantized.
+            activation_dtype (mindspore.dtype): Used to configure the quantization type of activation.
+                mindspore.dtype.int8 indicates that the activation is quantized by 8 bits,
+                and None indicates that it is not quantized.
+            kvcache_dtype (mindspore.dtype): Used to configure the quantization type of kvcache. mindspore.dtype.int8
+                indicates that the kvcache is quantized by 8 bits, and None indicates that it is not quantized.
+            algorithm_args (Union[dict, dataclass]): Used to configure hyperparameters of algorithms such as RTN,
+                SmoothQuant, and OmniQuant.
+            modules_to_not_convert (List[str]): Blacklist of opname. Layers in network with name fuzzy matched with this
+                blacklist will not being quanted.
+            outliers_suppression (OutliersSuppressionType): the method of outliers suprression,
+                support None and smooth currently.
+
+        Raises:
+            ValueError: If `mode` is not PTQMode.QUANTIZE or PTQMode.DEPLOY.
+            ValueError: If `backend` is not BackendTarget.NONE or BackendTarget.ASCEND.
+            TypeError: if `modules_to_not_convert` is not a list of str.
+            ValueError: If `weight_dtype` is not mindspore.dtype.int8 or None.
+            ValueError: If `activation_dtype` is not mindspore.dtype.int8 or None.
+            ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
+            ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
+
+        Example:
+            >>> from mindformers.utils.quantization_config import PtqConfig
+            >>> PtqConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['layer0'])
+            SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
+                                opname_blacklist=['layer0'], algo_args={})
+        """
+    # pylint: disable=W0613
+    def __init__(
+            self,
+            quant_method: QuantizationMethod.PTQ,
+            mode: PTQMode = PTQMode.DEPLOY,
+            backend: BackendTarget = BackendTarget.ASCEND,
+            weight_dtype: msdtype = msdtype.int8,
+            activation_dtype: msdtype = None,
+            kvcache_dtype: msdtype = None,
+            modules_to_not_convert: List[str] = field(default_factory=list),
+            outliers_suppression: OutliersSuppressionType = OutliersSuppressionType.NONE,
+            algorithm_args: Union[dict, object] = field(default_factory=dict),
+            **kwargs
+    ):
+        super().__init__()
+        self.quant_method = quant_method
+        self.mode = mode
+        self.backend = backend
+        self.opname_blacklist = modules_to_not_convert
+        self.algo_args = algorithm_args
+        self.weight_quant_dtype = dtype_map[weight_dtype]
+        self.kvcache_quant_dtype = dtype_map[kvcache_dtype]
+        self.act_quant_dtype = dtype_map[activation_dtype]
+        self.outliers_suppression = outliers_map[outliers_suppression]
+        self.init_check()
+
+    def init_check(self):
+        r"""
+        Safety checker that arguments are correct
+        """
+        accepted_mode = [PTQMode.DEPLOY]
+        accepted_backend = [BackendTarget.ASCEND]
+        accepted_weights = [msdtype.int8]
+        accepted_activations = [None, msdtype.int8]
+        accepted_kvcache = [None, msdtype.int8]
+        accepted_outliers_suppression = [OutliersSuppressionType.NONE, OutliersSuppressionType.SMOOTH]
+        if self.mode not in accepted_mode:
+            raise ValueError(f"Only support {accepted_mode} but found {self.mode}")
+        if self.backend not in accepted_backend:
+            raise ValueError(f"Only support {accepted_backend} but found {self.backend}")
+        if self.backend not in accepted_backend:
+            raise ValueError(f"Only support quant weights in {accepted_weights} but found {self.weight_quant_dtype}")
+        if self.weight_quant_dtype not in accepted_weights:
+            raise ValueError(f"Only support quant weights in {accepted_weights} but found {self.weight_quant_dtype}")
+        if self.act_quant_dtype not in accepted_activations:
+            raise ValueError(
+                f"Only support activation weights in {accepted_activations} but found {self.act_quant_dtype}")
+        if self.kvcache_quant_dtype not in accepted_kvcache:
+            raise ValueError(f"Only support kvcache weights in {accepted_kvcache} but found {self.kvcache_quant_dtype}")
+        if self.outliers_suppression not in accepted_outliers_suppression:
+            raise ValueError(f"Only support outliers suppression in {accepted_outliers_suppression} but found "
+                             f"{self.outliers_suppression}")
+        if self.weight_quant_dtype is None and self.act_quant_dtype == msdtype.int8:
+            raise ValueError("PTQ algorithm not support only quant activation.")
 
 
 @dataclass
@@ -267,6 +376,8 @@ class SmoothQuantConfig(QuantizationConfigMixin, PTQConfig):
                 SmoothQuant, and OmniQuant.
             modules_to_not_convert (List[str]): Blacklist of opname. Layers in network with name fuzzy matched with this
                 blacklist will not being quanted.
+            outliers_suppression (OutliersSuppressionType): the method of outliers suprression,
+                support None and smooth currently.
 
         Raises:
             ValueError: If `mode` is not PTQMode.QUANTIZE or PTQMode.DEPLOY.
@@ -275,6 +386,7 @@ class SmoothQuantConfig(QuantizationConfigMixin, PTQConfig):
             ValueError: If `weight_dtype` is not mindspore.dtype.int8 or None.
             ValueError: If `activation_dtype` is not mindspore.dtype.int8 or None.
             ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
+            ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
 
         Example:
             >>> from mindformers.utils import SmoothQuantConfig
@@ -292,6 +404,7 @@ class SmoothQuantConfig(QuantizationConfigMixin, PTQConfig):
             activation_dtype: msdtype = None,
             kvcache_dtype: msdtype = None,
             modules_to_not_convert: List[str] = field(default_factory=list),
+            outliers_suppression: OutliersSuppressionType = OutliersSuppressionType.NONE,
             algorithm_args: Union[dict, object] = field(default_factory=dict),
             **kwargs
     ):
@@ -304,6 +417,7 @@ class SmoothQuantConfig(QuantizationConfigMixin, PTQConfig):
         self.weight_quant_dtype = dtype_map[weight_dtype]
         self.kvcache_quant_dtype = dtype_map[kvcache_dtype]
         self.act_quant_dtype = dtype_map[activation_dtype]
+        self.outliers_suppression = outliers_map[outliers_suppression]
         self.init_check()
 
     def init_check(self):
@@ -328,3 +442,16 @@ class SmoothQuantConfig(QuantizationConfigMixin, PTQConfig):
                 f"Only support activation weights in {accepted_activations} but found {self.act_quant_dtype}")
         if self.kvcache_quant_dtype not in accepted_kvcache:
             raise ValueError(f"Only support kvcache weights in {accepted_kvcache} but found {self.kvcache_quant_dtype}")
+        do_a8w8 = self.act_quant_dtype == msdtype.int8 and self.weight_quant_dtype == msdtype.int8 and \
+                    self.outliers_suppression == OutliersSuppressionType.SMOOTH and \
+                    self.kvcache_quant_dtype is None
+        do_nothing = self.act_quant_dtype is None and self.weight_quant_dtype is None and \
+                    self.outliers_suppression is None and \
+                    self.kvcache_quant_dtype is None
+        if not do_a8w8 and not do_nothing:
+            raise ValueError("SmoothQuant algorithm only support A8W8, please set act_quant_dtype=int8,"
+                             "weight_quant_dtype=int8 and outliers_suppression='smooth'."
+                             f"Now the configuration is act_quant_dtype={self.act_quant_dtype},"
+                             f"weight_quant_dtype={self.weight_quant_dtype},"
+                             f"kvcache_quant_dtype={self.kvcache_quant_dtype},"
+                             f"outliers_suppression={self.outliers_suppression}")
