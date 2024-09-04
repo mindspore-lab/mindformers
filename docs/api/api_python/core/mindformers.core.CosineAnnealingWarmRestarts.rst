@@ -1,5 +1,5 @@
 mindformers.core.CosineAnnealingWarmRestarts
-=============================================
+============================================
 
 .. py:class:: mindformers.core.CosineAnnealingWarmRestarts(base_lr, t_0, t_mult=1, eta_min=0, **kwargs)
 

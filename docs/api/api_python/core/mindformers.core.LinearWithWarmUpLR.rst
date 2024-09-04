@@ -1,5 +1,5 @@
 mindformers.core.LinearWithWarmUpLR
-====================================
+===================================
 
 .. py:class:: mindformers.core.LinearWithWarmUpLR(learning_rate, total_steps, warmup_steps=None, warmup_lr_init=0., warmup_ratio=None, **kwargs)
 

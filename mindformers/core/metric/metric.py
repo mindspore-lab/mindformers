@@ -45,8 +45,26 @@ __all__ = ['EntityScore', 'SQuADMetric', 'PerplexityMetric', 'ADGENMetric', 'Pro
 
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
 class EntityScore(nn.Metric):
-    """Compute the f1, precision and recall score of each entity"""
+    r"""
+    Evaluates the precision, recall, and F1 score of predicted entities against the ground truth.
 
+    Mathematically, these metrics are defined as follows:
+
+    Precision: Measures the fraction of correctly predicted entities out of all predicted entities.
+
+    .. math::
+        \text{Precision} = \frac{\text{Number of correct entities}}{\text{Number of predicted entities}}
+
+    Recall: Measures the fraction of correctly predicted entities out of all actual entities.
+
+    .. math::
+        \text{Recall} = \frac{\text{Number of correct entities}}{\text{Number of actual entities}}
+
+    F1 Score: The harmonic mean of precision and recall, providing a balance between them.
+
+    .. math::
+        \text{F1} = \frac{2 \times \text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}}
+    """
     def __init__(self):
         super(EntityScore, self).__init__()
         self.label2id = {label: label_id for label_id, label in enumerate(cluener_labels)}
@@ -135,8 +153,25 @@ class EntityScore(nn.Metric):
 
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
 class SQuADMetric(nn.Metric):
-    """Compute the f1, precision and recall score of each entity"""
+    r"""
+    The SQuAD Metric primarily employs two key evaluation metrics: Exact Match (EM) and F1 Score.
 
+    Exact Match (EM): Measures the percentage of predictions that match any one of the ground truth
+    answers exactly. It is defined as:
+
+    .. math::
+        EM = \frac{\text{Number of exact matches}}{\text{Total number of questions}} \times 100
+
+    F1 Score: Measures the average overlap between the predicted answer and the ground truth answer. It treats
+    both the prediction and the ground truth as bags of tokens and computes their F1 score as:
+
+    .. math::
+        F1 = \frac{2 \times \text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}}
+
+    Where :math:`\text{Precision} = \frac{\text{Number of correct tokens in prediction}}
+    {\text{Number of tokens in prediction}}` , :math:`\text{Recall} = \frac{\text{Number of correct
+    tokens in prediction}}{\text{Number of tokens in ground truth answer}}` .
+    """
     def __init__(self, dataset_dir, n_best_size=20, max_answer_len=30, do_lower_case=True,
                  temp_file_dir="./squad_temp"):
         self.outputs = []
@@ -481,8 +516,24 @@ class SQuADMetric(nn.Metric):
 
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
 class PerplexityMetric(nn.Metric):
-    """Compute the loss and PPL of each entity"""
+    r"""
+    Perplexity is defined as the exponentiated average negative log-probability assigned by the model to each word
+    in the test set. Mathematically, for a sequence of words :math:`W = (w_1, w_2, \ldots, w_N)` , the
+    perplexity (PP) is given by:
 
+    .. math::
+        PP(W) = P(w_1, w_2, \ldots, w_N)^{-\frac{1}{N}} = \sqrt[N]{\frac{1}{P(w_1, w_2, \ldots, w_N)}}
+
+    Where :math:P(w_1, w_2, \ldots, w_N) is the probability of the sequence under the model.
+
+    In practical terms, perplexity can be rewritten as:
+
+    .. math::
+        PP(W) = \exp\left(-\frac{1}{N} \sum_{i=1}^{N} \log P(w_i | w_1, w_2, \ldots, w_{i-1})\right)
+
+    This equation highlights that a lower perplexity indicates a better-performing language model, as it suggests
+    that the model assigns higher probabilities to the actual sequence of words.
+    """
     def __init__(self):
         super(PerplexityMetric, self).__init__()
         self.num_data = None
@@ -608,25 +659,30 @@ class ADGENMetric(nn.Metric):
 
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
 class PromptAccMetric(nn.Metric):
-    r"""Computes the prompt acc of each entity. The prompt acc is the accuracy of text classification base on building
-        prompt. The accurate index is the index of the prompt which has the minimum perplexity.
-        1. Build the prompt for this metric is described as follows:
-            这是关于**体育**的文章：$passage
-            这是关于**文化**的文章：$passage
-        2. Computes perplexity of each generated context based on prompt.
-        Perplexity is a measurement about how well a probability distribution or a model predicts a sample.
-        A low perplexity indicates the model can predict the sample well. The function is shown as follows:
+    r"""
+    Computes the prompt acc of each entity. The prompt acc is the accuracy of text classification base on building
+    prompt. The accurate index is the index of the prompt which has the minimum perplexity.
 
-        .. math::
-            PP(W)=P(w_{1}w_{2}...w_{N})^{-\frac{1}{N}}=\sqrt[N]{\frac{1}{P(w_{1}w_{2}...w_{N})}}
+    1. Build the prompt for this metric is described as follows:
 
-        Where :math:`w` represents words in corpus.
-        3. Compute classification result by choosing the index of the prompt which has the minimum perplexity.
-        4. Count the number of correctly classified and the total number of samples and compute the acc as follows:
+        这是关于**体育**的文章：$passage
+        这是关于**文化**的文章：$passage
 
-        .. math::
-            \text{accuracy} =\frac{\text{correct_sample_nums}}{\text{total_sample_nums}}
+    2. Computes perplexity of each generated context based on prompt.
+    Perplexity is a measurement about how well a probability distribution or a model predicts a sample.
+    A low perplexity indicates the model can predict the sample well. The function is shown as follows:
 
+    .. math::
+        PP(W)=P(w_{1}w_{2}...w_{N})^{-\frac{1}{N}}=\sqrt[N]{\frac{1}{P(w_{1}w_{2}...w_{N})}}
+
+    Where :math:`w` represents words in corpus.
+
+    3. Compute classification result by choosing the index of the prompt which has the minimum perplexity.
+
+    4. Count the number of correctly classified and the total number of samples and compute the acc as follows:
+
+    .. math::
+        \text{accuracy} =\frac{\text{correct_sample_nums}}{\text{total_sample_nums}}
     """
 
     def __init__(self):
@@ -720,20 +776,37 @@ class PromptAccMetric(nn.Metric):
 
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
 class EmF1Metric(nn.Metric):
-    """
-    Compute the Em/F1 scores of examples.
-    Em score is the prediction exact matches the labels except the punctuations.
-    For example, the question is "河南的省会是哪里？" and the label is "郑州市",
-        when prediction is "郑州市", Em score is 100;
-        when prediction is "郑州市。", Em score is 100;
-        when prediction is "郑州", Em score is 0.
+    r"""
+    Calculate the Em and F1 scores for each example to evaluate the model's performance in prediction tasks.
 
-    F1 score is calculated as
-        2*precision*recall/(precision+recall),
-    the precision and recall are calculated as
-        precision = lcs_length/len(prediction_segment),
-        recall = lcs_length/len(label_segment),
-    lcs_length is the length of the longest common subsequence.
+    Em Score: The Em score measures the accuracy of predictions that exactly match the labels,
+    ignoring punctuation. For example, if the question is "河南的省会是哪里？" and the label is "郑州市":
+
+    When the prediction is "郑州市", the Em score is 100.
+    When the prediction is "郑州市。", the Em score is 100.
+    When the prediction is "郑州", the Em score is 0.
+
+    F1 Score: The F1 score is the harmonic mean of precision and recall, calculated as follows:
+
+    .. math::
+        F1 = \frac{2 \times \text{precision} \times \text{recall}}{\text{precision} + \text{recall}}
+
+    Where precision and recall are calculated as:
+
+    .. math::
+        \text{precision} = \frac{\text{lcs_length}}{\text{len(prediction_segment)}},
+        \quad \text{recall} = \frac{\text{lcs_length}}{\text{len(label_segment)}}
+
+    In the above formulas, :math:`\text{lcs_length}` represents the length of the longest common subsequence (LCS).
+
+    Calculation Process:
+
+    First, calculate the longest common subsequence (LCS) between the prediction and the label to measure
+    the degree of matching.
+    Then, compute the precision and recall based on the respective formulas.
+    Finally, use the F1 score formula to calculate the final F1 value.
+    This evaluation metric comprehensively measures the accuracy and completeness of the model, providing
+    data support for model optimization and debugging.
     """
     def __init__(self):
         super(EmF1Metric, self).__init__()

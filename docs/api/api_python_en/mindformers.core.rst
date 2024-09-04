@@ -67,3 +67,17 @@ Context
     mindformers.core.get_context
     mindformers.core.init_context
     mindformers.core.set_context
+
+Evaluation metrics
+-------------------
+
+.. autosummary::
+    :toctree: core
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.core.EntityScore
+    mindformers.core.EmF1Metric
+    mindformers.core.PerplexityMetric
+    mindformers.core.PromptAccMetric
+    mindformers.core.SQuADMetric
