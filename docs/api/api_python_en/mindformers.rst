@@ -1,6 +1,16 @@
 mindformers
 ==================
 
+pipeline higher-order interface
+--------------------------------
+
+.. autosummary::
+    :toctree: mindformers
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.pipeline
+
 Run Check
 -----------------
 

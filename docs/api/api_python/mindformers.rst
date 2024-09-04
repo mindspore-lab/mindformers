@@ -1,6 +1,16 @@
 mindformers
 ==================
 
+pipeline高阶接口
+------------------
+
+.. mscnautosummary::
+    :toctree: mindformers
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.pipeline
+
 运行检查
 ------------------
 
