@@ -56,6 +56,7 @@ class ObsMonitor:
         step_upload_frequence (int): The step interval of uploading. Default: 100.
         epoch_upload_frequence (int): The epoch interval of uploading. Default: -1, means epoch upload is disabled.
         keep_last (bool): Check the consistency of obs files and AICC. Default: True.
+
     Examples:
         >>> from mindformers.core.callback import ObsMonitor
         >>> monitor = ObsMonitor(src_dir='./root_path', target_dir='./remote_url')
@@ -120,7 +121,7 @@ def _get_loss_output(output):
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class MFLossMonitor(Callback):
     """
-    Loss Monitor for classification.
+    Monitor loss and other parameters in training process.
 
     Args:
         learning_rate (Union[float, LearningRateSchedule], optional): The learning rate schedule. Default: None.
@@ -132,10 +133,11 @@ class MFLossMonitor(Callback):
         initial_epoch (int): The beginning epoch. Default: 0.
         global_batch_size (int): The total batch size. Default: 0.
         device_num (int): The number of device in use. Default: 0.
+
     Examples:
-        >>> from mindformers.core.callback import MFLossMonitor
+        >>> from mindformers.core import MFLossMonitor
         >>> lr = [0.01, 0.008, 0.006, 0.005, 0.002]
-        >>> monitor = MFLossMonitor(per_print_times=10)
+        >>> monitor = MFLossMonitor(learning_rate=lr, per_print_times=10)
     """
 
     def __init__(self,
@@ -251,7 +253,6 @@ class MFLossMonitor(Callback):
             self.print_output_info(cb_params, cur_epoch_num, origin_epochs, throughput,
                                    cur_step_num, steps_per_epoch, loss, per_step_seconds,
                                    overflow, scaling_sens, time_remain, percent, global_norm)
-
 
         if check_in_modelarts() and get_real_rank() == get_real_group_size() - 1:
             self.dump_info_to_modelarts(ma_step_num=cur_step_num, ma_loss=loss)
@@ -418,11 +419,17 @@ class MFLossMonitor(Callback):
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class SummaryMonitor:
     """
-    Summary Monitor For AICC and Local.
+    Summary Monitor can help you to collect some common information, such as loss,
+    learning late, computational graph and so on.
+
+    Note:
+        referring to
+        `note <https://www.mindspore.cn/docs/en/master/api_python/mindspore/mindspore.SummaryCollector.html>`_ .
 
     Args:
         summary_dir (str):
-            The collected data will be persisted to this directory. Default: None.
+            The collected data will be persisted to this directory. If the directory does not exist,
+            it will be created automatically. Default: None.
         collect_freq (int):
             Set the frequency of data collection, it should be greater than zero, and the unit is `step`.
             Default: 10.
@@ -431,15 +438,18 @@ class SummaryMonitor:
         keep_default_action (bool):
             This field affects the collection behavior of the 'collect_specified_data' field. Default: True.
         custom_lineage_data (Union[dict, None]):
-            Allows you to customize the data and present it on the MingInsight lineage page. Default: None.
+            Allows you to customize the data and present it on the MingInsight `lineage page <https://
+            www.mindspore.cn/mindinsight/docs/en/master/lineage_and_scalars_comparison.html>`_ . Default: None.
         collect_tensor_freq (Optional[int]):
             The same semantics as the `collect_freq`, but controls TensorSummary only. Default: None.
         max_file_size (Optional[int]):
-            The maximum size in bytes of each file that can be written to the disk. Default: None.
+            The maximum size in bytes of each file that can be written to the disk. For example,
+            to write not larger than 4GB, specify max_file_size=4*1024**3. Default: None, which means no limit.
         export_options (Union[None, dict]):
-            Perform custom operations on the export data. Default: None.
+            Perform custom operations on the export data. Default: None, it means that the data is not exported.
+
     Examples:
-        >>> from mindformers.core.callback import SummaryMonitor
+        >>> from mindformers.core import SummaryMonitor
         >>> monitor = SummaryMonitor(summary_dir='./summary_dir')
     """
 
@@ -495,6 +505,7 @@ class CheckpointMonitor(ModelCheckpoint):
         enc_mode (str): This parameter is valid only when "enc_key" is not set to None. Specifies the encryption
                         mode, currently supports 'AES-GCM', 'AES-CBC' and 'SM4-CBC'. Default: 'AES-GCM'.
         exception_save (bool): Whether to save the current checkpoint when an exception occurs. Default: False.
+        global_batch_size (int): The total batch size. Default: 0.
 
     Raises:
         ValueError: If `prefix` is not str or contains the '/' character.
@@ -502,7 +513,7 @@ class CheckpointMonitor(ModelCheckpoint):
         TypeError: If the config is not CheckpointConfig type.
 
     Examples:
-        >>> from mindformers.core.callback import CheckpointMonitor
+        >>> from mindformers.core import CheckpointMonitor
         >>> monitor = CheckpointMonitor(directory='./checkpoint_dir')
     """
 
@@ -711,8 +722,9 @@ class ProfileMonitor(Callback):
         profile_communication (str): Whether to collect communication performance data
                                      during multi-device training. Default: False.
         profile_memory (str): Whether to collect Tensor memory data. Default: True.
+
     Examples:
-        >>> from mindformers.core.callback import ProfileMonitor
+        >>> from mindformers.core import ProfileMonitor
         >>> monitor = ProfileMonitor(output_path='./profile_dir')
     """
 
@@ -807,19 +819,19 @@ class EvalCallBack(Callback):
     Evaluate Callback used in training progress.
 
     Args:
-        eval_func (Callable): The function calculates eval result and is task specific.
+        eval_func (Callable): The function used to evaluate the model results
+                              and can be customized according to specific task.
         step_interval (int): Determine the num of step intervals between each eval.
-                             Default 100, means only eval on epoch end, do not eval between steps.
-                             Note that it will not take effects when running in data sink mode.
+                             Default 100. Note that it will not take effects when running in data sink mode.
         epoch_interval (int): Determine the num of epoch intervals between each eval.
                               Default -1, means eval on every epoch end.
+
     Examples:
         >>> from mindformers.core.callback import EvalCallBack
         >>> def eval_func():
         ...     print("output result")
         >>> eval_callback = EvalCallBack(eval_func=eval_func)
         >>> type(eval_callback)
-        <class 'mindformers.core.callback.callback.EvalCallBack'>
     """
 
     def __init__(self, eval_func: Callable, step_interval: int = 100, epoch_interval: int = -1):
@@ -866,6 +878,7 @@ class ColdHotExpertMointor(Callback):
             >>> type(callback)
             <class 'mindformers.core.callback.callback.ColdHotExpertMointor'>
     """
+
     def __init__(self, moe_config=None, hidden_size=None, ffn_hidden_size=None, expert_parallel=None,
                  model_parallel=None, save_checkpoint_steps=None):
         self.update_step = moe_config.update_step if hasattr(moe_config, "update_step") else 10000
