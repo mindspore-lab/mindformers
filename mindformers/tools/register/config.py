@@ -70,21 +70,25 @@ class DictConfig(dict):
 
 class MindFormerConfig(DictConfig):
     """
-    A Config class is inherit from dict.
-
-    Config class can parse arguments from a config file of yaml or a dict.
+    A class for configuration that inherits from Python's dict class.
+    Can parse configuration parameters from yaml files or dict instances.
 
     Args:
-        args (list) : config filenames
-        kwargs (dict) : config dictionary list
+        args (Any): Extensible parameter list, either a yaml configuration file path or a configuration dictionary.
+        kwargs (Any): Extensible parameter dictionary, either a yaml configuration file path or a configuration
+            dictionary.
+
+    Returns:
+        An instance of the class.
 
     Example:
-        test.yaml:
-            a:1
+        >>> from mindformers.tools import MindFormerConfig
+        >>>
+        >>> # test.yaml:
+        >>> #     a:1
         >>> cfg = MindFormerConfig('./test.yaml')
         >>> cfg.a
         1
-
         >>> cfg = MindFormerConfig(**dict(a=1, b=dict(c=[0,1])))
         >>> cfg.b
         {'c': [0, 1]}
@@ -108,15 +112,20 @@ class MindFormerConfig(DictConfig):
         MindFormerConfig._dict2config(self, cfg_dict)
 
     def merge_from_dict(self, options):
-        """Merge options into config file.
+        """
+        Merge options into config.
 
         Args:
-            options (dict): dict of configs to merge from
+            options (dict): Configuration options that need to be merged.
 
         Examples:
-            >>> options = {'model.arch': 'simmim'}
-            >>> cfg = MindFormerConfig(**dict(model=dict(backbone=dict(type='vit'))))
+            >>> from mindformers.tools import MindFormerConfig
+            >>>
+            >>> options = {'model.arch': 'LlamaForCausalLM'}
+            >>> cfg = MindFormerConfig(**dict(model=dict(model_config=dict(type='LlamaConfig'))))
             >>> cfg.merge_from_dict(options)
+            >>> print(cfg)
+            {'model': {'model_config': {'type': 'LlamaConfig'}, 'arch': 'LlamaForCausalLM'}}
         """
         option_cfg_dict = {}
         for full_key, value in options.items():
