@@ -129,21 +129,12 @@ class BaseInitModel:
 
     def process_parallel_config(self):
         """Process parallel config"""
-        parallel, device_num = get_parallel_status()
-        self.config.use_parallel = parallel
-
-        if not parallel:
-            return
-
         dp = self.input_args.get('model_parallel', None)
         mp = self.input_args.get('data_parallel', None)
         if dp and mp:
             self.config.parallel_config.model_parallel = dp
             self.config.parallel_config.data_parallel = mp
-        else:
-            self.config.parallel_config.model_parallel = device_num
-            self.config.parallel_config.data_parallel = 1
-        self.config.parallel_config.pipeline_stage = 1
+
 
     def process_model_config(self):
         """Process model config"""

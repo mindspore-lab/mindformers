@@ -350,29 +350,40 @@ class ModelPretrain(BaseInitModel):
 
     def process_tokenizer(self):
         """Process tokenizer"""
-        if self.config.processor.tokenizer.vocab_file:
-            return
-        tokenizer_files = glob(f"{self.model_path}/tokenizer.model")
-        vocab_file = self.input_args.get('vocab_file', None)
-        if not vocab_file or not os.path.exists(vocab_file):
-            vocab_file = self.config.processor.tokenizer.vocab_file
+        try:
+            # Check if vocab file is already set in the config
+            if self.config.processor.tokenizer.vocab_file:
+                return
 
-        if vocab_file and os.path.exists(vocab_file):
-            # make soft link of tokenizer file in model_path
-            src_path, vocab_file = convert_path(vocab_file, self.model_path)
-            try:
-                os.symlink(src_path, vocab_file)
-            except OSError:
-                logger.warning(f"link of {vocab_file} is existed.")
-        elif tokenizer_files:
-            vocab_file = tokenizer_files[0]
-        else:
-            logger.error(f"Currently dose not support downloading the tokenizer "
-                         f"and vocab file of {self.model_name} from online.")
-            return
-        logger.info(f"use tokenizer file: {vocab_file}.")
+            # Look for tokenizer files
+            tokenizer_files = glob(f"{self.model_path}/tokenizer.model")
+            vocab_file = self.input_args.get('vocab_file', None)
 
-        self.config.processor.tokenizer.vocab_file = vocab_file
+            # If no vocab file is provided or exists, use the one in config
+            if not vocab_file or not os.path.exists(vocab_file):
+                vocab_file = self.config.processor.tokenizer.vocab_file
+
+            # If a valid vocab file exists
+            if vocab_file and os.path.exists(vocab_file):
+                # make a soft link of the tokenizer file in model_path
+                src_path, vocab_file = convert_path(vocab_file, self.model_path)
+                try:
+                    os.symlink(src_path, vocab_file)
+                except OSError:
+                    logger.warning(f"Link of {vocab_file} already exists.")
+            elif tokenizer_files:
+                vocab_file = tokenizer_files[0]
+            else:
+                logger.error(f"Currently does not support downloading the tokenizer "
+                             f"and vocab file of {self.model_name} from online.")
+                return
+
+            logger.info(f"Using tokenizer file: {vocab_file}.")
+            # Set the vocab file in the config
+            self.config.processor.tokenizer.vocab_file = vocab_file
+
+        except (FileNotFoundError, OSError) as e:
+            logger.error(f"An error occurred while processing the tokenizer: {e}")
 
 def convert_type(data):
     """convert_type"""
