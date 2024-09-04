@@ -342,6 +342,7 @@ class LLamaAttention(nn.Cell):
                 key = self.transpose_back(key, (0, 2, 1, 3))
                 key = self._ulysses_qkv_a2a(key)
                 # value is BSND, no need for transpose back
+                value = self.reshape(value, (bs, seq_len, self.n_kv_head, self.head_dim))
                 value = self._ulysses_qkv_a2a(value)
             elif self.context_parallel > 1:
                 query = self._merge_heads(query)
