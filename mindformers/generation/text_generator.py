@@ -581,33 +581,37 @@ class GenerationMixin:
                 forwarded to the `forward` function of the model. Supported `generate_config` keywords can be
                 checked in [`GenerationConfig`]'s documentation. Mainly used Keywords are shown below:
 
-                max_length (int): The maximum length the generated tokens can have. Corresponds to the length of
-                    the input prompt + `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
-                max_new_tokens (int): The maximum numbers of tokens to generate, ignoring the number of
-                    tokens in the prompt.
-                min_length (int): The minimum length of the sequence to be generated. Corresponds to the length of the
-                    input prompt + `min_new_tokens`. Its effect is overridden by `min_new_tokens`, if also set.
-                min_new_tokens (int): The minimum numbers of tokens to generate, ignoring the number of tokens
-                    in the prompt.
-                do_sample (bool): Whether to do sampling on the candidate ids.
-                    If set True it will be enabled, and set it to be False to disable the sampling,
-                    equivalent to top-k 1.
-                    If set None, it follows the setting in the configureation in the model.
-                top_k (int): Determine the top-k numbers token id as candidate. This should be a positive number.
-                    If set None, it follows the setting in the configureation in the model.
-                top_p (float): The accumulation probability of the candidate token ids below the top-p
-                    will be select as the condaite ids. The valid value of top-p is between (0, 1]. If the value
-                    is larger than 1, top-k algorithm will be enabled. If set None, it follows the setting in the
-                    configureation in the model.
-                eos_token_id (int): The end of sentence token id. If set None, it follows the setting in the
-                    configureation in the model.
-                pad_token_id (int): The pad token id. If set None, it follows the setting in the configureation
-                    in the model.
-                repetition_penalty (float): The penalty factor of the frequency that generated words. The If set 1,
-                    the repetition_penalty will not be enabled. If set None, it follows the setting in the
-                    configureation in the model. Default: ``None``.
-                num_beams (int): Number of beams for beam search. 1 means no beam search. If larger than 1, do_sample
-                    will be set to false.
+                - max_length (int): The maximum length the generated tokens can have. Corresponds to the length of
+                  the input prompt + `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
+                - max_new_tokens (int): The maximum numbers of tokens to generate, ignoring the number of
+                  tokens in the prompt.
+                - min_length (int): The minimum length of the sequence to be generated.
+                  Corresponds to the length of the input prompt + `min_new_tokens`.
+                  Its effect is overridden by `min_new_tokens`, if also set.
+                - min_new_tokens (int): The minimum numbers of tokens to generate, ignoring the number of tokens
+                  in the prompt.
+                - do_sample (bool): Whether to do sampling on the candidate ids.
+                  If set True it will be enabled, and set it to be False to disable the sampling,
+                  equivalent to top-k 1.
+                  If set None, it follows the setting in the configureation in the model.
+                - top_k (int): Determine the top-k numbers token id as candidate. This should be a positive number.
+                  If set None, it follows the setting in the configureation in the model.
+                - top_p (float): The accumulation probability of the candidate token ids below the top-p
+                  will be select as the condaite ids. The valid value of top-p is between (0, 1]. If the value
+                  is larger than 1, top-k algorithm will be enabled. If set None, it follows the setting in the
+                  configureation in the model.
+                - eos_token_id (int): The end of sentence token id. If set None, it follows the setting in the
+                  configureation in the model.
+                - pad_token_id (int): The pad token id. If set None, it follows the setting in the configureation
+                  in the model.
+                - repetition_penalty (float): The penalty factor of the frequency that generated words. The If set 1,
+                  the repetition_penalty will not be enabled. If set None, it follows the setting in the
+                  configureation in the model. Default: ``None``.
+                - num_beams (int): Number of beams for beam search. 1 means no beam search. If larger than 1, do_sample
+                  will be set to false.
+
+        Returns:
+            A list of the generated token ids.
 
         Examples:
             >>> from mindformers import T5ForConditionalGeneration, T5Tokenizer
@@ -638,9 +642,6 @@ class GenerationMixin:
             >>> output = tokenizer.decode(output[0], skip_special_tokens=True)
             >>> print(output)
             eful ONU declară că nu există o soluţie militară în Siria
-
-        Returns:
-            A list of the generated token ids
         """
         origin_phase = self.phase
         self.set_train(False)
