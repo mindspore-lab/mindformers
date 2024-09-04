@@ -178,6 +178,8 @@ def save_pre_process(shard_info, model, optimizer, config):
             if language_model_embedding in name:
                 new_name = name.replace(language_model_embedding, language_model_head)
                 params_dict[new_name] = ms.Parameter(param, name=new_name)
+                target_shard_info = model_shard_info if name in model_shard_info else optimizer_shard_info
+                target_shard_info[new_name] = target_shard_info[name]
 
     return shard_info, params_dict
 
