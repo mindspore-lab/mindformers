@@ -172,6 +172,8 @@ train_dataset_dir: 训练数据集路径
 use_parallel:      是否开启并行训练
 ```
 
+> 注：此模型暂不支持配置`context_parallel`，因此暂不支持长序列。
+
 ## 全参微调
 
 MindFormers提供`deepseek-33b`多机多卡微调示例，使用`code_alpaca`数据集对模型进行微调，数据集可以参考[数据集下载](#数据集下载)获得。
