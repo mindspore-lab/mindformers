@@ -488,6 +488,7 @@ def load_ckpt(config, network, optimizer=None):
             raise ValueError(f"{config.load_checkpoint} is not a valid path to load checkpoint "
                              f"when auto_trans_ckpt is False.")
 
+    checkpoint_dict = network.fuse_weight_from_ckpt(checkpoint_dict)
     # replace tk in checkpoint_dict.keys()
     checkpoint_dict = replace_tk_to_mindpet(checkpoint_dict)
     if hasattr(network, 'llm_boost'):
