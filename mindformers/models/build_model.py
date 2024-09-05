@@ -79,7 +79,7 @@ def build_network(
     if quant_config:
         from mindformers.modules.quantizers import AutoQuantizer
         quantizer = AutoQuantizer.from_config(quant_config)
-        network = quantizer.preprocess_model(network)
+        network = quantizer.preprocess_model(network, config=config)
     if pet_config:
         from mindformers.pet import get_pet_model, is_supported_pet_type
         if is_supported_pet_type(pet_config.pet_type):

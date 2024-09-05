@@ -19,19 +19,23 @@ from mindformers.models.auto.configuration_auto import AutoConfig
 from mindformers.utils.quantization_config import (
     QuantizationConfigMixin,
     PtqConfig,
+    RtnConfig,
     SmoothQuantConfig,
 )
 from mindformers.modules.quantizers.ptq_quantizer import PtqQuantizer
+from mindformers.modules.quantizers.rtn_quantizer import RtnQuantizer
 from mindformers.modules.quantizers.smooth_quant_quantizer import SmoothQuantQuantizer
 
 
 AUTO_QUANTIZER_MAPPING = {
     "ptq": PtqQuantizer,
+    "rtn": RtnQuantizer,
     "sq": SmoothQuantQuantizer,
 }
 
 AUTO_QUANTIZATION_CONFIG_MAPPING = {
     "ptq": PtqConfig,
+    "rtn": RtnConfig,
     "sq": SmoothQuantConfig,
 }
 

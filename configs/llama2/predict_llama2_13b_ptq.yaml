@@ -42,7 +42,7 @@ eval_dataset_task:
 use_parallel: False
 # parallel context config
 parallel:
-  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  parallel_mode: 3 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
   gradients_mean: False
   enable_alltoall: False
   full_batch: True
@@ -66,7 +66,7 @@ micro_batch_interleave_num: 1
 
 # mindspore context init config
 context:
-  mode: 0 #0--Graph Mode; 1--Pynative Mode
+  mode: 1 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   enable_graph_kernel: False
   max_call_depth: 10000
@@ -116,12 +116,13 @@ model:
     quantization_config:
       quant_method: 'ptq'
       weight_dtype: 'int8'
-      activation_dtype: None
-      kvcache_dtype: None
-      modules_to_not_convert: ['lm_head']
+      activation_dtype: 'int8'
+      kvcache_dtype: 'int8'
+      outliers_suppression: 'smooth'
+      modules_to_not_convert: ['lm_head', 'w2']
       algorithm_args: {}
   arch:
-    type: LlamaForCausalLM
+    type: ParallelLlamaForCausalLM
 
 processor:
   return_tensors: ms

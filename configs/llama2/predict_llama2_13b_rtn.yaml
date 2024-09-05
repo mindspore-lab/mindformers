@@ -114,11 +114,12 @@ model:
     top_p: 1
     do_sample: False
     quantization_config:
-      quant_method: 'smooth_quant'
+      quant_method: 'rtn'
       weight_dtype: 'int8'
-      activation_dtype: 'int8'
+      activation_dtype: None
       kvcache_dtype: None
-      modules_to_not_convert: ['lm_head', 'w2']
+      outliers_suppression: None
+      modules_to_not_convert: ['lm_head']
       algorithm_args: {}
   arch:
     type: LlamaForCausalLM
