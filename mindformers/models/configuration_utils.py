@@ -61,7 +61,7 @@ def get_configuration_file(configuration_files: List[str]) -> str:
         configuration_files (`List[str]`): The list of available configuration files.
 
     Returns:
-        `str`: The configuration file to use.
+        `str`, the configuration file to use.
     """
     configuration_files_map = {}
     for file_name in configuration_files:
@@ -104,30 +104,26 @@ def recursive_diff_dict(dict_a, dict_b, config_obj=None):
 
 class PretrainedConfig(PushToHubMixin):
     """
-    Base class for all configuration classes. Handles a few parameters common to all models' configurations as well as
-    methods for loading/downloading/saving configurations.
+    Base class for all configuration classes. Handles a few parameters common to all models'
+    configurations as well as methods for loading/downloading/saving configurations.
 
-    <Tip>
+    Note:
+        A configuration file can be loaded and saved to disk. Loading the configuration file and using
+        this file to initialize a model does **not** load the model weights. It only affects the model's
+        configuration.
 
-    A configuration file can be loaded and saved to disk. Loading the configuration file and using this file to
-    initialize a model does **not** load the model weights. It only affects the model's configuration.
-
-    </Tip>
-
-    Class attributes (overridden by derived classes):
-
-    - **model_type** (`str`) -- An identifier for the model type, serialized into the JSON file, and used to recreate
-      the correct object in [`~xxxxxxx.AutoConfig`].
-    - **is_composition** (`bool`) -- Whether the config class is composed of multiple sub-configs. In this case the
-      config has to be initialized from two or more configs of type [`~xxxxxxx.PretrainedConfig`] like:
-      [`~xxxxxxx.EncoderDecoderConfig`] or [`~RagConfig`].
-    - **attribute_map** (`Dict[str, str]`) -- A dict that maps model specific attribute names to the standardized
-      naming of attributes.
-
-    Arg:
-        name_or_path (`str`, *optional*, defaults to `""`):
-            Store the string that was passed to [`PreTrainedModel.from_pretrained`]
+    Args:
+        name_or_path (str, optional):
+            Store the string that was passed to :func:`mindformers.models.PreTrainedModel.from_pretrained`
             as `pretrained_model_name_or_path` if the configuration was created with such a method.
+            Default: ``""`` .
+        checkpoint_name_or_path (str, optional):
+            The path or name of the checkpoint file. Default: ``None`` .
+        mindformers_version (str, optional):
+            The version of MindSpore Transformers. Default: ``None`` .
+
+    Returns:
+        PretrainedConfig, a PretrainedConfig instance.
     """
     model_type: str = ""
     is_composition: bool = False
@@ -195,7 +191,7 @@ class PretrainedConfig(PushToHubMixin):
         Serializes this instance to a Python dictionary.
 
         Returns:
-            `Dict[str, Any]`: Dictionary of all the attributes that make up this configuration instance.
+            dict[str, Any], dictionary of all the attributes that make up this configuration instance.
         """
         output = copy.deepcopy(self.__dict__)
         if hasattr(self.__class__, "model_type"):
@@ -229,12 +225,13 @@ class PretrainedConfig(PushToHubMixin):
 
         Args:
             yaml_name_or_path (str): A supported model name or a path to model config (.yaml),
-                the supported model name could be selected from AutoConfig.show_support_list().
+                the supported model name could be selected from :func:`mindformers.AutoConfig.show_support_list` .
                 If yaml_name_or_path is model name,
                 it supports model names beginning with mindspore or the model name itself,
                 such as "mindspore/vit_base_p16" or "vit_base_p16".
-            pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
-                if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
+            pretrained_model_name_or_path (str, optional):
+                Equal to "yaml_name_or_path", if "pretrained_model_name_or_path" is set,
+                "yaml_name_or_path" is useless. Default: ``None`` .
 
         Returns:
             A model config, which inherited from PretrainedConfig.
@@ -375,12 +372,11 @@ class PretrainedConfig(PushToHubMixin):
 
     def save_pretrained(self, save_directory=None, save_name="mindspore_model", **kwargs):
         """
-        Save_pretrained.
+        Saves the pre-trained configuration to the specified directory
 
         Args:
-            save_directory (str): a directory to save config yaml
-
-            save_name (str): the name of save files.
+            save_directory (str, optional): a directory to save config yaml. Default: ``None`` .
+            save_name (str, optional): the name of save files. Default: ``"mindspore_model"`` .
         """
         save_json = kwargs.pop("save_json", False)
 
@@ -534,14 +530,14 @@ class PretrainedConfig(PushToHubMixin):
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         From a `pretrained_model_name_or_path`, resolve to a dictionary of parameters, to be used for instantiating a
-        [`PretrainedConfig`] using `from_dict`.
+        `PretrainedConfig` using :func:`mindformers.models.PretrainedConfig.from_dict`.
 
         Parameters:
-            pretrained_model_name_or_path (`str` or `os.PathLike`):
-                The identifier of the pre-trained checkpoint from which we want the dictionary of parameters.
+            pretrained_model_name_or_path (Union[str, os.PathLike]): The identifier of the pre-trained checkpoint
+                from which we want the dictionary of parameters.
 
         Returns:
-            `Tuple[Dict, Dict]`: The dictionary(ies) that will be used to instantiate the configuration object.
+            Tuple[dict, dict], the dictionary(ies) that will be used to instantiate the configuration object.
 
         """
         original_kwargs = copy.deepcopy(kwargs)
@@ -653,17 +649,15 @@ class PretrainedConfig(PushToHubMixin):
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any], **kwargs) -> "PretrainedConfig":
         """
-        Instantiates a [`PretrainedConfig`] from a Python dictionary of parameters.
+        Instantiates a `PretrainedConfig` from a Python dictionary of parameters.
 
         Args:
-            config_dict (`Dict[str, Any]`):
-                Dictionary that will be used to instantiate the configuration object. Such a dictionary can be
-                retrieved from a pretrained checkpoint by leveraging the [`~PretrainedConfig.get_config_dict`] method.
-            kwargs (`Dict[str, Any]`):
-                Additional parameters from which to initialize the configuration object.
+            config_dict (dict): Dictionary that will be used to instantiate the configuration object.
+                Such a dictionary can be retrieved from a pretrained checkpoint by leveraging
+                the :func:`mindformers.models.PretrainedConfig.get_config_dict` method.
 
         Returns:
-            [`PretrainedConfig`]: The configuration object instantiated from those parameters.
+            `PretrainedConfig`, the configuration object instantiated from those parameters.
         """
         return_unused_kwargs = kwargs.pop("return_unused_kwargs", False)
         # Those arguments may be passed along for our internal telemetry.
@@ -697,15 +691,13 @@ class PretrainedConfig(PushToHubMixin):
     @classmethod
     def from_json_file(cls, json_file: Union[str, os.PathLike]) -> "PretrainedConfig":
         """
-        Instantiates a [`PretrainedConfig`] from the path to a JSON file of parameters.
+        Instantiates a PretrainedConfig from the path to a JSON file of parameters.
 
         Args:
-            json_file (`str` or `os.PathLike`):
-                Path to the JSON file containing the parameters.
+            json_file (Union[str, os.PathLike]): Path to the JSON file containing the parameters.
 
         Returns:
-            [`PretrainedConfig`]: The configuration object instantiated from that JSON file.
-
+            PretrainedConfig, the configuration object instantiated from that JSON file.
         """
         config_dict = cls._dict_from_json_file(json_file)
         return cls(**config_dict)
@@ -727,11 +719,11 @@ class PretrainedConfig(PushToHubMixin):
         Save this instance to a JSON file.
 
         Args:
-            json_file_path (`str` or `os.PathLike`):
-                Path to the JSON file in which this configuration instance's parameters will be saved.
-            use_diff (`bool`, *optional*, defaults to `True`):
-                If set to `True`, only the difference between the config instance and the default `PretrainedConfig()`
-                is serialized to JSON file.
+            json_file_path (Union[str, os.PathLike]): Path to the JSON file in which this configuration instance's
+                parameters will be saved.
+            use_diff (bool, optional): If set to `True`, only the difference between the config instance and
+                the default :class:`mindformers.models.PretrainedConfig` is serialized to JSON file.
+                Default: ``True`` .
         """
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
         with os.fdopen(os.open(json_file_path, flags_, 0o750), 'w', encoding="utf-8") as writer:
@@ -742,12 +734,11 @@ class PretrainedConfig(PushToHubMixin):
         Serializes this instance to a JSON string.
 
         Args:
-            use_diff (`bool`, *optional*, defaults to `True`):
-                If set to `True`, only the difference between the config instance and the default `PretrainedConfig()`
-                is serialized to JSON string.
+            use_diff (bool, optional): If set to `True`, only the difference between the config instance and
+                the default `PretrainedConfig()` is serialized to JSON string. Default: ``True`` .
 
         Returns:
-            `str`: String containing all the attributes that make up this configuration instance in JSON format.
+            str, string containing all the attributes that make up this configuration instance in JSON format.
         """
         if use_diff is True:
             config_dict = self.to_diff_dict()
@@ -771,7 +762,7 @@ class PretrainedConfig(PushToHubMixin):
         serializes to a Python dictionary.
 
         Returns:
-            `Dict[str, Any]`: Dictionary of all the attributes that make up this configuration instance,
+            dict[str, Any], dictionary of all the attributes that make up this configuration instance.
         """
         config_dict = self.to_dict()
 
@@ -828,15 +819,12 @@ class PretrainedConfig(PushToHubMixin):
         Register this class with a given auto class. This should only be used for custom configurations as the ones in
         the library are already mapped with `AutoConfig`.
 
-        <Tip warning={true}>
-
-        This API is experimental and may have some slight breaking changes in the next releases.
-
-        </Tip>
+        .. warning::
+            This API is experimental and may have some slight breaking changes in the next releases.
 
         Args:
-            auto_class (`str` or `type`, *optional*, defaults to `"AutoConfig"`):
-                The auto class to register this new configuration with.
+            auto_class (Union[str, type], optional): The auto class to register this new configuration with.
+                Default: ``"AutoConfig"`` .
         """
         if not isinstance(auto_class, str):
             auto_class = auto_class.__name__

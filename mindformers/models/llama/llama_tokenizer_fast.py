@@ -44,47 +44,55 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
     Construct a Llama tokenizer. Based on byte-level Byte-Pair-Encoding.
 
     This uses notably ByteFallback and no normalization.
+    This tokenizer inherits from
+    :class:`mindformers.models.tokenization_utils_fast.PreTrainedTokenizerFast`
+    which contains most of the main methods. Users should refer to this superclass
+    for more information regarding those methods.
 
-    ```python
-    >>> from transformers import LlamaTokenizerFast
+    Note:
+        Currently, the llama_tokenizer_fast process supports only the 'right' padding mode.
+        padding_side = "right"
 
-    >>> tokenizer = LlamaTokenizerFast(vocab_file="./llama2/tokenizer.model")
-    >>> tokenizer.encode("Hello this is a test")
-    [1, 15043, 445, 338, 263, 1243]
-    ```
+    Examples:
+        >>> from transformers import LlamaTokenizerFast
+        >>>
+        >>> tokenizer = LlamaTokenizerFast(vocab_file="./llama2/tokenizer.model")
+        >>> tokenizer.encode("Hello this is a test")
+        [1, 15043, 445, 338, 263, 1243]
 
-    If you want to change the `bos_token` or the `eos_token`, make sure to specify them when initializing the model, or
-    call `tokenizer.update_post_processor()` to make sure that the post-processing is correctly done (otherwise the
-    values of the first token and final token of an encoded sequence will not be correct). For more details, checkout
-    [post-processors] (https://huggingface.co/docs/tokenizers/api/post-processors) documentation.
+    Note:
+        If you want to change the `bos_token` or the `eos_token`, make sure to specify
+        them when initializing the model, or call `tokenizer.update_post_processor()`
+        to make sure that the post-processing is correctly done (otherwise the values
+        of the first token and final token of an encoded sequence will not be correct).
 
-
-    This tokenizer inherits from [`PreTrainedTokenizerFast`] which contains most of the main methods. Users should
-    refer to this superclass for more information regarding those methods.
+    Returns:
+        LlamaTokenizer, a LlamaTokenizer instance.
 
     Args:
-        vocab_file (`str`, *optional*):
-            [SentencePiece](https://github.com/google/sentencepiece) file (generally has a .model extension) that
-            contains the vocabulary necessary to instantiate a tokenizer.
-        tokenizer_file (`str`, *optional*):
-            [tokenizers](https://github.com/huggingface/tokenizers) file (generally has a .json extension) that
-            contains everything needed to load the tokenizer.
-        clean_up_tokenization_spaces (`bool`, *optional*, defaults to `False`):
-            Whether or not to cleanup spaces after decoding, cleanup consists in removing potential artifacts like
-            extra spaces.
-        unk_token (`str` or `tokenizers.AddedToken`, *optional*, defaults to `"<unk>"`):
+        vocab_file (str, optional): `SentencePiece <https://github.com/google/sentencepiece>`_
+            file (generally has a .model extension) that
+            contains the vocabulary necessary to instantiate a tokenizer. Default: ``None`` .
+        tokenizer_file (str, optional):
+            Tokenizers file (generally has a .json extension) that contains everything needed to load the tokenizer.
+             Default: ``None`` .
+        clean_up_tokenization_spaces (bool, optional):
+            Whether to clean-up spaces after decoding, cleanup consists in removing potential artifacts like
+            extra spaces. Default: ``False`` .
+        unk_token (Union[str, tokenizers.AddedToken], optional):
             The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this
-            token instead.
-        bos_token (`str` or `tokenizers.AddedToken`, *optional*, defaults to `"<s>"`):
+            token instead. Default: ``"<unk>"`` .
+        bos_token (Union[str, tokenizers.AddedToken], optional):
             The beginning of sequence token that was used during pretraining. Can be used a sequence classifier token.
-        eos_token (`str` or `tokenizers.AddedToken`, *optional*, defaults to `"</s>"`):
-            The end of sequence token.
-        add_bos_token (`bool`, *optional*, defaults to `True`):
-            Whether or not to add an `bos_token` at the start of sequences.
-        add_eos_token (`bool`, *optional*, defaults to `False`):
-            Whether or not to add an `eos_token` at the end of sequences.
-        use_default_system_prompt (`bool`, *optional*, defaults to `False`):
-            Whether or not the default system prompt for Llama should be used.
+             Default: ``"<s>"`` .
+        eos_token (Union[str, tokenizers.AddedToken], optional):
+            The end of sequence token. Default: ``"</s>"`` .
+        add_bos_token (`bool`, optional):
+            Whether to add an `bos_token` at the start of sequences. Default: ``True`` .
+        add_eos_token (`bool`, optional):
+            Whether to add an `eos_token` at the end of sequences. Default: ``False`` .
+        use_default_system_prompt (`bool`, optional):
+            Whether the default system prompt for Llama should be used. Default: ``False`` .
     """
     vocab_files_names = VOCAB_FILES_NAMES
     model_input_names = ["input_ids", "attention_mask"]
@@ -133,6 +141,10 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
     def update_post_processor(self):
         """
         Updates the underlying post processor with the current `bos_token` and `eos_token`.
+
+        Raises:
+            ValueError: Raised if `add_bos_token` or `add_eos_token` is set but the
+            corresponding token is `None`.
         """
         bos = self.bos_token
         bos_token_id = self.bos_token_id
@@ -176,6 +188,21 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
         self.update_post_processor()
 
     def save_vocabulary(self, save_directory: str, filename_prefix: Optional[str] = None) -> Tuple[str]:
+        """
+        Saves the vocabulary to the specified directory. This method is used to
+        export the vocabulary file from the slow tokenizer.
+
+        Args:
+            save_directory (str): The directory where the vocabulary will be saved.
+            filename_prefix (str, optional): The prefix for the saved files. Default: ``None`` .
+
+        Returns:
+            A tuple containing the paths of the saved vocabulary files.
+
+        Raises:
+            ValueError: Raises this exception if the vocabulary cannot be saved from
+            a fast tokenizer, or if the specified save directory does not exist.
+        """
         if not self.can_save_slow_tokenizer:
             raise ValueError(
                 "Your fast tokenizer does not have the necessary information to save the vocabulary for a slow "
@@ -197,6 +224,18 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
     # ArthurZ let's rely on the template processor instead, refactor all fast tokenizers
     # Copied from transformers.models.llama.tokenization_llama.LlamaTokenizer.build_inputs_with_special_tokens
     def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
+        r"""
+        Insert the special tokens to the input_ids, currently.
+
+        Args:
+            token_ids_0 (list[int]):
+                List of IDs.
+            token_ids_1 (list[int], optional):
+                Second list of IDs for sequence pairs. Default: ``None`` , only use one sequence.
+
+        Returns:
+            list of the tokens after inserting special tokens.
+        """
         bos_token_id = [self.bos_token_id] if self.add_bos_token else []
         eos_token_id = [self.eos_token_id] if self.add_eos_token else []
 

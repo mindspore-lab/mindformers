@@ -395,13 +395,76 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
     """
     Base class for all slow tokenizers.
 
-    Inherits from [`~tokenization_utils_base.PreTrainedTokenizerBase`].
+    Inherits from :class:`mindformers.models.tokenization_utils.PreTrainedTokenizerBase`.
 
     Handle all the shared methods for tokenization and special tokens as well as methods downloading/caching/loading
     pretrained tokenizers as well as adding tokens to the vocabulary.
 
     This class also contain the added tokens in a unified way on top of all tokenizers so we don't have to handle the
     specific vocabulary augmentation methods of the various underlying dictionary structures (BPE, sentencepiece...).
+
+    Args:
+        model_max_length (int, optional):
+            The maximum length (in number of tokens) for the inputs to the transformer model.
+            Set when the tokenizer is loaded with ``from_pretrained()`` based on the model's
+            ``max_model_input_sizes`` attribute.  Default: ``1e-30`` .
+        padding_side (str, optional):
+            Specifies the side on which the model should have padding applied. Options are
+            ['right', 'left']. The default value is picked from the class attribute of the
+            same name.
+        truncation_side (str, optional):
+            Specifies the side on which the model should have truncation applied.
+            Options are ['right', 'left']. The default value is picked from the class
+            attribute of the same name.
+        chat_template (str, optional):
+            A Jinja template string used to format lists of chat messages.
+            Default: ``"{% for message in messages %}{{'<|im_start|>' + message['role'] +
+            '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{
+            '<|im_start|>assistant\n' }}{% endif %}"`` .
+        model_input_names (List[str], optional):
+            Lists the names of inputs accepted by the forward pass of the model,
+            such as "token_type_ids" or "attention_mask". Defaults to values picked
+            from the class attribute of the same name. Default: ``None`` .
+        bos_token (Union[str, tokenizers.AddedToken], optional):
+            Represents the beginning of a sentence and is associated with
+            ``self.bos_token`` and ``self.bos_token_id``. Default: ``None`` .
+        eos_token (str or tokenizers.AddedToken, optional):
+            Represents the end of a sentence and is associated with ``self.eos_token``
+            and ``self.eos_token_id``. Default: ``None`` .
+        unk_token (Union[str, tokenizers.AddedToken], optional):
+            Represents an out-of-vocabulary token and is associated with
+            ``self.unk_token`` and ``self.unk_token_id``. Default: ``None`` .
+        sep_token (Union[str, tokenizers.AddedToken], optional):
+            A special token separating two different sentences in the same input
+            (used by BERT, for example) and is associated with ``self.sep_token``
+            and ``self.sep_token_id``. Default: ``None`` .
+        pad_token (Union[str, tokenizers.AddedToken], optional):
+            Used to make arrays of tokens the same size for batching purposes and
+            will be ignored by attention mechanisms or loss computation. It is
+            associated with ``self.pad_token`` and ``self.pad_token_id``. Default: ``None`` .
+        cls_token (Union[str, tokenizers.AddedToken], optional):
+            Represents the class of the input (used by BERT, for example) and is
+            associated with ``self.cls_token`` and ``self.cls_token_id``. Default: ``None`` .
+        mask_token (Union[str, tokenizers.AddedToken], optional):
+            Represents a masked token (used by masked-language modeling pretraining
+            objectives like BERT) and is associated with ``self.mask_token`` and
+            ``self.mask_token_id``. Default: ``None`` .
+        additional_special_tokens (Union[tuple, list of str, tokenizers.AddedToken], optional):
+            Lists additional special tokens that are ensured to be skipped when
+            decoding with ``skip_special_tokens`` set to True. They will be added
+            at the end of the vocabulary if not already part of it. Default: ``None`` .
+        clean_up_tokenization_spaces (bool, optional):
+            Determines whether to clean-up spaces that were added when splitting the
+            input text during the tokenization process. Default: ``True`` .
+        split_special_tokens (bool, optional):
+            Specifies whether special tokens should be split during the tokenization
+            process. This affects the internal state of the tokenizer. By default, special
+            tokens are not split. For example, if '<s>' is the bos_token, then
+            ``tokenizer.tokenize("<s>")`` results in ['<s>']. If ``split_special_tokens``
+            is True, then ``tokenizer.tokenize("<s>")`` would result in ['<','s', '>']. Default: ``False`` .
+
+    Returns:
+        PreTrainedTokenizer, a PreTrainedTokenizer instance that can be used to tokenize text.
     """
     _support_list = []
 
@@ -446,6 +509,9 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         """
         Returns the sorted mapping from string to index. The added tokens encoder is cached for performance
         optimisation in `self._added_tokens_encoder` for the slow tokenizers.
+
+        Returns:
+            A dict, the added tokens.
         """
         return {k.content: v for v, k in sorted(self._added_tokens_decoder.items(), key=lambda item: item[0])}
 
@@ -455,7 +521,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         Returns the added tokens in the vocabulary as a dictionary of index to AddedToken.
 
         Returns:
-            `Dict[str, int]`: The added tokens.
+            A dict, the added tokens.
         """
         return dict(sorted(self._added_tokens_decoder.items(), key=lambda item: item[0]))
 
@@ -477,7 +543,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         Returns the added tokens in the vocabulary as a dictionary of token to index.
 
         Returns:
-            `Dict[str, int]`: The added tokens.
+            A dict, the added tokens.
         """
         return self.added_tokens_encoder
 
@@ -503,7 +569,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
                 Whether or not the tokens should be added as special tokens.
 
         Returns:
-            `int`: The number of tokens actually added to the vocabulary.
+            The number of tokens actually added to the vocabulary, type is `int`.
 
         Examples:
 
@@ -579,20 +645,16 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         """
         Returns the number of added tokens when encoding a sequence with special tokens.
 
-        <Tip>
-
         This encodes a dummy input and checks the number of added tokens, and is therefore not efficient. Do not put
         this inside your training loop.
 
-        </Tip>
 
         Args:
-            pair (`bool`, *optional*, defaults to `False`):
-                Whether the number of added tokens should be computed in the case of a sequence pair or a single
-                sequence.
+            pair (bool, optional): Whether the number of added tokens should be computed in the case of
+                a sequence pair or a single sequence. Default: ``False`` .
 
         Returns:
-            `int`: Number of special tokens added to sequences.
+            Number of special tokens added to sequences.
         """
         token_ids_0 = []
         token_ids_1 = []
@@ -608,18 +670,15 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         (BPE/SentencePieces/WordPieces). Takes care of added tokens.
 
         Args:
-            text (`str`):
-                The sequence to be encoded.
-            pair (`str`, *optional*):
-                A second sequence to be encoded with the first.
-            add_special_tokens (`bool`, *optional*, defaults to `False`):
-                Whether or not to add the special tokens associated with the corresponding model.
-            kwargs (additional keyword arguments, *optional*):
-                Will be passed to the underlying model specific encode method. See details in
-                [`~PreTrainedTokenizerBase.__call__`]
+            text (str): The sequence to be encoded.
+            pair (str, optional): A second sequence to be encoded with the first. Default: ``None`` .
+            add_special_tokens (bool, optional): Whether to add the special tokens associated with
+                the corresponding model. Default: ``False`` .
+            kwargs (additional keyword arguments, optional): Will be passed to the underlying model specific
+                encode method. See details in `~PreTrainedTokenizerBase.__call__`.
 
         Returns:
-            `List[str]`: The list of tokens.
+            `tokenized_text`, the list of tokens, type is `List[str]`.
         """
         split_special_tokens = kwargs.pop("split_special_tokens", self.split_special_tokens)
 
@@ -705,10 +764,10 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         vocabulary.
 
         Args:
-            tokens (`str` or `List[str]`): One or several token(s) to convert to token id(s).
+            tokens (Union[str, List[str]]): One or several token(s) to convert to token id(s).
 
         Returns:
-            `int` or `List[int]`: The token id or list of token ids.
+            `ids` , the token id or list of token ids, type is `int` or `List[int]`.
         """
         if tokens is None:
             return None
@@ -963,17 +1022,11 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         `kwargs` at the end of the encoding process to be sure all the arguments have been used.
 
         Args:
-            text (`str`):
-                The text to prepare.
-            is_split_into_words (`bool`, *optional*, defaults to `False`):
-                Whether or not the input is already pre-tokenized (e.g., split into words). If set to `True`, the
-                tokenizer assumes the input is already split into words (for instance, by splitting it on whitespace)
-                which it will tokenize. This is useful for NER or token classification.
-            kwargs:
-                Keyword arguments to use for the tokenization.
+            text (str): The text to prepare.
+            kwargs: Keyword arguments to use for the tokenization.
 
         Returns:
-            `Tuple[str, Dict[str, Any]]`: The prepared text and the unused kwargs.
+            Tuple[str, Dict[str, Any]], means the prepared text and the unused kwargs.
         """
         return (text, kwargs)
 
@@ -1015,13 +1068,13 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         added tokens.
 
         Args:
-            ids (`int` or `List[int]`):
+            ids (Union[int, list[int]]):
                 The token id (or token ids) to convert to tokens.
-            skip_special_tokens (`bool`, *optional*, defaults to `False`):
-                Whether or not to remove special tokens in the decoding.
+            skip_special_tokens (bool, optional):
+                Whether to remove special tokens in the decoding. Default: ``False`` .
 
         Returns:
-            `str` or `List[str]`: The decoded token(s).
+            Str or List[str], the decoded token(s).
         """
         if isinstance(ids, int):
             if ids in self._added_tokens_decoder:

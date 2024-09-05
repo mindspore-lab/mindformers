@@ -43,6 +43,29 @@ MultiModal Related
 
     mindformers.models.multi_modal.ModalContentTransformTemplate
 
+Base Classes
+--------------
+
+.. autosummary::
+    :toctree: models
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.models.PretrainedConfig
+    mindformers.models.PreTrainedTokenizer
+    mindformers.models.PreTrainedTokenizerFast
+
+Llama
+-------
+.. autosummary::
+    :toctree: models
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.models.LlamaConfig
+    mindformers.models.LlamaTokenizer
+    mindformers.models.LlamaTokenizerFast
+
 GLM
 ---------------------
 

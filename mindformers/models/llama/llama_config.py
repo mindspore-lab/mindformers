@@ -32,74 +32,75 @@ __all__ = ['LlamaConfig']
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class LlamaConfig(PretrainedConfig):
     """
-    LLaMA config class which defines the model size.
+    Llama config class which defines the model size.
 
     Args:
-        batch_size (Optional[int]): batch size for input data, use in predict.
-        seq_length (Optional[int]): The sequence length of input_ids, default is 1024.
-        vocab_size (`int`, *optional*, defaults to 50257):
+        batch_size (int, optional): batch size for input data, use in predict. Default: ``1`` .
+        seq_length (int, optional): The sequence length of input_ids. Default: ``2048`` .
+        vocab_size (int, optional): Default: ``32000`` .
             Vocabulary size of the BERT model.
-        hidden_size (`int`, *optional*, defaults to 768):
-            Dimensionality of the encoder layers and the pooler layer.
-        num_layers (`int`, *optional*, defaults to 12):
-            Number of hidden layers in the Transformer encoder.
-        num_heads (`int`, *optional*, defaults to 12):
-            Number of attention heads for each attention layer in the Transformer encoder.
-        multiple_of (Optional[int]): Define SwiGLU hidden layer size multiples, default 256.
-        n_kv_heads (Optional[int]): Define multi group head attention heads number, default None.
-        ffn_dim_multiplier (Optional[int]): Define ffn layer dim multiples, default None.
-        rms_norm_eps (Optional[float]): The epsilon value of the denominator. Default 1e-5.
-        bos_token_id (Optional[int]): The id of the *beginning-of-sequence* token.
-        eos_token_id (Optional[int]): The id of the *end-of-sequence* token.
-        pad_token_id (Optional[int]): The id of the *padding* token.
-        ignore_token_id (Optional[int]): The id of the *ignoring* token.
-        compute_dtype (Optional[str]):
-            Linear layer compute dtype, default is "float16".
-        layernorm_compute_type (Optional[str]):
-            layernorm compute dtype, default is "float32".
-        softmax_compute_type (Optional[str]):
-            softmax compute dtype, default is "float32".
-        rotary_dtype (Optional[str]):
-            rope compute dtype, default is "float32".
-        param_init_type (Optional[str]):
-            parameter initial dtype, default is "float16".
-        qkv_has_bias (Optional[bool]):
-            Whether the Query, Key, and Value projection has bias.
-        use_past (`bool`, *optional*, defaults to `False`):
+        hidden_size (int, optional):
+            Dimensionality of the encoder layers and the pooler layer. Default: ``4096`` .
+        num_layers (int, optional):
+            Number of hidden layers in the Transformer encoder. Default: ``32`` .
+        num_heads (int, optional):
+            Number of attention heads for each attention layer in the Transformer encoder. Default: ``32`` .
+        multiple_of (int, optional]): Define SwiGLU hidden layer size multiples. Default: ``256`` .
+        n_kv_heads (int, optional): Define multi group head attention heads number. Default: ``None`` .
+        ffn_dim_multiplier (int, optional): Define ffn layer dim multiples. Default: ``None`` .
+        rms_norm_eps (float,optional): The epsilon value of the denominator. Default: ``1e-5`` .
+        bos_token_id (int, optional): The id of the *beginning-of-sequence* token. Default: ``1`` .
+        eos_token_id (int, optional): The id of the *end-of-sequence* token. Default: ``2`` .
+        pad_token_id (int, optional): The id of the *padding* token. Default: ``0`` .
+        ignore_token_id (int, optional): The id of the *ignoring* token. Default: ``-100`` .
+        compute_dtype (str, optional):
+            Linear layer compute dtype. Default: ``float16`` .
+        layernorm_compute_type (str, optional):
+            layernorm compute dtype. Default: ``float32`` .
+        softmax_compute_type (str, optional):
+            softmax compute dtype. Default: ``float32`` .
+        rotary_dtype (str, optional):
+            rope compute dtype. Default: ``float32`` .
+        param_init_type (str, optional):
+            parameter initial dtype. Default: ``float16`` .
+        qkv_has_bias (bool, optional):
+            Whether the Query, Key, and Value projection has bias. Default: ``False`` .
+        use_past (bool, optional):
             Whether the model should use the past last key/values attentions
-            (if applicable to the model) to speed up decoding.
+            (if applicable to the model) to speed up decoding. Default: ``False`` .
         parallel_config(TransformerOpParallelConfig):
-            The parallel configure. Default `default_transformer_config`,
+            The parallel configure. Default: ``default_transformer_config`` ,
             an instance of `TransformerOpParallelConfig` with default args.
-        extend_method(str): The extend method of seq length of inferencem,default None.
-        use_flash_attention(bool): Whether enable flash attention ops, default False.
-        use_ring_attention(bool): Whether enable ring attention ops, default False.
-        offset(int): Offset of transformer layer when set pipeline stage number.
-        checkpoint_name_or_path (Optional[str]):
-            checkpoint path or name used to load to the network.
-        repetition_penalty (`float`, *optional*, defaults to 1.0):
-            The parameter for repetition penalty. 1.0 means no penalty. See [this
-            paper](https://arxiv.org/pdf/1909.05858.pdf) for more details.
-        max_decode_length (`int`, *optional*, defaults to 1024):
+        extend_method(str, optional): The extent method of seq length of inference. Default: ``None`` .
+        use_flash_attention(bool, optional): Whether enable flash attention ops. Default: ``False`` .
+        use_ring_attention(bool, optional): Whether enable ring attention ops. Default: ``False`` .
+        offset(int, optional): Offset of transformer layer when set pipeline stage number. Default: ``0`` .
+        checkpoint_name_or_path (str, optional):
+            checkpoint path or name used to load to the network. Default: ``None`` .
+        repetition_penalty (float, optional):
+            The parameter for repetition penalty. 1.0 means no penalty.
+            See `this paper <https://arxiv.org/pdf/1909.05858.pdf>`_ for more details. Default: ``1.0`` .
+        max_decode_length (int, optional):
             The maximum length the generated tokens can have. Corresponds to the length of the input prompt +
-            `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
-        top_k (`int`, *optional*, defaults to 5):
-            The number of highest probability vocabulary tokens to keep for top-k-filtering.
-        top_p (`float`, *optional*, defaults to 1.0):
+            `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set. Default: ``1024`` .
+        top_k (int, optional):
+            The number of highest probability vocabulary tokens to keep for top-k-filtering. Default: ``5`` .
+        top_p (float, optional):
             If set to float < 1, only the smallest set of most probable tokens with probabilities
-            that add up to `top_p` or higher are kept for generation.
-        do_sample (`bool`, *optional*, defaults to `False`):
-            Whether or not to use sampling ; use greedy decoding otherwise.
-        block_size (`int`, *optional*, defaults to 16):
-            The maximum number of tokens in one block can have when using paged attention.
-        num_blocks (`int`, *optional*, defaults to 512):
-            The maximum number of blocks when using paged attention.
-        tie_word_embeddings (`bool`, *optional*, defaults to `False`):
-            Whether to tie input and output embeddings.
-        llm_backend (`str`, *optional*, defaults to ``):
-            Llm boost backend.
-        Returns:
-            Class, LlamaConfig.
+            that add up to `top_p` or higher are kept for generation. Default: ``1.0`` .
+        do_sample (bool, optional):
+            Whether to use sampling; use greedy decoding otherwise. Default: ``True`` .
+        block_size (int, optional):
+            The maximum number of tokens in one block can have when using paged attention. Default: ``16`` .
+        num_blocks (int, optional):
+            The maximum number of blocks when using paged attention. Default: ``512`` .
+        tie_word_embeddings (bool, optional):
+            Whether to tie input and output embeddings. Default: ``False`` .
+        llm_backend (str, optional):
+            Llm boost backend. Default: ``None`` .
+
+    Returns:
+        LlamaConfig, a LlamaConfig instance.
     """
 
     model_type = "llama"
