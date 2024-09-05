@@ -994,6 +994,13 @@ class TrainingArguments:
     def get_warmup_steps(self, num_training_steps: int):
         """
         Get number of steps used for a linear warmup.
+
+        Args:
+            num_training_steps (int):
+                The number of training steps.
+
+        Return:
+            Number of training steps.
         """
         warmup_steps = (
             self.warmup_steps if self.warmup_steps > 0 else math.ceil(num_training_steps * self.warmup_ratio)
@@ -1001,7 +1008,12 @@ class TrainingArguments:
         return warmup_steps
 
     def get_recompute_config(self):
-        """get recompute config"""
+        """
+        Get recompute config.
+
+        Return:
+            An instance of TransformerRecomputeConfig.
+        """
         recompute_config = TransformerRecomputeConfig(
             recompute=self.recompute,
             select_recompute=self.select_recompute,
@@ -1012,7 +1024,12 @@ class TrainingArguments:
         return recompute_config
 
     def get_parallel_config(self):
-        """get parallel config"""
+        """
+        Get parallel config.
+
+        Return:
+            An instance of TransformerOpParallelConfig.
+        """
         parallel_config = TransformerOpParallelConfig(
             data_parallel=self.data_parallel,
             model_parallel=self.model_parallel,
@@ -1027,7 +1044,12 @@ class TrainingArguments:
         return parallel_config
 
     def get_moe_config(self):
-        """get moe config"""
+        """
+        Get moe config.
+
+        Return:
+            An instance of MoEConfig.
+        """
         moe_config = MoEConfig(
             expert_num=self.expert_num,
             capacity_factor=self.capacity_factor,
@@ -1080,31 +1102,27 @@ class TrainingArguments:
         </Tip>
 
         Args:
-            learning_rate (`float`, *optional*, defaults to 5e-5):
-                The initial learning rate for the optimizer.
-            batch_size (`int` *optional*, defaults to 8):
-                The batch size per device (GPU/NPU core/CPU...) used for training.
-            weight_decay (`float`, *optional*, defaults to 0):
+            learning_rate (float, optional):
+                The initial learning rate for the optimizer. Default: ``5e-5``.
+            batch_size (int, optional):
+                The batch size per device (GPU/NPU core/CPU...) used for training. Default: ``8``.
+            weight_decay (float, optional):
                 The weight decay to apply (if not zero) to all layers except all bias and LayerNorm weights in the
-                optimizer.
-            num_train_epochs(`float`, *optional*, defaults to 3.0):
+                optimizer. Default: ``0``.
+            num_epochs(int, optional):
                 Total number of training epochs to perform (if not an integer, will perform the decimal part percents
-                of the last epoch before stopping training).
-            gradient_accumulation_steps (`int`, *optional*, defaults to 1):
+                of the last epoch before stopping training). Default: ``3``.
+            gradient_accumulation_steps (int, optional):
                 Number of updates steps to accumulate the gradients for, before performing a backward/update pass.
-
-                <Tip warning={true}>
-
                 When using gradient accumulation, one step is counted as one step with backward pass. Therefore,
                 logging, evaluation, save will be conducted every `gradient_accumulation_steps * xxx_step` training
-                examples.
-
-                </Tip>
-
-            seed (`int`, *optional*, defaults to 42):
+                examples. Default: ``1``.
+            seed (int, optional):
                 Random seed that will be set at the beginning of training. To ensure reproducibility across runs, use
                 the [`~Trainer.model_init`] function to instantiate the model if it has some randomly initialized
-                parameters.
+                parameters. Default: ``42``.
+            kwargs (Any):
+                Additional parameters.
 
         Example:
 
@@ -1218,27 +1236,28 @@ class TrainingArguments:
             **kwargs
     ):
         """
-        A method that regroups all arguments linked to the evaluation.
+        A method that regroups all arguments linked to the checkpoint saving.
 
         Args:
-            strategy (`str` or [`~trainer_utils.IntervalStrategy`], *optional*, defaults to `"steps"`):
+            strategy (Union[str, IntervalStrategy], optional):
                 The checkpoint save strategy to adopt during training. Possible values are:
 
                     - `"no"`: No save is done during training.
                     - `"epoch"`: Save is done at the end of each epoch.
                     - `"steps"`: Save is done every `save_steps`.
-
-            steps (`int`, *optional*, defaults to 500):
-                Number of updates steps before two checkpoint saves if `strategy="steps"`.
-            total_limit (`int`, *optional*):
+                Default: ``steps``.
+            steps (int, optional):
+                Number of updates steps before two checkpoint saves if `strategy="steps"`. Default: ``500``.
+            total_limit (int, optional):
                 If a value is passed, will limit the total amount of checkpoints. Deletes the older checkpoints in
-                `output_dir`.
-            on_each_node (`bool`, *optional*, defaults to `False`):
+                `output_dir`. Default: ``None``.
+            on_each_node (bool, optional):
                 When doing multi-node distributed training, whether to save models and checkpoints on each node, or
                 only on the main one.
-
                 This should not be activated when the different nodes use the same storage as the files will be saved
-                with the same names for each node.
+                with the same names for each node. Default: ``True``.
+            kwargs (Any):
+                Additional parameters.
 
         Example:
 
@@ -1267,18 +1286,21 @@ class TrainingArguments:
             **kwargs
     ):
         """
-        A method that regroups all arguments linked to the evaluation.
+        A method that regroups all arguments linked to the logging.
 
         Args:
-            strategy (`str` or [`~trainer_utils.IntervalStrategy`], *optional*, defaults to `"steps"`):
+            strategy (Union[str, IntervalStrategy], optional):
                 The logging strategy to adopt during training. Possible values are:
 
-                    - `"no"`: No save is done during training.
-                    - `"epoch"`: Save is done at the end of each epoch.
-                    - `"steps"`: Save is done every `save_steps`.
+                    - `"no"`: No logging is done during training.
+                    - `"epoch"`: logging is done at the end of each epoch.
+                    - `"steps"`: logging is done every `save_steps`.
+                Default: ``steps``.
+            steps (int, optional):
+                Number of update steps between two logs if `strategy="steps"`. Default: ``500``.
+            kwargs (Any):
+                Additional parameters.
 
-            steps (`int`, *optional*, defaults to 500):
-                Number of update steps between two logs if `strategy="steps"`.
         Example:
 
         ```py
@@ -1383,21 +1405,24 @@ class TrainingArguments:
         A method that regroups all arguments linked to the optimizer and its hyperparameters.
 
         Args:
-            name (`str` or [`training_args.OptimizerNames`], *optional*, defaults to `"adamw"`):
+            name (Union[str, OptimizerType], optional):
                 The optimizer to use: `"AdamWeightDecay"`, `"adamw"`, `"adam"`, `"sgd"`,
-                `"adagrad"` or `"adafactor"`.
-            learning_rate (`float`, *optional*, defaults to 5e-5):
-                The initial learning rate.
-            lr_end (`float`, *optional*, defaults to 1e-6):
-                The end learning rate for the optimizer.
-            weight_decay (`float`, *optional*, defaults to 0):
+                `"adagrad"` or `"adafactor"`. Default: ``adamw``.
+            learning_rate (float, optional):
+                The initial learning rate. Default: ``5e-5``.
+            lr_end (float, optional):
+                The end learning rate for the optimizer. Default: ``1e-6``.
+            weight_decay (float, optional):
                 The weight decay to apply (if not zero) to all layers except all bias and LayerNorm weights.
-            beta1 (`float`, *optional*, defaults to 0.9):
-                The beta1 hyperparameter for the adam optimizer or its variants.
-            beta2 (`float`, *optional*, defaults to 0.999):
-                The beta2 hyperparameter for the adam optimizer or its variants.
-            epsilon (`float`, *optional*, defaults to 1e-8):
-                The epsilon hyperparameter for the adam optimizer or its variants.
+                Default: ``0``.
+            beta1 (float, optional):
+                The beta1 hyperparameter for the adam optimizer or its variants. Default: ``0.9``.
+            beta2 (float, optional):
+                The beta2 hyperparameter for the adam optimizer or its variants. Default: ``0.999``.
+            epsilon (float, optional):
+                The epsilon hyperparameter for the adam optimizer or its variants. Default: ``1e-8``.
+            kwargs (Any):
+                Additional parameters.
 
         Example:
 
@@ -1435,21 +1460,26 @@ class TrainingArguments:
         A method that regroups all arguments linked to the learning rate scheduler and its hyperparameters.
 
         Args:
-            name (`str` or [`LrSchedulerType`], *optional*, defaults to `"linear"`):
+            name (Union[str, LrSchedulerType], optional):
                 The scheduler type to use. See the documentation of [`LrSchedulerType`] for all possible values.
-            num_epochs(`float`, *optional*, defaults to 3.0):
+                Default: ``linear``.
+            num_epochs(float, optional):
                 Total number of training epochs to perform (if not an integer, will perform the decimal part percents
-                of the last epoch before stopping training).
-            warmup_lr_init (`float`, *optional*, defaults to 0.0):
-                The initial learning rate of warm up.
-            warmup_ratio (`float`, *optional*, defaults to 0.0):
-                Ratio of total training steps used for a linear warmup from 0 to `learning_rate`.
-            warmup_steps (`int`, *optional*, defaults to 0):
+                of the last epoch before stopping training). Default: ``3.0``.
+            warmup_lr_init (float, optional):
+                The initial learning rate of warm up. Default: ``0.0``.
+            warmup_epochs (int, optional):
+                The number of epochs. Default: ``None``.
+            warmup_ratio (float, optional):
+                Ratio of total training steps used for a linear warmup from 0 to `learning_rate`. Default: ``None``.
+            warmup_steps (int, optional):
                 Number of steps used for a linear warmup from 0 to `learning_rate`. Overrides any effect of
-                `warmup_ratio`.
-            total_steps (`int`, *optional*, default to -1):
+                `warmup_ratio`. Default: ``0``.
+            total_steps (int, optional):
                 Total number of steps used for calculating the learning rate,
-                -1 means it will load the total steps of the dataset.
+                -1 means it will load the total steps of the dataset. Default: ``-1``.
+            kwargs (Any):
+                Additional parameters.
 
         Example:
 
@@ -1487,28 +1517,30 @@ class TrainingArguments:
         A method that regroups all arguments linked to the dataloaders creation.
 
         Args:
-            train_batch_size (`int`, defaults to 8):
-                Batch size per GPU/NPU core/CPU for training.
-            eval_batch_size (`int`, defaults to 8):
-                Batch size per GPU/NPU core/CPU for evaluation.
-            drop_last (`bool`, *optional*, defaults to `False`):
+            train_batch_size (int, optional):
+                Batch size per GPU/NPU core/CPU for training. Default: ``8``.
+            eval_batch_size (int, optional):
+                Batch size per GPU/NPU core/CPU for evaluation. Default: ``8``.
+            drop_last (bool, optional):
                 Whether to drop the last incomplete batch (if the length of the dataset is not divisible by the batch
-                size) or not.
-            num_workers (`int`, *optional*, defaults to 0):
+                size) or not. Default: ``False``.
+            num_workers (int, optional):
                 Number of subprocesses to use for data loading (PyTorch only). 0 means that the data will be loaded in
-                the main process.
-            ignore_data_skip (`bool`, *optional*, defaults to `False`):
+                the main process. Default: ``0``.
+            ignore_data_skip (bool, optional):
                 When resuming training, whether or not to skip the epochs and batches to get the data loading at the
                 same stage as in the previous training. If set to `True`, the training will begin faster (as that
                 skipping step can take a long time) but will not yield the same results as the interrupted training
-                would have.
-            data_skip_steps (`int`,  *optional*, defaults to None):
+                would have. Default: ``False``.
+            data_skip_steps (int, optional):
                 Specify the skip steps of train dataset when resume training.
-                It only takes effect when `ignore_data_skip` is set to False.
-            sampler_seed (`int`, *optional*):
+                It only takes effect when `ignore_data_skip` is set to False. Default: ``None``.
+            sampler_seed (int, optional):
                 Random seed to be used with data samplers. If not set, random generators for data sampling will use the
                 same seed as `self.seed`. This can be used to ensure reproducibility of data sampling, independent of
-                the model seed.
+                the model seed. Default: ``None``.
+            kwargs (Any):
+                Additional parameters.
 
         Example:
 
@@ -1538,7 +1570,16 @@ class TrainingArguments:
                 logger.warning("the `%s` parameter is not supported.", k)
 
     def convert_args_to_mindformers_config(self, task_config: MindFormerConfig = None):
-        """convert training arguments to mindformer config type for adapting hugging-face."""
+        """
+        Convert training arguments to mindformer config type for adapting hugging-face.
+
+        Args:
+            task_config (MindFormerConfig, optional):
+                Task configuration. Default: ``None``.
+
+        Return:
+            An instance of MindFormerConfig, processed task configuration.
+        """
         if task_config is None:
             task_config = MindFormerConfig()
 

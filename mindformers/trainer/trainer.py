@@ -80,88 +80,87 @@ class Trainer:
     r"""
     Executor of general task trainers. It can initialize a trainer instance of the specific task through the task name
     and configuration file. It provides users with the ability to implement different tasks by encapsulating
-    the training, fine-tuning evaluation and prediction of trainer instance. It also allows users to customize
+    the train, finetune, evaluate and predict of trainer instance. It also allows users to customize
     the model, optimizer, dataset, tokenizer, processor, train_one_step, callback, and metric.
 
     You can initialize the Trainer using the following method:
-    1.Define the `task` and `model_name`, for example, task='text_generation', model_name='gpt2'.
-      By specifying the correct `task` and `model_name`, the corresponding YAML file will be found from MindFormerBook,
-      and it will be read as the task configuration.
-    2.Define the `task` and `model`, for example, task='text_generation', model='gpt2'.
-      The `model` can be either a model instance or a model name.
-      If the `model` is a model name, it will override the `model_name`.
-    3.Define the `task`, `model_name` and `model`, note that the `model` is a model instance now.
-    4.Define the `args` as an instance of MindFormerConfig or yaml path.
-      You can also pass a model instance through the `model` parameter.
-      Otherwise, the model will be initialized through the `args` configuration.
-    5.Define the `args` as an instance of TrainingArguments and the `model` as a model instance.
-    6.Define the `args` as an instance of TrainingArguments and just define the `task` and `model_name`.
-      In this case, you needn't pass in a model instance, the model will be initialized through the
-      YAML configuration obtained from `task` and `model_name`.
 
-    Additionally, please note the following points:
-    1.If you simultaneously pass in `args`, `task`, and `model_name`,
-      the task configuration will take precedence over `args`.
-      The YAML configuration obtained from `task` and `model_name` will be overridden by `args`.
-    2.If you use the Trainer.predict for inference, the `task` is needed.
+    1. Define the `task` and `model_name` , for example, task='text_generation', model_name='gpt2'.
+       By specifying the correct `task` and `model_name` , the corresponding YAML file will be found from
+       MindFormerBook, and it will be read as the task configuration.
+    2. Define the `task` and `model` , for example, task='text_generation', model='gpt2'.
+       The `model` can be either a model instance or a model name.
+       If the `model` is a model name, it will override the `model_name` .
+    3. Define the `task` , `model_name` and `model` , note that the `model` is a model instance now.
+    4. Define the `args` as an instance of MindFormerConfig or yaml path.
+       You can also pass a model instance through the `model` parameter.
+       Otherwise, the model will be initialized through the `args` configuration.
+    5. Define the `args` as an instance of TrainingArguments and the `model` as a model instance.
+    6. Define the `args` as an instance of TrainingArguments and just define the `task` and `model_name` .
+       In this case, you needn't pass in a model instance, the model will be initialized through the
+       YAML configuration obtained from `task` and `model_name` .
+
+    Note:
+        1. If you simultaneously pass in `args` , `task` , and `model_name` ,
+           the task configuration will take precedence over `args` .
+           The YAML configuration obtained from `task` and `model_name` will be overridden by `args` .
+        2. If you use the Trainer.predict for inference, the `task` is needed.
 
     Args:
-        args (Optional[Union[str, TrainingArguments]]):
+        args (Union[str, MindFormerConfig, TrainingArguments], optional):
             The task config which is used to configure the dataset, the hyperparameter, optimizer, etc.
-            It supports yaml path or MindFormerConfig or TrainingArguments class.
-            Default: None.
-        task (str):
-            Supported task type can refer to
-            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#.
-
-            Default: 'general'.
-        model (Optional[Union[str, PreTrainedModel]]):
-            The network for trainer. It supports model name supported or PreTrainedModel.
-            Supported model type can refer to
-            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#.
-            Default: None.
-        model_name (Optional[Union[str]]):
-            Supported model name can refer to
-            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#.
-
-            When the incoming model is a custom instance,
-            it is recommended to specify the supported model_name to get the base configuration of the model type.
-            Default: None.
-        pet_method (Optional[Union[str]]):
-            Supported pet method name can refer to
-            https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#llm.
-
-            Default: ''.
-        train_dataset (Optional[Union[str, BaseDataset]]):
-            The training dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
-            Default: None.
-        eval_dataset (Optional[Union[str, BaseDataset]]):
-            The evaluate dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
-            Default: None.
-        tokenizer (Optional[PreTrainedTokenizerBase]):
+            It supports yaml path, MindFormerConfig or TrainingArguments class.
+            Default: ``None`` .
+        task (str, optional):
+            Supported task type. Default: ``general`` .
+        model (Union[str, PreTrainedModel], optional):
+            The network for trainer. It supports model name supported or PreTrainedModel. Default: ``None`` .
+        model_name (Union[str], optional):
+            Supported model name. When the incoming model is a custom instance, it is recommended to specify
+            the supported model_name to get the base configuration of the model type.
+            Default: ``None`` .
+        tokenizer (PreTrainedTokenizerBase, optional):
             The tokenizer for text preprocessing. It supports PreTrainedTokenizerBase class.
-            Default: None.
-        image_processor (Optional[BaseImageProcessor]):
-            The processor for image preprocessing. It supports BaseImageProcessor class.
-            Default: None.
-        audio_processor (Optional[BaseAudioProcessor]):
-            The processor for audio preprocessing. It supports BaseAudioProcessor class.
-            Default: None.
-        optimizers (Optional[Optimizer]):
+            Default: ``None`` .
+        train_dataset (Union[str, BaseDataset], optional):
+            The training dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
+            Default: ``None`` .
+        eval_dataset (Union[str, BaseDataset], optional):
+            The evaluate dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
+            Default: ``None`` .
+        data_collator (Callable, optional):
+            Batch data processing function.
+            Default: ``None`` .
+        optimizers (Optimizer, optional):
             The training network's optimizer. It supports Optimizer class of MindSpore.
-            Default: None.
-        callbacks (Optional[Union[Callback, List[Callback]]]):
-            The training callback function. It supports CallBack or CallBack List of MindSpore.
-            Default: None.
-        eval_callbacks (Optional[Union[Callback, List[Callback]]]):
-            The evaluate callback function. It supports CallBack or CallBack List of MindSpore.
-            Default: None.
-        compute_metrics (Optional[Union[dict, set]]):
+            Default: ``None`` .
+        compute_metrics (Union[dict, set], optional):
             The metric of evaluating. It supports dict or set in MindSpore's Metric class.
-            Default: None.
-        save_config (bool):
+            Default: ``None`` .
+        callbacks (Union[Callback, List[Callback]], optional):
+            The training callback function. It supports CallBack or CallBack List of MindSpore.
+            Default: ``None`` .
+        eval_callbacks (Union[Callback, List[Callback]], optional):
+            The evaluate callback function. It supports CallBack or CallBack List of MindSpore.
+            Default: ``None`` .
+        pet_method (str, optional):
+            Supported pet method name.
+            Default: ``''`` .
+        image_processor (BaseImageProcessor, optional):
+            The processor for image preprocessing. It supports BaseImageProcessor class.
+            Default: ``None`` .
+        audio_processor (BaseAudioProcessor, optional):
+            The processor for audio preprocessing. It supports BaseAudioProcessor class.
+            Default: ``None`` .
+        save_config (bool, optional):
             Save current the config of task.
-            Default: False.
+            Default: ``False`` .
+        reset_model (bool, optional):
+            Reset model instance
+            Default: ``False`` .
+
+    Return:
+        An instance of Trainer.
 
     Raises:
         KeyError: If 'task' or 'model' not in supported trainer.
@@ -329,40 +328,39 @@ class Trainer:
         training method of task-trainer instance.
 
         Args:
-            train_checkpoint (Optional[Union[str, bool]]):
+            train_checkpoint (Union[str, bool], optional):
                 Used to restore training or fine-tune the weight of the network.
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
-            resume_from_checkpoint (Optional[Union[str, bool]]):
+                Default: ``False`` .
+            resume_from_checkpoint (Union[str, bool], optional):
                 Used to restore training or fine-tune the weight of the network.
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 if `train_checkpoint` is passed in, `resume_from_checkpoint` will be overridden.
-            resume_training (bool, str):
+                Default: ``None`` .
+            resume_training (Union[bool, str], optional):
                 Decide whether to resume training or specify the name of the checkpoint from which to resume training.
                 If set to True, the checkpoint recorded in meta.json will be loaded to resume training.
                 If a checkpoint name is provided, that specific checkpoint will be loaded for resume training.
-                Default: None.
-            ignore_data_skip (`bool`, *optional*, defaults to `False`):
+                Default: ``None`` .
+            ignore_data_skip (bool, optional):
                 When resuming training, whether or not to skip the epochs and batches to get the data loading at the
                 same stage as in the previous training. If set to `True`, the training will begin faster (as that
                 skipping step can take a long time) but will not yield the same results as the interrupted training
-                would have.
-            data_skip_steps (`int`,  *optional*, defaults to None):
+                would have. Default: ``None`` .
+            data_skip_steps (int, optional):
                 Specify the skip steps of train dataset when resume training.
-                It only takes effect when `ignore_data_skip` is set to False.
-            auto_trans_ckpt:
-                auto transform checkpoint to load in distributed model.
-            src_strategy (Optional[str]):
-                The strategy of `load_checkpoint`. Effective only when auto_trans_ckpt is set to True,
-                used for automatic checkpoint transform.
-            transform_process_num (Optional[int]):
-                The number of processes responsible for checkpoint transform.
-            do_eval (bool):
-                Whether evaluations are performed during training. Default: False.
-
-        Returns:
-            None
+                It only takes effect when `ignore_data_skip` is set to False. Default: ``None`` .
+            auto_trans_ckpt (bool, optional):
+                auto transform checkpoint to load in distributed model. Default: ``None`` .
+            src_strategy (str, optional):
+                The strategy of `load_checkpoint` . Effective only when auto_trans_ckpt is set to True,
+                used for automatic checkpoint transform. Default: ``None`` .
+            transform_process_num (int, optional):
+                The number of processes responsible for checkpoint transform. Default: ``None`` .
+            do_eval (bool, optional):
+                Whether evaluations are performed during training. Default: ``False`` .
 
         Raises:
             TypeError: if resume_from_checkpoint is not bool or str type.
@@ -458,44 +456,41 @@ class Trainer:
         training method of task-trainer instance.
 
         Args:
-            finetune_checkpoint (Optional[Union[str, bool]]):
+            finetune_checkpoint (Union[str, bool], optional):
                 Used to restore training or fine-tune the weight of the network.
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 if resume_training is true, this checkpoint will be used to restore training of the network.
-                Default: False.
-            resume_from_checkpoint (Optional[Union[str, bool]]):
+                Default: ``False`` .
+            resume_from_checkpoint (Union[str, bool], optional):
                 Used to restore training or fine-tune the weight of the network.
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 if resume_training is true, this checkpoint will be used to restore training of the network.
                 if `finetune_checkpoint` is passed in, `resume_from_checkpoint` will be overridden.
-                Default: None.
-            resume_training (bool, str):
+                Default: ``None`` .
+            resume_training (Union[bool, str], optional):
                 Decide whether to resume training or specify the name of the checkpoint from which to resume training.
                 If set to True, the checkpoint recorded in meta.json will be loaded to resume training.
                 If a checkpoint name is provided, that specific checkpoint will be loaded for resume training.
-                Default: None.
-            ignore_data_skip (`bool`, *optional*, defaults to `False`):
+                Default: ``None`` .
+            ignore_data_skip (bool, optional):
                 When resuming training, whether or not to skip the epochs and batches to get the data loading at the
-                same stage as in the previous training. If set to `True`, the training will begin faster (as that
+                same stage as in the previous training. If set to `True` , the training will begin faster (as that
                 skipping step can take a long time) but will not yield the same results as the interrupted training
-                would have.
-            data_skip_steps (`int`,  *optional*, defaults to None):
+                would have. Default: ``None`` .
+            data_skip_steps (int, optional):
                 Specify the skip steps of train dataset when resume training.
-                It only takes effect when `ignore_data_skip` is set to False.
-            auto_trans_ckpt:
-                auto transform checkpoint to load in distributed model
-            src_strategy (Optional[str]):
-                The strategy of `resume_from_checkpoint`. Effective only when auto_trans_ckpt is set to True,
-                used for automatic checkpoint transform.
-            transform_process_num (Optional[int]):
-                The number of processes responsible for checkpoint transform.
-            do_eval (bool):
-                Whether evaluations are performed during training. Default: False.
-
-        Returns:
-            None
+                It only takes effect when `ignore_data_skip` is set to False. Default: ``None`` .
+            auto_trans_ckpt(bool, optional):
+                Auto transform checkpoint to load in distributed model. Default: ``None`` .
+            src_strategy (str, optional):
+                The strategy of `resume_from_checkpoint` . Effective only when auto_trans_ckpt is set to True,
+                used for automatic checkpoint transform. Default: ``None`` .
+            transform_process_num (int, optional):
+                The number of processes responsible for checkpoint transform. Default: ``None`` .
+            do_eval (bool, optional):
+                Whether evaluations are performed during training. Default: ``False`` .
 
         Raises:
             TypeError: if load_checkpoint is not bool or str type.
@@ -599,19 +594,22 @@ class Trainer:
         evaluation method of task-trainer instance.
 
         Args:
-            eval_checkpoint (Optional[Union[str, bool]]):
+            eval_dataset (Union[str, BaseDataset, Dataset, Iterable], optional):
+                Evaluate dataset. Default: ``None``.
+            eval_checkpoint (Union[str, bool], optional):
                 Used to evaluate the weight of the network.
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
-                Default: False.
-            auto_trans_ckpt:
-                auto transform checkpoint to load in distributed model
-            src_strategy (Optional[str]):
-                The strategy of `resume_from_checkpoint`. Effective only when auto_trans_ckpt is set to True,
-                used for automatic checkpoint transform.
-
-        Returns:
-            None
+                Default: ``False`` .
+            auto_trans_ckpt (bool, optional):
+                Auto transform checkpoint to load in distributed model. Default: ``None``.
+            src_strategy (str, optional):
+                The strategy of `resume_from_checkpoint` . Effective only when auto_trans_ckpt is set to True,
+                used for automatic checkpoint transform. Default: ``None``.
+            transform_process_num (int, optional):
+                The number of processes responsible for checkpoint transform. Default: ``None``.
+            kwargs (Any):
+                Additional parameters.
 
         Raises:
             TypeError: if eval_checkpoint is not bool or str type.
@@ -681,27 +679,31 @@ class Trainer:
         prediction method of task-trainer instance.
 
         Args:
-            predict_checkpoint (Optional[Union[str, bool]]):
+            predict_checkpoint (Union[str, bool], optional):
                 Used to predict the weight of the network.
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
-                Default: False.
-            auto_trans_ckpt:
-                auto transform checkpoint to load in distributed model
-            src_strategy (Optional[str]):
-                The strategy of `resume_from_checkpoint`. Effective only when auto_trans_ckpt is set to True,
-                used for automatic checkpoint transform.
-            input_data (Optional[Union[Tensor, np.ndarray, Image, str, list]]):
-                The predict data. Default: None.
-            batch_size (Optional[int]):
-                Batch size of predict data. Default: None.
+                Default: ``None`` .
+            auto_trans_ckpt(bool, optional):
+                Auto transform checkpoint to load in distributed model. Default: ``None`` .
+            src_strategy (str, optional):
+                The strategy of `resume_from_checkpoint` . Effective only when auto_trans_ckpt is set to True,
+                used for automatic checkpoint transform. Default: ``None`` .
+            transform_process_num (int, optional):
+                The number of processes responsible for checkpoint transform. Default: ``None``.
+            input_data (Union[Tensor, np.ndarray, Image, str, list], optional):
+                The predict data. Default: ``None`` .
+            batch_size (int, optional):
+                Batch size of predict data. Default: ``None`` .
+            kwargs (Any):
+                Additional parameters.
 
         Return:
             predict result (dict).
 
         Raises:
             TypeError: if predict_checkpoint is not bool or str type.
-            TypeError: if input_data is not Tensor or np.ndarray or Image or str or list.
+            TypeError: if input_data is not Tensor, np.ndarray, Image, str or list.
         """
         if predict_checkpoint is not None and not isinstance(predict_checkpoint, (bool, str)):
             raise TypeError(f"predict_checkpoint must be one of [None, string, bool], "
