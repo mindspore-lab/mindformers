@@ -27,13 +27,16 @@ __all__ = ['MultiModalToTextPipeline']
 
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="multi_modal_to_text_generation")
 class MultiModalToTextPipeline(Pipeline):
-    r"""Pipeline for multi-modal to text generation
+    r"""Pipeline for multi-modal to text generation.
 
     Args:
         model (Union[PretrainedModel, Model]):
             The model used to perform task, the input should be a model instance inherited from PretrainedModel.
-        processor (Optional[BaseXModalToTextProcessor]):
-            The image_processor of model, it could be None if the model do not need image_processor.
+        processor (BaseXModalToTextProcessor, optional):
+            The image_processor of model, it could be None if the model do not need image_processor. Default: ``None`` .
+
+    Returns:
+        A pipeline for MultiModalToTextPipeline.
 
     Raises:
         TypeError:

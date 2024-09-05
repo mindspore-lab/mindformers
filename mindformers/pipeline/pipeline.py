@@ -61,24 +61,27 @@ def pipeline(
         tokenizer: Optional[PreTrainedTokenizerBase] = None,
         image_processor: Optional[BaseImageProcessor] = None,
         audio_processor: Optional[BaseAudioProcessor] = None,
-        backend: str = "ms",
-        **kwargs):
-    r"""Pipeline for downstream tasks
+        backend: Optional[str] = "ms",
+        **kwargs: Any):
+    r"""Pipeline for executing the inference flow of integrated tasks and models.
 
     Args:
         task (str):
-            The supported task could be selected from MindFormerBook.show_pipeline_support_task_list().
-        model (Optional[Union[str, PreTrainedModel]]):
-            The model used for task.
-        tokenizer (Optional[PreTrainedTokenizerBase]):
-            The tokenizer of the model.
-        image_processor (Optional[BaseImageProcessor]):
-            The image processor of the model.
-        audio_processor (Optional[BaseAudioProcessor]):
-            The audio processor of the model.
-        backend(str):
-            The inference backend. Default "ms", now support ["ms", "mslite"].
-        **kwargs:
+            The task, now support ['zero_shot_image_classification', 'image_to_text_generation',
+            'multi_modal_to_text_generation', 'masked_image_modeling', 'image_classification', 'translation',
+            'fill_mask', 'text_classification', 'token_classification', 'question_answering', 'text_generation',
+            'image_to_text_retrieval', 'segment_anything']. Default: ``None`` .
+        model (Union[str, PreTrainedModel, Model, Tuple[str, str]], optional):
+            The model used for task. Default: ``None`` .
+        tokenizer (PreTrainedTokenizerBase, optional):
+            The tokenizer of the model. Default: ``None`` .
+        image_processor (BaseImageProcessor, optional):
+            The image processor of the model. Default: ``None`` .
+        audio_processor (BaseAudioProcessor, optional):
+            The audio processor of the model. Default: ``None`` .
+        backend (str, optional):
+            The inference backend. Currently, only "ms" is supported. Default: ``"ms"`` .
+        **kwargs (Any):
             Refers to the kwargs description of the corresponding task pipeline.
 
     Returns:
@@ -88,18 +91,27 @@ def pipeline(
         KeyError: If the task or model is not supported.
 
     Examples:
-        >>> from mindformers import pipeline
-        >>> from mindformers.tools.image_tools import load_image
-        >>> classifier = pipeline("zero_shot_image_classification",
-            candidate_labels=["sunflower", "tree", "dog", "cat", "toy"])
-        >>> img = load_image("https://ascend-repo-modelzoo.obs.cn-east-2."
-            "myhuaweicloud.com/XFormer_for_mindspore/clip/sunflower.png")
-        >>> classifier(img)
-        [[{'score': 0.99995565, 'label': 'sunflower'},
-        {'score': 2.5318595e-05, 'label': 'toy'},
-        {'score': 9.903885e-06, 'label': 'dog'},
-        {'score': 6.75336e-06, 'label': 'tree'},
-        {'score': 2.396818e-06, 'label': 'cat'}]]
+        >>> from mindformers import build_context
+        >>> from mindformers import AutoModel, AutoTokenizer, pipeline
+        >>> # Construct inputs
+        >>> inputs = ["I love Beijing, because", "LLaMA is a", "Huawei is a company that"]
+        >>> # Initialize the environment
+        >>> build_context({'context': {'mode': 0}, 'parallel': {}, 'parallel_config': {}})
+        >>> # Tokenizer instantiation
+        >>> tokenizer = AutoTokenizer.from_pretrained('llama2_7b')
+        >>> # Model instantiation
+        >>> # Download the weights of the corresponding model from the HuggingFace model library,
+        >>> # Refer to the README.md of the model to convert the weights to ckpt format.
+        >>> model = AutoModel.from_pretrained('llama2_7b', checkpoint_name_or_path="path/to/llama2_7b.ckpt",
+        ...                                   use_past=True)
+        >>> # The pipeline performs inference task.
+        >>> text_generation_pipeline = pipeline(task="text_generation", model=model, tokenizer=tokenizer)
+        >>> outputs = text_generation_pipeline(inputs, max_length=512, do_sample=False)
+        >>> for output in outputs:
+        ...     print(output)
+        'text_generation_text': [I love Beijing, because it is a city that is constantly constantly changing. I ......]
+        'text_generation_text': [LLaMA is a large-scale, open-source, multimodal, multilingual, multitask, and ......]
+        'text_generation_text': [Huawei is a company that has been around for a long time. ......]
     """
 
     if backend == Backend.MS.value:
