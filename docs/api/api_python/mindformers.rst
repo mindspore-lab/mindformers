@@ -1,6 +1,17 @@
 mindformers
 ==================
 
+Trainer高阶接口
+------------------
+
+.. mscnautosummary::
+    :toctree: mindformers
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.Trainer
+    mindformers.TrainingArguments
+
 pipeline高阶接口
 ------------------
 
