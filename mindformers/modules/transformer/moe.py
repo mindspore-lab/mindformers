@@ -1146,7 +1146,8 @@ class TopkRouterV2(Cell):
         self.not_equal = P.NotEqual().shard(((dp, 1, 1), ()))
 
         # sort indexing
-        self.range2 = Tensor(np.tile(np.arange(131072), (self.expert_dim, 1)), mstype.float32)
+        self.range2 = Tensor(np.tile(np.arange(moe_config.max_router_load),
+                                     (self.expert_dim, 1)), mstype.float32)
         self.add_one = P.Add().shard(((dp, 1, 1), ()))
         self.add_range = P.Add().shard(((1, 1, 1), ()))
         self.sub_range = P.Sub().shard(((), (dp, 1, 1)))
@@ -1401,14 +1402,17 @@ class TopkRouterV2(Cell):
         return router_coeff  # (dp, N, k)
 
     def _calculate_expert_capacity_dynamic(self, expert_index):
+        """
+        Calculate dynamic capactiy.
+        """
         expert_index = self.reshape(expert_index, (self.dp_group, -1))
         expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value_int, self.off_value_int)  # (dp, kN, E) <- (dp, kN)
         expert_mask = self.reduce_sum(expert_mask, 1)  # (dp, E) <- (dp, kN, E)
         expert_capacity = expert_mask.max()  # (1, ) <- (dp, E)
         expert_capacity = self.cast(expert_capacity, mstype.int64)
-        expert_capacity = self.sub(self.add(expert_capacity, self.expert_dim),
-                                   self.mod_expert(expert_capacity, self.expert_dim))
-        return self.tensor2scalar(expert_capacity)
+        expert_capacity_scalar = self.tensor2scalar(expert_capacity)
+        expert_capacity_scalar = (expert_capacity_scalar // self.mp + 1) * self.mp
+        return expert_capacity_scalar
 
     def _expert_load_balancing(self, scores, top_indices, alpha):
         """Expert level load balance loss, which regularizes the load from local batch data on each expert to be balanced
@@ -1554,7 +1558,7 @@ class MoEInfer(Cell):
             expert_weight = expert_val / (self.expand_dims(ops.sum(expert_val, -1), -1) + 1e-9)
         else:
             expert_weight = ops.mul(self.moe_config.routed_scaling_factor, expert_val)
-            
+
         expert_weight = self.cast(expert_weight, input_dtype)
 
         sorted_input_tensor, group_list, unsort_map = self.tensor_sort(input_tensor, expert_index)
