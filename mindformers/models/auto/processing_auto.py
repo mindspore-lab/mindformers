@@ -104,11 +104,10 @@ def processor_class_from_name(class_name: str):
 
 
 class AutoProcessor:
-    """
-    This is a generic processor class that will be instantiated as one of the processor classes of the library when
-    created with the [`AutoProcessor.from_pretrained`] class method.
-
-    This class cannot be instantiated directly using `__init__()` (throws an error).
+    r"""
+    This is a generic processor class that will be instantiated as one of the processor
+    classes of the library when created with the from_pretrained() class method.
+    This class cannot be instantiated directly using \_\_init\_\_() (throws an error).
     """
     _support_list = MindFormerBook.get_processor_support_list()
     _model_type = 0
@@ -152,15 +151,16 @@ class AutoProcessor:
     @classmethod
     def from_pretrained(cls, yaml_name_or_path, **kwargs):
         """
-        From pretrain method, which instantiated a processor by yaml name or path.
+        From pretrain method, which instantiates a processor by YAML, directory or model_id from modelers.cn.
+
+        Warning:
+            The API is experimental and may have some slight breaking changes in the next releases.
 
         Args:
-            yaml_name_or_path (str): A supported yaml name or a path to .yaml file,
-                the supported model name could be selected from .show_support_list().
-                If yaml_name_or_path is model name, it supports model names beginning with mindspore or
-                the model name itself, such as "mindspore/vit_base_p16" or "vit_base_p16".
-            pretrained_model_name_or_path (Optional[str]): Equal to "yaml_name_or_path",
-                if "pretrained_model_name_or_path" is set, "yaml_name_or_path" is useless.
+            yaml_name_or_path (str): YAML file path, a folder containing JAON file,
+                or a model_id from modelers.cn. The last three are experimental features.
+            kwargs (additional keyword arguments): The values in kwargs of any keys which are configuration
+                attributes will be used to override the loaded values.
 
         Returns:
             A processor which inherited from ProcessorMixin.
@@ -380,13 +380,17 @@ class AutoProcessor:
 
     @staticmethod
     def register(config_class, processor_class, exist_ok=False):
-        """
+        r"""
         Register a new processor for this class.
 
+        Warning:
+            The API is experimental and may have some slight breaking changes in the next releases.
+
         Args:
-            config_class ([`PretrainedConfig`]):
-                The configuration corresponding to the model to register.
-            processor_class ([`FeatureExtractorMixin`]): The processor to register.
+            config_class (PretrainedConfig): The model config class.
+            processor_class (ProcessorMixin): The processor class.
+            exist_ok (bool, optional): If set to True, no error will be raised even if config_class already exists.
+                Default: ``False`` .
         """
         PROCESSOR_MAPPING.register(config_class, processor_class, exist_ok=exist_ok)
 

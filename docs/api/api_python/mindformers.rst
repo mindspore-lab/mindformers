@@ -11,6 +11,22 @@ pipeline高阶接口
 
     mindformers.pipeline
 
+Auto类
+------------------
+
+.. mscnautosummary::
+    :toctree: mindformers
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.AutoConfig
+    mindformers.AutoModel
+    mindformers.AutoModelForCausalLM
+    mindformers.AutoModelForZeroShotImageClassification
+    mindformers.AutoModelForVisualQuestionAnswering
+    mindformers.AutoProcessor
+    mindformers.AutoTokenizer
+
 运行检查
 ------------------
 

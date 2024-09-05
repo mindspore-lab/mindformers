@@ -284,11 +284,16 @@ class _BaseAutoModelClass:
     @classmethod
     def from_config(cls, config, **kwargs):
         """
-        From config method, which instantiates a Model by config.
+        From config method, which instantiates a Model by model config or YAML.
+
+        Warning:
+            The API is experimental and may have some slight breaking changes in the next releases.
 
         Args:
-            config (str, PretrainedConfig, MindFormerConfig): A model config inherited from PretrainedConfig,
-            or a path to .yaml file for model config, or a model config inherited from MindFormerConfig.
+            config (Union[MindFormerConfig, PretrainedConfig, str]): MindFormerConfig, YAML file,
+                or a model config inherited from PretrainedConfig (experimental feature).
+            kwargs (additional keyword arguments): The values in kwargs of any keys which are configuration
+                attributes will be used to override the config values.
 
         Returns:
             A model, which inherited from PreTrainedModel.
@@ -511,17 +516,20 @@ class _BaseAutoModelClass:
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_dir, *model_args, **kwargs):
-        """
-        From pretrain method, which instantiates a Model by pretrained model name or path.
+        r"""
+        From pretrain method, which instantiates a model by directory or model_id from modelers.cn.
+
+        Warning:
+            The API is experimental and may have some slight breaking changes in the next releases.
 
         Args:
-            pretrained_model_name_or_dir (str): A supported model name or a directory to model checkpoint
-                (including .yaml file for config and .ckpt file for weights), the supported model name could be
-                selected from AutoModel.show_support_list().
-                If pretrained_model_name_or_dir is model name, it supports model names beginning with mindspore or
-                the model name itself, such as "mindspore/vit_base_p16" or "vit_base_p16".
-            pretrained_model_name_or_path (Optional[str]): Equal to "pretrained_model_name_or_dir",
-                if "pretrained_model_name_or_path" is set, "pretrained_model_name_or_dir" is useless.
+            pretrained_model_name_or_dir (str): A folder containing a YAML file and ckpt file, a folder
+                containing config.json and ckpt file, or a model_id from modelers.cn.
+                The last two are experimental features.
+            model_args (additional arguments): Will be passed along to the underlying model \_\_init\_\_() method.
+                Only works in experimental mode.
+            kwargs (additional keyword arguments): The values in kwargs of any keys which are configuration
+                attributes will be used to override the loaded values.
 
         Returns:
             A model, which inherited from PreTrainedModel.
@@ -667,14 +675,17 @@ class _BaseAutoModelClass:
 
     @classmethod
     def register(cls, config_class, model_class, exist_ok=False):
-        """
+        r"""
         Register a new model for this class.
 
+        Warning:
+            The API is experimental and may have some slight breaking changes in the next releases.
+
         Args:
-            config_class ([`PretrainedConfig`]):
-                The configuration corresponding to the model to register.
-            model_class ([`PreTrainedModel`]):
-                The model to register.
+            config_class (PretrainedConfig): The model config class.
+            model_class (PretrainedModel): The model class.
+            exist_ok (bool, optional): If set to True, no error will be raised even if config_class already exists.
+                Default: ``False`` .
         """
         if hasattr(model_class, "config_class") and model_class.config_class != config_class:
             raise ValueError(
