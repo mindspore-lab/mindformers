@@ -15,7 +15,7 @@
 """Keyword Generation Dataset."""
 import copy
 import os
-from typing import Optional, Union, Callable
+from typing import Optional, Union, Callable, List
 
 import numpy as np
 import mindspore.common.dtype as mstype
@@ -154,7 +154,7 @@ class KeyWordGenDataset(BaseDataset):
                 dataset_config: Optional[dict] = None,
                 data_loader: Union[dict, Callable] = None,
                 tokenizer: Union[dict, Callable] = None,
-                input_columns: list[str] = None,
+                input_columns: List[str] = None,
                 batch_size: int = 8,
                 drop_remainder: bool = True,
                 num_parallel_workers: int = 8,

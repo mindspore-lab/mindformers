@@ -16,7 +16,7 @@
 import os
 import copy
 import re
-from typing import Union, Optional, Callable
+from typing import Union, Optional, Callable, List
 import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore.dataset.transforms import TypeCast
@@ -201,8 +201,8 @@ class CausalLanguageModelDataset(BaseDataset):
     def __new__(cls,
                 dataset_config: Optional[dict] = None,
                 data_loader: Union[dict, Callable] = None,
-                input_columns: list[str] = None,
-                output_columns: list[str] = None,
+                input_columns: List[str] = None,
+                output_columns: List[str] = None,
                 batch_size: int = 8,
                 drop_remainder: bool = True,
                 num_parallel_workers: int = 8,
