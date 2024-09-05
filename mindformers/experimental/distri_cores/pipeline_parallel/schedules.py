@@ -204,12 +204,12 @@ def run_backward(*input_tensor,
         grad_fn = C.GradOperation(get_by_list=True, sens_param=True)(model, weight)
 
         # calculate grads
-        weight_grad = grad_fn(*input_tensor, recv_data=None, sens=recv_grads)
-        weight_grad = list(weight_grad)
+        weight_grad_res = grad_fn(*input_tensor, recv_data=None, sens=recv_grads)
+        weight_grad_list = list(weight_grad_res)
 
         # get dout and weight_grad
-        dout = weight_grad.pop(0)
-        weight_grad = tuple(weight_grad)
+        dout = weight_grad_list.pop(0)
+        weight_grad = tuple(weight_grad_list)
 
     # the first stage do not require backpropagation
     if is_pipeline_first_stage():

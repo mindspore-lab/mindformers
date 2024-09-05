@@ -173,15 +173,15 @@ class BloomTokenizer(PreTrainedTokenizer):
                 else:
                     new_word.append(word[i])
                     i += 1
-            new_word = tuple(new_word)
-            word = new_word
+            new_word_tuple = tuple(new_word)
+            word = new_word_tuple
             if len(word) == 1:
                 break
             else:
                 pairs = get_pairs(word)
-        word = " ".join(word)
-        self.cache[token] = word
-        return word
+        word_str = " ".join(word)
+        self.cache[token] = word_str
+        return word_str
 
     def _tokenize(self, text, **kwargs):
         """ Tokenize a string using bpe encode. """

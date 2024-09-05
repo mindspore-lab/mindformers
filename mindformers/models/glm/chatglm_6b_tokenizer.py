@@ -283,8 +283,6 @@ class ChatGLMTokenizer(PreTrainedTokenizer):
 
     def _decode(self, token_ids, skip_special_tokens=False, clean_up_tokenization_spaces=None, **kwargs):
         """ Decode id to text. """
-        # unused in this tokenizer.
-        _, _ = skip_special_tokens, kwargs
         if isinstance(token_ids, int):
             token_ids = [token_ids]
         if self.pad_token_id in token_ids:  # remove pad

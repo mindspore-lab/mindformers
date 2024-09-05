@@ -1087,7 +1087,7 @@ class TrainingArguments:
             learning_rate: float = 5e-5,
             batch_size: int = 8,
             weight_decay: float = 0,
-            num_epochs: int = 3,
+            num_epochs: float = 3.0,
             gradient_accumulation_steps: int = 1,
             seed: int = 42,
             **kwargs
