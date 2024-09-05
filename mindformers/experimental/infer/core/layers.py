@@ -418,13 +418,13 @@ class VocabParallelEmbedding(nn.Cell):
         )
 
         with get_rng_tracer().rng_fork():
-            self.weight = Parameter(
+            self.embedding_weight = Parameter(
                 initializer(
                     init=init_method,
                     shape=(self.num_embeddings_per_partition, self.embedding_dim),
                     dtype=init_type,
                 ),
-                name="weight",
+                name="embedding_weight",
             )
         self.reduce_from_mp_region = ReduceFromModelParallelRegion()
         self.reduce_scatter_to_sp_region = ReduceScatterToSequenceParallelRegion()
@@ -449,7 +449,7 @@ class VocabParallelEmbedding(nn.Cell):
             truncated_x = x
         # Get the embeddings.
         # 'embedding' has dynamic shape issue, use gather instead now.
-        output_parallel = self.gather(self.weight, truncated_x, 0)
+        output_parallel = self.gather(self.embedding_weight, truncated_x, 0)
         # Mask the output embedding.
         if self.tensor_model_parallel_size > 1:
             output_parallel = mint.mul(output_parallel, input_mask)
