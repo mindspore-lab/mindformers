@@ -265,13 +265,24 @@ class ModalContentTransformTemplate:
     """
     Base class of modal content transform template. It should be implemented by the specific model. The child class can
     override the methods `build_conversion_input_text`, `update_result_before_output`, `batch`, `post_process` to
-    achieve the model's expectations
+    achieve the model's expectations.
 
     Args:
-        output_columns(List[str]): Specify which columns will be output.
-        tokenizer: tokenizer.
-        mode(str): running mode, predict or train.
-        vstack_columns(List[str]): Specify which columns will be vstack when batching data.
+        output_columns (list[str], optional): Specify which columns will be output. Default: ``None`` .
+        tokenizer (Tokenizer, optional): Build a good model tokenizer. Default: ``None`` .
+        mode (str): running mode, predict or train. Default: ``predict`` .
+        vstack_columns (list[str], optional): Specify which columns will be vstack when batching data.
+            Default: ``None`` .
+        modal_content_padding_size (int): Used in training mode for inherited Template subclasses,
+            it usually represents the maximum number of
+            supported modal contents (such as images) within a training sample.
+            When the number of modal contents in a training sample is less than this value,
+            the modal contents will be expanded to that value.
+        max_length (int): Used in training mode, for inherited Template subclasses,
+            it usually represents the maximum length that a training sample
+            can fill in after the content mask is completed after segmentation.
+        kwargs (dict, optional): A variable number of keyword parameters reserved
+            for the keyword parameters to be expanded.
     """
     _DEFAULT_OUTPUT_COLUMNS = ["input_ids"]
 
@@ -312,7 +323,19 @@ class ModalContentTransformTemplate:
         self.tensor_vstack = ops.vstack
 
     def process_predict_query(self, query_ele_list: List[Dict], result_recorder: DataRecord):
-        """Find the corresponding modal builder by traversing and process it"""
+        """
+        In predict mode, find the corresponding modal builder by traversing and process it.
+
+        Args:
+            query_ele_list (list[dict]): A list of elements for predicting a request.
+                For example: [{"image":"/path/to/image"}, {"text":"describe image in English"}].
+            result_recorder (DataRecord): The result data recorder is used to save data that
+                needs to be recorded during the inference process.
+                Values are stored by calling the put method of the DataRecord.
+
+        Returns:
+            The text results processed by each modal builder.
+        """
         text_list = []
         for query_ele in query_ele_list:
             modal_type = ""
@@ -331,7 +354,20 @@ class ModalContentTransformTemplate:
         return text_list
 
     def process_train_item(self, conversation_list: List[List], result_recorder: DataRecord):
-        """Find the corresponding modal builder by traversing and process it"""
+        """
+        In train mode, find the corresponding modal builder by traversing and process it.
+
+        Args:
+            conversation_list (list[list]): A list of elements for dialogue data.
+                For example: [["user", "<img>/path/to/image<img>describe image in English:"],
+                ["assistant", "the image describe ...."]]
+            result_recorder (DataRecord): The result data recorder is used to save data that
+                needs to be recorded during the inference process.
+                Values are stored by calling the put method of the DataRecord.
+
+        Returns:
+            The text results processed by each modal builder.
+        """
         text_list = []
         for key_from, conversation in conversation_list:
             modal_type = ""
@@ -353,17 +389,51 @@ class ModalContentTransformTemplate:
 
     @property
     def supported_modal(self):
+        """
+        Used to return the templates supported of modal builder type by an instance.
+
+        Returns:
+            List type, containing the types of modal builder supported by an instance.
+        """
         if not self._supported_modal:
             self._supported_modal = [modal_builder.type for modal_builder in self.modal_builders.values()]
         return self._supported_modal
 
     @abc.abstractmethod
     def build_conversation_input_text(self, raw_inputs, result_recorder: DataRecord):
+        """
+        Used in predict mode, assemble a conversation based on incoming inputs.
+        Usually inherited and used by quilt class.
+
+        Args:
+            raw_inputs (str): input data.
+            result_recorder (DataRecord): The result data recorder is used to save data that
+                needs to be recorded during the inference process.
+                Values are stored by calling the put method of the DataRecord.
+
+        Returns:
+            Str type. Assembled dialogue.
+        """
         if self.mode == "predict":
             return "".join(raw_inputs)
         raise ValueError(f"building {self.mode} mode conversion inputs is not supported.")
 
     def build_modal_context(self, input_ids, result_recorder: DataRecord, **kwargs):
+        """
+        According to the requirements of the modal builder,
+        process the input_ids and finally return the processed input_ids.
+
+        Args:
+            input_ids (list): input data.
+            result_recorder (DataRecord): The result data recorder is used to save data that
+                needs to be recorded during the inference process.
+                Values are stored by calling the put method of the DataRecord.
+            kwargs (dict, optional): A variable number of keyword parameters reserved
+                for the keyword parameters to be expanded.
+
+        Returns:
+            The processed input_ids.
+        """
         if isinstance(input_ids, list):
             input_ids = np.array(input_ids)
 
@@ -374,6 +444,18 @@ class ModalContentTransformTemplate:
         return input_ids
 
     def build_labels(self, text_id_list, result_recorder, **kwargs):
+        """
+        Used in training mode, for subclasses to inherit, to construct the labels needed for training from text data.
+
+        Args:
+            text_id_list (list): A list containing text data identifiers or indices.
+            result_recorder (DataRecord): The result data recorder is used to save data that
+                needs to be recorded during the inference process.
+                Values are stored by calling the put method of the DataRecord.
+            kwargs (dict, optional): A variable number of keyword parameters reserved
+                for the keyword parameters to be expanded.
+        """
+        # pylint: disable=W0107
         pass
 
     def generate_modal_context_positions(self, input_ids, batch_index: int = 0,
@@ -419,6 +501,17 @@ class ModalContentTransformTemplate:
             self.has_init_modal_builder_tokens = True
 
     def get_need_update_output_items(self, result: DataRecord) -> Dict[str, Any]:
+        """
+        Retrieve the output items that need to be updated.
+
+        Args:
+            result (DataRecord): The result data recorder is used to save data that
+                needs to be recorded during the inference process.
+                Values are stored by calling the put method of the DataRecord.
+
+        Returns:
+            A Dict. Defaults to an empty dict.
+        """
         update_items = {}
         return update_items
 
@@ -464,7 +557,19 @@ class ModalContentTransformTemplate:
         return batch_result, batched_data
 
     def batch(self, data_list, token_padding_length, **kwargs):
-        """bath the column data in the output_names"""
+        """
+        Batch the column data in the output_names.
+
+        Args:
+            data_list (list): A list containing multiple data items.
+            token_padding_length (int): Used to pad the length of "tokens" to ensure that
+                all text data has the same length.
+            kwargs (dict, optional): A variable number of keyword parameters reserved
+                for the keyword parameters to be expanded.
+
+        Returns:
+            A dict. Used to store the batched data.
+        """
         batched_data = {}
         for column_name in self.output_columns:
             column_data_list = [data[column_name] for data in data_list if
@@ -485,6 +590,17 @@ class ModalContentTransformTemplate:
         return batched_data
 
     def post_process(self, output_ids, **kwargs):
+        """
+        Decode the model's output_ids into text strings.
+
+        Args:
+            output_ids (list): A list containing the model's output_ids.
+            kwargs (dict, optional): A variable number of keyword parameters reserved
+                for the keyword parameters to be expanded.
+
+        Returns:
+            A list containing all decoded text strings.
+        """
         skip_special_tokens = kwargs.get("skip_special_tokens", True)
         output = []
         for output_ids_item in output_ids:
