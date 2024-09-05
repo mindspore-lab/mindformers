@@ -95,11 +95,13 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
     Args:
         network (Cell): The training network. The network only supports single output.
         optimizer (Cell): Optimizer for updating the network parameters.
-        use_clip_grad (bool): Whether to use the gradient clipping function. Default: False.
-        max_grad_norm (float): Maximum gradient value. Default: 1.0.
+        use_clip_grad (bool): Whether to use the gradient clipping function. Default: ``False`` .
+        max_grad_norm (float): Maximum gradient value. Default: ``1.0`` .
         scale_sense (Union[Tensor, Cell]): If this value is a Cell, it will be called by `MFTrainOneStepCell`
             to update loss scale. If this value is a Tensor, the loss scale can be modified by `set_sense_scale`,
             the shape should be :math:`()` or :math:`(1,)`.
+        local_norm (bool): Whether to calculate the local norm. Default: ``False`` .
+        kwargs (Any): Additional parameters.
 
     Inputs:
         - **(*inputs)** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \ldots)`.
@@ -218,10 +220,12 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
     Args:
         network (Cell): The training network. Note that loss function should have been added.
         optimizer (Optimizer): Optimizer for updating the weights.
-        use_clip_grad (bool): Whether to use gradient clipping. Default: True.
-        max_grad_norm (float): Maximum gradient constraint value. Default: 1.0.
-        scale_sense (Cell): Cell to do the loss scale. Default: 1.0.
-        micro_batch_num (int): Micro batch number of pipeline parallel. Default: 1.
+        use_clip_grad (bool): Whether to use gradient clipping. Default: ``True`` .
+        max_grad_norm (float): Maximum gradient constraint value. Default: ``1.0`` .
+        scale_sense (Cell): Cell to do the loss scale. Default: ``1.0`` .
+        micro_batch_num (int): Micro batch number of pipeline parallel. Default: ``1`` .
+        local_norm (bool): Whether to calculate the local norm. Default:`` False`` .
+        kwargs (Any): Additional parameters.
 
     Inputs:
         - **(\*inputs)** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \ldots)`.
@@ -236,6 +240,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
     Raises:
         TypeError: If `scale_sense` is neither Cell nor Tensor.
         ValueError: If shape of `scale_sense` is neither (1,) nor ().
+        ValueError: If the parallel mode is not one of [ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL].
     """
 
     def __init__(self, network, optimizer, use_clip_grad=True, max_grad_norm=1.0,
