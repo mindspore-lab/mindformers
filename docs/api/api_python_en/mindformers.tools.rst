@@ -17,8 +17,7 @@ Register
 MindFormerConfig
 ------------------
 
-
-.. mscnautosummary::
+.. autosummary::
     :toctree: tools
     :nosignatures:
     :template: classtemplate.rst
