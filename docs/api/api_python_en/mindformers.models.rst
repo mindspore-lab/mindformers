@@ -4,7 +4,7 @@ mindformers.models
 GLM
 ---------------------
 
-.. mscnautosummary::
+.. autosummary::
     :toctree: models
     :nosignatures:
     :template: classtemplate.rst
