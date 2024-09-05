@@ -1,6 +1,27 @@
 mindformers.models
 ===================
 
+基类
+-----
+
+.. mscnautosummary::
+    :toctree: models
+    :nosignatures:
+
+    mindformers.models.PretrainedConfig
+    mindformers.models.PreTrainedTokenizer
+    mindformers.models.PreTrainedTokenizerFast
+
+Llama
+-------
+.. mscnautosummary::
+    :toctree: models
+    :nosignatures:
+
+    mindformers.models.LlamaConfig
+    mindformers.models.LlamaTokenizer
+    mindformers.models.LlamaTokenizerFast
+
 GLM
 ---------------------
 

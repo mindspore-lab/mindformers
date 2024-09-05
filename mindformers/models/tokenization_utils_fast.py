@@ -76,16 +76,84 @@ VOCAB_FILES_NAMES = {"tokenizer_file": TOKENIZER_FILE}
 @add_end_docstrings(INIT_TOKENIZER_DOCSTRING)
 # pylint: disable=W0223
 class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
-    """
+    r"""
     Base class for all fast tokenizers (wrapping HuggingFace tokenizers library).
 
-    Inherits from [`~tokenization_utils_base.PreTrainedTokenizerBase`].
+    Inherits from :class:`mindformers.models.tokenization_utils_fast.PreTrainedTokenizerBase`.
 
     Handles all the shared methods for tokenization and special tokens, as well as methods for
     downloading/caching/loading pretrained tokenizers, as well as adding tokens to the vocabulary.
 
     This class also contains the added tokens in a unified way on top of all tokenizers so we don't have to handle the
     specific vocabulary augmentation methods of the various underlying dictionary structures (BPE, sentencepiece...).
+
+    Args:
+        model_max_length (int, optional):
+            The maximum length (in number of tokens) for the inputs to the transformer model.
+            Set when the tokenizer is loaded with ``from_pretrained()`` based on the model's
+            ``max_model_input_sizes`` attribute.  Default: ``1e-30`` .
+        padding_side (str, optional):
+            Specifies the side on which the model should have padding applied. Options are
+            ['right', 'left']. The default value is picked from the class attribute of the
+            same name.
+        truncation_side (str, optional):
+            Specifies the side on which the model should have truncation applied.
+            Options are ['right', 'left']. The default value is picked from the class
+            attribute of the same name.
+        chat_template (str, optional):
+            A Jinja template string used to format lists of chat messages.
+            Default: ``"{% for message in messages %}{{'<|im_start|>' + message['role'] +
+            '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{
+            '<|im_start|>assistant\n' }}{% endif %}"`` .
+        model_input_names (List[str], optional):
+            Lists the names of inputs accepted by the forward pass of the model,
+            such as "token_type_ids" or "attention_mask". Defaults to values picked
+            from the class attribute of the same name. Default: ``None`` .
+        bos_token (Union[str, tokenizers.AddedToken], optional):
+            Represents the beginning of a sentence and is associated with
+            ``self.bos_token`` and ``self.bos_token_id``. Default: ``None`` .
+        eos_token (str or tokenizers.AddedToken, optional):
+            Represents the end of a sentence and is associated with ``self.eos_token``
+            and ``self.eos_token_id``. Default: ``None`` .
+        unk_token (Union[str, tokenizers.AddedToken], optional):
+            Represents an out-of-vocabulary token and is associated with
+            ``self.unk_token`` and ``self.unk_token_id``. Default: ``None`` .
+        sep_token (Union[str, tokenizers.AddedToken], optional):
+            A special token separating two different sentences in the same input
+            (used by BERT, for example) and is associated with ``self.sep_token``
+            and ``self.sep_token_id``. Default: ``None`` .
+        pad_token (Union[str, tokenizers.AddedToken], optional):
+            Used to make arrays of tokens the same size for batching purposes and
+            will be ignored by attention mechanisms or loss computation. It is
+            associated with ``self.pad_token`` and ``self.pad_token_id``. Default: ``None`` .
+        cls_token (Union[str, tokenizers.AddedToken], optional):
+            Represents the class of the input (used by BERT, for example) and is
+            associated with ``self.cls_token`` and ``self.cls_token_id``. Default: ``None`` .
+        mask_token (Union[str, tokenizers.AddedToken], optional):
+            Represents a masked token (used by masked-language modeling pretraining
+            objectives like BERT) and is associated with ``self.mask_token`` and
+            ``self.mask_token_id``. Default: ``None`` .
+        additional_special_tokens (Union[tuple, list of str, tokenizers.AddedToken], optional):
+            Lists additional special tokens that are ensured to be skipped when
+            decoding with ``skip_special_tokens`` set to True. They will be added
+            at the end of the vocabulary if not already part of it. Default: ``None`` .
+        clean_up_tokenization_spaces (bool, optional):
+            Determines whether to clean-up spaces that were added when splitting the
+            input text during the tokenization process. Default: ``True`` .
+        split_special_tokens (bool, optional):
+            Specifies whether special tokens should be split during the tokenization
+            process. This affects the internal state of the tokenizer. By default, special
+            tokens are not split. For example, if ``<s>`` is the ``bos_token``, then
+            ``tokenizer.tokenize("<s>") = ['<s>']``. If ``split_special_tokens = True``,
+            then ``tokenizer.tokenize("<s>")`` would result in ``['<','s', '>']``. Default: ``False`` .
+        tokenizer_object (tokenizers.Tokenizer):
+            A ``tokenizers.Tokenizer`` object from tokenizers to instantiate from.
+        tokenizer_file (str):
+            A path to a local JSON file representing a previously serialized ``tokenizers.Tokenizer`` object
+            from tokenizers.
+
+    Returns:
+        PreTrainedTokenizerFast instance.
     """
 
     vocab_files_names = VOCAB_FILES_NAMES
@@ -242,7 +310,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         Returns the added tokens in the vocabulary as a dictionary of index to AddedToken.
 
         Returns:
-            `Dict[str, int]`: The added tokens.
+            `Dict[str, int]`, the added tokens.
         """
         return self._tokenizer.get_added_tokens_decoder()
 
@@ -251,7 +319,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         Returns the added tokens in the vocabulary as a dictionary of token to index.
 
         Returns:
-            `Dict[str, int]`: The added tokens.
+            `Dict[str, int]`, the added tokens.
         """
         return {k.content: v for v, k in sorted(self.added_tokens_decoder.items(), key=lambda item: item[0])}
 
@@ -264,7 +332,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
     @property
     def backend_tokenizer(self) -> TokenizerFast:
         """
-        `tokenizers.implementations.PreTrainedTokenizerBase`: The Rust tokenizer used as a backend.
+        `tokenizers.implementations.PreTrainedTokenizerBase`, The Rust tokenizer used as a backend.
         """
         return self._tokenizer
 
@@ -327,10 +395,10 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         vocabulary.
 
         Args:
-            tokens (`str` or `List[str]`): One or several token(s) to convert to token id(s).
+            tokens (Union[str, List[str]]): One or several token(s) to convert to token id(s).
 
         Returns:
-            `int` or `List[int]`: The token id or list of token ids.
+            `int` or `List[int]`, The token id or list of token ids.
         """
         if tokens is None:
             return None
@@ -360,20 +428,15 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         """
         Returns the number of added tokens when encoding a sequence with special tokens.
 
-        <Tip>
-
         This encodes a dummy input and checks the number of added tokens, and is therefore not efficient. Do not put
         this inside your training loop.
 
-        </Tip>
-
         Args:
-            pair (`bool`, *optional*, defaults to `False`):
-                Whether the number of added tokens should be computed in the case of a sequence pair or a single
-                sequence.
+            pair (bool, optional): Whether the number of added tokens should be computed in the case of
+                a sequence pair or a single sequence. Default: ``False`` .
 
         Returns:
-            `int`: Number of special tokens added to sequences.
+            `int`, Number of special tokens added to sequences.
         """
         return self._tokenizer.num_special_tokens_to_add(pair)
 
@@ -381,17 +444,17 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
             self, ids: Union[int, List[int]], skip_special_tokens: bool = False
     ) -> Union[str, List[str]]:
         """
-        Converts a single index or a sequence of indices in a token or a sequence of tokens, using the vocabulary and
-        added tokens.
+        Converts a single index or a sequence of indices in a token or a sequence of tokens,
+        using the vocabulary and added tokens.
 
         Args:
-            ids (`int` or `List[int]`):
+            ids (int or List[int]):
                 The token id (or token ids) to convert to tokens.
-            skip_special_tokens (`bool`, *optional*, defaults to `False`):
-                Whether or not to remove special tokens in the decoding.
+            skip_special_tokens (bool, optional):
+                Whether to remove special tokens in the decoding.  Default: ``False`` .
 
         Returns:
-            `str` or `List[str]`: The decoded token(s).
+            `str` or `List[str]`, The decoded token(s).
         """
         if isinstance(ids, int):
             return self._tokenizer.id_to_token(ids)
@@ -416,24 +479,25 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
     ):
         """
         Define the truncation and the padding strategies for fast tokenizers (provided by HuggingFace tokenizers
-        library) and restore the tokenizer settings afterwards.
+        library) and restore the tokenizer settings after.
 
         The provided tokenizer has no padding / truncation strategy before the managed section. If your tokenizer set a
         padding / truncation strategy before, then it will be reset to no padding / truncation when exiting the managed
         section.
 
         Args:
-            padding_strategy ([`~utils.PaddingStrategy`]):
+            padding_strategy (PaddingStrategy):
                 The kind of padding that will be applied to the input
-            truncation_strategy ([`~tokenization_utils_base.TruncationStrategy`]):
+            truncation_strategy (TruncationStrategy):
                 The kind of truncation that will be applied to the input
-            max_length (`int`):
+            max_length (int):
                 The maximum size of a sequence.
-            stride (`int`):
+            stride (int):
                 The stride to use when handling overflow.
-            pad_to_multiple_of (`int`, *optional*):
-                If set will pad the sequence to a multiple of the provided value. This is especially useful to enable
-                the use of Tensor Cores on NVIDIA hardware with compute capability `>= 7.5` (Volta).
+            pad_to_multiple_of (int, optional):
+                If set will pad the sequence to a multiple of the provided value. This is especially useful
+                to enable the use of Tensor Cores on NVIDIA hardware with compute capability `>= 7.5` (Volta).
+                Default: ``None`` .
         """
         truncation = self._tokenizer.truncation
         padding = self._tokenizer.padding
@@ -709,23 +773,20 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         as the current one.
 
         Args:
-            text_iterator (generator of `List[str]`):
-                The training corpus. Should be a generator of batches of texts, for instance a list of lists of texts
-                if you have everything in memory.
-            vocab_size (`int`):
-                The size of the vocabulary you want for your tokenizer.
-            length (`int`, *optional*):
-                The total number of sequences in the iterator. This is used to provide meaningful progress tracking
-            new_special_tokens (list of `str` or `AddedToken`, *optional*):
-                A list of new special tokens to add to the tokenizer you are training.
-            special_tokens_map (`Dict[str, str]`, *optional*):
-                If you want to rename some of the special tokens this tokenizer uses, pass along a mapping old special
-                token name to new special token name in this argument.
-            kwargs (`Dict[str, Any]`, *optional*):
-                Additional keyword arguments passed along to the trainer from the 🤗 Tokenizers library.
+            text_iterator (list): The training corpus. Should be a generator of batches of texts,
+                for instance a list of lists of texts if you have everything in memory.
+            vocab_size (int): The size of the vocabulary you want for your tokenizer.
+            length (int, optional): The total number of sequences in the iterator. This is used to provide meaningful
+                progress tracking. Default: ``None`` .
+            new_special_tokens (Union[list, AddedToken], optional): A list of new special tokens to add to the
+                tokenizer you are training. Default: ``None`` .
+            special_tokens_map (dict, optional): If you want to rename some of the special tokens this
+                tokenizer uses, pass along a mapping old special token name to new special token name in this argument.
+                 Default: ``None`` .
+            kwargs (Any): Additional keyword arguments.
 
         Returns:
-            [`PreTrainedTokenizerFast`]: A new tokenizer of the same type as the original one, trained on
+            `PreTrainedTokenizerFast`, A new tokenizer of the same type as the original one, trained on
             `text_iterator`.
 
         """
@@ -864,12 +925,12 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         [`~PreTrainedTokenizerFast._save_pretrained`] to save the whole state of the tokenizer.
 
         Args:
-            save_directory (`str`):
+            save_directory (str):
                 The directory in which to save the vocabulary.
-            filename_prefix (`str`, *optional*):
-                An optional prefix to add to the named of the saved files.
+            filename_prefix (str, optional):
+                An optional prefix to add to the named of the saved files. Default: ``None`` .
 
         Returns:
-            `Tuple(str)`: Paths to the files saved.
+            `Tuple(str)`, Paths to the files saved.
         """
         raise NotImplementedError

@@ -49,52 +49,44 @@ correct. If you don't know the answer to a question, please don't share false in
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class LlamaTokenizer(PreTrainedTokenizer):
     r"""
-    Construct a Llama tokenizer. Based on byte-level Byte-Pair-Encoding. The default padding token is unset as there is
-    no padding token in the original model.
+    Construct a Llama tokenizer based on byte-level Byte-Pair-Encoding.
+
+    The default padding token is unset as there isno padding token in the original model.
 
     Args:
-        vocab_file (`str`):
+        vocab_file (str):
             Path to the vocabulary file.
-        unk_token (`str` or `tokenizers.AddedToken`, *optional*, defaults to `"<unk>"`):
+        unk_token (Union[str, AddedToken], optional):
             The unknown token. A token that is not in the vocabulary cannot be converted to an ID and is set to be this
-            token instead.
-        bos_token (`str` or `tokenizers.AddedToken`, *optional*, defaults to `"<s>"`):
+            token instead. Default: ``"<unk>"`` .
+        bos_token (Union[str, AddedToken], optional):
             The beginning of sequence token that was used during pretraining. Can be used a sequence classifier token.
-        eos_token (`str` or `tokenizers.AddedToken`, *optional*, defaults to `"</s>"`):
-            The end of sequence token.
-        pad_token (`str` or `tokenizers.AddedToken`, *optional*):
+            Default: ``"<s>"`` .
+        eos_token (Union[str, AddedToken], optional):
+            The end of sequence token. Default: ``"</s>"`` .
+        pad_token (Union[str, AddedToken], optional):
             A special token used to make arrays of tokens the same size for batching purpose. Will then be ignored by
-            attention mechanisms or loss computation.
-        sp_model_kwargs (`Dict[str, Any]`, `Optional`, *optional*):
-            Will be passed to the `SentencePieceProcessor.__init__()` method. The [Python wrapper for
-            SentencePiece](https://github.com/google/sentencepiece/tree/master/python) can be used, among other things,
-            to set:
+            attention mechanisms or loss computation. Default: ``"<unk>"`` .
+        sp_model_kwargs (dict[str, Any], optional):
+            Will be passed to the `SentencePieceProcessor.__init__()` method.
+            The `Python wrapper for SentencePiece <https://github.com/google/sentencepiece/tree/master/python>`_
+            can be used, among other things, to set keys below. Default: ``None`` , an empty dict will be passed.
+        add_bos_token (bool):
+            Whether to add an `bos_token` at the start of sequences. Default: ``True`` .
+        add_eos_token (bool):
+            Whether to add an `eos_token` at the end of sequences. Default: ``False`` .
+        clean_up_tokenization_spaces (bool):
+            Whether to clean up spaces after decoding. Cleanup includes removing potential artifacts like
+            extra spaces. Default: ``False`` .
+        use_default_system_prompt (bool):
+            Whether the default system prompt for Llama should be used. Default: ``False`` .
+        spaces_between_special_tokens (bool):
+            Whether to add spaces between special tokens. Default: ``False`` .
+        legacy (bool):
+            Whether the `legacy` behavior of the tokenizer should be used. Default: ``True`` .
 
-            - `enable_sampling`: Enable subword regularization.
-            - `nbest_size`: Sampling parameters for unigram. Invalid for BPE-Dropout.
-
-              - `nbest_size = {0,1}`: No sampling is performed.
-              - `nbest_size > 1`: samples from the nbest_size results.
-              - `nbest_size < 0`: assuming that nbest_size is infinite and samples from the all hypothesis (lattice)
-                using forward-filtering-and-backward-sampling algorithm.
-
-            - `alpha`: Smoothing parameter for unigram sampling, and dropout probability of merge operations for
-              BPE-dropout.
-
-        add_bos_token (`bool`, *optional*, defaults to `True`):
-            Whether or not to add an `bos_token` at the start of sequences.
-        add_eos_token (`bool`, *optional*, defaults to `False`):
-            Whether or not to add an `eos_token` at the end of sequences.
-        clean_up_tokenization_spaces (`bool`, *optional*, defaults to `False`):
-            Whether or not to cleanup spaces after decoding, cleanup consists in removing potential artifacts like
-            extra spaces.
-        use_default_system_prompt (`bool`, *optional*, defaults to `False`):
-            Whether or not the default system prompt for Llama should be used.
-        spaces_between_special_tokens (`bool`, *optional*, defaults to `False`):
-            Whether or not to add spaces between special tokens.
-        legacy (`bool`, *optional*):
-            Whether or not the `legacy` behavior of the tokenizer should be used. Legacy is before the merge of #24622
-            and #25224 which includes fixes to properly handle tokens that appear after special tokens.
+    Returns:
+        A LlamaTokenizer instance.
 
     Examples:
         >>> from mindformers import LlamaTokenizer
@@ -107,7 +99,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
         {'input_ids': [1, 27701, 924, 0, 0, 0, 0, 0, 0, 0], 'attention_mask': [1, 1, 1, 0, 0, 0, 0, 0, 0, 0]}
         >>> res = tokenizer("hello world", return_tensors='ms')
         >>> print(res)
-        {'input_ids': Tensor(shape=[3], dtype=Int32, value= [    1, 27701,   924]), 'attention_mask': Tensor(shape=[3],
+        {'input_ids': Tensor(shape=[3], dtype=Int32, value= [    1, 27701,  924]), 'attention_mask': Tensor(shape=[3],
         dtype=Int32, value= [1, 1, 1])}
     """
 
@@ -294,8 +286,20 @@ class LlamaTokenizer(PreTrainedTokenizer):
 
         return (out_vocab_file,)
 
-    def build_inputs_with_special_tokens(self, token_ids_0, token_ids_1=None):
-        r"""Insert the special tokens to the input_ids. Currently"""
+    def build_inputs_with_special_tokens(self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None):
+        r"""
+        Insert the special tokens to the input_ids. Current this method will add `bos_token` and 'eos_token'
+        to the head and end of sequence respectively.
+
+        Args:
+            token_ids_0 (list[int]):
+                List of token IDs.
+            token_ids_1 (list[int], optional):
+                Second list of token IDs for sequence pairs. Default: ``None`` , only use one sequence.
+
+        Returns:
+            list of the tokens after inserting special tokens.
+        """
         bos_token_id = [self.bos_token_id] if self.add_bos_token else []
         eos_token_id = [self.eos_token_id] if self.add_eos_token else []
 
@@ -317,15 +321,15 @@ class LlamaTokenizer(PreTrainedTokenizer):
         special tokens using the tokenizer `prepare_for_model` method.
 
         Args:
-            token_ids_0 (`List[int]`):
-                List of IDs.
-            token_ids_1 (`List[int]`, *optional*):
-                Optional second list of IDs for sequence pairs.
-            already_has_special_tokens (`bool`, *optional*, defaults to `False`):
-                Whether or not the token list is already formatted with special tokens for the model.
+            token_ids_0 (list[int]):
+                List of token IDs.
+            token_ids_1 (list[int], optional):
+                Second list of token IDs for sequence pairs. Default: ``None`` , only use one sequence.
+            already_has_special_tokens (bool):
+                Whether the token list is already formatted with special tokens for the model. Default: ``False`` .
 
         Returns:
-            `List[int]`: A list of integers in the range [0, 1]: 1 for a special token, 0 for a sequence token.
+            A list consists of integer 0 and 1, where 1 for a special token and 0 for a sequence token.
         """
         if already_has_special_tokens:
             return super().get_special_tokens_mask(
@@ -350,24 +354,25 @@ class LlamaTokenizer(PreTrainedTokenizer):
             self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None
     ) -> List[int]:
         """
-        Creates a mask from the two sequences passed to be used in a sequence-pair classification task. An ALBERT
-        sequence pair mask has the following format:
+        Creates a mask from the two sequences passed to be used in a sequence-pair classification task.
+        An ALBERT sequence pair mask has the following format:
 
         ```
-        0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
-        | first sequence    | second sequence |
+        0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1
+        |   first sequence   | second sequence  |
         ```
 
-        if token_ids_1 is None, only returns the first portion of the mask (0s).
+        if `token_ids_1` is None, then only returns the first portion of the mask (0s).
 
         Args:
-            token_ids_0 (`List[int]`):
-                List of ids.
-            token_ids_1 (`List[int]`, *optional*):
-                Optional second list of IDs for sequence pairs.
+            token_ids_0 (list[int]):
+                List of token IDs.
+            token_ids_1 (list[int], optional):
+                Second list of token IDs for sequence pairs. Default: ``None`` , only use one sequence.
 
         Returns:
-            `List[int]`: List of [token type IDs](../glossary#token-type-ids) according to the given sequence(s).
+            A List consists of integer 0 and 1 according to the given sequence(s),
+            where 0 for tokens in `token_ids_0` and 1 for tokens in `token_ids_1`.
         """
         bos_token_id = [self.bos_token_id] if self.add_bos_token else []
         eos_token_id = [self.eos_token_id] if self.add_eos_token else []
