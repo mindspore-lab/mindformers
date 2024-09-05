@@ -22,7 +22,7 @@ do_eval: False
 # runner config
 runner_config:
   epochs: 2
-  batch_size: 16
+  batch_size: 2
   sink_mode: True
   sink_size: 2
 
@@ -92,6 +92,8 @@ parallel:
     parallel_optimizer_threshold: 64
 # default parallel of device num = 16 for Atlas 800T A2
 parallel_config:
+  data_parallel: 8
+  model_parallel: 1
   mem_coeff: 0.1
   pipeline_stage: 1
   use_seq_parallel: False
