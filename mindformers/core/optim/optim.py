@@ -15,7 +15,7 @@
 """FusedAdamWeightDecay, a customized Adam for offloading."""
 import numpy as np
 
-from mindspore import context, nn
+from mindspore import nn
 from mindspore.common import dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import composite as C
@@ -439,10 +439,7 @@ class FP32StateAdamWeightDecay(nn.AdamWeightDecay):
         self.moments1 = clone_state(parameters=self.parameters, prefix='adam_m', init='zeros')
         self.moments2 = clone_state(parameters=self.parameters, prefix='adam_v', init='zeros')
         self.fused_opt = P.AdamWeightDecay()
-        if context.get_context("device_target") == "CPU":
-            self.use_fused_opt = True
-        else:
-            self.use_fused_opt = False
+        self.use_fused_opt = True
 
 
 @_adam_opt.register("Function", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor", "Tensor",
