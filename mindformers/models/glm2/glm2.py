@@ -270,7 +270,8 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         labels = Tensor(kwargs["labels"]) if "labels" in kwargs else None
         bs, seq = input_ids.shape[0], input_ids.shape[1]
         slot_mapping = Tensor(np.ones(shape=tuple([bs * seq])), mstype.int32)
-        return input_ids, labels, None, None, None, None, None, None, None, None, slot_mapping, None, None
+        batch_valid_length = Tensor(np.array([seq] * bs), mstype.int32)
+        return input_ids, labels, None, None, None, None, None, batch_valid_length, None, None, slot_mapping, None, None
 
     def set_dynamic_inputs(self, **kwargs):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)

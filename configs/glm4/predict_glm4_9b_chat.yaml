@@ -157,3 +157,10 @@ callbacks:
 eval_callbacks:
   - type: ObsMonitor
     keep_last: False
+
+# ==== runner config ====
+runner_config:
+  epochs: 1
+  batch_size: 8
+  sink_mode: True
+  sink_size: 4
