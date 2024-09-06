@@ -136,12 +136,12 @@ class PrefixTuningConfig(PetConfig):
         self.dropout_rate = dropout_rate
 
 
-class SLoraConfig(DictConfig):
+class SLoraConfig(PetConfig):
     """
     Multi-LoRA algorithm config.
 
     Args:
-        lora_target_modules (`str`, *optional*, defaults to None):
+        target_modules (`str`, *optional*, defaults to None):
             The Layers that require replacement with LoRa algorithm.
         lora_num ('int', *optional*, default to 1):
             The number of LoRA weights used in LoRA matrices
@@ -155,28 +155,24 @@ class SLoraConfig(DictConfig):
             The number of extra vocabulary size introduced by LoRA
         lora_dtype (`str`, *optional*, defaults to 'float16'):
             The type of data in initialized tensor.
-        lora_names (List(str)):
-            The lora names for multiple tasks.
 
     Returns:
         Class, SLoraConfig.
     """
     def __init__(self,
-                 lora_target_modules: str = None,
+                 target_modules: str = None,
                  lora_num: int = 1,
                  lora_rank: int = 8,
                  lora_alpha: int = 8,
                  lora_dropout: float = 0.0,
                  lora_extra_vocab_size: int = 0,
                  lora_dtype: str = "float16",
-                 lora_names: List[str] = None,
                  **kwargs):
-        super(SLoraConfig, self).__init__(**kwargs)
-        self.lora_target_modules = lora_target_modules
+        super().__init__(pet_type="slora", **kwargs)
+        self.target_modules = target_modules
         self.lora_num = lora_num
         self.lora_rank = lora_rank
         self.lora_alpha = lora_alpha
         self.lora_dropout = lora_dropout
         self.lora_extra_vocab_size = lora_extra_vocab_size
         self.lora_dtype = convert_mstype(lora_dtype)
-        self.lora_names = lora_names
