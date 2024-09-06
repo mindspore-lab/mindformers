@@ -41,6 +41,7 @@ from mindformers.generation.streamers import BaseStreamer
 from mindformers.generation.utils import softmax_with_threads, topk, GenerateOutput, InferOutput
 from mindformers.modules.block_tables import BlockTables
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import is_pynative
 from mindformers.generation.parallel_decoding import parallel_decoding_control, parallel_decoding_process
 
 __all__ = ["GenerationMixin"]
@@ -80,6 +81,7 @@ class GenerationMixin:
     def __init__(self):
         self.block_mgr = None
         self.use_mint_op = version_control.use_mint_op()
+        self.is_pynative = is_pynative()
         self.argmax = mint.argmax if self.use_mint_op else ms.ops.argmax
 
     def _set_block_mgr(self, batch_size):
@@ -1116,7 +1118,7 @@ class GenerationMixin:
             next_logits_cache, cache for logits, if needed in output.
             is_finished, whether the sequence has completed its generation task.
         """
-        if self.use_mint_op:
+        if self.use_mint_op and not self.is_pynative:
             from mindspore.common.api import _pynative_executor
             _pynative_executor.set_async_for_graph(True)
         batch_size = input_ids.shape[0]
@@ -1210,7 +1212,7 @@ class GenerationMixin:
 
         elif generation_config.generation_mode == GenerationMode.BEAM_SEARCH:
             raise ValueError("sampler method doesn't support BEAM_SEARCH. ")
-        if self.use_mint_op:
+        if self.use_mint_op and not self.is_pynative:
             from mindspore.common.api import _pynative_executor
             _pynative_executor.sync()
             _pynative_executor.set_async_for_graph(False)
