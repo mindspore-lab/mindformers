@@ -1,7 +1,19 @@
 mindformers.core
 ==================
 
-核心模块，包含损失函数、优化器、学习率及训练回调函数等。
+核心模块，包含运行时上下文、损失函数、优化器、学习率、回调函数和评估指标。
+
+运行时上下文
+------------
+
+.. mscnautosummary::
+    :toctree: core
+    :nosignatures:
+
+    mindformers.core.build_context
+    mindformers.core.get_context
+    mindformers.core.init_context
+    mindformers.core.set_context
 
 损失函数
 --------
@@ -9,7 +21,6 @@ mindformers.core
 .. mscnautosummary::
     :toctree: core
     :nosignatures:
-    :template: classtemplate.rst
 
     mindformers.core.CrossEntropyLoss
 
@@ -19,18 +30,16 @@ mindformers.core
 .. mscnautosummary::
     :toctree: core
     :nosignatures:
-    :template: classtemplate.rst
 
     mindformers.core.AdamW
     mindformers.core.Came
 
-动态学习率
+学习率
 ----------
 
 .. mscnautosummary::
     :toctree: core
     :nosignatures:
-    :template: classtemplate.rst
 
     mindformers.core.LearningRateWiseLayer
     mindformers.core.ConstantWarmUpLR
@@ -47,7 +56,6 @@ mindformers.core
 .. mscnautosummary::
     :toctree: core
     :nosignatures:
-    :template: classtemplate.rst
 
     mindformers.core.CheckpointMonitor
     mindformers.core.EvalCallBack
@@ -55,26 +63,12 @@ mindformers.core
     mindformers.core.ProfileMonitor
     mindformers.core.SummaryMonitor
 
-Context
---------
-
-.. mscnautosummary::
-    :toctree: core
-    :nosignatures:
-    :template: classtemplate.rst
-
-    mindformers.core.build_context
-    mindformers.core.get_context
-    mindformers.core.init_context
-    mindformers.core.set_context
-
 评估指标
 --------
 
 .. mscnautosummary::
     :toctree: core
     :nosignatures:
-    :template: classtemplate.rst
 
     mindformers.core.EntityScore
     mindformers.core.EmF1Metric

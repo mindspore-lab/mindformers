@@ -1,7 +1,7 @@
 mindformers.pet
 ===============
 
-LoraModel
+Pet 模型
 ---------------------
 
 .. mscnautosummary::
@@ -9,7 +9,7 @@ LoraModel
 
     mindformers.pet.models.LoraModel
 
-Config
+Pet 配置
 ---------------------
 
 .. mscnautosummary::

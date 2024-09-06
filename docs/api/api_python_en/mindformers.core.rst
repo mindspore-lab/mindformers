@@ -1,7 +1,20 @@
 mindformers.core
 ==================
 
-core module, including Loss, Optimizer, Learning Rate and Callback, etc.
+core module, including Runtime Context, Loss, Optimizer, Learning Rate, Callback, and Evaluation Metrics.
+
+Runtime Context
+-----------------
+
+.. autosummary::
+    :toctree: core
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.core.build_context
+    mindformers.core.get_context
+    mindformers.core.init_context
+    mindformers.core.set_context
 
 Loss
 -----
@@ -55,20 +68,7 @@ Callback
     mindformers.core.ProfileMonitor
     mindformers.core.SummaryMonitor
 
-Context
---------
-
-.. autosummary::
-    :toctree: core
-    :nosignatures:
-    :template: classtemplate.rst
-
-    mindformers.core.build_context
-    mindformers.core.get_context
-    mindformers.core.init_context
-    mindformers.core.set_context
-
-Evaluation metrics
+Evaluation Metric
 -------------------
 
 .. autosummary::
