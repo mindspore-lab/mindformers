@@ -1,4 +1,4 @@
-# GLM-4-9B-Chat
+# GLM-4
 
 ## 模型描述
 
@@ -71,10 +71,10 @@ MindFormers提供`alpaca`数据集示例处理脚本制作[微调](#微调)示�
 
 - **alpaca 数据预处理**
 
-  执行`mindformers/models/glm2/alpaca_converter.py`，将原始数据集转换为指定格式。
+  执行`mindformers/tools/dataset_preprocess/glm4/alpaca_converter.py`，将原始数据集转换为jsonl格式。
 
   ```shell
-  python mindformers/models/glm2/alpaca_converter.py \
+  python mindformers/tools/dataset_preprocess/glm4/alpaca_converter.py \
    --data_path /path/alpaca_data.json \
    --output_path /path/alpaca_glm4_data.jsonl
 
@@ -83,10 +83,10 @@ MindFormers提供`alpaca`数据集示例处理脚本制作[微调](#微调)示�
   output_path: 输出文件的保存路径
   ```
 
-  执行`mindformers/models/glm2/alpaca_converter.py`文件，进行数据预处理和Mindrecord数据生成。
+  执行`mindformers/tools/dataset_preprocess/glm4/glm4_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
 
   ```shell
-  python mindformers/models/glm2/alpaca_converter.py \
+  python mindformers/tools/dataset_preprocess/glm4/glm4_preprocess.py \
    --input_glob /path/alpaca_glm4_data.jsonl \
    --vocab_file /path/tokenizer.model \
    --seq_length 8192 \
@@ -94,8 +94,7 @@ MindFormers提供`alpaca`数据集示例处理脚本制作[微调](#微调)示�
 
   # 参数说明
   input_glob:   转换后的alpaca的文件路径
-  vocab_file:   vocab.json文件路径
-  merges_file:  merges.txt文件路径
+  vocab_file:   tokenizer.model文件路径
   seq_length:   输出数据的序列长度
   output_file:  输出文件的保存路径
   ```
