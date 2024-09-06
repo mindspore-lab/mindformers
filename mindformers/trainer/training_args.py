@@ -1124,16 +1124,12 @@ class TrainingArguments:
             kwargs (Any):
                 Additional parameters.
 
-        Example:
-
-        ```py
-        >>> from mindformers import TrainingArguments
-
-        >>> args = TrainingArguments(output_dir="output")
-        >>> args = args.set_training(learning_rate=1e-4, batch_size=32)
-        >>> args.learning_rate
-        1e-4
-        ```
+        Examples:
+            >>> from mindformers import TrainingArguments
+            >>> args = TrainingArguments(output_dir="output")
+            >>> args = args.set_training(learning_rate=1e-4, batch_size=32)
+            >>> args.learning_rate
+            1e-4
         """
         self.do_train = True
         self.learning_rate = learning_rate
@@ -1169,16 +1165,12 @@ class TrainingArguments:
             batch_size (`int` *optional*, defaults to 8):
                 The batch size per device (GPU/NPU core/CPU...) used for evaluation.
 
-        Example:
-
-        ```py
-        >>> from mindformers import TrainingArguments
-
-        >>> args = TrainingArguments(output_dir="output")
-        >>> args = args.set_evaluate(strategy="steps", steps=100)
-        >>> args.eval_steps
-        100
-        ```
+        Examples:
+            >>> from mindformers import TrainingArguments
+            >>> args = TrainingArguments(output_dir="output")
+            >>> args = args.set_evaluate(strategy="steps", steps=100)
+            >>> args.eval_steps
+            100
         """
         self.evaluation_strategy = IntervalStrategy(strategy).value
         if self.evaluation_strategy == IntervalStrategy.STEPS and steps == 0:
@@ -1210,16 +1202,12 @@ class TrainingArguments:
             loss_only (`bool`, *optional*, defaults to `False`):
                 Ignores all outputs except the loss.
 
-        Example:
-
-        ```py
-        >>> from mindformers import TrainingArguments
-
-        >>> args = TrainingArguments(output_dir="output")
-        >>> args = args.set_testing(batch_size=32)
-        >>> args.per_device_eval_batch_size
-        32
-        ```
+        Examples:
+            >>> from mindformers import TrainingArguments
+            >>> args = TrainingArguments(output_dir="output")
+            >>> args = args.set_testing(batch_size=32)
+            >>> args.per_device_eval_batch_size
+            32
         """
         self.do_predict = True
         self.per_device_eval_batch_size = batch_size
@@ -1245,6 +1233,7 @@ class TrainingArguments:
                 - `"no"`: No save is done during training.
                 - `"epoch"`: Save is done at the end of each epoch.
                 - `"steps"`: Save is done every `save_steps`.
+
                 Default: ``steps``.
             steps (int, optional):
                 Number of updates steps before two checkpoint saves if `strategy="steps"`. Default: ``500``.
@@ -1259,16 +1248,12 @@ class TrainingArguments:
             kwargs (Any):
                 Additional parameters.
 
-        Example:
-
-        ```py
-        >>> from mindformers import TrainingArguments
-
-        >>> args = TrainingArguments(output_dir="output")
-        >>> args = args.set_save(strategy="steps", steps=100)
-        >>> args.save_steps
-        100
-        ```
+        Examples:
+            >>> from mindformers import TrainingArguments
+            >>> args = TrainingArguments(output_dir="output")
+            >>> args = args.set_save(strategy="steps", steps=100)
+            >>> args.save_steps
+            100
         """
         self.save_strategy = IntervalStrategy(strategy).value
         if self.save_strategy == IntervalStrategy.STEPS and steps == 0:
@@ -1295,22 +1280,19 @@ class TrainingArguments:
                 - `"no"`: No logging is done during training.
                 - `"epoch"`: logging is done at the end of each epoch.
                 - `"steps"`: logging is done every `save_steps`.
+
                 Default: ``steps``.
             steps (int, optional):
                 Number of update steps between two logs if `strategy="steps"`. Default: ``500``.
             kwargs (Any):
                 Additional parameters.
 
-        Example:
-
-        ```py
-        >>> from mindformers import TrainingArguments
-
-        >>> args = TrainingArguments(output_dir="output")
-        >>> args = args.set_logging(strategy="steps", steps=100)
-        >>> args.logging_steps
-        100
-        ```
+        Examples:
+            >>> from mindformers import TrainingArguments
+            >>> args = TrainingArguments(output_dir="output")
+            >>> args = args.set_logging(strategy="steps", steps=100)
+            >>> args.logging_steps
+            100
         """
         self.logging_strategy = IntervalStrategy(strategy).value
         if self.logging_strategy == IntervalStrategy.STEPS and steps == 0:
@@ -1370,16 +1352,12 @@ class TrainingArguments:
                 Unless this is `True`, the `Trainer` will skip pushing a checkpoint when the previous push is not
                 finished.
 
-        Example:
-
-        ```py
-        >>> from mindformers import TrainingArguments
-
-        >>> args = TrainingArguments(output_dir="output")
-        >>> args = args.set_push_to_hub("me/awesome-model")
-        >>> args.hub_model_id
-        'me/awesome-model'
-        ```
+        Examples:
+            >>> from mindformers import TrainingArguments
+            >>> args = TrainingArguments(output_dir="output")
+            >>> args = args.set_push_to_hub("me/awesome-model")
+            >>> args.hub_model_id
+            'me/awesome-model'
         """
         self.push_to_hub = True
         self.hub_model_id = model_id
@@ -1424,16 +1402,12 @@ class TrainingArguments:
             kwargs (Any):
                 Additional parameters.
 
-        Example:
-
-        ```py
-        >>> from mindformers import TrainingArguments
-
-        >>> args = TrainingArguments(output_dir="output")
-        >>> args = args.set_optimizer(name="adamw", beta1=0.8)
-        >>> args.optim
-        'adamw'
-        ```
+        Examples:
+            >>> from mindformers import TrainingArguments
+            >>> args = TrainingArguments(output_dir="output")
+            >>> args = args.set_optimizer(name="adamw", beta1=0.8)
+            >>> args.optim
+            'adamw'
         """
         self.optim = OptimizerType(name).value
         self.learning_rate = learning_rate
@@ -1476,21 +1450,17 @@ class TrainingArguments:
                 Number of steps used for a linear warmup from 0 to `learning_rate`. Overrides any effect of
                 `warmup_ratio`. Default: ``0``.
             total_steps (int, optional):
-                Total number of steps used for calculating the learning rate,
-                -1 means it will load the total steps of the dataset. Default: ``-1``.
+                Total number of steps used for calculating the learning rate, -1 means it will load
+                the total steps of the dataset. Default: ``-1``.
             kwargs (Any):
                 Additional parameters.
 
-        Example:
-
-        ```py
-        >>> from mindformers import TrainingArguments
-
-        >>> args = TrainingArguments(output_dir="output")
-        >>> args = args.set_lr_scheduler(name="cosine", warmup_ratio=0.05)
-        >>> args.warmup_ratio
-        0.05
-        ```
+        Examples:
+            >>> from mindformers import TrainingArguments
+            >>> args = TrainingArguments(output_dir="output")
+            >>> args = args.set_lr_scheduler(name="cosine", warmup_ratio=0.05)
+            >>> args.warmup_ratio
+            0.05
         """
         self.lr_scheduler_type = LrSchedulerType(name).value
         self.num_train_epochs = num_epochs
@@ -1542,16 +1512,12 @@ class TrainingArguments:
             kwargs (Any):
                 Additional parameters.
 
-        Example:
-
-        ```py
-        >>> from mindformers import TrainingArguments
-
-        >>> args = TrainingArguments(output_dir="output")
-        >>> args = args.set_dataloader(train_batch_size=16, eval_batch_size=64)
-        >>> args.per_device_train_batch_size
-        16
-        ```
+        Examples:
+            >>> from mindformers import TrainingArguments
+            >>> args = TrainingArguments(output_dir="output")
+            >>> args = args.set_dataloader(train_batch_size=16, eval_batch_size=64)
+            >>> args.per_device_train_batch_size
+            16
         """
         self.per_device_train_batch_size = train_batch_size
         self.per_device_eval_batch_size = eval_batch_size

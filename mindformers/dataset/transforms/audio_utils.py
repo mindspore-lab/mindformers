@@ -1088,22 +1088,18 @@ def stft(frames: np.array, windowing_function: np.array, fft_window_size: int = 
             frequency bins (`nb_frequency_bins`) used to divide the window into equal strips is equal to
             `(1+fft_window_size)//2`. An increase of the fft_window_size slows the calculus time proportionnally.
 
-    Example:
-
-    ```python
-    >>> from transformers.audio_utils import stft, fram_wave
-    >>> import numpy as np
-
-    >>> audio = np.random.rand(50)
-    >>> fft_window_size = 10
-    >>> hop_length = 2
-    >>> framed_audio = fram_wave(audio, hop_length, fft_window_size)
-    >>> spectrogram = stft(framed_audio, np.hanning(fft_window_size + 1))
-    ```
-
     Returns:
-        spectrogram (`np.ndarray`):
-            A spectrogram of shape `(num_frames, nb_frequency_bins)` obtained using the STFT algorithm
+        spectrogram (`np.ndarray`), A spectrogram of shape `(num_frames, nb_frequency_bins)` obtained
+        using the STFT algorithm.
+
+    Examples:
+        >>> from transformers.audio_utils import stft, fram_wave
+        >>> import numpy as np
+        >>> audio = np.random.rand(50)
+        >>> fft_window_size = 10
+        >>> hop_length = 2
+        >>> framed_audio = fram_wave(audio, hop_length, fft_window_size)
+        >>> spectrogram = stft(framed_audio, np.hanning(fft_window_size + 1))
     """
     warnings.warn(
         "The function `stft` is deprecated and will be removed in version 4.31.0 of Transformers",

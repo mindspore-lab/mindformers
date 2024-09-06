@@ -183,10 +183,10 @@ class PanguAlphaTokenizer(PreTrainedTokenizer):
         Creates a mask from the two sequences passed to be used in a sequence-pair classification task. An ALBERT
         sequence pair mask has the following format:
 
-        ```
-        0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
-        | first sequence    | second sequence |
-        ```
+        .. code-block::
+
+            0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
+            | first sequence    | second sequence |
 
         if token_ids_1 is None, only returns the first portion of the mask (0s).
 

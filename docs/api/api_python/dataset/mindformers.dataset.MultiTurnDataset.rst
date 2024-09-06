@@ -29,7 +29,7 @@ mindformers.dataset.MultiTurnDataset
         `MultiTurnDataset` 实例。
 
     异常：
-        - **ValueError** –  Python版本低于3.9。
-        - **ValueError** –  `dataset_config.data_loader` 中缺少 `dataset_dir` 或 `dataset_config.data_loader.dataset_dir` 指示的路径不存在。
-        - **ValueError** –  词元数和预测词元的损失掩膜数不一致。
-        - **ValueError** –  输入词元的索引数和标签数不一致。
+        - **ValueError** -  Python版本低于3.9。
+        - **ValueError** -  `dataset_config.data_loader` 中缺少 `dataset_dir` 或 `dataset_config.data_loader.dataset_dir` 指示的路径不存在。
+        - **ValueError** -  词元数和预测词元的损失掩膜数不一致。
+        - **ValueError** -  输入词元的索引数和标签数不一致。

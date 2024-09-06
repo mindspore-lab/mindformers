@@ -69,12 +69,9 @@ def dtype_byte_size(dtype):
     """
     Returns the size (in bytes) occupied by one parameter of type `dtype`.
 
-    Example:
-
-    ```py
-    >>> dtype_byte_size(mindspore.float32)
-    4
-    ```
+    Examples:
+        >>> dtype_byte_size(mindspore.float32)
+        4
     """
     if dtype == ms.bool_:
         return 1 / 8
@@ -963,15 +960,11 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         </Tip>
 
         Examples:
-
-        ```python
-        >>> from mindformers import GPT2Model
-
-        >>> # Download model and configuration from openmind and cache.
-        >>> model = GPT2Model.from_pretrained("XXX")
-        >>> # Model was saved using *save_pretrained('./test/saved_model/')* (for example purposes, not runnable).
-        >>> model = GPT2Model.from_pretrained("./test/saved_model/")
-        ```
+            >>> from mindformers import GPT2Model
+            >>> # Download model and configuration from openmind and cache.
+            >>> model = GPT2Model.from_pretrained("XXX")
+            >>> # Model was saved using *save_pretrained('./test/saved_model/')* (for example purposes, not runnable).
+            >>> model = GPT2Model.from_pretrained("./test/saved_model/")
         """
         state_dict = kwargs.pop("state_dict", None)
         resume_download = kwargs.pop("resume_download", False)

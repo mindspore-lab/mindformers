@@ -199,11 +199,11 @@ class RtnConfig(QuantizationConfigMixin, PTQConfig):
             ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
             ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
 
-        Example:
+        Examples:
             >>> from mindformers.utils.quantization_config import RtnConfig
             >>> RtnConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['layer0'])
             SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
-                                opname_blacklist=['layer0'], algo_args={})
+                              opname_blacklist=['layer0'], algo_args={})
         """
     # pylint: disable=W0613
     def __init__(
@@ -293,11 +293,11 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
             ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
             ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
 
-        Example:
+        Examples:
             >>> from mindformers.utils.quantization_config import PtqConfig
             >>> PtqConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['layer0'])
             SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
-                                opname_blacklist=['layer0'], algo_args={})
+                              opname_blacklist=['layer0'], algo_args={})
         """
     # pylint: disable=W0613
     def __init__(
@@ -388,11 +388,11 @@ class SmoothQuantConfig(QuantizationConfigMixin, PTQConfig):
             ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
             ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
 
-        Example:
+        Examples:
             >>> from mindformers.utils import SmoothQuantConfig
             >>> SmoothQuantConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['layer0'])
             SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
-                                opname_blacklist=['layer0'], algo_args={})
+                              opname_blacklist=['layer0'], algo_args={})
         """
     # pylint: disable=W0613
     def __init__(

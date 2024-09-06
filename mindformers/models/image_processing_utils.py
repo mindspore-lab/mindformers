@@ -147,7 +147,8 @@ class ImageProcessingMixin(PushToHubMixin):
         )
         assert image_processor.do_normalize is False
         assert unused_kwargs == {"foo": False}
-        ```"""
+        ```
+        """
         kwargs["cache_dir"] = cache_dir
         kwargs["force_download"] = force_download
         kwargs["local_files_only"] = local_files_only
