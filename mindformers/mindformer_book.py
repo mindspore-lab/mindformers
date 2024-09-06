@@ -614,6 +614,9 @@ class MindFormerBook:
             'yi_6b_pretrain',
             'yi_6b_text_generation',
             'yi_34b_text_generation',
+        ]),
+        ('deepseekv2', [
+            'deepseekv2_236b',
         ])
     ])
 

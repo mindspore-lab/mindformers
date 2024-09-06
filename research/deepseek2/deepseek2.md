@@ -74,6 +74,10 @@ python convert_weight.py --torch_ckpt_path TORCH_CKPT_PATH --mindspore_ckpt_path
 全参微调至少需要8机64卡，依次在每一台机器的项目根目录执行如下命令，其中127.0.0.1应当修改为第一个节点的主机ip：
 
 ```shell
+//在所有节点设置环境变量
+export HCCL_CONNECT_TIMEOUT=1800
+export HCCL_EXEC_TIMEOUT=1800
+
 //第0个节点
 bash ../../scripts/msrun_launcher.sh "../../run_mindformer.py \
 --config run_train_deepseek2_236B.yaml \

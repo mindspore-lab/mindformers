@@ -573,7 +573,7 @@ class DeepSeekV2DecodeLayer(nn.Cell):
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
         self.shared_expert_num = 0 if moe_config is None else moe_config.shared_expert_num
         # set kbk infer for moe structural models.
-        self.use_moe_infer = get_predict_run_mode() and (self.expert_num > 1)
+        self.use_moe_infer = False # temporarily disable using moe infer
 
         ffn = LlamaFeedForward(dim=self.hidden_size,
                                intermediate_size=intermediate_size,
@@ -629,6 +629,7 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                                                 is_dynamic=is_dynamic,
                                                                 moe_config=moe_config,
                                                                 parallel_config=parallel_config,
+                                                                use_moe_infer=self.use_moe_infer,
                                                                 return_extra_loss=self.return_extra_loss)
 
         dp = parallel_config.data_parallel

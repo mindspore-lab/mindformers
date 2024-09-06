@@ -67,18 +67,21 @@ def _check_aux_loss_config(aux_loss_types, aux_loss_factors):
         Returns:
             aux_loss_config (dict): dict of auxiliary loss types and factors.
     """
-    supported_loss_types = ("expert", "device", "comm")
+    supported_loss_types = ["expert", "device", "comm"]
 
-    aux_loss_config = {}
     if aux_loss_types is None:
-        return aux_loss_config
-    if set(aux_loss_types) - supported_loss_types is not None:
+        aux_loss_types = []
+        aux_loss_factors = []
+    else:
+        if not (isinstance(aux_loss_types, list) and isinstance(aux_loss_factors, list)):
+            raise ValueError(f"Auxiliary loss types and factors should be list, bug got {aux_loss_types} and "
+                             f"{aux_loss_factors}")
+    if set(aux_loss_types) - set(supported_loss_types):
         raise ValueError(f"Auxiliary loss types in {supported_loss_types} only supported, but got {aux_loss_types}")
     if aux_loss_factors is None:
-        raise ValueError(f"got auxiliary loss types {aux_loss_types}, but corresponding loss factors are not set.")
-    aux_loss_config = dict(zip(set(aux_loss_types), aux_loss_factors))
+        raise ValueError(f"Got auxiliary loss types {aux_loss_types}, but corresponding loss factors are not set.")
 
-    return aux_loss_config
+    return aux_loss_types, aux_loss_factors
 
 class MoEConfig:
     r"""
@@ -179,7 +182,7 @@ class MoEConfig:
         self.topk_group = topk_group
         self.topk_method = topk_method
         self.first_k_dense_replace = first_k_dense_replace
-        self.aux_loss_config = _check_aux_loss_config(aux_loss_types, aux_loss_factors)
+        self.aux_loss_types, self.aux_loss_factors = _check_aux_loss_config(aux_loss_types, aux_loss_factors)
         self.z_loss_factor = z_loss_factor
         self.max_router_load = max_router_load
 
@@ -1167,7 +1170,7 @@ class TopkRouterV2(Cell):
         self.reduce_mean_2d = P.ReduceMean(keep_dims=False).shard(((dp, 1),))
         self.add_scalar = P.Add()
         # auxiliary loss config
-        self.aux_loss_config = moe_config.aux_loss_config
+        self.aux_loss_config = dict(zip(set(moe_config.aux_loss_types), moe_config.aux_loss_factors))
 
         # dynamic capacity
         self.on_value_int = Tensor(1, mstype.int32)
@@ -1554,7 +1557,7 @@ class MoEInfer(Cell):
             expert_weight = expert_val / (self.expand_dims(ops.sum(expert_val, -1), -1) + 1e-9)
         else:
             expert_weight = ops.mul(self.moe_config.routed_scaling_factor, expert_val)
-            
+
         expert_weight = self.cast(expert_weight, input_dtype)
 
         sorted_input_tensor, group_list, unsort_map = self.tensor_sort(input_tensor, expert_index)
