@@ -17,7 +17,6 @@ import importlib
 
 from typing import Optional
 from packaging import version
-from datasets import config
 from mindformers.dataset.handler import build_data_handler
 from mindformers.tools.logger import logger
 from ...tools.register import MindFormerRegister, MindFormerModuleType
@@ -77,6 +76,7 @@ class CommonDataLoader(BaseDataLoader):
 def ms_adaptor_execution():
     """ms adaptor execution"""
     try:
+        from datasets import config
         ms_version = version.parse(importlib.metadata.version("mindspore"))
         config.MS_VERSION = ms_version
         logger.info(f"Mindspore version {ms_version} available.")

@@ -96,13 +96,13 @@ train_dataset: &train_dataset
     type: ADGenDataLoader
     dataset_dir: "/path/to/AdvertiseGen/train.json"
     shuffle: True
+    phase: "train"
+    version: 3
     origin_columns: ["content", "summary"]
   tokenizer:
     type: ChatGLM3Tokenizer
     vocab_file: "/path/to/tokenizer.model"
   input_columns: ["input_ids", "labels"]
-  phase: "train"
-  version: 3
   max_source_length: 64
   max_target_length: 127
   ignore_pad_token_for_loss: True
@@ -124,14 +124,14 @@ eval_dataset: &eval_dataset
     type: ADGenDataLoader
     dataset_dir: "/path/to/AdvertiseGen/dev.json"
     shuffle: False
+    phase: "eval"
+    version: 2
     origin_columns: ["content", "summary"]
   tokenizer:
     type: ChatGLM3Tokenizer
     vocab_file: "/path/to/tokenizer.model"
   max_source_length: 256
   max_target_length: 256
-  phase: "eval"
-  version: 2
   ignore_pad_token_for_loss: True
   input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8

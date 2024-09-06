@@ -168,8 +168,12 @@ class KeyWordGenDataset(BaseDataset):
     @classmethod
     def _tokenizer_map(cls, dataset, dataset_config):
         """Maps the tokenizer on the source and the output"""
-        phase = dataset_config.phase if dataset_config.phase else "train"
-        version = dataset_config.version if dataset_config.version else 1
+        if isinstance(dataset_config.data_loader, dict):
+            phase = dataset_config.data_loader.phase
+            version = dataset_config.data_loader.version if dataset_config.data_loader.version else 1
+        else:
+            phase = dataset_config.phase
+            version = dataset_config.version
 
         if isinstance(dataset_config.tokenizer, PreTrainedTokenizerBase):
             tokenizer = dataset_config.tokenizer
@@ -214,12 +218,6 @@ class KeyWordGenDataset(BaseDataset):
     @classmethod
     def _process_raw_text_data(cls, dataset_config):
         """Process the text data"""
-        if dataset_config.data_loader.type == 'ADGenDataLoader':
-            dataset_config.data_loader['phase'] = dataset_config.phase if dataset_config.phase else \
-            dataset_config.data_loader['phase']
-            dataset_config.data_loader['version'] = dataset_config.version if dataset_config.version else \
-            dataset_config.data_loader['version']
-
         dataset_dir = dataset_config.data_loader.pop("dataset_dir", None)
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_dir': dataset_dir,
