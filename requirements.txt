@@ -17,3 +17,4 @@ numpy<2.0.0
 datasets==2.18.0
 tiktoken
 jinja2
+setproctitle

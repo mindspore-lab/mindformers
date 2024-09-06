@@ -14,16 +14,13 @@
 # ============================================================================
 """Harness Eval"""
 import copy
-import gc
-import importlib.util
 import os
+import importlib.util
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple, Iterator
 
 import mindspore
-from accelerate import (
-    find_executable_batch_size,
-)
+import setproctitle
 from mindformers import (
     MindFormerConfig,
     build_context,
@@ -166,7 +163,8 @@ class MFLM(TemplateLM):
         """parse yaml configuration file"""
         # search yaml config file
         config_path = [str(file.resolve()) for file in Path(pretrained).glob('*.yaml')]
-        assert len(config_path) == 1
+        if len(config_path) != 1:
+            raise Exception("There is no or more than one config file in the model directory.")
         self._config = MindFormerConfig(config_path[0])
 
         self._config.parallel_config.model_parallel = tp
@@ -206,7 +204,8 @@ class MFLM(TemplateLM):
             tokenizer_class = MindFormerRegister.get_cls(module_type='tokenizer', class_name=tokenizer_type)
         except ValueError:
             tokenizer_py_path = [str(file.resolve()) for file in Path(pretrained).glob('*tokenizer*.py')]
-            assert len(tokenizer_py_path) == 1
+            if len(tokenizer_py_path) != 1:
+                raise Exception("There is no or more than one tokenizer python script in the model directory.")
             tokenizer_class = load_class_from_file(tokenizer_py_path[0], tokenizer_type)
         except Exception as e:
             raise e
@@ -214,43 +213,6 @@ class MFLM(TemplateLM):
         self.tokenizer = tokenizer_class(
             **tokenizer_kwargs
         )
-
-    def _detect_batch_size(self, requests=None, pos: int = 0):
-        """detect batch_size param"""
-        if requests:
-            _, context_enc, continuation_enc = requests[pos]
-            max_length = len(
-                (context_enc + continuation_enc)[-(self.max_length + 1):][:-1]
-            )
-        else:
-            max_length = self.max_length
-
-        # if OOM, then halves batch_size and tries again
-        @find_executable_batch_size(starting_batch_size=self.max_batch_size)
-        def forward_batch(batch_size):
-            """test batch"""
-            test_batch = mindspore.ops.ones(
-                (batch_size, max_length)
-            ).long()
-            for _ in range(5):
-                # pylint: disable=W0612
-                out = mindspore.ops.log_softmax(self._model_call(test_batch), axis=-1) # noqa: F841
-
-            return batch_size
-
-        try:
-            # pylint: disable=E1120
-            batch_size = forward_batch()
-        except RuntimeError as e:
-            if "No executable batch size found" in str(e):
-                batch_size = 1
-            else:
-                raise
-
-        gc.collect()
-        mindspore.hal.empty_cache()
-
-        return batch_size
 
     def tok_encode(
             self, string: str, left_truncate_len: Optional[int] = None, add_special_tokens=None
@@ -311,8 +273,7 @@ class MFLM(TemplateLM):
         return self.tokenizer.decode(tokens, skip_special_tokens=skip_special_tokens)
 
     def _model_call(self, inps):
-        res = self.model(inps)
-        logits = res.reshape(self.batch_size, -1, *res.shape[1:])
+        logits = self.model(inps)[0]
         return logits
 
     def _model_generate(self, context, max_length, **generation_kwargs):
@@ -382,24 +343,6 @@ class MFLM(TemplateLM):
             loglikelihoods.append(string_nll)
 
         return loglikelihoods
-
-    def _batch_scheduler(self, pos, n_reordered_requests):
-        """scheduler in batches"""
-        sched = pos // int(len(n_reordered_requests) / self.batch_schedule)
-        if sched in self.batch_sizes:
-            return self.batch_sizes[sched]
-        if (len(self.batch_sizes) > 1) and (
-                self.batch_sizes[sched - 1] == self.max_batch_size
-        ):
-            # if previous batch size is already maximal, skip recomputation
-            self.batch_sizes[sched] = self.max_batch_size
-            return self.batch_sizes[sched]
-        print(
-            f"Passed argument batch_size = auto:{self.batch_schedule}. Detecting largest batch size"
-        )
-        self.batch_sizes[sched] = self._detect_batch_size(n_reordered_requests, pos)
-        print(f"Determined largest batch size: {self.batch_sizes[sched]}")
-        return self.batch_sizes[sched]
 
     def _encode_pair(self, context, continuation):
         """encode contest and continuation"""
@@ -738,6 +681,7 @@ def pad_and_concat(
 
     return mindspore.ops.cat(tensors, axis=0)
 
+
 # pylint: disable=W0212
 def get_cache(
         self,
@@ -770,4 +714,5 @@ def get_cache(
 
 
 if __name__ == '__main__':
+    setproctitle.setproctitle("ms_main_thread")
     cli_evaluate()
