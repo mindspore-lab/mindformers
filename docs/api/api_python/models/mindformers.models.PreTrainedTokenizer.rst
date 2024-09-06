@@ -1,7 +1,7 @@
 mindformers.models.PreTrainedTokenizer
 ======================================
 
-.. py:class:: mindformers.models.tokenization_utils.PreTrainedTokenizer(**kwargs)
+.. py:class:: mindformers.models.PreTrainedTokenizer(**kwargs)
 
     所有慢速分词器的基类。继承自 :class:`mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase`。
 

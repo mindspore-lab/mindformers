@@ -32,7 +32,7 @@ mindformers.dataset.KeyWordGenDataset
         - **ignore_pad_token_for_loss** (bool) - 是否忽略<pad>词元对应的损失。默认值：``True``。
         - **max_source_length** (int) - 源序列的最大长度。
         - **max_target_length** (int) - 目标序列的最大长度。
-        - **phase** (int) - 需要读取的数据集的子集，`data_loader` 为 `dict` 类型时忽略该参数。可选值为 'train' 或 'eval'。默认值：``'train'``。
+        - **phase** (int) - 需要读取的数据集的子集，`data_loader` 为 `dict` 类型时忽略该参数。可选值为 'train' 或 'eval'。默认值： ``'train'``。
         - **version** (int) - 映射函数的版本， `data_loader` 为 `dict` 类型时忽略该参数。可选值为 `1` 或 `2`。默认值：``1``。
         - **seed** (int) - 随机数种子。默认值： ``0`` 。
         - **prefetch_size** (int) - 流水线中每个数据处理操作的缓存队列大小。默认值： ``1`` 。
