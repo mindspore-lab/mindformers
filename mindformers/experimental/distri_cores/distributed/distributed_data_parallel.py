@@ -55,7 +55,7 @@ class DistributedDataParallel(Module):
             module,
             disable_bucketing=False,
         ):
-        super(DistributedDataParallel, self).__init__()
+        super(DistributedDataParallel, self).__init__(auto_prefix=False)
         self.module = module
         self.param_to_buffer = {}
         self.grad_views = None
@@ -135,7 +135,7 @@ class DistributedDataParallel(Module):
     def _reconstruct_grads(self):
         """ prepare the grad buffer views for optimizer. """
         grad_views = []
-        for param in self.module.get_parameters():
+        for param in self.module.trainable_params():
             grad_views.append(param.grad_view)
         self.grad_views = tuple(grad_views)
 
