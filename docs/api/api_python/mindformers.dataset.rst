@@ -9,7 +9,6 @@ mindformers.dataset
 .. mscnautosummary::
     :toctree: dataset
     :nosignatures:
-    :template: classtemplate.rst
 
     mindformers.dataset.CausalLanguageModelDataset
     mindformers.dataset.ContrastiveLanguageImagePretrainDataset

@@ -1,7 +1,7 @@
 mindformers.generation
 ======================
 
-Config
+GenerationConfig
 ---------------------
 
 .. autosummary::

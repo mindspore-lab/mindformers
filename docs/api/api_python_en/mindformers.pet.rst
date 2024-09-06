@@ -1,7 +1,7 @@
 mindformers.pet
 ===============
 
-LoraModel
+Pet Models
 ---------------------
 
 .. autosummary::
@@ -11,7 +11,7 @@ LoraModel
 
     mindformers.pet.models.LoraModel
 
-Config
+Pet Configs
 ---------------------
 
 .. autosummary::

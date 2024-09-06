@@ -4,7 +4,7 @@ mindformers.wrapper
 Wrapper
 ---------------------
 
-.. mscnautosummary::
+.. autosummary::
     :toctree: wrapper
     :nosignatures:
     :template: classtemplate.rst

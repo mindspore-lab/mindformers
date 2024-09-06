@@ -1,29 +1,8 @@
 mindformers
-==================
-
-Trainer High-level Interface
------------------------------
-
-.. autosummary::
-    :toctree: mindformers
-    :nosignatures:
-    :template: classtemplate.rst
-
-    mindformers.Trainer
-    mindformers.TrainingArguments
-
-pipeline High-level Interface
---------------------------------
-
-.. autosummary::
-    :toctree: mindformers
-    :nosignatures:
-    :template: classtemplate.rst
-
-    mindformers.pipeline
+=============
 
 Auto Classes
-------------------
+--------------
 
 .. autosummary::
     :toctree: mindformers
@@ -38,8 +17,29 @@ Auto Classes
     mindformers.AutoProcessor
     mindformers.AutoTokenizer
 
+Trainer High-level Interface
+------------------------------
+
+.. autosummary::
+    :toctree: mindformers
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.Trainer
+    mindformers.TrainingArguments
+
+pipeline High-level Interface
+-------------------------------
+
+.. autosummary::
+    :toctree: mindformers
+    :nosignatures:
+    :template: classtemplate.rst
+
+    mindformers.pipeline
+
 Run Check
------------------
+-----------
 
 .. autosummary::
     :toctree: mindformers
@@ -49,7 +49,7 @@ Run Check
     mindformers.run_check
 
 Service-oriented
------------------
+------------------
 
 .. autosummary::
     :toctree: mindformers
