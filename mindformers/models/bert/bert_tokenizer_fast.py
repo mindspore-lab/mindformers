@@ -134,7 +134,7 @@ class BertTokenizerFast(PreTrainedTokenizerFast):
                 Optional second list of IDs for sequence pairs.
 
         Returns:
-            `List[int]`: List of [input IDs](../glossary#input-ids) with the appropriate special tokens.
+            `List[int]`, list of [input IDs](../glossary#input-ids) with the appropriate special tokens.
         """
         output = [self.cls_token_id] + token_ids_0 + [self.sep_token_id]
 

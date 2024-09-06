@@ -171,6 +171,7 @@ class WizardCoderTokenizer(PreTrainedTokenizer):
         Build model inputs from a sequence or a pair of sequence by concatenating and adding special tokens.
 
         A WizardCoder sequence has the following format:
+
         - single sequence: ``<bos> X <eos>``
         - pair of sequences: ``<bos> A <eos> B <eos>``
 

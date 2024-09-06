@@ -305,7 +305,7 @@ class T5Tokenizer(PreTrainedTokenizer):
                 Optional second list of IDs for sequence pairs.
 
         Returns:
-            `List[int]`: List of [input IDs](../glossary#input-ids) with the appropriate special tokens.
+            `List[int]`, list of [input IDs](../glossary#input-ids) with the appropriate special tokens.
         """
         token_ids_0 = self._add_eos_if_not_present(token_ids_0)
         if token_ids_1 is None:

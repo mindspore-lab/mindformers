@@ -186,7 +186,7 @@ class GenerationConfig:
                 Additional parameters from which to initialize the configuration object.
 
         Returns:
-            [`GenerationConfig`]: The configuration object instantiated from those parameters.
+            [`GenerationConfig`], the configuration object instantiated from those parameters.
         """
         return_unused_kwargs = kwargs.pop("return_unused_kwargs", False)
 
@@ -209,7 +209,7 @@ class GenerationConfig:
                 The model config that will be used to instantiate the generation config.
 
         Returns:
-            [`GenerationConfig`]: The configuration object instantiated from those parameters.
+            [`GenerationConfig`], the configuration object instantiated from those parameters.
         """
         config_dict = model_config.to_dict()
         config_dict.pop("_from_model_config", None)
@@ -227,7 +227,7 @@ class GenerationConfig:
                 Dictionary of attributes to tentatively update this class.
 
         Returns:
-            `Dict[str, Any]`: Dictionary containing all the key-value pairs
+            `Dict[str, Any]`, dictionary containing all the key-value pairs
             that were not used to update the instance.
         """
         to_remove = []

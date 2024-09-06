@@ -253,7 +253,7 @@ class AutoModel:
 
         Args:
             config (str, BaseConfig, MindFormerConfig): A model config inherited from BaseConfig,
-            or a path to .yaml file for model config, or a model config inherited from MindFormerConfig.
+                or a path to .yaml file for model config, or a model config inherited from MindFormerConfig.
 
         Returns:
             A model, which inherited from BaseModel.

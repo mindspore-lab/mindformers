@@ -214,7 +214,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
 
     Outputs:
         output(Tensor), including an on-line loss value or a logical value, a sequence of predictive text, an input
-            mask.
+        mask.
 
     Examples:
         >>> from mindformers.models.glm2 import ChatGLM2Config, ChatGLM2ForConditionalGeneration

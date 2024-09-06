@@ -277,7 +277,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
     @property
     def can_save_slow_tokenizer(self) -> bool:
         """
-        `bool`: Whether or not the slow tokenizer can be saved. Usually for sentencepiece based slow tokenizer, this
+        `bool`, Whether or not the slow tokenizer can be saved. Usually for sentencepiece based slow tokenizer, this
         can only be `True` if the original `"sentencepiece.model"` was not deleted.
         """
         return True
@@ -285,7 +285,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
     @property
     def vocab_size(self) -> int:
         """
-        `int`: Size of the base vocabulary (without the added tokens).
+        `int`, Size of the base vocabulary (without the added tokens).
         """
         return self._tokenizer.get_vocab_size(with_added_tokens=False)
 
@@ -339,7 +339,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
     @property
     def decoder(self) -> DecoderFast:
         """
-        `tokenizers.decoders.Decoder`: The Rust decoder for this tokenizer.
+        `tokenizers.decoders.Decoder`, The Rust decoder for this tokenizer.
         """
         return self._tokenizer.decoder
 
@@ -782,7 +782,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
                 tokenizer you are training. Default: ``None`` .
             special_tokens_map (dict, optional): If you want to rename some of the special tokens this
                 tokenizer uses, pass along a mapping old special token name to new special token name in this argument.
-                 Default: ``None`` .
+                Default: ``None`` .
             kwargs (Any): Additional keyword arguments.
 
         Returns:

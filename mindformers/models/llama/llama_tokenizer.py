@@ -267,7 +267,7 @@ class LlamaTokenizer(PreTrainedTokenizer):
                 The directory in which to save the vocabulary.
 
         Returns:
-            `Tuple(str)`: Paths to the files saved.
+            `Tuple(str)`, paths to the files saved.
         """
         if not os.path.isdir(save_directory):
             logger.error("Vocabulary path (%s) should be a directory", save_directory)

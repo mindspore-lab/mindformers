@@ -811,12 +811,12 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             pretrained_model_name_or_path (Optional[str]): Equal to "pretrained_model_name_or_dir",
                 if "pretrained_model_name_or_path" is set, "pretrained_model_name_or_dir" is useless.
 
+        Returns:
+            A model, which inherited from PreTrainedModel.
+
         Examples:
             >>> from mindformers import T5ForConditionalGeneration
             >>> net = T5ForConditionalGeneration.from_pretrained('t5_small')
-
-        Returns:
-            A model, which inherited from PreTrainedModel.
         """
         pretrained_model_name_or_path = kwargs.pop("pretrained_model_name_or_path", None)
         download_checkpoint = kwargs.pop("download_checkpoint", True)
@@ -931,7 +931,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
 
                 <Tip>
 
-                To test a pull request you made on the Hub, you can pass `revision="refs/pr/<pr_number>".
+                To test a pull request you made on the Hub, you can pass `revision="refs/pr/<pr_number>"`.
 
                 </Tip>
 

@@ -999,7 +999,7 @@ class TrainingArguments:
             num_training_steps (int):
                 The number of training steps.
 
-        Return:
+        Returns:
             Number of training steps.
         """
         warmup_steps = (
@@ -1011,7 +1011,7 @@ class TrainingArguments:
         """
         Get recompute config.
 
-        Return:
+        Returns:
             An instance of TransformerRecomputeConfig.
         """
         recompute_config = TransformerRecomputeConfig(
@@ -1027,7 +1027,7 @@ class TrainingArguments:
         """
         Get parallel config.
 
-        Return:
+        Returns:
             An instance of TransformerOpParallelConfig.
         """
         parallel_config = TransformerOpParallelConfig(
@@ -1047,7 +1047,7 @@ class TrainingArguments:
         """
         Get moe config.
 
-        Return:
+        Returns:
             An instance of MoEConfig.
         """
         moe_config = MoEConfig(
@@ -1159,9 +1159,9 @@ class TrainingArguments:
             strategy (`str` or [`~trainer_utils.IntervalStrategy`], *optional*, defaults to `"no"`):
                 The evaluation strategy to adopt during training. Possible values are:
 
-                    - `"no"`: No evaluation is done during training.
-                    - `"steps"`: Evaluation is done (and logged) every `steps`.
-                    - `"epoch"`: Evaluation is done at the end of each epoch.
+                - `"no"`: No evaluation is done during training.
+                - `"steps"`: Evaluation is done (and logged) every `steps`.
+                - `"epoch"`: Evaluation is done at the end of each epoch.
 
                 Setting a `strategy` different from `"no"` will set `self.do_eval` to `True`.
             steps (`int`, *optional*, defaults to 500):
@@ -1242,9 +1242,9 @@ class TrainingArguments:
             strategy (Union[str, IntervalStrategy], optional):
                 The checkpoint save strategy to adopt during training. Possible values are:
 
-                    - `"no"`: No save is done during training.
-                    - `"epoch"`: Save is done at the end of each epoch.
-                    - `"steps"`: Save is done every `save_steps`.
+                - `"no"`: No save is done during training.
+                - `"epoch"`: Save is done at the end of each epoch.
+                - `"steps"`: Save is done every `save_steps`.
                 Default: ``steps``.
             steps (int, optional):
                 Number of updates steps before two checkpoint saves if `strategy="steps"`. Default: ``500``.
@@ -1292,9 +1292,9 @@ class TrainingArguments:
             strategy (Union[str, IntervalStrategy], optional):
                 The logging strategy to adopt during training. Possible values are:
 
-                    - `"no"`: No logging is done during training.
-                    - `"epoch"`: logging is done at the end of each epoch.
-                    - `"steps"`: logging is done every `save_steps`.
+                - `"no"`: No logging is done during training.
+                - `"epoch"`: logging is done at the end of each epoch.
+                - `"steps"`: logging is done every `save_steps`.
                 Default: ``steps``.
             steps (int, optional):
                 Number of update steps between two logs if `strategy="steps"`. Default: ``500``.
@@ -1349,18 +1349,18 @@ class TrainingArguments:
                 Defines the scope of what is pushed to the Hub and when. Possible values are:
 
                 - `"end"`: push the model, its configuration, the tokenizer (if passed along to the [`Trainer`]) and a
-                draft of a model card when the [`~Trainer.save_model`] method is called.
+                  draft of a model card when the [`~Trainer.save_model`] method is called.
                 - `"every_save"`: push the model, its configuration, the tokenizer (if passed along to the [`Trainer`])
                   and
-                a draft of a model card each time there is a model save. The pushes are asynchronous to not block
-                training, and in case the save are very frequent, a new push is only attempted if the previous one is
-                finished. A last push is made with the final model at the end of training.
+                  a draft of a model card each time there is a model save. The pushes are asynchronous to not block
+                  training, and in case the save are very frequent, a new push is only attempted if the previous one is
+                  finished. A last push is made with the final model at the end of training.
                 - `"checkpoint"`: like `"every_save"` but the latest checkpoint is also pushed in a subfolder named
-                last-checkpoint, allowing you to resume training easily with
-                `trainer.train(resume_from_checkpoint="last-checkpoint")`.
+                  last-checkpoint, allowing you to resume training easily with
+                  `trainer.train(resume_from_checkpoint="last-checkpoint")`.
                 - `"all_checkpoints"`: like `"checkpoint"` but all checkpoints are pushed like they appear in the
                   output
-                folder (so you will get one checkpoint folder per folder in your final repository)
+                  folder (so you will get one checkpoint folder per folder in your final repository)
 
             token (`str`, *optional*):
                 The token to use to push the model to the Hub.
@@ -1577,7 +1577,7 @@ class TrainingArguments:
             task_config (MindFormerConfig, optional):
                 Task configuration. Default: ``None``.
 
-        Return:
+        Returns:
             An instance of MindFormerConfig, processed task configuration.
         """
         if task_config is None:
