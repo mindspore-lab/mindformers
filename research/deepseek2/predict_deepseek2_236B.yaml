@@ -141,7 +141,7 @@ model:
     hidden_size: 5120
     num_layers: 60
     num_heads: 128
-    max_position_embedding: 163840
+    max_position_embeddings: 163840
     intermediate_size: 12288
     kv_lora_rank: 512
     q_lora_rank: 1536
@@ -209,9 +209,9 @@ processor:
   return_tensors: ms
   tokenizer:
     unk_token: '<unk>'
-    bos_token: '<s>'
-    eos_token: '</s>'
-    pad_token: '<unk>'
+    bos_token: '<｜begin▁of▁sentence｜>'
+    eos_token: '<｜end▁of▁sentence｜>'
+    pad_token: '<｜end▁of▁sentence｜>'
     type: LlamaTokenizerFast
     tokenizer_file: './tokenizer.json'
   type: LlamaProcessor

@@ -18,7 +18,7 @@ runner_config:
   epochs: 2
   batch_size: 1
   sink_mode: True
-  sink_size: 1
+  sink_size: 2
 
 # optimizer
 optimizer:
@@ -27,10 +27,10 @@ optimizer:
   eps: 1.e-8
   learning_rate: 3.e-4
 
-# lr sechdule
+# lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 2.e-4
+  learning_rate: 2.e-5
   lr_end: 2.e-5
   warmup_ratio: 0.0
   total_steps: -1 # -1 means it will load the total steps of the dataset
@@ -41,7 +41,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: "./dataset"
     shuffle: False
-  input_columns: ["input_ids"]  # "input_ids", "labels" , labels are used in instruction finetune.
+  input_columns: ["input_ids", "labels"]  # "input_ids" , labels are used in instruction finetune.
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -142,7 +142,7 @@ model:
     hidden_size: 5120
     num_layers: 60
     num_heads: 128
-    max_position_embedding: 163840
+    max_position_embeddings: 163840
     intermediate_size: 12288
     kv_lora_rank: 512
     q_lora_rank: 1536
@@ -161,14 +161,7 @@ model:
     softmax_compute_type: "float32"
     rotary_dtype: "float32"
     router_dense_type: "float32"
-#    scaling_factor:
-#      beta_fast: 32,
-#      beta_slow": 1,
-#      factor: 40,
-#      mscale: 0.707,
-#      mscale_all_dim: 0.707,
-#      original_max_position_embeddings: 4096
-    param_init_type: "float32"
+    param_init_type: "bfloat16"
     use_past: False
     extend_method: "None"
     use_flash_attention: False
@@ -202,17 +195,17 @@ moe_config:
   # greedy_group_limited strategy, select topk_group from n_group
   topk_group: 3
   n_group: 8
-  aux_loss_factors: [0.003, 0.05, 0.02]
+  aux_loss_factors: [0.003, 0.005, 0.002]
   aux_loss_types: ["expert", "device", "comm"]
-  z_loss_factor: 0.01
+  z_loss_factor: 0.0
 
 processor:
   return_tensors: ms
   tokenizer:
     unk_token: '<unk>'
-    bos_token: '<s>'
-    eos_token: '</s>'
-    pad_token: '<unk>'
+    bos_token: '<｜begin▁of▁sentence｜>'
+    eos_token: '<｜end▁of▁sentence｜>'
+    pad_token: '<｜end▁of▁sentence｜>'
     type: LlamaTokenizerFast
     tokenizer_file: './tokenizer.json'
   type: LlamaProcessor

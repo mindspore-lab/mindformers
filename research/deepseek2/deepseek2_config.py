@@ -117,7 +117,7 @@ class DeepseekV2Config(PretrainedConfig):
                  num_layers: int = 30,
                  num_heads: int = 32,
                  n_kv_heads: int = 32,
-                 max_position_embedding: int = 4096,
+                 max_position_embeddings: int = 4096,
                  intermediate_size: int = 12288,
                  kv_lora_rank: int = 512,
                  q_lora_rank: int = 1536,
@@ -148,12 +148,12 @@ class DeepseekV2Config(PretrainedConfig):
                  compute_in_2d=None,
                  use_past_shard=None,
                  extend_method: str = "YARN",
-                 scaling_factor: float = 1.0,
+                 scaling_factor: dict = None,
                  is_dynamic: bool = False,
                  use_kvcache_op: bool = False,
                  is_flexible_shape: bool = False,
                  use_rope_slice: bool = False,
-                 use_flash_attention: bool = True,
+                 use_flash_attention: bool = False,
                  use_paged_attention: bool = False,
                  use_prompt_flash_attention: bool = False,
                  use_incre_flash_attention: bool = False,
@@ -180,7 +180,7 @@ class DeepseekV2Config(PretrainedConfig):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.num_heads = num_heads
-        self.max_position_embedding = max_position_embedding if max_position_embedding else seq_length
+        self.max_position_embeddings = max_position_embeddings if max_position_embeddings else seq_length
         self.intermediate_size = intermediate_size
 
         # # new features of mla attention
@@ -189,7 +189,6 @@ class DeepseekV2Config(PretrainedConfig):
         self.qk_rope_head_dim = qk_rope_head_dim
         self.v_head_dim = v_head_dim
         self.qk_nope_head_dim = qk_nope_head_dim
-        self.max_position_embeddings = max_position_embeddings # used for yarn rotary embedding.
 
         self.multiple_of = multiple_of
         self.n_kv_heads = n_kv_heads

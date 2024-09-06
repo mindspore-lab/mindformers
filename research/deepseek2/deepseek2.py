@@ -34,11 +34,10 @@ from mindformers.modules.transformer.transformer import LowerTriangularMaskWithD
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode, get_use_rope_self_define
-from mindformers.models.llama.llama_layer import LlamaEmbedding
+from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm
 
 from research.deepseek2.deepseek2_config import DeepseekV2Config
 from research.deepseek2.deepseek2_transformer import DeepSeekV2DecodeLayer
-from research.deepseek2.deepseek2_layer import DeepSeekV2RMSNorm
 
 
 __all__ = ['DeepseekV2ForCausalLM', 'DeepseekV2Model']
@@ -85,7 +84,6 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
         self.v_head_dim = config.v_head_dim
         self.qk_nope_head_dim = config.qk_nope_head_dim
         self.max_position_embeddings = config.max_position_embeddings  # used for yarn rotary embedding.
-        self.rope_scaling = config.rope_scaling
 
         self.is_first_iteration = True
         self.use_past = config.use_past
@@ -108,7 +106,7 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
         self.use_rope_self_define = get_use_rope_self_define()
         self.freqs_mgr = FreqsMgr(head_dim=self.qk_rope_head_dim,
                                   seq_length=config.seq_length,
-                                  max_position_embedding=config.max_position_embedding,
+                                  max_position_embedding=config.max_position_embeddings,
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
@@ -164,8 +162,9 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                           scaling_factor=config.scaling_factor)
             self.layer_setting(layer, layer_id)
             self.layers.append(layer)
-        self.norm_out = DeepSeekV2RMSNorm(config.hidden_size, config.rms_norm_eps,
-                                          compute_type=config.layernorm_compute_type)
+        self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
+                                     compute_type=config.layernorm_compute_type,
+                                     fused_kernel=not get_predict_run_mode())
 
         dp = config.parallel_config.data_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
