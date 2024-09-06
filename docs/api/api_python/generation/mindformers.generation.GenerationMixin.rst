@@ -2,6 +2,7 @@ mindformers.generation.GenerationMixin
 ======================================
 
 .. py:class:: mindformers.generation.GenerationMixin
+ 
     一个提供自回归文本生成的所有函数的类，作为PreTrainedModel的织入（mixin）使用。
 
     .. py:method:: chat(tokenizer: PreTrainedTokenizer, query: str, history: Optional[List[Dict[str, str]]] = None, system_role_name: Optional[str] = "system", user_role_name: Optional[str] = "user", assistant_role_name: Optional[str] = "assistant", instruction: Optional[str] = "", max_length: Optional[int] = 512, max_new_tokens: Optional[int] = None, min_length: Optional[int] = 0, min_new_tokens: Optional[int] = None, do_sample: Optional[bool] = True, temperature: Optional[float] = 1.0, top_k: Optional[int] = 50, top_p: Optional[float] = 1.0, repetition_penalty: Optional[float] = 1.0)
