@@ -524,7 +524,7 @@ class PerplexityMetric(nn.Metric):
     .. math::
         PP(W) = P(w_1, w_2, \ldots, w_N)^{-\frac{1}{N}} = \sqrt[N]{\frac{1}{P(w_1, w_2, \ldots, w_N)}}
 
-    Where :math:P(w_1, w_2, \ldots, w_N) is the probability of the sequence under the model.
+    Where :math:`P(w_1, w_2, \ldots, w_N)` is the probability of the sequence under the model.
 
     In practical terms, perplexity can be rewritten as:
 
@@ -670,19 +670,19 @@ class PromptAccMetric(nn.Metric):
 
     2. Computes perplexity of each generated context based on prompt.
     Perplexity is a measurement about how well a probability distribution or a model predicts a sample.
-    A low perplexity indicates the model can predict the sample well. The function is shown as follows:
+        A low perplexity indicates the model can predict the sample well. The function is shown as follows:
 
-    .. math::
-        PP(W)=P(w_{1}w_{2}...w_{N})^{-\frac{1}{N}}=\sqrt[N]{\frac{1}{P(w_{1}w_{2}...w_{N})}}
+        .. math::
+            PP(W)=P(w_{1}w_{2}...w_{N})^{-\frac{1}{N}}=\sqrt[N]{\frac{1}{P(w_{1}w_{2}...w_{N})}}
 
-    Where :math:`w` represents words in corpus.
+        Where :math:`w` represents words in corpus.
 
     3. Compute classification result by choosing the index of the prompt which has the minimum perplexity.
 
     4. Count the number of correctly classified and the total number of samples and compute the acc as follows:
 
-    .. math::
-        \text{accuracy} =\frac{\text{correct_sample_nums}}{\text{total_sample_nums}}
+        .. math::
+            \text{accuracy} =\frac{\text{correct_sample_nums}}{\text{total_sample_nums}}
     """
 
     def __init__(self):

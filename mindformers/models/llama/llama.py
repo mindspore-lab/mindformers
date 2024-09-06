@@ -500,6 +500,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             slot_mapping (Tensor[int32]): Store token cache physical slot index.
             q_seq_lens (Tensor[int32]): In parallel decoding, the query may be flattened. The Paged Attention operator
                 need `q_seq_lens` to obtain the length information.
+
         Returns:
             Tensor, The loss or (logits, tokens, input_mask) of the network.
         """

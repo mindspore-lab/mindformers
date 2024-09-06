@@ -407,7 +407,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         model_max_length (int, optional):
             The maximum length (in number of tokens) for the inputs to the transformer model.
             Set when the tokenizer is loaded with ``from_pretrained()`` based on the model's
-            ``max_model_input_sizes`` attribute.  Default: ``1e-30`` .
+            ``max_model_input_sizes`` attribute. Default: ``1e-30`` .
         padding_side (str, optional):
             Specifies the side on which the model should have padding applied. Options are
             ['right', 'left']. The default value is picked from the class attribute of the
@@ -1046,7 +1046,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
                 Whether or not the token list is already formatted with special tokens for the model.
 
         Returns:
-            A list of integers in the range [0, 1]: 1 for a special token, 0 for a sequence token.
+            A list of integers in the range [0, 1], 1 for a special token, 0 for a sequence token.
         """
         if already_has_special_tokens:
             if token_ids_1 is not None:

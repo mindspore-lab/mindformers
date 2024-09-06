@@ -93,14 +93,14 @@ FROM_PRETRAINED_MINDFORMERS_DOCSTRING = """
                 Can be either:
 
                 - A string, the *model id* of a pretrained model hosted inside a model repo on openmind.
-                    Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
-                    user or organization name, like `dbmdz/bert-base-german-cased`.
+                  Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
+                  user or organization name, like `dbmdz/bert-base-german-cased`.
                 - A path to a *directory* containing model weights saved using
-                    [`~PreTrainedModel.save_pretrained`], e.g., `./my_model_directory/`.
+                  [`~PreTrainedModel.save_pretrained`], e.g., `./my_model_directory/`.
                 - A path or url to a *tensorflow index checkpoint file* (e.g, `./tf_model/model.ckpt.index`). In
-                    this case, `from_tf` should be set to `True` and a configuration object should be provided as
-                    `config` argument. This loading path is slower than converting the TensorFlow checkpoint in a
-                    PyTorch model using the provided conversion scripts and loading the PyTorch model afterwards.
+                  this case, `from_tf` should be set to `True` and a configuration object should be provided as
+                  `config` argument. This loading path is slower than converting the TensorFlow checkpoint in a
+                  PyTorch model using the provided conversion scripts and loading the PyTorch model afterwards.
             model_args (additional positional arguments, *optional*):
                 Will be passed along to the underlying model `__init__()` method.
             config ([`PretrainedConfig`], *optional*):
@@ -108,11 +108,11 @@ FROM_PRETRAINED_MINDFORMERS_DOCSTRING = """
                 be automatically loaded when:
 
                 - The model is a model provided by the library (loaded with the *model id* string of a pretrained
-                    model).
+                  model).
                 - The model was saved using [`~PreTrainedModel.save_pretrained`] and is reloaded by supplying the
-                    save directory.
+                  save directory.
                 - The model is loaded by supplying a local directory as `pretrained_model_name_or_path` and a
-                    configuration JSON file named *config.json* is found in the directory.
+                  configuration JSON file named *config.json* is found in the directory.
             state_dict (*Dict[str, torch.Tensor]*, *optional*):
                 A state dictionary to use instead of a state dictionary loaded from saved weights file.
 
