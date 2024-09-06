@@ -1,7 +1,7 @@
 mindformers.core.CrossEntropyLoss
 =================================
 
-.. py:class:: mindformers.nn.CrossEntropyLoss(parallel_config=default_dpmp_config, **kwargs)
+.. py:class:: mindformers.core.CrossEntropyLoss(parallel_config=default_dpmp_config, **kwargs)
 
     计算预测值和目标值之间的交叉熵损失。
 

@@ -53,7 +53,7 @@ mindformers.core.AdamW
           - ``"Iterable"``：学习率是动态的。第 i 步将使用第 i 个值作为学习率。
           - ``"LearningRateSchedule"``：学习率是动态的。在训练过程中，优化器将调用 `LearningRateSchedule` 实例并以步数为输入来获取当前步的学习率。
 
-        - **betas** (Uinon[list(float), tuple(float)]) - `moment1`、`moment2`的指数衰减率。每一个参数范围（0.0,1.0）。默认值： ``(0.9, 0.999)`` 。
+        - **betas** (Uinon[list(float), tuple(float)]) - `moment1`、 `moment2` 的指数衰减率。每一个参数范围（0.0,1.0）。默认值： ``(0.9, 0.999)`` 。
         - **eps** (float) - 将添加到分母中，以提高数值稳定性。必须大于0。默认值： ``1e-6`` 。
         - **weight_decay** (Union[float, int, Cell]) - 权重衰减（L2 penalty）。默认值： ``0.0`` 。
 

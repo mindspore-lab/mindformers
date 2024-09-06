@@ -79,19 +79,19 @@ class FlashAttention(Cell):
 
     Inputs:
         - **query** (Tensor[float16, bfloat16]) - The query tensor.
-          Input tensor of shape :math:`(B, S1, H1)` or `(B, N1, S1, D)`.
+          Input tensor of shape :math:`(B, S1, H1)` or :math:`(B, N1, S1, D)`.
         - **key** (Tensor[float16, bfloat16]) - The key tensor.
-          Input tensor of shape :math:`(B, S2, H2)` or `(B, N2, S2, D)`.
+          Input tensor of shape :math:`(B, S2, H2)` or :math:`(B, N2, S2, D)`.
         - **value** (Tensor[float16, bfloat16]) - The value tensor.
-          Input tensor of shape :math:`(B, S2, H2)` or `(B, N2, S2, D)`.
+          Input tensor of shape :math:`(B, S2, H2)` or :math:`(B, N2, S2, D)`.
         - **attn_mask** (Union[Tensor[uint8], None]) - The attention mask tensor. For each element, 0 indicates
-          retention and 1 indicates discard. Input tensor of shape :math:`(B, N1, S1, S2)`, `(B, 1, S1, S2)`, `(S1, S2)`
-          or (2048, 2048).
+          retention and 1 indicates discard. Input tensor of shape :math:`(B, N1, S1, S2)`, :math:`(B, 1, S1, S2)`,
+          :math:`(S1, S2)` or (2048, 2048).
         - **alibi_mask** (Union[Tensor[float16, bfloat16], None]) - The position embedding code. If S is greater than
           1024 and the mask of the lower triangle is used, enter only the inverse 1024 lines of the lower triangle for
           memory optimization.
-          Input tensor of shape :math: `(B, N1, S1, S2)`, `(1, N1, S1, S2)`, `(B, N1, 1024, S2)`, `(1, N1, 1024, S2)`
-          or (1024, 1024).
+          Input tensor of shape :math:`(B, N1, S1, S2)`, :math:`(1, N1, S1, S2)`, :math:`(B, N1, 1024, S2)`,
+          :math:`(1, N1, 1024, S2)` or (1024, 1024).
         - **padding_mask** (None) - Reserved parameter. Not implemented yet.
         - **prefix** (Union[Tensor[int64], None]) - N value of each Batch in the prefix sparse calculation scenario.
           Not implemented yet. Input tensor of shape :math:`(B,)`.

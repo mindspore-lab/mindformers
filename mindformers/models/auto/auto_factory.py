@@ -66,14 +66,10 @@ FROM_CONFIG_DOCSTRING = """
                 List options
 
         Examples:
-
-        ```python
-        >>> from mindformers import AutoConfig, BaseAutoModelClass
-
-        >>> # Download configuration from openmind and cache.
-        >>> config = AutoConfig.from_pretrained("checkpoint_placeholder")
-        >>> model = BaseAutoModelClass.from_config(config)
-        ```
+            >>> from mindformers import AutoConfig, BaseAutoModelClass
+            >>> # Download configuration from openmind and cache.
+            >>> config = AutoConfig.from_pretrained("checkpoint_placeholder")
+            >>> model = BaseAutoModelClass.from_config(config)
 """
 
 FROM_PRETRAINED_MINDFORMERS_DOCSTRING = """
@@ -163,17 +159,13 @@ FROM_PRETRAINED_MINDFORMERS_DOCSTRING = """
                     will be passed to the underlying model's `__init__` function.
 
         Examples:
-
-        ```python
-        >>> from mindformers import AutoConfig, BaseAutoModelClass
-
-        >>> # Download model and configuration from openmind and cache.
-        >>> model = BaseAutoModelClass.from_pretrained("checkpoint_placeholder")
-
-        >>> # Update configuration during loading
-        >>> model = BaseAutoModelClass.from_pretrained("checkpoint_placeholder", output_attentions=True)
-        >>> model.config.output_attentions
-        True
+            >>> from mindformers import AutoConfig, BaseAutoModelClass
+            >>> # Download model and configuration from openmind and cache.
+            >>> model = BaseAutoModelClass.from_pretrained("checkpoint_placeholder")
+            >>> # Update configuration during loading
+            >>> model = BaseAutoModelClass.from_pretrained("checkpoint_placeholder", output_attentions=True)
+            >>> model.config.output_attentions
+            True
 """
 
 

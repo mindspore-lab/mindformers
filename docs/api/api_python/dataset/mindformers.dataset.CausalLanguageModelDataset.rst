@@ -36,5 +36,5 @@ mindformers.dataset.CausalLanguageModelDataset
         `CausalLanguageModelDataset` 实例。
 
     异常：
-        - **ValueError** –  当 `dataset_config.eod_reset` 为 ``True`` 且未全量导入数据集时， `dataset_config.batch_size` 不是使用设备数量的整数倍。
-        - **ValueError** –  `dataset_config.data_loader` 中没有指定键 `"dataset_dir"` 或 `"dataset_files"` 。
+        - **ValueError** -  当 `dataset_config.eod_reset` 为 ``True`` 且未全量导入数据集时， `dataset_config.batch_size` 不是使用设备数量的整数倍。
+        - **ValueError** -  `dataset_config.data_loader` 中没有指定键 `"dataset_dir"` 或 `"dataset_files"` 。

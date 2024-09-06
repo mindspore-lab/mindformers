@@ -46,4 +46,4 @@ mindformers.dataset.KeyWordGenDataset
         `KeyWordGenDataset` 实例。
 
     异常：
-        - **ValueError** –  `dataset_config.data_loader` 中没有指定键 `"dataset_dir"` 或 `"dataset_files"` 。
+        - **ValueError** -  `dataset_config.data_loader` 中没有指定键 `"dataset_dir"` 或 `"dataset_files"` 。

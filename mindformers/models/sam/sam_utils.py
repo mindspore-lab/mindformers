@@ -593,7 +593,7 @@ def box_iou(box1: np.ndarray, box2: np.ndarray):
     Returns:
         iou (np.ndarray): NumPy array containing the IoU values for each pair of boxes.
 
-    Example:
+    Examples:
         >>> box1 = np.array([[0, 0, 10, 10], [5, 5, 15, 15]])
         >>> box2 = np.array([[5, 5, 15, 15], [8, 8, 18, 18]])
         >>> iou = box_iou(box1, box2)
@@ -627,7 +627,7 @@ def nms(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float):
     Returns:
         keep (np.ndarray): NumPy array containing indices of the retained bounding boxes.
 
-    Example:
+    Examples:
         >>> boxes = np.array([[0, 0, 10, 10], [5, 5, 15, 15], [8, 8, 18, 18]])
         >>> scores = np.array([0.9, 0.75, 0.85])
         >>> iou_threshold = 0.5

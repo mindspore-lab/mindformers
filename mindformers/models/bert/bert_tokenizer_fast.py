@@ -150,10 +150,10 @@ class BertTokenizerFast(PreTrainedTokenizerFast):
         Create a mask from the two sequences passed to be used in a sequence-pair classification task. A BERT sequence
         pair mask has the following format:
 
-        ```
-        0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
-        | first sequence    | second sequence |
-        ```
+        .. code-block::
+
+            0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1
+            | first sequence    | second sequence |
 
         If `token_ids_1` is `None`, this method only returns the first portion of the mask (0s).
 

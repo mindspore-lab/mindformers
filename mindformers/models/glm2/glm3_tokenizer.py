@@ -121,6 +121,10 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
         unk_token (str, tokenizers.AddedToken): The unknown token. Default: `"<unk>"` .
         **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
 
+    Outputs:
+        A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
+        of the subclass.
+
     Examples:
         >>> from mindformers import AutoTokenizer
         >>> tokenize = AutoTokenizer.from_pretrained('glm2_6b')
@@ -136,11 +140,6 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
         >>> response = tokenizer.decode(input_ids)
         >>> print(response)
         ['晚上睡不着应该怎么办']
-
-
-    Outputs:
-        A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
-        of the subclass.
     """
     vocab_files_names = {"vocab_file": "tokenizer.model"}
 

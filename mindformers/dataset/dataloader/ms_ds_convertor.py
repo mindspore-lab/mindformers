@@ -90,15 +90,12 @@ def to_ms_dataset(
     Returns:
         `ms.dataset.GeneratorDataset`
 
-    Example:
-
-    ```py
-    >>> ds_train = ds["train"].to_ms_dataset(
-    ...    columns=['input_ids', 'token_type_ids', 'attention_mask', 'label'],
-    ...    shuffle=True,
-    ...    batch_size=16,
-    ... )
-    ```
+    Examples:
+        >>> ds_train = ds["train"].to_ms_dataset(
+        ...    columns=['input_ids', 'token_type_ids', 'attention_mask', 'label'],
+        ...    shuffle=True,
+        ...    batch_size=16,
+        ... )
     """
     if label_cols and not columns:
         raise ValueError("Cannot specify label_cols without specifying columns!")

@@ -81,7 +81,7 @@ class MindFormerConfig(DictConfig):
     Returns:
         An instance of the class.
 
-    Example:
+    Examples:
         >>> from mindformers.tools import MindFormerConfig
         >>>
         >>> # test.yaml:

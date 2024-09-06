@@ -492,20 +492,15 @@ class AutoTokenizer:
                 `additional_special_tokens`. See parameters in the `__init__()` for more details.
 
         Examples:
-
-        ```python
-        >>> from mindformers import AutoTokenizer
-
-        >>> # Download vocabulary from mindformers obs.
-        >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
-
-        >>> # Download vocabulary from user-uploaded and cache.
-        >>> tokenizer = AutoTokenizer.from_pretrained("mindformersinfra/test_auto_tokenizer_gpt2_ms")
-
-        >>> # If vocabulary files are in a directory
-        >>> # (e.g. tokenizer was saved using *save_pretrained('./test/saved_model/')*)
-        >>> # tokenizer = AutoTokenizer.from_pretrained("./test/bert_saved_model/")
-        ```"""
+            >>> from mindformers import AutoTokenizer
+            >>> # Download vocabulary from mindformers obs.
+            >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
+            >>> # Download vocabulary from user-uploaded and cache.
+            >>> tokenizer = AutoTokenizer.from_pretrained("mindformersinfra/test_auto_tokenizer_gpt2_ms")
+            >>> # If vocabulary files are in a directory
+            >>> # (e.g. tokenizer was saved using *save_pretrained('./test/saved_model/')*)
+            >>> # tokenizer = AutoTokenizer.from_pretrained("./test/bert_saved_model/")
+        """
         use_auth_token = kwargs.pop("use_auth_token", None)
         if use_auth_token is not None:
             warnings.warn(

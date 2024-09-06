@@ -40,6 +40,10 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
             purpose. Will then be ignored by attention mechanisms or loss computation. Default: `"<|endoftext|>"` .
         **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
 
+    Outputs:
+        A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
+        of the subclass.
+
     Examples:
         >>> from mindformers import ChatGLM4Tokenizer
         >>> tokenizer = ChatGLM4Tokenizer('tokenizer.model')
@@ -51,11 +55,6 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
         >>> response = tokenizer.decode(input_ids)
         >>> print(response)
         ['晚上睡不着应该怎么办']
-
-
-    Outputs:
-        A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
-        of the subclass.
     """
     vocab_files_names = {"vocab_file": "tokenizer.model"}
     model_input_names = ["input_ids", "attention_mask", "position_ids"]

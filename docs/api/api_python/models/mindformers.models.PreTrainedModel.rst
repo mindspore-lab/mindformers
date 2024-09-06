@@ -23,7 +23,7 @@ mindformers.models.PreTrainedModel
 
         参数：
             - **pretrained_model_name_or_dir** (str) - 支持以下两种输入类型：如果 ``pretrained_model_name_or_dir`` 是模型名称，例如"vit_base_p16"和"t5_small"，它将在线下载权重，用户可以通过 ``MindFormerBook.get_model_support_list()`` 从获取到的列表中传递一个模型参数；如果 ``pretrained_model_name_or_dir`` 是本地路径，目录中应该有以 ``.ckpt`` 结尾的模型权重和以 ``yaml`` 结尾的配置文件。
-            - **model_args** (str, 可选) - 模型扩展参数。如果包含``pretrained_model_name_or_path``，等同于 ``pretrained_model_name_or_dir`` ，如果设置了 ``pretrained_model_name_or_path`` ， ``pretrained_model_name_or_dir`` 就会失效。
+            - **model_args** (str, 可选) - 模型扩展参数。如果包含 ``pretrained_model_name_or_path``，等同于 ``pretrained_model_name_or_dir`` ，如果设置了 ``pretrained_model_name_or_path`` ， ``pretrained_model_name_or_dir`` 就会失效。
             - **kwargs** (dict, 可选) - 一个可变数量的关键字参数，为待扩展的关键字参数预留。
 
         返回：

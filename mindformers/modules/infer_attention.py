@@ -74,6 +74,7 @@ class InferAttention(Cell):
     D -- Head size. Support value: 64, 80, 96, 120, 128 and 256.
     H1 -- Hidden size of query, which equals to N1 * D
     H2 -- Hidden size of key and value, which equals to N2 * D
+
     Args:
         n_head (int): The head num of query.
         head_dim (int): The dim of head.
@@ -115,12 +116,12 @@ class InferAttention(Cell):
 
     Inputs:
         - **query** (Tensor[float16, bfloat16]) - The query tensor.
-          Input tensor of shape :math:`(B, S1, H1)` or `(B, N1, S1, D)`.
+          Input tensor of shape :math:`(B, S1, H1)` or :math:`(B, N1, S1, D)`.
         - **key** (Tensor[float16, bfloat16]) - The key tensor.
-          Input tensor of shape :math:`(B, S2, H2)` or `(B, N2, S2, D)`.
+          Input tensor of shape :math:`(B, S2, H2)` or :math:`(B, N2, S2, D)`.
         - **value** (Tensor[float16, bfloat16]) - The value tensor.
-          Input tensor of shape :math:`(B, S2, H2)` or `(B, N2, S2, D)`.
-        - **batch_valid_length** (Tensor): Int32 tensor with shape [batch_size] the past calculated the index.
+          Input tensor of shape :math:`(B, S2, H2)` or :math:`(B, N2, S2, D)`.
+        - **batch_valid_length** (Tensor) - Int32 tensor with shape [batch_size] the past calculated the index.
           Used for incremental prediction when the use_past is True. Default None.
         - **block_tables** (Tensor[int64]) - Store mapping tables for each sequence.
         - **slot_mapping** (Tensor[int32]) - Store token cache physical slot index.
@@ -129,13 +130,13 @@ class InferAttention(Cell):
         - **freqs_sin** (Tensor[float16, bfloat16]) - The precompute freqs sin for rotary position embedding used in
           attention, shape is (seq_len, head_dim).
         - **attn_mask** (Union[Tensor[uint8], None]) - The attention mask tensor. For each element, 0 indicates
-          retention and 1 indicates discard. Input tensor of shape :math:`(B, N1, S1, S2)`, `(B, 1, S1, S2)`, `(S1, S2)`
-          or (2048, 2048).
+          retention and 1 indicates discard. Input tensor of shape :math:`(B, N1, S1, S2)`, :math:`(B, 1, S1, S2)`,
+          :math:`(S1, S2)` or (2048, 2048).
         - **alibi_mask** (Union[Tensor[float16, bfloat16], None]) - The position embedding code. If S is greater than
           1024 and the mask of the lower triangle is used, enter only the inverse 1024 lines of the lower triangle for
           memory optimization.
-          Input tensor of shape :math: `(B, N1, S1, S2)`, `(1, N1, S1, S2)`, `(B, N1, 1024, S2)`, `(1, N1, 1024, S2)`
-          or (1024, 1024).
+          Input tensor of shape :math:`(B, N1, S1, S2)`, :math:`(1, N1, S1, S2)`, :math:`(B, N1, 1024, S2)`,
+          :math:`(1, N1, 1024, S2)` or (1024, 1024).
 
     Outputs:
         - **attention_out** (Tensor[float16, bfloat16]) - The output of attention, its shape, and data type
