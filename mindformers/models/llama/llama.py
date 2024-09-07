@@ -401,6 +401,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             self.llm_boost.init()
             self.is_set_kvcache = False
         self.parallel_decoding = config.parallel_decoding
+        if hasattr(self.config, 'pet_config') and self.config.pet_config.pet_type == 'slora':
+            from mindspore import Parameter
+            from mindspore.common.initializer import initializer
+            self.adapter_ids = Parameter(initializer('zero', [config.batch_size], mstype.int32), requires_grad=False)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         model_inputs = {}
@@ -408,6 +412,14 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             input_ids = kwargs["origin_inputs"]
         model_inputs["input_ids"] = Tensor.from_numpy(
             input_ids.astype(np.int32))
+        if hasattr(self, 'adapter_ids') and "adapter_ids" in kwargs:
+            adapter_ids = kwargs["adapter_ids"]
+            if adapter_ids is not None:
+                slora_names = self.config.pet_config.lora_names
+                adapter_ids = [slora_names.index(x) for x in adapter_ids if x in slora_names]
+            else:
+                adapter_ids = [0] * input_ids.shape[0]
+            self.adapter_ids.set_data(Tensor.from_numpy(np.array(adapter_ids, dtype=np.int32)), slice_shape=True)
         if hasattr(self, 'llm_boost'):
             batch_valid_length = kwargs["valid_length_each_example"]
             block_tables = kwargs["block_tables"]

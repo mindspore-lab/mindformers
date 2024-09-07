@@ -14,6 +14,8 @@
 # ============================================================================
 """Trainer Utils."""
 import os
+import json
+import re
 import sys
 import time
 import random
@@ -24,6 +26,7 @@ import numpy as np
 from mindspore import context, load_checkpoint, load_param_into_net
 from mindspore import set_seed as ms_set_seed
 from mindspore import Parameter
+from mindspore import ops
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank
@@ -455,6 +458,109 @@ def build_model(config, model, dataset, do_eval=False, do_predict=False):
             logger.info("Time spent building the model: %.2fs", build_time_end - build_time_start)
 
 
+def process_slora_base_ckpt(checkpoint_dict, lora_target_modules: str):
+    """
+    Adjust the weight name of Linear to the weight name of the SLoraLinear according to the lora_target_modules.
+
+    Args:
+        checkpoint_dict (Dict[str, Parameter]): contains the base model Parameter dict.
+        lora_target_modules(str): SLora target layer.
+
+    Returns:
+         Dict[str, Parameter]: contain all the Parameter weights required by the SLora network.
+    """
+    for param_name in list(checkpoint_dict):
+        if re.match(lora_target_modules, param_name):
+            split_name = param_name.split(".")
+            if split_name[-1] == "weight":
+                split_name.insert(-1, "lora_linear")
+                checkpoint_dict.update({".".join(split_name): checkpoint_dict.pop(param_name)})
+            if split_name[-1] == "embedding_weight":
+                split_name.insert(-1, "lora_embedding")
+                checkpoint_dict.update({".".join(split_name): checkpoint_dict.pop(param_name)})
+
+
+def parse_fine_tuned_lora_name(name: str) -> str:
+    """Parse the name of the lora weights. 1. remove prefix: base_model.model; 2. remove suffix: weight
+
+    Args:
+        name (str): the name of the fine-tuned SLora weight from ckpt file,
+            eg: base_model.model.model.layers.0.feed_forward.w0.lora_A.weight
+
+    Returns:
+        str: the name of the network Parameter after applying SLora,
+            eg: model.layers.0.feed_forward.w0.lora_A
+    """
+    split_name = name.split(".")
+    if split_name[-1] == "weight":
+        if split_name[-2] == "lora_A" or split_name[-2] == "lora_B":
+            return ".".join(split_name[2:-2]) + "." + split_name[-2].lower()
+    if split_name[-1] == "lora_embedding_A" or split_name[-1] == "lora_embedding_B":
+        return ".".join(split_name[2:])
+    return name
+
+
+def load_slora_ckpt(checkpoint_dict, model_config):
+    """
+    1. Adjust the weight name of Linear to the weight name of the SLoraLinear according to the lora_target_modules.
+    2. Load SLora weight Parameter from lora_ckpt_path.
+
+    Args:
+        checkpoint_dict (Dict[str, Parameter]): contains the base model Parameter dict.
+        model_config: model config with SLora adapter config json path.
+
+    Returns:
+         Dict[str, Parameter]: contain all the Parameter weights required by the SLora network.
+    """
+    # 1. replace slora layer in checkpoint_dict.keys(); 2. load slora param
+    pet_config = model_config.get("pet_config")
+    if not pet_config or pet_config.pet_type != "slora":
+        return checkpoint_dict
+
+    logger.info("............Start load slora checkpoint ............")
+    if not os.path.exists(pet_config.adapter_path):
+        raise FileNotFoundError(f"The adapter_path must be correct, but get {pet_config.adapter_path}")
+    with open(pet_config.adapter_path, 'r') as file:
+        path_dict = json.load(file)
+
+    slora_path_0 = path_dict[list(path_dict.keys())[0]]
+    config_path = os.path.join(slora_path_0, "adapter_config.json")
+    with open(config_path, 'r') as file:
+        config = json.load(file)
+    target_modules_set = set(config["target_modules"])
+    lora_params = load_checkpoint(os.path.join(slora_path_0, "adapter_model.ckpt"))
+
+    # load slora ckpt, assume the multiple lora tasks have the same target_modules
+    for slora_path in list(path_dict.values())[1:]:
+        with open(os.path.join(slora_path, "adapter_config.json"), 'r') as file:
+            config = json.load(file)
+        target_modules_set.update(config["target_modules"])
+
+        cur_params = load_checkpoint(os.path.join(slora_path, "adapter_model.ckpt"))
+        for param_name in list(cur_params):
+            if param_name in lora_params.keys():
+                param_in_dict = lora_params.pop(param_name)
+                cur_param = cur_params[param_name]
+                lora_params.update({param_name: Parameter(ops.cat((param_in_dict, cur_param), 0))})
+            else:
+                raise RuntimeError(f"The parameters loaded from each file in lora_ckpt_path "
+                                   f"should have the same parameter name.")
+
+    # process base model param name.
+    target_modules_list = [".*" + module for module in list(target_modules_set)]
+    target_modules = '|'.join(target_modules_list)
+    process_slora_base_ckpt(checkpoint_dict, target_modules)
+
+    # insert lora params into params dict.
+    lora_num = len(path_dict)
+    for param_name in list(lora_params):
+        module_name = parse_fine_tuned_lora_name(param_name)
+        cur_param = lora_params.pop(param_name)
+        lora_params.update({module_name: Parameter(cur_param.reshape(lora_num, -1, cur_param.shape[1]))})
+    checkpoint_dict.update(lora_params)
+    return checkpoint_dict
+
+
 def load_ckpt(config, network, optimizer=None):
     """load checkpoint"""
     # load checkpoint params into dict
@@ -487,6 +593,8 @@ def load_ckpt(config, network, optimizer=None):
         else:
             raise ValueError(f"{config.load_checkpoint} is not a valid path to load checkpoint "
                              f"when auto_trans_ckpt is False.")
+
+    checkpoint_dict = load_slora_ckpt(checkpoint_dict, config.model.model_config)
 
     # replace tk in checkpoint_dict.keys()
     checkpoint_dict = replace_tk_to_mindpet(checkpoint_dict)
