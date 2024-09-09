@@ -14,7 +14,6 @@
 # ============================================================================
 """Base DataLoader"""
 import os
-import datasets
 
 from mindformers.tools.logger import logger
 
@@ -24,6 +23,7 @@ class BaseDataLoader:
     @classmethod
     def load_dataset(cls, path: str, **kwargs):
         """load dataset"""
+        import datasets
         try:
             logger.info(f"USE_OM : {os.environ['USE_OM']}")
             # pylint: disable=W0611
