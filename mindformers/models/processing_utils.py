@@ -290,7 +290,7 @@ class ProcessorMixin(PushToHubMixin):
         From a `pretrained_model_name_or_path`, resolve to a dictionary of parameters, to be used for instantiating a
         processor of type [`~processing_utils.ProcessingMixin`] using `from_args_and_dict`.
 
-        Parameters:
+        Args:
             pretrained_model_name_or_path (`str` or `os.PathLike`):
                 The identifier of the pre-trained checkpoint from which we want the dictionary of parameters.
             subfolder (`str`, *optional*, defaults to `""`):

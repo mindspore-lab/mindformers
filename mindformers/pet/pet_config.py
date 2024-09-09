@@ -59,7 +59,7 @@ class LoraConfig(PetConfig):
         target_modules (str, optional): The layers that require replacement with LoRA algorithm. Default: ``None``.
         exclude_layers (str, optional): The layers that do not require
             replacement with the LoRA algorithm. Default: ``None``.
-        freeze_include (List[str], optional, defaults None): List of modules to be frozen. Default: ``None``.
+        freeze_include (List[str], optional): List of modules to be frozen. Default: ``None``.
         freeze_exclude (List[str], optional): List of modules that do not need
             to be frozen. When an item in the freeze_include and freeze_exclude list
             conflicts, the module that matches this item is not processed. Default: ``None``.

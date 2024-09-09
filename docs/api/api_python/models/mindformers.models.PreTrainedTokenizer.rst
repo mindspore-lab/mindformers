@@ -44,6 +44,7 @@ mindformers.models.PreTrainedTokenizer
         分词器实例。
 
     .. py:method:: added_tokens_decoder()
+        :classmethod:
 
         以索引到AddedToken的字典形式，返回词汇表中的添加词元。
 
@@ -51,6 +52,7 @@ mindformers.models.PreTrainedTokenizer
             dict，添加的词元。
 
     .. py:method:: added_tokens_encoder()
+        :classmethod:
 
         返回字符串到索引的排序映射。为了性能优化，添加的词元编码器在 `self._added_tokens_encoder` 中被缓存。
 
@@ -62,8 +64,8 @@ mindformers.models.PreTrainedTokenizer
         使用词汇表和添加的词元，将单个索引或索引序列转换为词元或词元序列。
 
         参数：
-            - **ids** (Union[int, list]): 要转换为词元的词元索引或词元索引序列。
-            - **skip_special_tokens** (bool, 可选): 是否在解码时移除特殊词元。默认值： ``False`` 。
+            - **ids** (Union[int, list]) - 要转换为词元的词元索引或词元索引序列。
+            - **skip_special_tokens** (bool, 可选) - 是否在解码时移除特殊词元。默认值： ``False`` 。
 
         返回：
             解码的词元或词元列表，类型为 `str` 或 `List[str]` 。
@@ -73,7 +75,7 @@ mindformers.models.PreTrainedTokenizer
         使用词汇表将词元字符串（或词元序列）转换为单个整数索引（或索引序列）。
 
         参数：
-            - **tokens** (Union[str, list]): 要转换为词元索引的一个或多个词元。
+            - **tokens** (Union[str, list]) - 要转换为词元索引的一个或多个词元。
 
         返回：
             `ids` ，类型为 `int` 或 `List[int]` 的词元索引或词元索引序列。
@@ -93,7 +95,7 @@ mindformers.models.PreTrainedTokenizer
             这将编码一个虚拟输入并检查添加的词元数量，因此效率不高。不要将此方法放在您的训练循环中。
 
         参数：
-            - **pair** (bool, 可选) — 是否在序列对的情况下计算添加的词元数量。默认值： ``False`` 。
+            - **pair** (bool, 可选) - 是否在序列对的情况下计算添加的词元数量。默认值： ``False`` 。
 
         返回：
             序列中添加的特殊词元的数量。
@@ -103,7 +105,7 @@ mindformers.models.PreTrainedTokenizer
         在分词前进行必要的转换。
 
         参数：
-            - **text** (str): 要准备的文本。
+            - **text** (str) - 要准备的文本。
 
         返回：
             一个类型为 `Tuple[str, dict]` 的元组，表示准备好的文本和未使用的kwargs。
@@ -115,10 +117,10 @@ mindformers.models.PreTrainedTokenizer
         根据是否添加了词元处理单词或子词。
 
         参数：
-            - **text** (str): 要编码的序列。
-            - **pair** (str, 可选): 与第一个序列一起编码的第二个序列。默认值： ``None`` 。
-            - **add_special_tokens** (bool, 可选): 是否添加与相应模型关联的特殊词元。默认值： ``False`` 。
-            - **kwargs** (附加的关键字参数, 可选): 这些参数将被传递给底层的具体模型编码方法。详见[`~PreTrainedTokenizerBase.__call__`]。
+            - **text** (str) - 要编码的序列。
+            - **pair** (str, 可选) - 与第一个序列一起编码的第二个序列。默认值： ``None`` 。
+            - **add_special_tokens** (bool, 可选) - 是否添加与相应模型关联的特殊词元。默认值： ``False`` 。
+            - **kwargs** (附加的关键字参数, 可选) - 这些参数将被传递给底层的具体模型编码方法。详见[`~PreTrainedTokenizerBase.__call__`]。
 
         返回：
             `tokenized_text`，类型为 `List[str]` 的词元列表。

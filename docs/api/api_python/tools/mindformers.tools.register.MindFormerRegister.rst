@@ -5,6 +5,18 @@ mindformers.tools.register.MindFormerRegister
 
     MindFormers的注册接口，提供了接口注册和获取的相关方法。
 
+    .. py:method:: is_exist(module_type, class_name=None)
+        :classmethod:
+
+        判断给定的类名是否在当前的类型组中。若 `class_name` 没有给定，则判断给定的类名是否在当前的注册字典中。
+
+        参数：
+            - **module_type** (MindFormerModuleType) - MindFormers的模块类型名。
+            - **class_name** (str, 可选) - 类名。默认值： ``None`` 。
+
+        返回：
+            一个布尔值，表示是否存在。
+
     .. py:method:: register(module_type=MindFormerModuleType.TOOLS, alias=None)
 
         将类注册至注册字典中的装饰器。
@@ -17,6 +29,7 @@ mindformers.tools.register.MindFormerRegister
             包装函数，对注册的类进行装饰。
 
     .. py:method:: register_cls(register_class, module_type=MindFormerModuleType.TOOLS, alias=None)
+        :classmethod:
 
         将类注册至注册字典中的方法。
 
@@ -28,18 +41,8 @@ mindformers.tools.register.MindFormerRegister
         返回：
             类，被注册的类本身。
 
-    .. py:method:: is_exist(module_type, class_name=None)
-
-        判断给定的类名是否在当前的类型组中。若 `class_name` 没有给定，则判断给定的类名是否在当前的注册字典中。
-
-        参数：
-            - **module_type** (MindFormerModuleType) - MindFormers的模块类型名。
-            - **class_name** (str, 可选) - 类名。默认值： ``None`` 。
-
-        返回：
-            一个布尔值，表示是否存在。
-
     .. py:method:: get_cls(module_type, class_name=None)
+        :classmethod:
 
         从注册字典中获取类。
 
@@ -55,6 +58,7 @@ mindformers.tools.register.MindFormerRegister
             - **ValueError** - 在注册字典中未找到 `module_type` 。
 
     .. py:method:: get_instance_from_cfg(cfg, module_type=MindFormerModuleType.TOOLS, default_args=None)
+        :classmethod:
 
         通过配置获取注册字典中类的实例。
 
@@ -73,6 +77,7 @@ mindformers.tools.register.MindFormerRegister
             - **ValueError** - 在注册字典中未找到类型是 `module_type` 的类 `class_name` 。
 
     .. py:method:: get_instance(module_type=MindFormerModuleType.TOOLS, class_name=None, **kwargs)
+        :classmethod:
 
         获取注册字典中类的实例。
 

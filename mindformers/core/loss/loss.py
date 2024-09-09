@@ -334,7 +334,7 @@ class CrossEntropyLoss(nn.Cell):
           \ell(x, y) = L = \{l_1,\dots,l_N\}^\top, \quad
           l_n = - \sum_{c=1}^C w_c \log \frac{\exp(x_{n,c})}{\sum_{i=1}^C \exp(x_{n,i})} y_{n,c}
 
-      where :math:`x`` denotes the predicted values, :math:`t` denotes the target values, :math:`w` denotes the weights,
+      where :math:`x` denotes the predicted values, :math:`t` denotes the target values, :math:`w` denotes the weights,
       and :math:`N` is the batch size. The index :math:`c` ranges from [0, C-1], representing the class indices,
       where :math:`C` is the number of classes.
 
@@ -361,7 +361,7 @@ class CrossEntropyLoss(nn.Cell):
         - **input_mask** (Tensor) - Tensor of shape (N, ). input_mask indicates whether there are padded inputs and for
           padded inputs it will not be counted into loss.
 
-    Returns:
+    Outputs:
         The corresponding cross entropy loss.
 
     Examples:

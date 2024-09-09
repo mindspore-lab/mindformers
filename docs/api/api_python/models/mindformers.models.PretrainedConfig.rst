@@ -17,26 +17,29 @@ mindformers.models.PretrainedConfig
         PretrainedConfig类实例。
 
     .. py:method:: from_dict(config_dict: dict, **kwargs)
+        :classmethod:
 
         从参数字典实例化 PretrainedConfig。
 
         参数：
-            - **config_dict** (dict) — 用于实例化配置对象的字典。这样的字典可以通过利用 :func:`mindformers.models.PretrainedConfig.get_config_dict` 方法从预训练的检查点检索。
+            - **config_dict** (dict) - 用于实例化配置对象的字典。这样的字典可以通过利用 :func:`mindformers.models.PretrainedConfig.get_config_dict` 方法从预训练的检查点检索。
 
         返回：
             PretrainedConfig, 从这些参数实例化的配置对象。
 
     .. py:method:: from_json_file(json_file: Union[str, os.PathLike])
+        :classmethod:
 
         从 JSON 文件的路径实例化 PretrainedConfig。
 
         参数：
-            - **json_file** (Union[str, os.PathLike]) — 参数的 JSON 文件路径。
+            - **json_file** (Union[str, os.PathLike]) - 参数的 JSON 文件路径。
 
         返回：
             PretrainedConfig, 从该 JSON 文件实例化的配置对象。
 
     .. py:method:: from_pretrained(yaml_name_or_path, **kwargs)
+        :classmethod:
 
         通过 yaml 名称或路径实例化配置。
 
@@ -48,12 +51,13 @@ mindformers.models.PretrainedConfig
             PretrainedConfig: 继承自 PretrainedConfig 的模型配置。
 
     .. py:method:: get_config_dict(pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs)
+        :classmethod:
 
         从 'pretrained_model_name_or_path' 解析到一个参数字典，用于使用 :func:`mindformers.models.PretrainedConfig.from_dict` 实例化 PretrainedConfig。
 
 
         参数：
-            - **pretrained_model_name_or_path** (Union[str, os.PathLike]) — 预训练检查点的标识符, 我们希望从中获得参数字典。
+            - **pretrained_model_name_or_path** (Union[str, os.PathLike]) - 预训练检查点的标识符, 我们希望从中获得参数字典。
 
         返回：
             Tuple[dict, dict]: 用于实例化配置对象的字典。
@@ -63,8 +67,8 @@ mindformers.models.PretrainedConfig
         将预训练的配置保存到指定目录。
 
         参数：
-            - **save_directory** (str) — 配置文件的保存目录。默认值： ``None`` 。
-            - **save_name** (str) — 保存文件的名称，默认值： ``mindspore_model`` 。
+            - **save_directory** (str) - 配置文件的保存目录。默认值： ``None`` 。
+            - **save_name** (str) - 保存文件的名称，默认值： ``mindspore_model`` 。
 
     .. py:method:: to_dict()
 
@@ -85,15 +89,15 @@ mindformers.models.PretrainedConfig
         将此实例保存到 JSON 文件。
 
         参数：
-            - **json_file_path** (Union[str, os.PathLike]) — 此配置实例参数将被保存的 JSON 文件路径。
-            - **use_diff** (bool, 可选) — 如果设置为 True，仅序列化配置实例与默认 :class:`mindformers.models.PretrainedConfig` 的差异到 JSON 文件。默认值： ``True`` 。
+            - **json_file_path** (Union[str, os.PathLike]) - 此配置实例参数将被保存的 JSON 文件路径。
+            - **use_diff** (bool, 可选) - 如果设置为 True，仅序列化配置实例与默认 :class:`mindformers.models.PretrainedConfig` 的差异到 JSON 文件。默认值： ``True`` 。
 
     .. py:method:: to_json_string(use_diff: bool = True)
 
         将此实例序列化为 JSON 字符串。
 
         参数：
-            - **use_diff** (bool, 可选) — 如果设置为 True，仅序列化配置实例与默认 PretrainedConfig() 的差异到 JSON 字符串。默认值： ``True`` 。
+            - **use_diff** (bool, 可选) - 如果设置为 True，仅序列化配置实例与默认 PretrainedConfig() 的差异到 JSON 字符串。默认值： ``True`` 。
 
         返回：
             str, 包含此配置实例所有属性的 JSON 格式字符串。

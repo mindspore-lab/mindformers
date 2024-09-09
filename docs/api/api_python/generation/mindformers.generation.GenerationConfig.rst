@@ -61,7 +61,7 @@ mindformers.generation.GenerationConfig
         - **encoder_repetition_penalty** (float, 可选) - encoder_repeation_ppenalty的参数。对不在原始输入中的序列的指数惩罚。1.0表示没有惩罚。默认值： ``1.0`` 。
         - **renormalize_logits** (bool, 可选) - 是否在应用所有logits处理器或扭曲器（包括自定义处理器）后重新规范化logits。强烈建议将此标志设置为 ``True`` ，因为搜索算法假设分数logit是标准化的，但一些logit处理器或扭曲器会破坏标准化。默认值： ``False`` 。
         - **output_scores** (bool, 可选) - 是否在softmax之前返回预测分数。默认值： ``False`` 。
-        - **output_logits** (int, 可选) - 是否返回未处理的预测logit分数。默认值： ``False`` 。
+        - **output_logits** (bool, 可选) - 是否返回未处理的预测logit分数。默认值： ``False`` 。
         - **return_dict_in_generate** (bool, 可选) - 是否返回字典输出而不是具有output_ids的元组。默认值： ``False`` 。
         - **pad_token_id** (int, 可选) - padding词元的id。
         - **bos_token_id** (int, 可选) - beginning-of-sequence词元的id。

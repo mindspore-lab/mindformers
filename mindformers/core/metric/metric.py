@@ -665,24 +665,26 @@ class PromptAccMetric(nn.Metric):
 
     1. Build the prompt for this metric is described as follows:
 
-        这是关于**体育**的文章：$passage
-        这是关于**文化**的文章：$passage
+       .. code-block::
+
+           这是关于**体育**的文章：$passage
+           这是关于**文化**的文章：$passage
 
     2. Computes perplexity of each generated context based on prompt.
-    Perplexity is a measurement about how well a probability distribution or a model predicts a sample.
-        A low perplexity indicates the model can predict the sample well. The function is shown as follows:
+       Perplexity is a measurement about how well a probability distribution or a model predicts a sample.
+       A low perplexity indicates the model can predict the sample well. The function is shown as follows:
 
-        .. math::
-            PP(W)=P(w_{1}w_{2}...w_{N})^{-\frac{1}{N}}=\sqrt[N]{\frac{1}{P(w_{1}w_{2}...w_{N})}}
+       .. math::
+           PP(W)=P(w_{1}w_{2}...w_{N})^{-\frac{1}{N}}=\sqrt[N]{\frac{1}{P(w_{1}w_{2}...w_{N})}}
 
-        Where :math:`w` represents words in corpus.
+       Where :math:`w` represents words in corpus.
 
     3. Compute classification result by choosing the index of the prompt which has the minimum perplexity.
 
     4. Count the number of correctly classified and the total number of samples and compute the acc as follows:
 
-        .. math::
-            \text{accuracy} =\frac{\text{correct_sample_nums}}{\text{total_sample_nums}}
+       .. math::
+           \text{accuracy} =\frac{\text{correct_sample_nums}}{\text{total_sample_nums}}
     """
 
     def __init__(self):

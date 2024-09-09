@@ -26,7 +26,7 @@ class GenerationConfig:
     r"""
     Class that holds a configuration for a generation task.
 
-    Some parameters have specific functions, see the table below for details：
+    Some parameters have specific functions, see the table below for details:
 
     +------------------------------------------------------------+------------------------------+
     | Functional classification                                  |  Configuration parameter     |

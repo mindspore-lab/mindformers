@@ -61,8 +61,8 @@ mindformers.Trainer
         Trainer中执行微调的API，在设置了用户自定义的配置后，通过调用Trainer实例的finetune方法来执行微调。
 
         参数：
-            - **train_checkpoint** (Union[str, bool], 可选) - 在训练或者微调中，用于重新设置神经网络的权重，支持真实的checkpoint路径、MindFormers中的模型名称，或者布尔值。如果值为True，则自动使用上一轮训练保存的checkpoint文件。默认值： ``False`` 。
-            - **resume_from_checkpoint** (Union[str, bool], 可选) - 在训练或者微调中，用于重新设置神经网络的权重，支持真实的checkpoint路径、MindFormers中的模型名称，或者布尔值。如果值为True，则自动使用上一轮训练保存的checkpoint文件。如果train_checkpoint有传入的话，resume_from_checkpoint会被覆盖。默认值： ``None`` 。
+            - **finetune_checkpoint** (Union[str, bool], 可选) - 在训练或者微调中，用于重新设置神经网络的权重，支持真实的checkpoint路径、MindFormers中的模型名称，或者布尔值。如果值为True，则自动使用上一轮训练保存的checkpoint文件。默认值： ``False`` 。
+            - **resume_from_checkpoint** (Union[str, bool], 可选) - 在训练或者微调中，用于重新设置神经网络的权重，支持真实的checkpoint路径、MindFormers中的模型名称，或者布尔值。如果值为True，则自动使用上一轮训练保存的checkpoint文件。如果finetune_checkpoint有传入的话，resume_from_checkpoint会被覆盖。默认值： ``None`` 。
             - **resume_training** (Union[bool, str], 可选) - 指定是否恢复训练，或者指定checkpoint名称来恢复训练。如果值为True，则加载meta.json中指定的checkpoint来恢复训练。如果指定的是checkpoint名称，则该名称的checkpoint会被加载用于恢复训练。默认值： ``None`` 。
             - **ignore_data_skip** (bool, 可选) - 在恢复训练时，是否跳过执行过的批次，加载与前一次训练相同阶段的数据。如果值为True，则训练任务启动更快（因为跳过了一些步骤），但是由于训练被中断，所以无法获得相同的结果。默认值： ``None`` 。
             - **data_skip_steps** (int, 可选) - 在恢复训练时，指定在训练数据集中跳过的步数。只有 `ignore_data_skip` 值为False时生效。默认值： ``None`` 。

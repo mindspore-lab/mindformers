@@ -34,13 +34,6 @@ mindformers.models.LlamaTokenizerFast
         返回：
             - 返回一个列表，其中包含在序列两端插入特殊词元后的词元ID。
 
-    .. py:method:: update_post_processor()
-
-        更新底层的后处理函数，以使用当前的 `bos_token` 和 `eos_token`。
-
-        异常：
-            - **ValueError** - 如果设置了 `add_bos_token` 或 `add_eos_token` 但相应的 token 为 `None`，则抛出此异常。
-
     .. py:method:: save_vocabulary(save_directory: str, filename_prefix: Optional[str] = None)
 
         将词汇表保存到指定目录。此方法用于从慢速分词器中导出词汇表文件。
@@ -54,3 +47,10 @@ mindformers.models.LlamaTokenizerFast
 
         异常：
             - **ValueError** - 如果无法从快速分词器保存词汇表，或者提供的保存目录不存在，将抛出此异常。
+
+    .. py:method:: update_post_processor()
+
+        更新底层的后处理函数，以使用当前的 `bos_token` 和 `eos_token`。
+
+        异常：
+            - **ValueError** - 如果设置了 `add_bos_token` 或 `add_eos_token` 但相应的 token 为 `None`，则抛出此异常。

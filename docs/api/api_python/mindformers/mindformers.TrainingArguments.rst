@@ -188,7 +188,7 @@ mindformers.TrainingArguments
         返回：
             warmup_steps的值，即预热阶段步数。
 
-    .. py:method:: set_dataloader(train_batch_size: int = 8, eval_batch_size: int = 8, drop_last: bool = False, num_workers: int = 0, ignore_data_skip: bool = False, sampler_seed: Optional[int] = None, **kwargs)
+    .. py:method:: set_dataloader(train_batch_size: int = 8, eval_batch_size: int = 8, drop_last: bool = False, num_workers: int = 0, ignore_data_skip: bool = False, data_skip_steps: Optional[int] = None, sampler_seed: Optional[int] = None, **kwargs)
 
         设置与创建dataloader相关的参数。
 
@@ -211,12 +211,12 @@ mindformers.TrainingArguments
             - **steps** (int, 可选) - 两次日志之间间隔的步数，在 `strategy` 值为 `steps` 时生效。默认值： ``500`` 。
             - **kwargs** (Any) - 其它参数。
 
-    .. py:method:: set_lr_scheduler(name: Union[str, LrSchedulerType] = 'linear', num_epochs: float = 3.0, warmup_lr_init: float = 0.0, warmup_epochs: Optional[int] = None, warmup_ratio: Optional[float] = None, warmup_steps: int = 0, **kwargs)
+    .. py:method:: set_lr_scheduler(name: Union[str, LrSchedulerType] = 'linear', num_epochs: float = 3.0, warmup_lr_init: float = 0.0, warmup_epochs: Optional[int] = None, warmup_ratio: Optional[float] = None, warmup_steps: int = 0, total_steps: int = - 1, **kwargs)
 
         设置与学习率调度器相关的参数。
 
         参数：
-            - **name** (str, 可选) - 使用的调度器类型。默认值： ``"linear"`` 。
+            - **name** (Union[str, LrSchedulerType], 可选) - 使用的调度器类型。默认值： ``"linear"`` 。
             - **num_epochs** (float, 可选) - 训练执行的epoch数量。默认值： ``3.0`` 。
             - **warmup_lr_init** (float, 可选) - 学习率预热的起始值。默认值： ``0.0`` 。
             - **warmup_epochs** (int, 可选) - 预热的epoch数量。默认值： ``None`` 。
@@ -225,7 +225,7 @@ mindformers.TrainingArguments
             - **total_steps** (int, 可选) - 总步数。默认值： ``-1`` 。
             - **kwargs** (Any) - 其它参数。
 
-    .. py:method:: set_optimizer(name: Union[str, OptimizerType] = 'adamw', learning_rate: float = 5e-05, lr_end: float = 1e-06, weight_decay: float = 0, beta1: float = 0.9, beta2: float = 0.999, epsilon: float = 1e-08, **kwargs)
+    .. py:method:: set_optimizer(name: Union[str, OptimizerType] = 'adamw', learning_rate: float = 5e-5, lr_end: float = 1e-6, weight_decay: float = 0, beta1: float = 0.9, beta2: float = 0.999, epsilon: float = 1e-8, **kwargs)
 
         设置与优化器相关的参数。
 
@@ -250,7 +250,7 @@ mindformers.TrainingArguments
             - **on_each_node** (bool, 可选) - 在多节点分布式训练时，控制在每个节点上保存权重或者只在主节点上保存。默认值： ``True`` 。
             - **kwargs** (Any) - 其它参数。
 
-    .. py:method:: set_training(learning_rate: float = 5e-05, batch_size: int = 8, weight_decay: float = 0, num_epochs: float = 3, gradient_accumulation_steps: int = 1, seed: int = 42, **kwargs)
+    .. py:method:: set_training(learning_rate: float = 5e-5, batch_size: int = 8, weight_decay: float = 0, num_epochs: int = 3, gradient_accumulation_steps: int = 1, seed: int = 42, **kwargs)
 
         设置与训练相关的所有参数。调用该方法时候会自动设置 `self.do_train` 为True。
 
@@ -258,7 +258,7 @@ mindformers.TrainingArguments
             - **learning_rate** (float, 可选) - 优化器的初始学习率。默认值： ``5e-5`` 。
             - **batch_size** (int, 可选) - 训练过程中数据集的batch size。默认值： ``8`` 。
             - **weight_decay** (float, 可选) - 不为0时，用户神经网络所有层（bias和LayerNorm权重除外）的权重衰减。默认值： ``0`` 。
-            - **num_epochs** (float, 可选) - 训练过程的总epoch数量。默认值： ``3`` 。
+            - **num_epochs** (int, 可选) - 训练过程的总epoch数量。默认值： ``3`` 。
             - **gradient_accumulation_steps** (int, 可选) - 梯度累积中的间隔步数。默认值： ``1`` 。
             - **seed** (int, 可选) - 训练任务的随机数种子。默认值： ``42`` 。
             - **kwargs** (Any) - 其它参数。

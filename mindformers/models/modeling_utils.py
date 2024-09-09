@@ -857,41 +857,41 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         The warning *Weights from XXX not used in YYY* means that the layer XXX is not used by YYY, therefore those
         weights are discarded.
 
-        Parameters:
+        Args:
             pretrained_model_name_or_path (`str` or `os.PathLike`, *optional*):
                 Can be either:
 
-                    - A string, the *model id* of a pretrained model hosted inside a model repo on huggingface.co.
-                      Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
-                      user or organization name, like `dbmdz/bert-base-german-cased`.
-                    - A path to a *directory* containing model weights saved using
-                      [`~PreTrainedModel.save_pretrained`], e.g., `./my_model_directory/`.
-                    - A path or url to a *tensorflow index checkpoint file* (e.g, `./tf_model/model.ckpt.index`). In
-                      this case, `from_tf` should be set to `True` and a configuration object should be provided as
-                      `config` argument. This loading path is slower than converting the TensorFlow checkpoint in a
-                      PyTorch model using the provided conversion scripts and loading the PyTorch model afterwards.
-                    - A path or url to a model folder containing a *flax checkpoint file* in *.msgpack* format (e.g,
-                      `./flax_model/` containing `flax_model.msgpack`). In this case, `from_flax` should be set to
-                      `True`.
-                    - `None` if you are both providing the configuration and state dictionary (resp. with keyword
-                      arguments `config` and `state_dict`).
+                - A string, the *model id* of a pretrained model hosted inside a model repo on huggingface.co.
+                  Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
+                  user or organization name, like `dbmdz/bert-base-german-cased`.
+                - A path to a *directory* containing model weights saved using
+                  [`~PreTrainedModel.save_pretrained`], e.g., `./my_model_directory/`.
+                - A path or url to a *tensorflow index checkpoint file* (e.g, `./tf_model/model.ckpt.index`). In
+                  this case, `from_tf` should be set to `True` and a configuration object should be provided as
+                  `config` argument. This loading path is slower than converting the TensorFlow checkpoint in a
+                  PyTorch model using the provided conversion scripts and loading the PyTorch model afterwards.
+                - A path or url to a model folder containing a *flax checkpoint file* in *.msgpack* format (e.g,
+                  `./flax_model/` containing `flax_model.msgpack`). In this case, `from_flax` should be set to
+                  `True`.
+                - `None` if you are both providing the configuration and state dictionary (resp. with keyword
+                  arguments `config` and `state_dict`).
             model_args (sequence of positional arguments, *optional*):
                 All remaining positional arguments will be passed to the underlying model's `__init__` method.
             config (`Union[PretrainedConfig, str, os.PathLike]`, *optional*):
                 Can be either:
 
-                    - an instance of a class derived from [`PretrainedConfig`],
-                    - a string or path valid as input to [`~PretrainedConfig.from_pretrained`].
+                - an instance of a class derived from [`PretrainedConfig`],
+                - a string or path valid as input to [`~PretrainedConfig.from_pretrained`].
 
                 Configuration for the model to use instead of an automatically loaded configuration. Configuration can
                 be automatically loaded when:
 
-                    - The model is a model provided by the library (loaded with the *model id* string of a pretrained
-                      model).
-                    - The model was saved using [`~PreTrainedModel.save_pretrained`] and is reloaded by supplying the
-                      save directory.
-                    - The model is loaded by supplying a local directory as `pretrained_model_name_or_path` and a
-                      configuration JSON file named *config.json* is found in the directory.
+                - The model is a model provided by the library (loaded with the *model id* string of a pretrained
+                  model).
+                - The model was saved using [`~PreTrainedModel.save_pretrained`] and is reloaded by supplying the
+                  save directory.
+                - The model is loaded by supplying a local directory as `pretrained_model_name_or_path` and a
+                  configuration JSON file named *config.json* is found in the directory.
             state_dict (`Dict[str, mindspore.Parameter]`, *optional*):
                 A state dictionary to use instead of a state dictionary loaded from saved weights file.
 
@@ -943,14 +943,14 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
                 Can be used to update the configuration object (after it being loaded) and initiate the model.
                 Behaves differently depending on whether a `config` is provided or automatically loaded:
 
-                    - If a configuration is provided with `config`, `**kwargs` will be directly passed to the
-                      underlying model's `__init__` method (we assume all relevant updates to the configuration have
-                      already been done)
-                    - If a configuration is not provided, `kwargs` will be first passed to the configuration class
-                      initialization function ([`~PretrainedConfig.from_pretrained`]). Each key of `kwargs` that
-                      corresponds to a configuration attribute will be used to override said attribute with the
-                      supplied `kwargs` value. Remaining keys that do not correspond to any configuration attribute
-                      will be passed to the underlying model's `__init__` function.
+                - If a configuration is provided with `config`, `**kwargs` will be directly passed to the
+                  underlying model's `__init__` method (we assume all relevant updates to the configuration have
+                  already been done)
+                - If a configuration is not provided, `kwargs` will be first passed to the configuration class
+                  initialization function ([`~PretrainedConfig.from_pretrained`]). Each key of `kwargs` that
+                  corresponds to a configuration attribute will be used to override said attribute with the
+                  supplied `kwargs` value. Remaining keys that do not correspond to any configuration attribute
+                  will be passed to the underlying model's `__init__` function.
 
         <Tip>
 
@@ -1452,8 +1452,8 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
 
         Args:
             config (ModelConfig): a model config instance, which could have attribute
-            "checkpoint_name_or_path (str)". set checkpoint_name_or_path to a supported
-            model name or a path to checkpoint, to load model weights.
+                "checkpoint_name_or_path (str)". set checkpoint_name_or_path to a supported
+                model name or a path to checkpoint, to load model weights.
         """
         checkpoint_name_or_path = config.checkpoint_name_or_path
         if checkpoint_name_or_path:

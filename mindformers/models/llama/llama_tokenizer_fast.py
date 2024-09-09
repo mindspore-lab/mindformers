@@ -53,21 +53,11 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
         Currently, the llama_tokenizer_fast process supports only the 'right' padding mode.
         padding_side = "right"
 
-    Examples:
-        >>> from transformers import LlamaTokenizerFast
-        >>>
-        >>> tokenizer = LlamaTokenizerFast(vocab_file="./llama2/tokenizer.model")
-        >>> tokenizer.encode("Hello this is a test")
-        [1, 15043, 445, 338, 263, 1243]
-
     Note:
         If you want to change the `bos_token` or the `eos_token`, make sure to specify
         them when initializing the model, or call `tokenizer.update_post_processor()`
         to make sure that the post-processing is correctly done (otherwise the values
         of the first token and final token of an encoded sequence will not be correct).
-
-    Returns:
-        LlamaTokenizer, a LlamaTokenizer instance.
 
     Args:
         vocab_file (str, optional): `SentencePiece <https://github.com/google/sentencepiece>`_
@@ -75,7 +65,7 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
             contains the vocabulary necessary to instantiate a tokenizer. Default: ``None`` .
         tokenizer_file (str, optional):
             Tokenizers file (generally has a .json extension) that contains everything needed to load the tokenizer.
-             Default: ``None`` .
+            Default: ``None`` .
         clean_up_tokenization_spaces (bool, optional):
             Whether to clean-up spaces after decoding, cleanup consists in removing potential artifacts like
             extra spaces. Default: ``False`` .
@@ -84,7 +74,7 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
             token instead. Default: ``"<unk>"`` .
         bos_token (Union[str, tokenizers.AddedToken], optional):
             The beginning of sequence token that was used during pretraining. Can be used a sequence classifier token.
-             Default: ``"<s>"`` .
+            Default: ``"<s>"`` .
         eos_token (Union[str, tokenizers.AddedToken], optional):
             The end of sequence token. Default: ``"</s>"`` .
         add_bos_token (`bool`, optional):
@@ -93,6 +83,16 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
             Whether to add an `eos_token` at the end of sequences. Default: ``False`` .
         use_default_system_prompt (`bool`, optional):
             Whether the default system prompt for Llama should be used. Default: ``False`` .
+
+    Returns:
+        LlamaTokenizer, a LlamaTokenizer instance.
+
+    Examples:
+        >>> from transformers import LlamaTokenizerFast
+        >>>
+        >>> tokenizer = LlamaTokenizerFast(vocab_file="./llama2/tokenizer.model")
+        >>> tokenizer.encode("Hello this is a test")
+        [1, 15043, 445, 338, 263, 1243]
     """
     vocab_files_names = VOCAB_FILES_NAMES
     model_input_names = ["input_ids", "attention_mask"]

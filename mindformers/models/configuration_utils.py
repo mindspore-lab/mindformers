@@ -532,7 +532,7 @@ class PretrainedConfig(PushToHubMixin):
         From a `pretrained_model_name_or_path`, resolve to a dictionary of parameters, to be used for instantiating a
         `PretrainedConfig` using :func:`mindformers.models.PretrainedConfig.from_dict`.
 
-        Parameters:
+        Args:
             pretrained_model_name_or_path (Union[str, os.PathLike]): The identifier of the pre-trained checkpoint
                 from which we want the dictionary of parameters.
 

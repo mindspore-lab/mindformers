@@ -45,10 +45,10 @@ class LlamaConfig(PretrainedConfig):
             Number of hidden layers in the Transformer encoder. Default: ``32`` .
         num_heads (int, optional):
             Number of attention heads for each attention layer in the Transformer encoder. Default: ``32`` .
-        multiple_of (int, optional]): Define SwiGLU hidden layer size multiples. Default: ``256`` .
+        multiple_of (int, optional): Define SwiGLU hidden layer size multiples. Default: ``256`` .
         n_kv_heads (int, optional): Define multi group head attention heads number. Default: ``None`` .
         ffn_dim_multiplier (int, optional): Define ffn layer dim multiples. Default: ``None`` .
-        rms_norm_eps (float,optional): The epsilon value of the denominator. Default: ``1e-5`` .
+        rms_norm_eps (float, optional): The epsilon value of the denominator. Default: ``1e-5`` .
         bos_token_id (int, optional): The id of the *beginning-of-sequence* token. Default: ``1`` .
         eos_token_id (int, optional): The id of the *end-of-sequence* token. Default: ``2`` .
         pad_token_id (int, optional): The id of the *padding* token. Default: ``0`` .

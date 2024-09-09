@@ -6,7 +6,8 @@ mindformers.AutoTokenizer
     这是一个通用的Tokenizer类，当使用 from_pretrained() 类方法时，它会自动实例化模型Tokenzier类，并返回。
     这个类不能直接使用 \_\_init\_\_() 实例化（会抛出异常）。
 
-    .. py:method:: from_pretrained(yaml_name_or_path: str, *args, **kwargs)
+    .. py:method:: from_pretrained(yaml_name_or_path, *args, **kwargs)
+        :classmethod:
 
         从文件夹、或魔乐社区读取配置信息，实例化为模型Tokenzier类，并返回。
 
@@ -22,6 +23,7 @@ mindformers.AutoTokenizer
             一个Tokenizer实例。
 
     .. py:method:: register(config_class, slow_tokenizer_class=None, fast_tokenizer_class=None, exist_ok=False)
+        :classmethod:
 
         注册新的Tokenizer类到此类中。
 
@@ -30,6 +32,6 @@ mindformers.AutoTokenizer
 
         参数：
             - **config_class** (PretrainedConfig) - 模型的Config类。
-            - **slow_tokenizer_class** (PreTrainedTokenizer) - 用于注册的Tokenizer类。
-            - **fast_tokenizer_class** (PreTrainedTokenizerFast) - 用于注册的FastTokenizer类。
+            - **slow_tokenizer_class** (PreTrainedTokenizer, 可选) - 用于注册的Tokenizer类。
+            - **fast_tokenizer_class** (PreTrainedTokenizerFast, 可选) - 用于注册的FastTokenizer类。
             - **exist_ok** (bool, 可选) - 为True时，若config_class已存在也不报错。默认值： ``False`` 。

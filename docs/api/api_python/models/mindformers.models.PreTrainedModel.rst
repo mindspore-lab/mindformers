@@ -11,6 +11,7 @@ mindformers.models.PreTrainedModel
         - **kwargs** (dict, 可选) - 一个可变数量的关键字参数，为待扩展的关键字参数预留。
 
     .. py:method:: can_generate()
+        :classmethod:
 
         用于判断这个模型是否具备使用 ``.generate()`` 方法生成序列的能力。
 
@@ -18,6 +19,7 @@ mindformers.models.PreTrainedModel
             Bool类型，True（或False），表示模型可以（或不可以）执行 ``.generate()`` 生成序列。
 
     .. py:method:: from_pretrained(pretrained_model_name_or_dir: str, *model_args, **kwargs)
+        :classmethod:
 
         通过 ``pretrained_model_name_or_dir`` 实例化模型。如果用户传入模型名称，会下载模型权重，或者在给定路径的目录中加载权重（仅支持单机模式，分布式模式有待开发）。
 
@@ -34,6 +36,7 @@ mindformers.models.PreTrainedModel
         在每个Transformer模型初始化结束以及模型需要的模块正确初始化（例如权重初始化）之后执行。
 
     .. py:method:: register_for_auto_class(auto_class="AutoModel")
+        :classmethod:
 
         使用给定的 ``auto`` 类将当前类进行注册。只适用于自定义模型，标准库中的模型已经与 ``auto`` 类映射好，无需注册。
 
@@ -44,6 +47,7 @@ mindformers.models.PreTrainedModel
             - **auto_class** (Union[str, type], 可选) - 用于注册一个新模型的自动类。默认值： ``AutoModel``。
 
     .. py:method:: save_pretrained(save_directory: Union[str, os.PathLike], save_name: str = "mindspore_model", **kwargs)
+        :classmethod:
 
         保存模型权重和配置文件（仅支持单机模式，分布式模式有待开发）。
 

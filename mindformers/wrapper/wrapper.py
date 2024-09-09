@@ -224,7 +224,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         max_grad_norm (float): Maximum gradient constraint value. Default: ``1.0`` .
         scale_sense (Cell): Cell to do the loss scale. Default: ``1.0`` .
         micro_batch_num (int): Micro batch number of pipeline parallel. Default: ``1`` .
-        local_norm (bool): Whether to calculate the local norm. Default:`` False`` .
+        local_norm (bool): Whether to calculate the local norm. Default: ``False`` .
         kwargs (Any): Additional parameters.
 
     Inputs:
