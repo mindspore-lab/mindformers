@@ -4,6 +4,21 @@
 
 Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8B，Llama 3-70B。Llama 3在来自公开可用来源的超过15T的数据上进行了预训练。微调数据包括公开可用的指令数据集，以及超过1000万个人工标注的示例。模型支持上下文窗口长度8K，并使用了新的分词器，词汇表大小达到128256个，采用了分组查询注意力机制(GQA)。Llama 3模型是类GPT模型，是一个生成式的语言模型，主要是用于预测下一个单词。目前Mindformers支持Llama 3-8B和Llama 3-70B。
 
+## 模型性能
+
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                                |      Task       | Datasets | SeqLength |  Phase   |   Performance   |
+|:------------------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:---------------:|
+| [llama3_8b](./finetune_llama3_8b_8k_800T_A2_64G.yaml) | text_generation |  alpaca  |   8192    | Finetune | 2571 tokens/s/p |
+
+以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
+
+| Config                                   |      Task       | Datasets | SeqLength |  Phase   |  Performance   |
+|:-----------------------------------------|:---------------:|:--------:|:---------:|:--------:|:--------------:|
+| [llama3_70b](./finetune_llama3_70b.yaml) | text_generation |  alpaca  |   8192    | Finetune | 336 tokens/s/p |
+| [llama3_70b](./pretrain_llama3_70b.yaml) | text_generation |   wiki   |   8192    | Pretrain | 334 tokens/s/p |
+
 ## 模型文件
 
 `Llama 3` 基于 `mindformers` 实现，主要涉及的文件有：
