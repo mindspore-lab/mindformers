@@ -217,9 +217,4 @@ class LlamaConfig(PretrainedConfig):
         self.quant_config = quant_config
         self.tie_word_embeddings = tie_word_embeddings
         self.llm_backend = llm_backend
-        self.parallel_decoding = kwargs.get('parallel_decoding', False)
-        self.parallel_decoding_params = {
-            'window': kwargs.get('window', 5),
-            'level': kwargs.get('level', 5),
-            'guess_set_size': kwargs.get('guess_set_size', 3),
-        }
+        self.parallel_decoding_params = kwargs.get('parallel_decoding_params')

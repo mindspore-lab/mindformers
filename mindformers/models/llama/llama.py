@@ -84,6 +84,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.use_past = config.use_past
         self.use_flash_attention = config.use_flash_attention
         self.use_ring_attention = config.use_ring_attention
+        self.parallel_decoding = config.parallel_decoding_params is not None
         self.concat = P.Concat(-1)
         self.cast = P.Cast()
         self.shape = P.Shape()
@@ -174,7 +175,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          use_rope_slice=config.use_rope_slice,
                                          moe_config=config.moe_config,
                                          parallel_config=config.parallel_config,
-                                         parallel_decoding=config.parallel_decoding,
+                                         parallel_decoding=self.parallel_decoding,
                                          )
             self.layer_setting(layer, layer_id)
             self.layers.append(layer)
@@ -199,7 +200,6 @@ class LlamaModel(LlamaPreTrainedModel):
                 self.norm_out.shard((dp * cp, 1))
             else:
                 self.norm_out.shard((dp, cp, 1))
-        self.parallel_decoding = config.parallel_decoding
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
@@ -222,18 +222,9 @@ class LlamaModel(LlamaPreTrainedModel):
         if self.parallel_decoding:
             mask = attention_mask
             if self.is_first_iteration:
-                if self.use_rope_self_define:
-                    freqs_cis = self.freqs_mgr(seq_len)
-                else:
-                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-                if self.use_flash_attention:
-                    if self.enable_asd_op:  # only support fp16
-                        mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-                        mask = self.cast(mask, mstype.float16)
-                else:
-                    mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-            else:
-                freqs_cis = self.freqs_mgr.increment_multi_ids(position_ids)
+                shape = mask.shape
+                mask = mask.reshape(1, 1, shape[0], shape[1])
+            freqs_cis = self.freqs_mgr.increment_multi_ids(position_ids)
         else:
             mask = None
             if self.use_past:
@@ -400,7 +391,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             self.llm_boost = LlmBoostRegister.get_instance(config.llm_backend, "Llama", **llm_boost_kwargs)
             self.llm_boost.init()
             self.is_set_kvcache = False
-        self.parallel_decoding = config.parallel_decoding
+        self.parallel_decoding = config.parallel_decoding_params is not None
         if hasattr(self.config, 'pet_config') and self.config.pet_config.pet_type == 'slora':
             from mindspore import Parameter
             from mindspore.common.initializer import initializer
@@ -471,7 +462,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
         dynamic_position_ids = Tensor(shape=[None, None], dtype=mstype.int32) if self.parallel_decoding else None
-        dynamic_mask = Tensor(shape=[None, None, None], dtype=mstype.float16) if self.parallel_decoding else None
+        dynamic_mask = Tensor(shape=[None, None], dtype=mstype.float16) if self.parallel_decoding else None
         dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32) if self.parallel_decoding else None
         if have_prefix_keys_values:
             dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None, None], dtype=mstype.float16)

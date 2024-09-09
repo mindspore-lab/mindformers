@@ -374,8 +374,6 @@ class InferAttention(Cell):
         prefill attention
         """
         if self.use_flash_attention:
-            if self.parallel_decoding:
-                attn_mask = None
             return self.flash_attention(query, key, value, attn_mask, alibi_mask)
         bs, seq_len, _ = query.shape
         key_seq_len = key.shape[1]

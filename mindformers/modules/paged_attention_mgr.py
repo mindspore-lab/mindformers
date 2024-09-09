@@ -75,7 +75,7 @@ class PagedAttentionMgr(nn.Cell):
         mp = 1 if parallel_config is None else parallel_config.model_parallel
         self.reshape_and_cache.shard(((dp, 1, mp), (dp, 1, mp), (1, 1, mp, 1), (1, 1, mp, 1), (1,)))
         if self.parallel_decoding:
-            self.paged_attention.shard(((dp, 1, mp), (1, 1, mp, 1), (1, 1, mp, 1), (dp, 1), (dp,), (dp, 1, 1), (1,)))
+            self.paged_attention.shard(((dp, 1, mp), (1, 1, mp, 1), (1, 1, mp, 1), (dp, 1), (dp,), (dp, 1), (1,)))
         else:
             self.paged_attention.shard(((dp, 1, mp), (1, 1, mp, 1), (1, 1, mp, 1), (dp, 1), (dp,)))
         self.paged_attention_with_alibi.shard(((dp, 1, mp), (1, 1, mp, 1), (1, 1, mp, 1), (dp, 1), (dp,),
