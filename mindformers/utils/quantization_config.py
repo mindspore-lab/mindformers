@@ -237,7 +237,7 @@ class RtnConfig(QuantizationConfigMixin, PTQConfig):
         """
         accepted_mode = [PTQMode.DEPLOY]
         accepted_backend = [BackendTarget.ASCEND]
-        accepted_weights = [msdtype.int8]
+        accepted_weights = [None, msdtype.int8]
         accepted_activations = [None, msdtype.int8]
         accepted_kvcache = [None, msdtype.int8]
         if self.mode not in accepted_mode:
@@ -331,7 +331,7 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         """
         accepted_mode = [PTQMode.DEPLOY]
         accepted_backend = [BackendTarget.ASCEND]
-        accepted_weights = [msdtype.int8]
+        accepted_weights = [None, msdtype.int8]
         accepted_activations = [None, msdtype.int8]
         accepted_kvcache = [None, msdtype.int8]
         accepted_outliers_suppression = [OutliersSuppressionType.NONE, OutliersSuppressionType.SMOOTH]
