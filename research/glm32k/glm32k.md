@@ -17,9 +17,11 @@ ChatGLM3-6B-32K在ChatGLM3-6B的基础上进一步强化了对于长文本的理
 
 ## 模型性能
 
-| Config                                        |      Task       | Datasets  | SeqLength |      Phase      |       Performance       |
-|:----------------------------------------------|:---------------:|:---------:|:---------:|:---------------:|:-----------------------:|
-| [ChatGLM3-6B-32K](finetune_glm3_6b_bf16.yaml) | text_generation | LongBench |   32768   | [finetune](#微调) | 1758.00      tokens/s/p |
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                    |      Task       | Datasets  | SeqLength |      Phase      |   Performance   |
+|:------------------------------------------|:---------------:|:---------:|:---------:|:---------------:|:---------------:|
+| [ChatGLM3-6B-32K](./finetune_glm32k.yaml) | text_generation | LongBench |   32768   | [finetune](#微调) | 1442 tokens/s/p |
 
 ## 模型文件
 

@@ -9,6 +9,14 @@
 
 本仓库支持`InternLM2-7B`与`InternLM2-chat-20b`的推理。由于InternLM2与LLaMA结构相似，模型实现中的Embedding、FeedForward、RMSNorm等模块复用仓上LLaMA的代码。
 
+## 模型性能
+
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                       |      Task       | Datasets | SeqLength |  Phase   |   Performance   |
+|:---------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:---------------:|
+| [internlm2_7b](./finetune_internlm2_7b.yaml) | text_generation |  alpaca  |   2048    | Finetune | 2680 tokens/s/p |
+
 ## 模型文件
 
 `InternLM2` 基于 `MindFormers` 实现，主要涉及的文件有：

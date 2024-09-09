@@ -15,6 +15,14 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 }
 ```
 
+## 模型性能
+
+以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
+
+| Config                                       |      Task       |  Datasets   | SeqLength |  Phase   |   Performance   |
+|:---------------------------------------------|:---------------:|:-----------:|:---------:|:--------:|:---------------:|
+| [mixtral-8x7b](./finetune_mixtral-8x7b.yaml) | text_generation | alpaca_data |   4096    | Finetune | 1678 tokens/s/p |
+
 ## 模型文件
 
 `Mixtral` 基于 `mindformers` 实现，主要涉及的文件有：
