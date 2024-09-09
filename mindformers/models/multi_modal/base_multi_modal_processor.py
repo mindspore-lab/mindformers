@@ -147,10 +147,11 @@ class BaseXModalToTextTransform:
     def perform_predict_transform(self, query_ele_list: List[Dict], batch_index=0, **kwargs):
         """perform transform for prediction"""
         self.result_recorder.clear()
+        add_special_tokens = kwargs.get("add_special_tokens", False)
         text_list = self.model_transform_template.process_predict_query(query_ele_list, self.result_recorder)
         text = self.model_transform_template.build_conversation_input_text(text_list, self.result_recorder)
 
-        text_id = self.tokenizer(text, add_special_tokens=False)["input_ids"]
+        text_id = self.tokenizer(text, add_special_tokens=add_special_tokens)["input_ids"]
         text_id = self.model_transform_template.build_modal_context(text_id, self.result_recorder, **kwargs)
 
         context_pos_dict = self.model_transform_template.generate_modal_context_positions(text_id, batch_index,
@@ -266,7 +267,7 @@ class BaseXModalToTextProcessor(BaseProcessor):
         self.modal_transform = BaseXModalToTextTransform(tokenizer,
                                                          model_transform_template,
                                                          mode="predict")
-
+        self.kwargs = kwargs
         self.output_columns = model_transform_template.output_columns
 
     def post_process(self, output_ids, **kwargs):
@@ -288,8 +289,8 @@ class BaseXModalToTextProcessor(BaseProcessor):
                 history = history_list[index]
             else:
                 history = None
-
-            data = self.modal_transform.perform_predict_transform(query, batch_index=index, history=history)
+            data = self.modal_transform.perform_predict_transform(query, batch_index=index, history=history,
+                                                                  **self.kwargs)
             batch_data.append(data)
             max_length = max(max_length, len(data.get("input_ids")))
 
