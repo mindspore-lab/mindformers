@@ -30,13 +30,13 @@ from mindformers.modules.quantizers.smooth_quant_quantizer import SmoothQuantQua
 AUTO_QUANTIZER_MAPPING = {
     "ptq": PtqQuantizer,
     "rtn": RtnQuantizer,
-    "sq": SmoothQuantQuantizer,
+    "smooth_quant": SmoothQuantQuantizer,
 }
 
 AUTO_QUANTIZATION_CONFIG_MAPPING = {
     "ptq": PtqConfig,
     "rtn": RtnConfig,
-    "sq": SmoothQuantConfig,
+    "smooth_quant": SmoothQuantConfig,
 }
 
 __all__ = [

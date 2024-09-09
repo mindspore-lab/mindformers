@@ -115,7 +115,7 @@ class GenerationMixin:
 
         Args:
             is_first_iteration (bool): Network configuration information.
-            Indicate whether current iteration is the first iteration in prediction.
+                Indicate whether current iteration is the first iteration in prediction.
         """
         self.add_flags_recursive(is_first_iteration=is_first_iteration)
 
@@ -307,7 +307,7 @@ class GenerationMixin:
             self.add_flags_custom(is_first_iteration=False)
         else:
             # slice model inputs for incremental infer
-            if not (hasattr(self.config, 'parallel_decoding') and self.config.parallel_decoding):
+            if not (hasattr(self.config, 'parallel_decoding_params') and self.config.parallel_decoding_params):
                 self.slice_incremental_inputs(model_inputs, current_index)
             model_inputs["batch_valid_length"] = Tensor.from_numpy(
                 np.array([valid_length_each_example], dtype=np.int32))
@@ -649,7 +649,7 @@ class GenerationMixin:
             input_ids = np.array(input_ids)
         except ValueError as e:
             raise ValueError(str(e) + " Please check your inputs of model.generate(),"
-                                      " and make sure the inputs are padded to same length.")
+                                      " and make sure the inputs are padded to same length.") from e
         input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
         batch_size = input_ids.shape[0]
 
@@ -1037,11 +1037,7 @@ class GenerationMixin:
             res, the result after the forward process.
             current_index, records the current index of the sequence.
         """
-        if ((hasattr(self.config, 'parallel_decoding') and self.config.parallel_decoding != 'la')
-                and (('q_seq_lens' in model_kwargs) and (model_kwargs['q_seq_lens'] is not None))):
-            input_ids = np.reshape(input_ids, (1, -1))
-        else:
-            input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
+        input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
         if parallel_decoding_control(self.config):
             current_index = None
         else:
@@ -1067,7 +1063,7 @@ class GenerationMixin:
             real_input_ids = model_inputs["input_ids"]
             if parallel_decoding_control(self.config):
                 model_inputs, block_tables, slot_mapping = parallel_decoding_process(
-                    self.config, input_ids, **model_kwargs
+                    self.config, input_ids, model_inputs, **model_kwargs
                 )
             else:
                 current_index = valid_length_each_example - 1 + np.arange(real_input_ids.numel(),
