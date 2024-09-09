@@ -35,7 +35,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
-from mindformers.generation.parallel_decoding import parallel_decoding_logits_process
+from mindformers.generation.parallel_decoding import parallel_decoding_logits_process, parallel_decoding_control
 
 __all__ = ["get_model", "ModelRunner"]
 
@@ -202,11 +202,10 @@ class MindIEModelRunner:
                 init()
         self.model_config = AutoConfig.from_pretrained(config_path)
 
-        self.model_config.parallel_decoding = None
         self.model_config.parallel_decoding_params = None
         if plugin_params:
             plugin_params = json.loads(plugin_params)
-            self.model_config.parallel_decoding = plugin_params.get('plugin_type')
+            plugin_params['parallel_decoding'] = plugin_params['plugin_type']
             self.model_config.parallel_decoding_params = plugin_params
         self.model_config.checkpoint_path = self.config.load_checkpoint
         self.num_layers = self.model_config.num_layers
@@ -310,7 +309,7 @@ class MindIEModelRunner:
                                               q_seq_lens=q_seq_lens,
                                               adapter_ids=adapter_ids)
         logits = res[0] if isinstance(res, tuple) else res
-        if hasattr(self, 'model_config'):
+        if hasattr(self, 'model_config') and parallel_decoding_control(self.model_config):
             logits = parallel_decoding_logits_process(self.model_config, logits, q_seq_lens, block_tables, prefill)
             return logits
         if prefill and logits.shape[0] > len(current_idx):
