@@ -34,18 +34,6 @@ mindformers.models.LlamaTokenizer
         返回：
             插入特殊词元后的词元ID列表。
 
-    .. py:method:: get_special_tokens_mask(token_ids_0, token_ids_1=None, already_has_special_tokens=False)
-
-        从还未添加特殊词元的词元列表中检索序列ID。在使用分词器的 `prepare_for_model` 方法添加特殊词元时调用此方法。
-
-        参数：
-            - **token_ids_0** (list[int]) - ID列表。
-            - **token_ids_1** (list[int], 可选) - 序列对的可选第二个ID列表。默认值： ``None`` 。
-            - **already_has_special_tokens** (bool) - 词元列表是否已经按照模型格式添加了特殊词元。默认值： ``False`` 。
-
-        返回：
-            一个由整数 ``0`` 和 ``1`` 组成的列表，其中 ``1`` 表示特殊词元， ``0`` 表示序列词元。
-
     .. py:method:: create_token_type_ids_from_sequences(token_ids_0, token_ids_1=None)
 
         使用传递的两个序列创建一个掩码，用于序列对分类任务。一个ALBERT序列对掩码的格式如下：
@@ -63,3 +51,16 @@ mindformers.models.LlamaTokenizer
 
         返回：
             一个根据给定序列由整数 ``0`` 和 ``1`` 组成的列表，其中 ``0`` 表示词元来自序列 `token_ids_0`， ``1`` 表示词元来自序列 `token_ids_1` 。
+
+    .. py:method:: get_special_tokens_mask(token_ids_0, token_ids_1=None, already_has_special_tokens=False)
+
+        从还未添加特殊词元的词元列表中检索序列ID。在使用分词器的 `prepare_for_model` 方法添加特殊词元时调用此方法。
+
+        参数：
+            - **token_ids_0** (list[int]) - ID列表。
+            - **token_ids_1** (list[int], 可选) - 序列对的可选第二个ID列表。默认值： ``None`` 。
+            - **already_has_special_tokens** (bool) - 词元列表是否已经按照模型格式添加了特殊词元。默认值： ``False`` 。
+
+        返回：
+            一个由整数 ``0`` 和 ``1`` 组成的列表，其中 ``1`` 表示特殊词元， ``0`` 表示序列词元。
+

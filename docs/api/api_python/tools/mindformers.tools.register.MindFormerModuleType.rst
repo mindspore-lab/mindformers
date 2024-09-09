@@ -3,7 +3,7 @@ mindformers.tools.register.MindFormerModuleType
 
 .. py:class:: mindformers.tools.register.MindFormerModuleType()
 
-    MindFormers模块类型的枚举类，其中包括：
+    MindFormers模块类型的枚举类。其中包括：
 
     ===================  =====================  ==================
     枚举名                值                      含义

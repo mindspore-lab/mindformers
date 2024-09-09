@@ -1,7 +1,7 @@
 mindformers.models.glm2.ChatGLM3Tokenizer
 =========================================================================
 
-.. py:class:: mindformers.models.glm2.ChatGLM3Tokenizer(vocab_file: vocab_file=None, bos_token='<sop>', eos_token='<eop>', end_token='</s>', mask_token='[MASK]', gmask_token='[gMASK]', pad_token='<pad>', unk_token='<unk>',*kwargs)
+.. py:class:: mindformers.models.glm2.ChatGLM3Tokenizer(vocab_file, bos_token='<sop>', eos_token='<eop>', end_token='</s>', mask_token='[MASK]', gmask_token='[gMASK]', pad_token='<pad>', unk_token='<unk>',*kwargs)
 
     构造一个基于Byte-Pair-Encoding的ChatGLM3模型分词器。
 

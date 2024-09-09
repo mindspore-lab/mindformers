@@ -115,7 +115,7 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
         eos_token (str, tokenizers.AddedToken): The end of sequence token. Default: `"</s>"` .
         end_token (str, tokenizers.AddedToken): The end of sequence token. Default: `"</s>"` .
         mask_token (str, tokenizers.AddedToken): The masked token. Default: `"[MASK]"` .
-        gmask_token (str, tokenizers.AddedToken): The special masked token. Default: ``"[gMASK]"` .
+        gmask_token (str, tokenizers.AddedToken): The special masked token. Default: ``"[gMASK]"`` .
         pad_token (str, tokenizers.AddedToken): A special token used to make arrays of tokens the same size for batching
             purpose. Will then be ignored by attention mechanisms or loss computation. Default: `"<pad>"` .
         unk_token (str, tokenizers.AddedToken): The unknown token. Default: `"<unk>"` .
@@ -317,7 +317,7 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
                 An optional prefix to add to the named of the saved files.
 
         Returns:
-            `Tuple(str)`: Paths to the files saved.
+            `Tuple(str)`, Paths to the files saved.
         """
         if os.path.isdir(save_directory):
             vocab_file = os.path.join(

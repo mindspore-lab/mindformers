@@ -1481,21 +1481,21 @@ ENCODE_PLUS_ADDITIONAL_KWARGS_DOCSTRING = r"""
 INIT_TOKENIZER_DOCSTRING = r"""
     Class attributes (overridden by derived classes)
 
-        - **vocab_files_names** (`Dict[str, str]`) -- A dictionary with, as keys, the `__init__` keyword name of each
-          vocabulary file required by the model, and as associated values, the filename for saving the associated file
-          (string).
-        - **max_model_input_sizes** (`Dict[str, Optional[int]]`) -- A dictionary with, as keys, the `short-cut-names`
-          of the pretrained models, and as associated values, the maximum length of the sequence inputs of this model,
-          or `None` if the model has no maximum input size.
-        - **pretrained_init_configuration** (`Dict[str, Dict[str, Any]]`) -- A dictionary with, as keys, the
-          `short-cut-names` of the pretrained models, and as associated values, a dictionary of specific arguments to
-          pass to the `__init__` method of the tokenizer class for this pretrained model when loading the tokenizer
-          with the [`~tokenization_utils_base.PreTrainedTokenizerBase.from_pretrained`] method.
-        - **model_input_names** (`List[str]`) -- A list of inputs expected in the forward pass of the model.
-        - **padding_side** (`str`) -- The default value for the side on which the model should have padding applied.
-          Should be `'right'` or `'left'`.
-        - **truncation_side** (`str`) -- The default value for the side on which the model should have truncation
-          applied. Should be `'right'` or `'left'`.
+    - **vocab_files_names** (`Dict[str, str]`) -- A dictionary with, as keys, the `__init__` keyword name of each
+      vocabulary file required by the model, and as associated values, the filename for saving the associated file
+      (string).
+    - **max_model_input_sizes** (`Dict[str, Optional[int]]`) -- A dictionary with, as keys, the `short-cut-names`
+      of the pretrained models, and as associated values, the maximum length of the sequence inputs of this model,
+      or `None` if the model has no maximum input size.
+    - **pretrained_init_configuration** (`Dict[str, Dict[str, Any]]`) -- A dictionary with, as keys, the
+      `short-cut-names` of the pretrained models, and as associated values, a dictionary of specific arguments to
+      pass to the `__init__` method of the tokenizer class for this pretrained model when loading the tokenizer
+      with the [`~tokenization_utils_base.PreTrainedTokenizerBase.from_pretrained`] method.
+    - **model_input_names** (`List[str]`) -- A list of inputs expected in the forward pass of the model.
+    - **padding_side** (`str`) -- The default value for the side on which the model should have padding applied.
+      Should be `'right'` or `'left'`.
+    - **truncation_side** (`str`) -- The default value for the side on which the model should have truncation
+      applied. Should be `'right'` or `'left'`.
 
     Args:
         model_max_length (`int`, *optional*):

@@ -1,12 +1,28 @@
 mindformers.AutoModelForVisualQuestionAnswering
 ================================================
 
-.. py:class:: mindformers.AutoModelForVisualQuestionAnswering()
+.. py:class:: mindformers.AutoModelForVisualQuestionAnswering(*args, **kwargs)
 
     这是一个通用的模型类，当使用 from_pretrained() 类方法时，它会自动实例化模型，并返回。
     这个类不能直接使用 \_\_init\_\_() 实例化（会抛出异常）。
 
+    .. py:method:: from_config(config, **kwargs)
+        :classmethod:
+
+        通过Config实例或者yaml文件，实例化模型，并返回。
+
+        .. warning::
+            这个API正处于实验阶段，在下一个版本中可能会有一些突破性的变化。
+
+        参数：
+            - **config** (Union[MindFormerConfig, PretrainedConfig, str]) - MindFormerConfig实例，yaml文件路径，或者PretrainedConfig实例（实验特性）。
+            - **kwargs** (额外参数) - 传入的配置信息将会覆盖config中的配置信息。
+
+        返回：
+            一个模型实例。
+
     .. py:method:: from_pretrained(pretrained_model_name_or_dir: str, *model_args, **kwargs)
+        :classmethod:
 
         从文件夹、或魔乐社区读取配置信息，实例化为模型，并返回。
 
@@ -24,20 +40,6 @@ mindformers.AutoModelForVisualQuestionAnswering
 
         返回：
             一个继承自PretrainedModel类的模型实例。
-
-    .. py:method:: from_config(config, **kwargs)
-
-        通过Config实例或者yaml文件，实例化模型，并返回。
-
-        .. warning::
-            这个API正处于实验阶段，在下一个版本中可能会有一些突破性的变化。
-
-        参数：
-            - **config** (Union[MindFormerConfig, PretrainedConfig, str]) - MindFormerConfig实例，yaml文件路径，或者PretrainedConfig实例（实验特性）。
-            - **kwargs** (额外参数) - 传入的配置信息将会覆盖config中的配置信息。
-
-        返回：
-            一个模型实例。
 
     .. py:method:: register(config_class, model_class, exist_ok=False)
 

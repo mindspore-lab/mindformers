@@ -1,7 +1,7 @@
 mindformers.pipeline.MultiModalToTextPipeline
 ===============================================
 
-.. py:class:: mindformers.pipeline.MultiModalToTextPipeline(model, processor=None)
+.. py:class:: mindformers.pipeline.MultiModalToTextPipeline(model: Union[PreTrainedModel, Model], processor: Optional[BaseXModalToTextProcessor] = None)
 
     多模态文本生成的推理流程。
 

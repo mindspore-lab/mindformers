@@ -384,7 +384,7 @@ def _insert_one_token_to_ordered_list(token_list: List[str], new_token: str):
 
 @add_end_docstrings(INIT_TOKENIZER_DOCSTRING)
 class PreTrainedTokenizer(PreTrainedTokenizerBase):
-    """
+    r"""
     Base class for all slow tokenizers.
 
     Inherits from :class:`mindformers.models.tokenization_utils.PreTrainedTokenizerBase`.

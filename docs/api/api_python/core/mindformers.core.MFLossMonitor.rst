@@ -11,7 +11,7 @@ mindformers.core.MFLossMonitor
         - **micro_batch_num** (int) - 流水线并行时设置的MicroBatch大小。默认值： ``None`` 。
         - **micro_batch_interleave_num** (int) - interleaved pipeline流水线并行时设置的MicroBatch大小。默认值： ``1`` 。
         - **origin_epochs** (int) - 训练的epoch数量。默认值： ``None`` 。
-        - **dataset_size** (int): - 训练的数据集数量。默认值： ``None`` 。
+        - **dataset_size** (int) - 训练的数据集数量。默认值： ``None`` 。
         - **initial_epoch** (int) - 训练开始的epoch数。默认值： ``0`` 。
-        - **global_batch_size** (int): - 总BatchSize大小。默认值： ``0`` 。
-        - **device_num** (int): - 设备数量。默认值： ``0`` 。
+        - **global_batch_size** (int) - 总BatchSize大小。默认值： ``0`` 。
+        - **device_num** (int) - 设备数量。默认值： ``0`` 。

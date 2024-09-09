@@ -1,7 +1,7 @@
 mindformers.models.glm2.ChatGLM4Tokenizer
 =========================================================================
 
-.. py:class:: mindformers.models.glm2.ChatGLM4Tokenizer(vocab_file: vocab_file=None, clean_up_tokenization_spaces=False, encode_special_tokens=False, eos_token='<|endoftext|>', pad_token='<|endoftext|>', **kwargs)
+.. py:class:: mindformers.models.glm2.ChatGLM4Tokenizer(vocab_file, clean_up_tokenization_spaces=False, encode_special_tokens=False, eos_token='<|endoftext|>', pad_token='<|endoftext|>', **kwargs)
 
     构造一个基于Byte-Pair-Encoding的ChatGLM4模型分词器。
 

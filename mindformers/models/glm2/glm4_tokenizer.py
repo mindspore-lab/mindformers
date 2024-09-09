@@ -174,7 +174,7 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
             filename_prefix (`str`, *optional*):
                 An optional prefix to add to the named of the saved files.
         Returns:
-            `Tuple(str)`: Paths to the files saved.
+            `Tuple(str)`, Paths to the files saved.
         """
         if os.path.isdir(save_directory):
             vocab_file = os.path.join(save_directory, self.vocab_files_names["vocab_file"])
