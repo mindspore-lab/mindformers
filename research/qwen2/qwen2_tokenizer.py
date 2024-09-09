@@ -18,7 +18,7 @@ import json
 import os
 import unicodedata
 from functools import lru_cache
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 import regex as re
 
 from mindspore import log as logger
@@ -41,8 +41,10 @@ MAX_MODEL_INPUT_SIZES = {"qwen/qwen-tokenizer": 32768}
 
 PRETOKENIZE_REGEX = r"""(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"""
 
+ENDOFTEXT = "<|endoftext|>"
 IMSTART = "<|im_start|>"  # used in Qwen-72B-chat
 IMEND = "<|im_end|>"  # used in Qwen-72B-chat
+ENDOFTEXTID = 151643
 IMSTARTID = 151644
 IMENDID = 151645
 
@@ -165,14 +167,18 @@ class Qwen2Tokenizer(PreTrainedTokenizer):
             if isinstance(pad_token, str)
             else pad_token
         )
+        end_of_text_token = AddedToken(
+            ENDOFTEXT, lstrip=False, rstrip=False, special=True, normalized=False)
         im_start_token = AddedToken(
             IMSTART, lstrip=False, rstrip=False, special=True, normalized=False)
         im_end_token = AddedToken(
             IMEND, lstrip=False, rstrip=False, special=True, normalized=False)
         self.special_tokens = {
+            ENDOFTEXT: ENDOFTEXTID,
             IMSTART: IMSTARTID,
             IMEND: IMENDID,
         }
+        self.end_of_text_id = self.special_tokens[ENDOFTEXT]
         self.im_start_id = self.special_tokens[IMSTART]
         self.im_end_id = self.special_tokens[IMEND]
         with open(vocab_file, encoding="utf-8") as vocab_handle:
@@ -199,6 +205,12 @@ class Qwen2Tokenizer(PreTrainedTokenizer):
                 f"{self.__class__.__name__} does not support `add_prefix_space`, setting it to True has no effect."
             )
 
+        self._added_tokens_decoder: Dict[int, AddedToken] = {
+            self.end_of_text_id: end_of_text_token,
+            self.im_start_id: im_start_token,
+            self.im_end_id: im_end_token,
+        }
+
         super().__init__(
             errors=errors,
             bos_token=bos_token,
@@ -209,8 +221,6 @@ class Qwen2Tokenizer(PreTrainedTokenizer):
             split_special_tokens=split_special_tokens,
             **kwargs,
         )
-        self.add_tokens(im_start_token, special_tokens=True)
-        self.add_tokens(im_end_token, special_tokens=True)
 
     @property
     def vocab_size(self) -> int:
