@@ -99,7 +99,8 @@ class GluMlp(nn.Cell):
         super().__init__()
         out_size = out_size or in_size
         hidden_size = hidden_size or in_size
-        assert hidden_size % 2 == 0
+        if hidden_size % 2 != 0:
+            raise ValueError("hidden_size must be an even number.")
 
         bias = (bias, bias)
         drop_probs = (drop_prob, drop_prob)
