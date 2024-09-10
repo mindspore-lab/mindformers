@@ -202,14 +202,16 @@ class LlamaModel(LlamaPreTrainedModel):
                 self.norm_out.shard((dp, cp, 1))
 
     # pylint: disable=W0613
-    def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None, attention_mask=None,
-                  position_ids=None, q_seq_lens=None):
+    def construct(self, tokens: Tensor, input_embeds=None, batch_valid_length=None, batch_index=None,
+                  zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None,
+                  attention_mask=None, position_ids=None, q_seq_lens=None):
         """
         Forward of llama model.
 
         Args:
             tokens: the tokenized inputs with datatype int32
+            input_embeds: the embedding Tensor of tokens, Tensor of shape:math:`(batch_size, seq/_length, hidden_size)`.
+                Default None.
             batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
                 prediction. Tensor of shape :math:`(batch_size,)`. Default None.
             block_tables (Tensor[int64]): Store mapping tables for each sequence.
@@ -259,7 +261,10 @@ class LlamaModel(LlamaPreTrainedModel):
                     mask = self.concat((prefix_mask, mask))
 
         # tokens: [bs, seq/1]
-        h = self.cast(self.tok_embeddings(tokens), self.dtype)
+        if input_embeds is not None:
+            h = self.cast(input_embeds, self.dtype)
+        else:
+            h = self.cast(self.tok_embeddings(tokens), self.dtype)
         h = self.reshape(h, (bs, seq_len, self.hidden_size))
         # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
@@ -397,6 +402,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             from mindspore.common.initializer import initializer
             self.adapter_ids = Parameter(initializer('zero', [config.batch_size], mstype.int32), requires_grad=False)
 
+    def to_embeddings(self, tokens):
+        """return embedding tokens"""
+        return self.model.tok_embeddings(tokens)
+
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         model_inputs = {}
         if self.config.is_dynamic and "origin_inputs" in kwargs:
@@ -497,7 +506,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             input_position(Tensor): current position, used by model.predict.
             position_ids(Tensor): Reserved param, not used.
             attention_mask(Tensor): Reserved param, not used.
-            input_embeds(Tensor): Reserved param, not used.
+            input_embeds(Tensor): the input embedding Tensor of shape :math:`(batch, seq\_length, hidden_size)`.
+                Default None.
             init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
                 past value parameter used in the incremental prediction. Default True.
             batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
@@ -529,7 +539,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             tokens = input_ids
         if batch_valid_length is not None:
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
-        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables,
+
+        output = self.model(tokens, input_embeds, batch_valid_length, batch_index, zactivate_len, block_tables, \
                             slot_mapping, prefix_keys_values, attention_mask, position_ids, q_seq_lens)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         pre_gather = pre_gather and not self.parallel_decoding
