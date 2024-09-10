@@ -45,8 +45,10 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 
    ```text
    research/baichuan2
+       ├── convert_weight.py       # hf->mf权重转换
+       ├── convert_reversed.py     # mf->hf权重转换
        ├── belle_preprocess.py     # belle数据集预处理脚本
-       └── run_baichuan2.py        # baichuan2高阶接口使用脚本
+       ├── run_baichuan2.py        # baichuan2高阶接口使用脚本
        └── run_baichuan2_chat.py   # baichuan2 chat推理使用脚本
    ```
 
@@ -111,14 +113,17 @@ pip install torch transformers protobuf wandb -i https://pypi.tuna.tsinghua.edu.
 执行`convert_weight.py`转换脚本，将HuggingFace的权重转换为完整的ckpt权重。
 
 ```shell
-cd research/baichuan2
 python convert_weight.py \
- --torch_ckpt_path path/to/*.bin \
- --mindspore_ckpt_path path/to/baichuan2.ckpt
+ --input_path path/to/baichuan2/checkpoints/ \
+ --output_path path/to/baichuan2.ckpt \
+ --model baichuan2 \
+ --dtype fp16
 
 # 参数说明
-torch_ckpt_path: HuggingFace权重保存目录路径下任意权重bin文件, 根据该文件路径读取目录下全部权重
-mindspore_ckpt_path: 转换后的MindSpore权重文件保存路径
+input_path: HuggingFace权重保存目录路径，该目录下存放权重和相关的一些配置文件等，建议直接克隆HuggingFace，保存全部文件到本地
+output_path: 转换后的MindSpore权重文件保存路径
+model: 模型名字
+dtype: 权重的精度
 ```
 
 ## 微调
