@@ -121,9 +121,8 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
         unk_token (str, tokenizers.AddedToken): The unknown token. Default: `"<unk>"` .
         **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
 
-    Outputs:
-        A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
-        of the subclass.
+    Returns:
+        A ChatGLM3Tokenizer instance.
 
     Examples:
         >>> from mindformers import AutoTokenizer

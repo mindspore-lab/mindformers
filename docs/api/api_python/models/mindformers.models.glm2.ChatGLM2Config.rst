@@ -49,4 +49,4 @@ mindformers.models.glm2.ChatGLM2Config
         - **parallel_config** (TransformerOpParallelConfig) - 模型并行化处理的参数配置。默认值： ``default_transformer_config`` 。
         - **offset** (int) - 每个（微批量）阶段的层偏移。默认值： ``0`` 。
         - **pp_interleave_num** (int) - 流水线并行中微批次交织的次数。默认值： ``1`` 。
-        - **kwargs** - 其它额外参数。
+        - **kwargs** (dict, 可选) - 一个可变数量的关键字参数，为待扩展的关键字参数预留。

@@ -12,3 +12,6 @@ mindformers.models.glm2.ChatGLM4Tokenizer
         - **eos_token** (str, tokenizers.AddedToken) - 序列结束标记。默认值： `"<|endoftext|>"` 。
         - **pad_token** (str, tokenizers.AddedToken) - 用于使tokens数组大小相同以便进行批处理的特殊标记，然后将被注意力机制或损失计算忽略。默认值： `"<|endoftext|>"` 。
         - **kwargs** - 其它传递到Tokenizer基类的参数。
+
+    返回：
+        `ChatGLM4Tokenizer` 实例。

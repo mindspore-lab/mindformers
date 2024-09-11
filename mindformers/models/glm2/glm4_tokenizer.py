@@ -40,9 +40,8 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
             purpose. Will then be ignored by attention mechanisms or loss computation. Default: `"<|endoftext|>"` .
         **kwargs: Other kwargs that will be passed into the base class of the `Tokenizer`.
 
-    Outputs:
-        A dict contains the processed ids, attention_mask that specific by the member `MODEL_INPUT_NAME`
-        of the subclass.
+    Returns:
+        A ChatGLM4Tokenizer instance.
 
     Examples:
         >>> from mindformers import ChatGLM4Tokenizer
