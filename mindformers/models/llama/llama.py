@@ -412,6 +412,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             input_ids = kwargs["origin_inputs"]
         model_inputs["input_ids"] = Tensor.from_numpy(
             input_ids.astype(np.int32))
+        if kwargs.get('batch_valid_length', None) is not None:
+            model_inputs['batch_valid_length'] = Tensor.from_numpy(kwargs.get('batch_valid_length').astype(np.int32))
         if hasattr(self, 'adapter_ids') and "adapter_ids" in kwargs:
             adapter_ids = kwargs["adapter_ids"]
             if adapter_ids is not None:
@@ -478,10 +480,16 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
                             dynamic_slot_mapping, dynamic_prefix_keys_values, None, dynamic_q_seq_lens)
-        else:
+        elif self.use_past:
             self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
                             dynamic_slot_mapping, None, None, dynamic_q_seq_lens)
+        elif kwargs.get("pre_gather", False):
+            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
+                            dynamic_batch_valid_length, None, None, None, None, None)
+        else:
+            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
+                            None, None, None, None, None, None)
         logger.info("Set dynamic input for llama.")
 
     def add_flags_custom(self, is_first_iteration):
