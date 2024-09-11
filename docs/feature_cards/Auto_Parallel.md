@@ -137,8 +137,9 @@ The SpeedUp is given by the ratio of average "tokens per second" of auto paralle
 | Qwen-14B | dp=1, mp=8, pp=1 | 4.5 |  111.3% |
 | LLaMA2-7B | dp=8, mp=1, pp=1 | 0.1 | 101.2% |
 | LLaMA2-13B | dp=8, mp=1, pp=1 | 0.1 | 99.8% |
+| LLaMA2-70B | dp=2, mp=4, pp=8 | 0.1 | 93.5% |
 
-These benchmarks have been carried out on a machine with 8 devices Ascend using the default .yaml files in the mindformers repository.
+These benchmarks have been carried out on a machine with 8 devices Ascend (except LLaMA2-70B which ran on 8 nodes, 64 devices) using the default .yaml files in the mindformers repository.
 The software configuration is:
 
 - MindSpore v2.3.0
