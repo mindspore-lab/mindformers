@@ -103,6 +103,29 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
       <td style="text-align: center"> - </td>
     </tr>
   </tbody>
+<tbody>
+    <tr>
+      <td rowspan="2"> <a href="research/llama3_1/llama3_1.md"> LLaMA3.1 </a> </td>
+      <td> 8B </td>
+      <td> 8K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td> <a href="research/llama3_1/llama3_1.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+    <tr>
+      <td> 70B </td>
+      <td> 8K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td> <a href="research/llama3_1/llama3_1.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+  </tbody>
   <tbody>
     <tr>
       <td rowspan="2"> <a href="research/baichuan2/baichuan2.md"> Baichuan2 </a> </td>
@@ -326,6 +349,19 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
       <td style="text-align: center"> <a href="research/deepseek/deepseek.md"> docs </a> </td>
       <td style="text-align: center"> &#x2713 </td>
       <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+  </tbody>
+  <tbody>
+    <tr>
+      <td rowspan="1"> <a href="research/deepseek2/deepseek2.md"> DeepSeekV2 </a> </td>
+      <td> 236B </td>
+      <td> 4K </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> <a href="research/deepseek2/deepseek2.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
       <td style="text-align: center"> - </td>
     </tr>
   </tbody>
