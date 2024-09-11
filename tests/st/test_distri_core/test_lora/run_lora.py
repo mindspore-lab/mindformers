@@ -29,16 +29,13 @@ from mindspore.communication.management import init
 from mindspore.communication import get_rank
 from mindspore.dataset import DistributedSampler
 
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
-from mindformers.experimental.distri_cores.transformer import ParallelTransformer
-from mindformers.experimental.distri_cores.transformer.rotary_pos_embedding import RotaryEmbedding
-from mindformers.experimental.distri_cores.config import LoraConfig, TransformerConfig, ModelParallelConfig
-from mindformers.experimental.distri_cores.utils import valid_lora_config
-from mindformers.experimental.distri_cores.transformer.module import Module
-from mindformers.experimental.distri_cores.create_comm import (
-    get_dp_rank
-)
-from mindformers.experimental.distri_cores.tensor_parallel import (
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel, get_dp_rank
+from mindformers.experimental.parallel_core.pynative.transformer import ParallelTransformer
+from mindformers.experimental.parallel_core.pynative.transformer.rotary_pos_embedding import RotaryEmbedding
+from mindformers.experimental.parallel_core.pynative.config import LoraConfig, TransformerConfig, ModelParallelConfig
+from mindformers.experimental.parallel_core.pynative.utils import valid_lora_config
+from mindformers.experimental.parallel_core.pynative.transformer.module import Module
+from mindformers.experimental.parallel_core.pynative.tensor_parallel import (
     GatherFromSequenceParallelRegion,
     ScatterToSequenceParallelRegion
 )
@@ -71,9 +68,9 @@ class ParallelTransformerNet(Module):
         self.transformer = ParallelTransformer(config=transformer_config, post_norm=False)
         self.loss = SoftmaxCrossEntropyWithLogits()
         self.use_sequence_parallel = use_sequence_parallel
-        self.scatter_to_sp_region = ScatterToSequenceParallelRegion()
+        self.scatter_to_sp_region = ScatterToSequenceParallelRegion(need_to_swapaxes=False)
         self.gather_from_sp_region = GatherFromSequenceParallelRegion(
-            tensor_parallel_output_grad=False
+            need_to_swapaxes=False, tensor_parallel_output_grad=False
         )
 
     def construct(self, x, attention_mask, labels):

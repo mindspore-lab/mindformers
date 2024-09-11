@@ -25,9 +25,8 @@ from mindspore.communication.management import init
 
 
 from mindformers import MindFormerConfig
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
-from mindformers.experimental.distri_cores.transformer import ParallelTransformerLayer
-from mindformers.experimental.distri_cores.transformer import ParallelTransformer
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.experimental.parallel_core.pynative.transformer import ParallelTransformerLayer, ParallelTransformer
 
 
 class ParallelTransformerLayerNet(nn.Cell):

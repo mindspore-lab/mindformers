@@ -19,10 +19,10 @@ import mindspore as ms
 import mindspore.dataset as ds
 from mindspore.nn import Adam, SoftmaxCrossEntropyWithLogits
 from mindspore.communication import init
-from mindformers.experimental.distri_cores.training import TrainOneStepCell, train
-from mindformers.experimental.distri_cores.transformer import TransformerLanguageModel
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
-from mindformers.experimental.distri_cores.config import (
+from mindformers.experimental.parallel_core.pynative.training import TrainOneStepCell, train
+from mindformers.experimental.parallel_core.pynative.transformer import TransformerLanguageModel
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.experimental.parallel_core.pynative.config import (
     init_configs_from_yaml,
     TrainingConfig,
     ModelParallelConfig,

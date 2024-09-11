@@ -19,7 +19,7 @@ import pytest
 from mindspore.communication.management import init
 from mindspore.communication import get_group_size, get_rank
 # pylint: disable=W0401, W0614
-from mindformers.experimental.distri_cores.create_comm import *
+from mindformers.experimental.parallel_core.pynative.parallel_state import *
 
 
 def run_initialize_and_destroy_model_parallel(order):

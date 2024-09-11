@@ -20,15 +20,15 @@ import numpy as np
 from mindspore import Parameter, Tensor
 from mindspore.communication.management import init
 
-from mindformers.experimental.distri_cores.config import ModelParallelConfig, LoraConfig, GeneralConfig
+from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, LoraConfig, GeneralConfig
 
-from mindformers.experimental.distri_cores.create_comm import (
+from mindformers.experimental.parallel_core.pynative.parallel_state import (
     initialize_model_parallel,
     get_pp_rank,
     get_tp_rank,
     get_dp_rank,
 )
-from mindformers.experimental.distri_cores.training import ParallelTrainingReducer
+from mindformers.experimental.parallel_core.pynative.training import ParallelTrainingReducer
 
 
 def run_grads_reduce():

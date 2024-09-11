@@ -16,7 +16,7 @@
 
 import pytest
 
-from mindformers.experimental.distri_cores.config import (
+from mindformers.experimental.parallel_core.pynative.config import (
     init_configs_from_yaml,
     init_configs_from_dict,
     BaseConfig,

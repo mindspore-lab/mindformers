@@ -21,7 +21,7 @@ from mindspore.communication import init
 
 from mindformers import MindFormerConfig, logger
 from mindformers.core.context.build_context import set_predict_context_config
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
 from mindformers.experimental.infer.models.llama import ParallelLlamaForCausalLM
 from mindformers.models.llama import LlamaConfig, LlamaTokenizer
 from mindformers.tools import MODE

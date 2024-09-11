@@ -27,17 +27,16 @@ from mindspore.communication.management import init
 
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.modules import VocabEmbedding, Linear
-from mindformers.experimental.distri_cores.create_comm import (
+from mindformers.experimental.parallel_core.pynative.parallel_state import (
     initialize_model_parallel,
     get_dp_world_size,
     get_tp_world_size
 )
-from mindformers.experimental.distri_cores.tensor_parallel.layers import (
+from mindformers.experimental.parallel_core.pynative.tensor_parallel.layers import (
     VocabParallelEmbedding, ColumnParallelLinear, RowParallelLinear
 )
-from mindformers.experimental.distri_cores.tensor_parallel import (
-    GatherFromSequenceParallelRegion,
-    ScatterToSequenceParallelRegion
+from mindformers.experimental.parallel_core.pynative.tensor_parallel import (
+    GatherFromSequenceParallelRegion
 )
 
 from tests.st.test_distri_core.utils import LinearTestData
@@ -191,9 +190,9 @@ class VocabParallelEmbeddingNet(nn.Cell):
             compute_dtype=mstype.float16)
         self.loss = CrossEntropyLoss()
         self.gather_from_sp_region = GatherFromSequenceParallelRegion(
+            need_to_swapaxes=config.dataset_config.data_layout == "BSH",
             tensor_parallel_output_grad=False
         )
-        self.scatter_to_sp_region = ScatterToSequenceParallelRegion()
 
     def construct(self, x, labels):
         """Construct of sequence parallel case."""
@@ -205,9 +204,7 @@ class VocabParallelEmbeddingNet(nn.Cell):
         intermediate, _ = self.linear1(emb)
         output, _ = self.linear2(intermediate)
         if self.config.parallel_config.use_sequence_parallel:
-            output = output.swapaxes(0, 1).contiguous()
             output1 = self.gather_from_sp_region(output)
-            output1 = output1.swapaxes(0, 1).contiguous()
         else:
             output1 = output
         result = self.loss(output1, labels)

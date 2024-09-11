@@ -27,7 +27,7 @@ from mindspore.nn import SoftmaxCrossEntropyWithLogits
 from mindspore.nn.wrap.cell_wrapper import WithLossCell
 from mindspore.common import ParameterTuple
 from mindformers import AdamWeightDecayZeRO2
-from mindformers.experimental.distri_ckpt.checkpointing import save_checkpoint, load_checkpoint
+from mindformers.experimental.parallel_core.pynative.dist_checkpointing import save_checkpoint, load_checkpoint
 
 
 ms.set_context(mode=ms.PYNATIVE_MODE)

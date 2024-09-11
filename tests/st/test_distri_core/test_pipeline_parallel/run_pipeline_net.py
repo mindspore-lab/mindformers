@@ -21,10 +21,10 @@ import mindspore as ms
 import mindspore.dataset as ds
 from mindspore.nn import Adam
 from mindspore.communication import init
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel, get_dp_group, \
-                                                              get_pp_group, get_pp_rank, get_pp_world_size
-from mindformers.experimental.distri_cores.training import TrainOneStepCell, train, get_model
-from mindformers.experimental.distri_cores.config import (
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel, get_dp_group, \
+    get_pp_group, get_pp_rank, get_pp_world_size
+from mindformers.experimental.parallel_core.pynative.training import TrainOneStepCell, train, get_model
+from mindformers.experimental.parallel_core.pynative.config import (
     init_configs_from_yaml,
     TrainingConfig,
     ModelParallelConfig,

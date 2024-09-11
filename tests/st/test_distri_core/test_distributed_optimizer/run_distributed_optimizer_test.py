@@ -24,13 +24,9 @@ from mindspore.communication.management import init
 from mindspore.nn import SoftmaxCrossEntropyWithLogits
 from mindspore.mint.optim import AdamW
 
-from mindformers.experimental.distri_cores.tensor_parallel import ColumnParallelLinear, RowParallelLinear
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
-from mindformers.experimental.distri_cores.config import ModelParallelConfig, TransformerConfig
-# from mindformers.experimental.distri_cores.distributed import DistributedDataParallel, \
-#     DistributedDataParallelConfig
-# from mindformers.experimental.distri_cores.optimizer.distributed_optimizer import DistributedOptimizer
-# from mindformers.experimental.distri_cores.create_comm import get_dp_group
+from mindformers.experimental.parallel_core.pynative.tensor_parallel import ColumnParallelLinear, RowParallelLinear
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
 
 from tests.st.test_distri_core.utils import TestData, train
 

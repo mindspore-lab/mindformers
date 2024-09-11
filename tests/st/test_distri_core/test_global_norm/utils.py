@@ -21,12 +21,12 @@ import mindspore.ops as ops
 from mindspore import Tensor
 from mindspore.nn import DistributedGradReducer
 
-from mindformers.experimental.distri_cores.create_comm import (
+from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_dp_group,
     get_dp_world_size,
     get_tp_group,
 )
-from mindformers.experimental.distri_cores.grad_handler import ClipGlobalNorm
+from mindformers.experimental.parallel_core.pynative.training.grad_handler import ClipGlobalNorm
 
 
 class TestData:

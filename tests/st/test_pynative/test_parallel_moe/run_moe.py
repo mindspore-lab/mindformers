@@ -27,13 +27,13 @@ from mindspore.communication.management import get_rank, init
 from mindspore.nn import AdamWeightDecay, SoftmaxCrossEntropyWithLogits
 
 from mindformers import MoEConfig as GoldenMoEConfig
-from mindformers.experimental.distri_cores.config import (
+from mindformers.experimental.parallel_core.pynative.config import (
     LoraConfig,
     ModelParallelConfig,
     MoEConfig,
     TransformerConfig
 )
-from mindformers.experimental.distri_cores.create_comm import (
+from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_ep_group,
     get_dp_group,
     get_ep_rank,
@@ -42,7 +42,7 @@ from mindformers.experimental.distri_cores.create_comm import (
     get_cp_group,
     initialize_model_parallel,
 )
-from mindformers.experimental.distri_cores.transformer.moe.moe_layer import MoELayer
+from mindformers.experimental.parallel_core.pynative.transformer.moe.moe_layer import MoELayer
 from mindformers.models.llama.llama_layer import LlamaFeedForward
 from mindformers.modules.transformer.moe import MoEV2
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config

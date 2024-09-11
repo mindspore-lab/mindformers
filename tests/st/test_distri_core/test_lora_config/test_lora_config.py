@@ -16,8 +16,8 @@
 
 import pytest
 
-from mindformers.experimental.distri_cores.config import LoraConfig, ModelParallelConfig, TransformerConfig
-from mindformers.experimental.distri_cores.utils import valid_lora_config
+from mindformers.experimental.parallel_core.pynative.config import LoraConfig, ModelParallelConfig, TransformerConfig
+from mindformers.experimental.parallel_core.pynative.utils import valid_lora_config
 
 
 @pytest.mark.level1
