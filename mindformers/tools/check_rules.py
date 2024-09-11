@@ -246,6 +246,15 @@ def _check_recompute(config):
     _rule_recompute(pp, config.recompute_config.select_comm_recompute, "select_comm_recompute")
 
 
+def _check_config_campacity(config):
+    fine_grain_interleave = config.model.model_config.fine_grain_interleave
+    use_seq_parallel = config.parallel_config.use_seq_parallel
+    use_context_parallel = config.parallel_config.context_parallel and config.parallel_config.context_parallel > 1
+    if fine_grain_interleave and fine_grain_interleave > 1 and not use_seq_parallel and not use_context_parallel:
+        raise ValueError(f"When use fine_grain_interleave without context_parallel, "
+                         f"use_seq_parallel must be set to 'True'.")
+
+
 def check_rules(config, mode='train', **kwargs):
     """check rules"""
     _check_mode(config, mode, **kwargs)
@@ -253,3 +262,4 @@ def check_rules(config, mode='train', **kwargs):
     _check_parallel(config)
     _check_env(config)
     _check_recompute(config)
+    _check_config_campacity(config)
