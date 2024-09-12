@@ -21,6 +21,7 @@ import regex as re
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
+from mindformers.tools.utils import check_file
 
 
 __all__ = ['WizardCoderTokenizer']
@@ -100,6 +101,7 @@ class WizardCoderTokenizer(PreTrainedTokenizer):
         self.add_bos_token = add_bos_token
         self.add_eos_token = add_eos_token
 
+        check_file(vocab_file, "tokenizer")
         with open(vocab_file, 'r', encoding="utf-8") as vocab_handle:
             self.encoder = json.load(vocab_handle)
         self.decoder = {v: k for k, v in self.encoder.items()}

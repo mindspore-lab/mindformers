@@ -18,6 +18,7 @@ from typing import Optional, Dict, Any
 from mindformers import MindFormerRegister, MindFormerModuleType
 from mindformers.models.llama import LlamaTokenizer
 from mindformers.models.tokenization_utils import AddedToken
+from mindformers.tools.utils import check_file
 
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
@@ -97,6 +98,7 @@ class LlavaTokenizer(LlamaTokenizer):
         self._img_token_id = 32000
         self.legacy = legacy
         self.vocab_file = vocab_file
+        check_file(vocab_file, "tokenizer")
         self.add_bos_token = add_bos_token
         self._image_token = image_tag
         self.add_eos_token = add_eos_token
