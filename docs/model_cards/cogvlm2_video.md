@@ -110,7 +110,7 @@ MindFormers支持对`CogVLM2-Video-Chat-13B`进行LoRA微调，微调数据集�
    ```shell
    pip install transformers torch
    cd mindformers/models/cogvlm2
-   python convert_weight.py --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME --sft 'lora'
+   python convert_weight.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path {path}/MS_CKPT_NAME --sft 'lora'
 
    # 参数说明
    input_path:  下载HuggingFace权重的文件夹路径
