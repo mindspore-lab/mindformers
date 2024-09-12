@@ -98,38 +98,6 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
             input_ids = kwargs["origin_inputs"]
         model_inputs["input_ids"] = Tensor.from_numpy(
             input_ids.astype(np.int32))
-        if hasattr(self, 'llm_boost'):
-            batch_valid_length = kwargs.get("valid_length_each_example")
-            block_tables = kwargs.get("block_tables")
-            slot_mapping = kwargs.get("slot_mapping")
-            prefill = kwargs.get("prefill")
-            bs = batch_valid_length.shape[0]
-            input_ids_list = []
-            position_ids_list = [
-                np.arange(context_len, dtype=np.int64) for context_len in batch_valid_length]
-            for i in range(bs):
-                context_len = batch_valid_length[i]
-                if prefill:
-                    input_ids_list.append(input_ids[i][:context_len])
-                else:
-                    input_ids_list.append(
-                        input_ids[i][context_len - 1:context_len])
-
-            input_ids = np.concatenate(input_ids_list, 0)
-            position_ids = np.concatenate(position_ids_list, 0)
-            slot_mapping = np.delete(
-                slot_mapping, np.where(slot_mapping == -1))
-            lm_head_indices = np.cumsum(batch_valid_length, dtype=np.int64) - 1
-            seq_lens = batch_valid_length.tolist()
-            model_inputs["llm_boost_inputs"] = {
-                "input_ids": Tensor.from_numpy(input_ids),
-                "position_ids": Tensor.from_numpy(position_ids),
-                "lm_head_indices": Tensor.from_numpy(lm_head_indices),
-                "block_tables": Tensor.from_numpy(block_tables),
-                "slot_mapping": Tensor.from_numpy(slot_mapping),
-                "batch_valid_length": Tensor.from_numpy(batch_valid_length),
-                "seq_lens": seq_lens
-            }
         return model_inputs
 
     # pylint: disable=W0613

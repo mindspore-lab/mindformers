@@ -560,7 +560,9 @@ def load_ckpt(config, network, optimizer=None):
     # replace tk in checkpoint_dict.keys()
     checkpoint_dict = replace_tk_to_mindpet(checkpoint_dict)
     if hasattr(network, 'llm_boost'):
+        network.checkpoint_dict = checkpoint_dict
         network.llm_boost.set_weights(checkpoint_dict)
+        return
 
     if "global_step" in checkpoint_dict and config.runner_config.step_scale is not None:
         resume_global_step = int(checkpoint_dict["global_step"].data * config.runner_config.step_scale)

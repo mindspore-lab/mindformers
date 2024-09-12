@@ -419,6 +419,7 @@ from mindformers.model_runner import (
 )
 from mindformers.run_check import run_check
 from mindformers.mindformer_book import MindFormerBook
+from mindformers.experimental.infer.llm_boost import LlmBoostForCausalLM, LlmBoostConfig
 
 __all__ = ['ModelRunner', 'run_check', 'pipeline', 'MultiModalToTextPipeline']
 __all__.extend(core.__all__)
