@@ -21,6 +21,7 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
 | [qwen2-7b](./predict_qwen2_7b_instruct.yaml)             | text_generation |  -  |   8192    | Predict  | 653 tokens/s (mindie 16 batch_size 单卡) |
 | [qwen2-7b](./finetune_qwen2_7b.yaml)                     |   alpaca_data   |  -  |   32768   | Finetune |           1480 tokens/s (八卡)           |
 | [qwen2-57b-A14b](./predict_qwen2_57b_a14b_instruct.yaml) | text_generation  |  -  |    8192    |  Predict   |  - tokens/s (mindie 16 batch_size 四卡)  |
+| [qwen2-57b-A14b](./finetune_qwen2_57b.yaml) | alpaca_data  |  -  |    32768    |  Finetune   |  181 tokens/s (32卡)  |
 | [qwen2-72b](./predict_qwen2_72b_instruct.yaml)           | text_generation |  -  |   8192    | Predict  | 247 tokens/s(mindie 16 batch_size 四卡)  |
 | [qwen2-72b-128k](./predict_qwen2_72b_instruct_128k.yaml) | text_generation |  -  |   8192    | Predict  |               9 tokens/s               |
 
@@ -44,6 +45,7 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
      ├── predict_qwen2_7b_instruct.yaml             # 7B 在线推理启动配置
      │── finetune_qwen2_7b.yaml                     # 7B 32k 微调启动配置
      ├── predict_qwen2_57b_a14b_instruct.yaml       # 57B-A14B 在线推理启动配置
+     ├── finetune_qwen2_57b.yaml                    # 57B-A14B 微调启动配置
      ├── predict_qwen2_72b_instruct.yaml            # 72B 在线推理启动配置
      └── predict_qwen2_72b_instruct_128k.yaml       # 72B 128k 在线推理启动配置
    ```
