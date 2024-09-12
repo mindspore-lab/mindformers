@@ -400,13 +400,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.predict_run_mode = get_predict_run_mode()
 
         logger.info("Predict run mode:{}".format(self.predict_run_mode))
-
-        llm_boost_kwargs = {"config": config}
-        if config.llm_backend:
-            from mindspore.experimental.llm_boost.register import LlmBoostRegister
-            self.llm_boost = LlmBoostRegister.get_instance(config.llm_backend, "Llama", **llm_boost_kwargs)
-            self.llm_boost.init()
-            self.is_set_kvcache = False
         self.parallel_decoding = config.parallel_decoding_params is not None
 
     def to_embeddings(self, tokens):
@@ -435,41 +428,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             input_ids = kwargs["origin_inputs"]
         model_inputs["input_ids"] = Tensor.from_numpy(
             input_ids.astype(np.int32))
-        if hasattr(self, 'llm_boost'):
-            batch_valid_length = kwargs.get("valid_length_each_example")
-            block_tables = kwargs.get("block_tables")
-            slot_mapping = kwargs.get("slot_mapping")
-            prefill = kwargs.get("prefill")
-            bs = batch_valid_length.shape[0]
-            position_ids_list = [
-                np.arange(context_len, dtype=np.int64) for context_len in batch_valid_length]
-            if input_ids.shape[-1] == 1:
-                input_ids = np.concatenate(input_ids, 0)
-            else:
-                input_ids_list = []
-                for i in range(bs):
-                    context_len = batch_valid_length[i]
-                    if prefill:
-                        input_ids_list.append(input_ids[i][:context_len])
-                    else:
-                        input_ids_list.append(
-                            input_ids[i][context_len - 1:context_len])
-                input_ids = np.concatenate(input_ids_list, 0)
-            position_ids = np.concatenate(position_ids_list, 0)
-            slot_mapping = np.delete(
-                slot_mapping, np.where(slot_mapping == -1))
-            lm_head_indices = np.cumsum(batch_valid_length, dtype=np.int64) - 1
-            seq_lens = batch_valid_length.tolist()
-            model_inputs["llm_boost_inputs"] = {
-                "input_ids": Tensor.from_numpy(input_ids),
-                "position_ids": Tensor.from_numpy(position_ids),
-                "lm_head_indices": Tensor.from_numpy(lm_head_indices),
-                "block_tables": Tensor.from_numpy(block_tables),
-                "slot_mapping": Tensor.from_numpy(slot_mapping),
-                "batch_valid_length": Tensor.from_numpy(batch_valid_length),
-                "seq_lens": seq_lens
-            }
-
         prefill = kwargs.get("prefill")
         if self.disable_custom_fa and prefill:
             batch_valid_length = kwargs.get("valid_length_each_example")
@@ -550,15 +508,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         Returns:
             Tensor, The loss or (logits, tokens, input_mask) of the network.
         """
-        if hasattr(self, 'llm_boost'):
-            if not self.is_set_kvcache:
-                self.llm_boost.set_kvcache()
-                self.is_set_kvcache = True
-            self.llm_boost.add_flags(is_first_iteration=self.is_first_iteration)
-            llm_boost_inputs["cos_embed"] = self.model.freqs_mgr.freqs_cos
-            llm_boost_inputs["sin_embed"] = self.model.freqs_mgr.freqs_sin
-            return self.llm_boost.forward(llm_boost_inputs)
-
         bsz, seqlen = self.shape(input_ids)
         if self.use_past:
             if not isinstance(batch_valid_length, Tensor):
