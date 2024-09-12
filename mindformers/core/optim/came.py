@@ -248,7 +248,8 @@ class Came(Optimizer):
                  warmup_init=False,
                  compression=False,
                  loss_scale=1):
-
+        if compression:
+            raise ValueError(f"Currently, came only supports compression equals False, but got {compression}")
         if learning_rate is not None and relative_step:
             raise ValueError("Cannot combine manual lr and relative_step options", learning_rate)
         if warmup_init and not relative_step:
