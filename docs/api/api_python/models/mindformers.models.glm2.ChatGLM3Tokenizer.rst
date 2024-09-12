@@ -15,3 +15,6 @@ mindformers.models.glm2.ChatGLM3Tokenizer
         - **pad_token** (str, tokenizers.AddedToken) - 用于使tokens数组大小相同以便进行批处理的特殊标记，然后将被注意力机制或损失计算忽略。默认值： `"<pad>"` 。
         - **unk_token** (str, tokenizers.AddedToken) - 不存在的token。默认值： `"<unk>"` 。
         - **kwargs** - 其它传递到Tokenizer基类的参数。
+
+    返回：
+        `ChatGLM3Tokenizer` 实例。

@@ -86,6 +86,8 @@ class ChatGLM2Config(PretrainedConfig):
             `TransformerOpParallelConfig` with default args. Default: ``TransformerOpParallelConfig`` .
         offset (int, optional): The layer offset for each (mini) stage. Default: ``0`` .
         pp_interleave_num  (int, optional): Number of microbatch interleavings in pipeline parallelism. Default: ``1`` .
+        kwargs (dict, optional): A variable number of keyword parameters reserved for the keyword parameters to be
+            expanded.
     """
 
     model_type = "glm2"
@@ -95,7 +97,7 @@ class ChatGLM2Config(PretrainedConfig):
 
     @args_type_check(parallel_config=(dict, TransformerOpParallelConfig))
     def __init__(self,
-                 batch_size=1,  # only for incremental infer
+                 batch_size=1,
                  num_layers=28,
                  padded_vocab_size=65024,
                  hidden_size=4096,

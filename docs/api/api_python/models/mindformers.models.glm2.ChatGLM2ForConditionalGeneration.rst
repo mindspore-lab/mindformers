@@ -1,12 +1,13 @@
 mindformers.models.glm2.ChatGLM2ForConditionalGeneration
 =========================================================================
 
-.. py:class:: mindformers.models.glm2.ChatGLM2ForConditionalGeneration(config: ChatGLM2Config)
+.. py:class:: mindformers.models.glm2.ChatGLM2ForConditionalGeneration(config: ChatGLM2Config, **kwargs)
 
     在线计算并提供执行ChatGLM2训练时的损失值和逻辑值。
 
     参数：
         - **config** (ChatGLM2Config) - ChatGLM2模型的配置。
+        - **kwargs** (dict, 可选) - 一个可变数量的关键字参数，为待扩展的关键字参数预留。
 
     输入：
         - **input_ids** (Tensor) - 一个分词后的输入数据张量，它是32位整数类型，shape为： `(batch, seq_length)` 。默认值： ``None`` 。

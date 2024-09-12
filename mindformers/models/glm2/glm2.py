@@ -189,7 +189,9 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
     Provide ChatGLM2 training loss or logits through network.
 
     Args:
-        config (GLMConfig): The config of ChatGLM2Model.
+        config (ChatGLM2Config): The config of ChatGLM2Model.
+        kwargs (dict, optional): A variable number of keyword parameters reserved for the keyword parameters to be
+            expanded.
 
     Inputs:
         - **input_ids** (Tensor, optional) - A tokenized input tensor, which is of int32 integer type and has a shape of
