@@ -24,7 +24,7 @@ Benchmark 工具支持对模型进行在线或离线的推理和微调。该工�
 
    - 配置文件
    - 推理所需的其他资源文件，如`tokenizer.model`
-   - 如果需要加载权重，请确保将mindformers格式权重文件也放置在同一文件夹内
+   - 如果需要加载权重，请确保将MindFormers格式权重文件也放置在同一文件夹内
 
 2. 修改 YAML 配置文件
 
@@ -42,7 +42,7 @@ Benchmark 工具支持对模型进行在线或离线的推理和微调。该工�
 
 3. 启动推理脚本
 
-   准备好所有文件并修改好配置文件后，您可以通过以下命令启动推理脚本
+   准备好所有文件并修改好配置文件后，通过以下命令启动推理脚本
 
    ```bash
    bash scripts/benchmark/inference_tool.sh \
@@ -62,10 +62,10 @@ Benchmark 工具支持对模型进行在线或离线的推理和微调。该工�
 
 ## 示例
 
-如使用双卡，模型存储在 /home/user/models/internlm2 路径下，预测数据为“你好，”，则命令如下：
+如使用双卡，模型存储在`/home/user/models/internlm2`路径下，预测数据为`你好，`，则命令如下：
 
 ```bash
-bash scripts/benchmark/inference_tool.sh --m parallel --n /home/user/models/internlm2 --i '你好，' --d 2
+bash scripts/benchmark/inference_tool.sh -m parallel -n /home/user/models/internlm2 -i '你好，' -d 2
 ```
 
 执行该命令后，系统将根据提供的配置和输入数据，启动离线推理过程。
