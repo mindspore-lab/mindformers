@@ -28,6 +28,7 @@ import sentencepiece as spm
 from mindformers.tools.logger import logger
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.utils import check_file
 
 
 VOCAB_FILES_NAMES = {"vocab_file": "./tokenizer.model"}
@@ -69,6 +70,7 @@ class InternLMTokenizer(PreTrainedTokenizer):
         self.add_eos_token = add_eos_token
         self.decode_with_prefix_space = decode_with_prefix_space
         self.sp_model = spm.SentencePieceProcessor(**self.sp_model_kwargs)
+        check_file(vocab_file, "tokenizer")
         self.sp_model.Load(vocab_file)
         self._no_prefix_space_tokens = None
 

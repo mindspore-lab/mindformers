@@ -22,6 +22,7 @@ import unicodedata
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils import AddedToken, PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.utils import check_file
 
 try:
     import tiktoken
@@ -72,6 +73,7 @@ class Llama3Tokenizer(PreTrainedTokenizer):
 
         self.errors = errors
         self.vocab_file = vocab_file
+        check_file(vocab_file, "tokenizer")
         self.add_bos_token = add_bos_token
         self.add_eos_token = add_eos_token
         if vocab_file.split('.')[-1] == 'json':

@@ -23,6 +23,7 @@ from typing import List, Any, Union, Tuple, Callable, Set, Collection, Dict
 
 from tokenizers import AddedToken
 from mindformers import MindFormerRegister, MindFormerModuleType, PreTrainedTokenizer
+from mindformers.tools.utils import check_file
 
 try:
     import tiktoken
@@ -135,6 +136,7 @@ class QwenVLTokenizer(PreTrainedTokenizer):
 
         self.errors = errors  # how to handle errors in decoding
         self.vocab_file = vocab_file
+        check_file(vocab_file, "tokenizer")
         self.mergeable_ranks = _load_tiktoken_bpe(vocab_file)  # type: dict[bytes, int]
         combined_tokens = SPECIAL_TOKENS + self.image_token_set
         start_index = len(self.mergeable_ranks)

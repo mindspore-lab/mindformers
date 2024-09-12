@@ -122,6 +122,14 @@ def check_list(var_name: str, list_var: Union[Tuple, List], num: int):
             raise ValueError('The index of the {} needs to be less than the number of nodes {}.'.format(var_name, num))
 
 
+def check_file(file_path, file_type=None):
+    """Check file."""
+    if not os.path.exists(file_path):
+        raise ValueError(f"The file_path:{file_path} is not exist.")
+    if not os.path.isfile(file_path):
+        raise ValueError(f"The file_path:{file_path} is not a {file_type} file.")
+
+
 def format_path(path):
     """Check path."""
     if not path:

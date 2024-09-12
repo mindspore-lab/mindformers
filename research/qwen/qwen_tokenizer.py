@@ -22,6 +22,7 @@ import unicodedata
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils import AddedToken, PreTrainedTokenizer
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.utils import check_file
 
 try:
     import tiktoken
@@ -61,6 +62,7 @@ class QwenTokenizer(PreTrainedTokenizer):
 
         self.errors = errors  # how to handle errors in decoding
         self.vocab_file = vocab_file
+        check_file(vocab_file, "tokenizer")
         self.mergeable_ranks = _load_tiktoken_bpe(vocab_file)  # type: dict[bytes, int]
         start_index = len(self.mergeable_ranks)
         token_with_index = enumerate(SPECIAL_TOKENS, start=start_index)

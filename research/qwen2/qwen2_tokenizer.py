@@ -25,6 +25,7 @@ from mindspore import log as logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.models.tokenization_utils_base import AddedToken
+from mindformers.tools.utils import check_file
 
 
 VOCAB_FILES_NAMES = {
@@ -175,6 +176,7 @@ class Qwen2Tokenizer(PreTrainedTokenizer):
         }
         self.im_start_id = self.special_tokens[IMSTART]
         self.im_end_id = self.special_tokens[IMEND]
+        check_file(vocab_file, "tokenizer")
         with open(vocab_file, encoding="utf-8") as vocab_handle:
             self.encoder = json.load(vocab_handle)
         self.decoder = {v: k for k, v in self.encoder.items()}

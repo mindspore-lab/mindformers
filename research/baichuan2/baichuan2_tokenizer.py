@@ -31,6 +31,7 @@ import sentencepiece as spm
 from mindformers.tools.logger import logger
 from mindformers.models.tokenization_utils import PreTrainedTokenizer, AddedToken
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.utils import check_file
 
 VOCAB_FILES_NAMES = {"vocab_file": "tokenizer.model"}
 
@@ -85,6 +86,7 @@ class Baichuan2Tokenizer(PreTrainedTokenizer):
         pad_token = AddedToken(pad_token, lstrip=False, rstrip=False, single_word=True, normalized=True) \
             if isinstance(pad_token, str) else pad_token
 
+        check_file(vocab_file, "tokenizer")
         self.vocab_file = vocab_file
         self.add_bos_token = add_bos_token
         self.add_eos_token = add_eos_token
