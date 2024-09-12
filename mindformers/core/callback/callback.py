@@ -87,7 +87,7 @@ def _get_loss_output(output):
             loss, overflow, scaling_sens, *res = output
             if len(res) == 4:
                 learning_rate, global_norm, local_norm, norm_size = res[0], res[1], res[2], res[3]
-                logger.info(f" norm size: {norm_size}\nlocal norm:\n{local_norm}")
+                logger.info(f" norm_size: {norm_size}\nlocal_norm:\n{local_norm}")
             if len(res) == 2:
                 learning_rate, global_norm = res[0], res[1]
             if len(res) == 1:

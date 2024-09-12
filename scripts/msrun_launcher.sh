@@ -37,18 +37,18 @@ else
   MF_LOG_SUFFIX=_$MF_LOG_SUFFIX
 fi
 
-# Add the suffix to the MF_LOG
-export LOG_MF_PATH=$MF_SCRIPTS_ROOT/../output/log$MF_LOG_SUFFIX
+# get the workspcace path
+WORKSPACE_PATH=$(pwd)
 
-# Add the suffix to the msrun_log
-LOG_DIR=${LOG_DIR}${MF_LOG_SUFFIX}
+# Add the suffix to the MF_LOG
+export LOG_MF_PATH=WORKSPACE_PATH/output/log$MF_LOG_SUFFIX
 
 # Set the PLOG path
 if [ -z "${PLOG_REDICT_TO_OUTPUT+x}" ] || [ $PLOG_REDICT_TO_OUTPUT == False ]
 then
   echo "No change the path of plog, the path of plog is /root/ascend"
 else
-  export ASCEND_PROCESS_LOG_PATH=$MF_SCRIPTS_ROOT/../output/plog$MF_LOG_SUFFIX
+  export ASCEND_PROCESS_LOG_PATH=$WORKSPACE_PATH/output/plog$MF_LOG_SUFFIX
   echo "PLOG_REDICT_TO_OUTPUT=$PLOG_REDICT_TO_OUTPUT, set the path of plog to $ASCEND_PROCESS_LOG_PATH"
 fi
  
@@ -117,6 +117,9 @@ then
   fi
 fi
 
+# Add the suffix to the msrun_log
+LOG_DIR=${LOG_DIR}${MF_LOG_SUFFIX}
+
 # Init msrun Command
 if [ $SINGLE_NODE == true ]
 then
@@ -142,6 +145,6 @@ EXECUTE_ORDER="$MSRUN_CMD $1"
 ulimit -u unlimited
 
 echo "Running Command: $EXECUTE_ORDER"
-echo "Please check log files in $LOG_DIR"
+echo "Please check log files in $WORKSPACE_PATH$LOG_DIR"
 
 eval $EXECUTE_ORDER
