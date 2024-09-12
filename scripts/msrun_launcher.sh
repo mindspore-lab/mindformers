@@ -41,7 +41,7 @@ fi
 WORKSPACE_PATH=$(pwd)
 
 # Add the suffix to the MF_LOG
-export LOG_MF_PATH=WORKSPACE_PATH/output/log$MF_LOG_SUFFIX
+export LOG_MF_PATH=$WORKSPACE_PATH/output/log$MF_LOG_SUFFIX
 
 # Set the PLOG path
 if [ -z "${PLOG_REDICT_TO_OUTPUT+x}" ] || [ $PLOG_REDICT_TO_OUTPUT == False ]
@@ -145,6 +145,6 @@ EXECUTE_ORDER="$MSRUN_CMD $1"
 ulimit -u unlimited
 
 echo "Running Command: $EXECUTE_ORDER"
-echo "Please check log files in $WORKSPACE_PATH$LOG_DIR"
+echo "Please check log files in ${WORKSPACE_PATH}/${LOG_DIR}"
 
 eval $EXECUTE_ORDER
