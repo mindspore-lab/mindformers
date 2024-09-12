@@ -23,14 +23,14 @@ device_num=2
 
 # define help func
 usage() {
-  echo "Usage: bash $0 -m <mode> -n <name_or_dir> -i <predict> -d <device> -a <args>"
+  echo "Usage: bash $0 -m <mode> -n <model_name_or_dir> -i <predict_data> -d <device> -a <args>"
   exit 1
 }
 
 export TIME_RECORD='on'
 
 # parsing parameters
-OPTS=$(getopt -o m:n:i:d:a: --long mode:,name_or_dir:,predict:,device:,args: -- "$@")
+OPTS=$(getopt -o m:n:i:d:a: --long mode:,model_name_or_dir:,predict_data:,device:,args: -- "$@")
 
 if [ $? -ne 0 ]; then
   usage
@@ -75,7 +75,6 @@ SCRIPT_PATH=$(realpath "$(dirname "$0")")
 MF_ROOT_APTH=$(realpath "$SCRIPT_PATH/../../")
 export PYTHONPATH=$MF_ROOT_APTH:$PYTHONPATH
 
-export RUN_MODE='predict'
 
 EXECUTION="$SCRIPT_PATH/run_inference.py \
  --model_name_or_dir $model_name_or_dir \
