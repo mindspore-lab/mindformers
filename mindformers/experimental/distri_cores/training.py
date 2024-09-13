@@ -16,7 +16,7 @@
 """
 For training
 """
-
+import os
 import time
 import contextlib
 from copy import deepcopy
@@ -661,7 +661,7 @@ def train(
                 if is_best and save_ckpt_flag:
                     logger.warning("saving best checkpoint")
                     if save_ckpt_flag:
-                        ckpt_path = training_config.output_dir + "/best"
+                        ckpt_path = os.path.join(training_config.output_dir, "best")
                         save_checkpoint(model_config,
                                         train_one_step_cell.network_with_loss,
                                         train_one_step_cell.optimizer,

@@ -262,24 +262,24 @@ class EvaAttention(nn.Cell):
 
     def construct(self, x, rope=None, attn_mask=None):
         """EVA Attention Forward."""
-        b, l, c = F.shape(x)
+        bs, seq_len, dim = F.shape(x)
 
         if not self.use_qkv_fused:  # B, num_heads, N, C
             q = self.q_proj(x)
-            q = self.reshape(q, (b, l, self.num_attn_heads, -1))
+            q = self.reshape(q, (bs, seq_len, self.num_attn_heads, -1))
             q = self.transpose(q, (0, 2, 1, 3))
             k = self.k_proj(x)
-            k = self.reshape(k, (b, l, self.num_attn_heads, -1))
+            k = self.reshape(k, (bs, seq_len, self.num_attn_heads, -1))
             k = self.transpose(k, (0, 2, 1, 3))
             v = self.v_proj(x)
-            v = self.reshape(v, (b, l, self.num_attn_heads, -1))
+            v = self.reshape(v, (bs, seq_len, self.num_attn_heads, -1))
             v = self.transpose(v, (0, 2, 1, 3))
         elif self.use_qkv_simple:
             qkv = self.qkv(x)
-            q, k, v = self.extract_qkv(qkv, (b, l, 3, self.num_attn_heads, -1))
+            q, k, v = self.extract_qkv(qkv, (bs, seq_len, 3, self.num_attn_heads, -1))
         else:
-            qkv = self._fused_qkv(x, (b, l, c))
-            q, k, v = self.extract_qkv(qkv, (b, l, 3, self.num_attn_heads, -1))
+            qkv = self._fused_qkv(x, (bs, seq_len, dim))
+            q, k, v = self.extract_qkv(qkv, (bs, seq_len, 3, self.num_attn_heads, -1))
 
         if rope is not None:
             q = self._apply_rope(q, v, rope)
@@ -298,7 +298,7 @@ class EvaAttention(nn.Cell):
         attn = self.attn_drop(attn)
 
         x = self.bmm_static(attn, v)
-        x = self.reshape(self.transpose(x, (0, 2, 1, 3)), (b, l, c))
+        x = self.reshape(self.transpose(x, (0, 2, 1, 3)), (bs, seq_len, dim))
         x = self.layer_norm(x)
         x = self.proj(x)
         x = self.proj_drop(x)

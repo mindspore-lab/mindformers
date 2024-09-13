@@ -150,7 +150,9 @@ class ToolAlpacaDataset:
     def _is_1st_conv_valid(self, conv, i):
         '''1st conversation should be like {'role': 'user', 'content': 'content'}'''
         role, content = conv.get("role"), conv.get("content")
-        if not role or role != "user" or not content or not isinstance(content, str):
+        is_role_valid = not role or role != "user"
+        is_content_valid = not content or not isinstance(content, str)
+        if is_role_valid or is_content_valid:
             logger.info("Drop %s:%d, expect 1st conv like {'role': 'user', 'content': 'content'}, "
                         "but got %s", self.dataset_dir, i, conv)
             return False
@@ -159,7 +161,9 @@ class ToolAlpacaDataset:
     def _is_last_conv_valid(self, conv, i):
         '''last conversation should be like {"role": "assistant", "content": "content"}'''
         role, content = conv.get("role"), conv.get("content")
-        if not role or role != "assistant" or not content or not isinstance(content, str):
+        is_role_valid = not role or role != "assistant"
+        is_content_valid = not content or not isinstance(content, str)
+        if is_role_valid or is_content_valid:
             logger.info("Drop %s:%d, expect last conv like {'role': 'assistant', 'content': 'content'}, "
                         "but got %s", self.dataset_dir, i, conv)
             return False

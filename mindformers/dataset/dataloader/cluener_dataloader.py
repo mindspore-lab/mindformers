@@ -155,16 +155,16 @@ class CLUENERDataSet:
 
     def generate_label(self, line, label):
         """Generate label"""
-        for l, words in line['label'].items():
+        for label_name, words in line['label'].items():
             for _, indices in words.items():
                 for index in indices:
                     if index[0] == index[1]:
-                        label[index[0]] = 'S-' + l
+                        label[index[0]] = 'S-' + label_name
                     else:
-                        label[index[0]] = 'B-' + l
-                        label[index[1]] = 'I-' + l
+                        label[index[0]] = 'B-' + label_name
+                        label[index[1]] = 'I-' + label_name
                         for j in range(index[0] + 1, index[1]):
-                            label[j] = 'I-' + l
+                            label[j] = 'I-' + label_name
         return label
 
     def _create_examples(self, lines):

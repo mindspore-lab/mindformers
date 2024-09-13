@@ -43,9 +43,9 @@ def main(args_param):
     new_data = []
 
     cnt = 1
-    l = 0
+    max_source_length = 0
     for s, t in zip(sources, targets):
-        l = max(l, len(s))
+        max_source_length = max(max_source_length, len(s))
         new_data.append(
             {
                 "id": str(cnt),
@@ -80,7 +80,7 @@ def main(args_param):
     finally:
         if file is not None:
             file.close()
-    print('1', l)
+    print('1', max_source_length)
 
 
 if __name__ == "__main__":

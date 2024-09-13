@@ -58,8 +58,7 @@ class Encoder:
         Encoder.tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
         if self.args.split_sentences:
             if not nltk_available:
-                print("NLTK is not available to split sentences.")
-                exit()
+                raise ValueError("NLTK is not available to split sentences.")
             if os.environ.get("NLTK_DATA"):
                 library = os.path.join(os.environ.get("NLTK_DATA"), "tokenizers", "punkt", f"{self.args.lang}.pickle")
                 url = f"file:{library}"

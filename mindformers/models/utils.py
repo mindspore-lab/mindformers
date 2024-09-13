@@ -218,8 +218,8 @@ class LayerSetting:
         else:
             parttern = default_patterns
         for p in parttern:
-            l = select_recompute[p] if isinstance(select_recompute, dict) else select_recompute
-            dic[p] = self._format_recompute_list(l)
+            value = select_recompute[p] if isinstance(select_recompute, dict) else select_recompute
+            dic[p] = self._format_recompute_list(value)
         return dic
 
     def _check_layer_rule(self, layer_id):
@@ -236,9 +236,9 @@ class LayerSetting:
         pp_id = int(self.pp_ids[layer_id])
         v_id = int(self.interleave_ids[layer_id])
         log_ops = []
-        for p, l in select_recompute.items():
-            if 0 <= layer_id - self.layer_accu_mod[v_id, pp_id] < l[v_id][pp_id]:
-                log = LayerSetting.set_pattern_recompute(layer, p.split(r'\.'), add_prim_attr)
+        for pattern, layers_dict in select_recompute.items():
+            if 0 <= layer_id - self.layer_accu_mod[v_id, pp_id] < layers_dict[v_id][pp_id]:
+                log = LayerSetting.set_pattern_recompute(layer, pattern.split(r'\.'), add_prim_attr)
                 # print(log)
                 if log:
                     log_ops.append(log[1:])

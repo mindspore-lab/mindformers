@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
- Tokenization classes for python tokenizers. For fast tokenizers see tokenization_utils_fast.py
+Tokenization classes for python tokenizers. For fast tokenizers see tokenization_utils_fast.py
 """
 import copy
 import os

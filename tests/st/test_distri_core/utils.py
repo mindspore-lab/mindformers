@@ -383,8 +383,8 @@ def _transform_ckpt_helper(config, model, optimizer, src_ckpt_path, dst_ckpt_pat
     save_checkpoint(config, model, optimizer, dst_ckpt_path, only_save_strategy=True)
     time.sleep(5)
     if get_rank() == 0:
-        src_merged_strategy_file = dst_ckpt_path + "/src_merged_strategy.ckpt"
-        dst_merged_strategy_file = dst_ckpt_path + "/dst_merged_strategy.ckpt"
+        src_merged_strategy_file = os.path.join(dst_ckpt_path, "src_merged_strategy.ckpt")
+        dst_merged_strategy_file = os.path.join(dst_ckpt_path, "dst_merged_strategy.ckpt")
         ms.merge_pipeline_strategys(os.path.join(src_ckpt_path, "strategy"), src_merged_strategy_file)
         ms.merge_pipeline_strategys(os.path.join(dst_ckpt_path, "strategy"), dst_merged_strategy_file)
         ms.transform_checkpoints(src_ckpt_path, dst_ckpt_path, ckpt_prefix,
