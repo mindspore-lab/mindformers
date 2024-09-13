@@ -620,7 +620,7 @@ class LlamaFeedForwardWithMoE(Cell):
 
         self.mul.shard(((dp, 1, 1), (dp, 1, 1)))
         self.add.shard(((dp, 1, 1), (dp, 1, 1)))
-        self.sigmoid.shard((dp, 1, 1))
+        self.sigmoid.shard(((dp, 1, 1),))
 
         self.routed_experts.ffn.shard(parallel_config)
         self.shared_experts.shard(parallel_config)
