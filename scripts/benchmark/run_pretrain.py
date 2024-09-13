@@ -101,19 +101,30 @@ class ModelPretrain(BaseInitModel):
         super().__init__(model_name_or_dir=model_name_or_dir, input_args=input_args)
 
     def train(self, model_name_or_dir, train_data):
-        """start train"""
+        """Start training process"""
         if train_data is None or train_data == '':
             raise ValueError("The dataset should not be None. Please provide a valid dataset.")
+
+        # Set the training dataset directory
         self.config.train_dataset.data_loader.dataset_dir = train_data
         load_checkpoint = self.input_args.get('load_checkpoint', None)
 
+        # If the model directory exists, look for checkpoint files
         if Path(model_name_or_dir).is_dir():
             ckpt_files = glob(str(Path(model_name_or_dir) / '*.ckpt'))
             if ckpt_files:
                 load_checkpoint = ckpt_files[0]
 
+        # Set the checkpoint in the config
         self.config.load_checkpoint = load_checkpoint
 
+        # Determine if it's a pretraining task or fine-tuning task
+        if load_checkpoint is None or load_checkpoint == '':
+            logger.info("Starting a pretraining task as no checkpoint is provided.")
+        else:
+            logger.info(f"Starting a fine-tuning task using checkpoint: {load_checkpoint}.")
+
+        # Initialize the trainer and start training
         train = Trainer(args=self.config)
         train.train()
 
@@ -351,6 +362,10 @@ class ModelPretrain(BaseInitModel):
     def process_tokenizer(self):
         """Process tokenizer"""
         try:
+            # Check if config, processor, tokenizer, or vocab_file is None
+            if not self.config or not self.config.processor or not self.config.processor.tokenizer:
+                raise AttributeError("Tokenizer configuration is missing in self.config.processor.tokenizer.")
+
             # Check if vocab file is already set in the config
             if self.config.processor.tokenizer.vocab_file:
                 return
@@ -382,8 +397,11 @@ class ModelPretrain(BaseInitModel):
             # Set the vocab file in the config
             self.config.processor.tokenizer.vocab_file = vocab_file
 
+        except AttributeError as e:
+            logger.error(f"Tokenizer configuration error: {e}")
         except (FileNotFoundError, OSError) as e:
             logger.error(f"An error occurred while processing the tokenizer: {e}")
+
 
 def convert_type(data):
     """convert_type"""

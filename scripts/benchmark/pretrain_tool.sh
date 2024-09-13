@@ -31,14 +31,14 @@ CLUSTER_TIME_OUT=7200
 
 # define help func
 usage() {
-  echo "Usage: bash $0 -n <name_or_dir> -i <pretrain> -w <worker_num> -l <local_worker> -a <master_addr> -p <master_port> -r <node_rank> -o <log_dir> -j <join> -t <cluster_timeout> --args <args>"
+  echo "Usage: bash $0 -n <model_name_or_dir> -i <pretrain_data> -w <worker_num> -l <local_worker> -a <master_addr> -p <master_port> -r <node_rank> -o <log_dir> -j <join> -t <cluster_timeout> --args <args>"
   exit 1
 }
 
 export TIME_RECORD='on'
 
 # parsing parameters
-OPTS=$(getopt -o n:i:w:l:a:p:r:o:j:t: --long name_or_dir:,pretrain:,worker_num:,local_worker:,master_addr:,master_port:,node_rank:,log_dir:,join:,cluster_timeout:,args: -- "$@")
+OPTS=$(getopt -o n:i:w:l:a:p:r:o:j:t: --long model_name_or_dir:,pretrain_data:,worker_num:,local_worker:,master_addr:,master_port:,node_rank:,log_dir:,join:,cluster_timeout:,args: -- "$@")
 
 if [ $? -ne 0 ]; then
   usage
@@ -107,7 +107,6 @@ SCRIPT_PATH=$(realpath "$(dirname "$0")")
 MF_ROOT_APTH=$(realpath "$SCRIPT_PATH/../../")
 export PYTHONPATH=$MF_ROOT_APTH:$PYTHONPATH
 
-export RUN_MODE='train'
 
 EXECUTION="$SCRIPT_PATH/run_pretrain.py \
  --model_name_or_dir $model_name_or_dir \
