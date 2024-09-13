@@ -45,9 +45,9 @@ def get_args():
     parser.add_argument('--outliers_suppression', '-o', type=str, default='none', help="Available: 'smooth', 'none'")
     parser.add_argument('--opname_blacklist', '-b', type=str, nargs='*',
                         help="A list of model layers not to convert, set blacklist when use PTQ algo.")
-    parser.add_argument('--world_size', '-ws', type=str, required=True, help="Available: 'int8', 'none'")
-    parser.add_argument('--load_checkpoint', '-lc', type=str, required=True, help="Available: 'int8', 'none'")
-    parser.add_argument('--output_dir', '-od', type=str, required=True, help="Available: 'int8', 'none'")
+    parser.add_argument('--world_size', '-ws', type=int, required=True, help="world size, world number")
+    parser.add_argument('--load_checkpoint', '-lc', type=str, required=True, help="src checkpoint path")
+    parser.add_argument('--output_dir', '-od', type=str, required=True, help="generate quant weight path")
 
 
     args = parser.parse_args()
@@ -88,7 +88,7 @@ def get_args():
         args.outliers_suppression = OutliersSuppressionType.SMOOTH if args.outliers_suppression == 'smooth' \
             else OutliersSuppressionType.NONE
         if args.opname_blacklist:
-            args.opname_blacklist = [args.opname_blacklist]
+            args.opname_blacklist = args.opname_blacklist
         else:
             args.opname_blacklist = []
     else:
@@ -175,7 +175,7 @@ if __name__ == "__main__":
             logger.info(f"reset config.parallel_config.model_parallel as :{uargs.world_size}")
 
     msconfig.model.model_config.quantization_config = ''
-    msconfig.context.mode = 0
+    msconfig.context.mode = 1
 
     if msconfig.model.arch.type == "LlamaForCausalLM":
         helper = MFLlama2Helper(msconfig)
@@ -197,7 +197,7 @@ if __name__ == "__main__":
         rank_id = get_rank()
     except RuntimeError:
         rank_id = 0
-    save_ckpt_path = os.path.join(helper.mf_config.output_dir, f"{uargs.approach}_ckpt")
+    save_ckpt_path = os.path.join(helper.mf_config.output_dir)
     save_path = os.path.join(save_ckpt_path, f"rank_{rank_id}")
     os.makedirs(save_path, exist_ok=True)
     ms.save_checkpoint(network.parameters_dict(), os.path.join(save_path, f"{uargs.approach}.ckpt"),
