@@ -22,6 +22,7 @@ from mindspore import dtype as msdtype
 from mindspore.communication import get_rank
 from mindformers import MindFormerConfig
 from mindspore_gs.ptq import PTQMode, PTQConfig, OutliersSuppressionType
+from mindspore_gs.ptq.ptq_config import LayerQuantizeAlgo
 from mindspore_gs.common import BackendTarget, logger
 from mindspore_gs.ptq import RoundToNearest as RTN
 from mindspore_gs.ptq.smooth_quant import SmoothQuant as SQ
@@ -161,6 +162,7 @@ def quant_net(net, network_helper, ptq, ds):
 if __name__ == "__main__":
     uargs = get_args()
     algo = create_ptq(uargs)
+    algo._config.fallback_blacklist = {'w2': LayerQuantizeAlgo.A16W8}
     msconfig = MindFormerConfig(uargs.config_path)
     if uargs.load_checkpoint:
         msconfig.load_checkpoint = uargs.load_checkpoint

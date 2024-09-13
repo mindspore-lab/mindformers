@@ -165,10 +165,8 @@ elif [ "$train_to_infer" == "false" ]; then
             -od ${Dst_ckpt_path}_${rank_num}p \
             -ws $rank_num \
             > ./log/log_fp16_to_${precision}_${rank_num}.log 2>&1
-            if find "${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt/rank_0/" -type f -name "*.ckpt" | read; then
+            if find "${Dst_ckpt_path}_${rank_num}p/rank_0/" -type f -name "*.ckpt" | read; then
                 echo "-----1. End convert ${rank_num}p ${precision} weights time: $(date +%H:%M:%S) -----"
-                mv ${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt/*  ${Dst_ckpt_path}_${rank_num}p/
-                rm -rf ${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt
             else
                 echo "ERROR"
                 exit 1
@@ -192,10 +190,8 @@ elif [ "$train_to_infer" == "false" ]; then
             -od ${Dst_ckpt_path}_${rank_num}p \
             -ws $rank_num \
             > ./log/log_fp16_to_${precision}_${rank_num}.log 2>&1
-            if find "${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt/rank_0/" -type f -name "*.ckpt" | read; then
+            if find "${Dst_ckpt_path}_${rank_num}p/rank_0/" -type f -name "*.ckpt" | read; then
                 echo "-----1. End convert ${rank_num}p ${precision} weights time: $(date +%H:%M:%S) -----"
-                mv ${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt/*  ${Dst_ckpt_path}_${rank_num}p/
-                rm -rf ${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt
             else
                 echo "ERROR"
                 exit 1
@@ -221,10 +217,8 @@ elif [ "$train_to_infer" == "false" ]; then
             -od ${Dst_ckpt_path}_${rank_num}p \
             -ws $rank_num \
             > ./log/log_fp16_to_${precision}_${rank_num}.log 2>&1
-            if find "${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt/rank_0/" -type f -name "*.ckpt" | read; then
+            if find "${Dst_ckpt_path}_${rank_num}p/rank_0/" -type f -name "*.ckpt" | read; then
                 echo "-----1. End convert ${rank_num}p ${precision} weights time: $(date +%H:%M:%S) -----"
-                mv ${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt/*  ${Dst_ckpt_path}_${rank_num}p/
-                rm -rf ${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt
             else
                 echo "ERROR"
                 exit 1
@@ -248,10 +242,8 @@ elif [ "$train_to_infer" == "false" ]; then
             -od ${Dst_ckpt_path}_${rank_num}p \
             -ws $rank_num \
             > ./log/log_fp16_to_${precision}_${rank_num}.log 2>&1
-            if find "${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt/rank_0/" -type f -name "*.ckpt" | read; then
+            if find "${Dst_ckpt_path}_${rank_num}p/rank_0/" -type f -name "*.ckpt" | read; then
                 echo "-----1. End convert ${rank_num}p ${precision} weights time: $(date +%H:%M:%S) -----"
-                mv ${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt/*  ${Dst_ckpt_path}_${rank_num}p/
-                rm -rf ${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt
             else
                 echo "ERROR"
                 exit 1
@@ -275,10 +267,8 @@ elif [ "$train_to_infer" == "false" ]; then
             -od ${Dst_ckpt_path}_${rank_num}p \
             -ws $rank_num \
             > ./log/log_fp16_to_${precision}_${rank_num}.log 2>&1
-            if find "${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt/rank_0/" -type f -name "*.ckpt" | read; then
+            if find "${Dst_ckpt_path}_${rank_num}p/rank_0/" -type f -name "*.ckpt" | read; then
                 echo "-----1. End convert ${rank_num}p ${precision} weights time: $(date +%H:%M:%S) -----"
-                mv ${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt/*  ${Dst_ckpt_path}_${rank_num}p/
-                rm -rf ${Dst_ckpt_path}_${rank_num}p/${precision}_ckpt
             else
                 echo "ERROR"
                 exit 1
