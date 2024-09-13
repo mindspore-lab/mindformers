@@ -5,7 +5,7 @@
 | 名称  | 缩写  |  参数说明 | 是否必须  |
 | ------------ | ------------ | ------------ | ------------ |
 | --train_to_infer  | -t  | Convert checkpoint from training to inference (true: training to inference, false: fp16 infer ckpt to quant infer ckpt)"  |  是 |
-|  --precision |  -p |  Set precision (fp16, w8a16 or w8a8) |  是 |
+| --precision |  -p |  Set precision (fp16, w8a16, w8a8, w8a16c8, w8a8c8, fp16c8) |  是 |
 | --world_size  |  -w  | Set the world size for distributed training (2, 4 or 8)  |  是  |
 | --yaml_path  | -y  | Yaml path or model config path  |  是 |
 |  --dataset_path | -dp  | Dataset path   |  否 |
@@ -53,7 +53,7 @@ bash ckpt_convert.sh -t true -p fp16 -w 8 -y /home/checkpoint_download/llama57b/
 
 暂无
 
-## 2. fp16推理权重转量化(w8a16和w8a8)推理权重
+## 2. fp16推理权重转量化推理权重
 
 ### 2.1 转换步骤
 
@@ -61,16 +61,16 @@ bash ckpt_convert.sh -t true -p fp16 -w 8 -y /home/checkpoint_download/llama57b/
 
 必须配置项：
 
-- `--train_to_infer false --precision w8a16/w8a8 --world_size 2/4/8`
-- `--yaml` 为w8a16或w8a8的yaml文件路径
+- `--train_to_infer false --precision w8a16/w8a8/w8a16c8/w8a8c8/fp16c8 --world_size 2/4/8`
+- `--yaml` 为量化推理的yaml文件路径
 - `--src_ckpt_path` 为fp16的权重路径
 
 可配置项：
 
 - `--infer_strategy_file` 生成策略文件的保存地址，不设置此参数时，策略文件保存在当前路径下`"./infer_strategy/"`；
 - `--dst_ckpt_path` 生成量化权重文件的保存地址，不设置此参数时策略文件保存在当前路径下`./infer_ckpt/`
-- `-d` **转w8a8量化权重时必要配置**的数据集名称，当前只支持 `boolq、squad1.1、wikitext2` 三个数据集，
-- `-dp` **转w8a8量化权重时必要配置**的数据集路径，例如 './boolq/dev.jsonl'
+- `-d` **转a8或c8量化权重时必要配置**的数据集名称，当前只支持 `boolq、squad1.1、wikitext2` 三个数据集，
+- `-dp` **转a8或c8量化权重时必要配置**的数据集路径，例如 './boolq/dev.jsonl'
 
 #### 2.1.2 流程说明
 
@@ -94,6 +94,11 @@ bash ckpt_convert.sh -t false -p w8a16 -w 4 -y /home/checkpoint_download/llama57
 ```shell
 # w8a8 fp16-8p 转 w8a8_4p
 bash ckpt_convert.sh -t false -p w8a8 -w 4 -y /home/checkpoint_download/llama57b_quant_w8a8/predict_llama2_57b_910b.yaml  -sc /home/predict/convert_ckpt_stage_0703/infer_ckpt/fp16_8p  -d boolq -dp ./boolq/dev.jsonl
+```
+
+```shell
+# w8a8c8 fp16-8p 转 w8a8c8_8p
+bash ckpt_convert.sh -t false -p w8a8c8 -w 8 -y /home/checkpoint_download/llama57b_quant_w8a8c8/predict_llama2_57b_910b.yaml  -sc /home/predict/convert_ckpt_stage_0703/infer_ckpt/fp16_8p  -d boolq -dp ./boolq/dev.jsonl
 ```
 
 ### 2.3 注意事项
