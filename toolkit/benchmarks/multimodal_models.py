@@ -82,18 +82,20 @@ class MFModel(BaseModel):
         logger.info(f"Load checkpoints finished.")
 
     def update_config(self):
-        if self.config.trainer.model_name == "cogvlm2-llama3-chat-19B":
+        if self.config.trainer.model_name == "cogvlm2-image-llama3-chat":
             self.generation_config.max_new_tokens = 2048
             self.generation_config.max_length = 4096
             self.generation_config.do_sample = False
         else:
             raise ValueError(f'This model {self.config.trainer.model_name} is currently not supported. ')
 
-    def generate_inner(self, message):
+    # pylint: disable=W0613
+    def generate_inner(self, message, dataset=None):
         """Perform model predict and return predict results.
 
         Args:
             message (List[Dict]): Chat text.
+            dataset (str): Dataset name.
 
         Returns:
             Predict result.
@@ -103,10 +105,10 @@ class MFModel(BaseModel):
         tmp_inputs = []
         for s in message:
             input_data = {}
-            if s['type'] == 'image':
-                input_data["image"] = s["value"]
-            elif s['type'] == 'text':
-                input_data["text"] = s["value"]
+            if s.get('type') == 'image':
+                input_data["image"] = s.get("value")
+            elif s.get('type') == 'text':
+                input_data["text"] = s.get("value")
             tmp_inputs.append(input_data)
         inputs = tmp_inputs * self.batch_size
 
@@ -116,6 +118,6 @@ class MFModel(BaseModel):
             **data,
             generation_config=self.generation_config,
         )
-        input_id_length = np.max(np.argwhere(data["input_ids"][0] != self.tokenizer.pad_token_id)) + 1
+        input_id_length = np.max(np.argwhere(data.get("input_ids")[0] != self.tokenizer.pad_token_id)) + 1
         result = self.tokenizer.decode(res[0][input_id_length:], skip_special_tokens=True)
         return result
