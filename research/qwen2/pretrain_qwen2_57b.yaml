@@ -26,7 +26,7 @@ runner_config:
 # optimizer
 optimizer:
   type: AdamW
-  betas: [0.9,0.95]
+  betas: [0.9, 0.95]
   eps: 1.e-8
   weight_decay: 0.01
 
@@ -108,7 +108,7 @@ parallel_config:
   model_parallel: 4
   pipeline_stage: 4
   use_seq_parallel: True
-  micro_batch_num: 64
+  micro_batch_num: 8
   vocab_emb_dp: False
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -132,7 +132,7 @@ callbacks:
 context:
   jit_config:
     jit_level: "O1"
-  memory_optimize_level: "O0"
+  memory_optimize_level: "O1"
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   enable_graph_kernel: False
