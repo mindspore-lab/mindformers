@@ -1498,10 +1498,11 @@ class MoEInfer(Cell):
         self.gating = self.router.dense
         self.noise = 1e-9
 
+        self.zeros = ops.Zeros()
         self.reshape = P.Reshape()
         self.shape = P.Shape()
         self.cast = P.Cast()
-        self.mod = P.Mod()
+        self.mod = P.Mod().shard(((1,), ()))
         self.topk = P.TopK().shard(((1, 1),))
         self.softmax = P.Softmax().shard(((1, 1),))
         self.expand_dims = P.ExpandDims().shard(((1,),))
@@ -1537,10 +1538,9 @@ class MoEInfer(Cell):
     def tensor_moe_finalize_routing(self, input_tensor, expert_weight, expert_index, unsort_map):
         '''calculate the final output by multiplying FeedForward's output and experts' weight in MoeFinalizeRouting'''
         input_shape = input_tensor.shape  # (2N, h)
-        x1 = Tensor(np.zeros((input_shape[0] // self.num_experts_chosen, input_shape[-1])),
-                    dtype=input_tensor.dtype)  # (N, h)
+        x1 = self.zeros((input_shape[0] // self.num_experts_chosen, input_shape[-1]), input_tensor.dtype)
         x2 = None
-        bias = Tensor(np.zeros((self.expert_dim, input_shape[-1])), dtype=input_tensor.dtype)  # (E, h)
+        bias = self.zeros((self.expert_dim, input_shape[-1]), input_tensor.dtype)
         expert_weight = self.cast(expert_weight, input_tensor.dtype)
         output_tensor = self.moe_finalize_routing(input_tensor, x1, x2, bias, expert_weight, unsort_map, expert_index)
         return output_tensor
