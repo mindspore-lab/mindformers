@@ -569,7 +569,8 @@ class ParallelAttention(nn.Cell):
 
     def _init_cross_attn(self):
         """init qkv linears of cross-attention"""
-        assert self.hidden_size == self.kv_hidden_size
+        if self.hidden_size != self.kv_hidden_size:
+            raise ValueError("hidden_size must be equal to kv_hidden_size!")
         self.wq = ColumnParallelLinear(
             self.hidden_size,
             self.hidden_size,

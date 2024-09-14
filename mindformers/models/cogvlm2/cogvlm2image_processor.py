@@ -266,7 +266,7 @@ class CogVLM2ImageContentTransformTemplate(ModalContentTransformTemplate):
         elif signal_type == "chat":
             answer_format = "Answer:"
         else:
-            assert False, f"Unknown signal type {signal_type}"
+            raise TypeError(f"Unknown signal type {signal_type}")
 
         prompt = ""
         for old_query, response in history:

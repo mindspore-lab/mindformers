@@ -79,7 +79,8 @@ def main(config_path, use_parallel, load_checkpoint, vocab_file):
     if isinstance(inputs, list):
         inputs_ids = tokenizer.build_batch_input(inputs)["input_ids"]
     else:
-        assert isinstance(inputs, str)
+        if not isinstance(inputs, str):
+            raise ValueError("inputs must be a str, but got {}".format(type(inputs)))
         inputs_ids = tokenizer.apply_chat_template(conversation=[{"role": "user", "content": inputs}],
                                                    chat_template=chat_template,
                                                    add_generation_prompt=True,

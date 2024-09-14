@@ -259,8 +259,8 @@ if __name__ == "__main__":
         config_.profile = args_.profile
     if args_.options is not None:
         config_.merge_from_dict(args_.options)
-    assert config_.run_mode in ['train', 'eval', 'predict', 'finetune'], \
-        f"run status must be in {['train', 'eval', 'predict', 'finetune']}, but get {config_.run_mode}"
+    if config_.run_mode not in ['train', 'eval', 'predict', 'finetune']:
+        raise TypeError(f"run status must be in {['train', 'eval', 'predict', 'finetune']}, but {config_.run_mode}")
     if args_.train_dataset_dir:
         config_.train_dataset.data_loader.dataset_dir = args_.train_dataset_dir
     if args_.eval_dataset_dir:

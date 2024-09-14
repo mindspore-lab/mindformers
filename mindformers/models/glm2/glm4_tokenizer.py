@@ -336,7 +336,8 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
     def apply_chat_template(self, conversation, return_tensors=None, **tokenizer_kwargs):
         if not conversation:
             return []
-        assert (isinstance(conversation, list) and len(conversation) == 1
-                and isinstance(conversation[0], Dict)), f"conversation {conversation} is invalid."
+        if not (isinstance(conversation, list) and len(conversation) == 1
+                and isinstance(conversation[0], Dict)):
+            raise ValueError(f"conversation {conversation} is invalid.")
         return self.build_chat_input(query=conversation[0].get("content"), role=conversation[0].get("role"),
                                      return_tensors=return_tensors)["input_ids"][0]

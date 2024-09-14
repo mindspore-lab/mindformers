@@ -301,9 +301,8 @@ class MFLM(TemplateLM):
             self, logits: mindspore.Tensor, contlen: int = None, inplen: int = None
     ) -> mindspore.Tensor:
         """select continuation tokens"""
-        assert (
-            contlen and inplen
-        ), "Must pass input len and cont. len to select scored logits for causal LM"
+        if not (contlen and inplen):
+            raise ValueError("Must pass input len and cont. len to select scored logits for causal LM")
         # discard right-padding.
         # also discard the input/context tokens. we'll only score continuations.
         logits = logits[inplen - contlen: inplen]
@@ -410,9 +409,13 @@ class MFLM(TemplateLM):
 
             for _, context_enc, continuation_enc in chunk:
                 # sanity check
-                assert context_enc
-                assert continuation_enc
-                assert len(continuation_enc) <= self.max_length
+                if not context_enc:
+                    raise ValueError("context_enc must not be None")
+                if not continuation_enc:
+                    raise ValueError("continuation_enc must not be None")
+                if len(continuation_enc) > self.max_length:
+                    raise ValueError("The length of continuation_enc must be less than \
+                        or equal to max_length, but got {}".format(len(continuation_enc)))
 
                 # how this all works (illustrated on a causal decoder-only setup):
                 #          CTX      CONT
@@ -643,9 +646,8 @@ def pad_and_concat(
     length in the batch. Used for batching inputs and continuations in
     seq2seq models.
     """
-    assert (
-        padding_side in ("left", "right")
-    ), f"Unrecognized padding type: '{padding_side}' not 'left' or 'right'"
+    if padding_side not in ("left", "right"):
+        raise ValueError(f"Unrecognized padding type: '{padding_side}' not 'left' or 'right'")
 
     for i, tensor in enumerate(tensors):
         if len(tensor.shape) == 2:

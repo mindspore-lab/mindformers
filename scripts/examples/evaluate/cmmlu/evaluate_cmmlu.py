@@ -171,7 +171,8 @@ def eval_subject(
         full_prompt = few_shot_prompt + question
 
         output, input_info = get_logits(tokenizer, model, [full_prompt])
-        assert output.shape[0] == 1
+        if output.shape[0] != 1:
+            raise ValueError("The output shape is not valid. Expect shape[0] = 1, but got {}".format(output.shape[0]))
         logits = output.flatten()
 
         softval = ms.ops.softmax(
