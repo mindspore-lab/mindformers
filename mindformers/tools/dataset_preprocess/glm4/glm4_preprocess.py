@@ -129,7 +129,7 @@ if __name__ == '__main__':
                         default='./alpaca_glm4_data.jsonl')
     parser.add_argument('--output_file', type=str,
                         default='./alpaca-fastchat-glm4.mindrecord')
-    parser.add_argument('--vocab_file', default=r'D:\users\w30047506\MF会战\MF会战模型与数据集\glm4_9b\tokenizer.model',
+    parser.add_argument('--vocab_file', default=r'./tokenizer.model',
                         type=str,
                         help='vocab_file path')
     parser.add_argument('--file_partition', type=int, default=1)
