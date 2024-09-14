@@ -102,7 +102,7 @@ context:
 parallel:
   parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
   gradients_mean: False
-  enable_alltoall: True
+  enable_alltoall: False
   full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True
@@ -160,11 +160,11 @@ model:
     softmax_compute_type: "float32"
     rotary_dtype: "float32"
     scaling_factor:
-      beta_fast: 32,
-      beta_slow: 1,
-      factor: 40,
-      mscale: 0.707,
-      mscale_all_dim: 0.707,
+      beta_fast: 32.0
+      beta_slow: 1.0
+      factor: 40.0
+      mscale: 0.707
+      mscale_all_dim: 0.707
       original_max_position_embeddings: 4096
     param_init_type: "bfloat16"
     use_past: False
@@ -184,7 +184,6 @@ model:
 #moe
 moe_config:
   expert_num: 160
-  expert_group_size: 8
   # capacity_factor should be large enable to ensure dropless routing
   capacity_factor: 160.0
   aux_loss_factor: 0.05
@@ -192,7 +191,6 @@ moe_config:
   topk_method: "group_limited_greedy"
   routing_policy: "TopkRouterV2"
   enable_sdrop: True
-  use_fused_ops_topkrouter: True
   shared_expert_num: 2
   routed_scaling_factor: 16.0
   norm_topk_prob: False
