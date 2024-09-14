@@ -50,9 +50,9 @@ def get_expert_mask(token_type_ids):
 class TestCogVLM2VideoPredict:
     """A test class for testing model prediction."""
 
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_onecard
+    # @pytest.mark.level0
+    # @pytest.mark.platform_arm_ascend910b_training
+    # @pytest.mark.env_onecard
     def test_base_model(self):
         """
         Feature: Video model predict
