@@ -21,7 +21,6 @@ import numpy as np
 
 import mindspore as ms
 from mindspore import Tensor, mint
-from mindspore.ops.auto_generate import Scatter  # internal api for aclnn op
 
 from .utils import log_softmax, softmax, topk
 from ..tools.logger import logger
@@ -240,7 +239,6 @@ class RepetitionPenaltyLogitsProcessor(LogitsProcessor):
 
     def __init__(self, repetition_penalty: float = None):
         super().__init__()
-        self.scatter = Scatter()
         if repetition_penalty is not None:
             repetition_penalty = self.check_params(repetition_penalty, "repetition_penalty", force_float=True,
                                                    low_threshold=Threshold(0, True))
@@ -254,7 +252,7 @@ class RepetitionPenaltyLogitsProcessor(LogitsProcessor):
         repetition_logits = mint.gather(logits, 1, sequence_ids)
         repetition_logits = mint.where(repetition_logits < 0, repetition_logits * repetition_penalty,
                                        repetition_logits / repetition_penalty)
-        return self.scatter(logits, -1, sequence_ids, repetition_logits.astype(logits.dtype), reduce=0)
+        return mint.scatter(logits, -1, sequence_ids, repetition_logits.astype(logits.dtype))
 
     def process_np(self, logits, sequence_ids):
         score = np.take_along_axis(logits, sequence_ids, axis=1)
@@ -349,7 +347,6 @@ class SamplingLogitsProcessor(LogitsProcessor):
 
     def __init__(self, do_sample=None, seed_array=None):
         super().__init__()
-        self.scatter = Scatter()
         self.do_sample = do_sample
         self.seed_array = seed_array
 
@@ -365,12 +362,12 @@ class SamplingLogitsProcessor(LogitsProcessor):
         sampled_probs = mint.nn.functional.softmax(filtered_logits, dim=-1)
         sampled_tokens = self.multinomial_ms(sampled_probs, 1, np.array(seed_array)[indices.asnumpy()]).squeeze(1)
         tokens = Tensor([-1] * len(do_sample), ms.int64)
-        tokens = self.scatter(tokens, 0, index=indices, src=sampled_tokens, reduce=0)
+        tokens = mint.scatter(tokens, 0, index=indices, src=sampled_tokens)
         if argmax_indices.numel() == 0:
             return logits, tokens.reshape(-1)
         filtered_logits = mint.index_select(logits, dim=0, index=argmax_indices)
         argmax_tokens = filtered_logits.argmax(axis=-1).astype(ms.int64)
-        tokens = self.scatter(tokens, 0, index=argmax_indices, src=argmax_tokens, reduce=0)
+        tokens = mint.scatter(tokens, 0, index=argmax_indices, src=argmax_tokens)
         return logits, tokens.reshape(-1)
 
     @staticmethod
@@ -436,7 +433,6 @@ class TopPLogitsWarper(LogitsProcessor):
 
     def __init__(self, top_p: float = None, filter_value: float = -50000, min_tokens_to_keep: int = 1):
         super().__init__()
-        self.scatter = Scatter()
         if top_p is not None:
             top_p = self.check_params(top_p, "top_p", force_float=True, low_threshold=Threshold(0, False),
                                       high_threshold=Threshold(1, False))
@@ -463,8 +459,7 @@ class TopPLogitsWarper(LogitsProcessor):
         # Remove tokens with cumulative top_p above the threshold
         sorted_indices_to_keep = Tensor(cumulative_probs < top_p, ms.int32)
         sorted_indices_to_keep[:, :min_tokens_to_keep] = 1
-        indices_to_keep = self.scatter(sorted_indices_to_keep, -1, index=sorted_indices, src=sorted_indices_to_keep,
-                                       reduce=0)
+        indices_to_keep = mint.scatter(sorted_indices_to_keep, -1, index=sorted_indices, src=sorted_indices_to_keep)
         return mint.where(indices_to_keep.astype("bool"), logits, filter_value)
 
     def process_np(self, logits, sequence_ids):
@@ -555,7 +550,6 @@ class MinLengthLogitsProcessor(LogitsProcessor):
 
     def __init__(self, min_length: int = None, eos_token_id: Union[int, List[int]] = None, pad_token_id: int = None):
         super().__init__()
-        self.scatter = Scatter()
         if min_length is not None:
             min_length = self.check_params(min_length, "min_length", force_int=True, low_threshold=Threshold(0, False))
         if eos_token_id is not None:
@@ -580,7 +574,7 @@ class MinLengthLogitsProcessor(LogitsProcessor):
             eos_token_id = Tensor([eos_token_id] * logits.shape[0])
             eos_token_value = Tensor([[-float("inf")] * eos_token_id.shape[1]] * eos_token_id.shape[0],
                                      dtype=logits.dtype)
-            logits = self.scatter(logits, -1, index=eos_token_id, src=eos_token_value, reduce=0)
+            logits = mint.scatter(logits, -1, index=eos_token_id, src=eos_token_value)
         return logits
 
     def process_np(self, logits, sequence_ids):
@@ -617,7 +611,6 @@ class MinNewTokensLengthLogitsProcessor(LogitsProcessor):
     def __init__(self, prompt_length_to_skip: int = None, min_new_tokens: int = None,
                  eos_token_id: Union[int, List[int]] = None, pad_token_id: int = None):
         super().__init__()
-        self.scatter = Scatter()
         if prompt_length_to_skip is not None:
             prompt_length_to_skip = self.check_params(prompt_length_to_skip, "prompt_length_to_skip", force_int=True,
                                                       low_threshold=Threshold(0, False))
@@ -653,7 +646,7 @@ class MinNewTokensLengthLogitsProcessor(LogitsProcessor):
             eos_token_id = Tensor([eos_token_id] * logits.shape[0])
             eos_token_value = Tensor([[-float("inf")] * eos_token_id.shape[1]] * eos_token_id.shape[0],
                                      dtype=logits.dtype)
-            logits = self.scatter(logits, -1, index=eos_token_id, src=eos_token_value, reduce=0)
+            logits = mint.scatter(logits, -1, index=eos_token_id, src=eos_token_value)
         return logits
 
     def process_np(self, logits, sequence_ids):
