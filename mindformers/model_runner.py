@@ -30,7 +30,7 @@ from mindspore._c_expression import swap_cache
 from mindformers import models, MindFormerRegister, MindFormerModuleType
 from mindformers import build_context, build_parallel_config, GenerationConfig
 from mindformers import AutoModel, AutoConfig, AutoTokenizer
-from mindformers.models.utils import convert_mstype, ms_type_to_str
+from mindformers.models.utils import convert_mstype
 from mindformers.tools.logger import logger
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
@@ -253,12 +253,11 @@ class MindIEModelRunner:
         if self.model_config.is_dynamic:
             self.model.set_dynamic_inputs()
 
-        compute_dtype = convert_mstype(self.model_config.compute_dtype)
-        self.dtype = ms_type_to_str[compute_dtype]
+        self.dtype = convert_mstype(self.model_config.compute_dtype)
         cpu_kv_shape = (self.cpu_num_blocks, block_size, self.num_kv_heads, self.head_size)
-        self.key_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=compute_dtype, init=Zero()),
+        self.key_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=self.dtype, init=Zero()),
                                       name=f"key_host_{i}", requires_grad=False) for i in range(self.num_layers)]
-        self.value_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=compute_dtype, init=Zero()),
+        self.value_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=self.dtype, init=Zero()),
                                         name=f"value_host_{i}", requires_grad=False) for i in range(self.num_layers)]
 
     def forward(self, input_ids: [Union[List[int], List[List[int]]]],

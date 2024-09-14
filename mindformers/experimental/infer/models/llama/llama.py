@@ -53,6 +53,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.is_first_iteration = True
 
         self.shape = ops.Shape()
+        self.reshape = ops.Reshape()
         self.cast = ops.Cast()
         self.slice = ops.StridedSlice()
         self.not_equal = ops.NotEqual()
@@ -179,7 +180,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
 
         logits = self.cast(logits, mstype.float32)
         if self.predict_run_mode:
-            return logits
+            return self.reshape(logits, (-1, logits.shape[-1]))
         input_mask = self.cast(self.not_equal(input_ids, self.pad_token_id), mstype.float32)
         return logits, input_ids, input_mask
 
