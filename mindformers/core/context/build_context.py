@@ -25,6 +25,7 @@ from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import check_in_dynamic_cluster, set_strategy_save_path
 from mindformers.trainer.config_args import ContextConfig, ParallelContextConfig
 from mindformers.trainer.training_args import TrainingArguments
+from mindformers.utils import get_cann_workqueue_cores
 
 import mindspore as ms
 import mindspore.dataset as ds
@@ -210,6 +211,13 @@ class _Context:
         current_process = psutil.Process()
         used_cpus_num = count // rank_size
         used_cpus = [i for i in range(rank_id * used_cpus_num, (rank_id + 1) * used_cpus_num)]
+        cann_used_cpus = get_cann_workqueue_cores(rank_id)
+        logger.info(f"cann workqueue will use following cpus: {cann_used_cpus}")
+        used_cpus = list(set(used_cpus) - set(cann_used_cpus))
+        if not used_cpus:
+            # cann setup all cpus, disable the binding cores
+            logger.warning(f"cann use cpus({cann_used_cpus}), model get empty cpu list, disable binding cores")
+            used_cpus = [i for i in range(rank_id * used_cpus_num, (rank_id + 1) * used_cpus_num)]
         current_process.cpu_affinity(used_cpus)
 
     def set_check_context_config(self, config):
