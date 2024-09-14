@@ -149,7 +149,7 @@ def preprocess_function(input_file, vocab_file, output_file, num_splits, max_sou
                 prompt = query
             else:
                 prompt = ""
-                history = examples[history_column][i]
+                history = examples.get(history_column)[i]
                 for turn_idx, (old_query, response) in enumerate(history):
                     prompt += "[Round {}]\n问：{}\n答：{}\n".format(turn_idx, old_query, response)
                 prompt += "[Round {}]\n问：{}\n答：".format(len(history), query)

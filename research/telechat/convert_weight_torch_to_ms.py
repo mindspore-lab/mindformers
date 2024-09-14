@@ -55,7 +55,7 @@ def layer_name_mapping(model_name, key):
     match = re.match(r'^\w+\.\w*\.(\d+)\.(\w+\.\w+\.\w+|\w+\.\w+)$', key)
     layer_number = int(match.group(1))
     text = match.group(2)
-    return f"{prefix}model.layers.{layer_number}." + layer_rename_map[text]
+    return f"{prefix}model.layers.{layer_number}." + layer_rename_map.get(text)
 
 
 def hf_to_ms(hf_weights, model_name, ms_dtype=mindspore.float16, for_save=False):

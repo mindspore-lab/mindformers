@@ -135,9 +135,9 @@ class QuestionAnsweringPipeline(Pipeline):
         features = convert_examples_to_features(
             examples=[squad_example],
             tokenizer=self.tokenizer,
-            max_seq_len=preprocess_params['max_seq_len'],
-            max_question_len=preprocess_params['max_question_len'],
-            doc_stride=preprocess_params['doc_stride'],
+            max_seq_len=preprocess_params.get('max_seq_len'),
+            max_question_len=preprocess_params.get('max_question_len'),
+            doc_stride=preprocess_params.get('doc_stride'),
             is_training=False
         )
 
@@ -190,9 +190,9 @@ class QuestionAnsweringPipeline(Pipeline):
         Return:
             The generated results
         """
-        top_k = postprocess_params['top_k']
-        n_best_size = postprocess_params['n_best_size']
-        max_answer_len = postprocess_params['max_answer_len']
+        top_k = postprocess_params.get('top_k')
+        n_best_size = postprocess_params.get('n_best_size')
+        max_answer_len = postprocess_params.get('max_answer_len')
 
         example_index_to_features = collections.defaultdict(list)
         for feature in self.features:

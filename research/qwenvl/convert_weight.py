@@ -258,5 +258,5 @@ if __name__ == "__main__":
     }
 
     convert_pt_to_ms(input_path=args.torch_ckpt_dir, output_path=mindspore_ckpt_path, torch_dtype=torch.float32,
-                     dtype=mapping[args.dtype], vit_num_head=args.vit_num_head, enable_emb_opt=args.enable_emb_opt,
+                     dtype=mapping.get(args.dtype), vit_num_head=args.vit_num_head, enable_emb_opt=args.enable_emb_opt,
                      emb_strategy=args.emb_strategy, use_qkv_concat=args.use_qkv_concat)

@@ -53,7 +53,11 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
             match = re.match(r"model\.layers\.(\d+).(\w+\.\w+\.\w+|\w+\.\w+)$", name)
             layer_number = int(match.group(1))
             text = match.group(2)
-            name = f"h.{layer_number}.{layer_rename_map[text]}"
+            value = layer_rename_map.get(text)
+            if value:
+                name = f"h.{layer_number}.{value}"
+            else:
+                raise ValueError(f"text:{text} is not in layer_number:{layer_number}.")
         state_dict[name] = value
 
     torch.save(state_dict, output_path)

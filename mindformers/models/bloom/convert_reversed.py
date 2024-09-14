@@ -78,7 +78,7 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
         else:
             if ('projection' in name or 'mapping' in name) and 'weight' in name:
                 value = value.transpose(0, 1)
-            name = f"h.{layer_number}." + layer_rename_map[text]
+            name = f"h.{layer_number}." + layer_rename_map.get(text)
             state_dict[name] = value
     for name, value_dict in attention_dict.items():
         merge_value = torch.cat((value_dict[1], value_dict[2], value_dict[3]), dim=1)

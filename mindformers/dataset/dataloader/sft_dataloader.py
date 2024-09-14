@@ -173,7 +173,7 @@ class SFTDataSet:
         elif dataset_name in _DATA_READER_MAP:
             self.table = Table.from_pydict(_DATA_READER_MAP[dataset_name](dataset_dir))
         else:
-            self.table = self._general_reader_map[file_format](dataset_dir)
+            self.table = self._general_reader_map.get(file_format)(dataset_dir)
         self.map_function = map_function \
             if map_function else _SFT_MAP_FUNCTIONS.get(dataset_name, _SFT_MAP_FUNCTIONS["default"])
 

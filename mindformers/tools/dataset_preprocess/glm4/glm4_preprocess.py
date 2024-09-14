@@ -108,10 +108,10 @@ class SupervisedDataset:
         messages = [example["messages"] for example in raw_data]
         data_dict = preprocess(messages, tokenizer, seq_length)
 
-        self.input_ids = data_dict["input_ids"]
-        self.labels = data_dict['labels']
-        self.attention_mask = data_dict['attention_mask']
-        self.position_ids = data_dict['position_ids']
+        self.input_ids = data_dict.get("input_ids", None)
+        self.labels = data_dict.get('labels', None)
+        self.attention_mask = data_dict.get('attention_mask', None)
+        self.position_ids = data_dict.get('position_ids', None)
 
     def __len__(self):
         return len(self.input_ids)

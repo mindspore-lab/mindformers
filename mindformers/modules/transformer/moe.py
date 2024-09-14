@@ -190,11 +190,15 @@ class MoEConfig:
         return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())
 
     def to_diff_dict(self):
+        """
+        Compare the configuration dictionary of the current object with the default configuration dictionary,
+        identify the differences between the two, and store these differences in a new dictionary called res-dict
+        """
         config_dict = self.to_dict()
         default_dict = MoEConfig().to_dict()
         res_dict = {}
         for k, v in config_dict.items():
-            if v != default_dict[k]:
+            if v != default_dict.get(k):
                 res_dict[k] = v
         return res_dict
 

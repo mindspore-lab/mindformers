@@ -641,7 +641,7 @@ class ADGENMetric(nn.Metric):
             result = scores[0]
 
             for k, v in result.items():
-                self.score_dict[k].append(round(v["f"] * 100, 4))
+                self.score_dict.get(k).append(round(v["f"] * 100, 4))
             bleu_score = sentence_bleu([list(label)], list(pred), smoothing_function=SmoothingFunction().method3)
             self.score_dict["bleu-4"].append(round(bleu_score * 100, 4))
 

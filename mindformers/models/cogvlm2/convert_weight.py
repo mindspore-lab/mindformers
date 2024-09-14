@@ -162,6 +162,6 @@ if __name__ == "__main__":
     convert_pt_to_ms(
         modal=args.modal,
         input_path=args.torch_ckpt_dir, output_path=args.mindspore_ckpt_path,
-        dtype=dtype_map[args.dtype],
+        dtype=dtype_map.get(args.dtype, None),
         sft=args.sft
     )

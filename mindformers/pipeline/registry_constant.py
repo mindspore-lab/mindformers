@@ -131,21 +131,21 @@ NO_FEATURE_EXTRACTOR_TASKS = set()
 NO_IMAGE_PROCESSOR_TASKS = set()
 NO_TOKENIZER_TASKS = set()
 # Those model configs are special, they are generic over their task, meaning
-# any tokenizer/feature_extractor might be use for a given model so we cannot
+# any tokenizer/feature_extractor might be used for a given model, so we cannot
 # use the statically defined TOKENIZER_MAPPING and FEATURE_EXTRACTOR_MAPPING to
 # see if the model defines such objects or not.
 # reserved multi-modal configs
 MULTI_MODEL_CONFIGS = {}
 for task, values in SUPPORTED_TASKS.items():
-    if values["type"] == "text":
+    if values.get("type") == "text":
         NO_FEATURE_EXTRACTOR_TASKS.add(task)
         NO_IMAGE_PROCESSOR_TASKS.add(task)
-    elif values["type"] in {"image", "video"}:
+    elif values.get("type") in {"image", "video"}:
         NO_TOKENIZER_TASKS.add(task)
-    elif values["type"] in {"audio"}:
+    elif values.get("type") in {"audio"}:
         NO_TOKENIZER_TASKS.add(task)
         NO_IMAGE_PROCESSOR_TASKS.add(task)
-    elif values["type"] != "multimodal":
-        raise ValueError(f"SUPPORTED_TASK {task} contains invalid type {values['type']}")
+    elif values.get("type") != "multimodal":
+        raise ValueError(f"SUPPORTED_TASK {task} contains invalid type {values.get('type')}")
 
 PIPELINE_REGISTRY = PipelineRegistry(supported_tasks=SUPPORTED_TASKS, task_aliases=TASK_ALIASES)

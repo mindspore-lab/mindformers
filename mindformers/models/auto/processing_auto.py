@@ -281,7 +281,7 @@ class AutoProcessor:
         # First, let's see if we have a preprocessor config.
         # Filter the kwargs for `get_file_from_repo`.
         get_file_from_repo_kwargs = {
-            key: kwargs[key] for key in inspect.signature(get_file_from_repo).parameters.keys() if key in kwargs
+            key: kwargs.get(key) for key in inspect.signature(get_file_from_repo).parameters.keys() if key in kwargs
         }
 
         # Let's start by checking whether the processor class is saved in an processor config
@@ -292,7 +292,7 @@ class AutoProcessor:
             config_dict, _ = ProcessorMixin.get_processor_dict(pretrained_model_name_or_path, **kwargs)
             processor_class = config_dict.get("processor_class", None)
             if "AutoProcessor" in config_dict.get("auto_map", {}):
-                processor_auto_map = config_dict["auto_map"]["AutoProcessor"]
+                processor_auto_map = config_dict.get("auto_map").get("AutoProcessor")
 
         if processor_class is None:
             preprocessor_config_file = get_file_from_repo(
@@ -302,7 +302,7 @@ class AutoProcessor:
                 config_dict, _ = ImageProcessingMixin.get_image_processor_dict(pretrained_model_name_or_path, **kwargs)
                 processor_class = config_dict.get("processor_class", None)
                 if "AutoProcessor" in config_dict.get("auto_map", {}):
-                    processor_auto_map = config_dict["auto_map"]["AutoProcessor"]
+                    processor_auto_map = config_dict.get("auto_map").get("AutoProcessor")
 
         if processor_class is None:
             # Next, let's check whether the processor class is saved in a tokenizer
@@ -315,7 +315,7 @@ class AutoProcessor:
 
                 processor_class = config_dict.get("processor_class", None)
                 if "AutoProcessor" in config_dict.get("auto_map", {}):
-                    processor_auto_map = config_dict["auto_map"]["AutoProcessor"]
+                    processor_auto_map = config_dict.get("auto_map").get("AutoProcessor")
 
         if processor_class is None:
             # Otherwise, load config, if it can be loaded.

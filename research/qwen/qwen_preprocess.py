@@ -43,7 +43,7 @@ def preprocess(sources, tokenizer, seq_length):
     # Apply prompt templates
     input_ids, targets = [], []
     for _, source in enumerate(sources):
-        if roles[source[0]["from"]] != roles["user"]:
+        if roles.get(source[0].get("from")) != roles["user"]:
             source = source[1:]
 
         input_id, target = [], []
@@ -54,7 +54,7 @@ def preprocess(sources, tokenizer, seq_length):
             raise ValueError("The len(input_id) should equal to the len(target), but len(input_id) got"
                              f"{len(input_id)}, len(target) got {len(target)}.")
         for _, sentence in enumerate(source):
-            role = roles[sentence["from"]]
+            role = roles.get(sentence.get("from"))
             input_id_part = tokenizer(role)['input_ids'] + nl_tokens + tokenizer(sentence["value"])['input_ids'] + [
                 im_end] + nl_tokens
             input_id += input_id_part
@@ -117,9 +117,9 @@ class SupervisedDataset:
         sources = [example["conversations"] for example in raw_data]
         data_dict = preprocess(sources, tokenizer, seq_length)
 
-        self.input_ids = data_dict["input_ids"]
-        self.labels = data_dict["labels"]
-        self.attention_mask = data_dict["attention_mask"]
+        self.input_ids = data_dict.get("input_ids")
+        self.labels = data_dict.get("labels")
+        self.attention_mask = data_dict.get("attention_mask")
 
     def __len__(self):
         return len(self.input_ids)

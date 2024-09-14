@@ -50,4 +50,4 @@ if __name__ == "__main__":
 
     dtype_map = {'float16': ms.float16, 'float32': ms.float32, 'bfloat16': ms.bfloat16}
 
-    convert_pt_to_ms(input_path=args.input_path, output_path=args.output_path, dtype=dtype_map[args.dtype])
+    convert_pt_to_ms(input_path=args.input_path, output_path=args.output_path, dtype=dtype_map.get(args.dtype))

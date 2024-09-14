@@ -600,7 +600,7 @@ class BaseImageProcessor(ImageProcessingMixin):
             raise ValueError(f"The size dictionary must have keys 'height' and 'width'. Got {size.keys()}")
         return center_crop(
             image,
-            size=(size["height"], size["width"]),
+            size=(size.get("height"), size.get("width")),
             data_format=data_format,
             input_data_format=input_data_format,
             **kwargs,

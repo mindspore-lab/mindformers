@@ -349,8 +349,8 @@ class ModalContentTransformTemplate:
                                  f"please check the predict input.")
 
             text_list.append(
-                self.modal_builders[modal_type].regular_input_for_predict(inputs=query_ele,
-                                                                          result_recorder=result_recorder))
+                self.modal_builders.get(modal_type).regular_input_for_predict(
+                    inputs=query_ele, result_recorder=result_recorder))
         return text_list
 
     def process_train_item(self, conversation_list: List[List], result_recorder: DataRecord):
@@ -372,7 +372,7 @@ class ModalContentTransformTemplate:
         for key_from, conversation in conversation_list:
             modal_type = ""
             for supported_modal_type in self.supported_modal:
-                modal_start_tag = self.modal_builders[supported_modal_type].start_token
+                modal_start_tag = self.modal_builders.get(supported_modal_type).start_token
                 if modal_start_tag in conversation:
                     modal_type = supported_modal_type
                     break
@@ -383,8 +383,8 @@ class ModalContentTransformTemplate:
                 modal_type = "text"
 
             text_list.append(
-                [key_from, self.modal_builders[modal_type].regular_input_for_train(inputs=conversation,
-                                                                                   result_recorder=result_recorder)])
+                [key_from, self.modal_builders.get(modal_type).regular_input_for_train(
+                    inputs=conversation, result_recorder=result_recorder)])
         return text_list
 
     @property

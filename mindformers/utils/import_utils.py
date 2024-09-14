@@ -33,7 +33,7 @@ def direct_mindformers_import(path: str, file="__init__.py"):
     spec = importlib.util.spec_from_file_location(name, location, submodule_search_locations=[path])
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    module = sys.modules[name]
+    module = sys.modules.get(name, None)
     return module
 
 

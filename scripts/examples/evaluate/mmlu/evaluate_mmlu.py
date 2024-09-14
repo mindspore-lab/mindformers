@@ -1,3 +1,4 @@
+"""Evaluate models."""
 import os
 from typing import List
 import argparse
@@ -11,6 +12,8 @@ from mindspore.common.tensor import Tensor
 from mindspore.common import set_seed
 from mindformers import LlamaForCausalLM, LlamaTokenizer, MindFormerConfig, LlamaConfig
 
+
+# pylint: disable=W0105
 """
 数据地址
 https://people.eecs.berkeley.edu/~hendrycks/data.tar
@@ -18,6 +21,7 @@ https://people.eecs.berkeley.edu/~hendrycks/data.tar
 
 
 def load_models_tokenizer(args):
+    """Load models tokenizer."""
     tokenizer = LlamaTokenizer(args.token_path)
     config = MindFormerConfig(args.config)
     config.model.model_config.checkpoint_name_or_path = args.checkpoint_path
@@ -29,6 +33,7 @@ def load_models_tokenizer(args):
 
 
 def format_example(line, include_answer=True):
+    """Example format."""
     example = "Question: " + line["question"] + "\nChoices:\n"
     for choice in choices:
         example += f'{choice}. {line[f"{choice}"]}\n'
@@ -41,6 +46,7 @@ def format_example(line, include_answer=True):
 
 
 def generate_few_shot_prompt(k, subject, dev_df):
+    """Generate prompt."""
     def format_subject(subject):
         l = subject.split("_")
         s = ""
@@ -63,8 +69,10 @@ def generate_few_shot_prompt(k, subject, dev_df):
 
 
 def get_logits(tokenizer, model, inputs: List[str]):
+    """Process a batch of text input inputs and return the model's output logits."""
     input_len = len(tokenizer.encode(inputs[0]))
-    input_ids = tokenizer(inputs, padding="max_length", max_length=4096, truncation=True, truncate_direction="LEFT")["input_ids"]
+    input_ids = tokenizer(
+        inputs, padding="max_length", max_length=4096, truncation=True, truncate_direction="LEFT")["input_ids"]
     input_ids = np.asarray(input_ids)
     input_ids = Tensor(input_ids)
     tokens = {"input_ids": input_ids}
@@ -74,17 +82,19 @@ def get_logits(tokenizer, model, inputs: List[str]):
     return log_probs, {"tokens": tokens}
 
 
+# pylint: disable=W0613
 def eval_subject(
-    model,
-    tokenizer,
-    subject_name,
-    test_df,
-    k=5,
-    dev_df=None,
-    few_shot=False,
-    save_result_dir=None,
-    **kwargs,
+        model,
+        tokenizer,
+        subject_name,
+        test_df,
+        k=5,
+        dev_df=None,
+        few_shot=False,
+        save_result_dir=None,
+        **kwargs,
 ):
+    """Evaluate the performance of a test dataset for subject_name"""
     file_path = os.path.join(save_result_dir, f"{subject_name}_result.csv") if save_result_dir else None
     if file_path and os.path.exists(file_path):
         # Read the file, extract the 'correctness' column, and calculate correct_ratio
@@ -105,6 +115,7 @@ def eval_subject(
         question = format_example(row, include_answer=False)
         full_prompt = few_shot_prompt + question
 
+        # pylint: disable=W0612
         output, input_info = get_logits(tokenizer, model, [full_prompt])
         assert output.shape[0] == 1
         logits = output.flatten()
@@ -125,8 +136,12 @@ def eval_subject(
         probs = softval.numpy()
 
         for i, choice in enumerate(choices):
-            all_probs[f"prob_{choice}"].append(probs[i])
-        pred = {0: "A", 1: "B", 2: "C", 3: "D"}[np.argmax(probs)]
+            value = all_probs.get(f"prob_{choice}")
+            if value:
+                value.append(probs[i])
+            else:
+                raise ValueError(f"prob_{choice} is not in all_probs:{all_probs}.")
+        pred = {0: "A", 1: "B", 2: "C", 3: "D"}.get(np.argmax(probs))
 
         if "answer" in row:
             correct = 1 if pred == row["answer"] else 0
@@ -138,7 +153,11 @@ def eval_subject(
     if save_result_dir:
         test_df["model_output"] = result
         for i, choice in enumerate(choices):
-            test_df[f"prob_{choice}"] = all_probs[f"prob_{choice}"]
+            value = all_probs.get(f"prob_{choice}")
+            if value:
+                test_df[f"prob_{choice}"] = value
+            else:
+                raise ValueError(f"prob_{choice} is not in all_probs:{all_probs}.")
         if score:
             test_df["correctness"] = score
         os.makedirs(save_result_dir, exist_ok=True)
@@ -151,7 +170,9 @@ def eval_subject(
     return score
 
 
+# pylint: disable=W0612
 def cal_mmlu(res):
+    """Calculate and print certain metrics stored in a dictionary called res."""
     acc_sum_dict = dict()
     acc_norm_sum_dict = dict()
     cnt_dict = dict()
@@ -160,7 +181,7 @@ def cal_mmlu(res):
     hard_cnt = 0
     hard_acc_sum = 0.0
 
-    for class_ in TASK_NAME_MAPPING.keys():
+    for class_, _ in TASK_NAME_MAPPING.items():
         acc_sum_dict[class_] = 0.0
         acc_norm_sum_dict[class_] = 0.0
         cnt_dict[class_] = 0.0
@@ -173,9 +194,9 @@ def cal_mmlu(res):
             cnt_dict[class_] += len(res[tt])
 
     print("\n\n\n", "total cnt:", cnt, "\n")
-    for k in TASK_NAME_MAPPING.keys():
+    for k, _ in TASK_NAME_MAPPING.items():
         if k in cnt_dict:
-            print("%s ACC: %.2f " % (k, acc_sum_dict[k] / cnt_dict[k] * 100))
+            print("%s ACC: %.2f " % (k, acc_sum_dict.get(k) / cnt_dict.get(k) * 100))
     if cnt != 0:
         print("AVERAGE ACC:%.2f " % (acc_sum / cnt * 100))
 
@@ -296,6 +317,7 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--seed", type=int, default=1234, help="Random seed")
     parser.add_argument("--device_id", type=int, default=0, help="Device id")
 
+    # pylint: disable=W0105
     """Provide extra arguments required for tasks."""
     group = parser.add_argument_group(title="Evaluation options")
     group.add_argument("-d", "--eval_data_path", type=str, help="Path to eval data")

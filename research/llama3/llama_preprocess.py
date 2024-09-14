@@ -95,13 +95,13 @@ def preprocess(sources, tokenizer, seq_length):
     # Apply prompt templates
     conversations = []
     for i, source in enumerate(sources):
-        if roles[source[0]["from"]] != conv.roles[0]:
+        if roles.get(source[0].get("from")) != conv.roles[0]:
             # Skip the first one if it is not from human
             source = source[1:]
 
         conv.messages = []
         for j, sentence in enumerate(source):
-            role = roles[sentence["from"]]
+            role = roles.get(sentence.get("from"))
             if role != conv.roles[j % 2]:
                 raise ValueError(f"sources[{i}] is wrong.")
             conv.append_message(role, sentence["value"])
@@ -171,8 +171,8 @@ class SupervisedDataset:
         sources = [example["conversations"] for example in raw_data]
         data_dict = preprocess(sources, tokenizer, seq_length)
 
-        self.input_ids = data_dict["input_ids"]
-        self.labels = data_dict["labels"]
+        self.input_ids = data_dict.get("input_ids")
+        self.labels = data_dict.get("labels")
 
     def __len__(self):
         return len(self.input_ids)

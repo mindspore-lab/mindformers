@@ -423,10 +423,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 adapter_ids = [0] * input_ids.shape[0]
             self.adapter_ids.set_data(Tensor.from_numpy(np.array(adapter_ids, dtype=np.int32)), slice_shape=True)
         if hasattr(self, 'llm_boost'):
-            batch_valid_length = kwargs["valid_length_each_example"]
-            block_tables = kwargs["block_tables"]
-            slot_mapping = kwargs["slot_mapping"]
-            prefill = kwargs["prefill"]
+            batch_valid_length = kwargs.get("valid_length_each_example")
+            block_tables = kwargs.get("block_tables")
+            slot_mapping = kwargs.get("slot_mapping")
+            prefill = kwargs.get("prefill")
             bs = batch_valid_length.shape[0]
             input_ids_list = []
             position_ids_list = [

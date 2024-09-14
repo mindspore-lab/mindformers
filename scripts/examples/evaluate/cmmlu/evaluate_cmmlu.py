@@ -1,3 +1,4 @@
+"""Evaluate models."""
 import os
 import argparse
 from collections import defaultdict
@@ -13,6 +14,7 @@ from mindspore.common import set_seed
 from mindformers import LlamaForCausalLM, LlamaTokenizer, MindFormerConfig, LlamaConfig
 
 
+# pylint: disable=W0105
 """
 数据地址
 https://huggingface.co/datasets/haonan-li/cmmlu/resolve/main/cmmlu_v1_0_1.zip
@@ -101,7 +103,8 @@ def load_models_tokenizer(args):
 
 
 def format_example(line, subject, include_answer=True):
-    example = f"以下是关于{task2desc[subject]}的单项选择题，请直接给出正确答案的选项。\n\n"
+    """Example format."""
+    example = f"以下是关于{task2desc.get(subject, None)}的单项选择题，请直接给出正确答案的选项。\n\n"
     example = example + "题目：" + line["Question"]
     for choice in choices:
         example += f'\n{choice}. {line[f"{choice}"]}'
@@ -114,6 +117,7 @@ def format_example(line, subject, include_answer=True):
 
 
 def generate_few_shot_prompt(k, subject, dev_df):
+    """Generate prompt."""
     prompt = ""
     if k == -1:
         k = dev_df.shape[0]
@@ -127,8 +131,10 @@ def generate_few_shot_prompt(k, subject, dev_df):
 
 
 def get_logits(tokenizer, model, inputs: List[str]):
+    """Process a batch of text input inputs and return the model's output logits."""
     input_len = len(tokenizer.encode(inputs[0]))
-    input_ids = tokenizer(inputs, padding="max_length", max_length=4096, truncation=True, truncate_direction="LEFT")["input_ids"]
+    input_ids = tokenizer(
+        inputs, padding="max_length", max_length=4096, truncation=True, truncate_direction="LEFT")["input_ids"]
     input_ids = np.asarray(input_ids)
     input_ids = Tensor(input_ids)
     tokens = {"input_ids": input_ids}
@@ -138,17 +144,20 @@ def get_logits(tokenizer, model, inputs: List[str]):
     return log_probs, {"tokens": tokens}
 
 
+# pylint: disable=W0613
+# pylint: disable=W0612
 def eval_subject(
-    model,
-    tokenizer,
-    subject_name,
-    test_df,
-    k=5,
-    dev_df=None,
-    few_shot=False,
-    save_result_dir=None,
-    **kwargs,
+        model,
+        tokenizer,
+        subject_name,
+        test_df,
+        k=5,
+        dev_df=None,
+        few_shot=False,
+        save_result_dir=None,
+        **kwargs,
 ):
+    """Evaluate the performance of a test dataset for subject_name"""
     file_path = os.path.join(save_result_dir, f"{subject_name}_result.csv") if save_result_dir else None
     if file_path and os.path.exists(file_path):
         # Read the file, extract the 'correctness' column, and calculate correct_ratio
@@ -190,8 +199,8 @@ def eval_subject(
         probs = softval.numpy()
 
         for i, choice in enumerate(choices):
-            all_probs[f"prob_{choice}"].append(probs[i])
-        pred = {0: "A", 1: "B", 2: "C", 3: "D"}[np.argmax(probs)]
+            all_probs.get(f"prob_{choice}").append(probs[i])
+        pred = {0: "A", 1: "B", 2: "C", 3: "D"}.get(np.argmax(probs))
 
         if "Answer" in row:
             correct = 1 if pred == row["Answer"] else 0
@@ -209,7 +218,7 @@ def eval_subject(
     if save_result_dir:
         test_df["model_output"] = result
         for i, choice in enumerate(choices):
-            test_df[f"prob_{choice}"] = all_probs[f"prob_{choice}"]
+            test_df[f"prob_{choice}"] = all_probs.get(f"prob_{choice}")
         if score:
             test_df["correctness"] = score
         os.makedirs(save_result_dir, exist_ok=True)
@@ -338,7 +347,7 @@ def init_task_name_mapping():
             for c in subcat:
                 if c in v:
                     TASK_NAME_MAPPING[k].append(subject)
-                    
+
 
 choices = ["A", "B", "C", "D"]
 
@@ -376,6 +385,7 @@ if __name__ == "__main__":
     parser.add_argument("-t", "--token_path", type=str, help="Tokenizer.model path", default="")
     parser.add_argument("-s", "--seed", type=int, default=1234, help="Random seed")
 
+    # pylint: disable=W0105
     """Provide extra arguments required for tasks."""
     group = parser.add_argument_group(title="Evaluation options")
     group.add_argument("-d", "--eval_data_path", type=str, required=True, help="Path to eval data")

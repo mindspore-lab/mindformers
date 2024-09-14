@@ -124,8 +124,8 @@ class SupervisedDataset:
 
         data_dict = data_tokenize_function(raw_data, tokenizer, max_length)
 
-        self.input_ids = data_dict["input_ids"]
-        self.labels = data_dict["labels"]
+        self.input_ids = data_dict.get("input_ids")
+        self.labels = data_dict.get("labels")
 
     def __len__(self):
         return len(self.input_ids)

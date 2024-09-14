@@ -128,7 +128,7 @@ class PolicyHelper:
             matrix[5] += rot_center[1]
             func = img.transform(img.size, Image.AFFINE, matrix, **kwargs)
         else:
-            func = img.rotate(degrees, resample=kwargs['resample'])
+            func = img.rotate(degrees, resample=kwargs.get('resample'))
         return func
 
     def auto_contrast(self, img, **__):
@@ -621,7 +621,7 @@ def _select_rand_weights(weight_idx=0, transforms=None):
     if weight_idx != 0:
         raise ValueError(f"only one set of weights currently, get weight_idx {weight_idx}")
     rand_weights = _RAND_CHOICE_WEIGHTS_0
-    probs = [rand_weights[k] for k in transforms]
+    probs = [rand_weights.get(k) for k in transforms]
     probs /= np.sum(probs)
     return probs
 

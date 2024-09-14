@@ -105,8 +105,8 @@ class CreateCommGroups():
             elif token == 'ep':
                 self.ordered_size_w_ep.append(self.ep)
             else:
-                self.ordered_size_w_ep.append(self.name_to_size[token])
-                self.ordered_size_wo_ep.append(self.name_to_size[token])
+                self.ordered_size_w_ep.append(self.name_to_size.get(token))
+                self.ordered_size_wo_ep.append(self.name_to_size.get(token))
 
     def get_mask(self, order, token):
         ordered_token = order.split('-')

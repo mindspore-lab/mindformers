@@ -104,13 +104,13 @@ if __name__ == "__main__":
     task_ids = sorted(problems.keys())[args.start_index: args.end_index]
     prompts = []
     for task_id in task_ids:
-        prompt = f"\n{problems[task_id]['text']}\nTest examples:"
+        prompt = f"\n{problems.get(task_id).get('text')}\nTest examples:"
         if task_id == 493:
             # The test examples are too long. We choose to only include the function name.
-            test_example = problems[task_id]['test_list'][0]
+            test_example = problems.get(task_id).get('test_list')[0]
             prompt += f"\ncalculate_polygons(startx, starty, endx, endy, radius)"
         else:
-            for test_example in problems[task_id]['test_list']:
+            for test_example in problems.get(task_id).get('test_list'):
                 prompt += f"\n{test_example}"
         prompts.append(prompt)
     num_samples = len(prompts)

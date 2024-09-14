@@ -1,3 +1,4 @@
+"""Evaluate models."""
 import os
 from typing import List
 import argparse
@@ -11,6 +12,8 @@ from mindspore.common.tensor import Tensor
 from mindspore.common import set_seed
 from mindformers import LlamaForCausalLM, LlamaTokenizer, MindFormerConfig, LlamaConfig
 
+
+# pylint: disable=W0105
 '''
 数据地址
 https://huggingface.co/datasets/ceval/ceval-exam/resolve/main/ceval-exam.zip
@@ -73,6 +76,7 @@ task2desc = {
 
 
 def load_models_tokenizer(args):
+    """Load models tokenizer."""
     tokenizer = LlamaTokenizer(args.token_path)
     config = MindFormerConfig(args.config)
     config.model.model_config.checkpoint_name_or_path = args.checkpoint_path
@@ -89,7 +93,8 @@ def load_models_tokenizer(args):
 
 
 def format_example(line, subject, include_answer=True):
-    example = f"以下是中国关于{task2desc[subject]}考试的单项选择题，请选出其中的正确答案。\n\n"
+    """Example format."""
+    example = f"以下是中国关于{task2desc.get(subject, None)}考试的单项选择题，请选出其中的正确答案。\n\n"
     example = example + line["question"]
     for choice in choices:
         example += f'\n{choice}. {line[f"{choice}"]}'
@@ -102,6 +107,7 @@ def format_example(line, subject, include_answer=True):
 
 
 def generate_few_shot_prompt(k, subject, dev_df):
+    """Generate prompt"""
     prompt = ""
     if k == -1:
         k = dev_df.shape[0]
@@ -115,8 +121,10 @@ def generate_few_shot_prompt(k, subject, dev_df):
 
 
 def get_logits(tokenizer, model, inputs: List[str]):
+    """Process a batch of text input inputs and return the model's output logits."""
     input_len = len(tokenizer.encode(inputs[0]))
-    input_ids = tokenizer(inputs, padding="max_length", max_length=4096, truncation=True, truncate_direction="LEFT")["input_ids"]
+    input_ids = tokenizer(
+        inputs, padding="max_length", max_length=4096, truncation=True, truncate_direction="LEFT")["input_ids"]
     input_ids = np.asarray(input_ids)
     input_ids = Tensor(input_ids)
     tokens = {"input_ids": input_ids}
@@ -127,18 +135,20 @@ def get_logits(tokenizer, model, inputs: List[str]):
     return log_probs, {"tokens": tokens}
 
 
-# @torch.no_grad()
+# pylint: disable=W0613
+# pylint: disable=W0612
 def eval_subject(
-    model,
-    tokenizer,
-    subject_name,
-    test_df,
-    k=5,
-    dev_df=None,
-    few_shot=False,
-    save_result_dir=None,
-    **kwargs,
+        model,
+        tokenizer,
+        subject_name,
+        test_df,
+        k=5,
+        dev_df=None,
+        few_shot=False,
+        save_result_dir=None,
+        **kwargs,
 ):
+    """Evaluate the performance of a test dataset for subject_name"""
     file_path = os.path.join(save_result_dir, f"{subject_name}_result.csv") if save_result_dir else None
     if file_path and os.path.exists(file_path):
         # Read the file, extract the 'correctness' column, and calculate correct_ratio
@@ -146,7 +156,7 @@ def eval_subject(
         if "correctness" in existing_df:
             correct_ratio = 100 * existing_df["correctness"].sum() / len(existing_df["correctness"])
             return correct_ratio
-    
+
     result = []
     score = []
 
@@ -164,9 +174,6 @@ def eval_subject(
         output, input_info = get_logits(tokenizer, model, [full_prompt])
         assert output.shape[0] == 1
         logits = output.flatten()
-        # index = np.argmax(logits)
-        # print(str(index) + "***" + str(tokenizer.decode([index])) + "***")
-
         softval = ms.ops.softmax(
             Tensor(
                 [
@@ -183,8 +190,8 @@ def eval_subject(
         probs = softval.numpy()
 
         for i, choice in enumerate(choices):
-            all_probs[f"prob_{choice}"].append(probs[i])
-        pred = {0: "A", 1: "B", 2: "C", 3: "D"}[np.argmax(probs)]
+            all_probs.get(f"prob_{choice}").append(probs[i])
+        pred = {0: "A", 1: "B", 2: "C", 3: "D"}.get(np.argmax(probs))
 
         if "answer" in row:
             correct = 1 if pred == row["answer"] else 0
@@ -202,7 +209,7 @@ def eval_subject(
     if save_result_dir:
         test_df["model_output"] = result
         for i, choice in enumerate(choices):
-            test_df[f"prob_{choice}"] = all_probs[f"prob_{choice}"]
+            test_df[f"prob_{choice}"] = all_probs.get(f"prob_{choice}")
         if score:
             test_df["correctness"] = score
         os.makedirs(save_result_dir, exist_ok=True)
@@ -216,6 +223,7 @@ def eval_subject(
 
 
 def cal_ceval(res):
+    """Calculate and print statistical data for a set of results."""
     acc_sum_dict = dict()
     acc_norm_sum_dict = dict()
     cnt_dict = dict()
@@ -240,7 +248,7 @@ def cal_ceval(res):
     print("\n\n\n")
     for k in ["STEM", "Social Science", "Humanities", "Other"]:
         if k in cnt_dict:
-            print("%s acc: %.2f " % (k, acc_sum_dict[k] / cnt_dict[k]))
+            print("%s acc: %.2f " % (k, acc_sum_dict.get(k) / cnt_dict.get(k)))
     if hard_cnt > 0:
         print("Hard acc:%.2f " % (hard_acc_sum / hard_cnt))
     if cnt != 0:
@@ -333,7 +341,8 @@ TASK_NAME_MAPPING = {
     ],
     "mao_zedong_thought": [
         "Mao Zedong Thought",
-        "\u6bdb\u6cfd\u4e1c\u601d\u60f3\u548c\u4e2d\u56fd\u7279\u8272\u793e\u4f1a\u4e3b\u4e49\u7406\u8bba\u4f53\u7cfb\u6982\u8bba",
+        ("\u6bdb\u6cfd\u4e1c\u601d\u60f3\u548c\u4e2d\u56fd\u7279\u8272\u793e\u4f1a\u4e3b\u4e49\u7406"
+         "\u8bba\u4f53\u7cfb\u6982\u8bba"),
         "Social Science",
     ],
     "education_science": ["Education Science", "\u6559\u80b2\u5b66", "Social Science"],

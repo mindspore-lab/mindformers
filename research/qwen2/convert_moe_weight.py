@@ -164,5 +164,9 @@ if __name__ == "__main__":
     if args.pre_ckpt_path:
         convert_ms_to_gmm(input_path=args.pre_ckpt_path, output_path=args.mindspore_ckpt_path)
     else:
-        convert_pt_to_ms(input_path=args.torch_ckpt_dir, output_path=args.mindspore_ckpt_path,
-                         dtype=dtype_map[args.dtype], use_gmm=args.use_gmm)
+        dtype_src = dtype_map.get(args.dtype)
+        if dtype_src:
+            convert_pt_to_ms(input_path=args.torch_ckpt_dir, output_path=args.mindspore_ckpt_path,
+                             dtype=dtype_src, use_gmm=args.use_gmm)
+        else:
+            raise ValueError(f"args.dtype:{args.dtype} is not in dtype_map:{dtype_map}.")

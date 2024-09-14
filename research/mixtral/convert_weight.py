@@ -145,4 +145,4 @@ if __name__ == "__main__":
         convert_ms_to_gmm(input_path=args.pre_ckpt_path, output_path=args.mindspore_ckpt_path)
     else:
         convert_pt_to_ms(input_path=args.torch_ckpt_dir, output_path=args.mindspore_ckpt_path,
-                         dtype=dtype_map[args.dtype], use_gmm=args.use_gmm)
+                         dtype=dtype_map.get(args.dtype), use_gmm=args.use_gmm)

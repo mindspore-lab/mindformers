@@ -361,7 +361,7 @@ def _create_module_dict(key, val, dropout):
     final_dict = tmp_dict = {}
     for index, k in enumerate(key_lst):
         tmp_dict.setdefault(k, {})
-        tmp_dict = tmp_dict[k]
+        tmp_dict = tmp_dict.get(k)
         if index == key_num - 1:
             tmp_dict['rank'] = rank
             tmp_dict['alpha'] = alpha

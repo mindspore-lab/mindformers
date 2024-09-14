@@ -53,7 +53,7 @@ def layer_name_mapping(model_name, key):
     layer_number = match.findall(key)[0][0]
     text = match.findall(key)[0][1]
     # Handle transformer blocks
-    return f"{prefix}h.{layer_number}." + layer_rename_map[text]
+    return f"{prefix}h.{layer_number}." + layer_rename_map.get(text)
 
 
 def ms_to_torch(model_name, ms_weights):
