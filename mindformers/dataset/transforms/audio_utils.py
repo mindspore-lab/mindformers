@@ -16,7 +16,7 @@
 Audio processing functions to extract features from audio waveforms. This code is pure numpy to support all frameworks
 and remove unnecessary dependencies.
 """
-
+import math
 import warnings
 from typing import List, Optional, Tuple, Union
 
@@ -567,9 +567,9 @@ def spectrogram(
         elif log_mel == "log10":
             spectrogram = np.log10(spectrogram)
         elif log_mel == "dB":
-            if power == 1.0:
+            if math.isclose(power, 1.0, rel_tol=1e-5):
                 spectrogram = amplitude_to_db(spectrogram, reference, min_value, db_range)
-            elif power == 2.0:
+            elif math.isclose(power, 2.0, rel_tol=1e-5):
                 spectrogram = power_to_db(spectrogram, reference, min_value, db_range)
             else:
                 raise ValueError(f"Cannot use log_mel option '{log_mel}' with power {power}")
@@ -775,9 +775,9 @@ def spectrogram_batch(
         elif log_mel == "log10":
             spectrogram = np.log10(spectrogram)
         elif log_mel == "dB":
-            if power == 1.0:
+            if math.isclose(power, 1.0, rel_tol=1e-5):
                 spectrogram = amplitude_to_db_batch(spectrogram, reference, min_value, db_range)
-            elif power == 2.0:
+            elif math.isclose(power, 2.0, rel_tol=1e-5):
                 spectrogram = power_to_db_batch(spectrogram, reference, min_value, db_range)
             else:
                 raise ValueError(f"Cannot use log_mel option '{log_mel}' with power {power}")

@@ -399,7 +399,7 @@ class ModelPretrain(BaseInitModel):
 
         except AttributeError as e:
             logger.error(f"Tokenizer configuration error: {e}")
-        except (FileNotFoundError, OSError) as e:
+        except (FileNotFoundError, PermissionError) as e:
             logger.error(f"An error occurred while processing the tokenizer: {e}")
 
 

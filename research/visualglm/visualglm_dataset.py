@@ -203,7 +203,7 @@ class VisualGLMDataset(BaseDataset):
 
             ignore_pad_token_for_loss = False
             if ignore_pad_token_for_loss:
-                labels = [(l if l != tokenizer.pad_token_id else -100) for l in labels]
+                labels = [(label_id if label_id != tokenizer.pad_token_id else -100) for label_id in labels]
             image = image.asnumpy()
             image = image.squeeze(0)
             position_id = cls._create_position_ids(np.array(input_ids))

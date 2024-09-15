@@ -580,8 +580,9 @@ class MinLengthLogitsProcessor(LogitsProcessor):
     def process_np(self, logits, sequence_ids):
         batch_size = sequence_ids.shape[0]
 
-        valid_length_each_example = [np.max(np.argwhere(sequence_ids[i] != self.pad_token_id)) + 1 for i in
-                                     range(batch_size)]
+        valid_length_each_example = []
+        for i in range(batch_size):
+            valid_length_each_example.append(np.max(np.argwhere(sequence_ids[i] != self.pad_token_id)) + 1)
         valid_length_each_example = np.array(valid_length_each_example)
 
         cur_len = np.max(valid_length_each_example)
@@ -651,8 +652,9 @@ class MinNewTokensLengthLogitsProcessor(LogitsProcessor):
 
     def process_np(self, logits, sequence_ids):
         batch_size = logits.shape[0]
-        valid_length_each_example = [np.max(np.argwhere(sequence_ids[i] != self.pad_token_id)) + 1 for i in
-                                     range(batch_size)]
+        valid_length_each_example = []
+        for i in range(batch_size):
+            valid_length_each_example.append(np.max(np.argwhere(sequence_ids[i] != self.pad_token_id)) + 1)
         valid_length_each_example = np.array(valid_length_each_example)
 
         cur_len = np.max(valid_length_each_example)

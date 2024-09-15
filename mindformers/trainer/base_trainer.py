@@ -913,10 +913,10 @@ class BaseTrainer:
             if ms.context.get_auto_parallel_context('parallel_mode') in \
                     ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel']:
                 if task not in ["translation", "text_generation", "multi_modal_to_text_generation"]:
-                    raise SystemExit("Currently distributed predict only support translation and text_generation. "
+                    raise ValueError("Currently distributed predict only support translation and text_generation. "
                                      "Process exit!")
                 if config.parallel_config.pipeline_stage > 1:
-                    raise SystemExit("Currently distributed predict dose not support pipeline parallel. "
+                    raise ValueError("Currently distributed predict dose not support pipeline parallel. "
                                      "Process exit!")
 
             # build network

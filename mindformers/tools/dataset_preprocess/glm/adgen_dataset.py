@@ -175,7 +175,7 @@ def preprocess_function(input_file, vocab_file, output_file, num_splits, max_sou
                 input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
                 label = label + [tokenizer.pad_token_id] * (pad_len + 1)  # +1 for logits shift
                 if ignore_pad_token_for_loss:
-                    label = [(l if l != tokenizer.pad_token_id else -100) for l in label]
+                    label = [(label_id if label_id != tokenizer.pad_token_id else -100) for label_id in label]
 
                 position_ids = create_position_ids(np.array(input_ids))
                 attention_mask = get_masks(np.array(input_ids))

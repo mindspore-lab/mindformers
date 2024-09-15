@@ -42,9 +42,9 @@ def format_example(line, include_answer=True):
 
 def generate_few_shot_prompt(k, subject, dev_df):
     def format_subject(subject):
-        l = subject.split("_")
+        parts = subject.split("_")
         s = ""
-        for entry in l:
+        for entry in parts:
             s += " " + entry
         return s.strip()
 

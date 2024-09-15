@@ -171,7 +171,7 @@ class MFCheck(BaseCheck):
             self._error(error_flag='Pretrain')
             vc = VersionCheck(self.start, error_flag='Pretrain')
             vc.check()
-            sys.exit(1)
+            raise RuntimeError("The run check failed, please see more information above.")
 
         else:
             self._success(test='Pretrain')

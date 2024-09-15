@@ -18,7 +18,6 @@ How to run this:
 pytest tests/st/test_model/test_mixtral_model/test_parallel_train.py
 pytest tests/st/test_model/test_mixtral_model/test_parallel_predict.py
 """
-import sys
 import argparse
 import numpy as np
 
@@ -111,7 +110,6 @@ def msrun_mixtral_8p_train():
                                      micro_batch_num=2,
                                      micro_batch_interleave_num=2)
     task_trainer.train()
-    sys.exit(0)
 
 
 def msrun_mixtral_8p_predict():

@@ -321,7 +321,7 @@ class KeyWordGenDataset(BaseDataset):
         input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
         label = label + [tokenizer.pad_token_id] * (pad_len + 1)  # +1 for logits shift
         if ignore_pad_token_for_loss:
-            label = [(l if l != tokenizer.pad_token_id else -100) for l in label]
+            label = [(label_id if label_id != tokenizer.pad_token_id else -100) for label_id in label]
 
         position_ids = cls._create_position_ids(np.array(input_ids))
         attention_mask = cls._get_masks(np.array(input_ids))
@@ -351,7 +351,7 @@ class KeyWordGenDataset(BaseDataset):
         labels = labels + [tokenizer.pad_token_id] * (pad_len + 1)  # +1 for logits shift
 
         if ignore_pad_token_for_loss:
-            labels = [(l if l != tokenizer.pad_token_id else -100) for l in labels]
+            labels = [(label_id if label_id != tokenizer.pad_token_id else -100) for label_id in labels]
         return input_ids, labels
 
     @classmethod
@@ -377,7 +377,7 @@ class KeyWordGenDataset(BaseDataset):
         labels = labels + [tokenizer.pad_token_id] * (pad_len + 1)  # +1 for logits shift
 
         if dataset_config.ignore_pad_token_for_loss:
-            labels = [(l if l != tokenizer.pad_token_id else -100) for l in labels]
+            labels = [(label_id if label_id != tokenizer.pad_token_id else -100) for label_id in labels]
         return input_ids, labels
 
     @classmethod
