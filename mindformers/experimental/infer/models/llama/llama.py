@@ -95,10 +95,10 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         model_inputs["input_ids"] = Tensor.from_numpy(
             input_ids.astype(np.int32))
         if hasattr(self, 'llm_boost'):
-            batch_valid_length = kwargs["valid_length_each_example"]
-            block_tables = kwargs["block_tables"]
-            slot_mapping = kwargs["slot_mapping"]
-            prefill = kwargs["prefill"]
+            batch_valid_length = kwargs.get("valid_length_each_example")
+            block_tables = kwargs.get("block_tables")
+            slot_mapping = kwargs.get("slot_mapping")
+            prefill = kwargs.get("prefill")
             bs = batch_valid_length.shape[0]
             input_ids_list = []
             position_ids_list = [

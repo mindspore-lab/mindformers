@@ -212,7 +212,7 @@ def main():
     total_written = 0
 
     for prompt, answer in zip(prompts, answers):
-        prompt = prompt[shot_dict[args.n_shot]]
+        prompt = prompt.get(shot_dict.get(args.n_shot))
 
         input_ids = tokenizer.encode(prompt, add_special_tokens=False)
 

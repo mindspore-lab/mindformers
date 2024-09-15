@@ -147,11 +147,11 @@ class ADGenDataset:
 
     def __len__(self):
         """Get the size of dataset"""
-        return len(self.examples[self.prompt_column])
+        return len(self.examples.get(self.prompt_column))
 
     def __getitem__(self, i):
         """Return input data for model"""
-        prompt, answer = self.examples[self.prompt_column][i], self.examples[self.response_column][i]
+        prompt, answer = self.examples.get(self.prompt_column)[i], self.examples.get(self.response_column)[i]
 
         return prompt, answer
 
@@ -211,10 +211,10 @@ class ADGenFromRemoteDataset:
 
     def __len__(self):
         """Get the size of dataset"""
-        return len(self.examples[self.prompt_column])
+        return len(self.examples.get(self.prompt_column))
 
     def __getitem__(self, i):
         """Return input data for model"""
-        prompt, answer = self.examples[self.prompt_column][i], self.examples[self.response_column][i]
+        prompt, answer = self.examples.get(self.prompt_column)[i], self.examples.get(self.response_column)[i]
 
         return prompt, answer

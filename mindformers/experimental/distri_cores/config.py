@@ -431,7 +431,7 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
         visited[config_class] = True
         on_path[config_class] = True  # Mark as on the current path
 
-        for dependency in dependency_graph[config_class]:
+        for dependency in dependency_graph.get(config_class):
             if on_path[dependency]:
                 raise ValueError(
                     "Cycle detected in configuration dependencies:" +
@@ -455,8 +455,8 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
             raise ValueError(f"Config {config_class.config_name} not found.")
         kwargs = raw_dict[config_class.config_name]
         depened_config_instances = {
-            depended_config.config_name: initialized_configs[depended_config.config_name]
-            for depended_config in dependency_graph[config_class]
+            depended_config.config_name: initialized_configs.get(depended_config.config_name)
+            for depended_config in dependency_graph.get(config_class)
         }
         kwargs.update(depened_config_instances)
         config_instance = config_class(**kwargs)
@@ -468,11 +468,11 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
     if no_passed_in_configs:
         for config_name in raw_dict.keys():
             if config_name not in initialized_configs:
-                setattr(initialized_configs[AllConfig.config_name], config_name, raw_dict[config_name])
-        return initialized_configs[AllConfig.config_name]
+                setattr(initialized_configs.get(AllConfig.config_name), config_name, raw_dict.get(config_name))
+        return initialized_configs.get(AllConfig.config_name)
 
     # return in order if config classes are passed in
-    return [initialized_configs[config_name] for config_name in returned_config_names]
+    return [initialized_configs.get(config_name) for config_name in returned_config_names]
 
 
 # pylint: disable=W0102

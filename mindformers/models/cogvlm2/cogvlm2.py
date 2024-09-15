@@ -359,9 +359,9 @@ class CogVLM2ImageForCausalLM(BaseXModalToTextModel):
         self.equal = P.Equal().shard(((parallel_config.data_parallel, 1), ()))
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        prefill = True if kwargs['prefill'] is None else kwargs['prefill']
-        position_ids = kwargs['position_ids']
-        batch_valid_length = np.array(kwargs["valid_length_each_example"])
+        prefill = True if kwargs.get('prefill') is None else kwargs.get('prefill')
+        position_ids = kwargs.get('position_ids')
+        batch_valid_length = np.array(kwargs.get("valid_length_each_example"))
         batch_valid_length = np.expand_dims(batch_valid_length, 0) - 1
         if self.use_past and not prefill:
             batch_size = batch_valid_length.shape[1]
@@ -369,13 +369,13 @@ class CogVLM2ImageForCausalLM(BaseXModalToTextModel):
             position_ids = np.expand_dims(position_ids, 0)
         return {
             "input_ids": ms.Tensor(input_ids, mstype.int32),
-            "images": self._to_tensor(kwargs['images']),
-            "image_context_pos": self._to_tensor(kwargs['image_context_pos']),
+            "images": self._to_tensor(kwargs.get('images')),
+            "image_context_pos": self._to_tensor(kwargs.get('image_context_pos')),
             "position_ids": ms.Tensor(position_ids, mstype.int32),
-            "vision_token_mask": self._to_tensor(kwargs['vision_token_mask']),
-            "language_token_mask": self._to_tensor(kwargs['language_token_mask']),
-            "vision_indices": self._to_tensor(kwargs['vision_indices']),
-            "language_indices": self._to_tensor(kwargs['language_indices'])
+            "vision_token_mask": self._to_tensor(kwargs.get('vision_token_mask')),
+            "language_token_mask": self._to_tensor(kwargs.get('language_token_mask')),
+            "vision_indices": self._to_tensor(kwargs.get('vision_indices')),
+            "language_indices": self._to_tensor(kwargs.get('language_indices'))
         }
 
     def _to_tensor(self, x, dtype=None):

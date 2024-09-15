@@ -102,8 +102,8 @@ class SupervisedDataset:
             sources.append(example)
         data_dict = preprocess(sources, tokenizer, seq_length)
 
-        self.input_ids = data_dict["input_ids"]
-        self.labels = data_dict["labels"]
+        self.input_ids = data_dict.get("input_ids")
+        self.labels = data_dict.get("labels")
 
     def __len__(self):
         return len(self.input_ids)

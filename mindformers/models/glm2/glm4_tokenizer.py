@@ -151,12 +151,12 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
 
     def _convert_token_to_id(self, token):
         """ Converts a token (str) in an id using the vocab. """
-        return self.mergeable_ranks[token]
+        return self.mergeable_ranks.get(token)
 
     def convert_special_tokens_to_ids(self, token):
         """ Converts special tokens to ids using the vocab. """
         try:
-            return self.special_tokens[token]
+            return self.special_tokens.get(token)
         except ValueError:
             raise ValueError(f"{token} is not a special token for {self.name}")
 
@@ -176,7 +176,7 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
             `Tuple(str)`, Paths to the files saved.
         """
         if os.path.isdir(save_directory):
-            vocab_file = os.path.join(save_directory, self.vocab_files_names["vocab_file"])
+            vocab_file = os.path.join(save_directory, self.vocab_files_names.get("vocab_file"))
         else:
             vocab_file = save_directory
 

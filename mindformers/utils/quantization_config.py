@@ -225,9 +225,9 @@ class RtnConfig(QuantizationConfigMixin, PTQConfig):
         self.backend = backend
         self.opname_blacklist = modules_to_not_convert
         self.algo_args = algorithm_args
-        self.weight_quant_dtype = dtype_map[weight_dtype]
-        self.kvcache_quant_dtype = dtype_map[kvcache_dtype]
-        self.act_quant_dtype = dtype_map[activation_dtype]
+        self.weight_quant_dtype = dtype_map.get(weight_dtype)
+        self.kvcache_quant_dtype = dtype_map.get(kvcache_dtype)
+        self.act_quant_dtype = dtype_map.get(activation_dtype)
         self.outliers_suppression = outliers_map[outliers_suppression]
         self.init_check()
 
@@ -319,9 +319,9 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         self.backend = backend
         self.opname_blacklist = modules_to_not_convert
         self.algo_args = algorithm_args
-        self.weight_quant_dtype = dtype_map[weight_dtype]
-        self.kvcache_quant_dtype = dtype_map[kvcache_dtype]
-        self.act_quant_dtype = dtype_map[activation_dtype]
+        self.weight_quant_dtype = dtype_map.get(weight_dtype)
+        self.kvcache_quant_dtype = dtype_map.get(kvcache_dtype)
+        self.act_quant_dtype = dtype_map.get(activation_dtype)
         self.outliers_suppression = outliers_map[outliers_suppression]
         self.init_check()
 

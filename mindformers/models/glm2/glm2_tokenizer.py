@@ -258,7 +258,7 @@ class ChatGLM2Tokenizer(PreTrainedTokenizer):
         """
         if os.path.isdir(save_directory):
             vocab_file = os.path.join(
-                save_directory, self.vocab_files_names["vocab_file"]
+                save_directory, self.vocab_files_names.get("vocab_file")
             )
         else:
             vocab_file = save_directory

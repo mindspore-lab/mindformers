@@ -114,7 +114,7 @@ class WMT16DataSet:
         self.dataset_dict = dataset_dict
 
     def __getitem__(self, item):
-        return self.dataset_dict[self.stage][item]
+        return self.dataset_dict.get(self.stage)[item]
 
     def __len__(self):
-        return len(self.dataset_dict[self.stage])
+        return len(self.dataset_dict.get(self.stage))

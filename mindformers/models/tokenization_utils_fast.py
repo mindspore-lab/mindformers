@@ -174,7 +174,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         # We call this after having initialized the backend tokenizer because we update it.
         super().__init__(**kwargs)
 
-        # The following logic will be replace with a single add_tokens once a fix is pushed to tokenizers
+        # The following logic will be replaced with a single add_tokens once a fix is pushed to tokenizers
         # allows converting a slow -> fast, non-legacy: if the `tokenizer.json` does not have all the added tokens
         # uses the information stored in `added_tokens_decoder`.
         # this is costly for fast tokenizers as we re-compute the regex again. But not all tokens are added tokens
@@ -622,7 +622,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
                 overflow_to_sample_mapping += [i] * len(toks["input_ids"])
             sanitized_tokens["overflow_to_sample_mapping"] = overflow_to_sample_mapping
 
-        for input_ids in sanitized_tokens["input_ids"]:
+        for input_ids in sanitized_tokens.get("input_ids"):
             self._eventual_warn_about_too_long_sequence(input_ids, max_length, verbose)
         return BatchEncoding(sanitized_tokens, sanitized_encodings, tensor_type=return_tensors)
 

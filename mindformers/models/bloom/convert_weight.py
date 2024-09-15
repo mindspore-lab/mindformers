@@ -65,7 +65,7 @@ def layer_name_mapping(key):
     text = match.group(2)
     if "self_attention.query_key_value" in key:
         split = True
-    return split, f"{prefix}blocks.{layer_number}." + layer_rename_map[text]
+    return split, f"{prefix}blocks.{layer_number}." + layer_rename_map.get(text)
 
 
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):

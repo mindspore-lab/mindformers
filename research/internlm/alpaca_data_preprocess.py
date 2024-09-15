@@ -58,8 +58,18 @@ def preprocess(sources, tokenizer, seq_length, bos_token="<s>", eos_token="</s>"
         data = get_chat_format_data(source)
         special_tokens_map = {"<eoh>": 103167, "<eoa>": 103166, "nl_id": 13}
         token_ids = tokenizer.encode(bos_token, add_special_tokens=False)
-        human_s = data["user"]
-        ass_s = data["bot"]
+        human_s = None
+        ass_s = None
+        human_value = data.get("user")
+        ass_value = data.get("bot")
+        if human_value:
+            human_s = human_value
+        else:
+            raise ValueError(f"user is not in data:{data}.")
+        if ass_value:
+            ass_s = ass_value
+        else:
+            raise ValueError(f"bot is not in data:{data}.")
 
         human_ids = tokenizer.encode(human_s, add_special_tokens=False) + \
                     [special_tokens_map["<eoh>"], special_tokens_map["nl_id"]]
@@ -106,8 +116,8 @@ class SupervisedDataset:
             sources.append(example)
         data_dict = preprocess(sources, tokenizer, seq_length)
 
-        self.input_ids = data_dict["input_ids"]
-        self.labels = data_dict["labels"]
+        self.input_ids = data_dict.get("input_ids")
+        self.labels = data_dict.get("labels")
 
     def __len__(self):
         return len(self.input_ids)

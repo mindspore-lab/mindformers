@@ -405,7 +405,7 @@ class DistributedOptimizer(nn.Cell):
         def copy_group_params(model_groups, main_groups):
             for group, sharded_group in zip(model_groups, main_groups):
                 for param, sharded_param in zip(group, sharded_group):
-                    buffer_idx, bucket_idx = self.param_to_bucket_map[param]
+                    buffer_idx, bucket_idx = self.param_to_bucket_map.get(param)
                     range_map = self.param_ranges_map[buffer_idx][bucket_idx][param]
                     param_start, param_end = range_map['range_in_param']
                     param_dtype = self.buffers[buffer_idx].param_dtype
@@ -425,7 +425,7 @@ class DistributedOptimizer(nn.Cell):
         def copy_group_params(main_groups, model_groups):
             for sharded_group, group in zip(main_groups, model_groups):
                 for sharded_param, param in zip(sharded_group, group):
-                    buffer_idx, bucket_idx = self.param_to_bucket_map[param]
+                    buffer_idx, bucket_idx = self.param_to_bucket_map.get(param)
                     range_map = self.param_ranges_map[buffer_idx][bucket_idx][param]
                     param_start, param_end = range_map['range_in_param']
                     param_dtype = self.buffers[buffer_idx].param_dtype

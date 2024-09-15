@@ -98,4 +98,4 @@ if __name__ == "__main__":
     convert_pt_to_ms(input_path=args.torch_ckpt_dir,
                      output_path=args.mindspore_ckpt_path,
                      qkv_concat=args.qkv_concat,
-                     dtype=dtype_map[args.dtype])
+                     dtype=dtype_map.get(args.dtype))

@@ -97,7 +97,7 @@ def recursive_diff_dict(dict_a, dict_b, config_obj=None):
             diff_value = recursive_diff_dict(value, dict_b[key], config_obj=obj_value)
             if not diff_value:
                 diff[key] = diff_value
-        elif key not in dict_b or value != dict_b[key] or key not in default or value != default[key]:
+        elif key not in dict_b or value != dict_b.get(key) or key not in default or value != default.get(key):
             diff[key] = value
     return diff
 
@@ -791,7 +791,7 @@ class PretrainedConfig(PushToHubMixin):
             elif (
                     key not in default_config_dict
                     or key == "mindformers_version"
-                    or value != default_config_dict[key]
+                    or value != default_config_dict.get(key, None)
                     or (key in class_config_dict and value != class_config_dict[key])
             ):
                 serializable_config_dict[key] = value
@@ -808,7 +808,7 @@ class PretrainedConfig(PushToHubMixin):
         """
         for k, v in d.items():
             if isinstance(v, (Float, BFloat)):
-                d[k] = ms_type_to_str[v]
+                d[k] = ms_type_to_str.get(v)
         for value in d.values():
             if isinstance(value, dict):
                 self.dict_ms_dtype_to_str(value)

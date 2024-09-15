@@ -100,11 +100,11 @@ class MSCheck(BaseCheck):
 
     def _error(self, **kwargs):
         logger.error('MindSpore failed!')
-        logger.error(kwargs['result'])
+        logger.error(kwargs.get('result', None))
         logger.info('The MindSpore is not installed correctly, please refer to https://www.mindspore.cn/install/')
 
     def _success(self, **kwargs):
-        logger.info(kwargs['result'])
+        logger.info(kwargs.get('result', None))
 
 
 class MFCheck(BaseCheck):
@@ -193,13 +193,13 @@ class MFCheck(BaseCheck):
 
     def _error(self, **kwargs):
         sys.stdout = sys.__stdout__
-        error_flag = kwargs['error_flag']
+        error_flag = kwargs.get('error_flag', None)
         logger.error(f'{error_flag} test failed!', exc_info=True)
         logger.info('If you need any help, please open an issue in the MindFormers repository: '
                     'https://gitee.com/mindspore/mindformers/issues')
 
     def _success(self, **kwargs):
-        test = kwargs['test']
+        test = kwargs.get('test', None)
         logger.info(f'{test} test passed!')
 
 

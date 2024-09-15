@@ -181,9 +181,9 @@ class JIEBATokenizer():
             self.encoder[self.sp.id_to_piece(i)] = i
         self.translator = str.maketrans(" \n", "\u2582\u2583")
 
-        self.eod_id = self.encoder['<eod>']
-        self.eot_id = self.encoder['<eot>']
-        self.pad_id = self.encoder['<pad>']
+        self.eod_id = self.encoder.get('<eod>')
+        self.eot_id = self.encoder.get('<eot>')
+        self.pad_id = self.encoder.get('<pad>')
 
     @property
     def vocab_size(self):

@@ -301,11 +301,11 @@ class BatchEncoding(UserDict):
         with the constraint of slice.
         """
         if isinstance(item, str):
-            return self.data[item]
+            return self.data.get(item)
         if self._encodings is not None:
             return self._encodings[item]
         if isinstance(item, slice):
-            return {key: self.data[key][item] for key in self.data.keys()}
+            return {key: self.data.get(key)[item] for key in self.data.keys()}
         raise KeyError(
             "Invalid key. Only three types of key are available: "
             "(1) string, (2) integers for backend Encoding, and (3) slices for data subsetting."

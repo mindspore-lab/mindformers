@@ -55,7 +55,7 @@ def layer_name_mapping(telechat_type, key):
     match = re.match(r'^\w*\.(\d+)\.(\w+\.\w+\.\w+|\w+\.\w+)$', key)
     layer_number = int(match.group(1))
     text = match.group(2)
-    return f"model.layers.{layer_number}." + layer_rename_map[text]
+    return f"model.layers.{layer_number}." + layer_rename_map.get(text)
 
 
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):

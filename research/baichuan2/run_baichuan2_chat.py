@@ -109,7 +109,7 @@ def main(config='./',
     model_config = LlamaConfig(**config.model.model_config)
     model_config.use_flash_attention = False
     model_name = config.trainer.model_name
-    network = model_dict[model_name](model_config)
+    network = model_dict.get(model_name)(model_config)
 
     if config.model.model_config.pet_config:
         logger.info("----------------Init lora params----------------")
