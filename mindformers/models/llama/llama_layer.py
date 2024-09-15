@@ -517,6 +517,7 @@ class LlamaMoeInferFeedForward(Cell):
         if self.expert_num == 1:
             raise ValueError("For 'LlamaMoEFFNInfer', the class variable 'expert_num' must be greater than 1.")
 
+        self.mul.shard((1, mp), (1, mp))
         self.w1.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)),
                       strategy_activation=((1, 1, mp, 1),))
         self.w3.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)))
