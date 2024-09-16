@@ -21,9 +21,9 @@ import mindspore.common.dtype as mstype
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
 
-from mindformers.experimental.distri_cores.create_comm import get_tp_world_size
-from mindformers.experimental.distri_cores.transformer.scale_mask_softmax import ScaleMaskSoftmax
-from mindformers.experimental.distri_cores.utils import divide
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_tp_world_size
+from mindformers.experimental.parallel_core.pynative.transformer.scale_mask_softmax import ScaleMaskSoftmax
+from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.infer.core import get_act_func, get_attn_mask_func, get_norm
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
 from mindformers.modules.flash_attention import FlashAttention

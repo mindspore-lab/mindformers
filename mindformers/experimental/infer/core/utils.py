@@ -16,7 +16,7 @@
 
 from mindspore import Tensor, ops
 
-from mindformers.experimental.distri_cores.create_comm import get_group_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_size
 from mindformers.experimental.infer.core.layers import _update_sharded_state_dict
 
 __all__ = ["get_attn_mask_func", "generate_state_dict"]

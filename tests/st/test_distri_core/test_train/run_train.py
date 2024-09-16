@@ -21,7 +21,7 @@ from mindspore.communication import init
 from mindspore.train import Perplexity
 from mindspore.communication.comm_func import all_gather_into_tensor
 
-from mindformers.experimental.distri_cores.create_comm import (
+from mindformers.experimental.parallel_core.pynative.parallel_state import (
     initialize_model_parallel,
     get_dp_group,
     get_dp_world_size,
@@ -29,17 +29,17 @@ from mindformers.experimental.distri_cores.create_comm import (
     get_tp_world_size,
     get_tp_group,
 )
-from mindformers.experimental.distri_cores.training import TrainOneStepCell, train
-from mindformers.experimental.distri_cores.tensor_parallel.layers import (
+from mindformers.experimental.parallel_core.pynative.training import TrainOneStepCell, train
+from mindformers.experimental.parallel_core.pynative.tensor_parallel.layers import (
     ColumnParallelLinear,
 )
-from mindformers.experimental.distri_cores.config import (
+from mindformers.experimental.parallel_core.pynative.config import (
     init_configs_from_yaml
 )
-from mindformers.experimental.distri_cores.transformer import ParallelTransformer
-from mindformers.experimental.distri_cores.transformer.rotary_pos_embedding import RotaryEmbedding
-from mindformers.experimental.distri_cores.loss_func import VocabParallelCrossEntropyLoss
-from mindformers.experimental.distri_cores.optimizer import get_optimizer
+from mindformers.experimental.parallel_core.pynative.transformer import ParallelTransformer
+from mindformers.experimental.parallel_core.pynative.transformer.rotary_pos_embedding import RotaryEmbedding
+from mindformers.experimental.parallel_core.pynative.training import VocabParallelCrossEntropyLoss
+from mindformers.experimental.parallel_core.pynative.optimizer import get_optimizer
 
 from dataset import get_random_dataset
 

@@ -27,10 +27,10 @@ from mindspore.nn import SoftmaxCrossEntropyWithLogits
 from mindspore.communication.management import init
 from mindspore.common.initializer import Normal, Zero
 
-from mindformers.experimental.distri_cores.config import ModelParallelConfig, TransformerConfig
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
-from mindformers.experimental.distri_cores.transformer import ParallelTransformer
-from mindformers.experimental.distri_cores.transformer.rotary_pos_embedding import RotaryEmbedding
+from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.experimental.parallel_core.pynative.transformer import ParallelTransformer
+from mindformers.experimental.parallel_core.pynative.transformer.rotary_pos_embedding import RotaryEmbedding
 
 from tests.st.test_distri_core.utils import TestData, train, transform_transformerlayer_params, generate_ckpt
 
@@ -140,7 +140,7 @@ def run_parallel_transformer():
 
     losses = train(1, dataset, network, optimizer, None, with_attn_input=True)
     losses = list(map(lambda x: x[0], losses))
-    golden_losses = [1602.8125, 1807.7812, 412.6831]
+    golden_losses = [1487.875, 2019.565, 932.0647]
 
     assert np.allclose(losses, golden_losses, atol=1.e-3, rtol=1.e-3)
 

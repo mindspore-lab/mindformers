@@ -23,10 +23,11 @@ from mindspore import Tensor
 from mindspore.nn import Cell
 from mindspore.common.initializer import initializer, HeUniform
 from mindformers.core.loss.loss import CrossEntropyLoss
-from mindformers.experimental.distri_cores.transformer import Module, PublicLayer
-from mindformers.experimental.distri_cores.transformer.transformer import _get_num_layers
-from mindformers.experimental.distri_cores.tensor_parallel.layers import VocabParallelEmbedding
-from mindformers.experimental.distri_cores.create_comm import get_pp_world_size
+from mindformers.experimental.parallel_core.pynative.transformer.module import Module
+from mindformers.experimental.parallel_core.pynative.transformer import PublicLayer
+from mindformers.experimental.parallel_core.pynative.transformer.transformer import _get_num_layers
+from mindformers.experimental.parallel_core.pynative.tensor_parallel.layers import VocabParallelEmbedding
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_pp_world_size
 
 
 class FakeData:

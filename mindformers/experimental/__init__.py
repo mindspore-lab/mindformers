@@ -15,11 +15,9 @@
 
 """mindformers init"""
 
-from .distri_cores import *
-from .distri_ckpt import *
 from .infer import core, models
+from .parallel_core import pynative
 
 __all__ = []
-__all__.extend(distri_cores.__all__)
-__all__.extend(distri_ckpt.__all__)
 __all__.extend(infer.__all__)
+__all__.extend(parallel_core.__all__)

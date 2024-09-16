@@ -19,9 +19,9 @@ import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
 
-from mindformers.experimental.distri_cores.create_comm import get_dp_world_size, get_tp_rank, get_tp_world_size
-from mindformers.experimental.distri_cores.random import TENSOR_PARALLEL_GENERATOR, get_rng_tracer
-from mindformers.experimental.distri_cores.utils import divide
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_dp_world_size, get_tp_rank, get_tp_world_size
+from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import TENSOR_PARALLEL_GENERATOR, get_rng_tracer
+from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.infer.core.mapping import (GatherFromModelParallelRegion,
                                                          GatherFromSequenceParallelRegion,
                                                          ReduceFromModelParallelRegion,

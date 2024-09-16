@@ -20,7 +20,7 @@ import numpy as np
 from mindspore import Tensor, set_context
 from mindspore.communication import init
 
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
 from tests.st.test_infer.test_infer_core.utils import get_config, get_module
 
 

@@ -26,8 +26,8 @@ from mindspore import Tensor
 from mindspore.nn import DistributedGradReducer
 from mindspore.communication import get_rank
 
-from mindformers.experimental.distri_cores.checkpointing import save_checkpoint
-from mindformers.experimental.distri_cores.create_comm import (
+from mindformers.experimental.parallel_core.pynative.dist_checkpointing import save_checkpoint
+from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_dp_group,
     get_dp_world_size,
     get_tp_rank,

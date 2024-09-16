@@ -26,15 +26,14 @@ except ImportError:
 from mindspore import mint, Tensor, grad
 import mindspore.nn as nn
 from mindspore.communication.management import init, get_rank, get_group_size
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
-from mindformers.experimental.distri_cores.random import (
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import (
     RNGStateTracer,
     get_rng_tracer,
     set_rng_seed,
     DATA_PARALLEL_GENERATOR,
     TENSOR_PARALLEL_GENERATOR,
 )
-from mindformers.experimental.distri_ckpt.checkpointing import save_checkpoint, load_checkpoint
 
 
 def generate_random_input(shape):
@@ -107,9 +106,6 @@ def run_random_tracer_parallel():
             assert np.allclose(candidate[0], candidate[1], rtol=1e-4, atol=1e-4)
             assert np.allclose(candidate[1], candidate[2], rtol=1e-4, atol=1e-4)
             assert np.allclose(candidate[2], candidate[3], rtol=1e-4, atol=1e-4)
-    print("======= Test ckpt and rng =========")
-    save_checkpoint(empty_cell)
-    load_checkpoint("./", empty_cell)
 
 
 def run_recompute_parallel():

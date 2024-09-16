@@ -24,13 +24,14 @@ import mindspore.common.dtype as mstype
 from mindspore.nn import SoftmaxCrossEntropyWithLogits
 from mindspore.communication.management import init
 
-from mindformers.experimental.distri_cores.config import ModelParallelConfig, TransformerConfig, OptimizerConfig
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
-from mindformers.experimental.distri_cores.transformer import ParallelTransformer
-from mindformers.experimental.distri_cores.transformer.rotary_pos_embedding import RotaryEmbedding
-from mindformers.experimental.distri_cores.checkpointing import load_checkpoint, save_checkpoint
-from mindformers.experimental.distri_cores.optimizer import get_optimizer
-from mindformers.experimental.distri_cores.transformer import Module
+from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig, \
+    OptimizerConfig
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.experimental.parallel_core.pynative.transformer import ParallelTransformer
+from mindformers.experimental.parallel_core.pynative.transformer.rotary_pos_embedding import RotaryEmbedding
+from mindformers.experimental.parallel_core.pynative.dist_checkpointing import load_checkpoint, save_checkpoint
+from mindformers.experimental.parallel_core.pynative.optimizer import get_optimizer
+from mindformers.experimental.parallel_core.pynative.transformer.module import Module
 from tests.st.test_distri_core.utils import TestData, train, _transform_ckpt_helper
 
 

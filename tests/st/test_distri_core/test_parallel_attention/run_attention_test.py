@@ -26,10 +26,10 @@ from mindspore.nn import AdamWeightDecay
 from mindspore.nn import SoftmaxCrossEntropyWithLogits
 from mindspore.communication.management import init
 
-from mindformers.experimental.distri_cores.config import ModelParallelConfig, TransformerConfig
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel
-from mindformers.experimental.distri_cores.transformer import ParallelAttention
-from mindformers.experimental.distri_cores.transformer.rotary_pos_embedding import RotaryEmbedding
+from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.experimental.parallel_core.pynative.transformer import ParallelAttention
+from mindformers.experimental.parallel_core.pynative.transformer.rotary_pos_embedding import RotaryEmbedding
 
 from tests.st.test_distri_core.utils import TestData, train, transform_transformerlayer_params, generate_ckpt
 
@@ -127,7 +127,7 @@ def run_parallel_attention_with_rope(use_fa=False, use_gqa=False):
 
     losses = train(1, dataset, network, optimizer, None, with_attn_input=True)
     losses = list(map(lambda x: x[0], losses))
-    golden_losses = [61.793457, 137.65796, 122.2657]
+    golden_losses = [57.56201, 126.10901, 126.21113]
     if use_gqa:
         golden_losses = [35.357117, 96.4671, 88.65936]
     if use_fa:

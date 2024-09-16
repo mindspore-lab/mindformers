@@ -27,9 +27,9 @@ from mindspore.nn import AdamWeightDecay
 from mindspore.nn import SoftmaxCrossEntropyWithLogits
 
 from mindformers.modules import Linear
-from mindformers.experimental.distri_cores.config import ModelParallelConfig, TransformerConfig
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel, get_tp_world_size, get_dp_world_size
-from mindformers.experimental.distri_cores.tensor_parallel import RowParallelLinear, \
+from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel, get_tp_world_size, get_dp_world_size
+from mindformers.experimental.parallel_core.pynative.tensor_parallel import RowParallelLinear, \
     ColumnParallelLinear
 
 from tests.st.test_distri_core.utils import LinearTestData, linear_train, transform_linear_params

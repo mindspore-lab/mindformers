@@ -16,7 +16,7 @@
 
 from mindspore import nn, ops
 
-from mindformers.experimental.distri_cores.create_comm import get_tp_group, get_tp_rank, get_tp_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_tp_group, get_tp_rank, get_tp_world_size
 
 
 class GatherFromModelParallelRegion(nn.Cell):

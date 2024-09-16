@@ -25,10 +25,12 @@ from mindspore import Tensor, ops
 from mindspore.communication.management import init
 from mindspore.nn import AdamWeightDecay
 
-from mindformers.experimental.distri_cores.config import TrainingConfig, ModelParallelConfig, TransformerConfig
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel, get_tp_world_size, get_dp_world_size
-from mindformers.experimental.distri_cores.tensor_parallel import ColumnParallelLinear
-from mindformers.experimental.distri_cores.loss_func import get_loss_func
+from mindformers.experimental.parallel_core.pynative.config import TrainingConfig, ModelParallelConfig, \
+    TransformerConfig
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel, \
+    get_tp_world_size, get_dp_world_size
+from mindformers.experimental.parallel_core.pynative.tensor_parallel import ColumnParallelLinear
+from mindformers.experimental.parallel_core.pynative.training import get_loss_func
 
 from tests.st.test_distri_core.utils import LinearTestData, linear_train
 

@@ -129,6 +129,7 @@ def flatten_dict(ckpt, parent_key='', sep='.'):
     return dict(items)
 
 
+# pylint: disable=W0613
 def convert_megatron_to_ms(input_path, output_path, dtype=None, **kwargs):
     """ Convert megatron ckpt to mindspore ckpt """
     print(f"Trying to convert megatron checkpoint in '{input_path}'.", flush=True)
@@ -136,12 +137,6 @@ def convert_megatron_to_ms(input_path, output_path, dtype=None, **kwargs):
         import torch
     except:
         raise ImportError(f"Failed to load pytorch checkpoint. Please make sure pytorch is available.")
-    n_head = kwargs.pop('n_head', 32)
-    use_gqa = kwargs.pop('use_gqa', False)
-    if use_gqa:
-        kv_n_head = kwargs.pop('kv_n_head', None)
-        if kv_n_head is None:
-            raise ValueError('kv_n_head must be set when use group query attention.')
     try:
         megatron_ckpt = torch.load(input_path, map_location='cpu')
     # pylint: disable=W0703
@@ -167,46 +162,10 @@ def convert_megatron_to_ms(input_path, output_path, dtype=None, **kwargs):
                 ms_key = ms_key.replace(k, v)
         ms_ckpt[ms_key] = value
 
-    if use_gqa:
-        qkv_num_heads = n_head + kv_n_head * 2
-        num_head_per_group = n_head // kv_n_head
-
     ckpt_list = []
     for k, v in ms_ckpt.items():
-        if 'attention.qkv_proj.weight' in k:
-            if use_gqa:
-                v = torch.chunk(v, qkv_num_heads, dim=0)
-                q_weight = []
-                k_weight = []
-                v_weight = []
-                for i in range(len(v)):
-                    if i % (num_head_per_group + 2) < num_head_per_group:
-                        q_weight.append(v[i])
-                    elif i % (num_head_per_group + 2) == num_head_per_group:
-                        k_weight.append(v[i])
-                    else:
-                        v_weight.append(v[i])
-            else:
-                v = torch.chunk(v, n_head * 3, axis=0)  # num_head * 3
-                q_weight = []
-                k_weight = []
-                v_weight = []
-                for i in range(len(v)):
-                    if i % 3 == 0:
-                        q_weight.append(v[i])
-                    elif i % 3 == 1:
-                        k_weight.append(v[i])
-                    else:
-                        v_weight.append(v[i])
-            q_weight = torch.cat(q_weight, dim=0)
-            k_weight = torch.cat(k_weight, dim=0)
-            v_weight = torch.cat(v_weight, dim=0)
-            transformed_qkv_weight = torch.concat((q_weight, k_weight, v_weight), dim=0)
-            print(f'\rprocessing parameter: {k} {transformed_qkv_weight.shape}     ', end='', flush=True)
-            ckpt_list.append({'name': k, 'data': pt2ms(transformed_qkv_weight, dtype)})
-        else:
-            print(f'\rprocessing parameter: {k} {v.shape}     ', end='', flush=True)
-            ckpt_list.append({'name': k, 'data': pt2ms(v, dtype)})
+        print(f'\rprocessing parameter: {k} {v.shape}     ', end='', flush=True)
+        ckpt_list.append({'name': k, 'data': pt2ms(v, dtype)})
     ms.save_checkpoint(ckpt_list, output_path)
     print(f"\rConvert megatron checkpoint finished, the mindspore checkpoint is saved in '{output_path}'.",
           flush=True)

@@ -19,15 +19,15 @@ import mindspore as ms
 import mindspore.nn as nn
 from mindspore.communication import init
 
-from mindformers.experimental.distri_cores.create_comm import (
+from mindformers.experimental.parallel_core.pynative.parallel_state import (
     initialize_model_parallel,
 )
 
-from mindformers.experimental.distri_cores.config import (
+from mindformers.experimental.parallel_core.pynative.config import (
     init_configs_from_yaml
 )
 
-from mindformers.experimental.distri_cores.optimizer import get_optimizer
+from mindformers.experimental.parallel_core.pynative.optimizer import get_optimizer
 
 
 class TestNet(nn.Cell):

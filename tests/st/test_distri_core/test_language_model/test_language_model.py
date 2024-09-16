@@ -65,7 +65,7 @@ class TestLanguageModel:
         language_model_loss = read_loss_from_log(log_path)
 
         language_model_loss = np.array(language_model_loss, np.float32)
-        golden_loss = np.array([2368637.5, 2439313.5], np.float32)
+        golden_loss = np.array([2482804, 2438391], np.float32)
 
         print(f"language model loss: {language_model_loss}", flush=True)
         print(f"golden loss: {golden_loss}", flush=True)

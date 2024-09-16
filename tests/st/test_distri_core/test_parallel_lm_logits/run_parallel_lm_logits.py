@@ -20,16 +20,17 @@ import mindspore as ms
 import mindspore.dataset as ds
 from mindspore.nn import Adam
 from mindspore.communication import init
-from mindformers.experimental.distri_cores.transformer import ParallelLMLogits
-from mindformers.experimental.distri_cores.create_comm import initialize_model_parallel, get_tp_world_size, get_dp_world_size
-from mindformers.experimental.distri_cores.config import (
+from mindformers.experimental.parallel_core.pynative.transformer import ParallelLMLogits
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel, \
+    get_tp_world_size, get_dp_world_size
+from mindformers.experimental.parallel_core.pynative.config import (
     init_configs_from_yaml,
     TrainingConfig,
     ModelParallelConfig,
     TransformerConfig,
     DatasetConfig,
 )
-from mindformers.experimental.distri_cores.tensor_parallel import (
+from mindformers.experimental.parallel_core.pynative.tensor_parallel import (
     GatherFromModelParallelRegion,
     VocabParallelEmbedding
 )

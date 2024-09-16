@@ -22,7 +22,7 @@ import mindspore.dataset as ds
 from mindspore import Tensor
 
 from mindformers.tools.logger import logger
-from mindformers.experimental.distri_cores.create_comm import get_dp_rank, get_dp_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_dp_rank, get_dp_world_size
 
 
 class RandomData:

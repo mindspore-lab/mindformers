@@ -17,14 +17,14 @@ from mindformers.core.context import get_context
 from mindformers.experimental.graph.tensor_parallel.layers import (RowParallelLinear as GraphRPLinear,
                                                                    ColumnParallelLinear as GraphCPLinear,
                                                                    VocabParallelEmbedding as GraphVPEmbedding)
-from mindformers.experimental.distri_cores.tensor_parallel.\
+from mindformers.experimental.parallel_core.pynative.tensor_parallel.\
     layers import (RowParallelLinear as PynativeRPLinear,
                    ColumnParallelLinear as PynativeCPLinear,
                    VocabParallelEmbedding as PynativeVPEmbedding)
 from mindformers.experimental.graph.transformer.\
     rotary_pos_embedding import (RotaryEmbedding as GraphRotaryEmbedding,
                                  apply_rotary_pos_emb as graph_apply_rotary_pos_emb)
-from mindformers.experimental.distri_cores.transformer.\
+from mindformers.experimental.parallel_core.pynative.transformer.\
     rotary_pos_embedding import (RotaryEmbedding as PynativeRotaryEmbedding,
                                  apply_rotary_pos_emb as pynative_apply_rotary_pos_emb)
 from mindformers.experimental.graph.transformer.\
@@ -32,19 +32,19 @@ from mindformers.experimental.graph.transformer.\
                         ParallelTransformerLayer as GraphParallelTransformerLayer,
                         ParallelAttention as GraphParallelAttention,
                         ParallelMLP as GraphParallelMLP)
-from mindformers.experimental.distri_cores.transformer.\
+from mindformers.experimental.parallel_core.pynative.transformer.\
     transformer import (ParallelTransformer as PynativeParallelTransformer,
                         ParallelTransformerLayer as PynativeParallelTransformerLayer,
                         ParallelAttention as PynativeParallelAttention,
                         ParallelMLP as PynativeParallelMLP)
 from mindformers.experimental.graph.optimizer.adamw import AdamW as GraphAdamW
-from mindformers.experimental.distri_cores.optimizer.zero.adamw_zero import AdamW as PynativeAdamW
+from mindformers.experimental.parallel_core.pynative.optimizer.zero.adamw_zero import AdamW as PynativeAdamW
 from mindformers.experimental.graph.transformer.language_model import get_language_model as graph_get_language_model
-from mindformers.experimental.distri_cores.transformer.\
+from mindformers.experimental.parallel_core.pynative.transformer.\
     language_model import (get_language_model as pynative_get_language_model)
 from mindformers.experimental.graph.transformer.language_model import Embedding as GraphEmbedding
-from mindformers.experimental.distri_cores.transformer.language_model import Embedding as PynativeEmbedding
-from mindformers.experimental.distri_cores.register import ModuleType, ModuleRegistry
+from mindformers.experimental.parallel_core.pynative.transformer.language_model import Embedding as PynativeEmbedding
+from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
 
 __all__ = [
     'RowParallelLinear',

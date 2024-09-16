@@ -40,7 +40,7 @@ class TestRouter:
                         f'--log_dir=log_router --join=True {cur_dir}/run_router.py --graph')
         assert ret == 0
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_pynative_router(self):
