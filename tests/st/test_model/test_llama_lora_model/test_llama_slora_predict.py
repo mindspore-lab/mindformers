@@ -13,20 +13,23 @@
 # limitations under the License.
 # ============================================================================
 """
-Test baichuan2 predict.
+Test llama slora predict.
 How to run this:
-    pytest tests/st/test_model/test_baichuan2_model/test_predict.py
+    pytest tests/st/test_model/test_llama_lora_model/test_llama_slora_predict.py
 """
 import pytest
 import mindspore as ms
-from tests.utils.model_tester import ModelTester
 
-from .base_model import get_config, get_model
+from mindformers.models.llama.llama import LlamaForCausalLM
+from mindformers.models.llama.llama_config import LlamaConfig
+from mindformers.pet.pet_config import LoraConfig
+from mindformers.pet import get_pet_model
+from mindformers import Trainer, TrainingArguments
 
 ms.set_context(mode=0, jit_config={"jit_level": "O0", "infer_boost": "on"})
 
 
-class TestBaichuan2Predict:
+class TestLlamaSLoraPredict:
     """A test class for testing model prediction."""
 
     @pytest.mark.level1
@@ -38,15 +41,15 @@ class TestBaichuan2Predict:
         Description: Test llama slora model prediction.
         Expectation: AssertionError
         """
-        runner = ModelTester(run_mode='predict', batch_size=2, experiment_mode=False)
+        model_config = LlamaConfig(num_layers=2, hidden_size=32, num_heads=2, seq_length=512)
+        model_config.pet_config = LoraConfig(lora_num=2, lora_rank=8, lora_alpha=16,
+                                             target_modules='.*wq|.*wk|.*wv|.*wo')
+        model = LlamaForCausalLM(model_config)
+        model = get_pet_model(model, model_config.pet_config)
 
-        model_config = get_config()
-        model_config.batch_size = runner.batch_size  # set batch size for prediction
-        model_config.vocab_size = 32000  # default to use gpt2 tokenizer
-        model_config.use_flash_attention = False  # if set True, cause error
-
-        model = get_model(model_config)
-
-        outputs = ("hello world. instrumentsaxijudacle cellsureauwireем isomorphism Adelvalues Ос "
-                   "surv too stretch lock")
-        runner.set_predict(model=model, expect_outputs=outputs)
+        args = TrainingArguments(batch_size=1)
+        runner = Trainer(task='text_generation',
+                         model=model,
+                         model_name='llama_7b_slora',
+                         args=args)
+        runner.predict(input_data="hello world!", max_length=20, repetition_penalty=1, top_k=3, top_p=1)

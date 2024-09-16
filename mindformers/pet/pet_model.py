@@ -22,8 +22,10 @@ from mindformers.pet.constants import PetType
 from mindformers.pet.models.lora import LoraModel
 from mindformers.pet.models.ptuning2 import Ptuning2Model
 from mindformers.pet.models.prefix_tuning import PrefixTuningModel
+from mindformers.pet.models.slora import SLoraModel
 from mindformers.pet.pet_config import LoraConfig, PetConfig, Ptuning2Config, PrefixTuningConfig
 from mindformers.pet.tuners.pet_adapter import PetAdapter
+from mindformers.pet.tuners.slora_adapter import SLoraAdapter
 from mindformers.tools.logger import logger
 
 # Mapping of pet models.
@@ -107,6 +109,11 @@ def get_pet_model(base_model: PreTrainedModel, config: Union[dict, PetConfig]):
         model(PreTrainedModel)
     """
     pet_type = config.get("pet_type")
+    if pet_type == "slora":
+        logger.info("Apply S-LoRA to model.")
+        pet_config = SLoraAdapter.init_slora_config(config)
+        return SLoraModel(pet_config, base_model)
+
     if not PET_TYPE_TO_MODEL_MAPPING.get(pet_type):
         logger.warning("%s doesn't have pet model currently.", pet_type)
         return base_model

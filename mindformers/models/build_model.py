@@ -81,16 +81,11 @@ def build_network(
         quantizer = AutoQuantizer.from_config(quant_config)
         network = quantizer.preprocess_model(network, config=config)
     if pet_config:
-        if pet_config.pet_type == "slora":
-            from mindformers.pet.models.slora_manager import SLoraManager
-            slora_adaptor = SLoraManager(config=config)
-            slora_adaptor.apply(network)
-        else:
-            from mindformers.pet import get_pet_model, is_supported_pet_type
-            if is_supported_pet_type(pet_config.pet_type):
-                config.model_config.checkpoint_name_or_path = None
-            network.checkpoint_name_or_path = ckpt_cfg
-            network = get_pet_model(network, pet_config)
+        from mindformers.pet import get_pet_model, is_supported_pet_type
+        if is_supported_pet_type(pet_config.pet_type):
+            config.model_config.checkpoint_name_or_path = None
+        network.checkpoint_name_or_path = ckpt_cfg
+        network = get_pet_model(network, pet_config)
     return network
 
 

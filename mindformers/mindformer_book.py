@@ -227,6 +227,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/llama2/pretrain_llama2_13b.yaml")),
             ("llama2_70b", os.path.join(
                 _PROJECT_PATH, "configs/llama2/pretrain_llama2_70b.yaml")),
+            ("llama_7b_slora", os.path.join(
+                _PROJECT_PATH, "configs/llama2/predict_llama2_7b_slora.yaml")),
             ("codellama_34b", os.path.join(
                 _PROJECT_PATH, "configs/codellama/pretrain_codellama_34b.yaml")),
             ("llama_7b_lora", os.path.join(
