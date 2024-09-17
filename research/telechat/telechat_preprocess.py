@@ -67,7 +67,7 @@ def make_input_mask(labels, tokenizer):
         raise ValueError("The len(indices_user),the len(indices_bot),the len(indices_end) should be equal,"
                          f"but len(indices_user) got {len(indices_user)}, len(indices_bot) got"
                          f"{len(indices_bot)}, len(indices_end) got {len(indices_end)}.")
-    for i in range(len(indices_bot)):
+    for i, _ in enumerate(indices_bot):
         user_idx = indices_user[i]
         bot_idx = indices_bot[i]
         end_idx = indices_end[i]

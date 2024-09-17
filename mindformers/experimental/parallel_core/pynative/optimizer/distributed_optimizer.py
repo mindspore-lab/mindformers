@@ -39,6 +39,7 @@ def shard_bucket(bucket, group):
 
     return shard_start, shard_end
 
+
 class DistributedOptimizer(nn.Cell):
     """
     Distributed optimizer implementation. This class wrap a non-parallel optimizer
@@ -84,8 +85,8 @@ class DistributedOptimizer(nn.Cell):
 
         for param, param_world_indexes in param_index_map.items():
             param_world_start, param_world_end, _ = param_world_indexes
-            param_local_start = max(0, param_world_start-bucket_world_start)
-            param_local_end = min(param_world_end-bucket_world_start, shard_size)
+            param_local_start = max(0, param_world_start - bucket_world_start)
+            param_local_end = min(param_world_end - bucket_world_start, shard_size)
 
             # param_range_map only record shard info for parameters
             # in the buffer shard processed by this dp rank
@@ -94,13 +95,13 @@ class DistributedOptimizer(nn.Cell):
                 range_in_shard = (param_local_start, param_local_end)
                 local_size_in_shard = param_local_end - param_local_start
                 # range in buffer of this param
-                range_in_buffer = (bucket_world_start+param_local_start,
-                                   bucket_world_start+param_local_start+local_size_in_shard)
+                range_in_buffer = (bucket_world_start + param_local_start,
+                                   bucket_world_start + param_local_start + local_size_in_shard)
                 # range in bucket of this param
-                range_in_whole_bucket = (range_in_buffer[0]-bucket_offset,
-                                         range_in_buffer[1]-bucket_offset)
+                range_in_whole_bucket = (range_in_buffer[0] - bucket_offset,
+                                         range_in_buffer[1] - bucket_offset)
                 # range in integrated param of this param slice
-                sub_param_start = max(0, bucket_world_start-param_world_start)
+                sub_param_start = max(0, bucket_world_start - param_world_start)
                 sub_param_end = sub_param_start + local_size_in_shard
                 sub_param_range = (sub_param_start, sub_param_end)
                 # build param range map
@@ -160,7 +161,7 @@ class DistributedOptimizer(nn.Cell):
                     group_idx = world_param_group_map[param]
                     sharded_group = sharded_param_groups[group_idx]
                     sharded_group['params'].append(param)
-                    local_param_group_map[param] = (group_idx, len(sharded_group['params'])-1)
+                    local_param_group_map[param] = (group_idx, len(sharded_group['params']) - 1)
 
         return local_param_group_map, sharded_param_groups
 
@@ -341,7 +342,7 @@ class DistributedOptimizer(nn.Cell):
             self.optimizer.param_groups[group_idx]['params'] = \
                 [*self.sharded_param_fp32_groups[group_idx],\
                  *self.sharded_param_fp32_from_fp16_groups[group_idx]]
-            self.optimizer.group_start_id[group_idx+1] = self.optimizer.group_start_id[group_idx] + \
+            self.optimizer.group_start_id[group_idx + 1] = self.optimizer.group_start_id[group_idx] + \
                 len(self.optimizer.param_groups[group_idx]['params'])
             self.optimizer.lrs[group_idx] = self.optimizer.param_groups[group_idx]['lr']
             self.optimizer.parameters += tuple(self.optimizer.param_groups[group_idx]['params'])

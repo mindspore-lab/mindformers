@@ -608,13 +608,20 @@ def resolve_trust_remote_code(trust_remote_code, model_name, has_local_code, has
                     elif answer.lower() in ["no", "n", "0", ""]:
                         trust_remote_code = False
                 signal.alarm(0)
-            except Exception:
+            except (AttributeError, ValueError, RuntimeError, OSError) as e:
                 # OS which does not support signal.SIGALRM
                 raise ValueError(
                     f"The repository for {model_name} contains custom code which must be executed to correctly "
                     f"load the model. You can inspect the repository content.\n"
                     f"Please pass the argument `trust_remote_code=True` to allow custom code to be run."
-                )
+                ) from e
+            except Exception as e:
+                raise ValueError(
+                    f"The repository for {model_name} contains custom code which must be executed to correctly, "
+                    f"but an unexpected error occurred."
+                    f"load the model. You can inspect the repository content.\n"
+                    f"Please pass the argument `trust_remote_code=True` to allow custom code to be run."
+                ) from e
         elif has_remote_code:
             # For the CI which puts the timeout at 0
             _raise_timeout_error(None, None)

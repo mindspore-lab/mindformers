@@ -64,7 +64,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, use_gmm=False, **kwarg
     try:
         ckpt_paths = sorted(Path(input_path).glob("*.safetensors"))
         dict_all = {}
-        for i in range(len(ckpt_paths)):
+        for i, _ in enumerate(ckpt_paths):
             state_dict = load_file(ckpt_paths[i], device='cpu')
             dict_all.update(state_dict)
         model_hf = dict(sorted(dict_all.items(), key=lambda x: x[0]))

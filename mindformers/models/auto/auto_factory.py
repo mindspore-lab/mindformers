@@ -193,8 +193,8 @@ def _getattribute_from_module(module, attr):
     if module != mindformers_module:
         try:
             return _getattribute_from_module(mindformers_module, attr)
-        except ValueError:
-            raise ValueError(f"Could not find {attr} neither in {module} nor in {mindformers_module}!")
+        except ValueError as e:
+            raise ValueError(f"Could not find {attr} neither in {module} nor in {mindformers_module}!") from e
     else:
         raise ValueError(f"Could not find {attr} in {mindformers_module}!")
 

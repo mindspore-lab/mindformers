@@ -105,7 +105,7 @@ class FakeTransformer(Cell):
         if not self.pre_process and self.pipeline_parallel:
             hidden_states = self.set_hidden_states
 
-        for i in range(len(self.fake_transformer_layers)):
+        for i, _ in enumerate(self.fake_transformer_layers):
             hidden_states = self.fake_transformer_layers[i](hidden_states, attention_mask)
         return hidden_states
 

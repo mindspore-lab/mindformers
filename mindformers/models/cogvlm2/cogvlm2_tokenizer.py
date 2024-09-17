@@ -24,8 +24,8 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 try:
     import tiktoken
-except ImportError:
-    raise ImportError("Package 'tiktoken' required to run CogVLM2. please install it with pip.")
+except ImportError as e:
+    raise ImportError("Package 'tiktoken' required to run CogVLM2. please install it with pip.") from e
 
 __all__ = ['CogVLM2Tokenizer']
 

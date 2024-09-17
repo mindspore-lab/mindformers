@@ -42,7 +42,7 @@ def generator_train():
     vocab_size = 65000
     input_ids = np.random.randint(low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
     labels = np.random.randint(low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
-    for idx in range(len(input_ids)):
+    for idx, _ in enumerate(input_ids):
         yield input_ids[idx], labels[idx]
 
 
@@ -54,7 +54,7 @@ def generator_eval():
     vocab_size = 65000
     input_ids = np.random.randint(low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
     labels = np.random.randint(low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
-    for idx in range(len(input_ids)):
+    for idx, _ in enumerate(input_ids):
         yield input_ids[idx], labels[idx]
 
 

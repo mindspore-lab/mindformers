@@ -271,7 +271,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             avg_cost_time = (end_time - start_time) / input_ids.shape[0]
 
             tokens_num = 0
-            for batch_index in range(len(output_ids)):
+            for batch_index, _ in enumerate(output_ids):
                 tokens_num += output_ids[batch_index].shape[0]
             if i != 0:
                 total_tokens_num += tokens_num
@@ -405,7 +405,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 avg_cost_time = (end_time - start_time) / input_ids.shape[0]
 
                 tokens_num = 0
-                for batch_index in range(len(output_ids)):
+                for batch_index, _ in enumerate(output_ids):
                     tokens_num += output_ids[batch_index].shape[0]
                 if i != 0:
                     total_tokens_num += tokens_num

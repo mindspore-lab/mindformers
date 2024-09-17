@@ -95,7 +95,7 @@ def tokenize_qa(tokenizer, file_path, seq_length):
         for line in f:
             raw_data.append(json.loads(line))
     dataset_cls = SupervisedDataset(raw_data, tokenizer, seq_length)
-    for i in range(len(dataset_cls)):
+    for i, _ in enumerate(dataset_cls):
         yield dataset_cls[i]
 
 

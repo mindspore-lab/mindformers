@@ -45,6 +45,7 @@ def name_replace(weight_name: str):
     weight_name = weight_name.replace('.post_attention_layernorm.', '.ffn_norm.')
     return weight_name
 
+
 def convert_pt_to_ms(input_path, output_path, dtype=ms.bfloat16):
     """convert hf weight to ms."""
     print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
@@ -76,21 +77,21 @@ def convert_pt_to_ms(input_path, output_path, dtype=ms.bfloat16):
         if name == 'model.tok_embeddings.weight':
             name = 'model.tok_embeddings.embedding_weight'
 
-        if 'feed_forward.ffn' in name: #concat expert
+        if 'feed_forward.ffn' in name: # concat expert
 
-            if "gate_proj" in name: #gate_proj
+            if "gate_proj" in name: # gate_proj
                 list_w1.append(value.detach())
-            if "down_proj" in name: #down_proj
+            if "down_proj" in name: # down_proj
                 list_w2.append(value.detach())
-            if "up_proj" in name: #up_proj
+            if "up_proj" in name: # up_proj
                 list_w3.append(value.detach())
             count = count + 1
             if count == all_num:
                 str_front = name.split('ffn')[0]
                 print(str_front)
-                name_w1 = str_front + 'routed_experts.ffn.w1.weight' #gate_proj
-                name_w2 = str_front + 'routed_experts.ffn.w2.weight' #up_proj
-                name_w3 = str_front + 'routed_experts.ffn.w3.weight' #down_proj
+                name_w1 = str_front + 'routed_experts.ffn.w1.weight' # gate_proj
+                name_w2 = str_front + 'routed_experts.ffn.w2.weight' # up_proj
+                name_w3 = str_front + 'routed_experts.ffn.w3.weight' # down_proj
                 w1_value = torch.stack(list_w1, 0).to(torch.float32).cpu().numpy()
                 print(f'\rprocessing parameter: {name_w1} {w1_value.shape}     ')
                 ckpt_list.append({'name': name_w1, 'data': ms.Tensor(w1_value, dtype=dtype)})

@@ -202,8 +202,8 @@ def run_moe_pynative(model_config, args):
     init()
     print("data_parallel {}, tensor_parallel {}, expert_parallel {}, num_experts {}".format(dp, tp, ep, en))
     initialize_model_parallel(expert_model_parallel_size=ep, order='tp-ep-dp-pp-cp')
-    print("dp group {}, tp group {}, pp group {}, ep group {}, cp group {}".format \
-         (get_dp_group(), get_tp_group(), get_pp_group(), get_ep_group(), get_cp_group()))
+    print("dp group {}, tp group {}, pp group {}, ep group {}, cp group {}".format(
+        get_dp_group(), get_tp_group(), get_pp_group(), get_ep_group(), get_cp_group()))
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE)
     rank_id = get_rank()
     local_expert_idx = np.arange(en).reshape(ep, -1)[rank_id].tolist()

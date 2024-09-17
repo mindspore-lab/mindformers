@@ -1038,6 +1038,7 @@ class ColdHotExpertMointor(Callback):
             x = self.broadcast(x)
             return x
 
+
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class TrainCallBack(Callback):
     """

@@ -1044,6 +1044,7 @@ def _check_llama3_scaling_factor(scaling_factor, max_position_embedding):
             f"{original_max_position_embeddings} and max_position_embeddings={max_position_embedding}"
         )
 
+
 def _check_yarn_scaling_factor(scaling_factor, max_position_embedding):
     """check YARN scaling factor"""
     if scaling_factor is None or not isinstance(scaling_factor, dict):
@@ -1089,9 +1090,11 @@ def _check_yarn_scaling_factor(scaling_factor, max_position_embedding):
             f"{original_max_position_embeddings} and max_position_embeddings={max_position_embedding}"
         )
 
+
 def _yarn_find_correction_dim(num_rotations, dim, base=10000, max_position_embeddings=2048):
     """Inverse dim formula to find dim based on number of rotations"""
     return (dim * math.log(max_position_embeddings / (num_rotations * 2 * math.pi))) / (2 * math.log(base))
+
 
 def _yarn_find_correction_range(low_rot, high_rot, dim, base=10000, max_position_embeddings=2048):
     """Find dim range bounds based on rotations"""
@@ -1103,10 +1106,12 @@ def _yarn_find_correction_range(low_rot, high_rot, dim, base=10000, max_position
     )
     return max(low, 0), min(high, dim - 1)  # Clamp values just in case
 
+
 def _yarn_get_mscale(scale=1, mscale=1):
     if scale <= 1:
         return 1.0
     return 0.1 * mscale * math.log(scale) + 1.0
+
 
 def _yarn_linear_ramp_mask(min_, max_, dim):
     if min_ == max_:
@@ -1115,6 +1120,7 @@ def _yarn_linear_ramp_mask(min_, max_, dim):
     linear_func = (np.arange(dim, dtype=np.float32) - min_) / (max_ - min_)
     ramp_func = np.clip(linear_func, 0, 1, out=None)
     return ramp_func
+
 
 class SeqExtendMethod(Enum):
     """Stores the acceptable string identifiers for seq length extend method"""

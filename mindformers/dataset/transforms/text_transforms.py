@@ -59,7 +59,7 @@ class TokenizerForward:
     def __call__(self, text):
         """call method"""
         text = text.tolist() if isinstance(text, np.ndarray) else text
-        for i in range(len(text)):
+        for i, _ in enumerate(text):
             if isinstance(text[i], bytes):
                 text[i] = text[i].decode("utf-8", "ignore")
         token_id = self.tokenizer(
@@ -108,7 +108,7 @@ class LabelPadding:
         pad_label_id = []
         # For CLS token
         pad_label_id.append(self.padding_value)
-        for i in range(len(label_id)):
+        for i, _ in enumerate(label_id):
             pad_label_id.append(label_id[i])
 
         while len(pad_label_id) < self.max_length:

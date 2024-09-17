@@ -137,9 +137,9 @@ def main():
                         device_id, device_ip = hccn_item.split('=')
                         device_id = device_id.split('_')[1]
                         device_ips[device_id] = device_ip.strip()
-        except OSError:
+        except OSError as e:
             print("Failed to read /etc/hccn.conf")
-            raise SystemError("Failed to find information for hccl")
+            raise SystemError("Failed to find information for hccl") from e
 
     hccn_table = {'version': '1.0',
                   'server_count': '1',

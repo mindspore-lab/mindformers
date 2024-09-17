@@ -35,7 +35,7 @@ def init_context(device_id):
 def build_text_input(prompts, templates):
     """build text input from prompts"""
     text_input = []
-    for i in range(len(prompts)):
+    for i, _ in enumerate(prompts):
         text_input.append(templates[i].format(prompts[i]))
     return text_input
 

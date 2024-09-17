@@ -49,7 +49,7 @@ def convert_attention_weight(name, value, ckpt_weights):
     split_value = ms.numpy.array_split(value, 3)
     attention_weight_names = ['attention.wq.weight', 'attention.wk.weight', 'attention.wv.weight']
 
-    for index in range(len(split_value)):
+    for index, _ in enumerate(split_value):
         cur_name = name.replace(ATTENTION_WEIGHT_NAME, attention_weight_names[index])
         ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(split_value[index])})
 
@@ -58,7 +58,7 @@ def convert_attention_bias(name, value, ckpt_weights):
     split_value = ms.numpy.array_split(value, 3)
     attention_bias_names = ['attention.wq.bias', 'attention.wk.bias', 'attention.wv.bias']
 
-    for index in range(len(split_value)):
+    for index, _ in enumerate(split_value):
         cur_name = name.replace(ATTENTION_BIAS_NAME, attention_bias_names[index])
         ckpt_weights.append({'name': cur_name, 'data': ms.Tensor(split_value[index])})
 

@@ -22,6 +22,7 @@ from mindspore.parallel.shard import Layout
 from mindformers.modules.transformer.moe import MoEInfer
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaMoeInferFeedForward
 
+
 class DeepSeekV2RotaryEmbedding(Cell):
     r"""
     Rotary Position Embedding for DeepSeekV2. This matches official implementation in Hugginface.
@@ -122,6 +123,7 @@ class DeepSeekV2RotaryEmbedding(Cell):
         self.concat.shard((strategy_in, strategy_in))
         transpose_strategy_in = (dp, mp, 1, 1, 1)
         self.transpose.shard((transpose_strategy_in,))
+
 
 class DeepSeekV2MoEInfer(Cell):
     r"""

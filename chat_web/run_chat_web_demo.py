@@ -134,8 +134,14 @@ def _predict(inputs, bot, history, do_sample, top_k, top_p, temperature, repetit
                     pass
                 except KeyError:
                     pass
+    except requests.exceptions.RequestException as e:
+        raise gr.Error(f"Request failed: {repr(e)}")
+    except SystemError as e:
+        raise gr.Error(f"Server error: {repr(e)}")
+    except ValueError as e:
+        raise gr.Error(f"Value error: {repr(e)}")
     except Exception as e:
-        raise gr.Error(repr(e))
+        raise gr.Error(f"An unexpected error occurred: {repr(e)}")
 
 
 def _reset_user_input():

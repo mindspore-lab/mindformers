@@ -31,7 +31,7 @@ from .pipeline_cell import PipelineCell
 
 def accumulate_grads_func(accumulate_grads, current_micro_grads):
     """ Accumulate grad """
-    for i in range(len(accumulate_grads)):
+    for i, _ in enumerate(accumulate_grads):
         accumulate_grads[i] += current_micro_grads[i]
     return tuple(accumulate_grads)
 
@@ -279,7 +279,7 @@ def forward_backward_pipelining_with_interleaving(
     # get model weights and merge `set_hidden_states` parameter
     weights = [sub_model.trainable_params() for sub_model in model]
     set_hidden_states_parameters = []
-    for i in range(len(weights)):
+    for i, _ in enumerate(weights):
         set_hidden_states_parameter = get_set_hidden_states_parameter(model[i])
         weights[i].insert(0, set_hidden_states_parameter)
         set_hidden_states_parameters.append(set_hidden_states_parameter)

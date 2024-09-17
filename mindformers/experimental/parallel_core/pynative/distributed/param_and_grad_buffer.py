@@ -149,6 +149,7 @@ class Bucket:
     def __repr__(self):
         return f"Bucket (offset={self.offset}, param_lens={len(self.params)})"
 
+
 class ParamAndGradBuffer:
     """
     Allocate contiguous memory buffer for given parameters and corresponding gradients. Breaking

@@ -71,6 +71,7 @@ def register_auto_class(config, pretrained_model_name_or_path, class_type, use_f
             processor_class = get_class_from_dynamic_module(class_ref, pretrained_model_name_or_path)
             MindFormerRegister.register_cls(processor_class, module_type=MindFormerModuleType.PROCESSOR)
 
+
 def get_model(model_name_or_path: str,
               revision: Optional[str] = None,
               trust_remote_code: Optional[bool] = True,

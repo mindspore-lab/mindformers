@@ -56,12 +56,12 @@ if __name__ == '__main__':
     parser.add_argument("--seq_length", type=int, default=2048)
     parser.add_argument("--min_length", type=int, default=50)
     args = parser.parse_args()
-
+    # pylint: disable=C0326
     out_dir, out_file = os.path.split(os.path.abspath(args.output_file))
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
-    schema = {'input_ids': {"type": "int32", "shape": [-1]},}
+    schema = {'input_ids': {"type": "int32", "shape": [-1]}, }
     writer = FileWriter(file_name=args.output_file,
                         shard_num=args.file_partition)
     writer.set_page_size(256 * 1024 * 1024)

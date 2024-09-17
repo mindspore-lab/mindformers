@@ -21,6 +21,7 @@ import librosa
 
 from mindformers.dataset.transforms.audio_utils import spectrogram, window_function, mel_filter_bank
 
+
 class WhisperFeatureExtractor:
     """FeatureExtractor for processing audio data"""
     def __init__(self, feature_size=128, sampling_rate=16000, hop_length=160, chunk_length=30, n_fft=400,

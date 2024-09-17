@@ -157,8 +157,8 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
         """ Converts special tokens to ids using the vocab. """
         try:
             return self.special_tokens.get(token)
-        except ValueError:
-            raise ValueError(f"{token} is not a special token for {self.name}")
+        except ValueError as e:
+            raise ValueError(f"{token} is not a special token for {self.name}") from e
 
     def _convert_id_to_token(self, index):
         """Converts an index (integer) in a token (str) using the vocab."""

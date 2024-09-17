@@ -61,9 +61,17 @@ def convert_pretrained_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ck
     if not os.path.exists(ms_ckpt_path):
         try:
             ms.save_checkpoint(ms_ckpt, ms_ckpt_path)
-        except:
-            raise RuntimeError(f'Save checkpoint to {ms_ckpt_path} failed, please checkout the path.')
-
+        except (OSError, ValueError) as e:
+            raise RuntimeError(
+                f"Save checkpoint to {ms_ckpt_path} failed"
+                ", please check the path, permissions, and checkpoint data validity."
+            ) from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Save checkpoint to {ms_ckpt_path} failed"
+                "with unknown error, please check the path,"
+                " permissions, and checkpoint data validity."
+            ) from e
 
 def convert_finetuned_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ckpt_path="swin_base_p4w7.ckpt",
                              dtype=None):
@@ -108,8 +116,18 @@ def convert_finetuned_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ckp
     if not os.path.exists(ms_ckpt_path):
         try:
             ms.save_checkpoint(ms_ckpt, ms_ckpt_path)
-        except:
-            raise RuntimeError(f'Save checkpoint to {ms_ckpt_path} failed, please checkout the path.')
+        except (OSError, ValueError) as e:
+            raise RuntimeError(
+                f"Save checkpoint to {ms_ckpt_path} failed"
+                ", please check the path, permissions, and checkpoint data validity."
+            ) from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Save checkpoint to {ms_ckpt_path} failed"
+                "with unknown error, please check the path,"
+                " permissions, and checkpoint data validity."
+            ) from e
+
 
 
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):

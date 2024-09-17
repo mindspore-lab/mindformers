@@ -33,6 +33,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode
 from research.deepseek2.deepseek2_layer import DeepSeekV2RotaryEmbedding, DeepSeekV2MoEInfer
 
+
 class DeepSeekV2Attention(nn.Cell):
     r"""
     This is an implementation of multihead attention in DeepSeekV2.
@@ -317,7 +318,7 @@ class DeepSeekV2Attention(nn.Cell):
         # redistribution allgather needed   !!!! allgather
         norm_q = self.lq_norm(q)   # [bs, seq/1, q_lora_rank]
         q = self.l2q_proj(norm_q) # [bs, seq/1, q_lora_rank] ->  [bs, seq/1,  n_head * q_head_dim]
-        q = self.reshape(q, (bs, seq_len, self.n_head, self.q_head_dim))  #  [bs, seq/1,  n_head, q_head_dim]
+        q = self.reshape(q, (bs, seq_len, self.n_head, self.q_head_dim))  # [bs, seq/1,  n_head, q_head_dim]
         # redistribution allgather:
         q = self.transpose(q, (0, 2, 1, 3))  # [bs, n_head, seq/1, q_head_dim]
 
@@ -357,7 +358,7 @@ class DeepSeekV2Attention(nn.Cell):
             context_layer = self.infer_attention(query_states, key_states, value_states, batch_valid_length,
                                                  block_tables, slot_mapping, freqs_cis, mask,
                                                  prefix_keys_values=prefix_keys_values)
-            attn_out = self.dim_slice_3d(context_layer, (0, 0, 0), (bs, seq_len, self.n_head*self.v_head_dim))
+            attn_out = self.dim_slice_3d(context_layer, (0, 0, 0), (bs, seq_len, self.n_head * self.v_head_dim))
         else:
             if self.use_flash_attention:
                 # PadV3 operator does not support bflat16, cast value_states to float32 first
@@ -433,6 +434,7 @@ class DeepSeekV2Attention(nn.Cell):
         attention_merge = self._merge_heads(weighted_values)
         # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         return attention_merge
+
 
 class DeepSeekV2DecodeLayer(nn.Cell):
     r"""

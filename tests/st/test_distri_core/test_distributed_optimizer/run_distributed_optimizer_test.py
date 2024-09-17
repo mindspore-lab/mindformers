@@ -85,7 +85,7 @@ def run_distributed_optimizer():
     label_data = np.zeros((dataset_size, seq_length)).astype(np.float32)
     for i in range(label_data.shape[0]):
         label_data[i][0] = 1
-    attn_mask = ((1-np.tril(np.ones(shape=(1, seq_length, seq_length)))) * -10000).astype(np.float16)
+    attn_mask = ((1 - np.tril(np.ones(shape=(1, seq_length, seq_length)))) * -10000).astype(np.float16)
     dataset = TestData(input_data=input_data, label_data=label_data, attn_mask=attn_mask)
     dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels', 'attention_mask'])
     dataset = dataset.batch(batch_size)
@@ -98,7 +98,7 @@ def run_distributed_optimizer():
                                      mlp_has_bias=True,
                                      mlp_has_gate=False,
                                      hidden_size=hidden_size,
-                                     ffn_hidden_size=4*hidden_size,
+                                     ffn_hidden_size=4 * hidden_size,
                                      hidden_act='gelu',
                                      parallel_config=parallel_config,
                                      param_init_dtype='float32',

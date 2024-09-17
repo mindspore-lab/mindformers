@@ -84,7 +84,7 @@ def run_processor(
         # test preprocess image
         output = image_processor(TEST_IMAGE)
         if name == 'mae':
-            for i in range(len(output)):
+            for i, _ in enumerate(output):
                 assert output[i].shape == output_shape[i]
             for i in range(len(output) - 1):
                 assert abs(output[i].sum() - output_shape[i]) < DIFF_THRESHOLD

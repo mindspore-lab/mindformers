@@ -617,23 +617,23 @@ class PretrainedConfig(PushToHubMixin):
                 # Raise any environment error raise by `cached_file`. It will have a helpful error message adapted to
                 # the original exception.
                 raise
-            except Exception:
+            except Exception as e:
                 # For any other exception, we throw a generic error.
                 raise EnvironmentError(
                     f"Can't load the configuration of '{pretrained_model_name_or_path}'. If you were trying to load it"
                     " from 'xxxxxxxxxxxxxxxxxxxxx', make sure you don't have a local directory with the same"
                     f" name. Otherwise, make sure '{pretrained_model_name_or_path}' is the correct path to a directory"
                     f" containing a {configuration_file} file"
-                )
+                ) from e
 
         try:
             # Load config dict
             config_dict = cls._dict_from_json_file(resolved_config_file)
             config_dict["_commit_hash"] = commit_hash
-        except (json.JSONDecodeError, UnicodeDecodeError):
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
             raise EnvironmentError(
                 f"It looks like the config file at '{resolved_config_file}' is not a valid JSON file."
-            )
+            ) from e
 
         if is_local:
             logger.info(f"loading configuration file {resolved_config_file}")

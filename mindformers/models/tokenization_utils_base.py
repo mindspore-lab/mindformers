@@ -314,8 +314,8 @@ class BatchEncoding(UserDict):
     def __getattr__(self, item: str):
         try:
             return self.data[item]
-        except KeyError:
-            raise AttributeError
+        except KeyError as e:
+            raise AttributeError from e
 
     def __getstate__(self):
         return {"data": self.data, "encodings": self._encodings}
@@ -781,7 +781,7 @@ class BatchEncoding(UserDict):
                     tensor = as_tensor(value, dtype=tensor_dtype)
 
                     self[key] = tensor
-            except Exception as e:
+            except (TypeError, ValueError) as e:
                 if key == "overflowing_tokens":
                     raise ValueError(
                         "Unable to create tensor returning overflowing tokens of different lengths. "
@@ -792,6 +792,10 @@ class BatchEncoding(UserDict):
                     " 'padding=True' 'truncation=True' to have batched tensors with the same length. Perhaps your"
                     f" features (`{key}` in this case) have excessive nesting (inputs type `list` where type `int` is"
                     " expected)."
+                ) from e
+            except Exception as e:
+                raise ValueError(
+                    f"Unable to convert {key} to tensor."
                 ) from e
 
         return self
@@ -1782,8 +1786,8 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
             import jinja2
             from jinja2.exceptions import TemplateError
             from jinja2.sandbox import ImmutableSandboxedEnvironment
-        except ImportError:
-            raise ImportError("apply_chat_template requires jinja2 to be installed.")
+        except ImportError as e:
+            raise ImportError("apply_chat_template requires jinja2 to be installed.") from e
 
         if version.parse(jinja2.__version__) <= version.parse("3.0.0"):
             raise ImportError(
@@ -2470,11 +2474,11 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         # Instantiate the tokenizer.
         try:
             tokenizer = cls(*init_inputs, **init_kwargs)
-        except OSError:
+        except OSError as e:
             raise OSError(
                 "Unable to load vocabulary from file. "
                 "Please check that the provided vocabulary is accessible and not corrupted."
-            )
+            ) from e
 
         if added_tokens_decoder != {} and max(list(added_tokens_decoder.keys())[-1], 0) > tokenizer.vocab_size:
             logger.warning(

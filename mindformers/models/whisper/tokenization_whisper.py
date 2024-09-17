@@ -204,6 +204,7 @@ TO_LANGUAGE_CODE = {
 
 TASK_IDS = ["translate", "transcribe"]
 
+
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class WhisperTokenizer(PreTrainedTokenizer):
     """
@@ -963,8 +964,6 @@ def _decode_asr(tokenizer, model_outputs, *, return_timestamps, return_language,
                 language = LANGUAGES.get(text, None)
                 if language is not None:
                     # 1/ Indeed some language
-                    # TODO Handle when language is different from the previous
-                    # one, and we cannot use timestamped tokens to create chunks
                     if last_language and language != last_language and not return_timestamps:
                         previous_tokens.append(current_tokens)
                         resolved_tokens = _find_longest_common_sequence(previous_tokens)

@@ -40,10 +40,14 @@ def build_model(config):
     model_config.checkpoint_name_or_path = None
     try:
         _ = LlamaForCausalLM(model_config)
+    except (TypeError, ValueError, RuntimeError) as e:
+        logger.error(e)
+        logger.error(f"Create Model with {config} Failed. with type error or value error or runtime error.")
+        raise AssertionError from e
     except Exception as e:
         logger.error(e)
-        logger.error(f"Create Model with {config} Failed.")
-        raise AssertionError
+        logger.error(f"Create Model with {config} Failed with unknown error.")
+        raise AssertionError from e
 
 
 def get_yaml_files(prefix):

@@ -40,8 +40,8 @@ class DictWithValueError(dict):
     def __getitem__(self, key):
         try:
             return super().__getitem__(key)
-        except KeyError:
-            raise ValueError(f"'{key}' is not supported, please select one of {list(self.keys())}")
+        except KeyError as e:
+            raise ValueError(f"'{key}' is not supported, please select one of {list(self.keys())}") from e
 
 
 def ensure_divisibility(numerator, denominator):

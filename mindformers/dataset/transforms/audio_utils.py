@@ -379,7 +379,6 @@ def window_function(
     return padded_window
 
 
-# TODO This method does not support batching yet as we are mainly focused on inference.
 def spectrogram(
         waveform: np.ndarray,
         window: np.ndarray,

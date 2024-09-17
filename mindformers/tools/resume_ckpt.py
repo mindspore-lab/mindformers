@@ -101,7 +101,7 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, gap_time=5, limit_time=3600):
         except BaseException as e:
             if device_num > 1:
                 create_and_write_info_to_txt(get_resume_ckpt_failed_txt, str(e))
-            raise RuntimeError(str(e))
+            raise RuntimeError(str(e)) from e
 
         if device_num > 1:
             logger.info("wait all rank get resume checkpoint")

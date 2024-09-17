@@ -58,7 +58,7 @@ class _MicroBatch(nn.Cell):
             strided_slice_begin = ()
             strided_slice_strides = ()
             strided_slice_end = ()
-            for j in range(len(input_shape)):
+            for j, _ in enumerate(input_shape):
                 strided_slice_strides += (1,)
                 if j == self.axis_list[k]:
                     strided_slice_begin += (micro_batch_begin,)

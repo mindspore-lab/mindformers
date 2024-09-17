@@ -649,7 +649,7 @@ class GenerationMixin:
             input_ids = np.array(input_ids)
         except ValueError as e:
             raise ValueError(str(e) + " Please check your inputs of model.generate(),"
-                                      " and make sure the inputs are padded to same length.")
+                                      " and make sure the inputs are padded to same length.") from e
         input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
         batch_size = input_ids.shape[0]
 

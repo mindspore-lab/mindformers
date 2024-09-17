@@ -34,6 +34,7 @@ from scripts.benchmark.base_init_model import BaseInitModel
 cur_dir = os.path.dirname(os.path.realpath(__file__))
 project_root = os.path.dirname(os.path.dirname(mindformers.__file__))
 
+
 def convert_path(src_path, save_path):
     src_path = os.path.realpath(src_path)
     file_name = os.path.basename(src_path)
@@ -42,11 +43,13 @@ def convert_path(src_path, save_path):
 
 DATASET_TYPES = ['wiki', 'alpaca']
 
+
 class DatasetType(Enum):
     ZIP = "zip"
     JSON = "json"
     TXT = "txt"
     OTHER = "other"
+
 
 class SupportedDatasets(Enum):
     """Supported datasets"""
@@ -185,7 +188,7 @@ class ModelPretrain(BaseInitModel):
             ], check=True)
             logger.info(f"Executed {script_path} successfully with output file {output_file}.")
         except subprocess.CalledProcessError as e:
-            raise Exception(f"Failed to execute {script_path}: {e}")
+            raise Exception(f"Failed to execute {script_path}: {e}") from e
 
     def _process_wikitext2(self, temp_dir) -> str:
         """process_wikitext2"""
@@ -283,7 +286,7 @@ class ModelPretrain(BaseInitModel):
                 ], check=True)
                 logger.info(f"Executed {alpaca_converter_script} successfully with output file {converted_file}.")
             except subprocess.CalledProcessError as e:
-                raise Exception(f"Failed to execute {alpaca_converter_script}: {e}")
+                raise Exception(f"Failed to execute {alpaca_converter_script}: {e}") from e
 
 
             seq_length = self.config.model.model_config.seq_length
@@ -338,7 +341,7 @@ class ModelPretrain(BaseInitModel):
                     for chunk in r.iter_content(chunk_size=8192):
                         f.write(chunk)
         except requests.exceptions.RequestException as e:
-            raise Exception(f"Failed to download the file，URL:{url}: {e}")
+            raise Exception(f"Failed to download the file，URL:{url}: {e}") from e
 
         return save_path
 
@@ -357,7 +360,7 @@ class ModelPretrain(BaseInitModel):
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_to)
         except zipfile.BadZipFile as e:
-            raise Exception(f"Failed to extract the file: {e}")
+            raise Exception(f"Failed to extract the file: {e}") from e
 
     def process_tokenizer(self):
         """Process tokenizer"""

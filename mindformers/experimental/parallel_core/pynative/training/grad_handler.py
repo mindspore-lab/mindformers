@@ -38,7 +38,7 @@ def inplace_apply_to_tensor_list(func: callable):
     """
 
     def inplace_apply_func(tensor_list, *args, **kwargs):
-        for idx in range(len(tensor_list)):
+        for idx, _ in enumerate(tensor_list):
             tensor_list[idx].copy_(func(tensor_list[idx], *args, **kwargs))
 
     return inplace_apply_func
