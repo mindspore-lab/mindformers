@@ -21,9 +21,9 @@ import os
 import re
 import numpy as np
 
-from mindformers.models import build_tokenizer
-
 from mindspore.mindrecord import FileWriter
+
+from mindformers.models import build_tokenizer
 
 
 IGNORE_TOKEN_ID = -100

@@ -18,6 +18,14 @@ import os
 from typing import Union
 
 import psutil
+
+import mindspore as ms
+import mindspore.dataset as ds
+from mindspore import context
+from mindspore.communication.management import init, get_group_size, get_rank
+from mindspore.parallel import set_algo_parameters
+from mindspore.parallel._cost_model_context import _set_multi_subgraphs
+
 from mindformers.tools import PARALLEL_MODE, MODE, get_output_subpath, check_in_modelarts
 from mindformers.tools.check_rules import get_server_num
 from mindformers.tools.logger import logger
@@ -26,13 +34,6 @@ from mindformers.tools.utils import check_in_dynamic_cluster, set_strategy_save_
 from mindformers.trainer.config_args import ContextConfig, ParallelContextConfig
 from mindformers.trainer.training_args import TrainingArguments
 from mindformers.utils import get_cann_workqueue_cores
-
-import mindspore as ms
-import mindspore.dataset as ds
-from mindspore import context
-from mindspore.communication.management import init, get_group_size, get_rank
-from mindspore.parallel import set_algo_parameters
-from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 
 CONTEXT = {
     'mode': 'GRAPH_MODE',

@@ -19,6 +19,11 @@ from glob import glob
 from pathlib import Path
 
 import numpy as np
+
+import mindspore as ms
+from mindspore import Tensor
+from mindspore.common import initializer as init
+
 import mindformers
 from mindformers import MindFormerConfig
 from mindformers.core.context import build_context
@@ -26,10 +31,6 @@ from mindformers.core.parallel_config import build_parallel_config
 from mindformers.models import build_tokenizer
 from mindformers.tools.logger import logger
 from mindformers.trainer.utils import transform_and_load_checkpoint
-
-import mindspore as ms
-from mindspore import Tensor
-from mindspore.common import initializer as init
 from scripts.benchmark.base_init_model import BaseInitModel, convert_path
 
 

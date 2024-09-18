@@ -148,7 +148,8 @@ class ModelRunner:
         model_runner_cls = MindIEModelRunner
         if model_type not in models.__all__:
             try:
-                model_runner_cls = __import__(model_type, ["MindIEModelRunner"]).MindIEModelRunner
+                import importlib
+                model_runner_cls = importlib.import_module(model_type, ["MindIEModelRunner"]).MindIEModelRunner
             except ImportError:
                 logger.info(f"import MindIEModelRunner from module {model_type} failed, "
                             f"and will use the default one defined in mindformers.")

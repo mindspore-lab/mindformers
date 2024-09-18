@@ -15,9 +15,9 @@
 """InternLM2 models' APIs."""
 import copy
 
+import mindspore.common.dtype as mstype
 from mindspore import nn, ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-import mindspore.common.dtype as mstype
 
 from mindformers import Linear, CrossEntropyLoss
 from mindformers.models import LlamaModel, LlamaForCausalLM
@@ -28,7 +28,7 @@ from mindformers.models.utils import lazy_inline
 
 from internlm2_transformer import InternLM2DecodeLayer
 from internlm2_config import InternLM2Config
-from research.internlm2.internlm2_interleave import InternLM2DecodeLayerInterleave
+from internlm2_interleave import InternLM2DecodeLayerInterleave
 
 
 class InternLM2Model(LlamaModel):
