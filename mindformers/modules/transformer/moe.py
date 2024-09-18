@@ -57,6 +57,7 @@ dtype_map = {
     'bfloat16': mstype.bfloat16
 }
 
+
 def _check_aux_loss_config(aux_loss_types, aux_loss_factors):
     """
         Check if aux_loss_types and aux_loss_factors are valid.
@@ -82,6 +83,7 @@ def _check_aux_loss_config(aux_loss_types, aux_loss_factors):
         raise ValueError(f"Got auxiliary loss types {aux_loss_types}, but corresponding loss factors are not set.")
 
     return aux_loss_types, aux_loss_factors
+
 
 class MoEConfig:
     r"""
@@ -1072,6 +1074,7 @@ class TopkRouter(Cell):
         output = (expert_mask, expert_gate, expert_mask_flat, position_in_expert)
         return output
 
+
 # pylint: disable=C0330
 class TopkRouterV2(Cell):
     r"""
@@ -1464,9 +1467,10 @@ class TopkRouterV2(Cell):
         # (dp, ep) <- (dp, ep, E/dp*kN) ,  1/(E/ep) * \sum_{j in E'} \sum_{t}^N 1(token t sent to device j)
         fi = self.reduce_mean(mask, -1)
         # \alpha * (E/ep)**2 * ep / dp / N \sum_i^{ep} (fi * Pi)
-        comm_load_loss = self.mul(self.reduce_mean_2d(self.mul_2d(pi, fi)), alpha * self.expert_dim**2)
+        comm_load_loss = self.mul(self.reduce_mean_2d(self.mul_2d(pi, fi)), alpha * self.expert_dim ** 2)
 
         return comm_load_loss
+
 
 class MoEInfer(Cell):
     r"""

@@ -1840,6 +1840,7 @@ def validate_bucket_size(config_instance, bucket_size):
             raise ValueError("bucket_size can only be set when `wrap_with_ddp=True`.")
     return bucket_size
 
+
 @TrainingConfig.validator("check_for_nan_in_grad")
 def validate_check_for_nan_in_grad(config_instance, check_for_nan_in_grad):
     """Validate check_for_nan_in_grad."""

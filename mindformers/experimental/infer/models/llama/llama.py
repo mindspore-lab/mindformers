@@ -109,7 +109,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
                     input_ids_list.append(input_ids[i][:context_len])
                 else:
                     input_ids_list.append(
-                        input_ids[i][context_len-1:context_len])
+                        input_ids[i][context_len - 1:context_len])
 
             input_ids = np.concatenate(input_ids_list, 0)
             position_ids = np.concatenate(position_ids_list, 0)

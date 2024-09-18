@@ -26,6 +26,7 @@ from toolkit.benchmarks.multimodal_models import get_model
 # pylint: disable=protected-access
 ssl._create_default_https_context = ssl._create_unverified_context
 
+
 def parse_args():
     """Describe evaluation parameters."""
     parser = argparse.ArgumentParser()

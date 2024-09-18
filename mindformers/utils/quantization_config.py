@@ -48,6 +48,7 @@ dtype_map = {"None": None,
 outliers_map = {"None": OutliersSuppressionType.NONE,
                 "smooth": OutliersSuppressionType.SMOOTH}
 
+
 class QuantizationMethod(str, Enum):
     RTN = "rtn"
     PTQ = "ptq"
@@ -167,44 +168,43 @@ class QuantizationConfigMixin:
 
 @dataclass
 class RtnConfig(QuantizationConfigMixin, PTQConfig):
+    """Config for post trainning quantization.
+
+    Args:
+
+        mode (:class:`mindspore_gs.ptq.PTQMode`): Flag for ptq mode, ``QUANTIZATION`` for quantization mode,
+            ``DEPLOY`` for deploy mode, MindFormers only supports deploy mode now.
+        backend (:class:`mindspore_gs.ptq.BackendTarget`): Flag for backend target,
+            ``NONE`` for no specific backend, ``ASCEND`` for ascend backend.
+        weight_dtype (mindspore.dtype): Used to configure the quantization type of weight. mindspore.dtype.int8
+            indicates that the weight is quantized by 8 bits, and None indicates that it is not quantized.
+        activation_dtype (mindspore.dtype): Used to configure the quantization type of activation.
+            mindspore.dtype.int8 indicates that the activation is quantized by 8 bits,
+            and None indicates that it is not quantized.
+        kvcache_dtype (mindspore.dtype): Used to configure the quantization type of kvcache. mindspore.dtype.int8
+            indicates that the kvcache is quantized by 8 bits, and None indicates that it is not quantized.
+        algorithm_args (Union[dict, dataclass]): Used to configure hyperparameters of algorithms such as RTN,
+            SmoothQuant, and OmniQuant.
+        modules_to_not_convert (List[str]): Blacklist of opname. Layers in network with name fuzzy matched with this
+            blacklist will not being quanted.
+        outliers_suppression (OutliersSuppressionType): the method of outliers suprression,
+            support None and smooth currently.
+
+    Raises:
+        ValueError: If `mode` is not PTQMode.QUANTIZE or PTQMode.DEPLOY.
+        ValueError: If `backend` is not BackendTarget.NONE or BackendTarget.ASCEND.
+        TypeError: if `modules_to_not_convert` is not a list of str.
+        ValueError: If `weight_dtype` is not mindspore.dtype.int8 or None.
+        ValueError: If `activation_dtype` is not mindspore.dtype.int8 or None.
+        ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
+        ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
+
+    Examples:
+        >>> from mindformers.utils.quantization_config import RtnConfig
+        >>> RtnConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['layer0'])
+        SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
+                            opname_blacklist=['layer0'], algo_args={})
     """
-        Config for post trainning quantization.
-
-        Args:
-
-            mode (:class:`mindspore_gs.ptq.PTQMode`): Flag for ptq mode, ``QUANTIZATION`` for quantization mode,
-                ``DEPLOY`` for deploy mode, MindFormers only supports deploy mode now.
-            backend (:class:`mindspore_gs.ptq.BackendTarget`): Flag for backend target,
-                ``NONE`` for no specific backend, ``ASCEND`` for ascend backend.
-            weight_dtype (mindspore.dtype): Used to configure the quantization type of weight. mindspore.dtype.int8
-                indicates that the weight is quantized by 8 bits, and None indicates that it is not quantized.
-            activation_dtype (mindspore.dtype): Used to configure the quantization type of activation.
-                mindspore.dtype.int8 indicates that the activation is quantized by 8 bits,
-                and None indicates that it is not quantized.
-            kvcache_dtype (mindspore.dtype): Used to configure the quantization type of kvcache. mindspore.dtype.int8
-                indicates that the kvcache is quantized by 8 bits, and None indicates that it is not quantized.
-            algorithm_args (Union[dict, dataclass]): Used to configure hyperparameters of algorithms such as RTN,
-                SmoothQuant, and OmniQuant.
-            modules_to_not_convert (List[str]): Blacklist of opname. Layers in network with name fuzzy matched with this
-                blacklist will not being quanted.
-            outliers_suppression (OutliersSuppressionType): the method of outliers suprression,
-                support None and smooth currently.
-
-        Raises:
-            ValueError: If `mode` is not PTQMode.QUANTIZE or PTQMode.DEPLOY.
-            ValueError: If `backend` is not BackendTarget.NONE or BackendTarget.ASCEND.
-            TypeError: if `modules_to_not_convert` is not a list of str.
-            ValueError: If `weight_dtype` is not mindspore.dtype.int8 or None.
-            ValueError: If `activation_dtype` is not mindspore.dtype.int8 or None.
-            ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
-            ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
-
-        Examples:
-            >>> from mindformers.utils.quantization_config import RtnConfig
-            >>> RtnConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['layer0'])
-            SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
-                              opname_blacklist=['layer0'], algo_args={})
-        """
     # pylint: disable=W0613
     def __init__(
             self,
@@ -260,45 +260,46 @@ class RtnConfig(QuantizationConfigMixin, PTQConfig):
                              f"kvcache_quant_dtype={self.kvcache_quant_dtype},"
                              f"outliers_suppression={self.outliers_suppression}")
 
+
 @dataclass
 class PtqConfig(QuantizationConfigMixin, PTQConfig):
     """Config for post trainning quantization.
 
-        Args:
+    Args:
 
-            mode (:class:`mindspore_gs.ptq.PTQMode`): Flag for ptq mode, ``QUANTIZATION`` for quantization mode,
-                ``DEPLOY`` for deploy mode, MindFormers only supports deploy mode now.
-            backend (:class:`mindspore_gs.ptq.BackendTarget`): Flag for backend target,
-                ``NONE`` for no specific backend, ``ASCEND`` for ascend backend.
-            weight_dtype (mindspore.dtype): Used to configure the quantization type of weight. mindspore.dtype.int8
-                indicates that the weight is quantized by 8 bits, and None indicates that it is not quantized.
-            activation_dtype (mindspore.dtype): Used to configure the quantization type of activation.
-                mindspore.dtype.int8 indicates that the activation is quantized by 8 bits,
-                and None indicates that it is not quantized.
-            kvcache_dtype (mindspore.dtype): Used to configure the quantization type of kvcache. mindspore.dtype.int8
-                indicates that the kvcache is quantized by 8 bits, and None indicates that it is not quantized.
-            algorithm_args (Union[dict, dataclass]): Used to configure hyperparameters of algorithms such as RTN,
-                SmoothQuant, and OmniQuant.
-            modules_to_not_convert (List[str]): Blacklist of opname. Layers in network with name fuzzy matched with this
-                blacklist will not being quanted.
-            outliers_suppression (OutliersSuppressionType): the method of outliers suprression,
-                support None and smooth currently.
+        mode (:class:`mindspore_gs.ptq.PTQMode`): Flag for ptq mode, ``QUANTIZATION`` for quantization mode,
+            ``DEPLOY`` for deploy mode, MindFormers only supports deploy mode now.
+        backend (:class:`mindspore_gs.ptq.BackendTarget`): Flag for backend target,
+            ``NONE`` for no specific backend, ``ASCEND`` for ascend backend.
+        weight_dtype (mindspore.dtype): Used to configure the quantization type of weight. mindspore.dtype.int8
+            indicates that the weight is quantized by 8 bits, and None indicates that it is not quantized.
+        activation_dtype (mindspore.dtype): Used to configure the quantization type of activation.
+            mindspore.dtype.int8 indicates that the activation is quantized by 8 bits,
+            and None indicates that it is not quantized.
+        kvcache_dtype (mindspore.dtype): Used to configure the quantization type of kvcache. mindspore.dtype.int8
+            indicates that the kvcache is quantized by 8 bits, and None indicates that it is not quantized.
+        algorithm_args (Union[dict, dataclass]): Used to configure hyperparameters of algorithms such as RTN,
+            SmoothQuant, and OmniQuant.
+        modules_to_not_convert (List[str]): Blacklist of opname. Layers in network with name fuzzy matched with this
+            blacklist will not being quanted.
+        outliers_suppression (OutliersSuppressionType): the method of outliers suprression,
+            support None and smooth currently.
 
-        Raises:
-            ValueError: If `mode` is not PTQMode.QUANTIZE or PTQMode.DEPLOY.
-            ValueError: If `backend` is not BackendTarget.NONE or BackendTarget.ASCEND.
-            TypeError: if `modules_to_not_convert` is not a list of str.
-            ValueError: If `weight_dtype` is not mindspore.dtype.int8 or None.
-            ValueError: If `activation_dtype` is not mindspore.dtype.int8 or None.
-            ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
-            ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
+    Raises:
+        ValueError: If `mode` is not PTQMode.QUANTIZE or PTQMode.DEPLOY.
+        ValueError: If `backend` is not BackendTarget.NONE or BackendTarget.ASCEND.
+        TypeError: if `modules_to_not_convert` is not a list of str.
+        ValueError: If `weight_dtype` is not mindspore.dtype.int8 or None.
+        ValueError: If `activation_dtype` is not mindspore.dtype.int8 or None.
+        ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
+        ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
 
-        Examples:
-            >>> from mindformers.utils.quantization_config import PtqConfig
-            >>> PtqConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['layer0'])
-            SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
-                              opname_blacklist=['layer0'], algo_args={})
-        """
+    Examples:
+        >>> from mindformers.utils.quantization_config import PtqConfig
+        >>> PtqConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['layer0'])
+        SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
+                            opname_blacklist=['layer0'], algo_args={})
+    """
     # pylint: disable=W0613
     def __init__(
             self,
@@ -359,41 +360,41 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
 class SmoothQuantConfig(QuantizationConfigMixin, PTQConfig):
     """Config for post trainning quantization.
 
-        Args:
+    Args:
 
-            mode (:class:`mindspore_gs.ptq.PTQMode`): Flag for ptq mode, ``QUANTIZATION`` for quantization mode,
-                ``DEPLOY`` for deploy mode, MindFormers only supports deploy mode now.
-            backend (:class:`mindspore_gs.ptq.BackendTarget`): Flag for backend target,
-                ``NONE`` for no specific backend, ``ASCEND`` for ascend backend.
-            weight_dtype (mindspore.dtype): Used to configure the quantization type of weight. mindspore.dtype.int8
-                indicates that the weight is quantized by 8 bits, and None indicates that it is not quantized.
-            activation_dtype (mindspore.dtype): Used to configure the quantization type of activation.
-                mindspore.dtype.int8 indicates that the activation is quantized by 8 bits,
-                and None indicates that it is not quantized.
-            kvcache_dtype (mindspore.dtype): Used to configure the quantization type of kvcache. mindspore.dtype.int8
-                indicates that the kvcache is quantized by 8 bits, and None indicates that it is not quantized.
-            algorithm_args (Union[dict, dataclass]): Used to configure hyperparameters of algorithms such as RTN,
-                SmoothQuant, and OmniQuant.
-            modules_to_not_convert (List[str]): Blacklist of opname. Layers in network with name fuzzy matched with this
-                blacklist will not being quanted.
-            outliers_suppression (OutliersSuppressionType): the method of outliers suprression,
-                support None and smooth currently.
+        mode (:class:`mindspore_gs.ptq.PTQMode`): Flag for ptq mode, ``QUANTIZATION`` for quantization mode,
+            ``DEPLOY`` for deploy mode, MindFormers only supports deploy mode now.
+        backend (:class:`mindspore_gs.ptq.BackendTarget`): Flag for backend target,
+            ``NONE`` for no specific backend, ``ASCEND`` for ascend backend.
+        weight_dtype (mindspore.dtype): Used to configure the quantization type of weight. mindspore.dtype.int8
+            indicates that the weight is quantized by 8 bits, and None indicates that it is not quantized.
+        activation_dtype (mindspore.dtype): Used to configure the quantization type of activation.
+            mindspore.dtype.int8 indicates that the activation is quantized by 8 bits,
+            and None indicates that it is not quantized.
+        kvcache_dtype (mindspore.dtype): Used to configure the quantization type of kvcache. mindspore.dtype.int8
+            indicates that the kvcache is quantized by 8 bits, and None indicates that it is not quantized.
+        algorithm_args (Union[dict, dataclass]): Used to configure hyperparameters of algorithms such as RTN,
+            SmoothQuant, and OmniQuant.
+        modules_to_not_convert (List[str]): Blacklist of opname. Layers in network with name fuzzy matched with this
+            blacklist will not being quanted.
+        outliers_suppression (OutliersSuppressionType): the method of outliers suprression,
+            support None and smooth currently.
 
-        Raises:
-            ValueError: If `mode` is not PTQMode.QUANTIZE or PTQMode.DEPLOY.
-            ValueError: If `backend` is not BackendTarget.NONE or BackendTarget.ASCEND.
-            TypeError: if `modules_to_not_convert` is not a list of str.
-            ValueError: If `weight_dtype` is not mindspore.dtype.int8 or None.
-            ValueError: If `activation_dtype` is not mindspore.dtype.int8 or None.
-            ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
-            ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
+    Raises:
+        ValueError: If `mode` is not PTQMode.QUANTIZE or PTQMode.DEPLOY.
+        ValueError: If `backend` is not BackendTarget.NONE or BackendTarget.ASCEND.
+        TypeError: if `modules_to_not_convert` is not a list of str.
+        ValueError: If `weight_dtype` is not mindspore.dtype.int8 or None.
+        ValueError: If `activation_dtype` is not mindspore.dtype.int8 or None.
+        ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
+        ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
 
-        Examples:
-            >>> from mindformers.utils import SmoothQuantConfig
-            >>> SmoothQuantConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['layer0'])
-            SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
-                              opname_blacklist=['layer0'], algo_args={})
-        """
+    Examples:
+        >>> from mindformers.utils import SmoothQuantConfig
+        >>> SmoothQuantConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, opname_blacklist=['layer0'])
+        SmoothQuantConfig(mode=<PTQMode.DEPLOY: 'deploy'>, backend=<BackendTarget.ASCEND: 'ascend'>,
+                            opname_blacklist=['layer0'], algo_args={})
+    """
     # pylint: disable=W0613
     def __init__(
             self,

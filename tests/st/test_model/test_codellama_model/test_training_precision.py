@@ -41,7 +41,7 @@ def generator_train():
     batch_size = 4
     vocab_size = 32000
     input_ids = np.random.randint(low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
-    for idx in range(len(input_ids)):
+    for idx, _ in enumerate(input_ids):
         yield input_ids[idx]
 
 

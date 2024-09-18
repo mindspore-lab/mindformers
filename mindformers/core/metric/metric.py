@@ -830,10 +830,9 @@ class EmF1Metric(nn.Metric):
     def update(self, *inputs):
         """Update results for every batch"""
         gen, label = inputs[0], inputs[1]
-        for i in range(len(gen)):
+        for i, _ in enumerate(gen):
             gen[i] = gen[i].strip()
             gen[i] = gen[i].split("\n")[0]
-
         print(f"pred is:\n {gen}\n",
               f"label is:\n {label}")
 
@@ -898,9 +897,9 @@ class EmF1Metric(nn.Metric):
         m = [[0 for i in range(len(s2) + 1)] for j in range(len(s1) + 1)]
         mmax = 0
         p = 0
-        for i in range(len(s1)):
-            for j in range(len(s2)):
-                if s1[i] == s2[j]:
+        for i, s1_i in enumerate(s1):
+            for j, s2_j in enumerate(s2):
+                if s1_i == s2_j:
                     m[i + 1][j + 1] = m[i][j] + 1
                     if m[i + 1][j + 1] > mmax:
                         mmax = m[i + 1][j + 1]

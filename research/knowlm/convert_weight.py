@@ -53,9 +53,13 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     print(f"Trying to convert huggingface checkpoint in '{ckpt_dir}'.", flush=True)
     try:
         from transformers import LlamaForCausalLM
-    except:
-        raise ImportError(f"Failed to load huggingface checkpoint. Please make sure transformers is available.")
-
+    except ImportError as e:
+        raise ImportError(
+            "Failed to load HuggingFace checkpoint. "
+            "Please make sure the 'transformers' library is installed and available."
+        ) from e
+    except Exception as e:
+        raise RuntimeError("Unexpected error occurred when importing HuggingFace `transformers` library.") from e
     try:
         model_hf = LlamaForCausalLM.from_pretrained(ckpt_dir)
         args_hf = read_json(os.path.join(ckpt_dir, "config.json"))

@@ -63,8 +63,8 @@ class LMDBDataset(Dataset):
             key = str(idx).encode("utf-8")
             try:
                 row = pickle.loads(txn.get(key))
-            except TypeError:
-                raise IndexError("Index out of range")
+            except TypeError as e:
+                raise IndexError("Index out of range") from e
             if self.process_fn:
                 return self.process_fn(row)
             return row

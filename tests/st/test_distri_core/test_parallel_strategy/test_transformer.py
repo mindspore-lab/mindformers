@@ -43,7 +43,7 @@ class TestParallelTransformerCkpt:
         scripts_cmd = f"{scripts_path} --test_mode='transform_src' --tp_size={tp_size} "
         cmd = f"msrun --worker_num={device_num} " + \
                     f"--local_worker_num={device_num} " + \
-                    f"--master_port=8118 "+\
+                    f"--master_port=8118 " + \
                     f"--log_dir=msrun_log_pynative_transformer_src " + \
                     f"--join=True " + \
                     f"--cluster_time_out=300 " + \

@@ -338,10 +338,10 @@ class ColumnParallelLinear(nn.Cell):
         if self.use_zero3:
             try:
                 dp_size = get_dp_world_size()
-            except AssertionError:
+            except AssertionError as e:
                 raise RuntimeError("When using zero3 optimizer parallel. Data parallel communication "
                                    "need be initialized. Please check 'dp' in order when calling "
-                                   "initialize_model_parallel.")
+                                   "initialize_model_parallel.") from e
         if self.transpose_b:
             if self.use_zero3 and self.output_size_per_partition % dp_size == 0:
                 self.output_size_per_partition = divide(self.output_size_per_partition, dp_size)
@@ -575,10 +575,10 @@ class RowParallelLinear(nn.Cell):
         if self.use_zero3:
             try:
                 dp_size = get_dp_world_size()
-            except AssertionError:
+            except AssertionError as e:
                 raise RuntimeError("When using zero3 optimizer parallel. Data parallel communication "
                                    "need be initialized. Please check 'dp' in order when calling "
-                                   "initialize_model_parallel.")
+                                   "initialize_model_parallel.") from e
         if self.transpose_b:
             if self.use_zero3 and self.output_size % dp_size == 0:
                 self.output_size = divide(self.output_size, dp_size)

@@ -15,6 +15,7 @@
 """Whisper Base Model."""
 from mindformers.models.whisper.configuration_whisper import WhisperConfig
 
+
 def get_config():
     config = WhisperConfig(
         encoder_layers=1,

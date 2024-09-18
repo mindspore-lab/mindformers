@@ -238,11 +238,11 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-
+    # pylint: disable=C0326
     out_dir, out_file = os.path.split(os.path.abspath(args.output_file))
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
-    mindrecord_schema = {args.data_column_name: {"type": "int32", "shape": [-1]},}
+    mindrecord_schema = {args.data_column_name: {"type": "int32", "shape": [-1]}, }
 
     # Start to load tokenizer
     if args.tokenizer == 'gpt':

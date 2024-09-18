@@ -305,7 +305,7 @@ class FlashSP(nn.Cell):
     def get_rank_index(self, rank, step, sp_size):
         rank_list = [i for i in range(sp_size)]
         rank_order = []
-        for i in range(len(rank_list)):
+        for i, _ in enumerate(rank_list):
             if i % (step + 1) == 0:
                 rank_order.append(rank_list[i])
         for i in range(1, step + 1):

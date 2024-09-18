@@ -18,6 +18,7 @@ import torch
 import numpy as np
 import mindspore as ms
 
+
 # pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=ms.float32, **kwargs):
     """convert whisper torch model to mindspore ckpt"""

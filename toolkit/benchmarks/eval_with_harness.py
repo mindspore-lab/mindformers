@@ -202,10 +202,10 @@ class MFLM(TemplateLM):
         tokenizer_type = tokenizer_kwargs.pop('type')
         try:
             tokenizer_class = MindFormerRegister.get_cls(module_type='tokenizer', class_name=tokenizer_type)
-        except ValueError:
+        except ValueError as e:
             tokenizer_py_path = [str(file.resolve()) for file in Path(pretrained).glob('*tokenizer*.py')]
             if len(tokenizer_py_path) != 1:
-                raise Exception("There is no or more than one tokenizer python script in the model directory.")
+                raise Exception("There is no or more than one tokenizer python script in the model directory.") from e
             tokenizer_class = load_class_from_file(tokenizer_py_path[0], tokenizer_type)
         except Exception as e:
             raise e

@@ -24,6 +24,7 @@ from mindspore import dtype as mstype
 from mindformers.models.whisper.modeling_whisper import WhisperForConditionalGeneration
 from .base_model import get_config
 
+
 class TestWhisper:
     """A test class for testing model"""
 

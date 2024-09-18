@@ -87,7 +87,7 @@ class Cifar100DataLoader:
             raise ValueError(f"the length of column_names should be 3,"
                              f" but got {len(column_names)}")
 
-        for index in range(len(column_names)):
+        for index, _ in enumerate(column_names):
             if not isinstance(column_names[index], str):
                 raise ValueError(f"the item type of column_names should be string,"
                                  f" but got {type(column_names[index])}")
@@ -135,13 +135,13 @@ class Cifar100DataSet:
             label_names = meta_dict[b'fine_label_names']
         else:
             label_names = meta_dict[b'coarse_label_names']
-        for index in range(len(label_names)):
+        for index, _ in enumerate(label_names):
             label_names[index] = label_names[index].decode()
 
         self.label_names = label_names
         hypothesis = []
-        for index in range(len(label_names)):
-            hypothesis.append(hypothesis_template.format(label_names[index]))
+        for label_name in label_names:
+            hypothesis.append(hypothesis_template.format(label_name))
 
         if stage in ["train", "all"]:
             train_file = os.path.join(dataset_dir, "train")

@@ -184,16 +184,16 @@ def get_checkpoint_shard_files(
                 subfolder=subfolder,
                 _commit_hash=_commit_hash,
             )
-        except EntryNotFoundError:
+        except EntryNotFoundError as e:
             raise EnvironmentError(
                 f"{pretrained_model_name_or_path} does not appear to have a file named {shard_filename} which is "
                 "required according to the checkpoint index."
-            )
-        except OmHubHTTPError:
+            ) from e
+        except OmHubHTTPError as e:
             raise EnvironmentError(
                 f"We couldn't connect to '{OPENMIND_CO_RESOLVE_ENDPOINT}' to load {shard_filename}. You should try"
                 " again after checking your internet connection."
-            )
+            ) from e
 
         cached_filenames.append(cached_filename)
 
@@ -386,7 +386,7 @@ def cached_file(
             f"{path_or_repo_id} does not appear to have a file named {full_filename}. Checkout "
             f"'https://openmind.cn/{path_or_repo_id}/{revision}' for available files."
         ) from e
-    except OmHubHTTPError as err:
+    except OmHubHTTPError as e:
         # First we try to see if we have a cached version (not up to date):
         resolved_file = try_to_load_from_cache(
             path_or_repo_id, full_filename, cache_dir=cache_dir, revision=revision
@@ -396,8 +396,8 @@ def cached_file(
         if not _raise_exceptions_for_connection_errors:
             return None
         raise EnvironmentError(
-            f"There was a specific connection error when trying to load {path_or_repo_id}:\n{err}"
-        )
+            f"There was a specific connection error when trying to load {path_or_repo_id}:\n{e}"
+        ) from e
     except OMValidationError as e:
         raise EnvironmentError(
             f"Incorrect path_or_model_id: '{path_or_repo_id}'. Please provide either the path to a "
@@ -583,13 +583,13 @@ def has_file(
         logger.error(e)
         raise EnvironmentError(
             f"{path_or_repo} is not a local folder or a valid repository name on 'https://openmind.cn'."
-        )
+        ) from e
     except RevisionNotFoundError as e:
         logger.error(e)
         raise EnvironmentError(
             f"{revision} is not a valid git identifier (branch name, tag name or commit id) that exists for this "
             f"model name. Check the model page at 'https://openmind.cn/{path_or_repo}' for available revisions."
-        )
+        ) from e
     except requests.HTTPError:
         # We return false for EntryNotFoundError (logical) as well as any connection error.
         return False

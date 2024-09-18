@@ -152,7 +152,7 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                           is_dynamic=config.is_dynamic,
                                           use_rope_slice=config.use_rope_slice,
                                           parallel_config=config.parallel_config,
-                                          moe_config=config.moe_config, # Todo: first_dense_k layer
+                                          moe_config=config.moe_config,
                                           kv_lora_rank=config.kv_lora_rank,
                                           q_lora_rank=config.q_lora_rank,
                                           qk_rope_head_dim=config.qk_rope_head_dim,
@@ -248,32 +248,33 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
         output = self.norm_out(h)
         return output, extra_loss
 
+
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
 class DeepseekV2ForCausalLM(DeepseekV2PreTrainedModel):
     r"""
-        Provide DeepseekV2 training loss or logits through network.
-        Args:
-            config (DeepseekV2Config): The config of DeepseekV2 model.
+    Provide DeepseekV2 training loss or logits through network.
+    Args:
+        config (DeepseekV2Config): The config of DeepseekV2 model.
 
-        Inputs:
-            input_ids(Tensor): The tokenized inputs with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
-            labels(Tensor): The tokenized labels with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
-            input_position(Tensor): Current position, used by model.predict.
-            position_ids(Tensor): Reserved param, not used.
-            attention_mask(Tensor): Reserved param, not used.
-            input_embeds(Tensor): Reserved param, not used.
-            init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
-                past value parameter used in the incremental prediction. Default True.
-            batch_valid_length(Tensor): The past calculated the index with datatype int32, used for incremental
-                prediction. Tensor of shape :math:`(batch_size,)`. Default None.
-            batch_index(Tensor): The generated batch index when use continuous batching in LLM serving.
-                Tensor of shape :math:`(batch_size,)`. Default None.
-            zactivate_len(Tensor): The slice length of KVCache when use dynamic shape infer.
-                Tensor of shape :math:`(seq_length,)`. Default None.
+    Inputs:
+        input_ids(Tensor): The tokenized inputs with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
+        labels(Tensor): The tokenized labels with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
+        input_position(Tensor): Current position, used by model.predict.
+        position_ids(Tensor): Reserved param, not used.
+        attention_mask(Tensor): Reserved param, not used.
+        input_embeds(Tensor): Reserved param, not used.
+        init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
+            past value parameter used in the incremental prediction. Default True.
+        batch_valid_length(Tensor): The past calculated the index with datatype int32, used for incremental
+            prediction. Tensor of shape :math:`(batch_size,)`. Default None.
+        batch_index(Tensor): The generated batch index when use continuous batching in LLM serving.
+            Tensor of shape :math:`(batch_size,)`. Default None.
+        zactivate_len(Tensor): The slice length of KVCache when use dynamic shape infer.
+            Tensor of shape :math:`(seq_length,)`. Default None.
 
-        Returns:
-            Tensor, the loss or logits of the network.
-        """
+    Returns:
+        Tensor, the loss or logits of the network.
+    """
 
     @lazy_inline
     def __init__(self, config: DeepseekV2Config = None):
@@ -354,7 +355,7 @@ class DeepseekV2ForCausalLM(DeepseekV2PreTrainedModel):
         input_ids = Tensor(input_ids, mstype.int32)
         labels = Tensor(kwargs["labels"]) if "labels" in kwargs else None
         bs, seq = input_ids.shape[0], input_ids.shape[1]
-        slot_mapping = Tensor(np.ones(shape=tuple([bs*seq])), mstype.int32)
+        slot_mapping = Tensor(np.ones(shape=tuple([bs * seq])), mstype.int32)
         prefix_keys_values = Tensor(kwargs["prefix_keys_values"]) if "prefix_keys_values" in kwargs else None
         return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping, prefix_keys_values
 

@@ -138,7 +138,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=ms.float32, modal="video", *
                 k, v = name_replace_llama3_for_image(k, v)
 
         if isinstance(k, list) and isinstance(v, list):
-            for idx in range(len(k)):
+            for idx, _ in enumerate(k):
                 print(f'\rprocessing parameter: {k[idx]} {v[idx].shape}')
                 checkpoints.append({'name': k[idx], 'data': pt2ms(v[idx], dtype)})
         else:

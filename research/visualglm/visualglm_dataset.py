@@ -55,7 +55,7 @@ def get_input_data_batch_slice_map(input_ids, eod_token_id, dis, rank_id: int = 
     batch_attention_mask = np.ones((dis, seq_length, seq_length))
 
     # Loop through batches
-    for bs_i in range(len(input_ids)):
+    for bs_i, _ in enumerate(input_ids):
         # Get normal position_ids and attention_mask
         local_ids = input_ids[bs_i]
         batch_attention_mask[bs_i] = np.tril(np.ones(shape=(seq_length, seq_length)))

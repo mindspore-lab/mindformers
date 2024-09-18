@@ -53,9 +53,11 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
         f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
     try:
         from transformers import Qwen2ForCausalLM
-    except:
+    except ImportError as e:
         raise ImportError(
-            f"Failed to load huggingface checkpoint. Please make sure transformers is available.")
+            "Failed to load HuggingFace checkpoint. "
+            "Please make sure the 'transformers' library is installed and available."
+        ) from e
 
     try:
         model_hf = Qwen2ForCausalLM.from_pretrained(

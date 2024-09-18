@@ -119,7 +119,7 @@ def tokenize_qa(tokenizer, file_path, seq_length):
         for line in f:
             raw_data.append(json.loads(line))
     dataset_cls = SupervisedDataset(raw_data, tokenizer, seq_length)
-    for i in range(len(dataset_cls)):
+    for i, _ in enumerate(dataset_cls):
         yield dataset_cls[i]
 
 
@@ -161,13 +161,13 @@ if __name__ == '__main__':
     parser.add_argument('--repeat', type=int, default=1)
     parser.add_argument('--seq_length', type=int, default=2048)
     args = parser.parse_args()
-
+    # pylint: disable=C0326
     out_dir, out_file = os.path.split(os.path.abspath(args.output_file))
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
 
     if args.dataset_type == 'wiki':
-        schema = {'input_ids': {"type": "int32", "shape": [-1]},}
+        schema = {'input_ids': {"type": "int32", "shape": [-1]}, }
     elif args.dataset_type == 'qa':
         schema = {'input_ids': {"type": "int32", "shape": [-1]},
                   'target_ids': {"type": "int32", "shape": [-1]},

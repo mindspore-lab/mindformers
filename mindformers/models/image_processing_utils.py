@@ -279,14 +279,14 @@ class ImageProcessingMixin(PushToHubMixin):
                 # Raise any environment error raise by `cached_file`. It will have a helpful error message adapted to
                 # the original exception.
                 raise
-            except Exception:
+            except Exception as e:
                 # For any other exception, we throw a generic error.
                 raise EnvironmentError(
                     f"Can't load image processor for '{pretrained_model_name_or_path}'. If you were trying to load"
                     " it from hub, make sure you don't have a local directory with the"
                     f" same name. Otherwise, make sure '{pretrained_model_name_or_path}' is the correct path to a"
                     f" directory containing a {IMAGE_PROCESSOR_NAME} file"
-                )
+                ) from e
 
         try:
             # Load image_processor dict
@@ -294,10 +294,10 @@ class ImageProcessingMixin(PushToHubMixin):
                 text = reader.read()
             image_processor_dict = json.loads(text)
 
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             raise EnvironmentError(
                 f"It looks like the config file at '{resolved_image_processor_file}' is not a valid JSON file."
-            )
+            ) from e
 
         if is_local:
             logger.info(f"loading configuration file {resolved_image_processor_file}")

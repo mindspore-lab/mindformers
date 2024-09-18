@@ -347,7 +347,7 @@ class TransformerLanguageModel(Module):
             split_text_embedding = P.tensor_split(text_embedding[cur_batch], delimiter_position[cur_batch], axis=0)
             split_image_embedding = P.tensor_split(image_embedding[cur_batch], image_delimiter_position, axis=0)
             split_image_embedding = [split_image_embedding[i][0] for i in range(image_num)]
-            for i in range(len(split_text_embedding)):
+            for i, _ in enumerate(split_text_embedding):
                 mix_embedding.append(split_text_embedding[i] if i % 2 == 0 \
                                         else split_image_embedding[int((i - 1) / 2)])
             mix_embedding = mint.cat(mix_embedding, dim=0)

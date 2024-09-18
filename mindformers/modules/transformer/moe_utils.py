@@ -21,6 +21,7 @@ __all__ = [
     "ZLoss"
 ]
 
+
 class ZLoss(nn.Cell):
     """Encouraging the routers' logits to remain small, mitigating round-off error to enhance stability.
         Please refer to the ST-MoE paper (https://arxiv.org/pdf/2202.08906.pdf) for details.

@@ -35,8 +35,14 @@ def convert_meta_torch_ckpt(ckpt_dir, output_name, dtype=ms.float16):
     print(f"Trying to convert pytorch checkpoint in '{ckpt_dir}'.", flush=True)
     try:
         from torch import load
-    except:
-        raise ImportError(f"Failed to load pytorch checkpoint. Please make sure pytorch is available.")
+    except ModuleNotFoundError as e:
+        raise ImportError("Failed to load PyTorch checkpoint. "
+                          "PyTorch module is not installed. Please make sure PyTorch is available.") from e
+    except ImportError as e:
+        raise ImportError("Failed to load PyTorch checkpoint. "
+                          "There was an error while importing the PyTorch module.") from e
+    except Exception as e:
+        raise RuntimeError(f"Unexpected error occurred when loading PyTorch checkpoint. Error: {str(e)}") from e
     dic = {
         'tok_embeddings.weight': 1,
         'norm.weight': None,
@@ -65,7 +71,7 @@ def convert_meta_torch_ckpt(ckpt_dir, output_name, dtype=ms.float16):
         return w.view(n_heads, dim // n_heads // 2, 2, dim).transpose(1, 2).reshape(dim, dim)
 
     checkpoints = []
-    for i in range(len(ckpt_paths)):
+    for i, _ in enumerate(ckpt_paths):
         checkpoints.append(load(ckpt_paths[i], map_location="cpu"))
     ckpt_list = []
     for name in checkpoints[0].keys():
@@ -135,8 +141,12 @@ def convert_megatron_to_ms(input_path, output_path, dtype=None, **kwargs):
     print(f"Trying to convert megatron checkpoint in '{input_path}'.", flush=True)
     try:
         import torch
-    except:
-        raise ImportError(f"Failed to load pytorch checkpoint. Please make sure pytorch is available.")
+    except (ModuleNotFoundError, ImportError) as e:
+        raise ImportError(
+            "Failed to load PyTorch checkpoint. Please make sure PyTorch is installed and available."
+        ) from e
+    except Exception as e:
+        raise RuntimeError("Unexpected error occurred when loading PyTorch checkpoint.") from e
     try:
         megatron_ckpt = torch.load(input_path, map_location='cpu')
     # pylint: disable=W0703
@@ -178,9 +188,13 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
     try:
         from transformers import LlamaForCausalLM
-    except:
-        raise ImportError(f"Failed to load huggingface checkpoint. Please make sure transformers is available.")
-
+    except ImportError as e:
+        raise ImportError(
+            "Failed to load Hugging Face checkpoint. "
+            "Please make sure the 'transformers' library is installed and available."
+        ) from e
+    except Exception as e:
+        raise RuntimeError("Unexpected error occurred when loading Hugging Face checkpoint.") from e
     try:
         model_hf = LlamaForCausalLM.from_pretrained(os.path.dirname(input_path))
     # pylint: disable=W0703

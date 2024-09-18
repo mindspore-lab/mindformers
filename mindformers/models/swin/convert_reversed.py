@@ -74,8 +74,14 @@ def convert_pretrained_weight(ms_ckpt_path="swin_base_p4w7.ckpt", pth_file="swin
         try:
             torch.save(state_dict, pth_file)
             print(f"Save checkpoint to {pth_file}.")
-        except:
-            raise RuntimeError(f'Save checkpoint to {pth_file} failed, please checkout the path.')
+        except OSError as e:
+            raise RuntimeError(
+                f"Save checkpoint to {pth_file} failed, please check the path and permissions."
+            ) from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Unexpected error occurred when saving checkpoint to {pth_file}."
+            ) from e
 
 
 def convert_finetuned_weight(ms_ckpt_path="swin_base_p4w7.ckpt", pth_file="swin_base_patch4_window7_224.pth",
@@ -132,9 +138,14 @@ def convert_finetuned_weight(ms_ckpt_path="swin_base_p4w7.ckpt", pth_file="swin_
         try:
             torch.save(state_dict, pth_file)
             print(f"Save checkpoint to {pth_file}.")
-        except:
-            raise RuntimeError(f'Save checkpoint to {pth_file} failed, please checkout the path.')
-
+        except OSError as e:
+            raise RuntimeError(
+                f"Save checkpoint to {pth_file} failed, please check the path and permissions."
+            ) from e
+        except Exception as e:
+            raise RuntimeError(
+                f"Unexpected error occurred when saving checkpoint to {pth_file}."
+            ) from e
 
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """
