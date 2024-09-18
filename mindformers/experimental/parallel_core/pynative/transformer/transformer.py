@@ -183,6 +183,7 @@ class CoreAttention(nn.Cell):
     Supported Platforms:
         ``Ascend``
     """
+
     def __init__(self, layer_number, config, attn_mask_type=None):
         super(CoreAttention, self).__init__()
         if attn_mask_type:
@@ -257,6 +258,7 @@ class ParallelAttention(Module):
     Supported Platforms:
         ``Ascend``
     """
+
     def __init__(self, config, layer_number, attention_type='self_attn', attn_mask_type=None):
         super(ParallelAttention, self).__init__()
         if attn_mask_type:
@@ -406,7 +408,7 @@ class ParallelAttention(Module):
             encoder_output=None,
             inference_params=None,
             rotary_pos_emb=None,
-        ):
+    ):
         """ Construct function of attention block. """
         if inference_params:
             raise NotImplementedError("inference_params is not supported for now.")
@@ -427,7 +429,8 @@ class ParallelAttention(Module):
             new_tensor_shape = qkv.shape[:-1] + (
                 self.kv_num_heads_per_partition,
                 (
-                    (self.num_heads_per_partition // self.kv_num_heads_per_partition + 2)
+                    (self.num_heads_per_partition //
+                     self.kv_num_heads_per_partition + 2)
                     * self.head_dim
                 ),
             )
@@ -449,24 +452,19 @@ class ParallelAttention(Module):
                  dim=3
              )
 
-            query = query.reshape(query.shape[0], query.shape[1], -1,
-                                  self.head_dim)
+            query = query.reshape(query.shape[0], query.shape[1], -1, self.head_dim)
         else:
             kv, _ = self.kv_proj(encoder_output)
             kv = self.cast(kv, self.compute_dtype)
 
-            new_tensor_shape = kv.shape[:-1] + \
-                (self.num_heads_per_partition,
-                 2 * self.head_dim)
+            new_tensor_shape = kv.shape[:-1] + (self.num_heads_per_partition, 2 * self.head_dim)
             kv = kv.view(*new_tensor_shape)
 
             last_dim = kv.ndim - 1
-            (key, value) = mint.split(kv, split_size_or_sections=kv.shape[last_dim]//2, dim=last_dim)
+            (key, value) = mint.split(kv, split_size_or_sections=kv.shape[last_dim] // 2, dim=last_dim)
 
             query, _ = self.q_proj(hidden_states)
-            new_tensor_shape = query.shape[:-1] + \
-                (self.num_heads_per_partition,
-                 self.head_dim)
+            new_tensor_shape = query.shape[:-1] + (self.num_heads_per_partition, self.head_dim)
             query = query.view(*new_tensor_shape)
 
         if self.data_layout == "SBH":
@@ -584,6 +582,7 @@ class ParallelTransformerLayer(Module):
     Supported Platforms:
         ``Ascend``
     """
+
     def __init__(
             self,
             config,
@@ -591,7 +590,7 @@ class ParallelTransformerLayer(Module):
             layer_type=None,
             self_attn_mask_type=None,
             drop_path_rate=0.0,
-        ):
+    ):
         super(ParallelTransformerLayer, self).__init__(config)
         if layer_type:
             raise NotImplementedError("For ParallelTransformerLayer, only decoder only structure is supported for now.")
@@ -771,6 +770,7 @@ class ParallelTransformer(Module):
     Supported Platforms:
         ``Ascend``
     """
+
     def __init__(
             self,
             config,
@@ -781,7 +781,7 @@ class ParallelTransformer(Module):
             pre_process=False,
             post_process=False,
             drop_path_rate=0.0
-        ):
+    ):
         super(ParallelTransformer, self).__init__(config)
         if model_type:
             raise NotImplementedError("For ParallelTransformer, `model_type` is not supported for now.")
@@ -860,7 +860,7 @@ class ParallelTransformer(Module):
         if recompute_method == "uniform":
             for idx in range(0, self.num_layers, recompute_num_layers):
                 checkpointed_layer_group = CheckpointedRecomputeOrientedCell(
-                    self.layers[idx : idx + recompute_num_layers]
+                    self.layers[idx: idx + recompute_num_layers]
                 )
                 checkpointed_layer_group.recompute()
                 self.checkpointed_layer_groups.append(checkpointed_layer_group)

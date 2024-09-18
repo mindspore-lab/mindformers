@@ -100,7 +100,7 @@ class MoEConfig:
             expert_group_size (int): The number of tokens in each data parallel group. Default: None. This parameter is
                 effective only when in AUTO_PARALLEL mode, and NOT SHARDING_PROPAGATION.
             group_wise_a2a (bool): Whether to enable group-wise alltoall communication, which can reduce communication
-                time by converting part of inter communication into intra communication. Default: False. This parameter
+                time by converting part of intercommunication into intra communication. Default: False. This parameter
                 is effective only when model parallel > 1 and data_parallel equal to expert parallel.
             comp_comm_parallel (bool): Whether to enable ffn compute and communication parallel, which can reduce pure
                 communicattion time by splitting and overlapping compute and communication. Default: False.
@@ -631,6 +631,7 @@ class MoEV2(Cell):
     Outputs:
         Tensor, the output of this layer after mapping. The shape is `[batch, seq_length, hidden_size]`.
     """
+
     def __init__(self,
                  ffn,
                  dim,
@@ -650,7 +651,7 @@ class MoEV2(Cell):
         self.group_wise_a2a = moe_config.group_wise_a2a if self.mp > 1 else False
         self.add_loss = P.Add()
         self.dp_moe = self.dp // self.ep
-        self.dp_range = Tensor(np.arange(self.dp_group).reshape(-1, 1), mstype.int32) # (dp, 1) = [[0],[1],[2]...[dp]]
+        self.dp_range = Tensor(np.arange(self.dp_group).reshape(-1, 1), mstype.int32)  # (dp, 1) = [[0],[1],[2]...[dp]]
 
         self.ffn = ffn
         Validator.check_string(moe_config.routing_policy, ["TopkRouterV2"], "routing_policy")
@@ -744,14 +745,14 @@ class MoEV2(Cell):
         expert_output = self.reshape(expert_output, (self.dp, self.expert_dim, -1, self.hidden_size))
         return expert_output
 
-
     def construct(self, input_tensor, extra_loss=0.):
         """forward process"""
         input_tensor_shape = self.shape(input_tensor)
-        input_tensor = self.reshape(input_tensor, (self.dp_group, -1, self.hidden_size)) # (dp, N, h) <-- (B*S, h)
+        input_tensor = self.reshape(input_tensor, (self.dp_group, -1, self.hidden_size))  # (dp, N, h) <-- (B*S, h)
 
         # calculate router, we do not use router_aux_loss right now
-        # (dp, E, n)int32, (dp, N, k)int32, (dp, N, k)fp16, (1,) <-- (dp, N, h), where 0<= dispatch_index < 1+N, 0<= combine_index <E*(1+n)
+        # (dp, E, n)int32, (dp, N, k)int32, (dp, N, k)fp16, (1,) <-- (dp, N, h),
+        # where 0<= dispatch_index < 1+N, 0<= combine_index <E*(1+n)
         dispatch_policy, combine_policy, router_coeff, router_aux_loss = self.router(input_tensor)
 
         # dispatch
@@ -762,11 +763,11 @@ class MoEV2(Cell):
         expert_output = self.ffn_forward(expert_input, expert_capacity)
         # combine, (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
         output_tensor = self.router.router.combine(expert_output, combine_policy, router_coeff)
-        output_tensor = self.reshape(output_tensor, input_tensor_shape) # (B*S, h) <-- (dp, N, h)
+        output_tensor = self.reshape(output_tensor, input_tensor_shape)  # (B*S, h) <-- (dp, N, h)
         if self.return_extra_loss:
             final_extra_loss = self.add_loss(extra_loss, router_aux_loss)
             return output_tensor, final_extra_loss
-        return output_tensor # (dp, N, h)
+        return output_tensor  # (dp, N, h)
 
 
 class Router(Cell):
@@ -1189,7 +1190,7 @@ class TopkRouterV2(Cell):
         self.mod_expert = P.Mod()
         self.tensor2scalar = TensorToScalar()
 
-        #topkrouter
+        # topkrouter
         if self.moe_config.use_fused_ops_topkrouter:
             # pylint: disable=W0212
             self.topkrouter = P._inner_ops.TopKRouter().shard(((dp, 1, 1),))
@@ -1207,7 +1208,8 @@ class TopkRouterV2(Cell):
                 - **expert_input** (Tensor) - Tensor of shape :math:`(data\_parallel, expert\_num,
                 expert\_capacity, hidden\_size)`.(dp, E, n, h).
         """
-        input_tensor_padded = self.concat_3d((self.cast(self.zeros_3d, F.dtype(input_tensor)), input_tensor)) # (dp, 1+N, h) <-- (dp, N, h)
+        input_tensor_padded = self.concat_3d(
+            (self.cast(self.zeros_3d, F.dtype(input_tensor)), input_tensor))  # (dp, 1+N, h) <-- (dp, N, h)
         # (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
         expert_input = self.dispatch_gather(input_tensor_padded, dispatch_index, 1)
         return expert_input
@@ -1227,11 +1229,19 @@ class TopkRouterV2(Cell):
                 - **output_tensor** (Tensor) - Tensor of shape :math:`(data\_parallel, tokens\_per\_group,
                 hidden\_size)`.(dp, N, h).
         """
-        expert_output = self.concat((self.cast(self.zeros, F.dtype(expert_output)), expert_output)) # (dp, E, 1+n, h) <-- (dp, E, n, h)
-        expert_output = self.reshape(expert_output, (expert_output.shape[0], expert_output.shape[1] * expert_output.shape[2], expert_output.shape[3])) # (dp, E*(1+n), h) <-- (dp, E, 1+n, h)
-        output_tensor = self.combine_gather(expert_output, combine_index, 1) # (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
+        expert_output = self.concat(
+            (self.cast(self.zeros, F.dtype(expert_output)), expert_output))  # (dp, E, 1+n, h) <-- (dp, E, n, h)
+        expert_output = self.reshape(
+            expert_output, (expert_output.shape[0],
+                            expert_output.shape[1] * expert_output.shape[2],
+                            expert_output.shape[3]))  # (dp, E*(1+n), h) <-- (dp, E, 1+n, h)
+        output_tensor = self.combine_gather(
+            expert_output, combine_index, 1)  # (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
         router_coeff = self.cast(router_coeff, F.dtype(expert_output))
-        output_tensor = self.mul_router_coeff(output_tensor, self.reshape(router_coeff, (router_coeff.shape[0], router_coeff.shape[1], router_coeff.shape[2], 1)))  # (dp, N, k, h) <-- (dp, N, k, h) (dp, N, k, 1)
+        # (dp, N, k, h) <-- (dp, N, k, h) (dp, N, k, 1)
+        output_tensor = self.mul_router_coeff(
+            output_tensor,
+            self.reshape(router_coeff, (router_coeff.shape[0], router_coeff.shape[1], router_coeff.shape[2], 1)))
         output_tensor = self.sum_router_coeff(output_tensor, 2)  # reduce sum # (dp, N, h) <-- (dp, N, k, h)
         return output_tensor
 
@@ -1242,17 +1252,20 @@ class TopkRouterV2(Cell):
         z_loss = self.z_loss_func(router_logits, self.z_loss_coeff)
         extra_loss = z_loss
 
-        router_prob = self.softmax(router_logits) # (dp, N, expert_dim)fp32 <-- (dp, N, expert_dim)fp32
+        router_prob = self.softmax(router_logits)  # (dp, N, expert_dim)fp32 <-- (dp, N, expert_dim)fp32
         if self.moe_config.topk_method == "group_limited_greedy":
             # (dp, N, n_group)fp32 <-- (dp, N, expert_dim)fp32
-            group_scores = self.reshape(router_prob, (router_prob.shape[0], router_prob.shape[1],
-                                        self.moe_config.n_group, -1)).max(axis=-1)
+            group_scores = self.reshape(
+                router_prob, (router_prob.shape[0], router_prob.shape[1], self.moe_config.n_group, -1)).max(axis=-1)
             top_values, _ = self.topk(group_scores, self.moe_config.topk_group)  # (dp, N, top_k)
-            group_mask = self.cast(group_scores.ge(self.tile(top_values.min(axis=-1, keepdims=True),
-                                                  (1, 1, self.moe_config.n_group))), mstype.float32)
-            score_mask = self.reshape(group_mask, (group_mask.shape[0], group_mask.shape[1], group_mask.shape[2], 1))  # (dp, N,  n_group, 1)
+            group_mask = self.cast(
+                group_scores.ge(self.tile(top_values.min(axis=-1, keepdims=True),
+                                          (1, 1, self.moe_config.n_group))), mstype.float32)
+            score_mask = self.reshape(
+                group_mask, (group_mask.shape[0], group_mask.shape[1], group_mask.shape[2], 1))  # (dp, N,  n_group, 1)
             score_mask = score_mask.repeat(self.moe_config.expert_num // self.moe_config.n_group, axis=-1)
-            score_mask = self.reshape(score_mask, (score_mask.shape[0], score_mask.shape[1], -1))  # (dp, N, n_routed_experts)
+            score_mask = self.reshape(
+                score_mask, (score_mask.shape[0], score_mask.shape[1], -1))  # (dp, N, n_routed_experts)
             tmp_scores = ops.masked_fill(router_prob, ~score_mask.bool(), 0.0)
             expert_gate, expert_index = self.topk(tmp_scores, self.num_experts_chosen)
         else:
@@ -1299,7 +1312,7 @@ class TopkRouterV2(Cell):
         """
         k = self.num_experts_chosen
         tokens_per_group = self.shape(expert_index)[1]
-        kn = k * tokens_per_group # this n refers to N
+        kn = k * tokens_per_group  # this n refers to N
         if self.capacity_factor > 0:
             expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
                                                            self.capacity_factor, self.expert_dim, self.mp)
@@ -1307,33 +1320,57 @@ class TopkRouterV2(Cell):
         else:
             expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
         # calculate combine_index from cumsum
-        expert_index = self.reshape(self.transpose_3d(expert_index, (0, 2, 1)), (expert_index.shape[0], -1)) # (dp, kN) <-- (dp, N, k) account for topk priority
-        expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value) # (dp, kN, E)fp32 <-- (dp, kN)int32
-        position_in_expert = self.mul_3d(self.cumsum(expert_mask, 1), expert_mask) # (dp, kN, E)fp16 <-- (dp, kN, E)fp32, (dp, kN, E)fp32
-        position_in_expert = self.mul_3d(position_in_expert, self.less(position_in_expert, expert_capacity + 1)) # (dp, kN, E)fp32 <-- (dp, kN, E)fp32, (dp, kN, E)bool, where 0<=position_in_expert<(1+n)
-        position_in_expert_2d = self.reduce_sum(position_in_expert, -1) # (dp, kN)fp32 <-- (dp, kN, E)fp32
-        combine_index = self.add_2d(self.mul_2d_1d(expert_index, expert_capacity + 1), position_in_expert_2d) # (dp, kN)fp32 <-- (dp, kN)fp32, (dp, kN)fp32 where 0<= combine_index <E*(1+n), combine_index = expert_id *(1+n) + position_in_expert_2d
-        combine_index = self.transpose_3d(self.reshape(combine_index, (combine_index.shape[0], k, tokens_per_group)), (0, 2, 1)) # (dp, N, k) <-- (dp, kN) account for topk priority
-        within_capacity = self.cast(self.gt(position_in_expert_2d, 0), mstype.float32) # (dp, kN)bool
+        expert_index = self.reshape(self.transpose_3d(expert_index, (0, 2, 1)),
+                                    (expert_index.shape[0], -1))  # (dp, kN) <-- (dp, N, k) account for topk priority
+        expert_mask = self.onehot_2d(expert_index,
+                                     self.expert_dim,
+                                     self.on_value,
+                                     self.off_value)  # (dp, kN, E)fp32 <-- (dp, kN)int32
+        position_in_expert = self.mul_3d(
+            self.cumsum(expert_mask, 1), expert_mask)  # (dp, kN, E)fp16 <-- (dp, kN, E)fp32, (dp, kN, E)fp32
+
+        # (dp, kN, E)fp32 <-- (dp, kN, E)fp32, (dp, kN, E)bool, where 0<=position_in_expert<(1+n)
+        position_in_expert = self.mul_3d(position_in_expert, self.less(position_in_expert, expert_capacity + 1))
+        position_in_expert_2d = self.reduce_sum(position_in_expert, -1)  # (dp, kN)fp32 <-- (dp, kN, E)fp32
+        # (dp, kN)fp32 <-- (dp, kN)fp32, (dp, kN)fp32 where 0<= combine_index <E*(1+n),
+        # combine_index = expert_id *(1+n) + position_in_expert_2d
+        combine_index = self.add_2d(
+            self.mul_2d_1d(expert_index, expert_capacity + 1),
+            position_in_expert_2d)
+        combine_index = self.transpose_3d(
+            self.reshape(combine_index, (combine_index.shape[0], k, tokens_per_group)),
+            (0, 2, 1))  # (dp, N, k) <-- (dp, kN) account for topk priority
+        within_capacity = self.cast(self.gt(position_in_expert_2d, 0), mstype.float32)  # (dp, kN)bool
 
         # calculate dispatch_index from position_in_expert_onehot
-        safe_kn = 2 * kn # factor=2 for safety
-        range_kn = self.slice_range(self.range2, (0, 0), (self.expert_dim, kn), (1, 1)).reshape(1, self.expert_dim, kn)  # (1, E, kN) fp32 <-- (E, 131072)
+        safe_kn = 2 * kn  # factor=2 for safety
+        range_kn = self.slice_range(self.range2, (0, 0),
+                                    (self.expert_dim, kn),
+                                    (1, 1)).reshape(1, self.expert_dim, kn)  # (1, E, kN) fp32 <-- (E, 131072)
         select = self.transpose_3d(expert_mask, (0, 2, 1))  # (dp, E, kN) fp32 <-- (dp, kN, E) fp32
-        dispatch_index_raw = self.add_3d(self.mul_range(select, range_kn), self.mul_range(self.sub_range(1, select), self.add_range(range_kn, safe_kn)))  # (dp, E, kN) <-- (dp, E, kN) fp32
+        dispatch_index_raw = self.add_3d(
+            self.mul_range(select, range_kn),
+            self.mul_range(self.sub_range(1, select),
+                           self.add_range(range_kn, safe_kn)))  # (dp, E, kN) <-- (dp, E, kN) fp32
         dispatch_index, _ = self.sort_range(dispatch_index_raw)  # (dp, E, k) <-- (dp, E, kN）
-        dispatch_index = self.slice(dispatch_index, (0, 0, 0), (dispatch_index.shape[0], dispatch_index.shape[1], expert_capacity), (1, 1, 1))  # (dp, E, n) <-- (dp, E, kN) fp32
+        dispatch_index = self.slice(dispatch_index, (0, 0, 0),
+                                    (dispatch_index.shape[0], dispatch_index.shape[1], expert_capacity),
+                                    (1, 1, 1))  # (dp, E, n) <-- (dp, E, kN) fp32
         is_safe = self.less(dispatch_index, safe_kn)  # (dp, E, n) bool
         dispatch_index = self.add_one(self.mod(dispatch_index, tokens_per_group), 1)  # (dp, E, n) fp32
         dispatch_index = self.mul_3d(dispatch_index, is_safe)  # (dp, E, n) fp32
 
         dispatch_index = self.cast(dispatch_index, mstype.int32)
         combine_index = self.cast(combine_index, mstype.int32)
-        router_coeff_raw = self.mul_3d(expert_gate, self.transpose_3d(self.reshape(within_capacity, (within_capacity.shape[0], k, tokens_per_group)), (0, 2, 1)))  # apply within_capacity (dp, N, k) <-- (dp, N, k), (dp, N, k) <--  (dp, kN)
+        router_coeff_raw = self.mul_3d(
+            expert_gate,
+            self.transpose_3d(
+                self.reshape(within_capacity, (within_capacity.shape[0], k, tokens_per_group)),
+                (0, 2, 1)))  # apply within_capacity (dp, N, k) <-- (dp, N, k), (dp, N, k) <--  (dp, kN)
         if self.num_experts_chosen > 1 and self.moe_config.norm_topk_prob:
             router_coeff = self._normalize(router_coeff_raw)  # (dp, N, k) <-- (dp, N, k)
         else:
-            router_coeff = ops.mul(self.moe_config.routed_scaling_factor, router_coeff_raw) # (dp, N, k) <-- (dp, N, k)
+            router_coeff = ops.mul(self.moe_config.routed_scaling_factor, router_coeff_raw)  # (dp, N, k) <-- (dp, N, k)
         return dispatch_index, combine_index, router_coeff  # (dp, E, n), (dp, N, k), (dp, N, k)
 
     def _maskout_overflowed_tokens_sort_sdrop(self, expert_index, expert_gate):
@@ -1343,7 +1380,7 @@ class TopkRouterV2(Cell):
         """
         k = self.num_experts_chosen
         tokens_per_group = self.shape(expert_index)[1]
-        kn = k * tokens_per_group # this n refers to N
+        kn = k * tokens_per_group  # this n refers to N
         if self.capacity_factor > 0:
             expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
                                                            self.capacity_factor, self.expert_dim, self.mp)
@@ -1351,24 +1388,42 @@ class TopkRouterV2(Cell):
         else:
             expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
         # calculate combine_index from cumsum
-        expert_index = self.reshape(expert_index, (expert_index.shape[0], -1)) # (dp, Nk) <-- (dp, N, k) account for topk priority
-        expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value) # (dp, Nk, E)fp32 <-- (dp, Nk)int32
-        position_in_expert = self.mul_3d(self.cumsum(expert_mask, 1), expert_mask) # (dp, Nk, E)fp16 <-- (dp, Nk, E)fp32, (dp, Nk, E)fp32
+        expert_index = self.reshape(expert_index,
+                                    (expert_index.shape[0], -1))  # (dp, Nk) <-- (dp, N, k) account for topk priority
+        expert_mask = self.onehot_2d(expert_index,
+                                     self.expert_dim,
+                                     self.on_value,
+                                     self.off_value)  # (dp, Nk, E)fp32 <-- (dp, Nk)int32
+        position_in_expert = self.mul_3d(self.cumsum(expert_mask, 1),
+                                         expert_mask)  # (dp, Nk, E)fp16 <-- (dp, Nk, E)fp32, (dp, Nk, E)fp32
         # (dp, Nk, E)fp32 <-- (dp, Nk, E)fp32, (dp, Nk, E)bool, where 0<=position_in_expert<(1+n)
         position_in_expert = self.mul_3d(position_in_expert, self.less(position_in_expert, expert_capacity + 1))
-        position_in_expert_2d = self.reduce_sum(position_in_expert, -1) # (dp, Nk)fp32 <-- (dp, Nk, E)fp32
-        # (dp, Nk)fp32 <-- (dp, Nk)fp32, (dp, Nk)fp32 where 0<= combine_index <E*(1+n), combine_index = expert_id *(1+n) + position_in_expert_2d
+        position_in_expert_2d = self.reduce_sum(position_in_expert, -1)  # (dp, Nk)fp32 <-- (dp, Nk, E)fp32
+        # (dp, Nk)fp32 <-- (dp, Nk)fp32, (dp, Nk)fp32 where 0<= combine_index <E*(1+n),
+        # combine_index = expert_id *(1+n) + position_in_expert_2d
         combine_index = self.add_2d(self.mul_2d_1d(expert_index, expert_capacity + 1), position_in_expert_2d)
-        combine_index = self.reshape(combine_index, (combine_index.shape[0], tokens_per_group, k)) # (dp, N, k) <-- (dp, Nk) account for topk priority
-        within_capacity = self.cast(self.gt(position_in_expert_2d, 0), mstype.float32) # (dp, Nk)bool
+        combine_index = self.reshape(
+            combine_index,
+            (combine_index.shape[0], tokens_per_group, k))  # (dp, N, k) <-- (dp, Nk) account for topk priority
+        within_capacity = self.cast(self.gt(position_in_expert_2d, 0), mstype.float32)  # (dp, Nk)bool
 
         # calculate dispatch_index from position_in_expert_onehot
         safe_kn = 2 * kn  # factor=2 for safety
-        range_kn = self.slice_range(self.range2, (0, 0), (self.expert_dim, kn), (1, 1)).reshape(1, self.expert_dim, kn)  # (1, E, kN) fp32 <-- (E, 131072)
+        range_kn = self.slice_range(self.range2,
+                                    (0, 0),
+                                    (self.expert_dim, kn),
+                                    (1, 1)).reshape(1, self.expert_dim, kn)  # (1, E, kN) fp32 <-- (E, 131072)
         select = self.transpose_3d(expert_mask, (0, 2, 1))  # (dp, E, Nk) fp32 <-- (dp, Nk, E) fp32
-        dispatch_index_raw = self.add_3d(self.mul_range(select, range_kn), self.mul_range(self.sub_range(1, select), self.add_range(range_kn, safe_kn)))  # (dp, E, kN) <-- (dp, E, kN) fp32
+        dispatch_index_raw = self.add_3d(
+            self.mul_range(select, range_kn),
+            self.mul_range(
+                self.sub_range(1, select),
+                self.add_range(range_kn, safe_kn)))  # (dp, E, kN) <-- (dp, E, kN) fp32
         dispatch_index, _ = self.sort_range(dispatch_index_raw)  # (dp, E, k) <-- (dp, E, kN）
-        dispatch_index = self.slice(dispatch_index, (0, 0, 0), (dispatch_index.shape[0], dispatch_index.shape[1], expert_capacity), (1, 1, 1))  # (dp, E, n) <-- (dp, E, kN) fp32
+        dispatch_index = self.slice(dispatch_index,
+                                    (0, 0, 0),
+                                    (dispatch_index.shape[0], dispatch_index.shape[1], expert_capacity),
+                                    (1, 1, 1))  # (dp, E, n) <-- (dp, E, kN) fp32
         is_safe = self.less(dispatch_index, safe_kn)  # (dp, E, n) bool
         dispatch_index = self.add_one(ops.floor_divide(dispatch_index, k), 1)  # (dp, E, n) fp32
         dispatch_index = self.mul_3d(dispatch_index, is_safe)  # (dp, E, n) fp32
@@ -1380,7 +1435,7 @@ class TopkRouterV2(Cell):
         if self.num_experts_chosen > 1 and self.moe_config.norm_topk_prob:
             router_coeff = self._normalize(router_coeff_raw)  # (dp, N, k) <-- (dp, N, k)
         else:
-            router_coeff = ops.mul(self.moe_config.routed_scaling_factor, router_coeff_raw) # (dp, N, k) <-- (dp, N, k)
+            router_coeff = ops.mul(self.moe_config.routed_scaling_factor, router_coeff_raw)  # (dp, N, k) <-- (dp, N, k)
         return dispatch_index, combine_index, router_coeff  # (dp, E, n), (dp, N, k), (dp, N, k)
 
     def _maskout_overflowed_tokens_use_topkrouter(self, expert_index, expert_gate):
@@ -1408,15 +1463,19 @@ class TopkRouterV2(Cell):
 
     def _normalize(self, router_coeff_raw):
         router_coeff_sum = self.reduce_sum_keep(router_coeff_raw, 2)  # (dp, N, 1) <-- (dp, N, k)
-        router_coeff = self.div_3d(router_coeff_raw, self.add_eps(router_coeff_sum, 1e-9))  # (dp, N, k) <-- (dp, N, k) (dp, N, 1)
+        router_coeff = self.div_3d(router_coeff_raw,
+                                   self.add_eps(router_coeff_sum, 1e-9))  # (dp, N, k) <-- (dp, N, k) (dp, N, 1)
         return router_coeff  # (dp, N, k)
 
     def _calculate_expert_capacity_dynamic(self, expert_index):
         """
-        Calculate dynamic capactiy.
+        Calculate dynamic capacity.
         """
         expert_index = self.reshape(expert_index, (self.dp_group, -1))
-        expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value_int, self.off_value_int)  # (dp, kN, E) <- (dp, kN)
+        expert_mask = self.onehot_2d(expert_index,
+                                     self.expert_dim,
+                                     self.on_value_int,
+                                     self.off_value_int)  # (dp, kN, E) <- (dp, kN)
         expert_mask = self.reduce_sum(expert_mask, 1)  # (dp, E) <- (dp, kN, E)
         expert_capacity = expert_mask.max()  # (1, ) <- (dp, E)
         expert_capacity = self.cast(expert_capacity, mstype.int64)
@@ -1425,45 +1484,74 @@ class TopkRouterV2(Cell):
         return expert_capacity_scalar
 
     def _expert_load_balancing(self, scores, top_indices, alpha):
-        """Expert level load balance loss, which regularizes the load from local batch data on each expert to be balanced
-        Please refer to DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model, https://arxiv.org/abs/2405.04434
+        """Expert level load balance loss, which regularizes the load from local batch data on each
+        expert to be balanced.
+        Please refer to DeepSeek-V2:
+        A Strong, Economical, and Efficient Mixture-of-Experts Language Model, https://arxiv.org/abs/2405.04434
         """
-        pi = self.reduce_mean(scores, 1) # (dp, E)<- (dp, N, E), 1/N * \sum_t^T s_{i,t}
+        pi = self.reduce_mean(scores, 1)  # (dp, E)<- (dp, N, E), 1/N * \sum_t^T s_{i,t}
 
-        top_indices = self.reshape(self.transpose_3d(top_indices, (0, 2, 1)), (top_indices.shape[0], -1)) # (dp, kN) <-- (dp, N, k) account for topk priority
-        mask = self.onehot_2d(top_indices, self.expert_dim, self.on_value, self.off_value) # (dp, kN, E)fp32 <-- (dp, kN)int32
-        fi = self.reduce_mean(mask, 1) # (dp, E) <- (dp, kN, E), 1/(kN) * \sum_t^T 1(token t selects expert i)
+        top_indices = self.reshape(self.transpose_3d(top_indices, (0, 2, 1)),
+                                   (top_indices.shape[0], -1))  # (dp, kN) <-- (dp, N, k) account for topk priority
+        mask = self.onehot_2d(top_indices,
+                              self.expert_dim,
+                              self.on_value,
+                              self.off_value)  # (dp, kN, E)fp32 <-- (dp, kN)int32
+        fi = self.reduce_mean(mask, 1)  # (dp, E) <- (dp, kN, E), 1/(kN) * \sum_t^T 1(token t selects expert i)
 
-        expert_load_loss = self.mul(self.reduce_mean_2d(self.mul_2d(pi, fi)), alpha*self.expert_dim**2) # alpha*E \sum_i^E (f_i * P_i)
+        expert_load_loss = self.mul(self.reduce_mean_2d(self.mul_2d(pi, fi)),
+                                    alpha * self.expert_dim ** 2)  # alpha*E \sum_i^E (f_i * P_i)
         return expert_load_loss
 
     def _device_load_balancing(self, scores, top_indices, alpha):
-        """Device level load balance loss, which regularizes the load from local batch data on each expert group to be balanced
-        Please refer to DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model, https://arxiv.org/abs/2405.04434
         """
-        scores = self.reshape(self.transpose_3d(scores, (0, 2, 1)), (scores.shape[0], self.egroup_size, -1)) # (dp, egs, E/egs*N) <- (dp, N, E)
-        pi = self.reduce_mean(scores, -1) # (dp, egs) <- (dp, egs, E/egs*N), 1/(E/egs*N) * \sum_{j in E'} \sum_t^N s_{j, t}
+        Device level load balance loss, which regularizes the load from local batch data on each
+        expert group to be balanced.
+        Please refer to DeepSeek-V2:
+        A Strong, Economical, and Efficient Mixture-of-Experts Language Model, https://arxiv.org/abs/2405.04434
+        """
+        scores = self.reshape(self.transpose_3d(scores, (0, 2, 1)),
+                              (scores.shape[0], self.egroup_size, -1))  # (dp, egs, E/egs*N) <- (dp, N, E)
+        pi = self.reduce_mean(
+            scores, m - 1)  # (dp, egs) <- (dp, egs, E/egs*N), 1/(E/egs*N) * \sum_{j in E'} \sum_t^N s_{j, t}
 
-        top_indices = self.reshape(self.transpose_3d(top_indices, (0, 2, 1)), (top_indices.shape[0], -1)) # (dp, kN) <- (dp, N, k)
-        mask = self.onehot_2d(top_indices, self.expert_dim, self.on_value, self.off_value) # (dp, kN, E)fp32 <- (dp, kN)int32
-        mask = self.reshape(self.transpose_3d(mask, (0, 2, 1)), (mask.shape[0], self.egroup_size, -1)) # (dp, egs, E/egs*kN) <- (dp, kN, E)
+        top_indices = self.reshape(self.transpose_3d(top_indices, (0, 2, 1)),
+                                   (top_indices.shape[0], -1))  # (dp, kN) <- (dp, N, k)
+        mask = self.onehot_2d(top_indices,
+                              self.expert_dim,
+                              self.on_value,
+                              self.off_value)  # (dp, kN, E)fp32 <- (dp, kN)int32
+        mask = self.reshape(
+            self.transpose_3d(mask, (0, 2, 1)),
+            (mask.shape[0], self.egroup_size, -1))  # (dp, egs, E/egs*kN) <- (dp, kN, E)
         # (dp, egs) <- (dp, egs, E/egs*kN), 1/(E/egs*kN) * \sum_{j in E'} \sum_t^N 1(token t selects expert j)
         fi = self.reduce_mean(mask, -1)
 
-        device_load_loss = self.mul(self.reduce_mean_2d(self.mul_2d(pi, fi)), alpha * self.expert_dim**2) # \alpha * (E/ep)*E \sum_i^{ep} (fi * Pi)
+        device_load_loss = self.mul(
+            self.reduce_mean_2d(
+                self.mul_2d(pi, fi)), alpha * self.expert_dim ** 2)  # \alpha * (E/ep)*E \sum_i^{ep} (fi * Pi)
 
         return device_load_loss
 
     def _comm_load_balancing(self, scores, top_indices, alpha):
-        """Communication level load balance loss, which regularizes the load from local batch data on each device to be balanced
-        Please refer to DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model, https://arxiv.org/abs/2405.04434
         """
-        scores = self.reshape(self.transpose_3d(scores, (0, 2, 1)), (scores.shape[0], self.ep, -1)) # (dp, ep, E/ep*N) <- (dp, N, E)
-        pi = self.reduce_mean(scores, -1) # (dp, ep) <- (dp, ep, E/ep*N), 1/(E/ep*N) * \sum_{j in E'} \sum_t^N s_{j, t}
+        Communication level load balance loss, which regularizes the load from local batch data on each
+        device to be balanced.
+        Please refer to DeepSeek-V2:
+        A Strong, Economical, and Efficient Mixture-of-Experts Language Model, https://arxiv.org/abs/2405.04434
+        """
+        scores = self.reshape(
+            self.transpose_3d(scores, (0, 2, 1)), (scores.shape[0], self.ep, -1))  # (dp, ep, E/ep*N) <- (dp, N, E)
+        pi = self.reduce_mean(scores, -1)  # (dp, ep) <- (dp, ep, E/ep*N), 1/(E/ep*N) * \sum_{j in E'} \sum_t^N s_{j, t}
 
-        top_indices = self.reshape(self.transpose_3d(top_indices, (0, 2, 1)), (top_indices.shape[0], -1)) # (dp, kN) <- (dp, N, k)
-        mask = self.onehot_2d(top_indices, self.expert_dim, self.on_value, self.off_value) # (dp, kN, E)fp32 <- (dp, Nk)int32
-        mask = self.reshape(self.transpose_3d(mask, (0, 2, 1)), (mask.shape[0], self.ep, -1))  # (dp, ep, E/ep*kN) <- (dp, kN, E)
+        top_indices = self.reshape(
+            self.transpose_3d(top_indices, (0, 2, 1)), (top_indices.shape[0], -1))  # (dp, kN) <- (dp, N, k)
+        mask = self.onehot_2d(top_indices,
+                              self.expert_dim,
+                              self.on_value,
+                              self.off_value)  # (dp, kN, E)fp32 <- (dp, Nk)int32
+        mask = self.reshape(
+            self.transpose_3d(mask, (0, 2, 1)), (mask.shape[0], self.ep, -1))  # (dp, ep, E/ep*kN) <- (dp, kN, E)
         # (dp, ep) <- (dp, ep, E/dp*kN) ,  1/(E/ep) * \sum_{j in E'} \sum_{t}^N 1(token t sent to device j)
         fi = self.reduce_mean(mask, -1)
         # \alpha * (E/ep)**2 * ep / dp / N \sum_i^{ep} (fi * Pi)
@@ -1527,10 +1615,10 @@ class MoEInfer(Cell):
             self.moe_finalize_routing = MoeFinalizeRouting().shard(((1, 1), (1, 1), (1, 1), (1, 1), (1,), (1, 1)))
 
     def tensor_sort(self, input_tensor, expert_ids):
-        '''dispatch and get unsort map for routing'''
+        """dispatch and get unsort map for routing"""
         expert_shape = expert_ids.shape
-        transposed_index = self.transpose_2d(expert_ids, (1, 0)) # (N, k) -> (k, N)
-        reshaped_index = self.reshape(transposed_index, (-1,)) # (k, N) -> (kN)
+        transposed_index = self.transpose_2d(expert_ids, (1, 0))  # (N, k) -> (k, N)
+        reshaped_index = self.reshape(transposed_index, (-1,))  # (k, N) -> (kN)
         _, sort_map = self.sort(reshaped_index)
 
         inter_map = self.mod(sort_map, expert_shape[0])
@@ -1544,7 +1632,7 @@ class MoEInfer(Cell):
         return output_tensor, group_list, unsort_map
 
     def tensor_moe_finalize_routing(self, input_tensor, expert_weight, expert_index, unsort_map):
-        '''calculate the final output by multiplying FeedForward's output and experts' weight in MoeFinalizeRouting'''
+        """calculate the final output by multiplying FeedForward's output and experts' weight in MoeFinalizeRouting"""
         input_shape = input_tensor.shape  # (2N, h)
         x1 = self.zeros((input_shape[0] // self.num_experts_chosen, input_shape[-1]), input_tensor.dtype)
         x2 = None
@@ -1557,12 +1645,13 @@ class MoEInfer(Cell):
         """forward process"""
         input_tensor_shape = self.shape(input_tensor)  # (B, S, H)
         input_dtype = input_tensor.dtype
-        input_tensor = self.reshape(input_tensor, (-1, self.hidden_size))  # (bs, seq/1, h) -> (bs*seq, h) : use N replace bs*seq
+        input_tensor = self.reshape(
+            input_tensor, (-1, self.hidden_size))  # (bs, seq/1, h) -> (bs*seq, h) : use N replace bs*seq
 
         # gating + topk + softmax
-        gating_logits = self.gating(input_tensor.astype(mstype.float32)) # (N, h) * (h, E) -> (bs*seq, E)
-        routing_weights = self.softmax(gating_logits.astype(mstype.float32)) # (N, E) -> (N, E)
-        expert_val, expert_index = self.topk(routing_weights, self.num_experts_chosen) # (N, E) -> (N, 2), (N, 2)
+        gating_logits = self.gating(input_tensor.astype(mstype.float32))  # (N, h) * (h, E) -> (bs*seq, E)
+        routing_weights = self.softmax(gating_logits.astype(mstype.float32))  # (N, E) -> (N, E)
+        expert_val, expert_index = self.topk(routing_weights, self.num_experts_chosen)  # (N, E) -> (N, 2), (N, 2)
 
         if self.moe_config.norm_topk_prob and self.num_experts_chosen > 1:
             expert_val = self.cast(expert_val, mstype.float32)
@@ -1577,7 +1666,8 @@ class MoEInfer(Cell):
         # moeffn
         expert_output = self.ffn(sorted_input_tensor, group_list)  # (N, h) (N, 2) -> (N, 2, h)
 
-        moe_output = self.tensor_moe_finalize_routing(expert_output, expert_weight, expert_index, unsort_map)  # -> (N, h)
+        moe_output = self.tensor_moe_finalize_routing(
+            expert_output, expert_weight, expert_index, unsort_map)  # -> (N, h)
 
         output_tensor = self.reshape(moe_output, input_tensor_shape)  # (N, h) -> (bs, seq, h)
         return output_tensor

@@ -13,7 +13,6 @@ from mindformers import LlamaTokenizer
 from mindformers.inference import InferConfig, InferTask
 from mindformers.generation.utils import softmax
 
-
 # pylint: disable=W0105
 """
 数据地址
@@ -55,6 +54,7 @@ def format_example(line, include_answer=True):
 
 def generate_few_shot_prompt(k, subject, dev_df):
     """Generate prompt."""
+
     def format_subject(subject):
         parts = subject.split("_")
         s = ""
@@ -95,6 +95,7 @@ def get_logits(tokenizer, pipeline_task, inputs: List[str]):
     logits = softmax(outputs, axis=-1)
 
     return logits, inputs
+
 
 # pylint: disable=W0613
 # pylint: disable=W0612

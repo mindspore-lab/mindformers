@@ -114,6 +114,7 @@ def convert_vit_weight(name, value, ckpt_weights, dtype, qkv_dict):
             print(f"name:  {name}->{ms_name}")
         ckpt_weights.append({"name": ms_name, "data": pt2ms(value, dtype=dtype)})
 
+
 # pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """Convert huggingface weights files to mindspore ckpt format."""
@@ -126,7 +127,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     for name, param in model.named_parameters():
         print(f"Parameter (name={name}, shape={param.shape}, dtype={param.dtype}, requires_grad={param.requires_grad})")
 
-        if not "language_model" in name:
+        if "language_model" not in name:
             convert_vit_weight(name, param, ckpt_weights, dtype, qkv_dict)
         else:
             ms_name = _llm_name_replace(name)

@@ -279,7 +279,7 @@ class TransformerRecomputeConfig(_Config):
         default_dict = TransformerRecomputeConfig().to_dict()
         res_dict = {}
         for k, v in config_dict.items():
-            if v != default_dict[k]:
+            if v != default_dict.get(k):
                 res_dict[k] = v
         return res_dict
 

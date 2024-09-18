@@ -32,6 +32,7 @@ from research.llava.llava_processor import LlavaContentTransformTemplate
 from research.llava.llava_tokenizer import LlavaTokenizer
 from research.llava.llava_clip_vit import LlavaVisionEncoder
 
+
 def register_modules():
     MindFormerRegister.register_cls(LlavaVlm, MindFormerModuleType.MODELS)
     MindFormerRegister.register_cls(LlavaVisionEncoder, MindFormerModuleType.MODELS)

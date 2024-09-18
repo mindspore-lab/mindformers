@@ -387,7 +387,7 @@ class SwinTransformerBlock(nn.Cell):
         return f"dim={self.dim}, input_resolution={self.input_resolution}, num_heads={self.num_heads}, " \
                f"window_size={self.window_size}, shift_size={self.shift_size}, mlp_ratio={self.mlp_ratio}"
 
-
+# pylint: disable=C0326
 class SwinPatchMerging(nn.Cell):
     """ Patch Merging Layer.
 
@@ -414,7 +414,7 @@ class SwinPatchMerging(nn.Cell):
                                 has_bias=False,
                                 weight_init=weight_init).to_float(mstype.float16)
         self.reduction.shard(strategy_matmul=((dp, mp), (mp, 1)), strategy_bias=((dp, 1), (1,)))
-        self.norm = norm_layer([dim * 4,], eps=1e-5)
+        self.norm = norm_layer([dim * 4, ], eps=1e-5)
         self.norm.shard(((dp, 1, 1),))
         self.h, self.w = self.input_resolution
         self.h_2, self.w_2 = self.h // 2, self.w // 2

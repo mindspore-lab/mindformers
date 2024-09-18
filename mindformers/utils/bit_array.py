@@ -17,10 +17,11 @@
 BitArray to solve bit mask for core binding
 """
 
+
 def int_to_binary_list(value: int, align_length: int = 4) -> list:
     """
     convert int value to binary list
-    eg. 13 => [1, 1, 0, 1]
+    e.g. 13 => [1, 1, 0, 1]
     current only for 0 - 15
 
     Args:
@@ -52,7 +53,7 @@ def int_to_binary_list(value: int, align_length: int = 4) -> list:
 def binary_list_to_int(bin_list: list) -> int:
     """
     convert binary list to int value
-    eg. [1, 1, 0, 1] => 13
+    e.g. [1, 1, 0, 1] => 13
     current only for 0 - 15
 
     Args:
@@ -74,7 +75,7 @@ def binary_list_to_int(bin_list: list) -> int:
 def string_to_bit_list(array_string: str) -> list:
     """
     convert hex string to binary list
-    eg. "ff" => [1, 1, 1, 1, 1, 1, 1, 1]
+    e.g. "ff" => [1, 1, 1, 1, 1, 1, 1, 1]
         "deadbeef" => [1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1]
 
     Args:
@@ -91,6 +92,7 @@ def string_to_bit_list(array_string: str) -> list:
     bin_list.reverse()
     return bin_list
 
+
 class BitArray:
     """
     The bit array class to solve core mask string.
@@ -99,6 +101,7 @@ class BitArray:
         length(`int`, *optional*, defaults to `0`):
             The max bit length of the array.
     """
+
     def __init__(self, length: int = 0):
         self.bits = [0 for _ in range(length)]
 
@@ -126,9 +129,9 @@ class BitArray:
             The index list.
         """
         marked_index_list = []
-        for i in range(len(self.bits)):
-            if self.bits[i] == 1:
-                marked_index_list.append(i)
+        for idx, item in enumerate(self.bits):
+            if item == 1:
+                marked_index_list.append(idx)
         return marked_index_list
 
     def to_bytes_array(self) -> list:
@@ -144,9 +147,9 @@ class BitArray:
         bytes_array = []
         slide_window_list = []
         self.bits.reverse()
-        for i in range(len(self.bits)):
-            slide_window_list.append(self.bits[i])
-            if (i + 1) % 8 == 0:
+        for idx, item in enumerate(self.bits):
+            slide_window_list.append(item)
+            if (idx + 1) % 8 == 0:
                 value = binary_list_to_int(slide_window_list)
                 slide_window_list.clear()
                 bytes_array.append(value)
