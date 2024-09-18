@@ -51,11 +51,11 @@ class Encoder:
     """Encoder"""
     def __init__(self, args):
         self.args = args
+        self.tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
 
     def initializer(self):
         """initializer"""
         # Use Encoder class as a container for global data
-        Encoder.tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
         if self.args.split_sentences:
             if not nltk_available:
                 raise ValueError("NLTK is not available to split sentences.")
@@ -91,6 +91,10 @@ class Encoder:
         data = json.loads(json_line)
         ids = {}
         lens = {}
+        if hasattr(self.tokenizer, 'add_bos_token'):
+            self.tokenizer.add_bos_token = True
+        if hasattr(self.tokenizer, 'add_eos_token'):
+            self.tokenizer.add_eos_token = True
         for key in self.args.json_keys:
             text = data[key]
             if isinstance(text, list):
@@ -100,12 +104,12 @@ class Encoder:
             doc_ids = []
             sentence_lens = []
             for sentence in sentences:
-                sentence_ids = Encoder.tokenizer(sentence)
+                sentence_ids = self.tokenizer(sentence)
                 if sentence_ids is not None:
                     doc_ids.extend(sentence_ids['input_ids'])
                     sentence_lens.append(len(sentence_ids['input_ids']))
             if doc_ids is not None and self.args.append_eod:
-                doc_ids.append(Encoder.tokenizer.eod)
+                doc_ids.append(self.tokenizer.eod)
                 sentence_lens[-1] += 1
             ids[key] = doc_ids
             lens[key] = sentence_lens
@@ -159,6 +163,11 @@ class Partition:
         startup_start = time.time()
         encoder = Encoder(self.args)
         tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        if hasattr(tokenizer, 'add_bos_token'):
+            tokenizer.add_bos_token = True
+        if hasattr(tokenizer, 'add_eos_token'):
+            tokenizer.add_eos_token = True
+
         pool = multiprocessing.Pool(self.workers, initializer=encoder.initializer)
         encoded_docs = pool.imap(encoder.encode, fin, 32)
 
