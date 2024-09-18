@@ -25,6 +25,7 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_pp_rank,
     get_tp_world_size,
     get_pp_world_size,
+    get_cp_world_size,
     get_vpp_rank,
     get_vpp_world_size
 )
@@ -51,6 +52,7 @@ from mindformers.experimental.parallel_core.pynative.transformer.norm import get
 from mindformers.experimental.parallel_core.pynative.transformer.utils import get_attn_mask_func
 from mindformers.experimental.parallel_core.pynative.recompute import CheckpointedRecomputeOrientedCell
 from mindformers.experimental.parallel_core.pynative.utils import divide
+from mindformers.experimental.parallel_core.pynative.context_parallel.ring_attention import RingAttention
 
 from .module import Module
 from .mlp import ParallelMLP
@@ -320,6 +322,14 @@ class ParallelAttention(Module):
         else:
             raise NotImplementedError(f"attention_type should be self_attn or cross_attn, but got {self.attn_type}")
 
+        if get_cp_world_size() > 1:
+            self.ring_attention = RingAttention(
+                self.num_heads,
+                input_layout="BNSD",
+                scale_value=1 / self.norm_factor,
+                sparse_mode=0,
+            )
+
         self.core_attention = CoreAttention(self.layer_index, self.config)
 
         self.out_proj = self._init_out_proj(
@@ -489,7 +499,7 @@ class ParallelAttention(Module):
 
         if not self.use_flash_attention:
             context_layer = self.core_attention(query, key, value, attention_mask)
-        else:
+        elif get_cp_world_size() <= 1:
             if attention_mask.ndim == 3:
                 attention_mask = attention_mask.expand_dims(axis=1)
             if query.dtype == mstype.float32:
@@ -517,6 +527,17 @@ class ParallelAttention(Module):
                     attn_mask=attention_mask,
                     scalar_value=1.0 / self.norm_factor,
                 )
+            context_layer = _merge_heads(output)
+        else:
+            if query.dtype == mstype.float32:
+                query = query.astype(mstype.float16)
+            if key.dtype == mstype.float32:
+                key = key.astype(mstype.float16)
+            if value.dtype == mstype.float32:
+                value = value.astype(mstype.float16)
+
+                output = self.ring_attention(query, key, value, None)
+
             context_layer = _merge_heads(output)
 
         if self.data_layout == "SBH":

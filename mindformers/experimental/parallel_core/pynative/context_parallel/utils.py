@@ -286,11 +286,7 @@ def get_batch_on_this_cp_rank(
 def get_batch_on_this_cp_rank_general(
         input_ids, labels, attention_mask):
     """
-    Args:
-        batch (dict): Dictionary containing batch data.
-
-    Returns:
-        dict: Transformed batch data to support sequence parallelism.
+    Transformed batch data to support sequence parallelism.
     """
     sp_size = get_cp_world_size()
     sp_rank = get_cp_rank()
