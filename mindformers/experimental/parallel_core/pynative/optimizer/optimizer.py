@@ -14,86 +14,378 @@
 # ============================================================================
 """optimizer registration and factory method"""
 
-from mindspore.nn import Adam, SGD
-from mindformers.core.optim import Came, AdamW
-from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
-from mindformers.experimental.parallel_core.pynative.optimizer.lr_scheduler import get_learning_rate_scheduler
+from mindspore import mint, ops, Tensor, Parameter, ParameterTuple
+import mindspore.nn as nn
+import mindspore.common.dtype as mstype
+from mindspore.communication.comm_func import all_reduce
+from mindformers.experimental.parallel_core.pynative.training.optimizer_param_scheduler import OptimizerParamScheduler
 
-ModuleRegistry.register(AdamW, ModuleType.OPTIMIZER)
-ModuleRegistry.register(Adam, ModuleType.OPTIMIZER)
-ModuleRegistry.register(SGD, ModuleType.OPTIMIZER)
-ModuleRegistry.register(Came, ModuleType.OPTIMIZER)
+from mindformers.tools import logger
+from mindformers.experimental.parallel_core.pynative.training.grad_handler import inplace_apply_to_tensor_list, get_grad_norm_fp32, \
+    clip_grad_by_total_norm_fp32, param_is_not_shared
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_rank, get_data_parallel_world_size, \
+    get_model_parallel_group
+
+def get_optimizer_param_scheduler(optimizer, optimizer_config, dataset_config, training_config):
+    """ Build the learning rate scheduler."""
+    # Iteration-based training.
+    dp = get_data_parallel_world_size()
+    global_batch_size = dataset_config.batch_size * dp * dataset_config.micro_batch_num
+    if training_config.training_iters > 0:
+        if optimizer_config.lr_decay_iters is None:
+            optimizer_config.lr_decay_iters = training_config.training_iters
+
+        lr_decay_steps = optimizer_config.lr_decay_iters * global_batch_size
+        wd_incr_steps = training_config.training_iters * global_batch_size
+        wsd_decay_steps = None
+        if optimizer_config.lr_wsd_decay_iters is not None:
+            wsd_decay_steps = optimizer_config.lr_wsd_decay_iters * global_batch_size
+        if optimizer_config.lr_warmup_fraction is not None:
+            lr_warmup_steps = optimizer_config.lr_warmup_fraction * lr_decay_steps
+        else:
+            lr_warmup_steps = optimizer_config.lr_warmup_iters * global_batch_size
+    # Sample-based training.
+    elif dataset_config.train_samples:
+        training_config.training_iters = dataset_config.train_samples // global_batch_size
+        if optimizer_config.lr_decay_samples is None:
+            optimizer_config.lr_decay_samples = dataset_config.train_samples
+        lr_decay_steps = optimizer_config.lr_decay_samples
+        wd_incr_steps = dataset_config.train_samples
+        wsd_decay_steps = optimizer_config.lr_wsd_decay_samples
+        if optimizer_config.lr_warmup_fraction is not None:
+            lr_warmup_steps = optimizer_config.lr_warmup_fraction * lr_decay_steps
+        else:
+            lr_warmup_steps = optimizer_config.lr_warmup_samples
+    else:
+        raise Exception(
+            'either train-iters or train-samples should be positive number.')
+
+    opt_param_scheduler = OptimizerParamScheduler(
+        optimizer,
+        init_lr=optimizer_config.lr_warmup_init,
+        max_lr=optimizer_config.learning_rate,
+        min_lr=optimizer_config.min_lr,
+        lr_warmup_steps=lr_warmup_steps,
+        lr_decay_steps=lr_decay_steps,
+        lr_decay_style=optimizer_config.lr_decay_style,
+        start_wd=optimizer_config.start_weight_decay,
+        end_wd=optimizer_config.end_weight_decay,
+        wd_incr_steps=wd_incr_steps,
+        wd_incr_style=optimizer_config.weight_decay_incr_style,
+        use_checkpoint_opt_param_scheduler=optimizer_config.use_checkpoint_opt_param_scheduler,
+        override_opt_param_scheduler=optimizer_config.override_opt_param_scheduler,
+        wsd_decay_steps=wsd_decay_steps,
+        lr_wsd_decay_style=optimizer_config.lr_wsd_decay_style
+        )
+
+    return opt_param_scheduler
 
 
-def get_optimizer(optimizer_config, params=None, network=None, return_instance: bool = True, **kwargs):
+def _zero_param_group_grad_helper(group):
+    """ zero grad data of parameters. """
+    for param in group:
+        if hasattr(param, 'grad') and param.grad is not None:
+            param.grad = None
+
+class MixedPrecisionOptimizer(nn.Cell):
     """
-    Get an optimizer instance or class based on the provided optimizer configuration.
+    MixedPrecision Optimizer base class.
 
     Args:
-        optimizer_config (OptimizerConfig): The configuration object for the optimizer.
-        params (list or dict): The parameters to optimize.
-        network (nn.Cell): The network model.
-        return_instance (bool): Whether to return an instance of the optimizer or just the optimizer class.
-        **kwargs: Additional keyword arguments to be passed to the optimizer class.
-
-    Returns:
-        Optimizer or type: An instance of the optimizer class if `return_instance` is True,
-        otherwise the optimizer class itself.
-
-    Raises:
-        ValueError: If `params` is None and `return_instance` is True.
-        NotImplementedError: If `weight_decay_kwargs` is not supported yet.
-
+        optimizer (mindspore.experimental.optim.optimizer): Base optimizer.
+        config (OptimizerConfig): Configuration object for optimizer.
+        grad_scaler (GradScaler): Gradient scaling. When `grad_scaler=None`, no scaler will be used for
+            gradients.
+        init_state_fn: Function to initialize state parameters of optimizer.
     """
-    if optimizer_config.parallel_config.zero_level is not None:
-        optimizer_type = optimizer_config.optimizer_type + "ZeRO"
-    else:
-        optimizer_type = optimizer_config.optimizer_type
-    optimizer_cls = ModuleRegistry.get_item(module_type=ModuleType.OPTIMIZER, item_name=optimizer_type)
+    def __init__(
+            self,
+            optimizer,
+            config,
+            grad_scaler,
+            init_state_fn
+        ):
+        super(MixedPrecisionOptimizer, self).__init__(auto_prefix=False)
+        self.optimizer = optimizer
+        self.config = config
+        self.grad_scaler = grad_scaler
+        if init_state_fn is not None:
+            logger.warning("Float16OptimizerWithFloat16Params only support AdamW optimizer for now. "
+                           "The 'init_state_fn' will not be used.")
+        self.init_state_fn = init_state_fn
 
-    if not return_instance:
-        return optimizer_cls
+        if self.grad_scaler is None:
+            self._scale_one = Tensor([1.0], dtype=mstype.float32)
 
-    if params is None:
-        raise ValueError("params must be provided when return_instance is True.")
+        self.grad_scale_func = inplace_apply_to_tensor_list(mint.mul)
 
-    if optimizer_config.weight_decay_kwargs is not None:
-        raise NotImplementedError("weight_decay_kwargs is not supported yet.")
-        # weight_decay = get_weight_decay(optimizer_config.optimizer)
+        self.grads = []
+        self.found_inf = Tensor(False, dtype=mstype.bool_)
+        self._scale_zero = Tensor([0.0], dtype=mstype.float32)
 
-    weight_decay = optimizer_config.weight_decay
+    def _get_lrs(self):
+        """ get lrs. """
+        return self.optimizer.lrs
 
-    if optimizer_config.learning_rate_scheduler_kwargs is not None:
-        learning_rate = get_learning_rate_scheduler(optimizer_config)
-    else:
-        learning_rate = optimizer_config.learning_rate
+    def _set_lrs(self, value):
+        """ set lrs. """
+        self.optimizer.lrs = value
 
-    if isinstance(params[0], dict):
-        using_group_lr = any("lr" in param for param in params)
+    lrs = property(_get_lrs, _set_lrs)
+
+    def zero_grad(self):
+        """ zero grad data. """
+        return
+
+    # pylint: disable=R1705
+    def get_loss_scale(self):
+        """ get loss scale. """
+        if self.grad_scaler is None:
+            return self._scale_one
+        elif isinstance(self.grad_scaler, Tensor):
+            return self.grad_scaler
+        return self.grad_scaler.scale
+
+    def reload_model_params(self):
+        """ copy model params to its fp32 copy. """
+        self._copy_model_params_to_main_params()
+
+    def get_parameters_(self):
+        """ get parameters registered to optimizer in order. """
+        return self.optimizer.parameters
+
+    def get_lr(self):
+        """ get learning rate. """
+        return tuple(self.optimizer.lrs)
+
+    def get_main_grads_for_grad_norm(self):
+        """ collect main gradients for grad norm compute. """
+        params = self.get_parameters_()
+        grads_for_norm = []
         for param in params:
-            if "order_params" in param:
-                continue
-            if "lr" not in param and using_group_lr:
-                param["lr"] = learning_rate
-            if "weight_decay" not in param:
-                param["weight_decay"] = weight_decay
+            grad = param.grad
+            grad_not_none = grad is not None
+            is_not_shared = param_is_not_shared(param)
+            is_not_tp_duplicate = not (
+                ("norm" in param.name)
+                or ("mlp.projection.bias" in param.name)
+                or ("attention.out_proj.bias" in param.name)
+            ) or (get_tensor_model_parallel_rank() == 0)
+            if grad_not_none and is_not_shared and is_not_tp_duplicate:
+                grads_for_norm.append(grad)
+        return grads_for_norm
 
-    optimizer_kwargs = optimizer_config.get_needed_params_for_class(optimizer_cls)
-    optimizer_kwargs["learning_rate"] = learning_rate
-    optimizer_kwargs["weight_decay"] = weight_decay
-    optimizer_kwargs["params"] = params
-    if "grad_allreduce_op" in kwargs:
-        if optimizer_config.parallel_config.zero_level is not None:
-            optimizer_kwargs["grad_allreduce_op"] = kwargs["grad_allreduce_op"]
-        kwargs.pop("grad_allreduce_op", None)
-    if optimizer_config.parallel_config.zero_level is not None:
-        if network is None:
-            raise ValueError("Network must be provided when get ZeRO optimizer instance.")
-        optimizer_kwargs["zero_level"] = optimizer_config.parallel_config.zero_level
-        optimizer_kwargs["network"] = network
-        if optimizer_config.zero_config is not None:
-            optimizer_kwargs.update(optimizer_config.zero_config)
-    optimizer_kwargs.update(kwargs)
-    return_item = optimizer_cls(**optimizer_kwargs)
+    def clip_grad_norm(self, clip_grad):
+        """ clip gridients by global norm. """
+        params = self.get_parameters_()
+        grads_for_norm = self.get_main_grads_for_grad_norm()
+        grad_norm = get_grad_norm_fp32(grads_for_norm, model_parallel_group=get_model_parallel_group())
+        clip_grad_by_total_norm_fp32(params, clip_grad, grad_norm)
+        return grad_norm
 
-    return return_item
+    def _unscale_main_grads_and_check_for_nan(self):
+        """ check nan in main grads and unscale when using grad_scaler. """
+        self._collect_main_grad_data()
+        self.found_inf = Tensor(False, mstype.bool_)
+        inv_scale = mint.reciprocal(self.grad_scaler).astype(mstype.float32)
+        self.grad_scale_func(self.grads, inv_scale)
+        for grad in self.grads:
+            self.found_inf = mint.logical_and(self.found_inf, mint.logical_not(mint.isfinite(grad)).all())
+        self.found_inf = all_reduce(self.found_inf.astype(mstype.float32), 'max', get_model_parallel_group())
+        return mint.greater(self.found_inf, self._scale_zero)
+
+    # pylint: disable=R1705
+    def prepare_grads(self):
+        """ grads overflow check and unscaling. """
+        self._copy_model_grads_to_main_grads()
+        if self.grad_scaler:
+            found_inf_flag = self._unscale_main_grads_and_check_for_nan()
+            return found_inf_flag
+        else:
+            self._collect_main_grad_data()
+        return False
+
+    def step_with_ready_grads(self):
+        """ optimizer update and copy from fp32 copy to model params. """
+        success = self.optimizer(self.grads)
+        self._copy_main_params_to_model_params()
+        return success
+
+    def construct(self):
+        """ construct function. """
+        found_inf_flag = self.prepare_grads()
+        if found_inf_flag:
+            return False, None, None
+        grad_norm = None
+        if self.config.clip_grad > 0.0:
+            grad_norm = self.clip_grad_norm(self.config.clip_grad)
+        num_zeros_in_grad = None
+        success = self.step_with_ready_grads()
+
+        return success, grad_norm, num_zeros_in_grad
+
+
+class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
+    """
+    Mixed precision optimizer with float16/bfloat16 parameters and gradients.
+
+    Args:
+        optimizer (mindspore.experimental.optim.optimizer): Base optimizer.
+        config (OptimizerConfig): Configuration object for optimizer.
+        grad_scaler (GradScaler): Gradient scaling. When `grad_scaler=None`, no scaler will be used for
+            gradients.
+        init_state_fn: Function to initialize state parameters of optimizer.
+        wrap_with_ddp: Indicate whether the model has been wrapped with DistributedDataParallel. Default: False.
+    """
+    def __init__(
+            self,
+            optimizer,
+            config,
+            grad_scaler,
+            init_state_fn,
+            wrap_with_ddp=False,
+        ):
+        super().__init__(
+            optimizer,
+            config,
+            grad_scaler,
+            init_state_fn
+        )
+        self.wrap_with_ddp = wrap_with_ddp
+
+        self.optimizer.parameters = list(self.optimizer.parameters)
+        self.optimizer.exp_avg = list(self.optimizer.exp_avg)
+        self.optimizer.exp_avg_sq = list(self.optimizer.exp_avg_sq)
+
+        # group parameters by their dtype
+        self.fp16_groups = []
+        self.fp32_from_fp16_groups = []
+        self.fp32_groups = []
+        self.grads = []
+
+        for group_idx, param_group in enumerate(self.optimizer.param_groups):
+            fp16_params_this_group = []
+            fp32_from_fp16_params_this_group = []
+            fp32_params_this_group = []
+
+            for param_idx, param in enumerate(param_group['params']):
+                if not param.requires_grad:
+                    continue
+
+                if param.dtype in [mstype.bfloat16, mstype.float16]:
+                    fp16_params_this_group.append(param)
+                    # create fp32 copy
+                    main_param = Parameter(
+                        param.value().astype(mstype.float32),
+                        name=param.name + '_fp32',
+                        requires_grad=False
+                    )
+                    param.main_param = main_param
+                    fp32_from_fp16_params_this_group.append(main_param)
+
+                    # global index of parameter in optimizer.parameters
+                    param_world_index = self.optimizer.group_start_id[group_idx] + param_idx
+                    # replace registered parameter with its fp32 copy
+                    param_group['params'][param_idx] = main_param
+                    self.optimizer.parameters[param_world_index] = main_param
+
+                    # update state with fp16/bf16 to fp32 copy
+                    # only support AdamW optimizer for now.
+                    self.optimizer.exp_avg[param_world_index] = Parameter(
+                        self.optimizer.exp_avg[param_world_index].value().astype(mstype.float32),
+                        name=self.optimizer.exp_avg[param_world_index].name,
+                        requires_grad=self.optimizer.exp_avg[param_world_index].requires_grad
+                    )
+                    self.optimizer.exp_avg_sq[param_world_index] = Parameter(
+                        self.optimizer.exp_avg_sq[param_world_index].value().astype(mstype.float32),
+                        name=self.optimizer.exp_avg_sq[param_world_index].name,
+                        requires_grad=self.optimizer.exp_avg_sq[param_world_index].requires_grad
+                    )
+                elif param.dtype == mstype.float32:
+                    fp32_params_this_group.append(param)
+                else:
+                    raise TypeError("Invalid parameter type, parameter registered in optimizer should be "
+                                    "one of [mstype.float32, mstype.bfloat16, mstype.float16], "
+                                    "but got {}".format(param.dtype))
+
+                if not self.wrap_with_ddp:
+                    # register hook function for parameters which sets param.grad attr
+                    param.register_hook(self._make_param_hook(param))
+
+            self.fp16_groups.append(fp16_params_this_group)
+            self.fp32_from_fp16_groups.append(fp32_from_fp16_params_this_group)
+            self.fp32_groups.append(fp32_params_this_group)
+
+        self.optimizer.parameters = ParameterTuple(self.optimizer.parameters)
+        self.optimizer.exp_avg = ParameterTuple(self.optimizer.exp_avg)
+        self.optimizer.exp_avg_sq = ParameterTuple(self.optimizer.exp_avg_sq)
+
+        self.parameters = self.optimizer.parameters
+        self.defaults = self.optimizer.defaults
+        self.reload_model_params()
+
+    def zero_grad(self):
+        """ reset parameter grad. """
+        for group in self.fp16_groups:
+            _zero_param_group_grad_helper(group)
+        for group in self.fp32_from_fp16_groups:
+            _zero_param_group_grad_helper(group)
+        for group in self.fp32_groups:
+            _zero_param_group_grad_helper(group)
+        # reset self.grads
+        self.grads = []
+
+    def _collect_main_grad_data(self):
+        for param in self.optimizer.parameters:
+            self.grads.append(param.grad)
+
+    def _get_model_and_main_params_data(self):
+        model_params = []
+        main_params = []
+        for model_group, main_group in zip(self.fp16_groups, self.fp32_from_fp16_groups):
+            for model_param, main_param in zip(model_group, main_group):
+                model_params.append(model_param)
+                main_params.append(main_param)
+        return model_params, main_params
+
+    def _copy_model_grads_to_main_grads(self):
+        """ copy model grads to main grads. """
+        for model_group, main_group in zip(self.fp16_groups, self.fp32_from_fp16_groups):
+            for model_param, main_param in zip(model_group, main_group):
+                if hasattr(model_param, 'main_grad'):
+                    main_param.grad = model_param.main_grad.astype(mstype.float32)
+                else:
+                    if model_param.grad is not None:
+                        main_param.grad = model_param.grad.astype(mstype.float32)
+
+        for model_group in self.fp32_groups:
+            for model_param in model_group:
+                if hasattr(model_param, 'main_grad'):
+                    model_param.grad = model_param.main_grad
+
+    def _copy_model_params_to_main_params(self):
+        """ copy model param to main param. """
+        model_params, main_params = self._get_model_and_main_params_data()
+        for model_param, main_param in zip(model_params, main_params):
+            main_param.assign_value(model_param.value().astype(mstype.float32))
+
+    def _copy_main_params_to_model_params(self):
+        """ copy main param to model param. """
+        model_params, main_params = self._get_model_and_main_params_data()
+        for main_param, model_param in zip(main_params, model_params):
+            model_param.assign_value(main_param.value().astype(model_param.dtype))
+
+    def _make_param_hook(self, param):
+        """ make closure function as the param hook. """
+        def param_hook(grad):
+            # when using bf16, gradients shuold be cast to fp32 for communication and optim
+            if grad.dtype == mstype.bfloat16:
+                grad = ops.cast(grad, mstype.float32)
+            if param.grad is not None:
+                # grad accumulate
+                param.grad = mint.add(param.grad, grad)
+            else:
+                param.grad = grad
+            return param.grad
+
+        return param_hook

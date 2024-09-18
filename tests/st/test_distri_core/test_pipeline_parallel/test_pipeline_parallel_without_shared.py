@@ -12,21 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Test Pipeline Parallel Without Shared Weight."""
+"""Test Pipeline Parallel Without Shared Weight"""
 import os
 import numpy as np
 import pytest
 from tests.st.test_distri_core.utils import read_loss_from_log
 
 
-
+@pytest.mark.level1
+@pytest.mark.platform_arm_ascend910b_training
+@pytest.mark.env_single
 class TestPipelineParallel:
     """A test class for pipeline parallel without shared weight. """
 
-    @pytest.mark.level1
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
     @pytest.mark.skip(reason="Get golden loss from records")
+    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.run(order=1)
     def test_generate_pipeline_net_golden_without_shared_weight(self):
         """
         Feature: generate pipeline net without shared weight golden loss
@@ -41,21 +42,20 @@ class TestPipelineParallel:
         scripts_path = os.path.join(sh_path, scripts_name)
         log_dir = "standalone_without_share_log"
         scripts_cmd = f"{scripts_path} --run_mode standalone_without_share"
-        cmd = f"msrun --worker_num={device_num} " + \
-                    f"--local_worker_num={device_num} " + \
-                    f"--master_port=8118 " + \
-                    f"--log_dir={log_dir} " + \
-                    f"--join=True " + \
-                    f"--cluster_time_out=300 " + \
+        cmd = f"msrun --worker_num={device_num} "+\
+                    f"--local_worker_num={device_num} "+\
+                    f"--master_port=8118 "+\
+                    f"--log_dir={log_dir} "+\
+                    f"--join=True "+\
+                    f"--cluster_time_out=300 "+\
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
         os.system(f"grep -E 'ERROR|error' {sh_path}/{log_dir}/worker_0.log -C 3")
         assert ret == 0, f"msrun failed, please check {log_dir}/worker_*.log"
 
-    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
+    @pytest.mark.run(order=2)
     def test_pipeline_net_loss_without_shared_weight(self):
         """
         Feature: test pynative pipeline net without shared weight
@@ -70,21 +70,20 @@ class TestPipelineParallel:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --run_mode pp_without_share"
-        cmd = f"msrun --worker_num={device_num} " + \
-                    f"--local_worker_num={device_num} " + \
-                    f"--master_port=8119 " + \
-                    f"--log_dir={log_dir} " + \
-                    f"--join=True " + \
-                    f"--cluster_time_out=300 " + \
+        cmd = f"msrun --worker_num={device_num} "+\
+                    f"--local_worker_num={device_num} "+\
+                    f"--master_port=8119 "+\
+                    f"--log_dir={log_dir} "+\
+                    f"--join=True "+\
+                    f"--cluster_time_out=300 "+\
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
         os.system(f"grep -E 'ERROR|error' {sh_path}/{log_dir}/worker_0.log -C 3")
         assert ret == 0, f"msrun failed, please check {log_dir}/worker_*.log"
 
-    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
+    @pytest.mark.run(order=3)
     def test_compare_loss_without_shared_weight(self):
         """
         Feature: test_compare_loss_without_shared_weight

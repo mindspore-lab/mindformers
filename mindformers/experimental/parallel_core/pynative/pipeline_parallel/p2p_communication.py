@@ -21,8 +21,8 @@ try:
 except ImportError:
     from mindspore.ops.operations._inner_ops import Send, Receive
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_pp_group, get_pp_rank, \
-    get_pp_world_size, is_pipeline_last_stage, is_pipeline_first_stage, get_stream
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_group, get_pipeline_model_parallel_rank, \
+    get_pipeline_model_parallel_world_size, is_pipeline_last_stage, is_pipeline_first_stage, get_stream
 
 
 class ISend(nn.Cell):
@@ -37,7 +37,8 @@ class ISend(nn.Cell):
         self.send_stream.wait_stream(hal.current_stream())
         with hal.StreamCtx(self.send_stream):
             self.op_send(send_data)
-        return self.send_stream
+            event = self.send_stream.record_event()
+        return event
 
 
 class IRecv(nn.Cell):
@@ -52,8 +53,8 @@ class IRecv(nn.Cell):
         """ IRecv forward """
         with hal.StreamCtx(self.recv_stream):
             recv_tensor = self.op_recv(self.data)
-        hal.current_stream().wait_stream(self.recv_stream)
-        return self.recv_stream, recv_tensor
+            event = self.recv_stream.record_event()
+        return event, recv_tensor
 
 
 # pylint: disable=C0103
@@ -181,7 +182,7 @@ class P2P_Primitive():
             recv_prev=recv_prev,
             recv_next=False,
             tensor_shape=tensor_shape,
-            synchronize=(not overlap_p2p_comm)
+            wait_on_reqs=(not overlap_p2p_comm)
         )
         if overlap_p2p_comm:
             return input_tensor, reqs
@@ -202,7 +203,7 @@ class P2P_Primitive():
             recv_prev=False,
             recv_next=recv_next,
             tensor_shape=tensor_shape,
-            synchronize=(not overlap_p2p_comm)
+            wait_on_reqs=(not overlap_p2p_comm)
         )
         if overlap_p2p_comm:
             return output_tensor_grad, reqs
@@ -234,7 +235,7 @@ class P2P_Primitive():
                       recv_prev,
                       recv_next,
                       tensor_shape,
-                      synchronize=True):
+                      wait_on_reqs=True):
 
         """
         Main function for communication between different nodes
@@ -245,7 +246,7 @@ class P2P_Primitive():
             recv_prev (Bool): If is not None, recv a tensor from previous node.
             recv_next (Bool): If is not None, recv a tensor from next node.
             tensor_shape (List): If 'recv_prev' or 'recv_next' is not None, define the shape of recv tensor.
-            synchronize (Bool): If True, use synchronize method.
+            wait_on_reqs (Bool): If True, use synchronize method.
         """
 
         tensor_recv_prev = None
@@ -278,13 +279,13 @@ class P2P_Primitive():
             tensor_recv_prev=tensor_recv_prev,
             tensor_send_next=tensor_send_next,
             tensor_recv_next=tensor_recv_next,
-            group=get_pp_group(),
+            group=get_pipeline_model_parallel_group(),
         )
 
         # stream synchronize
-        if synchronize and reqs:
+        if wait_on_reqs and reqs:
             for req in reqs:
-                req.synchronize()
+                req.wait()
             reqs = None
 
         # cast
@@ -305,13 +306,12 @@ class P2P_Primitive():
                          group):
         """ Use 'ISend' or 'IRecv' for p2p communication."""
         reqs = []
-        rank = get_pp_rank()
-        world_size = get_pp_world_size()
+        rank = get_pipeline_model_parallel_rank()
+        world_size = get_pipeline_model_parallel_world_size()
         if rank % 2 == 0:
             if tensor_send_next is not None:
                 send_next_req = ISend(0, (rank + 1) % world_size, group=group)
-                send_next_stream = send_next_req(tensor_send_next)
-                reqs.append(send_next_stream)
+                _ = send_next_req(tensor_send_next)
 
             if tensor_recv_prev is not None:
                 recv_prev_req = IRecv(0, (rank - 1) % world_size,
@@ -321,8 +321,7 @@ class P2P_Primitive():
 
             if tensor_send_prev is not None:
                 send_prev_req = ISend(0, (rank - 1) % world_size, group=group)
-                send_prev_stream = send_prev_req(tensor_send_prev)
-                reqs.append(send_prev_stream)
+                _ = send_prev_req(tensor_send_prev)
 
             if tensor_recv_next is not None:
                 recv_next_req = IRecv(0, (rank + 1) % world_size,
@@ -338,8 +337,7 @@ class P2P_Primitive():
 
             if tensor_send_next is not None:
                 send_next_req = ISend(1, (rank + 1) % world_size, group=group)
-                send_next_stream = send_next_req(tensor_send_next)
-                reqs.append(send_next_stream)
+                _ = send_next_req(tensor_send_next)
 
             if tensor_recv_next is not None:
                 recv_next_req = IRecv(1, (rank + 1) % world_size,
@@ -349,6 +347,5 @@ class P2P_Primitive():
 
             if tensor_send_prev is not None:
                 send_prev_req = ISend(1, (rank - 1) % world_size, group=group)
-                send_prev_stream = send_prev_req(tensor_send_prev)
-                reqs.append(send_prev_stream)
+                _ = send_prev_req(tensor_send_prev)
         return reqs, tensor_recv_prev, tensor_recv_next

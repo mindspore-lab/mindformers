@@ -16,10 +16,11 @@
 from dataclasses import dataclass
 from typing import Optional
 
-
 @dataclass
 class DistributedDataParallelConfig:
     """Configuration for DistributedDataParallel wrapper."""
+    # if True, grad buffer will be created in fp32. Grad accumulate and synchronizer will be done in fp32.
+    grad_reduce_in_fp32: bool = False
 
     # enable gradients calculation and communication overlap between buckets.
     overlap_grad_reduce: bool = False
@@ -33,5 +34,5 @@ class DistributedDataParallelConfig:
     # average gradients among data parallel group when communication.
     average_in_collective: bool = False
 
-    # if true, check for gradients in buffer are finite after synchronization.
+    # if true, check gradients in buffer are finite after synchronization.
     check_for_nan_in_grad: bool = False

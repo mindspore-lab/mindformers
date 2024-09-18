@@ -20,21 +20,22 @@ from mindformers.experimental.parallel_core.pynative.config import (
     init_configs_from_yaml,
     init_configs_from_dict,
     BaseConfig,
-    TrainingConfig
+    TrainingConfig,
+    ModelParallelConfig,
+    OptimizerConfig,
+    DatasetConfig,
+    LoraConfig,
+    TransformerConfig
 )
-
 
 class AConfig(BaseConfig):
     config_name = "a_config"
-
     def __init__(self, a, b, c, **kwargs):
-        super(AConfig, self).__init__()
         self.a = a
         self.b = b
         self.c = c
 
         self.update_attrs(**kwargs)
-
 
 @AConfig.validator("a")
 # pylint: disable=W0613
@@ -43,13 +44,9 @@ def validate_a(config_instance, value):
         raise ValueError("a must be non-negative")
     return value
 
-
 class BConfig(BaseConfig):
-    """ Test Class of BConfig."""
     config_name = "b_config"
-
     def __init__(self, d, e, f, a_config, **kwargs):
-        super(BConfig, self).__init__()
         self.d = d
         self.e = e
         self.f = f
@@ -57,16 +54,11 @@ class BConfig(BaseConfig):
 
         self.update_attrs(**kwargs)
 
-
 BConfig.register_depended_config(AConfig)
 
-
 class CConfig(BaseConfig):
-    """ Test Class of CConfig."""
     config_name = "c_config"
-
     def __init__(self, g, h, i, a_config=None, **kwargs):
-        super(CConfig, self).__init__()
         self.g = g
         self.h = h
         self.i = i
@@ -79,9 +71,7 @@ CConfig.register_depended_config(AConfig, optional=True)
 
 class DConfig(BaseConfig):
     config_name = 'd_config'
-
     def __init__(self, j, k, l, **kwargs):
-        super(DConfig, self).__init__()
         self.j = j
         self.k = k
         self.l = l
@@ -91,9 +81,7 @@ class DConfig(BaseConfig):
 
 class EConfig(BaseConfig):
     config_name = 'e_config'
-
     def __init__(self, m, f_config, **kwargs):
-        super(EConfig, self).__init__()
         self.m = m
         self.f_config = f_config
 
@@ -102,9 +90,7 @@ class EConfig(BaseConfig):
 
 class FConfig(BaseConfig):
     config_name = 'f_config'
-
     def __init__(self, n, e_config, **kwargs):
-        super(FConfig, self).__init__()
         self.n = n
         self.e_config = e_config
 
@@ -154,7 +140,6 @@ def test_dict():
     assert all_config.b_config.d == raw_dict["b_config"]["d"]
     assert all_config.b_config.e == raw_dict["b_config"]["e"]
     assert all_config.b_config.f == raw_dict["b_config"]["f"]
-
 
 @pytest.mark.level1
 @pytest.mark.platform_x86_cpu
@@ -244,7 +229,6 @@ def test_optional_config():
     assert all_config.c_config.h == 5
     assert all_config.c_config.i == 6
 
-
 @pytest.mark.level1
 @pytest.mark.platform_x86_cpu
 def test_no_depended_config():
@@ -262,7 +246,6 @@ def test_no_depended_config():
     assert all_config.d_config.j == 4
     assert all_config.d_config.k == 5
     assert all_config.d_config.l == 6
-
 
 @pytest.mark.level1
 @pytest.mark.platform_x86_cpu
@@ -317,7 +300,7 @@ def test_cycle_dependency():
         assert False
 
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_x86_cpu
 def test_init_configs_from_yaml_with_full_config_list():
     """
@@ -327,10 +310,12 @@ def test_init_configs_from_yaml_with_full_config_list():
     """
     config_path = "./full.yaml"
 
-    _ = init_configs_from_yaml(config_path)
+    _ = init_configs_from_yaml(
+        config_path,
+        [TrainingConfig, ModelParallelConfig, OptimizerConfig, DatasetConfig, LoraConfig, TransformerConfig],
+    )
 
-
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_x86_cpu
 def test_init_configs_from_yaml_with_partial_config_list():
     """
@@ -343,3 +328,16 @@ def test_init_configs_from_yaml_with_partial_config_list():
     _ = init_configs_from_yaml(
         config_path, [TrainingConfig]
     )
+
+@pytest.mark.level1
+@pytest.mark.platform_x86_cpu
+def test_init_configs_from_yaml_without_config_list():
+    """
+    Feature: init configs from yaml without config list
+    Description: Test to initialize configs from yaml without config list
+    Expectation: success
+    """
+    config_path = "./partial.yaml"
+
+    all_config = init_configs_from_yaml(config_path)
+    assert hasattr(all_config, "extra_config")

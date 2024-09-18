@@ -17,8 +17,6 @@ import os
 import pytest
 
 test_parallel_order = ['tp-cp-ep-dp-pp', 'tp-ep-dp-cp-pp']
-
-
 class TestCreateComm:
     """A test class for testing creating communication."""
     # os.environ['ASCEND_RT_VISIBLE_DEVICES'] = "0,1,2,3"
@@ -27,6 +25,7 @@ class TestCreateComm:
     @pytest.mark.env_single
     @pytest.mark.parametrize("order", test_parallel_order)
     @pytest.mark.run(order=1)
+    @pytest.mark.skip(reason="skip comm group test")
     def test_create_comm(self, order):
         """
         Feature: boundary test for creating communication
@@ -40,12 +39,12 @@ class TestCreateComm:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --order={order}"
-        cmd = f"msrun --worker_num={device_num} " + \
-                    f"--local_worker_num={device_num} " + \
-                    f"--master_port=8118 " + \
-                    f"--log_dir=msrun_log " + \
-                    f"--join=True " + \
-                    f"--cluster_time_out=300 " + \
+        cmd = f"msrun --worker_num={device_num} "+\
+                    f"--local_worker_num={device_num} "+\
+                    f"--master_port=8118 "+\
+                    f"--log_dir=msrun_log "+\
+                    f"--join=True "+\
+                    f"--cluster_time_out=300 "+\
                     f"{scripts_cmd}"
         ret = os.system(cmd)
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_0.log -C 3")

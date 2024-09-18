@@ -15,7 +15,7 @@
 "AdamWeightDecay ZeRO Optimizer"
 import numpy as np
 import mindspore as ms
-from mindspore import ParameterTuple, Tensor, ops, nn, _no_grad
+from mindspore import ParameterTuple, Tensor, ops, nn, _no_grad, mint
 import mindspore._checkparam as validator
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
@@ -23,8 +23,8 @@ from mindspore.nn.optim.optimizer import Optimizer
 from mindspore.common import dtype as mstype
 from mindspore.common.initializer import initializer
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_dp_rank, \
-    get_dp_world_size, get_dp_group
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_rank, \
+    get_data_parallel_world_size, get_data_parallel_group
 from mindformers.tools.logger import logger
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
 
@@ -98,14 +98,15 @@ def _inner_grad_reduce_scatter(reduce_scatter, allreduce, grad_allreduce_sum, sh
     else:
         grads = allreduce(grads)
     if not grad_allreduce_sum:
-        grads = grads / shard_size
+        grads = mint.div(grads, shard_size)
     return grads
 
 
-def _check_param_value(beta1, beta2, eps, opt_parallel_group, cpu_offload, prim_name):
+def _check_param_value(beta1, beta2, eps, opt_parallel_group, cpu_offload, param_resident_rate, prim_name):
     """Check the type of inputs."""
     validator.check_value_type("beta1", beta1, [float], prim_name)
     validator.check_value_type("beta2", beta2, [float], prim_name)
+    validator.check_value_type("param_resident_rate", param_resident_rate, [float], prim_name)
     validator.check_value_type("eps", eps, [float], prim_name)
     validator.check_value_type("opt_parallel_group", opt_parallel_group, [str, type(None)], prim_name)
     validator.check_value_type("cpu_offload", cpu_offload, [bool], prim_name)
@@ -185,6 +186,9 @@ class AdamW(Optimizer):
         param_resident (bool): After the forward propagation, the parameters are resident and not split.
             Default: Flase.
 
+        param_resident_rate (float): After the forward propagation, the rate of parameters are resident and not split.
+            Default: 1.0.
+
         allreduce_after_grad_accumulation (bool): Use allreduce in optimizer after gradient accumulation.
             Default: Flase.
 
@@ -217,21 +221,26 @@ class AdamW(Optimizer):
     """
     _support_parallel_optimizer = True
 
-    def __init__(self, network, params, learning_rate=1e-3, beta1=0.9, beta2=0.999, eps=1e-6, weight_decay=0.0,
-                 zero_level="z1", param_resident=False, allreduce_after_grad_accumulation=False,
-                 grad_allreduce_op="sum", opt_parallel_group=None, cpu_offload=False, with_context_parallel=False):
+    def __init__(self, network, params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0,
+                 zero_level="z1", param_resident=False, param_resident_rate=1.0,
+                 allreduce_after_grad_accumulation=False, grad_allreduce_op="sum", opt_parallel_group=None,
+                 cpu_offload=False, with_context_parallel=False):
         super(AdamW, self).__init__(learning_rate, params, weight_decay)
-        _check_param_value(beta1, beta2, eps, opt_parallel_group, cpu_offload, self.cls_name)
+        beta1, beta2 = betas
+        _check_param_value(beta1, beta2, eps, opt_parallel_group, cpu_offload, param_resident_rate, self.cls_name)
         if grad_allreduce_op not in ["mean", "sum"]:
             raise NotImplementedError(f"{grad_allreduce_op} is not supported in AdamWeightDecay yet.")
         if zero_level not in ["z2", "z3"] and allreduce_after_grad_accumulation is True:
             logger.warning(f"allreduce_after_grad_accumulation must be False when in {zero_level}")
         if zero_level not in ["z3"] and param_resident is True:
             logger.warning(f"param_resident must be False when in {zero_level}")
+        if param_resident is True and (param_resident_rate > 1 or param_resident_rate <= 0):
+            raise NotImplementedError(f"When use param_resident, param_resident_rate must in (0, 1]")
         self.network = network
         self.zero_level = zero_level
         self.cpu_offload = cpu_offload
         self.param_resident = param_resident
+        self.param_resident_rate = param_resident_rate
         self.allreduce_after_grad_accumulation = allreduce_after_grad_accumulation
         self.with_context_parallel = with_context_parallel
         self.grad_allreduce_sum = grad_allreduce_op == "sum"
@@ -241,11 +250,11 @@ class AdamW(Optimizer):
         # init communication group info
         self._init_optimizer_shard_info()
 
-        self.reduce_scatter = ops.ReduceScatter(group=get_dp_group(with_context_parallel=self.with_context_parallel))
-        self.allreduce = P.AllReduce(group=get_dp_group(with_context_parallel=self.with_context_parallel))
-        self.allgather = P.AllGather(group=get_dp_group(with_context_parallel=self.with_context_parallel))
+        self.reduce_scatter = ops.ReduceScatter(\
+            group=get_data_parallel_group(with_context_parallel=self.with_context_parallel))
+        self.allreduce = P.AllReduce(group=get_data_parallel_group(with_context_parallel=self.with_context_parallel))
+        self.allgather = P.AllGather(group=get_data_parallel_group(with_context_parallel=self.with_context_parallel))
         self.split = P.Split(0, self.shard_size)
-
         if self.zero_level == "z3":
             self._regist_hook_for_cells()
         self._parameter_status_split()
@@ -278,13 +287,27 @@ class AdamW(Optimizer):
 
     def _init_optimizer_shard_info(self):
         """Init optimizer parallel information."""
-        self.shard_size = get_dp_world_size(with_context_parallel=self.with_context_parallel)
-        self.shard_id = get_dp_rank(with_context_parallel=self.with_context_parallel)
+        self.shard_size = get_data_parallel_world_size(with_context_parallel=self.with_context_parallel)
+        self.shard_id = get_data_parallel_rank(with_context_parallel=self.with_context_parallel)
 
     def _init_all_gather_ops(self):
         for i, param_splited in enumerate(self._status_splited):
             if param_splited:
                 self.all_gather_ops[i] = self.allgather
+
+    def _param_resident_flag(self, zero3_param_numel, param_resident_rate):
+        """add resident flag"""
+        total_numel = sum(zero3_param_numel.values())
+        zero3_param_numel = sorted(zero3_param_numel.items(), key=lambda kv: (kv[1], kv[0]), reverse=True)
+        numel_count = 0
+        resident_cell_id = []
+        for param_numel in zero3_param_numel:
+            numel_count += param_numel[1]
+            resident_cell_id.append(param_numel[0])
+            if numel_count >= total_numel * param_resident_rate:
+                break
+        return resident_cell_id
+
 
     def _regist_hook_for_cells(self):
         """Register hook for model parameters for optimizer parallel."""
@@ -371,13 +394,22 @@ class AdamW(Optimizer):
                     self.z3_optim_cells.append(sub_cell)
                 else:
                     recursion_cells(sub_cell)
-
         recursion_cells(self.network)
 
+        if self.param_resident and self.param_resident_rate < 1:
+            zero3_param_numel = {}
+            for i, sub_cell in enumerate(self.z3_optim_cells):
+                sub_cell_param_numel = 0
+                for sub_cell_param in sub_cell.get_parameters():
+                    sub_cell_param_numel += sub_cell_param.numel()
+                zero3_param_numel[i] = sub_cell_param_numel
+            resident_cell_id = self._param_resident_flag(zero3_param_numel, self.param_resident_rate)
+
         self.zero3_parameters = []
-        for sub_cell in self.z3_optim_cells:
+        for i, sub_cell in enumerate(self.z3_optim_cells):
             sub_cell.register_forward_pre_hook(_pre_forward_cell_hook)
-            if not self.param_resident:
+            if not self.param_resident or \
+                    (self.param_resident and self.param_resident_rate < 1 and i not in resident_cell_id):
                 sub_cell.register_forward_hook(_post_forward_cell_hook)
                 sub_cell.register_forward_hook(_pre_backward_cell_hook)
             sub_cell.register_forward_pre_hook(_post_backward_cell_hook)
@@ -401,18 +433,18 @@ class AdamW(Optimizer):
         """Register hook for model parameters for optimizer parallel."""
 
         def reduce_scatter_hook(grad):
-            # allreduce = P.AllReduce(group=get_dp_group())
+            # allreduce = P.AllReduce(group=get_data_parallel_group())
             # split = P.Split(0, self.shard_size)
             # res = split(allreduce(grad))[self.shard_id].contiguous()
             res = self.reduce_scatter(grad)
             if not self.grad_allreduce_sum:
-                res = res / self.shard_size
+                res = mint.div(res, self.shard_size)
             return res
 
         def reduce_hook(grad):
             res = self.allreduce(grad)
             if not self.grad_allreduce_sum:
-                res = res / self.shard_size
+                res = mint.div(res, self.shard_size)
             return res
 
         for i, param in enumerate(self._parameters):
@@ -429,10 +461,8 @@ class AdamW(Optimizer):
             if self._status_splited[i]:
                 param_shape = list(param_shape)
                 param_shape[0] = param_shape[0] // self.shard_size
-                param_shape_ = tuple(param_shape)
-            else:
-                param_shape_ = param_shape
-            moment = ms.Parameter(initializer(init, shape=param_shape_, dtype=mstype.float32),
+                param_shape = tuple(param_shape)
+            moment = ms.Parameter(initializer(init, shape=param_shape, dtype=mstype.float32),
                                   name=prefix + "." + param.name)
             moments_list.append(moment)
 
@@ -521,7 +551,7 @@ class AdamW(Optimizer):
                 raise Exception(f"the input dict has no shard info for '{model_name}'.")
             if self._status_splited[idx] or self._parameter_splited[idx]:
                 opt_weight_shard_step = np.prod(shard)
-                opt_weight_shard_size = get_dp_world_size()
+                opt_weight_shard_size = get_data_parallel_world_size()
             else:
                 opt_weight_shard_step = 0
                 opt_weight_shard_size = 0

@@ -28,11 +28,11 @@ from mindspore.nn import SoftmaxCrossEntropyWithLogits
 
 from mindformers.modules import Linear
 from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
-from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel, get_tp_world_size, get_dp_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel, get_tensor_model_parallel_world_size, get_data_parallel_world_size
 from mindformers.experimental.parallel_core.pynative.tensor_parallel import RowParallelLinear, \
     ColumnParallelLinear
 
-from tests.st.test_distri_core.utils import LinearTestData, linear_train, transform_linear_params
+from tests.st.test_distri_core.utils import TestData, train, transform_linear_params
 
 
 class LinearNet(nn.Cell):
@@ -129,7 +129,7 @@ def generate_golden():
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length)).astype(np.float32)
     label_data = np.zeros((dataset_size, seq_length)).astype(np.float32)
-    dataset = LinearTestData(input_data=input_data, label_data=label_data)
+    dataset = TestData(input_data=input_data, label_data=label_data)
     dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels'])
     dataset = dataset.batch(batch_size)
 
@@ -140,7 +140,7 @@ def generate_golden():
         ms.save_checkpoint(network, "linear_golden.ckpt")
     optimizer = AdamWeightDecay(params=network.get_parameters())
 
-    linear_train(1, dataset, network, optimizer, None)
+    train(1, dataset, network, optimizer, None)
 
 
 def run_rowparallellinear(train_args):
@@ -155,22 +155,23 @@ def run_rowparallellinear(train_args):
     init()
     initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
 
-    print(f"dp: {get_dp_world_size()}, tp: {get_tp_world_size()}")
+    print(f"dp: {get_data_parallel_world_size()}, tp: {get_tensor_model_parallel_world_size()}")
 
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length)).astype(np.float32)
     label_data = np.zeros((dataset_size, seq_length)).astype(np.float32)
-    dataset = LinearTestData(input_data=input_data, label_data=label_data)
+    dataset = TestData(input_data=input_data, label_data=label_data)
     dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels'])
     dataset = dataset.batch(batch_size)
 
     parallel_config = ModelParallelConfig(
-        tensor_parallel=tensor_parallel,
+        tensor_model_parallel_size=tensor_parallel,
+        overlap_grad_reduce=train_args.grad_acc,
         gradient_accumulation_fusion=train_args.grad_acc
     )
     config = TransformerConfig(vocab_size=1,
                                num_layers=1,
-                               num_heads=1,
+                               num_attention_heads=1,
                                hidden_size=1,
                                ffn_hidden_size=1,
                                parallel_config=parallel_config)
@@ -197,7 +198,7 @@ def run_rowparallellinear(train_args):
     network.set_inputs(input_ids, labels)
     optimizer = AdamWeightDecay(params=network.get_parameters())
 
-    losses = linear_train(1, dataset, network, optimizer, None)
+    losses = train(1, dataset, network, optimizer, None)
     losses = list(map(lambda x: x[0], losses))
     golden_losses = [2.7725887, 2.7203748, 2.6545675]
     if train_args.froze:
@@ -220,22 +221,23 @@ def run_columnparallellinear(train_args):
     init()
     initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
 
-    print(f"dp: {get_dp_world_size()}, tp: {get_tp_world_size()}")
+    print(f"dp: {get_data_parallel_world_size()}, tp: {get_tensor_model_parallel_world_size()}")
 
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length)).astype(np.float32)
     label_data = np.zeros((dataset_size, seq_length)).astype(np.float32)
-    dataset = LinearTestData(input_data=input_data, label_data=label_data)
+    dataset = TestData(input_data=input_data, label_data=label_data)
     dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels'])
     dataset = dataset.batch(batch_size)
 
     parallel_config = ModelParallelConfig(
-        tensor_parallel=tensor_parallel,
+        tensor_model_parallel_size=tensor_parallel,
+        overlap_grad_reduce=train_args.grad_acc,
         gradient_accumulation_fusion=train_args.grad_acc
     )
     config = TransformerConfig(vocab_size=1,
                                num_layers=1,
-                               num_heads=1,
+                               num_attention_heads=1,
                                hidden_size=1,
                                ffn_hidden_size=1,
                                parallel_config=parallel_config)
@@ -261,7 +263,7 @@ def run_columnparallellinear(train_args):
     network.set_inputs(input_ids, labels)
     optimizer = AdamWeightDecay(params=network.get_parameters())
 
-    losses = linear_train(1, dataset, network, optimizer, None)
+    losses = train(1, dataset, network, optimizer, None)
     losses = list(map(lambda x: x[0], losses))
     golden_losses = [2.7725887, 2.7203748, 2.6545675]
     if train_args.froze:

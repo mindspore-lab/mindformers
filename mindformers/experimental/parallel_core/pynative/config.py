@@ -13,19 +13,18 @@
 # limitations under the License.
 # ============================================================================
 """Configuration."""
-
 # pylint: disable=W0613
 import inspect
 import copy
 import os
 import re
+from typing import Union, List, Optional
 from collections import deque
-from functools import partial
 from abc import ABCMeta, abstractmethod
-from typing import List, Union, Optional
+import numbers
+from functools import partial
 
 import yaml
-
 import mindspore.common.dtype as mstype
 try:
     from mindspore._checkparam import Validator
@@ -35,10 +34,8 @@ except ImportError:
     import mindspore._checkparam as Rel
 from mindspore.common.initializer import _INITIALIZER_ALIAS
 
-from mindformers.tools.logger import logger
-from mindformers.tools.register import DictConfig
+from mindformers.tools import DictConfig, logger
 from mindformers.experimental.parallel_core.pynative.utils import load_yaml, DictWithValueError
-
 
 _SUPPORT_DTYPE_DICT = DictWithValueError(
     {"float16": mstype.float16, "float32": mstype.float32, "bfloat16": mstype.bfloat16}
@@ -144,6 +141,7 @@ class BaseConfig(metaclass=ABCMeta):
                     bfs_queue.append(direct_sub_config)
         return visited_configs
 
+
     @classmethod
     def is_depended_config(cls, config_class, raise_error=False):
         """Check whether the config class is a depended config.
@@ -181,6 +179,7 @@ class BaseConfig(metaclass=ABCMeta):
                 return config
 
         cls._validation_func_dict[config_class.__name__] = validate_config
+
         cls._depended_configs[config_class] = optional
 
     @classmethod
@@ -195,9 +194,12 @@ class BaseConfig(metaclass=ABCMeta):
             ValueError: If config_class is not a depended config of cls.
         """
         cls.is_depended_config(config_class, raise_error=True)
+
         # remove validation function for the depended config
         removed_class = cls._validation_func_dict.pop(config_class.__name__)
+
         removed_class_optional_flag = cls._depended_configs.pop(config_class)
+
         return removed_class, removed_class_optional_flag
 
     @classmethod
@@ -349,6 +351,8 @@ def build_dependency_graph_of_configs(config_classes):
     Raises:
         ValueError: If a configuration class is not a subclass of BaseConfig.
         ValueError: If a configuration class does not have the 'config_name' attribute set.
+        ValueError: If a cycle is detected in the configuration dependencies.
+
     """
     dependency_graph = {}
     for config_class in config_classes:
@@ -367,6 +371,12 @@ def build_dependency_graph_of_configs(config_classes):
 
         # get depended configs
         for depended_config, optional_flag in depended_configs_dict.items():
+            # check cycle dependency
+            if depended_config in dependency_graph and config_class in dependency_graph[depended_config]:
+                raise ValueError(
+                    "Cycle detected in configuration dependencies:"
+                    + f"{config_class} and {depended_config} form a loop."
+                )
             # filter out optional depended config which is not passed in
             if not optional_flag or depended_config in config_classes:
                 depended_configs.append(depended_config)
@@ -379,6 +389,25 @@ def build_dependency_graph_of_configs(config_classes):
 
         dependency_graph[config_class] = depended_configs
     return dependency_graph
+
+
+def _check_arguments(configs):
+    """ check arguments. """
+    training_config = configs.get("training_config", None)
+    transformer_config = None
+    for key in configs:
+        if isinstance(configs[key], TransformerConfig):
+            transformer_config = configs[key]
+            break
+    if transformer_config and training_config:
+        if training_config.fp16:
+            logger.warning("Use fp16, 'params_dtype' and 'compute_dtype' will be set to 'float16' automatically.")
+            transformer_config.params_dtype = 'float16'
+            transformer_config.compute_dtype = 'float16'
+        if training_config.bf16:
+            logger.warning("Use bf16, 'params_dtype' and 'compute_dtype' will be set to 'bfloat16' automatically.")
+            transformer_config.params_dtype = 'bfloat16'
+            transformer_config.compute_dtype = 'bfloat16'
 
 
 # pylint: disable=W0102
@@ -394,9 +423,6 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
     Returns:
         Union[list[BaseConfig], AllConfig]: Initialized config instances, when no config class is passed in,
             AllConfig will be returned.
-
-    Raises:
-        ValueError: If a cycle is detected in the configuration dependencies.
     """
     # check if no config class is passed in
     no_passed_in_configs = config_classes is None
@@ -422,25 +448,15 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
     # construct dependency graph
     dependency_graph = build_dependency_graph_of_configs(config_classes)
 
-    # topological sort with cycle detection
+    # topological sort
     visited = {config_class: False for config_class in config_classes}
-    on_path = {config_class: False for config_class in config_classes}  # Tracks nodes on the current path
     config_class_initialization_stack = deque()
 
     def dfs(config_class):
         visited[config_class] = True
-        on_path[config_class] = True  # Mark as on the current path
-
-        for dependency in dependency_graph.get(config_class):
-            if on_path[dependency]:
-                raise ValueError(
-                    "Cycle detected in configuration dependencies:" +
-                    f"{config_class.config_name} -> {dependency.config_name}"
-                )
+        for dependency in dependency_graph[config_class]:
             if not visited[dependency]:
                 dfs(dependency)
-
-        on_path[config_class] = False  # Remove from the current path
         config_class_initialization_stack.append(config_class)
 
     for config_class in config_classes:
@@ -455,8 +471,8 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
             raise ValueError(f"Config {config_class.config_name} not found.")
         kwargs = raw_dict[config_class.config_name]
         depened_config_instances = {
-            depended_config.config_name: initialized_configs.get(depended_config.config_name)
-            for depended_config in dependency_graph.get(config_class)
+            depended_config.config_name: initialized_configs[depended_config.config_name]
+            for depended_config in dependency_graph[config_class]
         }
         kwargs.update(depened_config_instances)
         config_instance = config_class(**kwargs)
@@ -464,17 +480,21 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
         logger.warning(f"Initialized config {config_class.config_name}:")
         logger.warning(config_instance)
 
+    # add some rules for arguments
+    _check_arguments(initialized_configs)
+
     # if no passed in configs, add all other parameters to AllConfig as dict config
     if no_passed_in_configs:
         for config_name in raw_dict.keys():
             if config_name not in initialized_configs:
-                setattr(initialized_configs.get(AllConfig.config_name), config_name, raw_dict.get(config_name))
-        return initialized_configs.get(AllConfig.config_name)
+                setattr(initialized_configs[AllConfig.config_name], config_name, raw_dict[config_name])
+        return initialized_configs[AllConfig.config_name]
 
     # return in order if config classes are passed in
-    return [initialized_configs.get(config_name) for config_name in returned_config_names]
+    return [initialized_configs[config_name] for config_name in returned_config_names]
 
 
+# TODO: add yaml file archive function
 # pylint: disable=W0102
 def init_configs_from_yaml(file_path: str, config_classes=None, **kwargs):
     """Initialize config class from configuration yaml file.
@@ -515,6 +535,229 @@ class GeneralConfig(BaseConfig):
     def __init__(self, **kwargs):
         super().__init__()
         self.update_attrs(**kwargs)
+
+
+class ModelParallelConfig(BaseConfig):
+    """Parallel config class.
+
+    Args:
+        tensor_model_parallel_size (int): Dimensionality of tensor parallel. Default: 1.
+        pipeline_model_parallel_size (int): Number of stages when using pipeline parallel. Default: 1.
+        context_parallel_size (int): Dimensionality of context parallel. Default: 1.
+        expert_model_parallel_size (int): Dimensionality of expert parallel. Default: 1.
+        virtual_pipeline_model_parallel_size (int): Number of virtual stages when using pipeline parallel.
+            Default: None.
+        sequence_parallel (bool): Enable sequence parallel. Default: False.
+        recv_dtype (str, optional): Communication data type of p2p communication when using pipeline
+            parallel. Default: 'float32'.
+        zero_level (str, optional): Zero level for ZeRO optimizer,
+            if None, will not use ZeRO optimizer. Default: None.
+        gradient_accumulation_fusion (bool): Enable gradient accumulation
+            during linear backward execution. Default: False.
+        overlap_p2p_comm (bool): Enable overlap p2p commucation in pipeline interleaved. Default: False.
+    """
+
+    # set config name for identifying while using init_configs methods
+    config_name = "parallel_config"
+
+    def __init__(
+            self,
+            tensor_model_parallel_size: int = 1,
+            pipeline_model_parallel_size: int = 1,
+            context_parallel_size: int = 1,
+            expert_model_parallel_size: int = 1,
+            virtual_pipeline_model_parallel_size: int = None,
+            sequence_parallel: bool = False,
+            recv_dtype: str = "float32",
+            zero_level: str = None,
+            standalone_embedding_stage: bool = False,
+            overlap_grad_reduce: bool = False,
+            gradient_accumulation_fusion: bool = False,
+            overlap_p2p_comm: bool = False,
+            use_cpu_initialization: bool = False,
+            deterministic_mode: bool = False,
+            **kwargs,
+    ):
+        super().__init__()
+
+        self.tensor_model_parallel_size = tensor_model_parallel_size
+        self.pipeline_model_parallel_size = pipeline_model_parallel_size
+        self.context_parallel_size = context_parallel_size
+        self.expert_model_parallel_size = expert_model_parallel_size
+        self.virtual_pipeline_model_parallel_size = virtual_pipeline_model_parallel_size
+        self.sequence_parallel = sequence_parallel
+        self.recv_dtype = recv_dtype
+        self.zero_level = zero_level
+        self.standalone_embedding_stage = standalone_embedding_stage
+        self.overlap_grad_reduce = overlap_grad_reduce
+        self.gradient_accumulation_fusion = gradient_accumulation_fusion
+        self.overlap_p2p_comm = overlap_p2p_comm
+        self.use_cpu_initialization = use_cpu_initialization
+        self.deterministic_mode = deterministic_mode
+
+        self.update_attrs(**kwargs)
+
+
+@ModelParallelConfig.validator("tensor_model_parallel_size")
+def validate_tensor_model_parallel_size(config_instance, tensor_model_parallel_size):
+    """Validate tensor_model_parallel_size."""
+    Validator.check_positive_int(tensor_model_parallel_size, "tensor_model_parallel_size")
+    return tensor_model_parallel_size
+
+
+@ModelParallelConfig.validator("pipeline_model_parallel_size")
+def validate_pipeline_model_parallel_size(config_instance, pipeline_model_parallel_size):
+    """Validate pipeline_model_parallel_size."""
+    Validator.check_positive_int(pipeline_model_parallel_size, "pipeline_model_parallel_size")
+    return pipeline_model_parallel_size
+
+
+@ModelParallelConfig.validator("context_parallel_size")
+def validate_context_parallel_size(config_instance, context_parallel_size):
+    """Validate context_parallel_size."""
+    Validator.check_positive_int(context_parallel_size, "context_parallel_size")
+    return context_parallel_size
+
+
+@ModelParallelConfig.validator("expert_model_parallel_size")
+def validate_expert_model_parallel_size(config_instance, expert_model_parallel_size):
+    """Validate expert_model_parallel_size."""
+    Validator.check_positive_int(expert_model_parallel_size, "expert_model_parallel_size")
+    return expert_model_parallel_size
+
+
+@ModelParallelConfig.validator("virtual_pipeline_model_parallel_size")
+def validate_virtual_pipeline_model_parallel_size(config_instance, virtual_pipeline_model_parallel_size):
+    """Validate virtual pipeline stage."""
+    if virtual_pipeline_model_parallel_size is not None:
+        Validator.check_positive_int(virtual_pipeline_model_parallel_size,
+                                     "virtual_pipeline_model_parallel_size")
+    return virtual_pipeline_model_parallel_size
+
+
+@ModelParallelConfig.validator("sequence_parallel")
+def validate_sequence_parallel(config_instance, sequence_parallel):
+    """Validate sequence_parallel."""
+    Validator.check_bool(sequence_parallel, "sequence_parallel")
+    return sequence_parallel
+
+
+@ModelParallelConfig.validator("recv_dtype")
+def validate_recv_dtype(config_instance, recv_dtype):
+    """Validate recv_dtype."""
+    return _SUPPORT_DTYPE_DICT[recv_dtype]
+
+
+@ModelParallelConfig.validator("zero_level")
+def validate_zero_level(config_instance, zero_level):
+    """Validate zero_level."""
+    if zero_level is not None:
+        Validator.check_string(zero_level, ["z1", "z2", "z3"], "zero_level")
+        if (
+                config_instance.sequence_parallel
+                or config_instance.pipeline_model_parallel_size > 1
+                or config_instance.expert_model_parallel_size > 1
+                or config_instance.context_parallel_size > 1
+        ):
+            logger.warning(
+                "Accuracy is not guaranteed when zero is used with parallel"
+                + "strategies other than data parallel and tensor parallel."
+            )
+    return zero_level
+
+
+@ModelParallelConfig.validator("gradient_accumulation_fusion")
+def validate_gradient_accumulation_fusion(config_instance, gradient_accumulation_fusion):
+    """Validate gradient_accumulation_fusion."""
+    Validator.check_bool(gradient_accumulation_fusion, "gradient_accumulation_fusion")
+    return gradient_accumulation_fusion
+
+
+@ModelParallelConfig.validator("use_cpu_initialization")
+def validate_use_cpu_initialization(config_instance, use_cpu_initialization):
+    """Validate use_cpu_initialization."""
+    Validator.check_bool(use_cpu_initialization, "use_cpu_initialization")
+    return use_cpu_initialization
+
+
+@ModelParallelConfig.validator("deterministic_mode")
+def validate_deterministic_mode(config_instance, deterministic_mode):
+    """Validate deterministic_mode."""
+    Validator.check_bool(deterministic_mode, "deterministic_mode")
+    return deterministic_mode
+
+
+class DatasetConfig(BaseConfig):
+    r"""Dataset config class.
+
+    Args:
+        dataset_dir (str, optional): Dataset file directory. Default: './dataset'.
+        shuffle (bool, optional): Shuffle dataset. Default: None.
+        kwargs (dict, optional): Other dataset config arguments.
+        batch_size (int, optional): batch size / micro_batch_size for training and evaluation. Default: 1.
+        micro_batch_num (int, optional): Number of micro batch when using pipeline parallel or
+            gradient accumulation. Defaults: 1.
+        data_layout (str, optional): Input layout. Default: "BSH".
+    """
+
+    # set config name for identifying while using init_configs methods
+    config_name = "dataset_config"
+
+    def __init__(
+            self,
+            dataset_dir: str = "./dataset",
+            shuffle: bool = False,
+            batch_size: int = 1,
+            micro_batch_num: int = 1,
+            train_samples: int = 0,
+            data_layout: str = "BSH",
+            **kwargs,
+    ):
+        super().__init__()
+
+        self.dataset_dir = dataset_dir
+        self.shuffle = shuffle
+        self.batch_size = batch_size
+        self.micro_batch_num = micro_batch_num
+        self.train_samples = train_samples
+        self.data_layout = data_layout
+
+        self.update_attrs(**kwargs)
+
+
+@DatasetConfig.validator("dataset_dir")
+def validate_dataset_dir(config_instance, dataset_dir):
+    """Validate dataset_dir."""
+    Validator.check_value_type("dataset_dir", dataset_dir, [str])
+    return dataset_dir
+
+
+@DatasetConfig.validator("shuffle")
+def validate_shuffle(config_instance, shuffle):
+    """Validate shuffle."""
+    if shuffle is not None:
+        Validator.check_bool(shuffle, "shuffle")
+    return shuffle
+
+
+@DatasetConfig.validator("batch_size")
+def validate_batch_size(config_instance, batch_size):
+    """Validate batch_size."""
+    Validator.check_positive_int(batch_size, "batch_size")
+    return batch_size
+
+
+@DatasetConfig.validator("micro_batch_num")
+def validate_micro_batch_num(config_instance, micro_batch_num):
+    """Validate micro_batch_num."""
+    Validator.check_positive_int(micro_batch_num, "micro_batch_num")
+    return micro_batch_num
+
+
+@DatasetConfig.validator("data_layout")
+def validate_data_layout(config_instance, data_layout):
+    Validator.check_string(data_layout, ["BSH", "SBH"], "data_layout")
+    return data_layout
 
 
 class LoraConfig(BaseConfig):
@@ -659,7 +902,6 @@ class MoEConfig(BaseConfig):
         moe_router_topk (int): Router TopK number. Default: 2.
         moe_router_load_balancing_type (str): type of moe router load balancing algorithm. Choose from:
                                               ["aux_loss", "none"]. Default: "none".
-        add_bias_linear (bool): add bias linear or not. Default: False.
         moe_token_dispatcher_type (str): type of moe token dispatcher algorithm. Choose from:
                                               ["alltoall"]. Default: "alltoall".
         use_self_defined_alltoall (bool): Use self-defined `alltoall` operators. Default: False.
@@ -680,7 +922,6 @@ class MoEConfig(BaseConfig):
             moe_grouped_gemm: bool = False,
             moe_router_topk: int = 2,
             moe_router_load_balancing_type: str = "none",
-            add_bias_linear: bool = False,
             moe_token_dispatcher_type: str = 'alltoall',
             use_self_defined_alltoall: bool = False,
             moe_expert_capacity_factor: float = None,
@@ -696,7 +937,6 @@ class MoEConfig(BaseConfig):
         self.moe_grouped_gemm = moe_grouped_gemm
         self.moe_router_topk = moe_router_topk
         self.moe_router_load_balancing_type = moe_router_load_balancing_type
-        self.add_bias_linear = add_bias_linear
         self.moe_token_dispatcher_type = moe_token_dispatcher_type
         self.use_self_defined_alltoall = use_self_defined_alltoall
         self.moe_expert_capacity_factor = moe_expert_capacity_factor
@@ -710,856 +950,66 @@ class MoEConfig(BaseConfig):
 
 @MoEConfig.validator("moe_grouped_gemm")
 def validate_moe_grouped_gemm(config_instance, moe_grouped_gemm):
-    """ensure moe_grouped_gemm is bool."""
+    """Validate moe_grouped_gemm."""
     Validator.check_bool(moe_grouped_gemm, "moe_grouped_gemm")
     return moe_grouped_gemm
 
 
 @MoEConfig.validator("moe_router_topk")
 def validate_moe_router_topk(config_instance, moe_router_topk):
-    """ensure moe_router_topk is int."""
+    """Validate moe_router_topk."""
     Validator.check_positive_int(moe_router_topk, "moe_router_topk")
     return moe_router_topk
 
 
 @MoEConfig.validator("moe_router_load_balancing_type")
 def validate_moe_router_load_balancing_type(config_instance, moe_router_load_balancing_type):
-    """ensure moe_router_load_balancing_type choose from ["aux_loss", "none"]."""
+    """Validate moe_router_load_balancing_type."""
     Validator.check_string(moe_router_load_balancing_type, ["aux_loss", "none"], "moe_router_load_balancing_type")
     return moe_router_load_balancing_type
 
 
-@MoEConfig.validator("add_bias_linear")
-def validate_add_bias_linear(config_instance, add_bias_linear):
-    """ensure add_bias_linear is bool."""
-    Validator.check_bool(add_bias_linear, "add_bias_linear")
-    return add_bias_linear
-
-
 @MoEConfig.validator("moe_token_dispatcher_type")
 def validate_moe_token_dispatcher_type(config_instance, moe_token_dispatcher_type):
-    """ensure moe_router_load_balancing_type choose from ["alltoall"]."""
+    """Validate moe_router_load_balancing_type."""
     Validator.check_string(moe_token_dispatcher_type, ["alltoall"], "moe_token_dispatcher_type")
     return moe_token_dispatcher_type
 
 
 @MoEConfig.validator("use_self_defined_alltoall")
 def validate_use_self_defined_alltoall(config_instance, use_self_defined_alltoall):
-    """ensure use_self_defined_alltoall is bool"""
+    """Validate use_self_defined_alltoall."""
     Validator.check_bool(use_self_defined_alltoall, "use_self_defined_alltoall")
     return use_self_defined_alltoall
 
 
 @MoEConfig.validator("moe_expert_capacity_factor")
 def validate_moe_expert_capacity_factor(config_instance, moe_expert_capacity_factor):
-    """ensure moe_expert_capacity_factor is reasonable."""
+    """Validate moe_expert_capacity_factor."""
     if moe_expert_capacity_factor is not None:
         if config_instance.moe_token_dispatcher_type != "alltoall":
-            raise ValueError("moe_expert_capacity_factor only works with alltoall token dispatcher.")
+            raise ValueError(
+                "moe_expert_capacity_factor only works with alltoall token dispatcher."
+            )
         if moe_expert_capacity_factor < 0:
             moe_expert_capacity_factor = None
         if config_instance.moe_router_load_balancing_type not in ["aux_loss", "none"]:
-            raise ValueError("moe_expert_capacity_factor only works with aux_loss or none load balancing.")
+            raise ValueError(
+                "moe_expert_capacity_factor only works with aux_loss or none load balancing."
+            )
     return moe_expert_capacity_factor
 
 
 @MoEConfig.validator("moe_pad_expert_input_to_capacity")
 def validate_moe_pad_expert_input_to_capacity(config_instance, moe_pad_expert_input_to_capacity):
-    """ensure moe_pad_expert_input_to_capacity is bool."""
+    """Validate moe_pad_expert_input_to_capacity."""
     Validator.check_bool(moe_pad_expert_input_to_capacity, "moe_pad_expert_input_to_capacity")
     if moe_pad_expert_input_to_capacity is None and \
         config_instance.moe_expert_capacity_factor is None:
-        raise ValueError("moe_expert_capacity_factor must be set to use moe_pad_expert_input_to_capacity.")
-    return moe_pad_expert_input_to_capacity
-
-
-class DatasetConfig(BaseConfig):
-    """Dataset config class.
-
-    Args:
-        dataset_dir (str, optional): Dataset file directory. Default: './dataset'.
-        shuffle (bool, optional): Shuffle dataset. Default: None.
-        kwargs (dict, optional): Other dataset config arguments.
-        batch_size (int, optional): batch size / micro_batch_size for training and evaluation. Default: 1.
-        micro_batch_num (int, optional): Number of micro batch when using pipeline parallel or
-            gradient accumulation. Defaults: 1.
-        data_layout (str, optional): Input layout. Default: "BSH".
-    """
-
-    # set config name for identifying while using init_configs methods
-    config_name = "dataset_config"
-
-    def __init__(
-            self,
-            dataset_dir: str = "./dataset",
-            shuffle: bool = False,
-            batch_size: int = 1,
-            micro_batch_num: int = 1,
-            data_layout: str = "BSH",
-            **kwargs,
-    ):
-        super().__init__()
-
-        self.dataset_dir = dataset_dir
-        self.shuffle = shuffle
-        self.batch_size = batch_size
-        self.micro_batch_num = micro_batch_num
-        self.data_layout = data_layout
-
-        self.update_attrs(**kwargs)
-
-
-@DatasetConfig.validator("dataset_dir")
-def validate_dataset_dir(config_instance, dataset_dir):
-    """Validate dataset_dir."""
-    Validator.check_value_type("dataset_dir", dataset_dir, [str])
-    return dataset_dir
-
-
-@DatasetConfig.validator("shuffle")
-def validate_shuffle(config_instance, shuffle):
-    """Validate shuffle."""
-    if shuffle is not None:
-        Validator.check_bool(shuffle, "shuffle")
-    return shuffle
-
-
-@DatasetConfig.validator("batch_size")
-def validate_batch_size(config_instance, batch_size):
-    """Validate batch_size."""
-    Validator.check_positive_int(batch_size, "batch_size")
-    return batch_size
-
-
-@DatasetConfig.validator("micro_batch_num")
-def validate_micro_batch_num(config_instance, micro_batch_num):
-    """Validate micro_batch_num."""
-    Validator.check_positive_int(micro_batch_num, "micro_batch_num")
-    return micro_batch_num
-
-
-@DatasetConfig.validator("data_layout")
-def validate_data_layout(config_instance, data_layout):
-    Validator.check_string(data_layout, ["BSH", "SBH"], "data_layout")
-    return data_layout
-
-
-class ModelParallelConfig(BaseConfig):
-    """
-    Parallel config class.
-
-    Args:
-        tensor_parallel (int): Dimensionality of tensor parallel. Default: 1.
-        pipeline_stage (int): Number of stages when using pipeline parallel. Default: 1.
-        context_parallel (int): Dimensionality of context parallel. Default: 1.
-        expert_parallel (int): Dimensionality of expert parallel. Default: 1.
-        virtual_pipeline_model_parallel_size (int): Number of virtual stages when using pipeline parallel.
-            Default: None.
-        micro_batch_num (int): Number of micro batch when using pipeline parallel. Default: 1.
-        use_sequence_parallel (bool): Enable sequence parallel. Default: False.
-        recv_dtype (bool): Communication data type of p2p communication when using pipeline
-            parallel. Default: 'float32'.
-        use_zero3 (Union[bool, None]): Enable zero3 optimization. Default: None.
-        gradient_accumulation_fusion (bool): Enable gradient accumulation
-            during linear backward execution. Default: False.
-        standalone_embedding_stage (bool): In pipeline parallel, the first stage contain only embedding layer.
-            Default: False.
-        overlap_p2p_comm (bool): Enable overlap p2p commucation in pipeline interleaved. Default: False.
-    """
-
-    # set config name for identifying while using init_configs methods
-    config_name = "parallel_config"
-
-    def __init__(
-            self,
-            tensor_parallel: int = 1,
-            pipeline_stage: int = 1,
-            context_parallel: int = 1,
-            expert_parallel: int = 1,
-            virtual_pipeline_model_parallel_size: int = None,
-            micro_batch_num: int = 1,
-            use_sequence_parallel: bool = False,
-            recv_dtype: str = "float32",
-            zero_level: bool = None,
-            gradient_accumulation_fusion: bool = False,
-            standalone_embedding_stage: bool = False,
-            overlap_p2p_comm: bool = False,
-            **kwargs,
-    ):
-        super(ModelParallelConfig, self).__init__()
-        self.tensor_parallel = tensor_parallel
-        self.pipeline_stage = pipeline_stage
-        self.context_parallel = context_parallel
-        self.expert_parallel = expert_parallel
-        self.virtual_pipeline_model_parallel_size = virtual_pipeline_model_parallel_size
-        self.micro_batch_num = micro_batch_num
-        self.use_sequence_parallel = use_sequence_parallel
-        self.recv_dtype = recv_dtype
-        self.zero_level = zero_level
-        self.gradient_accumulation_fusion = gradient_accumulation_fusion
-        self.standalone_embedding_stage = standalone_embedding_stage
-        self.overlap_p2p_comm = overlap_p2p_comm
-
-        self.update_attrs(**kwargs)
-
-
-@ModelParallelConfig.validator("tensor_parallel")
-def validate_tensor_parallel(config_instance, tensor_parallel):
-    """Validate tensor_parallel."""
-    Validator.check_positive_int(tensor_parallel, "tensor_parallel")
-    return tensor_parallel
-
-
-@ModelParallelConfig.validator("pipeline_stage")
-def validate_pipeline_stage(config_instance, pipeline_stage):
-    """Validate pipeline_stage."""
-    Validator.check_positive_int(pipeline_stage, "pipeline_stage")
-    return pipeline_stage
-
-
-@ModelParallelConfig.validator("context_parallel")
-def validate_context_parallel(config_instance, context_parallel):
-    """Validate context_parallel."""
-    Validator.check_positive_int(context_parallel, "context_parallel")
-    return context_parallel
-
-
-@ModelParallelConfig.validator("expert_parallel")
-def validate_expert_parallel(config_instance, expert_parallel):
-    """Validate expert_parallel."""
-    Validator.check_positive_int(expert_parallel, "expert_parallel")
-    return expert_parallel
-
-
-@ModelParallelConfig.validator("virtual_pipeline_model_parallel_size")
-def validate_virtual_pipeline_model_parallel_size(config_instance, virtual_pipeline_model_parallel_size):
-    """Validate virtual pipeline stage."""
-    if virtual_pipeline_model_parallel_size is not None:
-        Validator.check_positive_int(virtual_pipeline_model_parallel_size,
-                                     "virtual_pipeline_model_parallel_size")
-    return virtual_pipeline_model_parallel_size
-
-
-@ModelParallelConfig.validator("use_sequence_parallel")
-def validate_use_sequence_parallel(config_instance, use_sequence_parallel):
-    """Validate use_sequence_parallel."""
-    Validator.check_bool(use_sequence_parallel, "use_sequence_parallel")
-    return use_sequence_parallel
-
-
-@ModelParallelConfig.validator("recv_dtype")
-def validate_recv_dtype(config_instance, recv_dtype):
-    """Validate recv_dtype."""
-    return _SUPPORT_DTYPE_DICT[recv_dtype]
-
-
-@ModelParallelConfig.validator("zero_level")
-def validate_zero_level(config_instance, zero_level):
-    """Validate zero_level."""
-    if zero_level is not None:
-        Validator.check_string(zero_level, ["z1", "z2", "z3"], "zero_level")
-        if (
-                config_instance.use_sequence_parallel
-                or config_instance.pipeline_stage > 1
-                or config_instance.expert_parallel > 1
-                or config_instance.context_parallel > 1
-        ):
-            logger.warning(
-                "Accuracy is not guaranteed when zero is used with parallel"
-                + "strategies other than data parallel and tensor parallel."
-            )
-    return zero_level
-
-
-@ModelParallelConfig.validator("gradient_accumulation_fusion")
-def validate_gradient_accumulation_fusion(config_instance, gradient_accumulation_fusion):
-    """Validate gradient_accumulation_fusion."""
-    Validator.check_bool(gradient_accumulation_fusion, "gradient_accumulation_fusion")
-    return gradient_accumulation_fusion
-
-
-class TransformerConfig(BaseConfig):
-    r"""
-    Model config class.
-
-    Args:
-        vocab_size (int): Vocabulary size.
-        num_layers (int): Number of model layers.
-        num_heads (int): Number of heads for MultiHeadAttention.
-        hidden_size (int): Dimensionality of the encoder layers.
-        ffn_hidden_size (int): Dimensionality the FeedForward block project to.
-        parallel_config (ParallelConfig): Parallel config.
-        seq_length (int): Sequence length.
-        lora_config (LoraConfig): Lora config.
-        moe_config (MoEConfig, optional): MoE config. Default: None.
-        attention_type (str): Attention type. Default: 'self_attn'.
-        position_embedding_type (str): Position embedding type. Default: 'absolute'
-        parallel_position_embedding (bool): Apply parallel vocab embedding layer when using
-            absolute position embedding. Default: False
-        rotary_config (dict): Rotary config. Default: None
-        use_query_layer (bool): Using query layer after transformer. Default: False.
-        use_visual_encoder (bool): Using visual encoder. Default: False.
-        use_retriever (bool): Using retriever. Default: False
-        use_gqa (bool): Enable group query attention. Default: False.
-        kv_num_heads (int): Number of heads for key and value when using group query attention.
-            Default: 32.
-        qkv_has_bias (bool): Linears apply on query, key and value in Attention block has bias
-            parameter. Default: True.
-        out_proj_has_bias (bool): Linear applies on output of core attention block has bias
-            parameter. Default: True.
-        apply_query_key_layer_scaling (bool): Apply query key scaling in core attention block.
-            Default: False.
-        use_flash_attention (bool): Enable flash attention. Default: False.
-        mask_func_type (str): Attention mask compute method. Default: 'attn_mask_add'.
-        mlp_has_bis (bool): Linears in MLP block have bias parameters. Default: True.
-        mlp_has_gate (bool): Apply gating in MLP block. Default: False.
-        hidden_act (str): Activation used in MLP block. Default: 'gelu'.
-        normalization (str): Normalization used in transformerlayer block. Default: 'LayerNorm'.
-        layernorm_epsilon (float): Epsilon of normalization. Default: 1.e-5.
-        apply_residual_connection_post_norm (bool): Apply residual connection after normalization.
-            Default: False.
-        use_final_norm (bool): Apply final norm after transformer. Default: True.
-        residual_connection_dtype (str): Compute data type of residual connection. Default: 'float32'.
-        init_method_std (float): Init method std value. Default: 0.01
-        param_init_dtype (str): Parameter initialize data type. Default: 'float32'.
-        embedding_init_dtype (str): Embedding parameter initialize data type. Default: 'float32'.
-        compute_dtype (str): Compute data type of linear module. Default: 'float16'.
-        softmax_compute_dtype (str): Compute data type of softmax layer. Default: 'float32'.
-        fp16_lm_cross_entropy (bool): Apply float16 when calculating cross entropy. Default: False.
-        hidden_dropout_rate (float): Dropout rate for output of attention block and mlp block in transformerlayer.
-            Default: 0.0.
-        attention_dropout_rate (float): Dropout rate for attention socre. Default: 0.0.
-        num_experts (Optional[int], None): Number of experts. Default: None.
-        untie_embeddings_and_output_weights (bool): If false, share embedding with head layer. Default: False.
-        flatten_labels_and_input_mask (bool): flatten labels and input mask in public layer. Default: True.
-        recompute_method (Optional[str], None): Recompute method. Default: None.
-        recompute_num_layers (Optional[int], None): Number of layers to recompute. Default: None.
-        recompute_granularity (Optional[str], None): Recompute granularity. Default: None.
-        dataset_config (dict): dataset config. Default: None.
-    """
-
-    # set config name for identifying while using init_configs methods
-    config_name = "model_config"
-
-    def __init__(
-            self,
-            vocab_size: int,
-            num_layers: int,
-            num_heads: int,
-            hidden_size: int,
-            ffn_hidden_size: int,
-            parallel_config: ModelParallelConfig,
-            seq_length: int = None,
-            lora_config: LoraConfig = LoraConfig(),
-            moe_config: MoEConfig = None,
-            attention_type: str = "self_attn",
-            position_embedding_type: str = 'absolute',
-            parallel_position_embedding: bool = False,
-            rotary_config: dict = None,
-            use_query_layer: bool = False,
-            use_visual_encoder: bool = False,
-            use_retriever: bool = False,
-            use_gqa: bool = False,
-            kv_num_heads: int = 32,
-            qkv_has_bias: bool = True,
-            out_proj_has_bias: bool = True,
-            apply_query_key_layer_scaling: bool = False,
-            use_flash_attention: bool = False,
-            fa_config=None,
-            mask_func_type: str = "attn_mask_add",
-            mlp_has_bias: bool = True,
-            mlp_has_gate: bool = False,
-            hidden_act: str = "gelu",
-            normalization: str = "LayerNorm",
-            layernorm_epsilon: float = 1.0e-5,
-            apply_residual_connection_post_norm: bool = False,
-            use_final_norm: bool = True,
-            residual_connection_dtype: str = "float32",
-            init_method_std: float = 0.01,
-            param_init_dtype: str = "float32",
-            embedding_init_dtype: str = "float32",
-            compute_dtype: str = "float16",
-            softmax_compute_dtype: str = "float32",
-            init_method: str = 'normal',
-            bias_init: str = 'zeros',
-            fp16_lm_cross_entropy: bool = False,
-            hidden_dropout_rate: float = 0.0,
-            attention_dropout_rate: float = 0.0,
-            out_hidden_size: int = None,
-            num_experts: int = None,
-            untie_embeddings_and_output_weights: bool = False,
-            flatten_labels_and_input_mask: bool = True,
-            recompute_method: str = None,
-            recompute_num_layers: int = None,
-            recompute_granularity: str = None,
-            dataset_config: DatasetConfig = DatasetConfig(),
-            **kwargs,
-    ):
-        super(TransformerConfig, self).__init__()
-        self.vocab_size = vocab_size
-        self.num_layers = num_layers
-        self.num_heads = num_heads
-        self.hidden_size = hidden_size
-        self.ffn_hidden_size = ffn_hidden_size
-        self.parallel_config = parallel_config
-        self.lora_config = lora_config
-        self.seq_length = seq_length
-        self.moe_config = moe_config
-        self.attention_type = attention_type
-        self.position_embedding_type = position_embedding_type
-        self.parallel_position_embedding = parallel_position_embedding
-        self.rotary_config = rotary_config
-        self.use_query_layer = use_query_layer
-        self.use_visual_encoder = use_visual_encoder
-        self.use_retriever = use_retriever
-        self.use_gqa = use_gqa
-        self.kv_num_heads = kv_num_heads
-        self.qkv_has_bias = qkv_has_bias
-        self.out_proj_has_bias = out_proj_has_bias
-        self.apply_query_key_layer_scaling = apply_query_key_layer_scaling
-        self.use_flash_attention = use_flash_attention
-        self.fa_config = fa_config
-        self.mask_func_type = mask_func_type
-        self.mlp_has_bias = mlp_has_bias
-        self.mlp_has_gate = mlp_has_gate
-        self.hidden_act = hidden_act
-        self.normalization = normalization
-        self.layernorm_epsilon = layernorm_epsilon
-        self.apply_residual_connection_post_norm = apply_residual_connection_post_norm
-        self.use_final_norm = use_final_norm
-        self.residual_connection_dtype = residual_connection_dtype
-        self.init_method_std = init_method_std
-        self.param_init_dtype = param_init_dtype
-        self.embedding_init_dtype = embedding_init_dtype
-        self.compute_dtype = compute_dtype
-        self.softmax_compute_dtype = softmax_compute_dtype
-        self.init_method = init_method
-        self.bias_init = bias_init
-        self.fp16_lm_cross_entropy = fp16_lm_cross_entropy
-        self.hidden_dropout_rate = hidden_dropout_rate
-        self.attention_dropout_rate = attention_dropout_rate
-        self.out_hidden_size = out_hidden_size
-        self.num_experts = num_experts
-        self.untie_embeddings_and_output_weights = untie_embeddings_and_output_weights
-        self.flatten_labels_and_input_mask = flatten_labels_and_input_mask
-        self.recompute_method = recompute_method
-        self.recompute_num_layers = recompute_num_layers
-        self.recompute_granularity = recompute_granularity
-        self.dataset_config = dataset_config
-
-        if "recompute_activations" in kwargs:
-            if kwargs["recompute_activations"]:
-                self.recompute_granularity = "selective"
-            kwargs.pop("recompute_activations")
-
-        self.update_attrs(**self.rotary_config)
-        self.update_attrs(**kwargs)
-
-    def update_lora_config(self, cell_name):
-        lora_module = self.lora_config.lora_module
-        self.lora_config.lora_module = None if lora_module is None else lora_module.get(cell_name, None)
-
-
-TransformerConfig.register_depended_config([ModelParallelConfig,
-                                            LoraConfig,
-                                            DatasetConfig,
-                                            MoEConfig],
-                                           optional=[False, True, True, True])
-
-
-@TransformerConfig.validator("vocab_size")
-def validate_vocab_size(config_instance, vocab_size):
-    """Validate vocab_size."""
-    Validator.check_positive_int(vocab_size, "vocab_size")
-    return vocab_size
-
-
-@TransformerConfig.validator("num_layers")
-def validate_num_layers(config_instance, num_layers):
-    """Validate num_layers."""
-    Validator.check_positive_int(num_layers, "num_layers")
-    return num_layers
-
-
-@TransformerConfig.validator("num_heads")
-def validate_num_heads(config_instance, num_heads):
-    """Validate num_heads."""
-    Validator.check_positive_int(num_heads, "num_heads")
-    return num_heads
-
-
-@TransformerConfig.validator("hidden_size")
-def validate_hidden_size(config_instance, hidden_size):
-    """Validate hidden_size."""
-    Validator.check_positive_int(hidden_size, "hidden_size")
-    return hidden_size
-
-
-@TransformerConfig.validator("ffn_hidden_size")
-def validate_ffn_hidden_size(config_instance, ffn_hidden_size):
-    """Validate ffn_hidden_size."""
-    Validator.check_positive_int(ffn_hidden_size, "ffn_hidden_size")
-    return ffn_hidden_size
-
-
-@TransformerConfig.validator("attention_type")
-def validate_attention_type(config_instance, attention_type):
-    """Validate attention_type."""
-    Validator.check_value_type("attention_type", attention_type, [str])
-    return attention_type
-
-
-@TransformerConfig.validator("use_gqa")
-def validate_use_gqa(config_instance, use_gqa):
-    """Validate use_gqa."""
-    Validator.check_bool(use_gqa, "use_gqa")
-    return use_gqa
-
-
-@TransformerConfig.validator("kv_num_heads")
-def validate_kv_num_heads(config_instance, kv_num_heads):
-    """Validate kv_num_heads."""
-    Validator.check_positive_int(kv_num_heads, "kv_num_heads")
-    return kv_num_heads
-
-
-@TransformerConfig.validator("qkv_has_bias")
-def validate_qkv_has_bias(config_instance, qkv_has_bias):
-    """Validate qkv_has_bias."""
-    Validator.check_bool(qkv_has_bias, "qkv_has_bias")
-    return qkv_has_bias
-
-
-@TransformerConfig.validator("out_proj_has_bias")
-def validate_out_proj_has_bias(config_instance, out_proj_has_bias):
-    """Validate out_proj_has_bias."""
-    Validator.check_bool(out_proj_has_bias, "out_proj_has_bias")
-    return out_proj_has_bias
-
-
-@TransformerConfig.validator("apply_query_key_layer_scaling")
-def validate_apply_query_key_layer_scaling(config_instance, apply_query_key_layer_scaling):
-    """Validate apply_query_key_layer_scaling."""
-    Validator.check_bool(apply_query_key_layer_scaling, "apply_query_key_layer_scaling")
-    return apply_query_key_layer_scaling
-
-
-@TransformerConfig.validator("use_flash_attention")
-def validate_use_flash_attention(config_instance, use_flash_attention):
-    """Validate use_flash_attention."""
-    Validator.check_bool(use_flash_attention, "use_flash_attention")
-    return use_flash_attention
-
-
-@TransformerConfig.validator("fa_config")
-def validate_fa_config(config_instance, fa_config):
-    """Validate fa_config."""
-    if fa_config is not None:
-        if not isinstance(fa_config, dict):
-            raise ValueError("fa_config should be a dict.")
-
-        def _check_sparse_mode(sparse_mode):
-            support_sparse_mode = (0, 1, 2, 3, 4)
-            if sparse_mode not in support_sparse_mode:
-                raise NotImplementedError(
-                    "For flash attention, sparse_mode only support" "[0, 1, 2, 3, 4] for now, but got {}".format(
-                        str(sparse_mode)
-                    )
-                )
-
-        args_and_check_map = {
-            "keep_prob": partial(
-                Validator.check_float_range, lower_limit=0, upper_limit=1, rel=Rel.INC_BOTH, arg_name="keep_prob"
-            ),
-            "pre_tokens": partial(
-                Validator.check_int_range,
-                lower_limit=-2147483647,
-                upper_limit=2147483647,
-                rel=Rel.INC_BOTH,
-                arg_name="pre_tokens",
-            ),
-            "next_tokens": partial(
-                Validator.check_int_range,
-                lower_limit=-2147483647,
-                upper_limit=2147483647,
-                rel=Rel.INC_BOTH,
-                arg_name="next_tokens",
-            ),
-            "input_layout": partial(Validator.check_string, valid_values=("BNSD"), arg_name="input_layout"),
-            "sparse_mode": _check_sparse_mode,
-        }
-        for arg_name, value in fa_config.items():
-            if arg_name not in args_and_check_map.keys():
-                raise ValueError(
-                    "For FAConfig, only `keep_prob`, `pre_tokens`, `next_tokens`, `input_layout`, "
-                    "and `sparse_mode` are configuable, but got {}".format(arg_name)
-                )
-            args_and_check_map[arg_name](value)
-    return fa_config
-
-
-@TransformerConfig.validator("rotary_config")
-def validate_rotary_config(config_instance, rotary_config):
-    """Validate fa_config."""
-    default_rotary_config = {'rotary_percent': 1.0,
-                             'rotary_interleaved': False,
-                             'seq_len_interpolation_factor': None,
-                             'rotary_base': 10000}
-    check_keys = default_rotary_config.keys()
-
-    if rotary_config is not None:
-        if not isinstance(rotary_config, dict):
-            raise TypeError("rotary_config should be a dict.")
-
-        for key, value in rotary_config.items():
-            # pylint: disable=R1720
-            if key not in check_keys:
-                raise ValueError(f"Key '{key}' is not supported in rotary_config.")
-            elif key in ('rotary_interleaved', 'seq_len_interpolation_factor'):
-                if not isinstance(value, bool):
-                    raise TypeError(f"Key '{key}' should be bool in rotary_config.")
-            elif key in 'rotary_percent':
-                if not isinstance(value, float):
-                    raise TypeError(f"Key '{key}' should be float in rotary_config.")
-            elif key in 'rotary_base':
-                if not isinstance(value, int):
-                    raise TypeError(f"Key '{key}' should be int in rotary_config.")
-            default_rotary_config[key] = value
-        rotary_config = default_rotary_config
-    else:
-        rotary_config = default_rotary_config
-    return rotary_config
-
-
-@TransformerConfig.validator("mask_func_type")
-def validate_mask_func_type(config_instance, mask_func_type):
-    """Validate mask_func_type."""
-    Validator.check_value_type("mask_func_type", mask_func_type, [str])
-    return mask_func_type
-
-
-@TransformerConfig.validator("mlp_has_bias")
-def validate_mlp_has_bias(config_instance, mlp_has_bias):
-    """Validate mlp_has_bias."""
-    Validator.check_bool(mlp_has_bias, "mlp_has_bias")
-    return mlp_has_bias
-
-
-@TransformerConfig.validator("mlp_has_gate")
-def validate_mlp_has_gate(config_instance, mlp_has_gate):
-    """Validate mlp_has_gate."""
-    Validator.check_bool(mlp_has_gate, "mlp_has_gate")
-    return mlp_has_gate
-
-
-@TransformerConfig.validator("hidden_act")
-def validate_hidden_act(config_instance, hidden_act):
-    """Validate hidden_act."""
-    Validator.check_value_type("hidden_act", hidden_act, [str])
-    return hidden_act
-
-
-@TransformerConfig.validator("normalization")
-def validate_normalization(config_instance, normalization):
-    """Validate normalization."""
-    Validator.check_value_type("normalization", normalization, [str])
-    return normalization
-
-
-@TransformerConfig.validator("layernorm_epsilon")
-def validate_layernorm_epsilon(config_instance, layernorm_epsilon):
-    """Validate layernorm_epsilon."""
-    Validator.check_positive_float(layernorm_epsilon, "layernorm_epsilon")
-    return layernorm_epsilon
-
-
-@TransformerConfig.validator("apply_residual_connection_post_norm")
-def validate_apply_residual_connection_post_norm(config_instance, apply_residual_connection_post_norm):
-    """Validate apply_residual_connection_post_norm."""
-    Validator.check_bool(apply_residual_connection_post_norm, "apply_residual_connection_post_norm")
-    return apply_residual_connection_post_norm
-
-
-@TransformerConfig.validator("residual_connection_dtype")
-def validate_residual_connection_dtype(config_instance, residual_connection_dtype):
-    """Validate residual_connection_dtype."""
-    return _SUPPORT_DTYPE_DICT[residual_connection_dtype]
-
-
-@TransformerConfig.validator("param_init_dtype")
-def validate_param_init_dtype(config_instance, param_init_dtype):
-    """Validate param_init_dtype."""
-    return _SUPPORT_DTYPE_DICT[param_init_dtype]
-
-
-@TransformerConfig.validator("embedding_init_dtype")
-def validate_embedding_init_dtype(config_instance, embedding_init_dtype):
-    """Validate embedding_init_dtype."""
-    return _SUPPORT_DTYPE_DICT[embedding_init_dtype]
-
-
-@TransformerConfig.validator("compute_dtype")
-def validate_compute_dtype(config_instance, compute_dtype):
-    """Validate compute_dtype."""
-    return _SUPPORT_DTYPE_DICT[compute_dtype]
-
-
-@TransformerConfig.validator("softmax_compute_dtype")
-def validate_softmax_compute_dtype(config_instance, softmax_compute_dtype):
-    """Validate softmax_compute_dtype."""
-    return _SUPPORT_DTYPE_DICT[softmax_compute_dtype]
-
-
-@TransformerConfig.validator("hidden_dropout_rate")
-def validate_hidden_dropout_rate(config_instance, hidden_dropout_rate):
-    """Validate hidden_dropout_rate."""
-    Validator.check_float_range(hidden_dropout_rate, 0, 1, Rel.INC_BOTH, "hidden_dropout_rate")
-    return hidden_dropout_rate
-
-
-@TransformerConfig.validator("attention_dropout_rate")
-def validate_attention_dropout_rate(config_instance, attention_dropout_rate):
-    """Validate attention_dropout_rate."""
-    Validator.check_float_range(attention_dropout_rate, 0, 1, Rel.INC_BOTH, "attention_dropout_rate")
-    return attention_dropout_rate
-
-
-@TransformerConfig.validator("num_experts")
-def validate_num_experts(config_instance, num_experts):
-    """Validate num_experts."""
-    Validator.check_value_type("num_experts", num_experts, [int, type(None)])
-    return num_experts
-
-
-@TransformerConfig.validator("share_embedding_weight")
-def validate_share_embedding_weight(config_instance, share_embedding_weight):
-    """Validate share_embedding_weight."""
-    Validator.check_bool(share_embedding_weight, "share_embedding_weight")
-    return share_embedding_weight
-
-
-@TransformerConfig.validator("recompute_method")
-def validate_recompute_method(config_instance, recompute_method):
-    if recompute_method is not None:
-        Validator.check_string(recompute_method, ["uniform", "block"], "recompute_method")
-    return recompute_method
-
-
-@TransformerConfig.validator("recompute_num_layers")
-def validate_recompute_num_layers(config_instance, recompute_num_layers):
-    """Validate recompute_num_layers."""
-    if recompute_num_layers is not None:
-        Validator.check_int_range(
-            recompute_num_layers, 1, config_instance.num_layers, Rel.INC_BOTH, "recompute_num_layers"
+        raise ValueError(
+            "moe_expert_capacity_factor must be set to use moe_pad_expert_input_to_capacity."
         )
-        if config_instance.recompute_method is None:
-            logger.warning("recompute_method, recompute_num_layers should be set together.")
-    return recompute_num_layers
-
-
-@TransformerConfig.validator("recompute_granularity")
-def validate_recompute_granularity(config_instance, recompute_granularity):
-    """Validate recompute_granularity."""
-    if recompute_granularity is not None:
-        Validator.check_string(recompute_granularity, ["selective", "full"], "recompute_granularity")
-        if recompute_granularity == "full":
-            if config_instance.recompute_method is None:
-                logger.warning("recompute_method should be set when recompute_granularity is set to 'full'.")
-            if config_instance.recompute_num_layers is None:
-                logger.warning("recompute_num_layers should be set when recompute_granularity is set to 'full'.")
-    return recompute_granularity
-
-
-class OptimizerConfig(BaseConfig):
-    r"""Optimizer config class.
-
-    Args:
-        parallel_config (ModelParallelConfig): Parallel config.
-        optimizer_type (str): Optimizer type. Default: 'AdamWeightDecay'.
-        learning_rate (float): Learning rate. Default: 0.01.
-        learning_rate_scheduler_kwargs (dict, optional): Learning rate scheduler kwargs.
-        weight_decay (float): Weight decay. Default: 0.0.
-        weight_decay_kwargs (dict, optional): Weight decay kwargs.
-        zero_config (dict, optional): ZeRO optimizer config.
-        - param_resident (bool): After the forward propagation, the parameters are resident and not split.
-          Default: Flase.
-
-        - allreduce_after_grad_accumulation (bool): Use allreduce in optimizer after gradient accumulation.
-          Default: Flase.
-
-        - grad_allreduce_op (str): Gradient allreduce operator. like `sum`, `mean`. Default: sum.
-
-        - opt_parallel_group (str): Name of communication group used by optimizer parallel. Default: None.
-
-        - cpu_offload (bool): The process of optimizer will be offload to host. The gradients, parameters and
-          optimizer status will be offload to host. Default: Flase.
-    """
-
-    # set config name for identifying while using init_configs methods
-    config_name = "optimizer_config"
-
-    def __init__(
-            self,
-            parallel_config: ModelParallelConfig,
-            optimizer_type: str = "AdamWeightDecay",
-            learning_rate: float = 1e-3,
-            learning_rate_scheduler_kwargs: dict = None,
-            weight_decay: float = 0.0,
-            weight_decay_kwargs: dict = None,
-            zero_config: dict = None,
-            **kwargs,
-    ):
-        super().__init__()
-
-        self.parallel_config = parallel_config
-        self.optimizer_type = optimizer_type
-        self.learning_rate = learning_rate
-        self.learning_rate_scheduler_kwargs = learning_rate_scheduler_kwargs
-        self.weight_decay = weight_decay
-        self.weight_decay_kwargs = weight_decay_kwargs
-        self.zero_config = zero_config
-
-        self.update_attrs(**kwargs)
-
-
-OptimizerConfig.register_depended_config(ModelParallelConfig)
-
-
-@OptimizerConfig.validator("optimizer_type")
-def validate_type(config_instance, optimizer_type):
-    """Validate type."""
-    Validator.check_value_type("optimizer_type", optimizer_type, [str])
-    return optimizer_type
-
-
-@OptimizerConfig.validator("learning_rate")
-def validate_learning_rate(config_instance, learning_rate):
-    """Validate learning_rate."""
-    Validator.check_positive_float(learning_rate, "learning_rate")
-    return learning_rate
-
-
-@OptimizerConfig.validator("learning_rate_scheduler_kwargs")
-def validate_learning_rate_scheduler_kwargs(config_instance, learning_rate_scheduler_kwargs):
-    """Validate learning_rate_scheduler_kwargs."""
-    if learning_rate_scheduler_kwargs is not None:
-        Validator.check_value_type("learning_rate_scheduler_kwargs", learning_rate_scheduler_kwargs, [dict])
-    return learning_rate_scheduler_kwargs
-
-
-@OptimizerConfig.validator("weight_decay")
-def validate_weight_decay(config_instance, weight_decay):
-    """Validate weight_decay."""
-    Validator.check_non_negative_float(weight_decay, "weight_decay")
-    return weight_decay
-
-
-@OptimizerConfig.validator("weight_decay_kwargs")
-def validate_weight_decay_kwargs(config_instance, weight_decay_kwargs):
-    """Validate weight_decay_kwargs."""
-    if weight_decay_kwargs is not None:
-        Validator.check_value_type("weight_decay_kwargs", weight_decay_kwargs, [dict])
-    return weight_decay_kwargs
+    return moe_pad_expert_input_to_capacity
 
 
 class TrainingConfig(BaseConfig):
@@ -1608,7 +1058,7 @@ class TrainingConfig(BaseConfig):
             lora_config: LoraConfig = LoraConfig(),
             seed: int = None,
             output_dir: str = "./output",
-            training_iters: int = 1,
+            training_iters: int = 0,
             epochs: int = None,
             log_interval: int = None,
             eval_interval: int = None,
@@ -1623,10 +1073,13 @@ class TrainingConfig(BaseConfig):
             loss_reduction: str = "mean",
             calculate_per_token_loss: bool = False,
             wrap_with_ddp: bool = False,
+            accumulate_allreduce_grads_in_fp32: bool = False,
             overlap_grad_reduce: bool = False,
             use_distributed_optimizer: bool = False,
             bucket_size: Optional[int] = None,
             check_for_nan_in_grad: bool = False,
+            fp16: bool = False,
+            bf16: bool = False,
             **kwargs,
     ):
         super().__init__()
@@ -1651,10 +1104,15 @@ class TrainingConfig(BaseConfig):
         self.loss_reduction = loss_reduction
         self.calculate_per_token_loss = calculate_per_token_loss
         self.wrap_with_ddp = wrap_with_ddp
+        self.accumulate_allreduce_grads_in_fp32 = accumulate_allreduce_grads_in_fp32
         self.overlap_grad_reduce = overlap_grad_reduce
         self.use_distributed_optimizer = use_distributed_optimizer
         self.bucket_size = bucket_size
         self.check_for_nan_in_grad = check_for_nan_in_grad
+        self.fp16 = fp16
+        self.bf16 = bf16
+        if self.fp16 and self.bf16:
+            raise ValueError("fp16 and bf16 can not be set at the same time.")
 
         self.update_attrs(**kwargs)
 
@@ -1676,12 +1134,6 @@ def validate_output_dir(config_instance, output_dir):
     Validator.check_value_type("output_dir", output_dir, [str])
     return output_dir
 
-
-@TrainingConfig.validator("training_iters")
-def validate_training_iters(config_instance, training_iters):
-    """Validate training_iters."""
-    Validator.check_positive_int(training_iters, "training_iters")
-    return training_iters
 
 
 @TrainingConfig.validator("epochs")
@@ -1736,13 +1188,6 @@ def validate_eval_metric(config_instance, eval_metric):
             logger.warning("best_metric_comparison should be set when eval_metric is set.")
         Validator.check_value_type("eval_metric", eval_metric, [str])
     return eval_metric
-
-
-@TrainingConfig.validator("use_grad_clip")
-def validate_use_grad_clip(config_instance, use_grad_clip):
-    """Validate use_grad_clip."""
-    Validator.check_bool(use_grad_clip, "use_grad_clip")
-    return use_grad_clip
 
 
 @TrainingConfig.validator("loss_scale")
@@ -1809,11 +1254,23 @@ def validate_wrap_with_ddp(config_instance, wrap_with_ddp):
     return wrap_with_ddp
 
 
+@TrainingConfig.validator("accumulate_allreduce_grads_in_fp32")
+def validate_accumulate_allreduce_grads_in_fp32(config_instance, accumulate_allreduce_grads_in_fp32):
+    """Validate accumulate_allreduce_grads_in_fp32."""
+    if not config_instance.wrap_with_ddp and accumulate_allreduce_grads_in_fp32:
+        logger.warning("For training config, accumulate_allreduce_grads_in_fp32 only take effect when "
+                       "`wrap_with_ddp=True` accumulate_allreduce_grads_in_fp32 "
+                       "has been set to `False`.")
+        accumulate_allreduce_grads_in_fp32 = False
+    Validator.check_bool(accumulate_allreduce_grads_in_fp32, "accumulate_allreduce_grads_in_fp32")
+    return accumulate_allreduce_grads_in_fp32
+
+
 @TrainingConfig.validator("overlap_grad_reduce")
 def validate_overlap_grad_reduce(config_instance, overlap_grad_reduce):
     """Validate overlap_grad_reduce."""
     if not config_instance.wrap_with_ddp and overlap_grad_reduce:
-        logger.warning("For training config, overlap_grad_reduce only take effect when `wrap_with_ddp=True`",
+        logger.warning("For training config, overlap_grad_reduce only take effect when `wrap_with_ddp=True`"
                        "overlap_grad_reduce has been set to `False`.")
         overlap_grad_reduce = False
     Validator.check_bool(overlap_grad_reduce, "overlap_grad_reduce")
@@ -1824,8 +1281,8 @@ def validate_overlap_grad_reduce(config_instance, overlap_grad_reduce):
 def validate_use_distributed_optimizer(config_instance, use_distributed_optimizer):
     """Validate use_distributed_optimizer."""
     if not config_instance.wrap_with_ddp and use_distributed_optimizer:
-        logger.warning("For training config, overlap_grad_reduce only take effect when `wrap_with_ddp=True`",
-                       "overlap_grad_reduce has been set to `False`.")
+        logger.warning("For training config, use_distributed_optimizer only take effect when `wrap_with_ddp=True`"
+                       "use_distributed_optimizer has been set to `False`.")
         use_distributed_optimizer = False
     Validator.check_bool(use_distributed_optimizer, "use_distributed_optimizer")
     return use_distributed_optimizer
@@ -1845,8 +1302,768 @@ def validate_bucket_size(config_instance, bucket_size):
 def validate_check_for_nan_in_grad(config_instance, check_for_nan_in_grad):
     """Validate check_for_nan_in_grad."""
     if not config_instance.wrap_with_ddp and check_for_nan_in_grad:
-        logger.warning("For training config, check_for_nan_in_grad only take effect when `wrap_with_ddp=True`",
+        logger.warning("For training config, check_for_nan_in_grad only take effect when `wrap_with_ddp=True`"
                        "overlap_grad_reduce has been set to `False`.")
         check_for_nan_in_grad = False
     Validator.check_bool(check_for_nan_in_grad, "check_for_nan_in_grad")
     return check_for_nan_in_grad
+
+@TrainingConfig.validator("fp16")
+def validate_fp16(config_instance, fp16):
+    """Validate fp16."""
+    Validator.check_bool(fp16, "fp16")
+    return fp16
+
+@TrainingConfig.validator("bf16")
+def validate_bf16(config_instance, bf16):
+    """Validate bf16."""
+    Validator.check_bool(bf16, "bf16")
+    return bf16
+
+
+def check_fa_config(**kwargs):
+    """ check flash attention config validation. """
+
+    def _check_sparse_mode(sparse_mode):
+        support_sparse_mode = (0, 1, 2, 3, 4)
+        if sparse_mode not in support_sparse_mode:
+            raise NotImplementedError("For flash attention, sparse_mode only support"
+                                      "[0, 1, 2, 3, 4] for now, but got {}".format(str(sparse_mode)))
+
+    args_and_check_map = {
+        'keep_prob': partial(Validator.check_float_range, lower_limit=0, upper_limit=1,
+                             rel=Rel.INC_BOTH, arg_name='keep_prob'),
+        'pre_tokens': partial(Validator.check_int_range, lower_limit=-2147483647, upper_limit=2147483647,
+                              rel=Rel.INC_BOTH, arg_name='pre_tokens'),
+        'next_tokens': partial(Validator.check_int_range, lower_limit=-2147483647, upper_limit=2147483647,
+                               rel=Rel.INC_BOTH, arg_name='next_tokens'),
+        'input_layout': partial(Validator.check_string, valid_values=('BNSD'), arg_name='input_layout'),
+        'sparse_mode': _check_sparse_mode}
+    for arg_name, value in kwargs.items():
+        if arg_name not in args_and_check_map.keys():
+            raise ValueError("For FAConfig, only `keep_prob`, `pre_tokens`, `next_tokens`, `input_layout`, "
+                             "and `sparse_mode` are configuable, but got {}".format(arg_name))
+        args_and_check_map[arg_name](value)
+
+
+class TransformerConfig(BaseConfig):
+    """Transformer config class.
+
+    Args:
+        vocab_size (int): Vocabulary size.
+        num_layers (int): Number of model layers.
+        num_attention_heads (int): Number of heads for MultiHeadAttention.
+        hidden_size (int): Dimensionality of the encoder layers.
+        ffn_hidden_size (int): Dimensionality the FeedForward block project to.
+        parallel_config (ModelParallelConfig): Parallel config.
+        lora_config (LoraConfig): Lora config.
+        attention_type (str): Attention type. Default: 'self_attn'.
+        position_embedding_type (str): Position embedding type. Default: 'absolute'
+        parallel_position_embedding (bool): Apply parallel vocab embedding layer when using
+            absolute position embedding. Default: False
+        rotary_config (dict): Rotary config. Default: None
+        use_query_layer (bool): Using query layer after transformer. Default: False.
+        use_visual_encoder (bool): Using visual encoder. Default: False.
+        use_retriever (bool): Using retriever. Default: False
+        group_query_attention (bool): Enable group query attention. Default: False.
+        num_query_groups (int): Number of heads for key and value when using group query attention.
+            Default: 32.
+        qkv_has_bias (bool): Linears apply on query, key and value in Attention block has bias
+            parameter. Default: True.
+        out_proj_has_bias (bool): Linear applies on output of core attention block has bias
+            parameter. Default: True.
+        head_skip_weight_param_allocation (bool): If Head will skip weight allocation and use word
+            as weights. Default: False.
+        apply_query_key_layer_scaling (bool): Apply query key scaling in core attention block.
+            Default: False.
+        use_flash_attention (bool): Enable flash attention. Default: False.
+        mask_func_type (str): Attention mask compute method. Default: 'attn_mask_add'.
+        mlp_has_bis (bool): Linears in MLP block have bias parameters. Default: True.
+        gated_linear_unit (bool): Apply gating in MLP block. Default: False.
+        hidden_act (str): Activation used in MLP block. Default: 'gelu'.
+        normalization (str): Normalization used in transformerlayer block. Default: 'LayerNorm'.
+        norm_epsilon (float): Epsilon of normalization. Default: 1.e-5.
+        apply_residual_connection_post_norm (bool): Apply residual connection after normalization.
+            Default: False.
+        use_final_norm (bool): Apply final norm after transformer. Default: True.
+        residual_connection_dtype (str): Compute data type of residual connection. Default: 'float32'.
+        init_method_std (float): Init method std value. Default: 0.01
+        params_dtype (str): Parameter initialize data type. Default: 'float32'.
+        embedding_init_dtype (str): Embedding parameter initialize data type. Default: 'float32'.
+        compute_dtype (str): Compute data type of linear module. Default: 'float16'.
+        softmax_compute_dtype (str): Compute data type of softmax layer. Default: 'float32'.
+        fp16_lm_cross_entropy (bool): Apply float16 when calculating cross entropy. Default: False.
+        hidden_dropout (float): Dropout rate for output of attention block and mlp block in transformerlayer.
+            Default: 0.0.
+        attention_dropout (float): Dropout rate for attention socre. Default: 0.0.
+        num_experts (int, optional): Number of experts. Default: None.
+        untie_embeddings_and_output_weights (bool): If false, share embedding with head layer. Default: False.
+        flatten_labels_and_input_mask (bool): flatten labels and input mask in public layer. Default: True.
+        recompute_method (str, optional): Recompute method. Default: None.
+        recompute_num_layers (int, optional): Number of layers to recompute. Default: None.
+        recompute_granularity (str, optional): Recompute granularity. Default: None.
+        moe_config (MoEConfig, optional): MoE config. Default: None.
+        dataset_config (dict): dataset config. Default: None.
+    """
+
+    # set config name for identifying while using init_configs methods
+    config_name = "model_config"
+
+    def __init__(
+            self,
+            vocab_size: int,
+            num_layers: int,
+            num_attention_heads: int,
+            hidden_size: int,
+            ffn_hidden_size: int,
+            parallel_config: ModelParallelConfig,
+            lora_config: LoraConfig = LoraConfig(),
+            dataset_config: DatasetConfig = DatasetConfig(),
+            moe_config: MoEConfig = MoEConfig(),
+            attention_type: str = "self_attn",
+            position_embedding_type: str = 'absolute',
+            parallel_position_embedding: bool = False,
+            rotary_config: dict = None,
+            use_query_layer: bool = False,
+            use_visual_encoder: bool = False,
+            use_retriever: bool = False,
+            group_query_attention: bool = False,
+            num_query_groups: int = 32,
+            qkv_has_bias: bool = True,
+            out_proj_has_bias: bool = True,
+            head_skip_weight_param_allocation: bool = True,
+            apply_query_key_layer_scaling: bool = False,
+            use_flash_attention: bool = False,
+            fa_config=None,
+            enable_flash_sp: bool = False,
+            mask_func_type: str = "attn_mask_add",
+            mlp_has_bias: bool = True,
+            gated_linear_unit: bool = False,
+            hidden_act: str = "gelu",
+            normalization: str = "LayerNorm",
+            norm_epsilon: float = 1.0e-5,
+            apply_residual_connection_post_norm: bool = False,
+            use_final_norm: bool = True,
+            residual_connection_dtype: str = "float32",
+            init_method_std: float = 0.01,
+            params_dtype: str = "float32",
+            embedding_init_dtype: str = "float32",
+            compute_dtype: str = "float32",
+            softmax_compute_dtype: str = "float32",
+            init_method: str = 'normal',
+            bias_init: str = 'zeros',
+            fp16_lm_cross_entropy: bool = False,
+            attention_dropout: float = 0.0,
+            out_hidden_size: int = None,
+            num_experts: int = None,
+            untie_embeddings_and_output_weights: bool = False,
+            flatten_labels_and_input_mask: bool = True,
+            recompute_method: str = None,
+            recompute_num_layers: int = None,
+            recompute_granularity: str = None,
+            fp32_residual_connection: bool = False,
+            kv_channels: int = None,
+            hidden_dropout: float = 0.0,
+            bias_dropout_fusion: bool = False,
+            fp8_format: str = None,
+            clone_scatter_output_in_embedding: bool = False,
+            add_bias_linear: bool = False,
+            attention_softmax_in_fp32: bool = True,
+            masked_softmax_fusion: bool = False,
+            distribute_saved_activations: bool = False,
+            retro_add_retriever: bool = False,
+            transformer_impl: str = 'local',
+            encoder_num_layers: int = None,
+            decoder_num_layers: int = None,
+            model_type: str = "encoder_or_decoder",
+
+            **kwargs,
+    ):
+        super().__init__()
+        self.parallel_config = parallel_config
+        self.lora_config = lora_config
+        self.dataset_config = dataset_config
+        self.vocab_size = vocab_size
+        self.moe_config = moe_config
+        self.num_layers = num_layers
+        self.num_attention_heads = num_attention_heads
+        self.hidden_size = hidden_size
+        self.ffn_hidden_size = ffn_hidden_size
+        self.attention_type = attention_type
+        self.position_embedding_type = position_embedding_type
+        self.parallel_position_embedding = parallel_position_embedding
+        self.rotary_config = rotary_config
+        self.use_query_layer = use_query_layer
+        self.use_visual_encoder = use_visual_encoder
+        self.use_retriever = use_retriever
+        self.group_query_attention = group_query_attention
+        self.num_query_groups = num_query_groups
+        self.qkv_has_bias = qkv_has_bias
+        self.out_proj_has_bias = out_proj_has_bias
+        self.head_skip_weight_param_allocation = head_skip_weight_param_allocation
+        self.apply_query_key_layer_scaling = apply_query_key_layer_scaling
+        self.use_flash_attention = use_flash_attention
+        if self.use_flash_attention and fa_config:
+            check_fa_config(**fa_config)
+            self.fa_config = fa_config
+        self.enable_flash_sp = enable_flash_sp
+        self.mask_func_type = mask_func_type
+        self.mlp_has_bias = mlp_has_bias
+        self.gated_linear_unit = gated_linear_unit
+        self.hidden_act = hidden_act
+        self.normalization = normalization
+        self.norm_epsilon = norm_epsilon
+        self.apply_residual_connection_post_norm = apply_residual_connection_post_norm
+        self.use_final_norm = use_final_norm
+        self.residual_connection_dtype = residual_connection_dtype
+        self.init_method_std = init_method_std
+        self.params_dtype = params_dtype
+        self.embedding_init_dtype = embedding_init_dtype
+        self.compute_dtype = compute_dtype
+        self.softmax_compute_dtype = softmax_compute_dtype
+        self.init_method = init_method
+        self.bias_init = bias_init
+        self.fp16_lm_cross_entropy = fp16_lm_cross_entropy
+        self.attention_dropout = attention_dropout
+        self.out_hidden_size = out_hidden_size
+        self.num_experts = num_experts
+        self.untie_embeddings_and_output_weights = untie_embeddings_and_output_weights
+        self.flatten_labels_and_input_mask = flatten_labels_and_input_mask
+        self.recompute_method = recompute_method
+        self.recompute_num_layers = recompute_num_layers
+        self.recompute_granularity = recompute_granularity
+        self.fp32_residual_connection = fp32_residual_connection
+        self.kv_channels = kv_channels
+        self.hidden_dropout = hidden_dropout
+        self.bias_dropout_fusion = bias_dropout_fusion
+        self.fp8 = fp8_format
+        self.clone_scatter_output_in_embedding = clone_scatter_output_in_embedding
+        self.add_bias_linear = add_bias_linear
+        self.attention_softmax_in_fp32 = attention_softmax_in_fp32
+        self.masked_softmax_fusion = masked_softmax_fusion
+        self.distribute_saved_activations = distribute_saved_activations
+        self.retro_add_retriever = retro_add_retriever
+        self.transformer_impl = transformer_impl
+        self.encoder_num_layers = encoder_num_layers
+        self.decoder_num_layers = decoder_num_layers
+        self.model_type = model_type
+
+        if "recompute_activations" in kwargs:
+            if kwargs["recompute_activations"]:
+                self.recompute_granularity = "selective"
+            kwargs.pop("recompute_activations")
+
+        self.update_attrs(**self.rotary_config)
+        self.update_attrs(**kwargs)
+
+    def update_lora_config(self, cell_name):
+        lora_module = self.lora_config.lora_module
+        self.lora_config.lora_module = None if lora_module is None else lora_module.get(cell_name, None)
+
+
+TransformerConfig.register_depended_config([ModelParallelConfig,
+                                            LoraConfig,
+                                            DatasetConfig,
+                                            MoEConfig],
+                                           optional=[False, True, True, True])
+
+
+@TransformerConfig.validator("vocab_size")
+def validate_vocab_size(config_instance, vocab_size):
+    """Validate vocab_size."""
+    Validator.check_positive_int(vocab_size, "vocab_size")
+    return vocab_size
+
+
+@TransformerConfig.validator("num_layers")
+def validate_num_layers(config_instance, num_layers):
+    """Validate num_layers."""
+    Validator.check_positive_int(num_layers, "num_layers")
+    return num_layers
+
+
+@TransformerConfig.validator("num_attention_heads")
+def validate_num_attention_heads(config_instance, num_attention_heads):
+    """Validate num_attention_heads."""
+    Validator.check_positive_int(num_attention_heads, "num_attention_heads")
+    return num_attention_heads
+
+
+@TransformerConfig.validator("hidden_size")
+def validate_hidden_size(config_instance, hidden_size):
+    """Validate hidden_size."""
+    Validator.check_positive_int(hidden_size, "hidden_size")
+    return hidden_size
+
+
+@TransformerConfig.validator("ffn_hidden_size")
+def validate_ffn_hidden_size(config_instance, ffn_hidden_size):
+    """Validate ffn_hidden_size."""
+    Validator.check_positive_int(ffn_hidden_size, "ffn_hidden_size")
+    return ffn_hidden_size
+
+
+# TODO: check type
+@TransformerConfig.validator("attention_type")
+def validate_attention_type(config_instance, attention_type):
+    """Validate attention_type."""
+    Validator.check_value_type("attention_type", attention_type, [str])
+    return attention_type
+
+
+@TransformerConfig.validator("group_query_attention")
+def validate_group_query_attention(config_instance, group_query_attention):
+    """Validate group_query_attention."""
+    Validator.check_bool(group_query_attention, "group_query_attention")
+    return group_query_attention
+
+
+@TransformerConfig.validator("num_query_groups")
+def validate_num_query_groups(config_instance, num_query_groups):
+    """Validate num_query_groups."""
+    Validator.check_positive_int(num_query_groups, "num_query_groups")
+    return num_query_groups
+
+
+@TransformerConfig.validator("qkv_has_bias")
+def validate_qkv_has_bias(config_instance, qkv_has_bias):
+    """Validate qkv_has_bias."""
+    Validator.check_bool(qkv_has_bias, "qkv_has_bias")
+    return qkv_has_bias
+
+
+@TransformerConfig.validator("out_proj_has_bias")
+def validate_out_proj_has_bias(config_instance, out_proj_has_bias):
+    """Validate out_proj_has_bias."""
+    Validator.check_bool(out_proj_has_bias, "out_proj_has_bias")
+    return out_proj_has_bias
+
+
+@TransformerConfig.validator("head_skip_weight_param_allocation")
+def validate_head_skip_weight_param_allocation(config_instance, head_skip_weight_param_allocation):
+    """Validate head_skip_weight_param_allocation."""
+    Validator.check_bool(head_skip_weight_param_allocation, "head_skip_weight_param_allocation")
+    return head_skip_weight_param_allocation
+
+
+@TransformerConfig.validator("apply_query_key_layer_scaling")
+def validate_apply_query_key_layer_scaling(config_instance, apply_query_key_layer_scaling):
+    """Validate apply_query_key_layer_scaling."""
+    Validator.check_bool(apply_query_key_layer_scaling, "apply_query_key_layer_scaling")
+    return apply_query_key_layer_scaling
+
+
+@TransformerConfig.validator("use_flash_attention")
+def validate_use_flash_attention(config_instance, use_flash_attention):
+    """Validate use_flash_attention."""
+    Validator.check_bool(use_flash_attention, "use_flash_attention")
+    return use_flash_attention
+
+
+@TransformerConfig.validator("rotary_config")
+def validate_rotary_config(config_instance, rotary_config):
+    """Validate fa_config."""
+    default_rotary_config = {'rotary_percent': 1.0,
+                             'rotary_interleaved': False,
+                             'seq_len_interpolation_factor': None,
+                             'rotary_base': 10000}
+    check_keys = default_rotary_config.keys()
+
+    if rotary_config is not None:
+        if not isinstance(rotary_config, dict):
+            raise TypeError("rotary_config should be a dict.")
+
+        for key, value in rotary_config.items():
+            # pylint: disable=R1720
+            if key not in check_keys:
+                raise ValueError(f"Key '{key}' is not supported in rotary_config.")
+            elif key in ('rotary_interleaved', 'seq_len_interpolation_factor'):
+                if not isinstance(value, bool):
+                    raise TypeError(f"Key '{key}' should be bool in rotary_config.")
+            elif key in 'rotary_percent':
+                if not isinstance(value, float):
+                    raise TypeError(f"Key '{key}' should be float in rotary_config.")
+            elif key in 'rotary_base':
+                if not isinstance(value, int):
+                    raise TypeError(f"Key '{key}' should be int in rotary_config.")
+            default_rotary_config[key] = value
+        rotary_config = default_rotary_config
+    else:
+        rotary_config = default_rotary_config
+    return rotary_config
+
+
+@TransformerConfig.validator("mask_func_type")
+def validate_mask_func_type(config_instance, mask_func_type):
+    """Validate mask_func_type."""
+    Validator.check_value_type("mask_func_type", mask_func_type, [str])
+    return mask_func_type
+
+
+@TransformerConfig.validator("mlp_has_bias")
+def validate_mlp_has_bias(config_instance, mlp_has_bias):
+    """Validate mlp_has_bias."""
+    Validator.check_bool(mlp_has_bias, "mlp_has_bias")
+    return mlp_has_bias
+
+
+@TransformerConfig.validator("gated_linear_unit")
+def validate_gated_linear_unit(config_instance, gated_linear_unit):
+    """Validate gated_linear_unit."""
+    Validator.check_bool(gated_linear_unit, "gated_linear_unit")
+    return gated_linear_unit
+
+
+@TransformerConfig.validator("hidden_act")
+def validate_hidden_act(config_instance, hidden_act):
+    """Validate hidden_act."""
+    Validator.check_value_type("hidden_act", hidden_act, [str])
+    return hidden_act
+
+
+@TransformerConfig.validator("normalization")
+def validate_normalization(config_instance, normalization):
+    """Validate normalization."""
+    Validator.check_value_type("normalization", normalization, [str])
+    return normalization
+
+
+@TransformerConfig.validator("norm_epsilon")
+def validate_layernorm_epsilon(config_instance, norm_epsilon):
+    """Validate norm_epsilon."""
+    Validator.check_positive_float(norm_epsilon, "norm_epsilon")
+    return norm_epsilon
+
+
+@TransformerConfig.validator("apply_residual_connection_post_norm")
+def validate_apply_residual_connection_post_norm(config_instance, apply_residual_connection_post_norm):
+    """Validate apply_residual_connection_post_norm."""
+    Validator.check_bool(apply_residual_connection_post_norm, "apply_residual_connection_post_norm")
+    return apply_residual_connection_post_norm
+
+
+@TransformerConfig.validator("residual_connection_dtype")
+def validate_residual_connection_dtype(config_instance, residual_connection_dtype):
+    """Validate residual_connection_dtype."""
+    return _SUPPORT_DTYPE_DICT[residual_connection_dtype]
+
+
+@TransformerConfig.validator("params_dtype")
+def validate_params_dtype(config_instance, params_dtype):
+    """Validate params_dtype."""
+    return _SUPPORT_DTYPE_DICT[params_dtype]
+
+
+@TransformerConfig.validator("embedding_init_dtype")
+def validate_embedding_init_dtype(config_instance, embedding_init_dtype):
+    """Validate embedding_init_dtype."""
+    return _SUPPORT_DTYPE_DICT[embedding_init_dtype]
+
+
+@TransformerConfig.validator("compute_dtype")
+def validate_compute_dtype(config_instance, compute_dtype):
+    """Validate compute_dtype."""
+    return _SUPPORT_DTYPE_DICT[compute_dtype]
+
+
+@TransformerConfig.validator("softmax_compute_dtype")
+def validate_softmax_compute_dtype(config_instance, softmax_compute_dtype):
+    """Validate softmax_compute_dtype."""
+    return _SUPPORT_DTYPE_DICT[softmax_compute_dtype]
+
+
+@TransformerConfig.validator("init_method")
+def validate_init_method(config_instance, init_method):
+    """Validate init_method."""
+    if isinstance(init_method, numbers.Number):
+        return init_method
+    return _SUPPORT_INIT_METHOD[init_method]()
+
+
+@TransformerConfig.validator("bias_init")
+def validate_bias_init(config_instance, bias_init):
+    """Validate bias_init."""
+    if isinstance(bias_init, numbers.Number):
+        return bias_init
+    return _SUPPORT_INIT_METHOD[bias_init]()
+
+
+@TransformerConfig.validator("hidden_dropout")
+def validate_hidden_dropout(config_instance, hidden_dropout):
+    """Validate hidden_dropout."""
+    Validator.check_float_range(hidden_dropout, 0, 1, Rel.INC_BOTH, "hidden_dropout")
+    return hidden_dropout
+
+
+@TransformerConfig.validator("attention_dropout")
+def validate_attention_dropout(config_instance, attention_dropout):
+    """Validate attention_dropout."""
+    Validator.check_float_range(attention_dropout, 0, 1, Rel.INC_BOTH, "attention_dropout")
+    return attention_dropout
+
+
+@TransformerConfig.validator("num_experts")
+def validate_num_experts(config_instance, num_experts):
+    """Validate num_experts."""
+    Validator.check_value_type("num_experts", num_experts, [int, type(None)])
+    return num_experts
+
+
+@TransformerConfig.validator("share_embedding_weight")
+def validate_share_embedding_weight(config_instance, share_embedding_weight):
+    """Validate share_embedding_weight."""
+    Validator.check_bool(share_embedding_weight, "share_embedding_weight")
+    return share_embedding_weight
+
+
+@TransformerConfig.validator("recompute_method")
+def validate_recompute_method(config_instance, recompute_method):
+    if recompute_method is not None:
+        Validator.check_string(recompute_method, ["uniform", "block"], "recompute_method")
+    return recompute_method
+
+
+@TransformerConfig.validator("recompute_num_layers")
+def validate_recompute_num_layers(config_instance, recompute_num_layers):
+    """Validate recompute_num_layers."""
+    if recompute_num_layers is not None:
+        Validator.check_int_range(
+            recompute_num_layers, 1, config_instance.num_layers, Rel.INC_BOTH, "recompute_num_layers"
+        )
+        if config_instance.recompute_method is None:
+            logger.warning("recompute_method, recompute_num_layers should be set together.")
+    return recompute_num_layers
+
+
+@TransformerConfig.validator("recompute_granularity")
+def validate_recompute_granularity(config_instance, recompute_granularity):
+    """Validate recompute_granularity."""
+    if recompute_granularity is not None:
+        Validator.check_string(recompute_granularity, ["selective", "full"], "recompute_granularity")
+        if recompute_granularity == "full":
+            if config_instance.recompute_method is None:
+                logger.warning("recompute_method should be set when recompute_granularity is set to 'full'.")
+            if config_instance.recompute_num_layers is None:
+                logger.warning("recompute_num_layers should be set when recompute_granularity is set to 'full'.")
+    return recompute_granularity
+
+
+@TransformerConfig.validator("kv_channels")
+def validate_kv_channels(config_instance, kv_channels):
+    """Validate kv_channels."""
+    if kv_channels is None:
+        kv_channels = config_instance.hidden_size // config_instance.num_attention_heads
+    return kv_channels
+
+
+@TransformerConfig.validator("fp32_residual_connection")
+def validate_fp32_residual_connection(config_instance, fp32_residual_connection):
+    """Validate fp32_residual_connection."""
+    Validator.check_bool(fp32_residual_connection, "fp32_residual_connection")
+    return fp32_residual_connection
+
+
+@TransformerConfig.validator("retro_add_retriever")
+def validate_retro_add_retriever(config_instance, retro_add_retriever):
+    """Validate retro_add_retriever."""
+    Validator.check_bool(retro_add_retriever, "retro_add_retriever")
+    return retro_add_retriever
+
+
+@TransformerConfig.validator("transformer_impl")
+def validate_transformer_impl(config_instance, transformer_impl):
+    if transformer_impl is not None:
+        Validator.check_string(transformer_impl, ["local", "transformer_engine"], "transformer_impl")
+    return transformer_impl
+
+
+@TransformerConfig.validator("fp8_format")
+def validate_fp8_format(config_instance, fp8_format):
+    if fp8_format is not None:
+        Validator.check_string(fp8_format, ['e4m3', 'hybrid'], "fp8_format")
+    return fp8_format
+
+
+@TransformerConfig.validator("encoder_num_layers")
+def validate_encoder_num_layers(config_instance, encoder_num_layers):
+    """Validate encoder_num_layers."""
+    if encoder_num_layers is not None:
+        Validator.check_positive_int(encoder_num_layers, "encoder_num_layers")
+    return encoder_num_layers
+
+
+@TransformerConfig.validator("decoder_num_layers")
+def validate_decoder_num_layers(config_instance, decoder_num_layers):
+    """Validate decoder_num_layers."""
+    if decoder_num_layers is not None:
+        Validator.check_positive_int(decoder_num_layers, "decoder_num_layers")
+    return decoder_num_layers
+
+
+@TransformerConfig.validator("add_bias_linear")
+def validate_add_bias_linear(config_instance, add_bias_linear):
+    """Validate add_bias_linear."""
+    Validator.check_bool(add_bias_linear, "add_bias_linear")
+    return add_bias_linear
+
+
+@TransformerConfig.validator("clone_scatter_output_in_embedding")
+def validate_clone_scatter_output_in_embedding(config_instance, clone_scatter_output_in_embedding):
+    """Validate clone_scatter_output_in_embedding."""
+    Validator.check_bool(clone_scatter_output_in_embedding, "clone_scatter_output_in_embedding")
+    return clone_scatter_output_in_embedding
+
+
+@TransformerConfig.validator("attention_softmax_in_fp32")
+def validate_attention_softmax_in_fp32(config_instance, attention_softmax_in_fp32):
+    """Validate attention_softmax_in_fp32."""
+    Validator.check_bool(attention_softmax_in_fp32, "attention_softmax_in_fp32")
+    return attention_softmax_in_fp32
+
+
+@TransformerConfig.validator("masked_softmax_fusion")
+def validate_masked_softmax_fusion(config_instance, masked_softmax_fusion):
+    """Validate masked_softmax_fusion."""
+    Validator.check_bool(masked_softmax_fusion, "masked_softmax_fusion")
+    return masked_softmax_fusion
+
+
+@TransformerConfig.validator("distribute_saved_activations")
+def validate_distribute_saved_activations(config_instance, distribute_saved_activations):
+    """Validate distribute_saved_activations."""
+    Validator.check_bool(distribute_saved_activations, "distribute_saved_activations")
+    return distribute_saved_activations
+
+
+class OptimizerConfig(BaseConfig):
+    r"""Optimizer config class.
+
+    Args:
+        parallel_config (ModelParallelConfig): Parallel config.
+        optimizer_type (str): Optimizer type. Default: 'AdamWeightDecay'.
+        learning_rate (float): Learning rate. Default: 0.01.
+        learning_rate_scheduler_kwargs (dict, optional): Learning rate scheduler kwargs.
+        weight_decay (float): Weight decay. Default: 0.0.
+        weight_decay_kwargs (dict, optional): Weight decay kwargs.
+        zero_config (dict, optional): ZeRO optimizer config.
+        - param_resident (bool): After the forward propagation, the parameters are resident and not split.
+          Default: Flase.
+
+        - allreduce_after_grad_accumulation (bool): Use allreduce in optimizer after gradient accumulation.
+          Default: Flase.
+
+        - grad_allreduce_op (str): Gradient allreduce operator. like `sum`, `mean`. Default: sum.
+
+        - opt_parallel_group (str): Name of communication group used by optimizer parallel. Default: None.
+
+        - cpu_offload (bool): The process of optimizer will be offload to host. The gradients, parameters and
+          optimizer status will be offload to host. Default: Flase.
+    """
+
+    # set config name for identifying while using init_configs methods
+    config_name = "optimizer_config"
+
+    def __init__(
+            self,
+            parallel_config: ModelParallelConfig,
+            optimizer_type: str = "AdamWeightDecay",
+            learning_rate: float = 1e-3,
+            learning_rate_scheduler_kwargs: dict = None,
+            weight_decay: float = 0.0,  # start_weight_decay
+            end_weight_decay: float = 0.0,
+            weight_decay_kwargs: dict = None,
+            zero_config: dict = None,
+            clip_grad: float = 0.0,
+            # scheduler config
+            train_iters: int = 0,
+            lr_decay_iters: int = None,
+            lr_decay_samples: int = None,
+            lr_wsd_decay_iters: int = None,
+            lr_wsd_decay_samples: int = None,
+            lr_warmup_iters: int = None,
+            lr_warmup_samples: int = None,
+            lr_warmup_init: float = 0.0,
+            lr_warmup_fraction: int = .01,
+            min_lr: float = 2.5e-5,
+            lr_decay_style: str = 'cosine',
+            weight_decay_incr_style: str = 'constant',
+            lr_wsd_decay_style: str = 'constant',
+            use_checkpoint_opt_param_scheduler: bool = True,
+            override_opt_param_scheduler: bool = False,
+            **kwargs,
+    ):
+        super().__init__()
+
+        self.parallel_config = parallel_config
+        self.optimizer_type = optimizer_type
+        self.learning_rate = learning_rate
+        self.learning_rate_scheduler_kwargs = learning_rate_scheduler_kwargs
+        self.weight_decay = weight_decay
+        self.end_weight_decay = end_weight_decay
+        self.weight_decay_kwargs = weight_decay_kwargs
+        self.zero_config = zero_config
+        self.clip_grad = clip_grad
+        # scheduler config
+        self.train_iters = train_iters
+        self.lr_decay_iters = lr_decay_iters
+        self.lr_decay_samples = lr_decay_samples
+        self.lr_wsd_decay_iters = lr_wsd_decay_iters
+        self.lr_wsd_decay_samples = lr_wsd_decay_samples
+        self.lr_warmup_iters = lr_warmup_iters
+        self.lr_warmup_samples = lr_warmup_samples
+        self.lr_warmup_init = lr_warmup_init
+        self.lr_warmup_fraction = lr_warmup_fraction
+        self.min_lr = min_lr
+        self.lr_decay_style = lr_decay_style
+        self.weight_decay_incr_style = weight_decay_incr_style
+        self.lr_wsd_decay_style = lr_wsd_decay_style
+        self.use_checkpoint_opt_param_scheduler = use_checkpoint_opt_param_scheduler
+        self.override_opt_param_scheduler = override_opt_param_scheduler
+
+        self.update_attrs(**kwargs)
+
+
+OptimizerConfig.register_depended_config(ModelParallelConfig)
+
+
+@OptimizerConfig.validator("optimizer_type")
+def validate_type(config_instance, optimizer_type):
+    """Validate type."""
+    Validator.check_value_type("optimizer_type", optimizer_type, [str])
+    return optimizer_type
+
+
+@OptimizerConfig.validator("learning_rate")
+def validate_learning_rate(config_instance, learning_rate):
+    """Validate learning_rate."""
+    Validator.check_positive_float(learning_rate, "learning_rate")
+    return learning_rate
+
+
+@OptimizerConfig.validator("learning_rate_scheduler_kwargs")
+def validate_learning_rate_scheduler_kwargs(config_instance, learning_rate_scheduler_kwargs):
+    """Validate learning_rate_scheduler_kwargs."""
+    if learning_rate_scheduler_kwargs is not None:
+        Validator.check_value_type("learning_rate_scheduler_kwargs", learning_rate_scheduler_kwargs, [dict])
+    return learning_rate_scheduler_kwargs
+
+
+@OptimizerConfig.validator("weight_decay")
+def validate_weight_decay(config_instance, weight_decay):
+    """Validate weight_decay."""
+    Validator.check_non_negative_float(weight_decay, "weight_decay")
+    return weight_decay
+
+
+@OptimizerConfig.validator("weight_decay_kwargs")
+def validate_weight_decay_kwargs(config_instance, weight_decay_kwargs):
+    """Validate weight_decay_kwargs."""
+    if weight_decay_kwargs is not None:
+        Validator.check_value_type("weight_decay_kwargs", weight_decay_kwargs, [dict])
+    return weight_decay_kwargs
+
+@OptimizerConfig.validator("clip_grad")
+def validate_clip_grad(config_instance, clip_grad):
+    """Validate learning_rate."""
+    Validator.check_non_negative_float(clip_grad, "clip_grad")
+    return clip_grad

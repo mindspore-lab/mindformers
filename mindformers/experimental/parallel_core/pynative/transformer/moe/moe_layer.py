@@ -1,24 +1,9 @@
-# Copyright 2024 Huawei Technologies Co., Ltd
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ============================================================================
 """moe layer"""
-import mindspore as ms
-
 from mindformers.experimental.parallel_core.pynative.config import TransformerConfig
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_ep_rank, get_ep_world_size, \
-    get_tp_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_expert_model_parallel_rank, get_expert_model_parallel_world_size, get_tensor_model_parallel_world_size
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
+
+import mindspore as ms
 
 from .experts import GroupedMLP, SequentialMLP
 from .router import TopKRouter
@@ -30,9 +15,9 @@ class MoELayer(Module):
     expert layer.
 
     Args:
-        config (TransformerConfig): configuration of the model.
+        config: configuration
         submodules: reserve arguments, not used now.
-        layer_number (int): reserve arguments, not used now.
+        layer_number: reserve arguments, not used now.
     """
     # pylint: disable=C0103
     def __init__(self, config: TransformerConfig, submodules=None, layer_number: int = None):
@@ -41,24 +26,22 @@ class MoELayer(Module):
         self.layer_number = layer_number
 
         moe_config = config.moe_config
-        ep_world_size = get_ep_world_size()
+        ep_world_size = get_expert_model_parallel_world_size()
         num_experts = moe_config.num_experts
-        rank_id = get_ep_rank()
+        rank_id = get_expert_model_parallel_rank()
 
-        self.sp = config.parallel_config.use_sequence_parallel
+        self.tp = config.parallel_config.tensor_model_parallel_size
+        self.sp = config.parallel_config.sequence_parallel
 
-        if ep_world_size <= 0:
-            raise ValueError(f"Expect expert parallel size > 0, but got {ep_world_size}")
-
-        if num_experts % ep_world_size != 0:
-            raise ValueError(f"Expect num_experts % ep_world_size == 0, but got {num_experts} and {ep_world_size}")
+        assert ep_world_size > 0, f"Expect expert parallel size > 0, but got {ep_world_size}"
+        assert num_experts % ep_world_size == 0, \
+             f"Expect num_experts % ep_world_size == 0, but got {num_experts} and {ep_world_size}"
 
         num_local_experts = num_experts // ep_world_size
         local_expert_indices = [rank_id * num_local_experts + i for i in range(num_local_experts)]
 
         for x in local_expert_indices:
-            if x >= num_experts:
-                raise ValueError(f"expect all local expert indices < expert num, but got {local_expert_indices}")
+            assert x < num_experts, f"expect all local expert indices < expert num, but got {local_expert_indices}"
 
         self.router = TopKRouter(config=config)
 
@@ -78,7 +61,7 @@ class MoELayer(Module):
 
     def construct(self, hidden_states: ms.Tensor):
         """moe layer forward"""
-        if self.training and get_tp_world_size() > 1 and not self.sp:
+        if self.training and get_tensor_model_parallel_world_size() > 1 and not self.sp:
             raise ValueError(
                 "During training, if tensor parallelism > 1 and not use sequence parallelism, "
                 "would result in low performance in MoE."
@@ -88,7 +71,7 @@ class MoELayer(Module):
         scores, indices = self.router(hidden_states)
 
         dispatched_input, tokens_per_expert = self.token_dispatcher.token_permutation(hidden_states, scores, indices)
-        expert_output = self.experts(dispatched_input, tokens_per_expert)
+        expert_output, _ = self.experts(dispatched_input, tokens_per_expert)
 
         output, _ = self.token_dispatcher.token_unpermutation(expert_output, bias=None)
         output = output.reshape(hidden_shape)

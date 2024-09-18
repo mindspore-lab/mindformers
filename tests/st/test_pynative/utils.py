@@ -22,8 +22,8 @@ from mindspore import Tensor
 from mindspore.nn import DistributedGradReducer
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
-    get_dp_group,
-    get_dp_world_size,
+    get_data_parallel_group,
+    get_data_parallel_world_size,
 )
 
 
@@ -44,12 +44,12 @@ def train(epoch_num,
         network, grad_position=None, weights=optimizer.parameters
     )
     if (reduce_grad and ms.get_context("mode") == ms.PYNATIVE_MODE
-            and get_dp_world_size(with_context_parallel=True) > 1):
+            and get_data_parallel_world_size(with_context_parallel=True) > 1):
         grad_reducer = DistributedGradReducer(
             optimizer.parameters,
-            group=get_dp_group(with_context_parallel=True),
+            group=get_data_parallel_group(with_context_parallel=True),
             mean=True,
-            degree=get_dp_world_size(with_context_parallel=True),
+            degree=get_data_parallel_world_size(with_context_parallel=True),
         )
     all_loss = []
     for epoch in range(epoch_num):
@@ -62,11 +62,11 @@ def train(epoch_num,
                 input_ids, labels = data
                 loss, grads = grad_func(input_ids, labels)
             if (reduce_grad and ms.get_context("mode") == ms.PYNATIVE_MODE
-                    and get_dp_world_size(with_context_parallel=True) > 1):
+                    and get_data_parallel_world_size(with_context_parallel=True) > 1):
                 if zero_level < 0:
                     print(
                         "reduce gradients on group {}".format(
-                            get_dp_group(with_context_parallel=True)
+                            get_data_parallel_group(with_context_parallel=True)
                         )
                     )
                     grads = grad_reducer(grads)

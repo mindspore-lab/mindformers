@@ -19,16 +19,14 @@ from collections import OrderedDict
 import mindspore as ms
 from mindspore import nn
 import mindspore.ops as P
-from mindformers.tools.logger import logger
+from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     is_pipeline_first_stage,
     is_pipeline_last_stage,
-    get_pp_world_size,
-    get_pp_rank,
+    get_pipeline_model_parallel_world_size,
     get_embedding_group,
     is_rank_in_embedding_group
 )
-
 
 # Helper function for handling cell's own params
 def get_default_dict_for_module(cell, recurse=False):
@@ -40,55 +38,18 @@ def get_default_dict_for_module(cell, recurse=False):
                             'opt_weight_shard_step': 0, 'opt_weight_shard_size': 0}
     return state_dict
 
-
-class LayerList:
-    """ Layer list for building sub model"""
-    def __init__(self):
-        super().__init__()
-        self._model = []
-
-    def __iter__(self):
-        return self._model.__iter__()
-
-    def add(self, layers):
-        """ add layer to list """
-        if isinstance(layers, (list, tuple)):
-            for layer in layers:
-                self._model.append(layer)
-                layer.pipeline_stage = get_pp_rank()
-        else:
-            self._model.append(layers)
-            layers.pipeline_stage = get_pp_rank()
-
-    def reset(self):
-        """ reset layer list """
-        self._model = []
-
-    def pop(self, index=None):
-        """ pop layer from list """
-        if index is None:
-            layer = self._model.pop()
-        else:
-            layer = self._model.pop(index)
-        return layer
-
-
 class Module(nn.Cell):
     """specific extensions of cell with support for pipelining."""
     def __init__(self, config=None, **kwargs):
         super(Module, self).__init__(**kwargs)
         self.untie_embeddings_and_output_weights = True
-        self.pp_submodel = LayerList()
         self.shared_weight_name_list = []
         if config is not None:
             self.config = config
             self.untie_embeddings_and_output_weights = config.untie_embeddings_and_output_weights
-        try:
-            if get_pp_world_size() > 1:
+            if get_pipeline_model_parallel_world_size() > 1:
                 self.pre_process = is_pipeline_first_stage()
                 self.post_process = is_pipeline_last_stage()
-        except AssertionError:
-            pass
 
     def get_embedding_or_head_share_weight(self, layers):
         """get embedding or head share weight"""
@@ -139,7 +100,7 @@ class Module(nn.Cell):
             raise RuntimeError("When calling `initialize_word_embeddings()`, "
                                "please ensure `untie_embeddings_and_output_weights=False`.")
 
-        if get_pp_world_size() == 1:
+        if get_pipeline_model_parallel_world_size() == 1:
             logger.warning("When calling `initialize_word_embeddings()`, "
                            "there is no need initialize share weight because `pp_stage=1`.")
             return
@@ -151,6 +112,14 @@ class Module(nn.Cell):
             shared_weight = self.language_model.output_layer.weight
         else:
             return None
+        # add share attr for ddp
+        shared_weight.shared_embedding = True
+
+        # add share attr for clip grad
+        if self.post_process:
+            shared_weight.shared = True
+
+        # all-reduce embedding weight and head weight
         self.shared_weight_name_list.append(shared_weight.name)
         weight_sum = shared_weight.value().sum()
         if weight_sum != 0.0 and self.post_process:
@@ -177,7 +146,6 @@ class Module(nn.Cell):
     def sharded_state_dict(self):
         """iterate over the subcells to construct the total sharded state dict"""
         sharded_state_dict = {}
-
         # Recurse into subcells
         def update_sharded_dict_for_single_cell(subcell):
             nonlocal sharded_state_dict

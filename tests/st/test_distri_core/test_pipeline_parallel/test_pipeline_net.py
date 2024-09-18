@@ -23,14 +23,14 @@ from mindspore import Tensor
 from mindspore.nn import Cell
 from mindspore.common.initializer import initializer, HeUniform
 from mindformers.core.loss.loss import CrossEntropyLoss
+from mindformers.experimental.parallel_core.pynative.transformer import PublicLayer, BaseHeadLayer
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
-from mindformers.experimental.parallel_core.pynative.transformer import PublicLayer
 from mindformers.experimental.parallel_core.pynative.transformer.transformer import _get_num_layers
 from mindformers.experimental.parallel_core.pynative.tensor_parallel.layers import VocabParallelEmbedding
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_pp_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_world_size
 
 
-class FakeData:
+class FakeData():
     """ generate fake data for pipeline parallel test """
     def __init__(self, data_num, seq_length, input_data=None):
         super().__init__()
@@ -89,7 +89,7 @@ class FakeTransformer(Cell):
                                                                      hidden_size,
                                                                      param_init=param_init)
         self.fake_transformer_layers = nn.SequentialCell(layers_dict)
-        self.pipeline_parallel = get_pp_world_size() > 1
+        self.pipeline_parallel = get_pipeline_model_parallel_world_size() > 1
         if self.pipeline_parallel:
             self.set_hidden_states = ms.Parameter(P.zeros((batch_size, seq_length, hidden_size),
                                                           dtype=ms.float32),
@@ -105,19 +105,19 @@ class FakeTransformer(Cell):
         if not self.pre_process and self.pipeline_parallel:
             hidden_states = self.set_hidden_states
 
-        for i, _ in enumerate(self.fake_transformer_layers):
+        for i in range(len(self.fake_transformer_layers)):
             hidden_states = self.fake_transformer_layers[i](hidden_states, attention_mask)
         return hidden_states
 
 
-class FakeHead(nn.Cell):
+class FakeHead(BaseHeadLayer):
     """ fake head layer """
     def __init__(self, hidden_size, vocab_size, param_init='he_uniform', share_embedding_weight=False):
         super().__init__()
         self.hidden_size = hidden_size
         self.vocab_size = vocab_size
         self.matmul = P.MatMul(transpose_b=True)
-        if share_embedding_weight and get_pp_world_size() > 1:
+        if share_embedding_weight and get_pipeline_model_parallel_world_size() > 1:
             param_init = "zeros"
             self.weight = ms.Parameter(initializer(init=param_init,
                                                    shape=(self.vocab_size, self.hidden_size),
@@ -160,7 +160,6 @@ class PipelineTestNet(Module):
     """ test net for pipeline parallel """
     def __init__(self, config, pre_process=True, post_process=True):
         super().__init__(config)
-        self.set_model_key()
         self.num_layers = config.num_layers
         hidden_size = config.hidden_size
         seq_length = config.seq_length
@@ -168,7 +167,7 @@ class PipelineTestNet(Module):
         batch_size = config.dataset_config.batch_size
         self.pre_process = pre_process
         self.post_process = post_process
-        self.pipeline_parallel = get_pp_world_size() > 1
+        self.pipeline_parallel = get_pipeline_model_parallel_world_size() > 1
         self.untie_embeddings_and_output_weights = config.untie_embeddings_and_output_weights
 
         self.public_layer = PublicLayer(config)
@@ -177,9 +176,9 @@ class PipelineTestNet(Module):
                 num_embeddings=vocab_size,
                 embedding_dim=hidden_size,
                 init_method=HeUniform(),
-                reduce_scatter_embeddings=config.parallel_config.use_sequence_parallel,
+                reduce_scatter_embeddings=config.parallel_config.sequence_parallel,
                 config=config,
-                param_init_dtype=config.param_init_dtype
+                param_init_dtype=config.params_dtype
             )
             self.shared_weight_name_list.append(self.embedding.weight.name)
 
@@ -201,10 +200,6 @@ class PipelineTestNet(Module):
     def set_input_tensor(self, input_tensor):
         """ set input_tensor to model """
         self.fake_transformer.set_input_tensor(input_tensor)
-
-    def set_model_key(self):
-        """ set model key for differentiate PipelineCell process """
-        self.model_key = "test_model"
 
     def construct(self, input_ids, labels=None, attention_mask=None):
         """ pipeline test net forward """

@@ -1,17 +1,3 @@
-# Copyright 2024 Huawei Technologies Co., Ltd
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ============================================================================
 """define experts"""
 
 from mindspore import nn, ops
@@ -23,11 +9,7 @@ from mindformers.experimental.parallel_core.pynative.transformer.mlp import Para
 
 class GroupedMLP(Module):
     """
-    GroupedMLP is designed to execute experts in parallel
-    Args:
-        num_local_experts (int): how many local experts on this rank.
-        config (TransformerConfig): configuration of the model.
-        submodules: reserve arguments, not used now.
+    Implement of Grouped MLP
     """
 
     def __init__(self, num_local_experts: int, config: TransformerConfig, submodules=None):
@@ -35,22 +17,16 @@ class GroupedMLP(Module):
 
         self.num_local_experts = num_local_experts
         self.config = config
-        self.submodules = submodules
 
         raise NotImplementedError("GroupedMLP function not implemented.")
 
 
 class SequentialMLP(Module):
-    """SequentialMLP executes each expert one by one according to tokens indicises
-        Args:
-            num_local_experts (int): how many local experts on this rank.
-            config (TransformerConfig): configuration of the model.
-            submodules: reserve arguments, not used now.
-    """
+    """define SequentialMLP module"""
     def __init__(self, num_local_experts: int, config: TransformerConfig, submodules=None):
         super(SequentialMLP, self).__init__()
         if submodules is not None:
-            raise NotImplementedError("For SequentialMLP, `submodules` is not supported for now.")
+            raise NotImplementedError("`submodules` is not supported for now.")
         self.config = config
         self.num_local_experts = num_local_experts
         self.local_experts = nn.SequentialCell()
@@ -78,4 +54,4 @@ class SequentialMLP(Module):
             if expert_id != len(self.local_experts) - 1:
                 start_idx = end_idx
                 end_idx += tokens_per_expert[expert_id + 1]
-        return output_local
+        return output_local, None

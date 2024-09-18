@@ -14,11 +14,10 @@
 # ======================
 
 """Model and data parallel groups."""
-import warnings
 import mindspore
 from mindspore.communication import create_group, destroy_group, get_group_size, get_rank
 from mindspore import hal
-from mindformers.tools.logger import logger
+from mindformers.tools import logger
 
 _GLOBAL_STREAM = None
 _SP_SEND_STREAM = None
@@ -30,9 +29,8 @@ group_info_maps = {}
 
 # special_groups has a different initialization process compared to normal_groups
 normal_groups = ['tp', 'dp', 'pp', 'cp', 'dp-cp', 'tp-pp', 'tp-dp-cp', 'tp-dp', 'tp-cp']
-special_groups = ['ep', 'tp-ep', 'tp-ep-pp', 'dp-independent_ep', 'vpp', 'embedding', 'position_embedding']
+special_groups = ['ep', 'tp-ep', 'dp-independent_ep', 'vpp', 'embedding', 'position_embedding']
 valid_groups = normal_groups + special_groups
-
 
 class GroupInfo:
     """ Comm Group Info """
@@ -52,15 +50,12 @@ class GroupInfo:
         self.global_ranks = None
         self.is_group_created = False
 
-
 def get_group_info(mode):
     global group_info_maps
     if mode not in group_info_maps:
-        if mode not in valid_groups:
-            raise ValueError(f"mode should in {valid_groups}, but got {mode}.")
+        assert mode in valid_groups
         group_info_maps[mode] = GroupInfo()
     return group_info_maps[mode]
-
 
 class CreateCommGroups():
     '''Generate ranks for each parallel type.'''
@@ -105,8 +100,8 @@ class CreateCommGroups():
             elif token == 'ep':
                 self.ordered_size_w_ep.append(self.ep)
             else:
-                self.ordered_size_w_ep.append(self.name_to_size.get(token))
-                self.ordered_size_wo_ep.append(self.name_to_size.get(token))
+                self.ordered_size_w_ep.append(self.name_to_size[token])
+                self.ordered_size_wo_ep.append(self.name_to_size[token])
 
     def get_mask(self, order, token):
         ordered_token = order.split('-')
@@ -138,8 +133,7 @@ class CreateCommGroups():
         mode = input_mode + '-independent_ep' if input_mode == 'dp' and independent_ep else input_mode
         comm_group = get_group_info(mode)
 
-        if comm_group.group is not None:
-            raise ValueError(f'{mode} parallel group is already initialized.')
+        assert comm_group.group is None, f'{mode} parallel group is already initialized'
 
         for ranks in self.get_ranks(input_mode, independent_ep=independent_ep):
             if self.rank in ranks:
@@ -152,10 +146,8 @@ class CreateCommGroups():
         '''Init pipeline parallel group.'''
         embedding_group = get_group_info('embedding')
         position_embedding_group = get_group_info('position_embedding')
-        if embedding_group.group is not None:
-            raise ValueError(f'{embedding_group} is already initialized.')
-        if position_embedding_group.group is not None:
-            raise ValueError(f'position {embedding_group} is already initialized.')
+        assert embedding_group.group is None, 'embedding group is already initialized'
+        assert position_embedding_group.group is None, 'position embedding group is already initialized'
         for ranks in self.get_ranks('pp'):
             # Setup embedding group (to exchange gradients between
             # first and last stages).
@@ -197,8 +189,9 @@ class CreateCommGroups():
             if stride is None:
                 stride = prefix_product(shape)
             idx = [(index // d) % s for s, d in zip(shape, stride)]
-            if sum([x * y for x, y in zip(idx, stride[:-1])]) != index:
-                raise ValueError("idx {} with shape {} mismatch the return idx {}".format(index, shape, idx))
+            assert (
+                sum([x * y for x, y in zip(idx, stride[:-1])]) == index
+            ), "idx {} with shape {} mismatch the return idx {}".format(index, shape, idx)
             return idx
 
         masked_shape = [s for s, m in zip(parallel_size, mask) if m]
@@ -225,7 +218,6 @@ class CreateCommGroups():
             ranks.append(rank)
         return ranks
 
-
 # pylint: disable=W0613
 def initialize_model_parallel(tensor_model_parallel_size=1,
                               pipeline_model_parallel_size=1,
@@ -240,8 +232,7 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     """
 
     # pylint: disable=W0212
-    if not mindspore.communication._comm_helper._is_initialized():
-        raise ValueError(f"{mindspore.communication._comm_helper._is_initialized()} should be True.")
+    assert mindspore.communication._comm_helper._is_initialized()
     world_size = get_group_size()
 
     minimum_world_size = (tensor_model_parallel_size * pipeline_model_parallel_size * context_parallel_size)
@@ -299,15 +290,13 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     # Build the expert-parallel groups which share ranks with DP.
     rank_generator.init_group('ep', independent_ep=True)
     rank_generator.init_group('tp-ep', independent_ep=True)
-    rank_generator.init_group('tp-ep-pp', independent_ep=True)
     rank_generator.init_group('dp', independent_ep=True)
 
     # Build the pipeline-parallel related groups.
     rank_generator.init_embedding_group(pipeline_model_parallel_split_rank)
 
     global _GLOBAL_STREAM
-    if _GLOBAL_STREAM is not None:
-        raise ValueError('GLOBAL stream is already initialized')
+    assert (_GLOBAL_STREAM is None), 'Global stream is already initialized'
     _GLOBAL_STREAM = hal.Stream()
 
     global _SP_SEND_STREAM
@@ -321,99 +310,54 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
         _SP_RECV_OML_STREAM = hal.Stream()
 
     # a temporary workaround for dp group failure initialization in ms.dataset
-    if get_dp_world_size() > 1:
-        get_dp_group()
-
-
-def is_initialized():
-    """Useful for code segments that may be accessed with or without mpu initialization"""
-    comm_group = get_group_info('dp')
-    return comm_group.group is not None
-
-
-def is_uninitialized() -> bool:
-    """Check if parallel state has been initialized
-
-    Deprecated. Use is_initialized instead.
-    """
-    warnings.warn(
-        "is_uninitialized is deprecated, use is_initialized instead", DeprecationWarning,
-    )
-    return not is_initialized()
-
-
-def model_parallel_is_initialized():
-    """Check if model and data parallel groups are initialized."""
-    for name in ['tp', 'pp', 'dp']:
-        comm_group = get_group_info(name)
-        if comm_group.group is None:
-            return False
-    return True
+    if get_data_parallel_world_size() > 1:
+        get_data_parallel_group()
 
 
 ### get group
 # pylint: disable=C0330
 def _get_group_helper(mode):
     comm_group = get_group_info(mode)
-    if comm_group.group is None:
-        raise ValueError(f"{mode} parallel group is not initialized. Please check whether communication."
+    assert comm_group.group is not None, \
+        (f"{mode} parallel group is not initialized. Please check whether communication "
          f"is initialized and {mode} in order.")
     if not comm_group.is_group_created:
         create_group(comm_group.group, comm_group.global_ranks)
         comm_group.is_group_created = True
     return comm_group.group
 
-
-def get_tp_group():
+def get_tensor_model_parallel_group():
     """Get the tensor model parallel group the caller rank belongs to."""
     return _get_group_helper('tp')
 
-
-def get_cp_group():
+def get_context_parallel_group():
     """Get the context parallel group the caller rank belongs to."""
     return _get_group_helper('cp')
 
-
-def get_ep_group():
+def get_expert_model_parallel_group():
     return _get_group_helper('ep')
 
-
-def get_dp_group(with_context_parallel=False):
+def get_data_parallel_group(with_context_parallel=False):
     """Get the data parallel group the caller rank belongs to."""
     return _get_group_helper('dp-cp') if with_context_parallel else _get_group_helper('dp')
 
-
-def get_pp_group():
+def get_pipeline_model_parallel_group():
     """Get the pipeline model parallel group the caller rank belongs to."""
     return _get_group_helper('pp')
-
 
 def get_embedding_group():
     """Get the embedding group the caller rank belongs to."""
     return _get_group_helper('embedding')
 
-
-def get_position_embedding_group():
-    """Get the position embedding group the caller rank belongs to."""
-    return _get_group_helper('position_embedding')
-
-
 def get_tensor_and_expert_parallel_group():
     return _get_group_helper('tp-ep')
-
 
 def get_data_modulo_expert_parallel_group():
     return _get_group_helper('dp-independent_ep')
 
-
-def get_model_parallel_group(with_expert_parallel=False):
+def get_model_parallel_group():
     """Get the model parallel group the caller rank belongs to."""
-    return _get_group_helper('tp-ep-pp') if with_expert_parallel else _get_group_helper('tp-pp')
-
-
-def get_tensor_and_data_parallel_group(with_context_parallel=False):
-    return _get_group_helper('tp-dp-cp') if with_context_parallel else _get_group_helper('tp-dp')
-
+    return _get_group_helper('tp-pp')
 
 def get_tensor_and_context_parallel_group():
     return _get_group_helper('tp-cp')
@@ -423,11 +367,10 @@ def get_tensor_and_context_parallel_group():
 def _get_global_ranks_helper(mode, check_initialized=True):
     comm_group = get_group_info(mode)
     if check_initialized:
-        if comm_group.global_ranks is None:
-            raise ValueError(f"{mode} parallel group is not initialized. Please check whether communication."
+        assert comm_group.global_ranks is not None, \
+            (f"{mode} parallel group is not initialized. Please check whether communication "
              f"is initialized and {mode} in order.")
     return comm_group.group
-
 
 # pylint: disable=C0330
 def get_cp_global_ranks(check_initialized=True):
@@ -440,37 +383,30 @@ def _get_world_size_helper(mode):
     comm_group = get_group_info(mode)
     return comm_group.world_size
 
-
-def get_tp_world_size():
+def get_tensor_model_parallel_world_size():
     """Return world size for the tensor model parallel group."""
     return _get_world_size_helper('tp')
 
-
-def get_cp_world_size():
+def get_context_parallel_world_size():
     """Return world size for the context parallel group."""
     return _get_world_size_helper('cp')
 
-
-def get_ep_world_size():
+def get_expert_model_parallel_world_size():
     """Return world size for the expert model parallel group"""
     tensor_and_expert_parallel_world_size = _get_world_size_helper('tp-ep')
-    return tensor_and_expert_parallel_world_size // get_tp_world_size()
+    return tensor_and_expert_parallel_world_size // get_tensor_model_parallel_world_size()
 
-
-def get_dp_world_size(with_context_parallel=False):
+def get_data_parallel_world_size(with_context_parallel=False):
     """Return world size for the data parallel group."""
     return _get_world_size_helper('dp-cp') if with_context_parallel else _get_world_size_helper('dp')
 
-
-def get_pp_world_size():
+def get_pipeline_model_parallel_world_size():
     """Return world size for the pipeline model parallel group."""
     return _get_world_size_helper('pp')
 
-
-def get_vpp_world_size():
+def get_virtual_pipeline_model_parallel_world_size():
     """Return world size for the virtual pipeline model parallel group."""
     return _get_world_size_helper('vpp')
-
 
 def get_tensor_and_expert_parallel_world_size():
     """Return world size for the expert model parallel group times model parallel group.
@@ -478,11 +414,9 @@ def get_tensor_and_expert_parallel_world_size():
     """
     return _get_world_size_helper('tp-ep')
 
-
 def get_tensor_and_context_parallel_world_size():
     """Return world size for the tensor parallel group and context parallel group."""
     return _get_world_size_helper('tp-cp')
-
 
 def get_data_modulo_expert_parallel_world_size():
     return _get_world_size_helper('dp-independent_ep')
@@ -496,49 +430,42 @@ def _get_rank_helper(mode):
     comm_group.rank = 0 if _get_world_size_helper(mode) == 1 else get_rank(group=_get_group_helper(mode))
     return comm_group.rank
 
-
-def get_tp_rank():
+def get_tensor_model_parallel_rank():
     """Return my rank for the tensor model parallel group."""
     return _get_rank_helper('tp')
 
-
-def get_cp_rank():
+def get_context_parallel_rank():
     """Return my rank for the context parallel group."""
     return _get_rank_helper('cp')
 
-
-def get_ep_rank():
+def get_expert_model_parallel_rank():
     """Return my rank for the expert parallel group"""
     tensor_and_expert_parallel_rank = _get_rank_helper('tp-ep')
-    return tensor_and_expert_parallel_rank // get_tp_world_size()
+    return tensor_and_expert_parallel_rank // get_tensor_model_parallel_world_size()
 
-
-def get_dp_rank(with_context_parallel=False):
+def get_data_parallel_rank(with_context_parallel=False):
     """Return my rank for the data parallel group."""
     return _get_rank_helper('dp-cp') if with_context_parallel else _get_rank_helper('dp')
 
-
-def get_pp_rank():
+def get_pipeline_model_parallel_rank():
     """Return my rank for the pipeline model parallel group."""
     return _get_rank_helper('pp')
-
 
 def is_pipeline_first_stage(ignore_virtual=False):
     """Return True if in the first pipeline model-parallel stage, False otherwise."""
     if not ignore_virtual:
-        if get_vpp_world_size() is not None and get_vpp_rank() != 0:
+        if get_virtual_pipeline_model_parallel_world_size() is not None \
+            and get_virtual_pipeline_model_parallel_rank() != 0:
             return False
-    return get_pp_rank() == 0
-
+    return get_pipeline_model_parallel_rank() == 0
 
 def is_pipeline_last_stage(ignore_virtual=False):
     """Return True if in the last pipeline model-parallel stage, False otherwise."""
     if not ignore_virtual:
-        vpp_world_size = get_vpp_world_size()
-        if vpp_world_size is not None and get_vpp_rank() != (vpp_world_size - 1):
+        vpp_world_size = get_virtual_pipeline_model_parallel_world_size()
+        if vpp_world_size is not None and get_virtual_pipeline_model_parallel_rank() != (vpp_world_size - 1):
             return False
-    return get_pp_rank() == (get_pp_world_size() - 1)
-
+    return get_pipeline_model_parallel_rank() == (get_pipeline_model_parallel_world_size() - 1)
 
 def is_rank_in_embedding_group(ignore_virtual=False):
     """Return true if current rank is in embedding group, False otherwise."""
@@ -559,20 +486,17 @@ def is_rank_in_embedding_group(ignore_virtual=False):
             ret = True
     return ret
 
-
-def get_vpp_rank():
+def get_virtual_pipeline_model_parallel_rank():
     """Get the virtual pipeline-parallel rank."""
     comm_group = get_group_info('vpp')
     return comm_group.rank
 
-
-def set_vpp_rank(rank):
+def set_virtual_pipeline_model_parallel_rank(rank):
     """Set the virtual pipeline-parallel rank."""
     comm_group = get_group_info('vpp')
     comm_group.rank = rank
 
-
-def set_ep_rank(rank):
+def set_expert_model_parallel_rank(rank):
     """Set expert model parallel rank."""
     comm_group = get_group_info('ep')
     comm_group.rank = rank
@@ -580,36 +504,31 @@ def set_ep_rank(rank):
 
 def get_stream():
     """Return global stream. There is only one stream for each npu."""
-    if _GLOBAL_STREAM is None:
-        raise ValueError("Global stream is not initialized.")
+    assert _GLOBAL_STREAM is not None, "Global stream is not initialized"
     return _GLOBAL_STREAM
 
 
 def get_sp_send_stream():
     """Return send stream for sequence parallel."""
-    if _SP_SEND_STREAM is None:
-        raise ValueError("Sp send stream is not initialized.")
+    assert _SP_SEND_STREAM is not None, "Sp send stream is not initialized"
     return _SP_SEND_STREAM
 
 
 def get_sp_recv_stream():
     """Return recv stream for sequence parallel."""
-    if _SP_RECV_STREAM is None:
-        raise ValueError("Sp receive stream is not initialized.")
+    assert _SP_RECV_STREAM is not None, "Sp receive stream is not initialized"
     return _SP_RECV_STREAM
 
 
 def get_sp_send_oml_stream():
     """Return send stream for sequence parallel."""
-    if _SP_SEND_OML_STREAM is None:
-        raise ValueError("Sp send oml stream is not initialized.")
+    assert _SP_SEND_OML_STREAM is not None, "Sp send oml stream is not initialized"
     return _SP_SEND_OML_STREAM
 
 
 def get_sp_recv_oml_stream():
     """Return recv stream for sequence parallel."""
-    if _SP_RECV_OML_STREAM is None:
-        raise ValueError("Sp receive oml stream is not initialized.")
+    assert _SP_RECV_OML_STREAM is not None, "Sp receive oml stream is not initialized"
     return _SP_RECV_OML_STREAM
 
 

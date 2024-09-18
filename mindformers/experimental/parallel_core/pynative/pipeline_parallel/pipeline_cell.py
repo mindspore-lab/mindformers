@@ -19,8 +19,8 @@ import numpy as np
 import mindspore as ms
 import mindspore.ops as P
 import mindspore.nn as nn
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_pp_rank, get_pp_world_size, \
-    get_embedding_group, is_pipeline_first_stage, is_pipeline_last_stage, get_vpp_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_rank, get_pipeline_model_parallel_world_size, \
+    get_embedding_group, is_pipeline_first_stage, is_pipeline_last_stage, get_virtual_pipeline_model_parallel_world_size
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
 
 
@@ -39,12 +39,12 @@ class PipelineCell(Module):
         self.new_model = hasattr(model, "model_key")
         self.shared_weight_name_list = model.shared_weight_name_list
         self.untie_embeddings_and_output_weights = model.untie_embeddings_and_output_weights
-        vpp_size = get_vpp_world_size()
+        vpp_size = get_virtual_pipeline_model_parallel_world_size()
         if vpp_size is not None and vpp_size > 1 and not self.new_model:
             raise RuntimeError("When using pipline parallel with interleaved, "
                                "please set 'self.model_key=xxx(str)' attribute for the model.")
         # if pp_size=1 or the model is imported from the distri_model directory, do not init anything
-        if get_pp_world_size() == 1 or self.new_model:
+        if get_pipeline_model_parallel_world_size() == 1 or self.new_model:
             self.model = model
             return
 
@@ -55,13 +55,13 @@ class PipelineCell(Module):
         # get pp info
         self.first_stage = is_pipeline_first_stage()
         self.last_stage = is_pipeline_last_stage()
-        self.stage_id = get_pp_rank()
+        self.stage_id = get_pipeline_model_parallel_rank()
 
         if not model_customize_staged:
             for key, value in map_dict.items():
                 setattr(self, key, value)
             self.num_layers = len(self.transformer_layers)
-            self.num_stages = get_pp_world_size()
+            self.num_stages = get_pipeline_model_parallel_world_size()
             self.set_all_layers_input_signatures()
 
         # set public layer
@@ -91,13 +91,13 @@ class PipelineCell(Module):
             if not isinstance(pipeline_offset, (list, tuple)):
                 raise TypeError(f"'pipeline_offset' must be 'list' or 'tuple', but got '{type(pipeline_offset)}'")
 
-            if len(pipeline_offset) != get_pp_world_size():
+            if len(pipeline_offset) != get_pipeline_model_parallel_world_size():
                 raise RuntimeError(f"The length of 'pipeline_offset' must be equal to pipeline stage size, "
                                    f"but got length of 'pipeline_offset': {len(pipeline_offset)}, "
-                                   f"pipeline stage size: {get_pp_world_size()}.")
+                                   f"pipeline stage size: {get_pipeline_model_parallel_world_size()}.")
 
             if not self.model_customize_staged:
-                correction_value = len(map_dict["transformer_layers"]) % get_pp_world_size()
+                correction_value = len(map_dict["transformer_layers"]) % get_pipeline_model_parallel_world_size()
                 if sum(list(pipeline_offset)) != correction_value:
                     raise RuntimeError(f"The sum of 'pipeline_offset' must be equal to {correction_value}, "
                                        f"but got {sum(list(pipeline_offset))}.")
@@ -428,7 +428,7 @@ class PipelineCell(Module):
         Therefore, please ensure 'recv_data' is the last input argument of construct function for bprop correctly.
         """
         # if pp_size=1, return the original model directly
-        if get_pp_world_size() == 1 or self.new_model:
+        if get_pipeline_model_parallel_world_size() == 1 or self.new_model:
             return self.model(*inputs)
 
         # pylint: disable=E1102

@@ -17,7 +17,6 @@
 import os
 import pytest
 
-
 @pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_single
@@ -27,7 +26,7 @@ def test_grad_reduce():
     Description: run grads reduce on ParallelTrainingReducer
     Expectation: test success
     """
-    os.environ["HCCL_BUFFSIZE"] = "100"
+    os.environ["HCCL_BUFFSIZE"] = "1"
     scripts_name = "run_parallel_reducer.py"
     device_num = 4
 
@@ -69,7 +68,7 @@ def test_overflow_reudce():
     cmd = (
         f"msrun --worker_num={device_num} "
         + f"--local_worker_num={device_num} "
-        + "--master_port=8218 "
+        + "--master_port=8118 "
         + "--log_dir=msrun_overflow_reduce "
         + "--join=True "
         + "--cluster_time_out=300 "

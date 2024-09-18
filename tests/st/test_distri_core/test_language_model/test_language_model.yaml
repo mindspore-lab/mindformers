@@ -8,11 +8,11 @@ training_config:
   loss_reduction: "mean"
 
 parallel_config:
-  tensor_parallel: 1
-  pipeline_stage: 1
-  context_parallel: 1
-  expert_parallel: 1
-  use_sequence_parallel: False
+  tensor_model_parallel_size: 1
+  pipeline_model_parallel_size: 1
+  context_parallel_size: 1
+  expert_model_parallel_size: 1
+  sequence_parallel: False
   recv_dtype: "float32"
   model_customize_staged: False
 
@@ -20,14 +20,14 @@ model_config:
   seq_length: 32
   vocab_size: 128
   num_layers: 4
-  num_heads: 4
+  num_attention_heads: 4
   hidden_size: 64
   ffn_hidden_size: 256
-  param_init_dtype: "float32"
+  params_dtype: "float32"
   compute_dtype: "float32"
   softmax_compute_dtype: "float32"
-  hidden_dropout_rate: 0.0
-  attention_dropout_rate: 0.0
+  hidden_dropout: 0.0
+  attention_dropout: 0.0
   init_method: 'normal'
   position_embedding_type: 'rope'
   use_final_norm: False
@@ -41,7 +41,7 @@ model_config:
   mask_func_type: "attn_mask_add"
   attention_type: 'self_attn'
   normalization: "FusedRMSNorm"
-  layernorm_epsilon: 0.00001
+  norm_epsilon: 0.00001
   hidden_act: "gelu"
   mlp_has_bias: True
 

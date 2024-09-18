@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,23 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+# pylint: disable=unused-variable
 """utils"""
 
 import re
+import math
 from collections import OrderedDict
 
 import yaml
 
 import mindspore.ops as P
 import mindspore.nn as nn
-from mindspore import log as logger
-import mindspore.common.dtype as mstype
 from mindspore.communication import get_group_size
 from mindspore.nn.optim.optimizer import Optimizer
+
+from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
-    get_pp_rank,
-    get_pp_world_size,
+    get_pipeline_model_parallel_rank,
+    get_pipeline_model_parallel_world_size,
+    get_expert_model_parallel_rank,
+    get_expert_model_parallel_world_size,
     is_pipeline_last_stage
 )
 
@@ -37,29 +41,48 @@ class DictWithValueError(dict):
     """
     A dictionary subclass that raises a custom error with a helpful message when a key is not found.
     """
+
     def __getitem__(self, key):
         try:
             return super().__getitem__(key)
-        except KeyError as e:
-            raise ValueError(f"'{key}' is not supported, please select one of {list(self.keys())}") from e
+        except KeyError:
+            raise ValueError(f"'{key}' is not supported, please select one of {list(self.keys())}")
 
 
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
-    if numerator % denominator != 0:
-        raise ValueError("{} is not divisible by {}.".format(numerator, denominator))
+    assert numerator % denominator == 0, "{} is not divisible by {}".format(numerator, denominator)
 
 
 def divide(numerator, denominator):
-    """Ensure that numerator is divisible by the denominator and return the division value."""
+    """Ensure that numerator is divisible by the denominator and return
+    the division value."""
     ensure_divisibility(numerator, denominator)
     return numerator // denominator
 
 
+def calculate_dividable_vocab_size(vocab_size, denominator=128):
+    """
+    Calculate the nearest dividable vocab size by the denominator.
+
+    Args:
+        vocab_size (int): The original vocab size.
+        denominator (int): The denominator to divide the vocab size.
+
+    Returns:
+        padded_vocab_size (int): The nearest dividable vocab size.
+    """
+    padded_vocab_size = math.ceil(vocab_size / denominator) * denominator
+    if padded_vocab_size != vocab_size:
+        logger.warning(
+            f"Add {padded_vocab_size - vocab_size} padded tokens to the"
+            + f"vocab size {vocab_size} to make it dividable by {denominator}"
+        )
+    return padded_vocab_size
 
 def add_attr_for_shared_weight(layer, weight_name='weight'):
     """ add 'share' attr for embedding or head layer weight """
-    if get_pp_world_size() == 1:
+    if get_pipeline_model_parallel_world_size() == 1:
         return
 
     cur_layer = layer
@@ -85,35 +108,25 @@ def add_attr_for_shared_weight(layer, weight_name='weight'):
                            f"class '{type(layer).__name__}' have no weight for adding 'share' attribute")
 
 
-def convert_mstype(ms_type: str = "float16"):
-    """Convert the string type to MindSpore type."""
-    if isinstance(ms_type, mstype.Float):
-        return ms_type
-    if ms_type == "float16":
-        return mstype.float16
-    if ms_type == "float32":
-        return mstype.float32
-    if ms_type == "bfloat16":
-        return mstype.bfloat16
-    raise KeyError(f"Supported data type keywords include: "
-                   f"[float16, float32, bfloat16], but get {ms_type}")
-
-
 def get_default_dict_for_optimizer(optimizer, model_sharded_state_dict):
     """get default sharded state dict for the optimizer with models' shard and no opt shard"""
     state_dict = {}
     for model_param in optimizer.parameters:
         model_name = model_param.name
-        if model_name in model_sharded_state_dict and 'shard' in model_sharded_state_dict[model_name]:
-            shard = list(model_sharded_state_dict[model_name]['shard'])
+        if model_name in model_sharded_state_dict and "shard" in model_sharded_state_dict[model_name]:
+            shard = list(model_sharded_state_dict[model_name]["shard"])
         else:
             raise Exception(f"the input dict has no shard info for '{model_name}'.")
 
         for optim_param in optimizer.get_parameters():
             optim_name = optim_param.name
             if optim_name.endswith(model_name) and optim_name != model_name:
-                state_dict[optim_name] = {'shape': model_param.shape, 'shard': tuple(shard),
-                                          'opt_weight_shard_step': 0, 'opt_weight_shard_size': 0}
+                state_dict[optim_name] = {
+                    "shape": model_param.shape,
+                    "shard": tuple(shard),
+                    "opt_weight_shard_step": 0,
+                    "opt_weight_shard_size": 0,
+                }
     return state_dict
 
 
@@ -136,24 +149,28 @@ def generate_state_dict(network: Module, optimizer: Optimizer):
         ``Ascend``
     """
     try:
-        pp_size = get_pp_world_size()
-        pp_rank = get_pp_rank()
+        pp_size = get_pipeline_model_parallel_world_size()
+        pp_rank = get_pipeline_model_parallel_rank()
+        ep_size = get_expert_model_parallel_world_size()
+        ep_rank = get_expert_model_parallel_rank()
     except AssertionError:
         pp_size = 1
         pp_rank = 0
+        ep_size = 1
+        ep_rank = 0
     state_dict = {
         'total_rank': get_group_size(),
         'stage_rank_size': get_group_size() // pp_size,
         'stage': pp_rank,
+        'expert_world_size': ep_size,
+        'expert_rank': ep_rank,
     }
-
     state_dict['model'] = {}
     if isinstance(network, (nn.SequentialCell, nn.CellList)):
         for model_chunk in network:
             state_dict['model'].update(model_chunk.sharded_state_dict())
     else:
         state_dict['model'].update(network.sharded_state_dict())
-
     state_dict['optimizer'] = {}
     if optimizer is not None:
         if hasattr(optimizer, 'sharded_state_dict'):
@@ -179,6 +196,7 @@ def save_strategy_file(state_dict, strategy_file_name):
     import os
     import stat
     from mindspore.train.node_strategy_pb2 import ParallelStrategyMap as ckpt_strategy
+
     stra = ckpt_strategy()
 
     # pylint: disable=W0612
@@ -192,10 +210,8 @@ def save_strategy_file(state_dict, strategy_file_name):
     for name, item in model_param.items():
         if "shard" not in item or "shape" not in item:
             continue
-        opt_weight_shard_step = item["opt_weight_shard_step"] \
-            if "opt_weight_shard_step" in item.keys() else 0
-        opt_weight_shard_size = item["opt_weight_shard_size"] \
-            if "opt_weight_shard_size" in item.keys() else 0
+        opt_weight_shard_step = item["opt_weight_shard_step"] if "opt_weight_shard_step" in item.keys() else 0
+        opt_weight_shard_size = item["opt_weight_shard_size"] if "opt_weight_shard_size" in item.keys() else 0
         strategy_item = stra.parallel_strategy_item.add()
         strategy_item.node_name = name
         parallel_strategys = strategy_item.parallel_strategys
@@ -220,9 +236,11 @@ def save_strategy_file(state_dict, strategy_file_name):
         elif stage_rank_size % shard_mul == 0:
             repeat_calc_num = stage_rank_size // shard_mul
         else:
-            raise ValueError(f"For {name}, the shard{shard} requires {shard_mul} devices, "
-                             f"but the device number of this stage is {stage_rank_size}, "
-                             f"it can not be divisible by {shard_mul}")
+            raise ValueError(
+                f"For {name}, the shard{shard} requires {shard_mul} devices, "
+                f"but the device number of this stage is {stage_rank_size}, "
+                f"it can not be divisible by {shard_mul}"
+            )
         if repeat_calc_num != 1:
             dev_matrix.dim.append(repeat_calc_num)
         for ele in shard:
@@ -241,16 +259,17 @@ def save_strategy_file(state_dict, strategy_file_name):
         if os.path.exists(strategy_file_name):
             os.chmod(strategy_file_name, stat.S_IWUSR)
         if "/" in strategy_file_name:
-            real_path = os.path.abspath(strategy_file_name[:strategy_file_name.rfind("/")])
+            real_path = os.path.abspath(strategy_file_name[: strategy_file_name.rfind("/")])
             os.makedirs(real_path, exist_ok=True)
-        flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(strategy_file_name, flags_, 0o750), 'wb') as f:
+        with open(strategy_file_name, "wb") as f:
             f.write(stra.SerializeToString())
             os.chmod(strategy_file_name, stat.S_IRUSR)
 
     except BaseException as e:
-        logger.critical(f"Failed to save the checkpoint file {strategy_file_name}. Maybe don't have "
-                        "the permission to write files, or the disk space is insufficient and so on.")
+        logger.critical(
+            f"Failed to save the checkpoint file {strategy_file_name}. Maybe don't have "
+            "the permission to write files, or the disk space is insufficient and so on."
+        )
         raise e
 
 

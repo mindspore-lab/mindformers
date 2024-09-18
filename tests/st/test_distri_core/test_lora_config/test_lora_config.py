@@ -100,8 +100,9 @@ def test_init_lora_configs():
                      "'not_a_valid_model_name'.")
 
     # wrong case 6:
+    target_cells = {}
     try:
-        _ = LoraConfig(use_lora=True, target_cells={})
+        _ = LoraConfig(use_lora=True, target_cells=target_cells)
     except TypeError as err:
         assert str(err) == "The type of 'target_cells' should be 'list', but got type 'dict'."
 
@@ -168,10 +169,10 @@ def test_update_lora_configs():
         {'cell': 'backbone.layers.layers.0.attention.qkv_proj', 'rank': 4, 'alpha': 16}
     ]
     lora_config = LoraConfig(use_lora=True, target_cells=target_cells)
-    parallel_config = ModelParallelConfig(expert_parallel=1, use_sequence_parallel=False)
+    parallel_config = ModelParallelConfig(expert_model_parallel_size=1, use_sequence_parallel=False)
     model_config = TransformerConfig(vocab_size=50304,
                                      num_layers=2,
-                                     num_heads=32,
+                                     num_attention_heads=32,
                                      hidden_size=16,
                                      ffn_hidden_size=4 * 16,
                                      seq_length=1024,
@@ -188,10 +189,10 @@ def test_update_lora_configs():
         {'cell': '.*.position_embedding', 'rank': 4, 'alpha': 16}
     ]
     lora_config = LoraConfig(use_lora=True, target_cells=target_cells)
-    parallel_config = ModelParallelConfig(expert_parallel=1, use_sequence_parallel=False)
+    parallel_config = ModelParallelConfig(expert_model_parallel_size=1, use_sequence_parallel=False)
     model_config = TransformerConfig(vocab_size=50304,
                                      num_layers=2,
-                                     num_heads=32,
+                                     num_attention_heads=32,
                                      hidden_size=16,
                                      ffn_hidden_size=4 * 16,
                                      seq_length=1024,
@@ -212,10 +213,10 @@ def test_update_lora_configs():
         {'cell': 'invalid_cell_name', 'rank': 4, 'alpha': 16}
     ]
     lora_config = LoraConfig(use_lora=True, target_cells=target_cells)
-    parallel_config = ModelParallelConfig(expert_parallel=1, use_sequence_parallel=False)
+    parallel_config = ModelParallelConfig(expert_model_parallel_size=1, use_sequence_parallel=False)
     model_config = TransformerConfig(vocab_size=50304,
                                      num_layers=2,
-                                     num_heads=32,
+                                     num_attention_heads=32,
                                      hidden_size=16,
                                      ffn_hidden_size=4 * 16,
                                      seq_length=1024,

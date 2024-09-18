@@ -18,9 +18,11 @@ from mindspore import nn, mint
 from mindspore import ops as P
 from mindspore.ops import ReduceOp
 from mindspore.common.api import _pynative_executor
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group, get_tensor_model_parallel_rank, get_tensor_model_parallel_world_size
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_tp_group, get_tp_rank, get_tp_world_size
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
+
+__all__ = ['VocabParallelCrossEntropy', 'get_loss_func']
 
 
 class VocabParallelCrossEntropy(nn.Cell):
@@ -57,11 +59,11 @@ class VocabParallelCrossEntropy(nn.Cell):
         self.label_smoothing = None
         self.vocab_size = None
         self.saved_tensors = [[], [], []]
-        self.tp_world_size = get_tp_world_size()
+        self.tp_world_size = get_tensor_model_parallel_world_size()
 
         if self.tp_world_size > 1:
-            self.all_reduce_max = P.AllReduce(op=ReduceOp.MAX, group=get_tp_group())
-            self.all_reduce_sum = P.AllReduce(op=ReduceOp.SUM, group=get_tp_group())
+            self.all_reduce_max = P.AllReduce(op=ReduceOp.MAX, group=get_tensor_model_parallel_group())
+            self.all_reduce_sum = P.AllReduce(op=ReduceOp.SUM, group=get_tensor_model_parallel_group())
 
     def construct(self, vocab_parallel_logits, target, label_smoothing=0.0):
         """Forward process"""
@@ -71,7 +73,7 @@ class VocabParallelCrossEntropy(nn.Cell):
         vocab_parallel_logits = vocab_parallel_logits - logits_max.unsqueeze(dim=-1)
 
         partition_vocab_size = vocab_parallel_logits.shape[-1]
-        vocab_start_index = get_tp_rank() * partition_vocab_size
+        vocab_start_index = get_tensor_model_parallel_rank() * partition_vocab_size
         vocab_end_index = vocab_start_index + partition_vocab_size
 
         left = target < vocab_start_index
@@ -79,7 +81,7 @@ class VocabParallelCrossEntropy(nn.Cell):
         target_mask = left.astype(ms.int32) | right.astype(ms.int32)
         target_mask = target_mask.astype(ms.bool_)
         masked_target = target - vocab_start_index
-        masked_target[target_mask] = 0
+        masked_target = P.masked_fill(masked_target, target_mask, ms.Tensor(0, masked_target.dtype))
 
         logits_2d = vocab_parallel_logits.view(-1, partition_vocab_size)
         masked_target_1d = masked_target.view(-1)
@@ -87,7 +89,7 @@ class VocabParallelCrossEntropy(nn.Cell):
         predicted_logits_1d = logits_2d[arange_1d, masked_target_1d]
         predicted_logits_1d = predicted_logits_1d.contiguous()
         predicted_logits = predicted_logits_1d.view_as(target)
-        predicted_logits[target_mask] = 0.0
+        predicted_logits = P.masked_fill(predicted_logits, target_mask, ms.Tensor(0.0, predicted_logits.dtype))
         if self.tp_world_size > 1:
             predicted_logits = self.all_reduce_sum(predicted_logits)
 
@@ -102,8 +104,7 @@ class VocabParallelCrossEntropy(nn.Cell):
 
         vocab_size = exp_logits.shape[-1]
         if label_smoothing > 0.0:
-            if label_smoothing >= 1.0:
-                raise ValueError(f"label_smoothing is not between 0.0 and 1.0.but got {label_smoothing}")
+            assert 1.0 > label_smoothing > 0.0
             smoothing = label_smoothing * vocab_size / (vocab_size - 1)
             log_probs = mint.log(exp_logits)
             mean_log_probs = log_probs.mean(dim=-1)
@@ -206,7 +207,7 @@ def get_loss_func(training_config, return_instance: bool = True, **kwargs):
     loss_func_kwargs = training_config.loss_func_kwargs
     loss_func_kwargs["reduction"] = training_config.loss_reduction
     loss_func_type = loss_func_kwargs['loss_func_type']
-    if "CrossEntropy" in loss_func_type:
+    if "CrossEntropyLoss" in loss_func_type:
         loss_func_kwargs["reduction"] = 'none'
     loss_func_cls = ModuleRegistry.get_item(module_type=ModuleType.LOSS_FUNC, item_name=loss_func_type)
     if return_instance:

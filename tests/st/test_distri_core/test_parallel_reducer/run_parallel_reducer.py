@@ -20,29 +20,29 @@ import numpy as np
 from mindspore import Parameter, Tensor
 from mindspore.communication.management import init
 
-from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, LoraConfig, GeneralConfig
+from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, GeneralConfig
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     initialize_model_parallel,
-    get_pp_rank,
-    get_tp_rank,
-    get_dp_rank,
+    get_pipeline_model_parallel_rank,
+    get_tensor_model_parallel_rank,
+    get_data_parallel_rank,
 )
 from mindformers.experimental.parallel_core.pynative.training import ParallelTrainingReducer
 
 
 def run_grads_reduce():
     """test grads reduce"""
-    # TP 2 DP 2 SP on
+    # TP 2 DP 2
     parallel_config = ModelParallelConfig(
-        tensor_parallel=2,
+        tensor_model_parallel_size=2,
         use_sequence_parallel=True,
     )
-    training_config = GeneralConfig(parallel_config=parallel_config, loss_reduction="mean", lora_config=LoraConfig())
+    training_config = GeneralConfig(parallel_config=parallel_config, loss_reduction="mean")
 
     init()
     initialize_model_parallel(
-        tensor_model_parallel_size=parallel_config.tensor_parallel,
+        tensor_model_parallel_size=parallel_config.tensor_model_parallel_size,
     )
 
     params = [
@@ -51,8 +51,8 @@ def run_grads_reduce():
     ]
     parallel_reducer = ParallelTrainingReducer(params, training_config)
 
-    grad_alpha_with_sp = (get_dp_rank() * 2 + get_tp_rank()) * 0.001
-    grad_alpha = get_dp_rank() * 2 * 0.001
+    grad_alpha_with_sp = (get_data_parallel_rank() * 2 + get_tensor_model_parallel_rank()) * 0.001
+    grad_alpha = get_data_parallel_rank() * 2 * 0.001
     grads = [
         Tensor(np.ones((3, 3)).astype(np.float32) * grad_alpha_with_sp),
         Tensor(np.ones((3, 3)).astype(np.float32) * grad_alpha),
@@ -78,19 +78,20 @@ def run_grads_reduce():
 def run_overflow_reduce():
     """test overflow reduce"""
     # tp 2 pp 2
-    parallel_config = ModelParallelConfig(tensor_parallel=2, pipeline_stage=2)
-    training_config = GeneralConfig(parallel_config=parallel_config, loss_reduction="mean", lora_config=LoraConfig())
+    parallel_config = ModelParallelConfig(tensor_model_parallel_size=2,\
+                                          pipeline_model_parallel_size=2, micro_batch_num=1)
+    training_config = GeneralConfig(parallel_config=parallel_config, loss_reduction="mean")
 
     init()
     initialize_model_parallel(
-        tensor_model_parallel_size=parallel_config.tensor_parallel,
-        pipeline_model_parallel_size=parallel_config.pipeline_stage,
+        tensor_model_parallel_size=parallel_config.tensor_model_parallel_size,
+        pipeline_model_parallel_size=parallel_config.pipeline_model_parallel_size,
     )
 
     parallel_reducer = ParallelTrainingReducer([], training_config)
 
     # Test reduce over pp group
-    if get_pp_rank() == 0:
+    if get_pipeline_model_parallel_rank() == 0:
         overflow_status = Tensor(True)
         is_finite = Tensor(True)
     else:
@@ -103,7 +104,7 @@ def run_overflow_reduce():
     assert is_finite == Tensor(False), f"pp is_finite reduce failed: {is_finite}"
 
     # Test reduce over tp group
-    if get_tp_rank() == 0:
+    if get_tensor_model_parallel_rank() == 0:
         overflow_status = Tensor(True)
         is_finite = Tensor(True)
     else:
@@ -116,7 +117,7 @@ def run_overflow_reduce():
     assert is_finite == Tensor(False), f"tp is_finite reduce failed: {is_finite}"
 
     # Test reduce over tp pp group
-    if get_tp_rank() == 0 and get_pp_rank() == 0:
+    if get_tensor_model_parallel_rank() == 0 and get_pipeline_model_parallel_rank() == 0:
         overflow_status = Tensor(True)
         is_finite = Tensor(True)
     else:

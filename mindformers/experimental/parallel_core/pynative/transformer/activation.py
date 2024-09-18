@@ -23,7 +23,6 @@ from mindformers.experimental.parallel_core.pynative.register import ModuleType,
 
 __all__ = ["get_act_func", "get_act_func_gated_version"]
 
-
 @ModuleRegistry.register_decorator(ModuleType.ACTIVATION_FUNC, 'gelu')
 class GELU(nn.Cell):
     r"""
@@ -105,7 +104,6 @@ class GELU(nn.Cell):
             )
         )
 
-
 @ModuleRegistry.register_decorator(ModuleType.ACTIVATION_FUNC, 'fast_gelu')
 class FastGelu(nn.Cell):
     r"""
@@ -156,7 +154,6 @@ class FastGelu(nn.Cell):
         """construct method"""
         return self.fast_gelu(x)
 
-
 @ModuleRegistry.register_decorator(ModuleType.ACTIVATION_FUNC)
 def swiglu(x):
     r"""
@@ -169,9 +166,8 @@ def swiglu(x):
     Outputs:
         - Tensor with the same type and shape as the `x`.
     """
-    x0, x1 = mint.split(x, x.shape[-1] // 2, dim=-1)
+    x0, x1 = mint.split(x, x.shape[-1]//2, dim=-1)
     return mint.nn.functional.silu(x0) * x1
-
 
 @ModuleRegistry.register_decorator(ModuleType.ACTIVATION_FUNC)
 def squared_relu(x):
@@ -207,7 +203,6 @@ def get_act_func(activation_type, **kwargs):
         kwargs = ModuleRegistry.get_needed_params_for_init(activation_func_item, kwargs)
         return activation_func_item(**kwargs)
     return activation_func_item
-
 
 def get_act_func_gated_version(activation_type):
     r"""

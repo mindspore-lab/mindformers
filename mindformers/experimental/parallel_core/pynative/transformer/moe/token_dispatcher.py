@@ -1,25 +1,8 @@
-# Copyright 2024 Huawei Technologies Co., Ltd
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ============================================================================
 """token dispatcher"""
 from typing import List
 
-import mindspore as ms
-import mindspore.ops as ops
-
 from mindformers.experimental.parallel_core.pynative.config import TransformerConfig
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_ep_group, get_ep_rank, get_tp_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_expert_model_parallel_group, get_expert_model_parallel_rank, get_tensor_model_parallel_world_size
 from mindformers.experimental.parallel_core.pynative.tensor_parallel import (
     all_to_all_hp2sp,
     AllGatherFromTensorParallelRegion,
@@ -28,8 +11,10 @@ from mindformers.experimental.parallel_core.pynative.tensor_parallel import (
     GatherFromTensorAndExpertParallelRegion,
     ReduceScatterToTensorParallelRegion,
 )
-from mindformers.experimental.parallel_core.pynative.tensor_parallel.mappings import \
-    gather_along_first_dim_expert_parallel
+from mindformers.experimental.parallel_core.pynative.tensor_parallel.mappings import gather_along_first_dim_expert_parallel
+
+import mindspore as ms
+import mindspore.ops as ops
 
 from .utils import token_sort, token_unsort
 
@@ -43,7 +28,7 @@ class MoEAlltoAllTokenDispatcher():
         Args:
             num_local_experts (int): how many local experts on this rank.
             local_expert_indices (List[int]): Indices of local experts on this rank.
-            config (TransformerConfig): configuration of the model.
+            config: Configuration.
         """
         self.config = config
         self.moe_config = config.moe_config
@@ -51,18 +36,17 @@ class MoEAlltoAllTokenDispatcher():
         self.hidden_shape = None
         self.hidden_size = self.config.hidden_size
         self.num_local_experts = num_local_experts
-        if self.num_local_experts <= 0:
-            raise ValueError("expect num_local_experts > 0")
+        assert self.num_local_experts > 0, "expect num_local_experts > 0"
 
         self.router_topk = self.moe_config.moe_router_topk
-        self.add_bias = self.moe_config.add_bias_linear
+        self.add_bias = self.config.add_bias_linear
         self.en = self.moe_config.num_experts
-        self.ep = self.parallel_config.expert_parallel
+        self.ep = self.parallel_config.expert_model_parallel_size
         self.use_self_defined_alltoall = self.moe_config.use_self_defined_alltoall
         self.local_expert_indices = local_expert_indices
-        if len(self.local_expert_indices) != self.num_local_experts:
-            raise ValueError(f"expect len(self.local_expert_indices) == self.num_local_experts, "
-                             f"but got {len(self.local_expert_indices)} and {self.num_local_experts}")
+        assert len(self.local_expert_indices) == self.num_local_experts, \
+               f"expect len(self.local_expert_indices) == self.num_local_experts, "+\
+               f"but got {len(self.local_expert_indices)} and {self.num_local_experts}"
 
         expert_ids_per_ep_rank = [i % self.num_local_experts for i in range(self.en)]
         self.expert_ids_per_ep_rank = ms.Tensor(expert_ids_per_ep_rank, dtype=ms.int32)
@@ -76,15 +60,15 @@ class MoEAlltoAllTokenDispatcher():
         self.dp_group_output_splits = None
         self.dp_group_input_tokens_local_experts_indices = None
 
-        self.ep_group = get_ep_group()
-        self.rank_id = get_ep_rank()
-        self.tp_size = get_tp_world_size()
+        self.ep_group = get_expert_model_parallel_group()
+        self.rank_id = get_expert_model_parallel_rank()
+        self.tp_size = get_tensor_model_parallel_world_size()
         self.gather_from_mp = GatherFromTensorAndExpertParallelRegion()
         self.sp2hp = AllToAllSP2HP()
         self.gather_from_tp = AllGatherFromTensorParallelRegion()
         self.scatter_to_tp = ReduceScatterToTensorParallelRegion()
 
-    def get_input_output_splits(self, indices):
+    def preprocess(self, indices):
         """
         this function will calculate the input and output splits for alltoall communitcation.
         Args:
@@ -205,13 +189,11 @@ class MoEAlltoAllTokenDispatcher():
         self.hidden_shape = hidden_states.shape
         self.hidden_dtype = hidden_states.dtype
         self.probs = probs
-        if probs.ndim != 2:
-            raise ValueError(f"expect `probs` is 2d tensor, but got shape {probs.shape}")
-        if indices.ndim != 2:
-            raise ValueError(f"expect `indices` is 2d tensor, but got shape {indices.shape}")
+        assert probs.ndim == 2, f"expect `probs` is 2d tensor, but got shape {probs.shape}"
+        assert indices.ndim == 2, f"expect `indices` is 2d tensor, but got shape {indices.shape}"
 
         # count_tokens_per_local_expert: [num_local_experts]
-        count_tokens_per_local_expert = self.get_input_output_splits(indices)
+        count_tokens_per_local_expert = self.preprocess(indices)
 
         hidden_states = hidden_states.reshape(-1, self.hidden_shape[-1])
 
@@ -242,8 +224,7 @@ class MoEAlltoAllTokenDispatcher():
             output (ms.Tensor): unpermuted tokens.
         """
 
-        if bias is not None:
-            raise ValueError("Bias is not supported in AlltoAllDispatcher")
+        assert bias is None, "Bias is not supported in AlltoAllDispatcher"
 
         if self.tp_size > 1:
             hidden_states = self.scatter_to_tp(hidden_states)

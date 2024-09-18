@@ -13,11 +13,10 @@
 # limitations under the License.
 # ============================================================================
 """Rotary position embedding."""
-import numpy as np
-
+import mindspore as ms
 from mindspore import Tensor, ops, mint
 
-from mindformers.experimental.parallel_core.pynative.transformer.module import Module
+from .module import Module
 
 
 __all__ = ["RotaryEmbedding", "apply_rotary_pos_emb"]
@@ -64,29 +63,36 @@ class RotaryEmbedding(Module):
 
         self.seq_len_interpolation_factor = seq_len_interpolation_factor
         self.inv_freq = 1.0 / (
-            rotary_base ** (np.arange(0, dim, 2)[: (dim // 2)].astype(np.float32) / dim)
+            rotary_base ** (mint.arange(0, dim, 2)[: (dim // 2)].astype(ms.float32) / dim)
         )
 
     def construct(self, max_seq_len, offset=0):
         """ Construct function of rotary embedding. """
-        seq = (np.arange(max_seq_len, dtype=self.inv_freq.dtype) + offset).astype(np.float32)
+        seq = (mint.arange(max_seq_len, dtype=self.inv_freq.dtype) + offset).astype(ms.float32)
 
         if self.seq_len_interpolation_factor is not None:
             seq *= 1 / self.seq_len_interpolation_factor
 
-        freqs = np.outer(seq, self.inv_freq)
-
+        freqs = ops.outer(seq, self.inv_freq)
         if not self.rotary_interleaved:
-            emb = np.concatenate((freqs, freqs), axis=-1)
+            emb = ops.concat((freqs, freqs), axis=-1)
         else:
             raise NotImplementedError('Rotary interleaved is not supported for now.')
 
-        # emb [.., S, D]
-        emb = emb[np.newaxis, np.newaxis, :, :]
+        # emb [S, ..., D]
+        emb = emb[:, None, None, :]
         return Tensor(emb)
 
 
-def apply_rotary_pos_emb(t, freqs, config=None, cu_seqlens=None) -> Tensor:
+def _rotate_half(x, rotary_interleaved):
+    if not rotary_interleaved:
+        x1, x2 = mint.split(x, x.shape[-1]//2, dim=-1)
+        return ops.cat((-x2, x1), axis=-1)
+
+    raise NotImplementedError('rotary_interleaved=True is not supported for now.')
+
+
+def apply_rotary_pos_emb_bnsd(t, freqs, rotary_interleaved=False) -> Tensor:
     """
     Apply rotary positional embedding to input tensor.
     Please check https://kexue.fm/archives/8265 for detailed formulas
@@ -101,19 +107,17 @@ def apply_rotary_pos_emb(t, freqs, config=None, cu_seqlens=None) -> Tensor:
     Supported Platforms:
         ``Ascend``
     """
-    if config is not None:
-        raise NotImplementedError('config input for apply_rotary_pos_emb() is not supported for now.')
-    if cu_seqlens is not None:
-        raise NotImplementedError('cu_seqlens input for apply_rotary_pos_emb() is not supported for now.')
-
-    cos_ = mint.cos(freqs).astype(t.dtype)
-    sin_ = mint.sin(freqs).astype(t.dtype)
+    cos_ = mint.cos(freqs).to(t.dtype)
+    sin_ = mint.sin(freqs).to(t.dtype)
 
     # rotate
-    t_splited = mint.split(t, t.shape[-1] // 2, dim=-1)
-    t_1 = t_splited[0]
-    t_2 = t_splited[1]
-    t_rotate = ops.cat((-t_2, t_1), axis=-1)
-
-    output = (t * cos_) + (t_rotate * sin_)
+    output = (t * cos_) + (_rotate_half(t, rotary_interleaved) * sin_)
     return output
+
+
+# pylint: disable=W0613
+def apply_rotary_pos_emb(t, freqs, config, cu_seqlens=None) -> Tensor:
+    if cu_seqlens is None:
+        return apply_rotary_pos_emb_bnsd(t, freqs, rotary_interleaved=False)
+
+    raise NotImplementedError('cu_seqlens input for apply_rotary_pos_emb() is not supported for now.')

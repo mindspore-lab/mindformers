@@ -164,6 +164,7 @@ def test_ring_attention():
         ring_attn_mask_output = get_sp_chuncks_attn_mask_general(ring_attn_mask)
     ring_attention = RingAttention(head_num=n,
                                    input_layout=test_layout,
+                                   sp=sp,
                                    scale_value=scale)
 
     if test_mask_type == "user_defined":

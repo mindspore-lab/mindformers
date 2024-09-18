@@ -1,18 +1,4 @@
-# Copyright 2024 Huawei Technologies Co., Ltd
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ============================================================================
-"""define moe utils"""
+"""define token sort and unsort"""
 import math
 import sys
 
@@ -22,10 +8,9 @@ from mindspore import mint, nn, ops
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_tensor_and_context_parallel_group,
     get_tensor_and_context_parallel_world_size,
-    get_cp_group,
-    get_cp_world_size
+    get_context_parallel_group,
+    get_context_parallel_world_size
 )
-
 
 class SelfDefinedGather(nn.Cell):
     """SelfDefinedGather"""
@@ -37,8 +22,8 @@ class SelfDefinedGather(nn.Cell):
     def construct(self, input_):
         """forward process"""
         indices = self.indices
-        if indices.max() >= input_.shape[0]:
-            raise ValueError(f"expect indices.max() < input_.shape[0], but got {indices} and {input_.shape}")
+        assert indices.max() < input_.shape[0], \
+            f"expect indices.max() < input_.shape[0], but got {indices} and {input_.shape}"
         output = ops.gather(input_, self.indices, 0)
         return output
 
@@ -46,16 +31,23 @@ class SelfDefinedGather(nn.Cell):
     def bprop(self, input_, output, dout):
         """bprop process"""
         indices = self.indices
-        if indices.max() >= dout.shape[0]:
-            raise ValueError(f"expect indices.max() < dout.shape[0], but got {indices} and {dout.shape}")
+        assert indices.max() < dout.shape[0], \
+            f"expect indices.max() < dout.shape[0], but got {indices} and {dout.shape}"
         dout = ops.gather(dout, ops.argsort(indices), 0)
         return (dout,)
 
 
-def token_sort(tokens, indices, topk: int = 1):
+def token_sort(tokens, indices, topk: int = 1, num_out_token: int = None, padded_mode: bool = False):
     """define token_sort"""
-    if topk > 1 and indices.shape[1] != topk:
-        raise ValueError(f"expect indices.shape[1] == topk, but got {indices.shape[1]} and {topk}")
+    if num_out_token is not None:
+        raise NotImplementedError("num_out_token not implemented.")
+
+    if padded_mode:
+        raise NotImplementedError("padded_mode not implemented.")
+
+    if topk > 1:
+        assert indices.shape[1] == topk, \
+        f"expect indices.shape[1] == topk, but got {indices.shape[1]} and {topk}"
     flatten_indices = indices.reshape(-1)
     sorted_indices = ops.argsort(flatten_indices)
 
@@ -63,22 +55,24 @@ def token_sort(tokens, indices, topk: int = 1):
 
     return sorted_tokens, sorted_indices
 
-
-def token_unsort(sorted_tokens, sorted_indices, probs: ms.Tensor = None, topk: int = 1):
+def token_unsort(sorted_tokens, sorted_indices, probs: ms.Tensor = None, topk: int = 1, padded_mode: bool = False, \
+                 restore_shape: ops.Size = None):
     """define token_unsort"""
+    if padded_mode:
+        raise NotImplementedError("padded_mode not implemented.")
+    if restore_shape is not None:
+        raise NotImplementedError("restore_shape not implemented.")
 
     if topk > 1:
-        if probs is None:
-            raise ValueError("expect probs not None")
-        if probs.shape[0] != sorted_tokens.shape[0] // topk:
-            raise ValueError(f"{probs.shape} {sorted_tokens.shape}")
+        assert probs is not None
+        assert probs.shape[0] == sorted_tokens.shape[0] // topk, \
+               f"{probs.shape} {sorted_tokens.shape}"
     if probs is not None:
-        if probs.shape[0] != sorted_tokens.shape[0] // topk:
-            raise ValueError(f"expect probs.shape[0] == sorted_tokens.shape[0] // topk, "
-                             f"but got {probs.shape[0]} and {sorted_tokens.shape[0]}")
+        assert probs.shape[0] == sorted_tokens.shape[0] // topk, \
+        f"expect probs.shape[0] == sorted_tokens.shape[0] // topk, " +\
+        f"but got {probs.shape[0]} and {sorted_tokens.shape[0]}"
 
-        if probs.shape[1] != topk:
-            raise ValueError(f"probs size {probs.shape} merge_factor {topk}")
+        assert probs.shape[1] == topk, f"probs size {probs.shape} merge_factor {topk}"
     unsorted_indices = ops.argsort(sorted_indices)
 
     unsorted_tokens = mint.index_select(sorted_tokens, 0, unsorted_indices)
@@ -98,8 +92,8 @@ def switch_load_balancing_loss_func(probs, tokens_per_expert, topk, moe_aux_loss
         num_sub_sequence = get_tensor_and_context_parallel_world_size()
         tokens_per_expert = ops.AllReduce(group=get_tensor_and_context_parallel_group())(tokens_per_expert)
     elif sequence_partition_group == "cp":
-        num_sub_sequence = get_cp_world_size()
-        tokens_per_expert = ops.AllReduce(group=get_cp_group())(tokens_per_expert)
+        num_sub_sequence = get_context_parallel_world_size()
+        tokens_per_expert = ops.AllReduce(group=get_context_parallel_group())(tokens_per_expert)
 
     num_tokens = probs.shape[0] * num_sub_sequence
     num_experts = probs.shape[1]
@@ -118,9 +112,7 @@ class MoEAuxLossAutoScaler(nn.Cell):
     Scale the aux loss in backward.
 
     """
-    def __init__(self):
-        super(MoEAuxLossAutoScaler, self).__init__()
-        self.main_loss_backward_scale = ms.Tensor(1.0)
+    main_loss_backward_scale = ms.Tensor(1.0)
 
     # pylint: disable=W0613
     def construct(self, output, aux_loss):
@@ -128,11 +120,12 @@ class MoEAuxLossAutoScaler(nn.Cell):
 
     # pylint: disable=W0613
     def bprop(self, output, aux_loss, out, dout):
-        scale_aux_loss_grad = mint.ones_like(aux_loss) * self.main_loss_backward_scale
+        scale_aux_loss_grad = mint.ones_like(aux_loss) * MoEAuxLossAutoScaler.main_loss_backward_scale
         return dout, scale_aux_loss_grad
 
-    def set_loss_scale(self, scale):
-        self.main_loss_backward_scale = scale
+    @staticmethod
+    def set_loss_scale(scale):
+        MoEAuxLossAutoScaler.main_loss_backward_scale = scale
 
 
 def get_capacity(num_tokens, num_experts, capacity_factor, min_capacity=None):
@@ -180,7 +173,10 @@ def topk_softmax_with_capacity(logits, topk, capacity_factor=None, pad_to_capaci
             raise ValueError(f"Invalid drop_policy: {drop_policy}.")
 
         if pad_to_capacity:
-            final_probs, final_indices = (capacity_probs.T.contiguous(), capacity_indices.T.contiguous())
+            final_probs, final_indices = (
+                capacity_probs.T.contiguous(),
+                capacity_indices.T.contiguous(),
+            )
             tokens_per_expert_before_capacity = mint.sum(topk_mask, dim=0)
         else:
             final_mask = mint.logical_and(topk_mask, capacity_mask)

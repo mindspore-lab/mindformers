@@ -1,4 +1,3 @@
-# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,13 +14,13 @@
 
 """pynative init"""
 
-from . import distributed
-from . import optimizer
-from . import pipeline_parallel
-from . import tensor_parallel
-from . import training
-from . import transformer
-from . import dist_checkpointing
+from .distributed import *
+from .pipeline_parallel import *
+from .tensor_parallel import *
+from .training import *
+from .optimizer import *
+from .transformer import *
+from .dist_checkpointing import *
 
 
 __all__ = []

@@ -22,8 +22,7 @@ from mindspore.common.recompute import (
     _check_input_args_validate,
     _padding_input_grads,
 )
-from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import get_rng_tracer, \
-    get_rng_state, set_rng_state
+from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import get_rng_tracer, get_rng_state, set_rng_state
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
 
 __all__ = ["CheckpointedRecomputeOrientedCell"]
@@ -61,8 +60,6 @@ class _RecomputeCellWithRng(_RecomputeCell):
         self.kwargs.pop()
         if kwargs:
             input_args_for_check = list(input_args) + list(kwargs.values())
-        else:
-            input_args_for_check = list(input_args)
         kwargs['sens'] = grad_input
         try:
             pre_rng_state = get_rng_state()
@@ -105,9 +102,9 @@ class CheckpointedRecomputeOrientedCell(Module):
         layers (nn.CellList): CellList of ParallelTransformerLayer(s).
 
     Inputs:
-        - **hidden_states** (Tensor) - Hidden states. Shape :math:`(B, S, H)`.
-        - **attention_mask** (Tensor) - Attention mask. Shape :math:`(B, N, S, S)`.
-        - **rotary_pos_emb** (Tensor, optional) - Rotary position embedding. Shape math:`(S, H)`. Default: None.
+        - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.
+        - **attention_mask** (Tensor) - Tensor of attention mask.
+        - **rotary_pos_emb** (Optional, Tensor) - Tensor of rotary position embedding, default is None.
 
     Outputs:
         - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.

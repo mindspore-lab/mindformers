@@ -41,12 +41,12 @@ class TestParallelTransformerCkpt:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --test_mode='transform_src' --tp_size={tp_size} "
-        cmd = f"msrun --worker_num={device_num} " + \
-                    f"--local_worker_num={device_num} " + \
-                    f"--master_port=8118 " + \
-                    f"--log_dir=msrun_log_pynative_transformer_src " + \
-                    f"--join=True " + \
-                    f"--cluster_time_out=300 " + \
+        cmd = f"msrun --worker_num={device_num} "+\
+                    f"--local_worker_num={device_num} "+\
+                    f"--master_port=8118 "+\
+                    f"--log_dir=msrun_log_pynative_transformer_src "+\
+                    f"--join=True "+\
+                    f"--cluster_time_out=300 "+\
                     f"{scripts_cmd}"
         ret = os.system(cmd)
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_pynative_transformer_src/worker_0.log -C 3")
@@ -71,12 +71,12 @@ class TestParallelTransformerCkpt:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --test_mode='transform_dst' --tp_size={tp_size} "
-        cmd = f"msrun --worker_num={device_num} " + \
-                    f"--local_worker_num={device_num} " + \
-                    f"--master_port=8118 " + \
-                    f"--log_dir=msrun_log_pynative_transformer_dst " + \
-                    f"--join=True " + \
-                    f"--cluster_time_out=300 " + \
+        cmd = f"msrun --worker_num={device_num} "+\
+                    f"--local_worker_num={device_num} "+\
+                    f"--master_port=8118 "+\
+                    f"--log_dir=msrun_log_pynative_transformer_dst "+\
+                    f"--join=True "+\
+                    f"--cluster_time_out=300 "+\
                     f"{scripts_cmd}"
         ret = os.system(cmd)
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_pynative_transformer_dst/worker_0.log -C 3")
@@ -120,12 +120,12 @@ class TestParallelTransformerCkpt:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --test_mode='rng_check' --tp_size={tp_size} --rng_mode='save'"
-        cmd = f"msrun --worker_num={device_num} " + \
-                    f"--local_worker_num={device_num} " + \
-                    f"--master_port=8118 " + \
-                    f"--log_dir=msrun_log_pynative_transformer_dst " + \
-                    f"--join=True " + \
-                    f"--cluster_time_out=300 " + \
+        cmd = f"msrun --worker_num={device_num} "+\
+                    f"--local_worker_num={device_num} "+\
+                    f"--master_port=8118 "+\
+                    f"--log_dir=msrun_log_pynative_transformer_dst "+\
+                    f"--join=True "+\
+                    f"--cluster_time_out=300 "+\
                     f"{scripts_cmd}"
         ret = os.system(cmd)
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_pynative_transformer_dst/worker_0.log -C 3")
@@ -150,12 +150,12 @@ class TestParallelTransformerCkpt:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --test_mode='rng_check' --tp_size={tp_size} --rng_mode='load'"
-        cmd = f"msrun --worker_num={device_num} " + \
-                    f"--local_worker_num={device_num} " + \
-                    f"--master_port=8118 " + \
-                    f"--log_dir=msrun_log_pynative_transformer_dst " + \
-                    f"--join=True " + \
-                    f"--cluster_time_out=300 " + \
+        cmd = f"msrun --worker_num={device_num} "+\
+                    f"--local_worker_num={device_num} "+\
+                    f"--master_port=8118 "+\
+                    f"--log_dir=msrun_log_pynative_transformer_dst "+\
+                    f"--join=True "+\
+                    f"--cluster_time_out=300 "+\
                     f"{scripts_cmd}"
         ret = os.system(cmd)
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_pynative_transformer_dst/worker_0.log -C 3")

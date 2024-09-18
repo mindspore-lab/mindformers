@@ -21,23 +21,23 @@ from mindspore.communication.comm_func import all_to_all_single_with_output_shap
 
 from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
-    get_ep_group,
-    get_ep_rank,
-    get_ep_world_size,
+    get_expert_model_parallel_group,
+    get_expert_model_parallel_rank,
+    get_expert_model_parallel_world_size,
     get_tensor_and_expert_parallel_group,
     get_tensor_and_expert_parallel_world_size,
-    get_tp_group,
-    get_tp_rank,
-    get_tp_world_size,
+    get_tensor_model_parallel_group,
+    get_tensor_model_parallel_rank,
+    get_tensor_model_parallel_world_size,
 )
 
 
 def gather_along_first_dim_expert_parallel(input_):
-    world_size = get_ep_world_size()
+    world_size = get_expert_model_parallel_world_size()
 
     if world_size == 1:
         return input_
-    group = get_ep_group()
+    group = get_expert_model_parallel_group()
     all_gather = ops.AllGather(group=group)
 
     output = all_gather(input_.contiguous())
@@ -46,12 +46,12 @@ def gather_along_first_dim_expert_parallel(input_):
 
 # pylint: disable=W0622, C0111
 def all_to_all_sp2hp(input):
-    world_size = get_tp_world_size()
+    world_size = get_tensor_model_parallel_world_size()
     input = input.reshape(-1, input.shape[-1])
     split_tensors = ops.split(input, input.shape[-1] // world_size, axis=1)
     concat_tensor = ops.cat(split_tensors, axis=0)
     if world_size > 1:
-        tp_group = get_tp_group()
+        tp_group = get_tensor_model_parallel_group()
         all_to_all = AllToAllEven(tp_group, world_size, 0, 0)
         output = all_to_all(concat_tensor)
     else:
@@ -63,9 +63,9 @@ class AllToAllSP2HP(nn.Cell):
     """implement of AllToAll sp2hp"""
     def __init__(self):
         super(AllToAllSP2HP, self).__init__()
-        self.world_size = get_tp_world_size()
+        self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            tp_group = get_tp_group()
+            tp_group = get_tensor_model_parallel_group()
             self.all_to_all = AllToAllEven(tp_group, self.world_size, 0, 0)
 
     def construct(self, input_):
@@ -82,9 +82,9 @@ class AllToAllSP2HP(nn.Cell):
 
 # pylint: disable=W0622
 def all_to_all_hp2sp(input):
-    world_size = get_tp_world_size()
+    world_size = get_tensor_model_parallel_world_size()
     if world_size > 1:
-        tp_group = get_tp_group()
+        tp_group = get_tensor_model_parallel_group()
         all_to_all = AllToAllEven(tp_group, world_size, 0, 0)
         input_exchanged = all_to_all(input)
     else:
@@ -99,9 +99,9 @@ class AllToAllHP2SP():
     """implement of AllToAll hp2sp"""
     def __init__(self):
         super(AllToAllHP2SP, self).__init__()
-        self.world_size = get_tp_world_size()
+        self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            tp_group = get_tp_group()
+            tp_group = get_tensor_model_parallel_group()
             self.all_to_all = AllToAllEven(tp_group, self.world_size, 0, 0)
 
     def construct(self, input_):
@@ -121,9 +121,9 @@ class CopyToModelParallelRegion(nn.Cell):
 
     def __init__(self):
         super(CopyToModelParallelRegion, self).__init__()
-        self.world_size = get_tp_world_size()
+        self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.all_reduce = ops.AllReduce(group=get_tp_group())
+            self.all_reduce = ops.AllReduce(group=get_tensor_model_parallel_group())
 
     # pylint: disable=C0303
     def construct(self, input_):
@@ -142,10 +142,10 @@ class ScatterToModelParallelRegion(nn.Cell):
 
     def __init__(self):
         super(ScatterToModelParallelRegion, self).__init__()
-        self.world_size = get_tp_world_size()
+        self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.all_gather = ops.AllGather(group=get_tp_group())
-        self.rank = get_tp_rank()
+            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
+        self.rank = get_tensor_model_parallel_rank()
 
     def construct(self, input_):
         if self.world_size == 1:
@@ -195,16 +195,15 @@ class GatherFromTensorAndExpertParallelRegion(nn.Cell):
         output = self.reduce_scatter(dout.contiguous())
         return (output,)
 
-
 class GatherFromModelParallelRegion(nn.Cell):
     "Gather the input from model parallel region and concatinate."
 
     def __init__(self):
         super(GatherFromModelParallelRegion, self).__init__()
-        self.world_size = get_tp_world_size()
+        self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.all_gather = ops.AllGather(group=get_tp_group())
-        self.rank = get_tp_rank()
+            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
+        self.rank = get_tensor_model_parallel_rank()
 
     # pylint: disable=C0111
     def construct(self, input_):
@@ -223,12 +222,12 @@ class GatherFromModelParallelRegion(nn.Cell):
     def bprop(self, x, out, dout):
         if self.world_size == 1:
             return (dout,)
-        last_dim = dout.ndim - 1
+        last_dim = dout.ndim -1
         last_dim_size = divide(dout.shape[last_dim], self.world_size)
         # 对按第零维allgather的结果重新按最后一维排列
         tensor_tuple = ops.split(dout, last_dim_size, axis=last_dim)
 
-        rank = get_tp_rank()
+        rank = get_tensor_model_parallel_rank()
         output = tensor_tuple[rank].contiguous()
         return (output,)
 
@@ -238,9 +237,9 @@ class ReduceFromModelParallelRegion(nn.Cell):
 
     def __init__(self):
         super(ReduceFromModelParallelRegion, self).__init__()
-        self.world_size = get_tp_world_size()
+        self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.all_reduce = ops.AllReduce(group=get_tp_group())
+            self.all_reduce = ops.AllReduce(group=get_tensor_model_parallel_group())
 
     def construct(self, input_):
         if self.world_size == 1:
@@ -258,11 +257,11 @@ class ReduceScatterToSequenceParallelRegion(nn.Cell):
 
     def __init__(self, need_to_swapaxes):
         super(ReduceScatterToSequenceParallelRegion, self).__init__()
-        self.world_size = get_tp_world_size()
+        self.world_size = get_tensor_model_parallel_world_size()
         self.need_to_swapaxes = need_to_swapaxes
         if self.world_size > 1:
-            self.reduce_scatter = ops.ReduceScatter(group=get_tp_group())
-            self.all_gather = ops.AllGather(group=get_tp_group())
+            self.reduce_scatter = ops.ReduceScatter(group=get_tensor_model_parallel_group())
+            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
 
     def construct(self, input_):
         if self.world_size == 1:
@@ -292,10 +291,10 @@ class ReduceScatterToTensorParallelRegion(nn.Cell):
 
     def __init__(self):
         super(ReduceScatterToTensorParallelRegion, self).__init__()
-        self.world_size = get_tp_world_size()
+        self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.reduce_scatter = ops.ReduceScatter(group=get_tp_group())
-            self.all_gather = ops.AllGather(group=get_tp_group())
+            self.reduce_scatter = ops.ReduceScatter(group=get_tensor_model_parallel_group())
+            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
 
     # pylint: disable=C0111
     def construct(self, input_):
@@ -329,11 +328,11 @@ class ScatterToSequenceParallelRegion(nn.Cell):
     """Scatter To Sequence Paralle lRegion"""
     def __init__(self, need_to_swapaxes):
         super(ScatterToSequenceParallelRegion, self).__init__()
-        self.world_size = get_tp_world_size()
-        self.rank = get_tp_rank()
+        self.world_size = get_tensor_model_parallel_world_size()
+        self.rank = get_tensor_model_parallel_rank()
         self.need_to_swapaxes = need_to_swapaxes
         if self.world_size > 1:
-            self.all_gather = ops.AllGather(group=get_tp_group())
+            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
 
     # pylint: disable=C0111
     def construct(self, input_):
@@ -344,9 +343,9 @@ class ScatterToSequenceParallelRegion(nn.Cell):
             input_ = input_.swapaxes(0, 1)
 
         dim_size = input_.shape[0]
-        if dim_size % self.world_size != 0:
-            raise ValueError(f"First dimension of the tensor should be divisible by tensor parallel size, "
-                             f"but got dim_size: {dim_size} and world_size: {self.world_size}.")
+        assert (
+            dim_size % self.world_size == 0
+        ), "First dimension of the tensor should be divisible by tensor parallel size"
         local_dim_size = dim_size // self.world_size
 
         dim_offset = self.rank * local_dim_size
@@ -368,16 +367,15 @@ class ScatterToSequenceParallelRegion(nn.Cell):
             output = output.swapaxes(0, 1)
         return (output,)
 
-
 class GatherFromSequenceParallelRegion(nn.Cell):
     """Gather From Sequence Parallel Region"""
     def __init__(self, need_to_swapaxes, tensor_parallel_output_grad=True):
         super(GatherFromSequenceParallelRegion, self).__init__()
-        self.world_size = get_tp_world_size()
+        self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.all_gather = ops.AllGather(group=get_tp_group())
-            self.reduce_scatter = ops.ReduceScatter(group=get_tp_group())
-        self.rank = get_tp_rank()
+            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
+            self.reduce_scatter = ops.ReduceScatter(group=get_tensor_model_parallel_group())
+        self.rank = get_tensor_model_parallel_rank()
         self.tensor_parallel_output_grad = tensor_parallel_output_grad
         self.need_to_swapaxes = need_to_swapaxes
 
@@ -405,10 +403,11 @@ class GatherFromSequenceParallelRegion(nn.Cell):
             output = self.reduce_scatter(dout.contiguous())
         else:
             dim_size = dout.shape[0]
-            if dim_size % self.world_size != 0:
-                raise ValueError(f"First dimension of the tensor should be divisible by tensor "
-                                 f"parallel size, but got dim_size: {dim_size} and world_size: {self.world_size}.")
+            assert (
+                dim_size % self.world_size == 0
+            ), "First dimension of the tensor should be divisible by tensor parallel size"
             local_dim_size = dim_size // self.world_size
+
             dim_offset = self.rank * local_dim_size
             output = dout[dim_offset : dim_offset + local_dim_size].contiguous()
 
@@ -422,10 +421,10 @@ class AllGatherFromTensorParallelRegion(nn.Cell):
     """AllGather From Tensor Parallel Region"""
     def __init__(self):
         super(AllGatherFromTensorParallelRegion, self).__init__()
-        self.world_size = get_tp_world_size()
+        self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.all_gather = ops.AllGather(group=get_tp_group())
-            self.reduce_scatter = ops.ReduceScatter(group=get_tp_group())
+            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
+            self.reduce_scatter = ops.ReduceScatter(group=get_tensor_model_parallel_group())
 
     # pylint: disable=C0111
     def construct(self, input_):
@@ -558,16 +557,15 @@ class AllToAll(nn.Cell):
                               self.group)
         return (dout2,)
 
-
 # pylint: disable=W0613
 def all_to_all_self_defined(output_shape, input_, output_split_sizes=None, input_split_sizes=None, group=None):
     """define the forward process"""
-    ep_world_size = get_ep_world_size()
+    ep_world_size = get_expert_model_parallel_world_size()
 
     if ep_world_size == 1:
         return input_
-    rank = get_ep_rank()
-    group = get_ep_group()
+    rank = get_expert_model_parallel_rank()
+    group = get_expert_model_parallel_group()
     hidden_dtype = input_.dtype
     hidden_size = input_.shape[-1]
 
@@ -588,7 +586,7 @@ def all_to_all_self_defined(output_shape, input_, output_split_sizes=None, input
     num_group_max_token = max(group_inputs_sizes)
     if input_.shape:
         num_local_token = input_.shape[-2]
-        pad_len = num_group_max_token - num_local_token
+        pad_len = num_group_max_token-num_local_token
         # if current token is shorter than max length, pad it to longest length
         padded_local_token = ops.pad(input_, [0, 0, 0, pad_len], value=-100)
     else:
