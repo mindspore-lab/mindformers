@@ -51,9 +51,8 @@ class SPTokenizer:
             self.index_special_tokens[self.n_words] = token
             self.n_words += 1
 
+    # pylint: disable=W0613
     def tokenize(self, s: str, pair=None, add_special_tokens=True, **kwargs):
-        # unused in this tokenizer.
-        _, _, _ = pair, add_special_tokens, kwargs
         return self.sp_model.EncodeAsPieces(s)
 
     def encode(self, s: str, bos: bool = False, eos: bool = False) -> List[int]:
@@ -66,9 +65,8 @@ class SPTokenizer:
             t = t + [self.eos_id]
         return t
 
+    # pylint: disable=W0613
     def decode(self, t: List[int], skip_special_tokens=False, clean_up_tokenization_spaces=None, **kwargs) -> str:
-        # unused in this tokenizer.
-        _, _, _ = skip_special_tokens, clean_up_tokenization_spaces, kwargs
         return self.sp_model.decode(t)
 
     def decode_tokens(self, tokens: List[str]) -> str:

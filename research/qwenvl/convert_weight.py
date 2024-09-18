@@ -96,10 +96,14 @@ def convert_vit_resampler_attention(name, value, ckpt_weights, dtype=ms.float16)
     else:
         ms_name = name
     if not isinstance(ms_name, (tuple, list)):
-        ms_name = (ms_name,)
+        cur_ms_name = (ms_name,)
+    else:
+        cur_ms_name = ms_name
     if not isinstance(value, (tuple, list)):
-        value = (value,)
-    for n, p in zip(ms_name, value):
+        cur_value = (value,)
+    else:
+        cur_value = value
+    for n, p in zip(cur_ms_name, cur_value):
         if n != name:
             print(f"name:  {name}->{n}")
         ckpt_weights.append({"name": n, "data": ms.Tensor(p, dtype=dtype)})
@@ -124,10 +128,14 @@ def convert_vit_transformer_attn(name, value, ckpt_weights, dtype=ms.float16, vi
     else:
         ms_name = name
     if not isinstance(ms_name, (tuple, list)):
-        ms_name = (ms_name,)
+        cur_ms_name = (ms_name,)
+    else:
+        cur_ms_name = ms_name
     if not isinstance(value, (tuple, list)):
-        value = (value,)
-    for n, p in zip(ms_name, value):
+        cur_value = (value,)
+    else:
+        cur_value = value
+    for n, p in zip(cur_ms_name, cur_value):
         if n != name:
             print(f"name:  {name}->{n}")
         ckpt_weights.append({"name": n, "data": ms.Tensor(p, dtype=dtype)})

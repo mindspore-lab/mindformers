@@ -77,7 +77,8 @@ def convert_rwf2000_json(dataset_dir, output_file, video_pos_tag=None):
             'conversations': conversations
         })
 
-    with open(output_file, 'w') as f:
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(output_file, flags_, 0o750), 'w', encoding='utf-8') as f:
         json.dump(generate_data, f, indent=2, ensure_ascii=False)
 
 

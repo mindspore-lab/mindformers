@@ -70,9 +70,10 @@ class Blip2ImageProcessor(BaseImageProcessor):
                  is_hwc=False,
                  **kwargs):
         super().__init__(**kwargs)
-        self.image_size = image_size
         if isinstance(image_size, int):
             self.image_size = (image_size,) * 2
+        else:
+            self.image_size = image_size
         self.interpolation = interpolation
         self.mean = mean
         self.std = std

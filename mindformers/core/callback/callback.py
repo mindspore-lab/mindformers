@@ -412,7 +412,9 @@ class MFLossMonitor(Callback):
             zh_loss_list = zh_precision_performance["pr"]["line_chart"]["pr_line_chart"]["curve"]["loss"]
             zh_loss_list.append([ma_step_num, ma_loss])
 
-            with open(os.path.join(modelarts_dir, "model_analysis_results.json"), "w") as fp:
+            flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+            file_path = os.path.join(modelarts_dir, "model_analysis_results.json")
+            with os.fdopen(os.open(file_path, flags_, 0o750), 'w', encoding="utf8") as fp:
                 json.dump(obj, fp)
 
 

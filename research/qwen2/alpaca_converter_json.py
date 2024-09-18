@@ -3,6 +3,7 @@ fastchat stanford alpaca data convert tools.
 """
 import argparse
 import json
+import os
 
 import pathlib
 
@@ -43,7 +44,10 @@ def main(data_path, output_path):
             ]
         })
 
-    json.dump(new_data, open(output_path, "w"), ensure_ascii=False, indent=2)
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(output_path, flags_, 0o750), 'w', encoding='utf-8') as f:
+        json.dump(new_data, f, ensure_ascii=False, indent=2)
+
 
 
 if __name__ == "__main__":

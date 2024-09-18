@@ -134,14 +134,14 @@ class TempTokenizer:
                 else:
                     new_word.append(word[i])
                     i += 1
-            new_word = tuple(new_word)
-            word = new_word
+            new_word_tuple = tuple(new_word)
+            word = new_word_tuple
             if len(word) == 1:
                 break
             pairs = get_pairs(word)
-        word = ' '.join(word)
-        self.flag_dict[input_tk] = word
-        return word
+        word_str = ' '.join(word)
+        self.flag_dict[input_tk] = word_str
+        return word_str
 
     def decode(self, input_ids):
         r"""Decode"""

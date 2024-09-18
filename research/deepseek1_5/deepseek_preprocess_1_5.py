@@ -166,7 +166,10 @@ def tokenize_wiki(tokenizer, file_path, seq_length, repeat):
 
 
 def tokenize_qa(tokenizer, file_path, seq_length, pad_token_id):
-    raw_data = json.load(open(file_path, "r", encoding='utf-8'))
+    raw_data = None
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(file_path, flags_, 0o750), 'r', encoding='utf-8') as f:
+        raw_data = json.load(f)
     dataset_cls = SupervisedDataset(raw_data, tokenizer, seq_length, pad_token_id)
     for i, _ in enumerate(dataset_cls):
         yield dataset_cls[i]
