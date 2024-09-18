@@ -18,7 +18,6 @@ Utils for cann workqueue cores
 """
 
 import os
-import subprocess
 import psutil
 
 from mindformers.utils.bit_array import BitArray
@@ -73,7 +72,7 @@ def mask_to_str(mask: BitArray) -> str:
     return mask_str
 
 
-def execute_cmd(cmd: str, fake: bool = False):
+def execute_cmd(cmd: str, fake: bool = True):
     """
     execute shell command
 
@@ -89,11 +88,6 @@ def execute_cmd(cmd: str, fake: bool = False):
     if fake:
         print(cmd)
         return
-
-    sub_process = subprocess.Popen(cmd, shell=True)
-    ret = sub_process.wait()
-    if ret != 0:
-        raise SystemError(f"Execute cmd({cmd}) failed!")
 
 
 def binding_cann_workqueue(device_num: int, core_num_per_workqueue: int, separate_device_cores: bool):
@@ -112,10 +106,7 @@ def binding_cann_workqueue(device_num: int, core_num_per_workqueue: int, separat
     Returns:
         NA.
     """
-    if os.geteuid() != 0:
-        raise SystemError(
-            "The cann workqueue binding must be executed with root user, please try re-execute with root!"
-        )
+    print(f"the cann workqueue config command list in the follow, please execute the cmd by root user!")
 
     total_core_num = psutil.cpu_count(logical=True)
     core_num_per_device = int(total_core_num / device_num)
