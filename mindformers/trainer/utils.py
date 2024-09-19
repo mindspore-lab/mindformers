@@ -40,7 +40,8 @@ from mindformers.tools.utils import (
     format_path
 )
 from mindformers.tools.ckpt_transform import TransformCkpt
-
+from mindformers.models.base_model import BaseModel
+from mindformers.models.modeling_utils import PreTrainedModel
 
 class BaseEnum(str, Enum):
     """
@@ -565,6 +566,9 @@ def load_ckpt(config, network, optimizer=None):
                              f"when auto_trans_ckpt is False.")
 
     checkpoint_dict = load_slora_ckpt(checkpoint_dict, config, network)
+
+    if isinstance(network, (BaseModel, PreTrainedModel)):
+        checkpoint_dict = network.fuse_weight_from_ckpt(checkpoint_dict)
 
     # replace tk in checkpoint_dict.keys()
     checkpoint_dict = replace_tk_to_mindpet(checkpoint_dict)
