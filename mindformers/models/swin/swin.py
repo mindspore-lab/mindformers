@@ -93,6 +93,7 @@ class SwinBaseModel(SwinPreTrainedModel):
     def no_weight_decay_keywords():
         return {'relative_position_bias_table'}
 
+
 # pylint: disable=C0326
 @MindFormerRegister.register(MindFormerModuleType.ENCODER)
 class SwinModel(SwinBaseModel):
@@ -163,7 +164,7 @@ class SwinModel(SwinBaseModel):
             if i_layer < self.num_layers - 1:
                 self.final_seq = self.final_seq // 4
             self.layers.append(layer)
-        self.norm = LayerNorm([self.num_features,], eps=config.layer_norm_eps).shard(((dp, 1, 1),))
+        self.norm = LayerNorm([self.num_features, ], eps=config.layer_norm_eps).shard(((dp, 1, 1), ))
         self.transpose = P.Transpose().shard(((dp, 1, 1),))
         self.avgpool = P.ReduceMean(keep_dims=False).shard(((dp, 1, 1), ))
         self.init_weights()

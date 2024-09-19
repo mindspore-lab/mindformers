@@ -387,6 +387,7 @@ class SwinTransformerBlock(nn.Cell):
         return f"dim={self.dim}, input_resolution={self.input_resolution}, num_heads={self.num_heads}, " \
                f"window_size={self.window_size}, shift_size={self.shift_size}, mlp_ratio={self.mlp_ratio}"
 
+
 # pylint: disable=C0326
 class SwinPatchMerging(nn.Cell):
     """ Patch Merging Layer.

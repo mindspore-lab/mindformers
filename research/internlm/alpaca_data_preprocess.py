@@ -49,6 +49,7 @@ def get_chat_format_data(ori_data):
     data["bot"] = f"<|Bot|>:{output_str}"
     return data
 
+
 # pylint: disable=C0326
 def preprocess(sources, tokenizer, seq_length, bos_token="<s>", eos_token="</s>"):
     """conversation preprocess."""

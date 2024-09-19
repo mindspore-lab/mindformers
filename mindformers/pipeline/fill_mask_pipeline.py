@@ -22,6 +22,7 @@ from ..tools.register import MindFormerRegister, MindFormerModuleType
 
 __all__ = ['FillMaskPipeline']
 
+
 # pylint: disable=C0326
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="fill_mask")
 class FillMaskPipeline(Pipeline):
