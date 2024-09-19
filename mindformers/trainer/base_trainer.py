@@ -59,7 +59,6 @@ from .utils import (
     check_runner_config,
     transform_and_load_checkpoint,
     load_resume_context_from_checkpoint,
-    delete_resume_record_dir
 )
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
@@ -668,7 +667,6 @@ class BaseTrainer:
                 else:
                     resume_dict["loss_scale"] = config.runner_wrapper.scale_sense
             append_info = [resume_dict]
-            delete_resume_record_dir(wait_time=config.resume_gap_time if config.resume_gap_time else 5)
         else:
             config.runner_config.initial_epoch = 0
             config.runner_config.initial_step = 0

@@ -425,8 +425,6 @@ class Trainer:
                     checkpoint_dir=self.config.load_checkpoint,
                     resume_training=self.config.resume_training,
                     resume_by_meta=not self.config.resume_by_last_timestamp_ckpt,
-                    gap_time=self.config.resume_gap_time if self.config.resume_gap_time else 5,
-                    limit_time=self.config.resume_limit_time if self.config.resume_limit_time else 7200,
                 )
 
         self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
@@ -567,8 +565,6 @@ class Trainer:
                     checkpoint_dir=self.config.load_checkpoint,
                     resume_training=self.config.resume_training,
                     resume_by_meta=not self.config.resume_by_last_timestamp_ckpt,
-                    gap_time=self.config.resume_gap_time if self.config.resume_gap_time else 5,
-                    limit_time=self.config.resume_limit_time if self.config.resume_limit_time else 7200,
                 )
 
         self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
