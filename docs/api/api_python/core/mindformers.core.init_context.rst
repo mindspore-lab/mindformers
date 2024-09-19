@@ -1,5 +1,5 @@
-mindformers.core.get_context
-============================
+mindformers.core.init_context
+===============================
 
 .. py:function:: mindformers.core.init_context(use_parallel=False, context_config=None, parallel_config=None)
 

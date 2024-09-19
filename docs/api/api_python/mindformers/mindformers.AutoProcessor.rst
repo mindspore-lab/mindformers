@@ -7,6 +7,7 @@ mindformers.AutoProcessor
     这个类不能直接使用 \_\_init\_\_() 实例化（会抛出异常）。
 
     .. py:method:: from_pretrained(yaml_name_or_path: str, **kwargs)
+        :classmethod:
 
         从yaml文件、文件夹、或魔乐社区读取配置信息，实例化为模型Processor类，并返回。
 
@@ -21,6 +22,7 @@ mindformers.AutoProcessor
             一个继承自ProcessorMixin类的Processor实例。
 
     .. py:method:: register(config_class, processor_class, exist_ok=False)
+        :classmethod:
 
         注册一个新的Processor类到此类中。
 

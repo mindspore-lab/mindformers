@@ -305,7 +305,7 @@ class CrossEntropyLoss(nn.Cell):
 
     CrossEntropyLoss supports two different types of targets:
 
-    - Class indices (int), where the range of values is :math:`[0, C)` with :math:C being the number of classes.
+    - Class indices (int), where the range of values is :math:`[0, C)` with :math:`C` being the number of classes.
       When reduction is set to 'none', the cross-entropy loss is computed as follows:
 
       .. math::
@@ -313,8 +313,8 @@ class CrossEntropyLoss(nn.Cell):
           l_n = - w_{y_n} \log \frac{\exp(x_{n,y_n})}{\sum_{c=1}^C \exp(x_{n,c})}
           \cdot \mathbb{1}\{y_n \not= \text{ignore_index}\}
 
-      where :math:`x` denotes the predicted values, :math:`t` denotes the target values, :math:w denotes the weights,
-      and :math:`N` is the batch size. The index :math:c ranges from [0, C-1], representing the class indices,
+      where :math:`x` denotes the predicted values, :math:`t` denotes the target values, :math:`w` denotes the weights,
+      and :math:`N` is the batch size. The index :math:`c` ranges from [0, C-1], representing the class indices,
       where :math:`C` is the number of classes.
 
       If reduction is not set to 'none' (the default is 'mean'), the loss is computed as:

@@ -7,6 +7,7 @@ mindformers.AutoConfig
     这个类不能直接使用 \_\_init\_\_() 实例化（会抛出异常）。
 
     .. py:method:: from_pretrained(yaml_name_or_path: str, **kwargs)
+        :classmethod:
 
         从yaml文件、json文件、文件夹或魔乐社区读取配置信息，实例化为模型Config类，并返回。
 
@@ -21,6 +22,7 @@ mindformers.AutoConfig
             一个继承自PretrainedConfig类的模型Config实例。
 
     .. py:method:: register(model_type, config, exist_ok=False)
+        :classmethod:
 
         注册一个新的模型Config类到此类中。
 

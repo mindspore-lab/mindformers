@@ -111,8 +111,7 @@ class Trainer:
             The task config which is used to configure the dataset, the hyperparameter, optimizer, etc.
             It supports yaml path, MindFormerConfig or TrainingArguments class.
             Default: ``None`` .
-        task (str, optional):
-            Supported task type. Default: ``general`` .
+        task (str, optional): Supported task type. Default: ``general`` .
         model (Union[str, PreTrainedModel], optional):
             The network for trainer. It supports model name supported or PreTrainedModel. Default: ``None`` .
         model_name (Union[str], optional):
@@ -159,7 +158,7 @@ class Trainer:
             Reset model instance
             Default: ``False`` .
 
-    Return:
+    Returns:
         An instance of Trainer.
 
     Raises:
@@ -1404,12 +1403,13 @@ class Trainer:
         """
         Upload `self.model` and `self.tokenizer` to the model hub on the repo `self.args.hub_model_id`.
 
-        commit_message (Optional[str]):
-            Message to commit while pushing, defaults to "End of training".
-        blocking (Optional[bool]):
-            Whether the function should return only when the `git push` has finished, default is True
-        kwargs (Optional[Dict[str, Any]]:
-            model_name(Optional[str]): model name in the hub.
+        Args:
+            commit_message (Optional[str]):
+                Message to commit while pushing, defaults to "End of training".
+            blocking (Optional[bool]):
+                Whether the function should return only when the `git push` has finished, default is True
+            kwargs (Optional[Dict[str, Any]]):
+                model_name(Optional[str]): model name in the hub.
 
         Returns:
             The URL of the repository where the model was pushed if `blocking=False`, or a `Future` object tracking the

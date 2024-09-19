@@ -210,7 +210,7 @@ def replace_list_option_in_docstrings(config_to_class=None, use_model_types=True
 class AutoConfig:
     r"""
     This is a generic configuration class that will be instantiated as one of the configuration
-    classes of the library when created with the from_pretrained() class method.
+    classes of the library when created with the ``from_pretrained()`` class method.
     This class cannot be instantiated directly using \_\_init\_\_() (throws an error).
 
     Examples:

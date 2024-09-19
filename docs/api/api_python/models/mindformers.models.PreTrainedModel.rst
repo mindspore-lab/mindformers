@@ -47,7 +47,6 @@ mindformers.models.PreTrainedModel
             - **auto_class** (Union[str, type], 可选) - 用于注册一个新模型的自动类。默认值： ``AutoModel``。
 
     .. py:method:: save_pretrained(save_directory: Union[str, os.PathLike], save_name: str = "mindspore_model", **kwargs)
-        :classmethod:
 
         保存模型权重和配置文件（仅支持单机模式，分布式模式有待开发）。
 
