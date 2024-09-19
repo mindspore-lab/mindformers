@@ -29,8 +29,8 @@ from mindformers.tools.register.config import MindFormerConfig
 from mindformers.modules import VocabEmbedding, Linear
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     initialize_model_parallel,
-    get_dp_world_size,
-    get_tp_world_size
+    get_data_parallel_world_size,
+    get_tensor_model_parallel_world_size
 )
 from mindformers.experimental.parallel_core.pynative.tensor_parallel.layers import (
     VocabParallelEmbedding, ColumnParallelLinear, RowParallelLinear
@@ -39,7 +39,7 @@ from mindformers.experimental.parallel_core.pynative.tensor_parallel import (
     GatherFromSequenceParallelRegion
 )
 
-from tests.st.test_distri_core.utils import LinearTestData
+from tests.st.test_distri_core.utils import TestData
 
 
 def train(
@@ -134,7 +134,9 @@ class VocabEmbeddingNet(nn.Cell):
 
 
 class VocabParallelEmbeddingNet(nn.Cell):
-    """VocabparallelEmbedding, ColumnParallelLinear and RowParallelLinear with sequence parallel network."""
+    """VocabparallelEmbedding, ColumnParallelLinear and
+    RowParallelLinear with sequence parallel network."""
+
     def __init__(
             self,
             vocab_size: int,
@@ -143,6 +145,7 @@ class VocabParallelEmbeddingNet(nn.Cell):
             param_init=0.1
     ):
         super().__init__()
+        config.parallel_config.overlap_grad_reduce = args.overlap_grad_reduce
         config.parallel_config.gradient_accumulation_fusion = args.gradient_accumulation_fusion
         self.config = config
         self.seq_length = seq_length
@@ -152,7 +155,7 @@ class VocabParallelEmbeddingNet(nn.Cell):
             num_embeddings=vocab_size,
             embedding_dim=config.model_config.hidden_size,
             init_method=param_init,
-            reduce_scatter_embeddings=config.parallel_config.use_sequence_parallel,
+            reduce_scatter_embeddings=config.parallel_config.sequence_parallel,
             config=config,
             param_init_dtype=mstype.float32,
         )
@@ -160,7 +163,7 @@ class VocabParallelEmbeddingNet(nn.Cell):
             num_embeddings=vocab_size,
             embedding_dim=config.model_config.hidden_size,
             init_method=param_init,
-            reduce_scatter_embeddings=config.parallel_config.use_sequence_parallel,
+            reduce_scatter_embeddings=config.parallel_config.sequence_parallel,
             config=config,
             param_init_dtype=mstype.float32,
         )
@@ -203,7 +206,7 @@ class VocabParallelEmbeddingNet(nn.Cell):
         emb = w_emb + p_emb
         intermediate, _ = self.linear1(emb)
         output, _ = self.linear2(intermediate)
-        if self.config.parallel_config.use_sequence_parallel:
+        if self.config.parallel_config.sequence_parallel:
             output1 = self.gather_from_sp_region(output)
         else:
             output1 = output
@@ -233,7 +236,7 @@ def generate_golden_net():
     label_data = np.zeros(
         (dataset_size, seq_length, embedding_size)).astype(
             np.float32)
-    dataset = LinearTestData(input_data=input_data, label_data=label_data)
+    dataset = TestData(input_data=input_data, label_data=label_data)
     dataset = ds.GeneratorDataset(
         dataset, column_names=[
             "input_ids", "labels"])
@@ -277,7 +280,7 @@ def sequence_parallel_net():
     init()
     initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
 
-    print(f"dp: {get_dp_world_size()}, tp: {get_tp_world_size()}")
+    print(f"dp: {get_data_parallel_world_size()}, tp: {get_tensor_model_parallel_world_size()}")
 
     ms.set_seed(2024)
     input_data = np.random.randint(
@@ -286,7 +289,7 @@ def sequence_parallel_net():
     label_data = np.zeros(
         (dataset_size, seq_length, embedding_size)).astype(
             np.float32)
-    dataset = LinearTestData(input_data=input_data, label_data=label_data)
+    dataset = TestData(input_data=input_data, label_data=label_data)
     dataset = ds.GeneratorDataset(
         dataset, column_names=[
             "input_ids", "labels"])
@@ -322,6 +325,10 @@ if __name__ == "__main__":
         action="store_true",
         help="Generate golden data for test.")
     parser.add_argument(
+        "--overlap_grad_reduce",
+        action="store_true",
+        help="Generate golden data for test.")
+    parser.add_argument(
         "--gradient_accumulation_fusion",
         action="store_true",
         help="Generate golden data for test.")
@@ -333,6 +340,9 @@ if __name__ == "__main__":
     elif args.gradient_accumulation_fusion:
         sp_loss = sequence_parallel_net()
         np.save('./sp_overlap_grad_scc.npy', sp_loss)
+    elif args.overlap_grad_reduce:
+        sp_loss = sequence_parallel_net()
+        np.save('./sp_overlap.npy', sp_loss)
     else:
         sp_loss = sequence_parallel_net()
         np.save('./use_sequence_parallel_loss.npy', sp_loss)

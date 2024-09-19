@@ -8,12 +8,12 @@ training_config:
   loss_reduction: "mean"
 
 parallel_config:
-  tensor_parallel: 1
-  pipeline_stage: 4
-  context_parallel: 1
-  expert_parallel: 1
+  tensor_model_parallel_size: 1
+  pipeline_model_parallel_size: 4
+  context_parallel_size: 1
+  expert_model_parallel_size: 1
   virtual_pipeline_model_parallel_size: null
-  use_sequence_parallel: False
+  sequence_parallel: False
   recv_dtype: "float32"
   model_customize_staged: False
   overlap_grad_reduce: False
@@ -27,7 +27,7 @@ model_config:
   compute_dtype: "float32"
   flatten_labels_and_input_mask: True
   untie_embeddings_and_output_weights: True
-  num_heads: 1
+  num_attention_heads: 1
   ffn_hidden_size: 1
 
 dataset_config:

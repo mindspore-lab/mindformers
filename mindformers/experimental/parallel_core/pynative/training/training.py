@@ -12,55 +12,43 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
+"""For Training"""
 
-"""
-For training
-"""
-import os
 import time
 import contextlib
-from copy import deepcopy
 
 import mindspore.common.dtype as mstype
 from mindspore import nn, Tensor, Parameter, mint, value_and_grad
-from mindspore.experimental.optim.optimizer import Optimizer as mintOptimizer
 from mindspore.amp import DynamicLossScaler, StaticLossScaler, all_finite
 from mindspore.communication.comm_func import all_reduce
-from mindspore.ops import composite as C
-from mindspore.ops import functional as F
-from mindspore.ops import operations as P
-from mindspore.parallel._utils import _get_enable_parallel_optimizer
-from mindformers.core.clip_grad import ClipGradNorm
+from mindspore.experimental.optim.optimizer import Optimizer as mintOptimizer
 
-from mindformers.tools.logger import logger
+from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
-    get_dp_world_size,
-    get_dp_group,
-    get_tp_world_size,
-    get_tp_group,
-    get_pp_world_size,
-    get_pp_group,
+    get_data_parallel_world_size,
+    get_data_parallel_group,
+    get_tensor_model_parallel_world_size,
+    get_tensor_model_parallel_group,
+    get_pipeline_model_parallel_world_size,
+    get_pipeline_model_parallel_group,
     is_pipeline_last_stage,
-    set_vpp_rank,
+    set_virtual_pipeline_model_parallel_rank,
     is_pipeline_first_stage,
     get_data_modulo_expert_parallel_group,
-    get_ep_world_size
+    get_expert_model_parallel_world_size
 )
-from mindformers.experimental.parallel_core.pynative.pipeline_parallel import PipelineCell
+from mindformers.experimental.parallel_core.pynative.distributed import DistributedDataParallelConfig, \
+    DistributedDataParallel
+from mindformers.experimental.parallel_core.pynative.optimizer import MixedPrecisionOptimizer
 from mindformers.experimental.parallel_core.pynative.pipeline_parallel.schedules import (
     forward_backward_pipelining_without_interleaving,
-    forward_backward_pipelining_with_interleaving,
-    rename_hidden_states_parameter
+    forward_backward_pipelining_with_interleaving
 )
 from mindformers.experimental.parallel_core.pynative.config import GeneralConfig
 from mindformers.experimental.parallel_core.pynative.dist_checkpointing import save_checkpoint
+from mindformers.experimental.parallel_core.pynative.transformer.moe.utils import MoEAuxLossAutoScaler
 
-from .grad_handler import (
-    inplace_apply_to_tensor_list,
-    get_grad_process_func,
-    GradAccumulator,
-)
-
+from .grad_handler import inplace_apply_to_tensor_list, get_grad_process_func, GradAccumulator
 
 def get_sp_params(training_config):
     """get reduce parameters for sequence parallel"""
@@ -79,6 +67,21 @@ def get_sp_params(training_config):
         sp_params = ["norm", "mlp.projection.bias", "attention.out_proj.bias"]
     return sp_params
 
+def rename_set_hidden_states_parameter(model, model_chunk_id=None):
+    """ rename set_hidden_states parameter """
+    weight_untrainable = model.untrainable_params()
+    for param in weight_untrainable:
+        if "set_hidden_states" in param.name:
+            param.name = param.name + f"_{model_chunk_id}_chunk"
+
+def model_zero_grad_buffer(model, wrap_with_ddp):
+    """ zero grad buffer if wrap_with_ddp=True """
+    if wrap_with_ddp:
+        if isinstance(model, nn.CellList):
+            for model_chunk_id in range(len(model)):
+                model[model_chunk_id].zero_grad_buffer()
+        else:
+            model.zero_grad_buffer()
 
 class ParallelTrainingReducer:
     """The reducer for parallel training"""
@@ -104,6 +107,7 @@ class ParallelTrainingReducer:
             "pp": False,
             "tp": False,
         }
+        # TODO: context parallel grads
 
         self.sp_reduce_params = get_sp_params(training_config)
         self.expert_params = ["mlp.experts.local_experts"]
@@ -111,7 +115,7 @@ class ParallelTrainingReducer:
         self.batch_reduction = training_config.loss_reduction
 
         # dp
-        if get_dp_world_size() > 1:
+        if get_data_parallel_world_size() > 1:
             self.enable_loss_reduce["dp"] = True
             if training_config.parallel_config.zero_level is None \
                 and not training_config.wrap_with_ddp:
@@ -120,20 +124,20 @@ class ParallelTrainingReducer:
                 self.enable_grad_flag_reduce["dp"] = True
 
         # tp / sp
-        if get_tp_world_size() > 1:
+        if get_tensor_model_parallel_world_size() > 1:
             self.enable_grad_flag_reduce["tp"] = True
-            if training_config.parallel_config.use_sequence_parallel:
+            if training_config.parallel_config.sequence_parallel:
                 self.enable_grad_reduce["tp"] = True
                 self.sp_reduce_filter = [
                     any([sp_param in param.name for sp_param in self.sp_reduce_params]) for param in params
                 ]
 
         # pp
-        if get_pp_world_size() > 1:
+        if get_pipeline_model_parallel_world_size() > 1:
             self.enable_grad_flag_reduce["pp"] = True
 
         # ep
-        if get_ep_world_size() > 1:
+        if get_expert_model_parallel_world_size() > 1:
             self.enable_grad_reduce["ep-dp"] = True
             self.expert_filter = [
                 any([ep_param in param.name for ep_param in self.expert_params]) for param in params
@@ -143,53 +147,66 @@ class ParallelTrainingReducer:
         if self.enable_grad_reduce["ep-dp"] and self.expert_filter[idx]:
             group = get_data_modulo_expert_parallel_group()
         else:
-            group = get_dp_group()
+            group = get_data_parallel_group()
         return group
 
-    def inplace_reduce_dp_grad(self, grads):
+    def inplace_reduce_dp_grad(self, grads, params=None):
         """Reduce the gradients in data parallel mode."""
-        if not self.enable_grad_reduce["dp"]:
-            return
-        if self.batch_reduction == "mean":
-            for idx, grad in enumerate(grads):
-                group = self.get_reduce_group(idx)
-                grads[idx] = mint.div(all_reduce(grad, "sum", group), get_dp_world_size())
-        elif self.batch_reduction == "sum":
-            for idx, grad in enumerate(grads):
-                group = self.get_reduce_group(idx)
-                grads[idx] = all_reduce(grad, "sum", group)
+        if self.enable_grad_reduce["dp"]:
+            if params is not None:
+                for idx, param in enumerate(params):
+                    if param.grad is None:
+                        continue
+                    group = self.get_reduce_group(idx)
+                    param.grad = all_reduce(param.grad, "sum", group)
+                    if self.batch_reduction == "mean":
+                        param.grad = mint.div(param.grad, get_data_parallel_world_size())
+            if self.batch_reduction == "mean":
+                for idx, grad in enumerate(grads):
+                    group = self.get_reduce_group(idx)
+                    grads[idx] = mint.div(all_reduce(grad, "sum", group), get_data_parallel_world_size())
+            elif self.batch_reduction == "sum":
+                for idx, grad in enumerate(grads):
+                    group = self.get_reduce_group(idx)
+                    grads[idx] = all_reduce(grad, "sum", group)
 
-    def inplace_reduce_sp_grad(self, grads):
+    def inplace_reduce_sp_grad(self, grads, params=None):
         """Reduce the gradients in sequence parallel mode over tp group."""
-        if not self.enable_grad_reduce["tp"]:
-            return
-        for idx, reduce_flag in enumerate(self.sp_reduce_filter):
-            if reduce_flag:
-                grads[idx] = all_reduce(grads[idx], "sum", get_tp_group())
+        if self.enable_grad_reduce["tp"]:
+            if params is not None:
+                for idx, param in enumerate(params):
+                    if param.grad is None or not self.sp_reduce_filter[idx]:
+                        continue
+                    param.grad = all_reduce(param.grad, "sum", get_tensor_model_parallel_group())
+            else:
+                for idx, reduce_flag in enumerate(self.sp_reduce_filter):
+                    if reduce_flag:
+                        grads[idx] = all_reduce(grads[idx], "sum", get_tensor_model_parallel_group())
 
-    def inplace_reduce_grad(self, grads):
+    def inplace_reduce_grad(self, grads, params=None):
         """Reduce the gradients in all parallel modes."""
-        self.inplace_reduce_dp_grad(grads)
-        self.inplace_reduce_sp_grad(grads)
+        self.inplace_reduce_dp_grad(grads, params)
+        self.inplace_reduce_sp_grad(grads, params)
 
     def reduce_dp_loss(self, loss):
         """Reduce the loss in data parallel mode."""
-        if not self.enable_loss_reduce["dp"]:
-            return loss
-        if self.batch_reduction == "mean":
-            return mint.div(all_reduce(loss, "sum", get_dp_group()), get_dp_world_size())
-        return all_reduce(loss, "sum", get_dp_group())
+        if self.enable_loss_reduce["dp"]:
+            if self.batch_reduction == "mean":
+                loss = mint.div(all_reduce(loss, "sum", get_data_parallel_group()), get_data_parallel_world_size())
+            else:
+                loss = all_reduce(loss, "sum", get_data_parallel_group())
+        return loss
 
     def reduce_overflow(self, overflow):
         """Reduce the overflow status in all parallel modes."""
         # logical or
         overflow = Tensor(overflow, dtype=mstype.int8)
         if self.enable_grad_flag_reduce["pp"]:
-            overflow = all_reduce(overflow, "max", get_pp_group())
+            overflow = all_reduce(overflow, "max", get_pipeline_model_parallel_group())
         if self.enable_grad_flag_reduce["dp"]:
-            overflow = all_reduce(overflow, "max", get_dp_group())
+            overflow = all_reduce(overflow, "max", get_data_parallel_group())
         if self.enable_grad_flag_reduce["tp"]:
-            overflow = all_reduce(overflow, "max", get_tp_group())
+            overflow = all_reduce(overflow, "max", get_tensor_model_parallel_group())
         return overflow.astype(mstype.bool_)
 
     def reduce_is_finite(self, is_finite):
@@ -197,41 +214,60 @@ class ParallelTrainingReducer:
         # logical and
         is_finite = Tensor(is_finite, dtype=mstype.int8)
         if self.enable_grad_flag_reduce["pp"]:
-            is_finite = all_reduce(is_finite, "prod", get_pp_group())
+            is_finite = all_reduce(is_finite, "prod", get_pipeline_model_parallel_group())
         if self.enable_grad_flag_reduce["dp"]:
-            is_finite = all_reduce(is_finite, "prod", get_dp_group())
+            is_finite = all_reduce(is_finite, "prod", get_data_parallel_group())
         if self.enable_grad_flag_reduce["tp"]:
-            is_finite = all_reduce(is_finite, "prod", get_tp_group())
+            is_finite = all_reduce(is_finite, "prod", get_tensor_model_parallel_group())
         return is_finite.astype(mstype.bool_)
 
 
-def get_model(model_provider_func, parallel_config):
+def get_model(model_provider_func, training_config):
     """ get model """
     model = nn.CellList(auto_prefix=False)
-    if get_pp_world_size() > 1:
+    parallel_config = training_config.parallel_config
+    if training_config.bf16 and training_config.warp_with_ddp and \
+            not training_config.accumulate_allreduce_grads_in_fp32:
+        logger.warning("Using bf16 with ddp, automatically set 'accumulate_allreduce_grads_in_fp32=True'.")
+        training_config.accumulate_allreduce_grads_in_fp32 = True
+    if get_pipeline_model_parallel_world_size() > 1:
         if parallel_config.virtual_pipeline_model_parallel_size is not None and \
            parallel_config.virtual_pipeline_model_parallel_size > 1:
             for i in range(parallel_config.virtual_pipeline_model_parallel_size):
-                set_vpp_rank(i)
+                set_virtual_pipeline_model_parallel_rank(i)
                 pre_process = is_pipeline_first_stage()
                 post_process = is_pipeline_last_stage()
                 this_model = model_provider_func(pre_process=pre_process,
                                                  post_process=post_process)
-                rename_hidden_states_parameter(this_model, i)
-                model.append(PipelineCell(this_model, model_customize_staged=True))
+                rename_set_hidden_states_parameter(this_model, i)
+                model.append(this_model)
         else:
             pre_process = is_pipeline_first_stage()
             post_process = is_pipeline_last_stage()
             this_model = model_provider_func(pre_process=pre_process,
                                              post_process=post_process)
             # wrap with PP cell if pipeline parallelism is used
-            this_model = PipelineCell(this_model, model_customize_staged=True)
             model.append(this_model)
     else:
-        model.append(model_provider_func(pre_process=True, post_process=True))
+        this_model = model_provider_func(pre_process=True, post_process=True)
+        model.append(this_model)
 
-    if len(model) == 1:
-        model = model[0]
+    if training_config.wrap_with_ddp:
+        ddp_config = DistributedDataParallelConfig(
+            grad_reduce_in_fp32=training_config.accumulate_allreduce_grads_in_fp32,
+            overlap_grad_reduce=training_config.overlap_grad_reduce,
+            use_distributed_optimizer=training_config.use_distributed_optimizer,
+            bucket_size=training_config.bucket_size,
+            average_in_collective=(training_config.loss_reduction == 'mean'),
+            check_for_nan_in_grad=training_config.check_for_nan_in_grad,
+        )
+        training_config.ddp_config = ddp_config
+        logger.warning("Wrap model with DistributedDataParallel, ddp config:\n{}".format(ddp_config))
+        model = nn.CellList([DistributedDataParallel(config=training_config,
+                                                     ddp_config=ddp_config,
+                                                     module=model_chunck) for model_chunck in model],
+                            auto_prefix=False)
+
     return model
 
 
@@ -258,7 +294,7 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
     data_layout = model_config.dataset_config.data_layout
 
     # no pipeline parallel
-    if get_pp_world_size() == 1:
+    if get_pipeline_model_parallel_world_size() == 1:
 
         def forward_with_loss_scale(*inputs_tuple, loss_scale=None, **inputs_dict):
             logits = None
@@ -279,6 +315,7 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
             forward_with_loss_scale, grad_position=grad_position, weights=params, has_aux=True
         )
 
+        # if overlap_grad_reduce, grad will be accumulate in grad buffer
         if micro_batch_num > 1 and not training_config.wrap_with_ddp:
             grad_accumulator = GradAccumulator(micro_batch_num, op="sum")
 
@@ -290,8 +327,7 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
             grads = None
 
             # reset grad buffer
-            if training_config.wrap_with_ddp:
-                network_with_loss.zero_grad_buffer()
+            model_zero_grad_buffer(network_with_loss, training_config.wrap_with_ddp)
 
             # fuse loss scale and grad accumulation if do grad acc
             if training_config.loss_reduction == "mean" and micro_batch_num > 1:
@@ -362,7 +398,6 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
             # finalize ddp grad reduce
             if training_config.wrap_with_ddp:
                 network_with_loss.final_grad_reduce()
-
             return (loss, logits), grads
 
         forward_backward_func = forward_backward_func_with_grad_acc
@@ -376,6 +411,9 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
         def forward_backward_with_pipelining(
                 *inputs_tuple, loss_scale=None, forward_only=False, **inputs_dict
         ):
+            # reset grad buffer
+            model_zero_grad_buffer(network_with_loss, training_config.wrap_with_ddp)
+
             if loss_scale is None:
                 loss_scale = Tensor(1, mstype.float32)
             if model_config.parallel_config.virtual_pipeline_model_parallel_size is not None and \
@@ -448,13 +486,21 @@ class TrainOneStepCell(nn.Cell):
     """
 
     # pylint: disable=W0613
-    def __init__(self, network_with_loss, optimizer, training_config, model_config, **kwargs):
+    def __init__(self, network_with_loss, optimizer, opt_param_scheduler, training_config, model_config, **kwargs):
         super(TrainOneStepCell, self).__init__(auto_prefix=False)
+        if isinstance(network_with_loss, nn.CellList) and len(network_with_loss) == 1:
+            network_with_loss = network_with_loss[0]
         self.network_with_loss = network_with_loss
         self.optimizer = optimizer
         self.model_config = model_config
+        self.opt_param_scheduler = opt_param_scheduler
+        self.increment = training_config.dataset_config.micro_batch_num * \
+                    training_config.dataset_config.batch_size * \
+                    get_data_parallel_world_size()
         self.wrap_with_ddp = training_config.wrap_with_ddp
-        self.use_distributed_optimizer = self.wrap_with_ddp and training_config.ddp_config.use_distributed_optimizer
+        self.use_mixed_precision_optimizer = isinstance(optimizer, MixedPrecisionOptimizer)
+        self.params_with_grad = None if not self.use_mixed_precision_optimizer \
+            else network_with_loss.trainable_params()
 
         # init loss scaler
         if training_config.loss_scale is not None:
@@ -465,21 +511,19 @@ class TrainOneStepCell(nn.Cell):
                 self.loss_scaler = DynamicLossScaler(
                     scale_value=training_config.loss_scale_value,
                     scale_factor=training_config.loss_scale_factor,
-                    scale_window=training_config.loss_scale_window)
+                    scale_window=training_config.loss_scale_window,
+                )
             else:
                 logger.warning(
-                    "Dynamic loss scale is only supported for float16 computation. Not using loss scaling.")
+                    "Dynamic loss scale is only supported for float16 computation. Not using loss scaling."
+                )
                 self.loss_scaler = None
 
         # init grad clip func
         self.use_grad_clip = training_config.grad_clip_kwargs is not None
         if self.use_grad_clip:
-            if self.use_distributed_optimizer:
-                main_params = self.optimizer.parameters
-            else:
-                main_params = network_with_loss.trainable_params()
             self.grad_clip_func = get_grad_process_func(
-                training_config, params=main_params
+                training_config, params=network_with_loss.trainable_params()
             )
         # init grad scale func
         self.grad_scale_func = inplace_apply_to_tensor_list(mint.mul)
@@ -492,6 +536,7 @@ class TrainOneStepCell(nn.Cell):
         self.forward_backward_func = get_forward_backward_func(
             network_with_loss, network_with_loss.trainable_params(), training_config, model_config
         )
+
 
     def unscale_and_clip_grads(self, grads, loss_scale=None):
         """Handle grads with scaling and clipping.
@@ -509,57 +554,59 @@ class TrainOneStepCell(nn.Cell):
     def construct(self, *inputs_tuple, **inputs_dict):
         """Forward, backward, grad process, and optimizer step."""
         # forward and backward
+        if self.use_mixed_precision_optimizer:
+            self.optimizer.zero_grad()
+
         if self.loss_scaler is not None:
             current_step_loss_scale = self.loss_scaler.scale_value
         else:
             current_step_loss_scale = None
+        if self.model_config.moe_config.num_experts > 1:
+            MoEAuxLossAutoScaler.set_loss_scale(mint.div(current_step_loss_scale, self.micro_batch_num))
+
         # loss is scale and unscale in forward_backward_func
         (loss, _), grads = self.forward_backward_func(*inputs_tuple, loss_scale=current_step_loss_scale, **inputs_dict)
 
         # apply grad reducer
         grads = list(grads)
-        self.parallel_reducer.inplace_reduce_grad(grads)
-        grads_ = tuple(grads)
+        self.parallel_reducer.inplace_reduce_grad(grads, self.params_with_grad)
 
-        # check overflow
-        if not self.wrap_with_ddp:
-            is_finite = all_finite(grads_)
-        else:
-            is_finite = self.network_with_loss.all_finite()
-        #    sync over tp and pp group
-        is_finite = self.parallel_reducer.reduce_is_finite(is_finite)
+        # check overflow. When using mixed precision optimizer,
+        # this process will be done in optimizer
+        is_finite = True
+        if not self.use_mixed_precision_optimizer and not self.wrap_with_ddp:
+            is_finite = all_finite(grads)
+            # sync over tp and pp group
+            is_finite = self.parallel_reducer.reduce_is_finite(is_finite)
 
-        if self.loss_scaler is not None:
-            self.loss_scaler.adjust(is_finite)
+            if self.loss_scaler is not None:
+                self.loss_scaler.adjust(is_finite)
 
         if is_finite:
             # scale grads and clip grads if enabled
-            if self.use_distributed_optimizer:
-                self.unscale_and_clip_grads(self.optimizer.grads, current_step_loss_scale)
-            else:
-                grads = list(grads)
+            if not self.use_mixed_precision_optimizer:
                 self.unscale_and_clip_grads(grads, current_step_loss_scale)
-                grads_ = tuple(grads)
-
-            # optimizer step
-            if self.use_distributed_optimizer:
-                self.optimizer()
+                grads = tuple(grads)
+                self.optimizer(grads)
             else:
-                self.optimizer(grads_)
+                self.optimizer()
 
+        # Update learning rate.
+        if self.opt_param_scheduler:
+            self.opt_param_scheduler.step(increment=self.increment)
         if isinstance(self.optimizer, mintOptimizer):
             learning_rate = self.optimizer.lrs
         else:
             learning_rate = self.optimizer.get_lr()
         if isinstance(learning_rate, (Parameter, Tensor)):
-            learning_rate = learning_rate.value()
+            learning_rate = float(learning_rate.value())
         if isinstance(learning_rate, (tuple, list)):
-            learning_rate = tuple([
-                individual_learning_rate.value()
+            learning_rate = tuple(
+                float(individual_learning_rate.value())
                 if isinstance(individual_learning_rate, (Parameter, Tensor))
                 else individual_learning_rate
                 for individual_learning_rate in learning_rate
-            ])
+            )
 
         # reduce loss if dp
         loss = self.parallel_reducer.reduce_dp_loss(loss)
@@ -609,7 +656,8 @@ def train(
         and metrics is not None
         and training_config.eval_interval is not None
         and training_config.best_metric_comparison is not None
-        and training_config.eval_metric is not None)
+        and training_config.eval_metric is not None
+    )
     save_ckpt_flag = training_config.save_interval is not None
     correct_metric_flag = is_pipeline_last_stage() # not use pp or pp last_stage
 
@@ -631,7 +679,8 @@ def train(
     while not (
             training_config.epochs is not None
             and current_epoch >= training_config.epochs
-            or global_step >= training_config.training_iters):
+            or global_step >= training_config.training_iters
+    ):
         for data in train_dataset_iterator.create_dict_iterator():
             # check if the training should be stopped
             if global_step >= training_config.training_iters:
@@ -642,11 +691,19 @@ def train(
             if training_config.log_interval is not None and (global_step + 1) % training_config.log_interval == 0:
                 if not correct_metric_flag:
                     logger.warning("Metrics is only calculated on the last stage.")
+                if isinstance(learning_rate, (tuple, list)):
+                    report_learning_rate = '('
+                    for lr in learning_rate:
+                        report_learning_rate += "{:e},".format(lr)
+                    report_learning_rate += ')'
+                else:
+                    report_learning_rate = "{:e}".format(learning_rate)
                 logger.warning(
                     f"Epoch: {current_epoch}, Step: {global_step}, Loss: {loss}, "
                     + f"Finite_grads: {is_finite}, "
                     + f"Loss_scale: {loss_scale.value() if loss_scale is not None else None}, "
-                    + f"Learning_rate: {learning_rate}, Time: {(end_time - start_time) * 1000:.2f} ms")
+                    + f"Learning_rate: {report_learning_rate}, Time: {(end_time - start_time) * 1000:.2f} ms"
+                )
 
             if evaluation_flag and (global_step + 1) % training_config.eval_interval == 0:
                 is_best = Tensor(False, dtype=mstype.int8)
@@ -657,17 +714,19 @@ def train(
                     best_metric = results[training_config.eval_metric]
                     is_best = Tensor(True, dtype=mstype.int8)
 
-                if get_pp_world_size() > 1:
-                    is_best = all_reduce(is_best, "max", get_pp_group())
+                # TODO: may wrap logical reduce function
+                if get_pipeline_model_parallel_world_size() > 1:
+                    is_best = all_reduce(is_best, "max", get_pipeline_model_parallel_group())
 
                 # save ckpt
                 if is_best and save_ckpt_flag:
                     logger.warning("saving best checkpoint")
                     if save_ckpt_flag:
-                        ckpt_path = os.path.join(training_config.output_dir, "best")
+                        ckpt_path = training_config.output_dir + "/best"
                         save_checkpoint(model_config,
                                         train_one_step_cell.network_with_loss,
                                         train_one_step_cell.optimizer,
+                                        train_one_step_cell.opt_param_scheduler,
                                         ckpt_path)
 
             if save_ckpt_flag and (global_step + 1) % training_config.save_interval == 0:
@@ -675,6 +734,7 @@ def train(
                 save_checkpoint(model_config,
                                 train_one_step_cell.network_with_loss,
                                 train_one_step_cell.optimizer,
+                                train_one_step_cell.opt_param_scheduler,
                                 ckpt_path)
 
             global_step += 1
@@ -683,105 +743,8 @@ def train(
 
     if save_ckpt_flag:
         ckpt_path = training_config.output_dir + f"/step_{global_step}"
-        save_checkpoint(model_config, train_one_step_cell.network_with_loss, train_one_step_cell.optimizer, ckpt_path)
-
-
-class PipelineTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
-    """
-    Append a train-one-step cell with loss scale of pipeline parallel for MindFormers.
-
-    Args:
-        network (Cell): The training network. Note that loss function should have been added.
-        optimizer (Optimizer): Optimizer for updating the weights.
-        config (dict): model yaml loaded dict.
-        use_clip_grad (bool): grad clip.
-        max_grad_norm (float): The max value of grad clip norm
-        scale_sense (Union[float, Cell, Tensor]): Cell to do the loss scale. Default: 1.0.
-        micro_batch_num (int): Micro batch number of pipeline parallel. Default: 1.
-
-    Inputs:
-        - **forward_func** (Callable) - pipeline func for training.
-        - **input_data_tuple** (tuple) - input data for training.
-        - **input_data_dict** (tuple) - input data for training.
-
-    Outputs:
-        Tuple of 3 Tensor, the loss, overflow flag and current loss scale value.
-
-        - **loss** (Tensor) -  A scalar, the loss value.
-        - **overflow** (Tensor) -  A scalar, whether overflow occur or not, the type is bool.
-        - **scaling_sens** (Tensor) -  The loss scale value, the shape is :math:`()` or :math:`(1,)`.
-        - **learning_rate** (Tensor) -  The model learning rate .
-
-    Raises:
-        TypeError: If `scale_sense` is neither Cell nor Tensor.
-        ValueError: If shape of `scale_sense` is neither (1,) nor ().
-    """
-    # pylint: disable=W0613
-    def __init__(self, network, optimizer, config, use_clip_grad=True,
-                 max_grad_norm=1.0, scale_sense=1.0, micro_batch_num=1, **kwargs):
-        if isinstance(scale_sense, (int, float)):
-            scale_sense = Tensor(scale_sense)
-        super().__init__(network, optimizer, scale_sense)
-        self.network = network
-        self.network.add_flags(defer_inline=True)
-        self.optimizer = optimizer
-        self.seq_length = config.model_config.seq_length
-        self.hidden_size = config.model_config.hidden_size
-        self.batch_size = config.training.batch_size
-        self.use_clip_grad = use_clip_grad
-        self.micro_batch_num = micro_batch_num
-        self.config = config
-        self.status = Tensor([0] * 8, mstype.int32)
-        self.reshape = P.Reshape()
-        self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
-        self.opt_shard = _get_enable_parallel_optimizer()
-        self.learning_rate = deepcopy(self.optimizer.learning_rate)
-        self.reduction = config.parallel_config.reduction
-
-        self.loss_scaling_manager = None
-        if isinstance(scale_sense, nn.Cell):
-            self.loss_scaling_manager = scale_sense
-            self.scale_sense = Parameter(Tensor(scale_sense.get_loss_scale(), dtype=mstype.float32),
-                                         name="scale_sense")
-        elif isinstance(scale_sense, Tensor):
-            if scale_sense.shape == (1,) or scale_sense.shape == ():
-                self.scale_sense = Parameter(scale_sense, name='scale_sense')
-        self.allreduce = P.AllReduce(group=get_dp_group())
-
-    @C.add_flags(has_effect=True)
-    def construct(self, forward_func, *input_data_tuple, **input_data_dict):
-        """The construct processes of pipeline wrapper cell."""
-        scaling_sens = self.scale_sense
-        loss, grads = forward_func(self.network,
-                                   self.optimizer,
-                                   scaling_sens,
-                                   self.micro_batch_num,
-                                   self.batch_size,
-                                   self.seq_length,
-                                   self.hidden_size,
-                                   self.config.parallel_config,
-                                   *input_data_tuple,
-                                   **input_data_dict)
-        if self.use_clip_grad:
-            grads, _ = self.clip_grad_norm(grads)
-
-        learning_rate = self.learning_rate
-        if self.optimizer.dynamic_lr:
-            if self.optimizer.is_group_lr:
-                learning_rate = self.learning_rate[-1](self.optimizer.global_step).reshape(())
-            else:
-                learning_rate = self.learning_rate(self.optimizer.global_step).reshape(())
-
-        # sum overflow flag over devices
-        cond = self.get_overflow_status(self.status, grads)
-        cond = F.depend(cond, grads)
-        overflow = self.process_loss_scale(cond)
-
-        if not overflow:
-            loss = F.depend(loss, self.optimizer(grads))
-
-        if get_dp_world_size() > 1:
-            loss = self.allreduce(loss)
-            if self.reduction == "mean":
-                loss /= get_dp_world_size()
-        return loss, overflow, scaling_sens.value(), learning_rate.value()
+        save_checkpoint(model_config,
+                        train_one_step_cell.network_with_loss,
+                        train_one_step_cell.optimizer,
+                        train_one_step_cell.opt_param_scheduler,
+                        ckpt_path)

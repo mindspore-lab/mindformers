@@ -22,7 +22,7 @@ import mindspore.nn as nn
 from mindformers.experimental.parallel_core.pynative.tensor_parallel import GatherFromSequenceParallelRegion, \
                                                     VocabParallelEmbedding, ScatterToSequenceParallelRegion
 from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import get_rng_tracer
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_pp_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_world_size
 
 from .module import Module
 from .transformer import ParallelTransformer
@@ -42,14 +42,14 @@ class Pooler(Cell):
 
     def __init__(self, hidden_size, init_method, config, **kwargs):
         super().__init__(**kwargs)
-        param_init_dtype = config.param_init_dtype
+        param_init_dtype = config.params_dtype
         self.dense = nn.Dense(hidden_size,
                               hidden_size,
                               weight_init=init_method,
                               bias_init='zeros',
                               dtype=param_init_dtype,
                               activation='tanh')
-        self.sequence_parallel = config.parallel_config.use_sequence_parallel
+        self.sequence_parallel = config.parallel_config.sequence_parallel
         self.gather_from_sequence_parallel_region = GatherFromSequenceParallelRegion(
             need_to_swapaxes=False,
             tensor_parallel_output_grad=False
@@ -94,20 +94,21 @@ class Embedding(Module):
                  **kwargs):
         super().__init__(**kwargs)
 
-        self.param_init_dtype = config.param_init_dtype
-        self.embedding_init_dtype = config.embedding_init_dtype
+        self.param_init_dtype = config.params_dtype
         self.compute_dtype = config.compute_dtype
         self.init_method = config.init_method
-        self.sequence_parallel = config.parallel_config.use_sequence_parallel
+        self.sequence_parallel = config.parallel_config.sequence_parallel
         self.num_tokentypes = num_tokentypes
         self.data_layout = config.dataset_config.data_layout
+        self.fp32_residual_connection = config.fp32_residual_connection
+        self.clone_scatter_output_in_embedding = config.clone_scatter_output_in_embedding
 
         # init word embedding
         self.word_embeddings = VocabParallelEmbedding(vocab_size,
                                                       hidden_size,
                                                       config=config,
                                                       init_method=self.init_method,
-                                                      param_init_dtype=self.embedding_init_dtype)
+                                                      param_init_dtype=self.param_init_dtype)
 
         # init position embedding
         self.use_position_embedding = config.position_embedding_type == 'absolute'
@@ -177,9 +178,14 @@ class Embedding(Module):
         if self.data_layout == "SBH":
             embeddings = embeddings.swapaxes(0, 1)
 
+        if self.fp32_residual_connection:
+            raise NotImplementedError("`fp32_residual_connection` is not supported for now.")
+
         # dropout
         if self.sequence_parallel:
             embeddings = self.scatter_to_sequence_parallel_region(embeddings)
+            if self.clone_scatter_output_in_embedding:
+                raise NotImplementedError("`clone_scatter_output_in_embedding` is not supported for now.")
             with get_rng_tracer().rng_fork():
                 embeddings = self.dropout(embeddings)
         else:
@@ -188,7 +194,6 @@ class Embedding(Module):
         # convert dtype to compute dtype
         embeddings = embeddings.astype(self.compute_dtype)
         return embeddings
-
 
 class TransformerLanguageModel(Module):
     """
@@ -241,7 +246,7 @@ class TransformerLanguageModel(Module):
 
         self.pre_process = pre_process
         self.post_process = post_process
-        self.pipeline_parallel = get_pp_world_size() > 1
+        self.pipeline_parallel = get_pipeline_model_parallel_world_size() > 1
         self.use_encoder = add_encoder
         self.num_tokentypes = num_tokentypes
         self.encoder_attn_mask_type = encoder_attn_mask_type
@@ -255,12 +260,12 @@ class TransformerLanguageModel(Module):
         self.compute_dtype = config.compute_dtype
         self.untie_embeddings_and_output_weights = config.untie_embeddings_and_output_weights
         post_norm = config.use_final_norm
-        param_init_dtype = config.param_init_dtype
+        param_init_dtype = config.params_dtype
         hidden_size = config.hidden_size
         vocab_size = config.vocab_size
-        hidden_dropout_rate = config.hidden_dropout_rate
-        num_heads = config.num_heads
-        reduce_scatter_embeddings = config.parallel_config.use_sequence_parallel
+        hidden_dropout_rate = config.hidden_dropout
+        num_heads = config.num_attention_heads
+        reduce_scatter_embeddings = config.parallel_config.sequence_parallel
 
         if self.pre_process:
             # init embedding layer
@@ -283,10 +288,10 @@ class TransformerLanguageModel(Module):
         if self.use_rotary_embeddings:
             rotary_dim = hidden_size // num_heads
             self.rotary_pos_emb = RotaryEmbedding(
-                kv_channels=rotary_dim,
+                rotary_dim,
                 rotary_percent=config.rotary_percent,
                 rotary_interleaved=config.rotary_interleaved,
-                seq_len_interpolation_factor=config.rotary_seq_len_interpolation_factor,
+                seq_len_interpolation_factor=config.seq_len_interpolation_factor,
                 rotary_base=config.rotary_base)
 
         # init encoder
@@ -339,6 +344,7 @@ class TransformerLanguageModel(Module):
 
     def mixed_embedding(self, text_embedding, image_embedding, delimiter_position):
         """ mixing text embedding and image embedding """
+        # TODO: refactor code
         mix_embeddings = []
         for cur_batch in range(text_embedding.shape[0]):
             mix_embedding = []
@@ -347,7 +353,7 @@ class TransformerLanguageModel(Module):
             split_text_embedding = P.tensor_split(text_embedding[cur_batch], delimiter_position[cur_batch], axis=0)
             split_image_embedding = P.tensor_split(image_embedding[cur_batch], image_delimiter_position, axis=0)
             split_image_embedding = [split_image_embedding[i][0] for i in range(image_num)]
-            for i, _ in enumerate(split_text_embedding):
+            for i in range(len(split_text_embedding)):
                 mix_embedding.append(split_text_embedding[i] if i % 2 == 0 \
                                         else split_image_embedding[int((i - 1) / 2)])
             mix_embedding = mint.cat(mix_embedding, dim=0)
@@ -362,10 +368,30 @@ class TransformerLanguageModel(Module):
                   pooling_sequence_index=0, enc_hidden_states=None, output_enc_hidden=False,
                   input_image=None, delimiter_position=None, image_embedding=None):
         """ language model forward """
-        self._check_inputs(dec_input_ids, dec_position_ids, dec_attn_mask,
-                           retriever_input_ids, retriever_position_ids, retriever_attn_mask,
-                           enc_dec_attn_mask, inference_params, output_enc_hidden,
-                           input_image, delimiter_position, image_embedding)
+        if dec_input_ids is not None:
+            raise NotImplementedError("dec_input_ids is not supported for now.")
+        if dec_position_ids is not None:
+            raise NotImplementedError("dec_position_ids is not supported for now.")
+        if dec_attn_mask is not None:
+            raise NotImplementedError("dec_attn_mask is not supported for now.")
+        if retriever_input_ids is not None:
+            raise NotImplementedError("dec_input_ids is not supported for now.")
+        if retriever_position_ids is not None:
+            raise NotImplementedError("dec_position_ids is not supported for now.")
+        if retriever_attn_mask is not None:
+            raise NotImplementedError("dec_attn_mask is not supported for now.")
+        if enc_dec_attn_mask is not None:
+            raise NotImplementedError("enc_dec_attn_mask is not supported for now.")
+        if inference_params is not None:
+            raise NotImplementedError("inference_params is not supported for now.")
+        if output_enc_hidden:
+            raise NotImplementedError("output_enc_hidden is not supported for now.")
+        if input_image is not None:
+            raise NotImplementedError("input_image is not supported for now.")
+        if delimiter_position is not None:
+            raise NotImplementedError("delimiter_position is not supported for now.")
+        if image_embedding is not None:
+            raise NotImplementedError("image_embedding is not supported for now.")
 
         # visual encoder
         image_embedding_out = None
@@ -421,37 +447,6 @@ class TransformerLanguageModel(Module):
         if self.use_pooler and self.post_process:
             return encoder_output, pooled_output
         return encoder_output
-
-    def _check_inputs(self, dec_input_ids, dec_position_ids, dec_attn_mask,
-                      retriever_input_ids, retriever_position_ids, retriever_attn_mask,
-                      enc_dec_attn_mask, inference_params, output_enc_hidden,
-                      input_image, delimiter_position, image_embedding):
-        """check inputs function"""
-        if dec_input_ids is not None:
-            raise NotImplementedError("dec_input_ids is not supported for now.")
-        if dec_position_ids is not None:
-            raise NotImplementedError("dec_position_ids is not supported for now.")
-        if dec_attn_mask is not None:
-            raise NotImplementedError("dec_attn_mask is not supported for now.")
-        if retriever_input_ids is not None:
-            raise NotImplementedError("dec_input_ids is not supported for now.")
-        if retriever_position_ids is not None:
-            raise NotImplementedError("dec_position_ids is not supported for now.")
-        if retriever_attn_mask is not None:
-            raise NotImplementedError("dec_attn_mask is not supported for now.")
-        if enc_dec_attn_mask is not None:
-            raise NotImplementedError("enc_dec_attn_mask is not supported for now.")
-        if inference_params is not None:
-            raise NotImplementedError("inference_params is not supported for now.")
-        if output_enc_hidden:
-            raise NotImplementedError("output_enc_hidden is not supported for now.")
-        if input_image is not None:
-            raise NotImplementedError("input_image is not supported for now.")
-        if delimiter_position is not None:
-            raise NotImplementedError("delimiter_position is not supported for now.")
-        if image_embedding is not None:
-            raise NotImplementedError("image_embedding is not supported for now.")
-
 
 def get_language_model(config, num_tokentypes, add_pooler,
                        encoder_attn_mask_type,

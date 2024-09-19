@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""moe layer"""
-from .experts import SequentialMLP
-from .moe_layer import MoELayer
-from .router import TopKRouter
+"""mindformers init"""
 
-__all__ = ['SequentialMLP', 'MoELayer', 'TopKRouter']
+
+from .moe_layer import MoELayer
+
+__all__ = [
+    "MoELayer",
+]

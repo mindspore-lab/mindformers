@@ -18,7 +18,7 @@ import mindspore.ops.functional as F
 
 from mindspore import mint
 from mindspore.common import dtype as mstype
-from mindformers.experimental.parallel_core.pynative.transformer.module import Module
+from .module import Module
 
 
 class ScaleMaskSoftmax(Module):
@@ -50,8 +50,9 @@ class ScaleMaskSoftmax(Module):
 
         self.cast = P.Cast()
 
-        if self.scale is not None and softmax_compute_type != mstype.float32:
-            raise ValueError("softmax should be in fp32 when scaled.")
+        assert (
+            self.scale is None or softmax_compute_type == mstype.float32
+        ), "softmax should be in fp32 when scaled"
 
     def construct(self, x, mask):
         """construct method"""

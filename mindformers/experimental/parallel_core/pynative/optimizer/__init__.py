@@ -14,11 +14,161 @@
 # ============================================================================
 
 """mindformers init"""
+from mindspore import mint, ops
+from mindspore.common import dtype as mstype
+from mindspore.nn import Adam, SGD
 
-from . import zero
-from . import lr_scheduler
-from .optimizer import get_optimizer
+from mindformers.core.optim import Came
+from mindformers.core.optim import AdamW as mf_AdamW
+from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
+from mindformers.experimental.parallel_core.pynative.distributed import DistributedDataParallel
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_group
 
-__all__ = ["get_optimizer"]
+from .zero import *
+from .lr_scheduler import *
+from .distrib_optimizer import DistributedOptimizer
+from .optimizer import MixedPrecisionOptimizer, Float16OptimizerWithFloat16Params, get_optimizer_param_scheduler
+
+__all__ = ["DistributedOptimizer", "MixedPrecisionOptimizer", "Float16OptimizerWithFloat16Params", \
+    "get_optimizer", "get_optimizer_param_scheduler"]
 __all__.extend(zero.__all__)
 __all__.extend(lr_scheduler.__all__)
+
+
+ModuleRegistry.register(mf_AdamW, ModuleType.OPTIMIZER)
+ModuleRegistry.register(Adam, ModuleType.OPTIMIZER)
+ModuleRegistry.register(SGD, ModuleType.OPTIMIZER)
+ModuleRegistry.register(Came, ModuleType.OPTIMIZER)
+ModuleRegistry.register(mint.optim.AdamW, ModuleType.OPTIMIZER, item_name='mint.AdamW')
+
+
+def get_ditributed_optimizer(optimizer, optimizer_config, training_config, model_chunks):
+    " warp non-parallel optimizer with distributed optimizer. "
+    if model_chunks is None:
+        raise ValueError("When using DistributedOptimizer based on DDP, network instance should be passed "
+                         "to get_optimizer method but got None.")
+    per_model_buffers = {}
+    per_model_ep_buffers = {}
+    for model_idx, model_chunk in enumerate(model_chunks):
+        if not isinstance(model_chunk, DistributedDataParallel):
+            raise TypeError("When using DistribtedOptimizer, the network passed to get_optimizer should be "
+                            "wrapped with DistributedDataParallel.")
+        per_model_buffers[model_idx] = model_chunk.buffers
+        per_model_ep_buffers[model_idx] = model_chunk.expert_parallel_buffers
+    distributed_optimizer = DistributedOptimizer(
+        optimizer=optimizer,
+        config=optimizer_config,
+        grad_scaler=ops.Tensor(training_config.loss_scale, mstype.float32),
+        init_state_fn=None,
+        per_model_buffers=per_model_buffers,
+        data_parallel_group=get_data_parallel_group(with_context_parallel=True),
+    )
+    return distributed_optimizer
+
+
+def get_non_distributed_mixed_precision_optimizer(optimizer, optimizer_config, training_config):
+    optimizer = Float16OptimizerWithFloat16Params(
+        optimizer,
+        optimizer_config,
+        grad_scaler=ops.Tensor(training_config.loss_scale, mstype.float32),
+        init_state_fn=None,
+        wrap_with_ddp=training_config.wrap_with_ddp,
+    )
+    return optimizer
+
+
+def _set_group_lr_and_weight_decay(optimizer_config, params, lr, weight_decay):
+    if isinstance(params[0], dict) and not optimizer_config.optimizer_type.startswith("mint"):
+        using_group_lr = any("lr" in param for param in params)
+        for param in params:
+            if "order_params" not in param:
+                if "lr" not in param and using_group_lr:
+                    param["lr"] = lr
+                if "weight_decay" not in param:
+                    param["weight_decay"] = weight_decay
+
+
+def get_optimizer(optimizer_config, training_config, params=None, network=None, return_instance: bool = True, **kwargs):
+    """
+    Get an optimizer instance or class based on the provided optimizer configuration.
+
+    Args:
+        optimizer_config (OptimizerConfig): The configuration object for the optimizer.
+        params (list or dict, optional): The parameters to optimize. Default: None.
+        network (nn.Cell, optional): The network model, should be provided when use ZeRO optimizer. Default: None.
+        return_instance (bool): Whether to return an instance of the optimizer or just the optimizer class.
+        **kwargs: Additional keyword arguments to be passed to the optimizer class.
+
+    Returns:
+        Optimizer or type: An instance of the optimizer class if `return_instance` is True,
+        otherwise the optimizer class itself.
+
+    Raises:
+        ValueError: If `params` is None and `return_instance` is True.
+        ValueError: If `network` is None and use ZeRO optimizer.
+        NotImplementedError: If `weight_decay_kwargs` is not supported yet.
+
+    """
+    if optimizer_config.parallel_config.zero_level is not None:
+        optimizer_type = optimizer_config.optimizer_type + "ZeRO"
+    else:
+        optimizer_type = optimizer_config.optimizer_type
+    optimizer_cls = ModuleRegistry.get_item(module_type=ModuleType.OPTIMIZER, item_name=optimizer_type)
+
+    if not return_instance:
+        return_item = optimizer_cls
+
+    else:
+        if params is None:
+            raise ValueError("params must be provided when return_instance is True.")
+
+        if optimizer_config.weight_decay_kwargs is not None:
+            raise NotImplementedError("weight_decay_kwargs is not supported yet.")
+            # weight_decay = get_weight_decay(optimizer_config.optimizer)
+
+        weight_decay = optimizer_config.weight_decay
+
+        if optimizer_config.learning_rate_scheduler_kwargs is not None:
+            learning_rate = get_learning_rate_scheduler(optimizer_config)
+        else:
+            learning_rate = optimizer_config.learning_rate
+
+        _set_group_lr_and_weight_decay(optimizer_config, params, learning_rate, weight_decay)
+
+        optimizer_kwargs = optimizer_config.get_needed_params_for_class(optimizer_cls)
+        if optimizer_config.optimizer_type.startswith("mint"):
+            optimizer_kwargs["lr"] = learning_rate
+            optimizer_kwargs["betas"] = tuple(optimizer_kwargs["betas"])
+        else:
+            optimizer_kwargs["learning_rate"] = learning_rate
+        optimizer_kwargs["weight_decay"] = weight_decay
+        optimizer_kwargs["params"] = params
+        if "grad_allreduce_op" in kwargs:
+            if optimizer_config.parallel_config.zero_level is not None:
+                optimizer_kwargs["grad_allreduce_op"] = kwargs["grad_allreduce_op"]
+            kwargs.pop("grad_allreduce_op", None)
+        if optimizer_config.parallel_config.zero_level is not None:
+            if network is None:
+                raise ValueError("Network must be provided when get ZeRO optimizer instance.")
+            optimizer_kwargs["zero_level"] = optimizer_config.parallel_config.zero_level
+            optimizer_kwargs["network"] = network
+            if optimizer_config.zero_config is not None:
+                optimizer_kwargs.update(optimizer_config.zero_config)
+        optimizer_kwargs.update(kwargs)
+        return_item = optimizer_cls(**optimizer_kwargs)
+
+        if training_config.wrap_with_ddp and training_config.use_distributed_optimizer:
+            return_item = get_ditributed_optimizer(
+                return_item,
+                optimizer_config,
+                training_config,
+                network,
+            )
+        elif training_config.fp16 or training_config.bf16:
+            return_item = get_non_distributed_mixed_precision_optimizer(
+                return_item,
+                optimizer_config,
+                training_config,
+            )
+
+    return return_item

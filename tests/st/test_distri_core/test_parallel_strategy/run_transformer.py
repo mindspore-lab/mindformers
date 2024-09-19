@@ -24,8 +24,8 @@ import mindspore.common.dtype as mstype
 from mindspore.nn import SoftmaxCrossEntropyWithLogits
 from mindspore.communication.management import init
 
-from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig, \
-    OptimizerConfig
+from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig, OptimizerConfig, \
+    TrainingConfig
 from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
 from mindformers.experimental.parallel_core.pynative.transformer import ParallelTransformer
 from mindformers.experimental.parallel_core.pynative.transformer.rotary_pos_embedding import RotaryEmbedding
@@ -33,15 +33,13 @@ from mindformers.experimental.parallel_core.pynative.dist_checkpointing import l
 from mindformers.experimental.parallel_core.pynative.optimizer import get_optimizer
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
 from tests.st.test_distri_core.utils import TestData, train, _transform_ckpt_helper
-
-
 class ParallelTransformerNet(Module):
     """ ParallelTransformerNet. """
     def __init__(self, config, with_rope=False):
         super(ParallelTransformerNet, self).__init__()
         self.with_rope = with_rope
         if with_rope:
-            self.rope = RotaryEmbedding(kv_channels=config.hidden_size // config.num_heads,
+            self.rope = RotaryEmbedding(kv_channels=config.hidden_size//config.num_attention_heads,
                                         rotary_percent=1.0)
         self.transformer = ParallelTransformer(config=config, post_norm=False)
         self.loss = SoftmaxCrossEntropyWithLogits()
@@ -57,15 +55,14 @@ class ParallelTransformerNet(Module):
         loss = self.loss(output, labels)
         return loss
 
-
 def run_parallel_transformer(test_mode, tp_size, rng_mode):
     """ Test ParallelTransformer. """
     batch_size = 1
     dataset_size = 3
     num_layers = 2
     seq_length = 16
-    num_heads = 8
-    hidden_size = 64
+    num_attention_heads = 4
+    hidden_size = 16
     tensor_parallel = tp_size
     if test_mode in ["transform_src", "transform_dst"]:
         dropout_rate = 0.0
@@ -80,35 +77,37 @@ def run_parallel_transformer(test_mode, tp_size, rng_mode):
     ms.set_seed(2024)
     input_data = np.random.random((dataset_size, seq_length, hidden_size)).astype(np.float32)
     label_data = np.zeros((dataset_size, seq_length)).astype(np.float32)
-    for i in range(label_data.shape[0]):
-        label_data[i][0] = 1
-    attn_mask = ((1 - np.tril(np.ones(shape=(1, seq_length, seq_length)))) * -10000).astype(np.float32)
-    dataset = TestData(input_data=input_data, label_data=label_data, attn_mask=attn_mask)
-    dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels', "attention_mask"])
+    dataset = TestData(input_data=input_data, label_data=label_data, with_attn_mask=True)
+    dataset = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels', "attention_mask"], shuffle=False)
     dataset = dataset.batch(batch_size)
 
-    parallel_config = ModelParallelConfig(tensor_parallel=tensor_parallel)
+    parallel_config = ModelParallelConfig(tensor_model_parallel_size=tensor_parallel)
+    training_config = TrainingConfig(parallel_config=parallel_config)
+    if test_mode == "transform_src":
+        parallel_config.zero_level = "z3"
+    elif test_mode == "transform_dst":
+        parallel_config.zero_level = "z2"
     config = TransformerConfig(seq_length=seq_length,
                                vocab_size=1,
                                num_layers=num_layers,
-                               num_heads=num_heads,
+                               num_attention_heads=num_attention_heads,
                                hidden_size=hidden_size,
-                               attention_type='self_attn',
+                               attention_type='cross_attn',
                                qkv_has_bias=True,
                                out_proj_has_bias=False,
                                parallel_config=parallel_config,
-                               param_init_dtype='float32',
+                               params_dtype='float32',
                                compute_dtype='float32',
                                softmax_compute_dtype='float32',
-                               hidden_dropout_rate=dropout_rate,
-                               attention_dropout_rate=dropout_rate,
+                               hidden_dropout=dropout_rate,
+                               attention_dropout=dropout_rate,
                                mask_func_type="attn_mask_add",
                                mlp_has_bias=True,
-                               ffn_hidden_size=4 * hidden_size,
+                               ffn_hidden_size=4*hidden_size,
                                hidden_act='gelu',
                                apply_residual_connection_post_norm=False,
                                normalization='FusedRMSNorm',
-                               layernorm_epsilon=1.e-5)
+                               norm_epsilon=1.e-5)
     network = ParallelTransformerNet(config=config, with_rope=True)
     zero_config = {}
     zero_config['grad_allreduce_op'] = "mean"
@@ -126,28 +125,26 @@ def run_parallel_transformer(test_mode, tp_size, rng_mode):
     attn_mask = Tensor(shape=(None, None), dtype=mstype.float32)
     network.set_inputs(input_ids, labels, attn_mask)
 
-    optimizer = get_optimizer(optimizer_config, network.trainable_params(), network)
+    optimizer = get_optimizer(optimizer_config, training_config, network.trainable_params(), network)
 
     if test_mode == "transform_src":
-        for param in optimizer.get_parameters():
-            print(param.name, param.value())
-        save_checkpoint(config, network, optimizer, f"./output/transformer_0")
-        losses = train(1, dataset, network, optimizer, None, with_attn_input=True)
+        save_checkpoint(config, network, optimizer, None, f"./output/transformer_0")
+        losses = train(1, dataset, network, optimizer, None, with_attn_input=True, zero_level=3)
         np.save(f"./loss_transform_src.npy", np.array(losses))
     elif test_mode == "transform_dst":
-        _transform_ckpt_helper(config, network, optimizer, f"./output/transformer_0", f"./output/transformer_0_1")
-        load_checkpoint(config, network, optimizer, f"./output/transformer_0_1")
-        for param in optimizer.get_parameters():
-            print(param.name, param.value())
-        losses = train(1, dataset, network, optimizer, None, with_attn_input=True)
+        _transform_ckpt_helper(config, network, optimizer,
+                               f"./output/transformer_0", f"./output/transformer_0_1",
+                               ckpt_prefix="transformed")
+        load_checkpoint(config, network, optimizer, None, f"./output/transformer_0_1")
+        losses = train(1, dataset, network, optimizer, None, with_attn_input=True, zero_level=2)
         np.save(f"./loss_transform_dst.npy", np.array(losses))
     else:
         if rng_mode == "save":
             losses = train(1, dataset, network, optimizer, None, with_attn_input=True)
-            save_checkpoint(config, network, optimizer, f"./output/transformer_0")
+            save_checkpoint(config, network, optimizer, None, f"./output/transformer_0")
             losses = train(1, dataset, network, optimizer, None, with_attn_input=True)
         else:
-            load_checkpoint(config, network, optimizer, f"./output/transformer_0")
+            load_checkpoint(config, network, optimizer, None, f"./output/transformer_0")
             losses = train(1, dataset, network, optimizer, None, with_attn_input=True)
         losses = list(map(lambda x: x[0], losses))
         np.save(f"./rng_state_{rng_mode}.npy", np.array(get_rng_state()))

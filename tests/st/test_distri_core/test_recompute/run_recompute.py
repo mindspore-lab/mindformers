@@ -26,7 +26,8 @@ from mindspore.communication.management import init
 
 from mindformers import MindFormerConfig
 from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
-from mindformers.experimental.parallel_core.pynative.transformer import ParallelTransformerLayer, ParallelTransformer
+from mindformers.experimental.parallel_core.pynative.transformer import ParallelTransformerLayer
+from mindformers.experimental.parallel_core.pynative.transformer import ParallelTransformer
 
 
 class ParallelTransformerLayerNet(nn.Cell):
@@ -36,10 +37,12 @@ class ParallelTransformerLayerNet(nn.Cell):
         super(ParallelTransformerLayerNet, self).__init__()
         self.layer = ParallelTransformerLayer(layer_number=1, config=config)
         self.loss = SoftmaxCrossEntropyWithLogits()
+        self.outputs = []
 
     def construct(self, x, attention_mask, labels):
         """Construct"""
         output = self.layer(x, attention_mask)
+        self.outputs.append(output.asnumpy())
         output = ops.sum(output, dim=-1, keepdim=False)
         loss = self.loss(output, labels)
         return loss
@@ -67,7 +70,7 @@ def run_selective_recompute():
     batch_size = 2
     seq_length = 16
     hidden_size = 32
-    num_heads = 8
+    num_attention_heads = 8
     tensor_parallel = 1
 
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic="ON")
@@ -77,26 +80,28 @@ def run_selective_recompute():
     ms.set_seed(seed)
     ms.manual_seed(seed)
 
-    parallel_config = MindFormerConfig(expert_parallel=1, use_sequence_parallel=False)
+    parallel_config = MindFormerConfig(expert_model_parallel_size=1, use_sequence_parallel=False)
+    lora_config = MindFormerConfig(use_lora=False)
     config = MindFormerConfig(
-        num_heads=num_heads,
+        num_attention_heads=num_attention_heads,
         hidden_size=hidden_size,
         attn_type="self_attn",
         qkv_has_bias=True,
         out_proj_has_bias=False,
-        param_init_dtype=mstype.float32,
+        params_dtype=mstype.float32,
         compute_dtype=mstype.float32,
         softmax_compute_dtype=mstype.float32,
-        hidden_dropout_rate=0.1,
-        attention_dropout_rate=0.1,
+        hidden_dropout=0.1,
+        attention_dropout=0.1,
         parallel_config=parallel_config,
+        lora_config=lora_config,
         mask_func_type="attn_mask_add",
         mlp_has_bias=True,
         ffn_hidden_size=4 * hidden_size,
         hidden_act="gelu",
         apply_residual_connection_post_norm=False,
         normalization="FusedRMSNorm",
-        layernorm_epsilon=1.0e-5,
+        norm_epsilon=1.0e-5,
     )
 
     network = ParallelTransformerLayerNet(config=config)
@@ -139,7 +144,7 @@ def run_gradient_checkpointed_recompute():
     seq_length = 16
     num_layers = 3
     hidden_size = 32
-    num_heads = 8
+    num_attention_heads = 8
     tensor_parallel = 1
 
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic="ON")
@@ -149,27 +154,29 @@ def run_gradient_checkpointed_recompute():
     ms.set_seed(seed)
     ms.manual_seed(seed)
 
-    parallel_config = MindFormerConfig(expert_parallel=1, use_sequence_parallel=False)
+    parallel_config = MindFormerConfig(expert_model_parallel_size=1, use_sequence_parallel=False)
+    lora_config = MindFormerConfig(use_lora=False)
     config = MindFormerConfig(
         num_layers=num_layers,
-        num_heads=num_heads,
+        num_attention_heads=num_attention_heads,
         hidden_size=hidden_size,
         attn_type="self_attn",
         qkv_has_bias=True,
         out_proj_has_bias=False,
-        param_init_dtype=mstype.float32,
+        params_dtype=mstype.float32,
         compute_dtype=mstype.float32,
         softmax_compute_dtype=mstype.float32,
-        hidden_dropout_rate=0.1,
-        attention_dropout_rate=0.1,
+        hidden_dropout=0.1,
+        attention_dropout=0.1,
         parallel_config=parallel_config,
+        lora_config=lora_config,
         mask_func_type="attn_mask_add",
         mlp_has_bias=True,
         ffn_hidden_size=4 * hidden_size,
         hidden_act="gelu",
         apply_residual_connection_post_norm=False,
         normalization="FusedRMSNorm",
-        layernorm_epsilon=1.0e-5,
+        norm_epsilon=1.0e-5,
     )
 
     network = ParallelTransformerNet(config=config)

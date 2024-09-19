@@ -38,12 +38,12 @@ class TestSequenceParallel:
         scripts_path = os.path.join(sh_path, scripts_name)
         log_dir = "golden_log"
         scripts_cmd = f"{scripts_path} --generate_golden"
-        cmd = f"msrun --worker_num={device_num} " + \
-                    f"--local_worker_num={device_num} " + \
-                    f"--master_port=8027 " + \
-                    f"--log_dir={log_dir} " + \
-                    f"--join=True " + \
-                    f"--cluster_time_out=300 " + \
+        cmd = f"msrun --worker_num={device_num} "+\
+                    f"--local_worker_num={device_num} "+\
+                    f"--master_port=8027 "+\
+                    f"--log_dir={log_dir} "+\
+                    f"--join=True "+\
+                    f"--cluster_time_out=300 "+\
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
@@ -68,12 +68,12 @@ class TestSequenceParallel:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path}"
-        cmd = f"msrun --worker_num={device_num} " + \
-                    f"--local_worker_num={device_num} " + \
-                    f"--master_port=8115 " + \
-                    f"--log_dir={log_dir} " + \
-                    f"--join=True " + \
-                    f"--cluster_time_out=300 " + \
+        cmd = f"msrun --worker_num={device_num} "+\
+                    f"--local_worker_num={device_num} "+\
+                    f"--master_port=8115 "+\
+                    f"--log_dir={log_dir} "+\
+                    f"--join=True "+\
+                    f"--cluster_time_out=300 "+\
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
@@ -105,6 +105,36 @@ class TestSequenceParallel:
     @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
+    @pytest.mark.run(order=1)
+    def test_sequence_parallel_golden_net(self):
+        """
+        Feature: generate sequence parallel net golden loss
+        Description: run pynative mode sequence parallel net to generate golden loss
+        Expectation: test success
+        """
+        os.environ['HCCL_BUFFSIZE'] = "1"
+        scripts_name = "test_sequence_parallel_net.py"
+        device_num = 4
+
+        sh_path = os.path.split(os.path.realpath(__file__))[0]
+        scripts_path = os.path.join(sh_path, scripts_name)
+        log_dir = "sp_overlap_log"
+        scripts_cmd = f"{scripts_path} --overlap_grad_reduce"
+        cmd = f"msrun --worker_num={device_num} "+\
+                    f"--local_worker_num={device_num} "+\
+                    f"--master_port=8027 "+\
+                    f"--log_dir={log_dir} "+\
+                    f"--join=True "+\
+                    f"--cluster_time_out=300 "+\
+                    f"{scripts_cmd}"
+        print(f"\nrun cmd is:\n{cmd}")
+        ret = os.system(cmd)
+        os.system(f"grep -E 'ERROR|error' {sh_path}/{log_dir}/worker_0.log -C 3")
+        assert ret == 0, f"msrun failed, please check {log_dir}/worker_*.log"
+
+    @pytest.mark.level1
+    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.env_single
     @pytest.mark.run(order=2)
     def test_grad_acc_sequence_parallel_net(self):
         """
@@ -120,12 +150,12 @@ class TestSequenceParallel:
         scripts_path = os.path.join(sh_path, scripts_name)
 
         scripts_cmd = f"{scripts_path} --overlap_grad_reduce --gradient_accumulation_fusion"
-        cmd = f"msrun --worker_num={device_num} " + \
-                    f"--local_worker_num={device_num} " + \
-                    f"--master_port=8115 " + \
-                    f"--log_dir={log_dir} " + \
-                    f"--join=True " + \
-                    f"--cluster_time_out=300 " + \
+        cmd = f"msrun --worker_num={device_num} "+\
+                    f"--local_worker_num={device_num} "+\
+                    f"--master_port=8115 "+\
+                    f"--log_dir={log_dir} "+\
+                    f"--join=True "+\
+                    f"--cluster_time_out=300 "+\
                     f"{scripts_cmd}"
         print(f"\nrun cmd is:\n{cmd}")
         ret = os.system(cmd)
@@ -142,7 +172,7 @@ class TestSequenceParallel:
         Description: compare relative error between sequence parallel loss and golden loss
         Expectation: relative error smaller than 1e-3
         """
-        golden_numpy_path = f'./golden_loss.npy'
+        golden_numpy_path = f'./sp_overlap.npy'
         sp_numpy_path = f'./sp_overlap_grad_scc.npy'
 
         sp_loss = np.load(sp_numpy_path)

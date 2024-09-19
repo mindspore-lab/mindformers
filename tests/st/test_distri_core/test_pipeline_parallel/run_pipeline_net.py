@@ -21,8 +21,13 @@ import mindspore as ms
 import mindspore.dataset as ds
 from mindspore.nn import Adam
 from mindspore.communication import init
-from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel, get_dp_group, \
-    get_pp_group, get_pp_rank, get_pp_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import (
+    initialize_model_parallel,
+    get_data_parallel_group,
+    get_pipeline_model_parallel_group,
+    get_pipeline_model_parallel_rank,
+    get_pipeline_model_parallel_world_size
+)
 from mindformers.experimental.parallel_core.pynative.training import TrainOneStepCell, train, get_model
 from mindformers.experimental.parallel_core.pynative.config import (
     init_configs_from_yaml,
@@ -34,7 +39,6 @@ from mindformers.experimental.parallel_core.pynative.config import (
 from test_pipeline_net import PipelineTestNet, FakeData
 
 ms.set_seed(2024)
-
 
 def generate_ckpt(vocab_size, seq_length, hidden_size, num_layers, share_weight=False):
     """ get ckpt dict """
@@ -57,7 +61,7 @@ def generate_ckpt(vocab_size, seq_length, hidden_size, num_layers, share_weight=
         ckpt['fake_head.weight'] = ms.Parameter(ms.Tensor(np.random.random((vocab_size, hidden_size)),
                                                           ms.float32),
                                                 name='fake_head.weight')
-    elif get_pp_world_size() > 1:
+    elif get_pipeline_model_parallel_world_size() > 1:
         ckpt['fake_head.weight'] = embedding_param
     ckpt['final_norm.beta'] = ms.Parameter(ms.Tensor(np.zeros((hidden_size,)),
                                                      ms.float32),
@@ -74,7 +78,7 @@ def run_pipeline(training_config, model_config, parallel_config, dataset_config)
     init()
 
     # init context
-    pp = parallel_config.pipeline_stage
+    pp = parallel_config.pipeline_model_parallel_size
     if parallel_config.virtual_pipeline_model_parallel_size is not None and \
        parallel_config.virtual_pipeline_model_parallel_size > 1:
         vpp = parallel_config.virtual_pipeline_model_parallel_size
@@ -85,8 +89,9 @@ def run_pipeline(training_config, model_config, parallel_config, dataset_config)
                               virtual_pipeline_model_parallel_size=vpp)
     print("pp stage num: {}".format(pp), flush=True)
     print("vpp size: {}".format(vpp), flush=True)
-    print("dp group {} | pp group {}".format(get_dp_group(), get_pp_group()), flush=True)
-    print("current pp rank {}".format(get_pp_rank()), flush=True)
+    print("dp group {} | pp group {}".format(get_data_parallel_group(), \
+                                             get_pipeline_model_parallel_group()), flush=True)
+    print("current pp rank {}".format(get_pipeline_model_parallel_rank()), flush=True)
 
     # get ckpt
     ckpt_dict = generate_ckpt(model_config.vocab_size,
@@ -107,7 +112,7 @@ def run_pipeline(training_config, model_config, parallel_config, dataset_config)
         """ model provider func """
         network = PipelineTestNet(model_config, pre_process=pre_process, post_process=post_process)
         return network
-    network = get_model(model_provider_func, parallel_config)
+    network = get_model(model_provider_func, training_config)
 
     # load ckpt
     ms.load_param_into_net(network, ckpt_dict)
@@ -115,7 +120,7 @@ def run_pipeline(training_config, model_config, parallel_config, dataset_config)
     optimizer = Adam(params=network.trainable_params(), learning_rate=0.001, beta1=0.9, beta2=0.95)
 
     # init train one step cell
-    train_one_step_cell = TrainOneStepCell(network, optimizer, training_config, model_config)
+    train_one_step_cell = TrainOneStepCell(network, optimizer, None, training_config, model_config)
 
     print(f"network trainable params: {network.trainable_params()}", flush=True)
 
@@ -153,7 +158,7 @@ def run_standalone(training_config, model_config, dataset_config):
     optimizer = Adam(params=network.trainable_params(), learning_rate=0.001, beta1=0.9, beta2=0.95)
 
     # init train one step cell
-    train_one_step_cell = TrainOneStepCell(network, optimizer, training_config, model_config)
+    train_one_step_cell = TrainOneStepCell(network, optimizer, None, training_config, model_config)
 
     print(f"network trainable params: {network.trainable_params()}", flush=True)
 

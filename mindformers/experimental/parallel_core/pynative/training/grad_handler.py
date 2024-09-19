@@ -14,17 +14,18 @@
 # ============================================================================
 """clip grad and scale grad"""
 
+import mindspore as ms
+import mindspore.nn as nn
 import mindspore.ops as ops
 import mindspore.common.dtype as mstype
 import mindspore._checkparam as validator
-import mindspore.nn as nn
 from mindspore import mint
+from mindspore.ops import functional as F
 from mindspore.ops import composite as C
-from mindspore.ops import operations as P
 from mindspore.communication import get_group_size, GlobalComm
 from mindspore.communication.comm_func import all_reduce
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_tp_group, get_tp_rank
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_model_parallel_group, get_tensor_model_parallel_rank
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
 
 
@@ -38,57 +39,87 @@ def inplace_apply_to_tensor_list(func: callable):
     """
 
     def inplace_apply_func(tensor_list, *args, **kwargs):
-        for idx, _ in enumerate(tensor_list):
+        # TODO: when using DDP, sharded slice will transfer to contiguous, remove `[:]` when this fixed
+        for idx in range(len(tensor_list)):
             tensor_list[idx].copy_(func(tensor_list[idx], *args, **kwargs))
 
     return inplace_apply_func
 
 
+def param_is_not_shared(param):
+    return not hasattr(param, 'shared') or not param.shared
+
+
+def get_grad_norm_fp32(grads_for_norm, norm_type=2, model_parallel_group=None):
+    """ get fp32 global grad norm. """
+    if isinstance(grads_for_norm, ms.Tensor):
+        grads_for_norm = [grads_for_norm]
+
+    norm_type = float(norm_type)
+    total_norm = ms.Tensor(0.0, mstype.float32)
+
+    if norm_type == 2.0:
+        for grad in grads_for_norm:
+            total_norm = mint.add(total_norm, mint.sum(mint.square(grad)))
+    else:
+        raise NotImplementedError("for global norm, l2 norm only support now")
+
+    if get_group_size(model_parallel_group) > 1:
+        total_norm = all_reduce(total_norm, "sum", model_parallel_group)
+    total_norm = total_norm ** (1.0 / norm_type)
+    return total_norm
+
+
+def clip_grad_by_total_norm_fp32(parameters, max_norm, total_norm):
+    """ clip gradients by global norm. """
+    grads = []
+    for param in parameters:
+        if param.grad is not None:
+            grads.append(param.grad)
+    clip_coeff = max_norm / (total_norm + 1.0e-6)
+    if clip_coeff < 1.0:
+        grad_func = inplace_apply_to_tensor_list(mint.mul)
+        grad_func(grads, clip_coeff)
+
+
 @ModuleRegistry.register_decorator(ModuleType.GRAD_PROCESS_FUNC)
 class GradClipByValue(nn.Cell):
-    """
-    Clips the gradients by a specified value inplace.
-
-    Args:
-        clip_value (float): The value to clip the gradients.
-
-    Inputs:
-        - **grads** (list[Tensor]) - The gradients of parameters, the shape is the same as parameters.
-    """
     def __init__(self, clip_value):
         super(GradClipByValue, self).__init__()
         self.clip_value = clip_value
-        self.clip_func = inplace_apply_to_tensor_list(ops.clip_by_value)
+        self.clip_func = inplace_apply_to_tensor_list(F.clip_by_value)
 
     def construct(self, grads):
-        self.clip_func(grads, -self.clip_value, self.clip_value)
+        return self.clip_func(grads, -self.clip_value, self.clip_value)
 
 
 get_square_sum = C.MultitypeFuncGraph("get_square_sum")
+apply_global_norm = C.MultitypeFuncGraph("apply_global_norm")
 
 
 @get_square_sum.register("Tensor")
 def _get_square_sum(grad):
-    norm = mint.sum(mint.square(P.Cast()(grad, mstype.float32)))
-    norm = norm.expand_dims(0)
+    norm = ops.ReduceSum(False)(F.square(F.cast(grad, mstype.float32)), ())
+    norm = F.expand_dims(norm, 0)
     return norm
+
+
+@apply_global_norm.register("Bool", "Tensor", "Tensor", "Tensor")
+def _apply_global_norm(enable_grad_fp16, clip_norm, global_norm, grad):
+    if enable_grad_fp16:
+        grad = ops.Cast()(grad * clip_norm / global_norm, mstype.float16)
+    else:
+        grad = grad * clip_norm / global_norm
+    return grad
 
 
 @ModuleRegistry.register_decorator(ModuleType.GRAD_PROCESS_FUNC)
 class ClipGlobalNorm(nn.Cell):
     """
-    Clips the gradients by global norm value.
-
-    Args:
-        params (List): Parameters of the network.
-        reduce_comm_group: The communication group to reduce norm value.
-        clip_value (float): The value to clip the gradients. Default: 1.0.
-        norm_type (str): The type of global norm value. Default: 'l2'
-
-    Inputs:
-        - **grads** (list[Tensor]) - The gradients of parameters, the shape is the same as parameters.
+    clip grad by global norm
     """
-    def __init__(self, params, reduce_comm_group, clip_value=1.0, norm_type='l2'):
+
+    def __init__(self, params, reduce_comm_group, clip_value=1.0, norm_type="l2"):
         super(ClipGlobalNorm, self).__init__()
         self.params = params
         self.clip_value = clip_value
@@ -105,7 +136,7 @@ class ClipGlobalNorm(nn.Cell):
         """
         get grads to norm, include weight/bias(not duplicate) and layernorm(duplicate, only pick grad on rank0)
         """
-        rank_id = get_tp_rank()
+        rank_id = get_tensor_model_parallel_rank()
         norm_grads = ()
         for i, param in enumerate(self.params):
             is_duplicate_grad = (
@@ -124,9 +155,10 @@ class ClipGlobalNorm(nn.Cell):
         """Compute grad norm."""
         if self.norm_type == "l2":
             square_sum = self.hyper_map(get_square_sum, grads)
-            square_reduce_sum = ops.addn(square_sum)
+            square_reduce_sum = F.addn(square_sum)
         else:
-            raise NotImplementedError("for global norm, l2 norm only support now.")
+            raise NotImplementedError("for global norm, l2 norm only support now")
+        # TODO add pipline parallel situation
         if get_group_size(self.reduce_comm_group) > 1:
             square_reduce_sum = all_reduce(square_reduce_sum, "sum", self.reduce_comm_group)
         total_norm = mint.sqrt(square_reduce_sum)
@@ -141,7 +173,6 @@ class ClipGlobalNorm(nn.Cell):
             self.clip_func(grads, clip_coeff)
         return total_norm
 
-
 def get_grad_process_func(training_config, return_instance=True, **kwargs):
     """
     Get the gradient processing function based on the provided training configuration.
@@ -154,25 +185,27 @@ def get_grad_process_func(training_config, return_instance=True, **kwargs):
 
     Returns:
         Union[Type[GradProcessFunc], GradProcessFunc]: The gradient processing function or its instance.
+
+    Raises:
+        ValueError: If `params` is not provided for the "ClipGlobalNorm" gradient clip type.
+
     """
     grad_process_func_kwargs = training_config.grad_clip_kwargs.copy()
     grad_clip_type = grad_process_func_kwargs.pop("grad_clip_type")
     grad_clip_cls = ModuleRegistry.get_item(module_type=ModuleType.GRAD_PROCESS_FUNC, item_name=grad_clip_type)
     if return_instance:
-        grad_process_func_kwargs.update(kwargs)
-        grad_process_func_kwargs = ModuleRegistry.get_needed_params_for_init(grad_clip_cls, grad_process_func_kwargs)
         if grad_clip_type == "ClipGlobalNorm":
-            if "params" not in grad_process_func_kwargs:
+            if "params" not in kwargs:
                 raise ValueError("params is required for ClipGlobalNorm")
+            grad_process_func_kwargs["params"] = kwargs["params"]
             if training_config.use_distributed_optimizer or \
                     training_config.parallel_config.zero_level in ["z2", "z3"]:
                 reduce_comm_group = GlobalComm.WORLD_COMM_GROUP
             else:
-                reduce_comm_group = get_tp_group()
+                reduce_comm_group = get_model_parallel_group()
             grad_process_func_kwargs["reduce_comm_group"] = reduce_comm_group
         return grad_clip_cls(**grad_process_func_kwargs)
     return grad_clip_cls
-
 
 class GradAccumulator:
     '''
@@ -192,7 +225,7 @@ class GradAccumulator:
         NotImplementedError: If `op` is not mean or sum.
 
     Examples:
-        >>> from mindformers.experimental.parallel_core.pynative.training.grad_handler import GradAccumulator
+        >>> from mindformers.experimental.distri_cores.grad_handler import GradAccumulator
         >>> micro_batch_num = 2
         >>> accumulator = GradAccumulator(micro_batch_num)
         >>> grad_func = ops.value_and_grad(network, grad_position=0, weights=optimizer.parameters)
@@ -208,7 +241,7 @@ class GradAccumulator:
         self.accumulate_step = micro_batch_num
         if op not in ["mean", "sum"]:
             raise NotImplementedError(f"{op} is not supported in GradAccumulator yet.")
-        self.is_mean_op = op == "mean"
+        self.mean_op = op == "mean"
         self.map = ops.HyperMap()
         self.has_init = False
         self.need_clear = False
@@ -236,7 +269,7 @@ class GradAccumulator:
         self.map(ops.partial(ops.assign_add), self.inner_grads, grads)
         self.counter += 1
         if self.counter % self.accumulate_step == 0:
-            if self.is_mean_op:
+            if self.mean_op:
                 self.map(ops.partial(self._mean_value), self.inner_grads)
             self.need_clear = True
             return self.inner_grads

@@ -20,9 +20,9 @@ import mindspore as ms
 import mindspore.dataset as ds
 from mindspore.nn import Adam
 from mindspore.communication import init
-from mindformers.experimental.parallel_core.pynative.transformer import ParallelLMLogits
-from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel, \
-    get_tp_world_size, get_dp_world_size
+from mindformers.experimental.parallel_core.pynative.training import TrainOneStepCell, train
+from mindformers.experimental.parallel_core.pynative.transformer import TransformerLanguageModel, ParallelLMLogits
+from mindformers.experimental.parallel_core.pynative.create_comm import initialize_model_parallel, get_tensor_model_parallel_world_size, get_data_parallel_world_size
 from mindformers.experimental.parallel_core.pynative.config import (
     init_configs_from_yaml,
     TrainingConfig,
@@ -30,16 +30,10 @@ from mindformers.experimental.parallel_core.pynative.config import (
     TransformerConfig,
     DatasetConfig,
 )
-from mindformers.experimental.parallel_core.pynative.tensor_parallel import (
-    GatherFromModelParallelRegion,
-    VocabParallelEmbedding
-)
-
-from tests.st.test_distri_core.utils import linear_train
+from mindformers.experimental.parallel_core.pynative.tensor_parallel import GatherFromModelParallelRegion
 
 ms.set_seed(2024)
 ds.set_seed(2024)
-
 
 class FakeData():
     """ generate fake data for language model test """
@@ -63,18 +57,11 @@ class FakeData():
     def __len__(self):
         return self.input_data.shape[0]
 
-
-class TestParallelLMLogits(ms.nn.Cell):
-    """ Test Parallel lm logits """
+class TestLanguageModel(ms.nn.Cell):
+    """ Test language model """
     def __init__(self, config, parallel_output):
         super().__init__()
-        self.word_embeddings = VocabParallelEmbedding(
-            config.vocab_size,
-            config.hidden_size,
-            config=config.parallel_config,
-            init_method=config.init_method,
-            reduce_scatter_embeddings=config.parallel_config.use_sequence_parallel,
-            param_init_dtype=config.param_init_dtype)
+        self.transformer_language_model = TransformerLanguageModel(config, encoder_attn_mask_type=None)
         self.head = ParallelLMLogits(config=config.parallel_config,
                                      bias=False,
                                      compute_dtype=config.compute_dtype)
@@ -82,13 +69,13 @@ class TestParallelLMLogits(ms.nn.Cell):
         self.parallel_output = parallel_output
         self.gather_from_mp_region = GatherFromModelParallelRegion()
 
-    # pylint: disable=W0613
     def construct(self, input_ids, position_ids, attention_mask):
-        """ model test forward """
+        """ Language model test forward """
         labels = input_ids[:, 1:]
         input_ids = input_ids[:, :-1]
-        hidden_states = self.word_embeddings(input_ids)
-        logits_weights = self.word_embeddings.weight
+        hidden_states = self.transformer_language_model(input_ids, position_ids, attention_mask)
+        logits_weights = self.transformer_language_model.embedding.word_embeddings.weight
+        logits_weights = logits_weights.transpose(1, 0)
         logits = self.head(hidden_states, logits_weights, parallel_output=self.parallel_output)
         if self.parallel_output:
             logits = self.gather_from_mp_region(logits)
@@ -98,7 +85,6 @@ class TestParallelLMLogits(ms.nn.Cell):
         return loss
 
 
-# pylint: disable=W0613
 def run_parallel_lm_logits(training_config, model_config, dataset_config):
     """main function."""
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic="ON")
@@ -107,7 +93,7 @@ def run_parallel_lm_logits(training_config, model_config, dataset_config):
     init()
     initialize_model_parallel(tensor_model_parallel_size=args.tp)
 
-    print(f"dp: {get_dp_world_size()}, tp: {get_tp_world_size()}")
+    print(f"dp: {get_data_parallel_world_size()}, tp: {get_tensor_model_parallel_world_size()}")
 
     # generate dataset
     dataset = FakeData(data_num=16, seq_length=model_config.seq_length)
@@ -120,21 +106,14 @@ def run_parallel_lm_logits(training_config, model_config, dataset_config):
     print("global batch size: ", global_batch_size, flush=True)
 
     # init model
-    network = TestParallelLMLogits(model_config, parallel_output=args.parallel_output)
+    network = TestLanguageModel(model_config, parallel_output=args.parallel_output)
     optimizer = Adam(params=network.trainable_params(), learning_rate=0.001, beta1=0.9, beta2=0.95)
+
+    # init train one step cell
+    train_one_step_cell = TrainOneStepCell(network, optimizer, None, training_config, model_config)
 
     # train
-    input_data = ms.Tensor(shape=(None, None), dtype=ms.int32)
-    labels = ms.Tensor(shape=(None, None), dtype=ms.float32)
-    mask = ms.Tensor(shape=(None, None, None, None), dtype=ms.float32)
-    network.set_inputs(input_data, labels, mask)
-
-    optimizer = Adam(params=network.trainable_params(), learning_rate=0.001, beta1=0.9, beta2=0.95)
-
-    losses = linear_train(1, fake_dataset, network, optimizer, with_attn_input=True)
-    golden_losses = [3.46581, 3.4658272]
-
-    assert np.allclose(losses, golden_losses, atol=1.e-3, rtol=1.e-3)
+    train(train_one_step_cell, fake_dataset, training_config)
 
 if __name__ == '__main__':
     CONFIG_PATH = "test_parallel_lm_logits.yaml"

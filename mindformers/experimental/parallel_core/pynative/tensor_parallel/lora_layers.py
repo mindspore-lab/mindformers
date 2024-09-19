@@ -12,16 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""LoRA Layers"""
+"""Layers"""
+import math
 import mindspore.ops as ops
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, nn, mint
-from mindspore.common.initializer import initializer
+from mindspore.common.initializer import initializer, HeUniform
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
-    get_tp_world_size,
-    get_dp_world_size,
+    get_tensor_model_parallel_world_size,
+    get_data_parallel_world_size,
 )
 from mindformers.experimental.parallel_core.pynative.tensor_parallel import (
     CopyToModelParallelRegion,
@@ -124,29 +125,29 @@ class ColumnParallelLoRA(nn.Cell):
         ):
         super(ColumnParallelLoRA, self).__init__()
         if stride > 1:
-            raise NotImplementedError("For ColumnParallelLoRA, `stride > 1` is not supported for now, "
+            raise NotImplementedError("`stride > 1` is not supported for now, "
                                       "but got `stride={}`".format(stride))
         if keep_master_weight_for_test:
-            raise NotImplementedError("For ColumnParallelLoRA, `keep_master_weight_for_test=True` "
+            raise NotImplementedError("`keep_master_weight_for_test=True` "
                                       "is not supported for now.")
         if skip_bias_add:
-            raise NotImplementedError("For ColumnParallelLoRA, `skip_bias_add=True` is not supported for now.")
+            raise NotImplementedError("`skip_bias_add=True` is not supported for now.")
         if embedding_activation_buffer:
-            raise NotImplementedError("For ColumnParallelLoRA, `embedding_activation_buffer` is not supported "
+            raise NotImplementedError("`embedding_activation_buffer` is not supported "
                                       "for now.")
         if grad_output_buffer:
-            raise NotImplementedError("For ColumnParallelLoRA, `grad_output_buffer` is not supported for now.")
+            raise NotImplementedError("`grad_output_buffer` is not supported for now.")
         if tp_comm_buffer_name:
-            raise NotImplementedError("For ColumnParallelLoRA, `tp_comm_buffer_name` is not supported for now.")
+            raise NotImplementedError("`tp_comm_buffer_name` is not supported for now.")
         if disable_grad_reduce:
-            raise NotImplementedError("For ColumnParallelLoRA, `disable_grad_reduce=True` is not supported for now.")
+            raise NotImplementedError("`disable_grad_reduce=True` is not supported for now.")
 
         self.input_size = input_size
         self.output_size = output_size
         self.has_bias = bias
         self.gather_output = gather_output
         self.skip_bias_add = skip_bias_add
-        tensor_parallel_group_size = get_tp_world_size()
+        tensor_parallel_group_size = get_tensor_model_parallel_world_size()
 
         self.lora_rank = lora_rank
         self.lora_alpha = lora_alpha
@@ -157,20 +158,20 @@ class ColumnParallelLoRA(nn.Cell):
         self.is_expert = is_expert
         self.skip_weight_param_allocation = skip_weight_param_allocation
         self.config = config
-        self.param_init_dtype = param_init_dtype if param_init_dtype else self.config.param_init_dtype
+        self.param_init_dtype = param_init_dtype if param_init_dtype else self.config.params_dtype
         self.compute_dtype = compute_dtype if compute_dtype else self.config.compute_dtype
         self.transpose_b = transpose_b
 
-        self.expert_parallel = self.config.parallel_config.expert_parallel > 1
-        self.sequence_parallel = self.config.parallel_config.use_sequence_parallel
+        self.expert_parallel = self.config.parallel_config.expert_model_parallel_size > 1
+        self.sequence_parallel = self.config.parallel_config.sequence_parallel
         self.use_zero3 = self.config.parallel_config.zero_level == 'z3'
         if self.use_zero3:
             try:
-                dp_size = get_dp_world_size()
-            except AssertionError as e:
+                dp_size = get_data_parallel_world_size()
+            except AssertionError:
                 raise RuntimeError("When using zero3 optimizer parallel. Data parallel communication "
                                    "need be initialized. Please check 'dp' in order when calling "
-                                   "initialize_model_parallel.") from e
+                                   "initialize_model_parallel.")
 
         if self.transpose_b:
             if self.use_zero3 and self.output_size_per_partition % dp_size == 0:
@@ -211,6 +212,8 @@ class ColumnParallelLoRA(nn.Cell):
         self.lora_a = Parameter(initializer(lora_a_init, lora_a_shape, self.param_init_dtype))
         self.lora_b = Parameter(initializer(lora_b_init, lora_b_shape, self.param_init_dtype))
 
+        self.explicit_expert_comm = self.is_expert and (self.sequence_parallel or self.expert_parallel)
+
         self.copy_to_mp_region = CopyToModelParallelRegion()
         self.gather_from_mp_region = GatherFromModelParallelRegion()
         self.gather_from_sp_region = GatherFromSequenceParallelRegion(
@@ -220,7 +223,7 @@ class ColumnParallelLoRA(nn.Cell):
     def construct(self, input_, weight=None):
         """construct method."""
         if weight is None and self.skip_weight_param_allocation:
-            raise ValueError("For ColumnParallelLinear, when skip_weight_param_allocation=True,"
+            raise ValueError("when skip_weight_param_allocation=True,"
                              " weight should be passed to construct(), but got None.")
 
         lora_a = ops.cast(self.lora_a, self.compute_dtype)
@@ -245,7 +248,6 @@ class ColumnParallelLoRA(nn.Cell):
 
         if self.sequence_parallel:
             input_parallel = self.gather_from_sp_region(input_parallel)
-
             lora_parallel = self.gather_from_sp_region(lora_parallel)
 
         output_parallel = self.matmul(input_parallel, weight)
@@ -270,13 +272,13 @@ class ColumnParallelLoRA(nn.Cell):
 
     def sharded_state_dict(self):
         """provide the sharded state dict based on the config"""
-        tp_size = get_tp_world_size()
+        tp_size = get_tensor_model_parallel_world_size()
         w_shard = (tp_size, 1) if self.transpose_b else (1, tp_size)
         lora_a_shard = (1, 1)
         lora_b_shard = (tp_size, 1) if self.transpose_b else (1, tp_size)
         state_dict = {}
-        opt_weight_shard_step = get_tp_world_size() if self.use_zero3 else 0
-        opt_weight_shard_size = get_dp_world_size() if self.use_zero3 else 0
+        opt_weight_shard_step = get_tensor_model_parallel_world_size() if self.use_zero3 else 0
+        opt_weight_shard_size = get_data_parallel_world_size() if self.use_zero3 else 0
         if not self.skip_weight_param_allocation:
             state_dict[self.weight.name] = {'shape': self.weight.shape,
                                             'shard': w_shard,
@@ -373,22 +375,22 @@ class RowParallelLoRA(nn.Cell):
         ):
         super(RowParallelLoRA, self).__init__()
         if skip_bias_add:
-            raise NotImplementedError("For RowParallelLoRA, `skip_bias_add=True` is not supported for now.")
+            raise NotImplementedError("`skip_bias_add=True` is not supported for now.")
         if stride > 1:
-            raise NotImplementedError("For RowParallelLoRA, `stride > 1` is not supported for now, "
+            raise NotImplementedError("`stride > 1` is not supported for now, "
                                       "but got `stride={}`".format(stride))
         if keep_master_weight_for_test:
-            raise NotImplementedError("For RowParallelLoRA, `keep_master_weight_for_test=True` "
+            raise NotImplementedError("`keep_master_weight_for_test=True` "
                                       "is not supported for now.")
         if tp_comm_buffer_name:
-            raise NotImplementedError("For RowParallelLoRA, `tp_comm_buffer_name` is not supported for now.")
+            raise NotImplementedError("`tp_comm_buffer_name` is not supported for now.")
 
         self.input_size = input_size
         self.output_size = output_size
         self.has_bias = bias
         self.input_is_parallel = input_is_parallel
         self.skip_bias_add = skip_bias_add
-        tensor_parallel_group_size = get_tp_world_size()
+        tensor_parallel_group_size = get_tensor_model_parallel_world_size()
 
         self.lora_rank = lora_rank
         self.lora_alpha = lora_alpha
@@ -397,21 +399,21 @@ class RowParallelLoRA(nn.Cell):
 
         self.input_size_per_partition = divide(input_size, tensor_parallel_group_size)
         self.config = config
-        self.param_init_dtype = param_init_dtype if param_init_dtype else self.config.param_init_dtype
+        self.param_init_dtype = param_init_dtype if param_init_dtype else self.config.params_dtype
         self.compute_dtype = compute_dtype if compute_dtype else self.config.compute_dtype
         self.is_expert = is_expert
-        self.expert_parallel = self.config.parallel_config.expert_parallel > 1
-        self.sequence_parallel = self.config.parallel_config.use_sequence_parallel
+        self.expert_parallel = self.config.parallel_config.expert_model_parallel_size > 1
+        self.sequence_parallel = self.config.parallel_config.sequence_parallel
         self.use_zero3 = self.config.parallel_config.zero_level == 'z3'
         self.transpose_b = transpose_b
 
         if self.use_zero3:
             try:
-                dp_size = get_dp_world_size()
-            except AssertionError as e:
+                dp_size = get_data_parallel_world_size()
+            except AssertionError:
                 raise RuntimeError("When using zero3 optimizer parallel. Data parallel communication "
                                    "need be initialized. Please check 'dp' in order when calling "
-                                   "initialize_model_parallel.") from e
+                                   "initialize_model_parallel.")
 
         if self.transpose_b:
             if self.use_zero3 and self.output_size % dp_size == 0:
@@ -484,6 +486,8 @@ class RowParallelLoRA(nn.Cell):
 
         input_parallel = self.lora_dropout(input_parallel)
         lora_parallel = self.lora_a_matmul(input_parallel, lora_a)
+        if self.explicit_expert_comm:
+            pass
         if self.sequence_parallel:
             lora_parallel = self.reduce_scatter_to_sp_region(lora_parallel)
         else:
@@ -512,13 +516,13 @@ class RowParallelLoRA(nn.Cell):
 
     def sharded_state_dict(self):
         """provide the sharded state dict based on the config"""
-        tp_size = get_tp_world_size()
+        tp_size = get_tensor_model_parallel_world_size()
         w_shard = (1, tp_size) if self.transpose_b else (tp_size, 1)
         lora_a_shard = (1, tp_size) if self.transpose_b else (tp_size, 1)
         lora_b_shard = (1, 1)
         state_dict = {}
-        opt_weight_shard_step = get_tp_world_size() if self.use_zero3 else 0
-        opt_weight_shard_size = get_dp_world_size() if self.use_zero3 else 0
+        opt_weight_shard_step = get_tensor_model_parallel_world_size() if self.use_zero3 else 0
+        opt_weight_shard_size = get_data_parallel_world_size() if self.use_zero3 else 0
         state_dict[self.weight.name] = {'shape': self.weight.shape,
                                         'shard': w_shard,
                                         'opt_weight_shard_step': opt_weight_shard_step,

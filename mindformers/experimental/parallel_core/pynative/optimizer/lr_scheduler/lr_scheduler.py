@@ -18,8 +18,13 @@ import numpy as np
 import mindspore.common.dtype as mstype
 
 from mindspore import Tensor, mint
-from mindspore.nn.learning_rate_schedule import LearningRateSchedule, \
-    PolynomialDecayLR, WarmUpLR, CosineDecayLR
+from mindspore.nn.learning_rate_schedule import (
+    LearningRateSchedule,
+    PolynomialDecayLR,
+    WarmUpLR,
+    CosineDecayLR,
+)
+
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
 
 

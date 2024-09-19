@@ -19,7 +19,7 @@ import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_dp_world_size, get_tp_rank, get_tp_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_world_size, get_tensor_model_parallel_rank, get_tensor_model_parallel_world_size
 from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import TENSOR_PARALLEL_GENERATOR, get_rng_tracer
 from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.infer.core.mapping import (GatherFromModelParallelRegion,
@@ -120,7 +120,7 @@ class ColumnParallelLinear(nn.Cell):
         self.output_size = output_size
         self.has_bias = bias
         self.gather_output = gather_output
-        self.tensor_parallel_group_size = get_tp_world_size()
+        self.tensor_parallel_group_size = get_tensor_model_parallel_world_size()
 
         self.output_size_per_partition = divide(output_size, self.tensor_parallel_group_size)
         self.is_expert = is_expert
@@ -195,12 +195,12 @@ class ColumnParallelLinear(nn.Cell):
 
     def sharded_state_dict(self):
         """provide the sharded state dict based on the config"""
-        tp_size = get_tp_world_size()
+        tp_size = get_tensor_model_parallel_world_size()
         w_shard = (tp_size, 1) if self.transpose_b else (1, tp_size)
         state_dict = {}
-        opt_weight_shard_step = get_tp_world_size() if self.use_zero3 else 0
+        opt_weight_shard_step = get_tensor_model_parallel_world_size() if self.use_zero3 else 0
         try:
-            opt_weight_shard_size = get_dp_world_size() if self.use_zero3 else 0
+            opt_weight_shard_size = get_data_parallel_world_size() if self.use_zero3 else 0
         except AssertionError:
             opt_weight_shard_size = 0
         if not self.skip_weight_param_allocation:
@@ -289,7 +289,7 @@ class RowParallelLinear(nn.Cell):
         self.output_size = output_size
         self.has_bias = bias
         self.input_is_parallel = input_is_parallel
-        tensor_parallel_group_size = get_tp_world_size()
+        tensor_parallel_group_size = get_tensor_model_parallel_world_size()
         self.input_size_per_partition = divide(input_size, tensor_parallel_group_size)
         self.parallel_config = config
         self.compute_dtype = compute_dtype
@@ -358,12 +358,12 @@ class RowParallelLinear(nn.Cell):
 
     def sharded_state_dict(self):
         """provide the sharded state dict based on the config"""
-        tp_size = get_tp_world_size()
+        tp_size = get_tensor_model_parallel_world_size()
         w_shard = (1, tp_size) if self.transpose_b else (tp_size, 1)
         state_dict = {}
-        opt_weight_shard_step = get_tp_world_size() if self.use_zero3 else 0
+        opt_weight_shard_step = get_tensor_model_parallel_world_size() if self.use_zero3 else 0
         try:
-            opt_weight_shard_size = get_dp_world_size() if self.use_zero3 else 0
+            opt_weight_shard_size = get_data_parallel_world_size() if self.use_zero3 else 0
         except AssertionError:
             opt_weight_shard_size = 0
         state_dict[self.weight.name] = {'shape': self.weight.shape,
@@ -405,13 +405,13 @@ class VocabParallelEmbedding(nn.Cell):
         self.embedding_dim = embedding_dim
         self.sequence_parallel = parallel_config.use_sequence_parallel
 
-        self.tensor_model_parallel_size = get_tp_world_size()
+        self.tensor_model_parallel_size = get_tensor_model_parallel_world_size()
 
         (
             self.vocab_start_index,
             self.vocab_end_index,
         ) = self._vocab_range_from_global_vocab_size(
-            self.num_embeddings, get_tp_rank(), self.tensor_model_parallel_size
+            self.num_embeddings, get_tensor_model_parallel_rank(), self.tensor_model_parallel_size
         )
         self.num_embeddings_per_partition = (
             self.vocab_end_index - self.vocab_start_index
@@ -475,7 +475,7 @@ class VocabParallelEmbedding(nn.Cell):
 
     def sharded_state_dict(self):
         """provide the sharded state dict based on the config"""
-        tp_size = get_tp_world_size()
+        tp_size = get_tensor_model_parallel_world_size()
         w_shard = (tp_size, 1)
         state_dict = {}
         state_dict[self.weight.name] = {'shape': self.weight.shape,

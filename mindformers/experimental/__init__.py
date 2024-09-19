@@ -13,11 +13,8 @@
 # limitations under the License.
 # ============================================================================
 
-"""mindformers init"""
-
-from .infer import core, models
-from .parallel_core import pynative
+"""experimental init"""
+from .parallel_core import *
 
 __all__ = []
-__all__.extend(infer.__all__)
 __all__.extend(parallel_core.__all__)
