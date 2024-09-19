@@ -15,7 +15,7 @@ trainer:
 
 runner_config:
   epochs: 2
-  batch_size: 10
+  batch_size: 8
   sink_mode: True
   sink_size: 1
 
@@ -143,7 +143,7 @@ model:
     decoder_layers: 32
     decoder_start_token_id: 50258
     dropout: 0.0
-    embedding_init_type: "float16"
+    embedding_init_type: "float32"
     encoder_attention_heads: 20
     encoder_ffn_dim: 5120
     encoder_layerdrop: 0
@@ -158,9 +158,8 @@ model:
     num_layers_of_each_stage: null
     num_mel_bins: 128
     pad_token_id: 50256
-    param_init_type: "float16"
+    param_init_type: "float32"
     softmax_compute_type: "float32"
-    torch_dtype: "float16"
     use_flash_attention: True
     vocab_size: 51866
   arch:
