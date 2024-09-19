@@ -13,10 +13,10 @@
 # limitations under the License.
 # ============================================================================
 """code alpaca instruct datahandler"""
+import numpy as np
+
 from mindformers.dataset.handler.base_handler import BaseInstructDataHandler
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
-
-import numpy as np
 
 IGNORE_TOKEN_ID = -100
 PROMPT_DICT = {

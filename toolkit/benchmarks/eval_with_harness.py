@@ -19,16 +19,9 @@ import importlib.util
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple, Iterator
 
+from tqdm import tqdm
 import mindspore
 import setproctitle
-from mindformers import (
-    MindFormerConfig,
-    build_context,
-    build_parallel_config,
-    AutoModel,
-    MindFormerRegister
-)
-from tqdm import tqdm
 from lm_eval import utils
 from lm_eval.__main__ import cli_evaluate
 from lm_eval.api.instance import Instance
@@ -36,6 +29,14 @@ from lm_eval.api.model import TemplateLM
 from lm_eval.api.registry import register_model
 from lm_eval.models.utils import (
     Collator
+)
+
+from mindformers import (
+    MindFormerConfig,
+    build_context,
+    build_parallel_config,
+    AutoModel,
+    MindFormerRegister
 )
 
 eval_logger = utils.eval_logger

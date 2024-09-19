@@ -20,9 +20,10 @@ from types import TracebackType
 from typing import List, Optional, Tuple, Type, Union
 import numpy
 
+from mindspore.dataset import GeneratorDataset
+
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindspore.dataset import GeneratorDataset
 
 _INDEX_HEADER = b"MMIDIDX\x00\x00"
 

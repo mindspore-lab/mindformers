@@ -14,12 +14,12 @@
 # ============================================================================
 """PTQ Quantizer."""
 from mindspore import dtype as msdtype
+from mindspore_gs.ptq import RoundToNearest as RTN
 
 from mindformers.tools.logger import logger
 from mindformers.utils.quantization_config import PTQConfig
 from mindformers.modules.quantizers import Quantizer
 from mindformers.version_control import check_valid_mindspore_gs
-from mindspore_gs.ptq import RoundToNearest as RTN
 
 
 __all__ = ["RtnQuantizer"]

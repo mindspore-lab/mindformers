@@ -18,6 +18,8 @@ import sys
 from glob import glob
 from pathlib import Path
 
+from mindspore import Model
+
 import mindformers
 from mindformers.model_runner import register_auto_class
 from mindformers.models.auto.configuration_auto import AutoConfig
@@ -25,7 +27,6 @@ from mindformers.models.auto.modeling_auto import AutoModel
 from mindformers.pet import get_pet_model
 from mindformers.tools.logger import logger
 from mindformers import MindFormerConfig
-from mindspore import Model
 
 cur_dir = os.path.dirname(os.path.realpath(__file__))
 project_root = os.path.dirname(os.path.dirname(mindformers.__file__))
