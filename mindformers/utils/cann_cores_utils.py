@@ -23,6 +23,7 @@ import psutil
 
 from mindformers.utils.bit_array import BitArray
 
+
 def get_cann_workqueue_cores(device_id: int) -> list:
     """
     get cann workqueue binding cores list

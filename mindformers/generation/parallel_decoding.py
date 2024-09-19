@@ -98,8 +98,8 @@ def parallel_decoding_process(config, input_ids, model_inputs, **model_kwargs):
         pre_process_fn = _pre_process.get(config.parallel_decoding_params.get('parallel_decoding'))
     if pre_process_fn is not None:
         return pre_process_fn(config, input_ids, model_inputs, **model_kwargs)
-    block_tables = model_kwargs['block_tables'].astype(np.int32)
-    slot_mapping = model_kwargs['slot_mapping'].astype(np.int32)
+    block_tables = model_kwargs.get('block_tables').astype(np.int32)
+    slot_mapping = model_kwargs.get('slot_mapping').astype(np.int32)
     return model_inputs, block_tables, slot_mapping
 
 
@@ -119,14 +119,14 @@ def _la_pre_process(config, input_ids, model_inputs, **model_kwargs):
     """ parallel decoding process """
 
     _ = config
-    block_tables = model_kwargs['block_tables'].astype(np.int32)
-    slot_mapping = model_kwargs['slot_mapping'].astype(np.int32)
+    block_tables = model_kwargs.get('block_tables').astype(np.int32)
+    slot_mapping = model_kwargs.get('slot_mapping').astype(np.int32)
 
     # adapt warmup stage, `q_seq_lens` is int dtype
-    if model_kwargs.get('q_seq_lens') is not None and isinstance(model_kwargs['q_seq_lens'], int):
+    if model_kwargs.get('q_seq_lens') is not None and isinstance(model_kwargs.get('q_seq_lens'), int):
         q_seq_lens = None
     else:
-        q_seq_lens = model_kwargs['q_seq_lens']
+        q_seq_lens = model_kwargs.get('q_seq_lens')
 
     if q_seq_lens is not None:
         input_ids = input_ids.reshape(-1)
@@ -180,7 +180,7 @@ def _la_pre_process(config, input_ids, model_inputs, **model_kwargs):
 
 @register_pre_process('memory_decoding')
 def _memory_decoding_pre_process(config, input_ids, model_inputs, **model_kwargs):
-    """ memory decoding pre process """
+    """ memory decoding preprocess """
     _ = config
 
     if model_kwargs.get('q_seq_lens') is not None:
@@ -188,8 +188,8 @@ def _memory_decoding_pre_process(config, input_ids, model_inputs, **model_kwargs
 
     model_inputs['input_ids'] = Tensor(input_ids, ms.int32)
 
-    block_tables = model_kwargs['block_tables'].astype(np.int32)
-    slot_mapping = model_kwargs['slot_mapping'].astype(np.int32)
+    block_tables = model_kwargs.get('block_tables').astype(np.int32)
+    slot_mapping = model_kwargs.get('slot_mapping').astype(np.int32)
 
     return model_inputs, block_tables, slot_mapping
 
@@ -203,8 +203,8 @@ def _prompt_cache_pre_process(config, input_ids, model_inputs, **model_kwargs):
 
     model_inputs['input_ids'] = Tensor(input_ids, ms.int32)
 
-    block_tables = model_kwargs['block_tables'].astype(np.int32)
-    slot_mapping = model_kwargs['slot_mapping'].astype(np.int32)
+    block_tables = model_kwargs.get('block_tables').astype(np.int32)
+    slot_mapping = model_kwargs.get('slot_mapping').astype(np.int32)
 
     return model_inputs, block_tables, slot_mapping
 

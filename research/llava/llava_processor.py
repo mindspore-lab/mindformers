@@ -28,9 +28,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 
 class LlavaTextBuilder(ModalContentBuilder):
-    """
-     Llava Tetxt Content Builder.
-     """
+    """Llava Text Content Builder."""
 
     def __init__(
             self,
@@ -66,9 +64,7 @@ class LlavaTextBuilder(ModalContentBuilder):
 
 
 class LlavaImageBuilder(ModalContentBuilder):
-    """
-     Llava Image Content Builder.
-     """
+    """Llava Image Content Builder."""
 
     def __init__(
             self,
@@ -159,8 +155,8 @@ class LlavaContentTransformTemplate(ModalContentTransformTemplate):
         batched_data = super().batch(data_list, token_padding_length, **kwargs)
 
         batch_no_image = batched_data.pop("no_image_tag")
-        batch_input_ids = batched_data["input_ids"]
-        image_indices = batched_data["image_context_pos"]
+        batch_input_ids = batched_data.get("input_ids")
+        image_indices = batched_data.get("image_context_pos")
         batch_images = batched_data.get("images", None)
 
         if batch_no_image.sum():

@@ -49,7 +49,7 @@ def get_chat_format_data(ori_data):
     data["bot"] = f"<|Bot|>:{output_str}"
     return data
 
-
+# pylint: disable=C0326
 def preprocess(sources, tokenizer, seq_length, bos_token="<s>", eos_token="</s>"):
     """conversation preprocess."""
     input_ids = []
@@ -81,7 +81,7 @@ def preprocess(sources, tokenizer, seq_length, bos_token="<s>", eos_token="</s>"
         ass_ids = (ass_template_ids + tokenizer.encode(ass_s[8:], add_special_tokens=False) + \
                    [special_tokens_map["<eoa>"], special_tokens_map["nl_id"]])
 
-        targets = np.ones([seq_length,])
+        targets = np.ones([seq_length, ])
         token_ids += human_ids + ass_ids
 
         if len(token_ids) > seq_length:

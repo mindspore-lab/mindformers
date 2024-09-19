@@ -74,7 +74,7 @@ def run_predict(task, input_list, batch_size, ckpt, max_length):
                           max_length=int(max_length))
     print(result)
 
-
+# pylint: disable=C0326
 @cloud_monitor()
 def main(task='text_generation',
          config='run_qwen_7b.yaml',
@@ -152,11 +152,11 @@ def main(task='text_generation',
                 run_predict(task, input_list, batch_size, ckpt, max_length)
         else:
             if predict_data:
-                run_predict(task, [predict_data,], batch_size, ckpt, max_length)
+                run_predict(task, [predict_data, ], batch_size, ckpt, max_length)
             else:
                 while True:
                     user_input = input("Please enter your predict data:\n> ")
-                    run_predict(task, [user_input,], batch_size, ckpt, max_length)
+                    run_predict(task, [user_input, ], batch_size, ckpt, max_length)
     elif run_mode == 'finetune':
         if batch_size is not None:
             config.runner_config.batch_size = batch_size

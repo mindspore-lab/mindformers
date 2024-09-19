@@ -141,7 +141,7 @@ def convert_megatron_to_ms(input_path, output_path, dtype=None, **kwargs):
     print(f"Trying to convert megatron checkpoint in '{input_path}'.", flush=True)
     try:
         import torch
-    except (ModuleNotFoundError, ImportError) as e:
+    except ImportError as e:
         raise ImportError(
             "Failed to load PyTorch checkpoint. Please make sure PyTorch is installed and available."
         ) from e

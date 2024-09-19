@@ -431,10 +431,10 @@ def download_url(url, proxies=None):
         " multiple processes (each process will download the file in a different temporary file).",
         FutureWarning,
     )
-    tmp_fd, tmp_file = tempfile.mkstemp()
-    with os.fdopen(tmp_fd, "wb") as f:
-        http_get(url, f, proxies=proxies)
-    return tmp_file
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        http_get(url, tmp_file, proxies=proxies)
+        tmp_file_path = tmp_file.name
+    return tmp_file_path
 
 
 def extract_commit_hash(resolved_file: Optional[str], commit_hash: Optional[str]) -> Optional[str]:

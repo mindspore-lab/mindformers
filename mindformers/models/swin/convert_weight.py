@@ -73,6 +73,7 @@ def convert_pretrained_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ck
                 " permissions, and checkpoint data validity."
             ) from e
 
+
 def convert_finetuned_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ckpt_path="swin_base_p4w7.ckpt",
                              dtype=None):
     """
@@ -127,7 +128,6 @@ def convert_finetuned_weight(pth_file="swin_base_patch4_window7_224.pth", ms_ckp
                 "with unknown error, please check the path,"
                 " permissions, and checkpoint data validity."
             ) from e
-
 
 
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):

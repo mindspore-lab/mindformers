@@ -147,6 +147,7 @@ def convert_finetuned_weight(ms_ckpt_path="swin_base_p4w7.ckpt", pth_file="swin_
                 f"Unexpected error occurred when saving checkpoint to {pth_file}."
             ) from e
 
+
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """
     convert mindspore weight to torch weight

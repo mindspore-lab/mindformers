@@ -123,13 +123,13 @@ class SLoraLinear(Cell):
         return output
 
     def shard(self):
-        r"""
-         Set the shard for the linear. the strategy size should be equal to the inputs.
+        """
+        Set the shard for the linear. the strategy size should be equal to the inputs.
 
-         Note:
+        Note:
             It is valid only in semi auto parallel or auto parallel mode.
             In other parallel modes, strategies set here will be ignored.
-         """
+        """
         strategy = self.matmul.in_strategy
         self.lora_a_gather.shard(((1, 1, strategy[1][1]), (1,)))
         self.lora_b_gather.shard(((1, strategy[1][0], 1), (1,)))
