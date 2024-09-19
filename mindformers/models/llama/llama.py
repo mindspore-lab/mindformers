@@ -298,7 +298,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
           data type Int64/Int32, Tensor of shape :math:`(batch, seq\_length)`. Default: ``None`` .
         - **input_embeds** (Tensor, optional) - the embedding of inputs with data type Float32/Float16, Tensor of
           shape :math:`(batch, seq\_length, hidden\_size)`. Default: ``None`` .
-        - **init_reset** (bool, optional) - A Bool tensor with shape [1], used to clear the past key parameter and
+        - **init_reset** (Tensor, optional) - A Bool tensor with shape [1], used to clear the past key parameter and
           past value parameter used in the incremental prediction. Only valid when use_past is True.
           Tensor of shape :math:`(1)`. Default: ``Tensor([True])`` .
         - **batch_valid_length** (Tensor, optional) - Int32 tensor with shape [batch_size]

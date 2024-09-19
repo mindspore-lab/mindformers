@@ -268,10 +268,10 @@ class ModalContentTransformTemplate:
     achieve the model's expectations.
 
     Args:
-        output_columns (list[str], optional): Specify which columns will be output. Default: ``None`` .
+        output_columns (List[str], optional): Specify which columns will be output. Default: ``None`` .
         tokenizer (Tokenizer, optional): Build a good model tokenizer. Default: ``None`` .
         mode (str): running mode, predict or train. Default: ``predict`` .
-        vstack_columns (list[str], optional): Specify which columns will be vstack when batching data.
+        vstack_columns (List[str], optional): Specify which columns will be vstack when batching data.
             Default: ``None`` .
         modal_content_padding_size (int): Used in training mode for inherited Template subclasses,
             it usually represents the maximum number of
@@ -327,7 +327,7 @@ class ModalContentTransformTemplate:
         In predict mode, find the corresponding modal builder by traversing and process it.
 
         Args:
-            query_ele_list (list[dict]): A list of elements for predicting a request.
+            query_ele_list (List[dict]): A list of elements for predicting a request.
                 For example: [{"image":"/path/to/image"}, {"text":"describe image in English"}].
             result_recorder (DataRecord): The result data recorder is used to save data that
                 needs to be recorded during the inference process.
@@ -358,7 +358,7 @@ class ModalContentTransformTemplate:
         In train mode, find the corresponding modal builder by traversing and process it.
 
         Args:
-            conversation_list (list[list]): A list of elements for dialogue data.
+            conversation_list (List[List]): A list of elements for dialogue data.
                 For example: [["user", "<img>/path/to/image<img>describe image in English:"],
                 ["assistant", "the image describe ...."]]
             result_recorder (DataRecord): The result data recorder is used to save data that

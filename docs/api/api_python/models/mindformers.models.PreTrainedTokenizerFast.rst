@@ -5,8 +5,6 @@ mindformers.models.PreTrainedTokenizerFast
 
     快速分词器的基类，封装了 HuggingFace 分词器库。
 
-    继承自  :class:`mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase`。
-
     处理所有分词和特殊词元的共享方法，以及下载/缓存/加载预训练分词器的方法，还包括向词汇表中添加词元的方法。
 
     此类还在所有分词器之上统一处理了添加的词元，因此我们无需处理各种底层字典结构（BPE、sentencepiece等）的特定词汇增强方法。
@@ -31,7 +29,7 @@ mindformers.models.PreTrainedTokenizerFast
         - **tokenizer_file** (str) - 一个本地JSON文件的路径，该文件代表一个之前序列化的 ``tokenizer.Tokenizer`` 对象。
 
     返回：
-        Tokenizer类实例。
+        PreTrainedTokenizerFast类实例。
 
     .. py:method:: added_tokens_decoder()
         :classmethod:
@@ -39,7 +37,7 @@ mindformers.models.PreTrainedTokenizerFast
         返回词汇表中作为索引到AddedToken的字典形式的添加的词元。
 
         返回：
-            dict，索引到AddedToken的字典。
+            dict，添加的词元。
 
     .. py:method:: added_tokens_encoder()
         :classmethod:
@@ -47,7 +45,7 @@ mindformers.models.PreTrainedTokenizerFast
         返回从字符串到索引的排序映射。为了性能优化，添加的词元编码器在慢速分词器的 `self._added_tokens_encoder` 中被缓存。
 
         返回：
-            dict，字符串到索引的映射。
+            dict，添加的词元。
 
     .. py:method:: convert_ids_to_tokens(ids: Union[int, List[int]], skip_special_tokens: bool = False)
 
@@ -75,7 +73,7 @@ mindformers.models.PreTrainedTokenizerFast
         返回词汇表中作为词元到索引的字典形式的添加的词元。
 
         返回：
-            dict，词元到索引的映射。
+            dict，添加的词元。
 
     .. py:method:: num_special_tokens_to_add(pair: bool = False)
 
@@ -111,6 +109,7 @@ mindformers.models.PreTrainedTokenizerFast
             - **length** (int, 可选) - 迭代器中的序列总数，用于提供有意义的进度跟踪。默认值： ``None`` 。
             - **new_special_tokens** (Union[list, AddedToken], 可选) - 要添加到您正在训练的分词器的新特殊词元列表。默认值： ``None`` 。
             - **special_tokens_map** (dict, 可选) - 如果您想重命名此分词器使用的某些特殊词元，请在此参数中传递旧特殊词元名称到新特殊词元名称的映射。默认值： ``None`` 。
+            - **kwargs** (Any, 可选) - 用于标记化的关键字参数。
 
         返回：
             [`PreTrainedTokenizerFast`]，与原始分词器类型相同、在 `text_iterator` 上训练的新分词器。

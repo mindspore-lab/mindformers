@@ -6,10 +6,10 @@ mindformers.models.multi_modal.ModalContentTransformTemplate
     转换模态内容模板的基类，可以被特定的模型实现。子类可以通过重写 ``build_conversion_input_text`` 、 ``update_result_before_output`` 、 ``batch`` 、 ``post_process`` 方法来达到模型的期望值。
 
     参数：
-        - **output_columns** (list[str], 可选) - 指定要输出的列。默认值： ``None`` 。
+        - **output_columns** (List[str], 可选) - 指定要输出的列。默认值： ``None`` 。
         - **tokenizer** (Tokenizer, 可选) - 构建好的模型tokenizer。默认值： ``None`` 。
         - **mode** (str) - 运行模式，推理 ``predict`` 或者训练 ``train`` 。默认值： ``predict`` 。
-        - **vstack_columns** (list[str], 可选) - 指定批处理数据时将使用vstack的列。默认值： ``None`` 。
+        - **vstack_columns** (List[str], 可选) - 指定批处理数据时将使用vstack的列。默认值： ``None`` 。
         - **modal_content_padding_size** (int) - 在训练模式下使用，给继承的 ``Template`` 子类使用，通常表示一个训练样本内支持的模态内容（例如图片）的最大数量，当一个训练样本的模态内容数量小于该值时，会将模态内容扩增至该值。
         - **max_length** (int) - 在训练模式下使用，给继承的Template子类使用，通常表示一个训练样本在分词之后的内容掩码完之后补齐到的最大长度。
         - **kwargs** (dict, 可选) - 一个可变数量的关键字参数，为待扩展的关键字参数预留。
@@ -80,23 +80,23 @@ mindformers.models.multi_modal.ModalContentTransformTemplate
         返回：
             列表类型，包含所有解码后的文本字符串。
 
-    .. py:method:: process_predict_query(query_ele_list: list[Dict], result_recorder: DataRecord)
+    .. py:method:: process_predict_query(query_ele_list: List[Dict], result_recorder: DataRecord)
 
         在推理模式下，通过遍历找到相应的模态构建器并对其进行处理。
 
         参数：
-            - **query_ele_list** (list[dict]) - 一个预测请求的元素列表，形式如： ``[{"image":"/path/to/image"}, {"text":"describe image in English"}]`` 。
+            - **query_ele_list** (List[dict]) - 一个预测请求的元素列表，形式如： ``[{"image":"/path/to/image"}, {"text":"describe image in English"}]`` 。
             - **result_recorder** (DataRecord) - 结果数据记录器，用于记录在推理过程中想要保存的数据，数值通过调用 ``DataRecord`` 的 ``put`` 方法进行数据存储。
 
         返回：
             数组类型，经过每个模态生成器处理过的文本结果。
 
-    .. py:method:: process_train_item(conversation_list: list[list], result_recorder: DataRecord)
+    .. py:method:: process_train_item(conversation_list: List[List], result_recorder: DataRecord)
 
         在训练模式下，通过遍历找到相应的模态构建器并对其进行处理。
 
         参数：
-            - **conversation_list** (list[list]) - 一个对话数据的元素列表，形式如： ``[["user", "<img>/path/to/image<img>describe image in English:"], ["assistant", "the image describe ...."]]`` 。
+            - **conversation_list** (List[List]) - 一个对话数据的元素列表，形式如： ``[["user", "<img>/path/to/image<img>describe image in English:"], ["assistant", "the image describe ...."]]`` 。
             - **result_recorder** (DataRecord) -  结果数据记录器，用于记录在推理过程中想要保存的数据，数值通过调用 ``DataRecord`` 的 ``put`` 方法进行数据存储。
 
         返回：

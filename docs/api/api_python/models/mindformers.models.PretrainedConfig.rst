@@ -16,13 +16,13 @@ mindformers.models.PretrainedConfig
     返回：
         PretrainedConfig类实例。
 
-    .. py:method:: from_dict(config_dict: dict, **kwargs)
+    .. py:method:: from_dict(config_dict: Dict[str, Any], **kwargs)
         :classmethod:
 
         从参数字典实例化 PretrainedConfig。
 
         参数：
-            - **config_dict** (dict) - 用于实例化配置对象的字典。这样的字典可以通过利用 :func:`mindformers.models.PretrainedConfig.get_config_dict` 方法从预训练的检查点检索。
+            - **config_dict** (Dict[str, Any]) - 用于实例化配置对象的字典。这样的字典可以通过利用 :func:`mindformers.models.PretrainedConfig.get_config_dict` 方法从预训练的检查点检索。
 
         返回：
             PretrainedConfig, 从这些参数实例化的配置对象。

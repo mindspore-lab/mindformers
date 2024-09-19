@@ -44,10 +44,6 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
     Construct a Llama tokenizer. Based on byte-level Byte-Pair-Encoding.
 
     This uses notably ByteFallback and no normalization.
-    This tokenizer inherits from
-    :class:`mindformers.models.tokenization_utils_fast.PreTrainedTokenizerFast`
-    which contains most of the main methods. Users should refer to this superclass
-    for more information regarding those methods.
 
     Note:
         Currently, the llama_tokenizer_fast process supports only the 'right' padding mode.
@@ -77,11 +73,11 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
             Default: ``"<s>"`` .
         eos_token (Union[str, tokenizers.AddedToken], optional):
             The end of sequence token. Default: ``"</s>"`` .
-        add_bos_token (`bool`, optional):
+        add_bos_token (bool, optional):
             Whether to add an `bos_token` at the start of sequences. Default: ``True`` .
-        add_eos_token (`bool`, optional):
+        add_eos_token (bool, optional):
             Whether to add an `eos_token` at the end of sequences. Default: ``False`` .
-        use_default_system_prompt (`bool`, optional):
+        use_default_system_prompt (bool, optional):
             Whether the default system prompt for Llama should be used. Default: ``False`` .
 
     Returns:
@@ -228,9 +224,9 @@ class LlamaTokenizerFast(PreTrainedTokenizerFast):
         Insert the special tokens to the input_ids, currently.
 
         Args:
-            token_ids_0 (list[int]):
+            token_ids_0 (List[int]):
                 List of IDs.
-            token_ids_1 (list[int], optional):
+            token_ids_1 (List[int], optional):
                 Second list of IDs for sequence pairs. Default: ``None`` , only use one sequence.
 
         Returns:

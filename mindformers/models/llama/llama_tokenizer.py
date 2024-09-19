@@ -67,22 +67,22 @@ class LlamaTokenizer(PreTrainedTokenizer):
         pad_token (Union[str, AddedToken], optional):
             A special token used to make arrays of tokens the same size for batching purpose. Will then be ignored by
             attention mechanisms or loss computation. Default: ``"<unk>"`` .
-        sp_model_kwargs (dict[str, Any], optional):
+        sp_model_kwargs (Dict[str, Any], optional):
             Will be passed to the `SentencePieceProcessor.__init__()` method.
             The `Python wrapper for SentencePiece <https://github.com/google/sentencepiece/tree/master/python>`_
             can be used, among other things, to set keys below. Default: ``None`` , an empty dict will be passed.
-        add_bos_token (bool):
+        add_bos_token (bool, optional):
             Whether to add an `bos_token` at the start of sequences. Default: ``True`` .
-        add_eos_token (bool):
+        add_eos_token (bool, optional):
             Whether to add an `eos_token` at the end of sequences. Default: ``False`` .
-        clean_up_tokenization_spaces (bool):
+        clean_up_tokenization_spaces (bool, optional):
             Whether to clean up spaces after decoding. Cleanup includes removing potential artifacts like
             extra spaces. Default: ``False`` .
-        use_default_system_prompt (bool):
+        use_default_system_prompt (bool, optional):
             Whether the default system prompt for Llama should be used. Default: ``False`` .
-        spaces_between_special_tokens (bool):
+        spaces_between_special_tokens (bool, optional):
             Whether to add spaces between special tokens. Default: ``False`` .
-        legacy (bool):
+        legacy (bool, optional):
             Whether the `legacy` behavior of the tokenizer should be used. Default: ``True`` .
 
     Returns:
@@ -292,9 +292,9 @@ class LlamaTokenizer(PreTrainedTokenizer):
         to the head and end of sequence respectively.
 
         Args:
-            token_ids_0 (list[int]):
+            token_ids_0 (List[int]):
                 List of token IDs.
-            token_ids_1 (list[int], optional):
+            token_ids_1 (List[int], optional):
                 Second list of token IDs for sequence pairs. Default: ``None`` , only use one sequence.
 
         Returns:
@@ -321,11 +321,11 @@ class LlamaTokenizer(PreTrainedTokenizer):
         special tokens using the tokenizer `prepare_for_model` method.
 
         Args:
-            token_ids_0 (list[int]):
+            token_ids_0 (List[int]):
                 List of token IDs.
-            token_ids_1 (list[int], optional):
+            token_ids_1 (List[int], optional):
                 Second list of token IDs for sequence pairs. Default: ``None`` , only use one sequence.
-            already_has_special_tokens (bool):
+            already_has_special_tokens (bool, optional):
                 Whether the token list is already formatted with special tokens for the model. Default: ``False`` .
 
         Returns:
@@ -365,9 +365,9 @@ class LlamaTokenizer(PreTrainedTokenizer):
         if `token_ids_1` is None, then only returns the first portion of the mask (0s).
 
         Args:
-            token_ids_0 (list[int]):
+            token_ids_0 (List[int]):
                 List of token IDs.
-            token_ids_1 (list[int], optional):
+            token_ids_1 (List[int], optional):
                 Second list of token IDs for sequence pairs. Default: ``None`` , only use one sequence.
 
         Returns:

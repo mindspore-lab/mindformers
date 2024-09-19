@@ -27,7 +27,6 @@ from collections import OrderedDict
 from .tokenization_utils_base import (
     ENCODE_KWARGS_DOCSTRING,
     ENCODE_PLUS_ADDITIONAL_KWARGS_DOCSTRING,
-    INIT_TOKENIZER_DOCSTRING,
     AddedToken,
     BatchEncoding,
     EncodedInput,
@@ -382,18 +381,32 @@ def _insert_one_token_to_ordered_list(token_list: List[str], new_token: str):
         token_list.insert(insertion_idx, new_token)
 
 
-@add_end_docstrings(INIT_TOKENIZER_DOCSTRING)
 class PreTrainedTokenizer(PreTrainedTokenizerBase):
     r"""
     Base class for all slow tokenizers.
-
-    Inherits from :class:`mindformers.models.tokenization_utils.PreTrainedTokenizerBase`.
 
     Handle all the shared methods for tokenization and special tokens as well as methods downloading/caching/loading
     pretrained tokenizers as well as adding tokens to the vocabulary.
 
     This class also contain the added tokens in a unified way on top of all tokenizers so we don't have to handle the
     specific vocabulary augmentation methods of the various underlying dictionary structures (BPE, sentencepiece...).
+
+    Note:
+        Initialize the basic configuration of the tokenizer.
+
+        Steps:
+
+        1. Initialize the parent class.
+        2. If the subclass has not been initialized with `_added_tokens_decoder`, it will be initialized.
+        3. Use the passed `added_tokens_decoder` to update the `_added_tokens_decoder`.
+        4. Add special tokens that are not in the vocabulary to the vocabulary in the same order as
+           the `SPECIAL_TOKENS_ATTRIBUTES` in `tokenizers`.
+
+        Characteristic:
+
+        1. Ensure that all special tokens are added to the vocabulary, even if they were not originally
+           in the vocabulary.
+        2. Use Trie structure to store tokens.
 
     Args:
         model_max_length (int, optional):
@@ -420,7 +433,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         bos_token (Union[str, tokenizers.AddedToken], optional):
             Represents the beginning of a sentence and is associated with
             ``self.bos_token`` and ``self.bos_token_id``. Default: ``None`` .
-        eos_token (str or tokenizers.AddedToken, optional):
+        eos_token (Union[str, tokenizers.AddedToken], optional):
             Represents the end of a sentence and is associated with ``self.eos_token``
             and ``self.eos_token_id``. Default: ``None`` .
         unk_token (Union[str, tokenizers.AddedToken], optional):
@@ -441,7 +454,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
             Represents a masked token (used by masked-language modeling pretraining
             objectives like BERT) and is associated with ``self.mask_token`` and
             ``self.mask_token_id``. Default: ``None`` .
-        additional_special_tokens (Union[tuple, list of str, tokenizers.AddedToken], optional):
+        additional_special_tokens (Union[tuple, list, tokenizers.AddedToken], optional):
             Lists additional special tokens that are ensured to be skipped when
             decoding with ``skip_special_tokens`` set to True. They will be added
             at the end of the vocabulary if not already part of it. Default: ``None`` .
@@ -456,7 +469,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
             is True, then ``tokenizer.tokenize("<s>")`` would result in ['<','s', '>']. Default: ``False`` .
 
     Returns:
-        PreTrainedTokenizer, a PreTrainedTokenizer instance that can be used to tokenize text.
+        PreTrainedTokenizer instance.
     """
     _support_list = []
 
@@ -637,8 +650,9 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         """
         Returns the number of added tokens when encoding a sequence with special tokens.
 
-        This encodes a dummy input and checks the number of added tokens, and is therefore not efficient. Do not put
-        this inside your training loop.
+        Note:
+            This encodes a dummy input and checks the number of added tokens, and is therefore not efficient.
+            Do not put this inside your training loop.
 
 
         Args:
@@ -662,11 +676,11 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
         (BPE/SentencePieces/WordPieces). Takes care of added tokens.
 
         Args:
-            text (str): The sequence to be encoded.
+            text (TextInput): The sequence to be encoded.
             pair (str, optional): A second sequence to be encoded with the first. Default: ``None`` .
             add_special_tokens (bool, optional): Whether to add the special tokens associated with
                 the corresponding model. Default: ``False`` .
-            kwargs (additional keyword arguments, optional): Will be passed to the underlying model specific
+            kwargs (Any, optional): Will be passed to the underlying model specific
                 encode method. See details in `~PreTrainedTokenizerBase.__call__`.
 
         Returns:
@@ -1015,7 +1029,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
 
         Args:
             text (str): The text to prepare.
-            kwargs: Keyword arguments to use for the tokenization.
+            kwargs (Any, optional): Keyword arguments to use for the tokenization.
 
         Returns:
             Tuple[str, Dict[str, Any]], means the prepared text and the unused kwargs.

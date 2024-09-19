@@ -652,7 +652,7 @@ class PretrainedConfig(PushToHubMixin):
         Instantiates a `PretrainedConfig` from a Python dictionary of parameters.
 
         Args:
-            config_dict (dict): Dictionary that will be used to instantiate the configuration object.
+            config_dict (Dict[str, Any]): Dictionary that will be used to instantiate the configuration object.
                 Such a dictionary can be retrieved from a pretrained checkpoint by leveraging
                 the :func:`mindformers.models.PretrainedConfig.get_config_dict` method.
 
