@@ -32,7 +32,8 @@ MAX_INT32 = 2147483647
 str_to_ms_type = {
     "float16": mstype.float16,
     "float32": mstype.float32,
-    "bfloat16": mstype.bfloat16
+    "bfloat16": mstype.bfloat16,
+    "int8": mstype.int8
 }
 
 
@@ -47,8 +48,10 @@ def convert_mstype(ms_type: str = "float16"):
         return mstype.float32
     if ms_type == "bfloat16":
         return mstype.bfloat16
+    if ms_type == "int8":
+        return mstype.int8
     raise KeyError(f"Supported data type keywords include: "
-                   f"[float16, float32, bfloat16], but get {ms_type}")
+                   f"[float16, float32, bfloat16, int8], but get {ms_type}")
 
 
 def reverse_dict(d: dict):
