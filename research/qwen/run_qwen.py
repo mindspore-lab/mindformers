@@ -74,6 +74,7 @@ def run_predict(task, input_list, batch_size, ckpt, max_length):
                           max_length=int(max_length))
     print(result)
 
+
 # pylint: disable=C0326
 @cloud_monitor()
 def main(task='text_generation',
