@@ -362,11 +362,11 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
     and :math:`T_{cur}` represents the number of steps since the last restart:
 
     .. math::
-    \begin{aligned}
-        \eta_t & = \eta_{\text{min}} + \frac{1}{2}(\eta_{\text{max}} - \eta_{\text{min}})\left(1
-        + \cos\left(\frac{T_{cur}}{T_{i}}\pi\right)\right), & T_{cur} \neq (2k+1)T_{i}; \ \eta_{t+1}
-        & = \eta_{\text{max}}, & T_{cur} = (2k+1)T_{i}.
-    \end{aligned}
+        \begin{aligned}
+            \eta_t & = \eta_{\text{min}} + \frac{1}{2}(\eta_{\text{max}} - \eta_{\text{min}})\left(1
+            + \cos\left(\frac{T_{cur}}{T_{i}}\pi\right)\right), & T_{cur} \neq (2k+1)T_{i}; \ \eta_{t+1}
+            & = \eta_{\text{max}}, & T_{cur} = (2k+1)T_{i}.
+        \end{aligned}
 
     When last_epoch=-1, the initial learning rate is set to lr. During the restart phase, the learning rate begins
     anew from the maximum value and gradually decreases to the set minimum value. This strategy helps avoid getting

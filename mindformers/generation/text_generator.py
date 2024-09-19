@@ -115,7 +115,7 @@ class GenerationMixin:
 
         Args:
             is_first_iteration (bool): Network configuration information.
-            Indicate whether current iteration is the first iteration in prediction.
+                Indicate whether current iteration is the first iteration in prediction.
         """
         self.add_flags_recursive(is_first_iteration=is_first_iteration)
 

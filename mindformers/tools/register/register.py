@@ -27,55 +27,55 @@ class MindFormerModuleType:
     Enumerated class of the MindFormers module type, which includes:
 
     .. list-table::
-    :widths: 25 25
-    :header-rows: 1
+        :widths: 25 25
+        :header-rows: 1
 
-    * - Enumeration Name
-        - Value
-    * - CALLBACK
-        - 'CALLBACK'
-    * - CONFIG
-        - 'config'
-    * - CONTEXT
-        - 'context'
-    * - DATASET
-        - 'dataset'
-    * - DATASET_LOADER
-        - 'dataset_loader'
-    * - DATASET_SAMPLER
-        - 'dataset_sampler'
-    * - DATA_HANDLER
-        - 'data_handler'
-    * - ENCODER
-        - 'encoder'
-    * - FEATURE_EXTRACTOR
-        - 'feature_extractor'
-    * - LOSS
-        - 'loss'
-    * - LR
-        - 'lr'
-    * - MASK_POLICY
-        - 'mask_policy'
-    * - METRIC
-        - 'metric'
-    * - MODELS
-        - 'models'
-    * - OPTIMIZER
-        - 'optimizer'
-    * - PIPELINE
-        - 'pipeline'
-    * - PROCESSOR
-        - 'processor'
-    * - TOKENIZER
-        - 'tokenizer'
-    * - TOOLS
-        - 'tools'
-    * - TRAINER
-        - 'trainer'
-    * - TRANSFORMS
-        - 'transforms'
-    * - WRAPPER
-        - 'wrapper'
+        * - Enumeration Name
+          - Value
+        * - CALLBACK
+          - 'CALLBACK'
+        * - CONFIG
+          - 'config'
+        * - CONTEXT
+          - 'context'
+        * - DATASET
+          - 'dataset'
+        * - DATASET_LOADER
+          - 'dataset_loader'
+        * - DATASET_SAMPLER
+          - 'dataset_sampler'
+        * - DATA_HANDLER
+          - 'data_handler'
+        * - ENCODER
+          - 'encoder'
+        * - FEATURE_EXTRACTOR
+          - 'feature_extractor'
+        * - LOSS
+          - 'loss'
+        * - LR
+          - 'lr'
+        * - MASK_POLICY
+          - 'mask_policy'
+        * - METRIC
+          - 'metric'
+        * - MODELS
+          - 'models'
+        * - OPTIMIZER
+          - 'optimizer'
+        * - PIPELINE
+          - 'pipeline'
+        * - PROCESSOR
+          - 'processor'
+        * - TOKENIZER
+          - 'tokenizer'
+        * - TOOLS
+          - 'tools'
+        * - TRAINER
+          - 'trainer'
+        * - TRANSFORMS
+          - 'transforms'
+        * - WRAPPER
+          - 'wrapper'
     """
 
     def __init__(self):
@@ -310,10 +310,12 @@ class MindFormerRegister:
 
     @classmethod
     def auto_register(cls, class_reference: str, module_type=MindFormerModuleType.TOOLS):
-        """Auto register function.
+        """
+        Auto register function.
+
         Args:
-            class_reference: The full name of the class to load.
-            module_type : module type.
+            class_reference (str): The full name of the class to load.
+            module_type (MindFormerModuleType.TOOLS): module type.
         """
         if not isinstance(class_reference, str):
             raise ValueError(f"auto_map must be the type of string, but get {type(class_reference)} ."

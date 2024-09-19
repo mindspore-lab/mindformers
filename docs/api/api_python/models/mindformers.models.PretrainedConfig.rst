@@ -67,8 +67,8 @@ mindformers.models.PretrainedConfig
         将预训练的配置保存到指定目录。
 
         参数：
-            - **save_directory** (str) - 配置文件的保存目录。默认值： ``None`` 。
-            - **save_name** (str) - 保存文件的名称，默认值： ``mindspore_model`` 。
+            - **save_directory** (str, 可选) - 配置文件的保存目录。默认值： ``None`` 。
+            - **save_name** (str, 可选) - 保存文件的名称，默认值： ``mindspore_model`` 。
 
     .. py:method:: to_dict()
 

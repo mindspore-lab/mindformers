@@ -97,6 +97,7 @@ FROM_PRETRAINED_MINDFORMERS_DOCSTRING = """
                   this case, `from_tf` should be set to `True` and a configuration object should be provided as
                   `config` argument. This loading path is slower than converting the TensorFlow checkpoint in a
                   PyTorch model using the provided conversion scripts and loading the PyTorch model afterwards.
+
             model_args (additional positional arguments, *optional*):
                 Will be passed along to the underlying model `__init__()` method.
             config ([`PretrainedConfig`], *optional*):
@@ -109,6 +110,7 @@ FROM_PRETRAINED_MINDFORMERS_DOCSTRING = """
                   save directory.
                 - The model is loaded by supplying a local directory as `pretrained_model_name_or_path` and a
                   configuration JSON file named *config.json* is found in the directory.
+
             state_dict (*Dict[str, torch.Tensor]*, *optional*):
                 A state dictionary to use instead of a state dictionary loaded from saved weights file.
 
@@ -150,13 +152,13 @@ FROM_PRETRAINED_MINDFORMERS_DOCSTRING = """
                 automatically loaded:
 
                 - If a configuration is provided with `config`, `**kwargs` will be directly passed to the
-                    underlying model's `__init__` method (we assume all relevant updates to the configuration have
-                    already been done)
+                  underlying model's `__init__` method (we assume all relevant updates to the configuration have
+                  already been done)
                 - If a configuration is not provided, `kwargs` will be first passed to the configuration class
-                    initialization function ([`~PretrainedConfig.from_pretrained`]). Each key of `kwargs` that
-                    corresponds to a configuration attribute will be used to override said attribute with the
-                    supplied `kwargs` value. Remaining keys that do not correspond to any configuration attribute
-                    will be passed to the underlying model's `__init__` function.
+                  initialization function ([`~PretrainedConfig.from_pretrained`]). Each key of `kwargs` that
+                  corresponds to a configuration attribute will be used to override said attribute with the
+                  supplied `kwargs` value. Remaining keys that do not correspond to any configuration attribute
+                  will be passed to the underlying model's `__init__` function.
 
         Examples:
             >>> from mindformers import AutoConfig, BaseAutoModelClass

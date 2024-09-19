@@ -219,7 +219,7 @@ class AutoModelForTextEncoding(_BaseAutoModelClass):
 class AutoModel(_BaseAutoModelClass):
     r"""
     This is a generic model class that will be instantiated as one of the model
-    classes of the library when created with the from_pretrained() class method.
+    classes of the library when created with the ``from_pretrained()`` class method.
     This class cannot be instantiated directly using \_\_init\_\_() (throws an error).
     """
     _model_mapping = MODEL_MAPPING
@@ -246,7 +246,7 @@ _AutoModelWithLMHead = auto_class_update(_AutoModelWithLMHead, head_doc="languag
 class AutoModelForCausalLM(_BaseAutoModelClass):
     r"""
     This is a generic model class that will be instantiated as one of the model
-    classes of the library when created with the from_pretrained() class method.
+    classes of the library when created with the ``from_pretrained()`` class method.
     This class cannot be instantiated directly using \_\_init\_\_() (throws an error).
     """
     _model_mapping = MODEL_FOR_CAUSAL_LM_MAPPING
@@ -278,7 +278,7 @@ AutoModelForQuestionAnswering = auto_class_update(AutoModelForQuestionAnswering,
 class AutoModelForVisualQuestionAnswering(_BaseAutoModelClass):
     r"""
     This is a generic model class that will be instantiated as one of the model
-    classes of the library when created with the from_pretrained() class method.
+    classes of the library when created with the ``from_pretrained()`` class method.
     This class cannot be instantiated directly using \_\_init\_\_() (throws an error).
     """
     _model_mapping = MODEL_FOR_VISUAL_QUESTION_ANSWERING_MAPPING
@@ -312,7 +312,7 @@ AutoModelForImageClassification = auto_class_update(AutoModelForImageClassificat
 class AutoModelForZeroShotImageClassification(_BaseAutoModelClass):
     r"""
     This is a generic model class that will be instantiated as one of the model
-    classes of the library when created with the from_pretrained() class method.
+    classes of the library when created with the ``from_pretrained()`` class method.
     This class cannot be instantiated directly using \_\_init\_\_() (throws an error).
     """
     _model_mapping = MODEL_FOR_ZERO_SHOT_IMAGE_CLASSIFICATION_MAPPING

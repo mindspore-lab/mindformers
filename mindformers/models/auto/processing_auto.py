@@ -106,7 +106,7 @@ def processor_class_from_name(class_name: str):
 class AutoProcessor:
     r"""
     This is a generic processor class that will be instantiated as one of the processor
-    classes of the library when created with the from_pretrained() class method.
+    classes of the library when created with the ``from_pretrained()`` class method.
     This class cannot be instantiated directly using \_\_init\_\_() (throws an error).
     """
     _support_list = MindFormerBook.get_processor_support_list()
