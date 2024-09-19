@@ -17,7 +17,8 @@
 import mindspore as ms
 from mindspore import nn, ops
 from mindspore.communication import get_group_size
-from mindspore.communication.comm_func import all_to_all_single_with_output_shape
+from mindspore.communication.comm_func import all_reduce, all_gather_into_tensor, reduce_scatter_tensor, \
+    all_to_all_single_with_output_shape
 
 from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
@@ -34,13 +35,10 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import (
 
 def gather_along_first_dim_expert_parallel(input_):
     world_size = get_expert_model_parallel_world_size()
-
     if world_size == 1:
         return input_
     group = get_expert_model_parallel_group()
-    all_gather = ops.AllGather(group=group)
-
-    output = all_gather(input_.contiguous())
+    output = all_gather_into_tensor(input_.contiguous(), group=group)[0]
     return output
 
 
@@ -123,7 +121,7 @@ class CopyToModelParallelRegion(nn.Cell):
         super(CopyToModelParallelRegion, self).__init__()
         self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.all_reduce = ops.AllReduce(group=get_tensor_model_parallel_group())
+            self.tp_group = get_tensor_model_parallel_group()
 
     # pylint: disable=C0303
     def construct(self, input_):
@@ -133,7 +131,7 @@ class CopyToModelParallelRegion(nn.Cell):
     def bprop(self, x, out, dout):
         if self.world_size == 1:
             return (dout,)
-        output = self.all_reduce(dout)
+        output = all_reduce(dout, group=self.tp_group)[0]
         return (output,)
 
 
@@ -144,8 +142,8 @@ class ScatterToModelParallelRegion(nn.Cell):
         super(ScatterToModelParallelRegion, self).__init__()
         self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
-        self.rank = get_tensor_model_parallel_rank()
+            self.tp_group = get_tensor_model_parallel_group()
+            self.rank = get_tensor_model_parallel_rank()
 
     def construct(self, input_):
         if self.world_size == 1:
@@ -165,7 +163,7 @@ class ScatterToModelParallelRegion(nn.Cell):
 
         # Size and dimension.
         last_dim = dout.ndim - 1
-        output = self.all_gather(dout)
+        output = all_gather_into_tensor(dout, group=self.tp_group)[0]
         tensor_list = ops.split(output, dout.shape[0], axis=0)
         output = ops.cat(tensor_list, axis=last_dim).contiguous()
 
@@ -178,21 +176,19 @@ class GatherFromTensorAndExpertParallelRegion(nn.Cell):
         super(GatherFromTensorAndExpertParallelRegion, self).__init__()
         self.world_size = get_tensor_and_expert_parallel_world_size()
         if self.world_size > 1:
-            group = get_tensor_and_expert_parallel_group()
-            self.all_gather = ops.AllGather(group=group)
-            self.reduce_scatter = ops.ReduceScatter(group=group)
+            self.tp_ep_group = get_tensor_and_expert_parallel_group()
 
 
     def construct(self, input_):
         if self.world_size == 1:
             return ops.stop_gradient(input_)
-        return self.all_gather(input_.contiguous())
+        return all_gather_into_tensor(input_.contiguous(), group=self.tp_ep_group)[0]
 
     # pylint: disable=W0613, C0111
     def bprop(self, x, out, dout):
         if self.world_size == 1:
             return (dout,)
-        output = self.reduce_scatter(dout.contiguous())
+        output = reduce_scatter_tensor(dout.contiguous(), group=self.tp_ep_group)[0]
         return (output,)
 
 class GatherFromModelParallelRegion(nn.Cell):
@@ -202,8 +198,8 @@ class GatherFromModelParallelRegion(nn.Cell):
         super(GatherFromModelParallelRegion, self).__init__()
         self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
-        self.rank = get_tensor_model_parallel_rank()
+            self.tp_group = get_tensor_model_parallel_group()
+            self.rank = get_tensor_model_parallel_rank()
 
     # pylint: disable=C0111
     def construct(self, input_):
@@ -212,7 +208,7 @@ class GatherFromModelParallelRegion(nn.Cell):
         if self.world_size == 1:
             output = input_
         else:
-            output = self.all_gather(input_)
+            output = all_gather_into_tensor(input_, group=self.tp_group)[0]
         tensor_list = ops.split(output, input_.shape[0], axis=0)
         output = ops.cat(tensor_list, axis=last_dim).contiguous()
 
@@ -226,9 +222,7 @@ class GatherFromModelParallelRegion(nn.Cell):
         last_dim_size = divide(dout.shape[last_dim], self.world_size)
         # 对按第零维allgather的结果重新按最后一维排列
         tensor_tuple = ops.split(dout, last_dim_size, axis=last_dim)
-
-        rank = get_tensor_model_parallel_rank()
-        output = tensor_tuple[rank].contiguous()
+        output = tensor_tuple[self.rank].contiguous()
         return (output,)
 
 
@@ -239,12 +233,12 @@ class ReduceFromModelParallelRegion(nn.Cell):
         super(ReduceFromModelParallelRegion, self).__init__()
         self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.all_reduce = ops.AllReduce(group=get_tensor_model_parallel_group())
+            self.tp_group = get_tensor_model_parallel_group()
 
     def construct(self, input_):
         if self.world_size == 1:
             return ops.stop_gradient(input_)
-        output = self.all_reduce(input_)
+        output = all_reduce(input_, group=self.tp_group)[0]
         return output
 
     # pylint: disable=W0613, C0111
@@ -260,15 +254,14 @@ class ReduceScatterToSequenceParallelRegion(nn.Cell):
         self.world_size = get_tensor_model_parallel_world_size()
         self.need_to_swapaxes = need_to_swapaxes
         if self.world_size > 1:
-            self.reduce_scatter = ops.ReduceScatter(group=get_tensor_model_parallel_group())
-            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
+            self.tp_group = get_tensor_model_parallel_group()
 
     def construct(self, input_):
         if self.world_size == 1:
             return ops.stop_gradient(input_)
         if self.need_to_swapaxes:
             input_ = input_.swapaxes(0, 1)
-        output = self.reduce_scatter(input_)
+        output = reduce_scatter_tensor(input_, group=self.tp_group)[0]
         if self.need_to_swapaxes:
             output = output.swapaxes(0, 1)
         return output
@@ -279,7 +272,7 @@ class ReduceScatterToSequenceParallelRegion(nn.Cell):
             return dout
         if self.need_to_swapaxes:
             dout = dout.swapaxes(0, 1)
-        output = self.all_gather(dout)
+        output = all_gather_into_tensor(dout, group=self.tp_group)[0]
         if self.need_to_swapaxes:
             output = output.swapaxes(0, 1)
 
@@ -293,8 +286,7 @@ class ReduceScatterToTensorParallelRegion(nn.Cell):
         super(ReduceScatterToTensorParallelRegion, self).__init__()
         self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.reduce_scatter = ops.ReduceScatter(group=get_tensor_model_parallel_group())
-            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
+            self.tp_group = get_tensor_model_parallel_group()
 
     # pylint: disable=C0111
     def construct(self, input_):
@@ -304,7 +296,7 @@ class ReduceScatterToTensorParallelRegion(nn.Cell):
         if self.world_size == 1:
             output = input_
         else:
-            output = self.reduce_scatter(input_)
+            output = reduce_scatter_tensor(input_, group=self.tp_group)[0]
 
         permute_order = tuple(range(1, num_dims)) + (0,)
         output = ops.transpose(output, permute_order).contiguous()
@@ -317,7 +309,7 @@ class ReduceScatterToTensorParallelRegion(nn.Cell):
 
         # Size and dimension.
         last_dim = dout.ndim - 1
-        output = self.all_gather(dout)
+        output = all_gather_into_tensor(dout, group=self.tp_group)[0]
         tensor_list = ops.split(output, dout.shape[0], axis=0)
         output = ops.cat(tensor_list, axis=last_dim).contiguous()
 
@@ -332,7 +324,7 @@ class ScatterToSequenceParallelRegion(nn.Cell):
         self.rank = get_tensor_model_parallel_rank()
         self.need_to_swapaxes = need_to_swapaxes
         if self.world_size > 1:
-            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
+            self.tp_group = get_tensor_model_parallel_group()
 
     # pylint: disable=C0111
     def construct(self, input_):
@@ -362,10 +354,11 @@ class ScatterToSequenceParallelRegion(nn.Cell):
             return (dout,)
         if self.need_to_swapaxes:
             dout = dout.swapaxes(0, 1)
-        output = self.all_gather(dout.contiguous())
+        output = all_gather_into_tensor(dout.contiguous(), group=self.tp_group)[0]
         if self.need_to_swapaxes:
             output = output.swapaxes(0, 1)
         return (output,)
+
 
 class GatherFromSequenceParallelRegion(nn.Cell):
     """Gather From Sequence Parallel Region"""
@@ -373,8 +366,7 @@ class GatherFromSequenceParallelRegion(nn.Cell):
         super(GatherFromSequenceParallelRegion, self).__init__()
         self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
-            self.reduce_scatter = ops.ReduceScatter(group=get_tensor_model_parallel_group())
+            self.tp_group = get_tensor_model_parallel_group()
         self.rank = get_tensor_model_parallel_rank()
         self.tensor_parallel_output_grad = tensor_parallel_output_grad
         self.need_to_swapaxes = need_to_swapaxes
@@ -385,7 +377,7 @@ class GatherFromSequenceParallelRegion(nn.Cell):
             return ops.stop_gradient(input_)
         if self.need_to_swapaxes:
             input_ = input_.swapaxes(0, 1)
-        output = self.all_gather(input_)
+        output = all_gather_into_tensor(input_, group=self.tp_group)[0]
         if self.need_to_swapaxes:
             output = output.swapaxes(0, 1)
         return output
@@ -400,7 +392,7 @@ class GatherFromSequenceParallelRegion(nn.Cell):
             dout = dout.swapaxes(0, 1)
 
         if self.tensor_parallel_output_grad:
-            output = self.reduce_scatter(dout.contiguous())
+            output = reduce_scatter_tensor(dout.contiguous(), group=self.tp_group)[0]
         else:
             dim_size = dout.shape[0]
             assert (
@@ -423,8 +415,7 @@ class AllGatherFromTensorParallelRegion(nn.Cell):
         super(AllGatherFromTensorParallelRegion, self).__init__()
         self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
-            self.all_gather = ops.AllGather(group=get_tensor_model_parallel_group())
-            self.reduce_scatter = ops.ReduceScatter(group=get_tensor_model_parallel_group())
+            self.tp_group = get_tensor_model_parallel_group()
 
     # pylint: disable=C0111
     def construct(self, input_):
@@ -435,7 +426,7 @@ class AllGatherFromTensorParallelRegion(nn.Cell):
         if self.world_size == 1:
             output = input_
         else:
-            output = self.all_gather(input_)
+            output = all_gather_into_tensor(input_, group=self.tp_group)[0]
         tensor_list = ops.split(output, input_.shape[0], axis=0)
         output = ops.cat(tensor_list, axis=last_dim).contiguous()
         return output
@@ -448,7 +439,7 @@ class AllGatherFromTensorParallelRegion(nn.Cell):
         if self.world_size == 1:
             output = dout
         else:
-            output = self.reduce_scatter(dout)
+            output = reduce_scatter_tensor(dout, group=self.tp_group)[0]
 
         permute_order = tuple(range(1, num_dims)) + (0,)
         output = ops.transpose(output, permute_order).contiguous()
@@ -543,7 +534,7 @@ class AllToAll(nn.Cell):
                                input_,
                                self.output_splits,
                                self.input_splits,
-                               self.group)
+                               self.group)[0]
         return output
 
     # pylint: disable=W0613
@@ -555,8 +546,9 @@ class AllToAll(nn.Cell):
                               dout,
                               self.input_splits,
                               self.output_splits,
-                              self.group)
+                              self.group)[0]
         return (dout2,)
+
 
 # pylint: disable=W0613
 def all_to_all_self_defined(output_shape, input_, output_split_sizes=None, input_split_sizes=None, group=None):
@@ -570,8 +562,7 @@ def all_to_all_self_defined(output_shape, input_, output_split_sizes=None, input
     hidden_dtype = input_.dtype
     hidden_size = input_.shape[-1]
 
-    allgather = ops.AllGather(group=group)
-    group_input_splits = allgather(ms.Tensor(input_split_sizes, dtype=ms.int32))
+    group_input_splits = all_gather_into_tensor(ms.Tensor(input_split_sizes, dtype=ms.int32), group=group)[0]
     group_input_splits = group_input_splits.reshape(-1, ep_world_size)
     # 1. prepare indices to slice
     zeros = ops.zeros((group_input_splits.shape[0], 1), dtype=group_input_splits.dtype)
@@ -595,7 +586,8 @@ def all_to_all_self_defined(output_shape, input_, output_split_sizes=None, input
                                       shape=(num_group_max_token, hidden_size),
                                       value=-100)
     # allgather
-    padded_group_inputs = allgather(padded_local_token).reshape((ep_world_size, num_group_max_token, -1))
+    padded_group_inputs = all_gather_into_tensor(padded_local_token, group=group)[0].reshape(
+        (ep_world_size, num_group_max_token, -1))
 
     # slice them to origin length
     group_inputs = [x[:group_inputs_sizes[i]] for i, x in enumerate(padded_group_inputs)]

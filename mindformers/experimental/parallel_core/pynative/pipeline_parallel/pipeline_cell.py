@@ -19,6 +19,7 @@ import numpy as np
 import mindspore as ms
 import mindspore.ops as P
 import mindspore.nn as nn
+from mindspore.communication.comm_func import all_reduce
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_rank, get_pipeline_model_parallel_world_size, \
     get_embedding_group, is_pipeline_first_stage, is_pipeline_last_stage, get_virtual_pipeline_model_parallel_world_size
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
@@ -258,7 +259,7 @@ class PipelineCell(Module):
                     P.assign(zeros_param, shared_weight.value())
 
             cur_rank_shared_num = ms.Tensor(len(shared_weight_list), ms.float32)
-            all_shared_num = P.AllReduce(group=get_embedding_group())(cur_rank_shared_num)
+            all_shared_num = all_reduce(cur_rank_shared_num, group=get_embedding_group())[0]
             if self.first_stage:
                 last_stage_param_need_be_assign_num = all_shared_num - cur_rank_shared_num
             elif self.last_stage:
@@ -270,7 +271,7 @@ class PipelineCell(Module):
                 elif self.last_stage:
                     shared_weight = shared_weight_list[i]
                     shared_weight_value = shared_weight.value()
-                shared_weight_value = P.AllReduce(group=get_embedding_group())(shared_weight_value)
+                shared_weight_value = all_reduce(shared_weight_value, group=get_embedding_group())[0]
                 if self.last_stage:
                     P.assign(shared_weight, shared_weight_value)
 

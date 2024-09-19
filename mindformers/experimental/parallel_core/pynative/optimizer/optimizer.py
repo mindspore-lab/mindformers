@@ -191,7 +191,7 @@ class MixedPrecisionOptimizer(nn.Cell):
         self.grad_scale_func(self.grads, inv_scale)
         for grad in self.grads:
             self.found_inf = mint.logical_and(self.found_inf, mint.logical_not(mint.isfinite(grad)).all())
-        self.found_inf = all_reduce(self.found_inf.astype(mstype.float32), 'max', get_model_parallel_group())
+        self.found_inf = all_reduce(self.found_inf.astype(mstype.float32), 'max', get_model_parallel_group())[0]
         return mint.greater(self.found_inf, self._scale_zero)
 
     # pylint: disable=R1705

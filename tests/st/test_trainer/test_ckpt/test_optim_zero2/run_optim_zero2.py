@@ -26,6 +26,7 @@ from mindspore.ops import functional as F
 from mindspore.nn import SoftmaxCrossEntropyWithLogits
 from mindspore.nn.wrap.cell_wrapper import WithLossCell
 from mindspore.common import ParameterTuple
+from mindspore.communication.comm_func import all_gather_into_tensor
 from mindformers import AdamWeightDecayZeRO2
 from mindformers.experimental.parallel_core.pynative.dist_checkpointing import save_checkpoint, load_checkpoint
 
@@ -147,7 +148,7 @@ def run_adamwzero2_optimizer(cpu_offload, optim_shard_size):
     print("test saving checkpoint")
     save_checkpoint(network, optimizer, "./test_adamw_zero2_optimizer")
     print("waiting for rank 0 saving checkpoint")
-    P.AllGather()(Tensor([1]))
+    all_gather_into_tensor(Tensor([1]))
     print("load checkpoint into new network and optimizer")
     network2 = Net(size=(seq_length))
     loss2 = SoftmaxCrossEntropyWithLogits(reduction='none')

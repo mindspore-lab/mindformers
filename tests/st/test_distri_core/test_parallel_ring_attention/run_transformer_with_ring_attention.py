@@ -26,6 +26,7 @@ from mindspore import Tensor
 import mindspore.common.dtype as mstype
 from mindspore.nn import SoftmaxCrossEntropyWithLogits
 from mindspore.communication.management import init
+from mindspore.communication.comm_func import all_gather_into_tensor
 
 from mindformers.core import optim
 from mindformers.modules import FeedForward
@@ -206,7 +207,7 @@ class ParallelTransformerNet(nn.Cell):
         self.transformer = ParallelTransformer(config=config, post_norm=False)
         self.loss = SoftmaxCrossEntropyWithLogits(reduction="none")
         if get_context_parallel_world_size() > 1:
-            self.allgather = ops.AllGather(get_context_parallel_group())
+            self.cp_group = get_context_parallel_group()
 
     def construct(self, x, attention_mask, labels):
         """construct."""
@@ -225,7 +226,7 @@ class ParallelTransformerNet(nn.Cell):
             )
             output = ops.cat(split_outputs, axis=seq_dim)
 
-            labels = self.allgather(labels)
+            labels = all_gather_into_tensor(labels, group=self.cp_group)[0]
             split_labels = ops.split(
                 Tensor(labels), labels.shape[0] // get_context_parallel_world_size(), axis=0
             )

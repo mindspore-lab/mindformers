@@ -448,7 +448,7 @@ class DistributedOptimizer(nn.Cell):
             for buffer_index, bucket_index, shard_start, shard_end in self.param_buffer_dp_views:
                 bucket = self.buffers[buffer_index].buckets[bucket_index]
                 param_data_view = bucket.param_data[shard_start:shard_end]
-                param_data = all_gather_into_tensor(param_data_view, group=bucket.data_parallel_group).reshape(-1)
+                param_data = all_gather_into_tensor(param_data_view, group=bucket.data_parallel_group)[0].reshape(-1)
                 bucket.param_data.copy_(param_data)
 
     def get_lr(self):

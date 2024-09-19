@@ -18,8 +18,9 @@ from mindspore import nn, mint
 from mindspore import ops as P
 from mindspore.ops import ReduceOp
 from mindspore.common.api import _pynative_executor
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group, get_tensor_model_parallel_rank, get_tensor_model_parallel_world_size
-
+from mindspore.communication.comm_func import all_reduce
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_group, \
+    get_tensor_model_parallel_rank, get_tensor_model_parallel_world_size
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
 
 __all__ = ['VocabParallelCrossEntropy', 'get_loss_func']
@@ -62,14 +63,13 @@ class VocabParallelCrossEntropy(nn.Cell):
         self.tp_world_size = get_tensor_model_parallel_world_size()
 
         if self.tp_world_size > 1:
-            self.all_reduce_max = P.AllReduce(op=ReduceOp.MAX, group=get_tensor_model_parallel_group())
-            self.all_reduce_sum = P.AllReduce(op=ReduceOp.SUM, group=get_tensor_model_parallel_group())
+            self.tp_group = get_tensor_model_parallel_group()
 
     def construct(self, vocab_parallel_logits, target, label_smoothing=0.0):
         """Forward process"""
         logits_max = mint.max(vocab_parallel_logits, dim=-1)[0]
         if self.tp_world_size > 1:
-            logits_max = self.all_reduce_max(logits_max)
+            logits_max = all_reduce(logits_max, op=ReduceOp.MAX, group=self.tp_group)[0]
         vocab_parallel_logits = vocab_parallel_logits - logits_max.unsqueeze(dim=-1)
 
         partition_vocab_size = vocab_parallel_logits.shape[-1]
@@ -91,12 +91,12 @@ class VocabParallelCrossEntropy(nn.Cell):
         predicted_logits = predicted_logits_1d.view_as(target)
         predicted_logits = P.masked_fill(predicted_logits, target_mask, ms.Tensor(0.0, predicted_logits.dtype))
         if self.tp_world_size > 1:
-            predicted_logits = self.all_reduce_sum(predicted_logits)
+            predicted_logits = all_reduce(predicted_logits, group=self.tp_group)[0]
 
         exp_logits = mint.exp(vocab_parallel_logits)
         sum_exp_logits = exp_logits.sum(axis=-1)
         if self.tp_world_size > 1:
-            sum_exp_logits = self.all_reduce_sum(sum_exp_logits)
+            sum_exp_logits = all_reduce(sum_exp_logits, group=self.tp_group)[0]
 
         loss = mint.log(sum_exp_logits) - predicted_logits
 
@@ -112,7 +112,7 @@ class VocabParallelCrossEntropy(nn.Cell):
 
         self.label_smoothing = label_smoothing
         self.vocab_size = vocab_size
-        if _pynative_executor.enable_grad():
+        if _pynative_executor.grad_flag():
             self.saved_tensors[0].append(exp_logits)
             self.saved_tensors[1].append(target_mask)
             self.saved_tensors[2].append(masked_target_1d)

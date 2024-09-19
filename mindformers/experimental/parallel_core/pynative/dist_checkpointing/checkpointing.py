@@ -21,6 +21,7 @@ import mindspore as ms
 from mindspore import nn
 from mindspore import _checkparam as validator
 from mindspore.ops import operations as P
+from mindspore.communication.comm_func import all_gather_into_tensor
 try:
     from mindspore import default_generator, set_rng_state
 except ImportError:
@@ -106,8 +107,8 @@ def load_rng_state(param_dict):
     default_generator_loaded = param_dict.pop("default_generator")
     set_rng_state(default_generator_loaded)
 
-def _update_zero(params_dict, shard_info, allgather, param):
-    tensor_concat = allgather(param)
+def _update_zero(params_dict, shard_info, param, group):
+    tensor_concat = all_gather_into_tensor(param, group=group)[0]
     params_dict[param.name] = ms.Parameter(tensor_concat, name=param.name)
     shard_info[param.name]['opt_weight_shard_size'] = 0
     shard_info[param.name]['opt_weight_shard_step'] = 0
@@ -120,13 +121,13 @@ def save_pre_process(shard_info, model, optimizer, config):
     params_dict = model.parameters_dict() if optimizer is None else optimizer.parameters_dict()
     # ZeRO DP
     if optimizer is not None and hasattr(optimizer, "zero_level") and optimizer.zero_level in ["z1", "z2", "z3"]:
-        allgather = P.AllGather(group=get_data_parallel_group(with_context_parallel=optimizer.with_context_parallel))
+        dp_tp_group = get_data_parallel_group(with_context_parallel=optimizer.with_context_parallel)
         for idx, param in enumerate(optimizer._parameters):
             if optimizer._status_splited[idx] or optimizer._parameter_splited[idx]:
-                _update_zero(params_dict, optimizer_shard_info, allgather, optimizer.moments1[idx])
-                _update_zero(params_dict, optimizer_shard_info, allgather, optimizer.moments2[idx])
+                _update_zero(params_dict, optimizer_shard_info, optimizer.moments1[idx], dp_tp_group)
+                _update_zero(params_dict, optimizer_shard_info, optimizer.moments2[idx], dp_tp_group)
             if optimizer.zero_level == "z3" and optimizer._parameter_splited[idx]:
-                _update_zero(params_dict, model_shard_info, allgather, param)
+                _update_zero(params_dict, model_shard_info, param, dp_tp_group)
 
     # process qkv/moe/pp-share
     for name, param in list(params_dict.items()):

@@ -14,47 +14,44 @@
 # ======================
 """p2p primitives."""
 
-import mindspore as ms
-from mindspore import nn, hal, Tensor
-try:
-    from mindspore.ops import Send, Receive
-except ImportError:
-    from mindspore.ops.operations._inner_ops import Send, Receive
+import numpy as np
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_group, get_pipeline_model_parallel_rank, \
-    get_pipeline_model_parallel_world_size, is_pipeline_last_stage, is_pipeline_first_stage, get_stream
+import mindspore as ms
+from mindspore import nn, Tensor
+from mindspore.communication.comm_func import isend, irecv
+
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_group, \
+    get_pipeline_model_parallel_rank, is_pipeline_last_stage, is_pipeline_first_stage, \
+    get_pipeline_model_parallel_prev_rank, get_pipeline_model_parallel_next_rank
 
 
 class ISend(nn.Cell):
     """ Send a tensor asynchronously """
     def __init__(self, sr_tag, dest_rank, group):
         super(ISend, self).__init__()
-        self.send_stream = get_stream()
-        self.op_send = Send(sr_tag, dest_rank, group=group)
+        self.group = group
+        self.dst_rank = dest_rank
+        self.src_tag = sr_tag
 
     def construct(self, send_data):
         """ ISend forward """
-        self.send_stream.wait_stream(hal.current_stream())
-        with hal.StreamCtx(self.send_stream):
-            self.op_send(send_data)
-            event = self.send_stream.record_event()
-        return event
+        handle = isend(send_data, dst=self.dst_rank, tag=self.src_tag, group=self.group)
+        return handle
 
 
 class IRecv(nn.Cell):
     """ receive a tensor asynchronously """
     def __init__(self, sr_tag, src_rank, shape, dtype, group):
         super(IRecv, self).__init__()
-        self.recv_stream = get_stream()
-        self.op_recv = Receive(sr_tag, src_rank, shape, dtype, group)
-        self.data = Tensor(0.0, ms.float16)
+        self.data = Tensor(np.zeros(shape), dtype=dtype)
+        self.group = group
+        self.src_rank = src_rank
+        self.src_tag = sr_tag
 
     def construct(self):
         """ IRecv forward """
-        with hal.StreamCtx(self.recv_stream):
-            recv_tensor = self.op_recv(self.data)
-            event = self.recv_stream.record_event()
-        return event, recv_tensor
+        recv_tensor, handle = irecv(self.data, src=self.src_rank, tag=self.src_tag, group=self.group)
+        return handle, recv_tensor
 
 
 # pylint: disable=C0103
@@ -307,45 +304,44 @@ class P2P_Primitive():
         """ Use 'ISend' or 'IRecv' for p2p communication."""
         reqs = []
         rank = get_pipeline_model_parallel_rank()
-        world_size = get_pipeline_model_parallel_world_size()
         if rank % 2 == 0:
             if tensor_send_next is not None:
-                send_next_req = ISend(0, (rank + 1) % world_size, group=group)
+                send_next_req = ISend(0, get_pipeline_model_parallel_next_rank(), group=group)
                 _ = send_next_req(tensor_send_next)
 
             if tensor_recv_prev is not None:
-                recv_prev_req = IRecv(0, (rank - 1) % world_size,
+                recv_prev_req = IRecv(0, get_pipeline_model_parallel_prev_rank(),
                                       tensor_recv_prev.shape, tensor_recv_prev.dtype, group=group)
                 recv_prev_stream, tensor_recv_prev = recv_prev_req()
                 reqs.append(recv_prev_stream)
 
             if tensor_send_prev is not None:
-                send_prev_req = ISend(0, (rank - 1) % world_size, group=group)
+                send_prev_req = ISend(0, get_pipeline_model_parallel_prev_rank(), group=group)
                 _ = send_prev_req(tensor_send_prev)
 
             if tensor_recv_next is not None:
-                recv_next_req = IRecv(0, (rank + 1) % world_size,
+                recv_next_req = IRecv(0, get_pipeline_model_parallel_next_rank(),
                                       tensor_recv_next.shape, tensor_recv_next.dtype, group=group)
                 recv_next_stream, tensor_recv_next = recv_next_req()
                 reqs.append(recv_next_stream)
         else:
             if tensor_recv_prev is not None:
-                recv_prev_req = IRecv(1, (rank - 1) % world_size,
+                recv_prev_req = IRecv(1, get_pipeline_model_parallel_prev_rank(),
                                       tensor_recv_prev.shape, tensor_recv_prev.dtype, group=group)
                 recv_prev_stream, tensor_recv_prev = recv_prev_req()
                 reqs.append(recv_prev_stream)
 
             if tensor_send_next is not None:
-                send_next_req = ISend(1, (rank + 1) % world_size, group=group)
+                send_next_req = ISend(1, get_pipeline_model_parallel_next_rank(), group=group)
                 _ = send_next_req(tensor_send_next)
 
             if tensor_recv_next is not None:
-                recv_next_req = IRecv(1, (rank + 1) % world_size,
+                recv_next_req = IRecv(1, get_pipeline_model_parallel_next_rank(),
                                       tensor_recv_next.shape, tensor_recv_next.dtype, group=group)
                 recv_next_stream, tensor_recv_next = recv_next_req()
                 reqs.append(recv_next_stream)
 
             if tensor_send_prev is not None:
-                send_prev_req = ISend(1, (rank - 1) % world_size, group=group)
+                send_prev_req = ISend(1, get_pipeline_model_parallel_prev_rank(), group=group)
                 _ = send_prev_req(tensor_send_prev)
         return reqs, tensor_recv_prev, tensor_recv_next

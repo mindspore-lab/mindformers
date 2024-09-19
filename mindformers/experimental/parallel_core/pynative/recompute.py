@@ -16,10 +16,9 @@
 
 from collections import OrderedDict
 from mindspore.common._register_for_recompute import recompute_registry
-from mindspore.common.api import _pynative_executor, _no_grad
+from mindspore.common.api import _pynative_executor
 from mindspore.common.recompute import (
     _RecomputeCell,
-    _check_input_args_validate,
     _padding_input_grads,
 )
 from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import get_rng_tracer, get_rng_state, set_rng_state
@@ -37,15 +36,18 @@ class _RecomputeCellWithRng(_RecomputeCell):
     """
 
     def construct(self, *args, **kwargs):
-        _check_input_args_validate(self.net, args)
+        """Construct function of recompute with rng."""
         self.args.append(args)
         self.kwargs.append(kwargs)
         self.save_rng_state = kwargs.pop("save_rng_state", True)
         if self.save_rng_state:
             self.cpu_rng_state = get_rng_state()
             self.rng_tracer_state = get_rng_tracer().get_state()
-        with _no_grad():
-            return self.net(*args, **kwargs)
+        prev_grad_flag = _pynative_executor.grad_flag()
+        _pynative_executor.set_grad_flag(False)
+        out = self.net(*args, **kwargs)
+        _pynative_executor.set_grad_flag(prev_grad_flag)
+        return out
 
     def bprop(self, *args):
         """
@@ -60,6 +62,8 @@ class _RecomputeCellWithRng(_RecomputeCell):
         self.kwargs.pop()
         if kwargs:
             input_args_for_check = list(input_args) + list(kwargs.values())
+        else:
+            input_args_for_check = list(input_args)
         kwargs['sens'] = grad_input
         try:
             pre_rng_state = get_rng_state()

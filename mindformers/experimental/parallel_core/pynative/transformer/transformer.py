@@ -17,6 +17,7 @@
 import math
 import copy
 from collections import OrderedDict
+import numpy as np
 
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, nn, ops, mint, Parameter
@@ -66,6 +67,7 @@ from mindformers.experimental.parallel_core.pynative.recompute import (
 )
 
 from mindformers.experimental.parallel_core.pynative.utils import divide
+from mindformers.tools import logger
 
 from .module import Module
 from .mlp import ParallelMLP
@@ -339,6 +341,7 @@ class ParallelAttention(Module):
         ``Ascend``
     """
 
+    # pylint: disable=E1123
     def __init__(self, config, layer_number, attention_type=AttnType.self_attn,
                  attn_mask_type=AttnMaskType.padding):
         super(ParallelAttention, self).__init__()
@@ -793,12 +796,16 @@ class ParallelTransformerLayer(Module):
         self.hidden_states_dropout = mint.nn.Dropout(p=self.hidden_dropout)
 
         # selective recompute
-        if self.config.recompute_granularity == "selective":
+        if self.config.recompute_granularity == "selective" or self.config.select_recompute:
             self._set_selective_recompute()
 
     def _set_selective_recompute(self):
         """Set selective recompute for transformer layer."""
-        self.attention.core_attention.recompute()
+        if not self.config.use_flash_attention:
+            self.attention.core_attention.recompute()
+        else:
+            if self.mlp.act_func and isinstance(self.mlp.act_func, nn.Cell):
+                self.mlp.act_func.recompute()
 
     def construct(self,
                   hidden_states,
@@ -873,6 +880,28 @@ class ParallelTransformerLayer(Module):
 
         return output
 
+
+def _get_custom_num_layers(num_layer_list, pp_stage, pp_rank, vpp_stage=None, vpp_rank=0):
+    """get transformer layers nums for current rank according to custom num layer list"""
+    pp_layout = (1,)
+    if vpp_stage is not None:
+        pp_layout = (vpp_stage, pp_stage)
+    elif pp_stage is not None:
+        pp_layout = (pp_stage,)
+    num_layer_array = np.array(num_layer_list)
+    if num_layer_array.shape != pp_layout:
+        raise ValueError("The shape of num_layer_list {} must equal to"
+                         "pp_layout {}".format(num_layer_array.shape, pp_layout))
+    if vpp_stage is None:
+        num_layers = num_layer_array[pp_rank]
+        offset = num_layer_array[:pp_rank].sum()
+        return num_layers, offset
+
+    num_layers = num_layer_array[vpp_rank][pp_rank]
+    offset = num_layer_array[:vpp_rank].sum() + num_layer_array[vpp_rank][:pp_rank].sum()
+    return num_layers, offset
+
+
 # pylint: disable=W0613
 def _get_num_layers(config, model_type, is_decoder=False):
     """get transformer layers nums for current rank"""
@@ -894,6 +923,28 @@ def _get_num_layers(config, model_type, is_decoder=False):
             num_layers = 0
             offset = 0
         else:
+            if config.parallel_config.num_layer_list:
+                pp_stage = get_pipeline_model_parallel_world_size()
+                pp_rank = get_pipeline_model_parallel_rank()
+                if standalone_embedding_stage:
+                    pp_stage = get_pipeline_model_parallel_world_size() - 1
+                    pp_rank = get_pipeline_model_parallel_rank() - 1
+                vpp_stage = get_virtual_pipeline_model_parallel_world_size()
+                vpp_rank = get_virtual_pipeline_model_parallel_rank() if vpp_stage is not None else 0
+                num_layer_array = np.array(config.parallel_config.num_layer_list)
+                assert num_layer_array.sum() == config.num_layers
+                assert np.all(num_layer_array > 0)
+                num_layers, offset = _get_custom_num_layers(config.parallel_config.num_layer_list,
+                                                            pp_stage, pp_rank, vpp_stage, vpp_rank)
+                if vpp_stage is not None:
+                    logger.info("Custom num layer list is {}. "
+                                "Num_layers in vpp_rank:{}"
+                                ", pp_rank:{} is {}.\n".format(num_layer_array, vpp_rank, pp_rank, num_layers))
+                else:
+                    logger.info("Custom num layer list is {}. "
+                                "Num_layers in pp_rank:{} is {}.\n".format(num_layer_array, pp_rank, num_layers))
+                return num_layers, offset
+
             def divide_layers(num_layers, stage, rank):
                 num_layer_list = [num_layers // stage] * stage
                 remain_layer_nums = num_layers - sum(num_layer_list)
@@ -971,17 +1022,6 @@ class ParallelTransformer(Module):
         self.transformer_impl = config.transformer_impl
         self.retro_add_retriever = config.retro_add_retriever
 
-        # gradient checkpointing for recompute.
-        self.checkpointed_recompute = (
-            self.config.recompute_method is not None
-            and self.config.recompute_granularity is not None
-            and self.config.recompute_num_layers is not None
-            and self.config.recompute_granularity == "full"
-        )
-        if self.checkpointed_recompute:
-            self._set_checkpointed_recompute(
-                self.config.recompute_method, self.config.recompute_num_layers
-            )
         self.distribute_saved_activations = \
             config.distribute_saved_activations and not config.sequence_parallel
         if self.distribute_saved_activations:
@@ -1024,23 +1064,85 @@ class ParallelTransformer(Module):
 
         layers_config = copy.deepcopy(config)
         use_lora = config.lora_config.use_lora
+
+        # user defined recompute
+        recompute_config = self.config.parallel_config.recompute_config
+        if recompute_config is not None:
+            (full_recompute_layers, select_recompute_layers,
+             select_comm_recompute_layers) = self._get_recompute_nums(recompute_config)
+            # enable full layer recompute
+            layers_index_config = []
+            if full_recompute_layers != 0:
+                self.config.recompute_method = "block"
+                self.config.recompute_num_layers = full_recompute_layers
+                self.config.recompute_granularity = "full"
+
+            for i in range(full_recompute_layers):
+                layer_config_new = copy.deepcopy(self.config)
+                layers_index_config.append(layer_config_new)
+
+            # enable select、select_comm according to self.config.select_recompute/select_comm_recompute
+            if select_comm_recompute_layers < select_recompute_layers:
+                common_select_recompute_layer_nums = select_comm_recompute_layers
+            else:
+                common_select_recompute_layer_nums = select_recompute_layers
+            for i in range(common_select_recompute_layer_nums):
+                layer_config_new = copy.deepcopy(layers_config)
+                layer_config_new.select_recompute = True
+                layer_config_new.select_comm_recompute = True
+                layers_index_config.append(layer_config_new)
+
+            diff_select_recompute_layer_nums = abs(select_comm_recompute_layers - select_recompute_layers)
+            for i in range(diff_select_recompute_layer_nums):
+                layer_config_new = copy.deepcopy(layers_config)
+                if select_comm_recompute_layers > select_recompute_layers:
+                    layer_config_new.select_comm_recompute = True
+                else:
+                    layer_config_new.select_recompute = True
+                layers_index_config.append(layer_config_new)
+            remain_layer_nums = (self.num_layers - common_select_recompute_layer_nums -
+                                 diff_select_recompute_layer_nums - full_recompute_layers)
+
+            # remain layers are not recompute.
+            for i in range(remain_layer_nums):
+                layer_config_new = copy.deepcopy(layers_config)
+                layers_index_config.append(layer_config_new)
+
+
         if use_lora:
             layers_config.update_lora_config("layers")
-            layers_index_config = []
+            if recompute_config is None:
+                layers_index_config = []
             for i in range(self.num_layers):
-                layer_config_new = copy.deepcopy(layers_config)
-                layer_config_new.update_lora_config(f"{i}")
-                layers_index_config.append(layer_config_new)
+                if recompute_config is None:
+                    layer_config_new = copy.deepcopy(layers_config)
+                    layer_config_new.update_lora_config(f"{i}")
+                    layers_index_config.append(layer_config_new)
+                else:
+                    layer_config_new = copy.deepcopy(layers_index_config[i])
+                    layer_config_new.update_lora_config(f"{i}")
+                    layers_index_config[i] = layer_config_new
 
         # ensure the Parameter of each rank init as correct name
         layers_dict = OrderedDict()
         for i in range(self.num_layers):
             layers_dict[str(i + offset)] = ParallelTransformerLayer(
-                config=layers_index_config[i] if use_lora else layers_config,
+                config=layers_index_config[i] if use_lora or recompute_config else layers_config,
                 layer_number=i + 1 + offset,
             )
         self.layers = nn.SequentialCell(layers_dict)
 
+        # gradient checkpointing for recompute.
+        self.checkpointed_recompute = (
+            self.config.recompute_method is not None
+            and self.config.recompute_granularity is not None
+            and self.config.recompute_num_layers is not None
+            and self.config.recompute_granularity == "full"
+        )
+        if self.checkpointed_recompute:
+            self._set_checkpointed_recompute(
+                self.config.recompute_method, self.config.recompute_num_layers
+            )
         if self.post_process and self.post_norm:
             # final layernorm before output.
             self.final_norm = get_norm(config)
@@ -1059,6 +1161,73 @@ class ParallelTransformer(Module):
                 requires_grad=False,
                 name="set_hidden_states",
             )
+
+
+    def _get_recompute_nums(self, recompute_config):
+        """Get recompute layers nums for current rank"""
+        # Get vpp_rank and pp_rank
+        pp_rank = 0
+        vpp_stage = None
+        pp_layout = (1,)
+        if get_pipeline_model_parallel_world_size() > 1:
+            standalone_embedding_stage = self.config.parallel_config.standalone_embedding_stage
+            pp_stage = get_pipeline_model_parallel_world_size()
+            pp_rank = get_pipeline_model_parallel_rank()
+            if standalone_embedding_stage:
+                pp_stage = get_pipeline_model_parallel_world_size() - 1
+                pp_rank = get_pipeline_model_parallel_rank() - 1
+            vpp_stage = get_virtual_pipeline_model_parallel_world_size()
+            vpp_rank = get_virtual_pipeline_model_parallel_rank() if vpp_stage is not None else 0
+            if vpp_stage is not None:
+                pp_layout = (vpp_stage, pp_stage)
+            elif pp_stage is not None:
+                pp_layout = (pp_stage,)
+
+        full_recompute_layers = 0
+        select_recompute_layers = 0
+        select_comm_recompute_layers = 0
+        self.config.recompute_method = None
+        self.config.recompute_granularity = None
+        self.config.recompute_num_layers = None
+        def _get_recompute_layer_nums(recompute_num_list):
+            recompute_num_array = np.array(recompute_num_list)
+            assert np.all(recompute_num_array >= 0)
+            if recompute_num_array.shape != pp_layout:
+                raise ValueError("The shape of recompute_num_list {} must equal to "
+                                 "pp_layout {}".format(recompute_num_array.shape, pp_layout))
+            if vpp_stage is not None:
+                recompute_layers = recompute_num_array[vpp_rank][pp_rank]
+                return recompute_layers
+            return recompute_num_array[pp_rank]
+        if recompute_config.recompute:
+            full_recompute_layers = _get_recompute_layer_nums(recompute_config.recompute)
+
+        if recompute_config.select_recompute:
+            select_recompute_layers = _get_recompute_layer_nums(recompute_config.select_recompute)
+
+        if recompute_config.select_comm_recompute:
+            select_comm_recompute_layers = _get_recompute_layer_nums(recompute_config.select_comm_recompute)
+
+        if select_comm_recompute_layers + full_recompute_layers > self.num_layers:
+            raise ValueError("Recompute layers must less or equal num layers, but got "
+                             "select_comm_recompute_layers {} + full_recompute_layers {} > "
+                             "num_layers {}.".format(select_comm_recompute_layers,
+                                                     full_recompute_layers, self.num_layers))
+        if select_recompute_layers + full_recompute_layers > self.num_layers:
+            raise ValueError("Recompute layers must less or equal num layers, but got "
+                             "select_recompute_layers {} + full_recompute_layers {} > "
+                             "num_layers {}.".format(select_recompute_layers, full_recompute_layers, self.num_layers))
+        if vpp_stage is not None:
+            logger.info("in vpp_rank:{}, pp_rank:{}, full_recompute_layers is {}, "
+                        "select_recompute_layers is {}, select_comm_recompute_layers is {}"
+                        .format(vpp_rank, pp_rank, full_recompute_layers, select_recompute_layers,
+                                select_comm_recompute_layers))
+        else:
+            logger.info("in pp_rank:{}, full_recompute_layers is {}, "
+                        "select_recompute_layers is {}, select_comm_recompute_layers is {}"
+                        .format(pp_rank, full_recompute_layers, select_recompute_layers, select_comm_recompute_layers))
+        return full_recompute_layers, select_recompute_layers, select_comm_recompute_layers
+
 
     def _set_checkpointed_recompute(self, recompute_method, recompute_num_layers):
         """Set checkpointed recompute for transformer."""

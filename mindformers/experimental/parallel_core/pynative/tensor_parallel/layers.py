@@ -16,9 +16,10 @@
 import mindspore.common.dtype as mstype
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
-from mindspore import Parameter, Tensor, nn, ops, mint, hal
+from mindspore import Parameter, Tensor, nn, ops, mint
 from mindspore.common.initializer import initializer, Zero
 from mindspore.common.api import _pynative_executor
+from mindspore.communication.comm_func import all_reduce, all_gather_into_tensor, reduce_scatter_tensor
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_tensor_model_parallel_rank,
@@ -67,6 +68,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         wgrad_deferral_limit (int): Limit on the number of micro-batches. Default: 0.
         transpose_b (bool): use transposed weight shape for initialization and compute. Default: True.
         data_layout (str): Input layout. Default: "BSH".
+        recompute_comm(bool) : Recompute allgather before dw of matmul
 
     """
     def __init__(
@@ -78,7 +80,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             grad_output_buffer=None,
             wgrad_deferral_limit=0,
             transpose_b=True,
-            data_layout="BSH"
+            data_layout="BSH",
+            recompute_comm=False
         ):
         super(LinearWithGradAccumulationAndAsyncCommunication, self).__init__()
         if grad_output_buffer:
@@ -96,14 +99,13 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         self.matmul_g_in = P.BatchMatMul(transpose_a=False, transpose_b=not self.transpose_b)
         self.matmul_g_w = P.BatchMatMul(transpose_a=True, transpose_b=False)
         if get_tensor_model_parallel_world_size() > 1:
-            self.gather_from_sp_region = ops.AllGather(group=get_tensor_model_parallel_group())
-            self.reduce_scatter_to_sp_region = ops.ReduceScatter(group=get_tensor_model_parallel_group())
-            self.reduce_from_mp_region = ops.AllReduce(group=get_tensor_model_parallel_group())
+            self.tp_group = get_tensor_model_parallel_group()
         self.reduce_sum = P.ReduceSum()
         self.stream = get_stream()
         self.input_parallel = []
         self.weight_param = None
         self.data_layout = data_layout
+        self.recompute_comm = recompute_comm and self.sequence_parallel
 
     # pylint: disable=C0111
     def construct(self, x, weight, bias, weight_param=None):
@@ -113,11 +115,11 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         if self.sequence_parallel:
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
-            x = self.gather_from_sp_region(x)
+            x = all_gather_into_tensor(x, group=self.tp_group)[0]
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
 
-        if _pynative_executor.enable_grad():
+        if _pynative_executor.grad_flag() and not self.recompute_comm:
             self.input_parallel.append(x)
 
         output_parallel = self.matmul(x, weight)
@@ -139,7 +141,15 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         dout = args[-1]
         weight = args[1]
         weight_param = args[3]
-        x = self.input_parallel.pop(0)
+        if self.recompute_comm:
+            x = args[0]
+            if self.data_layout == "BSH":
+                x = x.swapaxes(0, 1)
+            x = all_gather_into_tensor(x, group=self.tp_group)[0]
+            if self.data_layout == "BSH":
+                x = x.swapaxes(0, 1)
+        else:
+            x = self.input_parallel.pop(0)
         grad_input = self.matmul_g_in(dout, weight).reshape(x.shape)
         wgrad_compute = True
 
@@ -147,17 +157,13 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             dout, x = self.prepare_input_tensors_for_wgrad_compute(dout, x)
 
         if self.allreduce_dgrad:
-            self.stream.wait_stream(hal.current_stream())
-            with hal.StreamCtx(self.stream):
-                grad_input = self.reduce_from_mp_region(grad_input)
+            grad_input, grad_input_handle = all_reduce(grad_input, group=self.tp_group, async_op=True)
 
         if self.sequence_parallel:
             assert not self.allreduce_dgrad
             if self.data_layout == "BSH":
                 grad_input = grad_input.swapaxes(0, 1)
-            self.stream.wait_stream(hal.current_stream())
-            with hal.StreamCtx(self.stream):
-                grad_input = self.reduce_scatter_to_sp_region(grad_input)
+            grad_input, grad_input_handle = reduce_scatter_tensor(grad_input, group=self.tp_group, async_op=True)
 
         if self.transpose_b:
             grad_weight = self.matmul_g_w(dout, x)
@@ -184,7 +190,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
                     grad_weight = ops.cast(grad_weight, origin_dtype)
 
         if self.sequence_parallel or self.allreduce_dgrad:
-            hal.current_stream().wait_stream(self.stream)
+            grad_input_handle.wait()
 
         if self.sequence_parallel and self.data_layout == "BSH":
             grad_input = grad_input.swapaxes(0, 1)
@@ -215,7 +221,7 @@ class LinearWithFrozenWeight(nn.Cell):
         self.matmul = P.BatchMatMul(transpose_b=self.transpose_b)
         self.matmul_g_in = P.BatchMatMul(transpose_a=False, transpose_b=not self.transpose_b)
         if get_tensor_model_parallel_world_size() > 1:
-            self.reduce_from_mp_region = ops.AllReduce(group=get_tensor_model_parallel_group())
+            self.tp_group = get_tensor_model_parallel_group()
         if bias:
             self.bias_add = P.Add()
 
@@ -230,7 +236,7 @@ class LinearWithFrozenWeight(nn.Cell):
         grad_input = self.matmul_g_in(dout, weight).reshape(x.shape)
         grad_bias = F.full(bias.shape, 0, dtype=bias.dtype) if self.bias else None
         if self.allreduce_dgrad:
-            grad_input = self.reduce_from_mp_region(grad_input)
+            grad_input = all_reduce(grad_input, self.tp_group)[0]
         return grad_input, None, grad_bias
 
 
@@ -419,7 +425,8 @@ class ColumnParallelLinear(nn.Cell):
             sequence_parallel=False if self.explicit_expert_comm else self.sequence_parallel,
             allreduce_dgrad=False if self.explicit_expert_comm else self.allreduce_dgrad,
             transpose_b=self.transpose_b,
-            data_layout=self.config.dataset_config.data_layout
+            data_layout=self.config.dataset_config.data_layout,
+            recompute_comm=self.config.select_comm_recompute
         )
 
         self.frozen_weight_forward_impl_ = LinearWithFrozenWeight(

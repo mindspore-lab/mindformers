@@ -22,6 +22,7 @@ from mindspore.ops import functional as F
 from mindspore.nn.optim.optimizer import Optimizer
 from mindspore.common import dtype as mstype
 from mindspore.common.initializer import initializer
+from mindspore.communication.comm_func import all_reduce, all_gather_into_tensor, reduce_scatter_tensor
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_rank, \
     get_data_parallel_world_size, get_data_parallel_group
@@ -85,7 +86,8 @@ def _update_params_opt_parallel(param, update, all_gather):
     Allgather updated parameters and load.
     """
     if all_gather:
-        update = all_gather(update)
+        update, handle = all_gather(update)
+        handle.wait()
     if update.dtype != param.dtype:
         update = ops.cast(update, param.dtype)
     param.assign_value(update)
@@ -93,10 +95,15 @@ def _update_params_opt_parallel(param, update, all_gather):
 
 def _inner_grad_reduce_scatter(reduce_scatter, allreduce, grad_allreduce_sum, shard_size, grads, grads_splited,
                                parameter_splited):
+    """
+    Reduce gradients.
+    """
     if grads_splited or parameter_splited:
-        grads = reduce_scatter(grads)
+        grads, handle = reduce_scatter(grads)
+        handle.wait()
     else:
-        grads = allreduce(grads)
+        grads, handle = allreduce(grads)
+        handle.wait()
     if not grad_allreduce_sum:
         grads = mint.div(grads, shard_size)
     return grads
@@ -250,10 +257,10 @@ class AdamW(Optimizer):
         # init communication group info
         self._init_optimizer_shard_info()
 
-        self.reduce_scatter = ops.ReduceScatter(\
-            group=get_data_parallel_group(with_context_parallel=self.with_context_parallel))
-        self.allreduce = P.AllReduce(group=get_data_parallel_group(with_context_parallel=self.with_context_parallel))
-        self.allgather = P.AllGather(group=get_data_parallel_group(with_context_parallel=self.with_context_parallel))
+        self.dp_cp_group = get_data_parallel_group(with_context_parallel=self.with_context_parallel)
+        self.reduce_scatter = ops.ReduceScatter(group=self.dp_cp_group)
+        self.allreduce = P.AllReduce(group=self.dp_cp_group)
+        self.allgather = P.AllGather(group=self.dp_cp_group)
         self.split = P.Split(0, self.shard_size)
         if self.zero_level == "z3":
             self._regist_hook_for_cells()
@@ -316,7 +323,7 @@ class AdamW(Optimizer):
         @_no_grad()
         def _pre_forward_cell_hook(cell, input):
             for cell_param in cell.get_parameters():
-                ag_param = self.allgather(cell_param)
+                ag_param = all_gather_into_tensor(cell_param, group=self.dp_cp_group)[0]
                 cell_param.assign_value(ag_param)
             return input
 
@@ -334,7 +341,7 @@ class AdamW(Optimizer):
                 @_no_grad()
                 def _run_before_backward_function(sub_cell):
                     for cell_param in sub_cell.get_parameters():
-                        ag_param = self.allgather(cell_param)
+                        ag_param = all_gather_into_tensor(cell_param, group=self.dp_cp_group)[0]
                         cell_param.assign_value(ag_param)
 
                 class PreBackwardCell(nn.Cell):
@@ -433,16 +440,13 @@ class AdamW(Optimizer):
         """Register hook for model parameters for optimizer parallel."""
 
         def reduce_scatter_hook(grad):
-            # allreduce = P.AllReduce(group=get_data_parallel_group())
-            # split = P.Split(0, self.shard_size)
-            # res = split(allreduce(grad))[self.shard_id].contiguous()
-            res = self.reduce_scatter(grad)
+            res = reduce_scatter_tensor(grad, group=self.dp_cp_group)[0]
             if not self.grad_allreduce_sum:
                 res = mint.div(res, self.shard_size)
             return res
 
         def reduce_hook(grad):
-            res = self.allreduce(grad)
+            res = all_reduce(grad, group=self.dp_cp_group)[0]
             if not self.grad_allreduce_sum:
                 res = mint.div(res, self.shard_size)
             return res

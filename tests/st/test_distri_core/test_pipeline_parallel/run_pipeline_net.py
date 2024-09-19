@@ -30,6 +30,7 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_pipeline_model_parallel_rank,
     get_pipeline_model_parallel_world_size
 )
+
 from mindformers.experimental.parallel_core.pynative.training import TrainOneStepCell, train, get_model
 from mindformers.experimental.parallel_core.pynative.config import (
     init_configs_from_yaml,
@@ -221,6 +222,10 @@ if __name__ == '__main__':
     elif args.run_mode == 'pp_with_share':
         model_config_main.untie_embeddings_and_output_weights = False
         run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main)
+    elif args.run_mode == 'custom_pp_with_share':
+        model_config_main.untie_embeddings_and_output_weights = False
+        parallel_config_main.num_layer_list = [2, 3, 1, 2]
+        run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main)
     elif args.run_mode == 'pp_interleaved':
         parallel_config_main.virtual_pipeline_model_parallel_size = 2
         model_config_main.untie_embeddings_and_output_weights = False
@@ -229,4 +234,9 @@ if __name__ == '__main__':
         model_config_main.untie_embeddings_and_output_weights = False
         training_config_main.wrap_with_ddp = True
         training_config_main.use_distributed_optimizer = True
+        run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main)
+    elif args.run_mode == 'custom_pp_interleaved':
+        parallel_config_main.virtual_pipeline_model_parallel_size = 2
+        model_config_main.untie_embeddings_and_output_weights = False
+        parallel_config_main.num_layer_list = [[1, 1, 1, 1], [1, 1, 1, 1]]
         run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main)

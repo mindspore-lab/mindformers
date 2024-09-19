@@ -35,6 +35,7 @@ import mindspore.nn as nn
 from mindspore import ops
 from mindspore.communication.management import init
 from mindspore.nn import AdamWeightDecay
+from mindspore.communication.comm_func import all_gather_into_tensor
 
 
 class TopKRouterGolden(nn.Cell):
@@ -79,7 +80,7 @@ class TopKRouterPynative(nn.Cell):
         self.num_experts = moe_configs.num_experts
         self.router = TopKRouter(model_config)
         self.loss = nn.MAELoss()
-        self.all_gather = ops.AllGather(group=get_data_parallel_group())
+        self.dp_group = get_data_parallel_group()
 
     def construct(self, input_ids, labels):
         """define a forward process"""
@@ -89,8 +90,8 @@ class TopKRouterPynative(nn.Cell):
         labels = labels.reshape(-1, labels.shape[-1])
         loss = self.loss(indices, labels)
 
-        indices_all = self.all_gather(indices)
-        labels_all = self.all_gather(labels)
+        indices_all = all_gather_into_tensor(indices, group=self.dp_group)[0]
+        labels_all = all_gather_into_tensor(labels, group=self.dp_group)[0]
         loss_all = self.loss(indices_all, labels_all)
         print(f"loss_all is {loss_all}")
 

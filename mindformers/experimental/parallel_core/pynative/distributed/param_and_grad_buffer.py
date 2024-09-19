@@ -92,7 +92,7 @@ class Bucket:
 
     def inplace_reduce_dp(self, src, target):
         """ conduct all-reduce/reduce-scatter on src tensor and inplace update result into target. """
-        target.copy_(self.grad_reducer(src, 'sum', self.data_parallel_group))
+        target.copy_(self.grad_reducer(src, 'sum', self.data_parallel_group)[0])
 
     def reset(self):
         """ reset bucket for the next iteration. """
