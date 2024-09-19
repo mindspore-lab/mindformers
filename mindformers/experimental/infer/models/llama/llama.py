@@ -21,7 +21,7 @@ from mindspore.communication import get_group_size
 
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear
 from mindformers.experimental.infer.core.transformer import ParallelTransformer
-from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_info, initialize_model_parallel
 from mindformers.models.llama.llama import LlamaPreTrainedModel
 from mindformers.modules import Linear
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
@@ -47,7 +47,8 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config, auto_prefix=True)
-        initialize_model_parallel(get_group_size(), order='tp')
+        if get_group_info('tp').group is None:
+            initialize_model_parallel(get_group_size(), order='tp')
         self.config = convert_model_config(config)
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
