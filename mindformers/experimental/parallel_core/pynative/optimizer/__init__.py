@@ -14,6 +14,7 @@
 # ============================================================================
 
 """mindformers init"""
+import os
 from mindspore import mint, ops
 from mindspore.common import dtype as mstype
 from mindspore.nn import Adam, SGD
@@ -23,6 +24,7 @@ from mindformers.core.optim import AdamW as mf_AdamW
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
 from mindformers.experimental.parallel_core.pynative.distributed import DistributedDataParallel
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_group
+from mindformers.experimental.parallel_core.pynative.dist_checkpointing import get_checkpoint_name
 
 from .zero import *
 from .lr_scheduler import *
@@ -63,6 +65,11 @@ def get_ditributed_optimizer(optimizer, optimizer_config, training_config, model
         per_model_buffers=per_model_buffers,
         data_parallel_group=get_data_parallel_group(with_context_parallel=True),
     )
+    ckpt_file, _ = get_checkpoint_name(os.path.join(training_config.output_dir, 'opt_shard_info'),
+                                       format='json', prefix='dist_opt_shard_info', epoch_num=0, step_num=0)
+
+    distributed_optimizer.save_opt_shard_strategy(ckpt_file)
+
     return distributed_optimizer
 
 
