@@ -44,7 +44,7 @@ optimizer_config:
   lr_decay_samples: 0
   lr_wsd_decay_samples: 0
   lr_warmup_samples: 0
-  lr_warmup_init: 0
+  lr_warmup_init: 0.0
   min_lr: 3.e-5
   lr_decay_style: "cosine"
   start_weight_decay: 0.1
