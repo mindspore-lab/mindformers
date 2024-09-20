@@ -14,8 +14,16 @@
 # ============================================================================
 """MindFormers LR API."""
 from .build_lr import build_lr
-from .lr_schedule import *
-
+from .lr_schedule import (
+    ConstantWarmUpLR,
+    CosineAnnealingLR,
+    CosineAnnealingWarmRestarts,
+    CosineWithRestartsAndWarmUpLR,
+    CosineWithWarmUpLR,
+    LearningRateWiseLayer,
+    LinearWithWarmUpLR,
+    PolynomialWithWarmUpLR
+)
 
 __all__ = []
 __all__.extend(lr_schedule.__all__)

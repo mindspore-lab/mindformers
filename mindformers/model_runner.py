@@ -37,7 +37,7 @@ from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
 from mindformers.generation.parallel_decoding import parallel_decoding_logits_process, parallel_decoding_control
 
-__all__ = ["get_model", "ModelRunner"]
+__all__ = ["ModelRunner"]
 
 
 def register_auto_class(config, pretrained_model_name_or_path, class_type, use_fast=True):

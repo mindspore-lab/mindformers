@@ -14,13 +14,17 @@
 
 """Auto class initialization."""
 
-from .configuration_auto import CONFIG_MAPPING, AutoConfig, CONFIG_MAPPING_NAMES
+from .configuration_auto import (
+    AutoConfig,
+    CONFIG_MAPPING,
+    CONFIG_MAPPING_NAMES
+)
 from .modeling_auto import (
     AutoModel,
     AutoModelForCausalLM,
     AutoModelForImageClassification,
-    AutoModelForMaskedImageModeling,
     AutoModelForMaskGeneration,
+    AutoModelForMaskedImageModeling,
     AutoModelForMultipleChoice,
     AutoModelForPreTraining,
     AutoModelForQuestionAnswering,
@@ -34,19 +38,18 @@ from .modeling_auto import (
     AutoModelWithLMHead,
     MODEL_FOR_CAUSAL_LM_MAPPING
 )
-from .image_processing_auto import IMAGE_PROCESSOR_MAPPING, AutoImageProcessor, ImageProcessingMixin
-from .tokenization_auto import AutoTokenizer, TOKENIZER_MAPPING
+from .image_processing_auto import (
+    AutoImageProcessor,
+    IMAGE_PROCESSOR_MAPPING,
+    ImageProcessingMixin
+)
+from .tokenization_auto import (
+    AutoTokenizer,
+    TOKENIZER_MAPPING
+)
 from .processing_auto import AutoProcessor
 
-__all__ = ["CONFIG_MAPPING", "AutoConfig",
-           "IMAGE_PROCESSOR_MAPPING", "AutoImageProcessor", "CONFIG_MAPPING_NAMES", "AutoTokenizer",
-           "TOKENIZER_MAPPING",
-           "AutoModel", "AutoModelForCausalLM", "AutoModelForImageClassification",
-           "AutoModelForMaskedImageModeling", "AutoModelForMaskGeneration",
-           "AutoModelForMultipleChoice", "AutoModelForPreTraining",
-           "AutoModelForQuestionAnswering", "AutoModelForQuestionAnswering",
-           "AutoModelForSeq2SeqLM", "AutoModelForSequenceClassification",
-           "AutoModelForTextEncoding", "AutoModelForTokenClassification",
-           "AutoModelForVision2Seq", "AutoModelForVisualQuestionAnswering",
-           "AutoModelForZeroShotImageClassification", "AutoModelWithLMHead", "AutoProcessor",
-           "ImageProcessingMixin"]
+__all__ = [
+    'AutoConfig', 'AutoModel', 'AutoModelForCausalLM', 'AutoModelForZeroShotImageClassification', 'AutoProcessor',
+    'AutoTokenizer',
+]

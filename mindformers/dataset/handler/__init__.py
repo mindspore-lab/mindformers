@@ -13,11 +13,10 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers DataHandler."""
-from mindformers.dataset.handler.build_data_handler import build_data_handler
-from mindformers.dataset.handler.alpaca_handler import AlpacaInstructDataHandler
-from mindformers.dataset.handler.codealpaca_handler import CodeAlpacaInstructDataHandler
-from mindformers.dataset.handler.adgen_handler import AdgenInstructDataHandler
-from mindformers.dataset.handler.llava_handler import LlavaInstructDataHandler
+from .build_data_handler import build_data_handler
+from .alpaca_handler import AlpacaInstructDataHandler
+from .codealpaca_handler import CodeAlpacaInstructDataHandler
+from .adgen_handler import AdgenInstructDataHandler
+from .llava_handler import LlavaInstructDataHandler
 
-__all__ = ["build_data_handler", "AlpacaInstructDataHandler", "CodeAlpacaInstructDataHandler",
-           "AdgenInstructDataHandler", "LlavaInstructDataHandler"]
+__all__ = []

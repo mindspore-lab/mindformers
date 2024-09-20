@@ -14,11 +14,14 @@
 # ============================================================================
 """MindFormers Optimizer."""
 from .build_optim import build_optim
-from .came import *
-from .optim import *
-from .adamw import *
+from .came import Came
+from .optim import (
+    FP32StateAdamWeightDecay,
+    FusedAdamWeightDecay,
+    FusedCastAdamWeightDecay
+)
+from .adamw import AdamW
 
 __all__ = []
-__all__.extend(came.__all__)
-__all__.extend(optim.__all__)
 __all__.extend(adamw.__all__)
+__all__.extend(came.__all__)

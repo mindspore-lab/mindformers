@@ -15,5 +15,4 @@
 """Token Classification Trainer."""
 from .token_classification import TokenClassificationTrainer
 
-
-__all__ = ['TokenClassificationTrainer']
+__all__ = []

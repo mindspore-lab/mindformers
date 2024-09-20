@@ -15,5 +15,4 @@
 """Masked Language Modeling Trainer."""
 from .translation_finetune import TranslationTrainer
 
-
-__all__ = ['TranslationTrainer']
+__all__ = []

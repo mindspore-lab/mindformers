@@ -13,8 +13,14 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Register Tools."""
-from .config import MindFormerConfig, ActionDict, DictConfig
-from .register import MindFormerRegister, MindFormerModuleType
+from .config import (
+    ActionDict,
+    DictConfig,
+    MindFormerConfig
+)
+from .register import (
+    MindFormerModuleType,
+    MindFormerRegister
+)
 
-__all__ = ['MindFormerRegister', 'MindFormerModuleType',
-           'DictConfig', 'ActionDict', 'MindFormerConfig']
+__all__ = ['MindFormerConfig', 'MindFormerModuleType', 'MindFormerRegister']

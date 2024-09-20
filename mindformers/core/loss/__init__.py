@@ -14,7 +14,12 @@
 # ============================================================================
 """MindFormers Loss."""
 from .build_loss import build_loss
-from .loss import *
+from .loss import (
+    CompareLoss,
+    CrossEntropyLoss,
+    L1Loss,
+    MSELoss,
+    SoftTargetCrossEntropy
+)
 
-__all__ = []
-__all__.extend(loss.__all__)
+__all__ = ['CrossEntropyLoss']

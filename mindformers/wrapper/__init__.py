@@ -14,9 +14,11 @@
 # ============================================================================
 """MindFormers Wrapper API."""
 from .build_wrapper import build_wrapper
-from .wrapper import *
+from .wrapper import (
+    MFPipelineWithLossScaleCell,
+    MFTrainOneStepCell
+)
 from .adaptive_loss_scale import AdaptiveLossScaleUpdateCell
 
 __all__ = []
 __all__.extend(wrapper.__all__)
-__all__.extend(adaptive_loss_scale.__all__)

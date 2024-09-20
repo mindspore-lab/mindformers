@@ -14,11 +14,29 @@
 # ============================================================================
 
 """modules init"""
-from .models import *
-from .pet_config import *
-from .tuners import *
-from .pet_model import get_pet_model, is_supported_pet_type
+from .models import (
+    LoraModel,
+    PrefixTuningModel,
+    Ptuning2Model
+)
+from .pet_config import (
+    LoraConfig,
+    PetConfig,
+    PrefixTuningConfig,
+    Ptuning2Config
+)
+from .tuners import (
+    AdaAdapter,
+    AdaLoraAdapter,
+    LoraAdapter,
+    PetAdapter,
+    PrefixTuningAdapter,
+    Ptuning2Adapter
+)
+from .pet_model import (
+    get_pet_model,
+    is_supported_pet_type
+)
 
-__all__ = []
-__all__.extend(pet_config.__all__)
-__all__.extend(tuners.__all__)
+__all__ = ['LoraConfig', 'PetConfig']
+__all__.extend(models.__all__)

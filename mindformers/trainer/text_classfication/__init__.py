@@ -15,5 +15,4 @@
 """Text Classification Trainer."""
 from .text_classification import TextClassificationTrainer
 
-
-__all__ = ['TextClassificationTrainer']
+__all__ = []

@@ -15,4 +15,4 @@
 """Image-to-text Retrieval Trainer API."""
 from .image_to_text_retrieval import ImageToTextRetrievalTrainer
 
-__all__ = ['ImageToTextRetrievalTrainer']
+__all__ = []

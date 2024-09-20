@@ -15,10 +15,12 @@
 """The export function for llama"""
 
 from .llama_config import LlamaConfig
-from .llama import LlamaForCausalLM, LlamaModel
+from .llama import (
+    LlamaForCausalLM,
+    LlamaModel
+)
 from .llama_tokenizer import LlamaTokenizer
 from .llama_tokenizer_fast import LlamaTokenizerFast
 from .llama_processor import LlamaProcessor
 
-__all__ = ['LlamaConfig', 'LlamaModel', 'LlamaForCausalLM',
-           'LlamaTokenizer', 'LlamaProcessor', 'LlamaTokenizerFast']
+__all__ = ['LlamaConfig', 'LlamaForCausalLM', 'LlamaTokenizer', 'LlamaTokenizerFast']

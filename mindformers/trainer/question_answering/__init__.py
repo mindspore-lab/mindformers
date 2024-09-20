@@ -15,5 +15,4 @@
 """Question Answering Trainer."""
 from .question_answering import QuestionAnsweringTrainer
 
-
-__all__ = ['QuestionAnsweringTrainer']
+__all__ = []

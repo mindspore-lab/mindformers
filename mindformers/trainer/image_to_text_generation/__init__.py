@@ -15,5 +15,4 @@
 """Image to text generation Trainer API."""
 from .image_to_text_generation import ImageToTextGenerationTrainer
 
-
-__all__ = ['ImageToTextGenerationTrainer']
+__all__ = []

@@ -14,19 +14,28 @@
 # ============================================================================
 """
 NOTE:
-    Transformer Networks.
-    This is an experimental interface that is subject to change or deletion.
+Transformer Networks.
+This is an experimental interface that is subject to change or deletion.
 """
-from __future__ import absolute_import
 
-from .transformer import AttentionMask, VocabEmbedding, MultiHeadAttention, \
-    FeedForward, TransformerEncoder, TransformerDecoder, TransformerEncoderLayer, TransformerDecoderLayer, \
-    Transformer, TransformerOpParallelConfig, EmbeddingOpParallelConfig, TransformerRecomputeConfig
-from .transformer import *
+
+from .transformer import (
+    AttentionMask,
+    AttentionMaskHF,
+    EmbeddingOpParallelConfig,
+    FeedForward,
+    LowerTriangularMaskWithDynamic,
+    MultiHeadAttention,
+    Transformer,
+    TransformerDecoder,
+    TransformerDecoderLayer,
+    TransformerEncoder,
+    TransformerEncoderLayer,
+    TransformerOpParallelConfig,
+    TransformerRecomputeConfig,
+    VocabEmbedding
+)
 from .moe import MoEConfig
 from .op_parallel_config import OpParallelConfig
 
 __all__ = []
-__all__.extend(transformer.__all__)
-__all__.extend(op_parallel_config.__all__)
-__all__.extend(moe.__all__)

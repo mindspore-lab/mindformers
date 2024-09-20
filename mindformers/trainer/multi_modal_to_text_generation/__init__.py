@@ -15,5 +15,4 @@
 """Multi-modal to text generation Trainer API."""
 from .multi_modal_to_text_generation import MultiModalToTextGenerationTrainer
 
-
-__all__ = ['MultiModalToTextGenerationTrainer']
+__all__ = []

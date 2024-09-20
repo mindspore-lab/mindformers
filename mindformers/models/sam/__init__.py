@@ -18,11 +18,33 @@ from .sam import SamModel
 from .sam_image_encoder import SamImageEncoder
 from .sam_prompt_encoder import SamPromptEncoder
 from .sam_mask_decoder import SamMaskDecoder
-from .sam_config import SamConfig, ImageEncoderConfig
-from .sam_processor import SamProcessor, SamImageProcessor
-from .sam_utils import *
+from .sam_config import (
+    ImageEncoderConfig,
+    SamConfig
+)
+from .sam_processor import (
+    SamImageProcessor,
+    SamProcessor
+)
+from .sam_utils import (
+    MaskData,
+    area_from_rle,
+    batch_iterator,
+    batched_mask_to_box,
+    box_area,
+    box_xyxy_to_xywh,
+    build_all_layer_point_grids,
+    calculate_stability_score,
+    coco_encode_rle,
+    generate_crop_boxes,
+    is_box_near_crop_edge,
+    mask_to_rle,
+    nms,
+    remove_small_regions,
+    rle_to_mask,
+    uncrop_boxes_xyxy,
+    uncrop_masks,
+    uncrop_points
+)
 
-__all__ = ["SamModel", "SamImageEncoder", "SamPromptEncoder", "SamMaskDecoder",
-           "SamConfig", "ImageEncoderConfig", 'SamProcessor', "SamImageProcessor"]
-
-__all__.extend(sam_utils.__all__)
+__all__ = []

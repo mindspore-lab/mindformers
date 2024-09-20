@@ -15,10 +15,15 @@
 
 """MultiModal model API."""
 
-from .base_multi_modal_processor import BaseXModalToTextTransform, BaseXModalToTextProcessor, \
-    BaseImageToTextImageProcessor
-from .modal_content import BaseTextContentBuilder, ModalContentTransformTemplate
+from .base_multi_modal_processor import (
+    BaseImageToTextImageProcessor,
+    BaseXModalToTextProcessor,
+    BaseXModalToTextTransform
+)
+from .modal_content import (
+    BaseTextContentBuilder,
+    ModalContentTransformTemplate
+)
 from .base_model import BaseXModalToTextModel
 
-__all__ = ["BaseXModalToTextModel", "BaseXModalToTextTransform", "BaseXModalToTextProcessor",
-           "BaseImageToTextImageProcessor", "BaseTextContentBuilder", "ModalContentTransformTemplate"]
+__all__ = ['ModalContentTransformTemplate']

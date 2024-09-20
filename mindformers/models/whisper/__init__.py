@@ -18,8 +18,4 @@ from .configuration_whisper import WhisperConfig
 from .modeling_whisper import WhisperForConditionalGeneration
 from .tokenization_whisper import WhisperTokenizer
 
-__all__ = [
-    'WhisperConfig',
-    'WhisperForConditionalGeneration',
-    'WhisperTokenizer'
-]
+__all__ = []
