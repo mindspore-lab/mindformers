@@ -3,32 +3,32 @@ mindformers.models.PreTrainedTokenizer
 
 .. py:class:: mindformers.models.PreTrainedTokenizer(**kwargs)
 
-    所有慢速分词器的基类。继承自 :class:`mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase`。
+    所有慢速分词器的基类。
 
     该类处理所有关于分词和特殊符号的共享方法。同时包括下载、缓存和加载预训练分词器的方法，以及向词汇表中添加词汇的方法。
     此外，它以统一的方式包含了所有分词器中的添加词汇，简化了各种底层词典结构（如BPE、sentencepiece等）的词汇增强方法的处理。
 
     .. note::
         初始化分词器的基本配置。
+
         步骤：
+
         1. 初始化父类。
         2. 如果子类没有初始化 `_added_tokens_decoder` ，则进行初始化。
         3. 使用传入的 `added_tokens_decoder` 更新 `_added_tokens_decoder` 。
-        4. 初始化父类。
-        5. 将那些不在词汇表中的特殊词元添加到词汇表中，添加的顺序与 `tokenizers` 中的 `SPECIAL_TOKENS_ATTRIBUTES` 相同。
-        特点：
-        1. 确保所有特殊词元均被添加到词汇表中，即使它们最初不在词汇表中。
-        2. 使用Trie结构来存储tokens。
+        4. 将那些不在词汇表中的特殊词元添加到词汇表中，添加的顺序与 `tokenizers` 中的 `SPECIAL_TOKENS_ATTRIBUTES` 相同。
 
-    返回：
-        Tokenizer类实例。
+        特点：
+
+        1. 确保所有特殊词元均被添加到词汇表中，即使它们最初不在词汇表中。
+        2. 使用Trie结构来存储词元。
 
     参数：
         - **model_max_length** (int, 可选) - 转换器模型输入的最大长度（以词元数量计）。当通过 `from_pretrained()` 加载分词器时，此值将设置为 `max_model_input_sizes` 中存储的关联模型的值。默认值： ``1e-30`` 。
         - **padding_side** (str, 可选) - 模型应该在哪一侧应用填充。应从['right', 'left']中选择。默认值从同名类属性中选择。
         - **truncation_side** (str, 可选) - 模型应该在哪一侧应用截断。应从['right', 'left']中选择。默认值从同名类属性中选择。
         - **chat_template** (str, 可选) - 将用于格式化聊天消息列表的Jinja模板字符串。默认值： ``"{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"`` 。
-        - **model_input_names** (list, 可选) - 模型前向传递接受的输入列表（如"token_type_ids"或"attention_mask"）。默认值从同名类属性中选择。
+        - **model_input_names** (List[str, 可选) - 模型前向传递接受的输入列表（如"token_type_ids"或"attention_mask"）。默认值从同名类属性中选择。
         - **bos_token** (Union[str, tokenizers.AddedToken], 可选) - 表示句子开始的特殊词元。将关联到self.bos_token和self.bos_token_id。默认值： ``None`` 。
         - **eos_token** (Union[str, tokenizers.AddedToken], 可选) - 表示句子结束的特殊词元。将关联到self.eos_token和self.eos_token_id。默认值： ``None`` 。
         - **unk_token** (Union[str, tokenizers.AddedToken], 可选) - 表示词汇表外词元的特殊词元。将关联到self.unk_token和self.unk_token_id。默认值： ``None`` 。
@@ -41,7 +41,7 @@ mindformers.models.PreTrainedTokenizer
         - **split_special_tokens** (bool, 可选) - 是否在分词过程中拆分特殊词元。传递将影响分词器的内部状态。默认行为是不拆分特殊词元。这意味着如果 `<s>` 是 `bos_token` ，则 ``tokenizer.tokenize("<s>") = ['<s>']`` 。否则，如果 ``split_special_tokens=True`` ，则 ``tokenizer.tokenize("<s>")`` 会得到 ``['<','s', '>']`` 。默认值： ``False`` 。
 
     返回：
-        分词器实例。
+        PreTrainedTokenizer类实例。
 
     .. py:method:: added_tokens_decoder()
         :classmethod:
@@ -106,6 +106,7 @@ mindformers.models.PreTrainedTokenizer
 
         参数：
             - **text** (str) - 要准备的文本。
+            - **kwargs** (Any, 可选) - 用于标记化的关键字参数。
 
         返回：
             一个类型为 `Tuple[str, dict]` 的元组，表示准备好的文本和未使用的kwargs。
@@ -114,13 +115,13 @@ mindformers.models.PreTrainedTokenizer
 
         将字符串转换为词元序列，使用分词器。
 
-        根据是否添加了词元处理单词或子词。
+        按单词拆分基于单词的词汇，或按子单词拆分基于子单词的词汇（BPE/SentencePieces/WordPieces）。处理添加的tokens。
 
         参数：
-            - **text** (str) - 要编码的序列。
+            - **text** (TextInput) - 要编码的序列。
             - **pair** (str, 可选) - 与第一个序列一起编码的第二个序列。默认值： ``None`` 。
             - **add_special_tokens** (bool, 可选) - 是否添加与相应模型关联的特殊词元。默认值： ``False`` 。
-            - **kwargs** (附加的关键字参数, 可选) - 这些参数将被传递给底层的具体模型编码方法。详见[`~PreTrainedTokenizerBase.__call__`]。
+            - **kwargs** (Any, 可选) - 这些参数将被传递给底层的具体模型编码方法。详见[`~PreTrainedTokenizerBase.__call__`]。
 
         返回：
             `tokenized_text`，类型为 `List[str]` 的词元列表。

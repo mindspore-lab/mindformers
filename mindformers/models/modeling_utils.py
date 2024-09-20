@@ -321,7 +321,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         (only supports standalone mode, and distribute mode waits for developing)
 
         Args:
-            save_directory (str): A directory to save the model weight and configuration.
+            save_directory (Union[str, os.PathLike]): A directory to save the model weight and configuration.
                 If None, the directory will be  `./checkpoint_save`, which can be obtained by the
                 `MindFormerBook.get_default_checkpoint_save_folder()`. If set, the directory will be what is set.
             save_name (str): The name of saved files, including model weight and configuration file.

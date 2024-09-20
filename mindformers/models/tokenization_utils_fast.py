@@ -79,8 +79,6 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
     r"""
     Base class for all fast tokenizers (wrapping HuggingFace tokenizers library).
 
-    Inherits from :class:`mindformers.models.tokenization_utils_fast.PreTrainedTokenizerBase`.
-
     Handles all the shared methods for tokenization and special tokens, as well as methods for
     downloading/caching/loading pretrained tokenizers, as well as adding tokens to the vocabulary.
 
@@ -112,7 +110,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         bos_token (Union[str, tokenizers.AddedToken], optional):
             Represents the beginning of a sentence and is associated with
             ``self.bos_token`` and ``self.bos_token_id``. Default: ``None`` .
-        eos_token (str or tokenizers.AddedToken, optional):
+        eos_token (Union[str, tokenizers.AddedToken], optional):
             Represents the end of a sentence and is associated with ``self.eos_token``
             and ``self.eos_token_id``. Default: ``None`` .
         unk_token (Union[str, tokenizers.AddedToken], optional):
@@ -133,7 +131,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
             Represents a masked token (used by masked-language modeling pretraining
             objectives like BERT) and is associated with ``self.mask_token`` and
             ``self.mask_token_id``. Default: ``None`` .
-        additional_special_tokens (Union[tuple, list of str, tokenizers.AddedToken], optional):
+        additional_special_tokens (Union[tuple, list, tokenizers.AddedToken], optional):
             Lists additional special tokens that are ensured to be skipped when
             decoding with ``skip_special_tokens`` set to True. They will be added
             at the end of the vocabulary if not already part of it. Default: ``None`` .
@@ -301,6 +299,9 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         """
         Returns the sorted mapping from string to index. The added tokens encoder is cached for performance
         optimisation in `self._added_tokens_encoder` for the slow tokenizers.
+
+        Returns:
+            A dict, the added tokens.
         """
         return {k.content: v for v, k in sorted(self.added_tokens_decoder.items(), key=lambda item: item[0])}
 
@@ -310,7 +311,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         Returns the added tokens in the vocabulary as a dictionary of index to AddedToken.
 
         Returns:
-            `Dict[str, int]`, the added tokens.
+            A dict, the added tokens.
         """
         return self._tokenizer.get_added_tokens_decoder()
 
@@ -319,7 +320,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         Returns the added tokens in the vocabulary as a dictionary of token to index.
 
         Returns:
-            `Dict[str, int]`, the added tokens.
+            A dict, the added tokens.
         """
         return {k.content: v for v, k in sorted(self.added_tokens_decoder.items(), key=lambda item: item[0])}
 
@@ -428,8 +429,9 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         """
         Returns the number of added tokens when encoding a sequence with special tokens.
 
-        This encodes a dummy input and checks the number of added tokens, and is therefore not efficient. Do not put
-        this inside your training loop.
+        Note:
+            This encodes a dummy input and checks the number of added tokens, and is therefore not efficient.
+            Do not put this inside your training loop.
 
         Args:
             pair (bool, optional): Whether the number of added tokens should be computed in the case of
@@ -783,7 +785,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
             special_tokens_map (dict, optional): If you want to rename some of the special tokens this
                 tokenizer uses, pass along a mapping old special token name to new special token name in this argument.
                 Default: ``None`` .
-            kwargs (Any): Additional keyword arguments.
+            kwargs (Any, optional): Additional keyword arguments.
 
         Returns:
             `PreTrainedTokenizerFast`, A new tokenizer of the same type as the original one, trained on
