@@ -104,7 +104,7 @@ model:
         compute_dtype: "bfloat16"
         layernorm_compute_type: "float32"
         softmax_compute_type: "float32"
-        param_init_type: "float16"
+        param_init_type: "bfloat16"
         rotary_dtype: "bfloat16"
         embedding_init_type: "float16"
         scaling_factor: 1.0
