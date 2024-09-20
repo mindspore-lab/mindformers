@@ -13,8 +13,13 @@
 # limitations under the License.
 # ============================================================================
 """ Distributed optimizer wrapper. """
+from collections import OrderedDict
+import json
+
+import mindspore as ms
 import mindspore.ops as ops
 from mindspore.common import dtype as mstype
+from mindspore.common.initializer import Zero
 from mindspore.communication.management import get_group_size, get_rank
 from mindspore.communication.comm_func import all_gather_into_tensor
 
@@ -302,6 +307,12 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
 
         # update self.optimizer attributions according to shard info
         self._update_optimizer_attr()
+
+        # build map between parameter name and its index in optimizer.parameters after sharding
+        self.param_idx_in_opt = {}
+        for idx, param in enumerate(self.optimizer.parameters):
+            self.param_id_in_opt[param.name] = idx
+
         # build fp32 copy for fp16/bf16 params
         self.reload_model_params()
 
@@ -415,3 +426,80 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                 param_data_view = bucket.param_data[shard_start:shard_end]
                 param_data = all_gather_into_tensor(param_data_view, group=bucket.data_parallel_group).reshape(-1)
                 bucket.param_data.copy_(param_data)
+
+
+    def save_opt_shard_strategy(self, file):
+        """
+        Save distributed optimizer shard info as json file.
+
+        Inputs:
+            file (str): Path to save optimizer shard strategy.
+        """
+        # only rank 0 of each data parallel group need save strategy file.
+        if get_rank(self.data_parallel_group) != 0:
+            return
+        strategy = {}
+        strategy['dp_rank_list'] = [int(s) for s in self.data_parallel_group.split('-') if s.isdigit()]
+        # build parameter info
+        strategy['param_info'] = {}
+        for sharded_group in self.sharded_param_groups:
+            for param in sharded_group['params']:
+                buffer_idx, bucket_idx = self.param_to_bucket_map
+                this_buffer = self.buffers[buffer_idx]
+                start_idx, end_idx, bucket_idx = this_buffer.param_index_map[param]
+                strategy['param_info'][param.name] = {}
+                strategy['param_info'][param.name]['range_map'] = (buffer_idx, bucket_idx, start_idx, end_idx)
+                strategy['param_info'][param.name]['shape'] = param.shape
+                strategy['param_info'][param.name]['dtype'] = str(param.dtype).lower()
+        # build buffer info
+        strategy['buffer_info'] = {}
+        for buffer_idx, buffer in enumerate(self.buffers):
+            strategy['buffer_info'][buffer_idx] = {}
+            strategy['buffer_info'][buffer_idx]['buckets'] = {
+                bucket_idx: (
+                    bucket.grad_data_numel,
+                    bucket.numel_unpadded
+                ) for bucket_idx, bucket in enumerate(buffer.buckets)
+            }
+            strategy['buffer_info'][buffer_idx]['buffer_size'] = buffer.numel
+            strategy['buffer_info'][buffer_idx]['buffer_numel_unpadded'] = buffer.numel_unpadded
+            strategy['buffer_info'][buffer_idx]['bucket_num'] = len(buffer.buckets)
+        # save as json file
+        with open(file, 'w') as f:
+            json.dump(strategy, f, indent=4)
+
+    def parameters_dict(self):
+        """ get parameter dict for save checkpoint. """
+        param_dict = OrderedDict()
+
+        for buffer_index, bucket_index, shard_start, shard_end in self.param_buffer_dp_views:
+            param_range_map_this_bucket = self.param_ranges_map[buffer_index][bucket_index]
+            # create dummy tensor for this bucket shard, which will be used to save checkpoint
+            param_shard = ms.Tensor(shape=(shard_end-shard_start), dtype=mstype.float32, init=Zero())
+            exp_avg_shard = ms.Tensor(shape=(shard_end-shard_start), dtype=mstype.float32, init=Zero())
+            exp_avg_sq_shard = ms.Tensor(shape=(shard_end-shard_start), dtype=mstype.float32, init=Zero())
+            # copy param data into dummy tensor
+            for param, range_map in param_range_map_this_bucket.items():
+                start_idx, end_idx = range_map['range_in_shard']
+                param_id_in_opt = self.param_idx_in_opt[param.name]
+                param_shard[start_idx:end_idx].copy_(self.optimizer.parameters[param_id_in_opt])
+                exp_avg_shard[start_idx:end_idx].copy_(self.optimizer.exp_avg[param_id_in_opt])
+                exp_avg_sq_shard[start_idx:end_idx].copy_(self.optimizer.exp_avg_sq[param_id_in_opt])
+            shard_name = 'buffer_{}_bucket_{}'.format(buffer_index, bucket_index)
+            param_dict['param.'+shard_name] = ms.Parameter(
+                param_shard,
+                name='param.'+shard_name,
+                requires_grad=False
+            )
+            param_dict['exp_avg.'+shard_name] = ms.Parameter(
+                param_shard,
+                name='exp_avg.'+shard_name,
+                requires_grad=False
+            )
+            param_dict['exp_avg_sq.'+shard_name] = ms.Parameter(
+                param_shard,
+                name='exp_avg_sq.'+shard_name,
+                requires_grad=False
+            )
+
+        return param_dict

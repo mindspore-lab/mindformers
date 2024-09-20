@@ -294,6 +294,7 @@ class ParamAndGradBuffer:
             from mindspore.hal.contiguous_tensors_handle import combine_tensor_list_contiguous
             self.param_data = combine_tensor_list_contiguous(param_data_list)
         self.grad_data = Tensor(shape=(self.numel), dtype=self.grad_dtype, init=Zero())
+        self.numel_unpadded = 0
 
         # build bucket instance according to partition metadata
         for (bucket_start_index, bucket_end_index, padded_numel, bucket_params) in buckets_metadata:
@@ -301,6 +302,7 @@ class ParamAndGradBuffer:
             if self.param_data is not None:
                 local_param_data = self.param_data[bucket_start_index:bucket_end_index]
             local_grad_data = self.grad_data[bucket_start_index:bucket_end_index]
+            self.numel_unpadded += bucket_end_index - bucket_start_index - padded_numel
             bucket = Bucket(ddp_config=self.ddp_config,
                             params=bucket_params,
                             param_data=local_param_data,
