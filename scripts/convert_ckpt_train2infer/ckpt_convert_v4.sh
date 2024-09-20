@@ -146,11 +146,13 @@ distributed_weight_transfer(){  #Infer_strategy_path #Dst_ckpt_path #src_ckpt_pa
     local src_ckpt_path=$1
     local Dst_ckpt_path=$2
     local Infer_strategy_path=$3
-    check_qkv_output_1=$(python check_weight_name.py $src_ckpt_path)
+    check_qkv_output_1=$(python check_weight_name.py --src_ckpt_dir=$src_ckpt_path)
     echo "Python 脚本的输出是: $check_qkv_output_1"
-    if [ "$check_qkv_output_1" == 1 ]; then
+    if echo "$check_qkv_output_1" | grep -q 'True' ; then
+        echo "qkv_ffn=True"
         qkv_ffn="True"
     else
+        echo "qkv_ffn=False"
         qkv_ffn="False"
     fi
     if [ "$dir_count" == 1 ]; then
@@ -158,7 +160,7 @@ distributed_weight_transfer(){  #Infer_strategy_path #Dst_ckpt_path #src_ckpt_pa
     else
         n_to_m_rank_transformer ${src_ckpt_path} ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
     fi
-    if [ "$check_qkv_output_1" != 1 ]; then
+    if echo "$check_qkv_output_1" | grep -q 'False' ; then
         echo "----- Start to convert qkv and ffn time: $(date +%H:%M:%S)-----"
         python convert_qkv_ffn.py \
         --world_size=$world_size \
@@ -438,7 +440,3 @@ fi
 echo "Convert finish!"
 end_time=$(date +%H:%M:%S)
 echo "Total Start Time: $start_time, Total End Time: $end_time"
-
-
-
-
