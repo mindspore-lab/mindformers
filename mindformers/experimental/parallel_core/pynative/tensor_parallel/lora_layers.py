@@ -1,4 +1,4 @@
-# Copyright 2022 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,12 +13,11 @@
 # limitations under the License.
 # ============================================================================
 """Layers"""
-import math
 import mindspore.ops as ops
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, nn, mint
-from mindspore.common.initializer import initializer, HeUniform
+from mindspore.common.initializer import initializer
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_tensor_model_parallel_world_size,
@@ -58,12 +57,24 @@ class ColumnParallelLoRA(nn.Cell):
         output_size (int): The number of channels in the output space.
         config (dict): Parallel configuration.
         init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The values
-            of str refer to the function `initializer`. Default: 'normal'.
+            of str refer to the function `initializer`.
         bias (bool): Specifies whether the layer uses a bias vector. Default: True.
         gather_output (bool): Specifies whether gather the output on each tensor parallel rank. Default: False.
+        stride (int): For the strided linear layers. Default: 1.
+        keep_master_weight_for_test (bool): For testing and should be set to False. It returns the master weights used
+            for initialization. Default: False.
+        skip_bias_add (bool): If True, do not add the bias term, instead return it for fusion. Default: False.
         skip_weight_param_allocation (bool): Specifies whether skip the initialization of weight parameter.
             When set True, an weight tensor should be passed to construct function. Default: False.
+        embedding_activation_buffer (Tensor): This buffer holds the input activations of the final embedding linear
+            layer on the last pipeline stage. Default: None.
+        grad_output_buffer (Tensor): This buffer holds the gradient outputs of the final embedding linear layer on
+            the last pipeline stage. Default: None.
         is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
+        tp_comm_buffer_name (str): Communication buffer name is not used in non-Transformer-Engine modules.
+            Default: None.
+        disable_grad_reduce (bool): If True, reduction of output gradients across tensor-parallel ranks will be
+            disabled. Default: False.
         bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The values
             of str refer to the function `initializer`. Default: 'zeros'.
         param_init_dtype (dtype.Number): The parameter initialization type. Default: None.
@@ -74,7 +85,7 @@ class ColumnParallelLoRA(nn.Cell):
         lora_alpha (int):  The alpha value for lora. Default: 32.
         lora_dropout (float):  The dropout rate for lora. Default: 0.0.
         lora_a_init (Union[Tensor, str, Initializer, numbers.Number]):  The trainable lora_a weight_init parameter.
-            The values of str refer to the function `initializer`. Default: HeUniform(negative_slope=math.sqrt(5)).
+            The values of str refer to the function `initializer`. Default: 'normal'.
         lora_b_init (Union[Tensor, str, Initializer, numbers.Number]):  The trainable lora_b weight_init parameter.
             The values of str refer to the function `initializer`. Default: 'zeros'.
 
@@ -320,9 +331,15 @@ class RowParallelLoRA(nn.Cell):
         config (dict): Parallel configuration.
         init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The values
             of str refer to the function `initializer`. Default: 'normal'.
-        bias (bool): Specifies whether the layer uses a bias vector. Default: True.
+        bias (bool): Specifies whether the layer uses a bias vector.
         input_is_parallel (bool): Specifies whether the input tensor has already been sliced on last dimension.
+        skip_bias_add (bool): If True, do not add the biad term, instead return it for fusion.
+        stride (int): For the strided linear layers. Default: 1.
+        keep_master_weight_for_test (bool): For testing and should be set to False. It returns the master weights used
+            for initialization. Default: False.
         is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
+        tp_comm_buffer_name (str): Communication buffer name is not used in non-Transformer-Engine modules.
+            Default: None.
         bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The values
             of str refer to the function `initializer`. Default: 'zeros'.
         param_init_dtype (dtype.Number): The parameter initialization type. Default: None.
@@ -333,7 +350,7 @@ class RowParallelLoRA(nn.Cell):
         lora_alpha (int):  The alpha value for lora. Default: 32.
         lora_dropout (float):  The dropout rate for lora. Default: 0.0.
         lora_a_init (Union[Tensor, str, Initializer, numbers.Number]):  The trainable lora_a weight_init parameter.
-            The values of str refer to the function `initializer`. Default: HeUniform(negative_slope=math.sqrt(5)).
+            The values of str refer to the function `initializer`. Default: 'normal'.
         lora_b_init (Union[Tensor, str, Initializer, numbers.Number]):  The trainable lora_b weight_init parameter.
             The values of str refer to the function `initializer`. Default: 'zeros'.
 
