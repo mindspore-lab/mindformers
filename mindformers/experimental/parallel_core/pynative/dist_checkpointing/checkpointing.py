@@ -50,7 +50,7 @@ __all__ = ["get_checkpoint_name",
 
 # Distribution configurations.
 _strategy_dir = "strategy"
-_format = "safetensors"
+_format = "ckpt"
 
 # pylint: disable=W0622
 def get_checkpoint_name(ckpt_path, format=_format, get_name_from_file=False,
@@ -252,7 +252,7 @@ def ensure_total_ckpt_is_less_than_limit(ckpt_path: str, limit: int = 5, format:
     Args:
         ckpt_path (str): Checkpoint file path.
         limit (int): limited number of checkpoint file. Default: 5
-        format (str): checkpoint format. Default: 'safetensors'
+        format (str): checkpoint format. Default: '_format'
     """
     ckpt_list = [
         checkpoint for checkpoint in os.listdir(ckpt_path)

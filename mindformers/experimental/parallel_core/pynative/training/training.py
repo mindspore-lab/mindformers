@@ -688,7 +688,7 @@ def train(
             and current_epoch >= training_config.epochs
             or global_step >= training_config.training_iters
     ):
-        epoch_step = 0 + initial_step
+        epoch_step = initial_step
         if initial_step > 0:
             train_dataset_iterator = train_dataset_iterator.skip(initial_step)
         for data in train_dataset_iterator.create_dict_iterator():
