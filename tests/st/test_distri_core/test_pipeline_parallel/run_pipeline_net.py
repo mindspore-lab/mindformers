@@ -20,7 +20,9 @@ import numpy as np
 import mindspore as ms
 import mindspore.dataset as ds
 from mindspore.nn import Adam
+from mindspore.mint.optim import AdamW
 from mindspore.communication import init
+from mindformers.experimental.parallel_core.pynative.optimizer.distrib_optimizer import DistributedOptimizer
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     initialize_model_parallel,
     get_data_parallel_group,
@@ -35,6 +37,7 @@ from mindformers.experimental.parallel_core.pynative.config import (
     ModelParallelConfig,
     TransformerConfig,
     DatasetConfig,
+    OptimizerConfig
 )
 from test_pipeline_net import PipelineTestNet, FakeData
 
@@ -74,7 +77,7 @@ def generate_ckpt(vocab_size, seq_length, hidden_size, num_layers, share_weight=
 
 def run_pipeline(training_config, model_config, parallel_config, dataset_config):
     """main function."""
-    ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE)
+    ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
     init()
 
     # init context
@@ -111,13 +114,25 @@ def run_pipeline(training_config, model_config, parallel_config, dataset_config)
     def model_provider_func(pre_process=True, post_process=True):
         """ model provider func """
         network = PipelineTestNet(model_config, pre_process=pre_process, post_process=post_process)
+        # load ckpt
+        ms.load_param_into_net(network, ckpt_dict)
         return network
     network = get_model(model_provider_func, training_config)
 
-    # load ckpt
-    ms.load_param_into_net(network, ckpt_dict)
-
-    optimizer = Adam(params=network.trainable_params(), learning_rate=0.001, beta1=0.9, beta2=0.95)
+    if training_config.wrap_with_ddp and training_config.use_distributed_optimizer:
+        optimizer_config = OptimizerConfig(parallel_config=parallel_config)
+        optimizer = AdamW(params=network.trainable_params(), lr=0.001)
+        per_model_buffers = {}
+        for model_idx, model_chunk in enumerate(network):
+            per_model_buffers[model_idx] = model_chunk.buffers
+        optimizer = DistributedOptimizer(optimizer=optimizer,
+                                         config=optimizer_config,
+                                         grad_scaler=None,
+                                         init_state_fn=None,
+                                         per_model_buffers=per_model_buffers,
+                                         data_parallel_group=get_data_parallel_group(with_context_parallel=True))
+    else:
+        optimizer = Adam(params=network.trainable_params(), learning_rate=0.001, beta1=0.9, beta2=0.95)
 
     # init train one step cell
     train_one_step_cell = TrainOneStepCell(network, optimizer, None, training_config, model_config)
@@ -127,9 +142,9 @@ def run_pipeline(training_config, model_config, parallel_config, dataset_config)
     train(train_one_step_cell, dataset_parallel, training_config)
 
 
-def run_standalone(training_config, model_config, dataset_config):
+def run_standalone(training_config, model_config, parallel_config, dataset_config):
     """main function."""
-    ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE)
+    ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
     init()
 
     initialize_model_parallel()
@@ -150,12 +165,28 @@ def run_standalone(training_config, model_config, dataset_config):
     print("global batch size: ", global_batch_size, flush=True)
 
     # init model
-    network = PipelineTestNet(model_config)
+    def model_provider_func(pre_process=True, post_process=True):
+        """ model provider func """
+        network = PipelineTestNet(model_config, pre_process=pre_process, post_process=post_process)
+        # load ckpt
+        ms.load_param_into_net(network, ckpt_dict)
+        return network
+    network = get_model(model_provider_func, training_config)
 
-    # load ckpt
-    ms.load_param_into_net(network, ckpt_dict)
-
-    optimizer = Adam(params=network.trainable_params(), learning_rate=0.001, beta1=0.9, beta2=0.95)
+    if training_config.wrap_with_ddp and training_config.use_distributed_optimizer:
+        optimizer_config = OptimizerConfig(parallel_config=parallel_config)
+        optimizer = AdamW(params=network.trainable_params(), lr=0.001)
+        per_model_buffers = {}
+        for model_idx, model_chunk in enumerate(network):
+            per_model_buffers[model_idx] = model_chunk.buffers
+        optimizer = DistributedOptimizer(optimizer=optimizer,
+                                         config=optimizer_config,
+                                         grad_scaler=None,
+                                         init_state_fn=None,
+                                         per_model_buffers=per_model_buffers,
+                                         data_parallel_group=get_data_parallel_group(with_context_parallel=True))
+    else:
+        optimizer = Adam(params=network.trainable_params(), learning_rate=0.001, beta1=0.9, beta2=0.95)
 
     # init train one step cell
     train_one_step_cell = TrainOneStepCell(network, optimizer, None, training_config, model_config)
@@ -176,10 +207,15 @@ if __name__ == '__main__':
     )
 
     if args.run_mode == 'standalone_without_share':
-        run_standalone(training_config_main, model_config_main, dataset_config_main)
+        run_standalone(training_config_main, model_config_main, parallel_config_main, dataset_config_main)
     elif args.run_mode == 'standalone_with_share':
         model_config_main.untie_embeddings_and_output_weights = False
-        run_standalone(training_config_main, model_config_main, dataset_config_main)
+        run_standalone(training_config_main, model_config_main, parallel_config_main, dataset_config_main)
+    elif args.run_mode == 'standalone_with_ddp':
+        model_config_main.untie_embeddings_and_output_weights = False
+        training_config_main.wrap_with_ddp = True
+        training_config_main.use_distributed_optimizer = True
+        run_standalone(training_config_main, model_config_main, parallel_config_main, dataset_config_main)
     elif args.run_mode == 'pp_without_share':
         run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main)
     elif args.run_mode == 'pp_with_share':
@@ -188,4 +224,9 @@ if __name__ == '__main__':
     elif args.run_mode == 'pp_interleaved':
         parallel_config_main.virtual_pipeline_model_parallel_size = 2
         model_config_main.untie_embeddings_and_output_weights = False
+        run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main)
+    elif args.run_mode == 'pp_with_ddp':
+        model_config_main.untie_embeddings_and_output_weights = False
+        training_config_main.wrap_with_ddp = True
+        training_config_main.use_distributed_optimizer = True
         run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main)

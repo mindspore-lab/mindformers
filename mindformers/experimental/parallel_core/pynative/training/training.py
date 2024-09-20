@@ -226,7 +226,7 @@ def get_model(model_provider_func, training_config):
     """ get model """
     model = nn.CellList(auto_prefix=False)
     parallel_config = training_config.parallel_config
-    if training_config.bf16 and training_config.warp_with_ddp and \
+    if training_config.bf16 and training_config.wrap_with_ddp and \
             not training_config.accumulate_allreduce_grads_in_fp32:
         logger.warning("Using bf16 with ddp, automatically set 'accumulate_allreduce_grads_in_fp32=True'.")
         training_config.accumulate_allreduce_grads_in_fp32 = True
