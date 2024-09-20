@@ -18,8 +18,9 @@ import inspect
 import copy
 import os
 import re
+import shlex
 from typing import Union, List, Optional
-from collections import deque
+from collections import deque, OrderedDict
 from abc import ABCMeta, abstractmethod
 import numbers
 from functools import partial
@@ -43,6 +44,76 @@ _SUPPORT_DTYPE_DICT = DictWithValueError(
 
 _SUPPORT_INIT_METHOD = DictWithValueError(_INITIALIZER_ALIAS)
 
+mapping_dict = {
+    # model config
+    'vocab-size': 'model_config.vocab_size',
+    'padded-vocab-size': 'model_config.padded_vocab_size',
+    'hidden-size': 'model_config.hidden_size',
+    'rotary-base': 'model_config,rotary_base',
+    'num-layers': 'model_config.num_layers',
+    'position-embedding-type': 'model_config.position_embedding_type',
+    'use-rotary-position-embeddings': 'model_config.use_rotary_embedding',
+    'init-method-std': 'model_config.init_method_std',
+    'normalization': 'model_config.normalization',
+    'norm-epsilon': 'model_config.norm_epsilon',
+    'group-query-attention': 'model_config.group_query_attention',
+    'num-attention-heads': 'model_config.num_attention_heads',
+    'num-query-groups': 'model_config.num_query_groups',
+    'attention-dropout': 'model_config.attention_dropout',
+    'ffn-hidden-size': 'model_config.ffn_hidden_size',
+    'hidden-dropout': 'model_config.hidden_dropout',
+    'attention-softmax-in-fp32': 'model_config.attention_softmax_in_fp32',
+    'use-flash-attn': 'model_config.use_flash_attention',
+    'untie-embeddings-and-output-weights': 'model_config.untie_embeddings_and_output_weights',
+    'transformer-impl': 'model_config.transformer_impl',
+    'recompute-granularity': 'model_config.recompute_granularity',
+    'recompute-method': 'model_config.recompute_method',
+    'recompute-num-layers': 'model_config.recompute_num_layers',
+    'fp16-lm-cross-entropy': 'model_config.fp16_lm_cross_entropy',
+    'fp32-residual-connection': 'model_config.fp32_residual_connection',
+    'add-qkv-bias': 'model_config.add_qkv_bias',
+    # training config
+    'seed': 'training_config.seed',
+    'log_interval': 'training_config.log_interval',
+    'train-iters': 'training_config.training_iters',
+    'save-interval': 'training_config.save_interval',
+    'eval-interval': 'training_config.eval_interval',
+    'accumulate-allreduce-grads-in-fp32': 'training_config.accumulate_allreduce_grads_in_fp32',
+    'clip-grad': 'training_config.grad_clip_kwargs.clip_value',
+    'bf16': 'training_config.bf16',
+    'fp16': 'training_config.fp16',
+    'loss-scale': 'training_config.loss_scale',
+    'initial-loss-scale': 'training_config.loss_scale',
+    'loss-scale-window': 'training_config.loss_scale_window',
+    'hysteresis': 'training_config.loss_scale_factor',
+    'micro-batch-size': 'training_config.batch_size',
+    # dataset config
+    'data-path': 'dataset_config.dataset_dir',
+    'pad-token-id': 'dataset_config.pad_token_id',
+    'eos-token-id': 'dataset_config.eos_token_id',
+    'drop_remainder': 'dataset_config.drop_remainder',
+    # optimizer config
+    'optimizer': 'optimizer_config.optimizer_type',
+    'adam-beta1': 'optimizer_config.betas',
+    'adam-beta2': 'optimizer_config.betas',
+    'adam-eps': 'optimizer_config.eps',
+    'lr-decay-style': 'optimizer_config.lr_decay_style',
+    'lr': 'optimizer_config.learning_rate',
+    'min_lr': 'optimizer_config.min_lr',
+    'lr-warmup-iters': 'optimizer_config.lr_warmup_iters',
+    'lr-decay-iters': 'optimizer_config.lr_decay_iters',
+    'override-opt_param-scheduler': 'optimizer_config.override_opt_param_scheduler',
+    'weight-decay': 'optimizer_config.weight_decay',
+    # parallel config
+    'tensor-model-parallel-size': 'parallel_config.tensor_model_parallel_size',
+    'context-parallel-size': 'parallel_config.context_parallel_size',
+    'expert-model-parallel-size': 'parallel_config.expert_model_parallel_size',
+    'sequence-parallel': 'parallel_config.sequence_parallel',
+    'use-distributed-optimizer': 'parallel_config.use_distributed_optimizer',
+    'overlap-grad-reduce': 'parallel_config.overlap_grad_reduce',
+    'pipeline-model-parallel-size': 'parallel_config.pipeline_model_parallel_size',
+}
+
 
 def config_to_str(cls, gap=2 * " "):
     """Return class attribute str for print."""
@@ -63,6 +134,149 @@ def dict_to_dictconfig(input_dict):
             input_dict[key] = dict_to_dictconfig(value)
         return DictConfig(**input_dict)
     return input_dict
+
+
+def parse_value(value: str):
+    """
+    Parse value to int or float if possible, otherwise return original value.
+
+    Args:
+        value (str): value str need to parse
+
+    Returns:
+        parsed value from value string.
+    """
+    try:
+        # 尝试转换为整数
+        return int(value)
+    except ValueError:
+        try:
+            # 尝试转换为浮点数
+            return float(value)
+        except ValueError:
+            # 无法转换为数字，返回原始字符串
+            return value
+
+
+def parse_args_from_str(run_cmd: str):
+    """Parse arguments from run command.
+
+    Args:
+        run_cmd (str): run command.
+
+    Returns:
+        dict: parsed arguments in flatten dict.
+    """
+    if not isinstance(run_cmd, str):
+        raise ValueError("run_cmd should be a string.")
+    args_list = shlex.split(run_cmd)
+    args_dict = {}
+
+    i = 0
+    while i < len(args_list):
+        arg = args_list[i]
+        if arg.startswith('--'):
+            if (i + 1) < len(args_list) and not args_list[i + 1].startswith('--'):
+                args_dict[arg[2:]] = parse_value(args_list[i + 1])
+                i += 1
+            else:
+                args_dict[arg[2:]] = True
+        i += 1
+    return args_dict
+
+
+def get_default_config():
+    """Append default config to raw dict.
+
+    Returns:
+        dict: raw dict with default config.
+    """
+    default_param_dict = {}
+    default_param_dict['dataset_config.drop_remainder'] = True
+    default_param_dict['optimizer_config.optimizer_type'] = "mint.AdamW"
+    default_param_dict['training_config.wrap_with_ddp'] = True
+    default_param_dict['training_config.grad_clip_kwargs.grad_clip_type'] = "ClipGlobalNorm"
+    return default_param_dict
+
+
+def modify_flatten_dict(flatten_dict: dict, default_param_dict: dict):
+    """Modify flatten dict.
+
+    Args:
+        flatten_dict (dict): flatten dict.
+        default_param_dict (dict): default param dict.
+
+    Returns:
+        dict: modified flatten dict.
+    """
+    if 'adam-beta1' in flatten_dict and 'adam-beta2' in flatten_dict:
+        default_param_dict['optimizer_config.betas'] = [flatten_dict['adam-beta1'], flatten_dict['adam-beta2']]
+        flatten_dict.pop('adam-beta1')
+        flatten_dict.pop('adam-beta2')
+        mapping_dict['optimizer_config.betas'] = 'optimizer_config.betas'
+
+    for key, value in default_param_dict.items():
+        if key not in flatten_dict:
+            flatten_dict[key] = value
+            mapping_dict[key] = key
+
+    return flatten_dict
+
+
+def flatten_dict_to_raw(flatten_dict: dict, model_type: str):
+    """Flatten dict to raw dict.
+
+    Args:
+        flatten_dict (dict): flatten dict.
+        model_type (str) : model type.
+
+    Returns:
+        dict: raw dict.
+    """
+    raw_dict = {}
+    not_mapping_key = []
+    default_param_dict = get_default_config()
+    flatten_dict = modify_flatten_dict(flatten_dict, default_param_dict)
+    for key, value in flatten_dict.items():
+        if key not in mapping_dict:
+            not_mapping_key.append(key)
+            continue
+        convert_key = mapping_dict[key]
+        convert_key_list = convert_key.split('.')
+        cur_dict = raw_dict
+        for nested_key in convert_key_list[:-1]:
+            if nested_key not in cur_dict:
+                if nested_key == "model_config":
+                    nested_key = model_type
+                cur_dict[nested_key] = OrderedDict()
+            cur_dict = cur_dict[nested_key]
+        cur_dict[convert_key_list[-1]] = value
+
+    if not_mapping_key:
+        print(f'not mapping keys: {not_mapping_key}')
+    return raw_dict
+
+
+def init_configs_from_cmd(run_cmd: str, model_type: str, config_classes=None):
+    """Initialize config class from run command.
+
+        Args:
+            run_cmd (str): run command.
+            config_classes (Union[list[BaseConfig], None]): Config classes to be initialized. When no config class
+                is passed in, all known configs will be initialized as optional config of AllConfig. Default: None
+            model_type (str) : model config name
+
+        Returns:
+            Union[list[BaseConfig], AllConfig]: Initialized config instances, when no config class is passed in,
+                AllConfig will be returned.
+        """
+    if not isinstance(run_cmd, str):
+        raise ValueError("run_cmd should be a string.")
+
+    flatten_dict = parse_args_from_str(run_cmd)
+    raw_dict = flatten_dict_to_raw(flatten_dict, model_type)
+
+    return init_configs_from_dict(raw_dict, config_classes)
 
 
 class BaseConfig(metaclass=ABCMeta):
