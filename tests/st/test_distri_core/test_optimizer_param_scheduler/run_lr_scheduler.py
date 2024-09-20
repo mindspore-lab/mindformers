@@ -21,7 +21,7 @@ import mindspore.dataset as ds
 from mindspore.mint.optim import AdamW
 from mindspore.communication import init
 
-from mindformers import get_optimizer_param_scheduler
+from mindformers.experimental.parallel_core.pynative import get_optimizer_param_scheduler
 from mindformers.experimental.parallel_core.pynative.dist_checkpointing import load_checkpoint
 from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
 from mindformers.experimental.parallel_core.pynative.training import TrainOneStepCell, train

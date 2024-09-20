@@ -465,6 +465,7 @@ class TrainOneStepCell(nn.Cell):
         network_with_loss (nn.Cell): The network with loss, output of the network should be loss,
             which is a scalar Tensor.
         optimizer (Optimizer): The optimizer used for training.
+        opt_param_scheduler(OptimizerParamScheduler): Learning rate scheduler
         training_config (TrainingConfig): Training Configuration.
         model_config (TransformerConfig): Transformer Configuration.
         **kwargs: Additional keyword arguments.

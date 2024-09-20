@@ -224,6 +224,17 @@ class MixedPrecisionOptimizer(nn.Cell):
 
         return success, grad_norm, num_zeros_in_grad
 
+    # Promote param_groups so it can be retrieved or set via
+    # "optimizer_instance.param_groups"
+    # (for example, to adjust the learning rate)
+    def _get_param_groups(self):
+        return self.optimizer.param_groups
+
+    def _set_param_groups(self, value):
+        self.optimizer.param_groups = value
+
+    param_groups = property(_get_param_groups, _set_param_groups)
+
 
 class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
     """

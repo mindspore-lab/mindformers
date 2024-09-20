@@ -698,6 +698,7 @@ class DatasetConfig(BaseConfig):
         micro_batch_num (int, optional): Number of micro batch when using pipeline parallel or
             gradient accumulation. Defaults: 1.
         data_layout (str, optional): Input layout. Default: "BSH".
+        train_samples (int, optional): Number of train samples for sample-based training. Default: 0.
     """
 
     # set config name for identifying while using init_configs methods
@@ -759,6 +760,11 @@ def validate_data_layout(config_instance, data_layout):
     Validator.check_string(data_layout, ["BSH", "SBH"], "data_layout")
     return data_layout
 
+@DatasetConfig.validator("train_samples")
+def validate_train_samples(config_instance, train_samples):
+    """Validate train_samples."""
+    Validator.check_non_negative_int(train_samples, "train_samples")
+    return train_samples
 
 class LoraConfig(BaseConfig):
     r"""LoRA config class.
@@ -1021,7 +1027,7 @@ class TrainingConfig(BaseConfig):
         dataset_config (DatasetConfig): Dataset config.
         seed (Union[int, None], optional): Random seed for initialization. Default: None.
         output_dir (str, optional): Output directory for saving checkpoints, logs and so on. Default: './output'.
-        training_iters (int, optional) : Training iterations for training. Default: 1.
+        training_iters (int, optional) : Training iterations for training. Default: 0.
         epochs (Union[int, None], optional) : Epochs for training. Default: None.
         log_interval (Union[int, None], optional): Log interval for training. Default: None.
         eval_interval (Union[int, None], optional): Evaluation interval for training. Default: None.
@@ -1134,7 +1140,11 @@ def validate_output_dir(config_instance, output_dir):
     Validator.check_value_type("output_dir", output_dir, [str])
     return output_dir
 
-
+@TrainingConfig.validator("training_iters")
+def validate_training_iters(config_instance, training_iters):
+    """Validate training_iters."""
+    Validator.check_non_negative_int(training_iters, "training_iters")
+    return training_iters
 
 @TrainingConfig.validator("epochs")
 def validate_epochs(config_instance, epochs):
@@ -1958,6 +1968,21 @@ class OptimizerConfig(BaseConfig):
 
         - cpu_offload (bool): The process of optimizer will be offload to host. The gradients, parameters and
           optimizer status will be offload to host. Default: Flase.
+        end_weight_decay (float): End weight decay. Default: 0.0.
+        lr_decay_iters (int): Number of iterations to decay learning rate. Default: None.
+        lr_decay_samples (int): Number of samples to decay learning rate. Default: None.
+        lr_wsd_decay_iters (int): Number of iterations for the annealing phase in the wsd schedule. Default: None.
+        lr_wsd_decay_samples (int): Number of samples for the annealing phase in the wsd schedule. Default: None.
+        lr_warmup_iters (int): Number of iterations to linearly warmup learning rate over. Default: 0.
+        lr_warmup_samples (int): Number of samples to linearly warmup learning rate over.. Default: 0.
+        lr_warmup_init (float): Initial value for learning rate warmup. Default: 0.0.
+        lr_warmup_fraction (float): Fraction of lr-warmup-(iters/samples) to use for warmup. Default: None.
+        min_lr (float): Minimum value for learning rate. Default: 0.0.
+        lr_decay_style (str): Learning rate decay function. Default: "constant".
+        weight_decay_incr_style (str): Weight decay increment function. Default: "constant".
+        lr_wsd_decay_style (str): Decay style for the annealing phase of WSD. Default: "linear".
+        use_checkpoint_opt_param_scheduler (bool): Use checkpoint to set the values of the scheduler. Default: True.
+        override_opt_param_scheduler (bool): Reset the values of the scheduler. Default: False.
     """
 
     # set config name for identifying while using init_configs methods
@@ -1975,19 +2000,18 @@ class OptimizerConfig(BaseConfig):
             zero_config: dict = None,
             clip_grad: float = 0.0,
             # scheduler config
-            train_iters: int = 0,
             lr_decay_iters: int = None,
             lr_decay_samples: int = None,
             lr_wsd_decay_iters: int = None,
             lr_wsd_decay_samples: int = None,
-            lr_warmup_iters: int = None,
-            lr_warmup_samples: int = None,
+            lr_warmup_iters: int = 0,
+            lr_warmup_samples: int = 0,
             lr_warmup_init: float = 0.0,
-            lr_warmup_fraction: int = .01,
-            min_lr: float = 2.5e-5,
-            lr_decay_style: str = 'cosine',
+            lr_warmup_fraction: float = None,
+            min_lr: float = 0.0,
+            lr_decay_style: str = 'constant',
             weight_decay_incr_style: str = 'constant',
-            lr_wsd_decay_style: str = 'constant',
+            lr_wsd_decay_style: str = 'linear',
             use_checkpoint_opt_param_scheduler: bool = True,
             override_opt_param_scheduler: bool = False,
             **kwargs,
@@ -2004,7 +2028,6 @@ class OptimizerConfig(BaseConfig):
         self.zero_config = zero_config
         self.clip_grad = clip_grad
         # scheduler config
-        self.train_iters = train_iters
         self.lr_decay_iters = lr_decay_iters
         self.lr_decay_samples = lr_decay_samples
         self.lr_wsd_decay_iters = lr_wsd_decay_iters
@@ -2067,3 +2090,94 @@ def validate_clip_grad(config_instance, clip_grad):
     """Validate learning_rate."""
     Validator.check_non_negative_float(clip_grad, "clip_grad")
     return clip_grad
+
+@OptimizerConfig.validator("end_weight_decay")
+def validate_end_weight_decay(config_instance, end_weight_decay):
+    """Validate end_weight_decay."""
+    Validator.check_non_negative_float(end_weight_decay, "end_weight_decay")
+    return end_weight_decay
+
+@OptimizerConfig.validator("lr_decay_iters")
+def validate_lr_decay_iters(config_instance, lr_decay_iters):
+    """Validate lr_decay_iters."""
+    Validator.check_value_type("lr_decay_iters", lr_decay_iters, [int, type(None)])
+    return lr_decay_iters
+
+@OptimizerConfig.validator("lr_decay_samples")
+def validate_lr_decay_samples(config_instance, lr_decay_samples):
+    """Validate lr_decay_samples."""
+    Validator.check_value_type("lr_decay_samples", lr_decay_samples, [int, type(None)])
+    return lr_decay_samples
+
+@OptimizerConfig.validator("lr_wsd_decay_iters")
+def validate_lr_wsd_decay_iters(config_instance, lr_wsd_decay_iters):
+    """Validate lr_wsd_decay_iters."""
+    Validator.check_value_type("lr_wsd_decay_iters", lr_wsd_decay_iters, [int, type(None)])
+    return lr_wsd_decay_iters
+
+@OptimizerConfig.validator("lr_wsd_decay_samples")
+def validate_lr_wsd_decay_samples(config_instance, lr_wsd_decay_samples):
+    """Validate lr_wsd_decay_samples."""
+    Validator.check_value_type("lr_wsd_decay_samples", lr_wsd_decay_samples, [int, type(None)])
+    return lr_wsd_decay_samples
+
+@OptimizerConfig.validator("lr_warmup_iters")
+def validate_lr_warmup_iters(config_instance, lr_warmup_iters):
+    """Validate lr_warmup_iters."""
+    Validator.check_non_negative_int(lr_warmup_iters, "lr_warmup_iters")
+    return lr_warmup_iters
+
+@OptimizerConfig.validator("lr_warmup_samples")
+def validate_lr_warmup_samples(config_instance, lr_warmup_samples):
+    """Validate lr_warmup_samples."""
+    Validator.check_non_negative_int(lr_warmup_samples, "lr_warmup_samples")
+    return lr_warmup_samples
+
+@OptimizerConfig.validator("lr_warmup_init")
+def validate_lr_warmup_init(config_instance, lr_warmup_init):
+    """Validate lr_warmup_init."""
+    Validator.check_non_negative_float(lr_warmup_init, "lr_warmup_init")
+    return lr_warmup_init
+
+@OptimizerConfig.validator("lr_warmup_fraction")
+def validate_lr_warmup_fraction(config_instance, lr_warmup_fraction):
+    """Validate lr_warmup_fraction."""
+    Validator.check_value_type("lr_warmup_fraction", lr_warmup_fraction, [float, type(None)])
+    return lr_warmup_fraction
+
+@OptimizerConfig.validator("min_lr")
+def validate_min_lr(config_instance, min_lr):
+    """Validate min_lr."""
+    Validator.check_non_negative_float(min_lr, "min_lr")
+    return min_lr
+
+@OptimizerConfig.validator("lr_decay_style")
+def validate_lr_decay_style(config_instance, lr_decay_style):
+    """Validate lr_decay_style."""
+    Validator.check_string(lr_decay_style,
+                           ["constant", "WSD", "linear", "cosine", "inverse-square-root"], "lr_decay_style")
+    return lr_decay_style
+
+@OptimizerConfig.validator("weight_decay_incr_style")
+def validate_weight_decay_incr_style(config_instance, weight_decay_incr_style):
+    """Validate weight_decay_incr_style."""
+    Validator.check_string(weight_decay_incr_style, ["constant", "linear", "cosine"], "weight_decay_incr_style")
+    return weight_decay_incr_style
+
+@OptimizerConfig.validator("lr_wsd_decay_style")
+def validate_lr_wsd_decay_style(config_instance, lr_wsd_decay_style):
+    """Validate lr_wsd_decay_style."""
+    Validator.check_string(lr_wsd_decay_style, ["linear", "cosine", "exponential"], "lr_wsd_decay_style")
+    return lr_wsd_decay_style
+
+@OptimizerConfig.validator("use_checkpoint_opt_param_scheduler")
+def validate_use_checkpoint_opt_param_scheduler(config_instance, use_checkpoint_opt_param_scheduler):
+    """Validate use_checkpoint_opt_param_scheduler."""
+    Validator.check_bool(use_checkpoint_opt_param_scheduler, "use_checkpoint_opt_param_scheduler")
+    return use_checkpoint_opt_param_scheduler
+
+@OptimizerConfig.validator("override_opt_param_scheduler")
+def validate_override_opt_param_scheduler(config_instance, override_opt_param_scheduler):
+    """Validate override_opt_param_scheduler."""
+    Validator.check_bool(override_opt_param_scheduler, "override_opt_param_scheduler")
+    return override_opt_param_scheduler
