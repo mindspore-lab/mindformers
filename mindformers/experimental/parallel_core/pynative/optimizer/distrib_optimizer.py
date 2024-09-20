@@ -201,6 +201,11 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                     sharded_param_fp16.name = param.name
                     sharded_param_fp32_from_fp16.name = param.name
                     param.main_param = sharded_param_fp32_from_fp16
+                    sharded_grad_fp32_from_fp16 = ops.cast(buffers[buffer_idx].grad_data[param_start_in_buffer: \
+                                                           param_end_in_buffer],
+                                                           mstype.float32)
+                    param.grad = sharded_grad_fp32_from_fp16
+                    sharded_param_fp32_from_fp16.grad = sharded_grad_fp32_from_fp16
 
                     param_fp16_this_group.append(param)
                     sharded_param_fp16_this_group.append(sharded_param_fp16)
@@ -210,7 +215,9 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                     sharded_param_fp32 = buffers[buffer_idx].param_data[param_start_in_buffer:param_end_in_buffer]
                     sharded_param_fp32.name = param.name
                     param.main_param = sharded_param_fp32
-
+                    sharded_grad_fp32 = buffers[buffer_idx].grad_data[param_start_in_buffer: param_end_in_buffer]
+                    param.grad = sharded_grad_fp32
+                    sharded_param_fp32.grad = sharded_grad_fp32
                     param_fp32_this_group.append(param)
                     sharded_param_fp32_this_group.append(sharded_param_fp32)
 
@@ -245,7 +252,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             optimizer,
             config,
             grad_scaler,
-            init_state_fn,
+            init_state_fn
         )
 
         self.buffers = []
@@ -365,7 +372,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                     buffer_idx, bucket_idx = self.param_to_bucket_map[model_param]
                     range_map = self.param_ranges_map[buffer_idx][bucket_idx][model_param]
                     param_start, param_end = range_map['range_in_param']
-                    main_param.grad = ops.cast(model_param.main_grad.view(-1)[param_start:param_end], mstype.float32)
+                    main_param.grad.copy_(ops.cast(model_param.main_grad.view(-1)[param_start: param_end],
+                                                   mstype.float32))
 
         copy_group_grads(self.param_fp32_groups, self.sharded_param_fp32_groups)
         copy_group_grads(self.param_fp16_groups, self.sharded_param_fp32_from_fp16_groups)

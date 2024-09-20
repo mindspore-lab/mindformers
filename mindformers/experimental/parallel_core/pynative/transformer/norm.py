@@ -111,17 +111,13 @@ class FusedRMSNorm(nn.Cell):
         super(FusedRMSNorm, self).__init__()
         self.eps = eps
         self.compute_type = compute_type
-        self.weight = Parameter(initializer("ones", (dim,), dtype=mstype.float32), parallel_optimizer=False)
-
+        self.weight = Parameter(initializer("ones", (dim,), dtype=compute_type), parallel_optimizer=False)
         self.norm = P.RmsNorm(eps)
-        self.cast = P.Cast()
-        self.rcast = P.Cast()
 
     def construct(self, x):
         """Forward of FusedRMSNorm."""
-        original_type = x.dtype
-        output = self.norm(self.cast(x, self.compute_type), self.weight)[0]
-        return self.rcast(output, original_type)
+        output = self.norm(x, self.weight)[0]
+        return output
 
 
 def get_norm(config):
@@ -142,6 +138,6 @@ def get_norm(config):
         return RMSNorm(dim=config.hidden_size,
                        eps=config.norm_epsilon)
     if config.normalization == "FusedRMSNorm":
-        return FusedRMSNorm(dim=config.hidden_size, eps=config.norm_epsilon)
+        return FusedRMSNorm(dim=config.hidden_size, eps=config.norm_epsilon, compute_type=config.compute_dtype)
 
     raise Exception(f"unsupported norm type '{config.normalization}'.")

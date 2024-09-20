@@ -180,6 +180,8 @@ class PipelineTestNet(Module):
                 config=config,
                 param_init_dtype=config.params_dtype
             )
+            self.embedding.shared = True
+            self.embedding.shared_embedding = True
             self.shared_weight_name_list.append(self.embedding.weight.name)
 
         self.fake_transformer = FakeTransformer(config,
@@ -193,6 +195,8 @@ class PipelineTestNet(Module):
                                       vocab_size,
                                       share_embedding_weight=not self.untie_embeddings_and_output_weights)
             if self.pipeline_parallel:
+                self.fake_head.shared = True
+                self.fake_head.shared_embedding = True
                 self.shared_weight_name_list.append(self.fake_head.weight.name)
             self.final_norm = nn.LayerNorm((hidden_size,))
             self.total_loss = FinalLossLayer()
