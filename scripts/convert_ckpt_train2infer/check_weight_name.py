@@ -19,13 +19,17 @@ import mindspore as ms
 
 
 def checkpoint_qkv_ffn_weight_name(src_ckpt_dir):
-    src_ckpt_dir = os.path.join(src_ckpt_dir, "/rank_0/*.ckpt")
-    param_dict = ms.load_checkpoint(src_ckpt_dir)
-    for i in param_dict.keys():
-        if "w_qkv.weight" in i:
-            return True
-        if "w_gate_hidden.weight" in i:
-            return True
+    """check ckpt contain qkv"""
+    src_ckpt = os.path.join(src_ckpt_dir, "rank_0")
+    for name in os.listdir(src_ckpt):
+        if name.endswith('.ckpt'):
+            checkpoint_path = os.path.join(src_ckpt, name)
+            param_dict = ms.load_checkpoint(checkpoint_path)
+            for i in param_dict.keys():
+                if "w_qkv" in i:
+                    return True
+                if "w_gate_hidden" in i:
+                    return True
     return False
 
 
