@@ -1045,6 +1045,15 @@ class TrainingConfig(BaseConfig):
             overlap_grad_reduce=True. Default: None.
         check_for_nan_in_grad (bool): If True, check gradients in buffer are finite after synchronization.
             Default: False.
+        resume_training (bool): Resume training . Default: False.
+        crc_check (bool): CRC check when save/load checkpoint. Enable this may cause low train performance.
+            Default: False.
+        load_checkpoint (str, optional): Where to load checkpoint. Default: ''.
+        enable_compile_cache (bool): Save compile cache.  Enable this may cause low train performance. Default: False.
+        compile_cache_path (str, optional): Where to save compile cache. Default: './{output_dir}/compile_cache'.
+        ckpt_format (str, optional): checkpoint save format. Default: 'safetensors'.
+        prefix (str, optional): checkpoint save prefix. Default: 'network'.
+        keep_checkpoint_max (str, optional): max saved checkpoint number. Default: 5.
         kwargs (dict, optional): Other dataset config arguments.
     """
 
@@ -1080,6 +1089,14 @@ class TrainingConfig(BaseConfig):
             check_for_nan_in_grad: bool = False,
             fp16: bool = False,
             bf16: bool = False,
+            resume_training: bool = False,
+            crc_check: bool = False,
+            load_checkpoint: str = "",
+            enable_compile_cache: bool = False,
+            compile_cache_path: str = None,
+            ckpt_format: str = "safetensors",
+            prefix: str = "network",
+            keep_checkpoint_max: int = 5,
             **kwargs,
     ):
         super().__init__()
@@ -1113,7 +1130,17 @@ class TrainingConfig(BaseConfig):
         self.bf16 = bf16
         if self.fp16 and self.bf16:
             raise ValueError("fp16 and bf16 can not be set at the same time.")
-
+        self.resume_training = resume_training
+        self.crc_check = crc_check
+        self.load_checkpoint = load_checkpoint
+        self.enable_compile_cache = enable_compile_cache
+        if compile_cache_path is not None:
+            self.compile_cache_path = compile_cache_path
+        else:
+            self.compile_cache_path = os.path.join(self.output_dir, "compile_cache")
+        self.ckpt_format = ckpt_format
+        self.prefix = prefix
+        self.keep_checkpoint_max = keep_checkpoint_max
         self.update_attrs(**kwargs)
 
 
@@ -1320,6 +1347,50 @@ def validate_bf16(config_instance, bf16):
     Validator.check_bool(bf16, "bf16")
     return bf16
 
+@TrainingConfig.validator("resume_training")
+def validate_resume_training(config_instance, resume_training):
+    """Validate resume_training is bool."""
+    Validator.check_bool(resume_training, "resume_training")
+    return resume_training
+
+@TrainingConfig.validator("crc_check")
+def validate_crc_check(config_instance, crc_check):
+    """Validate crc_check is bool."""
+    Validator.check_bool(crc_check, "crc_check")
+    return crc_check
+
+@TrainingConfig.validator("load_checkpoint")
+def validate_load_checkpoint(config_instance, load_checkpoint):
+    """Validate load_checkpoint is str."""
+    Validator.check_value_type("load_checkpoint", load_checkpoint, [str])
+    return load_checkpoint
+
+@TrainingConfig.validator("enable_compile_cache")
+def validate_enable_compile_cache(config_instance, enable_compile_cache):
+    """Validate enable_compile_cache is bool."""
+    Validator.check_bool(enable_compile_cache, "enable_compile_cache")
+    return enable_compile_cache
+
+@TrainingConfig.validator("compile_cache_path")
+def validate_compile_cache_path(config_instance, compile_cache_path):
+    """Validate compile_cache_path is str."""
+    Validator.check_value_type("compile_cache_path", compile_cache_path, [str])
+    return compile_cache_path
+
+@TrainingConfig.validator("ckpt_format")
+def validate_ckpt_format(config_instance, ckpt_format):
+    """Validate ckpt_format is str."""
+    Validator.check_value_type("ckpt_format", ckpt_format, [str])
+    if config_instance.crc_check and ckpt_format == "safetensors":
+        raise ValueError("crc_check does not support format 'safetensors' for now.")
+    return ckpt_format
+
+@TrainingConfig.validator("keep_checkpoint_max")
+def validate_keep_checkpoint_max(config_instance, keep_checkpoint_max):
+    """Validate keep_checkpoint_max is int"""
+    if keep_checkpoint_max is not None:
+        Validator.check_positive_int(keep_checkpoint_max, "keep_checkpoint_max")
+    return keep_checkpoint_max
 
 def check_fa_config(**kwargs):
     """ check flash attention config validation. """

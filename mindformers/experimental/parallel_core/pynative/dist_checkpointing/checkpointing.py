@@ -53,18 +53,18 @@ _strategy_dir = "strategy"
 _format = "safetensors"
 
 # pylint: disable=W0622
-def get_checkpoint_name(ckpt_path, format=_format, get_name_from_file=False):
+def get_checkpoint_name(ckpt_path, format=_format, get_name_from_file=False,
+                        prefix: str = "network", epoch_num: int = None, step_num: int = None):
     """
     Get checkpoint file name of model and optimizer.
     The layout of the ckpt_path will be like:
-        ckpt_path/
-        ├── rank_0
-        │   ├── network0.ckpt
-        ├── rank_1
-        │   ├── network1.ckpt
-        └── strategy
-            ├── strategy0.ckpt
-            └── strategy1.ckpt
+    ckpt_path/
+    ├── rank_0
+    │   ├── network_0_0.ckpt
+    │   └── network_0_1.ckpt
+    └── rank_1
+        ├── network_0_0.ckpt
+        └── network_0_1.ckpt
     The strategy file will be saved in a standalone dir for the possible subsequent merging.
     The checkpoint file will be separated in different dir for the possible subsequent transformation.
     """
@@ -88,7 +88,7 @@ def get_checkpoint_name(ckpt_path, format=_format, get_name_from_file=False):
                 continue
             ckpt_file = checkpoint_file
     else:
-        ckpt_file = os.path.join(ckpt_local_path, f"network{rank}" + "." + format)
+        ckpt_file = os.path.join(ckpt_local_path, f"{prefix}_{epoch_num}_{step_num}.{format}")
     return ckpt_file, strategy_file
 
 def save_rng_state():
@@ -196,7 +196,8 @@ def load_post_process(config, params_dict, optimizer=None):
 
 # pylint: disable=W0622
 def save_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckpt_path="./", format=_format,
-                    only_save_strategy=False, **kwargs):
+                    only_save_strategy=False, prefix: str = 'network', epoch_num: int = 0, step_num: int = 0,
+                    crc_check: bool = False, keep_checkpoint_max: int = 5, **kwargs):
     """
     Save checkpoint of distributed network to a specified file in the process of specified rank.
 
@@ -211,13 +212,18 @@ def save_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
         TypeError: If the type of parameter `optimizer` is not nn.Cell.
         TypeError: If the type of parameter `ckpt_path` is not str.
     """
+    if crc_check and format == "safetensors":
+        raise ValueError("crc_check does not support format 'safetensors' for now.")
+    if keep_checkpoint_max < 1:
+        raise ValueError(f"expect keep_checkpoint_max >= 1, but got {keep_checkpoint_max}")
     # validator check
     validator.check_value_type("model", model, [nn.Cell], "save_checkpoint")
     validator.check_value_type("optimizer", optimizer, [nn.Cell, type(None)], "save_checkpoint")
-    ckpt_file, strategy_file = get_checkpoint_name(ckpt_path, format=format)
+    ckpt_file, strategy_file = get_checkpoint_name(ckpt_path, format=format, prefix=prefix, epoch_num=epoch_num,
+                                                   step_num=step_num)
     for key, _ in kwargs.items():
         logger.warning(f"The parameter {key} is not used in save_checkpoint.")
-    logger.info(f"Saving model to {ckpt_path}")
+    logger.info(f"Saving model to {ckpt_file}")
 
     # generate sharded info
     shard_info = generate_state_dict(model, optimizer)
@@ -231,11 +237,39 @@ def save_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
         if opt_param_scheduler is not None:
             opt_state_dict = opt_param_scheduler.state_dict()
             append_dict.update(opt_state_dict)
-        ms.save_checkpoint(params_dict, ckpt_file, append_dict=append_dict, format=format)
+        append_dict.update({"epoch_num": epoch_num, "step_num": step_num})
+        # ensure ckpt number is less than `keep_checkpoint_max` after saving,
+        # so make 1 free space for incoming ckpt
+        ensure_total_ckpt_is_less_than_limit(ckpt_path=os.path.join(ckpt_path, f"rank_{get_rank()}"),
+                                             limit=keep_checkpoint_max - 1, format=format)
+        ms.save_checkpoint(params_dict, ckpt_file, append_dict=append_dict, format=format, crc_check=crc_check)
+
     logger.info(f"ckpt saved")
 
+def ensure_total_ckpt_is_less_than_limit(ckpt_path: str, limit: int = 5, format: str = _format):
+    """
+    make sure the provided path contain less than limited number of checkpoint file
+    Args:
+        ckpt_path (str): Checkpoint file path.
+        limit (int): limited number of checkpoint file. Default: 5
+        format (str): checkpoint format. Default: 'safetensors'
+    """
+    ckpt_list = [
+        checkpoint for checkpoint in os.listdir(ckpt_path)
+        if checkpoint.endswith(f'.{format}')
+    ]
+    # ckpt_list: [oldest, ..., newest]
+    ckpt_list = sorted(ckpt_list, key=lambda x: os.path.getmtime(os.path.join(ckpt_path, x)))
+    ckpt_num = len(ckpt_list)
+    if ckpt_num > limit:
+        for rm_ckpt_name in ckpt_list[: (ckpt_num - limit)]:
+            logger.debug(f"Current checkpoint file exceed keep_checkpoint_max, removing {rm_ckpt_name}")
+            rm_ckpt_path = os.path.join(ckpt_path, rm_ckpt_name)
+            os.remove(rm_ckpt_path)
+
 # pylint: disable=W0622
-def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_path="./", format=_format, **kwargs):
+def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_path="./", format=_format, crc_check=False,
+                    **kwargs):
     """
     Load checkpoint info from a specified file in process of rank 0.
 
@@ -249,15 +283,24 @@ def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_pat
         TypeError: If the type of parameter `model` is not nn.Cell.
         TypeError: If the type of parameter `optimizer` is not nn.Cell. Default: ``None``.
     """
+    if crc_check and format == "safetensors":
+        raise ValueError("crc_check does not support format 'safetensors' for now.")
     validator.check_value_type("model", model, [nn.Cell], "load_checkpoint")
     validator.check_value_type("optimizer", optimizer, [nn.Cell, type(None)], "load_checkpoint")
     logger.info(f"ckpt loading")
-    src_ckpt_file, _ = get_checkpoint_name(ckpt_path, format=format, get_name_from_file=True)
+    src_ckpt_file = get_last_checkpoint(os.path.join(ckpt_path, f"rank_{get_rank()}"), format=format)
+    if src_ckpt_file is None:
+        raise ValueError(f"There is no *.{format} in {ckpt_path}, load failed.")
+    logger.info(f"using latest checkpoint: {src_ckpt_file}")
     for key, _ in kwargs.items():
         logger.warning(f"The parameter {key} is not used in load_checkpoint.")
 
     target = optimizer if optimizer is not None else model
-    param_dict = ms.load_checkpoint(src_ckpt_file, format=format)
+    param_dict = ms.load_checkpoint(src_ckpt_file, format=format, crc_check=crc_check)
+    resume_dict = {
+        "epoch_num": int(param_dict.pop("epoch_num", 0)),
+        "step_num": int(param_dict.pop("step_num", 0))
+    }
     param_dict = load_post_process(config, param_dict, optimizer)
 
     load_rng_state(param_dict)
@@ -269,3 +312,16 @@ def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_pat
     if ckpt_not_load:
         logger.warning(f"ckpt_not_load:{ckpt_not_load}")
     logger.info(f"ckpt loaded")
+
+    return resume_dict
+
+def get_last_checkpoint(ckpt_path: str, format: str = _format):
+    """Get last timestamp checkpoint under ckpt_path."""
+    ckpt_list = [
+        checkpoint for checkpoint in os.listdir(ckpt_path)
+        if checkpoint.endswith(f'.{format}')
+    ]
+    if not ckpt_list:
+        return None
+    ckpt_list = sorted(ckpt_list, key=lambda x: os.path.getmtime(os.path.join(ckpt_path, x)))
+    return os.path.join(ckpt_path, ckpt_list[-1])

@@ -621,6 +621,7 @@ def train(
         val_dataset_iterator=None,
         metrics=None,
         evaluation_func=None,
+        resume_dict=None,
         **kwargs,
 ):
     """
@@ -639,6 +640,12 @@ def train(
     Returns:
         None
     """
+    if training_config.resume_training and resume_dict is not None:
+        initial_epoch = resume_dict.get("epoch_num")
+        initial_step = resume_dict.get("step_num") + 1 # start from next step
+    else:
+        initial_epoch = 0
+        initial_step = 0
     train_one_step_cell.set_train()
     model_config = train_one_step_cell.model_config
     # set input to use dynamic shape
@@ -648,8 +655,8 @@ def train(
     ]
     train_one_step_cell.set_inputs(*set_input_data)
 
-    global_step = 0
-    current_epoch = 0
+    current_epoch = initial_epoch
+    global_step = initial_step + initial_epoch * train_dataset_iterator.get_dataset_size()
     evaluation_flag = (
         val_dataset_iterator is not None
         and evaluation_func is not None
@@ -681,6 +688,9 @@ def train(
             and current_epoch >= training_config.epochs
             or global_step >= training_config.training_iters
     ):
+        epoch_step = 0 + initial_step
+        if initial_step > 0:
+            train_dataset_iterator = train_dataset_iterator.skip(initial_step)
         for data in train_dataset_iterator.create_dict_iterator():
             # check if the training should be stopped
             if global_step >= training_config.training_iters:
@@ -699,7 +709,7 @@ def train(
                 else:
                     report_learning_rate = "{:e}".format(learning_rate)
                 logger.warning(
-                    f"Epoch: {current_epoch}, Step: {global_step}, Loss: {loss}, "
+                    f"Epoch: {current_epoch}, Step: {epoch_step}, Loss: {loss}, "
                     + f"Finite_grads: {is_finite}, "
                     + f"Loss_scale: {loss_scale.value() if loss_scale is not None else None}, "
                     + f"Learning_rate: {report_learning_rate}, Time: {(end_time - start_time) * 1000:.2f} ms"
@@ -722,29 +732,46 @@ def train(
                 if is_best and save_ckpt_flag:
                     logger.warning("saving best checkpoint")
                     if save_ckpt_flag:
-                        ckpt_path = training_config.output_dir + "/best"
                         save_checkpoint(model_config,
                                         train_one_step_cell.network_with_loss,
                                         train_one_step_cell.optimizer,
                                         train_one_step_cell.opt_param_scheduler,
-                                        ckpt_path)
+                                        training_config.output_dir,
+                                        format=training_config.ckpt_format,
+                                        prefix=training_config.prefix + "_best",
+                                        epoch_num=current_epoch,
+                                        step_num=epoch_step,
+                                        crc_check=training_config.crc_check,
+                                        keep_checkpoint_max=training_config.keep_checkpoint_max + 1)
 
             if save_ckpt_flag and (global_step + 1) % training_config.save_interval == 0:
-                ckpt_path = training_config.output_dir + f"/step_{global_step}"
                 save_checkpoint(model_config,
                                 train_one_step_cell.network_with_loss,
                                 train_one_step_cell.optimizer,
                                 train_one_step_cell.opt_param_scheduler,
-                                ckpt_path)
+                                training_config.output_dir,
+                                format=training_config.ckpt_format,
+                                prefix=training_config.prefix,
+                                epoch_num=current_epoch,
+                                step_num=epoch_step,
+                                crc_check=training_config.crc_check,
+                                keep_checkpoint_max=training_config.keep_checkpoint_max)
 
+            epoch_step += 1
             global_step += 1
-
+        initial_epoch = 0
+        initial_step = 0
         current_epoch += 1
 
     if save_ckpt_flag:
-        ckpt_path = training_config.output_dir + f"/step_{global_step}"
         save_checkpoint(model_config,
                         train_one_step_cell.network_with_loss,
                         train_one_step_cell.optimizer,
                         train_one_step_cell.opt_param_scheduler,
-                        ckpt_path)
+                        training_config.output_dir,
+                        format=training_config.ckpt_format,
+                        prefix=training_config.prefix + "_final",
+                        epoch_num=current_epoch-1,
+                        step_num=epoch_step-1,
+                        crc_check=training_config.crc_check,
+                        keep_checkpoint_max=training_config.keep_checkpoint_max + 1)
