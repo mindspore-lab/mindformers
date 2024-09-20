@@ -39,6 +39,7 @@ from mindformers.experimental.parallel_core.pynative.tensor_parallel.random impo
     get_rng_tracer,
     CANDIDATE_MODES
 )
+from mindformers.experimental.parallel_core.pynative.optimizer.distrib_optimizer import DistributedOptimizer
 
 __all__ = ["get_checkpoint_name",
            "save_rng_state",
@@ -295,22 +296,27 @@ def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_pat
     for key, _ in kwargs.items():
         logger.warning(f"The parameter {key} is not used in load_checkpoint.")
 
-    target = optimizer if optimizer is not None else model
     param_dict = ms.load_checkpoint(src_ckpt_file, format=format, crc_check=crc_check)
     resume_dict = {
         "epoch_num": int(param_dict.pop("epoch_num", 0)),
         "step_num": int(param_dict.pop("step_num", 0))
     }
-    param_dict = load_post_process(config, param_dict, optimizer)
 
-    load_rng_state(param_dict)
-    if opt_state_dict is not None:
-        opt_state_dict.load_state_dict(param_dict)
-    param_not_load, ckpt_not_load = ms.load_param_into_net(target, param_dict)
-    if param_not_load:
-        logger.warning(f"param_not_load:{param_not_load}")
-    if ckpt_not_load:
-        logger.warning(f"ckpt_not_load:{ckpt_not_load}")
+    if isinstance(optimizer, DistributedOptimizer):
+        # restore distributed optimizer
+        optimizer.load_state_dict(param_dict)
+    else:
+        # restore native optimizer/model
+        param_dict = load_post_process(config, param_dict, optimizer)
+        load_rng_state(param_dict)
+        if opt_state_dict is not None:
+            opt_state_dict.load_state_dict(param_dict)
+        target = optimizer if optimizer is not None else model
+        param_not_load, ckpt_not_load = ms.load_param_into_net(target, param_dict)
+        if param_not_load:
+            logger.warning(f"param_not_load:{param_not_load}")
+        if ckpt_not_load:
+            logger.warning(f"ckpt_not_load:{ckpt_not_load}")
     logger.info(f"ckpt loaded")
 
     return resume_dict
