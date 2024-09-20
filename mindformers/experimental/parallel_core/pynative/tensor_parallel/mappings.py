@@ -509,10 +509,11 @@ class AllToAll(nn.Cell):
         """
         Args:
             group (str): The communication group to work on.
-            group_output_splits (Tensor, shape(ep, en//ep)): group output split size
-            group_input_splits (Tensor, shape(ep, en//ep)): group input split size
-            hidden_size (int): hidden size
-            hidden_dtype (mstype, optional): hidden dtype
+            output_shape (List[int]): alltoall output shape.
+            input_shape (List[int]): alltoall input shape.
+            output_splits (List[int]): output split size.
+            input_splits (List[int]): input split size.
+            use_self_defined_alltoall (bool): use self defined alltoall or not. Default: False.
         """
         super(AllToAll, self).__init__()
 
