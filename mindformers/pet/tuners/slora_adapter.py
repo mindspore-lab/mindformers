@@ -164,7 +164,7 @@ class SLoraAdapter(abc.ABC):
             path_dict = json.load(file)
         cls.adapter_names = list(path_dict.keys())
 
-        num = len(path_dict)
+        num = len(path_dict) + 1
         max_rank = 0
         target_modules_set = set()
         for _, slora_path in path_dict.items():

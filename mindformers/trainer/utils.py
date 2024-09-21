@@ -478,28 +478,27 @@ def load_slora_ckpt(checkpoint_dict, config, network):
         raise FileNotFoundError(f"The adapter_path must be correct, but get {pet_config.adapter_path}")
     with open(pet_config.adapter_path, 'r') as file:
         path_dict = json.load(file)
+    adapter_dict = {adapter_name: load_checkpoint(os.path.join(adapter_path, "adapter_model.ckpt"))
+                    for adapter_name, adapter_path in path_dict.items()}
+    adapter_size = len(adapter_dict) + 1
 
     # collect lora weights
     slora_params = {}
-    for slora_path in list(path_dict.values()):
-        lora_params = load_checkpoint(os.path.join(slora_path, "adapter_model.ckpt"))
-        for param_name, param_shape in network.lora_list.items():
+    for param_name, param_shape in network.lora_list.items():
+        lora_shape = tuple(param_shape[1:])
+        slora_param = ops.zeros(lora_shape)
+        for lora_params in adapter_dict.values():
             if param_name in lora_params.keys():
                 lora_param = lora_params[param_name]
-                lora_param = lora_param.reshape((1,) + lora_param.shape)
-                if lora_param.shape != tuple(param_shape):
-                    pad_a = param_shape[1] - lora_param.shape[1]
-                    pad_b = param_shape[2] - lora_param.shape[2]
+                if lora_param.shape != lora_shape:
+                    pad_a = lora_shape[0] - lora_param.shape[0]
+                    pad_b = lora_shape[1] - lora_param.shape[1]
                     lora_param = mint.nn.functional.pad(lora_param, (0, pad_b, 0, pad_a), mode='constant')
             else:
-                lora_param = ops.zeros(param_shape)
-
-            if param_name in slora_params:
-                slora_param = ops.cast(slora_params[param_name], lora_param.dtype)
-                slora_param = ops.cat((slora_param, lora_param))
-            else:
-                slora_param = lora_param
-            slora_params[param_name] = Parameter(slora_param)
+                lora_param = ops.zeros(lora_shape)
+            slora_param = ops.cast(slora_param, lora_param.dtype)
+            slora_param = ops.cat((slora_param, lora_param))
+        slora_params[param_name] = Parameter(slora_param.reshape((adapter_size,) + lora_shape))
 
     dst_checkpoint_dir = next(iter(path_dict.values()))
     if config.auto_trans_ckpt:

@@ -72,14 +72,23 @@ class SLoraModel(PreTrainedModel):
         return self.lora_model.update_model_kwargs_before_generate(input_ids, model_kwargs)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        if hasattr(self, 'adapter_ids') and "adapter_ids" in kwargs:
-            adapter_ids = kwargs["adapter_ids"]
-            if adapter_ids is not None:
-                slora_names = SLoraAdapter.adapter_names
-                adapter_ids = [slora_names.index(x) for x in adapter_ids if x in slora_names]
-            else:
-                adapter_ids = [0] * input_ids.shape[0]
-            self.adapter_ids.set_data(Tensor.from_numpy(np.array(adapter_ids, dtype=np.int32)), slice_shape=True)
+        batch_size = input_ids.shape[0]
+        adapter_ids = kwargs["adapter_ids"]
+        adapter_ids_np = [0] * batch_size
+        if adapter_ids is not None:
+            if len(adapter_ids) != batch_size:
+                raise ValueError("adapter_ids has different length with inputs.")
+            slora_names = SLoraAdapter.adapter_names
+            for batch in range(batch_size):
+                adapter = adapter_ids[batch]
+                if adapter in SLoraAdapter.adapter_names:
+                    adapter_ids_np[batch] = slora_names.index(adapter) + 1
+                else:
+                    logger.warning(f"Can not find {adapter} in registered adapter names, "
+                                   f"supported adapter list:{slora_names}")
+        else:
+            logger.warning(f"SLoRA adapter ids got none.")
+        self.adapter_ids.set_data(Tensor.from_numpy(np.array(adapter_ids_np, dtype=np.int32)), slice_shape=True)
         return self.lora_model.prepare_inputs_for_generation(input_ids, **kwargs)
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
