@@ -114,17 +114,17 @@ class Trainer:
         task (str, optional): Supported task type. Default: ``general`` .
         model (Union[str, PreTrainedModel], optional):
             The network for trainer. It supports model name supported or PreTrainedModel. Default: ``None`` .
-        model_name (Union[str], optional):
+        model_name (str, optional):
             Supported model name. When the incoming model is a custom instance, it is recommended to specify
             the supported model_name to get the base configuration of the model type.
             Default: ``None`` .
         tokenizer (PreTrainedTokenizerBase, optional):
             The tokenizer for text preprocessing. It supports PreTrainedTokenizerBase class.
             Default: ``None`` .
-        train_dataset (Union[str, BaseDataset], optional):
+        train_dataset (Union[str, BaseDataset, Dataset, Iterable], optional):
             The training dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
             Default: ``None`` .
-        eval_dataset (Union[str, BaseDataset], optional):
+        eval_dataset (Union[str, BaseDataset, Dataset, Iterable], optional):
             The evaluate dataset. It supports real dataset path or BaseDateset class or MindSpore Dataset class.
             Default: ``None`` .
         data_collator (Callable, optional):

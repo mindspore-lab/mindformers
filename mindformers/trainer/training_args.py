@@ -62,7 +62,341 @@ def _adapt_dict_args(dic, key, value):
 class TrainingArguments:
     """
     TrainingArguments is the subset of the arguments we use
-    in our default config **which is related to the training in MindSpore**.
+    in our default config which is related to the training in MindSpore.
+
+    Args:
+        output_dir (str, optional):
+            The output directory where checkpoints and log will be written. Default: ``'./output'`` .
+        overwrite_output_dir (bool, optional):
+            Overwrite the content of the output directory. Use this to continue training if output_dir points to a
+            checkpoint directory. Default: ``False`` .
+        seed (int, optional): Random seed that will be set at the beginning of training. Default: ``42`` .
+        data_seed (int, optional):
+            Random seed to be used with data samplers. Default: ``None`` .
+        only_save_strategy (bool, optional):
+            If `True`, the task will only save the strategy file in `output_dir/strategy`.
+            Only takes effect when the use_parallel is True. Default: ``False`` .
+        auto_trans_ckpt (bool, optional):
+            Whether to transform checkpoint according to parallel config. Default: ``False`` .
+        src_strategy (str, optional):
+            The strategy file used for transforming checkpoint when auto_trans_ckpt is True. Default: ``None`` .
+        transform_process_num (int, optional):
+            The number of processes responsible for checkpoint transform. Default: ``1`` .
+        resume_from_checkpoint (Union[str, bool], optional):
+            The path to a folder with a valid checkpoint for your model. Default: ``None`` .
+        resume_training (Union[bool, str], optional):
+            Decide whether to resume training or specify the name of the checkpoint from which to resume training.
+            Default: ``None`` .
+        ignore_data_skip (bool, optional):
+            When resuming training, whether or not to skip the first epochs and batches to get to the same
+            training data. Default: ``False`` .
+        data_skip_steps (int, optional):
+            Specify the skip steps of train dataset when resume training.
+            It only takes effect when `ignore_data_skip` is set to False. Default: ``None`` .
+        do_train (bool, optional):
+            Whether to run training. Default: ``False`` .
+        do_eval (bool, optional):
+            Whether to run eval on the dev set. Default: ``False`` .
+        do_predict (bool, optional):
+            Whether to run predictions on the test set. Default: ``False`` .
+        remote_save_url (str, optional):
+            The OBS output dir when training on ModeArts. Default: ``None`` .
+        batch_size (int, optional):
+            Batch size per GPU/NPU core/CPU for training.
+            If set, it will override `per_device_train_batch_size`. Default: ``None`` .
+        num_train_epochs (float, optional):
+            Total number of training epochs to perform. Default: ``3.0`` .
+        sink_mode (bool, optional):
+            Whether to directly sink data to the Device through a channel. Default: ``True`` .
+        sink_size (int, optional):
+            The data sink number per step for training or evaluation. Default: ``2`` .
+        gradient_accumulation_steps (int, optional):
+            Number of steps to accumulate before performing a backward pass. Default: ``1`` .
+        mode (int, optional):
+            Indicates running in GRAPH_MODE(0) or PYNATIVE_MODE(1). Default: ``0`` .
+        use_cpu (bool, optional):
+            Whether or not to use cpu. Default: ``False`` .
+        device_id (int, optional):
+            The default device id for execution. Default: ``0`` .
+        device_target (str, optional):
+            The target device for execution, supporting 'Ascend', 'GPU', and 'CPU'. Default: ``'Ascend'`` .
+        enable_graph_kernel (bool, optional):
+            Whether to enable graph fusion. Default: ``False`` .
+        max_call_depth (int, optional):
+            Maximum depth of function calls. Default: ``10000`` .
+        max_device_memory (str, optional):
+            Maximum available memory of the device. The actual memory size used
+            is the minimum of the device's available memory and `max_device_memory`.. Default: ``'1024GB'`` .
+        save_graphs (bool, optional):
+            Whether to save intermediate compilation graphs. Default: ``False`` .
+        save_graphs_path (str, optional):
+            Path to save intermediate compilation graphs. Default: ``'./graph'`` .
+        use_parallel (bool, optional):
+            Whether enable distribute parallel of the network. Default: ``False`` .
+        parallel_mode (int, optional):
+            Indicates running with Data Parallel(0) or Semi-Auto Parallel(1) or
+            Auto Parallel(2) or Hybrid Parallel(3). Default: ``1`` .
+        gradients_mean (bool, optional):
+            Whether to perform the averaging operator after gradient AllReduce
+            Usually, it's set to False in semi-automatic parallel mode and True in data parallel mode.
+            Default: ``False`` .
+        loss_repeated_mean (bool, optional):
+            Calculation is repeated. Default: ``False`` .
+        enable_alltoall (bool, optional):
+            Whether allow generation of AllToAll communication operators during communication.
+            Typically only turned on in MOE scenarios. Default: ``False`` .
+        full_batch (bool, optional):
+            If the entire batch dataset is loaded in auto_parallel mode, then full_batch should be set to True.
+            It is currently not recommended to use this interface, please replace it with dataset_strategy.
+            Default: ``True`` .
+        dataset_strategy (Union[str, tuple], optional):
+            Dataset sharding strategy. Semi-auto parallel mode is usually set to 'full_batch'
+            while data parallel mode must be set to 'data_parallel'.
+            Default: ``'full_batch'`` .
+        search_mode (str, optional):
+            Strategy search mode, Only effective in Auto Parallel mode, experimental interface, use with caution.
+            Default: ``'sharding_propagation'`` .
+        enable_parallel_optimizer (bool, optional):
+            Whether enable optimizer parallel. Default: ``False`` .
+        gradient_accumulation_shard (bool, optional):
+            Whether the accumulated gradient variable is split along the data parallel dimension.
+            It will further reduce the memory usage of model, but will introduce additional communication
+            operators (ReduceScatter) during the backward gradient calculation. It is only effective in
+            pipeline parallel training and gradient accumulation mode.
+            Default: ``False`` .
+        parallel_optimizer_threshold (int, optional):
+            Set the threshold for parameter splitting. Default: ``64`` .
+        optimizer_weight_shard_size (int, optional):
+            Set the size of the communication domain for the specified optimizer weight splitting.
+            Effective only when optimizer parallelism is enabled. The numerical range can be (0, device_num],
+            and if pipeline parallelism is also enabled, the range becomes (0, device_num/stage].
+            If the data parallel communication domain size ofa parameter is not divisible by
+            optimizer_weight_shard_size, then the specified optimizer weight splittingcommunication domain
+            size will not be effective. Default: -1, which means the optimizer weight slicecommunication
+            domain size is the data parallel communication domain size of each parameter.
+            Default: ``-1`` .
+        strategy_ckpt_save_file (str, optional):
+            Path for saving distributed strategy file. Default: ``'./ckpt_strategy.ckpt'`` .
+        data_parallel (int, optional):
+            The split number of data parallel. Default: ``1`` .
+        model_parallel (int, optional):
+            The split number of model parallel. Default: ``1`` .
+        expert_parallel (int, optional):
+            The split number of expert parallel. Default: ``1`` .
+        pipeline_stage (int, optional):
+            The number of pipeline stage. Default: ``1`` .
+        micro_batch_num (int, optional):
+            The number of micro batch num. Only takes effect when `pipeline_stage` > 1. Default: ``1`` .
+        gradient_aggregation_group (int, optional):
+            The size of the gradient communication operator fusion group. Default: ``4`` .
+        micro_batch_interleave_num (int, optional):
+            Enable multi-replica parallel when `micro_batch_interleave_num` > 1, it is recommended set to 2
+            in model parallel. It is used for optimizing communication overhead incurred during
+            model_parallel execution. However, it will incur additional memory overhead.
+            It is not recommended for use in pure pipeline parallel.
+            Default: ``1`` .
+        use_seq_parallel (bool, optional):
+            Whether enable seq parallel. Default: ``False`` .
+        vocab_emb_dp (bool, optional):
+            Whether to split the vocabulary only along the dp dimension. Default: ``True`` .
+        expert_num (int, optional):
+            The number of expert. Default: ``1`` .
+        capacity_factor (float, optional):
+            Expertise factor. Default: ``1.05`` .
+        aux_loss_factor (float, optional):
+            Loss contribution factor. Default: ``0.05`` .
+        num_experts_chosen (int, optional):
+            Number of experts selected for each token. Default: ``1`` .
+        recompute (bool, optional):
+            Whether enable recompute mode. Default: ``False`` .
+        select_recompute (bool, optional):
+            select recompute. Default: ``False`` .
+        parallel_optimizer_comm_recompute (bool, optional):
+            Whether to recompute the AllGather communication introduced by optimizer parallel. Default: ``False`` .
+        mp_comm_recompute (bool, optional):
+            Whether to recompute the communication operations introduced by model parallel. Default: ``True`` .
+        recompute_slice_activation (bool, optional):
+            Whether to slice the Cell outputs retained in memory. Default: ``False`` .
+        optim (Union[OptimizerType, str], optional):
+            The optimizer type to use. Default: ``'fp32_adamw'`` .
+        adam_beta1 (float, optional):
+             Beta1 for AdamW optimizer. Default: ``0.9`` .
+        adam_beta2 (float, optional):
+            Beta2 for AdamW optimizer. Default: ``0.999`` .
+        adam_epsilon (float, optional):
+            Epsilon for AdamW optimizer. Default: ``1.e-8`` .
+        weight_decay (float, optional):
+            Weight decay for AdamW if we apply some. Default: ``0.0`` .
+        layer_scale (bool, optional):
+            Whether to enable layer decay. Default: ``False`` .
+        layer_decay (float, optional):
+            Layer decay coefficient. Default: ``0.65`` .
+        lr_scheduler_type (Union[LrSchedulerType, str], optional):
+            The scheduler type to use. Default: ``'cosine'`` .
+        learning_rate (float, optional):
+            The initial learning rate. Default: ``5.e-5`` .
+        lr_end (float, optional):
+            The end learning rate. Default: ``1.e-6`` .
+        warmup_lr_init (float, optional):
+            The initial learning rate of warm up. Default: ``0.0`` .
+        warmup_epochs (int, optional):
+            Linear warmup over warmup_epochs fraction of total steps. Default: ``None`` .
+        warmup_ratio (float, optional):
+            Linear warmup over warmup_ratio fraction of total steps. Default: ``None`` .
+        warmup_steps (int, optional):
+            Linear warmup over warmup_steps. Default: ``0`` .
+        total_steps (int, optional):
+            Total number of steps used for calculating the learning rate,
+            -1 means it will load the total steps of the dataset.
+            Default: ``-1`` .
+        lr_scale (bool, optional):
+            Whether to enable learning rate scaling. Default: ``False`` .
+        lr_scale_factor (int, optional):
+            Learning rate scaling factor. Default: ``256`` .
+        dataset_task (str, optional):
+            Dataset task name. Default: ``None`` .
+        dataset_type (str, optional):
+            Train dataset type. Default: ``None`` .
+        train_dataset (str, optional):
+            Train dataset path. Default: ``None`` .
+        train_dataset_in_columns (List[str], optional):
+            Train dataset input column names. Default: ``None`` .
+        train_dataset_out_columns (List[str], optional):
+            Train dataset output column names. Default: ``None`` .
+        eval_dataset (str, optional):
+            Eval dataset dir. Default: ``None`` .
+        eval_dataset_in_columns (List[str], optional):
+            Eval data column names. Default: ``None`` .
+        eval_dataset_out_columns (List[str], optional):
+            Eval dataset output column names. Default: ``None`` .
+        shuffle (bool, optional):
+            Whether shuffle train dataset. Default: ``True`` .
+        dataloader_drop_last (bool, optional):
+            Drop the last incomplete batch if it is not divisible by the batch size. Default: ``True`` .
+        repeat (int, optional):
+            Repeat train dataset count times. If count is None or -1, iterate infinitely. Default: ``1`` .
+        per_device_train_batch_size (int, optional):
+            Batch size per GPU/NPU core/CPU for training. Default: ``8`` .
+        per_device_eval_batch_size (int, optional):
+            Batch size per GPU/NPU core/CPU for evaluation. Default: ``8`` .
+        dataloader_num_workers (int, optional):
+            Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
+            Default: ``8`` .
+        python_multiprocessing (bool, optional):
+            Whether to start Python multiprocessing mode to execute per_batch_map in parallel,
+            where 'True' indicates Python multiprocessing mode, and 'False' indicates Python multithreading mode.
+            Default: ``False`` .
+        numa_enable (bool, optional):
+            Set the default state of NUMA to the enabled state. Default: ``False`` .
+        prefetch_size (int, optional):
+            Set the queue capacity of threads in the pipeline. A larger prefetch_size can reduce the overall
+            processing latency when there is an imbalance in the throughput rate of adjacent operations,
+            but it also consumes more system memory.
+            Default: ``1`` .
+        wrapper_type (str, optional):
+            Class name of wrapper. Default: ``'MFTrainOneStepCell'`` .
+        scale_sense (Union[str, float], optional):
+            Value or Class name of scale sense. Default: ``'DynamicLossScaleUpdateCell'`` .
+        loss_scale_value (int, optional):
+            Initial loss scaling factor. Default: ``65536`` .
+        loss_scale_factor (int, optional):
+            Increment and decrement factor for loss scaling coefficient. Default: ``2`` .
+        loss_scale_window (int, optional):
+            Maximum consecutive training steps to increase the loss scaling coefficient when there is no overflow.
+            Default: ``1000`` .
+        use_clip_grad (bool, optional):
+            Whether enable gradient clipping. Default: ``True`` .
+        max_grad_norm (float, optional):
+            Max gradient norm. Default: ``1.0`` .
+        max_scale_window (int, optional):
+            Maximum scale_window of the automatic scale window list. The default value is 1000. Default: ``1000`` .
+        min_scale_window (int, optional):
+            Minimum scale_window of the automatic scale window list. The default value is 20. Default: ``20`` .
+        metric_type (Union[List[str], str], optional):
+            Whether enable gradient clipping. Default: ``None`` .
+        logging_strategy (Union[LoggingIntervalStrategy, str], optional):
+            The logging strategy to use. Default: ``'steps'`` .
+        logging_steps (int, optional):
+            Log every X updates steps. Should be an integer or a float in range `[0,1)`.
+            If smaller than 1, will be interpreted as ratio of total training steps. Default: ``1`` .
+        save_prefix (str, optional):
+            The prefix name of checkpoint files. Default: ``'CKP'`` .
+        save_directory (str, optional):
+            The path of the folder which will be saved in the checkpoint file. Default: ``None`` .
+        save_strategy (Union[SaveIntervalStrategy, str], optional):
+            The checkpoint save strategy to use. Default: ``'steps'`` .
+        save_steps (int, optional):
+            Save checkpoint every X updates steps. Should be an integer or a float in range `[0,1)`.
+            If smaller than 1, will be interpreted as ratio of total training steps. Default: ``500`` .
+        save_seconds (int, optional):
+            Save checkpoint every X updates seconds. Default: ``None`` .
+        save_total_limit (int, optional):
+            If a value is passed, will limit the total amount of checkpoints. Deletes the older checkpoints in
+            `output_dir`. When `load_best_model_at_end` is enabled, the 'best' checkpoint according to
+            `metric_for_best_model` will always be retained in addition to the most recent ones. For example,
+            for `save_total_limit=5` and `load_best_model_at_end=True`, the four last checkpoints will always be
+            retained alongside the best model. When `save_total_limit=1` and `load_best_model_at_end=True`,
+            it is possible that two checkpoints are saved: the last one and the best one (if they are different).
+            Default is unlimited checkpoints. Default: ``5`` .
+        keep_checkpoint_per_n_minutes (int, optional):
+            Save the checkpoint file every `keep_checkpoint_per_n_minutes` minutes.
+            Can't be used with keep_checkpoint_max at the same time. Default: ``0`` .
+        save_on_each_node (bool, optional):
+            When doing multi-node distributed training, whether to save models and checkpoints on each node,
+            or only on the main one. Default: ``True`` .
+        integrated_save (bool, optional):
+            Whether to merge and save the split Tensor in the automatic parallel scenario. Integrated save function
+            is only supported in automatic parallel scene, not supported in manual parallel. If set,
+            `save_on_each_node` will become invalid. Default: ``None`` .
+        save_network_params (bool, optional):
+            Whether to only save network weights additionally. Default: ``True`` .
+        save_trainable_params (bool, optional):
+            Whether to save fine-tuned weights additionally. Default: ``False`` .
+        async_save (bool, optional):
+            Whether asynchronous execution saves the checkpoint to a file. Default: ``False`` .
+        evaluation_strategy (Union[IntervalStrategy, str], optional):
+            The evaluation strategy to use. Default: ``'no'`` .
+        eval_steps (float, optional):
+            Run an evaluation every X steps. Should be an integer or a float in range `[0,1)`.
+            If smaller than 1, will be interpreted as ratio of total training steps. Default: ``None`` .
+        eval_epochs (int, optional):
+            Num of epoch intervals between each eval, 1 means eval on every epoch end. Default: ``None`` .
+        profile (bool, optional):
+            Whether to enable the profile performance analysis tool. Default: ``False`` .
+        profile_start_step (int, optional):
+            Start step for performance analysis. Default: ``1`` .
+        profile_end_step (int, optional):
+            End step for performance analysis. Default: ``10`` .
+        init_start_profile (bool, optional):
+            Whether to enable data collection at the time of Profiler initialization. Once enabled, profile_start_step
+            will not be effective. It must be enabled if multi-device communication data needs to be collected.
+            Default: ``False`` .
+        profile_communication (bool, optional):
+            Whether to collect communication performance data in multi-device training. Default: ``False`` .
+        profile_memory (bool, optional):
+            Whether to collect Tensor memory data. Default: ``True`` .
+        auto_tune (bool, optional):
+            Whether to enable automatic data acceleration. Default: ``False`` .
+        filepath_prefix (str, optional):
+            The save path and file prefix for the optimized global configuration. Default: ``'./autotune'`` .
+        autotune_per_step (int, optional):
+            Set the step interval for adjusting the configuration of automatic data acceleration. Default: ``10`` .
+        push_to_hub (bool, optional):
+            Whether or not to upload the trained model to the model hub after training. Default: ``False`` .
+        hub_model_id (str, optional):
+            The name of the repository to keep in sync with the local `output_dir`. Default: ``None`` .
+        hub_strategy (Union[HubStrategy, str], optional):
+            The hub strategy to use when `--push_to_hub` is activated. Default: ``'every_save'`` .
+        hub_token (str, optional):
+            The token to use to push to the Model Hub. Default: ``None`` .
+        hub_private_repo (bool, optional):
+            Whether the model repository is private or not. Default: ``False`` .
+        hub_always_push (bool, optional):
+            Unless `True`, the Trainer will skip pushes if the previous one wasn't finished yet. Default: ``False`` .
+
+    Returns:
+        An instance of TrainingArguments.
+
     """
     # common config
     framework = "ms"
@@ -268,9 +602,7 @@ class TrainingArguments:
         default=False,
         metadata={
             "help": (
-                "Whether to perform the averaging operator after gradient AllReduce. "
-                "Usually, it's set to False in semi-automatic parallel mode and True "
-                "in data parallel mode. Default: False."
+                "Calculation is repeated. Default: False."
             )
         }
     )
@@ -1109,9 +1441,9 @@ class TrainingArguments:
             weight_decay (float, optional):
                 The weight decay to apply (if not zero) to all layers except all bias and LayerNorm weights in the
                 optimizer. Default: ``0``.
-            num_epochs(int, optional):
+            num_epochs(float, optional):
                 Total number of training epochs to perform (if not an integer, will perform the decimal part percents
-                of the last epoch before stopping training). Default: ``3``.
+                of the last epoch before stopping training). Default: ``3.0``.
             gradient_accumulation_steps (int, optional):
                 Number of updates steps to accumulate the gradients for, before performing a backward/update pass.
                 When using gradient accumulation, one step is counted as one step with backward pass. Therefore,
