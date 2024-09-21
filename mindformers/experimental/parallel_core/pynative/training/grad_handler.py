@@ -25,7 +25,8 @@ from mindspore.ops import composite as C
 from mindspore.communication import get_group_size, GlobalComm
 from mindspore.communication.comm_func import all_reduce
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_model_parallel_group, get_tensor_model_parallel_rank
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_model_parallel_group, \
+    get_tensor_model_parallel_rank, is_pipeline_last_stage
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
 
 
@@ -99,7 +100,7 @@ apply_global_norm = C.MultitypeFuncGraph("apply_global_norm")
 
 @get_square_sum.register("Tensor")
 def _get_square_sum(grad):
-    norm = ops.ReduceSum(False)(F.square(F.cast(grad, mstype.float32)), ())
+    norm = ops.norm(grad) ** 2.0
     norm = F.expand_dims(norm, 0)
     return norm
 
@@ -119,13 +120,15 @@ class ClipGlobalNorm(nn.Cell):
     clip grad by global norm
     """
 
-    def __init__(self, params, reduce_comm_group, clip_value=1.0, norm_type="l2"):
+    def __init__(self, params, reduce_comm_group, clip_value=1.0, norm_type="l2",
+                 share_embeddings_and_output_weights=True):
         super(ClipGlobalNorm, self).__init__()
         self.params = params
         self.clip_value = clip_value
         self.hyper_map = C.HyperMap()
         self.norm_type = norm_type
         self.reduce_comm_group = reduce_comm_group
+        self.share_embeddings_and_output_weights = share_embeddings_and_output_weights
         self.clip_func = inplace_apply_to_tensor_list(self.grad_scale_func)
 
     def grad_scale_func(self, grad, scale):
@@ -139,13 +142,18 @@ class ClipGlobalNorm(nn.Cell):
         rank_id = get_tensor_model_parallel_rank()
         norm_grads = ()
         for i, param in enumerate(self.params):
-            is_duplicate_grad = (
+            tp_duplicate_params = (
                 ("norm" in param.name)
                 or ("mlp.projection.bias" in param.name)
                 or ("attention.out_proj.bias" in param.name)
             )
-            if is_duplicate_grad:
+            if tp_duplicate_params:
                 if rank_id == 0:
+                    norm_grads = norm_grads + (grads[i],)
+            elif is_pipeline_last_stage():
+                if self.share_embeddings_and_output_weights and 'language_model.output_layer.weight' in param.name:
+                    continue
+                else:
                     norm_grads = norm_grads + (grads[i],)
             else:
                 norm_grads = norm_grads + (grads[i],)
@@ -154,14 +162,14 @@ class ClipGlobalNorm(nn.Cell):
     def get_grad_norm_fp32(self, grads):
         """Compute grad norm."""
         if self.norm_type == "l2":
+            l2_norm = 2.0
             square_sum = self.hyper_map(get_square_sum, grads)
             square_reduce_sum = F.addn(square_sum)
         else:
             raise NotImplementedError("for global norm, l2 norm only support now")
-        # TODO add pipline parallel situation
         if get_group_size(self.reduce_comm_group) > 1:
             square_reduce_sum = all_reduce(square_reduce_sum, "sum", self.reduce_comm_group)[0]
-        total_norm = mint.sqrt(square_reduce_sum)
+        total_norm = square_reduce_sum.item() ** (1.0 / l2_norm)
         return total_norm
 
     def construct(self, grads):
@@ -173,7 +181,7 @@ class ClipGlobalNorm(nn.Cell):
             self.clip_func(grads, clip_coeff)
         return total_norm
 
-def get_grad_process_func(training_config, return_instance=True, **kwargs):
+def get_grad_process_func(training_config, share_embeddings_and_output_weights=True, return_instance=True, **kwargs):
     """
     Get the gradient processing function based on the provided training configuration.
 
@@ -204,6 +212,7 @@ def get_grad_process_func(training_config, return_instance=True, **kwargs):
             else:
                 reduce_comm_group = get_model_parallel_group()
             grad_process_func_kwargs["reduce_comm_group"] = reduce_comm_group
+            grad_process_func_kwargs["share_embeddings_and_output_weights"] = share_embeddings_and_output_weights
         return grad_clip_cls(**grad_process_func_kwargs)
     return grad_clip_cls
 

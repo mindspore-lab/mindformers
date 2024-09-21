@@ -30,6 +30,7 @@ from .mappings import AllToAll, AllToAllSP2HP
 from .layers import *
 from .lora_layers import *
 from .random import *
+from .cross_entropy import *
 
 __all__ = [
     'all_to_all_hp2sp',
@@ -50,3 +51,4 @@ __all__ = [
 
 __all__.extend(layers.__all__)
 __all__.extend(random.__all__)
+__all__.extend(cross_entropy.__all__)
