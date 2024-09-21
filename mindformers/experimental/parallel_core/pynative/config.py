@@ -1298,13 +1298,13 @@ class TrainingConfig(BaseConfig):
             overlap_grad_reduce=True. Default: None.
         check_for_nan_in_grad (bool): If True, check gradients in buffer are finite after synchronization.
             Default: False.
-        resume_training (bool): Resume training . Default: False.
+        resume_training (bool): Resume training. Default: False.
         crc_check (bool): CRC check when save/load checkpoint. Enable this may cause low train performance.
             Default: False.
         load_checkpoint (str, optional): Where to load checkpoint. Default: ''.
-        enable_compile_cache (bool): Save compile cache.  Enable this may cause low train performance. Default: False.
+        enable_compile_cache (bool): Save compile cache. Enable this may cause low train performance. Default: False.
         compile_cache_path (str, optional): Where to save compile cache. Default: './{output_dir}/compile_cache'.
-        ckpt_format (str, optional): checkpoint save format. Default: 'safetensors'.
+        ckpt_format (str, optional): checkpoint save format. Default: 'ckpt'.
         prefix (str, optional): checkpoint save prefix. Default: 'network'.
         keep_checkpoint_max (str, optional): max saved checkpoint number. Default: 5.
         kwargs (dict, optional): Other dataset config arguments.
@@ -1347,7 +1347,7 @@ class TrainingConfig(BaseConfig):
             load_checkpoint: str = "",
             enable_compile_cache: bool = False,
             compile_cache_path: str = None,
-            ckpt_format: str = "safetensors",
+            ckpt_format: str = "ckpt",
             prefix: str = "network",
             keep_checkpoint_max: int = 5,
             **kwargs,
