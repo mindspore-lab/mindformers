@@ -24,6 +24,7 @@ import mindspore.nn as nn
 import mindspore.ops as ops
 from mindspore import Tensor
 from mindspore.communication.management import get_rank, init
+from mindspore.communication.comm_func import all_gather_into_tensor
 from mindspore.nn import AdamWeightDecay, SoftmaxCrossEntropyWithLogits
 
 from mindformers import MoEConfig as GoldenMoEConfig
@@ -99,7 +100,6 @@ class GoldenMoENet(nn.Cell):
         self.loss = SoftmaxCrossEntropyWithLogits()
         self.cast = ops.Cast()
         self.rank_id = get_rank()
-        self.all_gather = ops.AllGather()
 
     def construct(self, hidden_states, label):
         """define a forward process"""
@@ -123,7 +123,7 @@ class PynativeMoENet(Module):
         self.loss = SoftmaxCrossEntropyWithLogits()
         self.cast = ops.Cast()
         self.rank_id = get_expert_model_parallel_rank()
-        self.all_gather = ops.AllGather(group=get_data_parallel_group())
+        self.dp_group = get_data_parallel_group()
 
     def construct(self, hidden_states, label):
         """define a forward process"""
@@ -135,8 +135,8 @@ class PynativeMoENet(Module):
         output = ops.reshape(output, label.shape)
         loss = ops.dist(output, label.to(ms.float32), p=1) / (16*8)
 
-        output_all = self.all_gather(output)
-        label_all = self.all_gather(label)
+        output_all = all_gather_into_tensor(output, group=self.dp_group)[0]
+        label_all = all_gather_into_tensor(label, group=self.dp_group)[0]
         loss_all = ops.dist(output_all, label_all.to(ms.float32), p=1) / (16*8)
         print(f"loss_all is {loss_all}")
         return loss

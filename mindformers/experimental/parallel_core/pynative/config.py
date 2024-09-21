@@ -769,6 +769,8 @@ class ModelParallelConfig(BaseConfig):
         gradient_accumulation_fusion (bool): Enable gradient accumulation
             during linear backward execution. Default: False.
         overlap_p2p_comm (bool): Enable overlap p2p commucation in pipeline interleaved. Default: False.
+        num_layer_list (list): User-defined pipeline parallel model layer division. Default: None.
+        recompute_config (dict): Recompute strateges. Default: None.
     """
 
     # set config name for identifying while using init_configs methods
@@ -790,6 +792,8 @@ class ModelParallelConfig(BaseConfig):
             overlap_p2p_comm: bool = False,
             use_cpu_initialization: bool = False,
             deterministic_mode: bool = False,
+            num_layer_list: list = None,
+            recompute_config: dict = None,
             **kwargs,
     ):
         super().__init__()
@@ -808,6 +812,8 @@ class ModelParallelConfig(BaseConfig):
         self.overlap_p2p_comm = overlap_p2p_comm
         self.use_cpu_initialization = use_cpu_initialization
         self.deterministic_mode = deterministic_mode
+        self.num_layer_list = num_layer_list
+        self.recompute_config = recompute_config
 
         self.update_attrs(**kwargs)
 
@@ -899,6 +905,33 @@ def validate_deterministic_mode(config_instance, deterministic_mode):
     """Validate deterministic_mode."""
     Validator.check_bool(deterministic_mode, "deterministic_mode")
     return deterministic_mode
+
+
+@ModelParallelConfig.validator("num_layer_list")
+def validate_num_layer_list(config_instance, num_layer_list):
+    """Validate num_layer_list."""
+    if num_layer_list is not None:
+        Validator.check_value_type("num_layer_list", num_layer_list, list)
+    return num_layer_list
+
+
+@ModelParallelConfig.validator("recompute_config")
+def validate_recompute_config(config_instance, recompute_config):
+    """Validate recompute_config."""
+    default_recompute_config = {'recompute': [],
+                                'select_recompute': [],
+                                'select_comm_recompute': []}
+    check_keys = default_recompute_config.keys()
+
+    if recompute_config is not None:
+        if not isinstance(recompute_config, dict):
+            raise TypeError("recompute_config should be a dict.")
+        for key, value in recompute_config.items():
+            if key not in check_keys:
+                raise ValueError(f"Key '{key}' is not supported in recompute_config.")
+            if value and not isinstance(value, list):
+                raise TypeError(f"Key '{key}' should be list in recompute_config.")
+    return recompute_config
 
 
 class DatasetConfig(BaseConfig):
@@ -1771,6 +1804,8 @@ class TransformerConfig(BaseConfig):
             encoder_num_layers: int = None,
             decoder_num_layers: int = None,
             model_type: str = "encoder_or_decoder",
+            select_comm_recompute: bool = False,
+            select_recompute: bool = False,
 
             **kwargs,
     ):
@@ -1842,6 +1877,8 @@ class TransformerConfig(BaseConfig):
         self.encoder_num_layers = encoder_num_layers
         self.decoder_num_layers = decoder_num_layers
         self.model_type = model_type
+        self.select_comm_recompute = select_comm_recompute
+        self.select_recompute = select_recompute
 
         if "recompute_activations" in kwargs:
             if kwargs["recompute_activations"]:
@@ -2228,6 +2265,20 @@ def validate_distribute_saved_activations(config_instance, distribute_saved_acti
     """Validate distribute_saved_activations."""
     Validator.check_bool(distribute_saved_activations, "distribute_saved_activations")
     return distribute_saved_activations
+
+
+@TransformerConfig.validator("select_comm_recompute")
+def validate_select_comm_recompute(config_instance, select_comm_recompute):
+    """Validate select_comm_recompute."""
+    Validator.check_bool(select_comm_recompute, "select_comm_recompute")
+    return select_comm_recompute
+
+
+@TransformerConfig.validator("select_recompute")
+def validate_select_recompute(config_instance, select_recompute):
+    """Validate select_recompute."""
+    Validator.check_bool(select_recompute, "select_recompute")
+    return select_recompute
 
 
 class OptimizerConfig(BaseConfig):

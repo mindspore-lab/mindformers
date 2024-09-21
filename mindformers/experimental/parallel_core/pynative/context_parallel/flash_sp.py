@@ -188,7 +188,7 @@ class FlashSP(nn.Cell):
 
         recv_op = Receive(sr_tag, recv_src, shape=recv_tensor.shape, dtype=recv_tensor.dtype, group=sp_group)
         with ms.hal.StreamCtx(stream):
-            recv_tensor = recv_op(Tensor(0.0, dtype=mstype.float16))
+            recv_tensor = recv_op(Tensor(0.0, dtype=mstype.float16))[0]
         recv_ops.append(stream)
         return recv_ops, recv_tensor
 
@@ -596,4 +596,3 @@ class FlashSP(nn.Cell):
                 self.update_out(step, step_, inner_loop_steps, loop_steps, cur_attn_out,
                                 cur_softmax_max, cur_softmax_sum, rank, sp_size)
         return self.attn_out
-    

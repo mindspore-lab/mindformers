@@ -158,17 +158,17 @@ class ParallelTrainingReducer:
                     if param.grad is None:
                         continue
                     group = self.get_reduce_group(idx)
-                    param.grad = all_reduce(param.grad, "sum", group)
+                    param.grad = all_reduce(param.grad, "sum", group)[0]
                     if self.batch_reduction == "mean":
                         param.grad = mint.div(param.grad, get_data_parallel_world_size())
             if self.batch_reduction == "mean":
                 for idx, grad in enumerate(grads):
                     group = self.get_reduce_group(idx)
-                    grads[idx] = mint.div(all_reduce(grad, "sum", group), get_data_parallel_world_size())
+                    grads[idx] = mint.div(all_reduce(grad, "sum", group)[0], get_data_parallel_world_size())
             elif self.batch_reduction == "sum":
                 for idx, grad in enumerate(grads):
                     group = self.get_reduce_group(idx)
-                    grads[idx] = all_reduce(grad, "sum", group)
+                    grads[idx] = all_reduce(grad, "sum", group)[0]
 
     def inplace_reduce_sp_grad(self, grads, params=None):
         """Reduce the gradients in sequence parallel mode over tp group."""
@@ -177,11 +177,11 @@ class ParallelTrainingReducer:
                 for idx, param in enumerate(params):
                     if param.grad is None or not self.sp_reduce_filter[idx]:
                         continue
-                    param.grad = all_reduce(param.grad, "sum", get_tensor_model_parallel_group())
+                    param.grad = all_reduce(param.grad, "sum", get_tensor_model_parallel_group())[0]
             else:
                 for idx, reduce_flag in enumerate(self.sp_reduce_filter):
                     if reduce_flag:
-                        grads[idx] = all_reduce(grads[idx], "sum", get_tensor_model_parallel_group())
+                        grads[idx] = all_reduce(grads[idx], "sum", get_tensor_model_parallel_group())[0]
 
     def inplace_reduce_grad(self, grads, params=None):
         """Reduce the gradients in all parallel modes."""
@@ -192,9 +192,9 @@ class ParallelTrainingReducer:
         """Reduce the loss in data parallel mode."""
         if self.enable_loss_reduce["dp"]:
             if self.batch_reduction == "mean":
-                loss = mint.div(all_reduce(loss, "sum", get_data_parallel_group()), get_data_parallel_world_size())
+                loss = mint.div(all_reduce(loss, "sum", get_data_parallel_group())[0], get_data_parallel_world_size())
             else:
-                loss = all_reduce(loss, "sum", get_data_parallel_group())
+                loss = all_reduce(loss, "sum", get_data_parallel_group())[0]
         return loss
 
     def reduce_overflow(self, overflow):
@@ -202,23 +202,22 @@ class ParallelTrainingReducer:
         # logical or
         overflow = Tensor(overflow, dtype=mstype.int8)
         if self.enable_grad_flag_reduce["pp"]:
-            overflow = all_reduce(overflow, "max", get_pipeline_model_parallel_group())
+            overflow = all_reduce(overflow, "max", get_pipeline_model_parallel_group())[0]
         if self.enable_grad_flag_reduce["dp"]:
-            overflow = all_reduce(overflow, "max", get_data_parallel_group())
+            overflow = all_reduce(overflow, "max", get_data_parallel_group())[0]
         if self.enable_grad_flag_reduce["tp"]:
-            overflow = all_reduce(overflow, "max", get_tensor_model_parallel_group())
-        return overflow.astype(mstype.bool_)
+            overflow = all_reduce(overflow, "max", get_tensor_model_parallel_group())[0]
 
     def reduce_is_finite(self, is_finite):
         """Reduce the is_finite status in all parallel modes."""
         # logical and
         is_finite = Tensor(is_finite, dtype=mstype.int8)
         if self.enable_grad_flag_reduce["pp"]:
-            is_finite = all_reduce(is_finite, "prod", get_pipeline_model_parallel_group())
+            is_finite = all_reduce(is_finite, "prod", get_pipeline_model_parallel_group())[0]
         if self.enable_grad_flag_reduce["dp"]:
-            is_finite = all_reduce(is_finite, "prod", get_data_parallel_group())
+            is_finite = all_reduce(is_finite, "prod", get_data_parallel_group())[0]
         if self.enable_grad_flag_reduce["tp"]:
-            is_finite = all_reduce(is_finite, "prod", get_tensor_model_parallel_group())
+            is_finite = all_reduce(is_finite, "prod", get_tensor_model_parallel_group())[0]
         return is_finite.astype(mstype.bool_)
 
 
@@ -727,7 +726,7 @@ def train(
 
                 # TODO: may wrap logical reduce function
                 if get_pipeline_model_parallel_world_size() > 1:
-                    is_best = all_reduce(is_best, "max", get_pipeline_model_parallel_group())
+                    is_best = all_reduce(is_best, "max", get_pipeline_model_parallel_group())[0]
 
                 # save ckpt
                 if is_best and save_ckpt_flag:

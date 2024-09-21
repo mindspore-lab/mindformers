@@ -65,7 +65,7 @@ def get_grad_norm_fp32(grads_for_norm, norm_type=2, model_parallel_group=None):
         raise NotImplementedError("for global norm, l2 norm only support now")
 
     if get_group_size(model_parallel_group) > 1:
-        total_norm = all_reduce(total_norm, "sum", model_parallel_group)
+        total_norm = all_reduce(total_norm, "sum", model_parallel_group)[0]
     total_norm = total_norm ** (1.0 / norm_type)
     return total_norm
 
@@ -160,7 +160,7 @@ class ClipGlobalNorm(nn.Cell):
             raise NotImplementedError("for global norm, l2 norm only support now")
         # TODO add pipline parallel situation
         if get_group_size(self.reduce_comm_group) > 1:
-            square_reduce_sum = all_reduce(square_reduce_sum, "sum", self.reduce_comm_group)
+            square_reduce_sum = all_reduce(square_reduce_sum, "sum", self.reduce_comm_group)[0]
         total_norm = mint.sqrt(square_reduce_sum)
         return total_norm
 
