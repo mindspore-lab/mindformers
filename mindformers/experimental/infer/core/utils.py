@@ -75,4 +75,5 @@ def generate_state_dict(network):
     model_state_dict = {}
     _update_sharded_state_dict(network=network, dict_=model_state_dict)
     state_dict['model'] = model_state_dict
+    state_dict['optimizer'] = {}
     return state_dict
