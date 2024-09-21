@@ -79,6 +79,7 @@ n_to_m_rank_transformer(){ #Infer_strategy_path #Dst_ckpt_path #src_ckpt_path
         --save_strategy_path=${Infer_strategy_path}_${dir_count}p \
         --world_size=$dir_count \
         --qkv_concat=${qkv_ffn} \
+        --precision=${precision} \
         > ./log/log_save_strategy_${precision}_${dir_count}.log 2>&1
         echo "----- End generate ${dir_count}p ${precision} strategy time: $(date +%H:%M:%S) -----"
     fi
@@ -95,6 +96,7 @@ n_to_m_rank_transformer(){ #Infer_strategy_path #Dst_ckpt_path #src_ckpt_path
         --save_strategy_path=${Infer_strategy_path}_${world_size}p \
         --world_size=$world_size \
         --qkv_concat=${qkv_ffn} \
+        --precision=${precision} \
         > ./log/log_save_strategy_${precision}_${world_size}.log 2>&1
         echo "----- End generate ${world_size}p ${precision} strategy time: $(date +%H:%M:%S) -----"
     fi
@@ -128,6 +130,7 @@ n_to_m_rank_transformer(){ #Infer_strategy_path #Dst_ckpt_path #src_ckpt_path
         --save_strategy_path=${Infer_strategy_path}_${world_size}p \
         --world_size=$world_size \
         --qkv_concat=${qkv_ffn} \
+        --precision=${precision} \
         > ./log/log_save_strategy_${precision}_${world_size}.log 2>&1
         echo "----- End generate ${world_size}p ${precision} strategy time: $(date +%H:%M:%S) -----"
     fi
@@ -148,7 +151,7 @@ distributed_weight_transfer(){  #Infer_strategy_path #Dst_ckpt_path #src_ckpt_pa
     local Infer_strategy_path=$3
     check_qkv_output_1=$(python check_weight_name.py --src_ckpt_dir=$src_ckpt_path)
     echo "Python 脚本的输出是: $check_qkv_output_1"
-    if echo "$check_qkv_output_1" | grep -q 'True' ; then
+    if echo "$check_qkv_output_1" | grep -q 'yes-qkv' ; then
         echo "qkv_ffn=True"
         qkv_ffn="True"
     else
@@ -160,7 +163,7 @@ distributed_weight_transfer(){  #Infer_strategy_path #Dst_ckpt_path #src_ckpt_pa
     else
         n_to_m_rank_transformer ${src_ckpt_path} ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
     fi
-    if echo "$check_qkv_output_1" | grep -q 'False' ; then
+    if echo "$check_qkv_output_1" | grep -q 'no-qkv' && [ "$precision" == 'fp16' ]; then
         echo "----- Start to convert qkv and ffn time: $(date +%H:%M:%S)-----"
         python convert_qkv_ffn.py \
         --world_size=$world_size \
@@ -193,7 +196,9 @@ if [ "$function" == "train_to_infer" ] && [ "$precision" == "fp16" ]; then
         --yaml_file=$yaml_path \
         --save_strategy_path=${Infer_strategy_path}_no_qkv \
         --world_size=$world_size \
-        --qkv_concat=False > ./log/log_save_strategy_${precision}_${world_size}p.log 2>&1
+        --qkv_concat=False \
+        --precision=${precision} \
+        > ./log/log_save_strategy_${precision}_${world_size}p.log 2>&1
     fi
     echo "-----1. End save strategy  time: $(date +%H:%M:%S) -----"
     if [ -z "$src_ckpt_path" ] || [ -z "$train_strategy_file" ] ; then
@@ -260,8 +265,8 @@ elif [ "$function" == "quant_weight" ]; then
         python quant_ckpt.py \
         -c $yaml_path \
         -q ptq \
-        -t None \
-        -s None \
+        -t $dataset_name \
+        -s $dataset_path \
         -w int8 \
         -a None \
         -k None \
@@ -383,6 +388,8 @@ elif [ "$function" == "quant_weight" ]; then
     fi
     if [ "$dir_count" == "$world_size" ] ; then
         echo "Quantification weights is finish!"
+        end_time=$(date +%H:%M:%S)
+        echo "Total Start Time: $start_time, Total End Time: $end_time"
         exit 0
     else
         echo "Start to transfer weight from ${dir_count} to ${world_size}"
@@ -426,6 +433,7 @@ elif [ "$function" == "pt_to_ms" ]; then
     fi
     mkdir -p ${Dst_ckpt_path}_complete_${world_size}/rank_0/
     #1. bin to ckpt
+    dir_count=1
     echo "----- Start to convert bin to ckpt time: $(date +%H:%M:%S)-----"
     python convert_pt2ms.py \
     --torch_ckpt_dir $src_ckpt_path \
