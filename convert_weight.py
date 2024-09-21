@@ -52,7 +52,8 @@ convert_map = {
     'telechat': 'research.telechat.convert_weight.convert_pt_to_ms',
     'codegeex2': 'mindformers.models.codegeex2.convert_weight.convert_pt_to_ms',
     'qwenvl': 'research.qwenvl.convert_weight.convert_pt_to_ms',
-    'yi': 'research.yi.convert_weight.convert_pt_to_ms'
+    'yi': 'research.yi.convert_weight.convert_pt_to_ms',
+    'deepseek': 'research.deepseek.convert_weight.convert_pt_to_ms'
 }
 reversed_convert_map = {
     'llama': 'mindformers.models.llama.convert_reversed.convert_ms_to_pt',
@@ -74,7 +75,8 @@ reversed_convert_map = {
     'knowlm': 'research.knowlm.convert_reversed.convert_ms_to_pt',
     'telechat': 'research.telechat.convert_reversed.convert_ms_to_pt',
     'codegeex2': 'mindformers.models.codegeex2.convert_reversed.convert_ms_to_pt',
-    'yi': 'research.yi.convert_reversed.convert_ms_to_pt'
+    'yi': 'research.yi.convert_reversed.convert_ms_to_pt',
+    'deepseek': 'research.deepseek.convert_reversed.convert_ms_to_pt'
 }
 
 if __name__ == '__main__':
