@@ -334,6 +334,46 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             # allgather updated buckets' data among dp group
             self._sync_gather_all_model_params()
 
+    def load_state_dict(self, state_dict):
+        """ load the state dict. """
+        if len(self.param_to_bucket_map) != len(self.optimizer.parameters):
+            raise ValueError(
+                f"Inconsistent size between "
+                f"'self.param_to_bucket_map' ({len(self.param_to_bucket_map)}) and "
+                f"'self.optimizer.parameters' ({len(self.optimizer.parameters)})"
+            )
+
+        # Build a mapping from sharded param to sharded state
+        shard_param_to_state_map = {
+            param: (exp_avg, exp_avg_sq)
+            for param, exp_avg, exp_avg_sq in zip(
+                self.optimizer.parameters,
+                self.optimizer.exp_avg,
+                self.optimizer.exp_avg_sq
+            )
+        }
+
+        # Load optimizer state from the state dict
+        for param, bucket_info in self.param_to_bucket_map.items():
+            # Get param range info
+            buffer_idx, bucket_idx = bucket_info
+            param_range = self.param_ranges_map[buffer_idx][bucket_idx][param]
+            param_start, param_end = param_range["range_in_param"]
+
+            # Get sharded param & state
+            shard_param = param.main_param
+            shard_state = shard_param_to_state_map.get(shard_param, tuple())
+            if len(shard_state) != 2:
+                raise ValueError(f"Fail to get sharded states of '{param.name}'.")
+            shard_exp_avg, shard_exp_avg_sq = shard_state
+
+            # Get weight from state dict
+            for ele in [shard_param, shard_exp_avg, shard_exp_avg_sq]:
+                weight = state_dict.get(ele.name)
+                if weight is None:
+                    raise ValueError(f"Fail to get weight of '{ele.name}' from state dict.")
+                ele.copy_(weight.view(-1)[param_start: param_end])
+
     def _update_optimizer_attr(self):
         """ update attributes of self.optimizer according to shard information. """
         # reset optimizer.parameter
