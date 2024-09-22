@@ -94,11 +94,13 @@ def get_checkpoint_name(ckpt_path, format=_format, get_name_from_file=False,
     return ckpt_file, strategy_file
 
 def save_rng_state():
+    """ save random number generator state. """
     rng_state_dict = get_rng_tracer().get_state()
     rng_state_dict["default_generator"] = default_generator
     return rng_state_dict
 
 def load_rng_state(param_dict):
+    """ load random number generator state. """
     # set default rng tracer state
     target_state = {
         mode: param_dict.pop(mode) for mode in CANDIDATE_MODES if mode in param_dict
@@ -109,6 +111,7 @@ def load_rng_state(param_dict):
     set_rng_state(default_generator_loaded)
 
 def _update_zero(params_dict, shard_info, param, group):
+    """ allgather param among dp region when using zero optimizer. """
     tensor_concat = all_gather_into_tensor(param, group=group)[0]
     params_dict[param.name] = ms.Parameter(tensor_concat, name=param.name)
     shard_info[param.name]['opt_weight_shard_size'] = 0

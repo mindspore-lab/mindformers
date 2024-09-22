@@ -318,7 +318,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         # build map between parameter name and its index in optimizer.parameters after sharding
         self.param_idx_in_opt = {}
         for idx, param in enumerate(self.optimizer.parameters):
-            self.param_id_in_opt[param.name] = idx
+            self.param_idx_in_opt[param.name] = idx
 
         # build fp32 copy for fp16/bf16 params
         self.reload_model_params()
@@ -492,7 +492,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         strategy['param_info'] = {}
         for sharded_group in self.sharded_param_groups:
             for param in sharded_group['params']:
-                buffer_idx, bucket_idx = self.param_to_bucket_map
+                buffer_idx, bucket_idx = self.param_to_bucket_map[param]
                 this_buffer = self.buffers[buffer_idx]
                 start_idx, end_idx, bucket_idx = this_buffer.param_index_map[param]
                 strategy['param_info'][param.name] = {}
