@@ -19,21 +19,23 @@ mindformers.Trainer
         2. 如果要使用Trainer.predict来进行推理，则 `task` 是必需的。
 
     参数：
-        - **args** (Union[str, TrainingArguments], 可选) - 任务的配置，用于初始化数据集、超参、优化器等。支持yaml文件路径、MindFormerConfig类或者TrainingArguments类等。默认值： ``None`` 。
+        - **args** (Union[str, MindFormerConfig, TrainingArguments], 可选) - 任务的配置，用于初始化数据集、超参、优化器等。支持yaml文件路径、MindFormerConfig类或者TrainingArguments类等。默认值： ``None`` 。
         - **task** (str, 可选) - 任务类型。默认值： ``general`` 。
         - **model** (Union[str, PreTrainedModel], 可选) - 训练的神经网络，模型名称或者PreTrainedModel实例。默认值： ``None`` 。
-        - **model_name** (Union[str], 可选) - 模型名称。默认值： ``None`` 。
-        - **pet_method** (Union[str], 可选) - 参数高效微调(Pet: Parameter-Efficient Tuning)方法。默认值： ``''`` 。
-        - **train_dataset** (Union[str, BaseDataset], 可选) - 训练数据集，支持真实数据集路径或者BaseDateset类，或者MindSpore的Dataset类。默认值： ``None`` 。
-        - **eval_dataset** (Union[str, BaseDataset], 可选) - 评估数据集，支持真实数据集路径或者BaseDateset类，或者MindSpore的Dataset类。默认值： ``None`` 。
+        - **model_name** (str, 可选) - 模型名称。默认值： ``None`` 。
         - **tokenizer** (PreTrainedTokenizerBase, 可选) - 文本处理的分词器，支持PreTrainedTokenizerBase类。默认值： ``None`` 。
-        - **image_processor** (BaseImageProcessor, 可选) - 图像预处理的处理器，支持BaseImageProcessor类。默认值： ``None`` 。
-        - **audio_processor** (BaseAudioProcessor, 可选) - 音频预处理的处理器，支持BaseAudioProcessor类。默认值： ``None`` 。
+        - **train_dataset** (Union[str, BaseDataset, Dataset, Iterable], 可选) - 训练数据集，支持真实数据集路径或者BaseDateset类，或者MindSpore的Dataset类。默认值： ``None`` 。
+        - **eval_dataset** (Union[str, BaseDataset, Dataset, Iterable], 可选) - 评估数据集，支持真实数据集路径或者BaseDateset类，或者MindSpore的Dataset类。默认值： ``None`` 。
+        - **data_collator** (Callable, 可选) - 批量数据处理的方法。默认值： ``None`` 。
         - **optimizers** (Optimizer, 可选) - 训练神经网络的优化器，支持MindSpore的Optimizer类。默认值： ``None`` 。
+        - **compute_metrics** (Union[dict, set], 可选) - 评估指标，在MindSpore的Metric类中支持dict或set类型。默认值： ``None`` 。
         - **callbacks** (Union[Callback, List[Callback]], 可选) - 训练的回调函数，支持MindSpore中的CallBack或者CallBack列表。默认值： ``None`` 。
         - **eval_callbacks** (Union[Callback, List[Callback]], 可选) - 评估的回调，支持MindSpore中的CallBack或者CallBack列表。默认值： ``None`` 。
-        - **compute_metrics** (Union[dict, set], 可选) - 评估指标，在MindSpore的Metric类中支持dict或set类型。默认值： ``None`` 。
+        - **pet_method** (str, 可选) - 参数高效微调(Pet: Parameter-Efficient Tuning)方法。默认值： ``''`` 。
+        - **image_processor** (BaseImageProcessor, 可选) - 图像预处理的处理器，支持BaseImageProcessor类。默认值： ``None`` 。
+        - **audio_processor** (BaseAudioProcessor, 可选) - 音频预处理的处理器，支持BaseAudioProcessor类。默认值： ``None`` 。
         - **save_config** (bool, 可选) - 保存任务当前的配置。默认值： ``False`` 。
+        - **reset_model** (bool, 可选) - 重置模型实例。默认值： ``False`` 。
 
     返回：
         Trainer类的实例。
