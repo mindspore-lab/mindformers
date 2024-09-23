@@ -212,7 +212,7 @@ class TelechatModel(TelechatPreTrainedModel):
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr(seq_len)
                 if self.use_flash_attention:
-                    if self.enable_asd_op:
+                    if self.disable_custom_fa:
                         mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
                         mask = self.cast(mask, mstype.float16)
                 else:

@@ -31,7 +31,7 @@ from mindformers.modules.transformer.transformer import LowerTriangularMaskWithD
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.models.utils import LayerSetting, check_fine_grain_interleave_valid
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_ms_enable_asd_op, get_predict_run_mode, get_use_rope_self_define
+from mindformers.tools.utils import get_disable_custom_fa, get_predict_run_mode, get_use_rope_self_define
 from mindformers.tools.logger import logger
 
 from ..utils import lazy_inline
@@ -142,8 +142,8 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         # default open internal kernel boost
-        self.enable_asd_op = get_ms_enable_asd_op()
-        logger.info("enable asd op:{}".format(self.enable_asd_op))
+        self.disable_custom_fa = get_disable_custom_fa()
+        logger.info("disable custom flash attention score op:{}".format(self.disable_custom_fa))
         if config.moe_config.expert_num > 1:
             logger.info("MoE config is provided, use MoE FFN")
         else:
@@ -286,7 +286,7 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
         mask = None
         if self.use_past and self.is_first_iteration:
             if self.use_flash_attention:
-                if self.enable_asd_op:  # only support fp16
+                if self.disable_custom_fa:  # only support fp16
                     mask = self.casual_mask(masks=input_attention_masks)  # mask: [bs, seq, seq]
                     mask = self.cast(mask, mstype.float16)
             else:

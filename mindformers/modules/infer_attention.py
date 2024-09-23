@@ -24,7 +24,7 @@ from mindspore.ops import operations as P
 from mindformers.modules import PagedAttentionMgr
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.layers import RotaryEmbedding
-from mindformers.tools.utils import get_ms_enable_asd_op, get_use_rope_self_define
+from mindformers.tools.utils import get_disable_custom_fa, get_use_rope_self_define
 
 
 class InferRotaryEmbedding(Cell):
@@ -237,10 +237,10 @@ class InferAttention(Cell):
         if self.use_alibi_mask:
             self.add_alibi = P.Add()
 
-        self.enable_asd_op = get_ms_enable_asd_op()
+        self.disable_custom_fa = get_disable_custom_fa()
         self.use_attention_mask = False
 
-        if self.enable_asd_op:
+        if self.disable_custom_fa:
             self.use_attention_mask = True
 
         if self.use_flash_attention:

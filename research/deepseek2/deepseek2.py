@@ -213,7 +213,7 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                     freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
 
                 if self.use_flash_attention:
-                    if self.enable_asd_op:  # only support fp16
+                    if self.disable_custom_fa:  # only support fp16
                         mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
                         mask = self.cast(mask, mstype.float16)
                 else:
