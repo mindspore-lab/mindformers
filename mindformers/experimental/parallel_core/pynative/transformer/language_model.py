@@ -20,9 +20,10 @@ import mindspore.ops as P
 import mindspore.nn as nn
 
 from mindformers.experimental.parallel_core.pynative.tensor_parallel import GatherFromSequenceParallelRegion, \
-                                                    VocabParallelEmbedding, ScatterToSequenceParallelRegion
+    VocabParallelEmbedding, ScatterToSequenceParallelRegion, ColumnParallelLinear
 from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import get_rng_tracer
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_world_size
+from mindformers.experimental.parallel_core.pynative.transformer.enums import ModelType, AttnMaskType
 
 from .module import Module
 from .transformer import ParallelTransformer
@@ -111,27 +112,28 @@ class Embedding(Module):
                                                       param_init_dtype=self.param_init_dtype)
 
         # init position embedding
-        self.use_position_embedding = config.position_embedding_type == 'absolute'
+        self.use_position_embedding = config.position_embedding_type == 'learned_absolute'
         self.parallel_position_embedding = config.parallel_position_embedding
         if self.use_position_embedding:
-            if self.parallel_position_embedding:
+            if not self.parallel_position_embedding:
+                self.position_embeddings = nn.Embedding(max_sequence_length,
+                                                        hidden_size,
+                                                        embedding_table=self.init_method,
+                                                        dtype=ms.int32)
+            else:
                 self.position_embeddings = VocabParallelEmbedding(max_sequence_length,
                                                                   hidden_size,
                                                                   config=config,
                                                                   init_method=self.init_method,
                                                                   param_init_dtype=self.param_init_dtype)
-            else:
-                self.position_embeddings = nn.Embedding(max_sequence_length,
-                                                        hidden_size,
-                                                        embedding_table=self.init_method,
-                                                        dtype=ms.int32)
-
         # init tokentypes embedding
         if self.num_tokentypes > 0:
             self.tokentype_embeddings = nn.Embedding(num_tokentypes,
                                                      hidden_size,
                                                      embedding_table=self.init_method,
                                                      dtype=ms.int32)
+        else:
+            self.tokentype_embeddings = None
 
         # init dropout
         self.embedding_dropout_prob = embedding_dropout_prob
@@ -142,7 +144,14 @@ class Embedding(Module):
             need_to_swapaxes=self.data_layout == "BSH"
         )
 
-    def set_zero_parameters(self):
+        self.fp32_residual_connection = config.fp32_residual_connection
+        if self.fp32_residual_connection:
+            raise NotImplementedError("fp32_residual_connection is not supported for now.")
+        self.clone_scatter_output_in_embedding = config.clone_scatter_output_in_embedding
+        if self.clone_scatter_output_in_embedding:
+            raise NotImplementedError("clone_scatter_output_in_embedding is not supported for now.")
+
+    def zero_parameters(self):
         """ set zero value for all embedding parameters """
         P.assign(self.word_embeddings, P.zeros_like(self.word_embeddings))
         self.word_embeddings.weight.shared = True
@@ -156,22 +165,24 @@ class Embedding(Module):
     def construct(self, input_ids, position_ids, tokentype_ids=None):
         """ embedding layer forward """
         # word embedding
-        embeddings = self.word_embeddings(input_ids)
+        words_embeddings = self.word_embeddings(input_ids)
 
         # position embedding
         if self.use_position_embedding:
             position_embedding = self.position_embeddings(position_ids)
-            embeddings = embeddings + position_embedding
+            embeddings = words_embeddings + position_embedding
+        else:
+            embeddings = words_embeddings
 
         # tokentype embedding
         if tokentype_ids is not None:
-            if self.num_tokentypes < 1:
+            if self.tokentype_embeddings is None:
                 raise RuntimeError("Embedding layer got 'tokentype_ids' input, "
                                    "but 'tokentype_embeddings' layer is not initialized")
             tokentype_embedding = self.tokentype_embeddings(tokentype_ids)
             embeddings = embeddings + tokentype_embedding
         else:
-            if self.num_tokentypes > 0:
+            if self.tokentype_embeddings is not None:
                 raise RuntimeError("The 'tokentype_ids' input for Embedding layer is None, "
                                    "but 'tokentype_embeddings' layer is initialized")
 
@@ -203,7 +214,7 @@ class TransformerLanguageModel(Module):
         - **config** : model config
         - **encoder_attn_mask_type** : encoder attention mask type
         - **num_tokentypes** : if > 0, using tokentypes embedding
-        - **use_encoder** : if True, use encoder
+        - **add_encoder** : if True, use encoder
         - **use_decoder** : if True, use decoder
         - **decoder_attn_mask_type** : decoder attention mask type
         - **add_pooler** : if True, use pooler
@@ -219,41 +230,38 @@ class TransformerLanguageModel(Module):
     Supported Platforms:
         ``Ascend``
     """
-
+    # pylint: disable=W0613, C0111
     def __init__(self,
                  config,
                  encoder_attn_mask_type,
                  num_tokentypes=0,
                  add_encoder=True,
                  add_decoder=False,
-                 decoder_attn_mask_type=None,
+                 decoder_attn_mask_type=AttnMaskType.causal,
                  add_pooler=False,
                  pre_process=True,
                  post_process=True,
                  visual_encoder=None,
                  **kwargs):
-        super().__init__(config, **kwargs)
-        if add_decoder:
-            raise NotImplementedError("use_decoder is not supported for now.")
-        if config.use_retriever:
+        super().__init__(config, share_embeddings_and_output_weights=not config.untie_embeddings_and_output_weights,
+                         **kwargs)
+        if config.untie_embeddings_and_output_weights and add_decoder:
+            raise ValueError("When 'untie_embeddings_and_output_weights' is True, 'add_decoder' can't be True")
+        if config.retro_add_retriever:
             raise NotImplementedError("retriever is not supported for now.")
-        if encoder_attn_mask_type is not None:
-            raise NotImplementedError("encoder_attn_mask_type is not supported for now.")
-        if decoder_attn_mask_type is not None:
-            raise NotImplementedError("decoder_attn_mask_type is not supported for now.")
         if visual_encoder is not None:
             raise NotImplementedError("visual_encoder is not supported for now.")
 
         self.pre_process = pre_process
         self.post_process = post_process
         self.pipeline_parallel = get_pipeline_model_parallel_world_size() > 1
-        self.use_encoder = add_encoder
+        self.add_encoder = add_encoder
         self.num_tokentypes = num_tokentypes
         self.encoder_attn_mask_type = encoder_attn_mask_type
-        self.use_pooler = add_pooler
+        self.add_pooler = add_pooler
         self.encoder_hidden_state = None
         self.init_method = config.init_method
-        self.use_decoder = add_decoder
+        self.add_decoder = add_decoder
 
         # get value from config
         self.seq_length = config.seq_length
@@ -261,16 +269,14 @@ class TransformerLanguageModel(Module):
         self.untie_embeddings_and_output_weights = config.untie_embeddings_and_output_weights
         post_norm = config.use_final_norm
         param_init_dtype = config.params_dtype
-        hidden_size = config.hidden_size
-        vocab_size = config.vocab_size
+        self.hidden_size = config.hidden_size
+        padded_vocab_size = config.vocab_size
         hidden_dropout_rate = config.hidden_dropout
-        num_heads = config.num_attention_heads
-        reduce_scatter_embeddings = config.parallel_config.sequence_parallel
 
         if self.pre_process:
             # init embedding layer
-            self.embedding = Embedding(hidden_size,
-                                       vocab_size,
+            self.embedding = Embedding(self.hidden_size,
+                                       padded_vocab_size,
                                        self.seq_length,
                                        hidden_dropout_rate,
                                        config,
@@ -286,7 +292,8 @@ class TransformerLanguageModel(Module):
         # init rotary embeddings
         self.use_rotary_embeddings = config.position_embedding_type == 'rope'
         if self.use_rotary_embeddings:
-            rotary_dim = hidden_size // num_heads
+            rotary_dim = config.hidden_size // config.num_attention_heads \
+                if config.kv_channels is None else config.kv_channels
             self.rotary_pos_emb = RotaryEmbedding(
                 rotary_dim,
                 rotary_percent=config.rotary_percent,
@@ -295,9 +302,10 @@ class TransformerLanguageModel(Module):
                 rotary_base=config.rotary_base)
 
         # init encoder
-        if self.use_encoder:
+
+        if self.add_encoder:
             self.encoder = ParallelTransformer(config,
-                                               model_type=None,
+                                               model_type=ModelType.encoder_or_decoder,
                                                self_attn_mask_type=self.encoder_attn_mask_type,
                                                pre_process=self.pre_process,
                                                post_process=self.post_process,
@@ -306,19 +314,24 @@ class TransformerLanguageModel(Module):
         else:
             self.encoder = None
 
+        if self.add_decoder:
+            raise NotImplementedError("add_decoder is not supported for now.")
+
         # init pooler
         if self.post_process:
-            if self.use_pooler:
-                self.pooler = Pooler(hidden_size, self.init_method, config)
+            if self.add_pooler:
+                self.pooler = Pooler(self.hidden_size, self.init_method, config)
 
             if self.untie_embeddings_and_output_weights or self.pipeline_parallel:
                 init_method = self.init_method if self.untie_embeddings_and_output_weights else 'zeros'
-                self.output_layer = VocabParallelEmbedding(vocab_size,
-                                                           hidden_size,
-                                                           config=config,
-                                                           init_method=init_method,
-                                                           reduce_scatter_embeddings=reduce_scatter_embeddings,
-                                                           param_init_dtype=param_init_dtype)
+                self.output_layer = ColumnParallelLinear(
+                    self.hidden_size,
+                    padded_vocab_size,
+                    config=config,
+                    init_method=init_method,
+                    bias=False,
+                    param_init_dtype=param_init_dtype
+                )
 
     def set_input_tensor(self, input_tensor):
         """ set input_tensor to model """
@@ -382,8 +395,6 @@ class TransformerLanguageModel(Module):
             raise NotImplementedError("dec_attn_mask is not supported for now.")
         if enc_dec_attn_mask is not None:
             raise NotImplementedError("enc_dec_attn_mask is not supported for now.")
-        if inference_params is not None:
-            raise NotImplementedError("inference_params is not supported for now.")
         if output_enc_hidden:
             raise NotImplementedError("output_enc_hidden is not supported for now.")
         if input_image is not None:
@@ -406,7 +417,6 @@ class TransformerLanguageModel(Module):
 
         # encoder
         text_embedding_out = None
-        encoder_input = None
         if self.pre_process:
             text_embedding_out = self.embedding(enc_input_ids, enc_position_ids,
                                                 tokentype_ids=tokentype_ids)
@@ -420,14 +430,17 @@ class TransformerLanguageModel(Module):
                 if delimiter_position is None:
                     raise TypeError("When 'visual_encoder' is not None, 'delimiter_position' can't be None")
                 encoder_input = self.mixed_embedding(text_embedding_out, image_embedding_out, delimiter_position)
+        else:
+            encoder_input = None
 
         # rotary embedding
         rotary_pos_emb = None
         if self.use_rotary_embeddings:
+            if inference_params is not None:
+                raise NotImplementedError("inference_params is not supported for now.")
             rotary_pos_emb = self.rotary_pos_emb(self.seq_length)
 
         # encoder
-        encoder_output = None
         if enc_hidden_states is None:
             if self.encoder is not None:
                 encoder_output = self.encoder(encoder_input,
@@ -436,15 +449,17 @@ class TransformerLanguageModel(Module):
                                               retriever_attn_mask=retriever_attn_mask,
                                               inference_params=inference_params,
                                               rotary_pos_emb=rotary_pos_emb)
+            else:
+                encoder_output = self.encoder_hidden_state
         else:
-            encoder_output = enc_hidden_states.astype(self.compute_dtype)
+            encoder_output = enc_hidden_states.astype(encoder_input.dtype)
 
         # pooler
-        if self.post_process and self.use_pooler:
+        if self.post_process and self.add_pooler:
             pooled_output = self.pooler(encoder_output,
                                         pooling_sequence_index)
 
-        if self.use_pooler and self.post_process:
+        if self.add_pooler and self.post_process:
             return encoder_output, pooled_output
         return encoder_output
 

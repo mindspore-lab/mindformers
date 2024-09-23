@@ -41,13 +41,13 @@ def get_default_dict_for_module(cell, recurse=False):
 
 class Module(nn.Cell):
     """specific extensions of cell with support for pipelining."""
-    def __init__(self, config=None, **kwargs):
+    def __init__(self, config=None, share_embeddings_and_output_weights=True, **kwargs):
         super(Module, self).__init__(**kwargs)
-        self.untie_embeddings_and_output_weights = True
+        self.share_embeddings_and_output_weights = share_embeddings_and_output_weights
         self.shared_weight_name_list = []
         if config is not None:
             self.config = config
-            self.untie_embeddings_and_output_weights = config.untie_embeddings_and_output_weights
+            self.share_embeddings_and_output_weights = not config.untie_embeddings_and_output_weights
             if get_pipeline_model_parallel_world_size() > 1:
                 self.pre_process = is_pipeline_first_stage()
                 self.post_process = is_pipeline_last_stage()
@@ -73,7 +73,7 @@ class Module(nn.Cell):
                                    "and last stage respectively. "
                                    "Please check if 'add_attr_for_shared_weight' function is used correctly.")
             if shared_weight:
-                self.untie_embeddings_and_output_weights = False
+                self.share_embeddings_and_output_weights = True
             return shared_weight
         return []
 
@@ -86,9 +86,9 @@ class Module(nn.Cell):
         if self.pre_process:
             return self.language_model.embedding.word_embeddings.weight
         else:
-            if self.untie_embeddings_and_output_weights:
+            if not self.share_embeddings_and_output_weights:
                 raise RuntimeError("When 'shared_embedding_or_output_weight()' is called, "
-                                   "'untie_embeddings_and_output_weights' should be False.")
+                                   "'share_embeddings_and_output_weights' should be True.")
             return self.language_model.output_layer.weight
 
     # pylint: disable=R1710
@@ -97,9 +97,9 @@ class Module(nn.Cell):
         if not is_rank_in_embedding_group(ignore_virtual=True):
             return None
 
-        if self.config.untie_embeddings_and_output_weights:
+        if not self.share_embeddings_and_output_weights:
             raise RuntimeError("When calling `initialize_word_embeddings()`, "
-                               "please ensure `untie_embeddings_and_output_weights=False`.")
+                               "please ensure `share_embeddings_and_output_weights=True`.")
 
         if get_pipeline_model_parallel_world_size() == 1:
             logger.warning("When calling `initialize_word_embeddings()`, "

@@ -113,7 +113,6 @@ class ParallelTrainingReducer:
         self.expert_params = ["mlp.experts.local_experts"]
 
         self.batch_reduction = training_config.loss_reduction
-
         # dp
         if get_data_parallel_world_size() > 1:
             self.enable_loss_reduce["dp"] = True
@@ -161,6 +160,7 @@ class ParallelTrainingReducer:
                     param.grad = all_reduce(param.grad, "sum", group)[0]
                     if self.batch_reduction == "mean":
                         param.grad = mint.div(param.grad, get_data_parallel_world_size())
+        else:
             if self.batch_reduction == "mean":
                 for idx, grad in enumerate(grads):
                     group = self.get_reduce_group(idx)
@@ -523,7 +523,8 @@ class TrainOneStepCell(nn.Cell):
         self.use_grad_clip = training_config.grad_clip_kwargs is not None
         if self.use_grad_clip:
             self.grad_clip_func = get_grad_process_func(
-                training_config, params=network_with_loss.trainable_params()
+                training_config, not model_config.untie_embeddings_and_output_weights,
+                params=network_with_loss.trainable_params()
             )
         # init grad scale func
         self.grad_scale_func = inplace_apply_to_tensor_list(mint.mul)
@@ -536,6 +537,7 @@ class TrainOneStepCell(nn.Cell):
         self.forward_backward_func = get_forward_backward_func(
             network_with_loss, network_with_loss.trainable_params(), training_config, model_config
         )
+        self.accumulate_allreduce_grads_in_fp32 = training_config.accumulate_allreduce_grads_in_fp32
 
 
     def unscale_and_clip_grads(self, grads, loss_scale=None):
@@ -548,8 +550,10 @@ class TrainOneStepCell(nn.Cell):
         if loss_scale is not None:
             inv_scale = mint.reciprocal(loss_scale).astype(grads[0].dtype)
             self.grad_scale_func(grads, inv_scale)
+        global_norm = None
         if self.use_grad_clip:
-            self.grad_clip_func(grads)
+            global_norm = self.grad_clip_func(grads)
+        return global_norm
 
     def construct(self, *inputs_tuple, **inputs_dict):
         """Forward, backward, grad process, and optimizer step."""
@@ -569,6 +573,8 @@ class TrainOneStepCell(nn.Cell):
 
         # apply grad reducer
         grads = list(grads)
+        if self.accumulate_allreduce_grads_in_fp32:
+            grads = [grad.to(mstype.float32) for grad in grads]
         self.parallel_reducer.inplace_reduce_grad(grads, self.params_with_grad)
 
         # check overflow. When using mixed precision optimizer,
@@ -582,10 +588,11 @@ class TrainOneStepCell(nn.Cell):
             if self.loss_scaler is not None:
                 self.loss_scaler.adjust(is_finite)
 
+        global_norm = None
         if is_finite:
             # scale grads and clip grads if enabled
             if not self.use_mixed_precision_optimizer:
-                self.unscale_and_clip_grads(grads, current_step_loss_scale)
+                global_norm = self.unscale_and_clip_grads(grads, current_step_loss_scale)
                 grads = tuple(grads)
                 self.optimizer(grads)
             else:
@@ -611,7 +618,7 @@ class TrainOneStepCell(nn.Cell):
         # reduce loss if dp
         loss = self.parallel_reducer.reduce_dp_loss(loss)
 
-        return loss, is_finite, current_step_loss_scale, learning_rate
+        return loss, is_finite, current_step_loss_scale, learning_rate, global_norm
 
 
 def train(
@@ -696,7 +703,7 @@ def train(
             if global_step >= training_config.training_iters:
                 break
             start_time = time.time()
-            loss, is_finite, loss_scale, learning_rate = train_one_step_cell(**data)
+            loss, is_finite, loss_scale, learning_rate, _ = train_one_step_cell(**data)
             end_time = time.time()
             if training_config.log_interval is not None and (global_step + 1) % training_config.log_interval == 0:
                 if not correct_metric_flag:

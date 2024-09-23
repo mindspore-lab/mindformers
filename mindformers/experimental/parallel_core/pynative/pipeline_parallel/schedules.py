@@ -1064,20 +1064,20 @@ def all_reduce_share_embedding(grads, weights, model, wrap_with_ddp=False):
                 model_list.extend([sub_model.module for sub_model in model])
             else:
                 model_list = model
-            untie_embeddings_and_output_weights = model_list[0].untie_embeddings_and_output_weights
+            share_embeddings_and_output_weights = model_list[0].share_embeddings_and_output_weights
             for sub_model in model_list:
                 shared_weight_name_list.extend(sub_model.shared_weight_name_list)
         else:
             if wrap_with_ddp:
                 model = model.module
-            untie_embeddings_and_output_weights = model.untie_embeddings_and_output_weights
+            share_embeddings_and_output_weights = model.share_embeddings_and_output_weights
             shared_weight_name_list = model.shared_weight_name_list
         if len(shared_weight_name_list) > 1:
             raise RuntimeError(f"Now, only support one share weight in the stage. "
                                f"But got a couple of share weights: {shared_weight_name_list}")
 
         # sync for share weight
-        if get_pipeline_model_parallel_world_size() > 1 and not untie_embeddings_and_output_weights:
+        if get_pipeline_model_parallel_world_size() > 1 and share_embeddings_and_output_weights:
             shared_weight_index = []
             weight_grad = None
             for i, name in enumerate(weight_name):
