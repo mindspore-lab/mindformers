@@ -206,6 +206,7 @@ class Embedding(Module):
         embeddings = embeddings.astype(self.compute_dtype)
         return embeddings
 
+
 class TransformerLanguageModel(Module):
     """
     Transformer language model.
@@ -357,7 +358,6 @@ class TransformerLanguageModel(Module):
 
     def mixed_embedding(self, text_embedding, image_embedding, delimiter_position):
         """ mixing text embedding and image embedding """
-        # TODO: refactor code
         mix_embeddings = []
         for cur_batch in range(text_embedding.shape[0]):
             mix_embedding = []
@@ -366,9 +366,8 @@ class TransformerLanguageModel(Module):
             split_text_embedding = P.tensor_split(text_embedding[cur_batch], delimiter_position[cur_batch], axis=0)
             split_image_embedding = P.tensor_split(image_embedding[cur_batch], image_delimiter_position, axis=0)
             split_image_embedding = [split_image_embedding[i][0] for i in range(image_num)]
-            for i in range(len(split_text_embedding)):
-                mix_embedding.append(split_text_embedding[i] if i % 2 == 0 \
-                                        else split_image_embedding[int((i - 1) / 2)])
+            for i, embedding in enumerate(split_text_embedding):
+                mix_embedding.append(embedding if i % 2 == 0 else split_image_embedding[int((i - 1) / 2)])
             mix_embedding = mint.cat(mix_embedding, dim=0)
             mix_embeddings.append(mix_embedding)
         mix_embeddings = mint.cat(mix_embeddings, dim=0)
@@ -462,6 +461,7 @@ class TransformerLanguageModel(Module):
         if self.add_pooler and self.post_process:
             return encoder_output, pooled_output
         return encoder_output
+
 
 def get_language_model(config, num_tokentypes, add_pooler,
                        encoder_attn_mask_type,

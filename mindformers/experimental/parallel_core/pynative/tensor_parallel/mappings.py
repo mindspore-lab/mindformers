@@ -191,6 +191,7 @@ class GatherFromTensorAndExpertParallelRegion(nn.Cell):
         output = reduce_scatter_tensor(dout.contiguous(), group=self.tp_ep_group)[0]
         return (output,)
 
+
 class GatherFromModelParallelRegion(nn.Cell):
     "Gather the input from model parallel region and concatinate."
 
@@ -218,7 +219,7 @@ class GatherFromModelParallelRegion(nn.Cell):
     def bprop(self, x, out, dout):
         if self.world_size == 1:
             return (dout,)
-        last_dim = dout.ndim -1
+        last_dim = dout.ndim - 1
         last_dim_size = divide(dout.shape[last_dim], self.world_size)
         # 对按第零维allgather的结果重新按最后一维排列
         tensor_tuple = ops.split(dout, last_dim_size, axis=last_dim)
@@ -335,9 +336,8 @@ class ScatterToSequenceParallelRegion(nn.Cell):
             input_ = input_.swapaxes(0, 1)
 
         dim_size = input_.shape[0]
-        assert (
-            dim_size % self.world_size == 0
-        ), "First dimension of the tensor should be divisible by tensor parallel size"
+        if dim_size % self.world_size != 0:
+            raise ValueError("First dimension of the tensor should be divisible by tensor parallel size.")
         local_dim_size = dim_size // self.world_size
 
         dim_offset = self.rank * local_dim_size
@@ -395,9 +395,8 @@ class GatherFromSequenceParallelRegion(nn.Cell):
             output = reduce_scatter_tensor(dout.contiguous(), group=self.tp_group)[0]
         else:
             dim_size = dout.shape[0]
-            assert (
-                dim_size % self.world_size == 0
-            ), "First dimension of the tensor should be divisible by tensor parallel size"
+            if dim_size % self.world_size != 0:
+                raise ValueError("First dimension of the tensor should be divisible by tensor parallel size.")
             local_dim_size = dim_size // self.world_size
 
             dim_offset = self.rank * local_dim_size

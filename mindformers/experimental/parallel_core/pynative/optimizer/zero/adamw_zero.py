@@ -13,6 +13,9 @@
 # limitations under the License.
 # ============================================================================
 "AdamWeightDecay ZeRO Optimizer"
+
+__all__ = ["AdamW"]
+
 import numpy as np
 import mindspore as ms
 from mindspore import ParameterTuple, Tensor, ops, nn, _no_grad, mint
@@ -28,9 +31,6 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import get_d
     get_data_parallel_world_size, get_data_parallel_group
 from mindformers.tools.logger import logger
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
-
-
-__all__ = ["AdamW"]
 
 _adamw_opt = ops.MultitypeFuncGraph("adamw_opt")
 _split_params = ops.MultitypeFuncGraph("split_params")
@@ -276,8 +276,10 @@ class AdamW(Optimizer):
         self.moments1 = self._init_momentum(self._parameters, prefix="adam_m", init="zeros")
         self.moments2 = self._init_momentum(self._parameters, prefix="adam_v", init="zeros")
 
-        self._opt_params_need_offload = {"beta1": self.beta1, "beta2": self.beta2, "eps": self.eps,
-                                         "moments1": self.moments1, "moments2": self.moments2}
+        self._opt_params_need_offload = {
+            "beta1": self.beta1, "beta2": self.beta2, "eps": self.eps,
+            "moments1": self.moments1, "moments2": self.moments2
+        }
         self.op_mul = P.Mul()
         self.op_pow = P.Pow()
         self.op_sqrt = P.Sqrt()
@@ -465,10 +467,13 @@ class AdamW(Optimizer):
             if self._status_splited[i]:
                 param_shape = list(param_shape)
                 param_shape[0] = param_shape[0] // self.shard_size
-                param_shape = tuple(param_shape)
-            moment = ms.Parameter(initializer(init, shape=param_shape, dtype=mstype.float32),
-                                  name=prefix + "." + param.name)
-            moments_list.append(moment)
+                moment = ms.Parameter(initializer(init, shape=tuple(param_shape), dtype=mstype.float32),
+                                      name=prefix + "." + param.name)
+                moments_list.append(moment)
+            else:
+                moment = ms.Parameter(initializer(init, shape=param_shape, dtype=mstype.float32),
+                                      name=prefix + "." + param.name)
+                moments_list.append(moment)
 
         return ParameterTuple(moments_list)
 
@@ -559,13 +564,17 @@ class AdamW(Optimizer):
             else:
                 opt_weight_shard_step = 0
                 opt_weight_shard_size = 0
-            state_dict[moment1.name] = {'shape': moment1.shape,
-                                        'shard': tuple(shard),
-                                        'opt_weight_shard_step': opt_weight_shard_step,
-                                        'opt_weight_shard_size': opt_weight_shard_size}
-            state_dict[moment2.name] = {'shape': moment2.shape,
-                                        'shard': tuple(shard),
-                                        'opt_weight_shard_step': opt_weight_shard_step,
-                                        'opt_weight_shard_size': opt_weight_shard_size}
+            state_dict[moment1.name] = {
+                'shape': moment1.shape,
+                'shard': tuple(shard),
+                'opt_weight_shard_step': opt_weight_shard_step,
+                'opt_weight_shard_size': opt_weight_shard_size
+            }
+            state_dict[moment2.name] = {
+                'shape': moment2.shape,
+                'shard': tuple(shard),
+                'opt_weight_shard_step': opt_weight_shard_step,
+                'opt_weight_shard_size': opt_weight_shard_size
+            }
 
         return state_dict

@@ -179,10 +179,10 @@ class ColumnParallelLoRA(nn.Cell):
         if self.use_zero3:
             try:
                 dp_size = get_data_parallel_world_size()
-            except AssertionError:
+            except AssertionError as ex:
                 raise RuntimeError("When using zero3 optimizer parallel. Data parallel communication "
                                    "need be initialized. Please check 'dp' in order when calling "
-                                   "initialize_model_parallel.")
+                                   "initialize_model_parallel.") from ex
 
         if self.transpose_b:
             if self.use_zero3 and self.output_size_per_partition % dp_size == 0:
@@ -291,24 +291,32 @@ class ColumnParallelLoRA(nn.Cell):
         opt_weight_shard_step = get_tensor_model_parallel_world_size() if self.use_zero3 else 0
         opt_weight_shard_size = get_data_parallel_world_size() if self.use_zero3 else 0
         if not self.skip_weight_param_allocation:
-            state_dict[self.weight.name] = {'shape': self.weight.shape,
-                                            'shard': w_shard,
-                                            'opt_weight_shard_step': opt_weight_shard_step,
-                                            'opt_weight_shard_size': opt_weight_shard_size}
-            state_dict[self.lora_a.name] = {'shape': self.lora_a.shape,
-                                            'shard': lora_a_shard,
-                                            'opt_weight_shard_step': opt_weight_shard_step,
-                                            'opt_weight_shard_size': opt_weight_shard_size}
-            state_dict[self.lora_b.name] = {'shape': self.lora_b.shape,
-                                            'shard': lora_b_shard,
-                                            'opt_weight_shard_step': opt_weight_shard_step,
-                                            'opt_weight_shard_size': opt_weight_shard_size}
+            state_dict[self.weight.name] = {
+                'shape': self.weight.shape,
+                'shard': w_shard,
+                'opt_weight_shard_step': opt_weight_shard_step,
+                'opt_weight_shard_size': opt_weight_shard_size
+            }
+            state_dict[self.lora_a.name] = {
+                'shape': self.lora_a.shape,
+                'shard': lora_a_shard,
+                'opt_weight_shard_step': opt_weight_shard_step,
+                'opt_weight_shard_size': opt_weight_shard_size
+            }
+            state_dict[self.lora_b.name] = {
+                'shape': self.lora_b.shape,
+                'shard': lora_b_shard,
+                'opt_weight_shard_step': opt_weight_shard_step,
+                'opt_weight_shard_size': opt_weight_shard_size
+            }
 
         if self.has_bias:
-            state_dict[self.bias.name] = {'shape': self.bias.shape,
-                                          'shard': (tp_size,),
-                                          'opt_weight_shard_step': opt_weight_shard_step,
-                                          'opt_weight_shard_size': opt_weight_shard_size}
+            state_dict[self.bias.name] = {
+                'shape': self.bias.shape,
+                'shard': (tp_size,),
+                'opt_weight_shard_step': opt_weight_shard_step,
+                'opt_weight_shard_size': opt_weight_shard_size
+            }
         return state_dict
 
 
@@ -427,10 +435,10 @@ class RowParallelLoRA(nn.Cell):
         if self.use_zero3:
             try:
                 dp_size = get_data_parallel_world_size()
-            except AssertionError:
+            except AssertionError as ex:
                 raise RuntimeError("When using zero3 optimizer parallel. Data parallel communication "
                                    "need be initialized. Please check 'dp' in order when calling "
-                                   "initialize_model_parallel.")
+                                   "initialize_model_parallel.") from ex
 
         if self.transpose_b:
             if self.use_zero3 and self.output_size % dp_size == 0:
@@ -540,22 +548,30 @@ class RowParallelLoRA(nn.Cell):
         state_dict = {}
         opt_weight_shard_step = get_tensor_model_parallel_world_size() if self.use_zero3 else 0
         opt_weight_shard_size = get_data_parallel_world_size() if self.use_zero3 else 0
-        state_dict[self.weight.name] = {'shape': self.weight.shape,
-                                        'shard': w_shard,
-                                        'opt_weight_shard_step': opt_weight_shard_step,
-                                        'opt_weight_shard_size': opt_weight_shard_size}
-        state_dict[self.lora_a.name] = {'shape': self.lora_a.shape,
-                                        'shard': lora_a_shard,
-                                        'opt_weight_shard_step': opt_weight_shard_step,
-                                        'opt_weight_shard_size': opt_weight_shard_size}
-        state_dict[self.lora_b.name] = {'shape': self.lora_b.shape,
-                                        'shard': lora_b_shard,
-                                        'opt_weight_shard_step': opt_weight_shard_step,
-                                        'opt_weight_shard_size': opt_weight_shard_size}
+        state_dict[self.weight.name] = {
+            'shape': self.weight.shape,
+            'shard': w_shard,
+            'opt_weight_shard_step': opt_weight_shard_step,
+            'opt_weight_shard_size': opt_weight_shard_size
+        }
+        state_dict[self.lora_a.name] = {
+            'shape': self.lora_a.shape,
+            'shard': lora_a_shard,
+            'opt_weight_shard_step': opt_weight_shard_step,
+            'opt_weight_shard_size': opt_weight_shard_size
+        }
+        state_dict[self.lora_b.name] = {
+            'shape': self.lora_b.shape,
+            'shard': lora_b_shard,
+            'opt_weight_shard_step': opt_weight_shard_step,
+            'opt_weight_shard_size': opt_weight_shard_size
+        }
 
         if self.has_bias:
-            state_dict[self.bias.name] = {'shape': self.bias.shape,
-                                          'shard': (1,),
-                                          'opt_weight_shard_step': opt_weight_shard_step,
-                                          'opt_weight_shard_size': opt_weight_shard_size}
+            state_dict[self.bias.name] = {
+                'shape': self.bias.shape,
+                'shard': (1,),
+                'opt_weight_shard_step': opt_weight_shard_step,
+                'opt_weight_shard_size': opt_weight_shard_size
+            }
         return state_dict

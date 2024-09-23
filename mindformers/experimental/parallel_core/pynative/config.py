@@ -668,7 +668,7 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
 
     def dfs(config_class):
         visited[config_class] = True
-        for dependency in dependency_graph[config_class]:
+        for dependency in dependency_graph.get(config_class):
             if not visited[dependency]:
                 dfs(dependency)
         config_class_initialization_stack.append(config_class)
@@ -685,8 +685,8 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
             raise ValueError(f"Config {config_class.config_name} not found.")
         kwargs = raw_dict[config_class.config_name]
         depened_config_instances = {
-            depended_config.config_name: initialized_configs[depended_config.config_name]
-            for depended_config in dependency_graph[config_class]
+            depended_config.config_name: initialized_configs.get(depended_config.config_name)
+            for depended_config in dependency_graph.get(config_class)
         }
         kwargs.update(depened_config_instances)
         config_instance = config_class(**kwargs)
@@ -701,14 +701,13 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
     if no_passed_in_configs:
         for config_name in raw_dict.keys():
             if config_name not in initialized_configs:
-                setattr(initialized_configs[AllConfig.config_name], config_name, raw_dict[config_name])
-        return initialized_configs[AllConfig.config_name]
+                setattr(initialized_configs.get(AllConfig.config_name), config_name, raw_dict.get(config_name))
+        return initialized_configs.get(AllConfig.config_name)
 
     # return in order if config classes are passed in
-    return [initialized_configs[config_name] for config_name in returned_config_names]
+    return [initialized_configs.get(config_name) for config_name in returned_config_names]
 
 
-# TODO: add yaml file archive function
 # pylint: disable=W0102
 def init_configs_from_yaml(file_path: str, config_classes=None, **kwargs):
     """Initialize config class from configuration yaml file.
@@ -1592,11 +1591,13 @@ def validate_check_for_nan_in_grad(config_instance, check_for_nan_in_grad):
     Validator.check_bool(check_for_nan_in_grad, "check_for_nan_in_grad")
     return check_for_nan_in_grad
 
+
 @TrainingConfig.validator("fp16")
 def validate_fp16(config_instance, fp16):
     """Validate fp16."""
     Validator.check_bool(fp16, "fp16")
     return fp16
+
 
 @TrainingConfig.validator("bf16")
 def validate_bf16(config_instance, bf16):
@@ -1666,7 +1667,8 @@ def check_fa_config(**kwargs):
         'next_tokens': partial(Validator.check_int_range, lower_limit=-2147483647, upper_limit=2147483647,
                                rel=Rel.INC_BOTH, arg_name='next_tokens'),
         'input_layout': partial(Validator.check_string, valid_values=('BNSD'), arg_name='input_layout'),
-        'sparse_mode': _check_sparse_mode}
+        'sparse_mode': _check_sparse_mode
+    }
     for arg_name, value in kwargs.items():
         if arg_name not in args_and_check_map.keys():
             raise ValueError("For FAConfig, only `keep_prob`, `pre_tokens`, `next_tokens`, `input_layout`, "
@@ -1935,7 +1937,6 @@ def validate_ffn_hidden_size(config_instance, ffn_hidden_size):
     return ffn_hidden_size
 
 
-# TODO: check type
 @TransformerConfig.validator("attention_type")
 def validate_attention_type(config_instance, attention_type):
     """Validate attention_type."""
@@ -1995,10 +1996,12 @@ def validate_use_flash_attention(config_instance, use_flash_attention):
 @TransformerConfig.validator("rotary_config")
 def validate_rotary_config(config_instance, rotary_config):
     """Validate fa_config."""
-    default_rotary_config = {'rotary_percent': 1.0,
-                             'rotary_interleaved': False,
-                             'seq_len_interpolation_factor': None,
-                             'rotary_base': 10000}
+    default_rotary_config = {
+        'rotary_percent': 1.0,
+        'rotary_interleaved': False,
+        'seq_len_interpolation_factor': None,
+        'rotary_base': 10000
+    }
     check_keys = default_rotary_config.keys()
 
     if rotary_config is not None:
@@ -2420,6 +2423,7 @@ def validate_weight_decay_kwargs(config_instance, weight_decay_kwargs):
     if weight_decay_kwargs is not None:
         Validator.check_value_type("weight_decay_kwargs", weight_decay_kwargs, [dict])
     return weight_decay_kwargs
+
 
 @OptimizerConfig.validator("clip_grad")
 def validate_clip_grad(config_instance, clip_grad):

@@ -19,8 +19,8 @@ from mindspore import Tensor, nn, ops
 from mindspore.ops import Send, Receive
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_context_parallel_group, get_context_parallel_world_size, get_context_parallel_rank, \
-    get_sp_send_stream
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_context_parallel_group, \
+    get_context_parallel_world_size, get_context_parallel_rank, get_sp_send_stream
 
 
 class FlashSP(nn.Cell):
@@ -305,11 +305,11 @@ class FlashSP(nn.Cell):
     def get_rank_index(self, rank, step, sp_size):
         rank_list = [i for i in range(sp_size)]
         rank_order = []
-        for i in range(len(rank_list)):
-            if i % (step+1) == 0:
-                rank_order.append(rank_list[i])
-        for i in range(1, step+1):
-            for j in range(i, len(rank_list), step+1):
+        for i, r in enumerate(rank_list):
+            if i % (step + 1) == 0:
+                rank_order.append(r)
+        for i in range(1, step + 1):
+            for j in range(i, len(rank_list), step + 1):
                 rank_order.append(rank_list[j])
         return rank_order.index(rank)
 
@@ -387,7 +387,7 @@ class FlashSP(nn.Cell):
             if rank < sp_size // 2:
                 if inner_loop_steps * rank < inner_loop_steps * step + step_ < inner_loop_steps * loop_steps - 2:
                     cur_q = self.recv_qkv_tensor
-                    cur_kv = kv[(step_+1) % inner_loop_steps]
+                    cur_kv = kv[(step_ + 1) % inner_loop_steps]
                     cur_k, cur_v = cur_kv[0], cur_kv[1]
                 else:
                     cur_q = q
@@ -409,11 +409,11 @@ class FlashSP(nn.Cell):
                 send_qkv_flag = 1
         else:
             if step < loop_steps - 2:
-                self.send_qkv_tensor = send_kv[(step_+1) % inner_loop_steps]
+                self.send_qkv_tensor = send_kv[(step_ + 1) % inner_loop_steps]
                 send_qkv_flag = 1
             else:
                 if step_ % inner_loop_steps == 0:
-                    self.send_qkv_tensor = send_kv[(step_+1) % inner_loop_steps]
+                    self.send_qkv_tensor = send_kv[(step_ + 1) % inner_loop_steps]
                     send_qkv_flag = 1
         recv_qkv_src_rank = self.get_recv_qkv_src_rank(rank, step, sp_size)
         if rank + sp_size - step - 1 < sp_size:
@@ -422,11 +422,11 @@ class FlashSP(nn.Cell):
                 receive_qkv_flag = 1
         else:
             if step < loop_steps - 2:
-                self.recv_qkv_tensor = ms.numpy.empty_like(send_kv[(step_+1) % inner_loop_steps])
+                self.recv_qkv_tensor = ms.numpy.empty_like(send_kv[(step_ + 1) % inner_loop_steps])
                 receive_qkv_flag = 1
             else:
                 if step_ % inner_loop_steps == 0:
-                    self.recv_qkv_tensor = ms.numpy.empty_like(send_kv[(step_+1) % inner_loop_steps])
+                    self.recv_qkv_tensor = ms.numpy.empty_like(send_kv[(step_ + 1) % inner_loop_steps])
                     receive_qkv_flag = 1
 
         if rank_idx % 2 == 0:

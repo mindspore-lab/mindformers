@@ -13,6 +13,14 @@
 # limitations under the License.
 # ============================================================================
 """Layers"""
+
+__all__ = [
+    "ColumnParallelLinear",
+    "RowParallelLinear",
+    "VocabParallelEmbedding",
+    "LinearWithGradAccumulationAndAsyncCommunication"
+]
+
 import mindspore.common.dtype as mstype
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
@@ -42,11 +50,6 @@ from mindformers.experimental.parallel_core.pynative.tensor_parallel.random impo
     TENSOR_PARALLEL_GENERATOR,
     EXPERT_PARALLEL_GENERATOR,
 )
-
-__all__ = ["ColumnParallelLinear",
-           "RowParallelLinear",
-           "VocabParallelEmbedding",
-           "LinearWithGradAccumulationAndAsyncCommunication"]
 
 
 class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
@@ -160,7 +163,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             grad_input, grad_input_handle = all_reduce(grad_input, group=self.tp_group, async_op=True)
 
         if self.sequence_parallel:
-            assert not self.allreduce_dgrad
+            if self.allreduce_dgrad:
+                raise NotImplementedError("allreduce_dgrad is not supported for now.")
             if self.data_layout == "BSH":
                 grad_input = grad_input.swapaxes(0, 1)
             grad_input, grad_input_handle = reduce_scatter_tensor(grad_input, group=self.tp_group, async_op=True)
@@ -358,10 +362,10 @@ class ColumnParallelLinear(nn.Cell):
         if self.use_zero3:
             try:
                 dp_size = get_data_parallel_world_size()
-            except AssertionError:
+            except AssertionError as e:
                 raise RuntimeError("When using zero3 optimizer parallel. Data parallel communication "
                                    "need be initialized. Please check 'dp' in order when calling "
-                                   "initialize_model_parallel.")
+                                   "initialize_model_parallel.") from e
 
         if self.transpose_b:
             if self.use_zero3 and self.output_size_per_partition % dp_size == 0:
@@ -490,15 +494,19 @@ class ColumnParallelLinear(nn.Cell):
         opt_weight_shard_step = get_tensor_model_parallel_world_size() if self.use_zero3 else 0
         opt_weight_shard_size = get_data_parallel_world_size() if self.use_zero3 else 0
         if not self.skip_weight_param_allocation:
-            state_dict[self.weight.name] = {'shape': self.weight.shape,
-                                            'shard': w_shard,
-                                            'opt_weight_shard_step': opt_weight_shard_step,
-                                            'opt_weight_shard_size': opt_weight_shard_size}
+            state_dict[self.weight.name] = {
+                'shape': self.weight.shape,
+                'shard': w_shard,
+                'opt_weight_shard_step': opt_weight_shard_step,
+                'opt_weight_shard_size': opt_weight_shard_size
+            }
         if self.has_bias:
-            state_dict[self.bias.name] = {'shape': self.bias.shape,
-                                          'shard': (tp_size,),
-                                          'opt_weight_shard_step': opt_weight_shard_step,
-                                          'opt_weight_shard_size': opt_weight_shard_size}
+            state_dict[self.bias.name] = {
+                'shape': self.bias.shape,
+                'shard': (tp_size,),
+                'opt_weight_shard_step': opt_weight_shard_step,
+                'opt_weight_shard_size': opt_weight_shard_size
+            }
         return state_dict
 
 
@@ -597,10 +605,10 @@ class RowParallelLinear(nn.Cell):
         if self.use_zero3:
             try:
                 dp_size = get_data_parallel_world_size()
-            except AssertionError:
+            except AssertionError as e:
                 raise RuntimeError("When using zero3 optimizer parallel. Data parallel communication "
                                    "need be initialized. Please check 'dp' in order when calling "
-                                   "initialize_model_parallel.")
+                                   "initialize_model_parallel.") from e
 
         if self.transpose_b:
             if self.use_zero3 and self.output_size % dp_size == 0:
@@ -707,16 +715,21 @@ class RowParallelLinear(nn.Cell):
         state_dict = {}
         opt_weight_shard_step = get_tensor_model_parallel_world_size() if self.use_zero3 else 0
         opt_weight_shard_size = get_data_parallel_world_size() if self.use_zero3 else 0
-        state_dict[self.weight.name] = {'shape': self.weight.shape,
-                                        'shard': w_shard,
-                                        'opt_weight_shard_step': opt_weight_shard_step,
-                                        'opt_weight_shard_size': opt_weight_shard_size}
+        state_dict[self.weight.name] = {
+            'shape': self.weight.shape,
+            'shard': w_shard,
+            'opt_weight_shard_step': opt_weight_shard_step,
+            'opt_weight_shard_size': opt_weight_shard_size
+        }
         if self.has_bias:
-            state_dict[self.bias.name] = {'shape': self.bias.shape,
-                                          'shard': (1,),
-                                          'opt_weight_shard_step': opt_weight_shard_step,
-                                          'opt_weight_shard_size': opt_weight_shard_size}
+            state_dict[self.bias.name] = {
+                'shape': self.bias.shape,
+                'shard': (1,),
+                'opt_weight_shard_step': opt_weight_shard_step,
+                'opt_weight_shard_size': opt_weight_shard_size
+            }
         return state_dict
+
 
 class VocabParallelEmbedding(nn.Cell):
     """
@@ -793,7 +806,6 @@ class VocabParallelEmbedding(nn.Cell):
             input_mask = input_mask.astype(mstype.bool_)
             # Mask the input.
             masked_input = input_.copy() - self.vocab_start_index
-            # masked_input[input_mask] = 0
             masked_input = ops.masked_fill(
                 masked_input, input_mask, Tensor(0, masked_input.dtype)
             )
@@ -805,7 +817,6 @@ class VocabParallelEmbedding(nn.Cell):
         output_parallel = mint.index_select(self.weight, 0, masked_input).reshape(output_shape)
         # Mask the output embedding.
         if self.tensor_model_parallel_size > 1:
-            # output_parallel[input_mask, :] = 0.0
             output_parallel = ops.masked_fill(
                 output_parallel,
                 input_mask.expand_dims(2),
@@ -835,9 +846,11 @@ class VocabParallelEmbedding(nn.Cell):
         tp_size = get_tensor_model_parallel_world_size()
         w_shard = (tp_size, 1)
         state_dict = {}
-        state_dict[self.weight.name] = {'shape': self.weight.shape,
-                                        'shard': w_shard,
-                                        'opt_weight_shard_step': 0,
-                                        'opt_weight_shard_size': 0}
+        state_dict[self.weight.name] = {
+            'shape': self.weight.shape,
+            'shard': w_shard,
+            'opt_weight_shard_step': 0,
+            'opt_weight_shard_size': 0
+        }
 
         return state_dict

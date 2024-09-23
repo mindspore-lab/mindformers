@@ -1,3 +1,17 @@
+# Copyright 2024 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
 """define token sort and unsort"""
 import math
 import sys
@@ -13,6 +27,7 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_context_parallel_world_size
 )
 
+
 class SelfDefinedGather(nn.Cell):
     """SelfDefinedGather"""
     def __init__(self, indices):
@@ -23,8 +38,8 @@ class SelfDefinedGather(nn.Cell):
     def construct(self, input_):
         """forward process"""
         indices = self.indices
-        assert indices.max() < input_.shape[0], \
-            f"expect indices.max() < input_.shape[0], but got {indices} and {input_.shape}"
+        if indices.max() >= input_.shape[0]:
+            raise ValueError(f"expect indices.max() < input_.shape[0], but got {indices} and {input_.shape}")
         output = ops.gather(input_, self.indices, 0)
         return output
 
@@ -32,8 +47,8 @@ class SelfDefinedGather(nn.Cell):
     def bprop(self, input_, output, dout):
         """bprop process"""
         indices = self.indices
-        assert indices.max() < dout.shape[0], \
-            f"expect indices.max() < dout.shape[0], but got {indices} and {dout.shape}"
+        if indices.max() >= dout.shape[0]:
+            raise ValueError(f"expect indices.max() < dout.shape[0], but got {indices} and {dout.shape}")
         dout = ops.gather(dout, ops.argsort(indices), 0)
         return (dout,)
 
@@ -47,8 +62,8 @@ def token_sort(tokens, indices, topk: int = 1, num_out_token: int = None, padded
         raise NotImplementedError("padded_mode not implemented.")
 
     if topk > 1:
-        assert indices.shape[1] == topk, \
-        f"expect indices.shape[1] == topk, but got {indices.shape[1]} and {topk}"
+        if indices.shape[1] != topk:
+            raise ValueError(f"expect indices.shape[1] == topk, but got {indices.shape[1]} and {topk}")
     flatten_indices = indices.reshape(-1)
     sorted_indices = ops.argsort(flatten_indices)
 
@@ -56,7 +71,8 @@ def token_sort(tokens, indices, topk: int = 1, num_out_token: int = None, padded
 
     return sorted_tokens, sorted_indices
 
-def token_unsort(sorted_tokens, sorted_indices, probs: ms.Tensor = None, topk: int = 1, padded_mode: bool = False, \
+
+def token_unsort(sorted_tokens, sorted_indices, probs: ms.Tensor = None, topk: int = 1, padded_mode: bool = False,
                  restore_shape: ops.Size = None):
     """define token_unsort"""
     if padded_mode:
@@ -65,15 +81,18 @@ def token_unsort(sorted_tokens, sorted_indices, probs: ms.Tensor = None, topk: i
         raise NotImplementedError("restore_shape not implemented.")
 
     if topk > 1:
-        assert probs is not None
-        assert probs.shape[0] == sorted_tokens.shape[0] // topk, \
-               f"{probs.shape} {sorted_tokens.shape}"
+        if probs is None:
+            raise ValueError("probs should not be None.")
+        if probs.shape[0] != sorted_tokens.shape[0] // topk:
+            raise ValueError(f"Expected probs.shape[0] == sorted_tokens.shape[0] // topk, " +
+                             f"but got {probs.shape[0]} and {sorted_tokens.shape[0] // topk}")
     if probs is not None:
-        assert probs.shape[0] == sorted_tokens.shape[0] // topk, \
-        f"expect probs.shape[0] == sorted_tokens.shape[0] // topk, " +\
-        f"but got {probs.shape[0]} and {sorted_tokens.shape[0]}"
+        if probs.shape[0] != sorted_tokens.shape[0] // topk:
+            raise ValueError(f"expect probs.shape[0] == {sorted_tokens.shape[0] // topk}, "
+                             f"but got {probs.shape[0]}.")
 
-        assert probs.shape[1] == topk, f"probs size {probs.shape} merge_factor {topk}"
+        if probs.shape[1] != topk:
+            raise ValueError(f"Expected probs.shape[1] == {topk}, but got {probs.shape[1]}.")
     unsorted_indices = ops.argsort(sorted_indices)
 
     unsorted_tokens = mint.index_select(sorted_tokens, 0, unsorted_indices)

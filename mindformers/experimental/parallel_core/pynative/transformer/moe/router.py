@@ -1,4 +1,21 @@
+# Copyright 2024 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
 """moe router"""
+import mindspore as ms
+from mindspore import mint, nn, ops, Tensor
+
 from mindformers.experimental.parallel_core.pynative.config import TransformerConfig
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_tensor_and_context_parallel_world_size,
@@ -6,9 +23,6 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import (
 )
 from mindformers.experimental.parallel_core.pynative.tensor_parallel import GatherFromSequenceParallelRegion
 from mindformers.modules.layers import Linear
-
-import mindspore as ms
-from mindspore import mint, nn, ops, Tensor
 
 from .utils import MoEAuxLossAutoScaler, switch_load_balancing_loss_func, topk_softmax_with_capacity, z_loss_func
 
@@ -55,7 +69,7 @@ class TopKRouter(nn.Cell):
         logits = logits.reshape(-1, self.moe_config.num_experts)
 
         # Apply Z-Loss
-        logits = self.apply_z_loss(logits)  #[b*s/tp, experts_num]
+        logits = self.apply_z_loss(logits)  # [b*s/tp, experts_num]
 
         if get_tensor_model_parallel_world_size() > 1 and self.moe_config.moe_token_dispatcher_type == "alltoall":
             # [b*s, experts_num]

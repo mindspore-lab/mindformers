@@ -14,6 +14,18 @@
 # ============================================================================
 """For transformer"""
 
+__all__ = [
+    "BasePublicLayer",
+    "BaseHeadLayer",
+    "HeadLayer",
+    "PublicLayer",
+    "ParallelMLP",
+    "ParallelAttention",
+    "ParallelTransformerLayer",
+    "ParallelTransformer",
+    "ParallelLMLogits",
+]
+
 import math
 import copy
 from collections import OrderedDict
@@ -71,18 +83,6 @@ from mindformers.tools import logger
 
 from .module import Module
 from .mlp import ParallelMLP
-
-__all__ = [
-    "BasePublicLayer",
-    "BaseHeadLayer",
-    "HeadLayer",
-    "PublicLayer",
-    "ParallelMLP",
-    "ParallelAttention",
-    "ParallelTransformerLayer",
-    "ParallelTransformer",
-    "ParallelLMLogits",
-]
 
 
 class BasePublicLayer(nn.Cell):
@@ -420,10 +420,7 @@ class ParallelAttention(Module):
                     self.num_heads,
                     input_layout="BNSD",
                     scale_value=1 / self.norm_factor,
-                    sparse_mode=0,
-                    dp=get_data_parallel_world_size(),
-                    mp=get_tensor_model_parallel_world_size(),
-                    sp=get_context_parallel_world_size(),
+                    sparse_mode=0
                 )
             else:
                 self.flash_sp = FlashSP(

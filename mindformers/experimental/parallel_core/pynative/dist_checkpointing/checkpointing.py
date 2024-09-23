@@ -14,6 +14,17 @@
 # ============================================================================
 
 """Model and parameters serialization."""
+
+__all__ = [
+    "get_checkpoint_name",
+    "save_rng_state",
+    "load_rng_state",
+    'save_pre_process',
+    'load_post_process',
+    "save_checkpoint",
+    "load_checkpoint"
+]
+
 import os
 import glob
 import numpy as np
@@ -42,20 +53,13 @@ from mindformers.experimental.parallel_core.pynative.tensor_parallel.random impo
 )
 from mindformers.experimental.parallel_core.pynative.optimizer.distrib_optimizer import DistributedOptimizer
 
-__all__ = ["get_checkpoint_name",
-           "save_rng_state",
-           "load_rng_state",
-           'save_pre_process',
-           'load_post_process',
-           "save_checkpoint",
-           "load_checkpoint"]
-
 # Distribution configurations.
-_strategy_dir = "strategy"
-_format = "ckpt"
+_STRATEGY_DIR = "strategy"
+_FORMAT = "safetensors"
+
 
 # pylint: disable=W0622
-def get_checkpoint_name(ckpt_path, format=_format, get_name_from_file=False,
+def get_checkpoint_name(ckpt_path, format=_FORMAT, get_name_from_file=False,
                         prefix: str = "network", epoch_num: int = None, step_num: int = None):
     """
     Get checkpoint file name of model and optimizer.
@@ -77,7 +81,7 @@ def get_checkpoint_name(ckpt_path, format=_format, get_name_from_file=False,
     ckpt_local_path = os.path.join(ckpt_path, f"rank_{rank}")
     os.makedirs(ckpt_local_path, exist_ok=True)
     # get default strategy file name
-    strategy_local_path = os.path.join(ckpt_path, _strategy_dir)
+    strategy_local_path = os.path.join(ckpt_path, _STRATEGY_DIR)
     strategy_file = os.path.join(strategy_local_path, f"stratey{rank}.ckpt")
     # read ckpt name according to the ckpt path or return default name
     if get_name_from_file:
@@ -93,22 +97,27 @@ def get_checkpoint_name(ckpt_path, format=_format, get_name_from_file=False,
         ckpt_file = os.path.join(ckpt_local_path, f"{prefix}_{epoch_num}_{step_num}.{format}")
     return ckpt_file, strategy_file
 
+
 def save_rng_state():
     """ save random number generator state. """
     rng_state_dict = get_rng_tracer().get_state()
     rng_state_dict["default_generator"] = default_generator
     return rng_state_dict
 
+
 def load_rng_state(param_dict):
     """ load random number generator state. """
     # set default rng tracer state
     target_state = {
-        mode: param_dict.pop(mode) for mode in CANDIDATE_MODES if mode in param_dict
+        mode: param_dict.pop(mode)
+        for mode in CANDIDATE_MODES
+        if mode in param_dict
     }
     get_rng_tracer().set_state(target_state)
     # set default generator state
     default_generator_loaded = param_dict.pop("default_generator")
     set_rng_state(default_generator_loaded)
+
 
 def _update_zero(params_dict, shard_info, param, group):
     """ allgather param among dp region when using zero optimizer. """
@@ -116,6 +125,7 @@ def _update_zero(params_dict, shard_info, param, group):
     params_dict[param.name] = ms.Parameter(tensor_concat, name=param.name)
     shard_info[param.name]['opt_weight_shard_size'] = 0
     shard_info[param.name]['opt_weight_shard_step'] = 0
+
 
 # pylint: disable=W0212
 def save_pre_process(shard_info, model, optimizer, config):
@@ -162,6 +172,7 @@ def save_pre_process(shard_info, model, optimizer, config):
 
     return shard_info, params_dict
 
+
 # pylint: disable=W0212
 def load_post_process(config, params_dict, optimizer=None):
     """ load post processing, concat qkv """
@@ -199,8 +210,9 @@ def load_post_process(config, params_dict, optimizer=None):
 
     return params_dict
 
+
 # pylint: disable=W0622
-def save_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckpt_path="./", format=_format,
+def save_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckpt_path="./", format=_FORMAT,
                     only_save_strategy=False, prefix: str = 'network', epoch_num: int = 0, step_num: int = 0,
                     crc_check: bool = False, keep_checkpoint_max: int = 5, **kwargs):
     """
@@ -251,7 +263,7 @@ def save_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
 
     logger.info(f"ckpt saved")
 
-def ensure_total_ckpt_is_less_than_limit(ckpt_path: str, limit: int = 5, format: str = _format):
+def ensure_total_ckpt_is_less_than_limit(ckpt_path: str, limit: int = 5, format: str = _FORMAT):
     """
     make sure the provided path contain less than limited number of checkpoint file
     Args:
@@ -273,7 +285,7 @@ def ensure_total_ckpt_is_less_than_limit(ckpt_path: str, limit: int = 5, format:
             os.remove(rm_ckpt_path)
 
 # pylint: disable=W0622
-def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_path="./", format=_format, crc_check=False,
+def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_path="./", format=_FORMAT, crc_check=False,
                     **kwargs):
     """
     Load checkpoint info from a specified file in process of rank 0.
@@ -325,7 +337,7 @@ def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_pat
 
     return resume_dict
 
-def get_last_checkpoint(ckpt_path: str, format: str = _format):
+def get_last_checkpoint(ckpt_path: str, format: str = _FORMAT):
     """Get last timestamp checkpoint under ckpt_path."""
     ckpt_list = [
         checkpoint for checkpoint in os.listdir(ckpt_path)

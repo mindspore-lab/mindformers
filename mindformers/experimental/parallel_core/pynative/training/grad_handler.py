@@ -25,8 +25,11 @@ from mindspore.ops import composite as C
 from mindspore.communication import get_group_size, GlobalComm
 from mindspore.communication.comm_func import all_reduce
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_model_parallel_group, \
-    get_tensor_model_parallel_rank, is_pipeline_last_stage
+from mindformers.experimental.parallel_core.pynative.parallel_state import (
+    get_model_parallel_group,
+    get_tensor_model_parallel_rank,
+    is_pipeline_last_stage
+)
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
 
 
@@ -40,8 +43,7 @@ def inplace_apply_to_tensor_list(func: callable):
     """
 
     def inplace_apply_func(tensor_list, *args, **kwargs):
-        # TODO: when using DDP, sharded slice will transfer to contiguous, remove `[:]` when this fixed
-        for idx in range(len(tensor_list)):
+        for idx, _ in enumerate(tensor_list):
             tensor_list[idx].copy_(func(tensor_list[idx], *args, **kwargs))
 
     return inplace_apply_func
@@ -215,6 +217,7 @@ def get_grad_process_func(training_config, share_embeddings_and_output_weights=T
             grad_process_func_kwargs["share_embeddings_and_output_weights"] = share_embeddings_and_output_weights
         return grad_clip_cls(**grad_process_func_kwargs)
     return grad_clip_cls
+
 
 class GradAccumulator:
     '''

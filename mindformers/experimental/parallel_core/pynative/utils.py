@@ -45,18 +45,18 @@ class DictWithValueError(dict):
     def __getitem__(self, key):
         try:
             return super().__getitem__(key)
-        except KeyError:
-            raise ValueError(f"'{key}' is not supported, please select one of {list(self.keys())}")
+        except KeyError as e:
+            raise ValueError(f"'{key}' is not supported, please select one of {list(self.keys())}") from e
 
 
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
-    assert numerator % denominator == 0, "{} is not divisible by {}".format(numerator, denominator)
+    if numerator % denominator != 0:
+        raise ValueError("{} is not divisible by {}".format(numerator, denominator))
 
 
 def divide(numerator, denominator):
-    """Ensure that numerator is divisible by the denominator and return
-    the division value."""
+    """Ensure that numerator is divisible by the denominator and return the division value."""
     ensure_divisibility(numerator, denominator)
     return numerator // denominator
 
@@ -79,6 +79,7 @@ def calculate_dividable_vocab_size(vocab_size, denominator=128):
             + f"vocab size {vocab_size} to make it dividable by {denominator}"
         )
     return padded_vocab_size
+
 
 def add_attr_for_shared_weight(layer, weight_name='weight'):
     """ add 'share' attr for embedding or head layer weight """
@@ -176,7 +177,7 @@ def generate_state_dict(network: Module, optimizer: Optimizer):
         if hasattr(optimizer, 'sharded_state_dict'):
             state_dict['optimizer'] = optimizer.sharded_state_dict(state_dict['model'])
         else:
-            print(f"The optimizer {type(optimizer).__name__} has no sharded_state_dict overridden")
+            logger.warning(f"The optimizer {type(optimizer).__name__} has no sharded_state_dict overridden")
             state_dict['optimizer'] = get_default_dict_for_optimizer(optimizer, state_dict['model'])
 
     return state_dict
@@ -261,7 +262,9 @@ def save_strategy_file(state_dict, strategy_file_name):
         if "/" in strategy_file_name:
             real_path = os.path.abspath(strategy_file_name[: strategy_file_name.rfind("/")])
             os.makedirs(real_path, exist_ok=True)
-        with open(strategy_file_name, "wb") as f:
+        flags = os.O_WRONLY | os.O_CREAT
+        modes = stat.S_IWUSR | stat.S_IRUSR
+        with os.fdopen(os.open(strategy_file_name, flags, modes), 'wb') as f:
             f.write(stra.SerializeToString())
             os.chmod(strategy_file_name, stat.S_IRUSR)
 

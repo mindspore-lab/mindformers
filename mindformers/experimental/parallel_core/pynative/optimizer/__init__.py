@@ -25,14 +25,17 @@ from mindformers.experimental.parallel_core.pynative.register import ModuleType,
 from mindformers.experimental.parallel_core.pynative.distributed import DistributedDataParallel
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_group
 from mindformers.experimental.parallel_core.pynative.dist_checkpointing import get_checkpoint_name
+from mindformers.experimental.parallel_core.pynative.optimizer.lr_scheduler import get_learning_rate_scheduler
 
-from .zero import *
-from .lr_scheduler import *
+from . import zero
+from . import lr_scheduler
 from .distrib_optimizer import DistributedOptimizer
 from .optimizer import MixedPrecisionOptimizer, Float16OptimizerWithFloat16Params, get_optimizer_param_scheduler
 
-__all__ = ["DistributedOptimizer", "MixedPrecisionOptimizer", "Float16OptimizerWithFloat16Params", \
-    "get_optimizer", "get_optimizer_param_scheduler"]
+__all__ = [
+    "DistributedOptimizer", "MixedPrecisionOptimizer", "Float16OptimizerWithFloat16Params", \
+    "get_optimizer", "get_optimizer_param_scheduler"
+]
 __all__.extend(zero.__all__)
 __all__.extend(lr_scheduler.__all__)
 
@@ -131,7 +134,6 @@ def get_optimizer(optimizer_config, training_config, params=None, network=None, 
 
         if optimizer_config.weight_decay_kwargs is not None:
             raise NotImplementedError("weight_decay_kwargs is not supported yet.")
-            # weight_decay = get_weight_decay(optimizer_config.optimizer)
 
         weight_decay = optimizer_config.weight_decay
 

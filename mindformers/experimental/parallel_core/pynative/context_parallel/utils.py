@@ -18,7 +18,8 @@ from mindspore import ops
 from mindspore.communication import get_group_size, get_rank
 import numpy as np
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_context_parallel_rank, get_data_parallel_world_size, get_context_parallel_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_context_parallel_rank, \
+    get_data_parallel_world_size, get_context_parallel_world_size
 
 
 def get_sp_chuncks(batch, input_layout, enable_dp_shard=True,
@@ -153,13 +154,10 @@ def get_sp_chuncks_general(batch, input_layout):
 
     if input_layout == "BSH":
         seq_dim = 1
-        # batch_dim = 0
     elif input_layout == "BNSD":
         seq_dim = 2
-        # batch_dim = 0
     elif input_layout == "SBH":
         seq_dim = 0
-        # batch_dim = 1
     else:
         raise ValueError(
             f"Only input_layout = 'BSH' or 'BNSD' or 'SBH' is supported")

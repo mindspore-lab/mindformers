@@ -368,7 +368,6 @@ class RingAttention(nn.Cell):
             cur_attn_mask = None
             cur_q = q
         else:
-            # cur_attn_mask = attn_mask[(rank - i) % cp_size] if isinstance(attn_mask, list) else None
             sub_seq_len = attn_mask.shape[-1] // cp_size
             start_index = ((rank - i) % cp_size) * sub_seq_len
             start_indices = [0] * (len(attn_mask.shape) - 1)

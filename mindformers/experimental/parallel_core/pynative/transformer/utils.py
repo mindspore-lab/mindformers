@@ -13,12 +13,13 @@
 # limitations under the License.
 # ============================================================================
 """utils"""
+
+__all__ = ["get_attn_mask_func"]
+
 import mindspore.ops as ops
 
 from mindspore import Tensor
 from mindspore.common import dtype as mstype
-
-__all__ = ["get_attn_mask_func"]
 
 
 def attn_mask_fill(attention_scores: Tensor, attention_mask, fill_value=-10000.0):

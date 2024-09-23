@@ -14,6 +14,14 @@
 # ============================================================================
 """RNGStateTracer"""
 
+__all__ = [
+    'RNGStateTracer',
+    'get_rng_tracer',
+    'set_rng_seed',
+    'DATA_PARALLEL_GENERATOR',
+    'TENSOR_PARALLEL_GENERATOR',
+    'EXPERT_PARALLEL_GENERATOR',
+]
 
 import random
 from contextlib import contextmanager
@@ -28,21 +36,13 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_pipeline_model_parallel_rank,
 )
 
-__all__ = [
-    'RNGStateTracer',
-    'get_rng_tracer',
-    'set_rng_seed',
-    'DATA_PARALLEL_GENERATOR',
-    'TENSOR_PARALLEL_GENERATOR',
-    'EXPERT_PARALLEL_GENERATOR',
-]
-
 
 DATA_PARALLEL_GENERATOR = "dp_rng_generator"
 TENSOR_PARALLEL_GENERATOR = "tp_rng_generator"
 EXPERT_PARALLEL_GENERATOR = "exp_rng_generator"
 IS_SEED_SET = False
 CANDIDATE_MODES = [DATA_PARALLEL_GENERATOR, TENSOR_PARALLEL_GENERATOR, EXPERT_PARALLEL_GENERATOR]
+
 
 class RNGStateTracer:
     """
@@ -100,14 +100,17 @@ class RNGStateTracer:
 
 default_rng_tracer_ = None
 
+
 def _init_default_rng_tracer():
     global default_rng_tracer_
     default_rng_tracer_ = RNGStateTracer()
+
 
 def get_rng_tracer():
     if default_rng_tracer_ is None:
         _init_default_rng_tracer()
     return default_rng_tracer_
+
 
 def parallel_mode_manual_seed(seed):
     "parallel_mode_manual_seed"
@@ -123,6 +126,7 @@ def parallel_mode_manual_seed(seed):
     tracer.init_mode(DATA_PARALLEL_GENERATOR, dp_seed)
     tracer.init_mode(TENSOR_PARALLEL_GENERATOR, tp_seed)
     tracer.init_mode(EXPERT_PARALLEL_GENERATOR, exp_seed)
+
 
 def set_rng_seed(seed, dp_random_init=False):
     seed = int(seed)
