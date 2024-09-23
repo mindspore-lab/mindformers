@@ -22,18 +22,20 @@ from mindspore.ops import functional as F
 from mindspore import Tensor, mint, nn, hal
 from mindspore.communication.comm_func import all_reduce
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_rank, get_pipeline_model_parallel_world_size, get_context_parallel_world_size, \
-    get_tensor_model_parallel_world_size, is_pipeline_last_stage, is_pipeline_first_stage, \
-    is_rank_in_embedding_group, get_embedding_group, set_virtual_pipeline_model_parallel_rank, get_stream
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_rank, \
+    get_pipeline_model_parallel_world_size, get_context_parallel_world_size, get_tensor_model_parallel_world_size, \
+    is_pipeline_last_stage, is_pipeline_first_stage, is_rank_in_embedding_group, get_embedding_group, \
+    set_virtual_pipeline_model_parallel_rank, get_stream
 
-from .p2p_communication import P2P_Primitive
+from .p2p_communication import P2PPrimitive
 
 
 def accumulate_grads_func(accumulate_grads, current_micro_grads):
     """ Accumulate grad """
-    for i in range(len(accumulate_grads)):
-        accumulate_grads[i] = mint.add(accumulate_grads[i], current_micro_grads[i])
+    for i, accumulate_grad in enumerate(accumulate_grads):
+        accumulate_grads[i] = mint.add(accumulate_grad, current_micro_grads[i])
     return tuple(accumulate_grads)
+
 
 # pylint: disable=R1710
 def get_set_hidden_states_parameter(model):
@@ -45,7 +47,9 @@ def get_set_hidden_states_parameter(model):
             param = cur_param
             param.requires_grad = True
             return param
-    assert param is not None, "Parameter 'set_hidden_states' is not found."
+    if param is None:
+        raise ValueError("Parameter 'set_hidden_states' is not found.")
+
 
 # pylint: disable=W0613
 def run_forward(*input_data,
@@ -80,7 +84,7 @@ def run_forward(*input_data,
         model.set_input_tensor(recv_data)
 
     if is_pipeline_last_stage():
-        # return loss
+        # get loss
         output_tensors = model(*input_data)
 
         # check output
@@ -106,11 +110,11 @@ def run_forward(*input_data,
         if micro_tokens_nums is not None:
             tokens_nums_list.append(micro_tokens_nums)
     else:
-        # return next stage input
         output_tensor = model(*input_data)
 
     input_data += (recv_data,)
     return output_tensor, accumulate_loss, list(input_data)
+
 
 # pylint: disable=W0613
 def run_backward(*input_tensor,
@@ -182,7 +186,7 @@ def run_backward(*input_tensor,
 
     # get dout and weight_grad
     dout = weight_grad.pop(0)
-    weight_grad = tuple(weight_grad)
+    weight_grad_tuple = tuple(weight_grad)
 
     # the first stage do not require backpropagation
     if is_pipeline_first_stage():
@@ -191,13 +195,14 @@ def run_backward(*input_tensor,
     # accumulate grads between multi-micro input
     if not wrap_with_ddp and weight[-1].grad is None:
         if accumulate_grads is None:
-            accumulate_grads = weight_grad
+            accumulate_grads = weight_grad_tuple
         else:
-            accumulate_grads = accumulate_grads_func(list(accumulate_grads), list(weight_grad))
+            accumulate_grads = accumulate_grads_func(list(accumulate_grads), list(weight_grad_tuple))
     else:
-        accumulate_grads = weight_grad
+        accumulate_grads = weight_grad_tuple
 
     return dout, accumulate_grads
+
 
 # pylint: disable=C0103
 def forward_backward_pipelining_with_interleaving(
@@ -238,7 +243,7 @@ def forward_backward_pipelining_with_interleaving(
         sub_model.set_grad(requires_grad=requires_grad)
 
     # init p2p class
-    p2p_primitive = P2P_Primitive(config=config.model_config)
+    p2p_primitive = P2PPrimitive(config=config.model_config)
 
     # record sync model chunk id
     synchronized_model_chunks = set()
@@ -246,7 +251,7 @@ def forward_backward_pipelining_with_interleaving(
     # get model weights and merge `set_hidden_states` parameter
     weights = [sub_model.trainable_params() for sub_model in model]
     set_hidden_states_parameters = []
-    for i in range(len(weights)):
+    for i, _ in enumerate(weights):
         set_hidden_states_parameter = get_set_hidden_states_parameter(model[i])
         weights[i].insert(0, set_hidden_states_parameter)
         set_hidden_states_parameters.append(set_hidden_states_parameter)
@@ -665,6 +670,7 @@ def forward_backward_pipelining_with_interleaving(
 
     return accumulate_loss, logits, all_model_chunk_grads
 
+
 # pylint: disable=C0103
 def forward_backward_pipelining_without_interleaving(
         model,
@@ -698,7 +704,7 @@ def forward_backward_pipelining_without_interleaving(
     model.set_grad(requires_grad=requires_grad)
 
     # init p2p class
-    p2p_primitive = P2P_Primitive(config=config.model_config)
+    p2p_primitive = P2PPrimitive(config=config.model_config)
 
     # get model weights and merge `set_hidden_states` parameter
     weights = model.trainable_params()
@@ -896,6 +902,7 @@ def forward_backward_pipelining_without_interleaving(
 
     return accumulate_loss, logits, accumulate_grads
 
+
 def is_last_microbatch_for_model_chunk(microbatch_id, pp_world_size, num_model_chunks, total_num_microbatches):
     """ check if micro iteration is last by microbatch_id """
     microbatch_group_size = pp_world_size * num_model_chunks
@@ -906,6 +913,7 @@ def is_last_microbatch_for_model_chunk(microbatch_id, pp_world_size, num_model_c
         return microbatch_id_in_group % pp_world_size == pp_world_size - 1
     return False
 
+
 def get_model_chunk_id(microbatch_id, pp_world_size, num_model_chunks, forward):
     """ get model chunk id by microbatch_id """
     micro_group = microbatch_id % (pp_world_size * num_model_chunks)
@@ -913,6 +921,7 @@ def get_model_chunk_id(microbatch_id, pp_world_size, num_model_chunks, forward):
     if not forward:
         model_chunk_id = num_model_chunks - model_chunk_id - 1
     return model_chunk_id
+
 
 def correct_p2p_shape(seq_length, hidden_size, micro_batch_size, data_layout, use_sequence_parallel=False):
     """
@@ -927,7 +936,7 @@ def correct_p2p_shape(seq_length, hidden_size, micro_batch_size, data_layout, us
 
 
 def recv_forward(tensor_shapes: Union[tuple, list],
-                 p2p: P2P_Primitive):
+                 p2p: P2PPrimitive):
     """ Recv forward output tensor from prev rank in pipeline. """
     tensor_shape = tensor_shapes
     if isinstance(tensor_shapes[0], (tuple, list)):
@@ -943,7 +952,7 @@ def recv_forward(tensor_shapes: Union[tuple, list],
 
 def send_forward(input_tensors: Union[Tensor, list],
                  tensor_shapes: Union[tuple, list],
-                 p2p: P2P_Primitive):
+                 p2p: P2PPrimitive):
     """ Send forward output tensor to next rank in pipeline. """
     tensor_shape = tensor_shapes
     if isinstance(tensor_shapes[0], (tuple, list)):
@@ -955,7 +964,7 @@ def send_forward(input_tensors: Union[Tensor, list],
 
 def send_backward(input_grads: Union[Tensor, list],
                   tensor_shapes: Union[tuple, list],
-                  p2p: P2P_Primitive):
+                  p2p: P2PPrimitive):
     """ Send backward output tensor to next rank in pipeline. """
     tensor_shape = tensor_shapes
     if isinstance(tensor_shapes[0], (tuple, list)):
@@ -966,7 +975,7 @@ def send_backward(input_grads: Union[Tensor, list],
 
 
 def recv_backward(tensor_shapes: Union[tuple, list],
-                  p2p: P2P_Primitive):
+                  p2p: P2PPrimitive):
     """ recv backward dout tensor from next rank in pipeline. """
     tensor_shape = tensor_shapes
     if isinstance(tensor_shapes[0], (tuple, list)):
@@ -982,7 +991,7 @@ def recv_backward(tensor_shapes: Union[tuple, list],
 
 def send_forward_recv_backward(input_tensors: Union[Tensor, list],
                                tensor_shapes: Union[tuple, list],
-                               p2p: P2P_Primitive):
+                               p2p: P2PPrimitive):
     """ Send forward output and recv backward dout from next rank in pipeline."""
     tensor_shape = tensor_shapes
     input_tensor = input_tensors
@@ -1004,7 +1013,7 @@ def send_forward_recv_backward(input_tensors: Union[Tensor, list],
 
 def send_backward_recv_forward(input_grads: Union[Tensor, list],
                                tensor_shapes: Union[tuple, list],
-                               p2p: P2P_Primitive):
+                               p2p: P2PPrimitive):
     """ Send backward grad and recv forward output from prev rank in pipeline."""
     tensor_shape = tensor_shapes
     input_grad = input_grads
@@ -1091,6 +1100,7 @@ def all_reduce_share_embedding(grads, weights, model, wrap_with_ddp=False):
                     hal.current_stream().wait_stream(get_stream())
                 weight_grad.copy_(all_reduce(weight_grad, group=get_embedding_group())[0])
     return grads
+
 
 def calculate_loss_and_logits(accumulate_loss,
                               logits,

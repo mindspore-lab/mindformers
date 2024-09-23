@@ -13,13 +13,14 @@
 # limitations under the License.
 # ============================================================================
 """Normalization"""
+
+__all__ = ["get_norm"]
+
 import mindspore.ops.operations as P
 import mindspore.common.dtype as mstype
 
 from mindspore import nn, Parameter, Tensor, mint, ops
 from mindspore.common.initializer import initializer
-
-__all__ = ["get_norm"]
 
 
 class LayerNorm(nn.Cell):

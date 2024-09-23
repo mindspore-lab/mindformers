@@ -50,6 +50,7 @@ from mindformers.experimental.parallel_core.pynative.transformer.moe.utils impor
 
 from .grad_handler import inplace_apply_to_tensor_list, get_grad_process_func, GradAccumulator
 
+
 def get_sp_params(training_config):
     """get reduce parameters for sequence parallel"""
     use_lora = training_config.lora_config.use_lora
@@ -67,6 +68,7 @@ def get_sp_params(training_config):
         sp_params = ["norm", "mlp.projection.bias", "attention.out_proj.bias"]
     return sp_params
 
+
 def rename_set_hidden_states_parameter(model, model_chunk_id=None):
     """ rename set_hidden_states parameter """
     weight_untrainable = model.untrainable_params()
@@ -74,14 +76,16 @@ def rename_set_hidden_states_parameter(model, model_chunk_id=None):
         if "set_hidden_states" in param.name:
             param.name = param.name + f"_{model_chunk_id}_chunk"
 
+
 def model_zero_grad_buffer(model, wrap_with_ddp):
     """ zero grad buffer if wrap_with_ddp=True """
     if wrap_with_ddp:
         if isinstance(model, nn.CellList):
-            for model_chunk_id in range(len(model)):
+            for model_chunk_id, _ in enumerate(model):
                 model[model_chunk_id].zero_grad_buffer()
         else:
             model.zero_grad_buffer()
+
 
 class ParallelTrainingReducer:
     """The reducer for parallel training"""
@@ -107,7 +111,6 @@ class ParallelTrainingReducer:
             "pp": False,
             "tp": False,
         }
-        # TODO: context parallel grads
 
         self.sp_reduce_params = get_sp_params(training_config)
         self.expert_params = ["mlp.experts.local_experts"]
@@ -593,8 +596,8 @@ class TrainOneStepCell(nn.Cell):
             # scale grads and clip grads if enabled
             if not self.use_mixed_precision_optimizer:
                 global_norm = self.unscale_and_clip_grads(grads, current_step_loss_scale)
-                grads = tuple(grads)
-                self.optimizer(grads)
+                grads_tuple = tuple(grads)
+                self.optimizer(grads_tuple)
             else:
                 self.optimizer()
 
@@ -731,7 +734,6 @@ def train(
                     best_metric = results[training_config.eval_metric]
                     is_best = Tensor(True, dtype=mstype.int8)
 
-                # TODO: may wrap logical reduce function
                 if get_pipeline_model_parallel_world_size() > 1:
                     is_best = all_reduce(is_best, "max", get_pipeline_model_parallel_group())[0]
 

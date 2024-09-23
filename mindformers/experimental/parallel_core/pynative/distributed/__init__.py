@@ -15,10 +15,12 @@
 
 """distributed init"""
 from .distributed_data_parallel_config import DistributedDataParallelConfig
-from .distributed_data_parallel import *
-from .param_and_grad_buffer import *
+from .distributed_data_parallel import DistributedDataParallel
+from .param_and_grad_buffer import Bucket, ParamAndGradBuffer
 
-__all__ = ['DistributedDataParallelConfig']
-
-__all__.extend(distributed_data_parallel.__all__)
-__all__.extend(param_and_grad_buffer.__all__)
+__all__ = [
+    'DistributedDataParallelConfig',
+    'DistributedDataParallel',
+    'Bucket',
+    'ParamAndGradBuffer'
+]

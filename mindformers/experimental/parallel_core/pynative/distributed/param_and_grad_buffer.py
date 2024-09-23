@@ -31,6 +31,7 @@ from mindformers.experimental.parallel_core.pynative.utils import divide
 
 __all__ = ['Bucket', 'ParamAndGradBuffer']
 
+
 class BufferType(Enum):
     PARAM = 0
     GRAD = 1
@@ -153,6 +154,7 @@ class Bucket:
     def __repr__(self):
         return f"Bucket (offset={self.offset}, param_lens={len(self.params)})"
 
+
 class ParamAndGradBuffer:
     """
     Allocate contiguous memory buffer for given parameters and corresponding gradients. Breaking
@@ -267,9 +269,7 @@ class ParamAndGradBuffer:
             data_actual_end = data_end_index + data_padded_numel
             bucket_params.append(param)
             param_data_list.append(param)
-            self.param_index_map[param] = (data_start_index,
-                                           data_end_index,
-                                           bucket_id)
+            self.param_index_map[param] = (data_start_index, data_end_index, bucket_id)
             data_start_index = data_actual_end
             if _does_param_need_new_bucket(param):
                 last_bucket_numel = data_start_index - bucket_start_index
@@ -327,9 +327,11 @@ class ParamAndGradBuffer:
     def _get_buffer_slice(self, shape, start_index, buffer_type):
         """ get the buffer view with the same shape """
         end_index = start_index + int(np.prod(shape))
-        assert start_index >= 0 and end_index <= self.numel
+        if start_index < 0 or end_index > self.numel:
+            raise ValueError("index out of range")
         if buffer_type == BufferType.PARAM:
-            assert self.param_data is not None
+            if self.param_data is None:
+                raise ValueError("param_data can not be None")
             buffer_tensor = self.param_data[start_index:end_index]
         elif buffer_type == BufferType.GRAD:
             buffer_tensor = self.grad_data[start_index:end_index]

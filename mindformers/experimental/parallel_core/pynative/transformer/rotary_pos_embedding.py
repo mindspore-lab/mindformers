@@ -13,13 +13,13 @@
 # limitations under the License.
 # ============================================================================
 """Rotary position embedding."""
+
+__all__ = ["RotaryEmbedding", "apply_rotary_pos_emb"]
+
 import mindspore as ms
 from mindspore import Tensor, ops, mint
 
 from .module import Module
-
-
-__all__ = ["RotaryEmbedding", "apply_rotary_pos_emb"]
 
 
 class RotaryEmbedding(Module):
@@ -86,7 +86,7 @@ class RotaryEmbedding(Module):
 
 def _rotate_half(x, rotary_interleaved):
     if not rotary_interleaved:
-        x1, x2 = mint.split(x, x.shape[-1]//2, dim=-1)
+        x1, x2 = mint.split(x, x.shape[-1] // 2, dim=-1)
         return ops.cat((-x2, x1), axis=-1)
 
     raise NotImplementedError('rotary_interleaved=True is not supported for now.')

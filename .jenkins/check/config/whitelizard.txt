@@ -8,3 +8,4 @@ mindformers/mindformers/models/auto/processing_auto.py:from_pretrained_experimen
 mindformers/mindformers/experimental/parallel_core/pynative/tensor_parallel/layers.py:bprop
 mindformers/mindformers/models/whisper/tokenization_whisper.py:_decode_asr
 mindformers/mindformers/models/whisper/english_normalizer.py:process_words
+mindformers/mindformers/experimental/parallel_core/pynative/tensor_parallel/layers.py:bprop

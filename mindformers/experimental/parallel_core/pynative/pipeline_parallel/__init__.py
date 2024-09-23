@@ -15,12 +15,12 @@
 
 """mindformers init"""
 
-from .p2p_communication import P2P_Primitive
-from .schedules import forward_backward_pipelining_without_interleaving, \
-                       forward_backward_pipelining_with_interleaving
-
 __all__ = [
-    "P2P_Primitive",
+    "P2PPrimitive",
     "forward_backward_pipelining_without_interleaving",
     "forward_backward_pipelining_with_interleaving",
 ]
+
+from .p2p_communication import P2PPrimitive
+from .schedules import forward_backward_pipelining_without_interleaving, \
+                       forward_backward_pipelining_with_interleaving

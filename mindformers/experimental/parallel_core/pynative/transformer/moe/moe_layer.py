@@ -1,9 +1,27 @@
+# Copyright 2024 Huawei Technologies Co., Ltd
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ============================================================================
 """moe layer"""
-from mindformers.experimental.parallel_core.pynative.config import TransformerConfig
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_expert_model_parallel_rank, get_expert_model_parallel_world_size, get_tensor_model_parallel_world_size
-from mindformers.experimental.parallel_core.pynative.transformer.module import Module
-
 import mindspore as ms
+
+from mindformers.experimental.parallel_core.pynative.config import TransformerConfig
+from mindformers.experimental.parallel_core.pynative.parallel_state import (
+    get_expert_model_parallel_rank,
+    get_expert_model_parallel_world_size,
+    get_tensor_model_parallel_world_size
+)
+from mindformers.experimental.parallel_core.pynative.transformer.module import Module
 
 from .experts import GroupedMLP, SequentialMLP
 from .router import TopKRouter
@@ -33,15 +51,17 @@ class MoELayer(Module):
         self.tp = config.parallel_config.tensor_model_parallel_size
         self.sp = config.parallel_config.sequence_parallel
 
-        assert ep_world_size > 0, f"Expect expert parallel size > 0, but got {ep_world_size}"
-        assert num_experts % ep_world_size == 0, \
-             f"Expect num_experts % ep_world_size == 0, but got {num_experts} and {ep_world_size}"
+        if ep_world_size <= 0:
+            raise ValueError(f"Expect expert parallel size > 0, but got {ep_world_size}")
+        if num_experts % ep_world_size != 0:
+            raise ValueError(f"Expect num_experts % ep_world_size == 0, but got {num_experts} and {ep_world_size}")
 
         num_local_experts = num_experts // ep_world_size
         local_expert_indices = [rank_id * num_local_experts + i for i in range(num_local_experts)]
 
         for x in local_expert_indices:
-            assert x < num_experts, f"expect all local expert indices < expert num, but got {local_expert_indices}"
+            if x >= num_experts:
+                raise ValueError(f"expect all local expert indices < expert num, but got {local_expert_indices}")
 
         self.router = TopKRouter(config=config)
 

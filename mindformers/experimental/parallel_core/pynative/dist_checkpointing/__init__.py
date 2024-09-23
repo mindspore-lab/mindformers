@@ -14,7 +14,10 @@
 # ============================================================================
 
 """dist_checkpointing init"""
-from .checkpointing import *
+from .checkpointing import get_checkpoint_name
+from .checkpointing import save_checkpoint
+from .checkpointing import load_checkpoint
 
-__all__ = []
-__all__.extend(checkpointing.__all__)
+__all__ = ["get_checkpoint_name",
+           "save_checkpoint",
+           "load_checkpoint"]

@@ -15,7 +15,7 @@
 
 """training init"""
 from .training import TrainOneStepCell, train, get_model, ParallelTrainingReducer
-from .loss_func import *
+from .loss_func import get_loss_func
 
-__all__ = ["TrainOneStepCell", "train", 'get_model', 'ParallelTrainingReducer']
-__all__.extend(loss_func.__all__)
+__all__ = ["TrainOneStepCell", "train", 'get_model',
+           'ParallelTrainingReducer', 'get_loss_func']

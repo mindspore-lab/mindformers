@@ -45,6 +45,7 @@ def shard_bucket(bucket, group):
 
     return shard_start, shard_end
 
+
 class DistributedOptimizer(MixedPrecisionOptimizer):
     """
     Distributed optimizer implementation. This class wrap a non-parallel optimizer
@@ -90,8 +91,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
 
         for param, param_world_indexes in param_index_map.items():
             param_world_start, param_world_end, _ = param_world_indexes
-            param_local_start = max(0, param_world_start-bucket_world_start)
-            param_local_end = min(param_world_end-bucket_world_start, shard_size)
+            param_local_start = max(0, param_world_start - bucket_world_start)
+            param_local_end = min(param_world_end - bucket_world_start, shard_size)
 
             # param_range_map only record shard info for parameters
             # in the buffer shard processed by this dp rank
@@ -100,13 +101,17 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                 range_in_shard = (param_local_start, param_local_end)
                 local_size_in_shard = param_local_end - param_local_start
                 # range in buffer of this param
-                range_in_buffer = (bucket_world_start+param_local_start,
-                                   bucket_world_start+param_local_start+local_size_in_shard)
+                range_in_buffer = (
+                    bucket_world_start + param_local_start,
+                    bucket_world_start + param_local_start + local_size_in_shard
+                )
                 # range in bucket of this param
-                range_in_whole_bucket = (range_in_buffer[0]-bucket_offset,
-                                         range_in_buffer[1]-bucket_offset)
+                range_in_whole_bucket = (
+                    range_in_buffer[0] - bucket_offset,
+                    range_in_buffer[1] - bucket_offset
+                )
                 # range in integrated param of this param slice
-                sub_param_start = max(0, bucket_world_start-param_world_start)
+                sub_param_start = max(0, bucket_world_start - param_world_start)
                 sub_param_end = sub_param_start + local_size_in_shard
                 sub_param_range = (sub_param_start, sub_param_end)
                 # build param range map
@@ -150,7 +155,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         # build map of parameters to their optimizer group in the original optimizer
         for group_idx, group in enumerate(param_groups):
             for param in group['params']:
-                assert param.requires_grad
+                if not param.requires_grad:
+                    raise ValueError("param.requires_grad should be True but got False!")
                 world_param_group_map[param] = group_idx
 
         # In distributed optimizer, each dp rank only update a part of parameters,
@@ -164,7 +170,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                     group_idx = world_param_group_map[param]
                     sharded_group = sharded_param_groups[group_idx]
                     sharded_group['params'].append(param)
-                    local_param_group_map[param] = (group_idx, len(sharded_group['params'])-1)
+                    local_param_group_map[param] = (group_idx, len(sharded_group['params']) - 1)
 
         return local_param_group_map, sharded_param_groups
 
@@ -286,10 +292,10 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         for buffer_idx, all_bucket_range_list in enumerate(self.param_ranges_map):
             for bucket_index, param_range_map in enumerate(all_bucket_range_list):
                 for param, _ in param_range_map.items():
-                    assert (
-                        param not in self.param_to_bucket_map
-                    ), "Parameter should only belongs to a single bucket."
-                    self.param_to_bucket_map[param] = (buffer_idx, bucket_index)
+                    if param not in self.param_to_bucket_map:
+                        self.param_to_bucket_map[param] = (buffer_idx, bucket_index)
+                    else:
+                        raise ValueError("Parameter should only belongs to a single bucket.")
 
         # get optimizer group info
         (
@@ -381,10 +387,11 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         self.optimizer.parameters = []
         for group_idx, _ in enumerate(self.optimizer.param_groups):
             # update params in this group
-            self.optimizer.param_groups[group_idx]['params'] = \
-                [*self.sharded_param_fp32_groups[group_idx],\
-                 *self.sharded_param_fp32_from_fp16_groups[group_idx]]
-            self.optimizer.group_start_id[group_idx+1] = self.optimizer.group_start_id[group_idx] + \
+            self.optimizer.param_groups[group_idx]['params'] = [
+                *self.sharded_param_fp32_groups[group_idx],\
+                *self.sharded_param_fp32_from_fp16_groups[group_idx]
+            ]
+            self.optimizer.group_start_id[group_idx + 1] = self.optimizer.group_start_id[group_idx] + \
                 len(self.optimizer.param_groups[group_idx]['params'])
             self.optimizer.lrs[group_idx] = self.optimizer.param_groups[group_idx]['lr']
             self.optimizer.parameters += tuple(self.optimizer.param_groups[group_idx]['params'])
@@ -402,7 +409,6 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
 
     def _get_model_param_buffer_dp_views(self):
         """ get shard metadata for each bucket among dp group. """
-        # return view_items
         view_items = []
         for buffer_index, buffer in enumerate(self.buffers):
             for bucket_index, bucket in enumerate(buffer.buckets):
@@ -420,7 +426,9 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         def copy_group_grads(model_groups, main_groups):
             for model_group, main_group in zip(model_groups, main_groups):
                 for model_param, main_param in zip(model_group, main_group):
-                    buffer_idx, bucket_idx = self.param_to_bucket_map[model_param]
+                    buffer_idx, bucket_idx = self.param_to_bucket_map.get(model_param)
+                    if not buffer_idx or not bucket_idx:
+                        raise KeyError("Invalid key value for param_to_bucket_map!")
                     range_map = self.param_ranges_map[buffer_idx][bucket_idx][model_param]
                     param_start, param_end = range_map['range_in_param']
                     main_param.grad.copy_(ops.cast(model_param.main_grad.view(-1)[param_start: param_end],
@@ -438,7 +446,9 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         def copy_group_params(model_groups, main_groups):
             for model_group, main_group in zip(model_groups, main_groups):
                 for model_param, main_param in zip(model_group, main_group):
-                    buffer_idx, bucket_idx = self.param_to_bucket_map[model_param]
+                    buffer_idx, bucket_idx = self.param_to_bucket_map.get(model_param)
+                    if not buffer_idx or not bucket_idx:
+                        raise KeyError("Invalid key value for param_to_bucket_map!")
                     range_map = self.param_ranges_map[buffer_idx][bucket_idx][model_param]
                     param_start, param_end = range_map['range_in_param']
                     main_param.copy_(ops.cast(model_param.view(-1)[param_start:param_end], mstype.float32))
@@ -455,7 +465,9 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         def copy_group_params(main_groups, model_groups):
             for main_group, model_group in zip(main_groups, model_groups):
                 for main_param, model_param in zip(main_group, model_group):
-                    buffer_idx, bucket_idx = self.param_to_bucket_map[model_param]
+                    buffer_idx, bucket_idx = self.param_to_bucket_map.get(model_param)
+                    if not buffer_idx or not bucket_idx:
+                        raise KeyError("Invalid key value for param_to_bucket_map!")
                     range_map = self.param_ranges_map[buffer_idx][bucket_idx][model_param]
                     param_start, param_end = range_map['range_in_param']
                     model_param.view(-1)[param_start:param_end].copy_(ops.cast(main_param, model_param.dtype))

@@ -24,6 +24,7 @@ from mindformers.experimental.parallel_core.pynative.distributed.param_and_grad_
 
 __all__ = ['DistributedDataParallel']
 
+
 class DistributedDataParallel(Module):
     """
     DistributedDataParallel wrapper. DistributedDataParallel allocates contiguous memory buffer for parameters

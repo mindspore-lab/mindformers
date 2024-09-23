@@ -13,6 +13,11 @@
 # limitations under the License.
 # ============================================================================
 """MLP Module"""
+
+__all__ = [
+    "ParallelMLP",
+]
+
 from mindspore import mint
 
 from mindformers.experimental.parallel_core.pynative.tensor_parallel import (
@@ -28,9 +33,6 @@ from mindformers.experimental.parallel_core.pynative.tensor_parallel.lora_layers
 from .activation import get_act_func, get_act_func_gated_version
 from .module import Module
 
-__all__ = [
-    "ParallelMLP",
-]
 
 class ParallelMLP(Module):
     r"""

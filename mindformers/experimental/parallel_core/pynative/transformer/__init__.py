@@ -14,11 +14,33 @@
 # ============================================================================
 "mindformers init"
 
-from .transformer import *
-from .rotary_pos_embedding import *
+from .transformer import BasePublicLayer
+from .transformer import BaseHeadLayer
+from .transformer import HeadLayer
+from .transformer import PublicLayer
+from .transformer import ParallelAttention
+from .transformer import ParallelTransformerLayer
+from .transformer import ParallelTransformer
+from .transformer import ParallelLMLogits
+from .rotary_pos_embedding import RotaryEmbedding, apply_rotary_pos_emb
 from .language_model import TransformerLanguageModel, VocabParallelEmbedding
 from .mlp import ParallelMLP
+from . import moe
 
-__all__ = ["ParallelMLP", "TransformerLanguageModel", "VocabParallelEmbedding"]
-__all__.extend(transformer.__all__)
-__all__.extend(rotary_pos_embedding.__all__)
+__all__ = [
+    "BasePublicLayer",
+    "BaseHeadLayer",
+    "HeadLayer",
+    "PublicLayer",
+    "ParallelAttention",
+    "ParallelTransformerLayer",
+    "ParallelTransformer",
+    "ParallelLMLogits",
+    "TransformerLanguageModel",
+    "VocabParallelEmbedding",
+    "ParallelMLP",
+    "RotaryEmbedding",
+    "apply_rotary_pos_emb"
+]
+
+__all__.extend(moe.__all__)

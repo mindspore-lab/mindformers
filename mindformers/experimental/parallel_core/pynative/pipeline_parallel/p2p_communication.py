@@ -55,7 +55,7 @@ class IRecv(nn.Cell):
 
 
 # pylint: disable=C0103
-class P2P_Primitive():
+class P2PPrimitive():
     """ A class that includes P2P communication methods """
     def __init__(self, config):
         self.config = config

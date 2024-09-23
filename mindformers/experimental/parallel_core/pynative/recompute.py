@@ -21,9 +21,9 @@ from mindspore.common.recompute import (
     _RecomputeCell,
     _padding_input_grads,
 )
-from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import get_rng_tracer, get_rng_state, set_rng_state
+from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import get_rng_tracer, \
+    get_rng_state, set_rng_state
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
-
 __all__ = ["CheckpointedRecomputeOrientedCell"]
 
 
