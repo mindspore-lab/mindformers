@@ -19,6 +19,7 @@ from mindspore.common._register_for_recompute import recompute_registry
 from mindspore.common.api import _pynative_executor
 from mindspore.common.recompute import (
     _RecomputeCell,
+    _check_input_args_validate,
     _padding_input_grads,
 )
 from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import get_rng_tracer, \
@@ -37,6 +38,7 @@ class _RecomputeCellWithRng(_RecomputeCell):
 
     def construct(self, *args, **kwargs):
         """Construct function of recompute with rng."""
+        _check_input_args_validate(self.net, args, kwargs)
         self.args.append(args)
         self.kwargs.append(kwargs)
         self.save_rng_state = kwargs.pop("save_rng_state", True)

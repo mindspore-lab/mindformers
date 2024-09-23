@@ -819,7 +819,7 @@ def forward_backward_pipelining_without_interleaving(
 
             # enable sync for ddp in the first pipeline stage
             if wrap_with_ddp and warm_up_steps == 0:
-                if i == steady_steps - 1 and pp_rank == 0:
+                if i == steady_steps - 1:
                     model.enable_sync(True)
 
             # run backward
@@ -856,7 +856,7 @@ def forward_backward_pipelining_without_interleaving(
         for i in range(cooldown_steps):
             # enable sync for ddp in the first pipeline stage
             if wrap_with_ddp:
-                if i == cooldown_steps - 1 and pp_rank == 0:
+                if i == cooldown_steps - 1:
                     model.enable_sync(True)
 
             # run backward
