@@ -50,7 +50,6 @@ def get_args():
     parser.add_argument('--load_checkpoint', '-lc', type=str, required=True, help="src checkpoint path")
     parser.add_argument('--output_dir', '-od', type=str, required=True, help="generate quant weight path")
 
-
     args = parser.parse_args()
 
     if args.approach == 'rtn-a16w8':
@@ -178,6 +177,7 @@ if __name__ == "__main__":
 
     msconfig.model.model_config.quantization_config = ''
     msconfig.context.mode = 1
+    msconfig.parallel.parallel_mode = 0
 
     if msconfig.model.arch.type == "LlamaForCausalLM":
         helper = MFLlama2Helper(msconfig)
@@ -185,7 +185,7 @@ if __name__ == "__main__":
         helper = MFParallelLlama2Helper(msconfig)
     else:
         err_msg = f"Unsupported network arch: {msconfig.model.arch}, please check model.arch in yaml config, " \
-                  f"only support LlamaForCausalLM and ParallelLlamaForCausalLM now"
+            f"only support LlamaForCausalLM and ParallelLlamaForCausalLM now"
         raise ValueError(err_msg)
     datasets = create_ds(helper, uargs.dataset_path, uargs.dataset_type, approach=uargs.approach)
     start = time.time()
@@ -203,6 +203,7 @@ if __name__ == "__main__":
     save_path = os.path.join(save_ckpt_path, f"rank_{rank_id}")
     os.makedirs(save_path, exist_ok=True)
     ms.save_checkpoint(network.parameters_dict(), os.path.join(save_path, f"{uargs.approach}.ckpt"),
-                       choice_func=lambda x: "key_cache" not in x and "value_cache" not in x and "float_weight" not in x)
+                       choice_func=lambda
+                           x: "key_cache" not in x and "value_cache" not in x and "float_weight" not in x)
     logger.info(f'Save checkpoint cost time is {time.time() - start} s.')
     logger.info(f'Checkpoint saved to {save_path}...')

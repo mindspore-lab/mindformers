@@ -27,10 +27,10 @@ def checkpoint_qkv_ffn_weight_name(src_ckpt_dir):
             param_dict = ms.load_checkpoint(checkpoint_path)
             for i in param_dict.keys():
                 if "w_qkv" in i:
-                    return True
+                    return 'yes-qkv'
                 if "w_gate_hidden" in i:
-                    return True
-    return False
+                    return 'yes-qkv'
+    return 'no-qkv'
 
 
 if __name__ == '__main__':
@@ -41,4 +41,5 @@ if __name__ == '__main__':
                         help='path of src ckpt')
     args = parser.parse_args()
     result = checkpoint_qkv_ffn_weight_name(args.src_ckpt_dir)
+    #为什么不返回true/false: 有个stdcout打印里有kbk_cache:False/True会混淆
     print(result)
