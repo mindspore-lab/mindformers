@@ -114,6 +114,23 @@ class GenerationConfig:
 
     Returns:
         Instance of GenerationConfig.
+
+    Examples:
+        >>> from mindformers.generation import GenerationConfig
+        >>> config = GenerationConfig()
+        >>> print(config)
+        {'max_length': 20, 'max_new_tokens': None, 'min_length': 0, 'min_new_tokens': None, 'num_beams': 1,
+        'do_sample': False, 'use_past': False, 'temperature': 1.0, 'top_k': 50, 'top_p': 1.0, 'repetition_penalty':
+        1.0, 'encoder_repetition_penalty': 1.0, 'renormalize_logits': False, 'return_dict_in_generate': False,
+        'output_scores': False, 'output_logits': False, 'pad_token_id': None, 'bos_token_id': None, 'eos_token_id':
+        [], '_from_model_config': False}
+        >>> config = GenerationConfig(max_length=100, min_length=10, do_sample=True, top_k=5, top_p=0.8)
+        >>> print(config)
+        {'max_length': 100, 'max_new_tokens': None, 'min_length': 10, 'min_new_tokens': None, 'num_beams': 1,
+        'do_sample': True, 'use_past': False, 'temperature': 1.0, 'top_k': 5, 'top_p': 0.8, 'repetition_penalty':
+        1.0, 'encoder_repetition_penalty': 1.0, 'renormalize_logits': False, 'return_dict_in_generate': False,
+        'output_scores': False, 'output_logits': False, 'pad_token_id': None, 'bos_token_id': None, 'eos_token_id':
+        [], '_from_model_config': False}
     """
 
     def __init__(self, **kwargs):
