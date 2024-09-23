@@ -88,6 +88,58 @@ class ChatGLM2Config(PretrainedConfig):
         pp_interleave_num  (int, optional): Number of microbatch interleavings in pipeline parallelism. Default: ``1`` .
         kwargs (dict, optional): A variable number of keyword parameters reserved for the keyword parameters to be
             expanded.
+
+    Examples:
+        >>> from mindformers.models import ChatGLM2Config
+        >>> config = ChatGLM2Config(num_layers=2, seq_length=1024)
+        >>> print(config)
+        ChatGLM2Config {
+            "add_bias_linear": false,
+            "add_qkv_bias": true,
+            "apply_query_key_layer_scaling": true,
+            "apply_residual_connection_post_layernorm": false,
+            "attention_dropout": 0.0,
+            "attention_softmax_in_fp32": true,
+            "batch_size": 1,
+            "bias_dropout_fusion": true,
+            "block_size": 16,
+            "bos_token_id": null,
+            "compute_dtype": "float16",
+            "eos_token_id": 2,
+            "ffn_hidden_size": 13696,
+            "fp32_residual_connection": false,
+            "gmask_token_id": null,
+            "hidden_dropout": 0.0,
+            "hidden_size": 4096,
+            "is_dynamic": false,
+            "kv_channels": 128,
+            "layernorm_compute_type": "float32",
+            "layernorm_epsilon": 1e-05,
+            "mindformers_version": "1.1",
+            "model_type": "glm2",
+            "multi_query_attention": true,
+            "multi_query_group_num": 2,
+            "n_kv_heads": 2,
+            "num_attention_heads": 32,
+            "num_blocks": 128,
+            "num_heads": 32,
+            "num_layers": 2,
+            "offset": 0,
+            "pad_token_id": 0,
+            "padded_vocab_size": 65024,
+            "param_init_type": "float16",
+            "post_layer_norm": true,
+            "pre_seq_len": null,
+            "prefix_projection": false,
+            "quantization_bit": 0,
+            "repetition_penalty": 1.0,
+            "rmsnorm": true,
+            "rope_ratio": 1,
+            "seq_length": 1024,
+            "use_flash_attention": false,
+            "use_past": false,
+            "vocab_size": 65024
+            }
     """
 
     model_type = "glm2"

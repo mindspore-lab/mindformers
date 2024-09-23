@@ -322,8 +322,6 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
 
         Args:
             save_directory (Union[str, os.PathLike]): A directory to save the model weight and configuration.
-                If None, the directory will be  `./checkpoint_save`, which can be obtained by the
-                `MindFormerBook.get_default_checkpoint_save_folder()`. If set, the directory will be what is set.
             save_name (str): The name of saved files, including model weight and configuration file.
                 Default: ``mindspore_model`` .
             kwargs (dict, optional): A variable number of keyword parameters reserved
@@ -331,13 +329,9 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
 
         Examples:
             >>> import os
-            >>> from mindformers import T5ForConditionalGeneration, MindFormerBook
-            >>> net = T5ForConditionalGeneration.from_pretrained('t5_small')
-            >>> net.save_pretrained()
-            >>> output_path = MindFormerBook.get_default_checkpoint_save_folder()
-            >>> print(os.listdir(output_path))
-            ['mindspore_model.yaml', 'mindspore_model.ckpt']
-
+            >>> from mindformers import AutoModel
+            >>> net = AutoModel.from_pretrained('llama2_7b')
+            >>> net.save_pretrained('./checkpoint_save')
         """
         is_main_process = kwargs.pop("is_main_process", True)
         state_dict = kwargs.pop("state_dict", None)
