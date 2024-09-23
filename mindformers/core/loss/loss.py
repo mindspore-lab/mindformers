@@ -349,8 +349,8 @@ class CrossEntropyLoss(nn.Cell):
               \end{cases}
 
     Args:
-        parallel_config (OpParallelConfig): The parallel configuration. Default `default_dpmp_config`,
-            an instance of `OpParallelConfig` with default args.
+        parallel_config (mindformers.modules.transformer.op_parallel_config.OpParallelConfig): The parallel
+            configuration. Default default_dpmp_config.
 
     Inputs:
         - **logits** (Tensor) - Tensor of shape (N, C). Data type must be float16 or float32. The output logits of
@@ -361,8 +361,8 @@ class CrossEntropyLoss(nn.Cell):
         - **input_mask** (Tensor) - Tensor of shape (N, ). input_mask indicates whether there are padded inputs and for
           padded inputs it will not be counted into loss.
 
-    Outputs:
-        The corresponding cross entropy loss.
+    Returns:
+        Tensor, the computed cross entropy loss value.
 
     Examples:
         >>> import numpy as np

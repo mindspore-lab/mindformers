@@ -1,7 +1,7 @@
 mindformers.core.PolynomialWithWarmUpLR
 =======================================
 
-.. py:class:: mindformers.core.PolynomialWithWarmUpLR(learning_rate, total_steps, warmup_steps, lr_end=1e-7, power=1.0, warmup_lr_init=0., warmup_ratio=None, decay_steps=None, **kwargs)
+.. py:class:: mindformers.core.PolynomialWithWarmUpLR(learning_rate: float, total_steps: int, warmup_steps: int = None, lr_end: float = 1e-7, power: float = 1.0, warmup_lr_init: float = 0., warmup_ratio: float = None, decay_steps: int = None, **kwargs)
 
     带有预热阶段的多项式衰减学习率。
 
@@ -25,11 +25,11 @@ mindformers.core.PolynomialWithWarmUpLR
         - **learning_rate** (float) - 学习率的初始值。
         - **total_steps** (int) - 总训练步数。
         - **warmup_steps** (int) - 预热阶段的步数。
-        - **lr_end** (float, 可选) - 学习率的最终值。默认值： ``1e-7`` 。
-        - **power** (float, 可选) - 多项式的幂次。默认值： ``1.0`` 。
-        - **warmup_lr_init** (float, 可选) - 预热阶段的初始学习率。默认值： ``0.`` 。
-        - **warmup_ratio** (float, 可选) - 预热阶段所占总训练步数的比例。默认值： ``None`` 。
-        - **decay_steps** (int, 可选) - 衰减阶段的步数，必须小于 `total_steps - warmup_steps`。如果值为 ``None`` ，则衰减步数将为 `total_steps - warmup_steps`。默认值： ``None`` 。
+        - **lr_end** (float) - 学习率的最终值。默认值： ``1e-7`` 。
+        - **power** (float) - 多项式的幂次。默认值： ``1.0`` 。
+        - **warmup_lr_init** (float) - 预热阶段的初始学习率。默认值： ``0.`` 。
+        - **warmup_ratio** (float) - 预热阶段所占总训练步数的比例。默认值： ``None`` 。
+        - **decay_steps** (int) - 衰减阶段的步数，必须小于 `total_steps - warmup_steps`。如果值为 ``None`` ，则衰减步数将为 `total_steps - warmup_steps`。默认值： ``None`` 。
 
     输入：
         - **global_step** (int) - 当前训练步数。

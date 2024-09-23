@@ -1,7 +1,7 @@
 mindformers.core.ConstantWarmUpLR
 =================================
 
-.. py:class:: mindformers.core.ConstantWarmUpLR(learning_rate, warmup_steps=None, warmup_lr_init=0., warmup_ratio=None, total_steps=None, **kwargs)
+.. py:class:: mindformers.core.ConstantWarmUpLR(learning_rate: float, warmup_steps: int = None, warmup_lr_init: float = 0., warmup_ratio: float = None, total_steps: int = None, **kwargs)
 
     恒定预热学习率。
 
@@ -21,10 +21,10 @@ mindformers.core.ConstantWarmUpLR
 
     参数：
         - **learning_rate** (float) - 学习率的初始值。
-        - **warmup_steps** (int, 可选) - 预热阶段的步数。默认值： ``None`` 。
-        - **warmup_lr_init** (float, 可选) - 预热阶段的初始学习率。默认值： ``0.`` 。
-        - **warmup_ratio** (float, 可选) - 预热阶段占总训练步数的比例。默认值： ``None`` 。
-        - **total_steps** (int, 可选) - 总的预热步数。默认值： ``None`` 。
+        - **warmup_steps** (int) - 预热阶段的步数。默认值： ``None`` 。
+        - **warmup_lr_init** (float) - 预热阶段的初始学习率。默认值： ``0.`` 。
+        - **warmup_ratio** (float) - 预热阶段占总训练步数的比例。默认值： ``None`` 。
+        - **total_steps** (int) - 总的预热步数。默认值： ``None`` 。
 
     输入：
         - **global_step** (int) - 全局步数。

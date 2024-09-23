@@ -1,7 +1,7 @@
 mindformers.core.CosineAnnealingLR
 ==================================
 
-.. py:class:: mindformers.core.CosineAnnealingLR(base_lr, t_max, eta_min=0., **kwargs)
+.. py:class:: mindformers.core.CosineAnnealingLR(base_lr: float, t_max: int, eta_min: float = 0., **kwargs)
 
     该方法在 `SGDR: Stochastic Gradient Descent with Warm Restarts` 中提出。注意，这里仅实现了SGDR的余弦退火部分，而不包括重启部分。
 
@@ -27,7 +27,7 @@ mindformers.core.CosineAnnealingLR
     参数：
         - **base_lr** (float) - 初始学习率。
         - **t_max** (int) - 重启周期的最大周期数。
-        - **eta_min** (float, 可选) - 学习率的最小值。默认值： ``0`` 。
+        - **eta_min** (float) - 学习率的最小值。默认值： ``0`` 。
 
     输入：
         - **global_step** (int) - 全局步数。
