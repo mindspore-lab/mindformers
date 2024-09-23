@@ -1541,11 +1541,6 @@ def validate_wrap_with_ddp(config_instance, wrap_with_ddp):
 @TrainingConfig.validator("accumulate_allreduce_grads_in_fp32")
 def validate_accumulate_allreduce_grads_in_fp32(config_instance, accumulate_allreduce_grads_in_fp32):
     """Validate accumulate_allreduce_grads_in_fp32."""
-    if not config_instance.wrap_with_ddp and accumulate_allreduce_grads_in_fp32:
-        logger.warning("For training config, accumulate_allreduce_grads_in_fp32 only take effect when "
-                       "`wrap_with_ddp=True` accumulate_allreduce_grads_in_fp32 "
-                       "has been set to `False`.")
-        accumulate_allreduce_grads_in_fp32 = False
     Validator.check_bool(accumulate_allreduce_grads_in_fp32, "accumulate_allreduce_grads_in_fp32")
     return accumulate_allreduce_grads_in_fp32
 
