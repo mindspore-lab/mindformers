@@ -175,6 +175,21 @@ def swiglu(x):
 
 
 @ModuleRegistry.register_decorator(ModuleType.ACTIVATION_FUNC)
+def fused_swiglu(x):
+    r"""
+    Fused kernel implementation of Swish-Gated Linear Unit activation function.
+
+    Inputs:
+        - **x** (Tensor) - The input of Swish-Gated Linear Unit with data type of float16 or float32.
+          The shape is :math:`(N,*)` where :math:`*` means, any number of additional dimensions.
+
+    Outputs:
+        - Tensor with the same type and shape as the `x`.
+    """
+    return ops.swiglu(x)
+
+
+@ModuleRegistry.register_decorator(ModuleType.ACTIVATION_FUNC)
 def squared_relu(x):
     r"""
     Squared ReLU activation function.

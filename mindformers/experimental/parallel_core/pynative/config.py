@@ -1808,6 +1808,7 @@ class TransformerConfig(BaseConfig):
             model_type: str = "encoder_or_decoder",
             select_comm_recompute: bool = False,
             select_recompute: bool = False,
+            apply_rope_fusion: bool = False,
 
             **kwargs,
     ):
@@ -1881,6 +1882,7 @@ class TransformerConfig(BaseConfig):
         self.model_type = model_type
         self.select_comm_recompute = select_comm_recompute
         self.select_recompute = select_recompute
+        self.apply_rope_fusion = apply_rope_fusion
 
         if "recompute_activations" in kwargs:
             if kwargs["recompute_activations"]:
@@ -2282,6 +2284,13 @@ def validate_select_recompute(config_instance, select_recompute):
     """Validate select_recompute."""
     Validator.check_bool(select_recompute, "select_recompute")
     return select_recompute
+
+
+@TransformerConfig.validator("apply_rope_fusion")
+def validate_apply_rope_fusion(config_instance, apply_rope_fusion):
+    """Validate apply_rope_fusion."""
+    Validator.check_bool(apply_rope_fusion, "apply_rope_fusion")
+    return apply_rope_fusion
 
 
 class OptimizerConfig(BaseConfig):
