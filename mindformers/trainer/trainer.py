@@ -163,6 +163,14 @@ class Trainer:
 
     Raises:
         KeyError: If 'task' or 'model' not in supported trainer.
+
+    Examples:
+        >>> from mindformers import Trainer
+        >>> trainer = Trainer(task="text_generation", model_name='llama2_7b')
+        >>> trainer.task
+        'text_generation'
+        >>> trainer.model_name
+        'llama2_7b'
     """
 
     @args_type_check(
