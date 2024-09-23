@@ -42,6 +42,7 @@ class GLU(nn.Cell):
     """
     The implementation of MLP module with GELU function.
     """
+
     def __init__(self, in_features, hidden_size, intermediate_size,
                  compute_dtype=ms.float16, param_init_type=ms.float16):
         super().__init__()
@@ -72,6 +73,7 @@ class VisionMLPAdapter(nn.Cell):
     """
     The implementation of visual-text adapter module for cogvlm2 model.
     """
+
     def __init__(self, vision_grid_size, vision_hidden_size, text_hidden_size, text_intermediate_size,
                  compute_dtype=ms.float16, param_init_type=ms.float16):
         super().__init__()
@@ -357,6 +359,41 @@ class CogVLM2ImageForCausalLM(BaseXModalToTextModel):
 
         self.gather = P.Gather().shard(((1, 1, 1), ()))
         self.equal = P.Equal().shard(((parallel_config.data_parallel, 1), ()))
+
+    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
+        bs, seq_len = input_ids.shape
+        bs = 1
+        input_ids = np.ones(shape=tuple([bs, seq_len]))
+        input_ids = Tensor(input_ids, mstype.int32)
+        images = Tensor(np.random.random((bs, 3, self.image_size, self.image_size)), ms.float32)
+        position_ids = Tensor(np.tile(np.arange(seq_len), bs).reshape((bs, seq_len)), ms.int32)
+
+        vision_token_mask = (np.ones((bs, seq_len)) - 1).astype(np.bool_)
+        vision_pad_length = 2307
+        vision_token_mask[:, 1:vision_pad_length] = True
+        language_token_mask = np.logical_not(vision_token_mask)
+        vision_indices = self._generate_context_positions(vision_token_mask[0], True, 0)
+        language_indices = self._generate_context_positions(language_token_mask[0], True, 0)
+        vision_token_mask = Tensor(vision_token_mask)
+        language_token_mask = Tensor(language_token_mask)
+        vision_indices = Tensor(vision_indices)
+        language_indices = Tensor(language_indices)
+
+        image_context_pos = vision_indices
+        slot_mapping = Tensor(np.ones(shape=(bs * seq_len,)), mstype.int32)
+
+        return (input_ids, images, image_context_pos, None, None, position_ids,
+                None, True, None, None, None, None,
+                slot_mapping, vision_token_mask, language_token_mask, vision_indices, language_indices)
+
+    @staticmethod
+    def _generate_context_positions(token_mask, target_token_id, batch_index=0):
+        context_length = np.sum(token_mask.astype(np.int32))
+        pos = np.where(np.array(token_mask) == target_token_id)[0]
+        pos = np.expand_dims(pos, axis=0)
+        pos = np.insert(pos, 0, batch_index, axis=0)
+        pos = np.transpose(pos).reshape((-1, context_length, 2))
+        return pos
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         prefill = True if kwargs.get('prefill') is None else kwargs.get('prefill')

@@ -54,8 +54,8 @@ MindFormers提供HuggingFace官方权重下载链接，用户可下载权重并�
 
 > 该tokenizer与llama3模型相同，请自行申请huggingface上llama3使用权限进行下载。
 
-| 模型名称                   | MindSpore权重 |                              HuggingFace权重                               |
-|:-----------------------|:-----------:|:------------------------------------------------------------------------:|
+| 模型名称                    | MindSpore权重 |                        HuggingFace权重                         |
+|:------------------------|:-----------:|:------------------------------------------------------------:|
 | cogvlm2-llama3-chat-19B |      -      | [Link](https://huggingface.co/THUDM/cogvlm2-llama3-chat-19B) |
 
 #### 模型权重转换
@@ -67,7 +67,7 @@ pip install transformers torch
 python convert_weight.py --modal image --model cogvlm2 --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME --dtype 'fp16'
 
 # 参数说明
-modal：      模态
+modal:       模型模态, 该模型输入'image'
 model:       模型名称
 input_path:  下载HuggingFace权重的文件夹路径
 output_path: 转换后的MindSpore权重文件保存路径
@@ -76,7 +76,9 @@ dtype:       转换后的MindSpore权重参数类型
 
 ## 推理
 
-MindFormers提供`cogvlm2-llama3-chat-19B`的推理示例，目前支持单卡推理。
+MindFormers提供`cogvlm2-llama3-chat-19B`的推理示例，支持单卡推理、多卡推理。
+
+### 单卡推理
 
 1. 修改模型配置文件`configs/cogvlm2/predict_cogvlm2_image_llama3_chat_19b.yaml`
 
@@ -84,7 +86,7 @@ MindFormers提供`cogvlm2-llama3-chat-19B`的推理示例，目前支持单卡�
    model:
      model_config:
        use_past: True                         # 开启增量推理
-       is_dynamic: False                       # 关闭动态shape
+       is_dynamic: False                      # 关闭动态shape
 
      tokenizer:
        vocab_file: "/{path}/tokenizer.model"  # 指定tokenizer文件路径
@@ -95,7 +97,7 @@ MindFormers提供`cogvlm2-llama3-chat-19B`的推理示例，目前支持单卡�
    ```shell
    export USE_ROPE_SELF_DEFINE=True
    python run_mindformer.py \
-    --config configs/cogvlm2/predict_cogvlm2_image_llama3_chat_13b.yaml \
+    --config configs/cogvlm2/predict_cogvlm2_image_llama3_chat_19b.yaml \
     --run_mode predict \
     --predict_data "/path/image.jpg" "Please describe this image." \
     --modal_type image text \
@@ -104,9 +106,40 @@ MindFormers提供`cogvlm2-llama3-chat-19B`的推理示例，目前支持单卡�
    # 参数说明
    config:          模型配置文件路径
    run_mode:        模型执行模式, 'predict'表示推理
-   predict_data:    模型推理输入, 第一个输入是图像文件路径, 第二个输入是prompt
-   modal_type:      模型推理模式, 目前仅支持'image'
+   predict_data:    模型推理输入, 第一个输入是图片路径, 第二个输入是文本
+   modal_type:      模型推理输入对应模态, 图片路径对应'image', 文本对应'text'
    load_checkpoint: 模型权重文件路径
+   ```
+
+### 多卡推理
+
+1. 修改模型配置文件`configs/cogvlm2/predict_cogvlm2_image_llama3_chat_19b.yaml`
+
+   ```yaml
+   auto_trans_ckpt: True                      # 开启权重自动转换
+   use_parallel: True
+   parallel_config:
+     model_parallel: 2                        # 可根据使用device数进行修改
+
+   model:
+     model_config:
+       use_past: True                         # 开启增量推理
+       is_dynamic: False                      # 关闭动态shape
+
+     tokenizer:
+       vocab_file: "/{path}/tokenizer.model"  # 指定tokenizer文件路径
+   ```
+
+2. 启动推理脚本
+
+   ```shell
+   export USE_ROPE_SELF_DEFINE=True
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config configs/cogvlm2/predict_cogvlm2_image_llama3_chat_19b.yaml \
+    --run_mode predict \
+    --predict_data \"/path/image.jpg\" \"Please describe this image.\" \
+    --modal_type image text \
+    --load_checkpoint /{path}/cogvlm2-image-llama3-chat.ckpt" 2
    ```
 
 ****
