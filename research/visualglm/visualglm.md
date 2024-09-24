@@ -66,10 +66,12 @@ cp rclone*/rclone /usr/local/bin/
 type = s3
 provider = Cloudflare
 access_key_id = eb4d69e273848089c7f9b9599cdcd983
-secret_access_key = 367e9b21fef313f187026320016962b47b74ca4ada7d64d551c43c51e195d7a5
+secret_access_key = 在下方自行获取
 endpoint = https://c8a00746a80e06c4632028e37de24d6e.r2.cloudflarestorage.com
 acl = private
 ```
+
+其中，secret_access_key可以在[这个文件](https://github.com/THUDM/SwissArmyTransformer/blob/b68c4460b9fa2b5312be49a1da152986c6351262/sat/resources/download.py#L81C1-L81C84)的第81行获取。
 
 3) 使用rclone脚本来下载权重文件
 
