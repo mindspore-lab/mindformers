@@ -416,18 +416,20 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             slot_mapping = kwargs.get("slot_mapping")
             prefill = kwargs.get("prefill")
             bs = batch_valid_length.shape[0]
-            input_ids_list = []
             position_ids_list = [
                 np.arange(context_len, dtype=np.int64) for context_len in batch_valid_length]
-            for i in range(bs):
-                context_len = batch_valid_length[i]
-                if prefill:
-                    input_ids_list.append(input_ids[i][:context_len])
-                else:
-                    input_ids_list.append(
-                        input_ids[i][context_len - 1:context_len])
-
-            input_ids = np.concatenate(input_ids_list, 0)
+            if input_ids.shape[-1] == 1:
+                input_ids = np.concatenate(input_ids, 0)
+            else:
+                input_ids_list = []
+                for i in range(bs):
+                    context_len = batch_valid_length[i]
+                    if prefill:
+                        input_ids_list.append(input_ids[i][:context_len])
+                    else:
+                        input_ids_list.append(
+                            input_ids[i][context_len - 1:context_len])
+                input_ids = np.concatenate(input_ids_list, 0)
             position_ids = np.concatenate(position_ids_list, 0)
             slot_mapping = np.delete(
                 slot_mapping, np.where(slot_mapping == -1))
