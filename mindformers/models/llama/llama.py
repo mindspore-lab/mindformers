@@ -19,6 +19,7 @@ import numpy as np
 
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, nn
+from mindspore import mint
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
@@ -92,6 +93,9 @@ class LlamaModel(LlamaPreTrainedModel):
         # default open internal kernel boost
         self.disable_custom_fa = get_disable_custom_fa()
         logger.info("disable custom flash attention score op:{}".format(self.disable_custom_fa))
+        if self.disable_custom_fa:
+            self.prefill_flatten_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
+
         if config.moe_config.expert_num > 1:
             logger.info("MoE config is provided, use MoE FFN")
         else:
@@ -238,8 +242,8 @@ class LlamaModel(LlamaPreTrainedModel):
 
                     if self.use_flash_attention:
                         if self.disable_custom_fa:  # only support fp16
-                            mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-                            mask = self.cast(mask, mstype.float16)
+                            mask = self.prefill_flatten_mask
+                            freqs_cis = self.freqs_mgr.prefill_flatten()
                     else:
                         mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
 
@@ -338,6 +342,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
         self.is_first_iteration = True
+        self.disable_custom_fa = get_disable_custom_fa()
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
@@ -348,6 +353,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.add = P.Add()
         self.ones = P.Ones()
         self.gather = P.Gather(1)
+        self.prefill_gather_flatten = P.Gather()
         self.sub_batch_valid_len = P.Sub()
         self.model = LlamaModel(config=config)
         self.lm_head = Linear(in_channels=config.hidden_size,
@@ -379,6 +385,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             self.mul.shard(((dp, 1), (dp, 1)))
             self.add.shard(((dp, 1), ()))
             self.gather.shard(((dp, 1, 1), (dp,)))
+            self.prefill_gather_flatten.shard(((dp, 1, 1), (dp,)))
             self.sub_batch_valid_len.shard(((1,), ()))
             if config.parallel_config.vocab_emb_dp or (vocab_size % mp != 0):
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
@@ -404,14 +411,28 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         """return embedding tokens"""
         return self.model.tok_embeddings(tokens)
 
+    def prepare_inputs_for_prefill_flatten(self, input_ids, batch_valid_length, slot_mapping, model_inputs):
+        """prepare inputs ids for prefill flatten"""
+        batch_valid_length_bs = batch_valid_length.shape[0]
+        input_ids_bs = input_ids.shape[0]
+        if batch_valid_length_bs == input_ids_bs and batch_valid_length_bs > 1:
+            input_ids_list = []
+            for i in range(batch_valid_length_bs):
+                context_len = batch_valid_length[i]
+                input_ids_list.append(input_ids[i][:context_len])
+            input_ids = np.concatenate(input_ids_list, 0)
+            input_ids = input_ids.reshape((1, -1))
+            slot_mapping = np.delete(slot_mapping, np.where(slot_mapping == -1))
+        model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
+        model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
+        return model_inputs
+
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         model_inputs = {}
         if self.config.is_dynamic and "origin_inputs" in kwargs:
             input_ids = kwargs["origin_inputs"]
         model_inputs["input_ids"] = Tensor.from_numpy(
             input_ids.astype(np.int32))
-        if kwargs.get('batch_valid_length', None) is not None:
-            model_inputs['batch_valid_length'] = Tensor.from_numpy(kwargs.get('batch_valid_length').astype(np.int32))
         if hasattr(self, 'llm_boost'):
             batch_valid_length = kwargs.get("valid_length_each_example")
             block_tables = kwargs.get("block_tables")
@@ -446,6 +467,13 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 "batch_valid_length": Tensor.from_numpy(batch_valid_length),
                 "seq_lens": seq_lens
             }
+
+        prefill = kwargs.get("prefill")
+        if self.disable_custom_fa and prefill:
+            batch_valid_length = kwargs.get("valid_length_each_example")
+            slot_mapping = kwargs.get("slot_mapping")
+            model_inputs = self.prepare_inputs_for_prefill_flatten(input_ids, batch_valid_length, slot_mapping,
+                                                                   model_inputs)
         return model_inputs
 
     # pylint: disable=W0613
@@ -545,7 +573,11 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         pre_gather = pre_gather and not self.parallel_decoding
         if pre_gather:
-            output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+            if self.disable_custom_fa:
+                batch_valid_length = mint.cumsum(batch_valid_length, 0)
+                output = self.prefill_gather_flatten(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+            else:
+                output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)

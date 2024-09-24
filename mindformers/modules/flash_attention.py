@@ -191,26 +191,59 @@ class FlashAttention(Cell):
                 fa_strategies = ((dp, cp, mp),
                                  (dp, 1, kv_head_split_num),
                                  (dp, 1, kv_head_split_num))
-        else:
+        elif self.input_layout == "BNSD":
             fa_strategies = ((dp, mp, cp, 1),
                              (dp, kv_head_split_num, 1, 1),
                              (dp, kv_head_split_num, 1, 1))
+        elif self.input_layout == "TH":
+            fa_strategies = ((dp, mp),
+                             (dp, mp),
+                             (dp, mp))
+        elif self.input_layout == "TND":
+            fa_strategies = ((dp, mp, 1),
+                             (dp, mp, 1),
+                             (dp, mp, 1))
+        else:
+            raise ValueError(
+                "Input layout:{} is not supported in flash attention.".format(self.input_layout)
+            )
+
         if self.use_alibi_mask:
             fa_strategies += ((dp, mp, cp, 1),)
         if self.enable_dropout:
             fa_strategies += ((dp, mp, cp, 1),)
         if self.use_attention_mask:
             if self.sparse_mode in [0, 1]:
-                fa_strategies += ((dp, 1, cp, 1),)
+                if self.input_layout in ["BSH", "BNSD"]:
+                    fa_strategies += ((dp, 1, cp, 1),)
+                else:
+                    fa_strategies += ((1, 1),)
             elif self.sparse_mode == 2:
                 fa_strategies += ((1, 1),)
             else:
                 raise RuntimeError(f"sparse_mode: {self.sparse_mode} is not support currently")
+        if self.input_layout in ["TH", "TND"]:
+            fa_strategies += ((1,), (1,),)
 
         return fa_strategies
 
-    def construct(self, query, key, value, attn_mask=None, alibi_mask=None, prefix=None, padding_mask=None):
+    def construct(self, query, key, value, attn_mask=None, alibi_mask=None, prefix=None, padding_mask=None,
+                  actual_seq_qlen=None, actual_seq_kvlen=None):
         """Forward process of the AttentionMaskMF"""
+
+        if self.input_layout in ["TH", "TND"]:
+            _, _, _, output = self.flash_attention(query,
+                                                   key,
+                                                   value,
+                                                   alibi_mask,
+                                                   None,
+                                                   padding_mask,
+                                                   attn_mask,
+                                                   prefix,
+                                                   actual_seq_qlen,
+                                                   actual_seq_kvlen)
+            return output
+
         if self.input_layout == "BSH":
             bsz, q_seq_len, _ = query.shape
             _, kv_seq_len, _ = key.shape
@@ -232,7 +265,9 @@ class FlashAttention(Cell):
                                                drop_mask_bits,
                                                padding_mask,
                                                attn_mask,
-                                               prefix)
+                                               prefix,
+                                               actual_seq_qlen,
+                                               actual_seq_kvlen)
         return output
 
     def shard(self, parallel_config):

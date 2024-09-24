@@ -17,15 +17,12 @@ import math
 from enum import Enum
 import numpy as np
 
-from mindspore import ops, hal, mint, Tensor
+from mindspore import ops, mint, Tensor
 from mindspore.common import dtype as mstype
 from mindspore.common.initializer import Zero
 from mindspore.communication.management import get_rank, get_group_size
 from mindspore.communication.comm_func import all_reduce, reduce_scatter_tensor
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import (
-    get_stream
-)
 from mindformers.experimental.parallel_core.pynative.utils import divide
 
 
@@ -83,8 +80,6 @@ class Bucket:
         self.data_parallel_world_size = data_parallel_world_size
         self.gradient_scaling_factor = gradient_scaling_factor
 
-        self.comm_stream = get_stream()
-        self.current_stream = hal.current_stream()
         if self.data_parallel_world_size > 1:
             self.grad_reducer = reduce_scatter_tensor \
                                 if self.ddp_config.use_distributed_optimizer \
@@ -93,7 +88,8 @@ class Bucket:
 
     def inplace_reduce_dp(self, src, target):
         """ conduct all-reduce/reduce-scatter on src tensor and inplace update result into target. """
-        target.copy_(self.grad_reducer(src, 'sum', self.data_parallel_group)[0])
+        result = self.grad_reducer(src, 'sum', self.data_parallel_group)[0]
+        target.copy_(result)
 
     def reset(self):
         """ reset bucket for the next iteration. """
@@ -121,10 +117,8 @@ class Bucket:
                 start_idx = 0
                 end_idx = self.grad_data_numel
             target = self.grad_data[start_idx:end_idx]
-            with hal.StreamCtx(self.comm_stream):
-                self.comm_stream.wait_stream(self.current_stream)
-                self.inplace_reduce_dp(self.grad_data, target)
-            self.current_stream.wait_stream(self.comm_stream)
+
+            self.inplace_reduce_dp(self.grad_data, target)
             if self.ddp_config.average_in_collective:
                 target.copy_(mint.div(target, self.data_parallel_world_size))
         self.is_reduce_issued = True
@@ -136,8 +130,6 @@ class Bucket:
         if not self.is_reduce_issued:
             raise RuntimeError(f"The bucket reduce has not been issued "
                                f"with only {len(self.params_grad_ready)}/{len(self.params)} params ready")
-        if self.data_parallel_world_size > 1:
-            self.current_stream.wait_stream(self.comm_stream)
 
     def register_grad_ready(self, param):
         """ register grad ready and issue bucket grad reduce when the bucket is ready. """

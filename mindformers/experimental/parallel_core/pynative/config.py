@@ -617,6 +617,7 @@ def build_dependency_graph_of_configs(config_classes):
 def _check_arguments(configs):
     """ check arguments. """
     training_config = configs.get("training_config", None)
+    model_config = configs.get("model_config", None)
     transformer_config = None
     for key in configs:
         if isinstance(configs[key], TransformerConfig):
@@ -631,6 +632,15 @@ def _check_arguments(configs):
             logger.warning("Use bf16, 'params_dtype' and 'compute_dtype' will be set to 'bfloat16' automatically.")
             transformer_config.params_dtype = 'bfloat16'
             transformer_config.compute_dtype = 'bfloat16'
+
+    if model_config:
+        hidden_act = model_config.hidden_act
+        if hidden_act == 'swiglu':
+            logger.warning("Use swiglu, 'gated_linear_unit' will be set to 'True' automatically.")
+            model_config.gated_linear_unit = True
+        else:
+            logger.warning(f"Use {hidden_act}, 'gated_linear_unit' will be set to 'False' automatically.")
+            model_config.gated_linear_unit = False
 
 
 # pylint: disable=W0102

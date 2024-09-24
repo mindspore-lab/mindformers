@@ -173,6 +173,7 @@ class _Context:
         """Set predict context config."""
         run_mode = self.config.get('run_mode', None)
         if run_mode is not None and run_mode.strip() in ["predict", "eval"] and self.config.model.model_config.use_past:
+            os.environ['MS_ALLOC_CONF'] = os.environ.setdefault('MS_ALLOC_CONF', 'enable_vmm:False')
             os.environ['RUN_MODE'] = run_mode
             jit_level = self.config.context.get("jit_level", "O0")
             infer_boost = self.config.context.get("infer_boost", "on")

@@ -83,6 +83,10 @@ class GenerationMixin:
         self.use_mint_op = version_control.use_mint_op()
         self.is_pynative = is_pynative()
         self.argmax = mint.argmax if self.use_mint_op else ms.ops.argmax
+        self._pre_set_phase = None
+
+    def _set_network_phase(self, phase):
+        self._pre_set_phase = phase
 
     def _set_block_mgr(self, batch_size):
         """ Set model block table mgr function. """
@@ -286,18 +290,14 @@ class GenerationMixin:
         )
         return input_ids
 
-    def _incremental_infer(self, model_inputs: dict, prefill, current_index, valid_length_each_example, block_tables,
-                           slot_mapping):
+    def _incremental_infer(self, model_inputs: dict, prefill, current_index):
         """model forward for incremental infer."""
         # Claim the first graph
         if prefill:
             self.phase = "prefill"
+            if self._pre_set_phase:
+                self.phase = f"prefill_{self._pre_set_phase}"
             self.add_flags_custom(is_first_iteration=True)
-            model_inputs["batch_valid_length"] = Tensor.from_numpy(
-                np.array([valid_length_each_example], dtype=np.int32))
-            if block_tables is not None:
-                model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
-                model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -307,13 +307,10 @@ class GenerationMixin:
             self.add_flags_custom(is_first_iteration=False)
         else:
             # slice model inputs for incremental infer
+            if self._pre_set_phase:
+                self.phase = f"increment_{self._pre_set_phase}"
             if not (hasattr(self.config, 'parallel_decoding_params') and self.config.parallel_decoding_params):
                 self.slice_incremental_inputs(model_inputs, current_index)
-            model_inputs["batch_valid_length"] = Tensor.from_numpy(
-                np.array([valid_length_each_example], dtype=np.int32))
-            if block_tables is not None:
-                model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
-                model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -938,7 +935,7 @@ class GenerationMixin:
 
         Args:
             input_ids (List(List(int))): Input ids after padding.
-            valid_length_each_example (numpy.ndarray): Valid input length except padding.
+            valid_length_each_example (np.ndarray): Valid input length except padding.
             generation_config (`GenerationConfig`): The generation configuration to be used
                 as base parametrization for the generation call.
             logits_processor (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`].
@@ -1031,7 +1028,7 @@ class GenerationMixin:
 
         Args:
             input_ids (List(List(int))): Input ids after padding.
-            valid_length_each_example (numpy.ndarray): Valid input length except padding.
+            valid_length_each_example (np.ndarray): Valid input length except padding.
             block_tables (Tensor): Params for page attention.
             slot_mapping (Tensor): Params for page attention.
             prefill (bool): Whether to do prefill predict or decode predict.
@@ -1067,26 +1064,28 @@ class GenerationMixin:
             model_kwargs["slot_mapping"] = slot_mapping
             # pylint: disable=E1111
             model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
-            real_input_ids = model_inputs["input_ids"]
             if parallel_decoding_control(self.config):
                 model_inputs, block_tables, slot_mapping = parallel_decoding_process(
                     self.config, input_ids, model_inputs, **model_kwargs
                 )
-            else:
-                current_index = valid_length_each_example - 1 + np.arange(real_input_ids.numel(),
-                                                                          step=real_input_ids.shape[1])
-                model_kwargs["current_index"] = current_index
+
+            if "batch_valid_length" not in model_inputs:
+                model_inputs["batch_valid_length"] = Tensor.from_numpy(
+                    np.array([valid_length_each_example], dtype=np.int32))
+            if block_tables is not None and "block_tables" not in model_inputs:
+                model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
+            if slot_mapping is not None and "slot_mapping" not in model_inputs:
+                model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
 
             if use_past:
                 res = self._incremental_infer(
                     model_inputs=model_inputs,
                     prefill=prefill,
                     current_index=current_index,
-                    valid_length_each_example=valid_length_each_example,
-                    block_tables=block_tables,
-                    slot_mapping=slot_mapping
                 )
             else:
+                if self._pre_set_phase:
+                    self.phase = f"predict_{self._pre_set_phase}"
                 res = self(**model_inputs)  # pylint: disable=E1102
 
         return res, current_index
@@ -1110,7 +1109,7 @@ class GenerationMixin:
             is_finished (List(bool)): Whether each sequence is finished its generation.
             generation_config (`GenerationConfig`): The generation configuration to be used
                 as base parametrization for the generation call.
-            valid_length_each_example (numpy.ndarray): Valid input length except padding.
+            valid_length_each_example (np.ndarray): Valid input length except padding.
             current_index (List(int)): Current index of sequence.
             logits_processor (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`].
                 List of instances of class derived from [`LogitsProcessor`] used to modify the prediction scores

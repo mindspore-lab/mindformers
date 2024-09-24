@@ -1,7 +1,7 @@
 mindformers.AutoModelForZeroShotImageClassification
 ====================================================
 
-.. py:class:: mindformers.AutoModelForZeroShotImageClassification(*args, **kwargs)
+.. py:class:: mindformers.AutoModelForZeroShotImageClassification
 
     这是一个通用的模型类，当使用 from_pretrained() 类方法时，它会自动实例化模型，并返回。
     这个类不能直接使用 \_\_init\_\_() 实例化（会抛出异常）。
@@ -42,6 +42,7 @@ mindformers.AutoModelForZeroShotImageClassification
             一个继承自PretrainedModel类的模型实例。
 
     .. py:method:: register(config_class, model_class, exist_ok=False)
+        :classmethod:
 
         注册一个新的模型类到此类中。
 

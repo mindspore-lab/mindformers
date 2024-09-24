@@ -14,10 +14,7 @@
 # ============================================================================
 "mindformers init"
 
-from .transformer import BasePublicLayer
-from .transformer import BaseHeadLayer
-from .transformer import HeadLayer
-from .transformer import PublicLayer
+from .transformer import get_attention_mask
 from .transformer import ParallelAttention
 from .transformer import ParallelTransformerLayer
 from .transformer import ParallelTransformer
@@ -28,10 +25,7 @@ from .mlp import ParallelMLP
 from . import moe
 
 __all__ = [
-    "BasePublicLayer",
-    "BaseHeadLayer",
-    "HeadLayer",
-    "PublicLayer",
+    "get_attention_mask",
     "ParallelAttention",
     "ParallelTransformerLayer",
     "ParallelTransformer",
