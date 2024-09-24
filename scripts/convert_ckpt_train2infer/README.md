@@ -19,7 +19,7 @@
 
 ## 整体流程图
 
-![整体流程图](.README_images/9668632c.png)
+![整体流程图](.README_images/90e60311.png)
 
 ## 1. 训练权重转fp16推理权重 **train_to_infer**
 
