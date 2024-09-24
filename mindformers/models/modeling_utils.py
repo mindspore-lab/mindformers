@@ -50,8 +50,7 @@ from mindformers.tools.utils import (
     get_output_root_path,
     clear_auto_trans_output,
     remake_folder,
-    create_file,
-    delete_file
+    barrier_world
 )
 from ..mindformer_book import MindFormerBook, print_path_or_list
 from ..tools.download_tools import download_with_progress_bar
@@ -1161,26 +1160,20 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
 
         if ms.context.get_auto_parallel_context('parallel_mode') in \
                 ['semi_auto_parallel', 'auto_parallel', 'hybrid_parallel'] and auto_trans_ckpt:
+            logger.info(".........Remake strategy and transformed_checkpoint dir.........")
             clear_auto_trans_output()
-            src_checkpoint_dir = os.path.join(get_output_root_path(), "src_checkpoint")
-            if not get_real_rank():
-                remaked_txt = remake_folder(src_checkpoint_dir, permissions=0o750)
-                delete_file(remaked_txt)
-            src_checkpoint = os.path.join(src_checkpoint_dir, "mindspore_model.ckpt")
-            get_src_checkpoint_succeed_txt = os.path.join(src_checkpoint_dir, "get_src_checkpoint_succeed.txt")
 
+            logger.info(".........Remake src_checkpoint dir.........")
+            src_checkpoint_dir = os.path.join(get_output_root_path(), "src_checkpoint")
+            remake_folder(src_checkpoint_dir, permissions=0o750)
+            src_checkpoint = os.path.join(src_checkpoint_dir, "mindspore_model.ckpt")
+
+            logger.info(".........Set strategy save dir.........")
             rank_id = get_real_rank()
             strategy_ckpt_save_dir = os.path.join(get_output_root_path(), "strategy")
             dst_strategy = os.path.join(strategy_ckpt_save_dir, f"ckpt_strategy_rank_{rank_id}.ckpt")
             context.set_auto_parallel_context(strategy_ckpt_save_file=dst_strategy)
             logger.info(f"set strategy path to '{dst_strategy}'")
-
-            ckpt_transform_ready_txt = os.path.join(get_output_root_path(), "ckpt_transform_ready.txt")
-            if not get_real_rank():
-                create_file(ckpt_transform_ready_txt)
-            while True:
-                if os.path.exists(ckpt_transform_ready_txt):
-                    break
 
             model = Model(network)
             if network.config:
@@ -1196,17 +1189,16 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             model.infer_predict_layout(*infer_data)
             # assert os.path.exists(dst_strategy), f"{dst_strategy} is not found!"
 
-            if not get_real_rank():
+            logger.info(".........Get src checkpoint.........")
+            if rank_id == 0:
                 src_checkpoint = cls._get_src_checkpoint(
                     state_dict=state_dict,
                     resolved_archive_file=resolved_archive_file,
                     src_checkpoint=src_checkpoint,
                 )
-                create_file(get_src_checkpoint_succeed_txt)
-            while True:
-                if os.path.exists(get_src_checkpoint_succeed_txt):
-                    break
+            barrier_world("Get src checkpoint by rank 0.")
 
+            logger.info(".........Transform checkpoint.........")
             # transform sharded checkpoint to one or state_dict to one checkpoint
             transform_ckpt = TransformCkpt(auto_trans_ckpt=True)
             transformed_checkpoint = transform_ckpt(
@@ -1217,9 +1209,6 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
                                                  os.path.basename(src_checkpoint).split(".")[0],
                                                  f"rank_{get_real_rank()}",
                                                  f"checkpoint_{get_real_rank()}.ckpt")
-            if not get_real_rank():
-                delete_file(get_src_checkpoint_succeed_txt)
-                delete_file(ckpt_transform_ready_txt)
 
         # load params into net
         (

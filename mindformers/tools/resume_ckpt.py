@@ -14,38 +14,33 @@
 # ============================================================================
 """Get resume ckpt."""
 import os
-import time
 import json
-import shutil
-import random
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import (
+    create_file,
     check_in_modelarts,
     check_ckpt_file_name,
     get_real_rank,
     get_real_group_size,
     get_epoch_and_step_from_ckpt_name,
     get_rank_id_from_ckpt_name,
-    get_device_num_per_node,
+    get_remote_save_url,
     replace_rank_id_in_ckpt_name,
+    remake_folder,
     is_publicly_accessible_path,
-    is_main_rank,
-    create_and_write_info_to_txt,
     get_output_root_path,
-    remake_folder
+    barrier_world,
+    Validator,
 )
+
+if check_in_modelarts():
+    import moxing as mox
 
 NO_META = "FOUND NO META.JSON"
 
 
-def get_resume_checkpoint(
-        checkpoint_dir,
-        resume_training,
-        resume_by_meta=True,
-        gap_time=5,
-        limit_time=3600
-):
+def get_resume_checkpoint(checkpoint_dir, resume_training, resume_by_meta=True):
     """get resume checkpoint."""
     rank_id = get_real_rank()
     if isinstance(resume_training, str):
@@ -62,30 +57,35 @@ def get_resume_checkpoint(
     if not resume_by_meta:
         return True
 
-    resume_ckpt = get_resume_checkpoint_by_meta(
-        checkpoint_dir,
-        gap_time=gap_time,
-        limit_time=limit_time)
+    resume_ckpt = get_resume_checkpoint_by_meta(checkpoint_dir)
     return resume_ckpt
 
 
-def get_resume_checkpoint_by_meta(checkpoint_dir, gap_time=5, limit_time=3600):
+def get_resume_checkpoint_by_meta(checkpoint_dir):
     """get resume checkpoint by meta."""
     rank_id = get_real_rank()
     device_num = get_real_group_size()
-    resume_record_dir = os.path.join(get_output_root_path(), "resume_record")
+
+    if check_in_modelarts():
+        resume_record_dir = os.path.join(get_remote_save_url(), "resume_record")
+        if not Validator.is_obs_url(resume_record_dir):
+            raise ValueError(f"{resume_record_dir} is not a valid obs path.")
+    else:
+        resume_record_dir = os.path.join(get_output_root_path(), "resume_record")
     remake_folder(resume_record_dir, permissions=0o750)
-    get_resume_ckpt_failed_txt = os.path.join(resume_record_dir, "get_resume_ckpt_failed.txt")
-    get_resume_ckpt_succeed_txt = os.path.join(resume_record_dir, "get_resume_ckpt_succeed.txt")
-    if is_main_rank():
-        # 1. get basic resume ckpt file
+    latest_checkpointed_iteration_txt = os.path.join(resume_record_dir,
+                                                     "latest_checkpointed_iteration.txt")
+
+    resume_ckpt = None
+    if rank_id == 0:
         try:
+            # 1. get basic resume ckpt file
             last_epoch, last_step, last_ckpt_file = get_minimum_epoch_step_and_ckpt(checkpoint_dir)
             if last_epoch is None or last_step is None or last_ckpt_file is None:
                 logger.info("No meta.json available and will use the checkpoints "
                             "from the last timestamp for resume training.")
                 check_last_timestamp_checkpoints(checkpoint_dir)
-                create_and_write_info_to_txt(get_resume_ckpt_failed_txt, NO_META)
+                create_file(latest_checkpointed_iteration_txt, NO_META)
                 resume_ckpt = True
             else:
                 ckpt_prefix = last_ckpt_file.split("-")[0]
@@ -94,80 +94,49 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, gap_time=5, limit_time=3600):
 
                 # 2. get ckpt files suitable for resume training per rank
                 resume_ckpt_list = get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, device_num)
-                create_and_write_info_to_txt(get_resume_ckpt_succeed_txt, resume_ckpt_list)
+                create_file(latest_checkpointed_iteration_txt, resume_ckpt_list)
                 logger.info("Get resume checkpoint: %s", resume_ckpt_list[-1])
                 resume_ckpt = os.path.basename(resume_ckpt_list[-1])
+
         # pylint: disable=W0703
         except BaseException as e:
-            if device_num > 1:
-                create_and_write_info_to_txt(get_resume_ckpt_failed_txt, str(e))
-            raise RuntimeError(str(e)) from e
+            create_file(latest_checkpointed_iteration_txt, f"Error: {str(e)}")
 
-        if device_num > 1:
-            logger.info("wait all rank get resume checkpoint")
-            if check_in_modelarts():
-                expect_num = get_device_num_per_node() - 1
-            else:
-                expect_num = device_num - 1
-            start_time = time.time()
-            while True:
-                time.sleep(gap_time)
-                count = 0
-                rank_id_not_found = 0
-                if check_in_modelarts():
-                    start_rank_id = rank_id // get_device_num_per_node() * get_device_num_per_node() + 1
-                else:
-                    start_rank_id = 1
-                for rank_id_other in range(start_rank_id, start_rank_id + expect_num):
-                    get_resume_ckpt_txt = os.path.join(resume_record_dir, f"get_resume_ckpt_rank_{rank_id_other}.txt")
-                    if os.path.exists(get_resume_ckpt_txt):
-                        count += 1
-                    else:
-                        rank_id_not_found = rank_id_other
-                        break
-                if count == expect_num:
-                    break
-                if time.time() - start_time > 3600:
-                    raise RuntimeError(f"Wait rank_{rank_id_not_found} get resume checkpoint timeout!")
-            time.sleep(gap_time)
-        shutil.rmtree(resume_record_dir)
-        return resume_ckpt
+    barrier_world("Get resume checkpoint by rank 0.")
 
-    # other rank wait rank_0 process and get resume ckpt from txt recorded by rank_0
-    resume_ckpt = wait_get_resume_ckpt(resume_record_dir, gap_time=gap_time, limit_time=limit_time)
+    if not resume_ckpt:
+        # get resume ckpt from txt recorded by rank_0
+        resume_ckpt = get_resume_ckpt(latest_checkpointed_iteration_txt, rank_id)
+
     return resume_ckpt
 
 
-def wait_get_resume_ckpt(resume_record_dir, gap_time=5, limit_time=3600):
-    """wait get resume ckpt"""
-    rank_id = get_real_rank()
-    get_resume_ckpt_failed_txt = os.path.join(resume_record_dir, "get_resume_ckpt_failed.txt")
-    get_resume_ckpt_succeed_txt = os.path.join(resume_record_dir, "get_resume_ckpt_succeed.txt")
-    logger.info("wait get resume checkpoint")
-    get_resume_ckpt_txt = os.path.join(resume_record_dir, f"get_resume_ckpt_rank_{rank_id}.txt")
-    start_time = time.time()
-    while True:
-        if os.path.exists(get_resume_ckpt_failed_txt):
-            with open(get_resume_ckpt_failed_txt, 'r') as f:
-                failed_reason = f.read()
-            if failed_reason == NO_META:
-                logger.info("No meta.json available and will use the checkpoints "
-                            "from the last timestamp for resume training.")
-                if not os.path.exists(get_resume_ckpt_txt):
-                    create_and_write_info_to_txt(get_resume_ckpt_txt)
-                return True
-            raise ValueError(f"Get resume-able checkpoint failed, due to {failed_reason}.")
-        if os.path.exists(get_resume_ckpt_succeed_txt):
-            with open(get_resume_ckpt_succeed_txt, 'r') as f:
-                resume_ckpt_list = [resume_ckpt.strip() for resume_ckpt in f.readlines()]
-            logger.info("Get resume checkpoint: %s", resume_ckpt_list[-1])
-            resume_ckpt = replace_rank_id_in_ckpt_name(resume_ckpt_list[-1], rank_id)
-            if not os.path.exists(get_resume_ckpt_txt):
-                create_and_write_info_to_txt(get_resume_ckpt_txt)
-            return resume_ckpt
-        if time.time() - start_time > limit_time:
-            raise RuntimeError("Wait rank_0 get resume checkpoint timeout!")
-        time.sleep(gap_time + random.uniform(-1, 1))
+def get_resume_ckpt(latest_checkpointed_iteration_txt, rank_id):
+    """get resume ckpt"""
+    logger.info(f"Get resume checkpoint from {latest_checkpointed_iteration_txt}")
+
+    if not check_in_modelarts():
+        if not os.path.exists(latest_checkpointed_iteration_txt):
+            raise ValueError(f"Can not find {latest_checkpointed_iteration_txt}")
+        with open(latest_checkpointed_iteration_txt, 'r') as f:
+            resume_info = [line.strip() for line in f.readlines()]
+    else:
+        if not mox.file.exists(latest_checkpointed_iteration_txt):
+            raise ValueError(f"OBS: Can not find {latest_checkpointed_iteration_txt}")
+        with mox.file.File(latest_checkpointed_iteration_txt, 'r') as f:
+            resume_info = [line.strip() for line in f.readlines()]
+
+    if resume_info[0] == NO_META:
+        logger.info("No meta.json available and will use the checkpoints "
+                    "from the last timestamp for resume training.")
+        return True
+
+    if resume_info[0].startswith("Error"):
+        raise ValueError(f"Get resume-able checkpoint failed, due to {resume_info[0]}.")
+
+    resume_ckpt = replace_rank_id_in_ckpt_name(resume_info[-1], rank_id)
+    logger.info("Get resume checkpoint: %s", resume_ckpt)
+    return resume_ckpt
 
 
 def get_minimum_epoch_step_and_ckpt(checkpoint_dir):

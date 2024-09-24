@@ -16,9 +16,7 @@
 import json
 import os
 import re
-import time
 import shutil
-import random
 import tempfile
 from multiprocessing import Process
 from typing import Dict, List, Tuple, Union
@@ -34,6 +32,7 @@ except ImportError:
 from mindspore import Tensor, context
 from mindspore._checkparam import args_type_check
 from mindspore.communication import get_group_size, get_rank
+from mindspore.communication.comm_func import barrier
 
 PARALLEL_MODE = {'DATA_PARALLEL': context.ParallelMode.DATA_PARALLEL,
                  'SEMI_AUTO_PARALLEL': context.ParallelMode.SEMI_AUTO_PARALLEL,
@@ -524,15 +523,23 @@ def create_file(file_path, info=None):
             it is detected that it is not in the ModelArts platform.")
         import moxing as mox
         with mox.file.File(file_path, 'w') as f:
-            if info:
+            if isinstance(info, str):
                 f.write(info)
+            elif isinstance(info, list):
+                for sub_info in info:
+                    f.write(sub_info + "\n")
             else:
                 f.write("Hugging ModelArts.")
     else:
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
         with os.fdopen(os.open(file_path, flags_, 0o750), 'w') as f:
-            if info:
+            if isinstance(info, str):
                 f.write(info)
+            elif isinstance(info, list):
+                for sub_info in info:
+                    f.write(sub_info + "\n")
+            else:
+                raise ValueError(f"The info to write should be str or list, but get {info}")
 
 
 def delete_file(file_path):
@@ -552,9 +559,8 @@ def delete_file(file_path):
 def remake_folder(folder_path, permissions=None):
     """make folder"""
     from .logger import logger
-    remaked_txt = os.path.join(folder_path, "remaked.txt")
     rank_id = get_real_rank()
-    logger.info("Wait remake folder: %s", folder_path)
+    logger.info("Remake %s...", folder_path)
     if Validator.is_obs_url(folder_path):
         if not check_in_modelarts():
             raise ValueError(f"When remaking {folder_path}, \
@@ -564,27 +570,21 @@ def remake_folder(folder_path, permissions=None):
             if mox.file.exists(folder_path):
                 mox.file.remove(folder_path, recursive=True)
             mox.file.make_dirs(folder_path)
-            create_file(remaked_txt)
-        while not mox.file.exists(remaked_txt):
-            time.sleep(0.1 + random.uniform(0, 0.1))
+            logger.info("OBS: Folder %s is remaked.", folder_path)
     else:
         if is_main_rank():
             if os.path.exists(folder_path):
                 shutil.rmtree(folder_path)
             os.makedirs(folder_path, exist_ok=True)
             os.chmod(folder_path, permissions)
-            create_file(remaked_txt)
-        while not os.path.exists(remaked_txt):
-            time.sleep(0.1 + random.uniform(0, 0.1))
-    logger.info(f"Folder {folder_path} remaked.")
-    return remaked_txt
+            logger.info("Folder %s is remaked.", folder_path)
 
 
 def remove_folder(folder_path, rank_id=None):
     """delete folder"""
     from .logger import logger
     rank_id = rank_id or get_real_rank()
-    logger.info("Wait remove folder: %s", folder_path)
+    logger.info("Remove %s...", folder_path)
     if Validator.is_obs_url(folder_path):
         if not check_in_modelarts():
             raise ValueError(f"When removing {folder_path}, \
@@ -592,14 +592,11 @@ def remove_folder(folder_path, rank_id=None):
         import moxing as mox
         if mox.file.exists(folder_path) and not rank_id:
             mox.file.remove(folder_path, recursive=True)
-        while mox.file.exists(folder_path):
-            time.sleep(0.1 + random.uniform(0, 0.1))
+            logger.info("OBS: Folder %s is removed.", folder_path)
     else:
-        if os.path.exists(folder_path) and not rank_id:
+        if os.path.exists(folder_path) and is_main_rank():
             shutil.rmtree(folder_path)
-        while os.path.exists(folder_path):
-            time.sleep(0.1 + random.uniform(0, 0.1))
-    logger.info(f"Folder {folder_path} removed successfully")
+            logger.info("Folder %s is removed.", folder_path)
 
 
 def get_epoch_and_step_from_ckpt_name(ckpt_file):
@@ -643,9 +640,7 @@ def clear_auto_trans_output():
             folder_path = os.path.join(get_remote_save_url(), folder)
         else:
             folder_path = os.path.join(get_output_root_path(), folder)
-        if not get_real_rank():
-            remaked_txt = remake_folder(folder_path, permissions=0o750)
-            delete_file(remaked_txt)
+        remake_folder(folder_path, permissions=0o750)
 
 
 def check_ckpt_file_name(ckpt_file):
@@ -678,3 +673,15 @@ def is_pynative():
     """get whether the mode is pynative"""
     mode = context.get_context("mode")
     return mode == context.PYNATIVE_MODE
+
+
+def barrier_world(action: str = None):
+    """barrier all rank until action is done"""
+    if get_real_group_size() > 1:
+        from .logger import logger
+        if action is not None:
+            logger.info("Wait " + str(action))
+        else:
+            logger.info("Now barriered...")
+
+        barrier()

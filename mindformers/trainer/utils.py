@@ -30,12 +30,8 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import (
-    check_in_modelarts,
-    get_output_root_path,
     replace_tk_to_mindpet,
     check_shared_disk,
-    get_remote_save_url,
-    remove_folder,
     get_device_num_per_node,
     format_path
 )
@@ -342,16 +338,6 @@ def load_resume_context_from_checkpoint(config, dataset):
     logger.info("initial epoch: %d", config.runner_config.initial_epoch)
     logger.info("initial step: %d", config.runner_config.initial_step)
     logger.info("step scale: %f", config.runner_config.step_scale)
-
-
-def delete_resume_record_dir(wait_time=5):
-    """delete resume record dir"""
-    if check_in_modelarts():
-        resume_record_dir = os.path.join(get_remote_save_url(), "resume_record")
-    else:
-        resume_record_dir = os.path.join(get_output_root_path(), "resume_record")
-    time.sleep(wait_time)
-    remove_folder(resume_record_dir)
 
 
 def transform_and_load_checkpoint(config, model, network, dataset, optimizer=None, do_eval=False, do_predict=False):
