@@ -14,3 +14,6 @@
 
 #huggingface to fp16_8p
 #bash ckpt_convert.sh -f pt_to_ms -p fp16 -w 8 -y /home/checkpoint_download/llama57b/predict_llama2_57b_910b.yaml -sc /apps/predict/0729_t2i/actual > log_pt2ms.txt 2>&1  &
+
+#ckpt to safetensors
+#python ckpt_to_safetensors.py --src_ckpt_path=/infer_ckpt/fp16_8p --dst_safetensors_path=/infer_ckpt/fp16_8p_safetensors
