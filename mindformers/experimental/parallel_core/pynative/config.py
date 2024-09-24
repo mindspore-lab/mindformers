@@ -565,7 +565,6 @@ def build_dependency_graph_of_configs(config_classes):
     Raises:
         ValueError: If a configuration class is not a subclass of BaseConfig.
         ValueError: If a configuration class does not have the 'config_name' attribute set.
-        ValueError: If a cycle is detected in the configuration dependencies.
 
     """
     dependency_graph = {}
@@ -585,12 +584,6 @@ def build_dependency_graph_of_configs(config_classes):
 
         # get depended configs
         for depended_config, optional_flag in depended_configs_dict.items():
-            # check cycle dependency
-            if depended_config in dependency_graph and config_class in dependency_graph[depended_config]:
-                raise ValueError(
-                    "Cycle detected in configuration dependencies:"
-                    + f"{config_class} and {depended_config} form a loop."
-                )
             # filter out optional depended config which is not passed in
             if not optional_flag or depended_config in config_classes:
                 depended_configs.append(depended_config)
@@ -637,6 +630,9 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
     Returns:
         Union[list[BaseConfig], AllConfig]: Initialized config instances, when no config class is passed in,
             AllConfig will be returned.
+
+    Raises:
+        ValueError: If a cycle is detected in the configuration dependencies.
     """
     # check if no config class is passed in
     no_passed_in_configs = config_classes is None
@@ -662,15 +658,24 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
     # construct dependency graph
     dependency_graph = build_dependency_graph_of_configs(config_classes)
 
-    # topological sort
+    # topological sort with cycle detection
     visited = {config_class: False for config_class in config_classes}
+    on_path = {config_class: False for config_class in config_classes}  # Tracks nodes on the current path
     config_class_initialization_stack = deque()
 
     def dfs(config_class):
         visited[config_class] = True
+        on_path[config_class] = True  # Mark as on the current path
         for dependency in dependency_graph.get(config_class):
+            if on_path[dependency]:
+                raise ValueError(
+                    "Cycle detected in configuration dependencies:" +
+                    f"{config_class.config_name} -> {dependency.config_name}"
+                )
             if not visited[dependency]:
                 dfs(dependency)
+
+        on_path[config_class] = False  # Remove from the current path
         config_class_initialization_stack.append(config_class)
 
     for config_class in config_classes:
