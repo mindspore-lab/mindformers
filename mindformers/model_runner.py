@@ -30,7 +30,7 @@ from mindspore._c_expression import swap_cache
 from mindformers import models, MindFormerRegister, MindFormerModuleType
 from mindformers import build_context, build_parallel_config, GenerationConfig
 from mindformers import AutoModel, AutoConfig, AutoTokenizer
-from mindformers.models.utils import convert_mstype
+from mindformers.models.utils import convert_mstype, str_to_ms_type
 from mindformers.tools.logger import logger
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
@@ -215,10 +215,17 @@ class MindIEModelRunner:
             else self.model_config.n_kv_heads
         self.num_kv_heads = self.num_kv_heads // world_size  # check the divisibility in model initialization.
         self.head_size = self.model_config.hidden_size // self.model_config.num_heads
+
+        kvcache_dtype = self.model_config.compute_dtype
+        if hasattr(self.model_config, "quantization_config") and \
+                self.model_config.quantization_config.kvcache_dtype in str_to_ms_type:
+            kvcache_dtype = self.model_config.quantization_config.kvcache_dtype
+        self.dtype = convert_mstype(kvcache_dtype)
+        kvcache_bytes = ms.Tensor(0, dtype=self.dtype).itemsize
         self.npu_num_blocks = (npu_mem_size * 1024 * 1024 * 1024) // \
-                              (block_size * self.num_kv_heads * self.head_size * 2 * 2 * self.num_layers)
+                              (block_size * self.num_kv_heads * self.head_size * kvcache_bytes * 2 * self.num_layers)
         self.cpu_num_blocks = (cpu_mem_size * 1024 * 1024 * 1024) // \
-                              (block_size * self.num_kv_heads * self.head_size * 2 * 2 * self.num_layers)
+                              (block_size * self.num_kv_heads * self.head_size * kvcache_bytes * 2 * self.num_layers)
         self.model_config.block_size = block_size
         self.model_config.num_blocks = self.npu_num_blocks
         self.model_config.checkpoint_name_or_path = None
@@ -255,7 +262,6 @@ class MindIEModelRunner:
         if self.model_config.is_dynamic:
             self.model.set_dynamic_inputs()
 
-        self.dtype = convert_mstype(self.model_config.compute_dtype)
         cpu_kv_shape = (self.cpu_num_blocks, block_size, self.num_kv_heads, self.head_size)
         self.key_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=self.dtype, init=Zero()),
                                       name=f"key_host_{i}", requires_grad=False) for i in range(self.num_layers)]
