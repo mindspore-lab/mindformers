@@ -315,6 +315,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
     Examples:
         >>> from mindformers.models.llama import LlamaConfig, LlamaForCausalLM
+        >>> import mindspore as ms
+        >>> ms.set_context(mode=0)
         >>> config = LlamaConfig(batch_size=2)
         >>> network = LlamaForCausalLM(config=config)
         >>> type(network)
