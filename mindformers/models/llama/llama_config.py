@@ -101,6 +101,65 @@ class LlamaConfig(PretrainedConfig):
 
     Returns:
         LlamaConfig, a LlamaConfig instance.
+
+    Examples:
+        >>> from mindformers.models import LlamaConfig
+        >>> config = LlamaConfig(num_layers=2, seq_length=1024)
+        >>> print(config)
+        LlamaConfig {
+            "batch_size": 1,
+            "block_size": 16,
+            "bos_token_id": 1,
+            "checkpoint_name_or_path": "",
+            "compute_dtype": "float16",
+            "do_sample": true,
+            "embedding_init_type": "float16",
+            "eos_token_id": 2,
+            "extend_method": "None",
+            "ffn_dim_multiplier": null,
+            "fine_grain_interleave": 1,
+            "hidden_size": 4096,
+            "ignore_token_id": -100,
+            "intermediate_size": null,
+            "is_dynamic": false,
+            "layernorm_compute_type": "float32",
+            "llm_backend": "",
+            "max_decode_length": 1024,
+            "max_position_embedding": 1024,
+            "mindformers_version": "dev",
+            "model_type": "llama",
+            "multiple_of": 256,
+            "n_kv_heads": null,
+            "num_blocks": 512,
+            "num_heads": 32,
+            "num_layers": 2,
+            "offset": 0,
+            "pad_token_id": 0,
+            "parallel_decoding_params": null,
+            "parallel_optimizer": false,
+            "param_init_type": "float16",
+            "pp_interleave_num": 1,
+            "qkv_concat": false,
+            "qkv_has_bias": false,
+            "quant_config": null,
+            "repetition_penalty": 1.0,
+            "rms_norm_eps": 1e-05,
+            "rotary_dtype": "float32",
+            "scaling_factor": 1.0,
+            "seq_length": 1024,
+            "softmax_compute_type": "float32",
+            "theta": 10000.0,
+            "tie_word_embeddings": false,
+            "top_k": 5,
+            "top_p": 1.0,
+            "use_attn_mask_compression": false,
+            "use_flash_attention": false,
+            "use_past": false,
+            "use_ring_attention": false,
+            "use_rope_slice": false,
+            "vocab_size": 32000
+            }
+
     """
 
     model_type = "llama"
