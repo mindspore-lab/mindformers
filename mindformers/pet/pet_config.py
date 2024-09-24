@@ -33,6 +33,16 @@ class PetConfig(DictConfig):
 
     Returns:
         An instance of PetConfig.
+
+    Examples:
+        >>> from mindformers.pet.pet_config import LoraConfig
+        >>> config = LoraConfig(target_modules='.*wq|.*wk|.*wv|.*wo')
+        >>> print(config)
+        {'pet_type': 'lora', 'lora_rank': 8, 'lora_alpha': 16,
+        'lora_dropout': 0.01, 'lora_a_init': 'normal', 'lora_b_init'
+        : 'zero', 'param_init_type': mindspore.float16, 'compute_dtype':
+        mindspore.float16, 'target_modules': '.*wq|.*wk|.*wv|.*wo', 'exclude_layers': None
+        , 'freeze_include': None, 'freeze_exclude': None}
     """
     def __init__(self,
                  pet_type: str = None,
