@@ -190,3 +190,11 @@ bash ckpt_convert.sh -f pt_to_ms -p fp16 -w 8  -y /home/checkpoint_download/llam
 ### 4.3 注意事项
 
 - pytorch转mindspore的ckpt只支持转换到fp16的精度
+
+## 5. ckpt转safetensors
+
+### 5.1 直接调用
+
+```shell
+python ckpt_to_safetensors.py --src_ckpt_path=/infer_ckpt/fp16_8p --dst_safetensors_path=/infer_ckpt/fp16_8p_safetensors
+```
