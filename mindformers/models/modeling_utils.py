@@ -330,6 +330,8 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         Examples:
             >>> import os
             >>> from mindformers import AutoModel
+            >>> import mindspore as ms
+            >>> ms.set_context(mode=0)
             >>> net = AutoModel.from_pretrained('llama2_7b')
             >>> net.save_pretrained('./checkpoint_save')
         """
