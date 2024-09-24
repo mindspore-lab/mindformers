@@ -31,7 +31,7 @@ from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_ms_enable_asd_op, get_predict_run_mode, get_use_rope_self_define
+from mindformers.tools.utils import get_predict_run_mode, get_use_rope_self_define
 
 from telechat_transformer import TelechatDecodeLayer
 from telechat_interleave import TelechatDecodeLayerInterleave
@@ -87,8 +87,6 @@ class TelechatModel(TelechatPreTrainedModel):
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         # default open internal kernel boost
-        self.enable_asd_op = get_ms_enable_asd_op()
-        logger.info("enable asd op:{}".format(self.enable_asd_op))
         self.use_rope_self_define = get_use_rope_self_define()
 
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
@@ -224,11 +222,7 @@ class TelechatModel(TelechatPreTrainedModel):
                 else:
                     freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
 
-                if self.use_flash_attention:
-                    if self.enable_asd_op:  # only support fp16
-                        mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-                        mask = self.cast(mask, mstype.float16)
-                else:
+                if not self.use_flash_attention:
                     mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
 
                 if prefix_keys_values is not None:

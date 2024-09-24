@@ -239,9 +239,11 @@ class InferAttention(Cell):
 
         self.disable_custom_fa = get_disable_custom_fa()
         self.use_attention_mask = False
+        self.input_layout = "BSH"
 
         if self.disable_custom_fa:
             self.use_attention_mask = True
+            self.input_layout = "TH"
 
         if self.use_flash_attention:
             self.flash_attention = FlashAttention(head_num=self.n_head,
@@ -251,7 +253,8 @@ class InferAttention(Cell):
                                                   scale_value=self.scale_value,
                                                   sparse_mode=self.sparse_mode,
                                                   use_attention_mask=self.use_attention_mask,
-                                                  use_alibi_mask=self.use_alibi_mask)
+                                                  use_alibi_mask=self.use_alibi_mask,
+                                                  input_layout=self.input_layout)
 
         kv_shape = (self.num_blocks, self.block_size, self.n_kv_head, self.head_dim)
         self.paged_attention_mgr = PagedAttentionMgr(self.pa_n_head_split,
@@ -369,11 +372,20 @@ class InferAttention(Cell):
             value = ops.concat((past_value, value), 1)
         return key, value
 
-    def _prefill_attention(self, query, key, value, attn_mask, alibi_mask):
+    def _prefill_attention(self, query, key, value, attn_mask, alibi_mask, actual_seq_qlen=None, actual_seq_kvlen=None):
         """
         prefill attention
         """
         if self.use_flash_attention:
+            if self.disable_custom_fa:
+                bs, seq_len, _ = query.shape
+                query = self.reshape(query, (-1, self.n_head * self.head_dim))
+                value = self.reshape(value, (-1, self.n_head * self.head_dim))
+                key = self.reshape(key, (-1, self.n_head * self.head_dim))
+                output = self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None, actual_seq_qlen,
+                                              actual_seq_kvlen)  # B*S, N, D
+                output = self.reshape(output, (bs, seq_len, self.n_head * self.head_dim))  # B, S, H
+                return output
             return self.flash_attention(query, key, value, attn_mask, alibi_mask)
         bs, seq_len, _ = query.shape
         key_seq_len = key.shape[1]
@@ -408,7 +420,8 @@ class InferAttention(Cell):
         query = ops.depend(query, key_out)
 
         if self.is_first_iteration:
-            return self._prefill_attention(query, key, value, attn_mask, alibi_mask)
+            return self._prefill_attention(query, key, value, attn_mask, alibi_mask, batch_valid_length,
+                                           batch_valid_length)
         return self._incre_attention(query, batch_valid_length, block_tables, alibi_mask, attn_mask, q_seq_lens)
 
     def shard(self, parallel_config):

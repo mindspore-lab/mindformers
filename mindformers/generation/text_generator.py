@@ -286,18 +286,12 @@ class GenerationMixin:
         )
         return input_ids
 
-    def _incremental_infer(self, model_inputs: dict, prefill, current_index, valid_length_each_example, block_tables,
-                           slot_mapping):
+    def _incremental_infer(self, model_inputs: dict, prefill, current_index):
         """model forward for incremental infer."""
         # Claim the first graph
         if prefill:
             self.phase = "prefill"
             self.add_flags_custom(is_first_iteration=True)
-            model_inputs["batch_valid_length"] = Tensor.from_numpy(
-                np.array([valid_length_each_example], dtype=np.int32))
-            if block_tables is not None:
-                model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
-                model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -309,11 +303,6 @@ class GenerationMixin:
             # slice model inputs for incremental infer
             if not (hasattr(self.config, 'parallel_decoding_params') and self.config.parallel_decoding_params):
                 self.slice_incremental_inputs(model_inputs, current_index)
-            model_inputs["batch_valid_length"] = Tensor.from_numpy(
-                np.array([valid_length_each_example], dtype=np.int32))
-            if block_tables is not None:
-                model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
-                model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -1067,24 +1056,24 @@ class GenerationMixin:
             model_kwargs["slot_mapping"] = slot_mapping
             # pylint: disable=E1111
             model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
-            real_input_ids = model_inputs["input_ids"]
             if parallel_decoding_control(self.config):
                 model_inputs, block_tables, slot_mapping = parallel_decoding_process(
                     self.config, input_ids, model_inputs, **model_kwargs
                 )
-            else:
-                current_index = valid_length_each_example - 1 + np.arange(real_input_ids.numel(),
-                                                                          step=real_input_ids.shape[1])
-                model_kwargs["current_index"] = current_index
+
+            if "batch_valid_length" not in model_inputs:
+                model_inputs["batch_valid_length"] = Tensor.from_numpy(
+                    np.array([valid_length_each_example], dtype=np.int32))
+            if block_tables is not None and "block_tables" not in model_inputs:
+                model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
+            if slot_mapping is not None and "slot_mapping" not in model_inputs:
+                model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
 
             if use_past:
                 res = self._incremental_infer(
                     model_inputs=model_inputs,
                     prefill=prefill,
                     current_index=current_index,
-                    valid_length_each_example=valid_length_each_example,
-                    block_tables=block_tables,
-                    slot_mapping=slot_mapping
                 )
             else:
                 res = self(**model_inputs)  # pylint: disable=E1102
