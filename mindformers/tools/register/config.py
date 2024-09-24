@@ -133,11 +133,7 @@ class MindFormerConfig(DictConfig):
             key_list = full_key.split('.')
             for sub_key in key_list[:-1]:
                 d.setdefault(sub_key, MindFormerConfig())
-                value_src = d.get(sub_key)
-                if value_src:
-                    d = value_src
-                else:
-                    raise ValueError(f"sub_key:{sub_key} is not in d:{d}.")
+                d = d.get(sub_key)
             sub_key = key_list[-1]
             d[sub_key] = value
         merge_dict = MindFormerConfig._merge_a_into_b(option_cfg_dict, self)
