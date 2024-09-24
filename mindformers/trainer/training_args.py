@@ -397,6 +397,13 @@ class TrainingArguments:
     Returns:
         An instance of TrainingArguments.
 
+    Examples:
+        >>> from mindformers import TrainingArguments
+        >>> args = TrainingArguments(output_dir="output", seed=10)
+        >>> args.output_dir
+        'output'
+        >>> args.seed
+        10
     """
     # common config
     framework = "ms"
