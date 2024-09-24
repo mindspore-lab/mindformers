@@ -64,6 +64,19 @@ class EntityScore(nn.Metric):
 
     .. math::
         \text{F1} = \frac{2 \times \text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}}
+
+    Examples:
+        >>> import numpy as np
+        >>> from mindspore import Tensor
+        >>> from mindformers.core.metric.metric import EntityScore
+        >>> x = Tensor(np.array([[np.arange(0, 22)]]))
+        >>> y = Tensor(np.array([[21]]))
+        >>> metric = EntityScore()
+        >>> metric.clear()
+        >>> metric.update(x, y)
+        >>> result = metric.eval()
+        >>> print(result)
+        ({'precision': 1.0, 'recall': 1.0, 'f1': 1.0}, {'address': {'precision': 1.0, 'recall': 1.0, 'f1': 1.0}})
     """
     def __init__(self):
         super(EntityScore, self).__init__()
@@ -533,6 +546,20 @@ class PerplexityMetric(nn.Metric):
 
     This equation highlights that a lower perplexity indicates a better-performing language model, as it suggests
     that the model assigns higher probabilities to the actual sequence of words.
+
+    Examples:
+        >>> import numpy as np
+        >>> from mindspore import Tensor
+        >>> from mindformers.core.metric.metric import PerplexityMetric
+        >>> x = Tensor(np.array([[[0.2, 0.5], [0.3, 0.1], [0.9, 0.6]]]))
+        >>> y = Tensor(np.array([[1, 0, 1]]))
+        >>> mask = Tensor(np.array([[1, 1, 1]]))
+        >>> metric = PerplexityMetric()
+        >>> metric.clear()
+        >>> metric.update(x, y, mask)
+        >>> perplexity = metric.eval()
+        >>> print(perplexity)
+        'loss': 0.8262470960617065, 'PPL': 2.284728265028813}
     """
     def __init__(self):
         super(PerplexityMetric, self).__init__()
@@ -685,6 +712,23 @@ class PromptAccMetric(nn.Metric):
 
        .. math::
            \text{accuracy} =\frac{\text{correct_sample_nums}}{\text{total_sample_nums}}
+
+    Examples:
+        >>> import numpy as np
+        >>> from mindspore import Tensor
+        >>> from mindformers.core.metric.metric import PromptAccMetric
+        >>> logtis = Tensor(np.array([[[[0.2, 0.5], [0.3, 0.1], [0.9, 0.6]]]]))
+        >>> input_ids = Tensor(np.array([[15, 16, 17]]))
+        >>> labels = Tensor(np.array([[1, 0, 1]]))
+        >>> mask = Tensor(np.array([[1, 1, 1]]))
+        >>> metric = PromptAccMetric()
+        >>> metric.clear()
+        >>> metric.update(logtis, input_ids, mask, labels)
+        >>> result = metric.eval()
+        >>> print(result)
+        Current data num is 1, total acc num is 1.0, ACC is 1.000
+        Acc: 1.000, total_acc_num: 1.0, total_num: 1
+        {'Acc': 1.0}
     """
 
     def __init__(self):
@@ -809,6 +853,21 @@ class EmF1Metric(nn.Metric):
     Finally, use the F1 score formula to calculate the final F1 value.
     This evaluation metric comprehensively measures the accuracy and completeness of the model, providing
     data support for model optimization and debugging.
+
+    Examples:
+        >>> from mindformers.core.metric.metric import EmF1Metric
+        >>>
+        >>> str_pre = ["I love Beijing, because it's beautiful", "Hello world。"]
+        >>> str_label = ["I love Beijing.", "Hello world"]
+        >>> metric = EmF1Metric()
+        >>> metric.clear()
+        >>> for pre, label in zip(str_pre, str_label):
+        ...    metric.update([pre], [label])
+        >>> result = metric.eval()
+        >>> print(result)
+        The F1/Em of this example is:  {'F1': 100.0, 'Em': 100.0}
+        F1 score: 75.0, Em score: 50.0, total_count: 2
+        {'F1': 75.0, 'Em': 50.0}
     """
     def __init__(self):
         super(EmF1Metric, self).__init__()
