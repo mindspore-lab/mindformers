@@ -11,7 +11,7 @@ mindformers.dataset.CausalLanguageModelDataset
         - **data_loader** (Union[dict, Callable]) - 必须是包含data loader配置信息的字典，或一个data loader实例。当 `data_loader` 为 `dict` 类型时，字典的键可以是"type"、"dataset_dir"、"dataset_files"和"shuffle"。
 
           - ``"type"`` - 必选。数据集的类型。值必须是 `str` 或 `type` 类型。当值为"MindDataset"或"TFRecordDataset"时， ``"dataset_dir"`` 与 ``"dataset_files"`` 中必选两者之一，优先使用 ``"dataset_dir"`` ；否则必选 ``"dataset_dir"`` 。
-          - ``"dataset_dir"`` - 数据集文件所在目录。当 ``"type"`` 为"MindDataset"或"TFRecordDataset"时，将递归查找目录下所有 `mindrecord` 或 `tfrecord` 格式文件。
+          - ``"dataset_dir"`` - 数据集文件所在路径或目录。当 ``"type"`` 为"MindDataset"或"TFRecordDataset"且 ``"dataset_dir"`` 表示一个目录时，将递归查找目录下所有 `mindrecord` 或 `tfrecord` 格式文件。
           - ``"dataset_files"`` -  `mindrecord` 或 `tfrecord` 格式文件所在路径。当 ``"type"`` 为"MindDataset"或"TFRecordDataset"时生效；否则键被忽略。必须是 `list` 或 `tuple` 类型。
           - ``"shuffle"`` - 可选。指示是否混洗数据集。必须是 `bool` 类型。
 

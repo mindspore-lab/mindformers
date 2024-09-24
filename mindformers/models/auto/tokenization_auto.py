@@ -257,6 +257,10 @@ class AutoTokenizer:
     This is a generic tokenizer class that will be instantiated as one of the tokenizer classes of the library when
     created with the from_pretrained class method.
     This class cannot be instantiated directly using `\_\_init\_\_()` (throws an error).
+
+    Examples:
+        >>> from mindformers import AutoTokenizer
+        >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
     """
 
     _model_type = 0

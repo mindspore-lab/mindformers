@@ -12,7 +12,6 @@ Auto类
     mindformers.AutoModel
     mindformers.AutoModelForCausalLM
     mindformers.AutoModelForZeroShotImageClassification
-    mindformers.AutoModelForVisualQuestionAnswering
     mindformers.AutoProcessor
     mindformers.AutoTokenizer
 

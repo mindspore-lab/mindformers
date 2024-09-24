@@ -13,7 +13,6 @@ Auto Classes
     mindformers.AutoModel
     mindformers.AutoModelForCausalLM
     mindformers.AutoModelForZeroShotImageClassification
-    mindformers.AutoModelForVisualQuestionAnswering
     mindformers.AutoProcessor
     mindformers.AutoTokenizer
 

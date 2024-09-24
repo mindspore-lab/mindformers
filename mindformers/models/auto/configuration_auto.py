@@ -220,9 +220,9 @@ class AutoConfig:
         >>> # 2)  instantiates a config by json file
         >>> config_b = AutoConfig.from_pretrained('./config.json')
         >>> # 3)  instantiates a config by directory containing a configuration json file
-        >>> config_b = AutoConfig.from_pretrained('./dir/')
+        >>> config_c = AutoConfig.from_pretrained('./dir/')
         >>> # 4)  instantiates a config by model_id from modelers.cn
-        >>> config_b = AutoConfig.from_pretrained('MindSpore-Lab/glm2_6b')
+        >>> config_d = AutoConfig.from_pretrained('MindSpore-Lab/glm2_6b')
     """
     _support_list = MindFormerBook.get_config_support_list()
     _model_type = 0

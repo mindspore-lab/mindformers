@@ -56,12 +56,11 @@ class KeyWordGenDataset(BaseDataset):
               When the value is "MindDataset", one of `dataset_dir` and `dataset_files` is required,
               where `dataset_dir` takes effect first; otherwise `dataset_dir` is required.
 
-            - dataset_dir:  The directory of dataset. When `type` is "MindDataset",
-              search for files in `mindrecord` format recursively in the directory.
+            - dataset_dir: The path or directory of dataset. When `type` is "MindDataset" and `dataset_dir` is
+              a directory, search for files in `mindrecord` format recursively in the directory.
 
             - dataset_files: The path of files in `mindrecord` format.
-              Take effect when `type` is "MindDataset", otherwise this key is ignored.
-              Must be `list` or `tuple`.
+              Take effect when `type` is "MindDataset", otherwise this key is ignored. Must be `list` or `tuple`.
 
             - phase: Required. The dataset subset to be loaded. The value can be 'train' and "eval".
 
@@ -118,28 +117,13 @@ class KeyWordGenDataset(BaseDataset):
         ValueError: If `dataset_config` doesn't contain "dataset_dir" or "dataset_files" as its key.
 
     Examples:
-        >>> # 1) Create an instance using a MindFormerConfig.
-        >>> from mindformers.dataset.dataloader.adgen_dataloader import ADGenDataLoader
-        >>> from mindformers.tools.register import MindFormerConfig
-        >>> from mindformers import MindFormerBook
-        >>> from mindformers.dataset import KeyWordGenDataset
-        >>> from mindformers.dataset import check_dataset_config
-        >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
-        >>> config_path = config_dict_list['text_generation']['glm_6b']
-        >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
-        >>> config = MindFormerConfig(config_path)
-        >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
-        >>> # Note:
-        >>> #     The detailed data setting could refer to
-        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md
-        >>> check_dataset_config(config)
-        >>> # use class to build dataset
-        >>> dataset_from_class = KeyWordGenDataset(config.train_dataset_task.dataset_config)
-        >>>
-        >>> # 2) Creating an instance using other parameters.
         >>> from mindformers.dataset import KeyWordGenDataset, ADGenDataLoader
         >>> from mindformers import AutoTokenizer
-        >>> data_loader = ADGenDataLoader(dataset_dir="The required task dataset path", shuffle=True, phase='train',
+        >>> # Note:
+        >>> #     `"/path/to/train.json"` should be replaced with the real path of the dataset file.
+        >>> #     The detailed data setting could refer to
+        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm.md
+        >>> data_loader = ADGenDataLoader(dataset_dir="/path/to/train.json", shuffle=True, phase='train',
         ...                               origin_columns=['content', 'summary'])
         >>> tokenizer = AutoTokenizer.from_pretrained('glm_6b')
         >>> dataset_from_param = KeyWordGenDataset(data_loader=data_loader, tokenizer=tokenizer,

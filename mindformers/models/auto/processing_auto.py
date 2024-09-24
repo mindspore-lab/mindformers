@@ -108,6 +108,10 @@ class AutoProcessor:
     This is a generic processor class that will be instantiated as one of the processor
     classes of the library when created with the ``from_pretrained()`` class method.
     This class cannot be instantiated directly using \_\_init\_\_() (throws an error).
+
+    Examples:
+        >>> from mindformers import AutoProcessor
+        >>> processor = AutoProcessor.from_pretrained("bert_base_uncased")
     """
     _support_list = MindFormerBook.get_processor_support_list()
     _model_type = 0

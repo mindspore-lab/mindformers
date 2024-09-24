@@ -53,20 +53,16 @@ class MultiTurnDataset(BaseDataset):
         dataset_config (dict): Required. Config for dataset. Must be `dict` which contains all keys below at least.
 
             - data_loader: Config for data loader or a data loader object. When `data_loader` is a `dict`,
-              the string "type", "dataset_dir", "stage" and "column_names" are the keys can be parsed.
+              the string "type", "dataset_dir" and "shuffle" are the keys can be parsed.
 
               - type: Required. Indicates the type of dataset. The value must be string or class type.
 
-              - dataset_dir: Required. The directory of dataset.
-
-              - phase: Required. The dataset subset to be loaded. The value can be 'train' and "eval".
+              - dataset_dir: Required. The path of dataset.
 
               - shuffle: Required. Whether to perform shuffle on the dataset. Must be `bool`.
 
-              - origin_columns: Required. The column names corresponding to py:obj:`[prompt, answer]`
-                in the origin dataset files. Must be a list of two strings.
-
             - tokenizer: Tokenizer configuration or object.
+            - max_seq_length: Maximum length of the sequence.
             - batch_size: Size of each batch.
             - drop_remainder: Whether to discard the last batch when the number of data items contained
               in the last batch is smaller than batch_size. Default: True.
@@ -74,7 +70,9 @@ class MultiTurnDataset(BaseDataset):
               to accelerate processing.
             - python_multiprocessing: Enabling the Python Multi-Process Mode to Accelerate Map Operations.
             - repeat: Number of times this dataset is repeated.
-            - max_seq_length: Maximum length of the sequence.
+            - seed: Random seed number.
+            - prefetch_size: Buffer queue size of each data processing operation in the pipeline.
+            - numa_enable: Indicates whether to use the NUMA binding function.
 
     Returns:
         Instance of MultiTurnDataset.
@@ -89,19 +87,37 @@ class MultiTurnDataset(BaseDataset):
     Examples:
         >>> from mindformers import MultiTurnDataset
         >>> from mindformers.tools.register import MindFormerConfig
-        >>> from mindformers import MindFormerBook
-        >>> from mindformers.dataset import build_dataset, check_dataset_config
-        >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
-        >>> config_path = config_dict_list['text_generation']['glm3_6b']
-        >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
-        >>> config = MindFormerConfig(config_path)
-        >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
+        >>> from mindformers.dataset import check_dataset_config
         >>> # Note:
+        >>> #     `"/path/to/tool_alpaca.jsonl"` should be replaced with the real path of the formatted dataset file.
+        >>> #     `"/path/to/tokenizer.model"` should be replaced with the real path of the tokenizer file.
         >>> #     The detailed data setting could refer to
         >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm3.md
+        >>> config_dict = {
+        ...     'data_loader': {
+        ...         'type': 'ToolAlpacaDataLoader',
+        ...         'dataset_dir': "/path/to/tool_alpaca.jsonl",
+        ...         'shuffle': True
+        ...     },
+        ...     'tokenizer': {
+        ...         'type': 'ChatGLM3Tokenizer',
+        ...         'vocab_file': '/path/to/tokenizer.model'
+        ...     },
+        ...     'max_seq_length': 2048,
+        ...     'batch_size': 1,
+        ...     'drop_remainder': True,
+        ...     'num_parallel_workers': 8,
+        ...     'python_multiprocessing': False,
+        ...     'repeat': 1,
+        ...     'seed': 0,
+        ...     'prefetch_size': 1,
+        ...     'numa_enable': False,
+        ... }
+        >>> # Initialize a MindFormerConfig instance with a dict.
+        >>> config = MindFormerConfig(**config_dict)
         >>> check_dataset_config(config)
         >>> # use class to build dataset
-        >>> dataset_from_class = MultiTurnDataset(config.train_dataset_task.dataset_config)
+        >>> dataset_from_class = MultiTurnDataset(config)
     """
 
     def __new__(cls, dataset_config: dict = None):
