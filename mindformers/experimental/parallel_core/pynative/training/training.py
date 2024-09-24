@@ -652,7 +652,7 @@ def train(
     """
     if training_config.resume_training and resume_dict is not None:
         initial_epoch = resume_dict.get("epoch_num")
-        initial_step = resume_dict.get("step_num") + 1 # start from next step
+        initial_step = resume_dict.get("step_num")
     else:
         initial_epoch = 0
         initial_step = 0
@@ -665,8 +665,14 @@ def train(
     ]
     train_one_step_cell.set_inputs(*set_input_data)
 
-    current_epoch = initial_epoch
-    global_step = initial_step + initial_epoch * train_dataset_iterator.get_dataset_size()
+    dataset_size = train_dataset_iterator.get_dataset_size()
+    global_step = 0
+    epoch_step = 0
+    current_epoch = 0
+    if training_config.resume_training:
+        global_step = initial_step + initial_epoch * dataset_size + 1
+        epoch_step = global_step % dataset_size
+        current_epoch = global_step // dataset_size
     evaluation_flag = (
         val_dataset_iterator is not None
         and evaluation_func is not None
@@ -698,10 +704,12 @@ def train(
             and current_epoch >= training_config.epochs
             or global_step >= training_config.training_iters
     ):
-        epoch_step = initial_step
-        if initial_step > 0:
-            train_dataset_iterator = train_dataset_iterator.skip(initial_step)
-        for data in train_dataset_iterator.create_dict_iterator():
+        if epoch_step > 0:
+            logger.debug(f"skip {epoch_step} step data")
+            dataset_iterator = train_dataset_iterator.skip(epoch_step).create_dict_iterator(num_epochs=1)
+        else:
+            dataset_iterator = train_dataset_iterator.create_dict_iterator(num_epochs=1)
+        for data in dataset_iterator:
             # check if the training should be stopped
             if global_step >= training_config.training_iters:
                 break
@@ -765,11 +773,9 @@ def train(
                                 step_num=epoch_step,
                                 crc_check=training_config.crc_check,
                                 keep_checkpoint_max=training_config.keep_checkpoint_max)
-
             epoch_step += 1
             global_step += 1
-        initial_epoch = 0
-        initial_step = 0
+        epoch_step = 0
         current_epoch += 1
 
     if save_ckpt_flag:
@@ -780,7 +786,7 @@ def train(
                         training_config.output_dir,
                         format=training_config.ckpt_format,
                         prefix=training_config.prefix + "_final",
-                        epoch_num=current_epoch-1,
-                        step_num=epoch_step-1,
+                        epoch_num=(global_step-1) // dataset_size,
+                        step_num=(global_step-1) % dataset_size,
                         crc_check=training_config.crc_check,
                         keep_checkpoint_max=training_config.keep_checkpoint_max + 1)
