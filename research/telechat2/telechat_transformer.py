@@ -182,7 +182,7 @@ class TelechatAttention(nn.Cell):
                                  compute_dtype=compute_dtype,
                                  param_init_type=param_init_type,
                                  skip_redistribution=is_dynamic,
-                                 keep_prob=1-self.hidden_dropout_prob)
+                                 keep_prob=1 - self.hidden_dropout_prob)
         if wo_has_bias:
             self.wo.shard(((dp, mp), (1, mp)), ((dp, 1), (1,)), out_strategy_matmul=((dp, 1),))
         else:
@@ -218,7 +218,7 @@ class TelechatAttention(nn.Cell):
             self.tile_kv = P.Tile()
 
             self.apply_rotary_emb = RotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
-            self.attention_dropout = Dropout(1-self.attention_dropout_prob)
+            self.attention_dropout = Dropout(1 - self.attention_dropout_prob)
 
             if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
                 self.transpose.shard(((dp, 1, mp, 1),))

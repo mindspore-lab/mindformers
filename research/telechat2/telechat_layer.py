@@ -238,7 +238,7 @@ class TelechatFeedForward(Cell):
                                  compute_dtype=compute_dtype,
                                  param_init_type=param_init_type,
                                  skip_redistribution=is_dynamic,
-                                 keep_prob=1-self.hidden_dropout_prob)
+                                 keep_prob=1 - self.hidden_dropout_prob)
 
         self.w3 = TelechatLinear(in_channels=dim,
                                  out_channels=hidden_dim,
