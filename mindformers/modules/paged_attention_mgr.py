@@ -67,7 +67,7 @@ class PagedAttentionMgr(nn.Cell):
     def paged_attn_with_alibi(self, query, batch_valid_length, block_tables, alibi_tensor):
         """The forward compute of KVCache for Paged Attention with alibi tensor."""
         return self.paged_attention_with_alibi(query, self.key_cache, self.value_cache,
-                                               block_tables, batch_valid_length, alibi_tensor)
+                                               block_tables, batch_valid_length, None, None, alibi_tensor)
 
     def shard(self, parallel_config):
         """The shard strategy."""
