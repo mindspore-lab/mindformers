@@ -27,7 +27,7 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.layers import Linear
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_ms_enable_asd_op
+from mindformers.tools.utils import get_disable_custom_fa
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.version_control import get_tril
@@ -72,8 +72,8 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         self.use_flash_attention = config.use_flash_attention
         self.is_first_iteration = True
         # default open internal kernel boost
-        self.enable_asd_op = get_ms_enable_asd_op()
-        logger.info("enable asd op:{}".format(self.enable_asd_op))
+        self.disable_custom_fa = get_disable_custom_fa()
+        logger.info("disable custom flash attention score op:{}".format(self.disable_custom_fa))
 
         # mask
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
@@ -158,7 +158,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr.prefill(batch_size, seq_len)
                 if self.use_flash_attention:
-                    if self.enable_asd_op:
+                    if self.disable_custom_fa:
                         mask = self.casual_mask(input_ids)  # mask: [bs, seq, seq]
                         mask = self.cast(mask, mstype.float16)
                 else:

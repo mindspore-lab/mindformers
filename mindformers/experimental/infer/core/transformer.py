@@ -31,7 +31,7 @@ from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
 from mindformers.modules.paged_attention_mgr import PagedAttentionMgr
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
-from mindformers.tools.utils import get_ms_enable_asd_op, get_use_rope_self_define, is_pynative
+from mindformers.tools.utils import get_disable_custom_fa, get_use_rope_self_define, is_pynative
 
 __all__ = [
     "ParallelMLP",
@@ -739,7 +739,7 @@ class ParallelTransformer(nn.Cell):
         self.cast = ops.Cast()
         self.shape = ops.Shape()
 
-        self.enable_asd_op = get_ms_enable_asd_op()
+        self.disable_custom_fa = get_disable_custom_fa()
         self.use_rope_self_define = get_use_rope_self_define()
         self.fa_need_mask = is_pynative()
 
@@ -807,7 +807,7 @@ class ParallelTransformer(nn.Cell):
                     freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
 
                 if self.use_flash_attention:
-                    if self.enable_asd_op:  # only support fp16
+                    if self.disable_custom_fa:  # only support fp16
                         mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
                         mask = self.cast(mask, mstype.float16)
                     if self.fa_need_mask:

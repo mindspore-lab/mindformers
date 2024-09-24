@@ -465,13 +465,15 @@ def get_device_num_per_node():
     return int(os.getenv("DEVICE_NUM_PER_NODE", "8"))
 
 
-def get_ms_enable_asd_op():
+def get_disable_custom_fa():
     ms_enable_internal_boost = os.environ.get("MS_ENABLE_INTERNAL_BOOST")
-    ms_enable_asd_op = False
-
     if ms_enable_internal_boost == "off":
-        ms_enable_asd_op = True
-    return ms_enable_asd_op
+        return True
+
+    disable_custom_op_list = os.environ.get("MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST")
+    if disable_custom_op_list is not None and "FlashAttentionScore" in disable_custom_op_list:
+        return True
+    return False
 
 
 def get_predict_run_mode():
