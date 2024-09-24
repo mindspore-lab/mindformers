@@ -10,7 +10,7 @@ CLIP (Contrastive Lanuguage-Image Pre-Training)：是一种基于图文对进行
 
 ## 数据集准备
 
-### 预训练使用数据集：Flickr8k([链接](https://pan.baidu.com/s/1LRlQUL1MRipPL4MLOdExzg)，密码: s4be)
+### 预训练使用数据集：Flickr8k([链接](https://pan.baidu.com/s/1LRlQUL1MRipPL4MLOdExzg)，提取码: s4be)
 
 - 数据集大小：2.2G，共8000张彩色图像，每张图像都与五个不同的标题配对，这些标题提供了对图片中物体和事件的内容描述
     - 训练集：6000张图像
