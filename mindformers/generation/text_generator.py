@@ -1292,18 +1292,10 @@ class GenerationMixin:
             >>> ms.set_context(0)
             >>> model = AutoModel.from_pretrained("llama2_7b")
             >>> tokenizer = AutoTokenizer.from_pretrained("llama2_7b")
-            >>> query = "How can I write the classic code of 'Hello World' with Python?"
-            >>> response = model.chat(tokenizer=tokenizer, query=query)
+            >>> query = "Hello!"
+            >>> response, history = model.chat(tokenizer=tokenizer, query=query, max_length=32)
             >>> print(response)
-            total time: 49.08566617965698 s; generated tokens: 76 tokens; generate speed: 1.5483135080989767 tokens/s
-            ("Hello, How can I write the classic code of 'Hello World' with Python<|im_end|>\n
-            If you can't find the word you want in the dictionary, please search for it at the bottom of the page.\n
-            Let's go to the bottom of the page to see if the word you want to search is contained in our dictionary.",
-            [{'role': 'user', 'content': "How can I write the classic code of 'Hello World' with Python?"},
-            {'role': 'assistant',
-            'content': "Hello,How can I write the classic code of 'Hello World' with Python<|im_end|>\n
-            If you can't find the word you want in the dictionary, please search for it at the bottom of the page.\n
-            Let's go to the bottom of the page to see if the word you want to search is contained in our dictionary."}])
+            Thanks, sir.
         """
         if history is None:
             history = []
