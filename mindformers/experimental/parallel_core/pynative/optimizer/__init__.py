@@ -60,10 +60,12 @@ def get_ditributed_optimizer(optimizer, optimizer_config, training_config, model
                             "wrapped with DistributedDataParallel.")
         per_model_buffers[model_idx] = model_chunk.buffers
         per_model_ep_buffers[model_idx] = model_chunk.expert_parallel_buffers
+    grad_scaler = None if not training_config.loss_scale \
+        else ops.Tensor(training_config.loss_scale, mstype.float32)
     distributed_optimizer = DistributedOptimizer(
         optimizer=optimizer,
         config=optimizer_config,
-        grad_scaler=ops.Tensor(training_config.loss_scale, mstype.float32),
+        grad_scaler=grad_scaler,
         init_state_fn=None,
         per_model_buffers=per_model_buffers,
         data_parallel_group=get_data_parallel_group(with_context_parallel=True),
@@ -77,10 +79,13 @@ def get_ditributed_optimizer(optimizer, optimizer_config, training_config, model
 
 
 def get_non_distributed_mixed_precision_optimizer(optimizer, optimizer_config, training_config):
+    " warp non-parallel optimizer with Float16OptimizerWithFloat16Params optimizer. "
+    grad_scaler = None if not training_config.loss_scale \
+        else ops.Tensor(training_config.loss_scale, mstype.float32)
     optimizer = Float16OptimizerWithFloat16Params(
         optimizer,
         optimizer_config,
-        grad_scaler=ops.Tensor(training_config.loss_scale, mstype.float32),
+        grad_scaler=grad_scaler,
         init_state_fn=None,
         wrap_with_ddp=training_config.wrap_with_ddp,
     )

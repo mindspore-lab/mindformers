@@ -163,15 +163,15 @@ class ParallelTrainingReducer:
                     param.grad = all_reduce(param.grad, "sum", group)[0]
                     if self.batch_reduction == "mean":
                         param.grad = mint.div(param.grad, get_data_parallel_world_size())
-        else:
-            if self.batch_reduction == "mean":
-                for idx, grad in enumerate(grads):
-                    group = self.get_reduce_group(idx)
-                    grads[idx] = mint.div(all_reduce(grad, "sum", group)[0], get_data_parallel_world_size())
-            elif self.batch_reduction == "sum":
-                for idx, grad in enumerate(grads):
-                    group = self.get_reduce_group(idx)
-                    grads[idx] = all_reduce(grad, "sum", group)[0]
+            else:
+                if self.batch_reduction == "mean":
+                    for idx, grad in enumerate(grads):
+                        group = self.get_reduce_group(idx)
+                        grads[idx] = mint.div(all_reduce(grad, "sum", group)[0], get_data_parallel_world_size())
+                elif self.batch_reduction == "sum":
+                    for idx, grad in enumerate(grads):
+                        group = self.get_reduce_group(idx)
+                        grads[idx] = all_reduce(grad, "sum", group)[0]
 
     def inplace_reduce_sp_grad(self, grads, params=None):
         """Reduce the gradients in sequence parallel mode over tp group."""
