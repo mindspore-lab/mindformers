@@ -58,12 +58,14 @@ class CogVLM2Config(PretrainedConfig):
                  image_start_id: int = 151857,
                  image_pad_id: int = 151859,
                  video_downsample: int = 1,
+                 batch_size: int = 1,
                  parallel_config: TransformerOpParallelConfig = default_parallel_config,
                  **kwargs):
         super().__init__(**kwargs)
 
         if isinstance(parallel_config, dict):
             parallel_config = TransformerOpParallelConfig(**parallel_config)
+        self.batch_size = batch_size
 
         self.vision_model = vision_model
         self.llm_model = llm_model

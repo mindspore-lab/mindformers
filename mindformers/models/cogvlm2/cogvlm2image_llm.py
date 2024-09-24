@@ -18,6 +18,7 @@
 import copy
 import numpy as np
 
+import mindspore as ms
 from mindspore import Tensor, nn
 from mindspore import dtype as mstype
 from mindspore.ops import operations as P
@@ -71,13 +72,14 @@ class VisionExpertAttention(nn.Cell):
         self.num_attention_heads = num_attention_heads
         self.num_multi_query_heads = num_multi_query_heads
         self.head_dim = self.hidden_size // self.num_attention_heads
+        self.kv_dim = self.head_dim * self.num_multi_query_heads
         self.stride = [
             self.num_attention_heads,
             self.num_multi_query_heads,
             self.num_multi_query_heads,
         ]
         self.qkv_size = (
-            self.hidden_size + self.head_dim * self.num_multi_query_heads * 2
+            self.hidden_size + self.kv_dim * 2
         )
         self.scaling = self.head_dim**-0.5
         self.block_size = block_size
@@ -160,6 +162,7 @@ class VisionExpertAttention(nn.Cell):
         self.update = P.TensorScatterUpdate()
         self.expand_dims = P.ExpandDims()
         self.tile_kv = P.Tile()
+        self.split_qkv = ms.ops.auto_generate.SplitWithSize()
 
         if self.use_flash_attention:
             self.input_layout = "BSH" if cp > 1 else "BNSD"
@@ -173,6 +176,30 @@ class VisionExpertAttention(nn.Cell):
                                                   sparse_mode=self.sparse_mode,
                                                   use_attention_mask=True)
             self.flash_attention.shard(parallel_config)
+        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+            self.shard(parallel_config)
+
+    def shard(self, parallel_config):
+        """set parallel config to ops"""
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+        self.vision_expert_query_key_value.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+        self.language_expert_query_key_value.shard(((dp, 1), (mp, 1)))
+        self.stride_slice.shard(((dp, 1, mp),))
+        self.apply_rotary_emb.shard(parallel_config)
+        self.tile_kv.shard(((dp, mp, 1, 1),))
+        self.mul.shard(((dp, mp, 1, 1), ()))
+        self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+        self.add.shard(((dp, 1, 1, 1), (dp, mp, 1, 1)))
+        self.softmax.shard(((dp, mp, 1, 1),))
+        self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+        self.vision_expert_dense.shard(((dp, mp), (1, mp)))
+        self.language_expert_dense.shard(((dp, mp), (1, mp)))
+        self.split_qkv.shard(((1, 1, 1),))
+        if self.use_past:
+            self.infer_attention.rotary_embedding.mul.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
+        else:
+            self.apply_rotary_emb.mul.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
 
     def construct(
             self,
@@ -203,20 +230,8 @@ class VisionExpertAttention(nn.Cell):
             language = self.reshape(self.language_expert_query_key_value(language), (bsz, -1, self.qkv_size))
             mixed_raw_layer = self.update(mixed_raw_layer, language_indices, language)
 
-        kv_hidden_size = self.head_dim * self.num_multi_query_heads
-        query_states = self.stride_slice(mixed_raw_layer, (0, 0, 0), (bsz, q_len, self.hidden_size), (1, 1, 1))
-        key_states = self.stride_slice(
-            mixed_raw_layer,
-            (0, 0, self.hidden_size),
-            (bsz, q_len, self.hidden_size + kv_hidden_size),
-            (1, 1, 1),
-        )
-        value_states = self.stride_slice(
-            mixed_raw_layer,
-            (0, 0, self.hidden_size + kv_hidden_size),
-            (bsz, q_len, self.hidden_size + kv_hidden_size * 2),
-            (1, 1, 1),
-        )
+        query_states, key_states, value_states = self.split_qkv(
+            mixed_raw_layer, (self.hidden_size, self.kv_dim, self.kv_dim), 2)
 
         if self.use_past:
             context_layer = self.infer_attention(
@@ -329,6 +344,7 @@ class VisionExpertMLP(nn.Cell):
             compute_dtype,
             param_init_type,
             use_past=False,
+            parallel_config=TransformerOpParallelConfig()
     ):
         super().__init__()
         self.use_past = use_past
@@ -338,13 +354,15 @@ class VisionExpertMLP(nn.Cell):
             hidden_size,
             intermediate_size=intermediate_size,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type
+            param_init_type=param_init_type,
+            parallel_config=parallel_config
         )
         self.vision_mlp = LlamaFeedForward(
             hidden_size,
             intermediate_size=intermediate_size,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type
+            param_init_type=param_init_type,
+            parallel_config=parallel_config
         )
 
         self.shape = P.Shape()
@@ -431,6 +449,12 @@ class CogVLMDecoderLayer(nn.Cell):
         )
 
         self.add = P.Add()
+
+        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+            dp = parallel_config.data_parallel
+            self.add.shard(((dp, 1, 1), (dp, 1, 1)))
+            self.input_layernorm.shard((dp, 1, 1))
+            self.post_attention_layernorm.shard((dp, 1, 1))
 
     def construct(
             self,
@@ -560,10 +584,7 @@ class LlamaModelForCogVLM2Image(LlamaPreTrainedModel):
         )
         dp = config.parallel_config.data_parallel
         cp = config.parallel_config.context_parallel
-        if not (
-                _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,)
-                and _is_sharding_propagation()
-        ):
+        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.tok_embeddings.pipeline_stage = 0
             if config.parallel_config.pipeline_stage > 1:
                 self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
@@ -744,10 +765,7 @@ class LlamaForCausalLMForCogVLM2Image(LlamaPreTrainedModel):
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
         cp = config.parallel_config.context_parallel
-        if not (
-                _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,)
-                and _is_sharding_propagation()
-        ):
+        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.slice.shard(((dp, 1),))
             self.not_equal.shard(((dp, 1), ()))
             self.mul.shard(((dp, 1), (dp, 1)))

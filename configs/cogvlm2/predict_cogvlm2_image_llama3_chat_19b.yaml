@@ -29,8 +29,8 @@ callbacks:
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
-  data_parallel: 8
-  model_parallel: 1
+  data_parallel: 1
+  model_parallel: 2
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: False
