@@ -304,7 +304,7 @@ moe_config:
 # 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
 cd mindformers/research
 bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
- --config mixtral/pretrain_mixtral-8x7b.yaml \
+ --config research/mixtral/pretrain_mixtral-8x7b.yaml \
  --run_mode train \
  --use_parallel True \
  --train_data dataset_dir" \
@@ -313,7 +313,7 @@ bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
 # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
 cd mindformers/research
 bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
- --config mixtral/pretrain_mixtral-8x7b.yaml \
+ --config research/mixtral/pretrain_mixtral-8x7b.yaml \
  --run_mode train \
  --use_parallel True \
  --train_data dataset_dir" \
@@ -385,7 +385,7 @@ model:
 # 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
 cd mindformers/research
 bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
- --config mixtral/finetune_mixtral-8x7b.yaml \
+ --config research/mixtral/finetune_mixtral-8x7b.yaml \
  --load_checkpoint model_dir \
  --run_mode finetune \
  --use_parallel True \
@@ -395,7 +395,7 @@ bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
 # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
 cd mindformers/research
 bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
- --config mixtral/finetune_mixtral-8x7b.yaml \
+ --config research/mixtral/finetune_mixtral-8x7b.yaml \
  --load_checkpoint model_dir \
  --run_mode finetune \
  --use_parallel True \
@@ -436,7 +436,7 @@ mindspore_ckpt_path: 转换后gmm的权重的存储路径
 ```shell
 cd mindformers/research
 bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
- --config mixtral/predict_mixtral-8x7b.yaml \
+ --config research/mixtral/predict_mixtral-8x7b.yaml \
  --run_mode predict \
  --use_parallel True \
  --load_checkpoint model_dir \
