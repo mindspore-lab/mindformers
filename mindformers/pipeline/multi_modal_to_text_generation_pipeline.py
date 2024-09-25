@@ -43,6 +43,41 @@ class MultiModalToTextPipeline(Pipeline):
             If input model and image_processor's types are not corrected.
         ValueError:
             If the input model is not in support list.
+
+    Examples:
+        >>> import os
+        >>> import mindspore as ms
+        >>> from mindformers import build_context
+        >>> from mindformers import AutoModel, AutoTokenizer, pipeline, AutoProcessor, MindFormerConfig, AutoConfig
+        >>> os.environ['USE_ROPE_SELF_DEFINE'] = 'True'
+        >>> inputs = [[{"image": "/path/to/example.jpg"}, {"text": "Please describe this image."}]]
+        >>> # Note:
+        >>> #     "image": is an image path
+        >>> model_path = "/path/to/cogvlm2_mode_path"
+        >>> # Note:
+        >>> #     mode_path: a new folder (containing configs/cogvlm2/predict_cogvlm2_image_llama3_chat_19b.yaml)
+        >>> config_path = "/path/to/cogvlm2_mode_path/predict_cogvlm2_image_llama3_chat_19b.yaml"
+        >>> # Note:
+        >>> #     config_path: the predict_cogvlm2_image_llama3_chat_19b.yaml path in mode_path
+        >>> #     Please change the value of 'vocab_file' in predict_cogvlm2_image_llama3_chat_19b.yaml
+        >>> #     to the value of 'tokenizer.model'.
+        >>> config = MindFormerConfig(config_path)
+        >>> build_context(config)
+        >>> model_config = AutoConfig.from_pretrained(config_path)
+        >>> tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=True)
+        >>> model = AutoModel.from_config(model_config)
+        >>> processor = AutoProcessor.from_pretrained(config_path, trust_remote_code=True, use_fast=True)
+        >>> param_dict = ms.load_checkpoint("/path/to/cogvlm2image.ckpt")
+        >>> _, not_load = ms.load_param_into_net(model, param_dict)
+        >>> text_generation_pipeline = pipeline(task="multi_modal_to_text_generation",
+        >>>                                     model=model, processor=processor)
+        >>> outputs = text_generation_pipeline(inputs, max_length=model_config.max_decode_length,
+        >>>                                    do_sample=False, top_k=model_config.top_k,top_p=model_config.top_p)
+        >>> for output in outputs:
+        >>>     print(output)
+        Question: Please describe this image. Answer:This image is an apple.
+        >>> # Note:
+        >>> #     The final result shall be subject to the actual input image.
     """
     _support_list = MindFormerBook.get_pipeline_support_task_list()['multi_modal_to_text_generation'].keys()
 

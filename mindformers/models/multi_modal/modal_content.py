@@ -283,6 +283,15 @@ class ModalContentTransformTemplate:
             can fill in after the content mask is completed after segmentation.
         kwargs (dict, optional): A variable number of keyword parameters reserved
             for the keyword parameters to be expanded.
+
+    Examples:
+        >>> from mindformers.models.multi_modal import ModalContentTransformTemplate
+        >>> ModalContentTransformTemplate().supported_modal
+        []
+        >>> # Note:
+        >>> #     The property of 'supported_modal' should be inherited by subclasses,
+        >>> #     and subclasses implement the corresponding modal builders.
+        >>> #     The current base class does not support any modal builders, so it returns '[]'.
     """
     _DEFAULT_OUTPUT_COLUMNS = ["input_ids"]
 

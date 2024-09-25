@@ -213,6 +213,14 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             for the position parameters to be expanded.
         kwargs (dict, optional): A variable number of keyword parameters reserved
             for the keyword parameters to be expanded.
+
+    Examples:
+        >>> from mindformers import AutoModel
+        >>> import mindspore as ms
+        >>> ms.set_context(mode=0)
+        >>> network = AutoModel.from_pretrained('llama2_7b')
+        >>> type(network)
+        <class 'mindformers.models.llama.llama.LlamaForCausalLM'>
     """
     _support_list = []
     _model_type = 0
