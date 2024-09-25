@@ -804,7 +804,7 @@ class GenerationMixin:
                     input_ids,
                     target_mask,
                 ) = self._prepare_model_inputs_for_decoder(input_ids, input_mask)
-                valid_length_each_example = [1 for _ in range(batch_size)]
+                valid_length_each_example = np.array([1 for _ in range(batch_size)])
             # A single loop generates one token, loop until reaching target
             # model_origin_max_length or generating eod token
             is_finished = [False] * batch_size
@@ -921,7 +921,7 @@ class GenerationMixin:
 
     def infer(self,
               input_ids: Union[List[int], List[List[int]]],
-              valid_length_each_example: List[int],
+              valid_length_each_example: np.ndarray,
               generation_config: GenerationConfig = None,
               logits_processor: Optional[LogitsProcessorList] = None,
               logits_warper: Optional[LogitsProcessorList] = None,
@@ -938,7 +938,7 @@ class GenerationMixin:
 
         Args:
             input_ids (List(List(int))): Input ids after padding.
-            valid_length_each_example (List(int)): Valid input length except padding.
+            valid_length_each_example (numpy.ndarray): Valid input length except padding.
             generation_config (`GenerationConfig`): The generation configuration to be used
                 as base parametrization for the generation call.
             logits_processor (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`].
@@ -1017,7 +1017,7 @@ class GenerationMixin:
 
     def forward(self,
                 input_ids: [Union[List[int], List[List[int]]]],
-                valid_length_each_example: [List[int]],
+                valid_length_each_example: np.ndarray,
                 block_tables: Optional[Tensor] = None,
                 slot_mapping: Optional[Tensor] = None,
                 prefill: bool = None,
@@ -1031,7 +1031,7 @@ class GenerationMixin:
 
         Args:
             input_ids (List(List(int))): Input ids after padding.
-            valid_length_each_example (List(int)): Valid input length except padding.
+            valid_length_each_example (numpy.ndarray): Valid input length except padding.
             block_tables (Tensor): Params for page attention.
             slot_mapping (Tensor): Params for page attention.
             prefill (bool): Whether to do prefill predict or decode predict.
@@ -1110,7 +1110,7 @@ class GenerationMixin:
             is_finished (List(bool)): Whether each sequence is finished its generation.
             generation_config (`GenerationConfig`): The generation configuration to be used
                 as base parametrization for the generation call.
-            valid_length_each_example (List(int)): Valid input length except padding.
+            valid_length_each_example (numpy.ndarray): Valid input length except padding.
             current_index (List(int)): Current index of sequence.
             logits_processor (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`].
                 List of instances of class derived from [`LogitsProcessor`] used to modify the prediction scores

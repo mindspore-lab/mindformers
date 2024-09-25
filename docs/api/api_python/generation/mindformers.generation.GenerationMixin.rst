@@ -30,13 +30,13 @@ mindformers.generation.GenerationMixin
         返回：
             两个参数， `response` 表示本次会话中大模型的回复结果，`history` 表示对话历史。
 
-    .. py:method:: forward(input_ids: [Union[List[int], List[List[int]]]], valid_length_each_example: [List[int]], block_tables: Optional[Tensor] = None, slot_mapping: Optional[Tensor] = None, prefill: bool = None, use_past: bool = False, encoder_mask: Optional[Tensor] = None, encoder_output: Optional[Tensor] = None, target_mask: Optional[Tensor] = None, **model_kwargs)
+    .. py:method:: forward(input_ids: [Union[List[int], List[List[int]]]], valid_length_each_example: [numpy.ndarray], block_tables: Optional[Tensor] = None, slot_mapping: Optional[Tensor] = None, prefill: bool = None, use_past: bool = False, encoder_mask: Optional[Tensor] = None, encoder_output: Optional[Tensor] = None, target_mask: Optional[Tensor] = None, **model_kwargs)
 
         模型前向传播的过程。
 
         参数：
             - **input_ids** (List(List(int))) - 填充（Padding）后的输入索引。
-            - **valid_length_each_example** (List(int)) - 除填充外的有效输入长度。
+            - **valid_length_each_example** (numpy.ndarray) - 除填充外的有效输入长度。
             - **block_tables** (Tensor) - 页面注意力的参数。
             - **slot_mapping** (Tensor) - 页面注意力的参数。
             - **prefill** (bool) - 选择是进行预填充预测还是解码预测。
@@ -78,13 +78,13 @@ mindformers.generation.GenerationMixin
         返回：
             生成的一个词元索引列表。
 
-    .. py:method:: infer(input_ids: Union[List[int], List[List[int]]], valid_length_each_example: List[int], generation_config: GenerationConfig = None, logits_processor: Optional[LogitsProcessorList] = None, logits_warper: Optional[LogitsProcessorList] = None, block_tables: Optional[Tensor] = None, slot_mapping: Optional[Tensor] = None, prefill: bool = True, is_finished: List[bool] = None, encoder_mask: Optional[Tensor] = None, encoder_output: Optional[Tensor] = None, target_mask: Optional[Tensor] = None, **model_kwargs)
+    .. py:method:: infer(input_ids: Union[List[int], List[List[int]]], valid_length_each_example: numpy.ndarray, generation_config: GenerationConfig = None, logits_processor: Optional[LogitsProcessorList] = None, logits_warper: Optional[LogitsProcessorList] = None, block_tables: Optional[Tensor] = None, slot_mapping: Optional[Tensor] = None, prefill: bool = True, is_finished: List[bool] = None, encoder_mask: Optional[Tensor] = None, encoder_output: Optional[Tensor] = None, target_mask: Optional[Tensor] = None, **model_kwargs)
 
         用于对下一个位置做推断并返回其置信度，可以选择来用做预填充或解码预测。
 
         参数：
             - **input_ids** (List(List(int))) - 填充（Padding）后的输入索引。
-            - **valid_length_each_example** (List(int)) - 除填充外的有效输入长度。
+            - **valid_length_each_example** (numpy.ndarray) - 除填充外的有效输入长度。
             - **generation_config** (`GenerationConfig`) - 用生成配置来对生成调用进行基本参数化。
             - **logits_processor** (`LogitsProcessorList`, 可选) - [`LogitsProcessorList`]的一个实例。这是由继承自[`LogitsProcessor`]类的实例组成的一个列表，用于在每一步生成过程中修改语言模型头部的预测得分。默认值： ``None`` 。
             - **logits_warper** (`LogitsProcessorList`, 可选) - [`LogitsProcessorList`]的一个实例。这是一个由继承自[`LogitsWarper`]类的实例组成的列表，用于在每一步生成过程中的多项式采样之前，调整语言模型头部的预测得分分布。默认值： ``None`` 。
@@ -108,7 +108,7 @@ mindformers.generation.GenerationMixin
             - **res** (List(List(int))) - 推断后的置信度。
             - **is_finished** (List(bool)) - 记录每个序列是否完成其生成。
             - **generation_config** (`GenerationConfig`) - 生成配置用作生成调用的基本参数化。
-            - **valid_length_each_example** (List(int)) - 除填充外的有效输入长度。
+            - **valid_length_each_example** (numpy.ndarray) - 除填充外的有效输入长度。
             - **current_index** (List(int)) - 序列的当前索引。
             - **logits_processor** (`LogitsProcessorList`, 可选) - [`LogitsProcessorList`]的一个实例。这是由继承自[`LogitsProcessor`]类的实例组成的一个列表，用于在每一步生成过程中修改语言模型头部的预测得分。默认值： ``None`` 。
             - **logits_warper** (`LogitsProcessorList`, 可选) - [`LogitsProcessorList`]的一个实例。这是一个由继承自[`LogitsWarper`]类的实例组成的列表，用于在每一步生成过程中的多项式采样之前，调整语言模型头部的预测得分分布。默认值： ``None`` 。
