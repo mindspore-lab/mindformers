@@ -83,6 +83,10 @@ class GenerationMixin:
         self.use_mint_op = version_control.use_mint_op()
         self.is_pynative = is_pynative()
         self.argmax = mint.argmax if self.use_mint_op else ms.ops.argmax
+        self._pre_set_phase = None
+
+    def _set_network_phase(self, phase):
+        self._pre_set_phase = phase
 
     def _set_block_mgr(self, batch_size):
         """ Set model block table mgr function. """
@@ -292,6 +296,8 @@ class GenerationMixin:
         # Claim the first graph
         if prefill:
             self.phase = "prefill"
+            if self._pre_set_phase:
+                self.phase = f"prefill_{self._pre_set_phase}"
             self.add_flags_custom(is_first_iteration=True)
             model_inputs["batch_valid_length"] = Tensor.from_numpy(
                 np.array([valid_length_each_example], dtype=np.int32))
@@ -307,6 +313,8 @@ class GenerationMixin:
             self.add_flags_custom(is_first_iteration=False)
         else:
             # slice model inputs for incremental infer
+            if self._pre_set_phase:
+                self.phase = f"increment_{self._pre_set_phase}"
             if not (hasattr(self.config, 'parallel_decoding_params') and self.config.parallel_decoding_params):
                 self.slice_incremental_inputs(model_inputs, current_index)
             model_inputs["batch_valid_length"] = Tensor.from_numpy(
@@ -1080,6 +1088,8 @@ class GenerationMixin:
                     slot_mapping=slot_mapping
                 )
             else:
+                if self._pre_set_phase:
+                    self.phase = f"predict_{self._pre_set_phase}"
                 res = self(**model_inputs)  # pylint: disable=E1102
 
         return res, current_index
