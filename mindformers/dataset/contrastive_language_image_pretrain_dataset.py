@@ -91,30 +91,16 @@ class ContrastiveLanguageImagePretrainDataset(BaseDataset):
         Instance of ContrastiveLanguageImagePretrainDataset.
 
     Examples:
-        >>> # 1) Create an instance using a MindFormerConfig.
-        >>> from mindformers.tools.register import MindFormerConfig
-        >>> from mindformers import MindFormerBook
-        >>> from mindformers.dataset import ContrastiveLanguageImagePretrainDataset
-        >>> from mindformers.dataset import check_dataset_config
-        >>> config_dict_list = MindFormerBook.get_trainer_support_task_list()
-        >>> config_path = config_dict_list['contrastive_language_image_pretrain']['clip_vit_b_32']
-        >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
-        >>> config = MindFormerConfig(config_path)
-        >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
-        >>> # Note:
-        >>> #     The detailed data setting could refer to
-        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md
-        >>> check_dataset_config(config)
-        >>> # use class to build dataset
-        >>> dataset_from_class = ContrastiveLanguageImagePretrainDataset(config.train_dataset_task.dataset_config)
-        >>>
-        >>> # 2) Creating an instance using other parameters
         >>> from mindspore.dataset.vision import CenterCrop, ToTensor, Normalize
         >>> from mindformers import AutoTokenizer
         >>> from mindformers.dataset import Flickr8kDataLoader, ContrastiveLanguageImagePretrainDataset
         >>> from mindformers.dataset import Resize, RandomChoiceTokenizerForward
         >>> tokenizer = AutoTokenizer.from_pretrained("clip_vit_b_32")
-        >>> data_loader = Flickr8kDataLoader(dataset_dir="The required task dataset path", stage="train",
+        >>> # Note:
+        >>> #     `"/dir/to/dataset"` should be replaced with the real directory of dataset.
+        >>> #     The detailed data setting could refer to
+        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md
+        >>> data_loader = Flickr8kDataLoader(dataset_dir="/dir/to/dataset", stage="train",
         ...                                  column_names=["image", "text"])
         >>> text_transforms = RandomChoiceTokenizerForward(max_length=77, padding="max_length", random_seed=2022,
         ...                                                tokenizer=tokenizer)

@@ -225,7 +225,7 @@ class AutoModel(_BaseAutoModelClass):
     _model_mapping = MODEL_MAPPING
 
 
-AutoModel = auto_class_update(AutoModel)
+AutoModel = auto_class_update(AutoModel, checkpoint_for_example="sam_vit_b")
 
 
 class AutoModelForPreTraining(_BaseAutoModelClass):
@@ -252,7 +252,11 @@ class AutoModelForCausalLM(_BaseAutoModelClass):
     _model_mapping = MODEL_FOR_CAUSAL_LM_MAPPING
 
 
-AutoModelForCausalLM = auto_class_update(AutoModelForCausalLM, head_doc="causal language modeling")
+AutoModelForCausalLM = auto_class_update(
+    AutoModelForCausalLM,
+    checkpoint_for_example="bert_tiny_uncased",
+    head_doc="causal language modeling"
+)
 
 
 class AutoModelForSeq2SeqLM(_BaseAutoModelClass):
@@ -319,7 +323,9 @@ class AutoModelForZeroShotImageClassification(_BaseAutoModelClass):
 
 
 AutoModelForZeroShotImageClassification = auto_class_update(
-    AutoModelForZeroShotImageClassification, head_doc="zero-shot image classification"
+    AutoModelForZeroShotImageClassification,
+    checkpoint_for_example="clip_vit_b_16",
+    head_doc="zero-shot image classification"
 )
 
 
