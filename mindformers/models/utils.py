@@ -114,7 +114,7 @@ class LayerSetting:
         self._check_inputs()
         self.offset = np.broadcast_to(self.offset, (self.pp_interleave_num, self.pp))
 
-        avg_layer = (self.num_layers + 1) // (self.pp * self.pp_interleave_num)
+        avg_layer = self.num_layers // (self.pp * self.pp_interleave_num)
         self.layer_list = np.ones((self.pp_interleave_num, self.pp), np.int64) * avg_layer + self.offset
         interleave_sum = np.insert(np.cumsum(np.sum(self.layer_list, axis=1))[:-1], 0, 0)
         self.layer_accu = np.cumsum(self.layer_list, axis=1) + interleave_sum.reshape(-1, 1)
