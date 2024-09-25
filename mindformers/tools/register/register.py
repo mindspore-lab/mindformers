@@ -76,6 +76,12 @@ class MindFormerModuleType:
           - 'transforms'
         * - WRAPPER
           - 'wrapper'
+
+    Examples:
+        >>> from mindformers.tools import MindFormerModuleType
+        >>>
+        >>> print(MindFormerModuleType.MODULES)
+        modules
     """
 
     def __init__(self):
@@ -113,6 +119,39 @@ class MindFormerModuleType:
 class MindFormerRegister:
     """
     The registration interface for MindFormers, provides methods for registering and obtaining the interface.
+
+    Examples:
+        >>> from mindformers.tools import MindFormerModuleType, MindFormerRegister
+        >>>
+        >>>
+        >>> # Using decorator to register the class
+        >>> @MindFormerRegister.register(MindFormerModuleType.CONFIG)
+        >>> class MyConfig:
+        ...     def __init__(self, param):
+        ...         self.param = param
+        >>>
+        >>>
+        >>> # Using method to register the class
+        >>> MindFormerRegister.register_cls(cls=MyConfig, module_type=MindFormerRegister)
+        >>>
+        >>> print(MindFormerRegister.is_exist(module_type=MindFormerModuleType.CONFIG, class_name="MyConfig"))
+        True
+        >>> cls = MindFormerRegister.get_cls(module_type=MindFormerModuleType.CONFIG, class_name="MyConfig")
+        >>> print(cls.__name__)
+        MyConfig
+        >>> instance = MindFormerRegister.get_instance_from_cfg(cfg={'type': 'MyConfig', 'param': 0},
+        ...                                                     module_type=MindFormerModuleType.CONFIG)
+        >>> print(instance.__class__.__name__)
+        MyConfig
+        >>> print(instance.param)
+        0
+        >>> instance = MindFormerRegister.get_instance(module_type=MindFormerModuleType.CONFIG,
+        ...                                            class_name="MyConfig",
+        ...                                            param=0)
+        >>> print(instance.__class__.__name__)
+        MyConfig
+        >>> print(instance.param)
+        0
     """
 
     def __init__(self):
