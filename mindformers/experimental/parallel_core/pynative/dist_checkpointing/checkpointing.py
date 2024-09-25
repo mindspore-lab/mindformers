@@ -27,6 +27,7 @@ __all__ = [
 
 import os
 import glob
+import json
 import numpy as np
 import mindspore as ms
 from mindspore import nn
@@ -66,11 +67,11 @@ def get_checkpoint_name(ckpt_path, format=_FORMAT, get_name_from_file=False,
     The layout of the ckpt_path will be like:
     ckpt_path/
     ├── rank_0
-    │   ├── network_0_0.ckpt
-    │   └── network_0_1.ckpt
+    │   ├── network_rank_0-0_0.ckpt
+    │   └── network_rank_0-0_1.ckpt
     └── rank_1
-        ├── network_0_0.ckpt
-        └── network_0_1.ckpt
+        ├── network_rank_1-0_0.ckpt
+        └── network_rank_1-0_1.ckpt
     The strategy file will be saved in a standalone dir for the possible subsequent merging.
     The checkpoint file will be separated in different dir for the possible subsequent transformation.
     """
@@ -94,7 +95,7 @@ def get_checkpoint_name(ckpt_path, format=_FORMAT, get_name_from_file=False,
                 continue
             ckpt_file = checkpoint_file
     else:
-        ckpt_file = os.path.join(ckpt_local_path, f"{prefix}_{epoch_num}_{step_num}.{format}")
+        ckpt_file = os.path.join(ckpt_local_path, f"{prefix}_rank_{rank}-{epoch_num}_{step_num}.{format}")
     return ckpt_file, strategy_file
 
 
@@ -236,6 +237,7 @@ def save_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
     # validator check
     validator.check_value_type("model", model, [nn.Cell], "save_checkpoint")
     validator.check_value_type("optimizer", optimizer, [nn.Cell, type(None)], "save_checkpoint")
+    rank_path = os.path.join(ckpt_path, f"rank_{get_rank()}")
     ckpt_file, strategy_file = get_checkpoint_name(ckpt_path, format=format, prefix=prefix, epoch_num=epoch_num,
                                                    step_num=step_num)
     for key, _ in kwargs.items():
@@ -257,11 +259,11 @@ def save_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
         append_dict.update({"epoch_num": epoch_num, "step_num": step_num})
         # ensure ckpt number is less than `keep_checkpoint_max` after saving,
         # so make 1 free space for incoming ckpt
-        ensure_total_ckpt_is_less_than_limit(ckpt_path=os.path.join(ckpt_path, f"rank_{get_rank()}"),
-                                             limit=keep_checkpoint_max - 1, format=format)
+        ensure_total_ckpt_is_less_than_limit(ckpt_path=rank_path, limit=keep_checkpoint_max - 1, format=format)
         ms.save_checkpoint(params_dict, ckpt_file, append_dict=append_dict, format=format, crc_check=crc_check)
-
-    logger.info(f"ckpt saved")
+        record_last_ckpt_to_json(epoch=epoch_num, step=step_num, ckpt_file=os.path.basename(ckpt_file),
+                                 meta_json=os.path.join(rank_path, 'meta.json'))
+    logger.info("ckpt saved")
 
 def ensure_total_ckpt_is_less_than_limit(ckpt_path: str, limit: int = 5, format: str = _FORMAT):
     """
@@ -304,9 +306,12 @@ def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_pat
         raise ValueError("crc_check does not support format 'safetensors' for now.")
     validator.check_value_type("model", model, [nn.Cell], "load_checkpoint")
     validator.check_value_type("optimizer", optimizer, [nn.Cell, type(None)], "load_checkpoint")
-    logger.info(f"ckpt loading")
-    src_ckpt_file = get_last_checkpoint(os.path.join(ckpt_path, f"rank_{get_rank()}"), format=format)
-    if src_ckpt_file is None:
+    logger.info("ckpt loading")
+    if os.path.isdir(ckpt_path):
+        src_ckpt_file = get_last_checkpoint(os.path.join(ckpt_path, f"rank_{get_rank()}"), format=format)
+    elif os.path.isfile(ckpt_path):
+        src_ckpt_file = ckpt_path
+    else:
         raise ValueError(f"There is no *.{format} in {ckpt_path}, load failed.")
     logger.info(f"using latest checkpoint: {src_ckpt_file}")
     for key, _ in kwargs.items():
@@ -333,7 +338,7 @@ def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_pat
             logger.warning(f"param_not_load:{param_not_load}")
         if ckpt_not_load:
             logger.warning(f"ckpt_not_load:{ckpt_not_load}")
-    logger.info(f"ckpt loaded")
+    logger.info("ckpt loaded")
 
     return resume_dict
 
@@ -347,3 +352,13 @@ def get_last_checkpoint(ckpt_path: str, format: str = _FORMAT):
         return None
     ckpt_list = sorted(ckpt_list, key=lambda x: os.path.getmtime(os.path.join(ckpt_path, x)))
     return os.path.join(ckpt_path, ckpt_list[-1])
+
+def record_last_ckpt_to_json(epoch: int, step: int, ckpt_file: str, meta_json: str):
+    """record last ckpt info to json"""
+    meta_data = {
+        "last_epoch": epoch,
+        "last_step": step,
+        "last_ckpt_file": ckpt_file
+    }
+    with open(meta_json, 'w', encoding="utf-8") as fp:
+        json.dump(meta_data, fp)
