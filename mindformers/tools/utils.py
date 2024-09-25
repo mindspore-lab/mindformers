@@ -523,23 +523,23 @@ def create_file(file_path, info=None):
             it is detected that it is not in the ModelArts platform.")
         import moxing as mox
         with mox.file.File(file_path, 'w') as f:
-            if isinstance(info, str):
-                f.write(info)
-            elif isinstance(info, list):
-                for sub_info in info:
-                    f.write(sub_info + "\n")
+            if info:
+                if isinstance(info, list):
+                    for sub_info in info:
+                        f.write(str(sub_info) + "\n")
+                else:
+                    f.write(info)
             else:
                 f.write("Hugging ModelArts.")
     else:
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
         with os.fdopen(os.open(file_path, flags_, 0o750), 'w') as f:
-            if isinstance(info, str):
-                f.write(info)
-            elif isinstance(info, list):
-                for sub_info in info:
-                    f.write(sub_info + "\n")
-            else:
-                raise ValueError(f"The info to write should be str or list, but get {info}")
+            if info:
+                if isinstance(info, list):
+                    for sub_info in info:
+                        f.write(str(sub_info) + "\n")
+                else:
+                    f.write(info)
 
 
 def delete_file(file_path):
