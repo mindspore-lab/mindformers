@@ -19,11 +19,15 @@ mindformers.wrapper.MFPipelineWithLossScaleCell
         - **(\*inputs)** (Tuple(Tensor)) - 形状为 :math:`(N, \ldots)` 的输入张量元组。
 
     输出：
-        3个张量的元组，包括损失值、溢出标志和当前的损失缩放值：
+        5个或7个张量的元组，包括损失值、溢出标志，当前的损失缩放值，优化器学习率，全局梯度norm，局部梯度norm和对应分组size：
 
         - **loss** (Tensor) -  损失值（标量）。
         - **overflow** (Tensor) -  是否发生溢出（布尔值）。
         - **loss scale** (Tensor) -  损失缩放值，形状为 :math:`()` 或 :math:`(1,)`。
+        - **learning rate** (Tensor) -  优化器学习率。
+        - **global norm** (Tensor) -  全局梯度norm（标量），用于callback打屏日志，仅当 `use_clip_grad=True` 时计算，否则为None。
+        - **local_norm** (Tensor) -  分组梯度norm, 用于callback打屏日志，仅当 `local_norm=True` 时返回。
+        - **size** (Tensor) -  每组norm梯度的size，用于callback打屏日志，仅当 `local_norm=True` 时返回。
 
     异常：
         - **TypeError** - 如果 `scale_sense` 既不是 Cell 也不是 Tensor。
