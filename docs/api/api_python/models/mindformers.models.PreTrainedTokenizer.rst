@@ -28,7 +28,7 @@ mindformers.models.PreTrainedTokenizer
         - **padding_side** (str, 可选) - 模型应该在哪一侧应用填充。应从['right', 'left']中选择。默认值从同名类属性中选择。
         - **truncation_side** (str, 可选) - 模型应该在哪一侧应用截断。应从['right', 'left']中选择。默认值从同名类属性中选择。
         - **chat_template** (str, 可选) - 将用于格式化聊天消息列表的Jinja模板字符串。默认值： ``"{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"`` 。
-        - **model_input_names** (List[str, 可选) - 模型前向传递接受的输入列表（如"token_type_ids"或"attention_mask"）。默认值从同名类属性中选择。
+        - **model_input_names** (List[str], 可选) - 模型前向传递接受的输入列表（如"token_type_ids"或"attention_mask"）。默认值从同名类属性中选择。
         - **bos_token** (Union[str, tokenizers.AddedToken], 可选) - 表示句子开始的特殊词元。将关联到self.bos_token和self.bos_token_id。默认值： ``None`` 。
         - **eos_token** (Union[str, tokenizers.AddedToken], 可选) - 表示句子结束的特殊词元。将关联到self.eos_token和self.eos_token_id。默认值： ``None`` 。
         - **unk_token** (Union[str, tokenizers.AddedToken], 可选) - 表示词汇表外词元的特殊词元。将关联到self.unk_token和self.unk_token_id。默认值： ``None`` 。
@@ -64,7 +64,7 @@ mindformers.models.PreTrainedTokenizer
         使用词汇表和添加的词元，将单个索引或索引序列转换为词元或词元序列。
 
         参数：
-            - **ids** (Union[int, list]) - 要转换为词元的词元索引或词元索引序列。
+            - **ids** (Union[int, list[int]]) - 要转换为词元的词元索引或词元索引序列。
             - **skip_special_tokens** (bool, 可选) - 是否在解码时移除特殊词元。默认值： ``False`` 。
 
         返回：
@@ -75,7 +75,7 @@ mindformers.models.PreTrainedTokenizer
         使用词汇表将词元字符串（或词元序列）转换为单个整数索引（或索引序列）。
 
         参数：
-            - **tokens** (Union[str, list]) - 要转换为词元索引的一个或多个词元。
+            - **tokens** (Union[str, List[str]]) - 要转换为词元索引的一个或多个词元。
 
         返回：
             `ids` ，类型为 `int` 或 `List[int]` 的词元索引或词元索引序列。

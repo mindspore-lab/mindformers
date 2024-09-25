@@ -457,7 +457,7 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         using the vocabulary and added tokens.
 
         Args:
-            ids (int or List[int]):
+            ids (Union[int, List[int]]):
                 The token id (or token ids) to convert to tokens.
             skip_special_tokens (bool, optional):
                 Whether to remove special tokens in the decoding.  Default: ``False`` .
