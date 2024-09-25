@@ -15,14 +15,29 @@
 # ============================================================================
 
 # run parallel-llama generator
+script_dir=$(dirname "$(realpath "$0")")
+
+check_real_path(){
+  if [ "${1:0:1}" == "/" ]; then
+    echo "$1"
+  else
+    echo "$(realpath -m $PWD/$1)"
+  fi
+}
+
+if [ "$#" -lt 3 ]; then
+    echo "Usage: $0 <config_path> <ckpt_path> <device_num> [<port>]"
+    exit 1
+fi
+
 CONFIG_PATH=$1
 CKPT_PATH=$2
 DEVICE_NUM=$3
 
-script_path="$(realpath "$(dirname "$0")")"
+PORT=8124
+if [ -n "$4" ]; then
+    PORT=$4
+fi
 
-msrun --worker_num $DEVICE_NUM --local_worker_num $DEVICE_NUM --master_port 8124 --log_dir llama_log --cluster_time_out 500 \
-"$script_path/run_llama_generator.py" \
---config_path $CONFIG_PATH \
---load_checkpoint $CKPT_PATH \
---use_parallel
+msrun --worker_num $DEVICE_NUM --local_worker_num $DEVICE_NUM --master_port $PORT --log_dir "output/msrun_log" --cluster_time_out 500 \
+"$script_dir/run_llama_generator.py" --config_path $CONFIG_PATH --load_checkpoint $CKPT_PATH
