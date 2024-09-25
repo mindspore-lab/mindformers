@@ -16,6 +16,7 @@ context:
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
+  memory_optimize_level: "O1"
 
 # aicc
 remote_save_url: "Please input obs url on AICC platform."
