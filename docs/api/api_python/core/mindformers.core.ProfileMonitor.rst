@@ -12,4 +12,4 @@ mindformers.core.ProfileMonitor
         - **start_profile** (str) - 是否打开profiling功能。默认值： ``True`` 。
         - **profile_communication** (str) - 在分布式训练期间是否收集通信性能数据。默认值： ``False`` 。
         - **profile_memory** (str) - 是否收集张量的内存数据。默认值： ``True`` 。
-        - **config** - 配置项，用于对相关配置信息进行profiling，比如并行配置。默认值： ``None`` 。
+        - **config** (dict) - 配置项，用于对相关配置信息进行profiling，比如并行配置。默认值： ``None`` 。

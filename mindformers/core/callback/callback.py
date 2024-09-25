@@ -724,6 +724,8 @@ class ProfileMonitor(Callback):
         profile_communication (str): Whether to collect communication performance data
                                      during multi-device training. Default: False.
         profile_memory (str): Whether to collect Tensor memory data. Default: True.
+        config (dict): Configuration items, used to profile relevant configuration information,
+                       such as parallel configuration. Default: None.
 
     Examples:
         >>> from mindformers.core import ProfileMonitor
