@@ -323,7 +323,7 @@ def init_context(use_parallel=False, context_config=None, parallel_config=None):
         - Int, the total available devices number.
 
     Examples:
-        >>> from mindformers.core import init_context
+        >>> from mindformers import init_context
         >>> init_context(use_parallel=False)
     """
     if context_config is None:
@@ -360,7 +360,7 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
         _Context, The instantiated context.
 
     Examples:
-        >>> from mindformers.core import build_context
+        >>> from mindformers import build_context
         >>> config = {'context': {'mode': 'GRAPH_MODE'}, 'parallel':{}}
         >>> build_context(config=config)
     """
@@ -395,6 +395,12 @@ def set_context(run_mode=None, **kwargs):
     Args:
         run_mode (str): The mode of the model behaviour. Must be in ['train', 'finetune', 'eval', 'predict'].
         **kwargs: MindSpore context arguments.
+
+    Examples:
+        >>> from mindformers import build_context, set_context
+        >>> config = {'context': {'mode': 'GRAPH_MODE'}, 'parallel':{}}
+        >>> build_context(config=config)
+        >>> set_context(max_device_memory='59GB')
     """
     ctx = _context()
     ctx.set_run_mode(run_mode)
@@ -430,6 +436,12 @@ def get_context(attr_key):
 
     Raises:
         ValueError: If input key is not an attribute in context.
+
+    Examples:
+        >>> from mindformers import build_context, get_context
+        >>> config = {'context': {'mode': 'GRAPH_MODE'}, 'parallel':{}}
+        >>> build_context(config=config)
+        >>> get_context('max_device_memory')
     """
     ctx = _context()
     if attr_key in MF_CONFIG:
