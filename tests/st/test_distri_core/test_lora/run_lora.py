@@ -34,6 +34,7 @@ from mindformers.experimental.parallel_core.pynative.transformer.rotary_pos_embe
 from mindformers.experimental.parallel_core.pynative.config import LoraConfig, TransformerConfig, ModelParallelConfig
 from mindformers.experimental.parallel_core.pynative.utils import valid_lora_config
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
+from mindformers.experimental.parallel_core.pynative.transformer.enums import ModelType
 
 from tests.st.test_distri_core.utils import TestData, train
 
@@ -60,7 +61,8 @@ class ParallelTransformerNet(Module):
         transformer_config = copy.deepcopy(config)
         if use_lora:
             transformer_config.update_lora_config('transformer')
-        self.transformer = ParallelTransformer(config=transformer_config, post_norm=False)
+        self.transformer = ParallelTransformer(config=transformer_config, post_norm=False,
+                                               model_type=ModelType.encoder_or_decoder)
         self.loss = SoftmaxCrossEntropyWithLogits()
 
     def construct(self, x, attention_mask, labels):
@@ -98,7 +100,7 @@ def run_parallel_transformer_pretrain():
     dataset = dataset.batch(batch_size)
 
     lora_config = LoraConfig(use_lora=False)
-    parallel_config = ModelParallelConfig(expert_model_parallel_size=1, use_sequence_parallel=False)
+    parallel_config = ModelParallelConfig(expert_model_parallel_size=1, sequence_parallel=False)
     config = TransformerConfig(vocab_size=50304,
                                num_layers=num_layers,
                                num_attention_heads=num_attention_heads,
@@ -170,7 +172,7 @@ def run_parallel_transformer_lora():
         },
     ]
     lora_config = LoraConfig(use_lora=True, target_cells=target_cells)
-    parallel_config = ModelParallelConfig(expert_model_parallel_size=1, use_sequence_parallel=False)
+    parallel_config = ModelParallelConfig(expert_model_parallel_size=1, sequence_parallel=False)
     config = TransformerConfig(vocab_size=50304,
                                num_layers=num_layers,
                                num_attention_heads=num_attention_heads,
