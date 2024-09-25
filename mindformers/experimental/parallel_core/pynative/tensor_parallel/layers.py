@@ -21,7 +21,6 @@ __all__ = [
     "LinearWithGradAccumulationAndAsyncCommunication"
 ]
 
-import mindspore.common.dtype as mstype
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, nn, ops, mint
@@ -103,7 +102,6 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         self.matmul_g_w = P.BatchMatMul(transpose_a=True, transpose_b=False)
         if get_tensor_model_parallel_world_size() > 1:
             self.tp_group = get_tensor_model_parallel_group()
-        self.reduce_sum = P.ReduceSum()
         self.stream = get_stream()
         self.input_parallel = []
         self.weight_param = None
@@ -175,7 +173,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             grad_weight = self.matmul_g_w(x, dout)
 
         if len(dout.shape) > 2:     # b,s,h / s,b,h
-            grad_weight = self.reduce_sum(grad_weight, 0)
+            grad_weight = mint.sum(grad_weight, 0)
             dout = dout.sum(axis=0)
 
         grad_weight = grad_weight.reshape(weight.shape)
@@ -199,8 +197,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         if self.sequence_parallel and self.data_layout == "BSH":
             grad_input = grad_input.swapaxes(0, 1)
 
-        grad_weight_param = F.full(weight_param.shape,
-                                   0, dtype=weight_param.dtype) if weight_param is not None else None
+        grad_weight_param = mint.full(weight_param.shape,
+                                      0, dtype=weight_param.dtype) if weight_param is not None else None
 
         return grad_input, grad_weight, grad_bias, grad_weight_param
 
@@ -226,13 +224,11 @@ class LinearWithFrozenWeight(nn.Cell):
         self.matmul_g_in = P.BatchMatMul(transpose_a=False, transpose_b=not self.transpose_b)
         if get_tensor_model_parallel_world_size() > 1:
             self.tp_group = get_tensor_model_parallel_group()
-        if bias:
-            self.bias_add = P.Add()
 
     def construct(self, input_, weight, bias):
         output = self.matmul(input_, weight)
         if self.bias and bias is not None:
-            output = self.bias_add(output, bias)
+            output = mint.add(output, bias)
         return output
 
     # pylint: disable=W0613
@@ -800,10 +796,7 @@ class VocabParallelEmbedding(nn.Cell):
         """ construct. """
         if self.tensor_model_parallel_size > 1:
             # Build the mask.
-            input_mask = (input_ < self.vocab_start_index).astype(mstype.int32) | (
-                input_ >= self.vocab_end_index
-            ).astype(mstype.int32)
-            input_mask = input_mask.astype(mstype.bool_)
+            input_mask = mint.logical_or((input_ < self.vocab_start_index), (input_ >= self.vocab_end_index))
             # Mask the input.
             masked_input = input_.copy() - self.vocab_start_index
             masked_input = ops.masked_fill(
@@ -812,9 +805,7 @@ class VocabParallelEmbedding(nn.Cell):
         else:
             masked_input = input_
         # Get the embeddings.
-        output_shape = masked_input.shape + (self.embedding_dim,)
-        masked_input = ops.flatten(masked_input, start_dim=0).astype(mstype.int32)
-        output_parallel = mint.index_select(self.weight, 0, masked_input).reshape(output_shape)
+        output_parallel = mint.nn.functional.embedding(masked_input, self.weight)
         # Mask the output embedding.
         if self.tensor_model_parallel_size > 1:
             output_parallel = ops.masked_fill(

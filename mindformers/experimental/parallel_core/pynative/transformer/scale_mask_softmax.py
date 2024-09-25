@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """ScaleMaskSoftmax"""
-import mindspore.ops.operations as P
 import mindspore.ops.functional as F
 
 from mindspore import mint
@@ -48,8 +47,6 @@ class ScaleMaskSoftmax(Module):
         self.softmax_compute_type = softmax_compute_type
         self.scale = scale
 
-        self.cast = P.Cast()
-
         if self.scale is not None and self.softmax_compute_type != mstype.float32:
             raise ValueError("softmax should be in fp32 when scaled")
 
@@ -57,7 +54,7 @@ class ScaleMaskSoftmax(Module):
         """construct method"""
         origin_dtype = F.dtype(x)
         if self.softmax_compute_type != origin_dtype:
-            x = self.cast(x, self.softmax_compute_type)
+            x = ops.cast(x, self.softmax_compute_type)
 
         if self.scale is not None:
             x = x * self.scale
@@ -66,6 +63,6 @@ class ScaleMaskSoftmax(Module):
         probs = mint.nn.functional.softmax(masked_input, dim=-1)
 
         if self.softmax_compute_type != origin_dtype:
-            probs = self.cast(probs, origin_dtype)
+            probs = ops.cast(probs, origin_dtype)
 
         return probs

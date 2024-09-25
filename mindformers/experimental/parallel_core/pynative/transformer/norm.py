@@ -16,7 +16,6 @@
 
 __all__ = ["get_norm"]
 
-import mindspore.ops.operations as P
 import mindspore.common.dtype as mstype
 
 from mindspore import nn, Parameter, Tensor, mint, ops
@@ -112,12 +111,11 @@ class FusedRMSNorm(nn.Cell):
         super(FusedRMSNorm, self).__init__()
         self.eps = eps
         self.compute_type = compute_type
-        self.weight = Parameter(initializer("ones", (dim,), dtype=compute_type), parallel_optimizer=False)
-        self.norm = P.RmsNorm(eps)
+        self.weight = Parameter(initializer("ones", (dim,), dtype=self.compute_type), parallel_optimizer=False)
 
     def construct(self, x):
         """Forward of FusedRMSNorm."""
-        output = self.norm(x, self.weight)[0]
+        output = ops.rms_norm(x, self.weight, self.eps)[0]
         return output
 
 
