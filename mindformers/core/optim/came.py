@@ -230,6 +230,31 @@ class Came(Optimizer):
         TypeError: If `use_locking` or `use_nesterov` is not a bool.
         ValueError: If `loss_scale` or `eps` is less than or equal to 0.
         ValueError: If `decay_rate`, `weight_decay`, `beta1` or `beta3` is not in range [0.0, 1.0].
+
+    Examples:
+        >>> import mindspore as ms
+        >>> import mindspore.nn as nn
+        >>> from mindformers import AutoModel
+        >>> from mindformers.core.optim import Came
+        >>>
+        >>> ms.set_context(mode=ms.context.GRAPH_MODE)
+        >>> net = AutoModel.from_pretrained("llama2_7b", num_layers=2)
+        >>> #1) All parameters use the same learning rate and weight decay
+        >>> optim = Came(params=net.trainable_params(), learning_rate=0.1)
+        >>>
+        >>> #2) Use parameter groups and set different values
+        >>> layernorm_params = list(filter(lambda x: 'norm' in x.name, net.trainable_params()))
+        >>> no_layernorm_params = list(filter(lambda x: 'norm' not in x.name, net.trainable_params()))
+        >>> group_params = [{'params': layernorm_params, 'weight_decay': 0.01},
+        ...                 {'params': no_layernorm_params, 'lr': 0.01},
+        ...                 {'order_params': net.trainable_params()}]
+        >>> optim = Came(group_params, learning_rate=0.1, weight_decay=0.0)
+        >>> # The layernorm_params's parameters will use default learning rate of 0.1 and weight decay of 0.01.
+        >>> # The no_layernorm_params's parameters will use learning rate of 0.01 and default weight decay of 0.0.
+        >>> # The final parameters order in which the optimizer will be followed is the value of 'order_params'.
+        >>>
+        >>> loss = nn.SoftmaxCrossEntropyWithLogits()
+        >>> model = ms.Model(net, loss_fn=loss, optimizer=optim)
     """
     _support_parallel_optimizer = True
 

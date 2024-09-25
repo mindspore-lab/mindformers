@@ -80,4 +80,3 @@ Evaluation Metric
     mindformers.core.EmF1Metric
     mindformers.core.PerplexityMetric
     mindformers.core.PromptAccMetric
-    mindformers.core.SQuADMetric
