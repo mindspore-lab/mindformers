@@ -6,7 +6,7 @@ mindformers.ModelRunner
     用于将 MindFormers 的一个模型运行实例作为 MindIEServer 的后端。
 
     参数：
-        - **model_path** (str) - 包含模型配置文件（yaml 文件）的模型路径。
+        - **model_path** (str) - 包含模型配置文件（yaml 文件，tokenizer 文件）的模型路径。
         - **npu_mem_size** (int) - kv-cache 的 NPU 内存大小。
         - **cpu_mem_size** (int) - kv-cache 的 CPU 内存大小。
         - **block_size** (int) - kv-cache 的块大小。

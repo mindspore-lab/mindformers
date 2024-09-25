@@ -119,7 +119,7 @@ class ModelRunner:
 
     Args:
         model_path (str):
-            Model path contains a yaml file for model configuration.
+            The model config path contains model config file and tokenizer file.
         npu_mem_size (int):
             Npu memory size used for kv-cache.
         cpu_mem_size (int):
@@ -137,6 +137,21 @@ class ModelRunner:
 
     Returns:
         A MindIERunner object.
+
+    Examples:
+        >>> from mindformers import ModelRunner
+        >>> model_path = /path/to/model/ # contains model config file and tokenizer file.
+        >>> npu_mem_size = 3
+        >>> cpu_mem_size = 1
+        >>> block_size = 128
+        >>> rank_id = 0
+        >>> world_size = 1
+        >>> npu_device_ids = [0]
+        >>> model_runner = ModelRunner(model_path=model_path, npu_mem_size=npu_mem_size, cpu_mem_size=cpu_mem_size,
+        >>>                            block_size=block_size, rank_id=rank_id, world_size=world_size,
+        >>>                            npu_device_ids=npu_device_ids)
+        >>> type(model_runner)
+        <class 'mindformers.model_runner.MindIEModelRunner'>
     """
 
     def __new__(cls, model_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0, world_size=1,
