@@ -107,15 +107,43 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         - **(*inputs)** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \ldots)`.
 
     Outputs:
-        Tuple of 3 Tensor, the loss, overflow flag and current loss scale value.
+        Tuple of 5 or 7 Tensor, the loss, overflow flag, current loss scale value, learning rate,
+        global grads norm, local grads norm and size of local norm grads.
 
         - **loss** (Tensor) -  A scalar, the loss value.
         - **overflow** (Tensor) -  A scalar, whether overflow occur or not, the type is bool.
         - **loss scale** (Tensor) -  The loss scale value, the shape is :math:`()` or :math:`(1,)`.
+        - **learning rate** (Tensor) -  A scalar, the learning rate of the optimizer.
+        - **global norm** (Tensor) -  A scalar, the global norm of all grads, only be calculated
+          when `use_clip_grad=True`, otherwise None.
+        - **local_norm** (Tensor) -  The local norm of the grads by group, only be returned when `local_norm=True`.
+        - **size** (Tensor) -  The sizes of each grads group, only be returned when `local_norm=True`.
 
     Raises:
         TypeError: If `scale_sense` is neither Cell nor Tensor.
         ValueError: If shape of `scale_sense` is neither (1,) nor ().
+
+    Examples:
+        >>> from mindformers.models.llama import LlamaConfig, LlamaForCausalLM
+        >>> from mindformers.wrapper import MFTrainOneStepCell
+        >>> import mindspore as ms
+        >>> from mindformers.core.optim import AdamW
+        >>> import numpy as np
+        >>>
+        >>> ms.set_context(mode=ms.GRAPH_MODE)
+        >>>
+        >>> config = LlamaConfig(num_layers=2)
+        >>> net = LlamaForCausalLM(config=config)
+        >>> net.set_train(True)
+        >>> optimizer = AdamW(net.trainable_params())
+        >>>
+        >>> mft = MFTrainOneStepCell(net, optimizer)
+        >>> inputs = ms.Tensor(np.ones([1, 2049]), ms.int32)
+        >>> out = mft(inputs)
+        >>>
+        >>> loss, overflow, loss_scale, lr, global_norm = out
+        >>> print(loss.shape, overflow, loss_scale, lr, global_norm)
+        (1,) False 1.0 0.001, None
     """
 
     def __init__(self,
@@ -231,11 +259,17 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         - **(\*inputs)** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \ldots)`.
 
     Outputs:
-        Tuple of 3 Tensor, the loss, overflow flag and current loss scale value.
+        Tuple of 5 or 7 Tensor, the loss, overflow flag, current loss scale value, learning rate,
+        global grads norm, local grads norm and size of local norm grads.
 
         - **loss** (Tensor) -  A scalar, the loss value.
         - **overflow** (Tensor) -  A scalar, whether overflow occur or not, the type is bool.
         - **loss scale** (Tensor) -  The loss scale value, the shape is :math:`()` or :math:`(1,)`.
+        - **learning rate** (Tensor) -  A scalar, the learning rate of the optimizer.
+        - **global norm** (Tensor) -  A scalar, the global norm of all grads, only be calculated
+          when `use_clip_grad=True`, otherwise None.
+        - **local_norm** (Tensor) -  The local norm of the grads by group, only be returned when `local_norm=True`.
+        - **size** (Tensor) -  The sizes of each grads group, only be returned when `local_norm=True`.
 
     Raises:
         TypeError: If `scale_sense` is neither Cell nor Tensor.
