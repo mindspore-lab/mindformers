@@ -785,7 +785,7 @@ def train(
                         train_one_step_cell.opt_param_scheduler,
                         training_config.output_dir,
                         format=training_config.ckpt_format,
-                        prefix=training_config.prefix + "_final",
+                        prefix=training_config.prefix,
                         epoch_num=(global_step-1) // dataset_size,
                         step_num=(global_step-1) % dataset_size,
                         crc_check=training_config.crc_check,
