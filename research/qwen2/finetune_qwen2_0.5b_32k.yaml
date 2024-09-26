@@ -34,8 +34,7 @@ runner_wrapper:
 # optimizer
 optimizer:
   type: AdamW
-  beta1: 0.9
-  beta2: 0.95
+  betas: [0.9, 0.95]
   eps: 1.e-8
   learning_rate: 1.e-6
   weight_decay: 0.01
