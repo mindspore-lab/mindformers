@@ -55,7 +55,7 @@ from mindformers.experimental.parallel_core.pynative.optimizer.distrib_optimizer
 
 # Distribution configurations.
 _STRATEGY_DIR = "strategy"
-_FORMAT = "safetensors"
+_FORMAT = "ckpt"
 
 
 # pylint: disable=W0622

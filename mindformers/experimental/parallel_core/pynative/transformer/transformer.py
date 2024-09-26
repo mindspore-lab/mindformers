@@ -15,10 +15,7 @@
 """For transformer"""
 
 __all__ = [
-    "BasePublicLayer",
-    "BaseHeadLayer",
-    "HeadLayer",
-    "PublicLayer",
+    "get_attention_mask",
     "ParallelMLP",
     "ParallelAttention",
     "ParallelTransformerLayer",
@@ -32,7 +29,7 @@ from collections import OrderedDict
 import numpy as np
 
 import mindspore.common.dtype as mstype
-from mindspore import Tensor, nn, ops, mint, Parameter
+from mindspore import nn, ops, mint, Parameter
 import mindspore.ops.functional as F
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
@@ -85,144 +82,24 @@ from .module import Module
 from .mlp import ParallelMLP
 
 
-class BasePublicLayer(nn.Cell):
-    r"""
-    A base class for public layer.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.add_attr_for_public_layer()
-
-    def add_attr_for_public_layer(self):
-        """add attr for public layer"""
-        self.is_public_layer = True
-
-
-class BaseHeadLayer(Module):
-    r"""
-    A base class for head layer.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.add_attr_for_head_layer()
-
-    def add_attr_for_head_layer(self):
-        """add attr for head layer"""
-        self.is_head_layer = True
-
-
-class HeadLayer(BaseHeadLayer):
-    """
-    Head to get the logits of each token in the vocab
-    Args:
-        config (model_config): the config of network
-    Inputs:
-        **hidden_states** (Tensor) - The input tensor, the shape is (B, S, H).
-        **word_embedding_table** (Tensor) - The word embedding table, the shape is (V / tp, H).
-    """
-
-    def __init__(self, config, **kwargs):
-        super(HeadLayer, self).__init__(**kwargs)
-        self.skip_weight_param_allocation = (
-            config.head_skip_weight_param_allocation and get_pipeline_model_parallel_world_size() == 1
-        )
-        self.matmul = ColumnParallelLinear(
-            input_size=config.hidden_size,
-            output_size=config.vocab_size,
-            config=config,
-            init_method=config.init_method,
-            bias=False,
-            gather_output=True,
-            skip_weight_param_allocation=self.skip_weight_param_allocation,
-            bias_init=config.bias_init,
-            param_init_dtype=config.params_dtype,
-            compute_dtype=config.compute_dtype,
-        )
-
-    def construct(self, hidden_states, embedding_table=None):
-        """head forward"""
-        if not self.skip_weight_param_allocation:
-            if embedding_table is not None:
-                raise RuntimeError(
-                    "In HeadLayer, 'head_skip_weight_param_allocation' is set to False, "
-                    "but 'embedding_table' input is not None."
-                )
-            embedding_table = self.matmul.weight
-
-        logits = self.matmul(hidden_states, embedding_table)
-        logits = logits.reshape((-1, logits.shape[-1]))
-        return logits
-
-
-class PublicLayer(BasePublicLayer):
-    r"""
-    Public layer class for building pipeline parallel model.
-
-    Args:
-        config (dict): Configuration.
-
-    Inputs:
-        - **input_ids** (Tensor) - The tokenized inputs with datatype int32, shape :math:`(B, S)`.
-        - **labels** (Tensor) - The tokenized labels with datatype int32, shape :math:`(B, S)`.
-        - **input_mask** (Tensor) - The mask for input_ids, shape:math:`(B, S)`.
-        - **attention_mask** (Tensor) - Attention mask, shape :math:`(B, S, S)` or math:`(B, 1, S, S)`.
-        - **position_ids** (Tensor) - Position ids for position embedding, shape :math:`(B, S)`.
-
-    Outputs:
-        - **output_dict** (dict) - A public dict for each pipeline stage.
-
-    Supported Platforms:
-        ``Ascend``
-    """
-
-    def __init__(self, config, **kwargs):
-        super(PublicLayer, self).__init__(**kwargs)
-        self.pad_token = config.pad_token_id
-        self.vocab_size = config.vocab_size
-        self.seq_length = config.seq_length
-        self.compute_type = config.compute_dtype
-        self.flatten_labels_and_input_mask = config.flatten_labels_and_input_mask
-        self.output_dict = {}
-
-    def construct(self,
-                  input_ids,
-                  labels=None,
-                  input_mask=None,
-                  attention_mask=None,
-                  position_ids=None,
-                  ) -> dict:
-        """public layer forward"""
-        if labels is None and self.seq_length == len(input_ids) - 1:
-            input_ids, labels = input_ids[:, : self.seq_length], input_ids[:, 1:]
-        if attention_mask is None:
-            if input_mask is None:
-                input_mask = mint.ne(input_ids, self.vocab_size + 1).astype(
-                    self.compute_type
-                )
-            attention_mask = self.get_attention_mask(input_mask)
-
-        if self.flatten_labels_and_input_mask:
-            labels = labels.reshape((-1,))
-            input_mask = input_mask.reshape((-1,))
-
-        self.output_dict["input_ids"] = input_ids
-        self.output_dict["attention_mask"] = attention_mask
-        self.output_dict["labels"] = labels
-        self.output_dict["position_ids"] = position_ids
-        return self.output_dict
-
-    def get_attention_mask(self, input_mask):
-        """get attention mask base on input_mask"""
-        input_shape = input_mask.shape
-        ones = mint.ones((self.seq_length, self.seq_length), dtype=input_mask.dtype)
-        attention_mask_left = input_mask.reshape((input_shape[0], input_shape[1], 1))
-        attention_mask_right = input_mask.reshape((input_shape[0], 1, input_shape[1]))
-        attention_mask = mint.matmul(attention_mask_left, attention_mask_right)
-        lower_triangle_mask = ops.tril(ones).unsqueeze(0)
-        attention_mask = mint.mul(attention_mask, lower_triangle_mask)
-        return attention_mask
+def get_attention_mask(input_mask, data_layout='BSH'):
+    """get attention mask base on input_mask"""
+    input_shape = input_mask.shape
+    if data_layout == 'BSH':
+        batch_size = input_shape[0]
+        seq_length = input_shape[1]
+    elif data_layout == 'SBH':
+        batch_size = input_shape[1]
+        seq_length = input_shape[0]
+    else:
+        raise TypeError(f"Do not support data layout: {data_layout}")
+    ones = mint.ones((seq_length, seq_length), dtype=input_mask.dtype)
+    attention_mask_left = input_mask.reshape((batch_size, seq_length, 1))
+    attention_mask_right = input_mask.reshape((batch_size, 1, seq_length))
+    attention_mask = mint.matmul(attention_mask_left, attention_mask_right)
+    lower_triangle_mask = ops.tril(ones).unsqueeze(0)
+    attention_mask = mint.mul(attention_mask, lower_triangle_mask)
+    return attention_mask
 
 
 def _merge_heads(x):
@@ -269,10 +146,11 @@ class CoreAttention(nn.Cell):
         self.sequence_parallel = self.config.parallel_config.sequence_parallel
         self.attn_mask_type = attn_mask_type
         self.apply_query_key_layer_scaling = self.config.apply_query_key_layer_scaling
-        self.num_heads = self.config.num_attention_heads
-        self.hidden_size = self.config.hidden_size
         self.head_dim = self.config.kv_channels
-        self.data_layout = self.config.dataset_config.data_layout
+        projection_size = self.config.kv_channels * self.config.num_attention_heads
+        world_size = get_tensor_model_parallel_world_size()
+        self.hidden_size_per_partition = divide(projection_size,
+                                                world_size)
 
         if self.config.masked_softmax_fusion:
             raise NotImplementedError(
@@ -285,7 +163,7 @@ class CoreAttention(nn.Cell):
             self.attention_softmax_in_fp32 = True
             coeff = self.layer_index
             norm_factor *= coeff
-        self.inv_norm_factor = Tensor(1.0 / norm_factor, dtype=self.param_init_dtype)
+        self.norm_factor = norm_factor
 
         self.mask_func = get_attn_mask_func(self.config.mask_func_type)
         self.scale_mask_softmax = ScaleMaskSoftmax(
@@ -296,13 +174,34 @@ class CoreAttention(nn.Cell):
         self.attention_dropout = mint.nn.Dropout(p=self.config.attention_dropout)
 
     def construct(self, query_layer, key_layer, value_layer, attention_mask):
-        """construct."""
-        # q: [BNSD], k: [BNSD]->[BNDS], score: [B, N, S, S]
-        score = ops.bmm(query_layer, key_layer.transpose(0, 1, 3, 2))
-        score = score * ops.cast(self.inv_norm_factor, score.dtype)
+        """ CoreAttention forward."""
+        # [b, np, sq, sk]
+        output_size = (query_layer.shape[1],
+                       query_layer.shape[2],
+                       query_layer.shape[0],
+                       key_layer.shape[0])
 
-        # attention scores and attention mask [B, N, S_q, S_k]
-        attention_probs = self.scale_mask_softmax(score, attention_mask)
+        # [sq, b, np, hn] -> [sq, b * np, hn]
+        query_layer = query_layer.reshape(output_size[2],
+                                          output_size[0] * output_size[1], -1)
+        # [sk, b, np, hn] -> [sk, b * np, hn]
+        key_layer = key_layer.view(output_size[3],
+                                   output_size[0] * output_size[1], -1)
+
+        matmul_input_buffer = mint.zeros((output_size[0] * output_size[1], output_size[2], output_size[3]),
+                                         dtype=query_layer.dtype)
+
+        matmul_result = mint.baddbmm(matmul_input_buffer,
+                                     query_layer.swapaxes(0, 1),
+                                     key_layer.swapaxes(0, 1).swapaxes(1, 2),
+                                     beta=0.0, alpha=(1.0 / self.norm_factor))
+
+        # change view to [b, np, sq, sk]
+        attention_scores = matmul_result.view(*output_size)
+
+        # attention scores and attention mask [b, np, sq, sk]
+        attention_probs = self.scale_mask_softmax(attention_scores,
+                                                  attention_mask)
 
         if not self.sequence_parallel:
             with get_rng_tracer().rng_fork():
@@ -310,11 +209,34 @@ class CoreAttention(nn.Cell):
         else:
             attention_probs = self.attention_dropout(attention_probs)
 
-        # [B, N, S, S] * [B, N, S, D] -> [B, N, S, D]
-        weighted_values = ops.bmm(ops.cast(attention_probs, value_layer.dtype), value_layer)
-        # [B, N, S, D] -> [B, S, N*D]
-        context_layer = _merge_heads(weighted_values)
+        # context layer shape: [b, np, sq, hn]
+        output_size = (value_layer.shape[1],
+                       value_layer.shape[2],
+                       query_layer.shape[0],
+                       value_layer.shape[3])
 
+        # change view [b * np, sq, sk]
+        value_layer = value_layer.view(value_layer.shape[0],
+                                       output_size[0] * output_size[1], -1)
+
+        # change view [b * np, sq, sk]
+        attention_probs = attention_probs.view(output_size[0] * output_size[1],
+                                               output_size[2], -1)
+
+        # matmul: [b * np, sq, hn]
+        context_layer = ops.bmm(attention_probs.astype(value_layer.dtype),
+                                value_layer.swapaxes(0, 1))
+
+        # change view [b, np, sq, hn]
+        context_layer = context_layer.view(*output_size)
+
+        # [b, np, sq, hn] --> [sq, b, np, hn]
+        # contiguous()
+        context_layer = context_layer.permute(2, 0, 1, 3)
+
+        new_context_layer_shape = context_layer.shape[:-2] + \
+            (self.hidden_size_per_partition,)
+        context_layer = context_layer.view(*new_context_layer_shape)
         return context_layer
 
 
@@ -341,7 +263,6 @@ class ParallelAttention(Module):
         ``Ascend``
     """
 
-    # pylint: disable=E1123
     def __init__(self, config, layer_number, attention_type=AttnType.self_attn,
                  attn_mask_type=AttnMaskType.padding):
         super(ParallelAttention, self).__init__()
@@ -546,7 +467,6 @@ class ParallelAttention(Module):
                  ],
                  dim=3
              )
-
             query = query.reshape(query.shape[0], query.shape[1], -1,
                                   self.kv_channels)
         else:
@@ -566,10 +486,10 @@ class ParallelAttention(Module):
                  self.kv_channels)
             query = query.view(*new_tensor_shape)
 
-        if self.data_layout == "SBH":
-            query = query.transpose(1, 2, 0, 3)
-        else:
-            query = query.transpose(0, 2, 1, 3)
+        if self.data_layout == "BSH":
+            query = query.swapaxes(0, 1)
+            key = key.swapaxes(0, 1)
+            value = value.swapaxes(0, 1)
 
         if rotary_pos_emb is not None:
             if isinstance(rotary_pos_emb, tuple):
@@ -578,31 +498,19 @@ class ParallelAttention(Module):
                 rotary_pos_emb = (rotary_pos_emb,) * 2
 
         # expand the key_layer and value_layer [B, S, kv_N_per_tp, D]
-        # to [B, N_per_tp, S, D]
+        # to [B, S, N_per_tp, D]
         if self.num_heads_per_partition // self.kv_num_heads_per_partition > 1:
             repeat_num = divide(
                 self.num_heads_per_partition, self.kv_num_heads_per_partition
             )
-            key = self._repeat_kv(key, repeat_num)
-            value = self._repeat_kv(value, repeat_num)
-        else:
-            key = key.transpose(0, 2, 1, 3)
-            value = value.transpose(0, 2, 1, 3)
+            key = mint.repeat_interleave(key, repeat_num, dim=2)
+            value = mint.repeat_interleave(value, repeat_num, dim=2)
 
         # apply rotary position embedding
         if rotary_pos_emb is not None:
             q_pos_emb, k_pos_emb = rotary_pos_emb
-            if self.data_layout == "BSH":
-                q_pos_emb = q_pos_emb.swapaxes(0, 2)
-                k_pos_emb = k_pos_emb.swapaxes(0, 2)
             query = apply_rotary_pos_emb(query, q_pos_emb, self.config)
             key = apply_rotary_pos_emb(key, k_pos_emb, self.config)
-
-        if self.data_layout == "SBH":
-            # attention calculation use BNSD
-            query = query.swapaxes(0, 2)
-            key = key.swapaxes(0, 2)
-            value = value.swapaxes(0, 2)
 
         if not self.use_flash_attention:
             context_layer = self.core_attention(query, key, value, attention_mask)
@@ -616,6 +524,11 @@ class ParallelAttention(Module):
             if value.dtype == mstype.float32:
                 value = value.astype(mstype.float16)
             attention_mask = attention_mask.astype(mstype.uint8)
+
+            # SBND -> BNSD
+            query = query.transpose(1, 2, 0, 3)
+            key = key.transpose(1, 2, 0, 3)
+            value = value.transpose(1, 2, 0, 3)
 
             if self.fa_config:
                 output = ops.flash_attention_score(
@@ -637,6 +550,9 @@ class ParallelAttention(Module):
                     scalar_value=1.0 / self.norm_factor,
                 )
             context_layer = _merge_heads(output)
+
+            # BSH -> SBH
+            context_layer = context_layer.swapaxes(0, 1)
         else:
             if query.dtype == mstype.float32:
                 query = query.astype(mstype.float16)
@@ -644,6 +560,11 @@ class ParallelAttention(Module):
                 key = key.astype(mstype.float16)
             if value.dtype == mstype.float32:
                 value = value.astype(mstype.float16)
+
+            # SBND -> BNSD
+            query = query.transpose(1, 2, 0, 3)
+            key = key.transpose(1, 2, 0, 3)
+            value = value.transpose(1, 2, 0, 3)
 
             if not self.enable_flash_sp:
                 output = self.ring_attention(query, key, value)
@@ -658,9 +579,12 @@ class ParallelAttention(Module):
                 output = output.reshape(bs, seq_len, -1, self.kv_channels).transpose(
                     (0, 2, 1, 3)
                 )
-            context_layer = _merge_heads(output)
 
-        if self.data_layout == "SBH":
+            context_layer = _merge_heads(output)
+            # BSH -> SBH
+            context_layer = context_layer.swapaxes(0, 1)
+
+        if self.data_layout == "BSH":
             context_layer = context_layer.swapaxes(0, 1)
 
         # apply output projection
@@ -668,20 +592,6 @@ class ParallelAttention(Module):
         output = ops.cast(output, ori_dtype)
 
         return output, bias
-
-    def _repeat_kv(self, x, rep):
-        """Expand key, value on num_head dimension."""
-        if rep == 1:
-            return x
-        bs, seq_length, num_groups, head_dim = x.shape
-        # [B, S, ng, D] -> [B, ng, S, D]
-        x = x.transpose((0, 2, 1, 3))
-        # [B, ng, S, D] -> [B, ng, 1, S*D]
-        x = x.reshape((bs, num_groups, 1, seq_length * head_dim))
-        x = x.tile((1, 1, rep, 1))
-        # [B, ng, rep, S*D] -> [B, N, S, D]
-        x = x.reshape((bs, num_groups * rep, seq_length, head_dim))
-        return x
 
 
 class ParallelTransformerLayer(Module):
