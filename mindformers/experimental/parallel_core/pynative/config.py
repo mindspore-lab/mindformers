@@ -49,7 +49,7 @@ mapping_dict = {
     'padded_vocab_size': 'model_config.vocab_size',
     'hidden_size': 'model_config.hidden_size',
     'seq_length': 'model_config.seq_length',
-    'rotary_base': 'model_config,rotary_base',
+    'rotary_base': 'model_config.rotary_base',
     'num_layers': 'model_config.num_layers',
     'position_embedding_type': 'model_config.position_embedding_type',
     'use_rotary_position_embeddings': 'model_config.use_rotary_embedding',
@@ -124,7 +124,7 @@ mapping_dict = {
     'tensor_model_parallel_size': 'parallel_config.tensor_model_parallel_size',
     'context_parallel_size': 'parallel_config.context_parallel_size',
     'expert_model_parallel_size': 'parallel_config.expert_model_parallel_size',
-    'virtual_Pipeline_modeL_parallel_size': 'parallel_config.virtual_Pipeline_modeL_parallel_size',
+    'virtual_pipeline_modeL_parallel_size': 'parallel_config.virtual_pipeline_modeL_parallel_size',
     'sequence_parallel': 'parallel_config.sequence_parallel',
     'overlap_grad_reduce': 'parallel_config.overlap_grad_reduce',
     'pipeline_model_parallel_size': 'parallel_config.pipeline_model_parallel_size',
@@ -186,13 +186,15 @@ def get_default_config():
     default_param_dict['optimizer_config.optimizer_type'] = "mint.AdamW"
     default_param_dict['training_config.wrap_with_ddp'] = True
     default_param_dict['training_config.grad_clip_kwargs.grad_clip_type'] = "ClipGlobalNorm"
-    default_param_dict['training_config.bucket_size'] = 2000
+    default_param_dict['training_config.bucket_size'] = 20000
     default_param_dict['training_config.eval_metric'] = "perplexity"
     default_param_dict['training_config.loss_func_kwargs.loss_func_type'] = "VocabParallelCrossEntropy"
     default_param_dict['model_config.output_layer_init_method'] = "normal"
     default_param_dict['model_config.mask_func_type'] = "attn_mask_fill"
     default_param_dict['model_config.gated_linear_unit'] = True
     default_param_dict['model_config.mlp_has_bias'] = False
+    default_param_dict['model_config.embedding_init_dtype'] = 'float32'
+    default_param_dict['parallel_config.model_customize_staged'] = True
 
     return default_param_dict
 
@@ -225,6 +227,11 @@ def modify_flatten_dict(flatten_dict: dict, default_param_dict: dict):
 
     if str(flatten_dict.get('embedding_dtype', 'float32')) == 'torch.bfloat16':
         flatten_dict['embedding_dtype'] = 'bfloat16'
+
+    loss_scale_key = ['loss_scale', 'initial_loss_scale', 'hysteresis', 'loss_scale_window']
+    for key in loss_scale_key:
+        if flatten_dict.get(key, None):
+            flatten_dict[key] = int(flatten_dict[key])
 
     for key, value in default_param_dict.items():
         if key not in flatten_dict:

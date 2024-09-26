@@ -520,7 +520,7 @@ class TrainOneStepCell(nn.Cell):
                 logger.warning(
                     "Dynamic loss scale is only supported for float16 computation. Not using loss scaling."
                 )
-                self.loss_scaler = None
+                self.loss_scaler = StaticLossScaler(scale_value=1)
 
         # init grad clip func
         self.use_grad_clip = training_config.grad_clip_kwargs is not None
