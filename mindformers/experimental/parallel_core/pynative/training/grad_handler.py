@@ -53,7 +53,7 @@ def param_is_not_shared(param):
     return not hasattr(param, 'shared') or not param.shared
 
 
-def get_grad_norm_fp32(grads_for_norm, norm_type=2, model_parallel_group=None):
+def get_grad_norm_fp32(grads_for_norm, norm_type=2.0, model_parallel_group=None):
     """ get fp32 global grad norm. """
     if isinstance(grads_for_norm, ms.Tensor):
         grads_for_norm = [grads_for_norm]
@@ -63,13 +63,13 @@ def get_grad_norm_fp32(grads_for_norm, norm_type=2, model_parallel_group=None):
 
     if norm_type == 2.0:
         for grad in grads_for_norm:
-            total_norm = mint.add(total_norm, mint.sum(mint.square(grad)))
+            total_norm = mint.add(total_norm, ops.norm(grad) ** 2.0)
     else:
         raise NotImplementedError("for global norm, l2 norm only support now")
 
     if get_group_size(model_parallel_group) > 1:
         total_norm = all_reduce(total_norm, "sum", model_parallel_group)[0]
-    total_norm = total_norm ** (1.0 / norm_type)
+    total_norm = total_norm.item() ** (1.0 / norm_type)
     return total_norm
 
 
@@ -161,23 +161,15 @@ class ClipGlobalNorm(nn.Cell):
                 norm_grads = norm_grads + (grads[i],)
         return norm_grads
 
-    def get_grad_norm_fp32(self, grads):
-        """Compute grad norm."""
-        if self.norm_type == "l2":
-            l2_norm = 2.0
-            square_sum = self.hyper_map(get_square_sum, grads)
-            square_reduce_sum = F.addn(square_sum)
-        else:
-            raise NotImplementedError("for global norm, l2 norm only support now")
-        if get_group_size(self.reduce_comm_group) > 1:
-            square_reduce_sum = all_reduce(square_reduce_sum, "sum", self.reduce_comm_group)[0]
-        total_norm = square_reduce_sum.item() ** (1.0 / l2_norm)
-        return total_norm
 
     def construct(self, grads):
         """clip grad by global norm."""
         norm_grads = self.get_grads(grads)
-        total_norm = self.get_grad_norm_fp32(norm_grads)
+        if self.norm_type == "l2":
+            l2_norm = 2.0
+        else:
+            raise NotImplementedError("for global norm, l2 norm only support now")
+        total_norm = get_grad_norm_fp32(norm_grads, norm_type=l2_norm, model_parallel_group=self.reduce_comm_group)
         clip_coeff = self.clip_value / (total_norm + 1.0e-6)
         if clip_coeff < 1.0:
             self.clip_func(grads, clip_coeff)

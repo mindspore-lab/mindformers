@@ -363,7 +363,7 @@ class ParallelAttention(Module):
         self.use_flash_attention = self.config.use_flash_attention and attention_type == AttnType.self_attn \
             and self.attn_mask_type == AttnMaskType.causal
         if self.use_flash_attention:
-            if self.attn_type != "self_attn":
+            if self.attn_type != AttnType.self_attn:
                 raise NotImplementedError(
                     'FlashAttention code path only supports self-attention for now.'
                 )
@@ -1126,6 +1126,8 @@ class ParallelTransformer(Module):
             layers_dict[str(i + offset)] = ParallelTransformerLayer(
                 config=layers_index_config[i] if use_lora or recompute_config else layers_config,
                 layer_number=i + 1 + offset,
+                self_attn_mask_type=self_attn_mask_type,
+                drop_path_rate=drop_path_rate
             )
         self.layers = nn.SequentialCell(layers_dict)
 

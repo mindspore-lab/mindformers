@@ -613,6 +613,7 @@ def build_dependency_graph_of_configs(config_classes):
 def _check_arguments(configs):
     """ check arguments. """
     training_config = configs.get("training_config", None)
+    model_config = configs.get("model_config", None)
     transformer_config = None
     for key in configs:
         if isinstance(configs[key], TransformerConfig):
@@ -627,6 +628,15 @@ def _check_arguments(configs):
             logger.warning("Use bf16, 'params_dtype' and 'compute_dtype' will be set to 'bfloat16' automatically.")
             transformer_config.params_dtype = 'bfloat16'
             transformer_config.compute_dtype = 'bfloat16'
+
+    if model_config:
+        hidden_act = model_config.hidden_act
+        if hidden_act == 'swiglu':
+            logger.warning("Use swiglu, 'gated_linear_unit' will be set to 'True' automatically.")
+            model_config.gated_linear_unit = True
+        else:
+            logger.warning(f"Use {hidden_act}, 'gated_linear_unit' will be set to 'False' automatically.")
+            model_config.gated_linear_unit = False
 
 
 # pylint: disable=W0102
@@ -1721,7 +1731,6 @@ class TransformerConfig(BaseConfig):
         use_flash_attention (bool): Enable flash attention. Default: False.
         mask_func_type (str): Attention mask compute method. Default: 'attn_mask_add'.
         mlp_has_bis (bool): Linears in MLP block have bias parameters. Default: True.
-        gated_linear_unit (bool): Apply gating in MLP block. Default: False.
         hidden_act (str): Activation used in MLP block. Default: 'gelu'.
         normalization (str): Normalization used in transformerlayer block. Default: 'LayerNorm'.
         norm_epsilon (float): Epsilon of normalization. Default: 1.e-5.
@@ -1780,7 +1789,6 @@ class TransformerConfig(BaseConfig):
             enable_flash_sp: bool = False,
             mask_func_type: str = "attn_mask_add",
             mlp_has_bias: bool = True,
-            gated_linear_unit: bool = False,
             hidden_act: str = "gelu",
             normalization: str = "LayerNorm",
             norm_epsilon: float = 1.0e-5,
@@ -1854,7 +1862,6 @@ class TransformerConfig(BaseConfig):
         self.enable_flash_sp = enable_flash_sp
         self.mask_func_type = mask_func_type
         self.mlp_has_bias = mlp_has_bias
-        self.gated_linear_unit = gated_linear_unit
         self.hidden_act = hidden_act
         self.normalization = normalization
         self.norm_epsilon = norm_epsilon
@@ -1895,6 +1902,7 @@ class TransformerConfig(BaseConfig):
         self.select_comm_recompute = select_comm_recompute
         self.select_recompute = select_recompute
         self.apply_rope_fusion = apply_rope_fusion
+        self.gated_linear_unit = False
 
         if "recompute_activations" in kwargs:
             if kwargs["recompute_activations"]:
@@ -2054,13 +2062,6 @@ def validate_mlp_has_bias(config_instance, mlp_has_bias):
     """Validate mlp_has_bias."""
     Validator.check_bool(mlp_has_bias, "mlp_has_bias")
     return mlp_has_bias
-
-
-@TransformerConfig.validator("gated_linear_unit")
-def validate_gated_linear_unit(config_instance, gated_linear_unit):
-    """Validate gated_linear_unit."""
-    Validator.check_bool(gated_linear_unit, "gated_linear_unit")
-    return gated_linear_unit
 
 
 @TransformerConfig.validator("hidden_act")
