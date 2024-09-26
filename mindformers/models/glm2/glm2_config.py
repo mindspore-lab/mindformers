@@ -82,7 +82,7 @@ class ChatGLM2Config(PretrainedConfig):
             Default: ``1.0`` .
         checkpoint_name_or_path (str, optional): checkpoint path or name used to load to the network.
             Default: ``None`` .
-        parallel_config(TransformerOpParallelConfig): The parallel configure. an instance of
+        parallel_config(TransformerOpParallelConfig, optional): The parallel configure. an instance of
             `TransformerOpParallelConfig` with default args. Default: ``TransformerOpParallelConfig`` .
         offset (int, optional): The layer offset for each (mini) stage. Default: ``0`` .
         pp_interleave_num  (int, optional): Number of microbatch interleavings in pipeline parallelism. Default: ``1`` .

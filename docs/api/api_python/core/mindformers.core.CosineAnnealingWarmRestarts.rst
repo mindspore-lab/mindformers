@@ -1,7 +1,7 @@
 mindformers.core.CosineAnnealingWarmRestarts
 ============================================
 
-.. py:class:: mindformers.core.CosineAnnealingWarmRestarts(base_lr: float, t_0: int, t_mult: int = 1, eta_min: float = 0, **kwargs)
+.. py:class:: mindformers.core.CosineAnnealingWarmRestarts(base_lr: float, t_0: int, t_mult: int = 1, eta_min: float = 0., **kwargs)
 
     使用余弦退火调度设置每个参数组的学习率。其中 :math:`\eta_{max}` 被设为初始学习率， :math:`T_{cur}` 表示自上次重启以来的epoch数量， :math:`T_{i}` 表示两次热重启之间的epoch数量，在SGDR中计算学习率：
 
@@ -17,7 +17,7 @@ mindformers.core.CosineAnnealingWarmRestarts
         - **base_lr** (float) - 初始学习率。
         - **t_0** (int) - 第一个重启的周期数。
         - **t_mult** (int, 可选) - 重启周期的倍数。默认值： ``1`` 。
-        - **eta_min** (float, 可选) - 学习率的最小值。默认值： ``0`` 。
+        - **eta_min** (float, 可选) - 学习率的最小值。默认值： ``0.`` 。
 
     输入：
         - **global_step** (int) - 全局步数。
