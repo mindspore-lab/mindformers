@@ -15,6 +15,7 @@
 """Trainer Utils."""
 import os
 import json
+import sys
 import time
 import random
 from enum import Enum
@@ -370,10 +371,13 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         logger.info(".........Building model.........")
         build_model(config, model, dataset, do_eval=do_eval, do_predict=do_predict)
         if config.only_save_strategy:
-            raise ValueError("Only_save_strategy is True, model.compile() finished, system exit! ")
+            logger.info("Only_save_strategy is True, model.compile() finished, system exit! ")
+            sys.exit(0)
+
     elif config.only_save_strategy:
-        raise ValueError("only_save_strategy is True, "
-                         "but stand_alone and data_parallel mode do not have strategy file, system exit! ")
+        logger.info("only_save_strategy is True, "
+                    "but stand_alone and data_parallel mode do not have strategy file, system exit! ")
+        sys.exit(0)
 
     if config.auto_trans_ckpt:
         is_share_disk = check_shared_disk(config.output_dir)
