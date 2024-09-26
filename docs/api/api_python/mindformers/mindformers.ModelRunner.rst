@@ -1,7 +1,7 @@
 mindformers.ModelRunner
 =====================================
 
-.. py:class:: mindformers.ModelRunner(model_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0, world_size=1, npu_device_ids=None)
+.. py:class:: mindformers.ModelRunner(model_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0, world_size=1, npu_device_ids=None, plugin_params=None)
 
     用于将 MindFormers 的一个模型运行实例作为 MindIEServer 的后端。
 

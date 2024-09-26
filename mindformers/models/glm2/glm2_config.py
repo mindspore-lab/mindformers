@@ -60,7 +60,7 @@ class ChatGLM2Config(PretrainedConfig):
         apply_query_key_layer_scaling (bool, optional): Whether scaling the query_key layer. Default: ``True`` .
         attention_softmax_in_fp32 (bool, optional): Whether apply fp32 to the attention softmax. Default: ``True`` .
         fp32_residual_connection (bool, optional): Whether apply fp32 to residual connection layer. Default: ``False`` .
-        quantization_bit (bool, optional): Weight and number of activation bits. Default: ``0`` .
+        quantization_bit (int, optional): Weight and number of activation bits. Default: ``0`` .
         pre_seq_len (int, optional): Length of the input sequence that can be learned. Default: ``None`` .
         prefix_projection (bool, optional): Add a projection layer before a sequence. Default: ``False`` .
         param_init_type (str, optional): parameter initial dtype. Default: ``float16`` .
