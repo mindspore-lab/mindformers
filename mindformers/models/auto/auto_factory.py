@@ -46,24 +46,34 @@ EXP_ERROR_MSG = "Please use AutoModel.from_pretrained(), and the input pretraine
 
 CLASS_DOCSTRING = """
     This is a generic model class that will be instantiated as one of the model classes of the library when created
-    with the [`~BaseAutoModelClass.from_pretrained`] class method or the [`~BaseAutoModelClass.from_config`] class
+    with the `BaseAutoModelClass.from_pretrained` class method or the `BaseAutoModelClass.from_config` class
     method.
 
     This class cannot be instantiated directly using `__init__()` (throws an error).
 """
 
 FROM_CONFIG_DOCSTRING = """
-        Instantiates one of the model classes of the library from a configuration.
+        From config method, which instantiates one of the model classes of the library by model config or YAML.
+
+        Warning:
+            The API is experimental and may have some slight breaking changes in the next releases.
 
         Note:
             Loading a model from its configuration file does **not** load the model weights. It only affects the
-            model's configuration. Use [`~BaseAutoModelClass.from_pretrained`] to load the model weights.
+            model's configuration. Use `BaseAutoModelClass.from_pretrained` to load the model weights.
 
         Args:
-            config ([`PretrainedConfig`]):
+            config (Union[MindFormerConfig, PretrainedConfig, str]): MindFormerConfig, YAML file,
+                or a model config inherited from PretrainedConfig (experimental feature).
                 The model class to instantiate is selected based on the configuration class:
 
                 List options
+
+            kwargs (Dict[str, Any], optional): The values in kwargs of any keys which are configuration
+                attributes will be used to override the config values.
+
+        Returns:
+            A model, which inherited from PreTrainedModel.
 
         Examples:
             >>> from mindformers import AutoConfig, BaseAutoModelClass
@@ -72,93 +82,73 @@ FROM_CONFIG_DOCSTRING = """
             >>> model = BaseAutoModelClass.from_config(config)
 """
 
-FROM_PRETRAINED_MINDFORMERS_DOCSTRING = """
-        Instantiate one of the model classes of the library from a pretrained model.
+FROM_PRETRAINED_MINDFORMERS_DOCSTRING = r"""
+        From pretrain method, which instantiates one of the model classes of the library by directory or model_id from modelers.cn.
 
         The model class to instantiate is selected based on the `model_type` property of the config object (either
-        passed as an argument or loaded from `pretrained_model_name_or_path` if possible), or when it's missing, by
-        falling back to using pattern matching on `pretrained_model_name_or_path`:
+        passed as an argument or loaded from `pretrained_model_name_or_dir` if possible), or when it's missing, by
+        falling back to using pattern matching on `pretrained_model_name_or_dir`:
 
         List options
 
         The model is set in evaluation mode by default using `model.eval()` (so for instance, dropout modules are
         deactivated). To train the model, you should first set it back in training mode with `model.train()`
 
+        Warning:
+            The API is experimental and may have some slight breaking changes in the next releases.
+
         Args:
-            pretrained_model_name_or_path (`str` or `os.PathLike`):
-                Can be either:
-
-                - A string, the *model id* of a pretrained model hosted inside a model repo on openmind.
-                  Valid model ids can be located at the root-level, like `bert-base-uncased`, or namespaced under a
-                  user or organization name, like `dbmdz/bert-base-german-cased`.
-                - A path to a *directory* containing model weights saved using
-                  [`~PreTrainedModel.save_pretrained`], e.g., `./my_model_directory/`.
-                - A path or url to a *tensorflow index checkpoint file* (e.g, `./tf_model/model.ckpt.index`). In
-                  this case, `from_tf` should be set to `True` and a configuration object should be provided as
-                  `config` argument. This loading path is slower than converting the TensorFlow checkpoint in a
-                  PyTorch model using the provided conversion scripts and loading the PyTorch model afterwards.
-
-            model_args (additional positional arguments, *optional*):
-                Will be passed along to the underlying model `__init__()` method.
-            config ([`PretrainedConfig`], *optional*):
-                Configuration for the model to use instead of an automatically loaded configuration. Configuration can
-                be automatically loaded when:
-
-                - The model is a model provided by the library (loaded with the *model id* string of a pretrained
-                  model).
-                - The model was saved using [`~PreTrainedModel.save_pretrained`] and is reloaded by supplying the
-                  save directory.
-                - The model is loaded by supplying a local directory as `pretrained_model_name_or_path` and a
-                  configuration JSON file named *config.json* is found in the directory.
-
-            state_dict (*Dict[str, torch.Tensor]*, *optional*):
-                A state dictionary to use instead of a state dictionary loaded from saved weights file.
-
-                This option can be used if you want to create a model from a pretrained configuration but load your own
-                weights. In this case though, you should check if using [`~PreTrainedModel.save_pretrained`] and
-                [`~PreTrainedModel.from_pretrained`] is not a simpler option.
-            cache_dir (`str` or `os.PathLike`, *optional*):
-                Path to a directory in which a downloaded pretrained model configuration should be cached if the
-                standard cache should not be used.
-            force_download (`bool`, *optional*, defaults to `False`):
-                Whether or not to force the (re-)download of the model weights and configuration files, overriding the
-                cached versions if they exist.
-            resume_download (`bool`, *optional*, defaults to `False`):
-                Whether or not to delete incompletely received files. Will attempt to resume the download if such a
-                file exists.
-            proxies (`Dict[str, str]`, *optional*):
-                A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
-                'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request.
-            output_loading_info(`bool`, *optional*, defaults to `False`):
-                Whether ot not to also return a dictionary containing missing keys, unexpected keys and error messages.
-            local_files_only(`bool`, *optional*, defaults to `False`):
-                Whether or not to only look at local files (e.g., not try downloading the model).
-            revision (`str`, *optional*, defaults to `"main"`):
-                The specific model version to use. It can be a branch name, a tag name, or a commit id, since we use a
-                git-based system for storing models and other artifacts on openmind, so `revision` can be any
-                identifier allowed by git.
-            trust_remote_code (`bool`, *optional*, defaults to `False`):
-                Whether or not to allow for custom models defined on the Hub in their own modeling files. This option
-                should only be set to `True` for repositories you trust and in which you have read the code, as it will
-                execute code present on the Hub on your local machine.
-            code_revision (`str`, *optional*, defaults to `"main"`):
-                The specific revision to use for the code on the Hub, if the code leaves in a different repository than
-                the rest of the model. It can be a branch name, a tag name, or a commit id, since we use a git-based
-                system for storing models and other artifacts on openmind, so `revision` can be any identifier
-                allowed by git.
-            kwargs (additional keyword arguments, *optional*):
+            pretrained_model_name_or_dir (str):
+                A folder containing a YAML file and ckpt file, a folder containing config.json and ckpt file,
+                or a model_id from modelers.cn. The last two are experimental features.
+            model_args (Any, optional):
+                Will be passed along to the underlying model \_\_init\_\_() method. Only works in experimental mode.
+            kwargs (Dict[str, Any], optional): 
                 Can be used to update the configuration object (after it being loaded) and initiate the model (e.g.,
-                `output_attentions=True`). Behaves differently depending on whether a `config` is provided or
-                automatically loaded:
+                `output_attentions=True`). `**kwargs` will be passed to the underlying model's `__init__` method
+                when `config` is provided or automatically loaded; otherwise `**kwargs` will be first passed to
+                `PretrainedConfig.from_pretrained` to create a configuration, and the keys which do not correspond to 
+                any configuration attribute will be passed to the underlying model's `__init__` function.
+                Some of available keys are showed below:
 
-                - If a configuration is provided with `config`, `**kwargs` will be directly passed to the
-                  underlying model's `__init__` method (we assume all relevant updates to the configuration have
-                  already been done)
-                - If a configuration is not provided, `kwargs` will be first passed to the configuration class
-                  initialization function ([`~PretrainedConfig.from_pretrained`]). Each key of `kwargs` that
-                  corresponds to a configuration attribute will be used to override said attribute with the
-                  supplied `kwargs` value. Remaining keys that do not correspond to any configuration attribute
-                  will be passed to the underlying model's `__init__` function.
+                - config (PretrainedConfig, optional):
+                  Configuration for the model to use instead of an automatically loaded configuration.
+                  DeFault: ``None``. Configuration can be automatically loaded when:
+
+                  - The model is provided by the library (loaded with the model_id string of a pretrained model).
+                  - The model was saved using `PreTrainedModel.save_pretrained` and is reloaded by supplying the
+                    save directory.
+                  - The model is loaded by supplying a local directory as `pretrained_model_name_or_dir` and a
+                    configuration JSON file named 'config.json' is found in the directory.
+
+                - cache_dir (Union[str, os.PathLike], optional):
+                  Path to a directory in which a downloaded pretrained model configuration should be cached if the
+                  standard cache should not be used. DeFault: ``None``.
+                - force_download (bool, optional):
+                  Whether to force the (re-)download of the model weights and configuration files, overriding
+                  the cached versions if they exist. DeFault: ``False``.
+                - resume_download (bool, optional):
+                  Whether to delete incompletely received files. Will attempt to resume the download if such a
+                  file exists. DeFault: ``False``.
+                - proxies (Dict[str, str], optional):
+                  A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
+                  'http://hostname': 'foo.bar:4012'}`. The proxies are used on each request. DeFault: ``None``.
+                - local_files_only (bool, optional):
+                  Whether to only look at local files (i.e., not try downloading the model). DeFault: ``False``.
+                - revision (str, optional):
+                  The specific model version to use. It can be a branch name, a tag name, a commit id, or any
+                  identifier allowed by git. DeFault: ``"main"``.
+                - trust_remote_code (bool, optional):
+                  Whether to allow for custom models defined on the Hub in their own modeling files. This option
+                  should only be set to ``True`` for repositories you trust and in which you have read the code,
+                  as it will execute code present on the Hub on your local machine. DeFault: ``False``.
+                - code_revision (str, optional):
+                  The specific revision to use for the code on the Hub, if the code leaves in a different repository
+                  than the rest of the model. It can be a branch name, a tag name, a commit id, or any identifier
+                  allowed by git. DeFault: ``"main"``.
+
+        Returns:
+            A model, which inherited from PreTrainedModel.
 
         Examples:
             >>> from mindformers import AutoConfig, BaseAutoModelClass
@@ -229,7 +219,7 @@ class _BaseAutoModelClass:
     def __init__(self, *args, **kwargs):
         raise EnvironmentError(
             f"{self.__class__.__name__} is designed to be instantiated "
-            f"using the `{self.__class__.__name__}.from_pretrained(pretrained_model_name_or_path)` or "
+            f"using the `{self.__class__.__name__}.from_pretrained(pretrained_model_name_or_dir)` or "
             f"`{self.__class__.__name__}.from_config(config)` methods."
         )
 
@@ -286,7 +276,7 @@ class _BaseAutoModelClass:
         Args:
             config (Union[MindFormerConfig, PretrainedConfig, str]): MindFormerConfig, YAML file,
                 or a model config inherited from PretrainedConfig (experimental feature).
-            kwargs (additional keyword arguments): The values in kwargs of any keys which are configuration
+            kwargs (Dict[str, Any], optional): The values in kwargs of any keys which are configuration
                 attributes will be used to override the config values.
 
         Returns:
@@ -520,9 +510,9 @@ class _BaseAutoModelClass:
             pretrained_model_name_or_dir (str): A folder containing a YAML file and ckpt file, a folder
                 containing config.json and ckpt file, or a model_id from modelers.cn.
                 The last two are experimental features.
-            model_args (additional arguments): Will be passed along to the underlying model \_\_init\_\_() method.
+            model_args (Any, optional): Will be passed along to the underlying model \_\_init\_\_() method.
                 Only works in experimental mode.
-            kwargs (additional keyword arguments): The values in kwargs of any keys which are configuration
+            kwargs (Dict[str, Any], optional): The values in kwargs of any keys which are configuration
                 attributes will be used to override the loaded values.
 
         Returns:
@@ -739,8 +729,9 @@ def auto_class_update(cls, checkpoint_for_example="bert-base-cased", head_doc=""
     shortcut = checkpoint_for_example.split("/")[-1].split("-")[0]
     from_pretrained_docstring = from_pretrained_docstring.replace("shortcut_placeholder", shortcut)
     from_pretrained.__doc__ = from_pretrained_docstring
-    from_pretrained = replace_list_option_in_docstrings(model_mapping._model_mapping)(  # pylint: disable=W0212
-        from_pretrained)
+    from_pretrained = replace_list_option_in_docstrings(
+        model_mapping._model_mapping,  # pylint: disable=W0212
+        use_model_types=False)(from_pretrained)
     cls.from_pretrained = classmethod(from_pretrained)
     return cls
 
