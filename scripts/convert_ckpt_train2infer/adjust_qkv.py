@@ -64,35 +64,23 @@ def adjust_single_ckpt(src_ckpt_file, dst_ckpt_file, src_tp=4, dst_tp=2, quant='
         while True:
             changed = False
             # qkv weight adjust
-            qkv_weight_name = f"model.layers.{i}.attention.w_qkv._handler.weight"
+            qkv_weight_name = f"model.layers.{i}.attention.w_qkv._layer.weight"
             changed |= adjust_single_param(params_dict, qkv_weight_name, group, True)
             # qkv bias adjust
-            qkv_bias_name = f"model.layers.{i}.attention.w_qkv._handler.bias"
+            qkv_bias_name = f"model.layers.{i}.attention.w_qkv._layer.bias"
             changed |= adjust_single_param(params_dict, qkv_bias_name, group, True)
-            # qkv output quantizer scale adjust
-            qkv_oqscale_name = f"model.layers.{i}.attention.w_qkv._output_quantizer.scale"
-            changed |= adjust_single_param(params_dict, qkv_oqscale_name, group, True)
-            # qkv weight quantizer scale adjust
-            qkv_wscale_name = f"model.layers.{i}.attention.w_qkv._weight_quantizer.scale"
-            changed |= adjust_single_param(params_dict, qkv_wscale_name, group, True)
-            # qkv weight quantizer zp adjust
-            qkv_wzp_name = f"model.layers.{i}.attention.w_qkv._weight_quantizer.zp_neg"
-            changed |= adjust_single_param(params_dict, qkv_wzp_name, group, True)
+            # qkv matmul dequant scale adjust
+            qkv_mds_name = f"model.layers.{i}.attention.w_qkv._layer.matmul.dequant_scale"
+            changed |= adjust_single_param(params_dict, qkv_mds_name, group, True)
             # ffn weight adjust
-            ffn_weight_name = f"model.layers.{i}.feed_forward.w_gate_hidden._handler.weight"
+            ffn_weight_name = f"model.layers.{i}.feed_forward.w_gate_hidden._layer.weight"
             changed |= adjust_single_param(params_dict, ffn_weight_name, group, False)
             # ffn bias adjust
-            ffn_bias_name = f"model.layers.{i}.feed_forward.w_gate_hidden._handler.bias"
+            ffn_bias_name = f"model.layers.{i}.feed_forward.w_gate_hidden._layer.bias"
             changed |= adjust_single_param(params_dict, ffn_bias_name, group, False)
-            # ffn output quantizer scale adjust
-            ffn_oqscale_name = f"model.layers.{i}.feed_forward.w_gate_hidden._output_quantizer.scale"
-            changed |= adjust_single_param(params_dict, ffn_oqscale_name, group, False)
-            # ffn weight quantizer scale adjust
-            ffn_wscale_name = f"model.layers.{i}.feed_forward.w_gate_hidden._weight_quantizer.scale"
-            changed |= adjust_single_param(params_dict, ffn_wscale_name, group, False)
-            # ffn weight quantizer zp adjust
-            ffn_wzp_name = f"model.layers.{i}.feed_forward.w_gate_hidden._weight_quantizer.zp_neg"
-            changed |= adjust_single_param(params_dict, ffn_wzp_name, group, False)
+            # ffn matmul dequant scale adjust
+            ffn_mds_name = f"model.layers.{i}.feed_forward.w_gate_hidden._layer.matmul.dequant_scale"
+            changed |= adjust_single_param(params_dict, ffn_mds_name, group, False)
             if changed:
                 i += 1
             else:
