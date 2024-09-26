@@ -55,6 +55,13 @@ from mindformers.experimental.parallel_core.pynative.tensor_parallel.random impo
 class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
     r"""
     Linear execution with asynchronous communication in backprop.
+    This layer implements the operation as:
+
+    .. math::
+        \text{outputs} = \text{inputs} * \text{weight} + \text{bias},
+
+    where :math:`inputs` is the input tensors, :math:`\text{weight}` is a weight matrix passed to the layer,
+    and :math:`\text{bias}` is a bias vector passed to the layer.
 
     The gradient of weight is calculated simultaneously with
     all reduce communication of input gradient under tensor parallel condition.
@@ -65,14 +72,79 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
     Args:
         bias (bool): Specifies whether the layer uses a bias vector.
         gradient_accumulation_fusion (bool): Specifies whether accumulate gradient in backprop.
-        sequence_parallel (bool): Specifies whether sequence parallel is enabled.
+        sequence_parallel (bool): Specifies whether sequence parallel is enabled. If enabled, the input is all
+            gathered in the forward pass and the gradients are reduce scattered in the backward pass.
         allreduce_dgrad (bool): Specifies whether calculation and communication are overlapped.
-        grad_output_buffer (Tensor): Buffer used to save output gradients. Default: None.
-        wgrad_deferral_limit (int): Limit on the number of micro-batches. Default: 0.
-        transpose_b (bool): use transposed weight shape for initialization and compute. Default: True.
-        data_layout (str): Input layout. Default: "BSH".
+        grad_output_buffer (Tensor): Buffer used to save output gradients. Default: ``None``.
+        wgrad_deferral_limit (int): Limit on the number of micro-batches for which gradient GEMM of embedding weight
+            should be deferred. Default: ``0``.
+        transpose_b (bool): use transposed weight shape for initialization and compute. Default: ``True``.
+        data_layout (str): Input layout. Default: ``"BSH"``.
         recompute_comm(bool) : Recompute allgather before dw of matmul
 
+    Inputs:
+        - **x** (Tensor) - The input Tensor of Shape (B, S, H) or (S, B, H).
+        - **weight** (Tensor) - The weight Tensor of shape (H, H).
+        - **bias** (Tensor) - The bias vector of shape (H, ).
+
+    Outputs:
+        - **output_parallel** (Tensor) - The Tensor of shape (B, S, H) or (S, B, H), which is consistent with input.
+
+    Raises:
+        NotImplementedError: `grad_output_buffer` is not supported for now.
+        NotImplementedError: `wgrad_deferral_limit != 0` is not supported for now.
+        NotImplementedError: `allreduce_dgrad` is currently not supported when sequence_parallel is enabled.
+
+    Supported Platforms:
+        ``Ascend``
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import mindspore as ms
+        >>> from mindspore import nn, Tensor
+        >>> from mindformers.experimental.parallel_core.pynative.tensor_parallel import (
+        ...     LinearWithGradAccumulationAndAsyncCommunication
+        ... )
+        >>> import numpy as np
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> class LinearWithGradNet(nn.Cell):
+        ...     def __init__(self):
+        ...         super(LinearWithGradNet, self).__init__()
+        ...         self.forward_impl_ = LinearWithGradAccumulationAndAsyncCommunication(
+        ...             bias=False,
+        ...             gradient_accumulation_fusion=False,
+        ...             sequence_parallel=False,
+        ...             allreduce_dgrad=False,
+        ...             data_layout="BSH"
+        ...         )
+        ...     def construct(self, x, weight):
+        ...         output = self.forward_impl_(x, weight, bias=None, weight_param=None)
+        ...         return output
+        >>> ms.set_seed(2024)
+        >>> init()
+        >>> initialize_model_parallel(tensor_model_parallel_size=1)
+        >>> input_shape = (2, 3, 3)
+        >>> weight_shape = (3, 3)
+        >>> x = Tensor(np.random.standard_normal(input_shape).astype(np.float32))
+        >>> weight = Tensor(np.random.standard_normal(weight_shape).astype(np.float32))
+        >>> net = LinearWithGradNet()
+        >>> output = net(x, weight)
+        >>> print(output)
+        [[[ 0.96709514  1.54926     1.0753305 ]
+          [-0.60277843 -3.2891138  -1.3835094 ]
+          [-1.3610287  -2.396154   -1.5938796 ]]
+         [[-0.3728725  -3.8218632  -1.4241107 ]
+          [-0.95458585 -3.4623666  -1.678731  ]
+          [ 1.0809017   2.203352    1.3136505 ]]]
     """
     def __init__(
             self,
@@ -164,7 +236,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
 
         if self.sequence_parallel:
             if self.allreduce_dgrad:
-                raise NotImplementedError("allreduce_dgrad is not supported for now.")
+                raise NotImplementedError("`allreduce_dgrad` is not supported for now.")
             if self.data_layout == "BSH":
                 grad_input = grad_input.swapaxes(0, 1)
             grad_input, grad_input_handle = reduce_scatter_tensor(grad_input, group=self.tp_group, async_op=True)
@@ -258,32 +330,32 @@ class ColumnParallelLinear(nn.Cell):
     Args:
         input_size (int): The number of channels in the input space.
         output_size (int): The number of channels in the output space.
-        config (dict): Parallel configuration.
+        config (dict): The config of the transformer model. For details, please refer to TransformerConfig.
         init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The values
             of str refer to the function `initializer`.
-        bias (bool): Specifies whether the layer uses a bias vector. Default: True.
-        gather_output (bool): Specifies whether gather the output on each tensor parallel rank. Default: False.
-        stride (int): For the strided linear layers. Default: 1.
+        bias (bool): Specifies whether the layer uses a bias vector. Default: ``True``.
+        gather_output (bool): Specifies whether gather the output on each tensor parallel rank. Default: ``False``.
+        stride (int): For the strided linear layers. Default: ``1``.
         keep_master_weight_for_test (bool): For testing and should be set to False. It returns the master weights used
-            for initialization. Default: False.
-        skip_bias_add (bool): If True, do not add the bias term, instead return it for fusion. Default: False.
+            for initialization. Default: ``False``.
+        skip_bias_add (bool): If True, do not add the bias term, instead return it for fusion. Default: ``False``.
         skip_weight_param_allocation (bool): Specifies whether skip the initialization of weight parameter.
-            When set True, an weight tensor should be passed to construct function. Default: False.
+            When set True, an weight tensor should be passed to construct function. Default: ``False``.
         embedding_activation_buffer (Tensor): This buffer holds the input activations of the final embedding linear
-            layer on the last pipeline stage. Default: None.
+            layer on the last pipeline stage. Default: ``None``.
         grad_output_buffer (Tensor): This buffer holds the gradient outputs of the final embedding linear layer on
-            the last pipeline stage. Default: None.
-        is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
+            the last pipeline stage. Default: ``None``.
+        is_expert (bool): Specifies whether this linear layer is an expert. Default: ``False``.
         tp_comm_buffer_name (str): Communication buffer name is not used in non-Transformer-Engine modules.
-            Default: None.
+            Default: ``None``.
         disable_grad_reduce (bool): If True, reduction of output gradients across tensor-parallel ranks will be
-            disabled. Default: False.
+            disabled. Default: ``False``.
         bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The values
-            of str refer to the function `initializer`. Default: Zero().
-        param_init_dtype (dtype.Number): The parameter initialization type. Default: None.
-        compute_dtype (dtype.Number): The computation type. Default: None.
+            of str refer to the function `initializer`. Default: ``Zero()``.
+        param_init_dtype (dtype.Number): The parameter initialization type. Default: ``None``.
+        compute_dtype (dtype.Number): The computation type. Default: ``None``.
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape. Default:
-            True.
+            ``True``.
 
     Inputs:
         - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
@@ -294,9 +366,81 @@ class ColumnParallelLinear(nn.Cell):
 
     Raises:
         ValueError: `skip_weight_param_allocation=True` but weight_tensor is not passed to construct function.
+        NotImplementedError: `stride > 1` is not supported for now.
+        NotImplementedError: `keep_master_weight_for_test=True` is not supported for now.
+        NotImplementedError: `embedding_activation_buffer` is not supported for now.
+        NotImplementedError: `grad_output_buffer` is not supported for now.
+        NotImplementedError: `tp_comm_buffer_name` is not supported for now.
+        NotImplementedError: `disable_grad_reduce=True` is not supported for now.
+        NotImplementedError: `config.parallel_config.use_cpu_initialization` is not supported for now.
+        RuntimeError: use zero3 optimizer parallel without initializing data parallel communication.
+        RuntimeError: `allreduce_dgrad` and `sequence_parallel` cannot be enabled at the same time.
 
     Supported Platforms:
         ``Ascend``
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+
+            For Ascend devices, it is recommended to use the msrun startup method without any third-party
+            or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import numpy as np
+        >>> import mindspore as ms
+        >>> from mindspore import nn, Tensor
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> from mindformers.experimental.parallel_core.pynative.config import (
+        ...     ModelParallelConfig,
+        ...     TransformerConfig
+        ... )
+        >>> from mindformers.experimental.parallel_core.pynative.tensor_parallel import ColumnParallelLinear
+        >>> from mindformers.experimental.utils import init_method_normal
+        >>> class TestNet(nn.Cell):
+        ...     def __init__(self, config):
+        ...         super(TestNet, self).__init__()
+        ...         hidden_size = config.hidden_size
+        ...         self.columnlinear = ColumnParallelLinear(input_size=hidden_size,
+        ...                                                  output_size=hidden_size,
+        ...                                                  config=config,
+        ...                                                  init_method=config.init_method,
+        ...                                                  bias=config.mlp_has_bias,
+        ...                                                  gather_output=False,
+        ...                                                  skip_bias_add=False,
+        ...                                                  bias_init=config.bias_init)
+        ...     def construct(self, input_):
+        ...         output, _ = self.columnlinear(input_)
+        ...         return output
+        >>> dataset_size = 1
+        >>> seq_length = 2
+        >>> hidden_size = 4
+        >>> tensor_parallel = 1
+        >>> ms.set_context(device_target='Ascend', mode=ms.PYNATIVE_MODE)
+        >>> ms.set_seed(2024)
+        >>> init()
+        >>> initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
+        >>> input_data = Tensor(np.random.random((dataset_size, seq_length, hidden_size)).astype(np.float32))
+        >>> parallel_config = ModelParallelConfig()
+        >>> model_config = TransformerConfig(vocab_size=40000,
+        ...                                  num_layers=1,
+        ...                                  num_attention_heads=1,
+        ...                                  mlp_has_bias=True,
+        ...                                  gated_linear_unit=False,
+        ...                                  hidden_size=hidden_size,
+        ...                                  ffn_hidden_size=4*hidden_size,
+        ...                                  hidden_act='gelu',
+        ...                                  parallel_config=parallel_config,
+        ...                                  params_dtype='float32',
+        ...                                  compute_dtype='float32')
+        >>> network = TestNet(config=model_config)
+        >>> output = network(input_data)
+        >>> print(output)
+        [[[ 0.01780816  0.00895902 -0.00554341 -0.00185049]
+          [ 0.02319741 -0.00320548 -0.0062025  -0.0050142 ]]]
     """
     def __init__(
             self,
@@ -338,7 +482,7 @@ class ColumnParallelLinear(nn.Cell):
         if disable_grad_reduce:
             raise NotImplementedError("`disable_grad_reduce=True` is not supported for now.")
         if config.parallel_config.use_cpu_initialization:
-            raise NotImplementedError("`use_cpu_initialization` is not supported for now.")
+            raise NotImplementedError("`config.parallel_config.use_cpu_initialization` is not supported for now.")
 
         self.input_size = input_size
         self.output_size = output_size
@@ -524,26 +668,25 @@ class RowParallelLinear(nn.Cell):
     Args:
         input_size (int): The number of channels in the input space.
         output_size (int): The number of channels in the output space.
-        config (dict): Parallel configuration.
-        input_is_parallel (bool): Specifies whether the input tensor has already been sliced on last dimension.
+        config (dict): The config of the transformer model. For details, please refer to TransformerConfig.
         init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The values
             of str refer to the function `initializer`.
         bias (bool): Specifies whether the layer uses a bias vector.
         input_is_parallel (bool): If True, we assume that the input is already split across the tensor parallel group
             and we do not split again.
-        skip_bias_add (bool): If True, do not add the bias term, instead return it for fusion. Default: True.
-        stride (int): For the strided linear layers. Default: 1.
+        skip_bias_add (bool): If True, do not add the bias term, instead return it for fusion. Default: ``True``.
+        stride (int): For the strided linear layers. Default: ``1``.
         keep_master_weight_for_test (bool): For tesing and should be set to False. It returns the master weights used
-            for initialization. Default: False.
-        is_expert (bool): Specifies whether this linear layer is an expert. Default: False.
+            for initialization. Default: ``False``.
+        is_expert (bool): Specifies whether this linear layer is an expert. Default: ``False``.
         tp_comm_buffer_name (str): Communication buffer name is not used in non-Transformer-Engine modules.
-            Default: None.
+            Default: ``None``.
         bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The values
-            of str refer to the function `initializer`. Default: Zero().
-        param_init_dtype (dtype.Number): The parameter initialization type. Default: None.
-        compute_dtype (dtype.Number): The computation type. Default: None.
+            of str refer to the function `initializer`. Default: ``Zero()``.
+        param_init_dtype (dtype.Number): The parameter initialization type. Default: ``None``.
+        compute_dtype (dtype.Number): The computation type. Default: ``None``.
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape. Default:
-            True.
+            ``True``.
 
     Inputs:
         - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
@@ -552,8 +695,80 @@ class RowParallelLinear(nn.Cell):
     Outputs:
         Tensor of shape :math:`(*, out\_channels)`.
 
+    Raises:
+        ValueError: `sequence_parallel` should be False when `input_is_parallel` is False , but got True.
+        ValueError: `skip_bias_add` should be True when `explicit_expert_comm` is True , but got False.
+        NotImplementedError: `stride > 1` is not supported for now.
+        NotImplementedError: `keep_master_weight_for_test=True` is not supported for now.
+        NotImplementedError: `tp_comm_buffer_name` is not supported for now.
+        RuntimeError: use zero3 optimizer parallel without initializing data parallel communication.
+        RuntimeError: To enable `sequence_parallel`, `input_is_parallel` must be True but got False.
+
     Supported Platforms:
         ``Ascend``
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+
+            For Ascend devices, it is recommended to use the msrun startup method without any third-party
+            or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import numpy as np
+        >>> import mindspore as ms
+        >>> from mindspore import nn, Tensor
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> from mindformers.experimental.parallel_core.pynative.config import (
+        ...     ModelParallelConfig,
+        ...     TransformerConfig
+        ... )
+        >>> from mindformers.experimental.parallel_core.pynative.tensor_parallel import RowParallelLinear
+        >>> from mindformers.experimental.utils import init_method_normal
+        >>> class TestNet(nn.Cell):
+        ...     def __init__(self, config):
+        ...         super(TestNet, self).__init__()
+        ...         hidden_size = config.hidden_size
+        ...         self.rowlinear = RowParallelLinear(input_size=hidden_size,
+        ...                                            output_size=hidden_size,
+        ...                                            config=config,
+        ...                                            init_method=config.init_method,
+        ...                                            bias=config.mlp_has_bias,
+        ...                                            input_is_parallel=True,
+        ...                                            skip_bias_add=False,
+        ...                                            bias_init=config.bias_init)
+        ...     def construct(self, input_):
+        ...         output, _ = self.rowlinear(input_)
+        ...         return output
+        >>> dataset_size = 1
+        >>> seq_length = 2
+        >>> hidden_size = 4
+        >>> tensor_parallel = 1
+        >>> ms.set_context(device_target='Ascend', mode=ms.PYNATIVE_MODE)
+        >>> ms.set_seed(2024)
+        >>> init()
+        >>> initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
+        >>> input_data = Tensor(np.random.random((dataset_size, seq_length, hidden_size)).astype(np.float32))
+        >>> parallel_config = ModelParallelConfig()
+        >>> model_config = TransformerConfig(vocab_size=40000,
+        ...                                  num_layers=1,
+        ...                                  num_attention_heads=1,
+        ...                                  mlp_has_bias=True,
+        ...                                  gated_linear_unit=False,
+        ...                                  hidden_size=hidden_size,
+        ...                                  ffn_hidden_size=4*hidden_size,
+        ...                                  hidden_act='gelu',
+        ...                                  parallel_config=parallel_config,
+        ...                                  params_dtype='float32',
+        ...                                  compute_dtype='float32')
+        >>> network = TestNet(config=model_config)
+        >>> output = network(input_data)
+        >>> print(output)
+        [[[ 0.01780816  0.00895902 -0.00554341 -0.00185049]
+          [ 0.02319741 -0.00320548 -0.0062025  -0.0050142 ]]]
     """
     def __init__(
             self,
@@ -621,7 +836,7 @@ class RowParallelLinear(nn.Cell):
 
         if self.sequence_parallel and not self.input_is_parallel:
             raise RuntimeError(
-                "To enable `sequence_arallel`, `input_is_parallel` must be `True`"
+                "To enable `sequence_parallel`, `input_is_parallel` must be `True`"
             )
 
         mode = EXPERT_PARALLEL_GENERATOR if self.is_expert and self.expert_parallel else TENSOR_PARALLEL_GENERATOR
@@ -691,7 +906,7 @@ class RowParallelLinear(nn.Cell):
             output_parallel = self.frozen_weight_forward_impl_(input_parallel, weight, bias=None)
         if self.explicit_expert_comm:
             if not self.skip_bias_add:
-                raise ValueError("explicit_expert_comm should be True here, but got False.")
+                raise ValueError("skip_bias_add should be True here, but got False.")
             output = output_parallel
         elif self.sequence_parallel:
             output = self.reduce_scatter_to_sp_region(output_parallel)
@@ -741,10 +956,99 @@ class VocabParallelEmbedding(nn.Cell):
         init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The values
             of str refer to the function `initializer`.
         reduce_scatter_embeddings (bool): Decides whether to perform ReduceScatter after embedding lookup. Default:
-            False.
-        config (Optional[Union[dict, ParallelContextConfig]]):
-            Parallel Config For Running Environment.
-        param_init_dtype (dtype.Number): The parameter initialization type. Default: None.
+            ``False``.
+        config (dict): The config of the transformer model. For details, please refer to TransformerConfig.
+        param_init_dtype (dtype.Number): The parameter initialization type. Default: ``None``.
+
+    Inputs:
+        - **input_** (Tensor) - Tensor of shape (B, S) or (S, B).
+
+    Outputs:
+        - **output** (Tensor) - Tensor of shape (B, S, H) or (S, B, H), which is consistent with the input.
+
+    Raises:
+        ValueError: The vocabulary size is not divisible by size of tensor parallel.
+        NotImplementedError: `config.parallel_config.deterministic_mode` is not supported for now.
+        NotImplementedError: `config.parallel_config.use_cpu_initialization` is not supported for now.
+
+    Supported Platforms:
+        ``Ascend``
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+
+            For Ascend devices, it is recommended to use the msrun startup method without any third-party
+            or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+            This example should be run with 4 devices.
+
+        >>> import numpy as np
+        >>> import mindspore as ms
+        >>> from mindspore import nn, ops, Tensor
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> from mindformers.experimental.parallel_core.pynative.tensor_parallel.layers import VocabParallelEmbedding
+        >>> from mindformers.experimental.parallel_core.pynative.config import (
+        ...     ModelParallelConfig,
+        ...     DatasetConfig,
+        ...     TransformerConfig
+        ... )
+        >>> ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
+        >>> ms.set_context(pynative_synchronize=True)
+        >>> ms.set_seed(2024)
+        >>> ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.DATA_PARALLEL)
+        >>> class ParallelTransformerLayerNet(nn.Cell):
+        ...     def __init__(self, config):
+        ...         super(ParallelTransformerLayerNet, self).__init__()
+        ...         self.config = config
+        ...         self.embedding = VocabParallelEmbedding(
+        ...             num_embeddings=config.vocab_size,
+        ...             embedding_dim=config.hidden_size,
+        ...             init_method=config.init_method,
+        ...             reduce_scatter_embeddings=config.parallel_config.sequence_parallel,
+        ...             config=config,
+        ...         )
+        ...     def construct(self, x):
+        ...         x = self.embedding(x)
+        ...         return x
+        >>> parallel_config = ModelParallelConfig(tensor_model_parallel_size=2,
+        ...                                       pipeline_model_parallel_size=1,
+        ...                                       context_parallel_size=1,
+        ...                                       expert_model_parallel_size=1,
+        ...                                       sequence_parallel=True)
+        >>> dataset_config = DatasetConfig(batch_size=1,
+        ...                                dataset_size=2,
+        ...                                seq_length=1024)
+        >>> model_config = TransformerConfig(vocab_size=50304,
+        ...                                  num_layers=1,
+        ...                                  num_attention_heads=32,
+        ...                                  hidden_size=2560,
+        ...                                  ffn_hidden_size=7680,
+        ...                                  parallel_config=parallel_config)
+        >>> model_config.dataset_config = dataset_config
+        >>> batch_size = dataset_config.batch_size
+        >>> dataset_size = dataset_config.dataset_size
+        >>> seq_length = dataset_config.seq_length
+        >>> vocab_size = model_config.vocab_size
+        >>> init()
+        >>> tensor_parallel = parallel_config.tensor_model_parallel_size
+        >>> initialize_model_parallel(tensor_model_parallel_size=tensor_parallel)
+        >>> network = ParallelTransformerLayerNet(config=model_config)
+        >>> input_shape = (batch_size, seq_length)
+        >>> input_ids = Tensor(np.ones(input_shape).astype(np.float32))
+        >>> output = network(input_ids)
+        >>> print(output)
+        [[-0.00546161]
+         [ 0.00440422]
+         [ 0.00252223]
+         ...
+         [ 0.00539334]
+         [-0.00625365]
+         [-0.01025379]]
     """
 
     def __init__(
@@ -759,9 +1063,9 @@ class VocabParallelEmbedding(nn.Cell):
     ):
         super().__init__()
         if config.parallel_config.deterministic_mode:
-            raise NotImplementedError("`deterministic_mode` is not supported for now.")
+            raise NotImplementedError("`config.parallel_config.deterministic_mode` is not supported for now.")
         if config.parallel_config.use_cpu_initialization:
-            raise NotImplementedError("`use_cpu_initialization` is not supported for now.")
+            raise NotImplementedError("`config.parallel_config.use_cpu_initialization` is not supported for now.")
 
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
