@@ -149,6 +149,7 @@ bash ckpt_convert.sh -f distributed_weight_transfer -p fp16 -w 4 -y /home/checkp
 - 输入的权重精度与设置的precision一致
 - 若输入的权重为单卡权重，需要将权重路径修改形式为：/path/rank_0/**.ckpt, 输入的 --src_ckpt_path=/path/
 - 不支持给量化权重做qkv前端算子融合
+- 如果首次生产的策略文件异常，请及时删除，以防影响生成新的策略文件
 
 ## 4. huggingface权重转mindspore的fp16推理权重 **pt_to_ms**
 
@@ -198,3 +199,92 @@ bash ckpt_convert.sh -f pt_to_ms -p fp16 -w 8  -y /home/checkpoint_download/llam
 ```shell
 python ckpt_to_safetensors.py --src_ckpt_path=/infer_ckpt/fp16_8p --dst_safetensors_path=/infer_ckpt/fp16_8p_safetensors
 ```
+
+## 6. 双机16卡推理权重
+
+### 6.1 fp16-8p转fp16-16p
+
+#### 6.1.1 配置项说明
+
+环境设置：
+
+- export RANKTABLEFILE='hccl_2s_16p.json'
+- export MS_SCHED_HOST='10.208.200.01' (两机中的一个ip，两机设置保持一致)
+- export MS_SCHED_PORT=8093 (两机设置保持一致)
+
+必须配置项：
+
+- `--function distributed_weight_transfer --precision fp16 --world_size 16`
+- `--yaml` 为fp16推理16p的yaml文件路径 (mp=16)
+- `--src_ckpt_path` 为输入的权重路径
+
+可配置项：
+
+- `--infer_strategy_file` 生成策略文件的保存地址，不设置此参数时，策略文件保存在当前路径下`"./infer_strategy/"`；
+- `--dst_ckpt_path` 生成量化权重文件的保存地址，不设置此参数时策略文件保存在当前路径下`./infer_ckpt/`
+
+#### 6.1.2 流程说明
+
+- 检查权重是否是含有qkv前端算子融合的，是：`qkv_concat=true`, 否：`qkv_concat=false`
+- 进入多卡转多卡流程：
+- 若`qkv_concat=true`：
+    - 删除qkv算子
+    - 生成`dir_count`卡数的策略文件
+    - 生成`world_size`卡数的策略文件
+    - 生成`world_size`卡数的权重
+    - 添加前端qkv算子融合
+- 若`qkv_concat=false`：
+    - 生成`dir_count`卡数的策略文件
+    - 生成`world_size`卡数的策略文件
+    - 生成`world_size`卡数的权重
+    - 添加前端qkv算子融合
+
+### 6.1.3 运行脚本
+
+```shell
+# fp16 fp16-8p 转 fp16-16p
+bash ckpt_convert_for_16p.sh -f distributed_weight_transfer -p fp16 -w 16 -y /home/checkpoint_download/llama57b/predict_llama2_57b_910b.yaml  -sc /fp16_8p/
+```
+
+### 6.1.4 注意事项
+
+- 两台机器需同时运行转换脚本
+
+### 6.2 fp16-16p转量化权重-16p
+
+#### 6.2.1 配置项说明
+
+环境设置：
+
+- export RANKTABLEFILE='hccl_2s_16p.json'
+- export MS_SCHED_HOST='10.208.200.01' (两机中的一个ip，两机设置保持一致)
+- export MS_SCHED_PORT=8093 (两机设置保持一致)
+
+必须配置项：
+
+- `--function quant_weight --precision w8a16/w8a8/w8a16c8/w8a8c8/fp16c8 --world_size 16`
+- `--yaml` 为量化推理的yaml文件路径(mp=16)
+- `--src_ckpt_path` 为fp16-16p的权重路径
+- `-d` 转量化权重时必要配置的数据集名称，当前只支持 `boolq、squad1.1、wikitext2` 三个数据集，
+- `-dp` 转量化权重时必要配置的数据集路径，例如 './boolq/dev.jsonl'
+
+可配置项：
+
+- `--infer_strategy_file` 生成策略文件的保存地址，不设置此参数时，策略文件保存在当前路径下`"./infer_strategy/"`；
+- `--dst_ckpt_path` 生成量化权重文件的保存地址，不设置此参数时策略文件保存在当前路径下`./infer_ckpt/`
+
+#### 6.2.2 流程说明
+
+- 将fp16-16p权重转换为量化-16p权重
+
+### 6.2.3 运行脚本
+
+```shell
+# w8a16 fp16-16p 转 w8a16_16p
+bash ckpt_convert_for_16p.sh -f quant_weight -p w8a16 -w 16 -y /home/checkpoint_download/llama57b_quant_w8a16/predict_llama2_57b_910b.yaml  -sc /infer_ckpt/fp16_16p -d boolq -dp ./boolq/dev.jsonl
+```
+
+### 6.2.4 注意事项
+
+- 两台机器需同时运行转换脚本
+- 只支持输入world_size卡数权重量化成world_size卡数权重

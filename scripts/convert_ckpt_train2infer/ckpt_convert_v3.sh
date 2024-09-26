@@ -110,18 +110,6 @@ n_to_m_rank_transformer(){ #Infer_strategy_path #Dst_ckpt_path #src_ckpt_path
     --prefix="checkpoint_" \
     > ./log/log_transform_ckpt_${precision}_${world_size}.log 2>&1
     echo "----- End convert ${world_size}p ${precision} weights time: $(date +%H:%M:%S) -----"
-    local result=$(awk "BEGIN {print $dir_count / $world_size}")
-    if [ "$qkv_ffn" == "True" ] && [ "$result" -eq 2 ]; then
-        echo "----- Start to adjust qkv and ffn time: $(date +%H:%M:%S)-----"
-        python adjust_qkv.py \
-            --src_ckpt_path=${Dst_ckpt_path}_${world_size}p \
-            --dst_ckpt_path=${Dst_ckpt_path}_${world_size}p_adjust \
-            --dir_count=${dir_count} \
-            --world_size=${world_size} \
-            --quant="$([ "$precision" != "fp16" ] && echo "True" || echo "False")" \
-            > ./log/log_adjust_qkv_${dir_count}_to_${world_size}.log 2>&1
-        echo "----- End convert qkv time: $(date +%H:%M:%S)-----"
-    fi
 }
 
 1_to_m_rank_transformer(){ #Infer_strategy_path #Dst_ckpt_path #src_ckpt_path
@@ -161,8 +149,6 @@ distributed_weight_transfer(){  #Infer_strategy_path #Dst_ckpt_path #src_ckpt_pa
     local src_ckpt_path=$1
     local Dst_ckpt_path=$2
     local Infer_strategy_path=$3
-    local quant="$([ "$precision" != "fp16" ] && echo 'True' || echo 'False')"
-    local result=$(awk "BEGIN {print $dir_count / $world_size}")
     check_qkv_output_1=$(python check_weight_name.py --src_ckpt_dir=$src_ckpt_path)
     echo "Python 脚本的输出是: $check_qkv_output_1"
     if echo "$check_qkv_output_1" | grep -q 'yes-qkv' ; then
@@ -172,44 +158,12 @@ distributed_weight_transfer(){  #Infer_strategy_path #Dst_ckpt_path #src_ckpt_pa
         echo "qkv_ffn=False"
         qkv_ffn="False"
     fi
-    if [ "$quant" == "True" ] && [ "$result" -ne 2 ]; then
-       echo "Not support this input combination."
-       exit 1
-    fi
-    if [ "$quant" == "True" ] && [ "$qkv_ffn" == "False" ] && [ "$result" -eq 2 ]; then
-        echo "Not support this input combination."
-        exit 1
-    fi
     if [ "$dir_count" == 1 ]; then
-        if [ "$qkv_ffn" == 'True' ]; then
-            echo "----- Start to revert qkv and ffn time: $(date +%H:%M:%S)-----"
-            python revert_qkv_ffn.py \
-            --world_size=$dir_count \
-            --src_ckpt_path=${src_ckpt_path}  \
-            --dst_ckpt_path=${src_ckpt_path}_no_qkv \
-            > ./log/log_revert_qkv_ffn.log 2>&1
-            echo "----- End revert qkv time: $(date +%H:%M:%S)-----"
-            qkv_ffn="False"
-            1_to_m_rank_transformer ${src_ckpt_path}_no_qkv ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
-        else
-            1_to_m_rank_transformer ${src_ckpt_path} ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
-        fi
+        1_to_m_rank_transformer ${src_ckpt_path} ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
     else
-        if [ "$qkv_ffn" == 'True' ] && [ "$result" -ne 2 ]; then
-            echo "----- Start to revert qkv and ffn time: $(date +%H:%M:%S)-----"
-            python revert_qkv_ffn.py \
-            --world_size=$dir_count \
-            --src_ckpt_path=${src_ckpt_path}  \
-            --dst_ckpt_path=${src_ckpt_path}_no_qkv \
-            > ./log/log_revert_qkv_ffn.log 2>&1
-            echo "----- End revert qkv time: $(date +%H:%M:%S)-----"
-            qkv_ffn="False"
-            n_to_m_rank_transformer ${src_ckpt_path}_no_qkv ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
-        else
-            n_to_m_rank_transformer ${src_ckpt_path} ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
-        fi
+        n_to_m_rank_transformer ${src_ckpt_path} ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
     fi
-    if [ "$qkv_ffn" == "False" ] && [ "$precision" == 'fp16' ]; then
+    if echo "$check_qkv_output_1" | grep -q 'no-qkv' && [ "$precision" == 'fp16' ]; then
         echo "----- Start to convert qkv and ffn time: $(date +%H:%M:%S)-----"
         python convert_qkv_ffn.py \
         --world_size=$world_size \
