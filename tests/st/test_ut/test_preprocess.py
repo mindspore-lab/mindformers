@@ -43,7 +43,7 @@ class TestGenerationMixin:
 
     def __init__(self):
         self.config = TestConfig()
-
+        self._pre_set_phase = None
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         return {"input_ids": Tensor.from_numpy(input_ids)}
