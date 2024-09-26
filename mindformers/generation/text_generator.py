@@ -938,7 +938,7 @@ class GenerationMixin:
 
         Args:
             input_ids (List(List(int))): Input ids after padding.
-            valid_length_each_example (numpy.ndarray): Valid input length except padding.
+            valid_length_each_example (np.ndarray): Valid input length except padding.
             generation_config (`GenerationConfig`): The generation configuration to be used
                 as base parametrization for the generation call.
             logits_processor (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`].
@@ -1031,7 +1031,7 @@ class GenerationMixin:
 
         Args:
             input_ids (List(List(int))): Input ids after padding.
-            valid_length_each_example (numpy.ndarray): Valid input length except padding.
+            valid_length_each_example (np.ndarray): Valid input length except padding.
             block_tables (Tensor): Params for page attention.
             slot_mapping (Tensor): Params for page attention.
             prefill (bool): Whether to do prefill predict or decode predict.
@@ -1110,7 +1110,7 @@ class GenerationMixin:
             is_finished (List(bool)): Whether each sequence is finished its generation.
             generation_config (`GenerationConfig`): The generation configuration to be used
                 as base parametrization for the generation call.
-            valid_length_each_example (numpy.ndarray): Valid input length except padding.
+            valid_length_each_example (np.ndarray): Valid input length except padding.
             current_index (List(int)): Current index of sequence.
             logits_processor (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`].
                 List of instances of class derived from [`LogitsProcessor`] used to modify the prediction scores
