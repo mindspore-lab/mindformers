@@ -1,0 +1,86 @@
+training_config:
+  seed: 42
+  output_dir: './output'
+  training_iters: 10
+  log_interval: 1
+  eval_interval: 5
+  save_interval: null
+  loss_scale_value: 4096
+  loss_scale_factor: 2
+  loss_scale_window: 1000
+  grad_clip_kwargs:
+    grad_clip_type: "GradClipByValue"
+    clip_value: 1.0
+  loss_reduction: "mean"
+  loss_func_kwargs:
+    loss_func_type: "CrossEntropyLoss"
+  best_metric_comparison: "less_equal"
+  eval_metric: "perplexity"
+  calculate_per_token_loss: False
+
+parallel_config:
+  tensor_model_parallel_size: 1
+  pipeline_model_parallel_size: 1
+  context_parallel_size: 1
+  expert_model_parallel_size: 1
+  virtual_pipeline_model_parallel_size: null
+  overlap_p2p_comm: False
+  sequence_parallel: False
+  recv_dtype: "float32" # for pp
+  use_distributed_optimizer: False
+  overlap_grad_reduce: False
+  bucket_size: 20000
+  gradient_accumulation_fusion: False
+
+pangu_config:
+  model_type: "2.6B"
+  seq_length: 1024
+  params_dtype: "float32"
+  embedding_init_dtype: "float32"
+  compute_dtype: "float32"
+  softmax_compute_dtype: "float32"
+  init_method: 'normal'
+  position_embedding_type: 'absolute'
+  use_query_layer: True
+  use_visual_encoder: False
+  fp16_lm_cross_entropy: False
+  untie_embeddings_and_output_weights: False
+
+dataset_config:
+  batch_size: 1
+  micro_batch_num: 1
+  dataset_dir: 'dataset'
+  shuffle: False
+  drop_remainder: True
+  eod_id: 50256
+
+lora_config:
+  use_lora: False
+  lora_rank: 8
+  lora_alpha: 32
+  target_cells: [
+                  {'target_cells':[
+                      '.*.qkv_proj',
+                      '.*.out_proj',
+                      '.*.mapping',
+                      '.*.projection',
+                      '.*.q_proj',
+                      '.*.kv_proj',
+                  ]},
+              ]
+  checkpoint_dir: 'path/to/ckpt'
+  checkpoint_prefix: 'checkpoint_'
+
+
+optimizer_config:
+  optimizer_type: "AdamW"
+  beta1: 0.9
+  beta2: 0.95
+  eps: 1.e-8
+  learning_rate: 1.e-4
+  weight_decay: 1.e-1
+  learning_rate_scheduler_kwargs:
+    warmup_steps: 200
+    decay_steps: 2000
+    use_cosine: True
+    end_learning_rate: 1.e-6

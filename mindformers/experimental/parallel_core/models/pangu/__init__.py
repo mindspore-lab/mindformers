@@ -12,4 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""examples init"""
+"""mindformers init"""
+
+from .pangu_model import PanguModel
+
+__all__ = ['PanguModel']
