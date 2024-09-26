@@ -201,6 +201,9 @@ class MindFormerRegister:
             module_type (MindFormerModuleType, optional): Module type name of MindFormers.
                 Default: ``MindFormerModuleType.TOOLS``.
             alias (str, optional) : Alias for the class. Default: ``None``.
+
+        Returns:
+            Class, the registered class itself.
         """
         class_name = alias if alias is not None else register_class.__name__
         if module_type not in cls.registry:
