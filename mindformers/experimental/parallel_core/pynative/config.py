@@ -15,10 +15,10 @@
 """Configuration."""
 # pylint: disable=W0613
 import inspect
+import argparse
 import copy
 import os
 import re
-import shlex
 from typing import Union, List, Optional
 from collections import deque, OrderedDict
 from abc import ABCMeta, abstractmethod
@@ -46,72 +46,88 @@ _SUPPORT_INIT_METHOD = DictWithValueError(_INITIALIZER_ALIAS)
 
 mapping_dict = {
     # model config
-    'vocab-size': 'model_config.vocab_size',
-    'padded-vocab-size': 'model_config.padded_vocab_size',
-    'hidden-size': 'model_config.hidden_size',
-    'rotary-base': 'model_config,rotary_base',
-    'num-layers': 'model_config.num_layers',
-    'position-embedding-type': 'model_config.position_embedding_type',
-    'use-rotary-position-embeddings': 'model_config.use_rotary_embedding',
-    'init-method-std': 'model_config.init_method_std',
+    'padded_vocab_size': 'model_config.vocab_size',
+    'hidden_size': 'model_config.hidden_size',
+    'seq_length': 'model_config.seq_length',
+    'rotary_base': 'model_config,rotary_base',
+    'num_layers': 'model_config.num_layers',
+    'position_embedding_type': 'model_config.position_embedding_type',
+    'use_rotary_position_embeddings': 'model_config.use_rotary_embedding',
+    'init_method_std': 'model_config.init_method_std',
     'normalization': 'model_config.normalization',
-    'norm-epsilon': 'model_config.norm_epsilon',
-    'group-query-attention': 'model_config.group_query_attention',
-    'num-attention-heads': 'model_config.num_attention_heads',
-    'num-query-groups': 'model_config.num_query_groups',
-    'attention-dropout': 'model_config.attention_dropout',
-    'ffn-hidden-size': 'model_config.ffn_hidden_size',
-    'hidden-dropout': 'model_config.hidden_dropout',
-    'attention-softmax-in-fp32': 'model_config.attention_softmax_in_fp32',
-    'use-flash-attn': 'model_config.use_flash_attention',
-    'untie-embeddings-and-output-weights': 'model_config.untie_embeddings_and_output_weights',
-    'transformer-impl': 'model_config.transformer_impl',
-    'recompute-granularity': 'model_config.recompute_granularity',
-    'recompute-method': 'model_config.recompute_method',
-    'recompute-num-layers': 'model_config.recompute_num_layers',
-    'fp16-lm-cross-entropy': 'model_config.fp16_lm_cross_entropy',
-    'fp32-residual-connection': 'model_config.fp32_residual_connection',
-    'add-qkv-bias': 'model_config.add_qkv_bias',
+    'norm_epsilon': 'model_config.norm_epsilon',
+    'group_query_attention': 'model_config.group_query_attention',
+    'num_attention_heads': 'model_config.num_attention_heads',
+    'num_query_groups': 'model_config.num_query_groups',
+    'attention_dropout': 'model_config.attention_dropout_rate',
+    'ffn_hidden_size': 'model_config.ffn_hidden_size',
+    'hidden_dropout': 'model_config.hidden_dropout_rate',
+    'attention_softmax_in_fp32': 'model_config.attention_softmax_in_fp32',
+    'use_flash_attn': 'model_config.use_flash_attention',
+    'untie_embeddings_and_output_weights': 'model_config.untie_embeddings_and_output_weights',
+    'transformer_impl': 'model_config.transformer_impl',
+    'recompute_granularity': 'model_config.recompute_granularity',
+    'recompute_method': 'model_config.recompute_method',
+    'recompute_num_layers': 'model_config.recompute_num_layers',
+    'fp16_lm_cross_entropy': 'model_config.fp16_lm_cross_entropy',
+    'fp32_residual_connection': 'model_config.fp32_residual_connection',
+    'add_qkv_bias': 'model_config.qkv_has_bias',
+    'add_dense_bias': 'model_config.out_proj_has_bias',
+    'add_bias_linear': 'model_config.add_bias_linear',
+    'use_sandwich_norm': 'model_config.use_sandwich_norm',
+    'pre_tockens': 'model_config.fa_config.pre_tokens',
+    'next_tockens': 'model_config.fa_config.next_tokens',
+    'shape_order': 'model_config.fa_config.input_layout',
+    'attn_post_norm_scale': 'model_config.attn_post_norm_scale',
+    'ffn_post_norm_scale': 'model_config.ffn_post_norm_scale',
+    'params_dtype': 'model_config.param_init_dtype',
+    'embedding_dtype': 'model_config.embedding_init_dtype',
+    'use_fused_swiglu': 'model_config.apply_swiglu_fusion',
+    'apply_rope_fusion': 'model_config.apply_rope_fusion',
+    'hidden_act': 'model_config.hidden_act',
     # training config
     'seed': 'training_config.seed',
     'log_interval': 'training_config.log_interval',
-    'train-iters': 'training_config.training_iters',
-    'save-interval': 'training_config.save_interval',
-    'eval-interval': 'training_config.eval_interval',
-    'accumulate-allreduce-grads-in-fp32': 'training_config.accumulate_allreduce_grads_in_fp32',
-    'clip-grad': 'training_config.grad_clip_kwargs.clip_value',
+    'train_iters': 'training_config.training_iters',
+    'save_interval': 'training_config.save_interval',
+    'eval_interval': 'training_config.eval_interval',
+    'accumulate_allreduce_grads_in_fp32': 'training_config.accumulate_allreduce_grads_in_fp32',
+    'clip_grad': 'training_config.grad_clip_kwargs.clip_value',
     'bf16': 'training_config.bf16',
     'fp16': 'training_config.fp16',
-    'loss-scale': 'training_config.loss_scale',
-    'initial-loss-scale': 'training_config.loss_scale',
-    'loss-scale-window': 'training_config.loss_scale_window',
+    'loss_scale': 'training_config.loss_scale',
+    'initial_loss_scale': 'training_config.loss_scale_value',
+    'loss_scale_window': 'training_config.loss_scale_window',
     'hysteresis': 'training_config.loss_scale_factor',
-    'micro-batch-size': 'training_config.batch_size',
+    'micro_batch_size': 'training_config.batch_size',
+    'use_distributed_optimizer': 'training_config.use_distributed_optimizer',
     # dataset config
-    'data-path': 'dataset_config.dataset_dir',
-    'pad-token-id': 'dataset_config.pad_token_id',
-    'eos-token-id': 'dataset_config.eos_token_id',
+    'reset_attention_mask': 'dataset_config.reset_attention_mask',
+    'reset_position_ids': 'dataset_config.reset_position_ids',
+    'eod_mask_loss': 'dataset_config.eod_mask_loss',
+    'pad_token_id': 'dataset_config.pad_token_id',
+    'eos_token_id': 'dataset_config.eos_token_id',
     'drop_remainder': 'dataset_config.drop_remainder',
     # optimizer config
     'optimizer': 'optimizer_config.optimizer_type',
-    'adam-beta1': 'optimizer_config.betas',
-    'adam-beta2': 'optimizer_config.betas',
-    'adam-eps': 'optimizer_config.eps',
-    'lr-decay-style': 'optimizer_config.lr_decay_style',
+    'adam_beta1': 'optimizer_config.betas',
+    'adam_beta2': 'optimizer_config.betas',
+    'adam_eps': 'optimizer_config.eps',
+    'lr_decay_style': 'optimizer_config.lr_decay_style',
     'lr': 'optimizer_config.learning_rate',
     'min_lr': 'optimizer_config.min_lr',
-    'lr-warmup-iters': 'optimizer_config.lr_warmup_iters',
-    'lr-decay-iters': 'optimizer_config.lr_decay_iters',
-    'override-opt_param-scheduler': 'optimizer_config.override_opt_param_scheduler',
-    'weight-decay': 'optimizer_config.weight_decay',
+    'lr_warmup_iters': 'optimizer_config.lr_warmup_iters',
+    'lr_decay_iters': 'optimizer_config.lr_decay_iters',
+    'override_opt_param_scheduler': 'optimizer_config.override_opt_param_scheduler',
+    'weight_decay': 'optimizer_config.weight_decay',
     # parallel config
-    'tensor-model-parallel-size': 'parallel_config.tensor_model_parallel_size',
-    'context-parallel-size': 'parallel_config.context_parallel_size',
-    'expert-model-parallel-size': 'parallel_config.expert_model_parallel_size',
-    'sequence-parallel': 'parallel_config.sequence_parallel',
-    'use-distributed-optimizer': 'parallel_config.use_distributed_optimizer',
-    'overlap-grad-reduce': 'parallel_config.overlap_grad_reduce',
-    'pipeline-model-parallel-size': 'parallel_config.pipeline_model_parallel_size',
+    'tensor_model_parallel_size': 'parallel_config.tensor_model_parallel_size',
+    'context_parallel_size': 'parallel_config.context_parallel_size',
+    'expert_model_parallel_size': 'parallel_config.expert_model_parallel_size',
+    'virtual_Pipeline_modeL_parallel_size': 'parallel_config.virtual_Pipeline_modeL_parallel_size',
+    'sequence_parallel': 'parallel_config.sequence_parallel',
+    'overlap_grad_reduce': 'parallel_config.overlap_grad_reduce',
+    'pipeline_model_parallel_size': 'parallel_config.pipeline_model_parallel_size',
 }
 
 
@@ -158,33 +174,6 @@ def parse_value(value: str):
             return value
 
 
-def parse_args_from_str(run_cmd: str):
-    """Parse arguments from run command.
-
-    Args:
-        run_cmd (str): run command.
-
-    Returns:
-        dict: parsed arguments in flatten dict.
-    """
-    if not isinstance(run_cmd, str):
-        raise ValueError("run_cmd should be a string.")
-    args_list = shlex.split(run_cmd)
-    args_dict = {}
-
-    i = 0
-    while i < len(args_list):
-        arg = args_list[i]
-        if arg.startswith('--'):
-            if (i + 1) < len(args_list) and not args_list[i + 1].startswith('--'):
-                args_dict[arg[2:]] = parse_value(args_list[i + 1])
-                i += 1
-            else:
-                args_dict[arg[2:]] = True
-        i += 1
-    return args_dict
-
-
 def get_default_config():
     """Append default config to raw dict.
 
@@ -193,9 +182,18 @@ def get_default_config():
     """
     default_param_dict = {}
     default_param_dict['dataset_config.drop_remainder'] = True
+    default_param_dict['dataset_config.data_layout'] = "SBH"
     default_param_dict['optimizer_config.optimizer_type'] = "mint.AdamW"
     default_param_dict['training_config.wrap_with_ddp'] = True
     default_param_dict['training_config.grad_clip_kwargs.grad_clip_type'] = "ClipGlobalNorm"
+    default_param_dict['training_config.bucket_size'] = 2000
+    default_param_dict['training_config.eval_metric'] = "perplexity"
+    default_param_dict['training_config.loss_func_kwargs.loss_func_type'] = "VocabParallelCrossEntropy"
+    default_param_dict['model_config.output_layer_init_method'] = "normal"
+    default_param_dict['model_config.mask_func_type'] = "attn_mask_fill"
+    default_param_dict['model_config.gated_linear_unit'] = True
+    default_param_dict['model_config.mlp_has_bias'] = False
+
     return default_param_dict
 
 
@@ -209,11 +207,24 @@ def modify_flatten_dict(flatten_dict: dict, default_param_dict: dict):
     Returns:
         dict: modified flatten dict.
     """
-    if 'adam-beta1' in flatten_dict and 'adam-beta2' in flatten_dict:
-        default_param_dict['optimizer_config.betas'] = [flatten_dict['adam-beta1'], flatten_dict['adam-beta2']]
-        flatten_dict.pop('adam-beta1')
-        flatten_dict.pop('adam-beta2')
+    if 'adam_beta1' in flatten_dict and 'adam_beta2' in flatten_dict:
+        default_param_dict['optimizer_config.betas'] = [flatten_dict['adam_beta1'], flatten_dict['adam_beta2']]
+        flatten_dict.pop('adam_beta1')
+        flatten_dict.pop('adam_beta2')
         mapping_dict['optimizer_config.betas'] = 'optimizer_config.betas'
+
+    if flatten_dict.get('use_fused_rmsnorm', False):
+        flatten_dict.pop('use_fused_rmsnorm', False)
+        flatten_dict['normalization'] = 'FusedRMSNorm'
+
+    if flatten_dict.get('swiglu', False):
+        flatten_dict['hidden_act'] = 'swiglu'
+
+    if str(flatten_dict.get('params_dtype', 'float32')) == 'torch.bfloat16':
+        flatten_dict['params_dtype'] = 'bfloat16'
+
+    if str(flatten_dict.get('embedding_dtype', 'float32')) == 'torch.bfloat16':
+        flatten_dict['embedding_dtype'] = 'bfloat16'
 
     for key, value in default_param_dict.items():
         if key not in flatten_dict:
@@ -253,15 +264,15 @@ def flatten_dict_to_raw(flatten_dict: dict, model_type: str):
         cur_dict[convert_key_list[-1]] = value
 
     if not_mapping_key:
-        print(f'not mapping keys: {not_mapping_key}')
+        print(f'not mapping keys is: {not_mapping_key}')
     return raw_dict
 
 
-def init_configs_from_cmd(run_cmd: str, model_type: str, config_classes=None):
+def init_configs_from_args(run_args: argparse.Namespace = None, model_type: str = "model_config", config_classes=None):
     """Initialize config class from run command.
 
         Args:
-            run_cmd (str): run command.
+            run_cmd (argparse.Namespace): run command.
             config_classes (Union[list[BaseConfig], None]): Config classes to be initialized. When no config class
                 is passed in, all known configs will be initialized as optional config of AllConfig. Default: None
             model_type (str) : model config name
@@ -270,10 +281,11 @@ def init_configs_from_cmd(run_cmd: str, model_type: str, config_classes=None):
             Union[list[BaseConfig], AllConfig]: Initialized config instances, when no config class is passed in,
                 AllConfig will be returned.
         """
-    if not isinstance(run_cmd, str):
-        raise ValueError("run_cmd should be a string.")
+    if not isinstance(run_args, argparse.Namespace):
+        raise ValueError("run_args should be argparse.Namespace.")
 
-    flatten_dict = parse_args_from_str(run_cmd)
+    # flatten_dict = parse_args_from_str(run_cmd)
+    flatten_dict = vars(run_args)
     raw_dict = flatten_dict_to_raw(flatten_dict, model_type)
 
     return init_configs_from_dict(raw_dict, config_classes)
