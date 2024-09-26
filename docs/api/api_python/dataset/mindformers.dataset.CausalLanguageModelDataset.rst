@@ -1,7 +1,7 @@
 mindformers.dataset.CausalLanguageModelDataset
 ==============================================
 
-.. py:class:: mindformers.dataset.CausalLanguageModelDataset(dataset_config=None, data_loader=None, input_columns=None, output_columns=None, batch_size=8, drop_remainder=True, num_parallel_workers=8, python_multiprocessing=False, repeat=1, seed=0, prefetch_size=1, numa_enable=False, eod_reset=False, eod_token_id=None, auto_tune=False, autotune_per_step=10, filepath_prefix='./autotune', profile=False, **kwargs)
+.. py:class:: mindformers.dataset.CausalLanguageModelDataset(dataset_config: Optional[dict] = None, data_loader: Union[dict, Callable] = None, input_columns: List[str] = None, output_columns: List[str] = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, python_multiprocessing: bool = False, repeat: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, eod_reset: bool = False, eod_token_id: Optional[int] = None, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, **kwargs)
 
     因果语言模型预训练数据集。
     生成的数据集的输出列取决于用户提供的配置信息。 输出列均会被转换为int32类型。
