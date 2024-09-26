@@ -236,7 +236,7 @@ class LinearWithFrozenWeight(nn.Cell):
         grad_input = self.matmul_g_in(dout, weight).reshape(x.shape)
         grad_bias = F.full(bias.shape, 0, dtype=bias.dtype) if self.bias else None
         if self.allreduce_dgrad:
-            grad_input = all_reduce(grad_input, self.tp_group)[0]
+            grad_input = all_reduce(grad_input, group=self.tp_group)[0]
         return grad_input, None, grad_bias
 
 
