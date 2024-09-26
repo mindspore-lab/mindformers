@@ -1513,7 +1513,7 @@ class TopkRouterV2(Cell):
         scores = self.reshape(self.transpose_3d(scores, (0, 2, 1)),
                               (scores.shape[0], self.egroup_size, -1))  # (dp, egs, E/egs*N) <- (dp, N, E)
         pi = self.reduce_mean(
-            scores, m - 1)  # (dp, egs) <- (dp, egs, E/egs*N), 1/(E/egs*N) * \sum_{j in E'} \sum_t^N s_{j, t}
+            scores, -1)  # (dp, egs) <- (dp, egs, E/egs*N), 1/(E/egs*N) * \sum_{j in E'} \sum_t^N s_{j, t}
 
         top_indices = self.reshape(self.transpose_3d(top_indices, (0, 2, 1)),
                                    (top_indices.shape[0], -1))  # (dp, kN) <- (dp, N, k)
