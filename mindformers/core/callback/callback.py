@@ -131,8 +131,9 @@ class MFLossMonitor(Callback):
         origin_epochs (int): Training epoches. Default: None.
         dataset_size (int): Training dataset size. Default: None.
         initial_epoch (int): The beginning epoch. Default: 0.
+        initial_step (int): The beginning step. Default: 0.
         global_batch_size (int): The total batch size. Default: 0.
-        device_num (int): The number of device in use. Default: 0.
+        gradient_accumulation_steps (int): The gradient accumulation steps. Default: 1.
 
     Examples:
         >>> from mindformers.core import MFLossMonitor
