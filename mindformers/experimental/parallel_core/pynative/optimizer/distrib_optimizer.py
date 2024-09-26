@@ -351,7 +351,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
 
         # Build a mapping from sharded param to sharded state
         shard_param_to_state_map = {
-            param: (exp_avg, exp_avg_sq)
+            param.name: (exp_avg, exp_avg_sq)
             for param, exp_avg, exp_avg_sq in zip(
                 self.optimizer.parameters,
                 self.optimizer.exp_avg,
@@ -368,7 +368,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
 
             # Get sharded param & state
             shard_param = param.main_param
-            shard_state = shard_param_to_state_map.get(shard_param, tuple())
+            shard_state = shard_param_to_state_map.get(shard_param.name, tuple())
             if len(shard_state) != 2:
                 raise ValueError(f"Fail to get sharded states of '{param.name}'.")
             shard_exp_avg, shard_exp_avg_sq = shard_state
@@ -379,6 +379,9 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                 if weight is None:
                     raise ValueError(f"Fail to get weight of '{ele.name}' from state dict.")
                 ele.copy_(weight.view(-1)[param_start: param_end])
+
+        if 'state_step' in state_dict.keys():
+            self.optimizer.state_step.assign_value(state_dict['state_step'].value())
 
     def _update_optimizer_attr(self):
         """ update attributes of self.optimizer according to shard information. """
@@ -427,8 +430,6 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             for model_group, main_group in zip(model_groups, main_groups):
                 for model_param, main_param in zip(model_group, main_group):
                     buffer_idx, bucket_idx = self.param_to_bucket_map.get(model_param)
-                    if not buffer_idx or not bucket_idx:
-                        raise KeyError("Invalid key value for param_to_bucket_map!")
                     range_map = self.param_ranges_map[buffer_idx][bucket_idx][model_param]
                     param_start, param_end = range_map['range_in_param']
                     main_param.grad.copy_(ops.cast(model_param.main_grad.view(-1)[param_start: param_end],
@@ -447,8 +448,6 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             for model_group, main_group in zip(model_groups, main_groups):
                 for model_param, main_param in zip(model_group, main_group):
                     buffer_idx, bucket_idx = self.param_to_bucket_map.get(model_param)
-                    if not buffer_idx or not bucket_idx:
-                        raise KeyError("Invalid key value for param_to_bucket_map!")
                     range_map = self.param_ranges_map[buffer_idx][bucket_idx][model_param]
                     param_start, param_end = range_map['range_in_param']
                     main_param.copy_(ops.cast(model_param.view(-1)[param_start:param_end], mstype.float32))
@@ -466,8 +465,6 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             for main_group, model_group in zip(main_groups, model_groups):
                 for main_param, model_param in zip(main_group, model_group):
                     buffer_idx, bucket_idx = self.param_to_bucket_map.get(model_param)
-                    if not buffer_idx or not bucket_idx:
-                        raise KeyError("Invalid key value for param_to_bucket_map!")
                     range_map = self.param_ranges_map[buffer_idx][bucket_idx][model_param]
                     param_start, param_end = range_map['range_in_param']
                     model_param.view(-1)[param_start:param_end].copy_(ops.cast(main_param, model_param.dtype))
@@ -502,9 +499,9 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         strategy['dp_rank_list'] = [int(s) for s in self.data_parallel_group.split('-') if s.isdigit()]
         # build parameter info
         strategy['param_info'] = {}
-        for sharded_group in self.sharded_param_groups:
-            for param in sharded_group['params']:
-                buffer_idx, bucket_idx = self.param_to_bucket_map[param]
+        for buffer_idx, buffer in enumerate(self.buffers):
+            for param, value in buffer.param_index_map.items():
+                start_idx, end_idx, bucket_idx = value
                 this_buffer = self.buffers[buffer_idx]
                 start_idx, end_idx, bucket_idx = this_buffer.param_index_map[param]
                 strategy['param_info'][param.name] = {}
@@ -546,20 +543,23 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                 exp_avg_shard[start_idx:end_idx].copy_(self.optimizer.exp_avg[param_id_in_opt])
                 exp_avg_sq_shard[start_idx:end_idx].copy_(self.optimizer.exp_avg_sq[param_id_in_opt])
             shard_name = 'buffer_{}_bucket_{}'.format(buffer_index, bucket_index)
-            param_dict['param.'+shard_name] = ms.Parameter(
-                param_shard,
-                name='param.'+shard_name,
+            param_dict[shard_name] = ms.Parameter(
+                param_shard.copy(),
+                name=shard_name,
                 requires_grad=False
             )
             param_dict['exp_avg.'+shard_name] = ms.Parameter(
-                param_shard,
+                exp_avg_shard.copy(),
                 name='exp_avg.'+shard_name,
                 requires_grad=False
             )
             param_dict['exp_avg_sq.'+shard_name] = ms.Parameter(
-                param_shard,
+                exp_avg_sq_shard.copy(),
                 name='exp_avg_sq.'+shard_name,
                 requires_grad=False
             )
+
+        # add state step to state_dict
+        param_dict['state_step'] = self.optimizer.state_step
 
         return param_dict

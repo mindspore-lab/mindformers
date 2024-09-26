@@ -318,15 +318,18 @@ def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_pat
         "step_num": int(param_dict.pop("step_num", 0))
     }
 
+    load_rng_state(param_dict)
+    if opt_state_dict is not None:
+        opt_state_dict.load_state_dict(param_dict)
     if isinstance(optimizer, DistributedOptimizer):
         # restore distributed optimizer
         optimizer.load_state_dict(param_dict)
+        # synchronize parameters in optimizer to model
+        optimizer._copy_main_params_to_model_params()
+        optimizer._sync_gather_all_model_params()
     else:
         # restore native optimizer/model
         param_dict = load_post_process(config, param_dict, optimizer)
-        load_rng_state(param_dict)
-        if opt_state_dict is not None:
-            opt_state_dict.load_state_dict(param_dict)
         target = optimizer if optimizer is not None else model
         param_not_load, ckpt_not_load = ms.load_param_into_net(target, param_dict)
         if param_not_load:
