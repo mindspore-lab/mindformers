@@ -1038,11 +1038,13 @@ def validate_data_layout(config_instance, data_layout):
     Validator.check_string(data_layout, ["BSH", "SBH"], "data_layout")
     return data_layout
 
+
 @DatasetConfig.validator("train_samples")
 def validate_train_samples(config_instance, train_samples):
     """Validate train_samples."""
     Validator.check_non_negative_int(train_samples, "train_samples")
     return train_samples
+
 
 class LoraConfig(BaseConfig):
     r"""LoRA config class.
@@ -1445,11 +1447,13 @@ def validate_output_dir(config_instance, output_dir):
     Validator.check_value_type("output_dir", output_dir, [str])
     return output_dir
 
+
 @TrainingConfig.validator("training_iters")
 def validate_training_iters(config_instance, training_iters):
     """Validate training_iters."""
     Validator.check_non_negative_int(training_iters, "training_iters")
     return training_iters
+
 
 @TrainingConfig.validator("epochs")
 def validate_epochs(config_instance, epochs):
@@ -2458,11 +2462,13 @@ def validate_clip_grad(config_instance, clip_grad):
     Validator.check_non_negative_float(clip_grad, "clip_grad")
     return clip_grad
 
+
 @OptimizerConfig.validator("end_weight_decay")
 def validate_end_weight_decay(config_instance, end_weight_decay):
     """Validate end_weight_decay."""
     Validator.check_non_negative_float(end_weight_decay, "end_weight_decay")
     return end_weight_decay
+
 
 @OptimizerConfig.validator("lr_decay_iters")
 def validate_lr_decay_iters(config_instance, lr_decay_iters):
@@ -2470,11 +2476,13 @@ def validate_lr_decay_iters(config_instance, lr_decay_iters):
     Validator.check_value_type("lr_decay_iters", lr_decay_iters, [int, type(None)])
     return lr_decay_iters
 
+
 @OptimizerConfig.validator("lr_decay_samples")
 def validate_lr_decay_samples(config_instance, lr_decay_samples):
     """Validate lr_decay_samples."""
     Validator.check_value_type("lr_decay_samples", lr_decay_samples, [int, type(None)])
     return lr_decay_samples
+
 
 @OptimizerConfig.validator("lr_wsd_decay_iters")
 def validate_lr_wsd_decay_iters(config_instance, lr_wsd_decay_iters):
@@ -2482,11 +2490,13 @@ def validate_lr_wsd_decay_iters(config_instance, lr_wsd_decay_iters):
     Validator.check_value_type("lr_wsd_decay_iters", lr_wsd_decay_iters, [int, type(None)])
     return lr_wsd_decay_iters
 
+
 @OptimizerConfig.validator("lr_wsd_decay_samples")
 def validate_lr_wsd_decay_samples(config_instance, lr_wsd_decay_samples):
     """Validate lr_wsd_decay_samples."""
     Validator.check_value_type("lr_wsd_decay_samples", lr_wsd_decay_samples, [int, type(None)])
     return lr_wsd_decay_samples
+
 
 @OptimizerConfig.validator("lr_warmup_iters")
 def validate_lr_warmup_iters(config_instance, lr_warmup_iters):
@@ -2494,11 +2504,13 @@ def validate_lr_warmup_iters(config_instance, lr_warmup_iters):
     Validator.check_non_negative_int(lr_warmup_iters, "lr_warmup_iters")
     return lr_warmup_iters
 
+
 @OptimizerConfig.validator("lr_warmup_samples")
 def validate_lr_warmup_samples(config_instance, lr_warmup_samples):
     """Validate lr_warmup_samples."""
     Validator.check_non_negative_int(lr_warmup_samples, "lr_warmup_samples")
     return lr_warmup_samples
+
 
 @OptimizerConfig.validator("lr_warmup_init")
 def validate_lr_warmup_init(config_instance, lr_warmup_init):
@@ -2512,11 +2524,13 @@ def validate_lr_warmup_fraction(config_instance, lr_warmup_fraction):
     Validator.check_value_type("lr_warmup_fraction", lr_warmup_fraction, [float, type(None)])
     return lr_warmup_fraction
 
+
 @OptimizerConfig.validator("min_lr")
 def validate_min_lr(config_instance, min_lr):
     """Validate min_lr."""
     Validator.check_non_negative_float(min_lr, "min_lr")
     return min_lr
+
 
 @OptimizerConfig.validator("lr_decay_style")
 def validate_lr_decay_style(config_instance, lr_decay_style):
@@ -2525,11 +2539,13 @@ def validate_lr_decay_style(config_instance, lr_decay_style):
                            ["constant", "WSD", "linear", "cosine", "inverse-square-root"], "lr_decay_style")
     return lr_decay_style
 
+
 @OptimizerConfig.validator("weight_decay_incr_style")
 def validate_weight_decay_incr_style(config_instance, weight_decay_incr_style):
     """Validate weight_decay_incr_style."""
     Validator.check_string(weight_decay_incr_style, ["constant", "linear", "cosine"], "weight_decay_incr_style")
     return weight_decay_incr_style
+
 
 @OptimizerConfig.validator("lr_wsd_decay_style")
 def validate_lr_wsd_decay_style(config_instance, lr_wsd_decay_style):
@@ -2537,11 +2553,13 @@ def validate_lr_wsd_decay_style(config_instance, lr_wsd_decay_style):
     Validator.check_string(lr_wsd_decay_style, ["linear", "cosine", "exponential"], "lr_wsd_decay_style")
     return lr_wsd_decay_style
 
+
 @OptimizerConfig.validator("use_checkpoint_opt_param_scheduler")
 def validate_use_checkpoint_opt_param_scheduler(config_instance, use_checkpoint_opt_param_scheduler):
     """Validate use_checkpoint_opt_param_scheduler."""
     Validator.check_bool(use_checkpoint_opt_param_scheduler, "use_checkpoint_opt_param_scheduler")
     return use_checkpoint_opt_param_scheduler
+
 
 @OptimizerConfig.validator("override_opt_param_scheduler")
 def validate_override_opt_param_scheduler(config_instance, override_opt_param_scheduler):

@@ -21,8 +21,8 @@ import mindspore.dataset as ds
 from mindspore.mint.optim import AdamW
 from mindspore.communication import init
 
-from mindformers.experimental.parallel_core.pynative import get_optimizer_param_scheduler
 from mindformers.experimental.parallel_core.pynative.dist_checkpointing import load_checkpoint
+from mindformers.experimental.parallel_core.pynative.optimizer import get_optimizer_param_scheduler
 from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
 from mindformers.experimental.parallel_core.pynative.training import TrainOneStepCell, train
 from mindformers.experimental.parallel_core.pynative.config import (
@@ -64,7 +64,7 @@ def run_lr_scheduler(training_config, model_config, dataset_config, optimizer_co
 
     if yaml == 'test_iteration_tarining.yaml':
         assert optimizer.param_groups[0]['lr'] == 2.9999999999999997e-06
-        load_checkpoint(model_config, network, optimizer, opt_param_scheduler, f"./output/step_19")
+        load_checkpoint(model_config, network, optimizer, opt_param_scheduler, f"./output")
 
 
 

@@ -2,6 +2,8 @@
 """Learning rate decay and weight decay incr functions."""
 
 import math
+import mindspore as ops
+import mindspore.common.dtype as mstype
 
 lr_decay_style_list = ["constant", "WSD", "linear", "cosine", "inverse-square-root"]
 wd_incr_style_list = ["constant", "linear", "cosine"]
@@ -31,7 +33,7 @@ class OptimizerParamScheduler():
             raise ValueError('max_lr need to be larger than or equal to min_lr'
                              f'but got max_lr {self.max_lr} and min_lr {self.min_lr}')
         if self.init_lr > self.max_lr:
-            raise ValueError('init_lr need to be smaller than or equal to max_lr'
+            raise ValueError('init_lr need to be smaller than or equal to max_lr '
                              f'but got init_lr {self.init_lr} and max_lr {self.max_lr}')
 
         self.lr_warmup_steps = lr_warmup_steps
@@ -171,7 +173,7 @@ class OptimizerParamScheduler():
         new_wd = self.get_wd()
         for group_idx, param_group in enumerate(self.optimizer.param_groups):
             new_lr = self.get_lr(param_group)
-            param_group['lr'] = new_lr * param_group.get('lr_mult', 1.0)
+            param_group['lr'].assign_value(ops.Tensor(new_lr * param_group.get('lr_mult', 1.0), dtype=mstype.float32))
             param_group['weight_decay'] = new_wd * param_group.get('wd_mult', 1.0)
             self.optimizer.lrs[group_idx] = param_group['lr']
 
