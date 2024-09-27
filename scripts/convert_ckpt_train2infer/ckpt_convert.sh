@@ -66,40 +66,32 @@ n_to_m_rank_transformer(){ #Infer_strategy_path #Dst_ckpt_path #src_ckpt_path
     local Dst_ckpt_path=$2
     local Infer_strategy_path=$3
     local qkv_ffn=$4
-    if [ -f  ${Infer_strategy_path}_${dir_count}p/strategy/ckpt_strategy_rank_0.ckpt ] ; then
-        echo "Has ${precision}_${dir_count}p strategy, jump to next step"
-    else
-        #1. 生成dir_count的strategy
-        echo "----- Start to generate ${dir_count}p ${precision} strategy time: $(date +%H:%M:%S) -----"
-        msrun --worker_num=$dir_count --local_worker_num=$dir_count \
-        --log_dir=./log/msrun_log_save_strategy_${precision}_${dir_count}p --master_port=8126 \
-        --join=True --bind_core=False \
-        python save_strategy.py \
-        --yaml_file=$yaml_path \
-        --save_strategy_path=${Infer_strategy_path}_${dir_count}p \
-        --world_size=$dir_count \
-        --qkv_concat=${qkv_ffn} \
-        --precision=${precision} \
-        > ./log/log_save_strategy_${precision}_${dir_count}.log 2>&1
-        echo "----- End generate ${dir_count}p ${precision} strategy time: $(date +%H:%M:%S) -----"
-    fi
-    if [ -f ${Infer_strategy_path}_${world_size}p/strategy/ckpt_strategy_rank_0.ckpt ] ; then
-        echo "Has ${precision}_${world_size}p strategy, jump to next step"
-    else
-        #2. 生成world_size的strategy
-        echo "----- Start to generate ${world_size}p ${precision} strategy time: $(date +%H:%M:%S) -----"
-        msrun --worker_num=$world_size --local_worker_num=$world_size \
-        --log_dir=./log/msrun_log_save_strategy_${precision}_${world_size}p --master_port=8126 \
-        --join=True --bind_core=False \
-        python save_strategy.py \
-        --yaml_file=$yaml_path \
-        --save_strategy_path=${Infer_strategy_path}_${world_size}p \
-        --world_size=$world_size \
-        --qkv_concat=${qkv_ffn} \
-        --precision=${precision} \
-        > ./log/log_save_strategy_${precision}_${world_size}.log 2>&1
-        echo "----- End generate ${world_size}p ${precision} strategy time: $(date +%H:%M:%S) -----"
-    fi
+    #1. 生成dir_count的strategy
+    echo "----- Start to generate ${dir_count}p ${precision} strategy time: $(date +%H:%M:%S) -----"
+    msrun --worker_num=$dir_count --local_worker_num=$dir_count \
+    --log_dir=./log/msrun_log_save_strategy_${precision}_${dir_count}p --master_port=8126 \
+    --join=True --bind_core=False \
+    python save_strategy.py \
+    --yaml_file=$yaml_path \
+    --save_strategy_path=${Infer_strategy_path}_${dir_count}p \
+    --world_size=$dir_count \
+    --qkv_concat=${qkv_ffn} \
+    --precision=${precision} \
+    > ./log/log_save_strategy_${precision}_${dir_count}.log 2>&1
+    echo "----- End generate ${dir_count}p ${precision} strategy time: $(date +%H:%M:%S) -----"
+    #2. 生成world_size的strategy
+    echo "----- Start to generate ${world_size}p ${precision} strategy time: $(date +%H:%M:%S) -----"
+    msrun --worker_num=$world_size --local_worker_num=$world_size \
+    --log_dir=./log/msrun_log_save_strategy_${precision}_${world_size}p --master_port=8126 \
+    --join=True --bind_core=False \
+    python save_strategy.py \
+    --yaml_file=$yaml_path \
+    --save_strategy_path=${Infer_strategy_path}_${world_size}p \
+    --world_size=$world_size \
+    --qkv_concat=${qkv_ffn} \
+    --precision=${precision} \
+    > ./log/log_save_strategy_${precision}_${world_size}.log 2>&1
+    echo "----- End generate ${world_size}p ${precision} strategy time: $(date +%H:%M:%S) -----"
     #3. 转成worldsize的权重
     echo "----- Start to convert ${world_size}p ${precision} weights time: $(date +%H:%M:%S) -----"
     python transform_ckpt.py \
@@ -110,15 +102,15 @@ n_to_m_rank_transformer(){ #Infer_strategy_path #Dst_ckpt_path #src_ckpt_path
     --prefix="checkpoint_" \
     > ./log/log_transform_ckpt_${precision}_${world_size}.log 2>&1
     echo "----- End convert ${world_size}p ${precision} weights time: $(date +%H:%M:%S) -----"
-    result=$(awk "BEGIN {print $dir_count / $world_size}")
-    if [ "$qkv_ffn" == "True" ] && [ "$result" -eq 2 ]; then
+    local result=$(awk "BEGIN {print $dir_count / $world_size==2}")
+    if [ "$qkv_ffn" == "True" ] && [ "$result" -eq 1 ]; then
         echo "----- Start to adjust qkv and ffn time: $(date +%H:%M:%S)-----"
         python adjust_qkv.py \
             --src_ckpt_path=${Dst_ckpt_path}_${world_size}p \
             --dst_ckpt_path=${Dst_ckpt_path}_${world_size}p_adjust \
             --dir_count=${dir_count} \
             --world_size=${world_size} \
-            --quant="$([ "$precision" != "fp16" ] && echo 'True' || echo 'False')" \
+            --quant="$([ "$precision" != "fp16" ] && echo "True" || echo "False")" \
             > ./log/log_adjust_qkv_${dir_count}_to_${world_size}.log 2>&1
         echo "----- End convert qkv time: $(date +%H:%M:%S)-----"
     fi
@@ -129,23 +121,19 @@ n_to_m_rank_transformer(){ #Infer_strategy_path #Dst_ckpt_path #src_ckpt_path
     local Dst_ckpt_path=$2
     local Infer_strategy_path=$3
     local qkv_ffn=$4
-    if [ -f ${Infer_strategy_path}_${world_size}p/strategy/ckpt_strategy_rank_0.ckpt ] ; then
-        echo "Has ${precision}_${world_size}p strategy, jump to next step"
-    else
-        #2. 生成world_size的strategy
-        echo "----- Start to generate ${world_size}p ${precision} strategy time: $(date +%H:%M:%S) -----"
-        msrun --worker_num=$world_size --local_worker_num=$world_size \
-        --log_dir=./log/msrun_log_save_strategy_${precision}_${world_size}p --master_port=8126 \
-        --join=True --bind_core=False \
-        python save_strategy.py \
-        --yaml_file=$yaml_path \
-        --save_strategy_path=${Infer_strategy_path}_${world_size}p \
-        --world_size=$world_size \
-        --qkv_concat=${qkv_ffn} \
-        --precision=${precision} \
-        > ./log/log_save_strategy_${precision}_${world_size}.log 2>&1
-        echo "----- End generate ${world_size}p ${precision} strategy time: $(date +%H:%M:%S) -----"
-    fi
+    #2. 生成world_size的strategy
+    echo "----- Start to generate ${world_size}p ${precision} strategy time: $(date +%H:%M:%S) -----"
+    msrun --worker_num=$world_size --local_worker_num=$world_size \
+    --log_dir=./log/msrun_log_save_strategy_${precision}_${world_size}p --master_port=8126 \
+    --join=True --bind_core=False \
+    python save_strategy.py \
+    --yaml_file=$yaml_path \
+    --save_strategy_path=${Infer_strategy_path}_${world_size}p \
+    --world_size=$world_size \
+    --qkv_concat=${qkv_ffn} \
+    --precision=${precision} \
+    > ./log/log_save_strategy_${precision}_${world_size}.log 2>&1
+    echo "----- End generate ${world_size}p ${precision} strategy time: $(date +%H:%M:%S) -----"
     #3. 转成worldsize的权重
     echo "----- Start to convert ${world_size}p ${precision} weights time: $(date +%H:%M:%S) -----"
     python transform_ckpt.py \
@@ -161,6 +149,9 @@ distributed_weight_transfer(){  #Infer_strategy_path #Dst_ckpt_path #src_ckpt_pa
     local src_ckpt_path=$1
     local Dst_ckpt_path=$2
     local Infer_strategy_path=$3
+    local quant="$([ "$precision" != "fp16" ] && echo 'True' || echo 'False')"
+    local result=$(awk "BEGIN {print $dir_count / $world_size==2}")
+    echo "dir_count/world_size==2: $result"
     check_qkv_output_1=$(python check_weight_name.py --src_ckpt_dir=$src_ckpt_path)
     echo "Python 脚本的输出是: $check_qkv_output_1"
     if echo "$check_qkv_output_1" | grep -q 'yes-qkv' ; then
@@ -170,12 +161,44 @@ distributed_weight_transfer(){  #Infer_strategy_path #Dst_ckpt_path #src_ckpt_pa
         echo "qkv_ffn=False"
         qkv_ffn="False"
     fi
-    if [ "$dir_count" == 1 ]; then
-        1_to_m_rank_transformer ${src_ckpt_path} ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
-    else
-        n_to_m_rank_transformer ${src_ckpt_path} ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
+    if [ "$quant" == "True" ] && [ "$result" -ne 1 ]; then
+       echo "Not support this input combination."
+       exit 1
     fi
-    if echo "$check_qkv_output_1" | grep -q 'no-qkv' && [ "$precision" == 'fp16' ]; then
+    if [ "$quant" == "True" ] && [ "$qkv_ffn" == "False" ] && [ "$result" -eq 1 ]; then
+        echo "Not support this input combination."
+        exit 1
+    fi
+    if [ "$dir_count" == 1 ]; then
+        if [ "$qkv_ffn" == 'True' ]; then
+            echo "----- Start to revert qkv and ffn time: $(date +%H:%M:%S)-----"
+            python revert_qkv_ffn.py \
+            --world_size=$dir_count \
+            --src_ckpt_path=${src_ckpt_path}  \
+            --dst_ckpt_path=${src_ckpt_path}_no_qkv \
+            > ./log/log_revert_qkv_ffn.log 2>&1
+            echo "----- End revert qkv time: $(date +%H:%M:%S)-----"
+            qkv_ffn="False"
+            1_to_m_rank_transformer ${src_ckpt_path}_no_qkv ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
+        else
+            1_to_m_rank_transformer ${src_ckpt_path} ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
+        fi
+    else
+        if [ "$qkv_ffn" == 'True' ] && [ "$result" -ne 1 ]; then
+            echo "----- Start to revert qkv and ffn time: $(date +%H:%M:%S)-----"
+            python revert_qkv_ffn.py \
+            --world_size=$dir_count \
+            --src_ckpt_path=${src_ckpt_path}  \
+            --dst_ckpt_path=${src_ckpt_path}_no_qkv \
+            > ./log/log_revert_qkv_ffn.log 2>&1
+            echo "----- End revert qkv time: $(date +%H:%M:%S)-----"
+            qkv_ffn="False"
+            n_to_m_rank_transformer ${src_ckpt_path}_no_qkv ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
+        else
+            n_to_m_rank_transformer ${src_ckpt_path} ${Dst_ckpt_path} ${Infer_strategy_path} ${qkv_ffn}
+        fi
+    fi
+    if [ "$qkv_ffn" == "False" ] && [ "$precision" == 'fp16' ]; then
         echo "----- Start to convert qkv and ffn time: $(date +%H:%M:%S)-----"
         python convert_qkv_ffn.py \
         --world_size=$world_size \
@@ -198,20 +221,16 @@ if [ "$function" == "train_to_infer" ] && [ "$precision" == "fp16" ]; then
     fi
     #1. save strategy
     echo "-----1. Start to save strategy time: $(date +%H:%M:%S) -----"
-    if [ -f  ${Infer_strategy_path}_no_qkv/strategy/ckpt_strategy_rank_0.ckpt ] ; then
-        echo "Has ${precision}_${world_size}p strategy, jump to step 2"
-    else
-        msrun --worker_num=$world_size --local_worker_num=$world_size \
-        --log_dir=./log/msrun_log_save_strategy_${precision}_${world_size}p \
-        --master_port=8126 --join=True --bind_core=False \
-        python save_strategy.py \
-        --yaml_file=$yaml_path \
-        --save_strategy_path=${Infer_strategy_path}_no_qkv \
-        --world_size=$world_size \
-        --qkv_concat=False \
-        --precision=${precision} \
-        > ./log/log_save_strategy_${precision}_${world_size}p.log 2>&1
-    fi
+    msrun --worker_num=$world_size --local_worker_num=$world_size \
+    --log_dir=./log/msrun_log_save_strategy_${precision}_${world_size}p \
+    --master_port=8126 --join=True --bind_core=False \
+    python save_strategy.py \
+    --yaml_file=$yaml_path \
+    --save_strategy_path=${Infer_strategy_path}_no_qkv \
+    --world_size=$world_size \
+    --qkv_concat=False \
+    --precision=${precision} \
+    > ./log/log_save_strategy_${precision}_${world_size}p.log 2>&1
     echo "-----1. End save strategy  time: $(date +%H:%M:%S) -----"
     if [ -z "$src_ckpt_path" ] || [ -z "$train_strategy_file" ] ; then
         echo "Please set training checkpoint saved path and training strategy saved path."

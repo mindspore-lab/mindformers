@@ -67,6 +67,7 @@ def remove_qkv(i, src_ckpt_path, dst_ckpt_path):
 def main(src_ckpt_path, dst_ckpt_path, world_size):
     """parallel run remove_qkv function"""
     # 获取当前时间
+    ms.set_context(device_target='CPU')
     start_time = datetime.now().strftime("%H:%M:%S")
 
     arguments = [(i, src_ckpt_path, dst_ckpt_path) for i in range(world_size)]
