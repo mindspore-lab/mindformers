@@ -100,8 +100,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         self.matmul = P.BatchMatMul(transpose_b=self.transpose_b)
         self.matmul_g_in = P.BatchMatMul(transpose_a=False, transpose_b=not self.transpose_b)
         self.matmul_g_w = P.BatchMatMul(transpose_a=True, transpose_b=False)
-        if get_tensor_model_parallel_world_size() > 1:
-            self.tp_group = get_tensor_model_parallel_group()
+        self.tp_group = get_tensor_model_parallel_group()
         self.stream = get_stream()
         self.input_parallel = []
         self.weight_param = None
@@ -222,8 +221,7 @@ class LinearWithFrozenWeight(nn.Cell):
         self.transpose_b = transpose_b
         self.matmul = P.BatchMatMul(transpose_b=self.transpose_b)
         self.matmul_g_in = P.BatchMatMul(transpose_a=False, transpose_b=not self.transpose_b)
-        if get_tensor_model_parallel_world_size() > 1:
-            self.tp_group = get_tensor_model_parallel_group()
+        self.tp_group = get_tensor_model_parallel_group()
 
     def construct(self, input_, weight, bias):
         output = self.matmul(input_, weight)
