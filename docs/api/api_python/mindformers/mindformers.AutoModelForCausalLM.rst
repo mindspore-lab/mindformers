@@ -48,6 +48,7 @@ mindformers.AutoModelForCausalLM
             一个继承自PretrainedModel类的模型实例。
 
     .. py:method:: register(config_class, model_class, exist_ok=False)
+        :classmethod:
 
         注册一个新的模型类到此类中。
 

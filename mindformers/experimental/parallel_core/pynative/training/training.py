@@ -163,15 +163,15 @@ class ParallelTrainingReducer:
                     param.grad = all_reduce(param.grad, "sum", group)[0]
                     if self.batch_reduction == "mean":
                         param.grad = mint.div(param.grad, get_data_parallel_world_size())
-        else:
-            if self.batch_reduction == "mean":
-                for idx, grad in enumerate(grads):
-                    group = self.get_reduce_group(idx)
-                    grads[idx] = mint.div(all_reduce(grad, "sum", group)[0], get_data_parallel_world_size())
-            elif self.batch_reduction == "sum":
-                for idx, grad in enumerate(grads):
-                    group = self.get_reduce_group(idx)
-                    grads[idx] = all_reduce(grad, "sum", group)[0]
+            else:
+                if self.batch_reduction == "mean":
+                    for idx, grad in enumerate(grads):
+                        group = self.get_reduce_group(idx)
+                        grads[idx] = mint.div(all_reduce(grad, "sum", group)[0], get_data_parallel_world_size())
+                elif self.batch_reduction == "sum":
+                    for idx, grad in enumerate(grads):
+                        group = self.get_reduce_group(idx)
+                        grads[idx] = all_reduce(grad, "sum", group)[0]
 
     def inplace_reduce_sp_grad(self, grads, params=None):
         """Reduce the gradients in sequence parallel mode over tp group."""
@@ -773,6 +773,7 @@ def train(
                                 step_num=epoch_step,
                                 crc_check=training_config.crc_check,
                                 keep_checkpoint_max=training_config.keep_checkpoint_max)
+
             epoch_step += 1
             global_step += 1
         epoch_step = 0
@@ -785,7 +786,7 @@ def train(
                         train_one_step_cell.opt_param_scheduler,
                         training_config.output_dir,
                         format=training_config.ckpt_format,
-                        prefix=training_config.prefix + "_final",
+                        prefix=training_config.prefix,
                         epoch_num=(global_step-1) // dataset_size,
                         step_num=(global_step-1) % dataset_size,
                         crc_check=training_config.crc_check,

@@ -290,7 +290,7 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
                     # create fp32 copy
                     main_param = Parameter(
                         param.value().astype(mstype.float32),
-                        name=param.name + '_fp32',
+                        name=param.name,
                         requires_grad=False
                     )
                     param.main_param = main_param

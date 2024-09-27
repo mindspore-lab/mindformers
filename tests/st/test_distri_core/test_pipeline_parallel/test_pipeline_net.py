@@ -19,18 +19,18 @@ import numpy as np
 import mindspore as ms
 import mindspore.nn as nn
 import mindspore.ops as P
-from mindspore import Tensor
+from mindspore import Tensor, mint
 from mindspore.nn import Cell
 from mindspore.common.initializer import initializer, HeUniform
 from mindformers.core.loss.loss import CrossEntropyLoss
-from mindformers.experimental.parallel_core.pynative.transformer import PublicLayer, BaseHeadLayer
+from mindformers.experimental.parallel_core.pynative.transformer import get_attention_mask
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
 from mindformers.experimental.parallel_core.pynative.transformer.transformer import _get_num_layers
 from mindformers.experimental.parallel_core.pynative.tensor_parallel.layers import VocabParallelEmbedding
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_world_size
 
 
-class FakeData():
+class FakeData:
     """ generate fake data for pipeline parallel test """
     def __init__(self, data_num, seq_length, input_data=None):
         super().__init__()
@@ -110,7 +110,7 @@ class FakeTransformer(Cell):
         return hidden_states
 
 
-class FakeHead(BaseHeadLayer):
+class FakeHead(Cell):
     """ fake head layer """
     def __init__(self, hidden_size, vocab_size, param_init='he_uniform', share_embedding_weight=False):
         super().__init__()
@@ -161,19 +161,19 @@ class PipelineTestNet(Module):
     def __init__(self, config, pre_process=True, post_process=True):
         super().__init__(config)
         self.num_layers = config.num_layers
+        self.compute_dtype = config.compute_dtype
         hidden_size = config.hidden_size
         seq_length = config.seq_length
-        vocab_size = config.vocab_size
+        self.vocab_size = config.vocab_size
         batch_size = config.dataset_config.batch_size
         self.pre_process = pre_process
         self.post_process = post_process
         self.pipeline_parallel = get_pipeline_model_parallel_world_size() > 1
         self.untie_embeddings_and_output_weights = config.untie_embeddings_and_output_weights
 
-        self.public_layer = PublicLayer(config)
         if self.pre_process:
             self.embedding = VocabParallelEmbedding(
-                num_embeddings=vocab_size,
+                num_embeddings=self.vocab_size,
                 embedding_dim=hidden_size,
                 init_method=HeUniform(),
                 reduce_scatter_embeddings=config.parallel_config.sequence_parallel,
@@ -192,7 +192,7 @@ class PipelineTestNet(Module):
 
         if self.post_process:
             self.fake_head = FakeHead(hidden_size,
-                                      vocab_size,
+                                      self.vocab_size,
                                       share_embedding_weight=not self.untie_embeddings_and_output_weights)
             if self.pipeline_parallel:
                 self.fake_head.shared = True
@@ -207,10 +207,11 @@ class PipelineTestNet(Module):
 
     def construct(self, input_ids, labels=None, attention_mask=None):
         """ pipeline test net forward """
-        output_dict = self.public_layer(input_ids, labels=labels, attention_mask=attention_mask)
-        input_ids = output_dict["input_ids"]
-        attention_mask = output_dict["attention_mask"]
-        labels = output_dict["labels"]
+        if attention_mask is None:
+            input_mask = mint.ne(input_ids, self.vocab_size + 1).astype(
+                self.compute_dtype
+            )
+            attention_mask = get_attention_mask(input_mask)
         hidden_states = None
         # embedding
         if self.pre_process:
@@ -230,6 +231,7 @@ class PipelineTestNet(Module):
             # head
             logits = self.fake_head(hidden_states, embedding_table)
             # loss
+            labels = labels.reshape((-1,))
             loss = self.total_loss(logits, labels)
             return loss
         return hidden_states

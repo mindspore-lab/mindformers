@@ -37,11 +37,14 @@ from mindformers.experimental.parallel_core.pynative.config import TransformerCo
 from mindformers.experimental.parallel_core.pynative.transformer import ParallelLMLogits, TransformerLanguageModel
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
 
+from mindformers.tools.resume_ckpt import get_resume_checkpoint
+
 import mindspore as ms
 from mindspore import mint
 import mindspore.dataset as ds
 from mindspore import Tensor
 from mindspore.communication.management import init
+from mindspore.communication import get_rank
 from mindspore.mint.optim import AdamW
 import mindspore.common.dtype as mstype
 
@@ -295,12 +298,21 @@ def run_resume_training(config):
 
     # load golden ckpt
     resume_dict = None
-    if training_config.resume_training:
-        if training_config.load_checkpoint:
+    if training_config.resume_training is True and os.path.exists(training_config.load_checkpoint):
+        rank_path = os.path.join(training_config.load_checkpoint, f"rank_{get_rank()}")
+        meta_path = os.path.join(rank_path, "meta.json")
+        if not os.path.exists(meta_path):
+            print(f"Could not find meta.json in directory {rank_path}, using latest ckpt in {rank_path}")
+        resume_ckpt_name = get_resume_checkpoint(
+            checkpoint_dir=training_config.load_checkpoint,
+            resume_training=training_config.resume_training,
+            resume_by_meta=True)
+        print(f"resume_ckpt_name is {resume_ckpt_name}")
+        if resume_ckpt_name is True:
             ckpt_path = training_config.load_checkpoint
-        else:
-            ckpt_path = training_config.output_dir
-
+        elif isinstance(resume_ckpt_name, str):
+            ckpt_path = os.path.join(rank_path, resume_ckpt_name)
+        print(f"ckpt_path is {ckpt_path}")
         resume_dict = load_checkpoint(model_config, network, optimizer=optimizer, opt_state_dict=opt_param_scheduler,
                                       ckpt_path=ckpt_path, format=training_config.ckpt_format)
 

@@ -48,7 +48,7 @@ from mindformers.models.llama.llama_layer import LlamaFeedForward
 from mindformers.modules.transformer.moe import MoEV2
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
 
-from tests.st.test_distri_core.utils import transform_moe_golden_params_to_pynative_params, train
+from tests.st.test_distri_core.utils import train
 
 import numpy as np
 
@@ -184,6 +184,7 @@ def generate_golden(model_config, args):
                       "loss": loss_list}
     np.save("./data/golden_moe_input_and_loss.npy", input_and_loss)
 
+
 def run_moe_pynative(model_config, args):
     """
     run pynative mode moe and load golden ckpt to generate pynative loss
@@ -206,14 +207,13 @@ def run_moe_pynative(model_config, args):
            get_pipeline_model_parallel_group(), get_expert_model_parallel_group(), get_context_parallel_group()))
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE)
     rank_id = get_rank()
-    local_expert_idx = np.arange(en).reshape(ep, -1)[rank_id].tolist()
 
     ms.set_seed(1921)
 
     # load data
     golden_input_and_loss_path = "./data/golden_moe_input_and_loss.npy"
     assert os.path.exists(golden_input_and_loss_path), \
-           f"'{golden_input_and_loss_path}' did not exits, please run generate_golden() to "+\
+           f"'{golden_input_and_loss_path}' did not exits, please run generate_golden() to " + \
             "generate one by running below command: \n`pytest -sv test_moe.py::TestMoE::test_moe_golden`"
 
     input_and_loss = np.load(golden_input_and_loss_path, allow_pickle=True).tolist()
@@ -225,22 +225,18 @@ def run_moe_pynative(model_config, args):
 
     network = PynativeMoENet(config=model_config)
 
-    # load golden ckpt
-    golden_ckpt_path = "./data/golden_moe.ckpt"
-    assert os.path.exists(golden_ckpt_path), \
-           "'./data/golden_moe.ckpt' did not exits, please run generate_golden() to "+\
-           "generate one by running below command: \n`pytest -sv test_moe.py::TestMoE::test_moe_golden`"
-    golden_params = ms.load_checkpoint(golden_ckpt_path)
-    pynative_params = transform_moe_golden_params_to_pynative_params(golden_params, local_expert_idx)
-    param_not_load, _ = ms.load_param_into_net(network, pynative_params)
-    assert not param_not_load, f"{param_not_load} was not loaded in this net, test failed."
-    print("load ckpt competele.", flush=True)
-
     # perform train
     optimizer = AdamWeightDecay(params=network.get_parameters())
     if args.aux_loss or args.z_loss_coeff:
         network.set_train(True)
-    train(1, dataset, network, optimizer, None, reduce_grad=False)
+    all_loss = train(1, dataset, network, optimizer, None, reduce_grad=False)
+    golden_loss_0 = [0.8587, 0.8227, 0.7131]
+    golden_loss_1 = [0.7890, 0.7394, 0.7727]
+    for i in range(3):
+        if rank_id == 0:
+            assert np.allclose(golden_loss_0[i], all_loss[i], rtol=1e-3)
+        else:
+            assert np.allclose(golden_loss_1[i], all_loss[i], rtol=1e-3)
 
 
 if __name__ == '__main__':
@@ -264,7 +260,7 @@ if __name__ == '__main__':
         pipeline_model_parallel_size=1,
         expert_model_parallel_size=cli_args.ep,
         use_seq_parallel=False
-        )
+    )
     moe_cfg = MoEConfig(
         num_experts=4,
         moe_router_topk=1,
@@ -272,13 +268,13 @@ if __name__ == '__main__':
         moe_token_dispatcher_type='alltoall',
         moe_z_loss_coeff=cli_args.z_loss_coeff,
         moe_aux_loss_coeff=1e-2,
-        moe_router_load_balancing_type=balancing_type, # ['none', 'aux_loss'],
+        moe_router_load_balancing_type=balancing_type,  # ['none', 'aux_loss'],
         moe_input_noise_eps=None,
         moe_expert_capacity_factor=None,
         moe_token_drop_policy=None,
         moe_pad_expert_input_to_capacity=False,
         use_self_defined_alltoall=False,
-        )
+    )
     moe_cfg_golden = GoldenMoEConfig(
         expert_num=moe_cfg.num_experts,
         capacity_factor=-1,
@@ -287,7 +283,7 @@ if __name__ == '__main__':
         routing_policy="TopkRouterV2",
         enable_sdrop=False,
         router_dense_type='float32'
-        )
+    )
     model_cfg = TransformerConfig(
         vocab_size=1,
         num_layers=1,
@@ -296,7 +292,7 @@ if __name__ == '__main__':
         hidden_size=16,
         ffn_hidden_size=64,
         gated_linear_unit=True,
-        hidden_act="gelu",
+        hidden_act="swiglu",
         qkv_has_bias=True,
         mlp_has_bias=False,
         params_dtype='float32',
@@ -306,7 +302,7 @@ if __name__ == '__main__':
         parallel_config=parallel_cfg,
         moe_config=moe_cfg,
         lora_config=LoraConfig(use_lora=False)
-        )
+    )
 
     if cli_args.generate_golden:
         model_cfg.moe_config = moe_cfg_golden

@@ -1,7 +1,7 @@
 mindformers.dataset.ContrastiveLanguageImagePretrainDataset
 ===========================================================
 
-.. py:class:: mindformers.dataset.ContrastiveLanguageImagePretrainDataset(dataset_config=None, data_loader=None, transforms=None, text_transforms=None, tokenizer=None, sampler=None, batch_size=8, drop_remainder=True, num_parallel_workers=8, python_multiprocessing=False, repeat=1, seed=0, prefetch_size=1, numa_enable=False, auto_tune=False, autotune_per_step=10, filepath_prefix='./autotune', profile=False, **kwargs)
+.. py:class:: mindformers.dataset.ContrastiveLanguageImagePretrainDataset(dataset_config: Optional[dict] = None, data_loader: Union[dict, Callable] = None, transforms: Union[dict, list] = None, text_transforms: Union[dict, list] = None, tokenizer: Union[dict, Callable] = None, sampler: Union[dict, Callable] = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, python_multiprocessing: bool = False, repeat: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, **kwargs)
 
     CLIP（Contrastive Language-Image Pre-training）文图对比预训练数据集。
     生成的数据集有两列 `[image, text]` ，数据列的类型取决于读取的数据集的数据格式和采用的数据变换操作。

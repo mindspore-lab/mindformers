@@ -13,5 +13,6 @@ mindformers.core.MFLossMonitor
         - **origin_epochs** (int) - 训练的epoch数量。默认值： ``None`` 。
         - **dataset_size** (int) - 训练的数据集数量。默认值： ``None`` 。
         - **initial_epoch** (int) - 训练开始的epoch数。默认值： ``0`` 。
+        - **initial_step** (int) - 训练开始的step数。默认值： ``0`` 。
         - **global_batch_size** (int) - 总BatchSize大小。默认值： ``0`` 。
-        - **device_num** (int) - 设备数量。默认值： ``0`` 。
+        - **gradient_accumulation_steps** (int) - 梯度累加步数。默认值： ``1`` 。

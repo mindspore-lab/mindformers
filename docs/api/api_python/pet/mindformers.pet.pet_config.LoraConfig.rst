@@ -1,7 +1,7 @@
 mindformers.pet.pet_config.LoraConfig
 =====================================
 
-.. py:class:: mindformers.pet.pet_config.LoraConfig(lora_rank: int = 8, lora_alpha: int = 16, lora_dropout: float = 0.01, lora_a_init: str = 'normal', lora_b_init: str = 'zero', param_init_type: str = 'float16', compute_dtype: str = 'float16', target_modules: Optional[str] = None, exclude_layers: Optional[str] = None, freeze_include: Optional[List[str]] = None, freeze_exclude: Optional[List[str]] = None, **kwargs)
+.. py:class:: mindformers.pet.pet_config.LoraConfig(lora_rank: int = 8, lora_alpha: int = 16, lora_dropout: float = 0.01, lora_a_init: str = 'normal', lora_b_init: str = 'zero', param_init_type: str = 'float16', compute_dtype: str = 'float16', target_modules: str = None, exclude_layers: str = None, freeze_include: List[str] = None, freeze_exclude: List[str] = None, **kwargs)
 
     LoRA算法的配置信息，用于设置LoRA模型运行时的参数。
 
