@@ -12,13 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""models init"""
+"mindformers init"
+from .mixtral import MixtralModel
 
-from .llama2 import *
-from .pangu import *
-from .mixtral import *
-
-__all__ = []
-__all__.extend(llama2.__all__)
-__all__.extend(pangu.__all__)
-__all__.extend(mixtral.__all__)
+__all__ = ['MixtralModel']
