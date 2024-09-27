@@ -21,6 +21,8 @@ from typing import Dict, List, Literal, Optional, Tuple, Iterator
 
 from tqdm import tqdm
 import mindspore
+from mindspore import Model, Tensor
+from mindspore.common import initializer
 import setproctitle
 from lm_eval import utils
 from lm_eval.__main__ import cli_evaluate
@@ -38,6 +40,7 @@ from mindformers import (
     AutoModel,
     MindFormerRegister
 )
+from mindformers.trainer.utils import transform_and_load_checkpoint
 
 eval_logger = utils.eval_logger
 
@@ -146,12 +149,6 @@ class MFLM(TemplateLM):
     def tokenizer_name(self) -> str:
         return self.tokenizer.name_or_path.replace("/", "__")
 
-    @property
-    def chat_template(self) -> str:
-        if self.tokenizer.chat_template is not None:
-            return self.tokenizer.chat_template
-        return self.tokenizer.default_chat_template
-
     def _get_config(
             self,
             pretrained: str,
@@ -168,6 +165,7 @@ class MFLM(TemplateLM):
             raise Exception("There is no or more than one config file in the model directory.")
         self._config = MindFormerConfig(config_path[0])
 
+        self._config.pretrained = pretrained
         self._config.parallel_config.model_parallel = tp
         self._config.use_parallel = use_parallel
         self._config.parallel_config.data_parallel = dp
@@ -183,7 +181,9 @@ class MFLM(TemplateLM):
         else:
             self._max_length = self._config.processor.tokenizer.model_max_length
 
-        self._config.model.model_config.seq_length = self._max_length
+        if self._max_length:
+            self._config.model.model_config.seq_length = self._max_length
+
         self._config.model.model_config.parallel_config = self._config.parallel_config
         self._config.model.model_config.batch_size = batch_size
         self._config.model.model_config.use_past = use_past
@@ -196,6 +196,23 @@ class MFLM(TemplateLM):
     def _create_model(self, config) -> None:
         """Initialize Model"""
         self._model = AutoModel.from_config(config)
+
+        if not config.model.model_config.checkpoint_name_or_path:
+            if not config.load_checkpoint:
+                ckpt_path = [str(file.resolve()) for file in Path(config.pretrained).glob('*.ckpt')]
+                if len(ckpt_path) != 1:
+                    raise Exception("There is no or more than one model ckpt in the model directory.")
+                config.load_checkpoint = ckpt_path[0]
+            eval_logger.info("----------------Transform and load checkpoint----------------")
+            seq_length = config.model.model_config.seq_length
+            # set auto transform ckpt
+            if not os.path.isdir(config.load_checkpoint) and config.use_parallel:
+                config.auto_trans_ckpt = True
+            else:
+                config.auto_trans_ckpt = False
+            input_ids = Tensor(shape=(self.batch_size, seq_length), dtype=mindspore.int32, init=initializer.One())
+            infer_data = self._model.prepare_inputs_for_predict_layout(input_ids)
+            transform_and_load_checkpoint(config, Model(self._model), self._model, infer_data, do_predict=True)
 
     def _create_tokenizer(self, pretrained: str) -> None:
         """Initialize Tokenizer"""
@@ -390,7 +407,11 @@ class MFLM(TemplateLM):
             toks = req[1] + req[2]
             return -len(toks), tuple(toks)
 
-        re_ord = Collator(requests, sort_fn=_collate, group_by="contexts")
+        def _lookup_one_token_cont(req: Tuple[Tuple[str, str], List[int], List[int]]):
+            """Defines the key to group and lookup one-token continuations"""
+            return req[-2] + req[-1][:-1]
+
+        re_ord = Collator(requests, sort_fn=_collate, group_by="contexts", group_fn=_lookup_one_token_cont)
 
         chunks = re_ord.get_batched(self.batch_size)
         pbar = tqdm(
@@ -487,9 +508,7 @@ class MFLM(TemplateLM):
 
                     # Obtain log-probs at the corresponding continuation token indices
                     # last_token_slice = logits[:, -1, :].squeeze(0).tolist()
-                    logits_ = logits_.gather(cont_toks_.unsqueeze(-1), axis=2).squeeze(
-                        -1
-                    )  # [1, seq]
+                    logits_ = mindspore.mint.gather(logits_, 2, cont_toks_.unsqueeze(-1)).squeeze(-1)
 
                     # Answer: (log prob, is-exact-match)
                     answer = (float(logits_.sum()), bool(max_equal))

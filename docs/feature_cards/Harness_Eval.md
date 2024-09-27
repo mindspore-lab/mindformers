@@ -8,7 +8,7 @@
 ## 安装
 
 ```shell
-pip install lm_eval==0.4.3
+pip install lm_eval==0.4.4
 ```
 
 ## 使用方式
@@ -81,7 +81,6 @@ yaml配置参考：
 run_mode: 'predict'
 model:
   model_config:
-    use_past: True
     checkpoint_name_or_path: "model.ckpt"
 processor:
   tokenizer:
@@ -105,12 +104,47 @@ python toolkit/benchmarks/eval_with_harness.py --model mf --model_args "pretrain
 
 ## 支持特性说明
 
-Harness全量评测任务见[查看数据集评测任务](#查看数据集评测任务)，loglikelihood_rolling类型的评测任务暂未支持：
+支持Harness全量评测任务，包含如下任务组及其子任务：
 
-- french_bench_perplexity
-- french_bench_opus_perplexity
-- french_bench_wikitext_fr
-- paloma
-- pile
-- pile_10k
-- wikitext
+<details>
+<summary>点击展开Harness评测任务表</summary>
+
+| Group           | Task                                                                      |
+|-----------------|---------------------------------------------------------------------------|
+| aclue           | aclue_ancient_chinese_culture, aclue_ancient_literature ...               |
+| aexams          | aexams_Biology, aexams_IslamicStudies ...                                 |
+| agieval         | agieval_aqua_rat, agieval_math ...                                        |
+| arabicmmlu      | arabicmmlu_driving_test, arabicmmlu_general_knowledge ...                 |
+| bbh             | bbh_cot_fewshot_boolean_expressions, bbh_cot_fewshot_causal_judgement ... |
+| belebele        | belebele_acm_Arab, belebele_afr_Latn, ...                                 |
+| blimp           | blimp_adjunct_island, blimp_anaphor_gender_agreement ...                  |
+| ceval-valid     | ceval-valid_accountant, ceval-valid_advanced_mathematics ...              |
+| cmmlu           | cmmlu_agronomy, cmmlu_anatomy ...                                         |
+| csatqa          | csatqa_gr, csatqa_li ...                                                  |
+| flan            | anli_r1_flan, anli_r2_flan ...                                            |
+| haerae          | haerae_general_knowledge, haerae_history ...                              |
+| hendrycks_math  | hendrycks_math_algebra, hendrycks_math_counting_and_prob ...              |
+| kormedmcqa      | kormedmcqa_doctor, kormedmcqa_nurse ...                                   |
+| leaderboard     | leaderboard_bbh_boolean_expressions, leaderboard_bbh_causal_judgement ... |
+| lingoly         | lingoly_context, lingoly_nocontext ...                                    |
+| med_concepts_qa | med_concepts_qa_atc_easy, med_concepts_qa_atc_hard ...                    |
+| mela            | mela_ar, mela_de ...                                                      |
+| minerva_math    | minerva_math_algebra, minerva_math_counting_and_prob ...                  |
+| mmlu            | mmlu_abstract_algebra, mmlu_abstract_algebra_generative ...               |
+| multimedqa      | mmlu_anatomy, mmlu_clinical_knowledge ...                                 |
+| openllm         | arc_challenge, hellaswag ...                                              |
+| pawsx           | paws_de, paws_en ...                                                      |
+| pythia          | lambada_openai, logiqa ...                                                |
+| t0_eval         | anli_r1, anli_r2 ...                                                      |
+| tinyBenchmarks  | tinyGSM8k, tinyHellaswag ...                                              |
+| tmlu            | tmlu_AST_biology, tmlu_AST_chemistry ...                                  |
+| tmmluplus       | tmmluplus_accounting, tmmluplus_administrative_law ...                    |
+| wmdp            | wmdp_bio, wmdp_chem ...                                                   |
+| xcopa           | xcopa_et, xcopa_ht ...                                                    |
+| xnli            | xnli_ar, xnli_bg ...                                                      |
+| xstorycloze     | xstorycloze_ar, xstorycloze_en ...                                        |
+| xwinograd       | xwinograd_en, xwinograd_fr ...                                            |
+
+</details>
+
+具体评测任务见[查看数据集评测任务](https://gitee.com/mindspore/mindformers/blob/dev/docs/feature_cards/Harness_Eval.md#%E6%9F%A5%E7%9C%8B%E6%95%B0%E6%8D%AE%E9%9B%86%E8%AF%84%E6%B5%8B%E4%BB%BB%E5%8A%A1)。
