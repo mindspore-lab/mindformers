@@ -15,12 +15,11 @@
 """The export function for glm"""
 
 from .chatglm_6b_tokenizer import ChatGLMTokenizer
-from .glm import GLMChatModel, GLMForPreTraining
+from .glm import (
+    GLMChatModel,
+    GLMForPreTraining
+)
 from .glm_config import GLMConfig
 from .glm_processor import GLMProcessor
 
 __all__ = []
-__all__.extend(chatglm_6b_tokenizer.__all__)
-__all__.extend(glm.__all__)
-__all__.extend(glm_config.__all__)
-__all__.extend(glm_processor.__all__)

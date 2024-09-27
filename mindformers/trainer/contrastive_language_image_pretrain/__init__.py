@@ -15,4 +15,4 @@
 """Contrastive Language Image Pretrain Trainer API."""
 from .contrastive_language_image_pretrain import ContrastiveLanguageImagePretrainTrainer
 
-__all__ = ['ContrastiveLanguageImagePretrainTrainer']
+__all__ = []

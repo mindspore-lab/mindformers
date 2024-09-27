@@ -13,12 +13,14 @@
 # limitations under the License.
 # ============================================================================
 """Swin Model API."""
-from .swin import *
-from .swin_config import *
-from .swin_processor import *
-
+from .swin import (
+    SwinForImageClassification,
+    SwinModel
+)
+from .swin_config import SwinConfig
+from .swin_processor import (
+    SwinImageProcessor,
+    SwinProcessor
+)
 
 __all__ = []
-__all__.extend(swin.__all__)
-__all__.extend(swin_config.__all__)
-__all__.extend(swin_processor.__all__)

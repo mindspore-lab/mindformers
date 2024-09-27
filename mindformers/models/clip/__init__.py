@@ -14,10 +14,16 @@
 # ============================================================================
 
 """clip init"""
-from .clip_config import CLIPTextConfig, CLIPVisionConfig, CLIPConfig
+from .clip_config import (
+    CLIPConfig,
+    CLIPTextConfig,
+    CLIPVisionConfig
+)
 from .clip import CLIPModel
 from .clip_tokenizer import CLIPTokenizer
-from .clip_processor import CLIPProcessor, CLIPImageProcessor
+from .clip_processor import (
+    CLIPImageProcessor,
+    CLIPProcessor
+)
 
-__all__ = ['CLIPModel', 'CLIPConfig', 'CLIPVisionConfig', 'CLIPImageProcessor',
-           'CLIPTextConfig', 'CLIPTokenizer', 'CLIPProcessor']
+__all__ = []

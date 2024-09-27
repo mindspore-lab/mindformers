@@ -13,15 +13,17 @@
 # limitations under the License.
 # ============================================================================
 """The export function for ChatGLM2"""
-from .glm2_config import *
-from .glm2_tokenizer import *
-from .glm3_tokenizer import *
-from .glm4_tokenizer import *
-from .glm2 import *
+from .glm2_config import ChatGLM2Config
+from .glm2_tokenizer import ChatGLM2Tokenizer
+from .glm3_tokenizer import ChatGLM3Tokenizer
+from .glm4_tokenizer import ChatGLM4Tokenizer
+from .glm2 import (
+    ChatGLM2ForConditionalGeneration,
+    ChatGLM2Model,
+    ChatGLM2WithPtuning2
+)
 
-__all__ = []
+__all__ = ['ChatGLM2ForConditionalGeneration']
 __all__.extend(glm2_config.__all__)
-__all__.extend(glm2_tokenizer.__all__)
 __all__.extend(glm3_tokenizer.__all__)
 __all__.extend(glm4_tokenizer.__all__)
-__all__.extend(glm2.__all__)

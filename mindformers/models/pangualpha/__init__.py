@@ -14,13 +14,13 @@
 # ============================================================================
 """The export function for PanGu Alpha"""
 
-from .pangualpha import *
-from .pangualpha_config import *
-from .pangualpha_tokenizer import *
-from .pangualpha_processor import *
+from .pangualpha import (
+    PanguAlphaHeadModel,
+    PanguAlphaModel,
+    PanguAlphaPromptTextClassificationModel
+)
+from .pangualpha_config import PanguAlphaConfig
+from .pangualpha_tokenizer import PanguAlphaTokenizer
+from .pangualpha_processor import PanguAlphaProcessor
 
 __all__ = []
-__all__.extend(pangualpha.__all__)
-__all__.extend(pangualpha_config.__all__)
-__all__.extend(pangualpha_tokenizer.__all__)
-__all__.extend(pangualpha_processor.__all__)

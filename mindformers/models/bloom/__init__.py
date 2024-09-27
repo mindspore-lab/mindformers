@@ -15,13 +15,16 @@
 """The export function for bloom"""
 
 from .bloom_config import BloomConfig
-from .bloom import BloomModel, BloomLMHeadModel
+from .bloom import (
+    BloomLMHeadModel,
+    BloomModel
+)
 from .bloom_tokenizer import BloomTokenizer
 from .bloom_tokenizer_fast import BloomTokenizerFast
 from .bloom_processor import BloomProcessor
-from .bloom_reward import *
+from .bloom_reward import (
+    BloomRewardModel,
+    VHead
+)
 
-__all__ = ['BloomConfig', 'BloomModel',
-           'BloomLMHeadModel', 'BloomTokenizer',
-           'BloomProcessor', 'BloomTokenizerFast']
-__all__.extend(bloom_reward.__all__)
+__all__ = []

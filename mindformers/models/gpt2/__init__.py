@@ -15,10 +15,13 @@
 """The export function for gpt"""
 
 from .gpt2_config import GPT2Config
-from .gpt2 import GPT2Model, GPT2LMHeadModel, GPT2ForSequenceClassification
+from .gpt2 import (
+    GPT2ForSequenceClassification,
+    GPT2LMHeadModel,
+    GPT2Model
+)
 from .gpt2_tokenizer import GPT2Tokenizer
 from .gpt2_tokenizer_fast import GPT2TokenizerFast
 from .gpt2_processor import GPT2Processor
 
-__all__ = ['GPT2Config', 'GPT2Model', 'GPT2LMHeadModel',
-           'GPT2ForSequenceClassification', 'GPT2Tokenizer', 'GPT2Processor', 'GPT2TokenizerFast']
+__all__ = []

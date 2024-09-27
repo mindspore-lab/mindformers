@@ -13,12 +13,34 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers Transformers API."""
-from .transformer import *
-from .layers import *
-from .local_block_sparse_attention import *
-from .paged_attention_mgr import *
+from .transformer import (
+    AttentionMask,
+    AttentionMaskHF,
+    EmbeddingOpParallelConfig,
+    FeedForward,
+    LowerTriangularMaskWithDynamic,
+    MoEConfig,
+    MultiHeadAttention,
+    OpParallelConfig,
+    Transformer,
+    TransformerDecoder,
+    TransformerDecoderLayer,
+    TransformerEncoder,
+    TransformerEncoderLayer,
+    TransformerOpParallelConfig,
+    TransformerRecomputeConfig,
+    VocabEmbedding
+)
+from .layers import (
+    AlibiTensor,
+    AlibiTensorV2,
+    Dropout,
+    FixedSparseAttention,
+    LayerNorm,
+    Linear,
+    RotaryEmbedding
+)
+from .local_block_sparse_attention import LocalBlockSparseAttention
+from .paged_attention_mgr import PagedAttentionMgr
 
 __all__ = []
-__all__.extend(transformer.__all__)
-__all__.extend(layers.__all__)
-__all__.extend(local_block_sparse_attention.__all__)

@@ -15,5 +15,4 @@
 """General Task Example For Trainer."""
 from .general_task_trainer import GeneralTaskTrainer
 
-
-__all__ = ['GeneralTaskTrainer']
+__all__ = []

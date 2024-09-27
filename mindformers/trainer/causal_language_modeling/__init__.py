@@ -15,5 +15,4 @@
 """Masked Language Modeling Trainer."""
 from .causal_language_modeling import CausalLanguageModelingTrainer
 
-
-__all__ = ['CausalLanguageModelingTrainer']
+__all__ = []

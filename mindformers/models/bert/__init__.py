@@ -14,16 +14,19 @@
 # ============================================================================
 """The export function for bert"""
 
-from .bert_tokenizer import BertTokenizer, BasicTokenizer
+from .bert_tokenizer import (
+    BasicTokenizer,
+    BertTokenizer
+)
 from .bert_tokenizer_fast import BertTokenizerFast
 from .bert_config import BertConfig
 from .bert import (
-    BertForPreTraining, BertModel, BertForTokenClassification, BertForMultipleChoice,
-    BertForQuestionAnswering)
+    BertForMultipleChoice,
+    BertForPreTraining,
+    BertForQuestionAnswering,
+    BertForTokenClassification,
+    BertModel
+)
 from .bert_processor import BertProcessor
 
 __all__ = []
-__all__.extend(bert_tokenizer.__all__)
-__all__.extend(bert_tokenizer_fast.__all__)
-__all__.extend(bert.__all__)
-__all__.extend(bert_processor.__all__)

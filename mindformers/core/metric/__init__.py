@@ -14,8 +14,13 @@
 # ============================================================================
 """MindFormers Metric."""
 from .build_metric import build_metric
-from .metric import *
+from .metric import (
+    ADGENMetric,
+    EmF1Metric,
+    EntityScore,
+    PerplexityMetric,
+    PromptAccMetric,
+    SQuADMetric
+)
 
-
-__all__ = []
-__all__.extend(metric.__all__)
+__all__ = ['EmF1Metric', 'EntityScore', 'PerplexityMetric', 'PromptAccMetric', 'SQuADMetric']

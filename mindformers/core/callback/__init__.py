@@ -14,7 +14,13 @@
 # ============================================================================
 """MindFormers Callback."""
 from .build_callback import build_callback
-from .callback import *
+from .callback import (
+    CheckpointMonitor,
+    EvalCallBack,
+    MFLossMonitor,
+    ObsMonitor,
+    ProfileMonitor,
+    SummaryMonitor
+)
 
-__all__ = []
-__all__.extend(callback.__all__)
+__all__ = ['CheckpointMonitor', 'EvalCallBack', 'MFLossMonitor', 'ProfileMonitor', 'SummaryMonitor']

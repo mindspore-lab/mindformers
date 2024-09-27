@@ -15,5 +15,4 @@
 """MindFormers Sampler API."""
 from .build_sampler import build_sampler
 
-
 __all__ = []

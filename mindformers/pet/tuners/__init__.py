@@ -14,12 +14,22 @@
 # ============================================================================
 """The export function for bert_pet."""
 
-from .adalora_adapter import *
-from .ada_adapter import *
-from .lora_adapter import *
-from .prefix_tuning_adapter import *
-from .pet_adapter import *
-from .ptuning2_adapter import *
+from .adalora_adapter import AdaLoraAdapter
+from .ada_adapter import AdaAdapter
+from .lora_adapter import (
+    LoraAdapter,
+    recursive_replace_dense_cell
+)
+from .prefix_tuning_adapter import (
+    PrefixEmbedding,
+    PrefixEncoder,
+    PrefixTuningAdapter
+)
+from .pet_adapter import PetAdapter
+from .ptuning2_adapter import (
+    Ptuning2Adapter,
+    Ptuning2Embedding,
+    Ptuning2Encoder
+)
 
-
-__all__ = ['AdaLoraAdapter', 'AdaAdapter', 'LoraAdapter', 'PetAdapter', 'PrefixTuningAdapter', 'Ptuning2Adapter']
+__all__ = []
