@@ -110,6 +110,18 @@ n_to_m_rank_transformer(){ #Infer_strategy_path #Dst_ckpt_path #src_ckpt_path
     --prefix="checkpoint_" \
     > ./log/log_transform_ckpt_${precision}_${world_size}.log 2>&1
     echo "----- End convert ${world_size}p ${precision} weights time: $(date +%H:%M:%S) -----"
+    result=$(awk "BEGIN {print $dir_count / $world_size}")
+    if [ "$qkv_ffn" == "True" ] && [ "$result" -eq 2 ]; then
+        echo "----- Start to adjust qkv and ffn time: $(date +%H:%M:%S)-----"
+        python adjust_qkv.py \
+            --src_ckpt_path=${Dst_ckpt_path}_${world_size}p \
+            --dst_ckpt_path=${Dst_ckpt_path}_${world_size}p_adjust \
+            --dir_count=${dir_count} \
+            --world_size=${world_size} \
+            --quant="$([ "$precision" != "fp16" ] && echo 'True' || echo 'False')" \
+            > ./log/log_adjust_qkv_${dir_count}_to_${world_size}.log 2>&1
+        echo "----- End convert qkv time: $(date +%H:%M:%S)-----"
+    fi
 }
 
 1_to_m_rank_transformer(){ #Infer_strategy_path #Dst_ckpt_path #src_ckpt_path

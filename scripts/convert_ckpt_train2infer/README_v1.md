@@ -19,7 +19,7 @@
 
 ## 整体流程图
 
-![整体流程图](.README_images/518154b9.png)
+![整体流程图](.README_images/90e60311.png)
 
 ## 1. 训练权重转fp16推理权重 **train_to_infer**
 
@@ -85,7 +85,6 @@ bash ckpt_convert.sh -f train_to_infer -p fp16 -w 8 -y /home/checkpoint_download
         - 生成 `dir_count` 卡数的策略文件
         - 生成 `world_size` 卡数的策略文件
         - 生成 `world_size` 卡数的量化权重文件
-        - 调整 `world_size` 卡数的量化权重中的qkv排布（只支持**8p转4p**和**4p转2p**）
 
 ### 2.2 样例
 
@@ -106,8 +105,7 @@ bash ckpt_convert.sh -f quant_weight -p w8a8c8 -w 8 -y /home/checkpoint_download
 
 ### 2.3 注意事项
 
-- 转量化权重流程不支持单卡权重作为输入
-- 当前只支持**8p转4p**和**4p转2p**等从大到小成2倍关系的量化权重多卡转换
+转量化权重流程不支持单卡权重作为输入
 
 ## 3. 多卡转化 **distributed_weight_transfer**
 
@@ -126,26 +124,18 @@ bash ckpt_convert.sh -f quant_weight -p w8a8c8 -w 8 -y /home/checkpoint_download
 - `--infer_strategy_file` 生成策略文件的保存地址，不设置此参数时，策略文件保存在当前路径下 `"./infer_strategy/"`
 - `--dst_ckpt_path` 生成量化权重文件的保存地址，不设置此参数时策略文件保存在当前路径下 `./infer_ckpt/`
 
-#### 3.1.2 转换支持选项
+#### 3.1.2 流程说明
 
-![转换支持选项](.README_images/4f7d7f5f.png)
-
-#### 3.1.3 流程说明
-
-- 检查权重是否是含有qkv前端算子融合的，是: `qkv_concat=true`, 否: `qkv_concat=false`
+- 检查权重是否是含有qkv前端算子融合的，是：`qkv_concat=true`, 否：`qkv_concat=false`
 - 若`dir_count == 1`, 进入一卡转多卡流程:
-    - 若`precision==fp16`且`qkv_concat=true`: 回退qkv算子融合，`qkv_concat=false`
     - 生成`world_size`卡数的策略文件
     - 生成`world_size`卡数的权重
     - 若`qkv_concat==false`且`precision==fp16`，添加qkv前端算子融合
 - 若`dir_count != 1`, 进入多卡转多卡流程：
-    - 若`precision==fp16`且`qkv_concat=true`且`dir_count/world_size==2`: 回退qkv算子融合，`qkv_concat=false`
     - 生成`dir_count`卡数的策略文件
     - 生成`world_size`卡数的策略文件
     - 生成`world_size`卡数的权重
-    - 若达成条件:
-        - 若`qkv_concat==false`且`precision==fp16`，添加qkv前端算子融合
-        - 若`qkv_concat==True`且`dir_count/world_size==2`，调整 `world_size` 卡数的权重中的qkv排布
+    - 若`qkv_concat==false`且`precision==fp16`，添加qkv前端算子融合
 
 ### 3.2 样例
 
@@ -154,17 +144,12 @@ bash ckpt_convert.sh -f quant_weight -p w8a8c8 -w 8 -y /home/checkpoint_download
 bash ckpt_convert.sh -f distributed_weight_transfer -p fp16 -w 4 -y /home/checkpoint_download/llama57b/predict_llama2_57b_910b.yaml  -sc /home/predict/convert_ckpt_stage_0703/infer_ckpt/fp16_8p
 ```
 
-```shell
-# fp16 fp16-4p-qkv 转 fp16-8p-qkv
-bash ckpt_convert.sh -f distributed_weight_transfer -p fp16 -w 8 -y /home/checkpoint_download/llama57b/predict_llama2_57b_910b.yaml  -sc /home/predict/convert_ckpt_stage_0703/infer_ckpt/fp16_4p_qkv
-```
-
 ### 3.3 注意事项
 
 - 输入的权重精度与设置的precision一致
 - 若输入的权重为单卡权重，需要将权重路径修改形式为：/path/rank_0/**.ckpt, 输入的 --src_ckpt_path=/path/
-- 量化权重不支持：qkv算子融合（convert_qkv_ffn.py）和回退qkv算子（revert_qkv_ffn.py）
-- 转换配置和支持项请查看上面《整体流程图》
+- 不支持给量化权重做qkv前端算子融合
+- 如果首次生产的策略文件异常，请及时删除，以防影响生成新的策略文件
 
 ## 4. huggingface权重转mindspore的fp16推理权重 **pt_to_ms**
 
@@ -243,7 +228,7 @@ python ckpt_to_safetensors.py --src_ckpt_path=/infer_ckpt/fp16_8p --dst_safetens
 - 检查权重是否是含有qkv前端算子融合的，是：`qkv_concat=true`, 否：`qkv_concat=false`
 - 进入多卡转多卡流程：
 - 若`qkv_concat=true`：
-    - 回退qkv算子融合
+    - 删除qkv算子
     - 生成`dir_count`卡数的策略文件
     - 生成`world_size`卡数的策略文件
     - 生成`world_size`卡数的权重
@@ -254,14 +239,14 @@ python ckpt_to_safetensors.py --src_ckpt_path=/infer_ckpt/fp16_8p --dst_safetens
     - 生成`world_size`卡数的权重
     - 添加前端qkv算子融合
 
-#### 6.1.3 运行脚本
+### 6.1.3 运行脚本
 
 ```shell
 # fp16 fp16-8p 转 fp16-16p
 bash ckpt_convert_for_16p.sh -f distributed_weight_transfer -p fp16 -w 16 -y /home/checkpoint_download/llama57b/predict_llama2_57b_910b.yaml  -sc /fp16_8p/
 ```
 
-#### 6.1.4 注意事项
+### 6.1.4 注意事项
 
 - 两台机器需同时运行转换脚本
 
@@ -292,14 +277,14 @@ bash ckpt_convert_for_16p.sh -f distributed_weight_transfer -p fp16 -w 16 -y /ho
 
 - 将fp16-16p权重转换为量化-16p权重
 
-#### 6.2.3 运行脚本
+### 6.2.3 运行脚本
 
 ```shell
 # w8a16 fp16-16p 转 w8a16_16p
 bash ckpt_convert_for_16p.sh -f quant_weight -p w8a16 -w 16 -y /home/checkpoint_download/llama57b_quant_w8a16/predict_llama2_57b_910b.yaml  -sc /infer_ckpt/fp16_16p -d boolq -dp ./boolq/dev.jsonl
 ```
 
-#### 6.2.4 注意事项
+### 6.2.4 注意事项
 
 - 两台机器需同时运行转换脚本
 - 只支持输入world_size卡数权重量化成world_size卡数权重
