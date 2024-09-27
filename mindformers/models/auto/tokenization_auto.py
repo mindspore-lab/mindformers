@@ -349,11 +349,11 @@ class AutoTokenizer:
             The API is experimental and may have some slight breaking changes in the next releases.
 
         Args:
-            yaml_name_or_path (str): a folder containing YAML file, a folder containing JAON file,
+            yaml_name_or_path (str): a folder containing YAML file, a folder containing JSON file,
                 or a model_id from modelers.cn. The last two are experimental features.
-            args (additional arguments): Will be passed along to the underlying tokenzier \_\_init\_\_() method.
+            args (Any): Will be passed along to the underlying tokenizer \_\_init\_\_() method.
                 Only works in experimental mode.
-            kwargs (additional keyword arguments): The values in kwargs of any keys which are configuration
+            kwargs (Dict[str, Any], optional): The values in kwargs of any keys which are configuration
                 attributes will be used to override the loaded values.
 
         Returns:

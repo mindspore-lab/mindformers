@@ -285,7 +285,7 @@ class AutoConfig:
         Args:
             yaml_name_or_path (str): YAML file path, JSON file path, a folder containing a config.json file,
                 or a model_id from modelers.cn. The last three are experimental features.
-            kwargs (additional keyword arguments): The values in kwargs of any keys which are configuration
+            kwargs (Dict[str, Any], optional): The values in kwargs of any keys which are configuration
                 attributes will be used to override the loaded values.
 
         Returns:

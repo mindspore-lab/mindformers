@@ -38,7 +38,7 @@ class QuestionAnsweringPipeline(Pipeline):
     Args:
         model (Union[PretrainedModel, Model]):
             The model used to perform task, the input should be a model instance inherited from PretrainedModel.
-        tokenizer (Optional[BaseTokenzier]):
+        tokenizer (Optional[BaseTokenizer]):
             A tokenizer (None or PreTrainedTokenizer) for text processing.
 
     Raises:

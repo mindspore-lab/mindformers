@@ -161,9 +161,9 @@ class AutoProcessor:
             The API is experimental and may have some slight breaking changes in the next releases.
 
         Args:
-            yaml_name_or_path (str): YAML file path, a folder containing JAON file,
+            yaml_name_or_path (str): YAML file path, a folder containing JSON file,
                 or a model_id from modelers.cn. The last three are experimental features.
-            kwargs (additional keyword arguments): The values in kwargs of any keys which are configuration
+            kwargs (Dict[str, Any], optional): The values in kwargs of any keys which are configuration
                 attributes will be used to override the loaded values.
 
         Returns:

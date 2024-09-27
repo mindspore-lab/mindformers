@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-""" Bloom Tokenzier """
+""" Bloom Tokenizer """
 import json
 import os
 from functools import lru_cache
