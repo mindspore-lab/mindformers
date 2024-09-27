@@ -16,19 +16,18 @@
 import argparse
 import os
 
-from mindspore import set_context
-from mindspore.communication import init
+from mindspore.communication import get_rank
 
-from mindformers import MindFormerConfig, logger
-from mindformers.core.context.build_context import set_predict_context_config
-from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers import MindFormerConfig, build_context, logger
+from mindformers.experimental.infer.core.utils import generate_state_dict
 from mindformers.experimental.infer.models.llama import ParallelLlamaForCausalLM
+from mindformers.experimental.parallel_core.pynative.utils import save_strategy_file
 from mindformers.models.llama import LlamaConfig, LlamaTokenizer
-from mindformers.tools import MODE
-from mindformers.trainer.utils import transform_and_load_checkpoint
+from mindformers.tools.utils import get_output_root_path
+from mindformers.trainer.utils import load_ckpt
 
 
-def main(config_path, use_parallel, load_checkpoint):
+def main(config_path, load_checkpoint):
     # multi batch inputs
     inputs = ["I love Beijing, because",
               "LLaMA is a",
@@ -37,7 +36,7 @@ def main(config_path, use_parallel, load_checkpoint):
 
     # init config with yaml
     config = MindFormerConfig(config_path)
-    config.use_parallel = use_parallel
+    config.use_parallel = True
     device_num = os.getenv('MS_WORKER_NUM')
     logger.info(f"Use device number: {device_num}, it will override config.model_parallel.")
     config.parallel_config.model_parallel = int(device_num) if device_num else 1
@@ -46,15 +45,9 @@ def main(config_path, use_parallel, load_checkpoint):
     config.load_checkpoint = load_checkpoint
 
     # init context
-    set_predict_context_config(config)
-    mode = MODE.get(config.context.mode)
-    set_context(mode=mode, max_device_memory=config.context.max_device_memory)
+    build_context(config)
 
-    # init communication
-    init()
-    initialize_model_parallel(tensor_model_parallel_size=config.parallel_config.model_parallel,
-                              order='tp')
-
+    # build model config
     config.model.model_config.parallel_config = config.parallel_config
     config.model.model_config.batch_size = batch_size
     model_config = LlamaConfig(**config.model.model_config)
@@ -67,10 +60,21 @@ def main(config_path, use_parallel, load_checkpoint):
     # build model
     network = ParallelLlamaForCausalLM(model_config)
 
-    # load checkpoint
-    config.auto_trans_ckpt = False
-    transform_and_load_checkpoint(config, network)
+    # get strategy file
+    if config.only_save_strategy:
+        strategy_ckpt_save_dir = os.path.join(get_output_root_path(), "strategy")
+        os.makedirs(strategy_ckpt_save_dir, exist_ok=True)
+        strategy_file_path = os.path.join(strategy_ckpt_save_dir, "ckpt_strategy.ckpt")
+        shard_state_dict = generate_state_dict(network)
+        if get_rank() == 0:
+            save_strategy_file(shard_state_dict, strategy_file_path)
+        logger.info(f"Strategy file has been saved in {strategy_file_path}.")
+        return
 
+    # load checkpoint
+    load_ckpt(config, network)
+
+    # generate
     inputs_ids = tokenizer(inputs, max_length=model_config.seq_length, padding="max_length")["input_ids"]
     outputs = network.generate(inputs_ids,
                                max_length=model_config.max_decode_length,
@@ -85,19 +89,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', default='predict_llama2_7b.yaml', type=str,
                         help='model config file path.')
-    parser.add_argument('--use_parallel', action='store_true',
-                        help='if run model prediction in parallel mode.')
     parser.add_argument('--load_checkpoint', type=str,
                         help='load model checkpoint path or directory.')
 
     args = parser.parse_args()
-    main(
-        args.config_path,
-        args.use_parallel,
-        args.load_checkpoint
-    )
-
-# 多batch输出
-# <s>I love Beijing,because it is a city that is constantly changing. I have been living here for 10 years ...
-# <s>LlaMa is a large-scale, open-source, multimodal, multilingual, multitask, and multimodal pretrained ...
-# <s>Huawei is a company that has been around for a long time. ...
+    main(args.config_path, args.load_checkpoint)

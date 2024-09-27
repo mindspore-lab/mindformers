@@ -468,7 +468,7 @@ def _update_sharded_state_dict(network: nn.Cell, dict_: dict):
     for _, subcell in cells.items():
         if subcell == network:
             continue
-        if isinstance(subcell, (ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding)):
+        if hasattr(subcell, "sharded_state_dict"):
             dict_.update(subcell.sharded_state_dict())
         else:
             _update_sharded_state_dict(subcell, dict_)
