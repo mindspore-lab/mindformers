@@ -815,7 +815,7 @@ class ModelParallelConfig(BaseConfig):
             standalone_embedding_stage: bool = False,
             overlap_grad_reduce: bool = False,
             gradient_accumulation_fusion: bool = False,
-            overlap_p2p_comm: bool = False,
+            overlap_p2p_comm: bool = True,
             use_cpu_initialization: bool = False,
             deterministic_mode: bool = False,
             num_layer_list: list = None,
@@ -918,6 +918,11 @@ def validate_gradient_accumulation_fusion(config_instance, gradient_accumulation
     Validator.check_bool(gradient_accumulation_fusion, "gradient_accumulation_fusion")
     return gradient_accumulation_fusion
 
+@ModelParallelConfig.validator("overlap_p2p_comm")
+def validate_overlap_p2p_comm(config_instance, overlap_p2p_comm):
+    """Validate if overlap_p2p_comm is bool."""
+    Validator.check_bool(overlap_p2p_comm, "overlap_p2p_comm")
+    return overlap_p2p_comm
 
 @ModelParallelConfig.validator("use_cpu_initialization")
 def validate_use_cpu_initialization(config_instance, use_cpu_initialization):
