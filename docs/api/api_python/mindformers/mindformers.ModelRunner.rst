@@ -13,6 +13,7 @@ mindformers.ModelRunner
         - **rank_id** (int, 可选) - 用于推理的 rank ID。默认值:  ``0`` 。
         - **world_size** (int, 可选) - 用于推理的 rank 数量。默认值:  ``1`` 。
         - **npu_device_ids** (list[int], 可选) - 从 MindIE 配置中获取的 NPU 设备 ID 列表。默认值:  ``None`` 。
+        - **model_role** (str) - model_role是prefill、decoder或者standard。如果model_role是prefill或decoder，表示Prefill-Decoder分离场景。如果model_role是standard，表示Prefill-Decoder混布场景。默认值: ``standard`` 。
         - **plugin_params** (str, 可选) - 包含额外插件参数的 JSON 字符串。默认值:  ``None`` 。
 
     返回：

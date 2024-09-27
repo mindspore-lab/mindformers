@@ -342,7 +342,8 @@ def load_resume_context_from_checkpoint(config, dataset):
     logger.info("step scale: %f", config.runner_config.step_scale)
 
 
-def transform_and_load_checkpoint(config, model, network, dataset, optimizer=None, do_eval=False, do_predict=False):
+def transform_and_load_checkpoint(config, model, network, dataset, is_pd_detach=False, optimizer=None, do_eval=False,
+                                  do_predict=False):
     """
     load checkpoint into net, transform checkpoint if transform is True
     1. build net if parallel mode is auto_parallel
@@ -361,7 +362,7 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         load_ckpt(config, network, optimizer=optimizer)
         return
 
-    if not config.auto_trans_ckpt and not config.only_save_strategy and do_predict:
+    if not config.auto_trans_ckpt and not config.only_save_strategy and do_predict and not is_pd_detach:
         network.set_train(False)
         load_ckpt(config, network)
         return
