@@ -313,7 +313,8 @@ def run_resume_training(config):
         elif isinstance(resume_ckpt_name, str):
             ckpt_path = os.path.join(rank_path, resume_ckpt_name)
         print(f"ckpt_path is {ckpt_path}")
-        resume_dict = load_checkpoint(model_config, network, optimizer=optimizer, opt_state_dict=opt_param_scheduler,
+        resume_dict = load_checkpoint(model_config, network, optimizer=optimizer,
+                                      opt_param_scheduler=opt_param_scheduler,
                                       ckpt_path=ckpt_path, format=training_config.ckpt_format)
 
     train_one_step_cell = TrainOneStepCell(network, optimizer, opt_param_scheduler, training_config, model_config)

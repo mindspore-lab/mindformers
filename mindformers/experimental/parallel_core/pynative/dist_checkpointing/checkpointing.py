@@ -116,8 +116,9 @@ def load_rng_state(param_dict):
     }
     get_rng_tracer().set_state(target_state)
     # set default generator state
-    default_generator_loaded = param_dict.pop("default_generator")
-    set_rng_state(default_generator_loaded)
+    if "default_generator" in param_dict:
+        default_generator_loaded = param_dict.pop("default_generator")
+        set_rng_state(default_generator_loaded)
 
 
 def _update_zero(params_dict, shard_info, param, group):
@@ -177,7 +178,6 @@ def save_pre_process(shard_info, model, optimizer, config):
 # pylint: disable=W0212
 def load_post_process(config, params_dict, optimizer=None):
     """ load post processing, concat qkv """
-    # process qkv
     for name, param in list(params_dict.items()):
         ### moe layer
         if config.moe_config is not None and config.moe_config.num_experts > 1 and "local_experts.0" in name:
@@ -287,8 +287,8 @@ def ensure_total_ckpt_is_less_than_limit(ckpt_path: str, limit: int = 5, format:
             os.remove(rm_ckpt_path)
 
 # pylint: disable=W0622
-def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_path="./", format=_FORMAT, crc_check=False,
-                    **kwargs):
+def load_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckpt_path="./", format=_FORMAT,
+                    crc_check=False, **kwargs):
     """
     Load checkpoint info from a specified file in process of rank 0.
 
@@ -324,8 +324,8 @@ def load_checkpoint(config, model, optimizer=None, opt_state_dict=None, ckpt_pat
     }
 
     load_rng_state(param_dict)
-    if opt_state_dict is not None:
-        opt_state_dict.load_state_dict(param_dict)
+    if opt_param_scheduler is not None:
+        opt_param_scheduler.load_state_dict(param_dict)
     if isinstance(optimizer, DistributedOptimizer):
         # restore distributed optimizer
         optimizer.load_state_dict(param_dict)
