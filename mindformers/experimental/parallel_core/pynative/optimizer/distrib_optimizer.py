@@ -340,8 +340,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             # allgather updated buckets' data among dp group
             self._sync_gather_all_model_params()
 
-    def load_state_dict(self, state_dict):
-        """ load the state dict. """
+    def _load_state_from_fs_model_space(self, state_dict):
+        """ load state from fully sharded parameter state. """
         if len(self.param_to_bucket_map) != len(self.optimizer.parameters):
             raise ValueError(
                 f"Inconsistent size between "
@@ -380,8 +380,52 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                     raise ValueError(f"Fail to get weight of '{ele.name}' from state dict.")
                 ele.copy_(weight.view(-1)[param_start: param_end])
 
+    def _load_state_dict_from_dp_zero(self, state_dict):
+        """ load state dict from dp splited bucket state. """
+        param_type = ["", "exp_avg.", "exp_avg_sq."]
+        for buffer_index, bucket_index, _, _ in self.param_buffer_dp_views:
+            param_range_map_this_bucket = self.param_ranges_map[buffer_index][bucket_index]
+            shard_name = 'buffer_{}_bucket_{}'.format(buffer_index, bucket_index)
+            for param, range_map in param_range_map_this_bucket.items():
+                start_idx, end_idx = range_map['range_in_shard']
+                param_id_in_opt = self.param_idx_in_opt[param.name]
+                # check data exists in state dict
+                for key in param_type:
+                    if not key + shard_name in state_dict.keys():
+                        raise KeyError("No shard data for {} found in checkpoint state dict. When loading state dict "
+                                       "from dp zero, parallel strategy and bucket sharding can not be changed. "
+                                       "Please check checkpoint file.")
+                self.optimizer.parameters[param_id_in_opt].copy_(state_dict[shard_name].value()[start_idx:end_idx])
+                self.optimizer.exp_avg[param_id_in_opt].copy_(
+                    state_dict['exp_avg.'+shard_name].value()[start_idx:end_idx]
+                )
+                self.optimizer.exp_avg_sq[param_id_in_opt].copy_(
+                    state_dict['exp_avg_sq.'+shard_name].value()[start_idx:end_idx]
+                )
+
+    def load_state_dict(self, state_dict):
+        """ load the state dict. """
+        sharding_type = 'fully_sharded_model_space'
+        for key in state_dict.keys():
+            if 'buffer' in key and 'bucket' in key:
+                sharding_type = 'dp_zero'
+        if sharding_type == 'dp_zero':
+            self._load_state_dict_from_dp_zero(state_dict)
+        elif sharding_type == 'fully_sharded_model_space':
+            self._load_state_from_fs_model_space(state_dict)
+        else:
+            raise NotImplementedError('Unknow sharding_type: {}'.format(sharding_type))
+
         if 'state_step' in state_dict.keys():
             self.optimizer.state_step.assign_value(state_dict['state_step'].value())
+
+        # load learning rate
+        for group_idx, lr in enumerate(self.optimizer.lrs):
+            if lr.name in state_dict.keys():
+                lr.assign_value(state_dict[lr.name].value())
+            wd_name = lr.name.replace('learning_rate', 'weight_decay')
+            if wd_name in state_dict.keys():
+                self.optimizer.param_groups[group_idx]['weight_decay'] = state_dict.get(wd_name).item()
 
     def _update_optimizer_attr(self):
         """ update attributes of self.optimizer according to shard information. """
@@ -561,5 +605,18 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
 
         # add state step to state_dict
         param_dict['state_step'] = self.optimizer.state_step
+
+        # add learning rate and weight decay to state_dict
+        for group_idx, lr in enumerate(self.optimizer.lrs):
+            param_dict[lr.name] = lr
+            wd_name = lr.name.replace('learning_rate', 'weight_decay')
+            param_dict[wd_name] = ms.Parameter(
+                ops.Tensor(
+                    self.optimizer.param_groups[group_idx]['weight_decay'],
+                    dtype=ms.float32,
+                ),
+                name=wd_name,
+                requires_grad=False,
+            )
 
         return param_dict
