@@ -155,7 +155,8 @@ def run_distributed_optimizer():
         overlap_grad_reduce=True,
         use_distributed_optimizer=True,
         bucket_size=bucket_size,
-        average_in_collective=True
+        average_in_collective=True,
+        enable_mem_align=True,
     )
     network = TestNet2(config=model_config)
     network_with_ddp = DistributedDataParallel(config=training_config,

@@ -232,7 +232,8 @@ class ParamAndGradBuffer:
             # Since parameters are 512 byte aligned when allocating memory, the padding size is natural
             # 512 byte aligned.
             padded_numel, padding_tensor_size = _pad_bucket(last_bucket_numel, bucket_align_size) \
-                if self.ddp_config.use_distributed_optimizer else (0, 0)
+                if self.ddp_config.use_distributed_optimizer and \
+                self.ddp_config.enable_mem_align else (0, 0)
             if padding_tensor_size > 0:
                 param_data_list.append(ops.Tensor(shape=(padding_tensor_size), dtype=self.param_dtype, init=Zero()))
             bucket_end_index = data_start_index + padded_numel
@@ -257,7 +258,8 @@ class ParamAndGradBuffer:
                 _build_bucket()
 
             data_end_index = data_start_index + param.numel()
-            data_padded_numel = _pad_param(param.numel()) if self.ddp_config.use_distributed_optimizer else 0
+            data_padded_numel = _pad_param(param.numel()) if self.ddp_config.use_distributed_optimizer and \
+                self.ddp_config.enable_mem_align else 0
             data_actual_end = data_end_index + data_padded_numel
             bucket_params.append(param)
             param_data_list.append(param)
@@ -272,7 +274,8 @@ class ParamAndGradBuffer:
         if last_bucket_numel > 0:
             # add bucket for the last few params which do not reach the bucket_size threshold
             padded_numel, padding_tensor_size = _pad_bucket(last_bucket_numel, bucket_align_size) \
-                if self.ddp_config.use_distributed_optimizer else (0, 0)
+                if self.ddp_config.use_distributed_optimizer and \
+                self.ddp_config.enable_mem_align else (0, 0)
             if padding_tensor_size > 0:
                 param_data_list.append(ops.Tensor(shape=(padding_tensor_size), dtype=self.param_dtype, init=Zero()))
             bucket_end_index = data_start_index + padded_numel
@@ -284,7 +287,8 @@ class ParamAndGradBuffer:
         self.param_data = None
         if self.ddp_config.use_distributed_optimizer:
             from mindspore.hal.contiguous_tensors_handle import combine_tensor_list_contiguous
-            self.param_data = combine_tensor_list_contiguous(param_data_list)
+            self.param_data = combine_tensor_list_contiguous(param_data_list, \
+                                                             enable_mem_align=self.ddp_config.enable_mem_align)
         self.grad_data = Tensor(shape=(self.numel), dtype=self.grad_dtype, init=Zero())
         self.numel_unpadded = 0
 

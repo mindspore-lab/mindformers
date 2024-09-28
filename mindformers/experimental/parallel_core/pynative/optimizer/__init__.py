@@ -18,6 +18,10 @@ import os
 from mindspore import mint, ops
 from mindspore.common import dtype as mstype
 from mindspore.nn import Adam, SGD
+#try:
+#    from mindspore.experimental.optim.adamw import SpeedAdamW
+#except ImportError:
+#    print("Warning: Unable to import Aclop AdamW from mindspore, please check the mindspore installation version.")
 
 from mindformers.core.optim import Came
 from mindformers.core.optim import AdamW as mf_AdamW
@@ -45,7 +49,10 @@ ModuleRegistry.register(Adam, ModuleType.OPTIMIZER)
 ModuleRegistry.register(SGD, ModuleType.OPTIMIZER)
 ModuleRegistry.register(Came, ModuleType.OPTIMIZER)
 ModuleRegistry.register(mint.optim.AdamW, ModuleType.OPTIMIZER, item_name='mint.AdamW')
-
+#try:
+    #ModuleRegistry.register(SpeedAdamW, ModuleType.OPTIMIZER, item_name='SpeedAdamW')
+#except ValueError:
+#    print("Warning: Aclop AdamW SpeedAdamW not exists.")
 
 def get_ditributed_optimizer(optimizer, optimizer_config, training_config, model_chunks):
     " warp non-parallel optimizer with distributed optimizer. "
@@ -93,7 +100,8 @@ def get_non_distributed_mixed_precision_optimizer(optimizer, optimizer_config, t
 
 
 def _set_group_lr_and_weight_decay(optimizer_config, params, lr, weight_decay):
-    if isinstance(params[0], dict) and not optimizer_config.optimizer_type.startswith("mint"):
+    if isinstance(params[0], dict) and not optimizer_config.optimizer_type.startswith("mint") \
+        and not optimizer_config.optimizer_type.startswith("Speed"):
         using_group_lr = any("lr" in param for param in params)
         for param in params:
             if "order_params" not in param:
@@ -150,7 +158,7 @@ def get_optimizer(optimizer_config, training_config, params=None, network=None, 
         _set_group_lr_and_weight_decay(optimizer_config, params, learning_rate, weight_decay)
 
         optimizer_kwargs = optimizer_config.get_needed_params_for_class(optimizer_cls)
-        if optimizer_config.optimizer_type.startswith("mint"):
+        if optimizer_config.optimizer_type.startswith("mint") or optimizer_config.optimizer_type.startswith("Speed"):
             optimizer_kwargs["lr"] = learning_rate
             optimizer_kwargs["betas"] = tuple(optimizer_kwargs["betas"])
         else:
