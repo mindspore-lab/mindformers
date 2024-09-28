@@ -37,3 +37,5 @@ class DistributedDataParallelConfig:
 
     # if true, check gradients in buffer are finite after synchronization.
     check_for_nan_in_grad: bool = False
+
+    enable_mem_align: bool = True

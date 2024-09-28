@@ -262,6 +262,7 @@ def get_model(model_provider_func, training_config):
             bucket_size=training_config.bucket_size,
             average_in_collective=(training_config.loss_reduction == 'mean'),
             check_for_nan_in_grad=training_config.check_for_nan_in_grad,
+            enable_mem_align=training_config.enable_mem_align,
         )
         training_config.ddp_config = ddp_config
         logger.warning("Wrap model with DistributedDataParallel, ddp config:\n{}".format(ddp_config))
