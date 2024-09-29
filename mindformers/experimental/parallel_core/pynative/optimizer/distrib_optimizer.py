@@ -333,6 +333,15 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         """ reset grads data. """
         self.grads = []
 
+    def get_model_parallel_group(self):
+        """ return model_parallel_group for global norm allreduce. """
+        return None
+
+    def reload_main_params(self):
+        """ reload main params to model params. """
+        self._copy_main_params_to_model_params()
+        self._sync_gather_all_model_params()
+
     def step_with_ready_grads(self):
         """ optimizer update and synchronize updated parameters among dp group. """
         self.update_success = super().step_with_ready_grads()
@@ -525,7 +534,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         with open(file, 'w') as f:
             json.dump(strategy, f, indent=4)
 
-    def parameters_dict(self):
+    def state_dict(self):
         """ get parameter dict for save checkpoint. """
         param_dict = OrderedDict()
 
