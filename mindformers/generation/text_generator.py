@@ -1069,15 +1069,14 @@ class GenerationMixin:
                     self.config, input_ids, model_inputs, **model_kwargs
                 )
 
-            if "batch_valid_length" not in model_inputs:
-                model_inputs["batch_valid_length"] = Tensor.from_numpy(
-                    np.array([valid_length_each_example], dtype=np.int32))
-            if block_tables is not None and "block_tables" not in model_inputs:
-                model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
-            if slot_mapping is not None and "slot_mapping" not in model_inputs:
-                model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
-
             if use_past:
+                if "batch_valid_length" not in model_inputs:
+                    model_inputs["batch_valid_length"] = Tensor.from_numpy(
+                        np.array([valid_length_each_example], dtype=np.int32))
+                if block_tables is not None and "block_tables" not in model_inputs:
+                    model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
+                if slot_mapping is not None and "slot_mapping" not in model_inputs:
+                    model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
                 res = self._incremental_infer(
                     model_inputs=model_inputs,
                     prefill=prefill,
