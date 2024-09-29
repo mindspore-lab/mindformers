@@ -333,6 +333,8 @@ class AdamW(Optimizer):
         @_no_grad()
         def _post_forward_cell_hook(cell, input, output):
             for cell_param in cell.get_parameters():
+                if cell_param.name in self.skip_bias_add_list:
+                    continue
                 split_param = self.split(cell_param)[self.shard_id].contiguous()
                 cell_param.assign_value(split_param)
             return output
@@ -343,6 +345,8 @@ class AdamW(Optimizer):
                 @_no_grad()
                 def _run_before_backward_function(sub_cell):
                     for cell_param in sub_cell.get_parameters():
+                        if cell_param.name in self.skip_bias_add_list:
+                            continue
                         ag_param = all_gather_into_tensor(cell_param, group=self.dp_cp_group)[0]
                         cell_param.assign_value(ag_param)
 
@@ -395,11 +399,13 @@ class AdamW(Optimizer):
             return cell.post_back_cell(input)
 
         self.z3_optim_cells = []
-
+        self.skip_bias_add_list = []
         def recursion_cells(cell):
             sub_cells_list = cell.cells()
             for sub_cell in sub_cells_list:
                 if sub_cell.__class__.__name__ in ["ColumnParallelLinear", "RowParallelLinear"] and sub_cell.use_zero3:
+                    if sub_cell.has_bias and sub_cell.skip_bias_add:
+                        self.skip_bias_add_list.append(sub_cell.bias.name)
                     self.z3_optim_cells.append(sub_cell)
                 else:
                     recursion_cells(sub_cell)
@@ -421,6 +427,8 @@ class AdamW(Optimizer):
                     (self.param_resident and self.param_resident_rate < 1 and i not in resident_cell_id):
                 sub_cell.register_forward_hook(_post_forward_cell_hook)
                 sub_cell.register_forward_hook(_pre_backward_cell_hook)
+            elif sub_cell.has_bias and sub_cell.skip_bias_add:
+                self.skip_bias_add_list.remove(sub_cell.bias.name)
             sub_cell.register_forward_pre_hook(_post_backward_cell_hook)
             for sub_cell_param in sub_cell.get_parameters():
                 self.zero3_parameters.append(sub_cell_param.name)
