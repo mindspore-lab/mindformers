@@ -30,7 +30,7 @@ mindformers.generation.GenerationMixin
         返回：
             两个参数， `response` 表示本次会话中大模型的回复结果，`history` 表示对话历史。
 
-    .. py:method:: forward(input_ids: [Union[List[int], List[List[int]]]], valid_length_each_example: [np.ndarray], block_tables: Optional[Tensor] = None, slot_mapping: Optional[Tensor] = None, prefill: bool = None, use_past: bool = False, encoder_mask: Optional[Tensor] = None, encoder_output: Optional[Tensor] = None, target_mask: Optional[Tensor] = None, **model_kwargs)
+    .. py:method:: forward(input_ids: [Union[List[int], List[List[int]]]], valid_length_each_example: np.ndarray, block_tables: Optional[Tensor] = None, slot_mapping: Optional[Tensor] = None, prefill: bool = None, use_past: bool = False, encoder_mask: Optional[Tensor] = None, encoder_output: Optional[Tensor] = None, target_mask: Optional[Tensor] = None, **model_kwargs)
 
         模型前向传播的过程。
 
