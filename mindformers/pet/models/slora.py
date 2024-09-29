@@ -73,7 +73,7 @@ class SLoraModel(PreTrainedModel):
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         batch_size = input_ids.shape[0]
-        adapter_ids = kwargs["adapter_ids"]
+        adapter_ids = kwargs.get("adapter_ids")
         adapter_ids_np = [0] * batch_size
         if adapter_ids is not None:
             if len(adapter_ids) != batch_size:
