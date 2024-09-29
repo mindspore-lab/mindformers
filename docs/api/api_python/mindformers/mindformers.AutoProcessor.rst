@@ -6,7 +6,7 @@ mindformers.AutoProcessor
     这是一个通用的Processor类，当使用 `from_pretrained()` 类方法时，它会自动实例化Processor类，并返回。
     这个类不能直接使用 \_\_init\_\_() 实例化（会抛出异常）。
 
-    .. py:method:: from_pretrained(yaml_name_or_path: str, **kwargs)
+    .. py:method:: from_pretrained(yaml_name_or_path, **kwargs)
         :classmethod:
 
         从yaml文件、文件夹、或魔乐社区读取配置信息，实例化为一个处理器。

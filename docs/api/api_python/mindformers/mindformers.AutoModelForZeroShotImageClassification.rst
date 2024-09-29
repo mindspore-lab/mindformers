@@ -31,7 +31,7 @@ mindformers.AutoModelForZeroShotImageClassification
         返回：
             一个模型实例。
 
-    .. py:method:: from_pretrained(pretrained_model_name_or_dir: str, *model_args, **kwargs)
+    .. py:method:: from_pretrained(pretrained_model_name_or_dir, *model_args, **kwargs)
         :classmethod:
 
         从文件夹、或魔乐社区读取配置信息，实例化一个库中（带有零样本图片分类建模头）的模型类。
@@ -48,8 +48,8 @@ mindformers.AutoModelForZeroShotImageClassification
         参数：
             - **pretrained_model_name_or_dir** (str) - 包含yaml文件和ckpt文件的文件夹路径、包含config.json文件和对应的权重文件的文件夹路径、或魔乐社区上的model_id。后两者为实验特性。
             - **model_args** (Any, 可选) - 会在实例化模型时，传给模型的 \_\_init\_\_() 方法。仅在实验特性时生效。
-            - **kwargs** (Dict[str, Any], 可选) -
-              可用于更新载入的配置对象和实例化模型（例如 `output_attentions=True` ）。 当 `config` 已通过参数提供或者已自动载入时， `**kwargs` 会被传入模型的 `__init__` 方法；否则 `**kwargs` 会首先传入 `PretrainedConfig.from_pretrained` 方法构建一个配置对象，而与配置属性无关的键则会传入模型的 `__init__` 方法。
+            - **kwargs** (Dict[str, Any], 可选) - 可用于更新载入的配置对象和实例化模型（例如 `output_attentions=True` ）。
+              当 `config` 已通过参数提供或者已自动载入时， `**kwargs` 会被传入模型的 `__init__` 方法；否则 `**kwargs` 会首先传入 `PretrainedConfig.from_pretrained` 方法构建一个配置对象，而与配置属性无关的键则会传入模型的 `__init__` 方法。
 
               部分可用的键如下所示:
 

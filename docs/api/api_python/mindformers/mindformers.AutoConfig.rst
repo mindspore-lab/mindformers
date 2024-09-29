@@ -16,7 +16,7 @@ mindformers.AutoConfig
 
         参数：
             - **yaml_name_or_path** (str) - yaml文件路径、json文件路径、包含config.json文件的文件夹路径、或魔乐社区上的model_id。后三者为实验特性。
-            - **kwargs** (额外参数) - 传入的配置信息将会覆盖从yaml_name_or_path读取到的配置信息。
+            - **kwargs** (Dict[str, Any], 可选) - 传入的配置信息将会覆盖从yaml_name_or_path读取到的配置信息。
 
         返回：
             一个继承自PretrainedConfig类的模型Config实例。
