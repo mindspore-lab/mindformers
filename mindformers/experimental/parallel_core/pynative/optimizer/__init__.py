@@ -137,6 +137,10 @@ def get_optimizer(optimizer_config, training_config, params=None, network=None, 
     else:
         optimizer_type = optimizer_config.optimizer_type
     optimizer_cls = ModuleRegistry.get_item(module_type=ModuleType.OPTIMIZER, item_name=optimizer_type)
+    if "mint" not in optimizer_cls:
+        if network is None:
+            raise ValueError("Network must be provided when not use mint operator")
+        params.append({"order_params": network.trainable_params()})
 
     if not return_instance:
         return_item = optimizer_cls
