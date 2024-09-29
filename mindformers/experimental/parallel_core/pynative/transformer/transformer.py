@@ -966,11 +966,9 @@ class ParallelTransformer(Module):
 
         self.retro_layer_numbers = None
         if model_type == ModelType.retro_decoder:
-            retro_layer_start = 6 if config.num_layers <= 15 else 9
-            self.retro_layer_numbers = \
-                mint.arange(retro_layer_start, config.num_layers + 1, 3).tolist()
+            raise NotImplementedError("ModelType `retro_decoder` is not supported for now.")
         if model_type == ModelType.retro_encoder:
-            self.retro_layer_numbers = [1]
+            raise NotImplementedError("ModelType `retro_encoder` is not supported for now.")
 
         layers_config = copy.deepcopy(config)
         use_lora = config.lora_config.use_lora
