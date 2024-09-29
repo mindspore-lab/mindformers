@@ -51,7 +51,7 @@ def main():
         config.use_parallel = args.use_parallel
     if args.device_id is not None:
         config.context.device_id = args.device_id
-    if args.load_checkpoint is None:
+    if args.load_checkpoint is not None:
         config.load_checkpoint = args.load_checkpoint
     if args.src_strategy is not None and os.path.exists(args.src_strategy):
         config.src_strategy_path_or_dir = args.src_strategy

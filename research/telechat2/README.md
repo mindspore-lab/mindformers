@@ -144,7 +144,7 @@ mindspore_path: 权重保存文件名，可以指定自定义保存路径
 
 2.获取MindFormers提供的已转换权重，可直接从下面的链接获取。
 
-- [TeleChat2-115b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/mindspore_115B.ckpt)
+- [TeleChat2-115b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_115B/Telechat_115B.zip)
 
 ### [分布式训练/微调权重合并](../../docs/feature_cards/Transform_Ckpt.md)
 

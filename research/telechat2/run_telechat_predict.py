@@ -156,10 +156,10 @@ def main():
     transform_and_load_checkpoint(config, ms_model, model, infer_data, do_predict=True)
     history = []
     for question in input_questions:
-        logger.info("question:", question)
+        logger.info(f"question : {str(question)}")
         answer, history = chat(model, tokenizer, question, history, generation_config=model_config)
-        logger.info("answer:", answer)
-        logger.info("\n截至目前的聊天记录是:", history)
+        logger.info(f"answer:, {str(answer)}")
+        logger.info(f"\n截至目前的聊天记录是:, {str(history)}")
         logger.info("\n")
 
 
