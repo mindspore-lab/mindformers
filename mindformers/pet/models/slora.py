@@ -50,17 +50,7 @@ class SLoraModel(PreTrainedModel):
     def add_adapter(self, base_model: PreTrainedModel):
         """Add adapter for layers."""
         slora_adapter = SLoraAdapter(self.config.pet_config, self.adapter_ids)
-        if hasattr(base_model, "backbone"):
-            base_model.backbone = slora_adapter.get_pet_model(base_model.backbone)
-        elif hasattr(base_model, "model"):
-            base_model.model = slora_adapter.get_pet_model(base_model.model)
-        elif hasattr(base_model, "transformer"):
-            base_model.transformer = slora_adapter.get_pet_model(base_model.transformer)
-        elif hasattr(base_model, "llm_model"):
-            base_model.llm_model = slora_adapter.get_pet_model(base_model.llm_model)
-        else:
-            logger.warning("The base model must has an attribute named in \'backbone\',"
-                           "\'model\', or \'transformer\', which define transformer blocks.")
+        base_model.model = slora_adapter.get_pet_model(base_model)
         self.lora_list = slora_adapter.registered_loras
         return base_model
 
