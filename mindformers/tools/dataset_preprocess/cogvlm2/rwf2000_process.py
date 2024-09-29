@@ -68,7 +68,7 @@ def convert_rwf2000_json(dataset_dir, output_file, video_pos_tag=None):
             continue
 
         target_file = target_file.split('/')
-        target_file = os.path.join(dataset_dir, '/'.join(target_file[-2:]))
+        target_file = os.path.join(dataset_dir, '/'.join(target_file[-3:]))
         target_info = f"{video_pos_tag[0]}{target_file}{video_pos_tag[1]}{question}"
         conversations = [{'from': 'user', 'value': target_info},
                          {'from': 'assistant', 'value': answer}]
