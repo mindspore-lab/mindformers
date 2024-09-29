@@ -1388,6 +1388,7 @@ class TrainingConfig(BaseConfig):
             ckpt_format: str = "ckpt",
             prefix: str = "network",
             keep_checkpoint_max: int = 5,
+            enable_mem_align: bool = False,
             **kwargs,
     ):
         super().__init__()
@@ -1432,6 +1433,7 @@ class TrainingConfig(BaseConfig):
         self.ckpt_format = ckpt_format
         self.prefix = prefix
         self.keep_checkpoint_max = keep_checkpoint_max
+        self.enable_mem_align = enable_mem_align
         self.update_attrs(**kwargs)
 
 
