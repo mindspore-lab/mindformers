@@ -115,6 +115,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         if self.sequence_parallel:
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
+            if not x.is_contiguous():
+                x = x.contiguous()
             x = all_gather_into_tensor(x, group=self.tp_group)[0]
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
