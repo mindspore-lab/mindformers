@@ -126,6 +126,83 @@ def get_sp_chuncks(batch, input_layout, enable_dp_shard=True,
 
     return batch
 
+def get_sp_chuncks_general(batch, input_layout, enable_dp_shard=True,
+                           enable_flash_sp=False):
+    """
+    Slice batch input along sequence dimension into multiple chunks,
+    which are parallelized across NPUs in a sequence parallel group.
+    No head-to-tail data rearrangement
+    """
+    sp_rank = get_context_parallel_rank()
+    world_size = get_group_size()
+    dp = get_data_parallel_world_size(with_context_parallel=False)
+    sp = get_context_parallel_world_size()
+    if not isinstance(enable_flash_sp, bool):
+        raise TypeError(
+            f"The type of enable_flash_sp must be bool, but got the {type(enable_flash_sp)}")
+
+    if not enable_flash_sp:
+        if input_layout == "BSH":
+            seq_dim = 1
+            batch_dim = 0
+        elif input_layout == "BNSD":
+            seq_dim = 2
+            batch_dim = 0
+        elif input_layout == "SBH":
+            seq_dim = 0
+            batch_dim = 1
+        else:
+            raise ValueError(
+                f"Only input_layout = 'BSH' or 'BNSD' or 'SBH' is supported")
+    else:
+        if input_layout == "BSH":
+            seq_dim = 1
+            batch_dim = 0
+        else:
+            raise ValueError(
+                f"For FlashSP, only input_layout = 'BSH' is supported")
+    if not isinstance(enable_dp_shard, bool):
+        raise TypeError(
+            f"The type of enable_dp_shard must be bool, but got the {type(enable_dp_shard)}")
+
+    if dp * sp != world_size:
+        raise ValueError(f"The product of dp and sp should be equal to total device number,"
+                         f"but got dp = {dp}, sp = {sp} and total device number = {world_size}")
+    seq_len = batch.shape[seq_dim]
+    if seq_len < 2 * sp:
+        raise ValueError(f"The sequence length of input batch should be larger or equal to 2*sp,"
+                         f"but got sequence length {seq_len} and sp is {sp}")
+    if seq_len % (2 * sp) != 0:
+        raise ValueError(f"The sequence length of input batch is not divisible by 2*sp,"
+                         f"but got sequence length {seq_len} and sp is {sp}")
+
+    if enable_dp_shard:
+        batch_sz = batch.shape[batch_dim]
+        if batch_sz % dp != 0:
+            raise ValueError(f"The batch size of input batch is not divisible by dp,"
+                             f"but got batch_size {batch_sz} and dp is {dp}")
+        if dp > 1:
+            if batch_dim == 0:
+                batch = batch.view(
+                    dp,
+                    batch.shape[batch_dim] // dp,
+                    *batch.shape[(batch_dim + 1):],
+                )
+            else:
+                batch = batch.view(
+                    *batch.shape[0:batch_dim],
+                    dp,
+                    batch.shape[batch_dim] // dp,
+                    *batch.shape[(batch_dim + 1):],
+                )
+            sp_group_index = get_rank() // sp
+            sp_group_index = Tensor([sp_group_index])
+            batch = batch.index_select(
+                batch_dim, sp_group_index).squeeze(batch_dim)
+
+    val = ops.chunk(batch, sp, axis=seq_dim)[sp_rank]
+
+    return val
 
 def get_sp_chuncks_attn_mask_general(attn_mask):
     """
@@ -141,30 +218,6 @@ def get_sp_chuncks_attn_mask_general(attn_mask):
     attn_mask = ops.chunk(attn_mask, sp, axis=0)[sp_rank]
 
     return attn_mask
-
-
-def get_sp_chuncks_general(batch, input_layout):
-    """
-    Slice batch input along sequence dimension into multiple chunks,
-    which are parallelized across NPUs in a sequence parallel group.
-    No head-to-tail data rearrangement
-    """
-    sp_rank = get_context_parallel_rank()
-    sp = get_context_parallel_world_size()
-
-    if input_layout == "BSH":
-        seq_dim = 1
-    elif input_layout == "BNSD":
-        seq_dim = 2
-    elif input_layout == "SBH":
-        seq_dim = 0
-    else:
-        raise ValueError(
-            f"Only input_layout = 'BSH' or 'BNSD' or 'SBH' is supported")
-
-    val = ops.chunk(batch, sp, axis=seq_dim)[sp_rank]
-
-    return val
 
 
 def get_batch_on_this_cp_rank_with_ringattention(
@@ -230,11 +283,7 @@ def get_batch_on_this_cp_rank(
 def get_batch_on_this_cp_rank_general(
         input_ids, labels, attention_mask):
     """
-    Args:
-        batch (dict): Dictionary containing batch data.
-
-    Returns:
-        dict: Transformed batch data to support sequence parallelism.
+    Transformed batch data to support sequence parallelism.
     """
     sp_size = get_context_parallel_world_size()
     sp_rank = get_context_parallel_rank()
