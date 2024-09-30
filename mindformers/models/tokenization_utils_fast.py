@@ -52,15 +52,6 @@ TOKENIZER_CONFIG_FILE = "tokenizer_config.json"
 # Slow tokenizers have an additional added tokens files
 ADDED_TOKENS_FILE = "added_tokens.json"
 
-INIT_TOKENIZER_DOCSTRING += """
-        tokenizer_object ([`tokenizers.Tokenizer`]):
-            A [`tokenizers.Tokenizer`] object from 🤗 tokenizers to instantiate from. See [Using tokenizers from 🤗
-            tokenizers](../fast_tokenizers) for more information.
-        tokenizer_file ([`str`]):
-            A path to a local JSON file representing a previously serialized [`tokenizers.Tokenizer`] object from 🤗
-            tokenizers.
-"""
-
 MODEL_TO_TRAINER_MAPPING = {
     "BPE": BpeTrainer,
     "Unigram": UnigramTrainer,
