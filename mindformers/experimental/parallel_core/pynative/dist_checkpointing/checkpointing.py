@@ -52,7 +52,7 @@ from mindformers.experimental.parallel_core.pynative.tensor_parallel.random impo
     get_rng_tracer,
     CANDIDATE_MODES
 )
-from mindformers.experimental.parallel_core.pynative.optimizer.distrib_optimizer import DistributedOptimizer
+from mindformers.experimental.parallel_core.pynative.optimizer.optimizer import MixedPrecisionOptimizer
 
 # Distribution configurations.
 _STRATEGY_DIR = "strategy"
@@ -129,12 +129,26 @@ def _update_zero(params_dict, shard_info, param, group):
     shard_info[param.name]['opt_weight_shard_step'] = 0
 
 
+def _get_params_dict(model, optimizer):
+    """ get params dict for saving checkpoint. """
+    params_dict = None
+    if optimizer is None:
+        params_dict = model.parameters_dict()
+    elif isinstance(optimizer, MixedPrecisionOptimizer):
+        params_dict = optimizer.state_dict()
+    else:
+        params_dict = optimizer.parameters_dict()
+    if not params_dict:
+        raise ValueError("None of params dict has been extract from model and optimizer.")
+    return params_dict
+
+
 # pylint: disable=W0212
 def save_pre_process(shard_info, model, optimizer, config):
     """ preprocess before saving, split qkv and handle pp embedding share """
     model_shard_info = shard_info["model"]
     optimizer_shard_info = shard_info["optimizer"]
-    params_dict = model.parameters_dict() if optimizer is None else optimizer.parameters_dict()
+    params_dict = _get_params_dict(model, optimizer)
     # ZeRO DP
     if optimizer is not None and hasattr(optimizer, "zero_level") and optimizer.zero_level in ["z1", "z2", "z3"]:
         dp_tp_group = get_data_parallel_group(with_context_parallel=optimizer.with_context_parallel)
@@ -326,12 +340,11 @@ def load_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
     load_rng_state(param_dict)
     if opt_param_scheduler is not None:
         opt_param_scheduler.load_state_dict(param_dict)
-    if isinstance(optimizer, DistributedOptimizer):
+    if isinstance(optimizer, MixedPrecisionOptimizer):
         # restore distributed optimizer
         optimizer.load_state_dict(param_dict)
         # synchronize parameters in optimizer to model
-        optimizer._copy_main_params_to_model_params()
-        optimizer._sync_gather_all_model_params()
+        optimizer.reload_main_params()
     else:
         # restore native optimizer/model
         param_dict = load_post_process(config, param_dict, optimizer)

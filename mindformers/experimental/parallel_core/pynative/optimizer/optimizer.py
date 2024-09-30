@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """optimizer registration and factory method"""
+from collections import OrderedDict
 
 from mindspore import mint, ops, Tensor, Parameter, ParameterTuple
 import mindspore.nn as nn
@@ -160,6 +161,10 @@ class MixedPrecisionOptimizer(nn.Cell):
         """ get learning rate. """
         return tuple(self.optimizer.lrs)
 
+    def get_model_parallel_group(self):
+        """ return model_parallel_group for global norm allreduce. """
+        return get_model_parallel_group()
+
     def get_main_grads_for_grad_norm(self):
         """ collect main gradients for grad norm compute. """
         params = self.get_parameters_()
@@ -262,10 +267,11 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
             optimizer,
             config,
             grad_scaler,
-            init_state_fn
+            init_state_fn,
         )
         self.wrap_with_ddp = wrap_with_ddp
 
+        self.optimizer.ori_parameters = self.optimizer.parameters
         self.optimizer.parameters = list(self.optimizer.parameters)
         self.optimizer.exp_avg = list(self.optimizer.exp_avg)
         self.optimizer.exp_avg_sq = list(self.optimizer.exp_avg_sq)
@@ -288,11 +294,8 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
                 if param.dtype in [mstype.bfloat16, mstype.float16]:
                     fp16_params_this_group.append(param)
                     # create fp32 copy
-                    main_param = Parameter(
-                        param.value().astype(mstype.float32),
-                        name=param.name,
-                        requires_grad=False
-                    )
+                    main_param = Tensor(param.value().astype(mstype.float32))
+                    main_param.name = param.name
                     param.main_param = main_param
                     fp32_from_fp16_params_this_group.append(main_param)
 
@@ -329,11 +332,10 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
             self.fp32_from_fp16_groups.append(fp32_from_fp16_params_this_group)
             self.fp32_groups.append(fp32_params_this_group)
 
-        self.optimizer.parameters = ParameterTuple(self.optimizer.parameters)
         self.optimizer.exp_avg = ParameterTuple(self.optimizer.exp_avg)
         self.optimizer.exp_avg_sq = ParameterTuple(self.optimizer.exp_avg_sq)
 
-        self.parameters = self.optimizer.parameters
+        self.parameters = self.optimizer.ori_parameters
         self.defaults = self.optimizer.defaults
         self.reload_model_params()
 
@@ -348,11 +350,75 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
         # reset self.grads
         self.grads = []
 
+    def reload_main_params(self):
+        """ reload main params to model params. """
+        self._copy_main_params_to_model_params()
+
+    def load_state_dict(self, state_dict):
+        """ load state dict into optimizer. """
+        param_dict = list(self.optimizer.parameters) + \
+                     list(self.optimizer.exp_avg) + \
+                     list(self.optimizer.exp_avg_sq)
+        for param in param_dict:
+            if not param.name in state_dict:
+                logger.warning("No state data found for {}, it will not be loaded.".format(param.name))
+            param.copy_(state_dict[param.name])
+
+        if 'state_step' in state_dict.keys():
+            self.optimizer.state_step.assign_value(state_dict['state_step'].value())
+
+        # load learning rate
+        for group_idx, lr in enumerate(self.optimizer.lrs):
+            if lr.name in state_dict.keys():
+                lr.assign_value(state_dict[lr.name].value())
+            wd_name = lr.name.replace('learning_rate', 'weight_decay')
+            if wd_name in state_dict.keys():
+                self.optimizer.param_groups[group_idx]['weight_decay'] = state_dict.get(wd_name).item()
+
+    def state_dict(self):
+        """ get optimizer state dict for saving checkpoint. """
+        param_dict = OrderedDict()
+
+        for param in self.optimizer.parameters():
+            if isinstance(param, Parameter):
+                param_dict[param.name] = param
+            elif isinstance(param, Tensor):
+                param_dict[param.name] = Parameter(param, name=param.name)
+            else:
+                raise TypeError("Instance in optimizer.parameters should be mindspore.Parameter or "
+                                "mindspore.Tensor, but got {}".format(type(param)))
+
+        for param in self.optimizer.exp_avg:
+            param_dict[param.name] = param
+
+        for param in self.optimizer.exp_avg_sq:
+            param_dict[param.name] = param
+
+        # add state step to state_dict
+        param_dict['state_step'] = self.optimizer.state_step
+
+        # add learning rate and weight decay to state_dict
+        for group_idx, lr in enumerate(self.optimizer.lrs):
+            param_dict[lr.name] = lr
+            wd_name = lr.name.replace('learning_rate', 'weight_decay')
+            param_dict[wd_name] = Parameter(
+                ops.Tensor(
+                    self.optimizer.param_groups[group_idx]['weight_decay'],
+                    dtype=mstype.float32,
+                ),
+                name=wd_name,
+                requires_grad=False,
+            )
+
+        return param_dict
+
     def _collect_main_grad_data(self):
+        """ collect main grad for unscaling """
         for param in self.optimizer.parameters:
             self.grads.append(param.grad)
 
     def _get_model_and_main_params_data(self):
+        """ get model and main params. """
         model_params = []
         main_params = []
         for model_group, main_group in zip(self.fp16_groups, self.fp32_from_fp16_groups):
@@ -380,13 +446,13 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
         """ copy model param to main param. """
         model_params, main_params = self._get_model_and_main_params_data()
         for model_param, main_param in zip(model_params, main_params):
-            main_param.assign_value(model_param.value().astype(mstype.float32))
+            main_param.copy_(model_param.value().astype(mstype.float32))
 
     def _copy_main_params_to_model_params(self):
         """ copy main param to model param. """
         model_params, main_params = self._get_model_and_main_params_data()
         for main_param, model_param in zip(main_params, model_params):
-            model_param.assign_value(main_param.value().astype(model_param.dtype))
+            model_param.copy_(main_param.value().astype(model_param.dtype))
 
     def _make_param_hook(self, param):
         """ make closure function as the param hook. """

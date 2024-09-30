@@ -58,6 +58,9 @@ def get_grad_norm_fp32(grads_for_norm, norm_type=2.0, model_parallel_group=None)
     if isinstance(grads_for_norm, ms.Tensor):
         grads_for_norm = [grads_for_norm]
 
+    if not model_parallel_group:
+        model_parallel_group = GlobalComm.WORLD_COMM_GROUP
+
     norm_type = float(norm_type)
     total_norm = ms.Tensor(0.0, mstype.float32)
 
