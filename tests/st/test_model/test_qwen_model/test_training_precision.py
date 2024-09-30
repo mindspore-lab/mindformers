@@ -13,9 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """
-Test module for testing the wizardcoder interface used for mindformers.
+Test module for testing the qwen interface used for mindformers.
 How to run this:
-pytest tests/st/test_model/test_wizardcoder_model/test_training_precision.py
+pytest tests/st/test_model/test_qwen_model/test_training_precision.py
 """
 import os
 import sys
