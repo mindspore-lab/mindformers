@@ -35,7 +35,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
-from mindformers.generation.parallel_decoding import parallel_decoding_logits_process, parallel_decoding_control
+from mindformers.generation.parallel_decoding import parallel_decoding_control
 from mindformers.version_control import get_ascend_soc_version
 
 __all__ = ["ModelRunner"]
@@ -341,7 +341,6 @@ class MindIEModelRunner:
                                               adapter_ids=adapter_ids)
         logits = res[0] if isinstance(res, tuple) else res
         if hasattr(self, 'model_config') and parallel_decoding_control(self.model_config):
-            logits = parallel_decoding_logits_process(self.model_config, logits, q_seq_lens, block_tables, prefill)
             return logits
         if prefill and logits.shape[0] > len(current_idx):
             logits = logits[Tensor(current_idx)]
