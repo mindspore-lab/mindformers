@@ -24,7 +24,7 @@ from mindspore import context
 
 from mindformers import AutoModel
 
-from tests.utils.model_tester import ModelTester
+from tests.utils.model_tester import create_tokenizer
 
 
 @pytest.mark.level0
@@ -44,7 +44,7 @@ class TestChat:
                                                seq_length=100,
                                                use_past=True,
                                                download_checkpoint=False)
-        self.tokenizer = ModelTester.build_tokenizer(tokenizer_config=None)
+        self.tokenizer = create_tokenizer()
 
     @pytest.mark.run(order=1)
     def test_chat(self):

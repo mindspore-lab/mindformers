@@ -22,8 +22,28 @@ from mindspore.dataset import GeneratorDataset
 
 from mindformers.trainer import Trainer, TrainingArguments
 from mindformers.models.build_tokenizer import build_tokenizer
+from mindformers.models.auto import AutoTokenizer
 
 from tests.st.training_checker import TrainingChecker
+
+def create_tokenizer(auto_tokenizer=None):
+    """build tokenizer from name."""
+    if auto_tokenizer is None:
+        cur_dir = os.path.dirname(os.path.realpath(__file__))
+        vocab_file = f"{cur_dir}/llama2_tokenizer/tokenizer.model"
+        assert os.path.exists(vocab_file), f"vocab_file {vocab_file} not exists."
+
+        tokenizer_config = {
+            'unk_token': '<unk>',
+            'bos_token': '<s>',
+            'eos_token': '</s>',
+            'pad_token': '<unk>',
+            'type': 'LlamaTokenizer',
+            'vocab_file': vocab_file}
+        tokenizer = build_tokenizer(config=tokenizer_config)
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(auto_tokenizer)
+    return tokenizer
 
 
 class ModelTester:
@@ -99,22 +119,6 @@ class ModelTester:
             self.step_num = 1
 
     @staticmethod
-    def build_tokenizer(tokenizer_config):
-        """build tokenizer from name."""
-        if tokenizer_config is None:
-            cur_dir = os.path.dirname(os.path.realpath(__file__))
-            tokenizer_config = {
-                'unk_token': '<unk>',
-                'bos_token': '<s>',
-                'eos_token': '</s>',
-                'pad_token': '<unk>',
-                'type': 'LlamaTokenizer',
-                'vocab_file': f"{cur_dir}/llama2_tokenizer/tokenizer.model"}
-
-        tokenizer = build_tokenizer(config=tokenizer_config)
-        return tokenizer
-
-    @staticmethod
     def generate_data(seq_len, vocab_size, batch_size=4, step_num=20,
                       use_label=False, is_eval=False):
         """generate data for testing model."""
@@ -187,9 +191,9 @@ class ModelTester:
         if self.experiment_mode:
             callback.get_experiment_results()
 
-    def set_predict(self, model, predict_data='hello world.', expect_outputs='', tokenizer_config=None):
+    def set_predict(self, model, predict_data='hello world.', expect_outputs='', auto_tokenizer=None):
         """set model predict."""
-        tokenizer = self.build_tokenizer(tokenizer_config)
+        tokenizer = create_tokenizer(auto_tokenizer)
         task_trainer = Trainer(task='text_generation',
                                model=model,
                                args=self.args,
@@ -208,6 +212,8 @@ class ModelTester:
             expect_outputs = [expect_outputs] * self.batch_size
             assert outputs == expect_outputs
 
+        return outputs[0]
+
     def set_eval(self, model, config, metric='ADGENMetric', tokenizer_config=None):
         """set model evaluate.
 
@@ -218,7 +224,7 @@ class ModelTester:
         metric = {'type': metric}
         dataset = self.get_dataset(config)
 
-        tokenizer = self.build_tokenizer(tokenizer_config)
+        tokenizer = create_tokenizer(tokenizer_config)
         task_trainer = Trainer(task='text_generation',
                                model=model,
                                args=self.args,
