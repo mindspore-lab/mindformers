@@ -21,8 +21,14 @@ except ImportError:
     PunktLanguageVars = object  # Fallback to the built-in object class
     nltk_available = False
 
-from mindformers.auto_class import AutoTokenizer
+# pylint: disable=W0611
 from mindformers.dataset.dataloader import indexed_dataset
+from mindformers.models import build_tokenizer
+from research.baichuan2.baichuan2_tokenizer import Baichuan2Tokenizer
+from research.qwen.qwen_tokenizer import QwenTokenizer
+from research.qwen1_5.qwen1_5_tokenizer import Qwen2Tokenizer
+from research.internlm.internlm_tokenizer import InternLMTokenizer
+from research.internlm2.internlm2_tokenizer import InternLM2Tokenizer
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__),
                                              os.path.pardir)))
@@ -51,7 +57,7 @@ class Encoder:
     """Encoder"""
     def __init__(self, args):
         self.args = args
-        self.tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
+        self.tokenizer = build_tokenizer(get_tokenizer_config(args))
 
     def initializer(self):
         """initializer"""
@@ -91,10 +97,6 @@ class Encoder:
         data = json.loads(json_line)
         ids = {}
         lens = {}
-        if hasattr(self.tokenizer, 'add_bos_token'):
-            self.tokenizer.add_bos_token = True
-        if hasattr(self.tokenizer, 'add_eos_token'):
-            self.tokenizer.add_eos_token = True
         for key in self.args.json_keys:
             text = data[key]
             if isinstance(text, list):
@@ -162,11 +164,7 @@ class Partition:
 
         startup_start = time.time()
         encoder = Encoder(self.args)
-        tokenizer = AutoTokenizer.from_pretrained(self.args.model_name)
-        if hasattr(tokenizer, 'add_bos_token'):
-            tokenizer.add_bos_token = True
-        if hasattr(tokenizer, 'add_eos_token'):
-            tokenizer.add_eos_token = True
+        tokenizer = build_tokenizer(get_tokenizer_config(self.args))
 
         pool = multiprocessing.Pool(self.workers, initializer=encoder.initializer)
         encoded_docs = pool.imap(encoder.encode, fin, 32)
@@ -223,6 +221,19 @@ class Partition:
         builders[key].finalize(output_idx_files[key])
 
 
+def get_tokenizer_config(args):
+    """Return the tokenizer config"""
+    tokenizer_config = {
+        'type': args.tokenizer_type,
+        'vocab_file': args.vocab_file,
+        'merges_file': args.merges_file,
+        'tokenizer_file': args.tokenizer_file,
+        'add_bos_token': args.add_bos_token,
+        'add_eos_token': args.add_eos_token,
+    }
+    return tokenizer_config
+
+
 def chunks(lst, n):
     """yield n sized chunks from list"""
     for i in range(0, len(lst), n):
@@ -243,20 +254,24 @@ def get_args():
                        help='Keep newlines between sentences when splitting.')
 
     group = parser.add_argument_group(title='tokenizer')
-    group.add_argument('--tokenizer-model', type=str, default=None,
-                       help='YTTM tokenizer model.')
+    group.add_argument('--tokenizer-type', type=str, required=True,
+                       choices=['LlamaTokenizer', 'Llama3Tokenizer', 'Baichuan2Tokenizer', 'QwenTokenizer',
+                                'Qwen2Tokenizer', 'InternLMTokenizer', 'InternLM2Tokenizer', 'LlamaTokenizerFast'],
+                       help='The tokenizer of the corresponding model.')
     group.add_argument('--vocab-file', type=str, default=None,
-                       help='Path to the vocab file')
+                       help='Path to the vocab file or tokenizer.model')
+    group.add_argument('--merges-file', type=str, default=None,
+                       help='Path to the BPE merge file (if necessary).')
+    group.add_argument('--tokenizer-file', type=str, default=None,
+                       help='The path of tokenizer.json')
+    group.add_argument('--add_bos_token', type=str, default=False)
+    group.add_argument('--add_eos_token', type=str, default=False)
     group.add_argument('--vocab-size', default=786,
                        help='size of vocab for use with NullTokenizer')
-    group.add_argument('--merge-file', type=str, default=None,
-                       help='Path to the BPE merge file (if necessary).')
     group.add_argument('--append-eod', action='store_true',
                        help='Append an <eod> token to the end of a document.')
     group.add_argument('--lang', type=str, default='english',
                        help='Language to use for NLTK-powered sentence splitting.')
-    group.add_argument('--model_name', type=str, required=True,
-                       help='Instantiate the tokenizer based on the class name')
 
     group = parser.add_argument_group(title='output data')
     group.add_argument('--output-prefix', type=str, required=True,
