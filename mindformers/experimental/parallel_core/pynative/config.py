@@ -801,6 +801,7 @@ class ModelParallelConfig(BaseConfig):
         overlap_p2p_comm (bool): Enable overlap p2p commucation in pipeline interleaved. Default: False.
         num_layer_list (list): User-defined pipeline parallel model layer division. Default: None.
         recompute_config (dict): Recompute strateges. Default: None.
+        variable_seq_lengths (bool): Enable variable sequence lengths. Default: False.
     """
 
     # set config name for identifying while using init_configs methods
@@ -824,6 +825,7 @@ class ModelParallelConfig(BaseConfig):
             deterministic_mode: bool = False,
             num_layer_list: list = None,
             recompute_config: dict = None,
+            variable_seq_lengths: bool = False,
             **kwargs,
     ):
         super().__init__()
@@ -844,6 +846,7 @@ class ModelParallelConfig(BaseConfig):
         self.deterministic_mode = deterministic_mode
         self.num_layer_list = num_layer_list
         self.recompute_config = recompute_config
+        self.variable_seq_lengths = variable_seq_lengths
 
         self.update_attrs(**kwargs)
 

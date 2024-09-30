@@ -24,6 +24,7 @@ COMMON_CONFIG = {
     "position_embedding_type": "rope",
     # attention
     "attention_type": "self_attn",
+    "encoder_attn_mask_type": None,
     "apply_residual_connection_post_norm": False,
     "use_flash_attention": True,
     "qkv_has_bias": False,
@@ -40,7 +41,7 @@ COMMON_CONFIG = {
     "attention_dropout": 0.1,
     # mlp
     "mlp_has_bias": False,
-    "gated_linear_unit": True,
+    "mlp_has_gate": True,
     "num_experts": None,
     # shared weights
     "head_skip_weight_param_allocation": True,

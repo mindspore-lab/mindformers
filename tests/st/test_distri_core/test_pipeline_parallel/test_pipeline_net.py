@@ -32,20 +32,36 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import get_p
 
 class FakeData:
     """ generate fake data for pipeline parallel test """
-    def __init__(self, data_num, seq_length, input_data=None):
+    def __init__(self, data_num, seq_length, input_data=None, dynamic_seq_length=False):
         super().__init__()
         if input_data is not None:
             self.input_data = input_data
             self.data_num = self.input_data.shape[0]
             self.seq_length = self.input_data[0].shape[0]
         else:
-            self.input_data = np.random.randint(0, 100, (data_num, seq_length))
-        self.labels = np.random.randint(0, 100, (data_num, seq_length))
+            if dynamic_seq_length:
+                self.input_data_1 = np.random.randint(0, 100, (data_num // 2, seq_length))
+                self.input_data_2 = np.random.randint(0, 100, (data_num // 2, seq_length // 2))
+                self.labels_1 = np.random.randint(0, 100, (data_num // 2, seq_length))
+                self.labels_2 = np.random.randint(0, 100, (data_num // 2, seq_length // 2))
+            else:
+                self.input_data = np.random.randint(0, 100, (data_num, seq_length))
+                self.labels = np.random.randint(0, 100, (data_num, seq_length))
+        self.dynamic_seq_length = dynamic_seq_length
 
     def __getitem__(self, index):
+        if self.dynamic_seq_length:
+            new_index = index % (self.input_data_1.shape[0])
+            if index // self.input_data_1.shape[0] == 0:
+                return (Tensor(self.input_data_1[new_index], dtype=ms.int32),
+                        Tensor(self.labels_1[new_index], dtype=ms.int32))
+            return (Tensor(self.input_data_2[new_index], dtype=ms.int32),
+                    Tensor(self.labels_2[new_index], dtype=ms.int32))
         return Tensor(self.input_data[index], dtype=ms.int32), Tensor(self.labels[index], dtype=ms.int32)
 
     def __len__(self):
+        if self.dynamic_seq_length:
+            return self.input_data_1.shape[0] + self.input_data_2.shape[0]
         return self.input_data.shape[0]
 
 
@@ -66,7 +82,14 @@ class FakeTransformerLayer(Cell):
         """ fake transformer layer forward """
         hidden_state = self.first_liner(hidden_state)
         if attention_mask is not None:
-            hidden_state *= attention_mask
+            if hidden_state.shape[-1] != attention_mask.shape[-1]:
+                hidden_state_tuple = mint.split(hidden_state, attention_mask.shape[-1], -1)
+                new_hidden_state = []
+                for hidden_s in hidden_state_tuple:
+                    new_hidden_state.append(hidden_s * attention_mask)
+                hidden_state = P.concat(new_hidden_state, -1)
+            else:
+                hidden_state *= attention_mask
         hidden_state = self.second_liner(hidden_state)
         return hidden_state
 
@@ -154,7 +177,6 @@ class FinalLossLayer(Cell):
         labels = labels.reshape((-1,))
         loss = self.entropy(logits, labels, input_mask)
         return loss[0]
-
 
 class PipelineTestNet(Module):
     """ test net for pipeline parallel """

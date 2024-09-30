@@ -18,7 +18,14 @@ import mindspore.common.dtype as mstype
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
 from mindformers.experimental.parallel_core.pynative.transformer.language_model import get_language_model
 from mindformers.experimental.parallel_core.pynative.transformer import ParallelLMLogits
-from mindformers.experimental.parallel_core.pynative.training.loss_func import VocabParallelCrossEntropy, LossWithMask
+from mindformers.experimental.parallel_core.pynative.training.loss_func import LossWithMask
+from mindformers.experimental.parallel_core.pynative.tensor_parallel import VocabParallelCrossEntropy
+from mindformers.experimental.parallel_core.pynative.transformer.enums import AttnMaskType
+
+attn_mask_type_mapping = {
+    "padding": AttnMaskType.padding,
+    "causal": AttnMaskType.causal,
+}
 
 class Llama2Model(Module):
     """
@@ -54,9 +61,15 @@ class Llama2Model(Module):
         self.seq_length = config.seq_length
         self.pad_token_id = config.dataset_config.pad_token_id
         self.compute_dtype = config.compute_dtype
+        encoder_attn_mask_type = None
+        if config.encoder_attn_mask_type is not None:
+            encoder_attn_mask_type = attn_mask_type_mapping.get(config.encoder_attn_mask_type)
+            if encoder_attn_mask_type is None:
+                raise ValueError(f"encoder_attn_mask_type must be one of {attn_mask_type_mapping.keys()}, but got"
+                                 f"{config.encoder_attn_mask_type}")
 
         self.language_model, _ = get_language_model(config,
-                                                    encoder_attn_mask_type=None,
+                                                    encoder_attn_mask_type=encoder_attn_mask_type,
                                                     num_tokentypes=num_tokentypes,
                                                     pre_process=self.pre_process,
                                                     post_process=self.post_process,

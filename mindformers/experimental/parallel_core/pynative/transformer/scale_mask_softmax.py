@@ -15,7 +15,7 @@
 """ScaleMaskSoftmax"""
 import mindspore.ops.functional as F
 
-from mindspore import mint
+from mindspore import mint, ops
 from mindspore.common import dtype as mstype
 from .module import Module
 

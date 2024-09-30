@@ -18,7 +18,7 @@ import copy
 from mindspore import mint
 import mindspore.common.dtype as mstype
 import mindspore.nn as nn
-from mindformers.experimental.parallel_core.pynative.training.loss_func import VocabParallelCrossEntropy
+from mindformers.experimental.parallel_core.pynative.tensor_parallel import VocabParallelCrossEntropy
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
 from mindformers.experimental.parallel_core.pynative.transformer import TransformerLanguageModel, ParallelLMLogits, \
                                                             VocabParallelEmbedding, ParallelTransformerLayer, \
