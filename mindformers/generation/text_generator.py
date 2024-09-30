@@ -613,7 +613,7 @@ class GenerationMixin:
         Examples:
             >>> from mindformers import LlamaForCausalLM, LlamaTokenizer
             >>> import mindspore as ms
-            >>> ms.set_context(0)
+            >>> ms.set_context(mode=0)
             >>> llama = LlamaForCausalLM.from_pretrained("llama2_7b")
             >>> tokenizer = LlamaTokenizer.from_pretrained("llama2_7b")
             >>> words = "translate the English to the Romanian: UN Chief Says There Is No Military Solution in Syria"
@@ -1287,7 +1287,7 @@ class GenerationMixin:
             >>> import mindspore as ms
             >>> from mindformers.generation import text_generator
             >>> from mindformers import AutoModel, AutoTokenizer
-            >>> ms.set_context(0)
+            >>> ms.set_context(mode=0)
             >>> model = AutoModel.from_pretrained("llama2_7b")
             >>> tokenizer = AutoTokenizer.from_pretrained("llama2_7b")
             >>> query = "Hello!"
