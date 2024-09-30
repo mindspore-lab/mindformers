@@ -63,24 +63,30 @@ def adjust_single_ckpt(src_ckpt_file, dst_ckpt_file, src_tp=4, dst_tp=2, quant='
     if quant == 'True':
         while True:
             changed = False
-            # qkv weight adjust
+            # qkv weight adjust for a8a16
             qkv_weight_name = f"model.layers.{i}.attention.w_qkv._layer.weight"
             changed |= adjust_single_param(params_dict, qkv_weight_name, group, True)
-            # qkv bias adjust
+            # qkv bias adjust for a8
             qkv_bias_name = f"model.layers.{i}.attention.w_qkv._layer.bias"
             changed |= adjust_single_param(params_dict, qkv_bias_name, group, True)
-            # qkv matmul dequant scale adjust
+            # qkv matmul dequant scale adjust for a8
             qkv_mds_name = f"model.layers.{i}.attention.w_qkv._layer.matmul.dequant_scale"
             changed |= adjust_single_param(params_dict, qkv_mds_name, group, True)
-            # ffn weight adjust
+            # qkv matmul t scale adjust for a16
+            qkv_mts_name = f"model.layers.{i}.attention.w_qkv._layer.matmul.t_scale"
+            changed |= adjust_single_param(params_dict, qkv_mts_name, group, True)
+            # ffn weight adjust for a8a16
             ffn_weight_name = f"model.layers.{i}.feed_forward.w_gate_hidden._layer.weight"
             changed |= adjust_single_param(params_dict, ffn_weight_name, group, False)
-            # ffn bias adjust
+            # ffn bias adjust for a8
             ffn_bias_name = f"model.layers.{i}.feed_forward.w_gate_hidden._layer.bias"
             changed |= adjust_single_param(params_dict, ffn_bias_name, group, False)
-            # ffn matmul dequant scale adjust
+            # ffn matmul dequant scale adjust for a8
             ffn_mds_name = f"model.layers.{i}.feed_forward.w_gate_hidden._layer.matmul.dequant_scale"
             changed |= adjust_single_param(params_dict, ffn_mds_name, group, False)
+            # ffn matmul t scale adjust for a16
+            ffn_mts_name = f"model.layers.{i}.feed_forward.w_gate_hidden._layer.matmul.t_scale"
+            changed |= adjust_single_param(params_dict, ffn_mts_name, group, False)
             if changed:
                 i += 1
             else:
