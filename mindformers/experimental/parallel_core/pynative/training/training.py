@@ -180,7 +180,7 @@ class ParallelTrainingReducer:
                 for idx, param in enumerate(params):
                     if param.grad is None or not self.sp_reduce_filter[idx]:
                         continue
-                    param.grad = all_reduce(param.grad, "sum", get_tensor_model_parallel_group())[0]
+                    param.grad.copy_(all_reduce(param.grad, "sum", get_tensor_model_parallel_group())[0])
             else:
                 for idx, reduce_flag in enumerate(self.sp_reduce_filter):
                     if reduce_flag:
