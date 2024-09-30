@@ -175,8 +175,8 @@ class LlamaConfig(PretrainedConfig):
                  n_kv_heads: Optional[int] = None,
                  max_position_embedding: Optional[int] = None,
                  intermediate_size: Optional[int] = None,
-                 vocab_size: int = 32000,  # defined later by tokenizer
-                 multiple_of: int = 256,  # make SwiGLU hidden layer size multiple of large power of 2
+                 vocab_size: int = 32000,
+                 multiple_of: int = 256,
                  ffn_dim_multiplier: Optional[int] = None,
                  rms_norm_eps: float = 1e-5,
                  bos_token_id: int = 1,
@@ -218,6 +218,11 @@ class LlamaConfig(PretrainedConfig):
                  tie_word_embeddings: bool = False,
                  llm_backend: str = "",
                  **kwargs):
+        """
+        Note:
+            vocab_size: int = 32000,  # defined later by tokenizer
+            multiple_of: int = 256,  # make SwiGLU hidden layer size multiple of large power of 2
+        """
         super(LlamaConfig, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
             parallel_config = TransformerOpParallelConfig(**parallel_config)

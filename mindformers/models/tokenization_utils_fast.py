@@ -31,7 +31,6 @@ from tokenizers.trainers import BpeTrainer, UnigramTrainer, WordLevelTrainer, Wo
 from .convert_slow_tokenizer import convert_slow_tokenizer
 from .tokenization_utils import PreTrainedTokenizer
 from .tokenization_utils_base import (
-    INIT_TOKENIZER_DOCSTRING,
     AddedToken,
     BatchEncoding,
     PreTokenizedInput,
@@ -41,8 +40,7 @@ from .tokenization_utils_base import (
     TextInput,
     TextInputPair,
     TruncationStrategy,
-    PaddingStrategy,
-    add_end_docstrings
+    PaddingStrategy
 )
 
 
@@ -73,7 +71,7 @@ MODEL_TO_TRAINER_MAPPING = {
 VOCAB_FILES_NAMES = {"tokenizer_file": TOKENIZER_FILE}
 
 
-@add_end_docstrings(INIT_TOKENIZER_DOCSTRING)
+
 # pylint: disable=W0223
 class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
     r"""
