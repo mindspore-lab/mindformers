@@ -377,3 +377,111 @@ bash run_dist_gen.sh "python generate_custom.py --model_type gpt2 --batch_size 2
 ```text
 ["An increasing sequence: one, two, three, five, six, seven, nine, 10, 11, 12, 13.\n\nThe first is the most important. The first is the most important because it's the one that's most important. The first is the most important because it's the one that's most important because it's the one that's most important because it's the one that's most important because it's the one that's most important because it's the one that's most important because it's the one that's most important because it's the one that's most important because it's the one that's most important because it's the one", 'I love Beijing, but I\'m also a bit worried that it might become the next Hong Kong," said Mr. Wang.\n\n"I think the government is going to be very worried, but I don\'t know what will happen. We\'re going to be in a situation where we\'re going to have to deal with the Chinese people, and I think that\'s what we\'re going through," he added.\n\nChina has been a major player in international trade since the late 1980s, when it was the world\'s second-largest economy. But in recent years the Chinese have become more assertive in their economic and political relations with other nations, including the']
 ```
+
+## SLoRA推理
+
+LoRA（Low-Rank Adaptation）是一种轻量化的参数高效微调技术，它通过将权重矩阵分解为两个较低秩的矩阵，显著减少模型微调时所需的参数量。这种方法特别适用于大型语言模型，因为LLM通常拥有数以亿计甚至数以十亿计的参数，传统微调所有参数的方式不但耗时，且需要大量存储和计算资源。而LoRA的出现，解决了这一问题，使得在保持模型性能的同时，降低了计算开销。
+
+在现实场景中，LLM往往需要同时应对不同的任务。例如，在对话生成、机器翻译、代码生成等任务中，虽然可以使用相同的基准LLM模型，但每个任务可能需要不同的微调策略。通过使用多LoRA，可以为每个任务加载不同的低秩权重调整，从而在保持基准模型不变的基础上，高效处理多个任务。这不仅节省了存储空间，还减少了训练和推理时的计算负担。
+
+这里介绍**文本生成任务SLoRA推理**的指导流程，以期对模型的SLoRA推理使用起到指导与参考作用
+
+### SLoRA场景分析
+
+1. 推理过程中，用户需要使用同一个预训练的基准模型与多个不同的Adapter权重
+2. 用户具备多种Adapter微调权重，且微调以LoRA的方式进行
+3. 针对不同的请求，需要使用共享参数的相同的基础模型，但不同的微调权重进行推理
+
+### 前期准备
+
+#### Adapter文件配置
+
+需要为每个Adapter微调权重配置不同的config.json文件:
+
+```json
+{
+  "lora_alpha": 16,
+  "lora_dropout": 0.05,
+  "r": 8,
+  "target_modules": [
+    "wq",
+    "wv",
+    "wk",
+    "wo",
+    "w1",
+    "w2",
+    "w3"
+  ]
+}
+```
+
+|    参数    |    参数说明        |
+| :--------: | :-------------------: |
+| lora_alpha | 指定LoRA的缩放因子 |
+| lora_dropout | 指定LoRA的dropout比例 |
+| r | 指定低秩矩阵的秩 |
+| target_modules | 表示LorA将应用的特定的模型模块 |
+
+注意，微调权重需要为满足MindFormers网络结构的ckpt
+
+不同Adapter微调权重需要分别存放在不同目录下，并且需要搭配以对应的config.json文件，且目录下Adapter文件名一致为adapter_model.ckpt
+
+```text
+目录层次：
+└─Adapter1
+    ├─adapter_model.ckpt
+    └─adapter_config.json
+ ```
+
+#### lora_adapter.json文件配置
+
+按照以下格式依据各Adapter目录路径配置lora_adapter.json。其中，key为Adapter的名称，value为LoRA权重的路径，用于推理时选择对应的LoRA权重。
+
+```json
+{"adapter1": "/path/to/adapter1_directory",
+"adapter2": "/path/to/adapter2_directory"}
+```
+
+#### 推理yaml文件配置
+
+我们在Pet微调模型框架中增加了SLoRA推理模型，可以通过在配置文件的模型参数中增加以下字段实现SLoRA推理：
+
+```yaml
+model:
+    xxx:
+    model_config:
+        pet_config:
+            pet_type: slora
+            adapter_path: "/path/to/your/lora_adapter.json"
+    xxx:
+```
+
+### 基于单机单卡的推理脚本
+
+```bash
+    python run_mindformer.py \
+    --use_parallel False \
+    --run_mode predict \
+    --adapter_id 'Adapter1' \
+    --config configs/llama2/predict_llama2_7b.yaml \
+    --predict_data 'I love Beijing because'
+```
+
+其中，`adapter_id`指定用于推理的LoRA Adapter名称，若为None或lora_adapter.json中不存在的名称则使用基础模型
+
+### 基于单机多卡的推理脚本
+
+```bash
+    bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --use_parallel True \
+    --run_mode predict \
+    --adapter_id 'Adapter1' \
+    --config configs/llama2/predict_llama2_7b.yaml \
+    --predict_data 'I love Beijing because' " 8
+```
+
+当使用多卡并行推理时，需要将use_parallel设置为True，打开分布式加载切分lora权重，具体场景为：
+
+1、auto_trans_ckpt字段为True时，将自动切分lora权重，切分后的分布式权重保存在output/transform_ckpt/slora
+
+2、auto_trans_ckpt字段为False时，需要将分布式lora权重保存在lora_adapter.json中的第一个adapter路径下。
