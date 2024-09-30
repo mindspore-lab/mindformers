@@ -624,7 +624,6 @@ class RingAttention(nn.Cell):
                     )
                     attn_out, softmax_max, softmax_sum = attn_out_updated, softmax_max_updated, softmax_sum_updated
 
-        attn_out = ops.cast(attn_out, ms.dtype.float16)
         self.softmax_max = softmax_max
         self.softmax_sum = softmax_sum
 
@@ -635,6 +634,7 @@ class RingAttention(nn.Cell):
                                      2 * x.shape[self.seq_dim + 1],
                                      *x.shape[(self.seq_dim + 2):]
                                      ) for x in [self.k, self.v]]
+        attn_out = ops.cast(attn_out, self.k.dtype)
 
         return attn_out
 
