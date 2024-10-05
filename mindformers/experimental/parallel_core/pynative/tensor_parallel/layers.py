@@ -147,6 +147,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             x = args[0]
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
+            if not x.is_contiguous():
+                x = x.contiguous()
             x = all_gather_into_tensor(x, group=self.tp_group)[0]
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
@@ -159,6 +161,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             dout, x = self.prepare_input_tensors_for_wgrad_compute(dout, x)
 
         if self.allreduce_dgrad:
+            if not grad_input.is_contiguous():
+                grad_input = grad_input.contiguous()
             grad_input, grad_input_handle = all_reduce(grad_input, group=self.tp_group, async_op=True)
 
         if self.sequence_parallel:
@@ -166,6 +170,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
                 raise NotImplementedError("allreduce_dgrad is not supported for now.")
             if self.data_layout == "BSH":
                 grad_input = grad_input.swapaxes(0, 1)
+            if not grad_input.is_contiguous():
+                grad_input = grad_input.contiguous()
             grad_input, grad_input_handle = reduce_scatter_tensor(grad_input, group=self.tp_group, async_op=True)
 
         if self.transpose_b:
