@@ -80,7 +80,8 @@ mapping_dict = {
     'shape_order': 'model_config.fa_config.input_layout',
     'attn_post_norm_scale': 'model_config.attn_post_norm_scale',
     'ffn_post_norm_scale': 'model_config.ffn_post_norm_scale',
-    'params_dtype': 'model_config.param_init_dtype',
+    'params_dtype': 'model_config.params_dtype',
+    'compute_dtype': 'model_config.compute_dtype',
     'embedding_dtype': 'model_config.embedding_init_dtype',
     'use_fused_swiglu': 'model_config.apply_swiglu_fusion',
     'apply_rope_fusion': 'model_config.apply_rope_fusion',
@@ -92,7 +93,7 @@ mapping_dict = {
     'save_interval': 'training_config.save_interval',
     'eval_interval': 'training_config.eval_interval',
     'accumulate_allreduce_grads_in_fp32': 'training_config.accumulate_allreduce_grads_in_fp32',
-    'clip_grad': 'training_config.grad_clip_kwargs.clip_value',
+    'clip_grad': 'optimizer_config.clip_grad',
     'bf16': 'training_config.bf16',
     'fp16': 'training_config.fp16',
     'loss_scale': 'training_config.loss_scale',
@@ -185,10 +186,12 @@ def get_default_config():
     default_param_dict['dataset_config.data_layout'] = "SBH"
     default_param_dict['optimizer_config.optimizer_type'] = "mint.AdamW"
     default_param_dict['training_config.wrap_with_ddp'] = True
+    default_param_dict['training_config.grad_clip_kwargs.clip_value'] = 1.0
     default_param_dict['training_config.grad_clip_kwargs.grad_clip_type'] = "ClipGlobalNorm"
     default_param_dict['training_config.bucket_size'] = 20000
     default_param_dict['training_config.eval_metric'] = "perplexity"
     default_param_dict['training_config.loss_func_kwargs.loss_func_type'] = "VocabParallelCrossEntropy"
+    default_param_dict["training_config.enable_mem_align"] = False
     default_param_dict['model_config.output_layer_init_method'] = "normal"
     default_param_dict['model_config.mask_func_type'] = "attn_mask_fill"
     default_param_dict['model_config.gated_linear_unit'] = True
@@ -224,6 +227,12 @@ def modify_flatten_dict(flatten_dict: dict, default_param_dict: dict):
 
     if str(flatten_dict.get('params_dtype', 'float32')) == 'torch.bfloat16':
         flatten_dict['params_dtype'] = 'bfloat16'
+
+    if flatten_dict.get('bf16', False):
+        flatten_dict['compute_dtype'] = 'bfloat16'
+
+    if flatten_dict.get('fp16', False):
+        flatten_dict['compute_dtype'] = 'float16'
 
     if str(flatten_dict.get('embedding_dtype', 'float32')) == 'torch.bfloat16':
         flatten_dict['embedding_dtype'] = 'bfloat16'
@@ -279,7 +288,7 @@ def init_configs_from_args(run_args: argparse.Namespace = None, model_type: str 
     """Initialize config class from run command.
 
         Args:
-            run_cmd (argparse.Namespace): run command.
+            run_args (argparse.Namespace): run command.
             config_classes (Union[list[BaseConfig], None]): Config classes to be initialized. When no config class
                 is passed in, all known configs will be initialized as optional config of AllConfig. Default: None
             model_type (str) : model config name
@@ -291,7 +300,6 @@ def init_configs_from_args(run_args: argparse.Namespace = None, model_type: str 
     if not isinstance(run_args, argparse.Namespace):
         raise ValueError("run_args should be argparse.Namespace.")
 
-    # flatten_dict = parse_args_from_str(run_cmd)
     flatten_dict = vars(run_args)
     raw_dict = flatten_dict_to_raw(flatten_dict, model_type)
 
