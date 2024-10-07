@@ -100,7 +100,6 @@ mapping_dict = {
     'initial_loss_scale': 'training_config.loss_scale_value',
     'loss_scale_window': 'training_config.loss_scale_window',
     'hysteresis': 'training_config.loss_scale_factor',
-    'micro_batch_size': 'training_config.batch_size',
     'use_distributed_optimizer': 'training_config.use_distributed_optimizer',
     # dataset config
     'reset_attention_mask': 'dataset_config.reset_attention_mask',
@@ -109,6 +108,8 @@ mapping_dict = {
     'pad_token_id': 'dataset_config.pad_token_id',
     'eos_token_id': 'dataset_config.eos_token_id',
     'drop_remainder': 'dataset_config.drop_remainder',
+    'micro_batch_size': 'dataset_config.batch_size',
+    'micro_batch_num': 'dataset_config.micro_batch_num',
     # optimizer config
     'optimizer': 'optimizer_config.optimizer_type',
     'adam_beta1': 'optimizer_config.betas',
@@ -212,11 +213,7 @@ def modify_flatten_dict(flatten_dict: dict, default_param_dict: dict):
     Returns:
         dict: modified flatten dict.
     """
-    if 'adam_beta1' in flatten_dict and 'adam_beta2' in flatten_dict:
-        default_param_dict['optimizer_config.betas'] = [flatten_dict['adam_beta1'], flatten_dict['adam_beta2']]
-        flatten_dict.pop('adam_beta1')
-        flatten_dict.pop('adam_beta2')
-        mapping_dict['optimizer_config.betas'] = 'optimizer_config.betas'
+    flatten_dict = modify_megatron_param(flatten_dict)
 
     if flatten_dict.get('use_fused_rmsnorm', False):
         flatten_dict.pop('use_fused_rmsnorm', False)
@@ -246,6 +243,29 @@ def modify_flatten_dict(flatten_dict: dict, default_param_dict: dict):
         if key not in flatten_dict:
             flatten_dict[key] = value
             mapping_dict[key] = key
+
+    return flatten_dict
+
+
+def modify_megatron_param(flatten_dict):
+    """Modify megatron param.
+
+    Args:
+        flatten_dict (dict): flatten dict.
+
+    Returns:
+        dict: modified flatten dict.
+    """
+    if 'adam_beta1' in flatten_dict and 'adam_beta2' in flatten_dict:
+        flatten_dict['optimizer_config.betas'] = [flatten_dict['adam_beta1'], flatten_dict['adam_beta2']]
+        flatten_dict.pop('adam_beta1')
+        flatten_dict.pop('adam_beta2')
+        mapping_dict['optimizer_config.betas'] = 'optimizer_config.betas'
+
+    if  'global_batch_size' in flatten_dict and 'micro_batch_size' in flatten_dict:
+        data_parallel_size = flatten_dict.get('data_parallel_size', 1)
+        micro_batch_num = flatten_dict['global_batch_size'] // (flatten_dict['micro_batch_size'] * data_parallel_size)
+        flatten_dict['micro_batch_num'] = micro_batch_num
 
     return flatten_dict
 
