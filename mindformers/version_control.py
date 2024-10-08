@@ -15,9 +15,10 @@
 """MindSpore Version Control"""
 import os
 import mindspore as ms
-from mindspore import nn
+from mindspore import nn, mint
 import mindspore.ops.operations as P
 import mindspore.ops.functional as F
+from mindspore.ops.auto_generate import Scatter  # internal api for aclnn op
 
 from mindformers.tools.utils import get_predict_run_mode
 from .tools.utils import is_version_ge
@@ -297,3 +298,14 @@ def check_valid_mindspore_gs():
                        f"the MindFormers version, please upgrade to {version_valid} or later version.")
         return False
     return True
+
+
+def get_scatter():
+    """
+    Return:
+        `Scatter()` when MindSpore Version is less than 2.4.0.
+        `mint.scatter` when MindSpore Version is 2.4.0 or later.
+    """
+    if is_version_ge(ms.__version__, "2.4.0"):
+        return mint.scatter
+    return Scatter()

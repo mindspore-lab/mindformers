@@ -21,7 +21,9 @@ import numpy as np
 
 import mindspore as ms
 from mindspore import Tensor, mint
+from mindspore.ops.auto_generate import Scatter  # internal api for aclnn op
 
+from mindformers.version_control import get_scatter
 from .utils import log_softmax, softmax, topk
 from ..tools.logger import logger
 
@@ -56,6 +58,12 @@ class LogitsProcessor:
 
     def __init__(self):
         self.use_numpy = run_using_numpy()
+        self.scatter = get_scatter()
+
+    def selected_scatter(self, input_tensor, dim, index, src):
+        if isinstance(self.scatter, Scatter):
+            return self.scatter(input_tensor, dim, index, src, reduce=0)
+        return self.scatter(input_tensor, dim, index, src)
 
     def __call__(self, input_ids, scores, **kwargs):
         """Method for processing logits."""
@@ -252,7 +260,7 @@ class RepetitionPenaltyLogitsProcessor(LogitsProcessor):
         repetition_logits = mint.gather(logits, 1, sequence_ids)
         repetition_logits = mint.where(repetition_logits < 0, repetition_logits * repetition_penalty,
                                        repetition_logits / repetition_penalty)
-        return mint.scatter(logits, -1, sequence_ids, repetition_logits.astype(logits.dtype))
+        return self.selected_scatter(logits, -1, sequence_ids, repetition_logits.astype(logits.dtype))
 
     def process_np(self, logits, sequence_ids):
         score = np.take_along_axis(logits, sequence_ids, axis=1)
@@ -362,12 +370,12 @@ class SamplingLogitsProcessor(LogitsProcessor):
         sampled_probs = mint.nn.functional.softmax(filtered_logits, dim=-1)
         sampled_tokens = self.multinomial_ms(sampled_probs, 1, np.array(seed_array)[indices.asnumpy()]).squeeze(1)
         tokens = Tensor([-1] * len(do_sample), ms.int64)
-        tokens = mint.scatter(tokens, 0, index=indices, src=sampled_tokens)
+        tokens = self.selected_scatter(tokens, 0, index=indices, src=sampled_tokens)
         if argmax_indices.numel() == 0:
             return logits, tokens.reshape(-1)
         filtered_logits = mint.index_select(logits, dim=0, index=argmax_indices)
         argmax_tokens = filtered_logits.argmax(axis=-1).astype(ms.int64)
-        tokens = mint.scatter(tokens, 0, index=argmax_indices, src=argmax_tokens)
+        tokens = self.selected_scatter(tokens, 0, index=argmax_indices, src=argmax_tokens)
         return logits, tokens.reshape(-1)
 
     @staticmethod
@@ -459,7 +467,8 @@ class TopPLogitsWarper(LogitsProcessor):
         # Remove tokens with cumulative top_p above the threshold
         sorted_indices_to_keep = Tensor(cumulative_probs < top_p, ms.int32)
         sorted_indices_to_keep[:, :min_tokens_to_keep] = 1
-        indices_to_keep = mint.scatter(sorted_indices_to_keep, -1, index=sorted_indices, src=sorted_indices_to_keep)
+        indices_to_keep = self.selected_scatter(sorted_indices_to_keep, -1, index=sorted_indices,
+                                                src=sorted_indices_to_keep)
         return mint.where(indices_to_keep.astype("bool"), logits, filter_value)
 
     def process_np(self, logits, sequence_ids):
@@ -574,7 +583,7 @@ class MinLengthLogitsProcessor(LogitsProcessor):
             eos_token_id = Tensor([eos_token_id] * logits.shape[0])
             eos_token_value = Tensor([[-float("inf")] * eos_token_id.shape[1]] * eos_token_id.shape[0],
                                      dtype=logits.dtype)
-            logits = mint.scatter(logits, -1, index=eos_token_id, src=eos_token_value)
+            logits = self.selected_scatter(logits, -1, index=eos_token_id, src=eos_token_value)
         return logits
 
     def process_np(self, logits, sequence_ids):
@@ -647,7 +656,7 @@ class MinNewTokensLengthLogitsProcessor(LogitsProcessor):
             eos_token_id = Tensor([eos_token_id] * logits.shape[0])
             eos_token_value = Tensor([[-float("inf")] * eos_token_id.shape[1]] * eos_token_id.shape[0],
                                      dtype=logits.dtype)
-            logits = mint.scatter(logits, -1, index=eos_token_id, src=eos_token_value)
+            logits = self.selected_scatter(logits, -1, index=eos_token_id, src=eos_token_value)
         return logits
 
     def process_np(self, logits, sequence_ids):
