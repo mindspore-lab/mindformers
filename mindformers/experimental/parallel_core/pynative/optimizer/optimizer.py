@@ -186,7 +186,7 @@ class MixedPrecisionOptimizer(nn.Cell):
         """ clip gridients by global norm. """
         params = self.get_parameters_()
         grads_for_norm = self.get_main_grads_for_grad_norm()
-        grad_norm = get_grad_norm_fp32(grads_for_norm, model_parallel_group=get_model_parallel_group())
+        grad_norm = get_grad_norm_fp32(grads_for_norm, model_parallel_group=self.get_model_parallel_group())
         clip_grad_by_total_norm_fp32(params, clip_grad, grad_norm)
         return grad_norm
 
@@ -379,7 +379,7 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
         """ get optimizer state dict for saving checkpoint. """
         param_dict = OrderedDict()
 
-        for param in self.optimizer.parameters():
+        for param in self.optimizer.parameters:
             if isinstance(param, Parameter):
                 param_dict[param.name] = param
             elif isinstance(param, Tensor):

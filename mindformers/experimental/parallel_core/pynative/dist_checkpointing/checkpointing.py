@@ -219,6 +219,8 @@ def load_post_process(config, params_dict, optimizer=None):
                 params_dict[moments2_name] = ms.Parameter(splited_tensor, name=moments2_name)
             if optimizer.zero_level == "z3" and optimizer._parameter_splited[idx]:
                 # param
+                if "norm" in param.name or "embedding" in param.name:
+                    continue
                 cell_param = params_dict[param.name]
                 splited_tensor = split(cell_param)[shard_id]
                 params_dict[param.name] = ms.Parameter(splited_tensor, name=param.name)
