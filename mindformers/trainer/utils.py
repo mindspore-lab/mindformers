@@ -40,6 +40,7 @@ from mindformers.tools.ckpt_transform import TransformCkpt
 from mindformers.models.base_model import BaseModel
 from mindformers.models.modeling_utils import PreTrainedModel
 
+
 class BaseEnum(str, Enum):
     """
     Base Enum for MindFormers.
