@@ -33,3 +33,8 @@ mindformers.AutoConfig
             - **model_type** (str) - 模型简称，类似'bert'或'gpt'。
             - **config** (PretrainedConfig) - 用于注册的类。
             - **exist_ok** (bool, 可选) - 为True时，若model_type已存在也不报错。默认值： ``False`` 。
+
+    .. py:method:: show_support_list()
+        :classmethod:
+
+        显示支持的方法列表。
