@@ -199,8 +199,8 @@ def run_sequential_mlp(model_config, args):
 
     model = SequentialMLP(num_local_experts, model_config)
     optimizer = SGD(params=model.get_parameters())
-    # for name, params in model.parameters_and_names():
-    #     print(f"{name} {params.dtype} {params.shape}")
+    for name, params in model.parameters_and_names():
+        print(f"{name} {params.dtype} {params.shape}")
 
     # load golden ckpt
     golden_ckpt_path = "./data/golden_sequential_mlp.ckpt"
@@ -271,7 +271,7 @@ if __name__ == '__main__':
         ffn_hidden_size=16,
         num_attention_heads=8,
         gated_linear_unit=True,
-        hidden_act="gelu",
+        hidden_act="swiglu",
         qkv_has_bias=True,
         mlp_has_bias=False,
         params_dtype='float32',
