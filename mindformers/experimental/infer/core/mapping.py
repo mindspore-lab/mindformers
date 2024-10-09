@@ -29,7 +29,7 @@ class GatherFromModelParallelRegion(nn.Cell):
         if self.world_size > 1:
             self.tp_group = get_tensor_model_parallel_group()
             self.split = ops.Split(axis=0, output_num=self.world_size)
-        self.all_gather_into_tensor = ops.AllGather(group=self.tp_group)
+            self.all_gather_into_tensor = ops.AllGather(group=self.tp_group)
 
     def construct(self, input_):
         # Size and dimension.
@@ -55,7 +55,7 @@ class GatherFromSequenceParallelRegion(nn.Cell):
         self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
             self.tp_group = get_tensor_model_parallel_group()
-        self.all_gather_into_tensor = ops.AllGather(group=self.tp_group)
+            self.all_gather_into_tensor = ops.AllGather(group=self.tp_group)
 
     def construct(self, input_):
         if self.world_size == 1:
@@ -71,7 +71,7 @@ class ReduceFromModelParallelRegion(nn.Cell):
         self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
             self.tp_group = get_tensor_model_parallel_group()
-        self.all_reduce = ops.AllReduce(group=self.tp_group)
+            self.all_reduce = ops.AllReduce(group=self.tp_group)
 
     def construct(self, input_):
         if self.world_size == 1:
@@ -88,7 +88,7 @@ class ReduceScatterToSequenceParallelRegion(nn.Cell):
         self.world_size = get_tensor_model_parallel_world_size()
         if self.world_size > 1:
             self.tp_group = get_tensor_model_parallel_group()
-        self.reduce_scatter_tensor = ops.ReduceScatter(group=self.tp_group)
+            self.reduce_scatter_tensor = ops.ReduceScatter(group=self.tp_group)
 
     def construct(self, input_):
         if self.world_size == 1:
