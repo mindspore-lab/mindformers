@@ -37,7 +37,7 @@ def test_config_from_args():
     args = argparse.Namespace()
     args.seed = 123
     args.lr = 1e-2
-    args.tensor_model_parallel_size = 1
+    args.tensor_model_parallel_size = 2
     args.num_layers = 6
     args.train_iters = 10
     args.data_path = "./dataset"
@@ -45,13 +45,21 @@ def test_config_from_args():
     args.num_attention_heads = 32
     args.hidden_size = 4096
     args.ffn_hidden_size = 16384
+    args.global_batch_size = 2
+    args.micro_batch_size = 1
+    args.adam_beta1 = 0.8
+    args.adam_beta2 = 0.9
     model_type = "model_config"
     all_config = init_configs_from_args(args, model_type)
     assert all_config.training_config.seed == 123
     assert abs(all_config.optimizer_config.learning_rate - 1e-2) < allowed_error
-    assert all_config.parallel_config.tensor_model_parallel_size == 1
+    assert all_config.parallel_config.tensor_model_parallel_size == 2
     assert all_config.dataset_config.dataset_dir == "./dataset"
+    assert all_config.dataset_config.micro_batch_num == 2
+    assert all_config.dataset_config.batch_size == 1
     assert all_config.model_config.vocab_size == 32000
     assert all_config.model_config.num_attention_heads == 32
     assert all_config.model_config.hidden_size == 4096
     assert all_config.model_config.ffn_hidden_size == 16384
+    assert abs(all_config.optimizer_config.betas[0] - 0.8) < allowed_error
+    assert abs(all_config.optimizer_config.betas[1] - 0.9) < allowed_error
