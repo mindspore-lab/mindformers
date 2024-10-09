@@ -226,10 +226,8 @@ class LlamaModel(LlamaPreTrainedModel):
         # preprocess
         bs, seq_len = self.shape(tokens)
         if self.parallel_decoding:
+            # FA with TH layout, mask is 2D, FA with BSH layout, mask is 4D
             mask = attention_mask
-            if self.is_first_iteration:
-                shape = mask.shape
-                mask = mask.reshape(1, 1, shape[0], shape[1])
             freqs_cis = self.freqs_mgr.increment_multi_ids(position_ids)
         else:
             mask = None
@@ -571,8 +569,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         output = self.model(tokens, input_embeds, batch_valid_length, batch_index, zactivate_len, block_tables, \
                             slot_mapping, prefix_keys_values, attention_mask, position_ids, q_seq_lens)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
-        pre_gather = pre_gather and not self.parallel_decoding
-        if pre_gather:
+        if self.parallel_decoding and self.is_first_iteration:
+            output = output.reshape(-1, output.shape[-1])
+            output = output[self.sub_batch_valid_len(batch_valid_length, 1)]
+        elif pre_gather:
             if self.disable_custom_fa:
                 batch_valid_length = mint.cumsum(batch_valid_length, 0)
                 output = self.prefill_gather_flatten(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
