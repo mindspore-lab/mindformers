@@ -1064,11 +1064,15 @@ class GenerationMixin:
             model_kwargs["slot_mapping"] = slot_mapping
             # pylint: disable=E1111
             model_inputs = self.prepare_inputs_for_generation(input_ids, **model_kwargs)
+            real_input_ids = model_inputs["input_ids"]
             if parallel_decoding_control(self.config):
                 model_inputs, block_tables, slot_mapping = parallel_decoding_process(
                     self.config, input_ids, model_inputs, **model_kwargs
                 )
-
+            else:
+                current_index = valid_length_each_example - 1 + np.arange(real_input_ids.numel(),
+                                                                          step=real_input_ids.shape[1])
+                model_kwargs["current_index"] = current_index
             if use_past:
                 if "batch_valid_length" not in model_inputs:
                     model_inputs["batch_valid_length"] = Tensor.from_numpy(
