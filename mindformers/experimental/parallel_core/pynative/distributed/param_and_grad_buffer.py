@@ -219,11 +219,12 @@ class ParamAndGradBuffer:
                 numel_in_bytes / bucket_align_size
             ) * bucket_align_size - numel_in_bytes
             padding_target_numel = divide(padding_target_in_bytes, mstype.type_size_in_bytes(self.param_dtype))
-            padding_in_bytes = padding_target_in_bytes - ALIGN_BYTES + 1
+            padding_in_bytes = padding_target_in_bytes - ALIGN_BYTES + 1 \
+                if self.ddp_config.enable_mem_align else padding_target_in_bytes
             padding_tensor_numel = padding_in_bytes // mstype.type_size_in_bytes(self.param_dtype)
             return padding_target_numel, padding_tensor_numel
 
-        bucket_align_size = shard_num * MEM_ALIGN_SIZE
+        bucket_align_size = shard_num * MEM_ALIGN_SIZE if self.ddp_config.enable_mem_align else shard_num
 
         def _build_bucket():
             nonlocal last_bucket_numel, bucket_align_size, data_start_index, buckets_metadata, \
@@ -232,8 +233,7 @@ class ParamAndGradBuffer:
             # Since parameters are 512 byte aligned when allocating memory, the padding size is natural
             # 512 byte aligned.
             padded_numel, padding_tensor_size = _pad_bucket(last_bucket_numel, bucket_align_size) \
-                if self.ddp_config.use_distributed_optimizer and \
-                self.ddp_config.enable_mem_align else (0, 0)
+                if self.ddp_config.use_distributed_optimizer else (0, 0)
             if padding_tensor_size > 0:
                 param_data_list.append(ops.Tensor(shape=(padding_tensor_size), dtype=self.param_dtype, init=Zero()))
             bucket_end_index = data_start_index + padded_numel
@@ -274,8 +274,7 @@ class ParamAndGradBuffer:
         if last_bucket_numel > 0:
             # add bucket for the last few params which do not reach the bucket_size threshold
             padded_numel, padding_tensor_size = _pad_bucket(last_bucket_numel, bucket_align_size) \
-                if self.ddp_config.use_distributed_optimizer and \
-                self.ddp_config.enable_mem_align else (0, 0)
+                if self.ddp_config.use_distributed_optimizer else (0, 0)
             if padding_tensor_size > 0:
                 param_data_list.append(ops.Tensor(shape=(padding_tensor_size), dtype=self.param_dtype, init=Zero()))
             bucket_end_index = data_start_index + padded_numel
