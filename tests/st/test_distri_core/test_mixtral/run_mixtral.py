@@ -31,7 +31,6 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import (
     initialize_model_parallel,
 )
 
-from mindformers.experimental.parallel_core.models import MixtralModel
 from mindformers.experimental.parallel_core.pynative.training import get_model, TrainOneStepCell, train, get_loss_func
 
 import mindspore as ms
@@ -40,7 +39,7 @@ from mindspore import Tensor
 from mindspore.communication.management import init
 from mindspore.nn import SGD
 
-from tests.st.test_distri_core.utils import transform_mixtral_golden_params_to_pynative_params
+from tests.st.test_distri_core.utils import MixtralModel, transform_mixtral_golden_params_to_pynative_params
 
 class TestData:
     """

@@ -48,7 +48,7 @@ model_config:
   mask_func_type: "attn_mask_fill"
   mlp_has_bias: False
   gated_linear_unit: True
-  hidden_act: 'silu'
+  hidden_act: 'swiglu'
   apply_residual_connection_post_norm: False
   normalization: 'FusedRMSNorm'
   norm_epsilon: 1.e-5

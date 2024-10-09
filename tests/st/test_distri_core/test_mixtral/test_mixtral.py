@@ -223,7 +223,7 @@ class TestMixtral:
                "please check your code."
 
 
-    @pytest.mark.level1
+    @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     @pytest.mark.run(order=2)
