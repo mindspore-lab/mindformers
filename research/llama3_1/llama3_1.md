@@ -221,3 +221,219 @@ bash scripts/examples/llama3/run_llama3_predict.sh parallel \
  research/llama3_1/predict_llama3_1_70b.yaml \
  path/to/model_dir \
  path/to/tokenizer.model 4
+```
+
+## 基于MindIE的服务化推理
+
+MindIE，全称Mind Inference Engine，是华为昇腾针对AI全场景业务的推理加速套件。
+
+MindFormers承载在模型应用层MindIE-LLM中，MindIE-LLM是大语言模型推理框架，提供API支持大模型推理能力。
+
+MindIE安装流程请参考[MindIE服务化部署文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/mindie_deployment.html)。
+
+以下例子默认已完成MindIE安装部署且仅适用于**MindIE RC3版本**，且安装路径均为默认路径`/usr/local/Ascend/`。
+
+### 单卡推理
+
+此例子使用llama3_1-8B模型演示。
+
+#### 修改MindIE启动配置
+
+打开mindie-service中的config.json文件，修改server相关配置。
+
+```bash
+vim /usr/local/Ascend/mindie/1.0.RC3/mindie-service/conf/config.json
+```
+
+需要关注以下字段的配置
+
+1. `ModelDeployConfig.ModelConfig.backendType`
+
+   该配置为对应的后端类型，必填"ms"。
+
+   ```json
+   "backendType": "ms"
+   ```
+
+   2. `ModelDeployConfig.ModelConfig.modelWeightPath`
+
+      该配置为模型配置文件目录，放置模型和tokenizer等相关文件。
+
+      以llama3_1-8B为例，`modelWeightPath`的组织结构如下：
+
+      ```reStructuredText
+      mf_model
+       └── llama3_1_8b
+              ├── config.json                             # 模型json配置文件
+              ├── tokenizer.model                         # 模型vocab文件，hf上对应模型下载
+              ├── predict_llama3_1_8b.yaml                # 模型yaml配置文件
+              ├── llama3_1_tokenizer.py                   # 模型tokenizer文件,从mindformers仓中research目录下找到对应模型复制
+              └── llama3_1_8b.ckpt                        # 单卡模型权重文件
+      ```
+
+      predict_llama3_1_8b.yaml需要关注以下配置：
+
+      ```yaml
+      load_checkpoint: '/mf_model/llama3_1_8b/llama3_1_8b.ckpt' # 为存放模型单卡权重文件路径
+      use_parallel: False
+      model:
+        model_config:
+          type: LlamaConfig
+          auto_map:
+            AutoTokenizer: [llama3_1_tokenizer.Llama3Tokenizer, null]
+      processor:
+        tokenizer:
+          vocab_file: "/mf_model/llama3_1_8b/tokenizer.model"  #vocab文件路径
+      ```
+
+      模型的config.json文件可以使用`save_pretrained`接口生成，示例如下：
+
+      ```python
+      from mindformers import AutoConfig
+
+      model_config = AutoConfig.from_pretrained("/mf_model/llama3_1_8b/predict_llama3_1_8b.yaml ")
+      model_config.save_pretrained(save_directory="/mf_model/llama3_1_8b", save_json=True)
+      ```
+
+      模型权重下载和转换可参考 [权重格式转换指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/weight_conversion.html)。
+
+      准备好模型配置目录后，设置参数`modelWeightPath`为该目录路径。
+
+```json
+   "modelWeightPath": "/mf_model/llama3_1_8b"
+```
+
+最终修改完后的config.json如下：
+
+```json
+{
+    "Version": "1.0.0",
+    "LogConfig" :
+    {
+        "logLevel" : "Info",
+        "logFileSize" : 20,
+        "logFileNum" : 20,
+        "logPath" : "logs/mindservice.log"
+    },
+
+    "ServerConfig" :
+    {
+        "ipAddress" : "127.0.0.1",
+        "managementIpAddress": "127.0.0.2",
+        "port" : 1025,
+        "managementPort" : 1026,
+        "metricsPort" : 1027,
+        "maxLinkNum" : 1000,
+        "httpsEnabled" : false,
+        "fullTextEnabled" : false,
+        "tlsCaPath" : "security/ca/",
+        "tlsCaFile" : ["ca.pem"],
+        "tlsCert" : "security/certs/server.pem",
+        "tlsPk" : "security/keys/server.key.pem",
+        "tlsPkPwd" : "security/pass/key_pwd.txt",
+        "tlsCrl" : "security/certs/server_crl.pem",
+        "managementTlsCaFile" : ["management_ca.pem"],
+        "managementTlsCert" : "security/certs/management/server.pem",
+        "managementTlsPk" : "security/keys/management/server.key.pem",
+        "managementTlsPkPwd" : "security/pass/management/key_pwd.txt",
+        "managementTlsCrl" : "security/certs/management/server_crl.pem",
+        "kmcKsfMaster" : "tools/pmt/master/ksfa",
+        "kmcKsfStandby" : "tools/pmt/standby/ksfb",
+        "inferMode" : "standard",
+        "pdInterNodeTLSEnabled": false,
+        "pdCommunicationPort": 1121,
+        "interNodeTlsCaFile" : "security/grpc/ca/ca.pem",
+        "interNodeTlsCert" : "security/grpc/certs/server.pem",
+        "interNodeTlsPk" : "security/grpc/keys/server.key.pem",
+        "interNodeTlsPkPwd" : "security/grpc/pass/key_pwd.txt",
+        "interCommTlsCrl" : "security/certs/server_crl.pem",
+        "interNodeKmcKsfMaster": "tools/pmt/master/ksfa",
+        "interNodeKmcKsfStandby": "tools/pmt/standby/ksfb"
+    },
+
+    "BackendConfig": {
+        "backendName" : "mindieservice_llm_engine",
+        "modelInstanceNumber" : 1,
+        "npuDeviceIds" : [[0]],
+        "tokenizerProcessNumber" : 8,
+        "multiNodesInferEnabled": false,
+        "multiNodesInferPort": 1120,
+        "interNodeTLSEnabled": true,
+        "interNodeTlsCaFile": "security/grpc/ca/ca.pem",
+        "interNodeTlsCert": "security/grpc/certs/server.pem",
+        "interNodeTlsPk": "security/grpc/keys/server.key.pem",
+        "interNodeTlsPkPwd": "security/grpc/pass/mindie_server_key_pwd.txt",
+        "interNodeTlsCrl" : "security/grpc/certs/server_crl.pem",
+        "interNodeKmcKsfMaster": "tools/pmt/master/ksfa",
+        "interNodeKmcKsfStandby": "tools/pmt/standby/ksfb",
+        "ModelDeployConfig":
+        {
+            "maxSeqLen" : 2560,
+            "maxInputTokenLen" : 2048,
+            "truncation" : false,
+            "ModelConfig" : [
+                {
+                    "modelInstanceType": "Standard",
+                    "modelName" : "llama3_1_8b",
+                    "modelWeightPath" : "/mf_model/llama3_1_8b",
+                    "worldSize" : 1,
+                    "cpuMemSize" : 16,
+                    "npuMemSize" : 16,
+                    "backendType": "ms"
+                }
+            ]
+        },
+
+        "ScheduleConfig":
+        {
+            "templateType": "Standard",
+            "templateName" : "Standard_LLM",
+            "cacheBlockSize" : 128,
+
+            "maxPrefillBatchSize" : 50,
+            "maxPrefillTokens" : 8192,
+            "prefillTimeMsPerReq" : 150,
+            "prefillPolicyType" : 0,
+
+            "decodeTimeMsPerReq" : 50,
+            "decodePolicyType" : 0,
+
+            "maxBatchSize" : 200,
+            "maxIterTimes" : 512,
+            "maxPreemptCount" : 0,
+            "supportSelectBatch" : false,
+            "maxQueueDelayMicroseconds" : 5000
+        }
+    }
+}
+```
+
+> 注：为便于测试，`httpsEnabled`参数设置为`false`，忽略后续https通信相关参数。
+
+#### 启动服务
+
+```bash
+cd /usr/local/Ascend/mindie/1.0.RC3/mindie-service
+nohup ./bin/mindieservice_daemon > output.log 2>&1 &
+tail -f output.log
+```
+
+打印如下信息，启动成功。
+
+```json
+Daemon start success!
+```
+
+#### 请求测试
+
+服务启动成功后，可使用curl命令发送请求验证，样例如下：
+
+```bash
+curl -w "\ntime_total=%{time_total}\n" -H "Accept: application/json" -H "Content-type: application/json" -X POST -d '{"inputs": "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n请介绍一下自己<|im_end|>\n<|im_start|>assistant\n","stream": false}' http://127.0.0.1:1035/generate
+```
+
+返回推理结果验证成功：
+
+```json
+{"generated_text":"我叫小助手，专门为您服务的。<|im_end|>\n<"}
+```
