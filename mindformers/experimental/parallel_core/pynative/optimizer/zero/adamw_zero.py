@@ -80,30 +80,27 @@ def _split_params_to_fp32(shard_id, split, param, need_split):
     return splited_param
 
 
-@_update_params.register("Tensor", "Tensor", "Function")
-def _update_params_opt_parallel(param, update, all_gather):
+@_update_params.register("String", "Tensor", "Tensor", "bool")
+def _update_params_opt_parallel(group, param, update, all_gather):
     """
     Allgather updated parameters and load.
     """
     if all_gather:
-        update, handle = all_gather(update)
-        handle.wait()
+        update = all_gather_into_tensor(update, group=group)[0]
     if update.dtype != param.dtype:
         update = ops.cast(update, param.dtype)
     param.assign_value(update)
 
 
-def _inner_grad_reduce_scatter(reduce_scatter, allreduce, grad_allreduce_sum, shard_size, grads, grads_splited,
+def _inner_grad_reduce_scatter(dp_cp_group, grad_allreduce_sum, shard_size, grads, grads_splited,
                                parameter_splited):
     """
     Reduce gradients.
     """
     if grads_splited or parameter_splited:
-        grads, handle = reduce_scatter(grads)
-        handle.wait()
+        grads = reduce_scatter_tensor(grads, group=dp_cp_group)[0]
     else:
-        grads, handle = allreduce(grads)
-        handle.wait()
+        grads = all_reduce(grads, group=dp_cp_group)[0]
     if not grad_allreduce_sum:
         grads = mint.div(grads, shard_size)
     return grads
@@ -253,7 +250,7 @@ class AdamW(Optimizer):
         self.grad_allreduce_sum = grad_allreduce_op == "sum"
         self._parameter_splited = [False] * len(self._parameters)
         self._status_splited = [False] * len(self._parameters)
-        self.all_gather_ops = [None] * len(self._parameters)
+        self.all_gather_ops = [False] * len(self._parameters)
         # init communication group info
         self._init_optimizer_shard_info()
 
@@ -302,7 +299,7 @@ class AdamW(Optimizer):
     def _init_all_gather_ops(self):
         for i, param_splited in enumerate(self._status_splited):
             if param_splited:
-                self.all_gather_ops[i] = self.allgather
+                self.all_gather_ops[i] = True
 
     def _param_resident_flag(self, zero3_param_numel, param_resident_rate):
         """add resident flag"""
@@ -501,7 +498,7 @@ class AdamW(Optimizer):
             grads = self.hyper_map(F.partial(_split_params, self.shard_id, self.split),
                                    grads, self._status_splited)
         if self.allreduce_after_grad_accumulation and self.zero_level in ["z2", "z3"]:
-            grads = self.hyper_map(F.partial(_inner_grad_reduce_scatter, self.reduce_scatter, self.allreduce,
+            grads = self.hyper_map(F.partial(_inner_grad_reduce_scatter, self.dp_cp_group,
                                              self.grad_allreduce_sum, self.shard_size),
                                    grads, self._status_splited, self._parameter_splited)
         params = self.hyper_map(F.partial(_split_params, self.shard_id, self.split),
@@ -553,7 +550,7 @@ class AdamW(Optimizer):
                 self.moments2
             )
 
-        self.hyper_map(_update_params, self._parameters, optim_result, self.all_gather_ops)
+        self.hyper_map(F.partial(_update_params, self.dp_cp_group), self._parameters, optim_result, self.all_gather_ops)
 
     def sharded_state_dict(self, model_sharded_state_dict):
         """provide optim's sharded state dict based on the model's sharding info"""
