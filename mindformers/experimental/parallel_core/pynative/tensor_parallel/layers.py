@@ -358,11 +358,15 @@ class ColumnParallelLinear(nn.Cell):
             ``True``.
 
     Inputs:
-        - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
+        - **input\_** (Tensor) - Tensor of shape :math:`(*, in\_channels)` . The `input_size` in `Args` should be equal
           to :math:`in\_channels` in `Inputs`.
+        - **weight** (Tensor) - Tensor of shape :math:`(in\_channels, out\_channels)`. The `input_size` in `Args` should
+          be equal to :math:`in\_channels` in `Inputs`. The `output_size` in `Args` should be equal to
+          :math:`out\_channels` in `Outputs`.
 
     Outputs:
-        Tensor of shape :math:`(*, out\_channels)`.
+        Tensor of shape :math:`(*, out\_channels)`. The `output_size` in `Args` should be equal to :math:`out\_channels`
+        in `Outputs`.
 
     Raises:
         ValueError: `skip_weight_param_allocation=True` but weight_tensor is not passed to construct function.
@@ -689,11 +693,12 @@ class RowParallelLinear(nn.Cell):
             ``True``.
 
     Inputs:
-        - **x** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
+        - **input\_** (Tensor) - Tensor of shape :math:`(*, in\_channels)`. The `input_size` in `Args` should be equal
           to :math:`in\_channels` in `Inputs`.
 
     Outputs:
-        Tensor of shape :math:`(*, out\_channels)`.
+        Tensor of shape :math:`(*, out\_channels)`. The `output_size` in `Args` should be equal to :math:`out\_channels`
+        in `Outputs`.
 
     Raises:
         ValueError: `sequence_parallel` should be False when `input_is_parallel` is False , but got True.
@@ -947,12 +952,12 @@ class RowParallelLinear(nn.Cell):
 
 
 class VocabParallelEmbedding(nn.Cell):
-    """
+    r"""
     Embedding parallelized in the vocabulary dimension.
 
     Args:
-        num_embeddings: vocabulary size.
-        embedding_dim: size of hidden state.
+        num_embeddings (int): vocabulary size.
+        embedding_dim (int): size of hidden state.
         init_method (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The values
             of str refer to the function `initializer`.
         reduce_scatter_embeddings (bool): Decides whether to perform ReduceScatter after embedding lookup. Default:
@@ -961,7 +966,7 @@ class VocabParallelEmbedding(nn.Cell):
         param_init_dtype (dtype.Number): The parameter initialization type. Default: ``None``.
 
     Inputs:
-        - **input_** (Tensor) - Tensor of shape (B, S) or (S, B).
+        - **input\_** (Tensor) - Tensor of shape (B, S) or (S, B).
 
     Outputs:
         - **output** (Tensor) - Tensor of shape (B, S, H) or (S, B, H), which is consistent with the input.
