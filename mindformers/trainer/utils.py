@@ -467,7 +467,6 @@ def load_slora_ckpt(checkpoint_dict, config, network):
         path_dict = json.load(file)
     adapter_dict = {adapter_name: load_checkpoint(os.path.join(adapter_path, "adapter_model.ckpt"))
                     for adapter_name, adapter_path in path_dict.items()}
-    adapter_size = len(adapter_dict) + 1
 
     # collect lora weights
     slora_params = {}
@@ -485,7 +484,7 @@ def load_slora_ckpt(checkpoint_dict, config, network):
                 lora_param = ops.zeros(lora_shape)
             slora_param = ops.cast(slora_param, lora_param.dtype)
             slora_param = ops.cat((slora_param, lora_param))
-        slora_params[param_name] = Parameter(slora_param.reshape((adapter_size,) + lora_shape))
+        slora_params[param_name] = Parameter(slora_param.reshape(param_shape))
 
     dst_checkpoint_dir = next(iter(path_dict.values()))
     if config.auto_trans_ckpt:
