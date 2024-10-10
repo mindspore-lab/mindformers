@@ -38,6 +38,7 @@ from mindformers.tools.utils import get_predict_run_mode
 from .mixtral_layer import MixtralFeedForward
 from .mixtral_moe import MixtralMoEV2
 
+
 class MixtralAttention(nn.Cell):
     r"""
     This is an implementation of multihead attention in LLaMA.
