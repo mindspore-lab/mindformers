@@ -15,7 +15,7 @@
 
 """mindformers init"""
 
-__version__ = "dev"
+__version__ = "r1.3.0"
 
 from mindformers import (
     core,
