@@ -115,26 +115,73 @@ def _merge_heads(x):
 
 class CoreAttention(nn.Cell):
     r"""
-    Get the weighted score along the seq_length.
+    This class can get the weighted score along the seq_length. It is used within a larger framework to compute the
+    context layer based on query, key, and value layers and an attention mask.
 
     Args:
         layer_number (int): Number which indicates the index of this transformer layer in the
             whole transformer block.
-        config (dict): Configuration.
-        attn_type (str): Attention type. Support ['self_attn', 'cross_attn']. Default: 'self_attn'.
+        config (dict): A configuration dictionary that provides various settings for the attention mechanism.
+        attn_mask_type (int): Attention type. Support [AttnMaskType::padding = 1, AttnMaskType::causal = 2].
+            Default: ``1``.
 
     Inputs:
-        - **query** (Tensor) - Tensor of query matrix.
-        - **key** (Tensor) - Tensor of key matrix.
-        - **value** (Tensor) - Tensor of value matrix.
-        - **attention_mask** (Tensor) - Tensor of attention mask matrix.
+        - **query_layer** (Tensor) - The query tensor of shape :math:`(B, N, S, D)`.
+        - **key_layer** (Tensor) - The key tensor of shape :math:`(B, N, S, D)`.
+        - **value_layer** (Tensor) - The value tensor of shape :math:`(B, N, S, D)`.
+        - **attention_mask** (Tensor) - The attention mask tensor of shape :math:`(B, N, S_q, S_k)'.
 
     Outputs:
-        - **attn_output** (Tensor) - Tensor of shape :math:`(B, S, H)`.
+        - **context_layer** (Tensor) - Tensor of shape :math:`(B, S, H)`.
+
+    Raises:
+        NotImplementedError: If 'masked_softmax_fusion' in config is true.
 
     Supported Platforms:
         ``Ascend``
-    """
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import numpy as np
+        >>> import mindspore as ms
+        >>> import mindspore.nn as nn
+        >>> from mindspore import Tensor
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.transformer import CoreAttention
+        >>> from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> class MyNet(nn.Cell):
+        ...     def __init__(self, config):
+        ...         super(MyNet, self).__init__()
+        ...         self.core_attn = CoreAttention(layer_number=1, config=config)
+        ...     def construct(self, x, mask):
+        ...         out = self.core_attn(x, x, x, mask)
+        ...         return out
+        ...
+        >>> ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
+        >>> init()
+        >>> initialize_model_parallel(tensor_model_parallel_size=2)
+        >>> parallel_config = ModelParallelConfig(tensor_model_parallel_size=2)
+        >>> config = TransformerConfig(vocab_size=1,
+        >>>                            num_layers=1,
+        >>>                            num_attention_heads=8,
+        >>>                            num_query_groups=4,
+        >>>                            hidden_size=256,
+        >>>                            ffn_hidden_size=256,
+        >>>                            parallel_config=parallel_config)
+        >>> input_shape = (1024, 32, 4, 256)
+        >>> input = Tensor(np.random.standard_normal(input_shape).astype(np.float32))
+        >>> mask = np.ones((32, 1024, 1024), dtype=np.uint8)
+        >>> mask = Tensor(np.expand_dims(mask, axis=1))
+        >>> out = MyNet(config=config)(input, mask)
+        """
 
     def __init__(self, layer_number, config, attn_mask_type=AttnMaskType.padding):
         super(CoreAttention, self).__init__()
@@ -242,26 +289,82 @@ class CoreAttention(nn.Cell):
 
 class ParallelAttention(Module):
     r"""
-    Parallel attention block.
+    This class represents a parallel attention mechanism. It can handle different attention types and is configurable
+    with various parameters.
 
     Args:
-        layer_index (int): Number which indicates the index of this transformer layer in the
+        config (dict): Configuration dictionary for the parallel attention.
+        layer_number (int): Number which indicates the index of this transformer layer in the
             whole transformer block.
-        config (dict): Configuration.
-        attn_type (str): Attention type. Support ['self_attn', 'cross_attn']. Default: 'self_attn'.
+        attention_type (int): Attention type. Support [AttnType::self_attn = 1, AttnType::cross_attn = 2].
+            Default: ``1``.
+        attn_mask_type (int): Attention mask type. Support [AttnMaskType::padding = 1, AttnMaskType::causal = 2].
+            Default: ``1``.
 
     Inputs:
         - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.
-        - **attention_mask** (Tensor) - Tensor of attention mask.
+        - **attention_mask** (Tensor) - The attention mask tensor of shape :math:`(B, N, S_q, S_k)'.
         - **encoder_output** (Tensor) - Tensor of encoder output used for cross attention. Default: None.
+        - **inference_params** (Tensor) - Tensor of inference params. Currently not supported. Default: None.
         - **rotary_pos_emb** (Tensor) - Tensor of rotary position embedding. Default: None.
 
     Outputs:
         - **output** (Tensor) - Tensor of shape :math:`(B, S, H)`.
+        - **bias** (Tensor) - The trainable bias parameter.
+
+    Raises:
+        ValueError: If 'attention_type' is neither 'AttnType::self_attn' nor 'AttnType::cross_attn'.
+        NotImplementedError: If 'attention_type' is 2 and 'group_query_attention' in config is true.
+        ValueError: If 'hidden_size' is not equal to 'kv_hidden_size' and 'attention_type' is 2.
+        NotImplementedError: If 'inference_params' is not none.
 
     Supported Platforms:
         ``Ascend``
-    """
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import numpy as np
+        >>> import mindspore as ms
+        >>> import mindspore.nn as nn
+        >>> from mindspore import Tensor
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.transformer import ParallelAttention
+        >>> from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> class MyNet(nn.Cell):
+        ...     def __init__(self, config):
+        ...         super(MyNet, self).__init__()
+        ...         self.attention = ParallelAttention(layer_number=1, config=config)
+        ...     def construct(self, x, attention_mask):
+        ...         output, _ = self.attention(x, attention_mask)
+        ...         return output
+        ...
+        >>> ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
+        >>> init()
+        >>> initialize_model_parallel(tensor_model_parallel_size=2)
+        >>> parallel_config = ModelParallelConfig(tensor_model_parallel_size=2)
+        >>> config = TransformerConfig(vocab_size=1,
+        >>>                            num_layers=1,
+        >>>                            num_attention_heads=8,
+        >>>                            num_query_groups=4,
+        >>>                            hidden_size=256,
+        >>>                            ffn_hidden_size=256,
+        >>>                            parallel_config=parallel_config)
+        >>> input_shape = (32, 1024, 256)
+        >>> input = Tensor(np.random.standard_normal(input_shape).astype(np.float32))
+        >>> mask = np.ones((32, 1024, 1024), dtype=np.uint8)
+        >>> mask = Tensor(np.expand_dims(mask, axis=1))
+        >>> out = MyNet(config=config)(input, mask)
+        >>> print(out.shape)
+        (32, 1024, 256)
+        """
 
     def __init__(self, config, layer_number, attention_type=AttnType.self_attn,
                  attn_mask_type=AttnMaskType.padding):
@@ -596,24 +699,89 @@ class ParallelAttention(Module):
 
 class ParallelTransformerLayer(Module):
     r"""
-    Single parallel transformer layer.
+    This class represents a parallel transformer layer. It combines normalization, attention,
+    cross attention (if applicable), and an MLP to process input hidden states.
 
     Args:
-        config (dict): Configuration.
-        layer_index (int): Number which indicates the index of this transformer layer in the
+        config (dict): Configuration dictionary for the transformer layer.
+        layer_number (int): Number which indicates the index of this transformer layer in the
             whole transformer block.
+        layer_type (int): Type of the layer. Support [LayerType::encoder = 1, LayerType::decoder = 2,
+            LayerType::retro_encoder = 3, LayerType::retro_decoder = 4, LayerType::retro_decoder_with_retriever = 5].
+            Default: ``1``.
+        self_attn_mask_type (int): Attention mask type. Support [AttnMaskType::padding = 1, AttnMaskType::causal = 2].
+            Default: ``1``.
+        drop_path_rate（float）：Drop path rate. Currently not supported if greater than 0. Default: ``0.0``
 
     Inputs:
         - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.
         - **attention_mask** (Tensor) - Tensor of attention mask.
+        - **encoder_output** (Tensor) - Encoder output tensor. Currently not supported. Default: None.
+        - **enc_dec_attn_mask** (Tensor) - Encoder-decoder attention mask tensor. Currently not supported.
+          Default: None.
+        - **retriever_input** (Tensor) - Retriever input tensor. Currently not supported. Default: None.
+        - **retriever_output** (Tensor) - Retriever output tensor. Currently not supported. Default: None.
+        - **retriever_attn_mask** (Tensor) - Retriever attention mask tensor. Currently not supported. Default: None.
+        - **inference_params** (Tensor) - Tensor of inference params. Currently not supported. Default: None.
         - **rotary_pos_emb** (Tensor) - Tensor of rotary position embedding. Default: None.
 
     Outputs:
         - **output** (Tensor) - Tensor of shape :math:`(B, S, H)`.
 
+    Raises:
+        NotImplementedError: If 'bias_dropout_fusion' in config is true.
+        NotImplementedError: If `drop_path_rate` greater than 0.
+        NotImplementedError: If 'retro_add_retriever' in config is true.
+        NotImplementedError: If `encoder_output`, `enc_dec_attn_mask`, `retriever_input`, `retriever_output`,
+            `retriever_attn_mask` or `inference_params` is not none.
+
     Supported Platforms:
         ``Ascend``
-    """
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import numpy as np
+        >>> import mindspore as ms
+        >>> import mindspore.nn as nn
+        >>> import mindspore.common.dtype as mstype
+        >>> from mindspore import Tensor
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.transformer import ParallelTransformerLayer
+        >>> from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> class MyNet(nn.Cell):
+        ...     def __init__(self, config):
+        ...         super(MyNet, self).__init__()
+        ...         self.layer = ParallelTransformerLayer(layer_number=1, config=config)
+        ...     def construct(self, x, attention_mask):
+        ...         output = self.layer(x, attention_mask)
+        ...         return output
+        ...
+        >>> ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
+        >>> init()
+        >>> initialize_model_parallel(tensor_model_parallel_size=2)
+        >>> parallel_config = ModelParallelConfig(tensor_model_parallel_size=2)
+        >>> config = TransformerConfig(vocab_size=1,
+        >>>                            num_layers=1,
+        >>>                            num_attention_heads=8,
+        >>>                            num_query_groups=4,
+        >>>                            hidden_size=256,
+        >>>                            ffn_hidden_size=256,
+        >>>                            parallel_config=parallel_config)
+        >>> input_shape = (32, 1024, 256)
+        >>> input = Tensor(np.random.standard_normal(input_shape).astype(np.float32))
+        >>> mask = Tensor(np.triu(np.ones((1024, 1024)), 1), mstype.uint8)
+        >>> out = MyNet(config=config)(input, mask).shape
+        >>> print(out)
+        (32, 1024, 256)
+        """
     # pylint: disable=W0613
     def __init__(self,
                  config,
@@ -887,23 +1055,95 @@ def _get_num_layers(config, model_type, is_decoder=False):
 
 class ParallelTransformer(Module):
     r"""
-    Parallel transformer class.
+    This class represents a parallel transformer. It consists of multiple transformer layers and can handle various
+    configurations and processing steps.
 
     Args:
-        config (dict): Configuration.
-        post_norm (bool): Insert normalization layer at the end of transformer block. Default: True.
+        config (dict): Configuration dictionary for the parallel transformer.
+        model_type (int): Type of the model. Support [ModelType::retro_encoder = 3].
+        layer_type (int): Type of the layer. Support [LayerType::encoder = 1, LayerType::decoder = 2,
+            LayerType::retro_encoder = 3, LayerType::retro_decoder = 4, LayerType::retro_decoder_with_retriever = 5].
+            Default: ``1``.
+        self_attn_mask_type (int): Attention mask type. Support [AttnMaskType::padding = 1, AttnMaskType::causal = 2].
+            Default: ``1``.
+        post_norm (bool): Insert normalization layer at the end of transformer block. Default: ``True``.
+        pre_process (bool): When using pipeline parallel, indicate whether it's the first stage. Default: ``False``.
+        post_process (bool): When using pipeline parallel, indicate whether it's the last stage. Default: ``False``.
+        drop_path_rate (float): Drop path rate. Currently not supported if greater than 0. Default: ``0.0``
 
     Inputs:
         - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.
         - **attention_mask** (Tensor) - Tensor of attention mask.
+        - **encoder_output** (Tensor) - Encoder output tensor. Currently not supported. Default: None.
+        - **enc_dec_attn_mask** (Tensor) - Encoder-decoder attention mask tensor. Currently not supported.
+          Default: None.
+        - **retriever_input** (Tensor) - Retriever input tensor. Currently not supported. Default: None.
+        - **retriever_output** (Tensor) - Retriever output tensor. Currently not supported. Default: None.
+        - **retriever_attn_mask** (Tensor) - Retriever attention mask tensor. Currently not supported. Default: None.
+        - **inference_params** (Tensor) - Tensor of inference params. Currently not supported. Default: None.
         - **rotary_pos_emb** (Tensor) - Tensor of rotary position embedding. Default: None.
 
     Outputs:
         - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.
 
+    Raises:
+        NotImplementedError: If `drop_path_rate` greater than 0.
+        NotImplementedError: If 'distribute_saved_activations' in config is true and 'sequence_parallel' in config is
+            false.
+        NotImplementedError: If `transformer_impl` in config is 'transformer_engine'.
+        NotImplementedError: If `fp8` in config is not none.
+        NotImplementedError: If `retro_add_retriever` in config is true.
+        NotImplementedError: If `encoder_output`, `enc_dec_attn_mask`, `retriever_input`, `retriever_output`,
+            `retriever_attn_mask` or `inference_params` is not none.
+
     Supported Platforms:
         ``Ascend``
-    """
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import numpy as np
+        >>> import mindspore as ms
+        >>> import mindspore.nn as nn
+        >>> import mindspore.common.dtype as mstype
+        >>> from mindspore import Tensor
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.transformer import ParallelTransformer
+        >>> from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> class MyNet(nn.Cell):
+        ...     def __init__(self, config):
+        ...         super(MyNet, self).__init__()
+        ...         self.transformer = ParallelTransformer(config=config, model_type=None)
+        ...     def construct(self, x, attention_mask):
+        ...         output = self.transformer(x, attention_mask)
+        ...         return output
+        ...
+        >>> ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
+        >>> init()
+        >>> initialize_model_parallel(tensor_model_parallel_size=2)
+        >>> parallel_config = ModelParallelConfig(tensor_model_parallel_size=2)
+        >>> config = TransformerConfig(seq_length=16,
+        >>>                            vocab_size=1,
+        >>>                            num_layers=1,
+        >>>                            num_attention_heads=8,
+        >>>                            num_query_groups=4,
+        >>>                            hidden_size=256,
+        >>>                            ffn_hidden_size=256,
+        >>>                            parallel_config=parallel_config)
+        >>> input_shape = (32, 1024, 256)
+        >>> input = Tensor(np.random.standard_normal(input_shape).astype(np.float32))
+        >>> mask = Tensor(np.triu(np.ones((1024, 1024)), 1), mstype.uint8)
+        >>> out = MyNet(config=config)(input, mask).shape
+        >>> print(out)
+        (32, 1024, 256)
+        """
 
     def __init__(self,
                  config,
@@ -1220,9 +1460,9 @@ class ParallelLMLogits(nn.Cell):
 
     Args:
         config (dict): Parallel configuration.
-        bias (bool): Specifies whether the layer uses a bias vector. Default: False.
+        bias (bool): Specifies whether the layer uses a bias vector. Default: ``False``.
         transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
-        compute_dtype (dtype.Number): The computation type. Default: None.
+        compute_dtype (dtype.Number): The computation type. Default: ``None``.
 
     Inputs:
         - **input_** (Tensor) - Tensor of hidden states.
