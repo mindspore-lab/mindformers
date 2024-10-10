@@ -28,13 +28,26 @@ from .utils import MoEAuxLossAutoScaler, switch_load_balancing_loss_func, topk_s
 
 
 class TopKRouter(nn.Cell):
-    """    TopK router.    """
-    def __init__(self, config: TransformerConfig):
-        """Initialize dropless router.
+    """
+    TopK router.
 
-        Args:
-            config: configuration.
-        """
+    Args:
+        config (TransformerConfig): Configuration object for the transformer model.
+
+    Inputs:
+        - **input** (Tensor) - input tensor.
+
+    Outputs:
+        Tuple of 2 Tensors.
+
+        - **scores** (Tensor) - The probabilities tensor after load balancing.
+        - **indices** (Tensor) - The indices tensor after top-k selection.
+
+    Raises:
+        NotImplementedError: If `self.routing_type` is equal to "sinkhorn".
+        ValueError: If `self.routing_type` is not equal to "none".
+    """
+    def __init__(self, config: TransformerConfig):
         super(TopKRouter, self).__init__()
         self.config = config
         self.moe_config = config.moe_config
@@ -95,7 +108,18 @@ class TopKRouter(nn.Cell):
         return scores, indices
 
     def aux_loss_load_balancing(self, logits):
-        """aux loss balancing"""
+        """
+        Apply aux loss balancing to the logits tensor.
+
+        Args:
+            logits (Tensor): the logits tensor after gating, shape: [num_tokens, num_experts].
+
+        Returns:
+            Tuple of Tensor
+
+            - **probs** (Tensor) - The probabilities tensor after load balancing.
+            - **indices** (Tensor) - The indices tensor after top-k selection.
+        """
         probs, indices, tokens_per_expert = topk_softmax_with_capacity(
             logits,
             self.topk,
@@ -109,7 +133,17 @@ class TopKRouter(nn.Cell):
         return probs, ops.cast(indices, ms.int32)
 
     def apply_load_balancing_loss(self, probs, num_local_tokens_per_expert, activation):
-        """apply load balancing loss"""
+        """
+        Applies auxiliary loss to the MoE layer.
+
+        Args:
+            probs (Tensor): The probs output by the router for each token, shape: [num_tokens, num_experts].
+            num_local_tokens_per_expert (Tensor): The number of tokens per expert, shape: [num_experts].
+            activation (Tensor): The activation tensor to attach the gradient function to.
+
+        Returns:
+            Tensor, the activation tensor with the attached gradient function.
+        """
         moe_aux_loss_coeff = self.moe_config.moe_aux_loss_coeff
         sequence_partition_group = None
         if self.moe_config.moe_token_dispatcher_type == "alltoall":
@@ -127,6 +161,16 @@ class TopKRouter(nn.Cell):
         return activation
 
     def apply_z_loss(self, logits):
+        """
+        Encourages the router's logits to remain small to enhance stability.
+        Please refer to the ST-MoE paper `ST-MoE paper <https://arxiv.org/pdf/2202.08906.pdf>`_ for details.
+
+        Args:
+            logits (Tensor): The logits of the router.
+
+        Returns:
+            Tensor, the logits after applying the z-loss.
+        """
         if self.moe_config.moe_z_loss_coeff is not None and self.training:
             moe_z_loss_coeff = (
                 self.moe_config.moe_z_loss_coeff
