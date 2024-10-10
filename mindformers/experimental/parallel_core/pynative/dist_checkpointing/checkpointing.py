@@ -33,7 +33,7 @@ import mindspore as ms
 from mindspore import nn
 from mindspore import _checkparam as validator
 from mindspore.ops import operations as P
-from mindspore.communication.comm_func import all_gather_into_tensor
+import mindspore.communication.comm_func as comm_func
 try:
     from mindspore import default_generator, set_rng_state
 except ImportError:
@@ -123,7 +123,7 @@ def load_rng_state(param_dict):
 
 def _update_zero(params_dict, shard_info, param, group):
     """ allgather param among dp region when using zero optimizer. """
-    tensor_concat = all_gather_into_tensor(param, group=group)[0]
+    tensor_concat = comm_func.all_gather_into_tensor(param, group=group)[0]
     params_dict[param.name] = ms.Parameter(tensor_concat, name=param.name)
     shard_info[param.name]['opt_weight_shard_size'] = 0
     shard_info[param.name]['opt_weight_shard_step'] = 0
