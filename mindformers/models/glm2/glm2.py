@@ -74,7 +74,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         self.is_first_iteration = True
         # default open internal kernel boost
         self.disable_custom_fa = get_disable_custom_fa()
-        logger.info("disable custom flash attention score op:{}".format(self.disable_custom_fa))
+        logger.info("Open prefill flatten and disable custom flash attention op:{}".format(self.disable_custom_fa))
 
         # mask
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,

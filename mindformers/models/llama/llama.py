@@ -92,7 +92,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.reshape = P.Reshape()
         # default open internal kernel boost
         self.disable_custom_fa = get_disable_custom_fa()
-        logger.info("disable custom flash attention score op:{}".format(self.disable_custom_fa))
+        logger.info("Open prefill flatten and disable custom flash attention op:{}".format(self.disable_custom_fa))
         if self.disable_custom_fa:
             self.prefill_flatten_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
 
