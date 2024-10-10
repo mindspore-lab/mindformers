@@ -4,7 +4,7 @@ training_config:
   training_iters: 10
   log_interval: 1
   eval_interval: null
-  save_interval: 1
+  save_interval: 5
   loss_scale: 1
   loss_reduction: "mean"
   loss_func_kwargs:
@@ -62,7 +62,7 @@ model_config:
   position_embedding_type: 'rope'
 
 moe_config:
-  num_experts: 2
+  num_experts: 1
   moe_router_topk: 2
   moe_token_dispatcher_type: 'alltoall'
   moe_z_loss_coeff: 1.e-3
