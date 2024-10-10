@@ -62,7 +62,6 @@ MODEL_TO_TRAINER_MAPPING = {
 VOCAB_FILES_NAMES = {"tokenizer_file": TOKENIZER_FILE}
 
 
-
 # pylint: disable=W0223
 class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
     r"""
