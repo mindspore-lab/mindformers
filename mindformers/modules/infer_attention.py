@@ -380,8 +380,8 @@ class InferAttention(Cell):
             if self.disable_custom_fa:
                 bs, seq_len, _ = query.shape
                 query = self.reshape(query, (-1, self.n_head * self.head_dim))
-                value = self.reshape(value, (-1, self.n_head * self.head_dim))
-                key = self.reshape(key, (-1, self.n_head * self.head_dim))
+                key = self.reshape(key, (-1, self.n_kv_head * self.head_dim))
+                value = self.reshape(value, (-1, self.n_kv_head * self.head_dim))
                 output = self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None, actual_seq_qlen,
                                               actual_seq_kvlen)  # B*S, N, D
                 output = self.reshape(output, (bs, seq_len, self.n_head * self.head_dim))  # B, S, H
