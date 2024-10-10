@@ -138,11 +138,6 @@ class ModelRunner:
             Rank size used for infer. Default: ``1``.
         npu_device_ids (list[int], optional):
             Get npu_device_ids from MindIE config. Default: ``None``.
-        model_role (str):
-            The role of model is prefill, decoder or standard.
-            If model_role is prefill or decoder, representing Prefill-Decoder separation scenario.
-            If model_role is standard, representing Prefill-Decoder mixed deployment scenario.
-            Default: ``standard``.
         plugin_params (str, optional):
             A JSON string that contains additional plugin parameters. Default: ``None``.
 
@@ -158,16 +153,15 @@ class ModelRunner:
         >>> rank_id = 0
         >>> world_size = 1
         >>> npu_device_ids = [0]
-        >>> model_role = "standard"
         >>> model_runner = ModelRunner(model_path=model_path, npu_mem_size=npu_mem_size, cpu_mem_size=cpu_mem_size,
         >>>                            block_size=block_size, rank_id=rank_id, world_size=world_size,
-        >>>                            npu_device_ids=npu_device_ids, model_role=model_role)
+        >>>                            npu_device_ids=npu_device_ids)
         >>> type(model_runner)
         <class 'mindformers.model_runner.MindIEModelRunner'>
     """
 
     def __new__(cls, model_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0, world_size=1,
-                npu_device_ids=None, model_role="standard", plugin_params=None):
+                npu_device_ids=None, plugin_params=None):
         config_path = _get_model_config(model_path)
         config = MindFormerConfig(config_path)
         model_type = config.model.arch.type
@@ -182,7 +176,7 @@ class ModelRunner:
                             f"and will use the default one defined in mindformers.")
 
         model_runner = model_runner_cls(model_path, config_path, npu_mem_size, cpu_mem_size,
-                                        block_size, rank_id, world_size, npu_device_ids, model_role, plugin_params)
+                                        block_size, rank_id, world_size, npu_device_ids, plugin_params)
         return model_runner
 
 
@@ -193,7 +187,9 @@ class MindIEModelRunner:
     Args:
         model_path(str):
             The model config path contains model config file and tokenizer file.
-        config_path (PretrainedConfig):
+        experiment_mode (bool):
+            Is experiment model.
+        model_config (PretrainedConfig):
             Model config.
         npu_mem_size (int):
             Npu memory size used for kv-cache.
@@ -207,17 +203,12 @@ class MindIEModelRunner:
             Rank size used for infer.
         npu_device_ids (list[int]):
             Get npu_device_ids from MindIE config.
-        model_role (str):
-            The role of model is prefill, decoder or standard.
-            If model_role is prefill or decoder, representing Prefill-Decoder separation scenario.
-            If model_role is standard, representing Prefill-Decoder mixed deployment scenario.
-            Default: ``standard``.
         plugin_params (str):
             A JSON string that contains additional plugin parameters.
     """
 
     def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0,
-                 world_size=1, npu_device_ids=None, model_role="standard", plugin_params=None):
+                 world_size=1, npu_device_ids=None, plugin_params=None):
         self.config = MindFormerConfig(config_path)
         # register to Auto Class
         register_auto_class(self.config, model_path, class_type="AutoConfig")
@@ -229,7 +220,6 @@ class MindIEModelRunner:
             self.config.use_parallel = True
             os.environ['MS_WORKER_NUM'] = str(world_size)
             os.environ['MS_ROLE'] = 'MS_WORKER'
-            os.environ['MS_NODE_ID'] = str(npu_device_ids[0])
             if rank_id == 0 and os.fork() == 0:
                 os.environ['MS_ROLE'] = 'MS_SCHED'
                 init()
@@ -295,13 +285,12 @@ class MindIEModelRunner:
         seq_length = self.model_config.seq_length
         input_ids = np.ones(shape=tuple([batch_size, seq_length]))
         inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
-        is_pd_detach = model_role in ("prefill", "decoder")
         if self.config.checkpoint_format == 'safetensors':
             _transform_and_load_safetensors(ms_model, self.model, inputs, self.config.load_checkpoint,
                                             self.config.load_safetensors, self.config.output_dir,
                                             self.config.use_parallel)
         else:
-            transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, is_pd_detach, do_predict=True)
+            transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
         logger.info(f"Load checkpoints finished.")
 
         if self.model_config.is_dynamic:
