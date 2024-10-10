@@ -609,3 +609,40 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         key_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache
         value_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.value_cache
         return key_cache, value_cache
+
+    def convert_name(self, weight_name):
+        """convert HuggingFace weight name to MindFormers weight name"""
+        weight_name = weight_name.replace('embed_tokens.', 'tok_embeddings.')
+        weight_name = weight_name.replace('.self_attn.q_proj.', '.attention.wq.')
+        weight_name = weight_name.replace('.self_attn.k_proj.', '.attention.wk.')
+        weight_name = weight_name.replace('.self_attn.v_proj.', '.attention.wv.')
+        weight_name = weight_name.replace('.self_attn.o_proj.', '.attention.wo.')
+        weight_name = weight_name.replace('.mlp.gate_proj.', '.feed_forward.w1.')
+        weight_name = weight_name.replace('.mlp.down_proj.', '.feed_forward.w2.')
+        weight_name = weight_name.replace('.mlp.up_proj.', '.feed_forward.w3.')
+        weight_name = weight_name.replace('.input_layernorm.', '.attention_norm.')
+        weight_name = weight_name.replace('.post_attention_layernorm.', '.ffn_norm.')
+        weight_name = weight_name.replace('.norm.', '.norm_out.')
+        weight_name = weight_name.replace('output.', 'lm_head.')
+        weight_name = weight_name.replace('.tok_embeddings.weight', '.tok_embeddings.embedding_weight')
+        return weight_name
+
+    def convert_weight_dict(self, source_dict):
+        """convert HuggingFace weight dict to MindFormers weight dict"""
+        target_dict = {}
+
+        for k, v in source_dict.items():
+            k = self.convert_name(k)
+            target_dict.update({k: v})
+
+        return target_dict
+
+    def convert_map_dict(self, source_dict):
+        """convert HuggingFace map dict to MindFormers map dict"""
+        target_dict = {}
+
+        for k, v in source_dict.items():
+            k = self.convert_name(k)
+            target_dict.update({k: v})
+
+        return target_dict
