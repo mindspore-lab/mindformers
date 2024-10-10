@@ -15,14 +15,15 @@
 """ Distributed optimizer wrapper. """
 from collections import OrderedDict
 import json
+import numpy as np
 
 import mindspore as ms
 import mindspore.ops as ops
 from mindspore.common import dtype as mstype
-from mindspore.common.initializer import Zero
 from mindspore.communication.management import get_group_size, get_rank
 from mindspore.communication.comm_func import all_gather_into_tensor
 
+from mindformers.tools.logger import logger
 from mindformers.experimental.parallel_core.pynative.distributed import ParamAndGradBuffer
 
 from .optimizer import MixedPrecisionOptimizer
@@ -386,7 +387,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             for ele in [shard_param, shard_exp_avg, shard_exp_avg_sq]:
                 weight = state_dict.get(ele.name)
                 if weight is None:
-                    raise ValueError(f"Fail to get weight of '{ele.name}' from state dict.")
+                    logger.warning(f"Fail to get weight of '{ele.name}' from state dict.")
                 ele.copy_(weight.view(-1)[param_start: param_end])
 
     def _load_state_dict_from_dp_zero(self, state_dict):
@@ -585,29 +586,29 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         for buffer_index, bucket_index, shard_start, shard_end in self.param_buffer_dp_views:
             param_range_map_this_bucket = self.param_ranges_map[buffer_index][bucket_index]
             # create dummy tensor for this bucket shard, which will be used to save checkpoint
-            param_shard = ms.Tensor(shape=(shard_end-shard_start), dtype=mstype.float32, init=Zero())
-            exp_avg_shard = ms.Tensor(shape=(shard_end-shard_start), dtype=mstype.float32, init=Zero())
-            exp_avg_sq_shard = ms.Tensor(shape=(shard_end-shard_start), dtype=mstype.float32, init=Zero())
+            param_shard = np.zeros(shape=(shard_end - shard_start), dtype=np.float32)
+            exp_avg_shard = np.zeros(shape=(shard_end - shard_start), dtype=np.float32)
+            exp_avg_sq_shard = np.zeros(shape=(shard_end - shard_start), dtype=np.float32)
             # copy param data into dummy tensor
             for param, range_map in param_range_map_this_bucket.items():
                 start_idx, end_idx = range_map['range_in_shard']
                 param_id_in_opt = self.param_idx_in_opt[param.name]
-                param_shard[start_idx:end_idx].copy_(self.optimizer.parameters[param_id_in_opt])
-                exp_avg_shard[start_idx:end_idx].copy_(self.optimizer.exp_avg[param_id_in_opt])
-                exp_avg_sq_shard[start_idx:end_idx].copy_(self.optimizer.exp_avg_sq[param_id_in_opt])
+                param_shard[start_idx:end_idx] = self.optimizer.parameters[param_id_in_opt].contiguous().asnumpy()
+                exp_avg_shard[start_idx:end_idx] = self.optimizer.exp_avg[param_id_in_opt].contiguous().asnumpy()
+                exp_avg_sq_shard[start_idx:end_idx] = self.optimizer.exp_avg_sq[param_id_in_opt].contiguous().asnumpy()
             shard_name = 'buffer_{}_bucket_{}'.format(buffer_index, bucket_index)
             param_dict[shard_name] = ms.Parameter(
-                param_shard.copy(),
+                ms.Tensor(param_shard),
                 name=shard_name,
                 requires_grad=False
             )
             param_dict['exp_avg.'+shard_name] = ms.Parameter(
-                exp_avg_shard.copy(),
+                ms.Tensor(exp_avg_shard),
                 name='exp_avg.'+shard_name,
                 requires_grad=False
             )
             param_dict['exp_avg_sq.'+shard_name] = ms.Parameter(
-                exp_avg_sq_shard.copy(),
+                ms.Tensor(exp_avg_sq_shard),
                 name='exp_avg_sq.'+shard_name,
                 requires_grad=False
             )
