@@ -220,12 +220,12 @@ class RingAttention(nn.Cell):
             with ms.hal.StreamCtx(stream_send):
                 send_op(send_tensor)
             with ms.hal.StreamCtx(stream_recv):
-                recv_tensor = recv_op(Tensor(0.0, dtype=send_tensor.dtype))[0]
+                recv_tensor = recv_op(Tensor(0.0, dtype=send_tensor.dtype))
             send_recv_ops.append(stream_send)
             send_recv_ops.append(stream_recv)
         else:
             with ms.hal.StreamCtx(stream_recv):
-                recv_tensor = recv_op(Tensor(0.0, dtype=send_tensor.dtype))[0]
+                recv_tensor = recv_op(Tensor(0.0, dtype=send_tensor.dtype))
             with ms.hal.StreamCtx(stream_send):
                 send_op(send_tensor)
 
