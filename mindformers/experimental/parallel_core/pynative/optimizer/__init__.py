@@ -19,10 +19,7 @@ from mindspore import mint, ops
 from mindspore.common import dtype as mstype
 from mindspore.nn import Adam, SGD
 from mindspore.nn.optim.optimizer import Optimizer
-#try:
-#    from mindspore.experimental.optim.adamw import SpeedAdamW
-#except ImportError:
-#    print("Warning: Unable to import Aclop AdamW from mindspore, please check the mindspore installation version.")
+from mindspore.experimental.optim.adamw import SpeedAdamW
 
 from mindformers.core.optim import Came
 from mindformers.core.optim import AdamW as mf_AdamW
@@ -50,10 +47,8 @@ ModuleRegistry.register(Adam, ModuleType.OPTIMIZER)
 ModuleRegistry.register(SGD, ModuleType.OPTIMIZER)
 ModuleRegistry.register(Came, ModuleType.OPTIMIZER)
 ModuleRegistry.register(mint.optim.AdamW, ModuleType.OPTIMIZER, item_name='mint.AdamW')
-#try:
-    #ModuleRegistry.register(SpeedAdamW, ModuleType.OPTIMIZER, item_name='SpeedAdamW')
-#except ValueError:
-#    print("Warning: Aclop AdamW SpeedAdamW not exists.")
+ModuleRegistry.register(SpeedAdamW, ModuleType.OPTIMIZER, item_name='SpeedAdamW')
+
 
 def get_ditributed_optimizer(optimizer, optimizer_config, training_config, model_chunks):
     " warp non-parallel optimizer with distributed optimizer. "
