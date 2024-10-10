@@ -33,6 +33,7 @@ from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.version_control import get_tril
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.llama.llama_layer import LlamaEmbedding
+from mindformers.tools.utils import get_predict_run_mode
 
 from ..utils import lazy_inline
 from .glm2_config import ChatGLM2Config
@@ -257,6 +258,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         self.reshape = P.Reshape()
         self.load_checkpoint(config)
         self.vocab_size = config.padded_vocab_size
+        self.predict_run_mode = get_predict_run_mode()
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """prepare inputs for generation."""
@@ -348,11 +350,11 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
 
                 outputs = logits, labels, input_mask
 
-        # generation process
-        if (not self.use_past or self.is_first_iteration) and input_position is not None:
-            lm_logits = lm_logits.reshape((-1, lm_logits.shape[-1]))
-            lm_logits = self.gather(lm_logits, input_position, 0)
-            outputs = (lm_logits,)
+        if not self.training:
+            lm_logits = self.cast(lm_logits, mstype.float32)
+            if self.predict_run_mode:
+                lm_logits = self.reshape(lm_logits, (-1, lm_logits.shape[-1]))
+                outputs = (lm_logits,)
 
         return outputs
 
