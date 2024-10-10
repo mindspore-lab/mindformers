@@ -19,7 +19,7 @@ import pytest
 
 class TestParallelTransformer:
     """A test class for testing Linear."""
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     @pytest.mark.run(order=2)
@@ -47,7 +47,7 @@ class TestParallelTransformer:
         ret = os.system(cmd)
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_custom_recompute_transformer/worker_0.log -C 3")
         assert ret == 0, "msrun failed, please check msrun_log_custom_recompute_transformer/worker_*.log"
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     @pytest.mark.run(order=2)
@@ -76,7 +76,7 @@ class TestParallelTransformer:
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_custom_recompute_transformer/worker_0.log -C 3")
         assert ret == 0, "msrun failed, please check msrun_log_custom_recompute_transformer/worker_*.log"
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     @pytest.mark.run(order=2)
@@ -105,7 +105,7 @@ class TestParallelTransformer:
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_custom_recompute_transformer/worker_0.log -C 3")
         assert ret == 0, "msrun failed, please check msrun_log_custom_recompute_transformer/worker_*.log"
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     @pytest.mark.run(order=2)

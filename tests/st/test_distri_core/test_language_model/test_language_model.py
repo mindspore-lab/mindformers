@@ -19,12 +19,10 @@ import pytest
 from tests.st.test_distri_core.utils import read_loss_from_log
 
 
-@pytest.mark.level0
-@pytest.mark.platform_arm_ascend910b_training
-@pytest.mark.env_single
 class TestLanguageModel:
     """A test class for language model."""
 
+    @pytest.mark.level0
     @pytest.mark.skip(reason="Get golden loss from records")
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
@@ -55,6 +53,7 @@ class TestLanguageModel:
         os.system(f"grep -E 'ERROR|error' {sh_path}/{log_dir}/worker_0.log -C 3")
         assert ret == 0, f"msrun failed, please check {log_dir}/worker_*.log"
 
+    @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     @pytest.mark.run(order=2)
@@ -84,6 +83,8 @@ class TestLanguageModel:
         os.system(f"grep -E 'ERROR|error' {sh_path}/{log_dir}/worker_0.log -C 3")
         assert ret == 0, f"msrun failed, please check {log_dir}/worker_*.log"
 
+    @pytest.mark.level0
+    @pytest.mark.env_single
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.run(order=3)
     def test_compare_loss(self):
