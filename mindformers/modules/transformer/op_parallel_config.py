@@ -127,17 +127,31 @@ class ContextParallelAlgo(Enum):
 
 class OpParallelConfig(_Config):
     r"""
-        OpParallelConfig for the setting data parallel and model parallel.
+        Configuration for operator parallelism, used to set the method of operator-level parallelism.
 
         Args:
-            data_parallel (int): The data parallel way. Default: 1
-            model_parallel (int): The model parallel way. Default: 1
-        Supported Platforms:
-            ``Ascend`` ``GPU``
+            data_parallel (int): The number of data parallel. Default: ``1`` .
+            model_parallel (int): The number of model parallel. Default: ``1`` .
+            use_seq_parallel (bool, optional): Whether to use sequence parallelism. Default: ``False`` .
+            context_parallel (int, optional): The number of context parallelism. Default: ``1`` .
+            select_recompute (bool, optional): Whether to select recomputation. Default: ``False`` .
+            context_parallel_algo (str, optional):  The context parallelism algorithm,
+                with options ``"colossalai_cp"`` and ``"ulysses_cp"`` . Default: ``"colossalai_cp"`` .
+
+        Returns:
+            Instance of OpParallelConfig.
 
         Examples:
             >>> from mindformers.modules import OpParallelConfig
             >>> config=OpParallelConfig(data_parallel=1, model_parallel=1)
+            >>> print(config)
+            [ParallelConfig]
+            _data_parallel:1
+            _model_parallel:1
+            _context_parallel:1
+            use_seq_parallel:False
+            select_recompute:False
+            context_parallel_algo:ContextParallelAlgo.colossalai_cp
     """
 
     def __init__(self, data_parallel=1, model_parallel=1, use_seq_parallel=False, context_parallel=1,
