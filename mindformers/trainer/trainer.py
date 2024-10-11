@@ -256,9 +256,9 @@ class Trainer:
         if (isinstance(self.args, (str, MindFormerConfig)) or \
             (isinstance(self.args, TrainingArguments) and self.is_model_instance)) and \
                 self.task == 'general' and self.model_name != 'common':
-            logger.warning("When (`args` is MindformerConfig) or \
-                (`args` is TrainingArguments and a model instance is passed), \
-                    The `model_name` is invalid and set to 'common'.")
+            logger.warning("When (`args` is MindformerConfig) "
+                           "or (`args` is TrainingArguments and a model instance is passed), "
+                           "The `model_name` is invalid and set to 'common'.")
             self.model_name = 'common'
 
         self._check_args_task_and_model()
@@ -423,7 +423,7 @@ class Trainer:
 
         if self.config.resume_training:
             if os.path.isfile(self.config.load_checkpoint) and \
-                isinstance(self.config.resume_training, str):
+                    isinstance(self.config.resume_training, str):
                 logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
                                "when `load_checkpoint` is a file path.")
                 self.config.resume_training = True
@@ -563,7 +563,7 @@ class Trainer:
 
         if self.config.resume_training:
             if os.path.isfile(self.config.load_checkpoint) and \
-                isinstance(self.config.resume_training, str):
+                    isinstance(self.config.resume_training, str):
                 logger.warning(f"`resume_training={self.config.resume_training}` is not valid "
                                "when `load_checkpoint` is a file path.")
                 self.config.resume_training = True
@@ -751,6 +751,7 @@ class Trainer:
         self._init_model()
 
         self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
+        self._check_load_checkpoint()
 
         if input_data is None:
             input_data = build_dataset_loader(self.config.eval_dataset.data_loader)
@@ -1109,7 +1110,7 @@ class Trainer:
                 if self.config.profile_stop_step % sink_size != 0:
                     self.config.profile_stop_step += self.config.profile_stop_step % sink_size
                     self.config.profile_stop_step = max(self.config.profile_stop_step, \
-                        self.config.profile_start_step + sink_size)
+                                                        self.config.profile_start_step + sink_size)
                     logger.warning("profile_stop_step should divided by sink_size, \
                         set profile_stop_step to %s", self.config.profile_stop_step)
 
@@ -1316,7 +1317,7 @@ class Trainer:
                 self.config.model.model_config.checkpoint_name_or_path = self.default_checkpoint_name_or_path
 
     def _check_config_type(self):
-        """Check config type"""
+        """Check config type."""
         if self.config.resume_training is not None and not isinstance(self.config.resume_training, (bool, str)):
             raise TypeError(f"resume_training must be bool or str, "
                             f"but get {self.config.resume_training}")
@@ -1402,6 +1403,19 @@ class Trainer:
                                "===================================================================\n")
                 return
         return
+
+    def _check_load_checkpoint(self):
+        """Check load_checkpoint and auto_trans_ckpt in config."""
+        if not self.config.load_checkpoint:
+            if self.config.auto_trans_ckpt:
+                self.config.auto_trans_ckpt = False
+                logger.warning("load_checkpoint is None and `auto_trans_ckpt=True`, set `auto_trans_ckpt=False`.")
+            return
+        if (self.config.use_parallel and not self.config.auto_trans_ckpt
+                and os.path.isfile(self.config.load_checkpoint)
+                and self.config.load_checkpoint.endswith('.ckpt')):
+            self.config.auto_trans_ckpt = True
+            logger.info("If set `use_parallel=True` and load complete ckpt, set `auto_trans_ckpt=True`.")
 
     def push_to_hub(self, commit_message: Optional[str] = "End of training", blocking: bool = True) -> str:
         """
