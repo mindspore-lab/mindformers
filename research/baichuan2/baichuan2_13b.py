@@ -368,6 +368,12 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
             else:
                 alibi_tensor = self.gather(self.alibi_tensor, batch_valid_length, 2)
                 alibi_tensor = self.transpose(alibi_tensor, (2, 1, 0, 3))
+                alibi_tensor = self.slice(alibi_tensor,
+                                          (0, 0, 0, 0),
+                                          (alibi_tensor.shape[0], alibi_tensor.shape[1], alibi_tensor.shape[2],
+                                           block_tables.shape[1] * self.block_size),
+                                          (1, 1, 1, 1),
+                                          )
         # tokens: [bs, seq/1]
         h = self.tok_embeddings(tokens)
         h = self.reshape(h, (bs, seq_len, self.hidden_size))
