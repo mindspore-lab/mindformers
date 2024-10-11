@@ -63,3 +63,28 @@ def test_config_from_args():
     assert all_config.model_config.ffn_hidden_size == 16384
     assert abs(all_config.optimizer_config.betas[0] - 0.8) < allowed_error
     assert abs(all_config.optimizer_config.betas[1] - 0.9) < allowed_error
+
+
+@pytest.mark.level1
+@pytest.mark.platform_x86_cpu
+def test_vpp_config_from_args():
+    """
+    Feature: init configs from command, as the basic test.
+    Description: Test to initialize vpp related configs from command line
+    Expectation: success
+    """
+
+    args = argparse.Namespace()
+    args.num_layers_per_virtual_pipeline_stage = 2
+    args.pipeline_model_parallel_size = 2
+    args.num_layers = 8
+    args.padded_vocab_size = 32000
+    args.num_attention_heads = 32
+    args.hidden_size = 4096
+    args.ffn_hidden_size = 16384
+    model_type = "model_config"
+    all_config = init_configs_from_args(args, model_type)
+    assert all_config.model_config.num_layers == 8
+    assert all_config.parallel_config.pipeline_model_parallel_size == 2
+    assert all_config.parallel_config.num_layers_per_virtual_pipeline_stage == 2
+    assert all_config.parallel_config.pipeline_model_parallel_size == 2

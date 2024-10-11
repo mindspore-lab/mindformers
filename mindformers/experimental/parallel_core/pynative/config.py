@@ -137,7 +137,8 @@ mapping_dict = {
     'tensor_model_parallel_size': 'parallel_config.tensor_model_parallel_size',
     'context_parallel_size': 'parallel_config.context_parallel_size',
     'expert_model_parallel_size': 'parallel_config.expert_model_parallel_size',
-    'virtual_pipeline_modeL_parallel_size': 'parallel_config.virtual_pipeline_modeL_parallel_size',
+    'virtual_pipeline_model_parallel_size': 'parallel_config.virtual_pipeline_model_parallel_size',
+    'num_layers_per_virtual_pipeline_stage': 'parallel_config.num_layers_per_virtual_pipeline_stage',
     'sequence_parallel': 'parallel_config.sequence_parallel',
     'overlap_grad_reduce': 'parallel_config.overlap_grad_reduce',
     'pipeline_model_parallel_size': 'parallel_config.pipeline_model_parallel_size',
@@ -275,6 +276,11 @@ def modify_megatron_param(flatten_dict):
         data_parallel_size = flatten_dict.get('data_parallel_size', 1)
         micro_batch_num = flatten_dict['global_batch_size'] // (flatten_dict['micro_batch_size'] * data_parallel_size)
         flatten_dict['micro_batch_num'] = micro_batch_num
+
+    if 'num_layers_per_virtual_pipeline_stage' in flatten_dict and not flatten_dict.get('num_layer_list', None):
+        num_layers_per_pipeline_stage = flatten_dict['num_layers'] // flatten_dict['pipeline_model_parallel_size']
+        flatten_dict['virtual_pipeline_model_parallel_size'] = \
+            num_layers_per_pipeline_stage // flatten_dict['num_layers_per_virtual_pipeline_stage']
 
     return flatten_dict
 
@@ -987,7 +993,7 @@ def validate_num_layer_list(config_instance, num_layer_list):
     """Validate num_layer_list."""
     if num_layer_list is not None:
         if isinstance(num_layer_list, str):
-            num_layer_list = ast.literal_eval(num_layer_list)
+            num_layer_list = list(ast.literal_eval(num_layer_list))
         Validator.check_value_type("num_layer_list", num_layer_list, list)
     return num_layer_list
 
