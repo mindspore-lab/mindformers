@@ -76,7 +76,7 @@ def generate_ckpt(vocab_size, seq_length, hidden_size, num_layers, share_weight=
     return ckpt
 
 
-def run_pipeline(training_config, model_config, parallel_config, dataset_config):
+def run_pipeline(training_config, model_config, parallel_config, dataset_config, overlap_param_gather=False):
     """main function."""
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
     init()
@@ -122,6 +122,8 @@ def run_pipeline(training_config, model_config, parallel_config, dataset_config)
 
     if training_config.wrap_with_ddp and training_config.use_distributed_optimizer:
         optimizer_config = OptimizerConfig(parallel_config=parallel_config)
+        if overlap_param_gather:
+            optimizer_config.overlap_param_gather = True
         optimizer = AdamW(params=network.trainable_params(), lr=0.001)
         per_model_buffers = {}
         for model_idx, model_chunk in enumerate(network):
@@ -240,3 +242,17 @@ if __name__ == '__main__':
         model_config_main.untie_embeddings_and_output_weights = False
         parallel_config_main.num_layer_list = [[1, 1, 1, 1], [1, 1, 1, 1]]
         run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main)
+    elif args.run_mode == 'pp_with_ddp_overlap':
+        model_config_main.untie_embeddings_and_output_weights = False
+        training_config_main.wrap_with_ddp = True
+        training_config_main.use_distributed_optimizer = True
+        training_config_main.overlap_grad_reduce = True
+        training_config_main.delay_grad_reduce = False
+        run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main, True)
+    elif args.run_mode == 'pp_with_ddp_overlap_delay':
+        model_config_main.untie_embeddings_and_output_weights = False
+        training_config_main.wrap_with_ddp = True
+        training_config_main.use_distributed_optimizer = True
+        training_config_main.overlap_grad_reduce = True
+        training_config_main.delay_grad_reduce = True
+        run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main, True)

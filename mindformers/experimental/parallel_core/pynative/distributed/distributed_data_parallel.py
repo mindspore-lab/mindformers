@@ -225,7 +225,7 @@ class DistributedDataParallel(Module):
 
     def issue_grad_reduce(self):
         """ issue grad reduce for each buffer. """
-        for buffer in self.buffers + self.expert_paralle_buffers:
+        for buffer in self.buffers + self.expert_parallel_buffers:
             buffer.issue_grad_reduce()
 
     def final_grad_reduce(self):
