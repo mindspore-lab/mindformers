@@ -15,7 +15,7 @@ mindformers.AutoModelForZeroShotImageClassification
             这个API正处于实验阶段，在下一个版本中可能会有一些突破性的变化。
 
         .. note::
-            通过其配置文件加载模型**不会**载入模型权重。这只影响模型的配置。使用 `AutoModel.from_pretrained` 以载入模型权重。
+            通过其配置文件加载模型 **不会** 载入模型权重。这只影响模型的配置。使用 `AutoModel.from_pretrained` 以载入模型权重。
 
 
         参数：
