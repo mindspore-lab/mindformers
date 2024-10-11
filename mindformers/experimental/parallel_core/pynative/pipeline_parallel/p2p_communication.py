@@ -18,7 +18,7 @@ import numpy as np
 
 import mindspore as ms
 from mindspore import nn, Tensor
-from mindspore.communication.comm_func import isend, irecv
+import mindspore.communication.comm_func as comm_func
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_group, \
     get_pipeline_model_parallel_rank, is_pipeline_last_stage, is_pipeline_first_stage, \
@@ -35,7 +35,7 @@ class ISend(nn.Cell):
 
     def construct(self, send_data):
         """ ISend forward """
-        handle = isend(send_data, dst=self.dst_rank, tag=self.src_tag, group=self.group)
+        handle = comm_func.isend(send_data, dst=self.dst_rank, tag=self.src_tag, group=self.group)
         return handle
 
 
@@ -50,7 +50,7 @@ class IRecv(nn.Cell):
 
     def construct(self):
         """ IRecv forward """
-        recv_tensor, handle = irecv(self.data, src=self.src_rank, tag=self.src_tag, group=self.group)
+        recv_tensor, handle = comm_func.irecv(self.data, src=self.src_rank, tag=self.src_tag, group=self.group)
         return handle, recv_tensor
 
 

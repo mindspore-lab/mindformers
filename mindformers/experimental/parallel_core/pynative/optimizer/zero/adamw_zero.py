@@ -25,7 +25,7 @@ from mindspore.ops import functional as F
 from mindspore.nn.optim.optimizer import Optimizer
 from mindspore.common import dtype as mstype
 from mindspore.common.initializer import initializer
-from mindspore.communication.comm_func import all_reduce, all_gather_into_tensor, reduce_scatter_tensor
+import mindspore.communication.comm_func as comm_func
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_rank, \
     get_data_parallel_world_size, get_data_parallel_group
@@ -86,7 +86,7 @@ def _update_params_opt_parallel(group, param, update, all_gather):
     Allgather updated parameters and load.
     """
     if all_gather:
-        update = all_gather_into_tensor(update, group=group)[0]
+        update = comm_func.all_gather_into_tensor(update, group=group)[0]
     if update.dtype != param.dtype:
         update = ops.cast(update, param.dtype)
     param.assign_value(update)
@@ -98,9 +98,9 @@ def _inner_grad_reduce_scatter(dp_cp_group, grad_allreduce_sum, shard_size, grad
     Reduce gradients.
     """
     if grads_splited or parameter_splited:
-        grads = reduce_scatter_tensor(grads, group=dp_cp_group)[0]
+        grads = comm_func.reduce_scatter_tensor(grads, group=dp_cp_group)[0]
     else:
-        grads = all_reduce(grads, group=dp_cp_group)[0]
+        grads = comm_func.all_reduce(grads, group=dp_cp_group)[0]
     if not grad_allreduce_sum:
         grads = mint.div(grads, shard_size)
     return grads
@@ -322,7 +322,7 @@ class AdamW(Optimizer):
         @_no_grad()
         def _pre_forward_cell_hook(cell, input):
             for cell_param in cell.get_parameters():
-                ag_param = all_gather_into_tensor(cell_param, group=self.dp_cp_group)[0]
+                ag_param = comm_func.all_gather_into_tensor(cell_param, group=self.dp_cp_group)[0]
                 cell_param.assign_value(ag_param)
             return input
 
@@ -344,7 +344,7 @@ class AdamW(Optimizer):
                     for cell_param in sub_cell.get_parameters():
                         if cell_param.name in self.skip_bias_add_list:
                             continue
-                        ag_param = all_gather_into_tensor(cell_param, group=self.dp_cp_group)[0]
+                        ag_param = comm_func.all_gather_into_tensor(cell_param, group=self.dp_cp_group)[0]
                         cell_param.assign_value(ag_param)
 
                 class PreBackwardCell(nn.Cell):
@@ -447,13 +447,13 @@ class AdamW(Optimizer):
         """Register hook for model parameters for optimizer parallel."""
 
         def reduce_scatter_hook(grad):
-            res = reduce_scatter_tensor(grad, group=self.dp_cp_group)[0]
+            res = comm_func.reduce_scatter_tensor(grad, group=self.dp_cp_group)[0]
             if not self.grad_allreduce_sum:
                 res = mint.div(res, self.shard_size)
             return res
 
         def reduce_hook(grad):
-            res = all_reduce(grad, group=self.dp_cp_group)[0]
+            res = comm_func.all_reduce(grad, group=self.dp_cp_group)[0]
             if not self.grad_allreduce_sum:
                 res = mint.div(res, self.shard_size)
             return res

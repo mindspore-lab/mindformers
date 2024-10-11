@@ -23,7 +23,7 @@ from mindspore import mint
 from mindspore.ops import functional as F
 from mindspore.ops import composite as C
 from mindspore.communication import get_group_size, GlobalComm
-from mindspore.communication.comm_func import all_reduce
+import mindspore.communication.comm_func as comm_func
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_model_parallel_group,
@@ -71,7 +71,7 @@ def get_grad_norm_fp32(grads_for_norm, norm_type=2.0, model_parallel_group=None)
         raise NotImplementedError("for global norm, l2 norm only support now")
 
     if get_group_size(model_parallel_group) > 1:
-        total_norm = all_reduce(total_norm, "sum", model_parallel_group)[0]
+        total_norm = comm_func.all_reduce(total_norm, "sum", model_parallel_group)[0]
     total_norm = total_norm.item() ** (1.0 / norm_type)
     return total_norm
 

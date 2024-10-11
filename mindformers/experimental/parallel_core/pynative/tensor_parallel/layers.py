@@ -26,7 +26,7 @@ import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, nn, ops, mint
 from mindspore.common.initializer import initializer, Zero
 from mindspore.common.api import _pynative_executor
-from mindspore.communication.comm_func import all_reduce, all_gather_into_tensor, reduce_scatter_tensor
+import mindspore.communication.comm_func as comm_func
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_tensor_model_parallel_rank,
@@ -189,7 +189,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
                 x = x.swapaxes(0, 1)
             if not x.is_contiguous():
                 x = x.contiguous()
-            x = all_gather_into_tensor(x, group=self.tp_group)[0]
+            x = comm_func.all_gather_into_tensor(x, group=self.tp_group)[0]
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
 
@@ -221,7 +221,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
                 x = x.swapaxes(0, 1)
             if not x.is_contiguous():
                 x = x.contiguous()
-            x = all_gather_into_tensor(x, group=self.tp_group)[0]
+            x = comm_func.all_gather_into_tensor(x, group=self.tp_group)[0]
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
         else:
@@ -235,7 +235,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         if self.allreduce_dgrad:
             if not grad_input.is_contiguous():
                 grad_input = grad_input.contiguous()
-            grad_input, grad_input_handle = all_reduce(grad_input, group=self.tp_group, async_op=True)
+            grad_input, grad_input_handle = comm_func.all_reduce(grad_input, group=self.tp_group, async_op=True)
 
         if self.sequence_parallel:
             if self.allreduce_dgrad:
@@ -244,7 +244,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
                 grad_input = grad_input.swapaxes(0, 1)
             if not grad_input.is_contiguous():
                 grad_input = grad_input.contiguous()
-            grad_input, grad_input_handle = reduce_scatter_tensor(grad_input, group=self.tp_group, async_op=True)
+            grad_input, grad_input_handle = comm_func.reduce_scatter_tensor(
+                grad_input, group=self.tp_group, async_op=True)
 
         if self.transpose_b:
             grad_weight = self.matmul_g_w(dout, x)
@@ -314,7 +315,7 @@ class LinearWithFrozenWeight(nn.Cell):
         grad_input = self.matmul_g_in(dout, weight).reshape(x.shape)
         grad_bias = F.full(bias.shape, 0, dtype=bias.dtype) if self.bias else None
         if self.allreduce_dgrad:
-            grad_input = all_reduce(grad_input, group=self.tp_group)[0]
+            grad_input = comm_func.all_reduce(grad_input, group=self.tp_group)[0]
         return grad_input, None, grad_bias
 
 
