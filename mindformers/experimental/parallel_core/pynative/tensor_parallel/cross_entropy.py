@@ -28,32 +28,49 @@ __all__ = ['VocabParallelCrossEntropy']
 
 
 class VocabParallelCrossEntropy(nn.Cell):
-    """
+    r"""
     Calculate the paralleled cross entropy loss.
 
     Inputs:
         - **vocab_parallel_logits** (Tensor) - Tensor of shape (N, C). Data type must be float16 or float32.
           The output logits of the backbone.
-
         - **target** (Tensor) - Tensor of shape (N, ). The ground truth label of the sample.
-
         - **label_smoothing** (Float) - smoothing factor, must be in range[0.0, 1.0).
 
-    Returns:
+    Outputs:
         The corresponding cross entropy loss.
 
     Examples:
-        >>> import numpy as np
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
         >>> from mindspore import dtype as mstype
         >>> from mindspore import Tensor
-        >>> from mindformers.experimental.distri_cores import VocabParallelCrossEntropy
+        >>> from mindformers.experimental.parallel_core.pynative.tensor_parallel.cross_entropy import (
+        ...     VocabParallelCrossEntropy
+        ... )
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import (
+        ...     initialize_model_parallel,
+        ...     get_tensor_model_parallel_world_size,
+        ...     get_data_parallel_world_size
+        ... )
+        >>> init()
+        >>> initialize_model_parallel()
         >>> loss = VocabParallelCrossEntropy()
-        >>> logits = Tensor(np.array([[3, 5, 6, 9, 12, 33, 42, 12, 32, 72]]), mstype.float32)
-        >>> labels_np = np.array([1]).astype(np.int32)
-        >>> labels = Tensor(labels_np)
+        >>> logits = Tensor([[2., 1., 0.1]], mstype.float32)
+        >>> labels = Tensor([1], mstype.int32)
         >>> output = loss(logits, labels)
-        >>> output.shape
+        >>> print(output.shape)
         (1,)
+        >>> print(output)
+        [1.41703]
     """
 
     # pylint: disable=W0613

@@ -27,21 +27,102 @@ class RotaryEmbedding(Module):
     Rotary positional embedding for language model.
 
     Args:
-        head_dim (int): Per head hidden_size.
-        rotary_percent (float): Percent of rotary dimension to use for rotary position embeddings. Default: 1.0.
+        kv_channels (int): Projection weights dimension in multi-head attention. Obtained from transformer config.
+        rotary_percent (float, optional): Percent of rotary dimension to use for rotary position embeddings.
+            Default: 1.0.
+        rotary_interleaved (bool, optional): Determines the method of applying rotary embeddings to the input
+            dimensions. Default: False.
         seq_len_interpolation_factor (float, optional): scale of linearly interpolating RoPE for longer sequences.
             The value must be a float larger than 1.0. Default: None.
-        rotary_base (int): Base period for rotary position embeddings. Default: 10000.
+        rotary_base (int, optional): Base period for rotary position embeddings. Default: 10000.
 
     Inputs:
         - **max_seq_len** (int) - Max sequence length of inputs.
-        - **offset** (int) - Offset.
+        - **offset** (int) - The starting point for the position encoding.
 
     Outputs:
-        - **emb** (Tensor) - The input tensor after applying RoPE.
+        - **emb** (Tensor) - Embeddings after applying RoPE.
+
+    Raises:
+        NotImplementedError: If `rotary_interleaved` is True.
 
     Supported Platforms:
         ``Ascend``
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import os
+        >>> import numpy as np
+        >>> import mindspore.nn as nn
+        >>> import mindspore as ms
+        >>> from mindspore import Tensor
+        >>> from mindspore.communication import init
+        >>> from mindspore import ops
+        >>> from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
+        >>> from mindformers.experimental.graph.transformer.rotary_pos_embedding import (
+        ...     RotaryEmbedding,
+        ...     apply_rotary_pos_emb
+        ... )
+        >>> ms.set_context(mode=ms.GRAPH_MODE)
+        >>> rank_id = os.environ.get('RANK_ID')
+        >>> if rank_id is not None:
+        >>>     ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True)
+        >>>     init()
+        >>> seed_value = 42
+        >>> ms.set_seed(seed_value)
+        >>> np.random.seed(seed_value)
+        >>> class MyAttention(nn.Cell):
+        >>>     def __init__(self, config: TransformerConfig):
+        >>>         super(MyAttention, self).__init__()
+        >>>         self.config = config
+        >>>     def construct(self, x, freqs):
+        >>>         return apply_rotary_pos_emb(x, freqs, self.config)
+        >>> class MyNet(nn.Cell):
+        >>>     def __init__(self, config: TransformerConfig):
+        >>>         super(MyNet, self).__init__()
+        >>>         self.n_heads = config.num_attention_heads
+        >>>         self.head_dim = dim // self.n_heads
+        >>>         self.rotary_embedding = RotaryEmbedding(self.head_dim)
+        >>>         self.attention = MyAttention(config)
+        >>>         dp = config.data_parallel
+        >>>         self.transpose = ops.Transpose().shard(((dp, 1, 1, 1),))
+        >>>         self.transpose_back = ops.Transpose().shard(((dp, 1, 1, 1),))
+        >>>         self.reshape = ops.Reshape()
+        >>>     def construct(self, x: Tensor):
+        >>>         bs_, seq_len_, dim_ = x.shape
+        >>>         # [bs, seq_len, dim] -> [bs, seq_len, heads, head_dim]
+        >>>         x = self.reshape(x, (bs_, seq_len_, self.n_heads, self.head_dim))
+        >>>         # [bs, seq_len, heads, head_dim] -> [bs, heads, seq_len, head_dim]
+        >>>         query = self.transpose(x, (0, 2, 1, 3))
+        >>>         freqs = self.rotary_embedding(seq_len_)
+        >>>         output = self.attention(query, freqs)
+        >>>         # [bs, heads, seq_len, head_dim] -> [bs, seq_len, heads, head_dim]
+        >>>         output = self.transpose_back(output, (0, 2, 1, 3))
+        >>>         # [bs, seq_len, heads, head_dim] -> [bs, seq_len, dim]
+        >>>         output = self.reshape(output, (bs_, seq_len_, dim_))
+        >>>         return output
+        >>> config_ = TransformerConfig()
+        >>> config_.data_parallel = 1
+        >>> config_.tensor_parallel = 1
+        >>> config_.context_parallel = 1
+        >>> config_.num_attention_heads = 8
+        >>> bs = 2
+        >>> seq_len = 4096
+        >>> dim = 8192
+        >>> input_shape = (bs, seq_len, dim)
+        >>> net = MyNet(config_)
+        >>> input_ = Tensor(np.random.standard_normal(input_shape).astype(np.float32))
+        >>> output_ = net(input_)
+        >>> print(output_.shape)
+        (2, 4096, 8192)
     """
 
     def __init__(
