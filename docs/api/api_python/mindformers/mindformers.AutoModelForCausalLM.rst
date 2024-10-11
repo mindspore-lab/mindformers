@@ -15,7 +15,7 @@ mindformers.AutoModelForCausalLM
             这个API正处于实验阶段，在下一个版本中可能会有一些突破性的变化。
 
         .. note::
-            通过其配置文件加载模型**不会**载入模型权重。这只影响模型的配置。使用 `AutoModel.from_pretrained` 以载入模型权重。
+            通过其配置文件加载模型 **不会** 载入模型权重。这只影响模型的配置。使用 `AutoModel.from_pretrained` 以载入模型权重。
 
         参数：
             - **config** (Union[MindFormerConfig, PretrainedConfig, str]) - `MindFormerConfig` 实例，yaml文件路径，或者 `PretrainedConfig` 实例（实验特性）。实例化得到的模型类将基于以下配置类进行选择：
