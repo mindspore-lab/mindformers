@@ -34,6 +34,7 @@ from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_va
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.models.llama.llama_layer import LlamaSiLU
 
+
 class MixtralFeedForward(Cell):
     r"""
     Mixtral FeedForward.

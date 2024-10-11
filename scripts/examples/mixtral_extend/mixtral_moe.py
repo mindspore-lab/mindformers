@@ -86,8 +86,8 @@ class MixtralMoEV2(Cell):
         self.return_extra_loss = return_extra_loss
         self.capacity_factor = moe_config.capacity_factor
         self.num_experts_chosen = moe_config.num_experts_chosen
-        self.dp_group = parallel_config.data_parallel* parallel_config.context_parallel
-        self.dp = parallel_config.data_parallel* parallel_config.context_parallel
+        self.dp_group = parallel_config.data_parallel * parallel_config.context_parallel
+        self.dp = parallel_config.data_parallel * parallel_config.context_parallel
         self.ep = parallel_config.expert_parallel
         self.cp = parallel_config.context_parallel
         self.mp = parallel_config.model_parallel
@@ -148,10 +148,11 @@ class MixtralMoEV2(Cell):
 
         # all2all
         expert_input = self.reshape(expert_input, (self.dp, self.mp, self.expert_dim, capacity, self.hidden_size))
-        expert_input = self.transpose_mp1(expert_input, (0, 2, 1, 3, 4))  #(dp,mp,E,C/mp,h) -> (dp,E,mp,C/mp,h)
+        expert_input = self.transpose_mp1(expert_input, (0, 2, 1, 3, 4))  # (dp,mp,E,C/mp,h) -> (dp,E,mp,C/mp,h)
         expert_input = self.reshape(expert_input, expert_shape)
         expert_input = self.stride_slice_ata1(expert_input, (0, 0, 0, 0, 0), expert_shape, (1, 1, 1, 1, 1))
-        expert_input = self.stride_slice_ata2(expert_input, (0, 0, 0, 0, 0), expert_shape, (1, 1, 1, 1, 1)) #(outdp,dp',E,mp,C/mp,h) -> (outdp,dp'*ep,E/ep,mp,C/mp,h)
+        # (outdp,dp',E,mp,C/mp,h) -> (outdp,dp'*ep,E/ep,mp,C/mp,h)
+        expert_input = self.stride_slice_ata2(expert_input, (0, 0, 0, 0, 0), expert_shape, (1, 1, 1, 1, 1))
         expert_input = self.stride_slice_allgather(expert_input, (0, 0, 0, 0, 0), expert_shape, (1, 1, 1, 1, 1))
 
         # ffns
