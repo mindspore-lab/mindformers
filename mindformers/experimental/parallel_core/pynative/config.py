@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Configuration."""
+import ast
 # pylint: disable=W0613
 import inspect
 import argparse
@@ -101,6 +102,16 @@ mapping_dict = {
     'loss_scale_window': 'training_config.loss_scale_window',
     'hysteresis': 'training_config.loss_scale_factor',
     'use_distributed_optimizer': 'training_config.use_distributed_optimizer',
+    'resume_training': 'training_config.resume_training',
+    'resume_crc_check': 'training_config.crc_check',
+    'load_checkpoint': 'training_config.load_checkpoint',
+    'save': 'training_config.output_dir',
+    'ckpt_prefix': 'training_config.prefix',
+    'ckpt_format': 'training_config.ckpt_format',
+    'keep_checkpoint_max': 'training_config.keep_checkpoint_max',
+    'wrap_with_ddp': 'training_config.wrap_with_ddp',
+    'bucket_size': 'training_config.bucket_size',
+    'enable_mem_align': 'training_config.enable_mem_align',
     # dataset config
     'reset_attention_mask': 'dataset_config.reset_attention_mask',
     'reset_position_ids': 'dataset_config.reset_position_ids',
@@ -130,6 +141,7 @@ mapping_dict = {
     'sequence_parallel': 'parallel_config.sequence_parallel',
     'overlap_grad_reduce': 'parallel_config.overlap_grad_reduce',
     'pipeline_model_parallel_size': 'parallel_config.pipeline_model_parallel_size',
+    'num_layer_list': 'parallel_config.num_layer_list'
 }
 
 
@@ -186,13 +198,10 @@ def get_default_config():
     default_param_dict['dataset_config.drop_remainder'] = True
     default_param_dict['dataset_config.data_layout'] = "SBH"
     default_param_dict['optimizer_config.optimizer_type'] = "mint.AdamW"
-    default_param_dict['training_config.wrap_with_ddp'] = True
     default_param_dict['training_config.grad_clip_kwargs.clip_value'] = 1.0
     default_param_dict['training_config.grad_clip_kwargs.grad_clip_type'] = "ClipGlobalNorm"
-    default_param_dict['training_config.bucket_size'] = 20000
     default_param_dict['training_config.eval_metric'] = "perplexity"
     default_param_dict['training_config.loss_func_kwargs.loss_func_type'] = "VocabParallelCrossEntropy"
-    default_param_dict["training_config.enable_mem_align"] = False
     default_param_dict['model_config.output_layer_init_method'] = "normal"
     default_param_dict['model_config.mask_func_type'] = "attn_mask_fill"
     default_param_dict['model_config.gated_linear_unit'] = True
@@ -977,6 +986,8 @@ def validate_deterministic_mode(config_instance, deterministic_mode):
 def validate_num_layer_list(config_instance, num_layer_list):
     """Validate num_layer_list."""
     if num_layer_list is not None:
+        if isinstance(num_layer_list, str):
+            num_layer_list = ast.literal_eval(num_layer_list)
         Validator.check_value_type("num_layer_list", num_layer_list, list)
     return num_layer_list
 
