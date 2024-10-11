@@ -17,6 +17,7 @@ parallel_config:
   recv_dtype: "float32"
   model_customize_staged: False
   overlap_grad_reduce: False
+  variable_seq_lengths: False
 
 model_config:
   seq_length: 64

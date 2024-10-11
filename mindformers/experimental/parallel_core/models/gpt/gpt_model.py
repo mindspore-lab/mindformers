@@ -18,7 +18,8 @@ import mindspore.common.dtype as mstype
 from mindformers.experimental.parallel_core.pynative.transformer.module import Module
 from mindformers.experimental.parallel_core.pynative.transformer.language_model import get_language_model
 from mindformers.experimental.parallel_core.pynative.transformer import ParallelLMLogits
-from mindformers.experimental.parallel_core.pynative.training.loss_func import VocabParallelCrossEntropy, LossWithMask
+from mindformers.experimental.parallel_core.pynative.training.loss_func import LossWithMask
+from mindformers.experimental.parallel_core.pynative.tensor_parallel import VocabParallelCrossEntropy
 
 
 def post_language_model_processing(parallel_lm_logits, loss_fn, lm_output, labels, logit_weights,

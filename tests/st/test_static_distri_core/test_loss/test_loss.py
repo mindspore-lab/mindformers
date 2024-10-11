@@ -18,7 +18,7 @@ import numpy as np
 import mindspore as ms
 from mindspore.common.tensor import Tensor
 
-from mindformers.experimental.graph.loss_func import VocabParallelCrossEntropy
+from mindformers.experimental.parallel_core.pynative.tensor_parallel import VocabParallelCrossEntropy
 import troubleshooter as ts
 
 

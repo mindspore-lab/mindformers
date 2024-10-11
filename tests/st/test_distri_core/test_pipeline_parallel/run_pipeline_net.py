@@ -76,7 +76,7 @@ def generate_ckpt(vocab_size, seq_length, hidden_size, num_layers, share_weight=
     return ckpt
 
 
-def run_pipeline(training_config, model_config, parallel_config, dataset_config):
+def run_pipeline(training_config, model_config, parallel_config, dataset_config, dynamic_seq_length=False):
     """main function."""
     ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic='ON')
     init()
@@ -104,7 +104,7 @@ def run_pipeline(training_config, model_config, parallel_config, dataset_config)
                               model_config.num_layers,
                               not model_config.untie_embeddings_and_output_weights)
     # generate dataset
-    dataset = FakeData(data_num=32, seq_length=model_config.seq_length)
+    dataset = FakeData(data_num=32, seq_length=model_config.seq_length, dynamic_seq_length=dynamic_seq_length)
     dataset_parallel = ds.GeneratorDataset(dataset, column_names=['input_ids', 'labels'], shuffle=False)
     # calculate global batch size
     global_batch_size = dataset_config.batch_size * dataset_config.micro_batch_num
@@ -240,3 +240,13 @@ if __name__ == '__main__':
         model_config_main.untie_embeddings_and_output_weights = False
         parallel_config_main.num_layer_list = [[1, 1, 1, 1], [1, 1, 1, 1]]
         run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main)
+    elif args.run_mode == 'pp_interleaved_with_variable_seq_length':
+        parallel_config_main.virtual_pipeline_model_parallel_size = 2
+        model_config_main.untie_embeddings_and_output_weights = False
+        parallel_config_main.variable_seq_lengths = True
+        run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main)
+    elif args.run_mode == 'pp_interleaved_with_variable_seq_length_dynamic_data':
+        parallel_config_main.virtual_pipeline_model_parallel_size = 2
+        model_config_main.untie_embeddings_and_output_weights = False
+        parallel_config_main.variable_seq_lengths = True
+        run_pipeline(training_config_main, model_config_main, parallel_config_main, dataset_config_main, True)

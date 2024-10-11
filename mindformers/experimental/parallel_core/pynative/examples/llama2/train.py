@@ -33,7 +33,7 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_tensor_model_parallel_world_size,
     get_tensor_model_parallel_group,
 )
-from mindformers.experimental.models import Llama2Model
+from mindformers.experimental.parallel_core.models import Llama2Model
 
 from dataset import get_dataset
 from utils import set_parallel_context, set_seed, set_weight_decay
