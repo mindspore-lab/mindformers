@@ -37,8 +37,8 @@ class ParallelMLP(Module):
     Implementation of parallel feedforward block.
 
     Args:
-        config (dict): Configuration.
-        is_expert (book): This block is an expert block. Default: False.
+        config (TransformerConfig): Configuration object for the transformer model.
+        is_expert (bool): This block is an expert block. Default: False.
 
     Inputs:
         - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.
@@ -48,6 +48,34 @@ class ParallelMLP(Module):
 
     Supported Platforms:
         ``Ascend``
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import os
+        >>> import numpy as np
+        >>> import mindspore as ms
+        >>> import mindspore.common.dtype as mstype
+        >>> from mindspore import Tensor
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> from mindformers.experimental.parallel_core.pynative.transformer import ParallelMLP
+        >>> init()
+        >>> initialize_model_parallel()
+        >>> parallel_config = ModelParallelConfig(tensor_model_parallel_size=tensor_parallel)
+        >>> config = TransformerConfig      #The config of Transformer model. For details, please refer to TransformerConfig
+        >>> mlp = ParallelMLP(config=config)
+        >>> input = Tensor(np.random.random((3, 8, 16)).astype(np.float32))
+        >>> output, _ = mlp(input)
+        >>> print(output)
     """
 
     def __init__(self, config, is_expert=False):
