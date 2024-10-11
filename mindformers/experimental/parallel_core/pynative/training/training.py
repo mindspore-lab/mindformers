@@ -39,7 +39,7 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import (
 )
 from mindformers.experimental.parallel_core.pynative.distributed import DistributedDataParallelConfig, \
     DistributedDataParallel
-from mindformers.experimental.parallel_core.pynative.optimizer import MixedPrecisionOptimizer
+from mindformers.experimental.parallel_core.pynative.optimizer import MixedPrecisionOptimizer, DistributedOptimizer
 from mindformers.experimental.parallel_core.pynative.pipeline_parallel.schedules import (
     forward_backward_pipelining_without_interleaving,
     forward_backward_pipelining_with_interleaving
@@ -505,6 +505,9 @@ class TrainOneStepCell(nn.Cell):
                     get_data_parallel_world_size()
         self.wrap_with_ddp = training_config.wrap_with_ddp
         self.use_mixed_precision_optimizer = isinstance(optimizer, MixedPrecisionOptimizer)
+        if isinstance(optimizer, DistributedOptimizer) and optimizer.config.overlap_param_gather:
+            optimizer.enable_pre_hook(network_with_loss)
+
         self.params_with_grad = None if not self.use_mixed_precision_optimizer \
             else network_with_loss.trainable_params()
 
@@ -780,6 +783,10 @@ def train(
             global_step += 1
         epoch_step = 0
         current_epoch += 1
+
+    if isinstance(train_one_step_cell.optimizer, DistributedOptimizer) \
+            and train_one_step_cell.optimizer.config.overlap_param_gather:
+        train_one_step_cell.optimizer.sync_gather_all_model_params(True)
 
     if save_ckpt_flag:
         save_checkpoint(model_config,

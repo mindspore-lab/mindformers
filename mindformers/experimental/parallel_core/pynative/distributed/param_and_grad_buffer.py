@@ -86,15 +86,17 @@ class Bucket:
                                 else comm_func.all_reduce
         self.reset()
 
-    def inplace_reduce_dp(self, src, target):
+    def inplace_reduce_dp(self, src):
         """ conduct all-reduce/reduce-scatter on src tensor and inplace update result into target. """
-        result = self.grad_reducer(src, 'sum', self.data_parallel_group)[0]
-        target.copy_(result)
+        self.communication_result, self.communication_handle = \
+            self.grad_reducer(src, 'sum', self.data_parallel_group, async_op=self.ddp_config.overlap_grad_reduce)
 
     def reset(self):
         """ reset bucket for the next iteration. """
         self.params_grad_ready = set()
         self.is_reduce_issued = False
+        self.communication_handle = None
+        self.communication_result = None
 
     def issue_grad_reduce(self):
         """ issue grad reduce for the local grad data view. """
@@ -105,31 +107,41 @@ class Bucket:
             self.grad_data.copy_(mint.mul(self.grad_data, self.gradient_scaling_factor))
 
         if self.data_parallel_world_size > 1:
-            # when using distributed optimizer, reduce-scatter will be conducted
-            # on grad data, and only the section of grad_data which current dp rank
-            # takes charge will be updated
-            if self.ddp_config.use_distributed_optimizer:
-                sharded_size = self.grad_data_numel // self.data_parallel_world_size
-                dp_rank = get_rank(self.data_parallel_group)
-                start_idx = dp_rank * sharded_size
-                end_idx = (dp_rank + 1) * sharded_size
-            else:
-                start_idx = 0
-                end_idx = self.grad_data_numel
-            target = self.grad_data[start_idx:end_idx]
-
-            self.inplace_reduce_dp(self.grad_data, target)
-            if self.ddp_config.average_in_collective:
-                target.copy_(mint.div(target, self.data_parallel_world_size))
+            self.inplace_reduce_dp(self.grad_data)
         self.is_reduce_issued = True
 
     def final_grad_reduce(self):
         """ finalize grad reduce for the local grad data view. """
+        # when using distributed optimizer, reduce-scatter will be conducted
+        # on grad data, and only the section of grad_data which current dp rank
+        # takes charge will be updated
+        if self.ddp_config.use_distributed_optimizer:
+            sharded_size = self.grad_data_numel // self.data_parallel_world_size
+            dp_rank = get_rank(self.data_parallel_group)
+            start_idx = dp_rank * sharded_size
+            end_idx = (dp_rank + 1) * sharded_size
+        else:
+            start_idx = 0
+            end_idx = self.grad_data_numel
+        target = self.grad_data[start_idx:end_idx]
+
         if not self.ddp_config.overlap_grad_reduce:
             self.issue_grad_reduce()
+            if self.data_parallel_world_size > 1:
+                target.copy_(self.communication_result)
+                self.communication_result = None
+                if self.ddp_config.average_in_collective:
+                    target.copy_(mint.div(target, self.data_parallel_world_size))
+            return
         if not self.is_reduce_issued:
             raise RuntimeError(f"The bucket reduce has not been issued "
                                f"with only {len(self.params_grad_ready)}/{len(self.params)} params ready")
+        if self.data_parallel_world_size > 1:
+            self.communication_handle.wait()
+            target.copy_(self.communication_result)
+            self.communication_result = None
+            if self.ddp_config.average_in_collective:
+                target.copy_(mint.div(target, self.data_parallel_world_size))
 
     def register_grad_ready(self, param):
         """ register grad ready and issue bucket grad reduce when the bucket is ready. """
