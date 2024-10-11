@@ -17,13 +17,17 @@
 For text generation
 """
 import os
-from typing import Optional, List, Union, Dict
+import shutil
 import json
+from typing import Optional, List, Union, Dict
+from multiprocessing import Process
 import numpy as np
+from safetensors.numpy import save_file, load_file
 
 import mindspore as ms
 from mindspore import Tensor
 from mindspore.communication.management import init
+from mindspore.communication.comm_func import barrier
 from mindspore.common.initializer import Zero
 from mindspore._c_expression import swap_cache
 
@@ -32,6 +36,7 @@ from mindformers import build_context, build_parallel_config, GenerationConfig
 from mindformers import AutoModel, AutoConfig, AutoTokenizer
 from mindformers.models.utils import convert_mstype, str_to_ms_type
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import is_main_rank
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
@@ -280,7 +285,12 @@ class MindIEModelRunner:
         seq_length = self.model_config.seq_length
         input_ids = np.ones(shape=tuple([batch_size, seq_length]))
         inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
-        transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
+        if self.config.checkpoint_format == 'safetensors':
+            _transform_and_load_safetensors(ms_model, self.model, inputs, self.config.load_checkpoint,
+                                            self.config.load_safetensors, self.config.output_dir,
+                                            self.config.use_parallel)
+        else:
+            transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
         logger.info(f"Load checkpoints finished.")
 
         if self.model_config.is_dynamic:
@@ -456,3 +466,105 @@ class InputBuilder:
                                "`chat_template`.")
         input_ids = self.tokenizer.apply_chat_template(conversation, **kwargs)
         return input_ids
+
+
+def _convert_process(source_path, target_path, convert_weight_dict):
+    """A single process to convert the safetensors"""
+    source_dict = load_file(source_path)
+    target_dict = convert_weight_dict(source_dict)
+    save_file(tensor_dict=target_dict, filename=target_path)
+    logger.info(f"Converted file {os.path.basename(target_path)}.")
+
+def _convert_safetensors(load_checkpoint, converted_dir, convert_weight_dict):
+    """Create multiprocess to convert the safetensors"""
+    sf_list = [sf for sf in os.listdir(load_checkpoint) if sf.endswith('.safetensors')]
+    processes = []
+    for sf in sf_list:
+        p = Process(target=_convert_process, args=[os.path.join(load_checkpoint, sf),
+                                                   os.path.join(converted_dir, sf),
+                                                   convert_weight_dict])
+        p.start()
+        processes.append(p)
+    return processes
+
+def _convert_index_json(load_checkpoint, converted_dir, convert_map_dict):
+    index_path = os.path.join(load_checkpoint, 'model.safetensors.index.json')
+    with open(index_path, 'r') as f:
+        data = json.load(f)
+    weight_map = data.get("weight_map")
+    new_weight_map = convert_map_dict(weight_map)
+    flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    with os.fdopen(os.open(os.path.join(converted_dir, 'param_name_map.json'), flags_, 0o750), 'w') as f:
+        json.dump(new_weight_map, f)
+        logger.info(f"Converted file param_name_map.json")
+
+def _load_distributed_safetensors(model, output_dir, load_safetensors):
+    """Load distributed safetensors"""
+    ms.load_distributed_checkpoint(
+        network=model,
+        predict_strategy=os.path.join(output_dir, './strategy/ckpt_strategy_rank_0.ckpt'),
+        unified_safetensors_dir=load_safetensors,
+        format='safetensors'
+    )
+
+def _load_safetensors(model, load_safetensors):
+    """Load single safetensors"""
+    sf_list = [sf for sf in os.listdir(load_safetensors) if sf.endswith('.safetensors')]
+    if not sf_list:
+        raise FileNotFoundError(f"There are no safetensors files under the given path {load_safetensors}.")
+    for sf in sf_list:
+        ms.load_checkpoint(
+            ckpt_file_name=os.path.join(load_safetensors, sf),
+            net=model,
+            format='safetensors'
+        )
+
+def _transform_and_load_safetensors(ms_model, model, inputs, load_checkpoint=None,
+                                    load_safetensors=None, output_dir=None, use_parallel=False):
+    """Load safetensors into model"""
+    if not load_checkpoint and not load_safetensors:
+        raise ValueError(f"load_checkpoint and load_safetensors must be set, "
+                         f"when checkpoint_format is safetensors.")
+    is_built = False
+
+    if load_checkpoint:
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        else:
+            output_dir = './output'
+            logger.warning(f'Output directory is set to ./output, '
+                           f'due to the output_dir {output_dir} does not exist.')
+        converted_dir = os.path.join(output_dir, './ms_safetensors')
+        if is_main_rank():
+            if os.path.exists(converted_dir):
+                shutil.rmtree(converted_dir)
+            os.makedirs(converted_dir, exist_ok=True)
+            logger.info("Folder %s is remade.", converted_dir)
+            logger.info(".........Starting to Convert Safetensors.........")
+            # convert safetensors
+            processes = _convert_safetensors(load_checkpoint, converted_dir, model.convert_weight_dict)
+            # convert json
+            _convert_index_json(load_checkpoint, converted_dir, model.convert_map_dict)
+
+            if use_parallel:
+                logger.info(".........Building Distribute model.........")
+                ms_model.infer_predict_layout(*inputs)
+                is_built = True
+
+            for p in processes:
+                p.join()
+            logger.info(".........Safetensors Convert Complete.........")
+
+        load_safetensors = converted_dir
+
+    if use_parallel:
+        if not is_built:
+            logger.info(".........Building Distribute model.........")
+            ms_model.infer_predict_layout(*inputs)
+        # Wait the main rank finish convert
+        barrier()
+        logger.info(".........Load Distribute Checkpoint.........")
+        _load_distributed_safetensors(model, output_dir, load_safetensors)
+    else:
+        logger.info(".........Load Checkpoint.........")
+        _load_safetensors(model, load_safetensors)
