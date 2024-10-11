@@ -21,7 +21,7 @@ mindformers.core.EmF1Metric
     .. math::
         \text{precision} = \frac{\text{lcs_length}}{\text{len(prediction_segment)}}, \quad \text{recall} = \frac{\text{lcs_length}}{\text{len(label_segment)}}
 
-    在上述公式中， :math:`\text{lcs\_length}` 表示最长公共子序列的长度。
+    在上述公式中， :math:`\text{lcs_length}` 表示最长公共子序列的长度。
 
     计算过程:
 
