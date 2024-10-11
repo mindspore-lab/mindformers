@@ -157,9 +157,13 @@ def run_resume_training(config):
             resume_training=training_config.resume_training,
             resume_by_meta=True)
         print(f"resume_ckpt_name is {resume_ckpt_name}")
+        assert resume_ckpt_name == f"network_rank_{get_rank()}-0_9.ckpt", \
+                f"expect newest ckpt is network_rank_{get_rank()}-0_9.ckpt, but got {resume_ckpt_name}"
         if resume_ckpt_name is True:
             ckpt_path = training_config.load_checkpoint
         elif isinstance(resume_ckpt_name, str):
+            # hard code to load step 5 ckpt, resume train another 5 steps
+            resume_ckpt_name = f"network_rank_{get_rank()}-0_4.ckpt"
             ckpt_path = os.path.join(rank_path, resume_ckpt_name)
         print(f"ckpt_path is {ckpt_path}")
         resume_dict = load_checkpoint(model_config, network, optimizer=optimizer,
@@ -181,6 +185,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', type=str, default="./output", help="dir to put log、ckpt and complie cache")
     parser.add_argument('--load_checkpoint', type=str, default="", help="where to load ckpt")
     parser.add_argument('--training_iters', type=int, default=10, help="training_iters")
+    parser.add_argument('--save_interval', type=int, default=None, help="training_iters")
     cli_args, rest_args = parser.parse_known_args()
 
     all_config = init_configs_from_yaml(cli_args.config_path)
@@ -195,5 +200,6 @@ if __name__ == '__main__':
     all_config.training_config.output_dir = cli_args.output_dir
     all_config.training_config.load_checkpoint = cli_args.load_checkpoint
     all_config.training_config.training_iters = cli_args.training_iters
+    all_config.training_config.save_interval = cli_args.save_interval
 
     run_resume_training(all_config)
