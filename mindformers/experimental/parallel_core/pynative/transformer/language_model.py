@@ -68,23 +68,81 @@ class Pooler(Cell):
 
 class Embedding(Module):
     """
-    A embedding layer contain word embedding, position embedding and tokentypes embedding.
+    An embedding layer contain word embedding, position embedding and tokentypes embedding.
 
     Args:
-        - **hidden_size** : hidden states size for embedding layer
-        - **vocab_size** : vocabulary size
-        - **max_sequence_length** : if using position embedding, it is necessary to set the maximum sequence length
-        - **embedding_dropout_prob** : dropout rate for embedding layer
-        - **init_method** : embedding layer weight init method
-        - **num_tokentypes** : if > 0, using tokentypes embedding
+        hidden_size (int): hidden states size for embedding layer.
+        vocab_size (int): vocabulary size.
+        max_sequence_length (int): maximum size of sequence. This is used for positional embedding. if using position
+            embedding, it is necessary to set the maximum sequence length.
+        embedding_dropout_prob (float): dropout rate for embedding layer.
+        config (TransformerConfig): The transformer configuration include init_method, parallel_config, etc.
+        num_tokentypes (int, optional): size of the token-type embeddings. If > 0, using tokentypes embedding.
+
+    Inputs:
+        - **input_ids** (Tensor) - The tokenized inputs with datatype int32, shape :math:`(B, S)`.
+        - **position_ids** (Tensor) - Position ids for position embedding, shape :math:`(B, S)`.
+        - **tokentype_ids** (Tensor) - Token type IDs used to distinguish different types of tokens (e.g., sentence A
+          and sentence B in BERT), with datatype int32, shape :math:`(B, S)`.
 
     Outputs:
-        - **embeddings** - the embedding output
-        - **word_embedding_table** - the word embedding table
+        - **embeddings** (Tensor)- The embedding output, shape :math:`(B, S, H)`.
+
+    Raises:
+        NotImplementedError: If `config.fp32_residual_connection` or `config.clone_scatter_output_in_embedding` is True.
+        RuntimeError: If `tokentype_ids` is not None and `tokentype_embeddings` is None.
+            If `tokentype_ids` is None and `tokentype_embeddings` is not None.
 
     Supported Platforms:
         ``Ascend``
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import mindspore as ms
+        >>> from mindspore.communication import init
+        >>> from mindformers.experimental.parallel_core.pynative.config import TransformerConfig, ModelParallelConfig
+        >>> from mindformers.experimental.parallel_core.pynative.transformer.language_model import (
+        ...     Embedding as Pynative_Embedding
+        ... )
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> from mindformers.experimental.parallel_core import Embedding
+        >>> from mindformers.core.context import build_context
+        >>> from mindspore.common.initializer import initializer
+        >>> from mindspore.numpy import array_equal
+        >>> from mindformers.experimental.parallel_core.pynative.transformer.rotary_pos_embedding import (
+        ...     apply_rotary_pos_emb as pynative_apply_rotary_pos_emb
+        ... )
+        >>> from mindformers.experimental.parallel_core import apply_rotary_pos_emb
+        >>> ms.set_context(mode=ms.PYNATIVE_MODE)
+        >>> init()
+        >>> initialize_model_parallel()
+        >>> def get_config():
+        ...     parallel_config = ModelParallelConfig(tensor_model_parallel_size=1)
+        ...     config = TransformerConfig(vocab_size=1,
+        ...                                num_layers=1,
+        ...                                num_attention_heads=1,
+        ...                                hidden_size=1,
+        ...                                ffn_hidden_size=1,
+        ...                                parallel_config=parallel_config)
+        ...     return config
+        >>> build_context(config={'context': {'mode': 'PYNATIVE_MODE'}, 'parallel': {}})
+        >>> x = initializer('normal', (1, 8, 4096, 64), ms.dtype.bfloat16)
+        >>> freqs = initializer('normal', (1, 1, 4096, 64), ms.dtype.bfloat16)
+        >>> config = get_config()
+        >>> assert array_equal(apply_rotary_pos_emb(x, freqs, None), pynative_apply_rotary_pos_emb(x, freqs, None))
+        >>> assert isinstance(Embedding(hidden_size=16, vocab_size=1600, config=config,
+        ...                             max_sequence_length=64, embedding_dropout_prob=0.),
+        ...                   Pynative_Embedding)
     """
+
     def __init__(self,
                  hidden_size,
                  vocab_size,
@@ -212,24 +270,100 @@ class TransformerLanguageModel(Module):
     Transformer language model.
 
     Args:
-        - **config** : model config
-        - **encoder_attn_mask_type** : encoder attention mask type
-        - **num_tokentypes** : if > 0, using tokentypes embedding
-        - **add_encoder** : if True, use encoder
-        - **use_decoder** : if True, use decoder
-        - **decoder_attn_mask_type** : decoder attention mask type
-        - **add_pooler** : if True, use pooler
-        - **pre_process** : when using pipeline parallel, indicate whether it's the first stage
-        - **post_process** : when using pipeline parallel, indicate whether it's the last stage
-        - **visual_encoder** : visual encoder
+        config (TransformerConfig): The transformer configuration includes init_method, parallel_config, etc.
+        encoder_attn_mask_type (int): Encoder attention mask type.
+        num_tokentypes (int): If > 0, using tokentypes embedding.
+        add_encoder (bool): If True, use encoder.
+        use_decoder (bool): If True, use decoder.
+        decoder_attn_mask_type (int): Decoder attention mask type.
+        add_pooler (bool): If True, use pooler.
+        pre_process (bool): When using pipeline parallel, indicate whether it's the first stage.
+        post_process (bool): When using pipeline parallel, indicate whether it's the last stage.
+        visual_encoder (nn.Cell): Visual encoder.
+
+    Inputs:
+        - **enc_input_ids** (Tensor) - Encoder input indexes. Shape :math:`(B, S)`.
+        - **enc_position_ids** (Tensor) - Encoder position offset. Shape :math:`(B, S)`.
+        - **enc_attn_mask** (Tensor) - Encoder attention mask. Shape :math:`(B, S)`.
+        - **dec_input_ids** (Tensor) - Decoder input indexes. Shape :math:`(B, S)`.
+        - **dec_position_ids** (Tensor, optional) - Decoder input position indices. Shape :math:`(B, S)`.
+        - **dec_attn_mask** (Tensor, optional) - Decoder attention mask. Shape :math:`(B, S)`.
+        - **retriever_input_ids** (Tensor, optional) - Retriever input token indices. Shape: Depends on the input shape
+          of the retrieval task.
+        - **retriever_position_ids** (Tensor, optional) - Retriever input position indices. Shape: Depends on the input
+          shape of the retrieval task.
+        - **retriever_attn_mask** (Tensor, optional) - Retriever attention mask. Used to control the attention range in
+          the retriever when calculating attention. Shape: Depends on the attention calculation shape of the retriever.
+        - **enc_dec_attn_mask** (Tensor, optional) - Encoder-decoder attention mask. Shape: Depends on the attention
+          calculation between the encoder and decoder.
+        - **tokentype_ids** (Tensor, optional) - List of token type ids to be fed to a model. Shape :math:`(B, S)`.
+        - **inference_params** (InferenceParams) - Inference parameters. Used to specify specific settings during
+          inference, such as maximum generation length, max batch size, etc.
+        - **pooling_sequence_index** (int) - Pooling sequence index.
+        - **enc_hidden_states** (Tensor, optional) - Encoder hidden states. Shape: Depends on the output shape of the
+          encoder.
+        - **output_enc_hidden** (bool, optional) - Whether to output encoder hidden states.
+        - **input_image** (Tensor, optional) - Tensor of the input image. Shape :math:`(N, C_{in}, H_{in}, W_{in})` or
+          :math:`(N, H_{in}, W_{in}, C_{in}, )` depending on `data_format`.
+        - **delimiter_position** (Tensor, optional) - Delimiter position tensor. Shape :math:`(B, N)`, where :math:`N`
+          represents the number of delimiters.
+        - **image_embedding** (Tensor, optional) - Image embedding tensor. The shape depends on the dimension of the
+          image embedding, for example (batch_size, embedding_dim).
 
     Outputs:
-        - **encoder_output** - the hidden states
-        - **embedding_table** - the word embedding table
-        - **pooled_output** - the pooler layer output
+        - **encoder_output** - Output Tensor of shape :math:`(B, S, H)` or :math:`(S, B, H)`.
+
+    Raises:
+        ValueError: If config.untie_embeddings_and_output_weights and add_decoder are both True.
+        RuntimeError: If the length of the input is not 1.
+        NotImplementedError: If `config.retro_add_retriever` is True.
+        NotImplementedError: if `visual_encoder` or `add_decoder` is True.
+        NotImplementedError: If `dec_input_ids`, `dec_position_ids`, `dec_attn_mask`, `retriever_input_ids`,
+            `retriever_position_ids`, `retriever_attn_mask`, `enc_dec_attn_mask`, `input_image`, `delimiter_position`
+            or `image_embedding` is not None.
+        NotImplementedError: if `output_enc_hidden` is True.
 
     Supported Platforms:
         ``Ascend``
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import os
+        >>> import numpy as np
+        >>> import mindspore as ms
+        >>> from mindspore import Tensor
+        >>> from mindspore.communication import init
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> from mindformers.experimental.parallel_core.pynative.transformer import TransformerLanguageModel
+        >>> from mindformers.experimental.parallel_core.pynative.config import (
+        ...     init_configs_from_yaml,
+        ...     TrainingConfig,
+        ...     ModelParallelConfig,
+        ...     TransformerConfig,
+        ...     DatasetConfig,
+        ... )
+        >>> os.environ['HCCL_BUFFSIZE'] = "1"
+        >>> CONFIG_PATH = "test_language_model.yaml"
+        >>> training_config, parallel_config, dataset_config, model_config = init_configs_from_yaml(
+        ...     CONFIG_PATH, [TrainingConfig, ModelParallelConfig, DatasetConfig, TransformerConfig]
+        ... )
+        >>> ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE, deterministic="ON")
+        >>> init()
+        >>> initialize_model_parallel()
+        >>> language_model = TransformerLanguageModel(model_config, encoder_attn_mask_type=None)
+        >>> input_data = Tensor(np.random.random((model_config.seq_length, model_config.seq_length)).astype(np.float32))
+        >>> label_data = Tensor(np.zeros((model_config.seq_length, model_config.seq_length)).astype(np.int32))
+        >>> hidden_states = language_model(input_data, None, label_data)
+        >>> print(hidden_states.shape)
+        (32, 32, 64)
     """
     # pylint: disable=W0613, C0111
     def __init__(self,
