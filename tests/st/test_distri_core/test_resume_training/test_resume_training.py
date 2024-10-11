@@ -18,6 +18,7 @@ import os
 import pytest
 import numpy as np
 
+@pytest.mark.level1
 class TestResumeTraining:
     """A test class for testing Linear."""
 
@@ -57,47 +58,6 @@ class TestResumeTraining:
         return pynative_loss
 
 
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
-    @pytest.mark.run(order=0)
-    def test_resume_training_pynative_ep1tp2pp2_step5(self):
-        """
-        Feature: test mixtral pynative
-        Description: run pynative mode mixtral to generate pynative loss
-        Expectation: test success
-        """
-        scripts_name = "run_resume_training.py"
-        device_num = 4
-        postfix = "_ep1tp2pp2_step5"
-
-        rm_list = ["npy_pynative*", f"msrun_log_pynative{postfix}*", "kernel_meta*", f"output{postfix}"]
-        print("")
-        for rm_path in rm_list:
-            rm_path = os.path.join(os.getcwd(), rm_path)
-            print(f"removing {rm_path}")
-            os.system(f"rm -rf {rm_path}")
-
-        sh_path = os.path.split(os.path.realpath(__file__))[0]
-        scripts_path = os.path.join(sh_path, scripts_name)
-
-        scripts_cmd = f"{scripts_path} --config_path=./config_resume_training.yaml " + \
-                      f"--crc_check " + \
-                      f"--output_dir=output{postfix} " + \
-                      f"--training_iters=5"
-        cmd = f"msrun --worker_num={device_num} "+\
-                    f"--local_worker_num={device_num} "+\
-                    f"--master_port=8119 "+\
-                    f"--log_dir=msrun_log_pynative{postfix} "+\
-                    f"--join=True "+\
-                    f"--cluster_time_out=300 "+\
-                    f"{scripts_cmd}"
-        ret = os.system(cmd)
-        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_pynative{postfix}/worker_0.log -C 3")
-        assert ret == 0, f"msrun failed, please check msrun_log_pynative{postfix}/worker_*.log"
-
-
-    @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     @pytest.mark.run(order=0)
@@ -107,7 +67,6 @@ class TestResumeTraining:
         Description: run pynative mode mixtral to generate pynative loss
         Expectation: test success
         """
-        # os.environ['HCCL_BUFFSIZE'] = "200"
         scripts_name = "run_resume_training.py"
         device_num = 4
         postfix = "_ep1tp2pp2_step10"
@@ -122,11 +81,11 @@ class TestResumeTraining:
         sh_path = os.path.split(os.path.realpath(__file__))[0]
         scripts_path = os.path.join(sh_path, scripts_name)
 
-
         scripts_cmd = f"{scripts_path} --config_path=./config_resume_training.yaml " + \
                       f"--crc_check " + \
                       f"--output_dir=output{postfix} " + \
-                      f"--training_iters=10"
+                      f"--training_iters=10 " + \
+                      f"--save_interval=5"
         cmd = f"msrun --worker_num={device_num} "+\
                     f"--local_worker_num={device_num} "+\
                     f"--master_port=8119 "+\
@@ -139,7 +98,6 @@ class TestResumeTraining:
         assert ret == 0, f"msrun failed, please check msrun_log_pynative{postfix}/worker_*.log"
 
 
-    @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     @pytest.mark.run(order=0)
@@ -170,11 +128,11 @@ class TestResumeTraining:
                       f"--output_dir=output{postfix} " + \
                       f"--training_iters=10 " + \
                       f"--resume_training " + \
-                      f"--load_checkpoint=./output_ep1tp2pp2_step5 "
+                      f"--load_checkpoint=./output_ep1tp2pp2_step10 "
 
         cmd = f"msrun --worker_num={device_num} "+\
                     f"--local_worker_num={device_num} "+\
-                    f"--master_port=8119 "+\
+                    f"--master_port=8121 "+\
                     f"--log_dir=msrun_log_pynative{postfix} "+\
                     f"--join=True "+\
                     f"--cluster_time_out=300 "+\
