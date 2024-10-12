@@ -33,9 +33,26 @@ class MoELayer(Module):
     expert layer.
 
     Args:
-        config: configuration
+        config (TransformerConfig): Configuration object for the transformer model.
         submodules: reserve arguments, not used now.
         layer_number: reserve arguments, not used now.
+
+    Inputs:
+        - **hidden_states** (Tensor) - The input hidden states of the local experts.
+
+    Outputs:
+        Tuple of 2 Tensors.
+
+        - **output** (Tensor) - The output of the local experts
+        - **mlp_bias** (Tensor) - Not used now.
+
+    Raises:
+        ValueError: if `ep_world_size` is less than or equal to 0.
+        ValueError: if `num_experts % ep_world_size` is not equal to 0.
+        ValueError: if the elements of `local_expert_indices` is larger than or equal to `num_experts`.
+        ValueError: if `moe_config.moe_token_dispatcher_type` is not "alltoall"
+        ValueError: if `self.training` is true and `get_tensor_model_parallel_world_size()` is larger than 1,
+            and `self.sp` is not true
     """
     # pylint: disable=C0103
     def __init__(self, config: TransformerConfig, submodules=None, layer_number: int = None):

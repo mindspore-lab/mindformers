@@ -287,6 +287,12 @@ class LinearWithFrozenWeight(nn.Cell):
     r"""
     Linear execution with frozen weight.
 
+    .. math::
+        \text{outputs} = \text{inputs} * \text{weight} + \text{bias},
+
+    which :math:`inputs` is the input tensors, :math:`weight` is a weight matrix,
+    and :math:`\text{bias}` is a bias vector.
+
     The gradient of weight is not calculated during backward propagation.
 
     Args:
@@ -294,6 +300,38 @@ class LinearWithFrozenWeight(nn.Cell):
         allreduce_dgrad (bool): Specifies whether calculation and communication are overlapped. Default: None.
         transpose_b (bool): use transposed weight shape for initialization and compute. Default: True.
 
+    Inputs:
+        - **x** (Tensor) - The input Tensor.
+        - **weight** (Tensor) - The weight matrix for multiplication.
+        - **bias** (Tensor) - The bias vector for addition after multiplication.
+
+    Outputs:
+        Tensor, the output after the calculation.
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import os
+        >>> import numpy as np
+        >>> import mindspore as ms
+        >>> import mindspore.common.dtype as mstype
+        >>> from mindspore import Tensor
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> from mindformers.experimental.parallel_core.pynative.tensor_parallel.layers import LinearWithFrozenWeight
+        >>> input = Tensor(np.random.random((2, 3, 3)).astype(np.float32))
+        >>> weight = Tensor(np.random.random((3, 3)).astype(np.float32))
+        >>> bias = Tensor(np.random.random((1)).astype(np.float32))
+        >>> model = LinearWithFrozenWeight(bias=bias)
+        >>> output = model(input, weight, bias)
     """
     def __init__(self, bias, allreduce_dgrad=None, transpose_b=True):
         super(LinearWithFrozenWeight, self).__init__()

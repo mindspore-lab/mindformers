@@ -36,7 +36,27 @@ class GroupedMLP(Module):
 
 
 class SequentialMLP(Module):
-    """define SequentialMLP module"""
+    """
+    Define SequentialMLP module.
+
+    Args:
+        num_local_experts (int): The number of local experts.
+        config (TransformerConfig): Configuration object for the transformer model.
+        submoduals: reserve arguments, not used now.
+
+    Inputs:
+        - **permuted_local_hidden_states** (Tensor) - The permuted input hidden states of the local experts.
+        - **token_per_expert** (Tensor) - The number of tokens per expert.
+
+    Outputs:
+        Tuple of 2 Tensors.
+
+        - **output_local** (Tensor) - The output of the local experts.
+        - **output_bias_local** (Tensor) - The output of the local experts with bias, default is None.
+
+    Raises:
+        NotImplementedError: if `submoduals` is not None.
+    """
     def __init__(self, num_local_experts: int, config: TransformerConfig, submodules=None):
         super(SequentialMLP, self).__init__()
         if submodules is not None:
