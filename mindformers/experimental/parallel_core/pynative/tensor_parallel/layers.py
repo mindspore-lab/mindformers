@@ -214,7 +214,6 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
     def bprop(self, *args):
         dout = args[-1]
         weight = args[1]
-        weight_param = args[3]
         if self.recompute_comm:
             x = args[0]
             if self.data_layout == "BSH":
@@ -277,10 +276,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         if self.sequence_parallel and self.data_layout == "BSH":
             grad_input = grad_input.swapaxes(0, 1)
 
-        grad_weight_param = mint.full(weight_param.shape,
-                                      0, dtype=weight_param.dtype) if weight_param is not None else None
-
-        return grad_input, grad_weight, grad_bias, grad_weight_param
+        return grad_input, grad_weight, grad_bias, None
 
 
 class LinearWithFrozenWeight(nn.Cell):
