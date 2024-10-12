@@ -181,7 +181,7 @@ class CoreAttention(nn.Cell):
         >>> mask = np.ones((32, 1024, 1024), dtype=np.uint8)
         >>> mask = Tensor(np.expand_dims(mask, axis=1))
         >>> out = MyNet(config=config)(input, mask)
-        """
+    """
 
     def __init__(self, layer_number, config, attn_mask_type=AttnMaskType.padding):
         super(CoreAttention, self).__init__()
@@ -364,7 +364,7 @@ class ParallelAttention(Module):
         >>> out = MyNet(config=config)(input, mask)
         >>> print(out.shape)
         (32, 1024, 256)
-        """
+    """
 
     def __init__(self, config, layer_number, attention_type=AttnType.self_attn,
                  attn_mask_type=AttnMaskType.padding):
@@ -781,7 +781,7 @@ class ParallelTransformerLayer(Module):
         >>> out = MyNet(config=config)(input, mask).shape
         >>> print(out)
         (32, 1024, 256)
-        """
+    """
     # pylint: disable=W0613
     def __init__(self,
                  config,
@@ -1011,7 +1011,8 @@ def _get_num_layers(config, model_type, is_decoder=False):
                     raise ValueError(f"The number of model layers is {config.num_layers}, "
                                      f"but the sum of num_layer_list  "
                                      f"{config.parallel_config.num_layer_list} is {num_layer_array.sum()}.")
-                assert np.all(num_layer_array > 0)
+                if not np.all(num_layer_array > 0):
+                    raise ValueError("num_layer_array has element <= 0")
                 num_layers, offset = _get_custom_num_layers(config.parallel_config.num_layer_list,
                                                             pp_stage, pp_rank, vpp_stage, vpp_rank)
                 if vpp_stage is not None:
@@ -1143,7 +1144,7 @@ class ParallelTransformer(Module):
         >>> out = MyNet(config=config)(input, mask).shape
         >>> print(out)
         (32, 1024, 256)
-        """
+    """
 
     def __init__(self,
                  config,
@@ -1339,9 +1340,11 @@ class ParallelTransformer(Module):
         self.config.recompute_method = None
         self.config.recompute_granularity = None
         self.config.recompute_num_layers = None
+
         def _get_recompute_layer_nums(recompute_num_list):
             recompute_num_array = np.array(recompute_num_list)
-            assert np.all(recompute_num_array >= 0)
+            if not np.all(recompute_num_array >= 0):
+                raise ValueError("recompute_num_array has element < 0")
             if recompute_num_array.shape != pp_layout:
                 raise ValueError("The shape of recompute_num_list {} must equal to "
                                  "pp_layout {}".format(recompute_num_array.shape, pp_layout))

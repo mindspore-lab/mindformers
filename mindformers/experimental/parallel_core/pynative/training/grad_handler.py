@@ -178,6 +178,7 @@ class ClipGlobalNorm(nn.Cell):
             self.clip_func(grads, clip_coeff)
         return total_norm
 
+
 def get_grad_process_func(training_config, share_embeddings_and_output_weights=True, return_instance=True, **kwargs):
     """
     Get the gradient processing function based on the provided training configuration.

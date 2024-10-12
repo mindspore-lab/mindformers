@@ -271,7 +271,7 @@ def modify_megatron_param(flatten_dict):
         flatten_dict.pop('adam_beta2')
         mapping_dict['optimizer_config.betas'] = 'optimizer_config.betas'
 
-    if  'global_batch_size' in flatten_dict and 'micro_batch_size' in flatten_dict:
+    if 'global_batch_size' in flatten_dict and 'micro_batch_size' in flatten_dict:
         data_parallel_size = flatten_dict.get('data_parallel_size', 1)
         micro_batch_num = flatten_dict['global_batch_size'] // (flatten_dict['micro_batch_size'] * data_parallel_size)
         flatten_dict['micro_batch_num'] = micro_batch_num
@@ -325,7 +325,7 @@ def init_configs_from_args(run_args: argparse.Namespace = None, model_type: str 
         Returns:
             Union[list[BaseConfig], AllConfig]: Initialized config instances, when no config class is passed in,
                 AllConfig will be returned.
-        """
+    """
     if not isinstance(run_args, argparse.Namespace):
         raise ValueError("run_args should be argparse.Namespace.")
 
@@ -943,12 +943,11 @@ def validate_zero_level(config_instance, zero_level):
     """Validate zero_level."""
     if zero_level is not None:
         Validator.check_string(zero_level, ["z1", "z2", "z3"], "zero_level")
-        if (
-                config_instance.sequence_parallel
-                or config_instance.pipeline_model_parallel_size > 1
-                or config_instance.expert_model_parallel_size > 1
-                or config_instance.context_parallel_size > 1
-        ):
+        is_parallel_used = config_instance.sequence_parallel \
+            or config_instance.pipeline_model_parallel_size > 1 \
+            or config_instance.expert_model_parallel_size > 1 \
+            or config_instance.context_parallel_size > 1
+        if is_parallel_used:
             logger.warning(
                 "Accuracy is not guaranteed when zero is used with parallel"
                 + "strategies other than data parallel and tensor parallel."
@@ -962,11 +961,13 @@ def validate_gradient_accumulation_fusion(config_instance, gradient_accumulation
     Validator.check_bool(gradient_accumulation_fusion, "gradient_accumulation_fusion")
     return gradient_accumulation_fusion
 
+
 @ModelParallelConfig.validator("overlap_p2p_comm")
 def validate_overlap_p2p_comm(config_instance, overlap_p2p_comm):
     """Validate if overlap_p2p_comm is bool."""
     Validator.check_bool(overlap_p2p_comm, "overlap_p2p_comm")
     return overlap_p2p_comm
+
 
 @ModelParallelConfig.validator("use_cpu_initialization")
 def validate_use_cpu_initialization(config_instance, use_cpu_initialization):
@@ -1684,11 +1685,13 @@ def validate_bf16(config_instance, bf16):
     Validator.check_bool(bf16, "bf16")
     return bf16
 
+
 @TrainingConfig.validator("resume_training")
 def validate_resume_training(config_instance, resume_training):
     """Validate resume_training is bool."""
     Validator.check_bool(resume_training, "resume_training")
     return resume_training
+
 
 @TrainingConfig.validator("crc_check")
 def validate_crc_check(config_instance, crc_check):
@@ -1696,11 +1699,13 @@ def validate_crc_check(config_instance, crc_check):
     Validator.check_bool(crc_check, "crc_check")
     return crc_check
 
+
 @TrainingConfig.validator("load_checkpoint")
 def validate_load_checkpoint(config_instance, load_checkpoint):
     """Validate load_checkpoint is str."""
     Validator.check_value_type("load_checkpoint", load_checkpoint, [str])
     return load_checkpoint
+
 
 @TrainingConfig.validator("enable_compile_cache")
 def validate_enable_compile_cache(config_instance, enable_compile_cache):
@@ -1708,11 +1713,13 @@ def validate_enable_compile_cache(config_instance, enable_compile_cache):
     Validator.check_bool(enable_compile_cache, "enable_compile_cache")
     return enable_compile_cache
 
+
 @TrainingConfig.validator("compile_cache_path")
 def validate_compile_cache_path(config_instance, compile_cache_path):
     """Validate compile_cache_path is str."""
     Validator.check_value_type("compile_cache_path", compile_cache_path, [str])
     return compile_cache_path
+
 
 @TrainingConfig.validator("ckpt_format")
 def validate_ckpt_format(config_instance, ckpt_format):
@@ -1722,12 +1729,14 @@ def validate_ckpt_format(config_instance, ckpt_format):
         raise ValueError("crc_check does not support format 'safetensors' for now.")
     return ckpt_format
 
+
 @TrainingConfig.validator("keep_checkpoint_max")
 def validate_keep_checkpoint_max(config_instance, keep_checkpoint_max):
     """Validate keep_checkpoint_max is int"""
     if keep_checkpoint_max is not None:
         Validator.check_positive_int(keep_checkpoint_max, "keep_checkpoint_max")
     return keep_checkpoint_max
+
 
 def check_fa_config(**kwargs):
     """ check flash attention config validation. """
@@ -2565,6 +2574,7 @@ def validate_lr_warmup_init(config_instance, lr_warmup_init):
     """Validate lr_warmup_init."""
     Validator.check_non_negative_float(lr_warmup_init, "lr_warmup_init")
     return lr_warmup_init
+
 
 @OptimizerConfig.validator("lr_warmup_fraction")
 def validate_lr_warmup_fraction(config_instance, lr_warmup_fraction):

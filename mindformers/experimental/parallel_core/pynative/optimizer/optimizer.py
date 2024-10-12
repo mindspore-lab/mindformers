@@ -360,7 +360,7 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
                      list(self.optimizer.exp_avg) + \
                      list(self.optimizer.exp_avg_sq)
         for param in param_dict:
-            if not param.name in state_dict:
+            if param.name not in state_dict:
                 logger.warning("No state data found for {}, it will not be loaded.".format(param.name))
             param.copy_(state_dict[param.name])
 
