@@ -21,7 +21,7 @@ from mindspore import ops, mint, Tensor
 from mindspore.common import dtype as mstype
 from mindspore.common.initializer import Zero
 from mindspore.communication.management import get_rank, get_group_size
-from mindspore.communication.comm_func import all_reduce, reduce_scatter_tensor
+import mindspore.communication.comm_func as comm_func
 
 from mindformers.experimental.parallel_core.pynative.utils import divide
 
@@ -81,9 +81,9 @@ class Bucket:
         self.gradient_scaling_factor = gradient_scaling_factor
 
         if self.data_parallel_world_size > 1:
-            self.grad_reducer = reduce_scatter_tensor \
+            self.grad_reducer = comm_func.reduce_scatter_tensor \
                                 if self.ddp_config.use_distributed_optimizer \
-                                else all_reduce
+                                else comm_func.all_reduce
         self.reset()
 
     def inplace_reduce_dp(self, src, target):

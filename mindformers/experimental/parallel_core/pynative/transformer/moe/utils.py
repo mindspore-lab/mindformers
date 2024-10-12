@@ -17,8 +17,8 @@ import math
 import sys
 
 import mindspore as ms
+import mindspore.communication.comm_func as comm_func
 from mindspore import mint, nn, ops
-from mindspore.communication.comm_func import all_reduce
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_tensor_and_context_parallel_group,
@@ -110,10 +110,10 @@ def switch_load_balancing_loss_func(probs, tokens_per_expert, topk, moe_aux_loss
     num_sub_sequence = 1
     if sequence_partition_group == "tp-cp":
         num_sub_sequence = get_tensor_and_context_parallel_world_size()
-        tokens_per_expert = all_reduce(tokens_per_expert, group=get_tensor_and_context_parallel_group())[0]
+        tokens_per_expert = comm_func.all_reduce(tokens_per_expert, group=get_tensor_and_context_parallel_group())[0]
     elif sequence_partition_group == "cp":
         num_sub_sequence = get_context_parallel_world_size()
-        tokens_per_expert = all_reduce(tokens_per_expert, group=get_context_parallel_group())[0]
+        tokens_per_expert = comm_func.all_reduce(tokens_per_expert, group=get_context_parallel_group())[0]
 
     num_tokens = probs.shape[0] * num_sub_sequence
     num_experts = probs.shape[1]

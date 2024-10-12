@@ -19,7 +19,7 @@ from collections import OrderedDict
 import mindspore as ms
 from mindspore import nn
 import mindspore.ops as P
-from mindspore.communication.comm_func import all_reduce
+import mindspore.communication.comm_func as comm_func
 from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     is_pipeline_first_stage,
@@ -67,7 +67,7 @@ class Module(nn.Cell):
                 raise RuntimeError("Now, only one weight can be set 'share' attribute in a pipeline stage, "
                                    "please check if 'add_attr_for_shared_weight' function is used correctly.")
             cur_rank_count = ms.Tensor(count, ms.float32)
-            all_rank_count = all_reduce(cur_rank_count, group=get_embedding_group())[0]
+            all_rank_count = comm_func.all_reduce(cur_rank_count, group=get_embedding_group())[0]
             if all_rank_count != 0 and cur_rank_count == all_rank_count:
                 raise RuntimeError("There is one weight with 'share' attribute in the model, "
                                    "but parameter sharing requires two weights with 'share' attribute in first stage "
@@ -128,7 +128,7 @@ class Module(nn.Cell):
             raise ValueError(f"When embedding's weight share with head layer in pipeline parallel, "
                              f"the weight of head layer must be set as 'zeros' init method. "
                              f" But the weight {shared_weight.name} do not meet the requirement.")
-        shared_weight_value = all_reduce(shared_weight.value(), group=get_embedding_group())[0]
+        shared_weight_value = comm_func.all_reduce(shared_weight.value(), group=get_embedding_group())[0]
         if self.post_process:
             P.assign(shared_weight, shared_weight_value)
 
