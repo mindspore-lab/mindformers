@@ -18,10 +18,10 @@ import json
 
 import mindspore as ms
 import mindspore.ops as ops
+import mindspore.communication.comm_func as comm_func
 from mindspore.common import dtype as mstype
 from mindspore.common.initializer import Zero
 from mindspore.communication.management import get_group_size, get_rank
-from mindspore.communication.comm_func import all_gather_into_tensor
 
 from mindformers.experimental.parallel_core.pynative.distributed import ParamAndGradBuffer
 
@@ -534,7 +534,8 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             for buffer_index, bucket_index, shard_start, shard_end in self.param_buffer_dp_views:
                 bucket = self.buffers[buffer_index].buckets[bucket_index]
                 param_data_view = bucket.param_data[shard_start:shard_end]
-                param_data = all_gather_into_tensor(param_data_view, group=bucket.data_parallel_group)[0].reshape(-1)
+                param_data = comm_func.all_gather_into_tensor(
+                    param_data_view, group=bucket.data_parallel_group)[0].reshape(-1)
                 bucket.param_data.copy_(param_data)
 
 

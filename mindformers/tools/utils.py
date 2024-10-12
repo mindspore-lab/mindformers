@@ -32,7 +32,7 @@ except ImportError:
 from mindspore import Tensor, context
 from mindspore._checkparam import args_type_check
 from mindspore.communication import get_group_size, get_rank
-from mindspore.communication.comm_func import barrier
+import mindspore.communication.comm_func as comm_func
 
 PARALLEL_MODE = {'DATA_PARALLEL': context.ParallelMode.DATA_PARALLEL,
                  'SEMI_AUTO_PARALLEL': context.ParallelMode.SEMI_AUTO_PARALLEL,
@@ -684,4 +684,4 @@ def barrier_world(action: str = None):
         else:
             logger.info("Now barriered...")
 
-        barrier()
+        comm_func.barrier()

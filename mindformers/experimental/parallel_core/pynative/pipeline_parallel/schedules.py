@@ -20,7 +20,7 @@ import mindspore.common.dtype as mstype
 from mindspore.ops import composite as C
 from mindspore.ops import functional as F
 from mindspore import Tensor, mint, nn, hal
-from mindspore.communication.comm_func import all_reduce
+import mindspore.communication.comm_func as comm_func
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_rank, \
     get_pipeline_model_parallel_world_size, get_context_parallel_world_size, get_tensor_model_parallel_world_size, \
@@ -1098,7 +1098,7 @@ def all_reduce_share_embedding(grads, weights, model, wrap_with_ddp=False):
             if shared_weight_index:
                 if wrap_with_ddp:
                     hal.current_stream().wait_stream(get_stream())
-                weight_grad.copy_(all_reduce(weight_grad, group=get_embedding_group())[0])
+                weight_grad.copy_(comm_func.all_reduce(weight_grad, group=get_embedding_group())[0])
     return grads
 
 

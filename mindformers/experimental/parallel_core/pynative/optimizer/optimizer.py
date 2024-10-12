@@ -18,7 +18,7 @@ from collections import OrderedDict
 from mindspore import mint, ops, Tensor, Parameter, ParameterTuple
 import mindspore.nn as nn
 import mindspore.common.dtype as mstype
-from mindspore.communication.comm_func import all_reduce
+import mindspore.communication.comm_func as comm_func
 from mindformers.experimental.parallel_core.pynative.training.optimizer_param_scheduler import OptimizerParamScheduler
 
 from mindformers.tools import logger
@@ -198,7 +198,8 @@ class MixedPrecisionOptimizer(nn.Cell):
         self.grad_scale_func(self.grads, inv_scale)
         for grad in self.grads:
             self.found_inf = mint.logical_and(self.found_inf, mint.logical_not(mint.isfinite(grad)).all())
-        self.found_inf = all_reduce(self.found_inf.astype(mstype.float32), 'max', get_model_parallel_group())[0]
+        self.found_inf = comm_func.all_reduce(
+            self.found_inf.astype(mstype.float32), 'max', get_model_parallel_group())[0]
         return mint.greater(self.found_inf, self._scale_zero)
 
     # pylint: disable=R1705
