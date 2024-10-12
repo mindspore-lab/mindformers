@@ -22,14 +22,13 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
-- 📝 **[MindFormers教程文档](https://mindformers.readthedocs.io/zh_CN/latest)**
-- 📝 [大模型能力表一览](https://mindformers.readthedocs.io/zh-cn/latest/docs/model_support_list.html#llm)
-- 📝 [MindPet指导教程](docs/feature_cards/Pet_Tuners.md)
+- 📝 **[MindFormers文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)**
+- 📝 [大模型低参微调](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/parameter_efficient_fine_tune.html)
 - 📝 [AICC指导教程](docs/readthedocs/source_zh_cn/docs/practice/AICC.md)
 
 ### 支持模型
 
-MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners.md)以及[LoRA权重合并](docs/feature_cards/Transform_Lorackpt.md)功能，具体可参考各模型文档启动模型的LoRA微调任务。
+MindFormers已支持大部分模型的[LoRA微调](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/parameter_efficient_fine_tune.html)以及[LoRA权重合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#lora权重合并)功能，具体可参考各模型文档启动模型的LoRA微调任务。
 
 当前MindFormers支持的模型列表如下：
 
@@ -110,7 +109,7 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
       <td> 8K </td>
       <td style="text-align: center"> - </td>
       <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="research/llama3_1/llama3_1.md"> docs </a> </td>
+      <td style="text-align: center"> <a href="research/llama3_1/llama3_1.md"> docs </a> </td>
       <td style="text-align: center"> - </td>
       <td style="text-align: center"> &#x2713 </td>
       <td style="text-align: center"> - </td>
@@ -120,7 +119,7 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
       <td> 8K </td>
       <td style="text-align: center"> - </td>
       <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="research/llama3_1/llama3_1.md"> docs </a> </td>
+      <td style="text-align: center"> <a href="research/llama3_1/llama3_1.md"> docs </a> </td>
       <td style="text-align: center"> - </td>
       <td style="text-align: center"> &#x2713 </td>
       <td style="text-align: center"> - </td>
@@ -190,6 +189,45 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
   </tbody>
   <tbody>
     <tr>
+      <td rowspan="1"> <a href="docs/model_cards/glm4.md"> GLM4 </a> </td>
+      <td> 9B </td>
+      <td> 8K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td> <a href="scripts/examples/glm4/run_glm4_predict.sh"> generate </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+  </tbody>
+  <tbody>
+    <tr>
+      <td rowspan="1"> <a href="docs/model_cards/cogvlm2_video.md"> CogVLM2-Video </a> </td>
+      <td> 13B </td>
+      <td> 2K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> <a href="docs/model_cards/cogvlm2_video.md"> docs </a> </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+  </tbody>
+  <tbody>
+    <tr>
+      <td rowspan="1"> <a href="docs/model_cards/cogvlm2_image.md"> CogVLM2-Image </a> </td>
+      <td> 19B </td>
+      <td> 4K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> <a href="docs/model_cards/cogvlm2_image.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+  </tbody>
+  <tbody>
+    <tr>
       <td rowspan="2"> <a href="research/qwen/qwen.md"> Qwen </a> </td>
       <td> 7B </td>
       <td> 8K </td>
@@ -213,7 +251,37 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
   </tbody>
   <tbody>
     <tr>
-      <td rowspan="3"> <a href="research/qwen1_5/qwen1_5.md"> Qwen1.5 </a> </td>
+      <td rowspan="7"> <a href="research/qwen1_5/qwen1_5.md"> Qwen1.5 </a> </td>
+      <td> 0.5B </td>
+      <td> 8K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> <a href="research/qwen1_5/qwen1_5.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+    <tr>
+      <td> 1.8B </td>
+      <td> 8K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> <a href="research/qwen1_5/qwen1_5.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+    <tr>
+      <td> 4B </td>
+      <td> 8K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> <a href="research/qwen1_5/qwen1_5.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+    <tr>
       <td> 7B </td>
       <td> 32K </td>
       <td style="text-align: center"> &#x2713 </td>
@@ -234,11 +302,84 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
       <td style="text-align: center"> - </td>
     </tr>
     <tr>
+      <td> 32B </td>
+      <td> 8K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> <a href="research/qwen1_5/qwen1_5.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+    <tr>
       <td> 72B </td>
       <td> 32K </td>
       <td style="text-align: center"> &#x2713 </td>
       <td style="text-align: center"> &#x2713 </td>
       <td style="text-align: center"> <a href="research/qwen1_5/qwen1_5.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+  </tbody>
+  <tbody>
+    <tr>
+      <td rowspan="6"> <a href="research/qwen2/qwen2.md"> Qwen2 </a> </td>
+      <td> 0.5B </td>
+      <td> 32K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> <a href="research/qwen2/qwen2.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+    <tr>
+      <td> 1.5B </td>
+      <td> 32K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> <a href="research/qwen2/qwen2.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+    <tr>
+      <td> 7B </td>
+      <td> 32K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> <a href="research/qwen2/qwen2.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+    <tr>
+      <td> 57B-A14B </td>
+      <td> 8K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> <a href="research/qwen2/qwen2.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+    <tr>
+      <td> 57B </td>
+      <td> 32K </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> <a href="research/qwen2/qwen2.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+    <tr>
+      <td> 72B </td>
+      <td> 128K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> <a href="research/qwen2/qwen2.md"> docs </a> </td>
       <td style="text-align: center"> - </td>
       <td style="text-align: center"> &#x2713 </td>
       <td style="text-align: center"> - </td>
@@ -354,6 +495,19 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
   </tbody>
   <tbody>
     <tr>
+      <td rowspan="1"> <a href="research/deepseek1_5/deepseek1_5.md"> DeepSeek Coder1.5 </a> </td>
+      <td> 7B </td>
+      <td> 4K </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> <a href="research/deepseek1_5/deepseek1_5.md"> docs </a> </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+  </tbody>
+  <tbody>
+    <tr>
       <td rowspan="1"> <a href="research/deepseek2/deepseek2.md"> DeepSeekV2 </a> </td>
       <td> 236B </td>
       <td> 4K </td>
@@ -391,6 +545,19 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
       <td style="text-align: center"> PPL </td>
     </tr>
   </tbody>
+  <tbody>
+    <tr>
+      <td rowspan="1"> <a href="docs/model_cards/whisper.md"> Whisper </a> </td>
+      <td> 1.5B </td>
+      <td> - </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+      <td style="text-align: center"> - </td>
+    </tr>
+  </tbody>
 </table>
 
 ## 二、安装
@@ -401,9 +568,9 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
 
 当前套件建议使用的Python版本为3.9。
 
-| MindFormers | MindPet |  MindSpore  | CANN | 驱动固件 | 镜像链接 | 备注          |
-|:-----------:|:-------:|:-----------:|:----:|:----:|:----:|-------------|
-|     dev     |  1.0.4  | 2.3版本(尚未发布) | 尚未发布 | 尚未发布 |  /   | 开发分支(非稳定版本) |
+| MindFormers | MindPet | MindSpore | CANN |                                  驱动固件                                  | 镜像链接 |  备注  |
+|:-----------:|:-------:|:---------:|:----:|:----------------------------------------------------------------------:|:----:|:----:|
+|    1.3.0    |  1.0.4  |   2.4.0   |  -   | [driver](https://www.hiascend.com/hardware/firmware-drivers/community) |  -   | 版本分支 |
 
 **当前MindFormers仅支持如上的软件配套关系**。其中CANN和固件驱动的安装需与使用的机器匹配，请注意识别机器型号，选择对应架构的版本。
 
@@ -412,7 +579,7 @@ MindFormers已支持大部分模型的[LoRA微调](docs/feature_cards/Pet_Tuners
 MindFormers目前支持源码编译安装，用户可以执行如下命令进行安装。
 
 ```shell
-git clone -b dev https://gitee.com/mindspore/mindformers.git
+git clone -b r1.3.0 https://gitee.com/mindspore/mindformers.git
 cd mindformers
 bash build.sh
 ```
@@ -421,7 +588,7 @@ bash build.sh
 
 MindFormers支持模型启动预训练、微调、推理、评测等功能，可点击[支持模型](#支持模型)中模型名称查看文档完成上述任务，以下为模型分布式启动方式的说明与示例。
 
-MindFormers推荐使用分布式方式拉起模型训练、推理等功能，目前提供`scripts/msrun_launcher.sh`分布式启动脚本作为模型的主要启动方式，`msrun`特性说明可以参考[msrun启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3.0rc2/parallel/msrun_launcher.html)。
+MindFormers推荐使用分布式方式拉起模型训练、推理等功能，目前提供`scripts/msrun_launcher.sh`分布式启动脚本作为模型的主要启动方式，`msrun`特性说明可以参考[msrun启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3.1/parallel/msrun_launcher.html)。
 该脚本主要输入参数说明如下：
 
   | **参数**           | **单机是否必选** | **多机是否必选** |     **默认值**      | **说明**           |
@@ -517,7 +684,7 @@ python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/
 
 ## 四、贡献
 
-欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/master/CONTRIBUTING_CN.md)。
+欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/mindformers_contribution.html)。
 
 ## 五、许可证
 
