@@ -1,7 +1,7 @@
-mindformers.experimental.parallel_core.pynative.VocabParallelEmbedding
+mindformers.experimental.parallel_core.pynative.tensor_parallel.VocabParallelEmbedding
 ========================================================================================
 
-.. py:class:: mindformers.experimental.parallel_core.pynative.VocabParallelEmbedding(num_embeddings, embedding_dim, *, init_method, reduce_scatter_embeddings=False, config, param_init_dtype=None)
+.. py:class:: mindformers.experimental.parallel_core.pynative.tensor_parallel.VocabParallelEmbedding(num_embeddings, embedding_dim, *, init_method, reduce_scatter_embeddings=False, config, param_init_dtype=None)
 
     在词汇维度并行的嵌入计算。
 

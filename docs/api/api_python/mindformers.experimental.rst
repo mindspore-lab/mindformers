@@ -10,15 +10,15 @@ mindformers.experimental
     :toctree: experimental
     :nosignatures:
 
-    mindformers.experimental.parallel_core.pynative.ColumnParallelLinear
-    mindformers.experimental.parallel_core.pynative.RowParallelLinear
-    mindformers.experimental.parallel_core.pynative.VocabParallelEmbedding
-    mindformers.experimental.parallel_core.pynative.VocabParallelCrossEntropy
-    mindformers.experimental.parallel_core.pynative.TransformerLanguageModel
-    mindformers.experimental.parallel_core.pynative.ParallelMLP
-    mindformers.experimental.parallel_core.pynative.ParallelAttention
-    mindformers.experimental.parallel_core.pynative.ParallelTransformerLayer
-    mindformers.experimental.parallel_core.pynative.ParallelTransformer
-    mindformers.experimental.parallel_core.pynative.ParallelLMLogits
-    mindformers.experimental.parallel_core.pynative.RotaryEmbedding
-    mindformers.experimental.parallel_core.pynative.MoELayer
+    mindformers.experimental.parallel_core.pynative.tensor_parallel.ColumnParallelLinear
+    mindformers.experimental.parallel_core.pynative.tensor_parallel.RowParallelLinear
+    mindformers.experimental.parallel_core.pynative.tensor_parallel.VocabParallelEmbedding
+    mindformers.experimental.parallel_core.pynative.tensor_parallel.VocabParallelCrossEntropy
+    mindformers.experimental.parallel_core.pynative.transformer.TransformerLanguageModel
+    mindformers.experimental.parallel_core.pynative.transformer.ParallelMLP
+    mindformers.experimental.parallel_core.pynative.transformer.ParallelAttention
+    mindformers.experimental.parallel_core.pynative.transformer.ParallelTransformerLayer
+    mindformers.experimental.parallel_core.pynative.transformer.ParallelTransformer
+    mindformers.experimental.parallel_core.pynative.transformer.ParallelLMLogits
+    mindformers.experimental.parallel_core.pynative.transformer.RotaryEmbedding
+    mindformers.experimental.parallel_core.pynative.transformer.moe.MoELayer
