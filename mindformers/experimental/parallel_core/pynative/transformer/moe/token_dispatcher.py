@@ -40,16 +40,19 @@ from .utils import token_sort, token_unsort
 
 
 class MoEAlltoAllTokenDispatcher():
-    """AlltoAll Token Dispatcher, perform a dp <-> ep permutation"""
-    def __init__(self, num_local_experts: int, local_expert_indices: List[int], config: TransformerConfig):
-        """
-        Initialize the AlltoAll token dispatcher.
+    """
+    AlltoAll Token Dispatcher, perform a dp <-> ep permutation.
 
-        Args:
-            num_local_experts (int): how many local experts on this rank.
-            local_expert_indices (List[int]): Indices of local experts on this rank.
-            config: Configuration.
-        """
+    Args:
+        num_local_experts (int): how many local experts on this rank.
+        local_expert_indices (List[int]): Indices of local experts on this rank.
+        config (TransformerConfig): Configuration object for the transformer model.
+
+    Raises:
+        ValueError: If `num_local_experts` is not larger than 0.
+        ValueError: If the length of `local_expert_indices` is not equal to `num_local_experts`.
+    """
+    def __init__(self, num_local_experts: int, local_expert_indices: List[int], config: TransformerConfig):
         self.config = config
         self.moe_config = config.moe_config
         self.parallel_config = self.config.parallel_config
@@ -92,10 +95,11 @@ class MoEAlltoAllTokenDispatcher():
     def preprocess(self, indices):
         """
         this function will calculate the input and output splits for alltoall communitcation.
+
         Args:
             indices (ms.Tensor): indicates every token was dispatched to which expert.
 
-        Returns:
+        Outputs:
             count_tokens_per_local_expert (ms.Tensor): Tensor containing the number of tokens assigned to local expert.
 
         For example:
@@ -177,12 +181,13 @@ class MoEAlltoAllTokenDispatcher():
     def token_permutation(self, hidden_states, probs, indices):
         """
         Performs dp -> ep permutation
+
         Args:
-            hidden_states (ms.Tensor): hidden_states
-            probs (ms.Tensor): probs of hidden_states
+            hidden_states (ms.Tensor): hidden_states.
+            probs (ms.Tensor): probs of hidden_states.
             indices (ms.Tensor): indicates every token was dispatched to which expert.
 
-        Returns:
+        Outputs:
             dp_group_input_tokens (ms.Tensor): permuted tokens.
             count_tokens_per_local_expert (ms.Tensor): Tensor containing the number of tokens assigned to local expert.
 
@@ -240,12 +245,13 @@ class MoEAlltoAllTokenDispatcher():
 
     def token_unpermutation(self, hidden_states, bias=None):
         """
-        Performs dp <- ep permutation, reverse process of token_permutation
+        Performs dp <- ep permutation, reverse process of token_permutation.
+
         Args:
-            hidden_states (ms.Tensor): local experts output
+            hidden_states (ms.Tensor): local experts output.
             bias (ms.Tensor): bias tensor, not implemented.
 
-        Returns:
+        Outputs:
             output (ms.Tensor): unpermuted tokens.
         """
 

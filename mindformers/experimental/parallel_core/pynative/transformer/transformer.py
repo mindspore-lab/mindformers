@@ -1478,6 +1478,35 @@ class ParallelLMLogits(nn.Cell):
 
     Supported Platforms:
         ``Ascend``
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import os
+        >>> import numpy as np
+        >>> import mindspore as ms
+        >>> import mindspore.common.dtype as mstype
+        >>> from mindspore import Tensor
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> from mindformers.experimental.parallel_core.pynative.transformer import ParallelLMLogits
+        >>> init()
+        >>> initialize_model_parallel()
+        >>> parallel_config = ModelParallelConfig(tensor_model_parallel_size=tensor_parallel)
+        >>> config = TransformerConfig      #The config of Transformer model. For details, please refer to TransformerConfig
+        >>> model = ParallelLMLogits(config=config, bias=False, compute_dtype=ms.float32)
+        >>> input = Tensor(np.random.random((2, 3, 3)).astype(np.float32))
+        >>> weight = Tensor(np.random.random((3, 3)).astype(np.float32))
+        >>> logits = model(input, weight, parallel_output=True)
+        >>> print(logits)
     """
 
     def __init__(self, config, bias=False, compute_dtype=None):
