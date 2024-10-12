@@ -178,7 +178,7 @@ class OpParallelConfig(_Config):
         """get ulysses context parallel num under this config.
 
         Returns:
-            int: ulysses degrees.
+            int, ulysses degrees.
         """
         if self.context_parallel == 1:
             return 1
