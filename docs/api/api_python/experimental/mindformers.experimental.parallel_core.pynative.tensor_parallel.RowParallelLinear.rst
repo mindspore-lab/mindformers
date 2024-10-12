@@ -1,7 +1,7 @@
-mindformers.experimental.parallel_core.pynative.RowParallelLinear
-=====================================================================
+mindformers.experimental.parallel_core.pynative.tensor_parallel.RowParallelLinear
+===================================================================================
 
-.. py:class:: mindformers.experimental.parallel_core.pynative.RowParallelLinear(input_size, output_size, *, config, init_method, bias, input_is_parallel, skip_bias_add=True, stride=1, keep_master_weight_for_test=False, is_expert=False, tp_comm_buffer_name=None, bias_init=Zero(), param_init_dtype=None, compute_dtype=None, transpose_b=True)
+.. py:class:: mindformers.experimental.parallel_core.pynative.tensor_parallel.RowParallelLinear(input_size, output_size, *, config, init_method, bias, input_is_parallel, skip_bias_add=True, stride=1, keep_master_weight_for_test=False, is_expert=False, tp_comm_buffer_name=None, bias_init=Zero(), param_init_dtype=None, compute_dtype=None, transpose_b=True)
 
     稠密线性层计算，在权重的第一个维度按照张量并行大小进行切分，并行计算。
     该层实现的计算公式为：
