@@ -1,7 +1,7 @@
 mindformers.AutoModelForCausalLM
 ================================================
 
-.. py:class:: mindformers.AutoModelForCausalLM(*args, **kwargs)
+.. py:class:: mindformers.AutoModelForCausalLM()
 
     这是一个通用的模型类，使用类方法 `AutoModelForCausalLM.from_pretrained` 或 `AutoModelForCausalLM.from_config` 创建时会自动实例化为库中（带有因果语言建模头）的模型类之一。
     这个类不能直接使用 \_\_init\_\_() 实例化（会抛出异常）。
@@ -28,7 +28,7 @@ mindformers.AutoModelForCausalLM
               - `LlamaConfig` 配置类： `LlamaModel` ( `LlamaModel` 模型)
               - `PanguAlphaConfig` 配置类： `PanguAlphaModel` ( `PanguAlphaModel` 模型)
 
-            - **kwargs** (额外参数) - 传入的配置信息将会覆盖config中的配置信息。
+            - **kwargs** (Dict[str, Any], 可选) - 传入的配置信息将会覆盖config中的配置信息。
 
         返回：
             一个模型实例。
