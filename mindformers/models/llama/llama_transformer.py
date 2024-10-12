@@ -576,6 +576,7 @@ class LLamaDecodeLayer(nn.Cell):
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig(),
                  parallel_decoding=False,
+                 fused_kernel=True
                  ):
         super().__init__()
         self.layer_id = layer_id
@@ -590,8 +591,10 @@ class LLamaDecodeLayer(nn.Cell):
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.add = P.Add()
-        self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
-        self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
+        self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype,
+                                     fused_kernel=fused_kernel)
+        self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype,
+                                           fused_kernel=fused_kernel)
         self.attention = LLamaAttention(dim=dim,
                                         n_heads=n_heads,
                                         n_kv_heads=n_kv_heads,

@@ -217,6 +217,7 @@ class LlamaConfig(PretrainedConfig):
                  quant_config: dict = None,
                  tie_word_embeddings: bool = False,
                  llm_backend: str = "",
+                 fused_rms_norm: bool = True,
                  **kwargs):
         """
         Note:
@@ -282,3 +283,4 @@ class LlamaConfig(PretrainedConfig):
         self.tie_word_embeddings = tie_word_embeddings
         self.llm_backend = llm_backend
         self.parallel_decoding_params = kwargs.get('parallel_decoding_params')
+        self.fused_rms_norm = fused_rms_norm
