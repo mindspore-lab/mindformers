@@ -150,6 +150,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
         - return_dict_in_generate: 以字典形式返回generate输出结果，默认为False
         - output_scores: 字典返回输出时，是否包含每次前向生成时的进入softmax前的分数结果，默认为False
         - output_logits: 字典返回输出时，是否包含每次前向生成时模型输出的logits，默认为False
+        - fused_rms_norm: 模型微调时，是否使用融合算子，默认为True
 - lr_schedule: 学习率配置
     - type: 学习率类
 - layer_scale: 是否开启层衰减

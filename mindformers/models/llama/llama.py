@@ -180,11 +180,13 @@ class LlamaModel(LlamaPreTrainedModel):
                                          moe_config=config.moe_config,
                                          parallel_config=config.parallel_config,
                                          parallel_decoding=self.parallel_decoding,
+                                         fused_kernel=config.fused_rms_norm
                                          )
             self.layer_setting(layer, layer_id)
             self.layers.append(layer)
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
-                                     compute_type=config.layernorm_compute_type)
+                                     compute_type=config.layernorm_compute_type,
+                                     fused_kernel=config.fused_rms_norm)
         dp = config.parallel_config.data_parallel
         cp = config.parallel_config.context_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
