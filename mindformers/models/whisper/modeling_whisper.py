@@ -971,7 +971,6 @@ class WhisperDecoder(nn.Cell):
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=-1,
-                                                          # pad_token_id=config.pad_token_id,
                                                           use_flash_attention=config.use_flash_attention)
         self.select = P.Select()
         self.slice = P.Slice()
