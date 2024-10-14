@@ -21,7 +21,7 @@ import json
 import os
 import numpy as np
 from mindspore.mindrecord import FileWriter
-from glm4_tokenizer import ChatGLM4Tokenizer
+from mindformers.models.glm2.glm4_tokenizer import ChatGLM4Tokenizer
 
 IGNORE_TOKEN_ID = -100
 
