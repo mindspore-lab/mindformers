@@ -242,7 +242,6 @@ class LayerSetting:
         for pattern, layers_dict in select_recompute.items():
             if 0 <= layer_id - self.layer_accu_mod[v_id, pp_id] < layers_dict[v_id][pp_id]:
                 log = LayerSetting.set_pattern_recompute(layer, pattern.split(r'\.'), add_prim_attr)
-                # print(log)
                 if log:
                     log_ops.append(log[1:])
         log_ops_str = ', '.join(log_ops)
