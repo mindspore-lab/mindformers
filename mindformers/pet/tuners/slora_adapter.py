@@ -27,19 +27,30 @@ from mindspore.ops import operations as P
 from mindspore.nn import Cell
 from mindspore._checkparam import args_type_check
 
-from mindformers.modules.layers import Linear, Dropout
+from mindformers.modules.layers import Linear
 from mindformers.models.llama.llama_layer import LlamaEmbedding
 from mindformers.pet.pet_config import SLoraConfig
 from mindformers.tools.logger import logger
 
 
 class SLoraLinear(Cell):
+    r"""
+        Decorator of Linear layer for S-LoRA
+
+        Args:
+            linear (Linear): The base linear layer.
+            slora_inputs (dict): The slora inputs including adapter group list.
+            config (SLoraConfig): The config of SLora.
+
+        Inputs:
+            - **input_ids** (Tensor) - Tensor of shape :math:`(batch, seq_length, hidden_size)`.
+
+        Outputs:
+            Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
-    Decorator of Linear layer for S-LoRA
-    """
-    def __init__(self, linear: Linear, adapter_ids: Parameter, config: SLoraConfig):
+    def __init__(self, linear: Linear, slora_inputs: dict, config: SLoraConfig):
         super().__init__()
-        self.adapter_ids = adapter_ids
+        self.lora_group_list = slora_inputs.get("group_list")
         self.in_channels = linear.in_channels
         self.out_channels = linear.out_channels
         self.expert_num = linear.expert_num
@@ -61,28 +72,35 @@ class SLoraLinear(Cell):
 
         self.lora_num = config.lora_num
         self.lora_rank = config.lora_rank
-        self.lora_alpha = config.lora_alpha
-        self.lora_scaling = self.lora_alpha / self.lora_rank
 
         self.cast = P.Cast()
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.lora_mul = P.Mul()
         self.lora_add = P.Add()
-        self.lora_a_gather = P.Gather()
-        self.lora_b_gather = P.Gather()
-        self.lora_dropout = Dropout(keep_prob=1 - config.lora_dropout)
-        self.lora_a_matmul = P.BatchMatMul(transpose_b=True)
-        self.lora_b_matmul = P.BatchMatMul(transpose_b=True)
+        self.lora_a_transpose = P.Transpose()
+        from mindspore.ops.auto_generate import GroupedMatmul
+        self.lora_a_gmm = GroupedMatmul(split_item=3, group_type=0)
+        self.lora_b_gmm = GroupedMatmul(split_item=3, group_type=0)
         self.lora_a_shape = [self.lora_num, self.lora_rank, self.in_channels]
-        self.lora_b_shape = [self.lora_num, self.out_channels, self.lora_rank]
+        self.lora_b_shape = [self.lora_num, self.lora_rank, self.out_channels]
         self.lora_a = Parameter(initializer('zero', self.lora_a_shape, config.lora_dtype), requires_grad=False)
         self.lora_b = Parameter(initializer('zero', self.lora_b_shape, config.lora_dtype), requires_grad=False)
 
+    def _lora_linear(self, x, dense_result):
+        """Forward process of LoRA branch"""
+        x = self.reshape(x, (-1, self.in_channels))
+        lora_a = self.cast(self.lora_a, self.dtype)
+        lora_b = self.cast(self.lora_b, self.dtype)
+        lora_a = self.lora_a_transpose(lora_a, (0, 2, 1))
+        x = self.lora_a_gmm([x], [lora_a], None, None, None, None, None, self.lora_group_list)[0]
+        x = self.lora_b_gmm([x], [lora_b], None, None, None, None, None, self.lora_group_list)[0]
+        x = self.reshape(x, dense_result.shape)
+        out = self.lora_add(dense_result, x)
+        return out
 
     def construct(self, x, expert_ids=None):
         """Forward process, x should be a tensor"""
-        batch_size = self.adapter_ids.shape[0]
         out_shape = self.shape(x)[:-1] + (self.out_channels,)
         x = self.reshape(x, (-1, self.in_channels))
         if self.expert_flag and not self.use_gmm:
@@ -92,31 +110,15 @@ class SLoraLinear(Cell):
                 x = self.reshape(x, (self.outer_batch, self.expert_num, -1, self.in_channels))
         ori_dtype = F.dtype(x)
         weight = self.cast(self.weight, self.dtype)
-        lora_a = self.cast(self.lora_a, self.dtype)
-        lora_b = self.cast(self.lora_b, self.dtype)
-        lora_a = self.lora_a_gather(lora_a, self.adapter_ids.reshape(-1), 0)
-        lora_b = self.lora_b_gather(lora_b, self.adapter_ids.reshape(-1), 0)
-
         x = self.cast(x, self.dtype)
         if self.use_gmm:
             dense_result = self.matmul([x], [weight], None, None, None, None, None, expert_ids)[0]
         else:
             dense_result = self.matmul(x, weight)
-
-        #-------- LoRA part ----------
-        x = self.reshape(x, (batch_size, -1, self.in_channels))
-
-        x = self.lora_dropout(x)
-        lora_result = self.lora_a_matmul(x, lora_a)
-        lora_result = self.lora_b_matmul(lora_result, lora_b)
-        lora_scaling = self.cast(self.lora_scaling, self.dtype)
-        lora_result = self.reshape(lora_result, dense_result.shape)
-        lora_result = self.lora_mul(lora_result, lora_scaling)
-
         if self.has_bias:
             dense_result = self.bias_add(dense_result, self.cast(self.bias, self.dtype))
-        # Result addition
-        out = self.lora_add(dense_result, lora_result)
+
+        out = self._lora_linear(x, dense_result)
         if self.activation_flag:
             out = self.activation(out)
         out = self.cast(out, ori_dtype)
@@ -132,12 +134,11 @@ class SLoraLinear(Cell):
             In other parallel modes, strategies set here will be ignored.
         """
         strategy = self.matmul.in_strategy
-        self.lora_a_gather.shard(((1, 1, strategy[1][1]), (1,)))
-        self.lora_b_gather.shard(((1, strategy[1][0], 1), (1,)))
-        self.lora_a_matmul.shard(((strategy[0][0], 1, strategy[0][1]), (strategy[0][0], 1, strategy[1][1])))
-        self.lora_b_matmul.shard(((strategy[0][0], 1, 1), (strategy[0][0], strategy[1][0], 1)))
-        self.lora_mul.shard(((strategy[0][0], strategy[1][0]), ()))
-        self.lora_add.shard(((strategy[0][0], strategy[1][0]), (strategy[0][0], strategy[1][0])))
+        self.lora_a_transpose.shard(((1, 1, strategy[1][1]),))
+        self.lora_a_gmm.shard(
+            (((1, strategy[0][1]),), ((1, strategy[1][1], 1),), ((),), ((),), ((),), ((),), ((),), (1,)))
+        self.lora_b_gmm.shard((((1, 1),), ((1, 1, strategy[1][0]),), ((),), ((),), ((),), ((),), ((),), (1,)))
+        self.lora_add.shard(((1, strategy[1][0]), (1, strategy[1][0])))
 
 
 class SLoraEmbedding(Cell):
@@ -146,7 +147,7 @@ class SLoraEmbedding(Cell):
 
         Args:
             embedding (Cell): The base embedding cell.
-            adapter_ids (Patameter): The ids of the adapters.
+            slora_inputs (dict): The slora inputs including adapter ids.
             config (SLoraConfig): The config of SLora.
 
         Inputs:
@@ -155,9 +156,9 @@ class SLoraEmbedding(Cell):
         Outputs:
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
-    def __init__(self, embedding: Cell, adapter_ids: Parameter, config: SLoraConfig):
+    def __init__(self, embedding: Cell, slora_inputs: dict, config: SLoraConfig):
         super().__init__()
-        self.adapter_ids = adapter_ids
+        self.adapter_ids = slora_inputs.get("adapter_ids")
         self.lora_extra_vocab_size = config.lora_extra_vocab_size
         self.lora_vocab_size = embedding.vocab_table_size + config.lora_extra_vocab_size
         self.dtype = embedding.embedding_weight.dtype
@@ -179,9 +180,10 @@ class SLoraEmbedding(Cell):
         self.lora_gather = P.Gather(1)
         self.reshape = P.Reshape()
         self.lora_matmul = P.BatchMatMul(transpose_b=True)
+        self.lora_transpose = P.Transpose()
 
         self.lora_a_shape = [config.lora_num, config.lora_rank, self.lora_vocab_size]
-        self.lora_b_shape = [config.lora_num, embedding.embedding_size, config.lora_rank]
+        self.lora_b_shape = [config.lora_num, config.lora_rank, embedding.embedding_size]
         self.lora_a = Parameter(initializer('zero', self.lora_a_shape, config.lora_dtype), requires_grad=False)
         self.lora_b = Parameter(initializer('zero', self.lora_b_shape, config.lora_dtype), requires_grad=False)
 
@@ -197,6 +199,7 @@ class SLoraEmbedding(Cell):
         embedding_weight = self.cast(self.embedding_weight, self.dtype)
         lora_a = self.cast(self.lora_a, self.dtype)
         lora_b = self.cast(self.lora_b, self.dtype)
+        lora_b = self.lora_transpose(lora_b, (0, 2, 1))
         lora_a = self.lora_a_gather(lora_a, self.adapter_ids.reshape(-1), 0)
         lora_b = self.lora_b_gather(lora_b, self.adapter_ids.reshape(-1), 0)
 
@@ -245,7 +248,7 @@ class SLoraHead(Cell):
 
         Args:
             linear (Linear): The base head cell.
-            adapter_ids (Patameter): The ids of the adapters.
+            slora_inputs (dict): The slora inputs including adapter ids.
             config (SLoraConfig): The config of SLora.
 
         Inputs:
@@ -254,9 +257,9 @@ class SLoraHead(Cell):
         Outputs:
             Tensor of shape :math:`(batch, seq_length, lora_vocab_size)`.
     """
-    def __init__(self, linear: Linear, adapter_ids: Parameter, config: SLoraConfig):
+    def __init__(self, linear: Linear, slora_inputs: dict, config: SLoraConfig):
         super().__init__()
-        self.adapter_ids = adapter_ids
+        self.adapter_ids = slora_inputs.get("adapter_ids")
         self.lora_num = config.lora_num
         self.lora_rank = config.lora_rank
         self.lora_alpha = config.lora_alpha
@@ -290,18 +293,18 @@ class SLoraHead(Cell):
         self.cast = P.Cast()
         self.reshape = P.Reshape()
 
-        self.lora_dropout = Dropout(keep_prob=1 - config.lora_dropout)
         self.lora_concat = P.Concat(axis=-1)
         self.lora_embedding_matmul = P.BatchMatMul(transpose_b=True)
         self.lora_a_matmul = P.BatchMatMul(transpose_b=True)
         self.lora_b_matmul = P.BatchMatMul(transpose_b=True)
+        self.lora_transpose = P.Transpose()
 
         if self.lora_extra_vocab_size != 0:
             self.lora_embedding_shape = [self.lora_num, self.lora_extra_vocab_size, self.in_channels]
             self.lora_embedding = Parameter(initializer('zero', self.lora_embedding_shape, config.lora_dtype),
                                             name="lora_embedding", requires_grad=False)
         self.lora_a_shape = [self.lora_num, self.lora_rank, self.in_channels]
-        self.lora_b_shape = [self.lora_num, self.lora_vocab_size, self.lora_rank]
+        self.lora_b_shape = [self.lora_num, self.lora_rank, self.lora_vocab_size]
 
         self.lora_a = Parameter(initializer('zero', self.lora_a_shape, config.lora_dtype), requires_grad=False)
         self.lora_b = Parameter(initializer('zero', self.lora_b_shape, config.lora_dtype), requires_grad=False)
@@ -324,6 +327,7 @@ class SLoraHead(Cell):
             lora_embedding = self.gather(lora_embedding, self.adapter_ids.reshape(-1), 0)
         lora_a = self.cast(self.lora_a, self.dtype)
         lora_b = self.cast(self.lora_b, self.dtype)
+        lora_b = self.lora_transpose(lora_b, (0, 2, 1))
         lora_a = self.gather(lora_a, self.adapter_ids.reshape(-1), 0)
         lora_b = self.gather(lora_b, self.adapter_ids.reshape(-1), 0)
 
@@ -340,7 +344,6 @@ class SLoraHead(Cell):
             lora_logit = self.reshape(lora_logit, dense_result.shape[:-1] + (self.lora_extra_vocab_size,))
 
         # -------- LoRA part ----------
-        x = self.lora_dropout(x)
         lora_result = self.lora_a_matmul(x, lora_a)
         lora_result = self.lora_b_matmul(lora_result, lora_b)
         lora_scaling = self.cast(self.lora_scaling, self.dtype)
@@ -380,14 +383,13 @@ class SLoraAdapter(abc.ABC):
     """
     LoRA Model Manager to wrap layers
     """
-    adapter_names = []
-    registered_loras = {}
+    adapter_names = ["base"]
 
-    def __init__(self, config: SLoraConfig, adapter_ids: Parameter, embed_adapter_ids: Parameter):
-        self.adapter_ids = adapter_ids
-        self.embed_adapter_ids = embed_adapter_ids
-        self.common_lora_cell: dict = {}
+    def __init__(self, config: SLoraConfig, slora_inputs: dict):
+        self.slora_inputs = slora_inputs
         self.slora_config = config
+        self.common_lora_cell: dict = {}
+        self.registered_loras: dict = {}
 
     @classmethod
     @args_type_check(pet_config=(dict, SLoraConfig))
@@ -397,14 +399,14 @@ class SLoraAdapter(abc.ABC):
             return pet_config
         if not isinstance(pet_config.adapter_path, str):
             raise TypeError(f"adapter_path should be string type, but got {type(pet_config.adapter_path)}.")
-        adapter_path = pet_config.adapter_path
-        if not os.path.exists(adapter_path):
-            raise FileNotFoundError(f"The adapter_path must be correct, but get {adapter_path}")
+        if not os.path.exists(pet_config.adapter_path):
+            raise FileNotFoundError(f"The adapter_path must be correct, but get {pet_config.adapter_path}")
+        adapter_path = os.path.join(pet_config.adapter_path, "lora_adapter.json")
         with open(adapter_path, 'r') as file:
             path_dict = json.load(file)
-        cls.adapter_names = list(path_dict.keys())
+        cls.adapter_names += list(path_dict.keys())
 
-        num = len(path_dict) + 1
+        num = len(cls.adapter_names)
         max_rank = 0
         target_modules_set = set()
 
@@ -466,7 +468,7 @@ class SLoraAdapter(abc.ABC):
         """Replace layers"""
         if "lm_head" in self.slora_config.target_modules:
             if hasattr(network, "lm_head"):
-                new_head = SLoraHead(network.lm_head, self.adapter_ids, self.slora_config)
+                new_head = SLoraHead(network.lm_head, self.slora_inputs, self.slora_config)
                 new_head.shard()
                 network.lm_head = new_head
                 if isinstance(network.lm_head, SLoraEmbedding) and cell.lora_extra_vocab_size != 0:
@@ -506,10 +508,7 @@ class SLoraAdapter(abc.ABC):
             wrap_lora = self.common_lora_cell.get(type(cell))
             if wrap_lora:
                 logger.info(f"Apply LoRA to {cell_name}.")
-                if re.match('.*embeddings', cell_name):
-                    new_cell = wrap_lora(cell, self.embed_adapter_ids, self.slora_config)
-                else:
-                    new_cell = wrap_lora(cell, self.adapter_ids, self.slora_config)
+                new_cell = wrap_lora(cell, self.slora_inputs, self.slora_config)
                 new_cell.shard()
                 return new_cell, True
         return cell, False
