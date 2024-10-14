@@ -88,7 +88,7 @@ class TestMindIEModelRunner:
        if the `res` is `Tensor`, otherwise, `res` would be a list[Tensor], the shape of `res[0]` is compared.
     """
     def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0, world_size=1,
-                 npu_device_ids=None, model_role="standard", plugin_params=None):
+                 npu_device_ids=None, plugin_params=None):
         """Test __init__ api"""
         self.model = TestModel()
         assert isinstance(model_path, str)
@@ -99,7 +99,6 @@ class TestMindIEModelRunner:
         assert isinstance(rank_id, int)
         assert isinstance(world_size, int)
         assert isinstance(npu_device_ids, list) and isinstance(npu_device_ids[0], int)
-        assert isinstance(model_role, str)
         if plugin_params:
             assert isinstance(plugin_params, str)
 
