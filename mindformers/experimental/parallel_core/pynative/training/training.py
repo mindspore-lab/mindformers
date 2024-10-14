@@ -789,7 +789,7 @@ def train(
                         training_config.output_dir,
                         format=training_config.ckpt_format,
                         prefix=training_config.prefix,
-                        epoch_num=(global_step-1) // dataset_size,
-                        step_num=(global_step-1) % dataset_size,
+                        epoch_num=(global_step - 1) // dataset_size,
+                        step_num=(global_step - 1) % dataset_size,
                         crc_check=training_config.crc_check,
                         keep_checkpoint_max=training_config.keep_checkpoint_max + 1)

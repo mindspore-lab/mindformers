@@ -1011,7 +1011,8 @@ def _get_num_layers(config, model_type, is_decoder=False):
                     raise ValueError(f"The number of model layers is {config.num_layers}, "
                                      f"but the sum of num_layer_list  "
                                      f"{config.parallel_config.num_layer_list} is {num_layer_array.sum()}.")
-                assert np.all(num_layer_array > 0)
+                if not np.all(num_layer_array > 0):
+                    raise ValueError("num_layer_array has element <= 0")
                 num_layers, offset = _get_custom_num_layers(config.parallel_config.num_layer_list,
                                                             pp_stage, pp_rank, vpp_stage, vpp_rank)
                 if vpp_stage is not None:
@@ -1341,9 +1342,11 @@ class ParallelTransformer(Module):
         self.config.recompute_method = None
         self.config.recompute_granularity = None
         self.config.recompute_num_layers = None
+
         def _get_recompute_layer_nums(recompute_num_list):
             recompute_num_array = np.array(recompute_num_list)
-            assert np.all(recompute_num_array >= 0)
+            if not np.all(recompute_num_array >= 0):
+                raise ValueError("recompute_num_array has element < 0")
             if recompute_num_array.shape != pp_layout:
                 raise ValueError("The shape of recompute_num_list {} must equal to "
                                  "pp_layout {}".format(recompute_num_array.shape, pp_layout))

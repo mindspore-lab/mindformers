@@ -15,6 +15,8 @@
 """ Distributed optimizer wrapper. """
 from collections import OrderedDict
 import json
+import os
+import stat
 
 import mindspore as ms
 import mindspore.ops as ops
@@ -432,13 +434,10 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             )
 
         # Build a mapping from sharded param to sharded state
+        param_to_state = zip(self.optimizer.parameters, self.optimizer.exp_avg, self.optimizer.exp_avg_sq)
         shard_param_to_state_map = {
             param.name: (exp_avg, exp_avg_sq)
-            for param, exp_avg, exp_avg_sq in zip(
-                self.optimizer.parameters,
-                self.optimizer.exp_avg,
-                self.optimizer.exp_avg_sq
-            )
+            for param, exp_avg, exp_avg_sq in param_to_state
         }
 
         # Load optimizer state from the state dict
@@ -479,10 +478,10 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                                        "Please check checkpoint file.")
                 self.optimizer.parameters[param_id_in_opt].copy_(state_dict[shard_name].value()[start_idx:end_idx])
                 self.optimizer.exp_avg[param_id_in_opt].copy_(
-                    state_dict['exp_avg.'+shard_name].value()[start_idx:end_idx]
+                    state_dict['exp_avg.' + shard_name].value()[start_idx:end_idx]
                 )
                 self.optimizer.exp_avg_sq[param_id_in_opt].copy_(
-                    state_dict['exp_avg_sq.'+shard_name].value()[start_idx:end_idx]
+                    state_dict['exp_avg_sq.' + shard_name].value()[start_idx:end_idx]
                 )
 
     def load_state_dict(self, state_dict):
@@ -649,7 +648,9 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             strategy['buffer_info'][buffer_idx]['buffer_numel_unpadded'] = buffer.numel_unpadded
             strategy['buffer_info'][buffer_idx]['bucket_num'] = len(buffer.buckets)
         # save as json file
-        with open(file, 'w') as f:
+        flags = os.O_WRONLY | os.O_CREAT
+        mode = stat.S_IWUSR | stat.S_IRUSR
+        with os.fdopen(os.open(file, flags, mode), 'w') as f:
             json.dump(strategy, f, indent=4)
 
     def state_dict(self):
@@ -659,13 +660,13 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         for buffer_index, bucket_index, shard_start, shard_end in self.param_buffer_dp_views:
             param_range_map_this_bucket = self.param_ranges_map[buffer_index][bucket_index]
             # create dummy tensor for this bucket shard, which will be used to save checkpoint
-            param_shard = ms.Tensor(shape=(shard_end-shard_start), dtype=mstype.float32, init=Zero())
-            exp_avg_shard = ms.Tensor(shape=(shard_end-shard_start), dtype=mstype.float32, init=Zero())
-            exp_avg_sq_shard = ms.Tensor(shape=(shard_end-shard_start), dtype=mstype.float32, init=Zero())
+            param_shard = ms.Tensor(shape=(shard_end - shard_start), dtype=mstype.float32, init=Zero())
+            exp_avg_shard = ms.Tensor(shape=(shard_end - shard_start), dtype=mstype.float32, init=Zero())
+            exp_avg_sq_shard = ms.Tensor(shape=(shard_end - shard_start), dtype=mstype.float32, init=Zero())
             # copy param data into dummy tensor
             for param, range_map in param_range_map_this_bucket.items():
                 start_idx, end_idx = range_map['range_in_shard']
-                param_id_in_opt = self.param_idx_in_opt[param.name]
+                param_id_in_opt = self.param_idx_in_opt.get(param.name)
                 param_shard[start_idx:end_idx].copy_(self.optimizer.parameters[param_id_in_opt])
                 exp_avg_shard[start_idx:end_idx].copy_(self.optimizer.exp_avg[param_id_in_opt])
                 exp_avg_sq_shard[start_idx:end_idx].copy_(self.optimizer.exp_avg_sq[param_id_in_opt])
@@ -675,14 +676,14 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                 name=shard_name,
                 requires_grad=False
             )
-            param_dict['exp_avg.'+shard_name] = ms.Parameter(
+            param_dict['exp_avg.' + shard_name] = ms.Parameter(
                 exp_avg_shard.copy(),
-                name='exp_avg.'+shard_name,
+                name='exp_avg.' + shard_name,
                 requires_grad=False
             )
-            param_dict['exp_avg_sq.'+shard_name] = ms.Parameter(
+            param_dict['exp_avg_sq.' + shard_name] = ms.Parameter(
                 exp_avg_sq_shard.copy(),
-                name='exp_avg_sq.'+shard_name,
+                name='exp_avg_sq.' + shard_name,
                 requires_grad=False
             )
 

@@ -26,6 +26,7 @@ __all__ = [
 ]
 
 import os
+import stat
 import glob
 import json
 import numpy as np
@@ -281,6 +282,7 @@ def save_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
                                  meta_json=os.path.join(rank_path, 'meta.json'))
     logger.info("ckpt saved")
 
+
 def ensure_total_ckpt_is_less_than_limit(ckpt_path: str, limit: int = 5, format: str = _FORMAT):
     """
     make sure the provided path contain less than limited number of checkpoint file
@@ -301,6 +303,7 @@ def ensure_total_ckpt_is_less_than_limit(ckpt_path: str, limit: int = 5, format:
             logger.debug(f"Current checkpoint file exceed keep_checkpoint_max, removing {rm_ckpt_name}")
             rm_ckpt_path = os.path.join(ckpt_path, rm_ckpt_name)
             os.remove(rm_ckpt_path)
+
 
 # pylint: disable=W0622
 def load_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckpt_path="./", format=_FORMAT,
@@ -360,6 +363,7 @@ def load_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
 
     return resume_dict
 
+
 def get_last_checkpoint(ckpt_path: str, format: str = _FORMAT):
     """Get last timestamp checkpoint under ckpt_path."""
     ckpt_list = [
@@ -371,6 +375,7 @@ def get_last_checkpoint(ckpt_path: str, format: str = _FORMAT):
     ckpt_list = sorted(ckpt_list, key=lambda x: os.path.getmtime(os.path.join(ckpt_path, x)))
     return os.path.join(ckpt_path, ckpt_list[-1])
 
+
 def record_last_ckpt_to_json(epoch: int, step: int, ckpt_file: str, meta_json: str):
     """record last ckpt info to json"""
     meta_data = {
@@ -378,5 +383,7 @@ def record_last_ckpt_to_json(epoch: int, step: int, ckpt_file: str, meta_json: s
         "last_step": step,
         "last_ckpt_file": ckpt_file
     }
-    with open(meta_json, 'w', encoding="utf-8") as fp:
+    flags = os.O_WRONLY | os.O_CREAT
+    mode = stat.S_IWUSR | stat.S_IRUSR
+    with os.fdopen(os.open(meta_json, flags, mode), 'w', encoding="utf-8") as fp:
         json.dump(meta_data, fp)
