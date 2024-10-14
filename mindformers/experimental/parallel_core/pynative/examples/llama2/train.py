@@ -21,6 +21,7 @@ from mindspore.common.api import _no_grad
 from mindspore.train import Perplexity
 from mindspore.communication.comm_func import all_gather_into_tensor
 
+from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.config import (
     init_configs_from_yaml
 )
@@ -96,11 +97,11 @@ def evaluation(train_one_step_cell, val_dataset_iterator, metrics, **kwargs):
                     labels = all_gather_into_tensor(labels, dp_group)
                 for metric in metrics.values():
                     metric.update(logits, labels)
-            print("Validation Results:")
+            logger.info("Validation Results:")
             for metric_name, metric in metrics.items():
                 metric_value = metric.eval()
                 results[metric_name] = metric_value
-                print(f"{metric_name}: {metric_value}", flush=True)
+                logger.info(f"{metric_name}: {metric_value}")
         else:
             for data in val_dataset_iterator:
                 _ = train_one_step_cell.forward_backward_func(forward_only=True, *data)

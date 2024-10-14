@@ -75,8 +75,8 @@ def calculate_dividable_vocab_size(vocab_size, denominator=128):
     padded_vocab_size = math.ceil(vocab_size / denominator) * denominator
     if padded_vocab_size != vocab_size:
         logger.warning(
-            f"Add {padded_vocab_size - vocab_size} padded tokens to the"
-            + f"vocab size {vocab_size} to make it dividable by {denominator}"
+            f"Add {padded_vocab_size - vocab_size} padded tokens to the "
+            f"vocab size {vocab_size} to make it dividable by {denominator}"
         )
     return padded_vocab_size
 
@@ -271,7 +271,7 @@ def save_strategy_file(state_dict, strategy_file_name):
     except BaseException as e:
         logger.critical(
             f"Failed to save the checkpoint file {strategy_file_name}. Maybe don't have "
-            "the permission to write files, or the disk space is insufficient and so on."
+            f"the permission to write files, or the disk space is insufficient and so on."
         )
         raise e
 
