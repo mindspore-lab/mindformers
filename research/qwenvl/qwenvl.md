@@ -119,8 +119,8 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于微调
 
 | 模型名称              |                                               MindSpore权重                                               |                  HuggingFace权重                   |
 |:------------------|:-------------------------------------------------------------------------------------------------------:|:------------------------------------------------:|
-| Qwen-VL-Base      | [Link](https://openmind.cn/coderepo/web/v1/file/MindSpore-Lab/Qwen-VL/main/media/qwenvl_base_fp16.ckpt) |   [Link](https://huggingface.co/Qwen/Qwen-VL/)   |
-| tokenizer.model   |     [Link](https://openmind.cn/coderepo/web/v1/file/MindSpore-Lab/Qwen-VL/main/media/qwen.tiktoken)     |                        /                         |
+| Qwen-VL-Base      | [Link](https://modelers.cn/coderepo/web/v1/file/MindSpore-Lab/Qwen-VL/main/media/qwenvl_base_fp16.ckpt) |   [Link](https://huggingface.co/Qwen/Qwen-VL/)   |
+| tokenizer.model   |     [Link](https://modelers.cn/coderepo/web/v1/file/MindSpore-Lab/Qwen-VL/main/media/qwen.tiktoken)     |                        /                         |
 
 #### 模型权重转换
 
@@ -181,10 +181,6 @@ MindFormers提供了默认微调配置`finetune_qwenvl_9.6b.yaml`，默认配置
       tokenizer:
         type: QwenVLTokenizer
         vocab_file: "/path/to/qwen.tiktoken"         # 根据词表所在位置，填写词表所在路径，也可通过启动命令传入
-
-   processor:
-    tokenizer:
-      vocab_file: "/path/to/qwen.tiktoken"          # 根据词表所在位置，填写词表所在路径，也可通过启动命令传入
     ```
 
 data_loader的参数解释：
