@@ -89,7 +89,6 @@ class AlpacaInstructDataHandler(BaseInstructDataHandler):
         # pylint: disable=W0212
         d = self.tokenizer._pad(d, max_length=self.seq_length + 1, padding_strategy='max_length')
         input_id = d['input_ids'][:self.seq_length + 1]
-        # attention_mask.append(d['attention_mask'])
         target = np.array(d['input_ids'])
         total_len = int(np.not_equal(target, self.tokenizer.pad_token_id).sum())
         cur_len = 1
