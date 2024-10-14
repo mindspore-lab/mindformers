@@ -41,7 +41,6 @@ class Mlp(nn.Cell):
                  param_init_type=mstype.float32,
                  layer_norm_type=mstype.float32):
         super().__init__()
-        # self.dtype = compute_dtype
         out_size = out_size or in_size
         hidden_size = hidden_size or in_size
         bias = (bias, bias)
@@ -66,7 +65,6 @@ class Mlp(nn.Cell):
 
     def construct(self, x):
         """Mlp Forward."""
-        # x = self.cast(x, self.dtype)
         x = self.fc1(x)
         x = self.act(x)
         x = self.drop1(x)
