@@ -475,6 +475,7 @@ def _convert_process(source_path, target_path, convert_weight_dict):
     save_file(tensor_dict=target_dict, filename=target_path)
     logger.info(f"Converted file {os.path.basename(target_path)}.")
 
+
 def _convert_safetensors(load_checkpoint, converted_dir, convert_weight_dict):
     """Create multiprocess to convert the safetensors"""
     sf_list = [sf for sf in os.listdir(load_checkpoint) if sf.endswith('.safetensors')]
@@ -487,6 +488,7 @@ def _convert_safetensors(load_checkpoint, converted_dir, convert_weight_dict):
         processes.append(p)
     return processes
 
+
 def _convert_index_json(load_checkpoint, converted_dir, convert_map_dict):
     index_path = os.path.join(load_checkpoint, 'model.safetensors.index.json')
     with open(index_path, 'r') as f:
@@ -498,6 +500,7 @@ def _convert_index_json(load_checkpoint, converted_dir, convert_map_dict):
         json.dump(new_weight_map, f)
         logger.info(f"Converted file param_name_map.json")
 
+
 def _load_distributed_safetensors(model, output_dir, load_safetensors):
     """Load distributed safetensors"""
     ms.load_distributed_checkpoint(
@@ -506,6 +509,7 @@ def _load_distributed_safetensors(model, output_dir, load_safetensors):
         unified_safetensors_dir=load_safetensors,
         format='safetensors'
     )
+
 
 def _load_safetensors(model, load_safetensors):
     """Load single safetensors"""
@@ -518,6 +522,7 @@ def _load_safetensors(model, load_safetensors):
             net=model,
             format='safetensors'
         )
+
 
 def _transform_and_load_safetensors(ms_model, model, inputs, load_checkpoint=None,
                                     load_safetensors=None, output_dir=None, use_parallel=False):
