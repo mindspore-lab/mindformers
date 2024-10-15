@@ -29,7 +29,7 @@ from mindspore.communication.comm_func import all_reduce, all_gather_into_tensor
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_rank, \
     get_data_parallel_world_size, get_data_parallel_group
-from mindformers.tools.logger import logger
+from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.register import ModuleType, ModuleRegistry
 
 _adamw_opt = ops.MultitypeFuncGraph("adamw_opt")

@@ -20,7 +20,7 @@ from pathlib2 import Path
 
 import mindspore.dataset as ds
 
-from mindformers.tools.logger import logger
+from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_rank, get_data_parallel_world_size
 
 
@@ -110,7 +110,7 @@ def get_individual_dataset(
     dataset = ds.MindDataset(files, columns_list=["input_ids"], shuffle=shuffle)
     per_rank_batch_size = batch_size * micro_batch_num
     global_batch_size = per_rank_batch_size * get_data_parallel_world_size()
-    logger.warning(f"{mode} dataset global batch size: {global_batch_size}")
+    logger.info(f"{mode} dataset global batch size: {global_batch_size}")
 
     def map_func(input_ids):
         return batch_and_generate_attention_mask(

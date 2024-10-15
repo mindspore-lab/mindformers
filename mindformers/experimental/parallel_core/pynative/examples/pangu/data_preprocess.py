@@ -26,6 +26,7 @@ import numpy as np
 
 from mindspore.mindrecord import FileWriter
 from mindformers import AutoTokenizer
+from mindformers.tools import logger
 
 
 def chunks(lst, n):
@@ -155,11 +156,11 @@ def task_unit(iterator, tokenizer, seq_length, eot, mindrecord_filename, schema)
                 data_batch.append(next(item_iter))
                 count += 1
             writer.write_raw_data(data_batch)
-            print("Process {} transformed {} records.".format(index, count))
+            logger.info(f"Process {index} transformed {count} records.")
         except StopIteration:
             if data_batch:
                 writer.write_raw_data(data_batch)
-                print("Process {} transformed {} records.".format(index, count))
+                logger.info(f"Process {index} transformed {count} records.")
             break
     writer.commit()
 
@@ -205,7 +206,7 @@ if __name__ == "__main__":
             transforms_count += 1
             wiki_writer.write_raw_data([x])
         wiki_writer.commit()
-        print("Transformed {} records.".format(transforms_count))
+        logger.info(f"Transformed {transforms_count} records.")
     elif args.dataset_type == "lambada":
         lambada_writer = FileWriter(
             file_name=args.output_file, shard_num=args.file_partition
@@ -217,7 +218,7 @@ if __name__ == "__main__":
             transforms_count += 1
             lambada_writer.write_raw_data([x])
         lambada_writer.commit()
-        print("Transformed {} records.".format(transforms_count))
+        logger.info(f"Transformed {transforms_count} records.")
     elif args.dataset_type == "openwebtext":
         SUFFIX = len(str(args.file_partition - 1))
         file_names = [
@@ -249,4 +250,4 @@ if __name__ == "__main__":
     out_file = args.output_file
     if args.file_partition > 1:
         out_file += "0"
-    print("Transform finished, output files refer: {}".format(out_file))
+    logger.info(f"Transform finished, output files refer: {out_file}")
