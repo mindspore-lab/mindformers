@@ -1466,7 +1466,6 @@ class ParallelLMLogits(nn.Cell):
     Args:
         config (dict): Parallel configuration.
         bias (bool): Specifies whether the layer uses a bias vector. Default: ``False``.
-        transpose_b (bool): Specifies whether the weight parameter will be initialized as a transposed shape.
         compute_dtype (dtype.Number): The computation type. Default: ``None``.
 
     Inputs:
@@ -1477,7 +1476,8 @@ class ParallelLMLogits(nn.Cell):
         - **bias** (Tensor) - The trainable bias parameter.
 
     Outputs:
-        Tensor of logits.
+        - **logits_parallel** (Tensor) - If ``parallel_output`` is ``True``, the output is a paralleled logits tensor
+          on each tensor parallel rank, else the output will be a logits tensor gathering all the parallel output.
 
     Supported Platforms:
         ``Ascend``

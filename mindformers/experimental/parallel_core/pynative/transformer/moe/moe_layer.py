@@ -30,7 +30,7 @@ from .token_dispatcher import MoEAlltoAllTokenDispatcher
 
 class MoELayer(Module):
     """
-    expert layer.
+    Expert layer.
 
     Args:
         config (TransformerConfig): Configuration object for the transformer model.
