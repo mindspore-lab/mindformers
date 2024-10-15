@@ -1840,6 +1840,7 @@ class TransformerConfig(BaseConfig):
             hidden_size: int,
             ffn_hidden_size: int,
             parallel_config: ModelParallelConfig,
+            training_config: TrainingConfig,
             lora_config: LoraConfig = LoraConfig(),
             dataset_config: DatasetConfig = DatasetConfig(),
             moe_config: MoEConfig = MoEConfig(),
@@ -1906,6 +1907,7 @@ class TransformerConfig(BaseConfig):
     ):
         super().__init__()
         self.parallel_config = parallel_config
+        self.training_config = training_config
         self.lora_config = lora_config
         self.dataset_config = dataset_config
         self.vocab_size = vocab_size
@@ -1990,10 +1992,11 @@ class TransformerConfig(BaseConfig):
 
 
 TransformerConfig.register_depended_config([ModelParallelConfig,
+                                            TrainingConfig,
                                             LoraConfig,
                                             DatasetConfig,
                                             MoEConfig],
-                                           optional=[False, True, True, True])
+                                           optional=[False, True, True, True, True])
 
 
 @TransformerConfig.validator("vocab_size")

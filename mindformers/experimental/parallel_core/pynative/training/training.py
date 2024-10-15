@@ -265,6 +265,7 @@ def get_model(model_provider_func, training_config):
             average_in_collective=(training_config.loss_reduction == 'mean'),
             check_for_nan_in_grad=training_config.check_for_nan_in_grad,
             enable_mem_align=training_config.enable_mem_align,
+            use_zero3=(training_config.parallel_config.zero_level == "z3"),
         )
         training_config.ddp_config = ddp_config
         logger.warning("Wrap model with DistributedDataParallel, ddp config:\n{}".format(ddp_config))
@@ -579,7 +580,8 @@ class TrainOneStepCell(nn.Cell):
 
         # apply grad reducer
         grads = list(grads)
-        if self.accumulate_allreduce_grads_in_fp32:
+        if not self.use_mixed_precision_optimizer and not self.wrap_with_ddp \
+            and self.accumulate_allreduce_grads_in_fp32:
             grads = [grad.to(mstype.float32) for grad in grads]
         self.parallel_reducer.inplace_reduce_grad(grads, self.params_with_grad)
 
