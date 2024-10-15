@@ -27,7 +27,7 @@ Mindformers提供了以下环境变量的配置说明，请根据使用场景自
 | ASCEND_GLOBAL_EVENT_ENABLE  | 设置事件级别              | Integer | 1：开启Event日志<br>   0：关闭Event日志<br> 默认值：0                                                                              |                                                         |
 | HCCL_EXEC_TIMEOUT           | HCCL进程执行同步等待时间      | Integer | 执行同步等待时间（s）<br> 默认值：1800s                                                                                            | 不同设备进程在分布式训练过程中存在卡间执行任务不一致的场景，通过该环境变量可控制设备间执行时的同步等待的时间。 |
 | HCCL_CONNECT_TIMEOUT        | HCCL建链超时等待时间        | Integer | 建链等待时间（s）<br> 默认值：120s                                                                                               | 用于限制不同设备之间socket建链过程的超时等待时间。                            |
-|PLOG_REDICT_TO_OUTPUT             |控制plog日志是否改变存储路径|bool|True:存储到./ouput目录下 <br> False: 默认存储位置 <br> 不添加该环境变量时，默认存储位置|设置之后方便用户查询plog日志|
+|PLOG_REDIRECT_TO_OUTPUT             |控制plog日志是否改变存储路径|bool|True:存储到./ouput目录下 <br> False: 默认存储位置 <br> 不添加该环境变量时，默认存储位置|设置之后方便用户查询plog日志|
 |MF_LOG_SUFFIX                |设置所有log日志文件夹的自定义后缀|String|log文件夹的后缀 <br> 默认值：无后缀|添加一致的后缀，可以隔离各个任务的日志，不会被覆写|
 
 ## Ascend服务器相关配置
