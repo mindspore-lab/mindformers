@@ -1760,7 +1760,7 @@ def check_fa_config(**kwargs):
                               rel=Rel.INC_BOTH, arg_name='pre_tokens'),
         'next_tokens': partial(Validator.check_int_range, lower_limit=-2147483647, upper_limit=2147483647,
                                rel=Rel.INC_BOTH, arg_name='next_tokens'),
-        'input_layout': partial(Validator.check_string, valid_values=('BNSD'), arg_name='input_layout'),
+        'input_layout': partial(Validator.check_string, valid_values=('BNSD', 'SBH'), arg_name='input_layout'),
         'sparse_mode': _check_sparse_mode
     }
     for arg_name, value in kwargs.items():
