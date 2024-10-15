@@ -44,12 +44,12 @@ WORKSPACE_PATH=$(pwd)
 export LOG_MF_PATH=$WORKSPACE_PATH/output/log$MF_LOG_SUFFIX
 
 # Set the PLOG path
-if [ -z "${PLOG_REDICT_TO_OUTPUT+x}" ] || [ $PLOG_REDICT_TO_OUTPUT == False ]
+if [ -z "${PLOG_REDIRECT_TO_OUTPUT+x}" ] || [ $PLOG_REDIRECT_TO_OUTPUT == False ]
 then
   echo "No change the path of plog, the path of plog is /root/ascend"
 else
   export ASCEND_PROCESS_LOG_PATH=$WORKSPACE_PATH/output/plog$MF_LOG_SUFFIX
-  echo "PLOG_REDICT_TO_OUTPUT=$PLOG_REDICT_TO_OUTPUT, set the path of plog to $ASCEND_PROCESS_LOG_PATH"
+  echo "PLOG_REDIRECT_TO_OUTPUT=$PLOG_REDIRECT_TO_OUTPUT, set the path of plog to $ASCEND_PROCESS_LOG_PATH"
 fi
  
 if [ $# != 1 ] && [ $# != 2 ] && [ $# != 6 ] && [ $# != 9 ]
