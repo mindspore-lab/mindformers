@@ -130,8 +130,8 @@ class OpParallelConfig(_Config):
         Configuration for operator parallelism, used to set the method of operator-level parallelism.
 
         Args:
-            data_parallel (int): The number of data parallel. Default: ``1`` .
-            model_parallel (int): The number of model parallel. Default: ``1`` .
+            data_parallel (int, optional): The number of data parallel. Default: ``1`` .
+            model_parallel (int, optional): The number of model parallel. Default: ``1`` .
             use_seq_parallel (bool, optional): Whether to use sequence parallelism. Default: ``False`` .
             context_parallel (int, optional): The number of context parallelism. Default: ``1`` .
             select_recompute (bool, optional): Whether to select recomputation. Default: ``False`` .
