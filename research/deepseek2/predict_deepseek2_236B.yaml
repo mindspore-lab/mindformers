@@ -105,7 +105,7 @@ parallel:
   enable_alltoall: False
   full_batch: True
   search_mode: "sharding_propagation"
-  enable_parallel_optimizer: True
+  enable_parallel_optimizer: False
   strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
   parallel_optimizer_config:
     gradient_accumulation_shard: False
