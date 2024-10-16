@@ -628,10 +628,18 @@ class ParallelAttention(Module):
                 value = value.astype(mstype.float16)
             attention_mask = attention_mask.astype(mstype.uint8)
 
-            # SBND -> BNSD
-            query = query.transpose(1, 2, 0, 3)
-            key = key.transpose(1, 2, 0, 3)
-            value = value.transpose(1, 2, 0, 3)
+            if self.fa_config and 'input_layout' in self.fa_config and self.fa_config.input_layout == 'SBH':
+                # SBND -> SBH
+                fa_use_sbh = True
+                query, key, value = [
+                    x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3]) for x in [query, key, value]
+                ]
+            else:
+                # SBND -> BNSD
+                fa_use_sbh = False
+                query = query.transpose(1, 2, 0, 3)
+                key = key.transpose(1, 2, 0, 3)
+                value = value.transpose(1, 2, 0, 3)
 
             if self.fa_config:
                 output = ops.flash_attention_score(
@@ -652,10 +660,13 @@ class ParallelAttention(Module):
                     attn_mask=attention_mask,
                     scalar_value=1.0 / self.norm_factor,
                 )
-            context_layer = _merge_heads(output)
+            if not fa_use_sbh:
+                context_layer = _merge_heads(output)
+                # BSH -> SBH
+                context_layer = context_layer.swapaxes(0, 1)
+            else:
+                context_layer = output
 
-            # BSH -> SBH
-            context_layer = context_layer.swapaxes(0, 1)
         else:
             if query.dtype == mstype.float32:
                 query = query.astype(mstype.float16)
