@@ -110,7 +110,6 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
         self.lm_head = NormHead(hidden_size=config.hidden_size,
                                 vocab_size=config.vocab_size,
                                 use_past=config.use_past,
-                                is_dynamic=config.is_dynamic,
                                 compute_dtype=config.compute_dtype)
 
         vocab_size = config.vocab_size
@@ -139,9 +138,6 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
                 self.lm_head.set_comm_fusion(2)
             else:
                 self.lm_head.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
-
-        if config.is_dynamic:
-            self.reshape.add_prim_attr("skip_redistribution", True)
 
         self.load_checkpoint(config)
 
@@ -345,9 +341,6 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
             self.gather.shard(((1, mp, 1, 1), (1,)))
             self.norm_out.shard((dp, 1, 1))
 
-        if self.is_dynamic:
-            self.reshape.add_prim_attr("skip_redistribution", True)
-
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, block_tables=None, slot_mapping=None):
         """Forward of baichuan2_13b model."""
@@ -485,8 +478,6 @@ class Baichuan13BAttention(nn.Cell):
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        if is_dynamic:
-            self.reshape.add_prim_attr("skip_redistribution", True)
         self.transpose = P.Transpose()
         self.merger_head_transpose = P.Transpose()
         self.batch_matmul = P.BatchMatMul()
@@ -768,8 +759,6 @@ class Baichuan13BDecodeLayer(nn.Cell):
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        if is_dynamic:
-            self.reshape.add_prim_attr("skip_redistribution", True)
         self.add = P.Add()
         self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
@@ -857,7 +846,6 @@ class NormHead(nn.Cell):
                  hidden_size,
                  vocab_size,
                  use_past,
-                 is_dynamic=False,
                  compute_dtype=mstype.float32,
                  eps=1e-5):
         super().__init__()
@@ -883,9 +871,6 @@ class NormHead(nn.Cell):
         self.hidden_size = hidden_size
         self.vocab_size = vocab_size
         self.assign = P.Assign()
-
-        if is_dynamic:
-            self.reshape.add_prim_attr("skip_redistribution", True)
 
     def construct(self, hidden_states):
         """Forward process of the NormHead"""
