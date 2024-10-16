@@ -55,7 +55,7 @@ model:
     emb_dropout_prob: 0.0
     eos_token_id: [151645, 151643]
     pad_token_id: 151643
-    bos_token_id: 151644
+    bos_token_id: 151643
     compute_dtype: "bfloat16"
     layernorm_compute_type: "float32"
     softmax_compute_type: "float32"
@@ -69,10 +69,12 @@ model:
     checkpoint_name_or_path: ""
     repetition_penalty: 1.05
     max_decode_length: 2048
-    top_k: 0
+    temperature: 0.7
+    top_k: 20
     top_p: 0.8
-    do_sample: False
+    do_sample: True
     is_dynamic: True
+    qkv_concat: True
     auto_map:
       AutoTokenizer: [qwen1_5_tokenizer.Qwen2Tokenizer, null]
   arch:
@@ -86,6 +88,7 @@ processor:
     merges_file: "/path/merges.txt"
     unk_token: "<|endoftext|>"
     pad_token: "<|endoftext|>"
+    eos_token: "<|im_end|>"
     chat_template: "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
     type: Qwen2Tokenizer
   type: Qwen2Processor
