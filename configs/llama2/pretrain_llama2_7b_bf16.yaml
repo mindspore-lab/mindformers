@@ -122,7 +122,8 @@ context:
   device_target: "Ascend"
   enable_graph_kernel: False
   max_call_depth: 10000
-  max_device_memory: "57GB"
+  max_device_memory: "59GB"
+  mempool_block_size: "59GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
