@@ -465,6 +465,13 @@ def get_device_num_per_node():
 
 
 def get_disable_custom_fa():
+    """
+    whether fa support flatten
+    """
+    ms_enable_fa_flatten = os.environ.get("MS_ENABLE_FA_FLATTEN")
+    if ms_enable_fa_flatten == "off":
+        return False
+
     ms_enable_internal_boost = os.environ.get("MS_ENABLE_INTERNAL_BOOST")
     if ms_enable_internal_boost == "off":
         return True
