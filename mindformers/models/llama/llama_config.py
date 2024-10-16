@@ -98,6 +98,8 @@ class LlamaConfig(PretrainedConfig):
             Whether to tie input and output embeddings. Default: ``False`` .
         llm_backend (str, optional):
             Llm boost backend. Default: ``None`` .
+        fused_rms_norm (bool, optional):
+            Whether or not to use the RMS_NORM of the fusion operator. Default: ``True`` .
 
     Returns:
         LlamaConfig, a LlamaConfig instance.
