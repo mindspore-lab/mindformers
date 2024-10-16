@@ -192,6 +192,8 @@ def get_class_in_module(class_name: str, module_path: Union[str, os.PathLike]) -
     Returns:
         `typing.Type`: The class looked for.
     """
+    if module_path.find(".") != -1:
+        raise ValueError("Path should not contains '.'")
     module_path = module_path.replace(os.path.sep, ".")
     module = importlib.import_module(module_path)
     return getattr(module, class_name)

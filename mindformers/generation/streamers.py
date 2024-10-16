@@ -102,7 +102,7 @@ class TextStreamer(BaseStreamer):
 
         if isinstance(value, np.ndarray):
             value = value.tolist()
-        if isinstance(value, int):
+        if isinstance(value, (int, np.int64)):
             self.token_cache.append(value)
         elif isinstance(value, list):
             if len(value) > 1 and isinstance(value[0], list):
