@@ -187,8 +187,6 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         if self.sequence_parallel:
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
-            if not x.is_contiguous():
-                x = x.contiguous()
             x = comm_func.all_gather_into_tensor(x, group=self.tp_group)[0]
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
@@ -218,8 +216,6 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             x = args[0]
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
-            if not x.is_contiguous():
-                x = x.contiguous()
             x = comm_func.all_gather_into_tensor(x, group=self.tp_group)[0]
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
@@ -232,8 +228,6 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             dout, x = self.prepare_input_tensors_for_wgrad_compute(dout, x)
 
         if self.allreduce_dgrad:
-            if not grad_input.is_contiguous():
-                grad_input = grad_input.contiguous()
             grad_input, grad_input_handle = comm_func.all_reduce(grad_input, group=self.tp_group, async_op=True)
 
         if self.sequence_parallel:
@@ -241,8 +235,6 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
                 raise NotImplementedError("`allreduce_dgrad` is not supported for now.")
             if self.data_layout == "BSH":
                 grad_input = grad_input.swapaxes(0, 1)
-            if not grad_input.is_contiguous():
-                grad_input = grad_input.contiguous()
             grad_input, grad_input_handle = comm_func.reduce_scatter_tensor(
                 grad_input, group=self.tp_group, async_op=True)
 
@@ -650,7 +642,8 @@ class ColumnParallelLinear(nn.Cell):
             weight_requires_grad = self.weight.requires_grad
             weight_param = self.weight
             weight = ops.cast(self.weight, self.compute_dtype)
-        input_parallel = ops.cast(input_parallel, self.compute_dtype)
+        if input_parallel.dtype != self.compute_dtype:
+            input_parallel = ops.cast(input_parallel, self.compute_dtype)
 
         bias = ops.cast(self.bias, self.compute_dtype) if self.has_bias and not self.skip_bias_add else None
 
@@ -661,7 +654,8 @@ class ColumnParallelLinear(nn.Cell):
         else:
             output_parallel = self.forward_impl_(input_parallel, weight, bias, weight_param=weight_param)
 
-        output_parallel = ops.cast(output_parallel, origin_dtype)
+        if output_parallel.dtype != origin_dtype:
+            output_parallel = ops.cast(output_parallel, origin_dtype)
 
         if self.gather_output:
             output = self.gather_from_mp_region(output_parallel)
@@ -941,7 +935,8 @@ class RowParallelLinear(nn.Cell):
         origin_dtype = F.dtype(input_parallel)
         weight = ops.cast(self.weight, self.compute_dtype)
         weight_param = self.weight if self.gradient_accumulation_fusion else None
-        input_parallel = ops.cast(input_parallel, self.compute_dtype)
+        if input_parallel.dtype != self.compute_dtype:
+            input_parallel = ops.cast(input_parallel, self.compute_dtype)
         if self.weight.requires_grad:
             output_parallel = self.forward_impl_(input_parallel, weight, bias=None, weight_param=weight_param)
         else:
@@ -961,7 +956,8 @@ class RowParallelLinear(nn.Cell):
         else:
             if self.has_bias:
                 output_bias = self.bias
-        output = ops.cast(output, origin_dtype)
+        if output.dtype != origin_dtype:
+            output = ops.cast(output, origin_dtype)
 
         return output, output_bias
 

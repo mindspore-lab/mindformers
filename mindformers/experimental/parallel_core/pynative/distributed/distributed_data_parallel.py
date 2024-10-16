@@ -14,7 +14,7 @@
 # ============================================================================
 """ Distributed data parallel wrapper. """
 from contextlib import contextmanager
-from mindspore import mint, ops
+from mindspore import ops
 from mindspore.common import dtype as mstype
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_world_size, \
     get_pipeline_model_parallel_rank, get_data_parallel_group, get_data_modulo_expert_parallel_group
@@ -202,7 +202,7 @@ class DistributedDataParallel(Module):
         def param_hook(grad):
             buffer = param_to_buffer[param]
             if not param.grad_accumulated:
-                param.main_grad.copy_(mint.add(param.main_grad, grad.astype(buffer.grad_dtype)))
+                param.main_grad.add_(grad)
             if self.ddp_config.overlap_grad_reduce:
                 buffer.register_grad_ready(param)
             if param.grad is None:
