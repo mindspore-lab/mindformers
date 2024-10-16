@@ -459,13 +459,14 @@ class Float16OptimizerWithFloat16Params(MixedPrecisionOptimizer):
         """ make closure function as the param hook. """
         def param_hook(grad):
             # when using bf16, gradients shuold be cast to fp32 for communication and optim
-            if grad.dtype == mstype.bfloat16:
-                grad = ops.cast(grad, mstype.float32)
             if param.grad is not None:
                 # grad accumulate
                 param.grad = mint.add(param.grad, grad)
             else:
-                param.grad = grad
+                if grad.dtype == mstype.bfloat16:
+                    param.grad = ops.cast(grad, mstype.float32)
+                else:
+                    param.grad = grad
             return param.grad
 
         return param_hook
