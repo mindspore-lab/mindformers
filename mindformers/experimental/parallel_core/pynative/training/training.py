@@ -658,7 +658,7 @@ def train(
         initial_step = resume_dict.get("step_num")
     else:
         initial_epoch = 0
-        initial_step = 0
+        initial_step = 1
     train_one_step_cell.set_train()
     model_config = train_one_step_cell.model_config
     # set input to use dynamic shape
@@ -669,8 +669,8 @@ def train(
     train_one_step_cell.set_inputs(*set_input_data)
 
     dataset_size = train_dataset_iterator.get_dataset_size()
-    global_step = 0
-    epoch_step = 0
+    global_step = 1
+    epoch_step = 1
     current_epoch = 0
     if training_config.resume_training:
         global_step = initial_step + initial_epoch * dataset_size + 1
@@ -684,7 +684,7 @@ def train(
         and training_config.best_metric_comparison is not None
         and training_config.eval_metric is not None
     )
-    save_ckpt_flag = training_config.save_interval is not None
+    save_ckpt_flag = training_config.save_interval is not None and training_config.training_iters != 0
     correct_metric_flag = is_pipeline_last_stage() # not use pp or pp last_stage
 
     if evaluation_flag:
@@ -705,21 +705,21 @@ def train(
     while not (
             training_config.epochs is not None
             and current_epoch >= training_config.epochs
-            or global_step >= training_config.training_iters
+            or global_step > training_config.training_iters
     ):
-        if epoch_step > 0:
+        if epoch_step > 1:
             logger.debug(f"skip {epoch_step} step data")
-            dataset_iterator = train_dataset_iterator.skip(epoch_step).create_dict_iterator(num_epochs=1)
+            dataset_iterator = train_dataset_iterator.skip(epoch_step - 1).create_dict_iterator(num_epochs=1)
         else:
             dataset_iterator = train_dataset_iterator.create_dict_iterator(num_epochs=1)
         for data in dataset_iterator:
             # check if the training should be stopped
-            if global_step >= training_config.training_iters:
+            if global_step > training_config.training_iters:
                 break
             start_time = time.time()
             loss, is_finite, loss_scale, learning_rate, _ = train_one_step_cell(**data)
             end_time = time.time()
-            if training_config.log_interval is not None and (global_step + 1) % training_config.log_interval == 0:
+            if training_config.log_interval is not None and global_step % training_config.log_interval == 0:
                 if not correct_metric_flag:
                     logger.warning("Metrics is only calculated on the last stage.")
                 if isinstance(learning_rate, (tuple, list)):
@@ -736,7 +736,7 @@ def train(
                     + f"Learning_rate: {report_learning_rate}, Time: {(end_time - start_time) * 1000:.2f} ms"
                 )
 
-            if evaluation_flag and (global_step + 1) % training_config.eval_interval == 0:
+            if evaluation_flag and global_step % training_config.eval_interval == 0:
                 is_best = Tensor(False, dtype=mstype.int8)
                 results = evaluation_func(train_one_step_cell, val_dataset_iterator, metrics, **kwargs)
 
@@ -764,7 +764,7 @@ def train(
                                         crc_check=training_config.crc_check,
                                         keep_checkpoint_max=training_config.keep_checkpoint_max + 1)
 
-            if save_ckpt_flag and (global_step + 1) % training_config.save_interval == 0:
+            if save_ckpt_flag and global_step % training_config.save_interval == 0:
                 save_checkpoint(model_config,
                                 train_one_step_cell.network_with_loss,
                                 train_one_step_cell.optimizer,
@@ -778,10 +778,19 @@ def train(
                                 keep_checkpoint_max=training_config.keep_checkpoint_max)
             epoch_step += 1
             global_step += 1
-        epoch_step = 0
+        epoch_step = 1
         current_epoch += 1
 
     if save_ckpt_flag:
+        logger.info("Saving last step checkpoint.")
+        # at the end of training loop, we use `global_step += 1`,
+        # so the right global step should be 'global_step - 1',
+        epoch_step = (global_step - 1) % dataset_size
+        current_epoch = (global_step - 1) // dataset_size
+        # to avoid situation like 'epoch 1, step 0'
+        if epoch_step == 0:
+            epoch_step = dataset_size
+            current_epoch -= 1
         save_checkpoint(model_config,
                         train_one_step_cell.network_with_loss,
                         train_one_step_cell.optimizer,
@@ -789,7 +798,7 @@ def train(
                         training_config.output_dir,
                         format=training_config.ckpt_format,
                         prefix=training_config.prefix,
-                        epoch_num=(global_step - 1) // dataset_size,
-                        step_num=(global_step - 1) % dataset_size,
+                        epoch_num=current_epoch,
+                        step_num=epoch_step,
                         crc_check=training_config.crc_check,
-                        keep_checkpoint_max=training_config.keep_checkpoint_max + 1)
+                        keep_checkpoint_max=training_config.keep_checkpoint_max)
