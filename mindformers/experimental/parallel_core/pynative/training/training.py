@@ -267,7 +267,7 @@ def get_model(model_provider_func, training_config):
             enable_mem_align=training_config.enable_mem_align,
         )
         training_config.ddp_config = ddp_config
-        logger.warning("Wrap model with DistributedDataParallel, ddp config:\n{}".format(ddp_config))
+        logger.info(f"Wrap model with DistributedDataParallel. Config:\n{ddp_config}")
         model = nn.CellList([DistributedDataParallel(config=training_config,
                                                      ddp_config=ddp_config,
                                                      module=model_chunck) for model_chunck in model],
@@ -708,7 +708,7 @@ def train(
             or global_step > training_config.training_iters
     ):
         if epoch_step > 1:
-            logger.debug(f"skip {epoch_step} step data")
+            logger.info(f"skip {epoch_step} step data batches")
             dataset_iterator = train_dataset_iterator.skip(epoch_step - 1).create_dict_iterator(num_epochs=1)
         else:
             dataset_iterator = train_dataset_iterator.create_dict_iterator(num_epochs=1)
@@ -729,11 +729,12 @@ def train(
                     report_learning_rate += ')'
                 else:
                     report_learning_rate = "{:e}".format(learning_rate)
-                logger.warning(
+                logger.info(
                     f"Epoch: {current_epoch}, Step: {epoch_step}, Loss: {loss}, "
-                    + f"Finite_grads: {is_finite}, "
-                    + f"Loss_scale: {loss_scale.value() if loss_scale is not None else None}, "
-                    + f"Learning_rate: {report_learning_rate}, Time: {(end_time - start_time) * 1000:.2f} ms"
+                    f"Finite_grads: {is_finite}, "
+                    f"Loss_scale: {loss_scale.value() if loss_scale is not None else None}, "
+                    f"Learning_rate: {report_learning_rate}, "
+                    f"Time: {(end_time - start_time) * 1000:.2f} ms"
                 )
 
             if evaluation_flag and global_step % training_config.eval_interval == 0:
@@ -750,7 +751,7 @@ def train(
 
                 # save ckpt
                 if is_best and save_ckpt_flag:
-                    logger.warning("saving best checkpoint")
+                    logger.info("saving best checkpoint")
                     if save_ckpt_flag:
                         save_checkpoint(model_config,
                                         train_one_step_cell.network_with_loss,

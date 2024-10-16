@@ -40,7 +40,7 @@ try:
 except ImportError:
     from mindspore.nn.generator import default_generator, set_rng_state
 from mindspore.communication import get_rank
-from mindformers.tools.logger import logger
+from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.utils import generate_state_dict, save_strategy_file
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_data_parallel_group,
@@ -257,8 +257,8 @@ def save_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
     rank_path = os.path.join(ckpt_path, f"rank_{get_rank()}")
     ckpt_file, strategy_file = get_checkpoint_name(ckpt_path, format=format, prefix=prefix, epoch_num=epoch_num,
                                                    step_num=step_num)
-    for key, _ in kwargs.items():
-        logger.warning(f"The parameter {key} is not used in save_checkpoint.")
+    for key in kwargs:
+        logger.warning(f"The parameter '{key}' is not used in save_checkpoint.")
     logger.info(f"Saving model to {ckpt_file}")
 
     # generate sharded info
@@ -300,7 +300,8 @@ def ensure_total_ckpt_is_less_than_limit(ckpt_path: str, limit: int = 5, format:
     ckpt_num = len(ckpt_list)
     if ckpt_num > limit:
         for rm_ckpt_name in ckpt_list[: (ckpt_num - limit)]:
-            logger.debug(f"Current checkpoint file exceed keep_checkpoint_max, removing {rm_ckpt_name}")
+            logger.warning(f"Current checkpoint file exceed keep_checkpoint_max, "
+                           f"removing {rm_ckpt_name}")
             rm_ckpt_path = os.path.join(ckpt_path, rm_ckpt_name)
             os.remove(rm_ckpt_path)
 
@@ -333,8 +334,8 @@ def load_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
     else:
         raise ValueError(f"There is no *.{format} in {ckpt_path}, load failed.")
     logger.info(f"using latest checkpoint: {src_ckpt_file}")
-    for key, _ in kwargs.items():
-        logger.warning(f"The parameter {key} is not used in load_checkpoint.")
+    for key in kwargs:
+        logger.warning(f"The parameter '{key}' is not used in load_checkpoint.")
 
     param_dict = ms.load_checkpoint(src_ckpt_file, format=format, crc_check=crc_check)
     resume_dict = {
@@ -356,9 +357,9 @@ def load_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
         target = optimizer if optimizer is not None else model
         param_not_load, ckpt_not_load = ms.load_param_into_net(target, param_dict)
         if param_not_load:
-            logger.warning(f"param_not_load:{param_not_load}")
+            logger.warning(f"param_not_load: {param_not_load}")
         if ckpt_not_load:
-            logger.warning(f"ckpt_not_load:{ckpt_not_load}")
+            logger.warning(f"ckpt_not_load: {ckpt_not_load}")
     logger.info("ckpt loaded")
 
     return resume_dict

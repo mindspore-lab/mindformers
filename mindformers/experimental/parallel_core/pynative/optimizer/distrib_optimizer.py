@@ -25,7 +25,7 @@ from mindspore.common import dtype as mstype
 from mindspore.communication.management import get_group_size, get_rank
 import mindspore.communication.comm_func as comm_func
 
-from mindformers.tools.logger import logger
+from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.distributed import ParamAndGradBuffer
 
 from .optimizer import MixedPrecisionOptimizer
@@ -459,7 +459,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             for ele in [shard_param, shard_exp_avg, shard_exp_avg_sq]:
                 weight = state_dict.get(ele.name)
                 if weight is None:
-                    logger.warning(f"Fail to get weight of '{ele.name}' from state dict.")
+                    logger.warning(f"Fail to get the weight of '{ele.name}' from state dict.")
                 ele.copy_(weight.view(-1)[param_start: param_end])
 
     def _load_state_dict_from_dp_zero(self, state_dict):

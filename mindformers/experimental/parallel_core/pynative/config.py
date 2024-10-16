@@ -315,7 +315,7 @@ def flatten_dict_to_raw(flatten_dict: dict, model_type: str):
         cur_dict[convert_key_list[-1]] = value
 
     if not_mapping_key:
-        print(f'not mapping keys is: {not_mapping_key}')
+        logger.warning(f"Not mapped keys are: {not_mapping_key}")
     return raw_dict
 
 
@@ -440,7 +440,7 @@ class BaseConfig(metaclass=ABCMeta):
             optional (bool): Whether the depended config is optional.
         """
         if cls.is_depended_config(config_class):
-            logger.warning(f"{config_class} is already a depended config of {cls}.")
+            logger.info(f"{config_class} is already a depended config of {cls}.")
 
         # add validation function for the depended config
         if optional:
@@ -651,9 +651,9 @@ def build_dependency_graph_of_configs(config_classes):
                 depended_configs.append(depended_config)
                 if depended_config not in config_classes:
                     config_classes.append(depended_config)
-                    logger.warning(
-                        f"Will initialize config {depended_config.config_name}"
-                        + f"since it is required by {config_class.config_name}."
+                    logger.info(
+                        f"Will initialize config {depended_config.config_name} "
+                        f"since it is required by {config_class.config_name}."
                     )
 
         dependency_graph[config_class] = depended_configs
@@ -768,8 +768,7 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
         kwargs.update(depened_config_instances)
         config_instance = config_class(**kwargs)
         initialized_configs[config_class.config_name] = config_instance
-        logger.warning(f"Initialized config {config_class.config_name}:")
-        logger.warning(config_instance)
+        logger.info(f"Initialized config {config_class.config_name}:\n{config_instance}")
 
     # add some rules for arguments
     _check_arguments(initialized_configs)
@@ -955,8 +954,8 @@ def validate_zero_level(config_instance, zero_level):
             or config_instance.context_parallel_size > 1
         if is_parallel_used:
             logger.warning(
-                "Accuracy is not guaranteed when zero is used with parallel"
-                + "strategies other than data parallel and tensor parallel."
+                "Accuracy is not guaranteed when zero is used with parallel "
+                "strategies other than data parallel and tensor parallel."
             )
     return zero_level
 
