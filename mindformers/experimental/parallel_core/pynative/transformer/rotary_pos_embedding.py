@@ -196,13 +196,18 @@ def apply_rotary_pos_emb_bnsd(t, freqs, rotary_interleaved=False) -> Tensor:
     return output
 
 
+# pylint: disable=missing-docstring
 def _apply_fused_rotary_pos_emb(t: Tensor, freqs: Tensor, rotary_interleaved: bool = False) -> Tensor:
     rot_dim = freqs.shape[-1]
-    t, t_pass = t[..., :rot_dim], t[..., rot_dim:]
+    t_shape_last_dim = t.shape[-1]
+    if rot_dim != t_shape_last_dim:
+        t, t_pass = t[..., :rot_dim], t[..., rot_dim:]
     cos_ = mint.cos(freqs).to(t.dtype)
     sin_ = mint.sin(freqs).to(t.dtype)
     mode = 1 if rotary_interleaved else 0
     t = ops.rotary_position_embedding(t, cos_, sin_, mode=mode).astype(t.dtype)
+    if rot_dim == t_shape_last_dim:
+        return t
     return mint.cat((t, t_pass), dim=-1)
 
 
