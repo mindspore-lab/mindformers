@@ -43,6 +43,7 @@ from mindformers.models.utils import LayerSetting
 from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaFeedForward, LlamaRMSNorm
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import get_predict_run_mode
 
 __all__ = ['Baichuan13BV2ForCausalLM', 'Baichuan13BV2Model']
 
@@ -140,6 +141,7 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
                 self.lm_head.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
         self.load_checkpoint(config)
+        self.predict_run_mode = get_predict_run_mode()
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
@@ -206,6 +208,10 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
                 input_mask = self.mul(input_mask, label_mask)
 
         if not self.training:
+            logits = self.cast(logits, mstype.float32)
+            if self.predict_run_mode:
+                logits = self.reshape(logits, (-1, logits.shape[-1]))
+                return logits
             return logits, tokens, input_mask
 
         if logits.ndim > 2:
