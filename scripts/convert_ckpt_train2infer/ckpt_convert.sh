@@ -15,6 +15,7 @@ print_usage() {
     echo "  -sc, --src_ckpt_path         Source ckpt path"
     echo "  -dc, --dst_ckpt_path         Destination ckpt path"
     echo "  -pp, --pipeline_stage        Pipeline_stage set during training "
+    echo "  -tm, --train_to_infer_mode    Train to infer mode ('1':ckpt_to_ckpt or '2':ckpt_to_safetensors_to_ckpt) "
     echo "  -h,  --help                  Print this help message"
 }
 
@@ -32,6 +33,7 @@ while [[ "$#" -gt 0 ]]; do
         -sc|--src_ckpt_path) src_ckpt_path="$2"; shift ;;
         -dc|--dst_ckpt_path) dst_ckpt_path="$2"; shift ;;
         -pp|--pipeline_stage) pipeline_stage="$2"; shift ;;
+        -tm|--train_to_infer_mode) train_to_infer_mode="$2"; shift ;;
         -h|--help) print_usage; exit 0 ;;
         *) echo "Unknown option: $1"; print_usage; exit 1 ;;
     esac
@@ -243,15 +245,25 @@ if [ "$function" == "train_to_infer" ] && [ "$precision" == "fp16" ]; then
     fi
     #2. 训练转推理
     echo "-----2. Start to convert train to infer weights time: $(date +%H:%M:%S) -----"
-    python train2infer.py \
-    --train_ckpt_path=$src_ckpt_path \
-    --del_optim_path=$Infer_ckpt_path"/del_optim" \
-    --train_strategy_file=$train_strategy_file \
-    --infer_strategy_file=${Infer_strategy_path}_no_qkv/strategy \
-    --train_2_infer_path=$Infer_ckpt_path"/train_2_infer_ckpt" \
-    --infer_ckpt_path=$Infer_ckpt_path \
-    --world_size=$world_size \
-    --pipeline_stage=$pipeline_stage > ./log/log_train_2_infer_${world_size}.log 2>&1
+    if [ "$train_to_infer_mode" == "2" ]; then
+        python train2infer_safetensors.py \
+        --train_ckpt_path=$src_ckpt_path \
+        --del_optim_path=$Infer_ckpt_path"/del_optim" \
+        --train_strategy_file=$train_strategy_file \
+        --infer_strategy_file=${Infer_strategy_path}_no_qkv/strategy \
+        --train_2_infer_path=$Infer_ckpt_path"/train_2_infer_ckpt" \
+        --infer_ckpt_path=$Infer_ckpt_path > ./log/log_train_2_infer_${world_size}.log 2>&1
+    else
+        python train2infer.py \
+        --train_ckpt_path=$src_ckpt_path \
+        --del_optim_path=$Infer_ckpt_path"/del_optim" \
+        --train_strategy_file=$train_strategy_file \
+        --infer_strategy_file=${Infer_strategy_path}_no_qkv/strategy \
+        --train_2_infer_path=$Infer_ckpt_path"/train_2_infer_ckpt" \
+        --infer_ckpt_path=$Infer_ckpt_path \
+        --world_size=$world_size \
+        --pipeline_stage=$pipeline_stage > ./log/log_train_2_infer_${world_size}.log 2>&1
+    fi
     echo "-----2. End convert train to infer weights time: $(date +%H:%M:%S) -----"
     #3. 增加前端融合算子
     echo "-----3. Start to convert qkv and ffn time: $(date +%H:%M:%S)-----"
