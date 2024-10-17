@@ -205,7 +205,7 @@ def _apply_fused_rotary_pos_emb(t: Tensor, freqs: Tensor, rotary_interleaved: bo
     cos_ = mint.cos(freqs).to(t.dtype)
     sin_ = mint.sin(freqs).to(t.dtype)
     mode = 1 if rotary_interleaved else 0
-    t = ops.rotary_position_embedding(t, cos_, sin_, mode=mode).astype(t.dtype)
+    t = ops.rotary_position_embedding(t, cos_, sin_, mode=mode)
     if rot_dim == t_shape_last_dim:
         return t
     return mint.cat((t, t_pass), dim=-1)
