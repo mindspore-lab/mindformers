@@ -20,6 +20,8 @@ from mindspore.nn.cell import Cell
 from mindspore.ops import functional as F
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 
+from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
+
 
 class FlashAttention(Cell):
     """Flash Attention Layer.
@@ -217,11 +219,11 @@ class FlashAttention(Cell):
                                                prefix)
         return output
 
-    def shard(self, parallel_config):
+    def shard(self, config: TransformerConfig):
         """sharding for flash attention"""
-        dp = 1 if parallel_config is None else parallel_config.data_parallel
-        tp = 1 if parallel_config is None else parallel_config.tensor_parallel
-        cp = 1 if parallel_config is None else parallel_config.context_parallel
+        dp = 1 if config is None else config.data_parallel
+        tp = 1 if config is None else config.tensor_parallel
+        cp = 1 if config is None else config.context_parallel
 
         fa_strategies = self._generate_flash_attention_strategy(dp, tp, cp)
         self.flash_attention.shard(fa_strategies)
