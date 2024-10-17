@@ -29,7 +29,6 @@ script_path="$(realpath "$(dirname "$0")")"
 export PYTHONPATH=$script_path/../../../:$script_path/../../../research/:$script_path/../../../research/qwenvl/:$PYTHONPATH
 
 export GRAPH_OP_RUN=1
-export MS_ENABLE_INTERNAL_KERNELS=on
 
 if [ "$PARALLEL" = "single" ]; then
   python "$script_path"/run_qwenvl_generate.py \
