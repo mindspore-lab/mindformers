@@ -338,7 +338,7 @@ class ParamAndGradBuffer:
 
     def reset(self):
         """ reset buffer for the next iteration. """
-        self.grad_data.copy_(mint.mul(self.grad_data, 0))
+        self.grad_data.zero_()
         for bucket in self.buckets:
             bucket.reset()
         self.sync_enabled = True
