@@ -18,7 +18,7 @@ import mindspore as ms
 from mindspore.common.tensor import Tensor
 
 
-_support_parallel_decoding = ("la", "memory_decoding", "prompt_cache")
+_support_parallel_decoding = ("la", "memory_decoding", "prefix_cache")
 _logits_process = {}
 _pre_process = {}
 
@@ -198,8 +198,8 @@ def _memory_decoding_pre_process(config, input_ids, model_inputs, **model_kwargs
     return model_inputs, block_tables, slot_mapping
 
 
-@register_pre_process('prompt_cache')
-def _prompt_cache_pre_process(config, input_ids, model_inputs, **model_kwargs):
+@register_pre_process('prefix_cache')
+def _prefix_cache_pre_process(config, input_ids, model_inputs, **model_kwargs):
     """ prompt cache pre process """
     _ = config
     if model_kwargs.get('q_seq_lens') is not None:
