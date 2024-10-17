@@ -566,13 +566,22 @@ MindFormers已支持大部分模型的[LoRA微调](https://www.mindspore.cn/mind
 
 当前支持的硬件为[Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2)训练服务器。
 
-当前套件建议使用的Python版本为3.9。
+当前套件建议使用的Python版本为3.10。
 
 | MindFormers | MindPet | MindSpore | CANN |                                  驱动固件                                  | 镜像链接 |  备注  |
 |:-----------:|:-------:|:---------:|:----:|:----------------------------------------------------------------------:|:----:|:----:|
 |    1.3.0    |  1.0.4  |   2.4.0   |  -   | [driver](https://www.hiascend.com/hardware/firmware-drivers/community) |  -   | 版本分支 |
 
-**当前MindFormers仅支持如上的软件配套关系**。其中CANN和固件驱动的安装需与使用的机器匹配，请注意识别机器型号，选择对应架构的版本。
+当前MindFormers建议使用如上的软件配套关系。其中CANN和固件驱动的安装需与使用的机器匹配，请注意识别机器型号，选择对应架构的版本。
+
+#### 兼容性说明
+
+MindFormers与MindSpore有如下兼容关系：
+
+| MindFormers | MindSpore | 兼容性 |
+|:-----------:|:---------:|:---:|
+|    1.3.0    |    2.3    |  √  |
+|    1.2.0    |    2.4    |  √  |
 
 ### 源码编译安装
 
