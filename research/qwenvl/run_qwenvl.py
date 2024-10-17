@@ -131,6 +131,7 @@ def in_predict_mode(run_mode):
 
 def check_finetune_config(
         config,
+        ckpt=None,
         vocab_file=None,
         image_size=None,
         seq_length=None):
@@ -144,8 +145,14 @@ def check_finetune_config(
         update_llm_model_config(config, "seq_length", seq_length)
         config.train_dataset.modal_to_text_transform.max_length = seq_length
 
+    if ckpt is not None:
+        if not os.path.exists(ckpt):
+            raise FileExistsError(f"The checkpoint file {ckpt} does not exist.")
+        config.load_checkpoint = ckpt
+
     if image_size is None:
         image_size = get_vision_model_config(config, "image_size")
+
     update_vision_model_config(config, "image_size", image_size)
     config.train_dataset.modal_to_text_transform.model_transform_template.image_size = image_size
 
@@ -190,7 +197,9 @@ def check_predict_config(
         update_llm_model_config(config, "max_decode_length", max_length)
 
     if ckpt is not None:
-        update_model_config(config, "checkpoint_name_or_path", ckpt)
+        if not os.path.exists(ckpt):
+            raise FileExistsError(f"The checkpoint file {ckpt} does not exist.")
+        config.load_checkpoint = ckpt
 
     if image_size is None:
         image_size = get_vision_model_config(config, "image_size")
@@ -251,12 +260,12 @@ def main(config="finetune_qwenvl_910b.yaml",
 
         queries = [query_item]
         trainer = Trainer(args=config, model=model, task="image_to_text_generation")
-        result = trainer.predict(predict_checkpoint=ckpt, input_data=queries)
+        result = trainer.predict(predict_checkpoint=config.load_checkpoint, input_data=queries)
         print(result)
     elif in_finetune_mode(run_mode):
-        check_finetune_config(config, vocab_file=vocab_file, image_size=image_size, seq_length=seq_length)
+        check_finetune_config(config, ckpt=ckpt, vocab_file=vocab_file, image_size=image_size, seq_length=seq_length)
         trainer = Trainer(args=config, task="multi_modal_to_text_generation")
-        trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt)
+        trainer.finetune(finetune_checkpoint=config.load_checkpoint, auto_trans_ckpt=config.auto_trans_ckpt)
     else:
         raise NotImplementedError(f"run_mode {run_mode} not supported yet.")
 
@@ -280,7 +289,7 @@ if __name__ == "__main__":
     parser.add_argument("--prompt", default="", type=str, help="input predict data.")
     parser.add_argument("--seq_length", default=None, type=int, help="seq_length")
     parser.add_argument("--predict_length", default=512, type=int, help="max length for predict output.")
-    parser.add_argument("--use_parallel", default=False, type=str2bool, help="open parallel for model.")
+    parser.add_argument("--use_parallel", default=None, type=str2bool, help="open parallel for model.")
     parser.add_argument("--optimizer_parallel", default=False, type=str2bool,
                         help="whether use optimizer parallel. Default: False")
     parser.add_argument("--device_id", default=-1, type=int,

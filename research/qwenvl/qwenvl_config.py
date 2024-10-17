@@ -101,8 +101,8 @@ class QwenVLConfig(PretrainedConfig):
     Config For QwenVL Vision Module
 
     Args:
-        vision_model (int): vision model config.
-        llm_model (int): llm model config.
+        vision_model (dict): vision model config.
+        llm_model (dict): llm model config.
         num_queries (int): num of query tokens.
         proj_output_dim (int): the output dim after projection in visual model.
         image_start_id (int): token id of image_start.
