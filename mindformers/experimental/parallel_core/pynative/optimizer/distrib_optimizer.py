@@ -96,7 +96,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         >>> from tests.st.test_distri_core.utils import TestData, train
         >>> class TestNet2(nn.Cell):
         ...     def __init__(self, config):
-        ...         super(MyNet, self).__init__()
+        ...         super(TestNet2, self).__init__()
         ...         hidden_size = config.hidden_size
         ...         self.columnlinear = ColumnParallelLinear(input_size=hidden_size, output_size=hidden_size,
         ...                                                  config=config, init_method=config.init_method,
