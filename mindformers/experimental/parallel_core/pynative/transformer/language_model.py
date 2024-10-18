@@ -89,7 +89,7 @@ class Embedding(Module):
         - **embeddings** (Tensor)- The embedding output, shape :math:`(B, S, H)`.
 
     Raises:
-        NotImplementedError: If `config.fp32_residual_connection` or `config.clone_scatter_output_in_embedding` is True.
+        NotImplementedError: If `config.clone_scatter_output_in_embedding` is True.
         RuntimeError: If `tokentype_ids` is not None and `tokentype_embeddings` is None.
             If `tokentype_ids` is None and `tokentype_embeddings` is not None.
 
@@ -203,8 +203,6 @@ class Embedding(Module):
         )
 
         self.fp32_residual_connection = config.fp32_residual_connection
-        if self.fp32_residual_connection:
-            raise NotImplementedError("fp32_residual_connection is not supported for now.")
         self.clone_scatter_output_in_embedding = config.clone_scatter_output_in_embedding
         if self.clone_scatter_output_in_embedding:
             raise NotImplementedError("clone_scatter_output_in_embedding is not supported for now.")
@@ -248,7 +246,7 @@ class Embedding(Module):
             embeddings = embeddings.swapaxes(0, 1)
 
         if self.fp32_residual_connection:
-            raise NotImplementedError("`fp32_residual_connection` is not supported for now.")
+            embeddings = embeddings.astype(ms.float32)
 
         # dropout
         if self.sequence_parallel:
@@ -261,7 +259,8 @@ class Embedding(Module):
             embeddings = self.dropout(embeddings)
 
         # convert dtype to compute dtype
-        embeddings = embeddings.astype(self.compute_dtype)
+        if not self.fp32_residual_connection:
+            embeddings = embeddings.astype(self.compute_dtype)
         return embeddings
 
 
