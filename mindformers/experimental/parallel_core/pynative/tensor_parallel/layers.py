@@ -216,12 +216,15 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             x = args[0]
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
-            x = comm_func.all_gather_into_tensor(x, group=self.tp_group)[0]
+            x, x_handler = comm_func.all_gather_into_tensor(x, group=self.tp_group, async_op=True)
+            grad_input = self.matmul_g_in(dout, weight)
+            x_handler.wait()
             if self.data_layout == "BSH":
                 x = x.swapaxes(0, 1)
+            grad_input.reshape(x.shape)
         else:
             x = self.input_parallel.pop(0)
-        grad_input = self.matmul_g_in(dout, weight).reshape(x.shape)
+            grad_input = self.matmul_g_in(dout, weight).reshape(x.shape)
         wgrad_compute = True
 
         if wgrad_compute:
