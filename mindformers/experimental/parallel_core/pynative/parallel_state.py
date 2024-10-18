@@ -289,8 +289,8 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
         if 'ep-dp' not in order and 'dp-ep' not in order:
             raise RuntimeError(f"The ep and dp must be adjacent in order ({order}).")
 
-    for key, _ in kwargs.items():
-        logger.warning(f"The parameter {key} is not used in save_checkpoint.")
+    for key in kwargs:
+        logger.warning(f"The parameter '{key}' is not used in initialize_model_parallel.")
 
     rank_generator = CreateCommGroups(tp=tensor_model_parallel_size,\
                                       ep=expert_model_parallel_size, \

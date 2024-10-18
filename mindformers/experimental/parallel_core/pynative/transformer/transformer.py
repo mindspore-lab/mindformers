@@ -1027,12 +1027,13 @@ def _get_num_layers(config, model_type, is_decoder=False):
                 num_layers, offset = _get_custom_num_layers(config.parallel_config.num_layer_list,
                                                             pp_stage, pp_rank, vpp_stage, vpp_rank)
                 if vpp_stage is not None:
-                    logger.info("Custom num layer list is {}. "
-                                "Num_layers in vpp_rank:{}"
-                                ", pp_rank:{} is {}.\n".format(num_layer_array, vpp_rank, pp_rank, num_layers))
+                    logger.info(
+                        f"Custom num layer list is {num_layer_array}. "
+                        f"Num_layers in vpp_rank:{vpp_rank}, pp_rank:{pp_rank} is {num_layers}.")
                 else:
-                    logger.info("Custom num layer list is {}. "
-                                "Num_layers in pp_rank:{} is {}.\n".format(num_layer_array, pp_rank, num_layers))
+                    logger.info(
+                        f"Custom num layer list is {num_layer_array}. "
+                        f"Num_layers in pp_rank:{pp_rank} is {num_layers}.")
                 return num_layers, offset
 
             def divide_layers(num_layers, stage, rank):
@@ -1384,14 +1385,18 @@ class ParallelTransformer(Module):
                              "select_recompute_layers {} + full_recompute_layers {} > "
                              "num_layers {}.".format(select_recompute_layers, full_recompute_layers, self.num_layers))
         if vpp_stage is not None:
-            logger.info("in vpp_rank:{}, pp_rank:{}, full_recompute_layers is {}, "
-                        "select_recompute_layers is {}, select_comm_recompute_layers is {}"
-                        .format(vpp_rank, pp_rank, full_recompute_layers, select_recompute_layers,
-                                select_comm_recompute_layers))
+            logger.info(
+                f"in vpp_rank:{vpp_rank}, "
+                f"pp_rank:{pp_rank}, "
+                f"full_recompute_layers is {full_recompute_layers}, "
+                f"select_recompute_layers is {select_recompute_layers}, "
+                f"select_comm_recompute_layers is {select_comm_recompute_layers}")
         else:
-            logger.info("in pp_rank:{}, full_recompute_layers is {}, "
-                        "select_recompute_layers is {}, select_comm_recompute_layers is {}"
-                        .format(pp_rank, full_recompute_layers, select_recompute_layers, select_comm_recompute_layers))
+            logger.info(
+                f"in pp_rank:{pp_rank}, "
+                f"full_recompute_layers is {full_recompute_layers}, "
+                f"select_recompute_layers is {select_recompute_layers}, "
+                f"select_comm_recompute_layers is {select_comm_recompute_layers}")
         return full_recompute_layers, select_recompute_layers, select_comm_recompute_layers
 
 

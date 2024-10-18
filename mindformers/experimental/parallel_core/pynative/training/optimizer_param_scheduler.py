@@ -86,8 +86,6 @@ class OptimizerParamScheduler():
 
         # Set the learning rate
         self.step(0)
-        print('> learning rate decay style: {}'.format(self.lr_decay_style))
-
 
     def get_wd(self):
         """ Weight decay incr functions"""
@@ -213,14 +211,12 @@ class OptimizerParamScheduler():
         """Auxiliary function for checking the values in the checkpoint and
         setting them."""
         if self.override_opt_param_scheduler:
-            print(' > overriding {} value to {}'.format(name, cls_value))
             return cls_value
 
         if not self.use_checkpoint_opt_param_scheduler:
             if cls_value != sd_value:
                 raise ValueError(f'OptimizerParamScheduler: class input value {cls_value} '
                                  f'and checkpoint value {sd_value} for {name} do not match')
-        print(' > using checkpoint value {} for {}'.format(sd_value, name))
         return sd_value
 
     def load_state_dict(self, sd):
