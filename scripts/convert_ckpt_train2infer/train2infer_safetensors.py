@@ -52,6 +52,7 @@ def del_optimize_param(i, train_ckpt_path, del_optim_path):
 
 
 def find_divisors(n):
+    """Find division"""
     divisors = set()
     for i in range(1, int(n ** 0.5) + 1):
         if n % i == 0:
@@ -61,7 +62,7 @@ def find_divisors(n):
 
 
 def run_del(train_ckpt_path, del_optim_path, train_folder_count):
-    """parallel run del_optimize_param function"""
+    """Parallel run del_optimize_param function"""
     # 获取当前时间
     start_time = datetime.now().strftime("%H:%M:%S")
 
@@ -100,23 +101,27 @@ def run_del(train_ckpt_path, del_optim_path, train_folder_count):
 
 def transform_safetensors(del_optim_path, train_2_infer_path, train_strategy_file, infer_strategy_file,
                           infer_ckpt_path):
+    """Convert ckpt to safetensor to distribute weights"""
     # 1.train的strategy合并
     merge_strategy_start_time = time.time()
-    merge_train_strategy_file = train_strategy_file + "_merged/merged_strategy.ckpt"
+    merge_train_strategy_file = infer_strategy_file + "_train_merge/merged_strategy.ckpt"
     ms.merge_pipeline_strategys(src_strategy_dirs=train_strategy_file, dst_strategy_file=merge_train_strategy_file)
+
+    merge_infer_strategy_file = infer_strategy_file + "_infer_merge/merged_strategy.ckpt"
+    ms.merge_pipeline_strategys(src_strategy_dirs=infer_strategy_file, dst_strategy_file=merge_infer_strategy_file)
     merge_strategy_end_time = time.time()
 
     # 2.离线合并safetensors
-    unfited_safetensors_start_time = time.time()
+    unified_safetensors_start_time = time.time()
 
-    ms.unfited_safetensors(src_dir=del_optim_path, src_strategy_file=merge_train_strategy_file,
+    ms.unified_safetensors(src_dir=del_optim_path, src_strategy_file=merge_train_strategy_file,
                            dst_dir=train_2_infer_path)
-    unfited_safetensors_end_time = time.time()
+    unified_safetensors_end_time = time.time()
 
     # 3.权重在线罗盘切分
     load_distributed_checkpoint_start_time = time.time()
     infer_safetensors_path = infer_ckpt_path + "_safetensors"
-    ms.load_distributed_checkpoint(network=None, predict_strategy=infer_strategy_file, format='safetensors',
+    ms.load_distributed_checkpoint(network=None, predict_strategy=merge_infer_strategy_file, format='safetensors',
                                    unified_safetensors_dir=train_2_infer_path,
                                    dst_safetensors_dir=infer_safetensors_path)
     load_distributed_checkpoint_end_time = time.time()
@@ -127,7 +132,7 @@ def transform_safetensors(del_optim_path, train_2_infer_path, train_strategy_fil
     safetensors_to_ckpt_end_time = time.time()
 
     print(f"merge_strategy time: {merge_strategy_end_time - merge_strategy_start_time}, \
-     unfited_safetensors time: {unfited_safetensors_end_time - unfited_safetensors_start_time}, \
+     unified_safetensors time: {unified_safetensors_end_time - unified_safetensors_start_time}, \
      load_distributed_checkpoint time: {load_distributed_checkpoint_end_time - load_distributed_checkpoint_start_time}, \
      safetensors_to_ckpt time: {safetensors_to_ckpt_end_time - safetensors_to_ckpt_start_time} ")
 
