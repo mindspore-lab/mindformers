@@ -196,9 +196,7 @@ class VisionExpertAttention(nn.Cell):
         self.vision_expert_dense.shard(((dp, mp), (1, mp)))
         self.language_expert_dense.shard(((dp, mp), (1, mp)))
         self.split_qkv.shard(((1, 1, 1),))
-        if self.use_past:
-            self.infer_attention.rotary_embedding.mul.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
-        else:
+        if not self.use_past:
             self.apply_rotary_emb.mul.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
 
     def construct(
@@ -663,10 +661,9 @@ class LlamaModelForCogVLM2Image(LlamaPreTrainedModel):
                     "input_embeds and input_attention_masks should not be None when tokens is None."
                 )
             h = self.cast(input_embeds, self.dtype)
-        freqs_cis = self.freqs_mgr(position_ids)
 
         bs, seq_len, _ = self.shape(h)
-
+        freqs_cis = self.freqs_mgr(position_ids, self.use_past)
         mask = None
         if self.use_past and self.is_first_iteration:
             if self.use_flash_attention:

@@ -17,7 +17,6 @@ Test cogvlm2-video train.
 How to run this:
     pytest tests/st/test_model/test_cogvlm2_model/test_train.py
 """
-import os
 from functools import partial
 import pytest
 import numpy as np
@@ -69,7 +68,6 @@ class TestCogVLM2VideoTrain:
         Description: Test base model training precision.
         Expectation: AssertionError
         """
-        os.environ['USE_ROPE_SELF_DEFINE'] = 'True'
         runner = ModelTester(run_mode='train', batch_size=1, experiment_mode=True)
 
         model_config = get_config()
