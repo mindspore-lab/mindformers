@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """ Distributed optimizer wrapper. """
+
 from collections import OrderedDict
 import json
 import os
@@ -21,6 +22,7 @@ import numpy as np
 
 import mindspore as ms
 import mindspore.ops as ops
+from mindspore import _no_grad
 from mindspore.common import dtype as mstype
 from mindspore.communication.management import get_group_size, get_rank
 import mindspore.communication.comm_func as comm_func
@@ -431,9 +433,38 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         # build fp32 copy for fp16/bf16 params
         self.reload_model_params()
 
+        # AllGather param overlap data structs
+        self.overlap_param_gather = self.config.overlap_param_gather
+        self.remove_cell_param_gather_handles = []
+        self.all_gather_handles = []
+        self.all_gather_handle_index_to_bucket_index_map = []
+        self.model_index_to_all_gather_handle_index_map = {}
+        self.all_gather_handle_indices = []
+        self.param_to_all_gather_handle_index_map = {}
+        self.bucket_allgather_param_data_map = {}
+        self.buffer_bucket_index_list = sorted(self.param_buffer_dp_views, key=lambda x: (x[0], -x[1]))
+        for buffer_index, bucket_index, _, _ in self.buffer_bucket_index_list:
+            self.all_gather_handle_index_to_bucket_index_map.append((buffer_index, bucket_index))
+            all_gather_handle_index = len(self.all_gather_handle_index_to_bucket_index_map) - 1
+            # placeholder for handles
+            self.all_gather_handles.append(None)
+            if buffer_index not in self.buffer_idx_to_model_idex_map:
+                raise RuntimeError(f"buffer_index {buffer_index} not in buffer_idx_to_model_idex_map"
+                                   f" {self.buffer_idx_to_model_idex_map}")
+            model_index = self.buffer_idx_to_model_idex_map[buffer_index]
+            if model_index not in self.model_index_to_all_gather_handle_index_map:
+                self.model_index_to_all_gather_handle_index_map[model_index] = []
+            self.model_index_to_all_gather_handle_index_map[model_index].append(all_gather_handle_index)
+            for param in self.buffers[buffer_index].buckets[bucket_index].params_list:
+                self.param_to_all_gather_handle_index_map[param] = all_gather_handle_index
+        self.num_all_gather_handles = len(self.all_gather_handle_index_to_bucket_index_map)
+
+
     def zero_grad(self):
         """ reset grads data. """
         self.grads = []
+        if self.overlap_param_gather:
+            self._dispatch_gather_model_params(all_gather_handle_index=0)
 
     def get_model_parallel_group(self):
         """ return model_parallel_group for global norm allreduce. """
@@ -442,14 +473,14 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
     def reload_main_params(self):
         """ reload main params to model params. """
         self._copy_main_params_to_model_params()
-        self._sync_gather_all_model_params()
+        self.sync_gather_all_model_params(force_sync=True)
 
     def step_with_ready_grads(self):
         """ optimizer update and synchronize updated parameters among dp group. """
         self.update_success = super().step_with_ready_grads()
         if self.update_success:
             # allgather updated buckets' data among dp group
-            self._sync_gather_all_model_params()
+            self.sync_gather_all_model_params()
 
     def _load_state_from_fs_model_space(self, state_dict):
         """ load state from fully sharded parameter state. """
@@ -633,19 +664,91 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         copy_group_params(self.sharded_param_fp32_groups, self.param_fp32_groups)
         copy_group_params(self.sharded_param_fp32_from_fp16_groups, self.param_fp16_groups)
 
-    def _sync_gather_all_model_params(self):
+    def sync_gather_all_model_params(self, force_sync=False):
         """
         After distributed optimizer update, only the elements this dp rank take charge has been updated.
         This function conducts all-gather on data parallel group to get all updated parameters.
         """
-        if not self.overlap_param_gather:
+        if not self.overlap_param_gather or force_sync:
             for buffer_index, bucket_index, shard_start, shard_end in self.param_buffer_dp_views:
                 bucket = self.buffers[buffer_index].buckets[bucket_index]
-                param_data_view = bucket.param_data[shard_start:shard_end]
-                param_data = comm_func.all_gather_into_tensor(
-                    param_data_view, group=bucket.data_parallel_group)[0].reshape(-1)
+                param_data_view = bucket.param_data[shard_start: shard_end]
+                param_data = comm_func.all_gather_into_tensor(param_data_view,
+                                                              group=bucket.data_parallel_group)[0].reshape(-1)
                 bucket.param_data.copy_(param_data)
 
+    def _dispatch_gather_model_params(self, all_gather_handle_index):
+        (buffer_index, bucket_index, shard_start, shard_end) = self.buffer_bucket_index_list[all_gather_handle_index]
+        bucket = self.buffers[buffer_index].buckets[bucket_index]
+        param_data_view = bucket.param_data[shard_start: shard_end]
+        param_data, param_all_gather_handle = comm_func.all_gather_into_tensor(param_data_view,
+                                                                               group=bucket.data_parallel_group,
+                                                                               async_op=True)
+        self.bucket_allgather_param_data_map[all_gather_handle_index] = param_data.reshape(-1)
+        self.all_gather_handles[all_gather_handle_index] = param_all_gather_handle
+
+    # pylint: disable=W0622
+    @_no_grad()
+    def _pre_forward_cell_hook(self, cell, input):
+        for cell_param in cell.get_parameters(False):
+            if not cell_param.requires_grad:
+                continue
+            if cell_param in self.param_to_all_gather_handle_index_map:
+                all_gather_handle_index = self.param_to_all_gather_handle_index_map[cell_param]
+                self._finish_param_sync_helper(all_gather_handle_index)
+        return input
+
+    def enable_pre_hook(self, module):
+        """
+        Enable pre hook for every cell in module to overlap allgather in fsdp.
+
+        Inputs:
+            module (Cell): network for training.
+        """
+        optim_cells = []
+
+        def recursion_cells(cell):
+            sub_cells_list = cell.cells()
+            for sub_cell in sub_cells_list:
+                optim_cells.append(sub_cell)
+                recursion_cells(sub_cell)
+
+        recursion_cells(module)
+        for sub_cell in optim_cells:
+            remove_cell_param_gather_handle = sub_cell.register_forward_pre_hook(self._pre_forward_cell_hook)
+            self.remove_cell_param_gather_handles.append(remove_cell_param_gather_handle)
+
+    def disable_pre_hook(self):
+        """ disable pre hook for every cell in module to overlap allgather in fsdp."""
+        while self.remove_cell_param_gather_handles:
+            remove_cell_param_gather_handle = self.remove_cell_param_gather_handles.pop()
+            remove_cell_param_gather_handle.remove()
+            remove_cell_param_gather_handle = None
+
+
+    def _finish_param_sync_helper(self, all_gather_handle_index):
+        """ sycn allgather"""
+        all_gather_handle = self.all_gather_handles[all_gather_handle_index]
+        if all_gather_handle is not None:
+            all_gather_handle.wait()
+            buffer_index, bucket_index = self.all_gather_handle_index_to_bucket_index_map[all_gather_handle_index]
+            bucket = self.buffers[buffer_index].buckets[bucket_index]
+            param_data = self.bucket_allgather_param_data_map[all_gather_handle_index]
+            bucket.param_data.copy_(param_data)
+            self.bucket_allgather_param_data_map[all_gather_handle_index] = None
+            self.all_gather_handles[all_gather_handle_index] = None
+            next_all_gather_handle_index = all_gather_handle_index + 1
+            if next_all_gather_handle_index < self.num_all_gather_handles:
+                self._dispatch_gather_model_params(next_all_gather_handle_index)
+
+    def finish_param_sync(self, model_index):
+        """ sync allgather in vpp with delay param gather"""
+        # model_index indicates the model id in vpp
+        if model_index in self.model_index_to_all_gather_handle_index_map:
+            return
+        all_gather_handle_indices = self.model_index_to_all_gather_handle_index_map[model_index]
+        for all_gather_handle_index in all_gather_handle_indices:
+            self._finish_param_sync_helper(all_gather_handle_index)
 
     def save_opt_shard_strategy(self, file):
         """

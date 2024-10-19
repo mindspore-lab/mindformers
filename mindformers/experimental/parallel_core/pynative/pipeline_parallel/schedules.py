@@ -263,6 +263,8 @@ def forward_backward_pipelining_with_interleaving(
     calculate_per_token_loss = config.training_config.calculate_per_token_loss
     data_layout = config.model_config.dataset_config.data_layout
     wrap_with_ddp = config.training_config.wrap_with_ddp
+    overlap_grad_reduce = config.training_config.overlap_grad_reduce
+    delay_grad_reduce = config.training_config.delay_grad_reduce
 
     # correct tensor shape if use seq parallel or context parallel
     tensor_shape = correct_p2p_shape(seq_length, hidden_size, micro_batch_size, data_layout, use_sequence_parallel)[0]
@@ -297,6 +299,11 @@ def forward_backward_pipelining_with_interleaving(
         """ disable asynchronous grad reductions """
         for sub_model in model:
             sub_model.enable_sync(False)
+
+    def enable_grad_sync():
+        """ enable asynchronous grad reductions """
+        for sub_model in model:
+            sub_model.enable_sync(True)
 
     def run_forward_helper(microbatch_id, accumulate_loss):
         """ run forward helper function """
@@ -333,6 +340,15 @@ def forward_backward_pipelining_with_interleaving(
         input_tensor = input_tensors[model_chunk_id].pop(0)
         recv_grads = output_tensor_grads[model_chunk_id].pop(0)
 
+        # enable ddp grad sync before run_backward
+        is_last_microbatch_cur_chunk = is_last_microbatch_for_model_chunk(microbatch_id,
+                                                                          pp_world_size,
+                                                                          num_model_chunks,
+                                                                          total_num_microbatches)
+        if wrap_with_ddp and not delay_grad_reduce and is_last_microbatch_cur_chunk:
+            enable_grad_sync()
+            synchronized_model_chunks.add(model_chunk_id)
+
         # run backward
         dout, accumulate_grads = run_backward(*input_tensor,
                                               recv_grads=recv_grads,
@@ -349,21 +365,22 @@ def forward_backward_pipelining_with_interleaving(
                                               wrap_with_ddp=wrap_with_ddp)
         accumulate_grads_list[model_chunk_id] = accumulate_grads
 
-        # ddp grad reductions
+        # if delay_grad_reduce=True, reduce all bucket grad after run_backward
         if wrap_with_ddp:
-            grad_sync_microbatch_id = microbatch_id - pp_world_size
-            is_last_microbatch_cur_chunk = is_last_microbatch_for_model_chunk(grad_sync_microbatch_id,
-                                                                              pp_world_size,
-                                                                              num_model_chunks,
-                                                                              total_num_microbatches)
-            if grad_sync_microbatch_id >= 0 and is_last_microbatch_cur_chunk:
-                grad_sync_chunk_id = get_model_chunk_id(grad_sync_microbatch_id,
-                                                        pp_world_size,
-                                                        num_model_chunks,
-                                                        forward=False)
-                model[grad_sync_chunk_id].enable_sync(True)
-                model[grad_sync_chunk_id].final_grad_reduce()
-                synchronized_model_chunks.add(grad_sync_chunk_id)
+            if delay_grad_reduce:
+                grad_sync_microbatch_id = microbatch_id - pp_world_size
+                is_last_microbatch_sync_chunk = is_last_microbatch_for_model_chunk(grad_sync_microbatch_id,
+                                                                                   pp_world_size,
+                                                                                   num_model_chunks,
+                                                                                   total_num_microbatches)
+                if grad_sync_microbatch_id >= 0 and is_last_microbatch_sync_chunk:
+                    grad_sync_chunk_id = get_model_chunk_id(grad_sync_microbatch_id,
+                                                            pp_world_size,
+                                                            num_model_chunks,
+                                                            forward=False)
+                    enable_grad_sync()
+                    model[grad_sync_chunk_id].issue_grad_reduce()
+                    synchronized_model_chunks.add(grad_sync_chunk_id)
             disable_grad_sync()
         return dout
 
@@ -642,13 +659,18 @@ def forward_backward_pipelining_with_interleaving(
             all_model_chunk_grads += model_chunk_grad
     del accumulate_grads_list
 
-    # sync for all params in each model chunk
     if wrap_with_ddp:
+        # grad sync for remaining model chunks
+        enable_grad_sync()
+        if overlap_grad_reduce and delay_grad_reduce:
+            for model_chunk_id in range(num_model_chunks):
+                if model_chunk_id not in synchronized_model_chunks:
+                    model[model_chunk_id].issue_grad_reduce()
+                    synchronized_model_chunks.add(model_chunk_id)
+
+        # finish grad sync
         for model_chunk_id in range(num_model_chunks):
-            if model_chunk_id not in synchronized_model_chunks:
-                model[model_chunk_id].enable_sync(True)
-                model[model_chunk_id].final_grad_reduce()
-                synchronized_model_chunks.add(model_chunk_id)
+            model[model_chunk_id].final_grad_reduce()
 
     # AllReduce embedding (if shared embedding weight in first stage and last stage)
     all_model_chunk_grads = all_reduce_share_embedding(list(all_model_chunk_grads),
@@ -717,6 +739,8 @@ def forward_backward_pipelining_without_interleaving(
     calculate_per_token_loss = config.training_config.calculate_per_token_loss
     data_layout = config.model_config.dataset_config.data_layout
     wrap_with_ddp = config.training_config.wrap_with_ddp
+    overlap_grad_reduce = config.training_config.overlap_grad_reduce
+    delay_grad_reduce = config.training_config.delay_grad_reduce
 
     # correct tensor shape if use seq parallel or context parallel
     recv_tensor_shapes = correct_p2p_shape(seq_length, hidden_size, \
@@ -818,8 +842,8 @@ def forward_backward_pipelining_without_interleaving(
             input_tensor = input_tensors.pop(0)
 
             # enable sync for ddp in the first pipeline stage
-            if wrap_with_ddp and warm_up_steps == 0:
-                if i == steady_steps - 1:
+            if wrap_with_ddp and warm_up_steps == 0 and i == steady_steps - 1:
+                if not delay_grad_reduce or pp_rank == 0:
                     model.enable_sync(True)
 
             # run backward
@@ -855,8 +879,8 @@ def forward_backward_pipelining_without_interleaving(
         cooldown_steps = warm_up_steps
         for i in range(cooldown_steps):
             # enable sync for ddp in the first pipeline stage
-            if wrap_with_ddp:
-                if i == cooldown_steps - 1:
+            if wrap_with_ddp and i == cooldown_steps - 1:
+                if not delay_grad_reduce or pp_rank == 0:
                     model.enable_sync(True)
 
             # run backward
@@ -877,9 +901,12 @@ def forward_backward_pipelining_without_interleaving(
                                                   wrap_with_ddp=wrap_with_ddp)
             send_backward(dout, recv_tensor_shapes, p2p_primitive)
 
-        # ddp grad reductions
-        if wrap_with_ddp:
+        # ddp grad sync
+        if wrap_with_ddp and not pp_rank == 0:
             model.enable_sync(True)
+            if overlap_grad_reduce and delay_grad_reduce:
+                model.issue_grad_reduce()
+        if wrap_with_ddp:
             model.final_grad_reduce()
 
         # AllReduce embedding (if shared embedding weight in first stage and last stage)
