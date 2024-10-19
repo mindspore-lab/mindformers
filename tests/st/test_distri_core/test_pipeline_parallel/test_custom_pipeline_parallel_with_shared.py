@@ -22,7 +22,7 @@ from tests.st.test_distri_core.utils import read_loss_from_log
 class TestPipelineParallel:
     """A test class for custom pipeline parallel with shared weight."""
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.skip(reason="Get golden loss from records")
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
@@ -53,7 +53,7 @@ class TestPipelineParallel:
         os.system(f"grep -E 'ERROR|error' {sh_path}/{log_dir}/worker_0.log -C 3")
         assert ret == 0, f"msrun failed, please check {log_dir}/worker_*.log"
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.env_single
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.run(order=2)
@@ -83,7 +83,7 @@ class TestPipelineParallel:
         os.system(f"grep -E 'ERROR|error' {sh_path}/{log_dir}/worker_0.log -C 3")
         assert ret == 0, f"msrun failed, please check {log_dir}/worker_*.log"
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.env_single
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.run(order=3)

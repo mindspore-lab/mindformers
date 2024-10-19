@@ -14,8 +14,8 @@
 # ======================
 """p2p primitives."""
 
-from mindspore import nn, Tensor, hal
-from mindspore.ops import Send, Receive
+from mindspore import nn
+from mindspore.ops.auto_generate.gen_ops_prim import inner_comm_irecv_op, inner_comm_isend_op
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_pipeline_model_parallel_group, \
     get_pipeline_model_parallel_rank, is_pipeline_last_stage, is_pipeline_first_stage, \
@@ -24,32 +24,31 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import get_p
 
 class ISend(nn.Cell):
     """ Send a tensor asynchronously """
-    def __init__(self, sr_tag, dest_rank, group):
+    def __init__(self, src_tag, dst_rank, group):
         super(ISend, self).__init__()
-        self.op_send = Send(sr_tag, dest_rank, group)
-        self.comm_stream = hal.communication_stream()
+        self.src_tag = src_tag
+        self.dst_rank = dst_rank
+        self.group = group
 
     def construct(self, send_data):
         """ ISend forward """
-        with hal.StreamCtx(self.comm_stream):
-            self.op_send(send_data)
-            handle = self.comm_stream.record_event()
+        _, handle = inner_comm_isend_op(send_data, self.dst_rank, self.group, self.src_tag)
         return handle
 
 
 class IRecv(nn.Cell):
     """ receive a tensor asynchronously """
-    def __init__(self, sr_tag, src_rank, shape, dtype, group):
+    def __init__(self, src_tag, src_rank, shape, dtype, group):
         super(IRecv, self).__init__()
-        self.data = Tensor([0], dtype)
-        self.op_recv = Receive(sr_tag, src_rank, shape, dtype, group)
-        self.comm_stream = hal.communication_stream()
+        self.src_tag = src_tag
+        self.src_rank = src_rank
+        self.shape = shape
+        self.dtype = dtype
+        self.groud = group
 
     def construct(self):
         """ IRecv forward """
-        with hal.StreamCtx(self.comm_stream):
-            recv_tensor = self.op_recv(self.data)
-            handle = self.comm_stream.record_event()
+        recv_tensor, handle = inner_comm_irecv_op(self.src_tag, self.src_rank, self.shape, self.groud, self.dtype)
         return handle, recv_tensor
 
 
@@ -251,13 +250,6 @@ class P2PPrimitive():
                 raise RuntimeError("Now receiving tensor from the next stage, but the recv_shape is None.")
             tensor_info_recv_next = (recv_next_shape, recv_dtype)
 
-        # cast
-        if tensor_send_prev is not None and tensor_send_prev.dtype != recv_dtype:
-            tensor_send_prev = tensor_send_prev.astype(recv_dtype)
-
-        if tensor_send_next is not None and tensor_send_next.dtype != recv_dtype:
-            tensor_send_next = tensor_send_next.astype(recv_dtype)
-
         # if tensor_send_prev or tensor_send_next is not None, send a tensor to specific stage
         # if tensor_info_recv_prev or tensor_info_recv_next is not None, recv a tensor from specific stage
         reqs, tensor_recv_prev, tensor_recv_next = self._isend_and_irecv(
@@ -273,13 +265,6 @@ class P2PPrimitive():
             for req in reqs:
                 req.wait()
             reqs = None
-
-        # cast
-        if tensor_recv_prev is not None and tensor_recv_prev.dtype != self.config.compute_dtype:
-            tensor_recv_prev = tensor_recv_prev.astype(self.config.compute_dtype)
-
-        if tensor_recv_next is not None and tensor_recv_next.dtype != self.config.compute_dtype:
-            tensor_recv_next = tensor_recv_next.astype(self.config.compute_dtype)
 
         return tensor_recv_prev, tensor_recv_next, reqs
 
@@ -298,7 +283,8 @@ class P2PPrimitive():
         if rank_in_pipeline % 2 == 0:
             if tensor_send_next is not None:
                 send_next_req = ISend(0, (rank_in_pipeline + 1) % world_size, group=group)
-                _ = send_next_req(tensor_send_next)
+                send_next_handle = send_next_req(tensor_send_next)
+                reqs.append(send_next_handle)
 
             if tensor_info_recv_prev is not None:
                 recv_prev_req = IRecv(0, (rank_in_pipeline - 1) % world_size,
@@ -308,7 +294,8 @@ class P2PPrimitive():
 
             if tensor_send_prev is not None:
                 send_prev_req = ISend(0, (rank_in_pipeline - 1) % world_size, group=group)
-                _ = send_prev_req(tensor_send_prev)
+                send_prev_handle = send_prev_req(tensor_send_prev)
+                reqs.append(send_prev_handle)
 
             if tensor_info_recv_next is not None:
                 recv_next_req = IRecv(0, (rank_in_pipeline + 1) % world_size,
@@ -324,7 +311,8 @@ class P2PPrimitive():
 
             if tensor_send_next is not None:
                 send_next_req = ISend(1, (rank_in_pipeline + 1) % world_size, group=group)
-                _ = send_next_req(tensor_send_next)
+                send_next_handle = send_next_req(tensor_send_next)
+                reqs.append(send_next_handle)
 
             if tensor_info_recv_next is not None:
                 recv_next_req = IRecv(1, (rank_in_pipeline + 1) % world_size,
@@ -334,5 +322,6 @@ class P2PPrimitive():
 
             if tensor_send_prev is not None:
                 send_prev_req = ISend(1, (rank_in_pipeline - 1) % world_size, group=group)
-                _ = send_prev_req(tensor_send_prev)
+                send_prev_handle = send_prev_req(tensor_send_prev)
+                reqs.append(send_prev_handle)
         return reqs, tensor_recv_prev, tensor_recv_next

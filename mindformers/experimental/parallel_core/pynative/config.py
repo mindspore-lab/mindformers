@@ -688,6 +688,14 @@ def _check_arguments(configs):
             logger.warning(f"Use {hidden_act}, 'gated_linear_unit' will be set to 'False' automatically.")
             model_config.gated_linear_unit = False
 
+        if model_config.parallel_config.recv_dtype != model_config.compute_dtype:
+            logger.warning("Model_config.compute_dtype must as same as parallel_config.recv_dtype, "
+                           f"but model_config.compute_dtype is {model_config.compute_dtype}, "
+                           f"parallel_config.recv_dtype is {model_config.parallel_config.recv_dtype}, "
+                           f"'parallel_config.recv_dtype' will be set to '{model_config.compute_dtype}' "
+                           "automatically.")
+            model_config.parallel_config.recv_dtype = model_config.compute_dtype
+
 
 # pylint: disable=W0102
 def init_configs_from_dict(raw_dict: dict, config_classes=None):
@@ -941,6 +949,8 @@ def validate_sequence_parallel(config_instance, sequence_parallel):
 @ModelParallelConfig.validator("recv_dtype")
 def validate_recv_dtype(config_instance, recv_dtype):
     """Validate recv_dtype."""
+    if recv_dtype in (mstype.float16, mstype.float32, mstype.bfloat16):
+        return recv_dtype
     return _SUPPORT_DTYPE_DICT[recv_dtype]
 
 
