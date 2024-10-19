@@ -127,6 +127,40 @@ def _append_order_param_group(params, network, optimizer_cls):
     return params
 
 
+def _prepare_optimizer_kwargs(optimizer_config, params, network, optimizer_cls, kwargs):
+    ''' prepare optimizer kwargs for optimizer '''
+    weight_decay = optimizer_config.weight_decay
+
+    if optimizer_config.learning_rate_scheduler_kwargs is not None:
+        learning_rate = get_learning_rate_scheduler(optimizer_config)
+    else:
+        learning_rate = optimizer_config.learning_rate
+
+    _set_group_lr_and_weight_decay(optimizer_config, params, learning_rate, weight_decay)
+
+    optimizer_kwargs = optimizer_config.get_needed_params_for_class(optimizer_cls)
+    if optimizer_config.optimizer_type.startswith("mint") or optimizer_config.optimizer_type.startswith("Speed"):
+        optimizer_kwargs["lr"] = learning_rate
+        optimizer_kwargs["betas"] = tuple(optimizer_kwargs["betas"])
+    else:
+        optimizer_kwargs["learning_rate"] = learning_rate
+    optimizer_kwargs["weight_decay"] = weight_decay
+    optimizer_kwargs["params"] = params
+    if "grad_allreduce_op" in kwargs:
+        if optimizer_config.zero_without_ddp:
+            optimizer_kwargs["grad_allreduce_op"] = kwargs["grad_allreduce_op"]
+        kwargs.pop("grad_allreduce_op", None)
+    if optimizer_config.zero_without_ddp:
+        if network is None:
+            raise ValueError("Network must be provided when get ZeRO optimizer instance.")
+        optimizer_kwargs["zero_level"] = optimizer_config.parallel_config.zero_level
+        optimizer_kwargs["network"] = network
+        if optimizer_config.zero_config is not None:
+            optimizer_kwargs.update(optimizer_config.zero_config)
+    optimizer_kwargs.update(kwargs)
+    return optimizer_kwargs
+
+
 def get_optimizer(optimizer_config, training_config, params=None, network=None, return_instance: bool = True, **kwargs):
     """
     Get an optimizer instance or class based on the provided optimizer configuration.
@@ -148,10 +182,16 @@ def get_optimizer(optimizer_config, training_config, params=None, network=None, 
         NotImplementedError: If `weight_decay_kwargs` is not supported yet.
 
     """
-    if optimizer_config.parallel_config.zero_level is not None:
-        optimizer_type = optimizer_config.optimizer_type + "ZeRO"
-    else:
-        optimizer_type = optimizer_config.optimizer_type
+    optimizer_config.zero_without_ddp = optimizer_config.parallel_config.zero_level is not None and \
+        not training_config.wrap_with_ddp
+
+    optimizer_type = optimizer_config.optimizer_type
+
+    if optimizer_config.zero_without_ddp:
+        optimizer_type = optimizer_type + "ZeRO"
+
+    elif optimizer_config.parallel_config.zero_level == 'z3' and not training_config.use_distributed_optimizer:
+        raise RuntimeError("For zero3 with DDP, use_distributed_optimizer must be on. Please check the configuration.")
 
     optimizer_cls = ModuleRegistry.get_item(module_type=ModuleType.OPTIMIZER, item_name=optimizer_type)
     if not return_instance:
@@ -165,36 +205,7 @@ def get_optimizer(optimizer_config, training_config, params=None, network=None, 
     if optimizer_config.weight_decay_kwargs is not None:
         raise NotImplementedError("weight_decay_kwargs is not supported yet.")
 
-    weight_decay = optimizer_config.weight_decay
-
-    if optimizer_config.learning_rate_scheduler_kwargs is not None:
-        learning_rate = get_learning_rate_scheduler(optimizer_config)
-    else:
-        learning_rate = optimizer_config.learning_rate
-
-    _set_group_lr_and_weight_decay(optimizer_config, params, learning_rate, weight_decay)
-
-    optimizer_kwargs = optimizer_config.get_needed_params_for_class(optimizer_cls)
-    if optimizer_config.optimizer_type.startswith("mint") or optimizer_config.optimizer_type.startswith("Speed"):
-        optimizer_kwargs["lr"] = learning_rate
-        optimizer_kwargs["betas"] = tuple(optimizer_kwargs["betas"])
-    else:
-        optimizer_kwargs["learning_rate"] = learning_rate
-    optimizer_kwargs["weight_decay"] = weight_decay
-    optimizer_kwargs["params"] = params
-    if "grad_allreduce_op" in kwargs:
-        if optimizer_config.parallel_config.zero_level is not None:
-            optimizer_kwargs["grad_allreduce_op"] = kwargs["grad_allreduce_op"]
-        kwargs.pop("grad_allreduce_op", None)
-    if optimizer_config.parallel_config.zero_level is not None:
-        if network is None:
-            raise ValueError("Network must be provided when get ZeRO optimizer instance.")
-        optimizer_kwargs["zero_level"] = optimizer_config.parallel_config.zero_level
-        optimizer_kwargs["network"] = network
-        if optimizer_config.zero_config is not None:
-            optimizer_kwargs.update(optimizer_config.zero_config)
-    optimizer_kwargs.update(kwargs)
-
+    optimizer_kwargs = _prepare_optimizer_kwargs(optimizer_config, params, network, optimizer_cls, kwargs)
     return_item = optimizer_cls(**optimizer_kwargs)
     if training_config.wrap_with_ddp and training_config.use_distributed_optimizer:
         return_item = get_ditributed_optimizer(

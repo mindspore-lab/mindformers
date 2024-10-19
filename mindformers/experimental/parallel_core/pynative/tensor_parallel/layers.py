@@ -155,7 +155,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
             wgrad_deferral_limit=0,
             transpose_b=True,
             data_layout="BSH",
-            recompute_comm=False
+            recompute_comm=False,
+            need_gather_param_in_bw=False,
         ):
         super(LinearWithGradAccumulationAndAsyncCommunication, self).__init__()
         if grad_output_buffer:
@@ -166,7 +167,8 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         self.allreduce_dgrad = allreduce_dgrad
         self.grad_output_buffer = grad_output_buffer
         self.sequence_parallel = sequence_parallel
-        self.gradient_accumulation_fusion = gradient_accumulation_fusion
+        self.need_gather_param_in_bw = need_gather_param_in_bw
+        self.gradient_accumulation_fusion = gradient_accumulation_fusion and not self.need_gather_param_in_bw
         self.transpose_b = transpose_b
 
         self.matmul = P.BatchMatMul(transpose_b=self.transpose_b)
@@ -267,6 +269,9 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
 
         if self.sequence_parallel and self.data_layout == "BSH":
             grad_input = grad_input.swapaxes(0, 1)
+
+        if self.need_gather_param_in_bw:
+            weight.full_grad = grad_weight
 
         return grad_input, grad_weight, grad_bias, None
 
@@ -544,6 +549,7 @@ class ColumnParallelLinear(nn.Cell):
                                    "need be initialized. Please check 'dp' in order when calling "
                                    "initialize_model_parallel.") from e
 
+        bias_output_size = self.output_size_per_partition
         if self.transpose_b:
             if self.use_zero3 and self.output_size_per_partition % dp_size == 0:
                 self.output_size_per_partition = divide(self.output_size_per_partition, dp_size)
@@ -573,12 +579,23 @@ class ColumnParallelLinear(nn.Cell):
                     ),
                     name="weight",
                 )
+                if self.use_zero3:
+                    setattr(self.weight, 'use_zero3', self.use_zero3)
+
             if self.has_bias:
-                if self.use_zero3 and not self.transpose_b:
-                    self.output_size_per_partition = divide(self.output_size_per_partition, dp_size)
+                if hasattr(self.config, 'training_config'):
+                    wrap_with_ddp = self.config.training_config.wrap_with_ddp
+                else:
+                    wrap_with_ddp = False
+
+                if not wrap_with_ddp:
+                    if self.use_zero3 and not self.transpose_b:
+                        bias_output_size = divide(self.output_size_per_partition, dp_size)
+                    else:
+                        bias_output_size = self.output_size_per_partition
                 self.bias = Parameter(
                     initializer(
-                        bias_init, (self.output_size_per_partition), self.param_init_dtype
+                        bias_init, (bias_output_size), self.param_init_dtype
                     ),
                     name="bias",
                 )
@@ -607,7 +624,8 @@ class ColumnParallelLinear(nn.Cell):
             allreduce_dgrad=False if self.explicit_expert_comm else self.allreduce_dgrad,
             transpose_b=self.transpose_b,
             data_layout=self.config.dataset_config.data_layout,
-            recompute_comm=self.config.select_comm_recompute
+            recompute_comm=self.config.select_comm_recompute,
+            need_gather_param_in_bw=self.use_zero3,
         )
 
         self.frozen_weight_forward_impl_ = LinearWithFrozenWeight(
@@ -683,8 +701,8 @@ class ColumnParallelLinear(nn.Cell):
             state_dict[self.bias.name] = {
                 'shape': self.bias.shape,
                 'shard': (tp_size,),
-                'opt_weight_shard_step': opt_weight_shard_step,
-                'opt_weight_shard_size': opt_weight_shard_size
+                'opt_weight_shard_step': opt_weight_shard_step if not self.config.training_config.wrap_with_ddp else 0,
+                'opt_weight_shard_size': opt_weight_shard_size if not self.config.training_config.wrap_with_ddp else 0
             }
         return state_dict
 
@@ -861,6 +879,7 @@ class RowParallelLinear(nn.Cell):
                                    "need be initialized. Please check 'dp' in order when calling "
                                    "initialize_model_parallel.") from e
 
+        bias_output_size = self.output_size
         if self.transpose_b:
             if self.use_zero3 and self.output_size % dp_size == 0:
                 self.output_size = divide(self.output_size, dp_size)
@@ -890,11 +909,22 @@ class RowParallelLinear(nn.Cell):
                 name="weight",
             )
 
+            if self.use_zero3:
+                setattr(self.weight, 'use_zero3', self.use_zero3)
+
             if self.has_bias:
-                if self.use_zero3 and not self.transpose_b:
-                    self.output_size = divide(self.output_size, dp_size)
+                if hasattr(self.config, 'training_config'):
+                    wrap_with_ddp = self.config.training_config.wrap_with_ddp
+                else:
+                    wrap_with_ddp = False
+
+                if not wrap_with_ddp:
+                    if self.use_zero3 and not self.transpose_b:
+                        bias_output_size = divide(self.output_size, dp_size)
+                    else:
+                        bias_output_size = self.output_size
                 self.bias = Parameter(
-                    initializer(bias_init, (self.output_size), self.param_init_dtype), name="bias"
+                    initializer(bias_init, (bias_output_size), self.param_init_dtype), name="bias"
                 )
 
         self.explicit_expert_comm = self.is_expert and (
@@ -915,7 +945,8 @@ class RowParallelLinear(nn.Cell):
             sequence_parallel=False,
             allreduce_dgrad=False,
             transpose_b=self.transpose_b,
-            data_layout=self.config.dataset_config.data_layout
+            data_layout=self.config.dataset_config.data_layout,
+            need_gather_param_in_bw=self.use_zero3,
         )
 
         self.frozen_weight_forward_impl_ = LinearWithFrozenWeight(
@@ -978,8 +1009,8 @@ class RowParallelLinear(nn.Cell):
             state_dict[self.bias.name] = {
                 'shape': self.bias.shape,
                 'shard': (1,),
-                'opt_weight_shard_step': opt_weight_shard_step,
-                'opt_weight_shard_size': opt_weight_shard_size
+                'opt_weight_shard_step': opt_weight_shard_step if not self.config.training_config.wrap_with_ddp else 0,
+                'opt_weight_shard_size': opt_weight_shard_size if not self.config.training_config.wrap_with_ddp else 0
             }
         return state_dict
 
