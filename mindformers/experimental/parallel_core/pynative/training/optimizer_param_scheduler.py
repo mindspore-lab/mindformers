@@ -225,8 +225,11 @@ class OptimizerParamScheduler():
         for k, v in list(sd.items()):
             if k in ['max_lr', 'lr_warmup_steps', 'num_steps', 'lr_decay_style', 'lr_decay_steps',
                      'min_lr', 'start_wd', 'end_wd', 'wd_incr_style', 'wd_incr_steps']:
-
-                new_sd[k] = v.item()
+                if k in ['lr_warmup_steps', 'num_steps', 'lr_decay_style', 'lr_decay_steps',
+                         'wd_incr_style', 'wd_incr_steps']:
+                    new_sd[k] = int(v.item())
+                else:
+                    new_sd[k] = v.item()
                 sd.pop(k)
 
         max_lr_ = new_sd.get('max_lr')
