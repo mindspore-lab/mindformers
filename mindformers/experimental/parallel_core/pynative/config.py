@@ -112,6 +112,8 @@ mapping_dict = {
     'wrap_with_ddp': 'training_config.wrap_with_ddp',
     'bucket_size': 'training_config.bucket_size',
     'enable_mem_align': 'training_config.enable_mem_align',
+    'overlap_grad_reduce': 'training_config.overlap_grad_reduce',
+    'delay_grad_reduce': 'training_config.delay_grad_reduce',
     # dataset config
     'reset_attention_mask': 'dataset_config.reset_attention_mask',
     'reset_position_ids': 'dataset_config.reset_position_ids',
@@ -133,6 +135,7 @@ mapping_dict = {
     'lr_decay_iters': 'optimizer_config.lr_decay_iters',
     'override_opt_param_scheduler': 'optimizer_config.override_opt_param_scheduler',
     'weight_decay': 'optimizer_config.weight_decay',
+    'overlap_param_gather': 'optimizer_config.overlap_param_gather',
     # parallel config
     'tensor_model_parallel_size': 'parallel_config.tensor_model_parallel_size',
     'context_parallel_size': 'parallel_config.context_parallel_size',
@@ -140,7 +143,6 @@ mapping_dict = {
     'virtual_pipeline_model_parallel_size': 'parallel_config.virtual_pipeline_model_parallel_size',
     'num_layers_per_virtual_pipeline_stage': 'parallel_config.num_layers_per_virtual_pipeline_stage',
     'sequence_parallel': 'parallel_config.sequence_parallel',
-    'overlap_grad_reduce': 'parallel_config.overlap_grad_reduce',
     'pipeline_model_parallel_size': 'parallel_config.pipeline_model_parallel_size',
     'num_layer_list': 'parallel_config.num_layer_list'
 }
@@ -1387,6 +1389,9 @@ class TrainingConfig(BaseConfig):
         wrap_with_ddp (bool): Using DistributedDataParallel to wrap model. Default: False.
         overlap_grad_reduce (bool): Enable gradient computing and synchronization communication overlap when using
             DistributedDataParallel. Default: False.
+        delay_grad_reduce (bool): If set, delay grad reductions in all but first PP stage. Default: False.
+        overlap_param_gather (bool): Enable forward computing and param gather communication overlap when using
+            DistributedDataParallel. Default: False.
         use_distributed_optimizer (bool): Enable DistributedOptimizer when using DistributedDataParallel.
             Default: False.
         bucket_size (Optional[int]): Bucket size which is used to partition buffer into buckets when
@@ -1432,6 +1437,7 @@ class TrainingConfig(BaseConfig):
             wrap_with_ddp: bool = False,
             accumulate_allreduce_grads_in_fp32: bool = False,
             overlap_grad_reduce: bool = False,
+            delay_grad_reduce: bool = False,
             use_distributed_optimizer: bool = False,
             bucket_size: Optional[int] = None,
             check_for_nan_in_grad: bool = False,
@@ -1472,6 +1478,7 @@ class TrainingConfig(BaseConfig):
         self.wrap_with_ddp = wrap_with_ddp
         self.accumulate_allreduce_grads_in_fp32 = accumulate_allreduce_grads_in_fp32
         self.overlap_grad_reduce = overlap_grad_reduce
+        self.delay_grad_reduce = delay_grad_reduce
         self.use_distributed_optimizer = use_distributed_optimizer
         self.bucket_size = bucket_size
         self.check_for_nan_in_grad = check_for_nan_in_grad
@@ -1653,6 +1660,17 @@ def validate_overlap_grad_reduce(config_instance, overlap_grad_reduce):
         overlap_grad_reduce = False
     Validator.check_bool(overlap_grad_reduce, "overlap_grad_reduce")
     return overlap_grad_reduce
+
+
+@TrainingConfig.validator("delay_grad_reduce")
+def validate_delay_grad_reduce(config_instance, delay_grad_reduce):
+    """Validate overlap_grad_reduce."""
+    if not config_instance.overlap_grad_reduce and delay_grad_reduce:
+        logger.warning("For training config, delay_grad_reduce only take effect when `overlap_grad_reduce=True`"
+                       "delay_grad_reduce has been set to `False`.")
+        delay_grad_reduce = False
+    Validator.check_bool(delay_grad_reduce, "delay_grad_reduce")
+    return delay_grad_reduce
 
 
 @TrainingConfig.validator("use_distributed_optimizer")
@@ -2448,6 +2466,7 @@ class OptimizerConfig(BaseConfig):
             lr_wsd_decay_style: str = 'linear',
             use_checkpoint_opt_param_scheduler: bool = True,
             override_opt_param_scheduler: bool = False,
+            overlap_param_gather: bool = False,
             **kwargs,
     ):
         super().__init__()
@@ -2476,7 +2495,7 @@ class OptimizerConfig(BaseConfig):
         self.lr_wsd_decay_style = lr_wsd_decay_style
         self.use_checkpoint_opt_param_scheduler = use_checkpoint_opt_param_scheduler
         self.override_opt_param_scheduler = override_opt_param_scheduler
-
+        self.overlap_param_gather = overlap_param_gather
         self.update_attrs(**kwargs)
 
 
@@ -2623,6 +2642,13 @@ def validate_use_checkpoint_opt_param_scheduler(config_instance, use_checkpoint_
     """Validate use_checkpoint_opt_param_scheduler."""
     Validator.check_bool(use_checkpoint_opt_param_scheduler, "use_checkpoint_opt_param_scheduler")
     return use_checkpoint_opt_param_scheduler
+
+
+@OptimizerConfig.validator("overlap_param_gather")
+def validate_overlap_param_gather(config_instance, overlap_param_gather):
+    """Validate overlap_param_gather."""
+    Validator.check_bool(overlap_param_gather, "overlap_param_gather")
+    return overlap_param_gather
 
 
 @OptimizerConfig.validator("override_opt_param_scheduler")
