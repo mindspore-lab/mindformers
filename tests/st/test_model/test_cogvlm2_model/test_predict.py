@@ -50,16 +50,15 @@ def get_expert_mask(token_type_ids):
 class TestCogVLM2VideoPredict:
     """A test class for testing model prediction."""
 
-    # @pytest.mark.level0
-    # @pytest.mark.platform_arm_ascend910b_training
-    # @pytest.mark.env_onecard
+    @pytest.mark.level0
+    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.env_onecard
     def test_base_model(self):
         """
         Feature: Video model predict
         Description: Test base model prediction.
         Expectation: AssertionError
         """
-        os.environ['USE_ROPE_SELF_DEFINE'] = 'True'
         os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         model_config = get_config()
         model = get_model(model_config)
@@ -88,7 +87,6 @@ class TestCogVLM2ImagePredict:
         Description: Test image model prediction.
         Expectation: AssertionError
         """
-        os.environ['USE_ROPE_SELF_DEFINE'] = 'True'
         model_config = get_image_config()
         model = get_image_model(model_config)
         input_ids = np.random.randint(0, 128, size=(1, 4096), dtype=np.int32)

@@ -84,22 +84,28 @@ class FreqsMgr(nn.Cell):
         self.cos = P.Cos()
         self.sin = P.Sin()
 
-    def construct(self, position_ids):
+    def construct(self, position_ids, use_past=False):
         """Gather freqs_cos and freqs_sin from input position_ids."""
         # prepare freqs
         freqs = ops.outer(self.t, self.freqs)
         emb = self.concat((freqs, freqs))
         freqs_cos = self.cast(self.cos(emb), self.rotary_dtype)
         freqs_sin = self.cast(self.sin(emb), self.rotary_dtype)
-
         # 1. not use_past, position_ids -> (bs, seq_length)
         # 2. use_past,     position_ids -> (bs, seq_length/1)
         # freqs_cos, freqs_sin          -> (bs, seq_length, head_dim)
         freqs_cos = self.gather(freqs_cos, position_ids, 0)
         freqs_sin = self.gather(freqs_sin, position_ids, 0)
-        # freqs_cos, freqs_sin          -> (bs, 1, seq_length, head_dim)
-        freqs_cos = self.expand_dims(freqs_cos, 1)
-        freqs_sin = self.expand_dims(freqs_sin, 1)
+
+        if not use_past:
+            # freqs_cos, freqs_sin -> (bs, 1, seq_length, head_dim)
+            freqs_cos = self.expand_dims(freqs_cos, 1)
+            freqs_sin = self.expand_dims(freqs_sin, 1)
+        else:
+            # freqs_cos, freqs_sin -> (bs * seq_length, head_dim)
+            freqs_cos = self.reshape(freqs_cos, (-1, self.head_dim))
+            freqs_sin = self.reshape(freqs_sin, (-1, self.head_dim))
+
         return freqs_cos, freqs_sin, self.swap_mask
 
     @staticmethod
@@ -205,10 +211,7 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
             self.freqs_mgr.shard()
 
             for layer in self.layers:
-                if self.use_past:
-                    layer.attention.infer_attention.rotary_embedding.mul.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
-                    layer.attention.infer_attention.rotary_embedding.mul_inc.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
-                else:
+                if not self.use_past:
                     layer.attention.apply_rotary_emb.mul.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
                     layer.attention.apply_rotary_emb.mul_inc.shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
 
@@ -282,7 +285,7 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
             h = self.cast(input_embeds, self.dtype)
 
         bs, seq_len, _ = self.shape(h)
-        freqs_cis = self.freqs_mgr(position_ids)
+        freqs_cis = self.freqs_mgr(position_ids, self.use_past)
         mask = None
         if self.use_past and self.is_first_iteration:
             if self.use_flash_attention:
