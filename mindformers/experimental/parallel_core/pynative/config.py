@@ -170,7 +170,10 @@ mapping_dict = {
     'num_layers_per_virtual_pipeline_stage': 'parallel_config.num_layers_per_virtual_pipeline_stage',
     'sequence_parallel': 'parallel_config.sequence_parallel',
     'pipeline_model_parallel_size': 'parallel_config.pipeline_model_parallel_size',
-    'num_layer_list': 'parallel_config.num_layer_list'
+    'num_layer_list': 'parallel_config.num_layer_list',
+    'recompute': 'parallel_config.recompute',
+    'select_recompute': 'parallel_config.select_recompute',
+    'select_comm_recompute': 'parallel_config.select_comm_recompute'
 }
 
 
@@ -912,6 +915,9 @@ class ModelParallelConfig(BaseConfig):
             deterministic_mode: bool = False,
             num_layer_list: list = None,
             recompute_config: dict = None,
+            recompute: str = None,
+            select_recompute: str = None,
+            select_comm_recompute: str = None,
             **kwargs,
     ):
         super().__init__()
@@ -931,7 +937,15 @@ class ModelParallelConfig(BaseConfig):
         self.use_cpu_initialization = use_cpu_initialization
         self.deterministic_mode = deterministic_mode
         self.num_layer_list = num_layer_list
-        self.recompute_config = recompute_config
+        self.recompute_config = recompute_config if recompute_config is not None else {}
+        if recompute is not None:
+            self.recompute_config['recompute'] = list(ast.literal_eval(recompute))
+        if select_recompute is not None:
+            self.recompute_config['select_recompute'] = list(ast.literal_eval(select_recompute))
+        if select_comm_recompute is not None:
+            self.recompute_config['select_comm_recompute'] = list(ast.literal_eval(select_comm_recompute))
+        if not self.recompute_config:
+            self.recompute_config = None
 
         self.update_attrs(**kwargs)
 
