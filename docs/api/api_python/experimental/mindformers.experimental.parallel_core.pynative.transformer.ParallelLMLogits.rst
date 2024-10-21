@@ -1,5 +1,5 @@
 mindformers.experimental.parallel_core.pynative.transformer.ParallelLMLogits
-=============================================================================
+============================================================================
 
 .. py:class:: mindformers.experimental.parallel_core.pynative.transformer.ParallelLMLogits(config, bias=False, compute_dtype=None)
 

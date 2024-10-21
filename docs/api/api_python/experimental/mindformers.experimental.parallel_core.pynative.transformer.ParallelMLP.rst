@@ -1,5 +1,5 @@
 mindformers.experimental.parallel_core.pynative.transformer.ParallelMLP
-=============================================================================
+=======================================================================
 
 .. py:class:: mindformers.experimental.parallel_core.pynative.transformer.ParallelMLP(config, is_expert=False)
 

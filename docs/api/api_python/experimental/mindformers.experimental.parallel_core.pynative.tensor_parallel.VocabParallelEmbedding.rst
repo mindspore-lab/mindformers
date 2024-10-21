@@ -1,5 +1,5 @@
 mindformers.experimental.parallel_core.pynative.tensor_parallel.VocabParallelEmbedding
-========================================================================================
+======================================================================================
 
 .. py:class:: mindformers.experimental.parallel_core.pynative.tensor_parallel.VocabParallelEmbedding(num_embeddings, embedding_dim, *, init_method, reduce_scatter_embeddings=False, config, param_init_dtype=None)
 

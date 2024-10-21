@@ -11,6 +11,8 @@ Parallel Core
     :nosignatures:
     :template: classtemplate.rst
 
+    mindformers.experimental.parallel_core.pynative.distributed.DistributedDataParallel
+    mindformers.experimental.parallel_core.pynative.optimizer.DistributedOptimizer
     mindformers.experimental.parallel_core.pynative.tensor_parallel.ColumnParallelLinear
     mindformers.experimental.parallel_core.pynative.tensor_parallel.RowParallelLinear
     mindformers.experimental.parallel_core.pynative.tensor_parallel.VocabParallelEmbedding
