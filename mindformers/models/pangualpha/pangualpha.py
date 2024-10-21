@@ -425,8 +425,10 @@ class PanguAlphaHeadModel(PanguAlphaPreTrainedModel):
 
         loss_parallel_config = copy.deepcopy(config.parallel_config)
         check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
-                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
+                                     calculate_per_token_loss=calculate_per_token_loss)
         self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.tile = P.Tile().shard(((dp,),))

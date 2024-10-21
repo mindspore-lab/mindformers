@@ -49,7 +49,7 @@ from mindformers.dataset import build_dataset, check_dataset_config, \
 from mindformers.models import build_network, build_processor, build_tokenizer, \
     PreTrainedModel, PreTrainedTokenizerBase, BaseImageProcessor
 from mindformers.pipeline import pipeline
-from mindformers.wrapper import build_wrapper
+from mindformers.wrapper import build_wrapper, PipelineCellWithTwoOutput, GradAccumulationCellWithTwoOutput
 from mindformers.tools.register import MindFormerConfig
 from mindformers.wrapper.wrapper import DataOrderWrapperCell
 from mindformers.tools.logger import logger
@@ -314,6 +314,7 @@ class BaseTrainer:
             self.config.runner_wrapper.type = "MFPipelineWithLossScaleCell" \
                 if self.config.runner_wrapper.type != "MFPipelineWithLossScaleCell" else self.config.runner_wrapper.type
             self.config.runner_wrapper.micro_batch_num = self.config.parallel_config.micro_batch_num
+            self.config.runner_wrapper.calculate_per_token_loss = self.config.calculate_per_token_loss
             logger.warning(
                 "When using the pipeline parallel mode, "
                 "the MFPipelineWithLossScaleCell class is used by default.")
@@ -331,6 +332,7 @@ class BaseTrainer:
                 if self.config.runner_wrapper.type != "MFPipelineWithLossScaleCell" else self.config.runner_wrapper.type
             # set micro_batch_num as gradient_accumulation_steps in MFPipelineWithLossScaleCell
             self.config.runner_wrapper.micro_batch_num = gradient_accumulation_steps
+            self.config.runner_wrapper.calculate_per_token_loss = self.config.calculate_per_token_loss
             logger.warning(
                 "When using the gradient_accumulation_steps in semi/auto parallel mode, "
                 "the MFPipelineWithLossScaleCell class is used by default.")
@@ -452,10 +454,16 @@ class BaseTrainer:
         if gradient_accumulation_steps > 1 and not pp > 1:
             logger.info("gradient_accumulation_steps > 1, GradAccumulationCell is wrapped on network. "
                         "It is suggested to use `Lazy Inline` feature to save compiling time.")
-            network = GradAccumulationCell(network, gradient_accumulation_steps)
+            if self.config.runner_wrapper.calculate_per_token_loss:
+                network = GradAccumulationCellWithTwoOutput(network, gradient_accumulation_steps)
+            else:
+                network = GradAccumulationCell(network, gradient_accumulation_steps)
         if pp > 1:
             micro_batch_num = self.config.parallel_config.micro_batch_num
-            network = PipelineCell(network, micro_size=micro_batch_num)
+            if self.config.runner_wrapper.calculate_per_token_loss:
+                network = PipelineCellWithTwoOutput(network, micro_size=micro_batch_num)
+            else:
+                network = PipelineCell(network, micro_size=micro_batch_num)
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and ms.get_context('mode') == 0:
             network = _VirtualDatasetCell(network)
             ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
@@ -775,10 +783,12 @@ class BaseTrainer:
         logger.info(".........Build Net For Train..........")
         if network is None and self.network is None:
             check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+            calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
             network = self.create_network(
                 default_args={"parallel_config": config.parallel_config,
                               "moe_config": config.moe_config,
                               "dataset_config": config.train_dataset,
+                              "calculate_per_token_loss": calculate_per_token_loss,
                               "check_for_nan_in_loss_and_grad": check_for_nan_in_loss_and_grad})
         elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
@@ -844,6 +854,7 @@ class BaseTrainer:
                     "initial_step": config.runner_config.initial_step,
                     "global_batch_size": self.global_batch_size,
                     "gradient_accumulation_steps": self.config.runner_config.gradient_accumulation_steps,
+                    "calculate_per_token_loss": getattr(config, "calculate_per_token_loss", False),
                     "check_for_nan_in_loss_and_grad": getattr(config, "check_for_nan_in_loss_and_grad", False)
                 }
             elif "type" in callback and callback["type"] == "CheckpointMonitor":

@@ -101,6 +101,8 @@ class TrainingArguments:
             Whether to run predictions on the test set. Default: ``False`` .
         check_for_nan_in_loss_and_grad (bool, optional):
             Whether to check for nan in loss and grad during training. Default: ``False`` .
+        calculate_per_token_loss (bool, optional):
+            Whether to use megatron-style loss for training. Default: ``False`` .
         remote_save_url (str, optional):
             The OBS output dir when training on ModeArts. Default: ``None`` .
         batch_size (int, optional):
@@ -503,6 +505,10 @@ class TrainingArguments:
     check_for_nan_in_loss_and_grad: bool = field(
         default=False,
         metadata={"help": "Whether to check for nan in loss and grad during training. Default: False."}
+    )
+    calculate_per_token_loss: bool = field(
+        default=False,
+        metadata={"help": "Whether to use megatron-style loss during training. Default: False."}
     )
     # AICC
     remote_save_url: Optional[str] = field(
@@ -1935,6 +1941,9 @@ class TrainingArguments:
         task_config.remote_save_url = _check_training_args(task_config.remote_save_url, self.remote_save_url)
         task_config.check_for_nan_in_loss_and_grad = _check_training_args(
             task_config.check_for_nan_in_loss_and_grad, self.check_for_nan_in_loss_and_grad)
+        task_config.calculate_per_token_loss = _check_training_args(
+            task_config.calculate_per_token_loss, self.calculate_per_token_loss)
+
 
     def _adapt_runner_config(self, task_config):
         """adapt runner config."""

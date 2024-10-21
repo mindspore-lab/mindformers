@@ -254,16 +254,19 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         cp = config.parallel_config.context_parallel
         mp = config.parallel_config.model_parallel
         check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
         if config.parallel_config.vocab_emb_dp or (config.vocab_size % mp != 0):
             self.loss = CrossEntropyLoss(parallel_config=config.parallel_config,
-                                         check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
+                                         check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
+                                         calculate_per_token_loss=calculate_per_token_loss)
         else:
             loss_parallel_config = copy.deepcopy(config.parallel_config)
             loss_parallel_config.model_parallel = dp * mp * cp
             loss_parallel_config.data_parallel = 1
             loss_parallel_config.context_parallel = 1
             self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
-                                         check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
+                                         check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
+                                         calculate_per_token_loss=calculate_per_token_loss)
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
         self.use_past = config.use_past
