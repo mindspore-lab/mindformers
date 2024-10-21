@@ -54,6 +54,7 @@ echo "  World size: $world_size"
 echo "  Function: $function"
 
 export MS_COMPILER_CACHE_ENABLE=0
+unset MS_DEV_RUNTIME_CONF
 
 start_time=$(date +%H:%M:%S)
 

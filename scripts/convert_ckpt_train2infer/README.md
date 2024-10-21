@@ -15,6 +15,7 @@
 |  --src_ckpt_path |  -sc | Source ckpt path  |  是 |
 |  --dst_ckpt_path  | -dc  |  Destination ckpt path |  否 |
 | --pipeline_stage  | -pp  | Pipeline_stage set during training   | 否  |
+| --train_to_infer_mode  | -tm  | Train to infer mode ('1':ckpt_to_ckpt or '2':ckpt_to_safetensors_to_ckpt)   | 否  |
 |  --help | -h  |   Print this help message| 否  |
 
 ## 整体流程图
@@ -23,7 +24,11 @@
 
 ## 1. 训练权重转fp16推理权重 **train_to_infer**
 
-### 1.1 转换步骤
+`--train_to_infer_mode` 选择训练转权重的流程1或流程2
+
+### 1.1 流程1：ckpt训练权重经过删除优化器、转换、合并、添加前端qkv融合后获得推理权重
+
+`--train_to_infer_mode=1`
 
 #### 1.1.1 配置项说明
 
@@ -37,24 +42,65 @@
 
 可配置项
 
+- `--train_to_infer_mode=1`
 - `--infer_strategy_file` 生成策略文件的保存地址，不设置此参数时，策略文件保存在当前路径下`"./infer_strategy/fp16_xp"`
 - `--dst_ckpt_path` 生成权重文件的保存地址，不设置此参数时策略文件保存在当前路径下`./infer_ckpt/fp16_xp`
 
 #### 1.1.2 流程说明
 
 - 根据 `--yaml，--world_size` 生成相应的策略文件保存在`--infer_strategy_file`
-- 根据 `--src_ckpt_path --train_strategy_file --world_size --pipeline_stage` 生成fp16的推理权重保存在`--dst_ckpt_path`，其中流程包括：删除优化器、转换、合并、添加前端qkv融合
+- 根据 `--src_ckpt_path --train_strategy_file --world_size --pipeline_stage` 生成fp16的推理权重保存在`--dst_ckpt_path`
+- 其中流程包括：1. 删除优化器
+              2. 训练权重转换
+              3. 根据pp值合并
+              4. 添加前端qkv融合
 
-### 1.2 样例
+#### 1.1.3 样例
 
 ```shell
 # fp16
 bash ckpt_convert.sh -f train_to_infer -p fp16 -w 8 -y /home/checkpoint_download/llama57b/predict_llama2_57b_910b.yaml  -sc /home/predict/57B/checkpoint/2024-05-20-283200 -ts /home/predict/57B/0520_strategy/strategy -is /home/predict/convert_ckpt_stage_0703/infer_strategy -dc /home/predict/convert_ckpt_stage_0703/infer_ckpt -pp 7
 ```
 
+### 1.2 流程2：ckpt训练权重经过删除优化器后转换成safetensors格式进行权重合并切分后再转会ckpt格式(优点：速度快)
+
+`--train_to_infer_mode=2`
+
+#### 1.2.1 配置项说明
+
+必须配置项：
+
+- `--train_to_infer_mode=2`
+- `--function train_to_infer --precision fp16 --world_size 4/8`
+- `--yaml` 为fp16推理的yaml文件路径
+- `--src_ckpt_path` 为训练权重路径
+- `--train_strategy_file` 为训练策略文件路径
+
+可配置项
+
+- `--infer_strategy_file` 生成策略文件的保存地址，不设置此参数时，策略文件保存在当前路径下`"./infer_strategy/fp16_xp"`
+- `--dst_ckpt_path` 生成权重文件的保存地址，不设置此参数时策略文件保存在当前路径下`./infer_ckpt/fp16_xp`
+
+#### 1.2.2 流程说明
+
+- 根据 `--yaml，--world_size` 生成相应的策略文件保存在`--infer_strategy_file`
+- 根据 `--src_ckpt_path --train_strategy_file` 生成fp16的推理权重保存在`--dst_ckpt_path`
+- 其中流程包括：1. 合并训练策略文件
+              2. 合并删除优化器后的训练权重(safetensors格式)
+              3. 权重切分
+              4. safetensors格式转换为ckpt格式
+              5. 添加前端qkv融合
+
+#### 1.2.3 样例
+
+```shell
+# fp16
+bash ckpt_convert.sh -f train_to_infer -tm 2 -p fp16 -w 8 -y /home/checkpoint_download/llama57b/predict_llama2_57b_910b.yaml  -sc /home/predict/57B/checkpoint/2024-05-20-283200 -ts /home/predict/57B/0520_strategy/strategy -is /home/predict/convert_ckpt_stage_0703/infer_strategy -dc /home/predict/convert_ckpt_stage_0703/infer_ckpt
+```
+
 ### 1.3 注意事项
 
-暂无
+- 如果不配置`--train_to_infer_mode`参数，默认走流程1。
 
 ## 2. fp16推理权重转量化推理权重 **quant_weight**
 
@@ -207,19 +253,11 @@ bash ckpt_convert.sh -f pt_to_ms -p fp16 -w 8  -y /home/checkpoint_download/llam
 
 - pytorch转mindspore的ckpt只支持转换到fp16的精度
 
-## 5. ckpt转safetensors
+## 5. 双机16卡推理权重
 
-### 5.1 直接调用
+### 5.1 fp16-8p转fp16-16p
 
-```shell
-python ckpt_to_safetensors.py --src_ckpt_path=/infer_ckpt/fp16_8p --dst_safetensors_path=/infer_ckpt/fp16_8p_safetensors
-```
-
-## 6. 双机16卡推理权重
-
-### 6.1 fp16-8p转fp16-16p
-
-#### 6.1.1 配置项说明
+#### 5.1.1 配置项说明
 
 环境设置：
 
@@ -238,7 +276,7 @@ python ckpt_to_safetensors.py --src_ckpt_path=/infer_ckpt/fp16_8p --dst_safetens
 - `--infer_strategy_file` 生成策略文件的保存地址，不设置此参数时，策略文件保存在当前路径下`"./infer_strategy/"`；
 - `--dst_ckpt_path` 生成量化权重文件的保存地址，不设置此参数时策略文件保存在当前路径下`./infer_ckpt/`
 
-#### 6.1.2 流程说明
+#### 5.1.2 流程说明
 
 - 检查权重是否是含有qkv前端算子融合的，是：`qkv_concat=true`, 否：`qkv_concat=false`
 - 进入多卡转多卡流程：
@@ -254,20 +292,20 @@ python ckpt_to_safetensors.py --src_ckpt_path=/infer_ckpt/fp16_8p --dst_safetens
     - 生成`world_size`卡数的权重
     - 添加前端qkv算子融合
 
-#### 6.1.3 运行脚本
+#### 5.1.3 运行脚本
 
 ```shell
 # fp16 fp16-8p 转 fp16-16p
 bash ckpt_convert_for_16p.sh -f distributed_weight_transfer -p fp16 -w 16 -y /home/checkpoint_download/llama57b/predict_llama2_57b_910b.yaml  -sc /fp16_8p/
 ```
 
-#### 6.1.4 注意事项
+#### 5.1.4 注意事项
 
 - 两台机器需同时运行转换脚本
 
-### 6.2 fp16-16p转量化权重-16p
+### 5.2 fp16-16p转量化权重-16p
 
-#### 6.2.1 配置项说明
+#### 5.2.1 配置项说明
 
 环境设置：
 
@@ -288,18 +326,76 @@ bash ckpt_convert_for_16p.sh -f distributed_weight_transfer -p fp16 -w 16 -y /ho
 - `--infer_strategy_file` 生成策略文件的保存地址，不设置此参数时，策略文件保存在当前路径下`"./infer_strategy/"`；
 - `--dst_ckpt_path` 生成量化权重文件的保存地址，不设置此参数时策略文件保存在当前路径下`./infer_ckpt/`
 
-#### 6.2.2 流程说明
+#### 5.2.2 流程说明
 
 - 将fp16-16p权重转换为量化-16p权重
 
-#### 6.2.3 运行脚本
+#### 5.2.3 运行脚本
 
 ```shell
 # w8a16 fp16-16p 转 w8a16_16p
 bash ckpt_convert_for_16p.sh -f quant_weight -p w8a16 -w 16 -y /home/checkpoint_download/llama57b_quant_w8a16/predict_llama2_57b_910b.yaml  -sc /infer_ckpt/fp16_16p -d boolq -dp ./boolq/dev.jsonl
 ```
 
-#### 6.2.4 注意事项
+#### 5.2.4 注意事项
 
 - 两台机器需同时运行转换脚本
 - 只支持输入world_size卡数权重量化成world_size卡数权重
+
+## 6. 单独使用功能
+
+### 6.1 给fp16权重添加qkv前端算子融合
+
+条件：只能是fp16的推理权重，没有添加过qkv前端算子融合
+
+```shell
+python convert_qkv_ffn.py \
+    --world_size=8 \
+    --src_ckpt_path=/path/to/src_ckpt_path \
+    --dst_ckpt_path=/path/to/dst_ckpt_path
+```
+
+### 6.2 给fp16权重回退qkv前端算子融合
+
+条件：只能是fp16的推理权重，添加过qkv前端算子融合，需要回退qkv融合
+
+```shell
+python revert_qkv_ffn.py \
+    --world_size=8 \
+    --src_ckpt_path=/path/to/src_ckpt_path  \
+    --dst_ckpt_path=/path/to/dst_ckpt_path
+```
+
+### 6.3 8卡转4卡权重或4卡转2卡权重带qkv算子融合，转换完需要调整qkv的算子排布
+
+条件：8卡转4卡权重或4卡转2卡推理权重，添加过qkv前端算子融合
+
+```shell
+python adjust_qkv.py \
+    --src_ckpt_path=/path/to/src_ckpt_path \
+    --dst_ckpt_path=/path/to/dst_ckpt_path \
+    --dir_count=8 \
+    --world_size=4 \
+    --quant=True
+```
+
+### 6.4 保存推理的策略文件
+
+条件：需要配置yaml文件，yaml里的配置为推理时所需要的配置
+
+```shell
+python save_strategy.py \
+    --yaml_file=/yaml_path/xxx.yaml \
+    --save_strategy_path=/path/to/save/strategy \
+    --world_size=8 \
+    --qkv_concat=True \
+    --precision=fp16
+```
+
+### 6.5 ckpt转safetensors
+
+条件：ckpt格式的文件路径
+
+```shell
+python ckpt_to_safetensors.py --src_ckpt_path=/infer_ckpt/fp16_8p --dst_safetensors_path=/infer_ckpt/fp16_8p_safetensors
+```
