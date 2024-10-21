@@ -54,7 +54,6 @@ MindFormers提供`cogvlm2-llama3-chat-19B`的评测示例，目前支持单卡�
 2. 启动评测脚本
 
    ```shell
-   export USE_ROPE_SELF_DEFINE=True
    python eval_with_vlmevalkit.py \
     --data MME \
     --model cogvlm2-llama3-chat-19B \
