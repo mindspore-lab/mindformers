@@ -33,6 +33,7 @@ from mindspore import Tensor, context
 from mindspore._checkparam import args_type_check
 from mindspore.communication import get_group_size, get_rank
 import mindspore.communication.comm_func as comm_func
+import mindspore as ms
 
 PARALLEL_MODE = {'DATA_PARALLEL': context.ParallelMode.DATA_PARALLEL,
                  'SEMI_AUTO_PARALLEL': context.ParallelMode.SEMI_AUTO_PARALLEL,
@@ -451,6 +452,16 @@ def get_real_rank():
         return get_rank()
     except RuntimeError:
         return int(os.getenv("RANK_ID", "0"))
+
+
+def get_dp_from_dataset_strategy():
+    data_strategy = ms.get_auto_parallel_context("dataset_strategy")
+    if isinstance(data_strategy, (tuple, list)):
+        first_input_stra = data_strategy[0]
+        dp = int(first_input_stra[0])
+    else:
+        raise TypeError(f"Dataset_strategy in mindspore auto parallel context is invalid, only support (tuple, list)")
+    return dp
 
 
 def get_real_group_size():

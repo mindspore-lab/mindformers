@@ -16,6 +16,7 @@
 from .dataloader import (
     ADGenDataLoader,
     BaseMultiModalDataLoader,
+    BlendedMegatronDatasetDataLoader,
     CLUENERDataLoader,
     Cifar100DataLoader,
     CommonDataLoader,
@@ -91,3 +92,4 @@ from .modal_to_text_sft_dataset import ModalToTextSFTDataset
 __all__ = [
     'CausalLanguageModelDataset', 'ContrastiveLanguageImagePretrainDataset', 'KeyWordGenDataset', 'MultiTurnDataset',
 ]
+__all__.extend(dataloader.__all__)
