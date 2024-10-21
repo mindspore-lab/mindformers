@@ -157,13 +157,13 @@ def run_resume_training(config):
             resume_training=training_config.resume_training,
             resume_by_meta=True)
         print(f"resume_ckpt_name is {resume_ckpt_name}")
-        assert resume_ckpt_name == f"network_rank_{get_rank()}-0_9.ckpt", \
-                f"expect newest ckpt is network_rank_{get_rank()}-0_9.ckpt, but got {resume_ckpt_name}"
+        assert resume_ckpt_name == f"network_rank_{get_rank()}-0_10.ckpt", \
+                f"expect newest ckpt is network_rank_{get_rank()}-0_10.ckpt, but got {resume_ckpt_name}"
         if resume_ckpt_name is True:
             ckpt_path = training_config.load_checkpoint
         elif isinstance(resume_ckpt_name, str):
             # hard code to load step 5 ckpt, resume train another 5 steps
-            resume_ckpt_name = f"network_rank_{get_rank()}-0_4.ckpt"
+            resume_ckpt_name = f"network_rank_{get_rank()}-0_5.ckpt"
             ckpt_path = os.path.join(rank_path, resume_ckpt_name)
         print(f"ckpt_path is {ckpt_path}")
         resume_dict = load_checkpoint(model_config, network, optimizer=optimizer,
