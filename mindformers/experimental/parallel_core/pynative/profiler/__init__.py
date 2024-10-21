@@ -13,24 +13,10 @@
 # limitations under the License.
 # ============================================================================
 
-"""pynative init"""
+"""mindformers init"""
 
-from . import distributed
-from . import pipeline_parallel
-from . import tensor_parallel
-from . import training
-from . import transformer
-from . import dist_checkpointing
-from . import optimizer
-from . import profiler
+__all__ = [
+    "PynativeProfiler"
+]
 
-
-__all__ = []
-__all__.extend(distributed.__all__)
-__all__.extend(pipeline_parallel.__all__)
-__all__.extend(tensor_parallel.__all__)
-__all__.extend(training.__all__)
-__all__.extend(transformer.__all__)
-__all__.extend(dist_checkpointing.__all__)
-__all__.extend(optimizer.__all__)
-__all__.extend(profiler.__all__)
+from .profiler import PynativeProfiler
