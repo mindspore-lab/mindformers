@@ -492,7 +492,12 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                 weight = state_dict.get(ele.name)
                 if weight is None:
                     logger.warning(f"Fail to get weight of '{ele.name}' from state dict.")
-                ele.copy_(weight.view(-1)[param_start: param_end])
+                ele.copy_(
+                    ms.Tensor(
+                        weight.asnumpy().reshape(-1)[param_start:param_end],
+                        dtype=weight.dtype,
+                    )
+                )
 
     def _load_state_dict_from_dp_zero(self, state_dict):
         """ load state dict from dp splited bucket state. """
@@ -509,12 +514,23 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                         raise KeyError("No shard data for {} found in checkpoint state dict. When loading state dict "
                                        "from dp zero, parallel strategy and bucket sharding can not be changed. "
                                        "Please check checkpoint file.")
-                self.optimizer.parameters[param_id_in_opt].copy_(state_dict[shard_name].value()[start_idx:end_idx])
+                self.optimizer.parameters[param_id_in_opt].copy_(
+                    ms.Tensor(
+                        state_dict[shard_name].asnumpy()[start_idx:end_idx],
+                        dtype=state_dict[shard_name].dtype,
+                    )
+                )
                 self.optimizer.exp_avg[param_id_in_opt].copy_(
-                    state_dict['exp_avg.'+shard_name].value()[start_idx:end_idx]
+                    ms.Tensor(
+                        state_dict['exp_avg.' + shard_name].asnumpy()[start_idx:end_idx],
+                        dtype=state_dict['exp_avg.' + shard_name].dtype,
+                    )
                 )
                 self.optimizer.exp_avg_sq[param_id_in_opt].copy_(
-                    state_dict['exp_avg_sq.'+shard_name].value()[start_idx:end_idx]
+                    ms.Tensor(
+                        state_dict['exp_avg_sq.' + shard_name].asnumpy()[start_idx:end_idx],
+                        dtype=state_dict['exp_avg_sq.' + shard_name].dtype,
+                    )
                 )
 
     def load_state_dict(self, state_dict):
