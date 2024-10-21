@@ -84,7 +84,8 @@ class RotaryEmbedding(nn.Cell):
             emb = self.cat((freqs, freqs))
 
         # emb[.., seq_length, dim]
-        return self.reshape(emb, (1, 1, emb.shape[0], emb.shape[1]))
+        out = self.reshape(emb, (1, 1, emb.shape[0], emb.shape[1]))
+        return out.copy()
 
 
 class ApplyRotaryPosEmb(nn.Cell):

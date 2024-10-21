@@ -23,7 +23,8 @@ from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallel
 from mindformers.experimental.graph.transformer.dropout import Dropout
 from mindformers.experimental.graph.transformer.fused_softmax import FusedScaleMaskSoftmax
 from mindformers.experimental.graph.transformer.rotary_pos_embedding import ApplyRotaryPosEmb
-from mindformers.experimental.graph.transformer.utils import get_attn_mask_func, LayerSetting
+from mindformers.experimental.graph.transformer.utils import get_attn_mask_func
+from mindformers.models.utils import LayerSetting
 from mindformers.experimental.graph.activation import get_activation
 from mindformers.experimental.graph.transformer.norm import get_norm
 from mindformers.experimental.graph.transformer.flash_attention import FlashAttention
