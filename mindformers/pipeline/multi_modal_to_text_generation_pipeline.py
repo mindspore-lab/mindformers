@@ -49,7 +49,6 @@ class MultiModalToTextPipeline(Pipeline):
         >>> import mindspore as ms
         >>> from mindformers import build_context
         >>> from mindformers import AutoModel, AutoTokenizer, pipeline, AutoProcessor, MindFormerConfig, AutoConfig
-        >>> os.environ['USE_ROPE_SELF_DEFINE'] = 'True'
         >>> inputs = [[{"image": "/path/to/example.jpg"}, {"text": "Please describe this image."}]]
         >>> # Note:
         >>> #     "image": is an image path
