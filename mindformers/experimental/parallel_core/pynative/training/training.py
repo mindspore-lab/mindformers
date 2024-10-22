@@ -16,14 +16,21 @@
 
 import time
 import contextlib
+import os
 
+import numpy as np
+
+import mindspore as ms
+from mindspore.train import Perplexity
 import mindspore.common.dtype as mstype
 import mindspore.communication.comm_func as comm_func
+from mindspore.communication.management import get_rank
 from mindspore import nn, Tensor, Parameter, mint, value_and_grad
 from mindspore.amp import DynamicLossScaler, StaticLossScaler, all_finite
 from mindspore.experimental.optim.optimizer import Optimizer as mintOptimizer
 
 from mindformers.tools import logger
+from mindformers.tools.resume_ckpt import get_resume_checkpoint
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
     get_data_parallel_world_size,
     get_data_parallel_group,
@@ -45,9 +52,12 @@ from mindformers.experimental.parallel_core.pynative.pipeline_parallel.schedules
     forward_backward_pipelining_with_interleaving
 )
 from mindformers.experimental.parallel_core.pynative.config import GeneralConfig
-from mindformers.experimental.parallel_core.pynative.dist_checkpointing import save_checkpoint
+from mindformers.experimental.parallel_core.pynative.dist_checkpointing import save_checkpoint, load_checkpoint
 from mindformers.experimental.parallel_core.pynative.transformer.moe.utils import MoEAuxLossAutoScaler
+from mindformers.experimental.parallel_core.pynative.optimizer import get_optimizer, get_optimizer_param_scheduler
 
+from mindformers.experimental.parallel_core.pynative.profiler import PynativeProfiler
+from mindformers.experimental.parallel_core.pynative.training.utils import set_weight_decay
 from .grad_handler import inplace_apply_to_tensor_list, get_grad_process_func, GradAccumulator
 
 
@@ -634,12 +644,13 @@ class TrainOneStepCell(nn.Cell):
 
 def train(
         train_one_step_cell,
-        train_dataset_iterator,
+        train_dataloader,
         training_config,
-        val_dataset_iterator=None,
+        val_dataloader=None,
         metrics=None,
         evaluation_func=None,
         resume_dict=None,
+        get_batch_func=None,
         **kwargs,
 ):
     """
@@ -647,9 +658,9 @@ def train(
 
     Args:
         train_one_step_cell (TrainOneStepCell): The training cell object.
-        train_dataset_iterator (Dataset): The iterator for the training dataset.
+        train_dataloader (Dataset): The iterator for the training dataset.
         training_config (TrainingConfig): The configuration object for training.
-        val_dataset_iterator (iterable, optional): The iterator for the validation dataset. Defaults: None
+        val_dataloader (iterable, optional): The iterator for the validation dataset. Defaults: None
         metrics (dict[str, Metric], optional): A dictionary of metrics to track during training.
             Defaults: None
         evaluation_func (callable, optional): The evaluation function to use for validation. Defaults: None
@@ -664,16 +675,31 @@ def train(
     else:
         initial_epoch = 0
         initial_step = 1
+
+    dataset_size = None
+    # broadcast only support [Int32], datasize limit [-2147483648, 2147483647]
+    dataset_size_tensor = ms.Tensor(np.zeros(1), dtype=mstype.int32)
+    # There is 2 way to fetch traing step data: 1. get_batch_func; 2. train_dataloader
+    # both way need to know dataset size
+    if get_batch_func is None and train_dataloader is None:
+        # A ERROR SITUATION
+        raise ValueError(f"`get_batch_func` and `train_dataloader` should not be `None` at the same time, " + \
+                         f"but got {get_batch_func} and {train_dataloader}")
+    if train_dataloader is not None:
+        dataset_size = train_dataloader.get_dataset_size()
+        dataset_size_tensor = ms.Tensor(dataset_size, dtype=mstype.int32)
+    if get_batch_func is not None:
+        # if using `get_batch_func`, train_dataloader is None when tp_rank != 0,
+        # so we need to broadcast it to other tp_rank
+        tp_world_size = get_tensor_model_parallel_world_size()
+        src_rank = (get_rank() // tp_world_size) * tp_world_size
+        comm_func.broadcast(dataset_size_tensor, src_rank, get_tensor_model_parallel_group())
+    dataset_size = dataset_size_tensor.asnumpy().tolist()
+    logger.info(f"dataset size is {dataset_size}")
+
     train_one_step_cell.set_train()
     model_config = train_one_step_cell.model_config
-    # set input to use dynamic shape
-    model_input_data = next(train_dataset_iterator.create_tuple_iterator())
-    set_input_data = [
-        Tensor(shape=(None,) * len(input_data.shape), dtype=input_data.dtype) for input_data in model_input_data
-    ]
-    train_one_step_cell.set_inputs(*set_input_data)
 
-    dataset_size = train_dataset_iterator.get_dataset_size()
     global_step = 1
     epoch_step = 1
     current_epoch = 0
@@ -681,8 +707,12 @@ def train(
         global_step = initial_step + initial_epoch * dataset_size + 1
         epoch_step = global_step % dataset_size
         current_epoch = global_step // dataset_size
+
+    if epoch_step > 1:
+        logger.debug(f"Resume training will skip {epoch_step} step data")
+
     evaluation_flag = (
-        val_dataset_iterator is not None
+        val_dataloader is not None
         and evaluation_func is not None
         and metrics is not None
         and training_config.eval_interval is not None
@@ -705,87 +735,101 @@ def train(
         elif training_config.best_metric_comparison == "greater":
             best_metric_compare_func = mint.greater
             best_metric = Tensor(float("-inf"))
+    profiler = PynativeProfiler(training_config)
 
-    # check if the training should be stopped
+    # both `get_batch_func` and `train_dataloader` need create train_dataloader
+    if train_dataloader is not None:
+        # when epoch_step > 1, means resume traing mode, will skip some data.
+        train_data_dict_iterator = train_dataloader.skip(epoch_step - 1).create_dict_iterator()
+    else:
+        train_data_dict_iterator = None
+
+    # training loop
     while not (
             training_config.epochs is not None
             and current_epoch >= training_config.epochs
             or global_step > training_config.training_iters
     ):
-        if epoch_step > 1:
-            logger.info(f"skip {epoch_step} step data batches")
-            dataset_iterator = train_dataset_iterator.skip(epoch_step - 1).create_dict_iterator(num_epochs=1)
+        # we need to refresh train_dataloader every epoch
+        # when resume training, epoch_step > 1, so train_data_dict_iterator will not be refreshed
+        if epoch_step == 1:
+            train_data_dict_iterator = train_dataloader.create_dict_iterator(num_epochs=1)
+
+        # get step data
+        if get_batch_func is None:
+            data = next(train_data_dict_iterator)
         else:
-            dataset_iterator = train_dataset_iterator.create_dict_iterator(num_epochs=1)
-        for data in dataset_iterator:
-            # check if the training should be stopped
-            if global_step > training_config.training_iters:
-                break
-            start_time = time.time()
-            loss, is_finite, loss_scale, learning_rate, _ = train_one_step_cell(**data)
-            end_time = time.time()
-            if training_config.log_interval is not None and global_step % training_config.log_interval == 0:
-                if not correct_metric_flag:
-                    logger.warning("Metrics is only calculated on the last stage.")
-                if isinstance(learning_rate, (tuple, list)):
-                    report_learning_rate = '('
-                    for lr in learning_rate:
-                        report_learning_rate += "{:e},".format(lr)
-                    report_learning_rate += ')'
-                else:
-                    report_learning_rate = "{:e}".format(learning_rate)
-                logger.info(
-                    f"Epoch: {current_epoch}, Step: {epoch_step}, Loss: {loss}, "
-                    f"Finite_grads: {is_finite}, "
-                    f"Loss_scale: {loss_scale.value() if loss_scale is not None else None}, "
-                    f"Learning_rate: {report_learning_rate}, "
-                    f"Time: {(end_time - start_time) * 1000:.2f} ms"
-                )
+            data = get_batch_func(train_data_dict_iterator)
 
-            if evaluation_flag and global_step % training_config.eval_interval == 0:
-                is_best = Tensor(False, dtype=mstype.int8)
-                results = evaluation_func(train_one_step_cell, val_dataset_iterator, metrics, **kwargs)
+        start_time = time.time()
+        profiler.step_begin(global_step)
+        loss, is_finite, loss_scale, learning_rate, _ = train_one_step_cell(**data)
+        end_time = time.time()
+        if training_config.log_interval is not None and global_step % training_config.log_interval == 0:
+            if not correct_metric_flag:
+                logger.warning("Metrics is only calculated on the last stage.")
+            if isinstance(learning_rate, (tuple, list)):
+                report_learning_rate = '('
+                for lr in learning_rate:
+                    report_learning_rate += "{:e},".format(lr)
+                report_learning_rate += ')'
+            else:
+                report_learning_rate = "{:e}".format(learning_rate)
+            logger.info(
+                f"Epoch: {current_epoch}, Step: {epoch_step}, Loss: {loss}, "
+                + f"Finite_grads: {is_finite}, "
+                + f"Loss_scale: {loss_scale.value() if loss_scale is not None else None}, "
+                + f"Learning_rate: {report_learning_rate}, Time: {(end_time - start_time) * 1000:.2f} ms"
+            )
 
-                # update best_metrics only on last stage
-                if correct_metric_flag and best_metric_compare_func(results[training_config.eval_metric], best_metric):
-                    best_metric = results[training_config.eval_metric]
-                    is_best = Tensor(True, dtype=mstype.int8)
+        if evaluation_flag and global_step % training_config.eval_interval == 0:
+            is_best = Tensor(False, dtype=mstype.int8)
+            results = evaluation_func(train_one_step_cell, val_dataloader, metrics, **kwargs)
 
-                if get_pipeline_model_parallel_world_size() > 1:
-                    is_best = comm_func.all_reduce(is_best, "max", get_pipeline_model_parallel_group())[0]
+            # update best_metrics only on last stage
+            if correct_metric_flag and best_metric_compare_func(results[training_config.eval_metric], best_metric):
+                best_metric = results[training_config.eval_metric]
+                is_best = Tensor(True, dtype=mstype.int8)
 
-                # save ckpt
-                if is_best and save_ckpt_flag:
-                    logger.info("saving best checkpoint")
-                    if save_ckpt_flag:
-                        save_checkpoint(model_config,
-                                        train_one_step_cell.network_with_loss,
-                                        train_one_step_cell.optimizer,
-                                        train_one_step_cell.opt_param_scheduler,
-                                        training_config.output_dir,
-                                        format=training_config.ckpt_format,
-                                        prefix=training_config.prefix + "_best",
-                                        epoch_num=current_epoch,
-                                        step_num=epoch_step,
-                                        crc_check=training_config.crc_check,
-                                        keep_checkpoint_max=training_config.keep_checkpoint_max + 1)
+            if get_pipeline_model_parallel_world_size() > 1:
+                is_best = comm_func.all_reduce(is_best, "max", get_pipeline_model_parallel_group())[0]
 
-            if save_ckpt_flag and global_step % training_config.save_interval == 0:
-                save_checkpoint(model_config,
-                                train_one_step_cell.network_with_loss,
-                                train_one_step_cell.optimizer,
-                                train_one_step_cell.opt_param_scheduler,
-                                training_config.output_dir,
-                                format=training_config.ckpt_format,
-                                prefix=training_config.prefix,
-                                epoch_num=current_epoch,
-                                step_num=epoch_step,
-                                crc_check=training_config.crc_check,
-                                keep_checkpoint_max=training_config.keep_checkpoint_max)
-            epoch_step += 1
-            global_step += 1
-        epoch_step = 1
-        current_epoch += 1
+            # save ckpt
+            if is_best and save_ckpt_flag:
+                logger.warning("saving best checkpoint")
+                if save_ckpt_flag:
+                    save_checkpoint(model_config,
+                                    train_one_step_cell.network_with_loss,
+                                    train_one_step_cell.optimizer,
+                                    train_one_step_cell.opt_param_scheduler,
+                                    training_config.output_dir,
+                                    format=training_config.ckpt_format,
+                                    prefix=training_config.prefix + "_best",
+                                    epoch_num=current_epoch,
+                                    step_num=epoch_step,
+                                    crc_check=training_config.crc_check,
+                                    keep_checkpoint_max=training_config.keep_checkpoint_max + 1)
+
+        if save_ckpt_flag and global_step % training_config.save_interval == 0:
+            save_checkpoint(model_config,
+                            train_one_step_cell.network_with_loss,
+                            train_one_step_cell.optimizer,
+                            train_one_step_cell.opt_param_scheduler,
+                            training_config.output_dir,
+                            format=training_config.ckpt_format,
+                            prefix=training_config.prefix,
+                            epoch_num=current_epoch,
+                            step_num=epoch_step,
+                            crc_check=training_config.crc_check,
+                            keep_checkpoint_max=training_config.keep_checkpoint_max)
+        profiler.step_end(global_step)
+        epoch_step += 1
+        global_step += 1
+
+        # update epoch_step and current_epoch
+        if epoch_step > dataset_size:
+            epoch_step = 1
+            current_epoch += 1
 
     if isinstance(train_one_step_cell.optimizer, DistributedOptimizer) \
             and train_one_step_cell.optimizer.config.overlap_param_gather:
@@ -801,6 +845,7 @@ def train(
         if epoch_step == 0:
             epoch_step = dataset_size
             current_epoch -= 1
+
         save_checkpoint(model_config,
                         train_one_step_cell.network_with_loss,
                         train_one_step_cell.optimizer,
@@ -812,3 +857,75 @@ def train(
                         step_num=epoch_step,
                         crc_check=training_config.crc_check,
                         keep_checkpoint_max=training_config.keep_checkpoint_max)
+
+
+# pylint: disable=W0613
+def pretrain(train_valid_test_datasets_provider,
+             model_provider_func,
+             model_type,
+             forward_step_func=None,
+             process_non_loss_data_func=None,
+             **kwargs):
+    """pretrain function"""
+
+    all_config = kwargs.get("all_config", None)
+    if all_config is None:
+        raise ValueError(f"Please specify traing all_config.")
+    training_config = all_config.training_config
+    model_config = all_config.model_config
+    optimizer_config = all_config.optimizer_config
+    dataset_config = all_config.dataset_config
+
+    train_data_loader = kwargs.get("train_data_loader", None)
+    get_batch_func = kwargs.get("get_batch_func", None)
+
+    network_with_loss = get_model(model_provider_func, training_config)
+
+    group_params = set_weight_decay(network_with_loss.trainable_params(), optimizer_config.weight_decay)
+    optimizer = get_optimizer(
+        optimizer_config,
+        training_config,
+        group_params,
+        network_with_loss,
+        grad_allreduce_op=training_config.loss_reduction
+    )
+    opt_param_scheduler = get_optimizer_param_scheduler(optimizer, optimizer_config, dataset_config, training_config)
+
+    resume_dict = None
+    if training_config.resume_training is True and os.path.exists(training_config.load_checkpoint):
+        rank_path = os.path.join(training_config.load_checkpoint, f"rank_{get_rank()}")
+        meta_path = os.path.join(rank_path, "meta.json")
+        if not os.path.exists(meta_path):
+            logger.warning(f"Could not find meta.json in directory {rank_path}, using latest ckpt in {rank_path}")
+        resume_ckpt_name = get_resume_checkpoint(
+            checkpoint_dir=training_config.load_checkpoint,
+            resume_training=training_config.resume_training,
+            resume_by_meta=True
+            )
+        logger.warning(f"resume_ckpt_name is {resume_ckpt_name}")
+        if resume_ckpt_name is True:
+            ckpt_path = training_config.load_checkpoint
+        elif isinstance(resume_ckpt_name, str):
+            ckpt_path = os.path.join(rank_path, resume_ckpt_name)
+        logger.warning(f"ckpt_path is {ckpt_path}")
+        resume_dict = load_checkpoint(model_config, network_with_loss, optimizer=optimizer,
+                                      opt_param_scheduler=opt_param_scheduler, ckpt_path=ckpt_path,
+                                      format=training_config.ckpt_format)
+
+    train_one_step_cell = TrainOneStepCell(network_with_loss, optimizer, opt_param_scheduler, training_config,
+                                           model_config)
+
+    metrics = {
+        "perplexity": Perplexity(),
+    }
+
+    train(
+        train_one_step_cell=train_one_step_cell,
+        train_dataloader=train_data_loader,
+        training_config=training_config,
+        val_dataloader=None,
+        metrics=metrics,
+        resume_dict=resume_dict,
+        get_batch_func=get_batch_func,
+        loss_func_type=training_config.loss_func_kwargs.loss_func_type,
+    )

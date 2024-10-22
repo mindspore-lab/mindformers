@@ -114,6 +114,28 @@ mapping_dict = {
     'enable_mem_align': 'training_config.enable_mem_align',
     'overlap_grad_reduce': 'training_config.overlap_grad_reduce',
     'delay_grad_reduce': 'training_config.delay_grad_reduce',
+    'load_optim': 'training_config.load_optim',
+    'load_rng': 'training_config.load_rng',
+    'use_ckpt_scheduler': 'training_config.use_ckpt_scheduler',
+    'profile': 'training_config.profile',
+    'profile_save_path': 'training_config.profile_save_path',
+    'profile_step_start': 'training_config.profile_step_start',
+    'profile_step_end': 'training_config.profile_step_end',
+    'profile_level': 'training_config.profile_level',
+    'profile_with_stack': 'training_config.profile_with_stack',
+    'profile_memory': 'training_config.profile_memory',
+    'profile_framework': 'training_config.profile_framework',
+    'profile_communication': 'training_config.profile_communication',
+    'profile_parallel_strategy': 'training_config.profile_parallel_strategy',
+    'profile_aicore_metrics': 'training_config.profile_aicore_metrics',
+    'profile_l2_cache': 'training_config.profile_l2_cache',
+    'profile_hbm_ddr': 'training_config.profile_hbm_ddr',
+    'profile_pcie': 'training_config.profile_pcie',
+    'profile_data_process': 'training_config.profile_data_process',
+    'profile_data_simplification': 'training_config.profile_data_simplification',
+    'profile_op_time': 'training_config.profile_op_time',
+    'profile_offline_analyse': 'training_config.profile_offline_analyse',
+    'profile_dynamic_profiler_config_path': 'training_config.profile_dynamic_profiler_config_path',
     # dataset config
     'reset_attention_mask': 'dataset_config.reset_attention_mask',
     'reset_position_ids': 'dataset_config.reset_position_ids',
@@ -136,6 +158,9 @@ mapping_dict = {
     'override_opt_param_scheduler': 'optimizer_config.override_opt_param_scheduler',
     'weight_decay': 'optimizer_config.weight_decay',
     'overlap_param_gather': 'optimizer_config.overlap_param_gather',
+    'start_weight_decay': 'optimizer_config.start_weight_decay',
+    'end_weight_decay': 'optimizer_config.end_weight_decay',
+    'weight_decay_incr_style': 'optimizer_config.weight_decay_incr_style',
     # parallel config
     'tensor_model_parallel_size': 'parallel_config.tensor_model_parallel_size',
     'context_parallel_size': 'parallel_config.context_parallel_size',
@@ -278,11 +303,6 @@ def modify_megatron_param(flatten_dict):
         data_parallel_size = flatten_dict.get('data_parallel_size', 1)
         micro_batch_num = flatten_dict['global_batch_size'] // (flatten_dict['micro_batch_size'] * data_parallel_size)
         flatten_dict['micro_batch_num'] = micro_batch_num
-
-    if 'num_layers_per_virtual_pipeline_stage' in flatten_dict and not flatten_dict.get('num_layer_list', None):
-        num_layers_per_pipeline_stage = flatten_dict['num_layers'] // flatten_dict['pipeline_model_parallel_size']
-        flatten_dict['virtual_pipeline_model_parallel_size'] = \
-            num_layers_per_pipeline_stage // flatten_dict['num_layers_per_virtual_pipeline_stage']
 
     return flatten_dict
 
@@ -1407,6 +1427,28 @@ class TrainingConfig(BaseConfig):
         ckpt_format (str, optional): checkpoint save format. Default: 'ckpt'.
         prefix (str, optional): checkpoint save prefix. Default: 'network'.
         keep_checkpoint_max (str, optional): max saved checkpoint number. Default: 5.
+        load_optim (bool): When resume traing, whether load optimizer state or not. Default: True.
+        load_rng (bool): When resume traing, whether load RNG state or not. Default: False.
+        use_ckpt_scheduler (bool): When resume traing, whether load optimizer parameter scheduler or not. Default: True.
+        profile (bool, optional): open profiling or not. Default: False.
+        profile_save_path (str, optional): path to save profiling files. Default: './{output_dir}/profile'.
+        profile_step_start (int, optional): profiling start step. Default: 1.
+        profile_step_end (int, optional): profiling end step. Default: 5.
+        profile_level (str, optional): profiling "level0", "level1", "level2". Default: "level0".
+        profile_with_stack (bool, optional): profiling with stack info. Default: False.
+        profile_memory (bool, optional): profiling with memory info. Default: False.
+        profile_framework (str, optional): profiling with framework info. Default: False.
+        profile_communication (bool, optional): profiling with communication info. Default: False.
+        profile_parallel_strategy (bool, optional): profiling with parallel strategy info. Default: False.
+        profile_aicore_metrics (int, optional): profiling with aicore metrics info. Default: 0.
+        profile_l2_cache (bool, optional): profiling with l2 cache info. Default: False.
+        profile_hbm_ddr (bool, optional): profiling with hbm ddr info. Default: False.
+        profile_pcie (bool, optional): profiling with pcie info. Default: False.
+        profile_data_process (bool, optional): profiling with data process info. Default: False.
+        profile_data_simplification (bool, optional): profiling with data simplification. Default: False.
+        profile_op_time (bool, optional): profiling with op time info. Default: True.
+        profile_offline_analyse (bool, optional): profiling with offline analyse. Default: False.
+        profile_dynamic_profiler_config_path (str, optional): profiling with dynamic. Default: "".
         kwargs (dict, optional): Other dataset config arguments.
     """
 
@@ -1451,7 +1493,29 @@ class TrainingConfig(BaseConfig):
             ckpt_format: str = "ckpt",
             prefix: str = "network",
             keep_checkpoint_max: int = 5,
+            load_optim: bool = True,
+            load_rng: bool = False,
+            use_ckpt_scheduler: bool = True,
             enable_mem_align: bool = False,
+            profile: bool = False,
+            profile_save_path: str = None,
+            profile_step_start: int = 1,
+            profile_step_end: int = 5,
+            profile_level: str = "level0",
+            profile_with_stack: bool = False,
+            profile_memory: bool = False,
+            profile_framework: str = "all",
+            profile_communication: bool = False,
+            profile_parallel_strategy: bool = False,
+            profile_aicore_metrics: int = 0,
+            profile_l2_cache: bool = False,
+            profile_hbm_ddr: bool = False,
+            profile_pcie: bool = False,
+            profile_data_process: bool = False,
+            profile_data_simplification: bool = False,
+            profile_op_time: bool = True,
+            profile_offline_analyse: bool = False,
+            profile_dynamic_profiler_config_path: str = "",
             **kwargs,
     ):
         super().__init__()
@@ -1490,14 +1554,41 @@ class TrainingConfig(BaseConfig):
         self.crc_check = crc_check
         self.load_checkpoint = load_checkpoint
         self.enable_compile_cache = enable_compile_cache
-        if compile_cache_path is not None:
+        if compile_cache_path:
             self.compile_cache_path = compile_cache_path
         else:
             self.compile_cache_path = os.path.join(self.output_dir, "compile_cache")
         self.ckpt_format = ckpt_format
         self.prefix = prefix
         self.keep_checkpoint_max = keep_checkpoint_max
+        self.load_optim = load_optim
+        self.load_rng = load_rng
+        self.use_ckpt_scheduler = use_ckpt_scheduler
         self.enable_mem_align = enable_mem_align
+
+        # profiler configs
+        self.profile = profile
+        if profile_save_path:
+            self.profile_save_path = profile_save_path
+        else:
+            self.profile_save_path = os.path.join(self.output_dir, "profile")
+        self.profile_step_start = profile_step_start
+        self.profile_step_end = profile_step_end
+        self.profile_level = profile_level
+        self.profile_with_stack = profile_with_stack
+        self.profile_memory = profile_memory
+        self.profile_framework = profile_framework
+        self.profile_communication = profile_communication
+        self.profile_parallel_strategy = profile_parallel_strategy
+        self.profile_aicore_metrics = profile_aicore_metrics
+        self.profile_l2_cache = profile_l2_cache
+        self.profile_hbm_ddr = profile_hbm_ddr
+        self.profile_pcie = profile_pcie
+        self.profile_data_process = profile_data_process
+        self.profile_data_simplification = profile_data_simplification
+        self.profile_op_time = profile_op_time
+        self.profile_offline_analyse = profile_offline_analyse
+        self.profile_dynamic_profiler_config_path = profile_dynamic_profiler_config_path
         self.update_attrs(**kwargs)
 
 
@@ -1769,6 +1860,180 @@ def validate_keep_checkpoint_max(config_instance, keep_checkpoint_max):
     if keep_checkpoint_max is not None:
         Validator.check_positive_int(keep_checkpoint_max, "keep_checkpoint_max")
     return keep_checkpoint_max
+
+
+@TrainingConfig.validator("load_optim")
+def validate_load_optim(config_instance, load_optim):
+    """Validate load_optim is bool."""
+    Validator.check_bool(load_optim, "load_optim")
+    if not load_optim:
+        logger.warning(
+            "MindFormers doesn't support config `load_optim=False`. " + \
+            "For checkpoint saved from MindFormers, MindFormers will load optimizer state by default; " + \
+            "For checkpoint saved from third-party, MindFormers will load optimizer state if checkpoint has it, " + \
+            "MindFormers will NOT load optimizer state if checkpoint does NOT have it."
+            )
+    return load_optim
+
+
+@TrainingConfig.validator("load_rng")
+def validate_load_rng(config_instance, load_rng):
+    """Validate load_rng is bool."""
+    Validator.check_bool(load_rng, "load_rng")
+    if load_rng:
+        logger.warning("MindFormers doesn't support load rng state from third-party checkpoint.")
+    return load_rng
+
+
+@TrainingConfig.validator("use_ckpt_scheduler")
+def validate_use_ckpt_scheduler(config_instance, use_ckpt_scheduler):
+    """Validate use_ckpt_scheduler is bool."""
+    Validator.check_bool(use_ckpt_scheduler, "use_ckpt_scheduler")
+    if not use_ckpt_scheduler:
+        logger.warning("MindFormers only support `use_ckpt_scheduler=True`. " + \
+                       "`opt_param_scheduler` will be loaded anyway.")
+    return use_ckpt_scheduler
+
+
+@TrainingConfig.validator("profile")
+def validate_profile(config_instance, profile):
+    """Validate profile is bool."""
+    Validator.check_bool(profile, "profile")
+    return profile
+
+
+@TrainingConfig.validator("profile_save_path")
+def validate_profile_save_path(config_instance, profile_save_path):
+    """Validate profile_save_path is str."""
+    Validator.check_value_type("profile_save_path", profile_save_path, [str])
+    return profile_save_path
+
+
+@TrainingConfig.validator("profile_step_start")
+def validate_profile_step_start(config_instance, profile_step_start):
+    """Validate profile_step_start is int"""
+    if profile_step_start is not None:
+        Validator.check_positive_int(profile_step_start, "profile_step_start")
+    return profile_step_start
+
+
+@TrainingConfig.validator("profile_step_end")
+def validate_profile_step_end(config_instance, profile_step_end):
+    """Validate profile_step_end is int"""
+    if profile_step_end is not None:
+        Validator.check_positive_int(profile_step_end, "profile_step_end")
+    if config_instance.profile_step_start > profile_step_end:
+        raise ValueError(f"Profiler start step should not be greater than end step, " + \
+                         f"but got {config_instance.profile_step_start} and {profile_step_end}")
+    return profile_step_end
+
+
+@TrainingConfig.validator("profile_level")
+def validate_profile_level(config_instance, profile_level):
+    """Validate profile_level."""
+    Validator.check_string(profile_level, ["level0", "level1", "level2"], "profile_level")
+    return profile_level
+
+
+@TrainingConfig.validator("profile_with_stack")
+def validate_profile_with_stack(config_instance, profile_with_stack):
+    """Validate profile_with_stack is bool."""
+    Validator.check_bool(profile_with_stack, "profile_with_stack")
+    return profile_with_stack
+
+
+@TrainingConfig.validator("profile_memory")
+def validate_profile_memory(config_instance, profile_memory):
+    """Validate profile_memory is bool."""
+    Validator.check_bool(profile_memory, "profile_memory")
+    return profile_memory
+
+
+@TrainingConfig.validator("profile_framework")
+def validate_profile_framework(config_instance, profile_framework):
+    """Validate profile_framework."""
+    Validator.check_string(profile_framework, ["all", "time", "None"], "profile_framework")
+    return profile_framework
+
+
+@TrainingConfig.validator("profile_communication")
+def validate_profile_communication(config_instance, profile_communication):
+    """Validate profile_communication is bool."""
+    Validator.check_bool(profile_communication, "profile_communication")
+    return profile_communication
+
+
+@TrainingConfig.validator("profile_parallel_strategy")
+def validate_profile_parallel_strategy(config_instance, profile_parallel_strategy):
+    """Validate profile_parallel_strategy is bool."""
+    Validator.check_bool(profile_parallel_strategy, "profile_parallel_strategy")
+    return profile_parallel_strategy
+
+
+@TrainingConfig.validator("profile_aicore_metrics")
+def validate_profile_aicore_metrics(config_instance, profile_aicore_metrics):
+    """Validate profile_aicore_metrics is int"""
+    if profile_aicore_metrics is not None:
+        Validator.check_int_range(profile_aicore_metrics, -1, 6, Rel.INC_BOTH, "profile_aicore_metrics")
+    return profile_aicore_metrics
+
+
+@TrainingConfig.validator("profile_l2_cache")
+def validate_profile_l2_cache(config_instance, profile_l2_cache):
+    """Validate profile_l2_cache is bool."""
+    Validator.check_bool(profile_l2_cache, "profile_l2_cache")
+    return profile_l2_cache
+
+
+@TrainingConfig.validator("profile_hbm_ddr")
+def validate_profile_hbm_ddr(config_instance, profile_hbm_ddr):
+    """Validate profile_hbm_ddr is bool."""
+    Validator.check_bool(profile_hbm_ddr, "profile_hbm_ddr")
+    return profile_hbm_ddr
+
+
+@TrainingConfig.validator("profile_pcie")
+def validate_profile_pcie(config_instance, profile_pcie):
+    """Validate profile_pcie is bool."""
+    Validator.check_bool(profile_pcie, "profile_pcie")
+    return profile_pcie
+
+
+@TrainingConfig.validator("profile_data_process")
+def validate_profile_data_process(config_instance, profile_data_process):
+    """Validate profile_data_process is bool."""
+    Validator.check_bool(profile_data_process, "profile_data_process")
+    return profile_data_process
+
+
+@TrainingConfig.validator("profile_data_simplification")
+def validate_profile_data_simplification(config_instance, profile_data_simplification):
+    """Validate profile_data_simplification is bool."""
+    Validator.check_bool(profile_data_simplification, "profile_data_simplification")
+    return profile_data_simplification
+
+
+@TrainingConfig.validator("profile_op_time")
+def validate_profile_op_time(config_instance, profile_op_time):
+    """Validate profile_op_time is bool."""
+    Validator.check_bool(profile_op_time, "profile_op_time")
+    return profile_op_time
+
+
+@TrainingConfig.validator("profile_offline_analyse")
+def validate_profile_offline_analyse(config_instance, profile_offline_analyse):
+    """Validate profile_offline_analyse is bool."""
+    Validator.check_bool(profile_offline_analyse, "profile_offline_analyse")
+    return profile_offline_analyse
+
+
+@TrainingConfig.validator("profile_dynamic_profiler_config_path")
+def validate_profile_dynamic_profiler_config_path(config_instance, profile_dynamic_profiler_config_path):
+    """Validate profile_dynamic_profiler_config_path is str."""
+    Validator.check_value_type("profile_dynamic_profiler_config_path", profile_dynamic_profiler_config_path, [str])
+    if profile_dynamic_profiler_config_path and not os.path.exists(profile_dynamic_profiler_config_path):
+        raise FileNotFoundError(f"profiler_config_path `{profile_dynamic_profiler_config_path}` can not be found.")
+    return profile_dynamic_profiler_config_path
 
 
 def check_fa_config(**kwargs):

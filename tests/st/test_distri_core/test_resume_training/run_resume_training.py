@@ -198,6 +198,7 @@ if __name__ == '__main__':
         all_config.training_config.compile_cache_path = cli_args.compile_cache_path
     all_config.training_config.crc_check = cli_args.crc_check
     all_config.training_config.output_dir = cli_args.output_dir
+    all_config.training_config.profile_save_path = os.path.join(cli_args.output_dir, "profile")
     all_config.training_config.load_checkpoint = cli_args.load_checkpoint
     all_config.training_config.training_iters = cli_args.training_iters
     all_config.training_config.save_interval = cli_args.save_interval
