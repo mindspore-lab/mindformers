@@ -576,9 +576,11 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
 
         # load learning rate
         for group_idx, lr in enumerate(self.optimizer.lrs):
-            if lr.name in state_dict.keys():
-                lr.assign_value(state_dict[lr.name].value())
-            wd_name = lr.name.replace('learning_rate', 'weight_decay')
+            lr_name = lr.name
+            if lr_name in state_dict.keys():
+                lr = state_dict[lr_name]
+                self.optimizer.param_groups[group_idx]['lr'] = lr.item()
+            wd_name = lr_name.replace('learning_rate', 'weight_decay')
             if wd_name in state_dict.keys():
                 self.optimizer.param_groups[group_idx]['weight_decay'] = state_dict.get(wd_name).item()
 
@@ -847,12 +849,13 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
 
         # add learning rate and weight decay to state_dict
         for group_idx, lr in enumerate(self.optimizer.lrs):
-            param_dict[lr.name] = lr
-            wd_name = lr.name.replace('learning_rate', 'weight_decay')
+            lr_name = lr.name
+            param_dict[lr_name] = lr
+            wd_name = lr_name.replace('learning_rate', 'weight_decay')
             param_dict[wd_name] = ms.Parameter(
                 ops.Tensor(
                     self.optimizer.param_groups[group_idx]['weight_decay'],
-                    dtype=ms.float32,
+                    dtype=ms.float64,
                 ),
                 name=wd_name,
                 requires_grad=False,
