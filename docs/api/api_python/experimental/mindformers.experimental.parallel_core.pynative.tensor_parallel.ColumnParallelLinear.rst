@@ -1,5 +1,5 @@
 mindformers.experimental.parallel_core.pynative.tensor_parallel.ColumnParallelLinear
-======================================================================================
+====================================================================================
 
 .. py:class:: mindformers.experimental.parallel_core.pynative.tensor_parallel.ColumnParallelLinear(input_size, output_size, *, config, init_method, bias=True, gather_output=False, stride=1, keep_master_weight_for_test=False, skip_bias_add=False, skip_weight_param_allocation=False, embedding_activation_buffer=None, grad_output_buffer=None, is_expert=False, tp_comm_buffer_name=None, disable_grad_reduce=False, bias_init=Zero(), param_init_dtype=None, compute_dtype=None, transpose_b=True)
 

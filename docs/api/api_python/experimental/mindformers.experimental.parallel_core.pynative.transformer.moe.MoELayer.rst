@@ -1,5 +1,5 @@
 mindformers.experimental.parallel_core.pynative.transformer.moe.MoELayer
-=============================================================================
+========================================================================
 
 .. py:class:: mindformers.experimental.parallel_core.pynative.transformer.moe.MoELayer(config: TransformerConfig, submodules=None, layer_number: int = None)
 
