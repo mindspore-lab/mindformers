@@ -25,6 +25,8 @@ from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.experimental.parallel_core import get_language_model
+from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
+from mindformers.models.utils import lazy_inline
 from mindformers.experimental.graph.transformer.transformer_config_utils import convert_to_transformer_config
 from mindformers.tools.logger import logger
 
@@ -40,6 +42,7 @@ class LlamaPretrainedModel(PreTrainedModel):
     base_model_prefix = "llama"
 
 
+@MindFormerRegister.register(MindFormerModuleType.MODELS, alias='LlamaForCausalLMUnity')
 class LlamaForCausalLM(LlamaPretrainedModel):
     """Provide llama training loss or logits through network.
 
@@ -50,6 +53,7 @@ class LlamaForCausalLM(LlamaPretrainedModel):
         pre_process (bool): Whether to add pre-process.
         post_process (bool): Whether to add post-process.
     """
+    @lazy_inline
     def __init__(self,
                  config: LlamaConfig,
                  num_tokentypes: int = 0,
