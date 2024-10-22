@@ -180,6 +180,7 @@ class LinearWithGradAccumulationAndAsyncCommunication(nn.Cell):
         self.weight_param = None
         self.data_layout = data_layout
         self.recompute_comm = recompute_comm and self.sequence_parallel
+        self.used_bprop_inputs = [0, 1, 2, 3]
 
     # pylint: disable=C0111
     def construct(self, x, weight, bias, weight_param=None):
