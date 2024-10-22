@@ -2,7 +2,7 @@
 """Learning rate decay and weight decay incr functions."""
 
 import math
-import mindspore as ops
+import mindspore as ms
 import mindspore.common.dtype as mstype
 
 lr_decay_style_list = ["constant", "WSD", "linear", "cosine", "inverse-square-root"]
@@ -173,22 +173,21 @@ class OptimizerParamScheduler():
         new_wd = self.get_wd()
         for group_idx, param_group in enumerate(self.optimizer.param_groups):
             new_lr = self.get_lr(param_group)
-            param_group['lr'].assign_value(ops.Tensor(new_lr * param_group.get('lr_mult', 1.0), dtype=mstype.float32))
+            param_group['lr'] = new_lr * param_group.get('lr_mult', 1.0)
+            self.optimizer.lrs[group_idx].assign_value(ms.Tensor(param_group['lr'], dtype=mstype.float64))
             param_group['weight_decay'] = new_wd * param_group.get('wd_mult', 1.0)
-            self.optimizer.lrs[group_idx] = param_group['lr']
-
 
     def state_dict(self):
         """dict of lr param"""
         state_dict = {
-            'max_lr': self.max_lr,
+            'max_lr': ms.Parameter(ms.Tensor(self.max_lr, dtype=ms.float64)),
             'lr_warmup_steps': self.lr_warmup_steps,
             'num_steps': self.num_steps,
             'lr_decay_style': lr_decay_style_list.index(self.lr_decay_style),
             'lr_decay_steps': self.lr_decay_steps,
-            'min_lr': self.min_lr,
-            'start_wd': self.start_wd,
-            'end_wd': self.end_wd,
+            'min_lr': ms.Parameter(ms.Tensor(self.min_lr, dtype=ms.float64)),
+            'start_wd': ms.Parameter(ms.Tensor(self.start_wd, dtype=ms.float64)),
+            'end_wd': ms.Parameter(ms.Tensor(self.end_wd, dtype=ms.float64)),
             'wd_incr_style': wd_incr_style_list.index(self.wd_incr_style),
             'wd_incr_steps': self.wd_incr_steps
         }
