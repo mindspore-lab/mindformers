@@ -1011,7 +1011,8 @@ def _get_num_layers(config, model_type, is_decoder=False):
                     raise ValueError(f"The number of model layers is {config.num_layers}, "
                                      f"but the sum of num_layer_list  "
                                      f"{config.parallel_config.num_layer_list} is {num_layer_array.sum()}.")
-                assert np.all(num_layer_array > 0)
+                if not np.all(num_layer_array > 0):
+                    raise ValueError("num_layer_array has element <= 0")
                 num_layers, offset = _get_custom_num_layers(config.parallel_config.num_layer_list,
                                                             pp_stage, pp_rank, vpp_stage, vpp_rank)
                 if vpp_stage is not None:
