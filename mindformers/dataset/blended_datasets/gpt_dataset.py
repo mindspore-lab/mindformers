@@ -220,22 +220,11 @@ class GPTDataset(MegatronDataset):
             loss_mask = numpy.zeros_like(loss_mask)
 
         if self.config.create_attention_mask:
-            # return {
-            #     "tokens": tokens,
-            #     "labels": labels,
-            #     "attention_mask": attention_mask,
-            #     "loss_mask": loss_mask,
-            #     "position_ids": position_ids,
-            # }
-            return tokens, labels, loss_mask, position_ids, attention_mask
+            return (tokens.astype(numpy.int32), labels.astype(numpy.int32), loss_mask.astype(numpy.int32),
+                    position_ids.astype(numpy.int32), attention_mask.astype(numpy.int32))
         else:
-            # return {
-            #     "tokens": tokens,
-            #     "labels": labels,
-            #     "loss_mask": loss_mask,
-            #     "position_ids": position_ids,
-            # }
-            return tokens, labels, loss_mask, position_ids
+            return (tokens.astype(numpy.int32), labels.astype(numpy.int32),
+                    loss_mask.astype(numpy.int32), position_ids.astype(numpy.int32))
 
     def _query_document_sample_shuffle_indices(
         self, idx: int
