@@ -66,7 +66,10 @@ def get_grad_norm_fp32(grads_for_norm, norm_type=2.0, model_parallel_group=None)
 
     if norm_type == 2.0:
         for grad in grads_for_norm:
-            total_norm = mint.add(total_norm, ops.norm(grad) ** 2.0)
+            grad_norm = mint.norm(grad)
+            total_norm = mint.add(total_norm, mint.square(grad_norm))
+        total_norm = mint.sqrt(total_norm)
+        total_norm = mint.square(total_norm)
     else:
         raise NotImplementedError("for global norm, l2 norm only support now")
 
