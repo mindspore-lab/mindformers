@@ -127,7 +127,8 @@ class MoEConfig:
                  shared_expert_num=0, use_shared_expert_gating=False, max_router_load=128 * 1024,
                  topk_method="greedy", topk_group=None, n_group=None,
                  first_k_dense_replace=True, moe_intermediate_size=1407, routed_scaling_factor=1.0,
-                 aux_loss_types=None, aux_loss_factors=None, z_loss_factor=0.):
+                 aux_loss_types=None, aux_loss_factors=None, z_loss_factor=0., balance_via_topk_bias=False,
+                 topk_bias_update_rate=0.):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
@@ -187,6 +188,8 @@ class MoEConfig:
         self.aux_loss_types, self.aux_loss_factors = _check_aux_loss_config(aux_loss_types, aux_loss_factors)
         self.z_loss_factor = z_loss_factor
         self.max_router_load = max_router_load
+        self.balance_via_topk_bias = balance_via_topk_bias
+        self.topk_bias_update_rate = topk_bias_update_rate
 
     def __eq__(self, other) -> bool:
         return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())
@@ -1119,6 +1122,23 @@ class TopkRouterV2(Cell):
         self.off_value = Tensor(0.0, mstype.float32)
         self.range = Tensor(np.tile(np.arange(moe_config.max_router_load) + 1,
                                     (self.num_experts_chosen, 1)), mstype.float32)
+        # aux loss free
+        self.topk_bias = Parameter(initializer('zeros', (self.expert_dim), mstype.float32),
+                                   requires_grad=False, parallel_optimizer=False)
+        self.one_over_expert_dim = Tensor([1 / self.expert_dim], mstype.float32)
+        self.sign = P.Sign().shard(((1,),))
+        self.gate_gather = P.Gather(batch_dims=2).shard(((dp, 1, 1), (dp, 1, 1)))
+        self.afb_add = P.Add().shard(((1,), (1,)))
+        self.afb_sub = P.Sub().shard(((1,), (1,)))
+        self.afb_add_topk_bias = P.Add().shard(((dp, 1, 1), (1,)))
+        self.afb_add_topk_bias.recompute(False)
+        self.assign = P.Assign().shard(((1,), (1,)))
+        self.assign.recompute(False)
+        self.afb_mul = P.Mul().shard(((1,), ()))
+        self.afb_reduce_mean = P.ReduceMean(keep_dims=False).shard(((1, 1),))
+        self.afb_topk = P.TopK().shard(((dp, 1, 1),))
+        self.afb_topk.recompute(False)
+
 
         self.cast = P.Cast()
         self.reshape = P.Reshape()
@@ -1270,7 +1290,13 @@ class TopkRouterV2(Cell):
             expert_gate, expert_index = self.topk(tmp_scores, self.num_experts_chosen)
         else:
             # in default, normal topk will be used
-            expert_gate, expert_index = self.topk(router_prob, self.num_experts_chosen)
+            if self.moe_config.balance_via_topk_bias:
+                _, expert_index = self.afb_topk(self.afb_add_topk_bias(router_prob, self.topk_bias),
+                                                self.num_experts_chosen)
+                expert_gate = self.gate_gather(router_prob, expert_index, 2)
+                self.update_topk_bias(expert_index)
+            else:
+                expert_gate, expert_index = self.topk(router_prob, self.num_experts_chosen)
 
         if self.aux_loss_config.get("expert", 0):
             expert_load_loss = self._expert_load_balancing(router_prob, expert_index,
@@ -1304,6 +1330,16 @@ class TopkRouterV2(Cell):
                 dispatch_idx, combine_idx, router_coeff = self._maskout_overflowed_tokens_sort_kdrop(expert_index,
                                                                                                      expert_gate)
         return dispatch_idx, combine_idx, router_coeff, extra_loss  # (dp, E, n)int32, (dp, N, k), (dp, N, k)
+
+    def update_topk_bias(self, expert_index):
+        expert_index = self.reshape(expert_index, (expert_index.shape[0], -1))
+        expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value)
+        average_load = self.reduce_mean(expert_mask, 1)
+        average_load = self.afb_reduce_mean(average_load, 0)
+        err = self.afb_sub(self.one_over_expert_dim, average_load)
+        topk_bias_new = self.afb_add(self.topk_bias,
+                                     self.afb_mul(self.sign(err), self.moe_config.topk_bias_update_rate))
+        self.assign(self.topk_bias, topk_bias_new)
 
     def _maskout_overflowed_tokens_sort_kdrop(self, expert_index, expert_gate):
         """

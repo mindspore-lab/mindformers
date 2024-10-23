@@ -40,6 +40,8 @@ moe_config:
   enable_sdrop: True
   router_dense_type: "float32"
   use_fused_ops_topkrouter: False
+  balance_via_topk_bias: False
+  topk_bias_update_rate: 0.001
 
 # lr schedule
 lr_schedule:
