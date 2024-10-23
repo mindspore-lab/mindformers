@@ -13,12 +13,14 @@
 # limitations under the License.
 # ============================================================================
 """LLaMA transformer Layer's APIs."""
-import math
 from typing import Tuple, Optional
+import math
+
 
 import mindspore as ms
-from mindspore import nn
+from mindspore import nn, Parameter
 import mindspore.common.dtype as mstype
+from mindspore.common.initializer import initializer
 from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
@@ -110,6 +112,7 @@ class LLamaAttention(nn.Cell):
                  use_ring_attention=False,
                  use_attn_mask_compression=False,
                  rmsnorm_compute_2d=False,
+                 batch_size=1,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig(),
@@ -165,6 +168,37 @@ class LLamaAttention(nn.Cell):
 
         self.shape = P.Shape()
         self.cast = P.Cast()
+        self.seq_pipe = parallel_config.seq_split_num > 1
+        self.seq_split_num = parallel_config.seq_split_num
+        self.seq_seg_len = seq_length // self.seq_split_num
+        if self.seq_pipe:
+            if not self.use_flash_attention:
+                raise ValueError("Seq pipe must using flash attention")
+            kv_shape = (batch_size * dp, self.n_kv_head, seq_length, self.head_dim)
+            self.key_cache = Parameter(initializer('zeros', shape=kv_shape, dtype=compute_dtype), name="key_cache",
+                                       requires_grad=False, parallel_optimizer=False)
+            self.value_cache = Parameter(initializer('zeros', shape=kv_shape, dtype=compute_dtype), name="value_cache",
+                                         requires_grad=False, parallel_optimizer=False)
+            kv_grad_shape = (batch_size, self.n_kv_head // mp, seq_length // cp, self.head_dim)
+            self.key_cache_grad = Parameter(initializer('zeros', shape=kv_grad_shape, dtype=compute_dtype),
+                                            name="key_cache_grad", requires_grad=False, parallel_optimizer=False)
+            self.value_cache_grad = Parameter(initializer('zeros', shape=kv_grad_shape, dtype=compute_dtype),
+                                              name="value_cache_grad", requires_grad=False, parallel_optimizer=False)
+            self.select = P.Select().add_prim_attr("self_define_shard", True)
+            layout_v = Layout((dp, mp, cp), ("dp", "mp", "cp"))
+            in_layout_v = (layout_v("dp", "mp", "cp", "None"), layout_v("dp", "mp", "cp", "None"),
+                           layout_v("dp", "mp", "cp", "None"))
+            out_layout_v = (layout_v("dp", "mp", "cp", "None"),)
+            self.select.shard(in_layout_v, out_layout_v)
+            self.add_k = P.Add().shard(((dp, mp, cp, 1), (dp, mp, cp, 1)))
+            self.add_v = P.Add().shard(((dp, mp, cp, 1), (dp, mp, cp, 1)))
+            self.mul_kv = P.Mul().shard(((dp, mp, cp, 1), (dp, mp, cp, 1)))
+            self.assign_kv = P.Assign().shard(((dp, mp, cp, 1), (dp, mp, cp, 1)))
+            self.mul_update = P.Mul().shard(((dp, mp, cp, 1), ()))
+            self.not_equal_ones = P.NotEqual().shard(((dp, mp, cp, 1), ()))
+            self.not_equal_seq = P.NotEqual()
+            self.seq_split_size = Tensor(self.seq_split_num - 1, dtype=mstype.int32)
+            self.tile_kv = P.Tile().shard(((dp, mp, cp, 1),))
 
         if self.qkv_concat:
             self.w_qkv = Linear(in_channels=self.hidden_size,
@@ -302,9 +336,10 @@ class LLamaAttention(nn.Cell):
             if self.use_flash_attention:
                 self.input_layout = "BSH" if cp > 1 else "BNSD"
                 self.sparse_mode = 2 if self.use_attn_mask_compression and not self.use_ring_attention else 0
+                next_tokens = seq_length - self.seq_seg_len if self.seq_pipe else 0
                 self.flash_attention = FlashAttention(head_num=self.n_head,
                                                       pre_tokens=2147483647,
-                                                      next_tokens=0,
+                                                      next_tokens=next_tokens,
                                                       input_layout=self.input_layout,
                                                       keep_prob=1.,
                                                       scale_value=1. / math.sqrt(self.head_dim),
@@ -335,7 +370,8 @@ class LLamaAttention(nn.Cell):
             self.transpose_ulysses_merger.shard(((dp, cp, 1, mp, 1),))
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None, q_seq_lens=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, q_seq_lens=None,
+                  kv_mask=None, seq_chunk=None):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
@@ -378,20 +414,44 @@ class LLamaAttention(nn.Cell):
                 value = self.transpose(self.reshape(value, (-1, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
                 key, value = self._cat_prefix(key, value, prefix_keys_values)
 
-            if self.use_flash_attention:
-                # with ulysses context parallel, insert all to all after FA
-                if self.context_parallel > 1 and self.cp_ds > 1:
-                    context_layer = self.flash_attention(query, key, value, mask)
-                    context_layer = self._ulysses_context_layer_a2a(context_layer)
-                elif self.context_parallel > 1:
-                    context_layer = self.flash_attention(query, key, value, mask)
+            if self.seq_pipe:
+                key = self.tile_kv(key, (1, 1, self.seq_split_num, 1))
+                value = self.tile_kv(value, (1, 1, self.seq_split_num, 1))
+                key = self.mul_kv(key, kv_mask)
+                value = self.mul_kv(value, kv_mask)
+                seq_zero = self.mul_update(kv_mask, 0)
+                ones = self.not_equal_ones(seq_zero, -1)
+                kv_equal = self.mul_update(ones, self.not_equal_seq(seq_chunk, self.seq_split_size))
+                key_update = self.add_k(key, self.key_cache)
+                value_update = self.add_v(value, self.value_cache)
+                update_k = self.select(kv_equal, key_update, seq_zero)
+                update_v = self.select(kv_equal, value_update, seq_zero)
+                update_k = F.stop_gradient(update_k)
+                update_v = F.stop_gradient(update_v)
+                k_update = self.assign_kv(self.key_cache, update_k)
+                v_update = self.assign_kv(self.value_cache, update_v)
+                query = F.depend(query, k_update)
+                query = F.depend(query, v_update)
+                if self.context_parallel > 1:
+                    context_layer = self.flash_attention(query, key_update, value_update, mask)
                 else:
-                    context_layer = self.flash_attention(query, key, value, mask)
+                    context_layer = self.flash_attention(query, key_update, value_update, mask)
                     context_layer = self._merge_heads(context_layer)
             else:
-                key = self._repeat_kv(key, self.n_rep)
-                value = self._repeat_kv(value, self.n_rep)
-                context_layer = self._attn(query, key, value, mask)
+                if self.use_flash_attention:
+                    # with ulysses context parallel, insert all to all after FA
+                    if self.context_parallel > 1 and self.cp_ds > 1:
+                        context_layer = self.flash_attention(query, key, value, mask)
+                        context_layer = self._ulysses_context_layer_a2a(context_layer)
+                    elif self.context_parallel > 1:
+                        context_layer = self.flash_attention(query, key, value, mask)
+                    else:
+                        context_layer = self.flash_attention(query, key, value, mask)
+                        context_layer = self._merge_heads(context_layer)
+                else:
+                    key = self._repeat_kv(key, self.n_rep)
+                    value = self._repeat_kv(value, self.n_rep)
+                    context_layer = self._attn(query, key, value, mask)
 
         # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         output = self.wo(context_layer)  # dp, mp -> dp, 1 / dp * mp, 1
@@ -615,6 +675,7 @@ class LLamaDecodeLayer(nn.Cell):
                  use_ring_attention=False,
                  use_attn_mask_compression=False,
                  rmsnorm_compute_2d=False,
+                 batch_size=1,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig(),
@@ -630,6 +691,7 @@ class LLamaDecodeLayer(nn.Cell):
         self.dtype = compute_dtype
         self.is_first_iteration = True
         self.use_past = use_past
+        self.seq_pipe = parallel_config and parallel_config.seq_split_num > 1
 
         self.residual_dtype = residual_dtype
         self.residual_cast_flag = residual_dtype != compute_dtype
@@ -662,6 +724,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         rmsnorm_compute_2d=rmsnorm_compute_2d,
                                         block_size=block_size,
                                         num_blocks=num_blocks,
+                                        batch_size=batch_size,
                                         parallel_config=parallel_config,
                                         parallel_decoding=parallel_decoding,
                                         init_method_std=init_method_std
@@ -775,18 +838,23 @@ class LLamaDecodeLayer(nn.Cell):
             self.no_inline = False
 
     def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, prefix_keys_values=None, q_seq_lens=None):
+                  slot_mapping=None, prefix_keys_values=None, q_seq_lens=None, kv_mask=None, seq_chunk=None):
         """ Forward of transformer block. """
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
         # [bs, seq/1, hidden_dim]
         input_x = self.attention_norm(x)
         # [bs, seq/1, hidden_dim]
-        h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
-                           slot_mapping, prefix_keys_values, q_seq_lens)
+        if self.seq_pipe:
+            h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
+                               slot_mapping, prefix_keys_values, q_seq_lens, kv_mask, seq_chunk)
+        else:
+            h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
+                               slot_mapping, prefix_keys_values, q_seq_lens)
         if self.residual_cast_flag:
             x = self.cast(x, self.residual_dtype)
             h = self.cast(h, self.residual_dtype)
+
         h = self.add(x, h)
         if self.residual_cast_flag:
             h = self.cast(h, self.dtype)

@@ -60,7 +60,7 @@ from mindformers.tools.check_rules import check_rules
 from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.core.callback.callback import ColdHotExpertMointor
 from mindformers.dataset.dataloader.blended_megatron_dataloader import is_dataset_built_on_rank
-
+from mindformers.modules.seq_pipe import SequenceSplit
 from .config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import (
@@ -460,7 +460,14 @@ class BaseTrainer:
                 network = GradAccumulationCell(network, gradient_accumulation_steps)
         if pp > 1:
             micro_batch_num = self.config.parallel_config.micro_batch_num
+            seq_split_num = self.config.parallel_config.seq_split_num
+            if seq_split_num > 1:
+                if self.config.recompute_config.recompute:
+                    raise ValueError("When using seq pipe, cannot apply full recompute.")
+                network = SequenceSplit(network, split_num=seq_split_num)
             if self.config.runner_wrapper.calculate_per_token_loss:
+                if seq_split_num > 1:
+                    raise ValueError("When using seq pipe, cannot apply calculate_per_token_loss.")
                 network = PipelineCellWithTwoOutput(network, micro_size=micro_batch_num)
             else:
                 network = PipelineCell(network, micro_size=micro_batch_num)
@@ -887,6 +894,8 @@ class BaseTrainer:
         logger.info(".........Starting Init Train Model..........")
         if wrapper is not None:
             if config.train_dataset.dynamic_batch:
+                if self.config.parallel_config.seq_split_num:
+                    raise ValueError("Cannot apply sequence pipe in dynamic shape.")
                 from mindspore import Symbol
                 divisor = config.train_dataset.divisor if config.train_dataset.divisor else 2
                 remainder = config.train_dataset.remainder if config.train_dataset.remainder else 1

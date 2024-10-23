@@ -20,9 +20,11 @@ from multiprocessing.synchronize import Condition
 import numpy as np
 
 import mindspore.common.dtype as mstype
-from mindspore import Tensor, nn, mint
+from mindspore import Tensor, nn, mint, Parameter
+from mindspore.common.initializer import initializer
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
+from mindspore.ops import functional as F
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from mindformers.core.loss.loss import CrossEntropyLoss
@@ -99,6 +101,33 @@ class LlamaModel(LlamaPreTrainedModel):
             logger.info("MoE config is None, use normal FFN")
         if not self.use_flash_attention and self.use_ring_attention:
             raise ValueError(f"When the ring_attention = True, the flash_attention must be True ")
+        self.seq_split_num = config.parallel_config.seq_split_num
+        self.seq_pipe = self.seq_split_num > 1
+        if self.seq_pipe:
+            dp = config.parallel_config.data_parallel
+            if self.use_ring_attention:
+                raise ValueError(f"When the seq_pipe = True, the use_ring_attention cannot be True ")
+            self.n_kv_head = self.n_head if config.n_kv_heads is None else config.n_kv_heads
+            kv_shape = (config.batch_size * dp, self.n_kv_head, config.seq_length, self.head_dim)
+            self.zeros = initializer('zeros', kv_shape, dtype=self.dtype)
+            self.seq_update = Tensor(1, dtype=mstype.int32)
+            self.seq_zero = Tensor(0, dtype=mstype.int32)
+            self.seq_seg_len = config.seq_length // self.seq_split_num
+            kv_mask = np.zeros((1, self.n_kv_head, config.seq_length, self.head_dim), np.int32)
+            for s in range(self.seq_split_num):
+                kv_mask[:, :, s * self.seq_seg_len: (s + 1) * self.seq_seg_len, :] = s
+            self.kv_mask = Tensor(kv_mask)
+            self.seq_chunk = Parameter(Tensor(0, dtype=mstype.int32), name="seq_chunk",
+                                       requires_grad=False, parallel_optimizer=False)
+            cp = config.parallel_config.context_parallel
+            mp = config.parallel_config.model_parallel
+            self.equal_kv = P.Equal().shard(((dp, mp, cp, 1), ()))
+            self.kv_mask_add = P.Add().shard(((dp, mp, cp, 1), (1, mp, cp, 1)))
+            self.assign_add_count = P.AssignAdd()
+            self.assign_count = P.Assign()
+            self.assign_mask = P.Assign().shard(((dp, 1), (dp, 1)))
+            self.mask_zeros = Tensor(np.zeros((config.batch_size * dp, config.seq_length)), mstype.float32)
+
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
                                   max_position_embedding=config.max_position_embedding,
@@ -113,13 +142,17 @@ class LlamaModel(LlamaPreTrainedModel):
             logger.info(f"residual in llama model cast flag: {self.residual_cast_flag}, "
                         f"residual dtype: {config.residual_dtype}")
         self.freqs_mgr.shard(config.parallel_config)
+        total_batch_size_in_dp = config.batch_size * config.parallel_config.data_parallel
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
+                                                          batch_size=total_batch_size_in_dp,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
                                                           use_flash_attention=config.use_flash_attention,
                                                           use_attn_mask_compression=config.use_attn_mask_compression,
-                                                          use_past=config.use_past)
+                                                          use_past=config.use_past,
+                                                          seq_split_num=self.seq_split_num)
+
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              init_method_std=config.init_method_std,
@@ -159,8 +192,8 @@ class LlamaModel(LlamaPreTrainedModel):
                                                    use_ring_attention=config.use_ring_attention,
                                                    use_attn_mask_compression=config.use_attn_mask_compression,
                                                    fine_grain_interleave=config.fine_grain_interleave,
-                                                   parallel_config=config.parallel_config,
-                                                   init_method_std=config.init_method_std)
+                                                   init_method_std=config.init_method_std,
+                                                   parallel_config=config.parallel_config)
             else:
                 layer = LLamaDecodeLayer(config.seq_length,
                                          layer_id,
@@ -189,6 +222,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          num_blocks=config.num_blocks,
                                          use_rope_slice=config.use_rope_slice,
                                          rmsnorm_compute_2d=config.rmsnorm_compute_2d,
+                                         batch_size=config.batch_size,
                                          moe_config=config.moe_config,
                                          parallel_config=config.parallel_config,
                                          parallel_decoding=self.parallel_decoding,
@@ -247,6 +281,8 @@ class LlamaModel(LlamaPreTrainedModel):
         """
         # preprocess
         bs, seq_len = self.shape(tokens)
+        kv_mask = None
+        seq_chunk = None
         rmsnorm_compute_2d = self.training and self.rmsnorm_compute_2d
         if self.parallel_decoding:
             # FA with TH layout, mask is 2D, FA with BSH layout, mask is 4D
@@ -271,9 +307,17 @@ class LlamaModel(LlamaPreTrainedModel):
                 else:
                     freqs_cis = self.freqs_mgr.increment(batch_valid_length)
             else:
-                if not self.use_ring_attention:
+                if self.seq_pipe:
+                    mask = self.casual_mask(tokens, seq_chunk=self.seq_chunk)
+                    seq_chunk = P.ReLU()(self.seq_chunk)
+                    kv_mask = self.cast(self.equal_kv(self.kv_mask_add(self.zeros, self.kv_mask), seq_chunk),
+                                        self.dtype)
+                    seq_update = F.depend(self.seq_update, mask)
+                    seq_update = F.depend(seq_update, kv_mask)
+                    mask = F.depend(mask, self.assign_add_count(self.seq_chunk, seq_update))
+                elif not self.use_ring_attention:
                     mask = self.casual_mask(tokens)
-                freqs_cis = self.freqs_mgr(seq_len)
+                freqs_cis = self.freqs_mgr(seq_len, seq_chunk=seq_chunk)
                 if prefix_keys_values is not None:
                     prefix_length = prefix_keys_values[0].shape[2]
                     prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
@@ -289,11 +333,19 @@ class LlamaModel(LlamaPreTrainedModel):
         for i in range(self.num_layers):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
             h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length, block_tables=block_tables,
-                               slot_mapping=slot_mapping, prefix_keys_values=prefix_kv, q_seq_lens=q_seq_lens)
+                               slot_mapping=slot_mapping, prefix_keys_values=prefix_kv, q_seq_lens=q_seq_lens,
+                               kv_mask=kv_mask, seq_chunk=seq_chunk)
         if rmsnorm_compute_2d:
             h = self.reshape(h, (bs * seq_len, -1))
         output = self.norm_out(h)
         return output
+
+    def clear_kv_cache(self):
+        zeros = 0.0
+        return_tuple = ()
+        return_tuple += (self.assign_count(self.seq_chunk, self.seq_zero),)
+        return_tuple += (self.assign_mask(self.casual_mask.mask_cache, self.mask_zeros),)
+        return F.depend(zeros, return_tuple)
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -394,7 +446,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
                                      check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
-                                     calculate_per_token_loss=calculate_per_token_loss)
+                                     calculate_per_token_loss=calculate_per_token_loss,
+                                     seq_split_num=config.parallel_config.seq_split_num)
 
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
@@ -687,6 +740,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         concat_keys = [qkv_key, ffn_key]
         logger.info(f"{cls.__name__} qkv/ffn concat keys are {concat_keys}")
         return concat_keys
+
+    def clear_kv_cache(self):
+        return self.model.clear_kv_cache()
 
 
 def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, w1_keys, w3_keys, qkv_dict, condition, target_dict):
