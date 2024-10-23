@@ -26,7 +26,7 @@ import numpy as np
 
 from mindspore import nn
 from mindspore.common.parameter import Parameter
-from mindspore.common.initializer import initializer, Tensor
+from mindspore.common.initializer import initializer, Tensor, Normal
 import mindspore.common.dtype as mstype
 from mindspore._extends import cell_attr_register
 from mindspore.nn.cell import Cell
@@ -378,6 +378,7 @@ class Linear(Cell):
     Args:
         in_channels (int): The number of channels in the input space.
         out_channels (int): The number of channels in the output space.
+        init_method_std (float): The sigma value when using normal type to initialize Linear. Default: ``0.01`` .
         weight_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable weight_init parameter. The dtype
             is same as `x`. The values of str refer to the function `initializer`. Default: 'normal'.
         bias_init (Union[Tensor, str, Initializer, numbers.Number]): The trainable bias_init parameter. The dtype is
@@ -426,6 +427,7 @@ class Linear(Cell):
     def __init__(self,
                  in_channels,
                  out_channels,
+                 init_method_std=0.01,
                  weight_init='normal',
                  bias_init='zeros',
                  has_bias=True,
@@ -445,6 +447,8 @@ class Linear(Cell):
             raise TypeError(f"For Linear cell, the activation should str type or nn.Cell type, but got {activation}.")
 
         transpose_b = False if use_gmm else transpose_b
+        if weight_init == "normal":
+            weight_init = Normal(sigma=init_method_std, mean=0)
         weight_shape = [out_channels, in_channels] if transpose_b else [in_channels, out_channels]
         if isinstance(weight_init, Tensor) and (weight_init.ndim != 2 or weight_init.shape[0] != weight_shape[0] or
                                                 weight_init.shape[1] != weight_shape[1]):

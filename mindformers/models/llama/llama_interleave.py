@@ -107,6 +107,7 @@ class LLamaAttentionInterleave(nn.Cell):
                 pass the single step's input tensor, and loop it. Default False.
             - **parallel_config** (OpParallelConfig): The parallel configure. Default `default_dpmp_config`,
                 an instance of `OpParallelConfig` with default args.
+            - **init_method_std** (float): The sigma value when using normal type to initialize Linear. Default `0.01`
 
     Inputs:
             - **x** (Tensor) - The input tokens with shape (batch_size, src_seq_length, hidden_size) or
@@ -153,7 +154,8 @@ class LLamaAttentionInterleave(nn.Cell):
                  use_flash_attention=False,
                  use_ring_attention=False,
                  use_attn_mask_compression=False,
-                 parallel_config=TransformerOpParallelConfig()):
+                 parallel_config=TransformerOpParallelConfig(),
+                 init_method_std=0.01):
         super().__init__()
         self.batch_size = batch_size
         self.seq_length = seq_length
@@ -206,6 +208,7 @@ class LLamaAttentionInterleave(nn.Cell):
         if self.qkv_concat:
             self.w = Linear(in_channels=self.hidden_size,
                             out_channels=self.hidden_size + self.kv_dim * 2,
+                            init_method_std=init_method_std,
                             has_bias=qkv_has_bias,
                             compute_dtype=compute_dtype,
                             param_init_type=param_init_type)
@@ -213,21 +216,25 @@ class LLamaAttentionInterleave(nn.Cell):
         else:
             self.wq = Linear(self.hidden_size,
                              self.hidden_size,
+                             init_method_std=init_method_std,
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type)
             self.wk = Linear(self.hidden_size,
                              self.kv_dim,
+                             init_method_std=init_method_std,
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type)
             self.wv = Linear(self.hidden_size,
                              self.kv_dim,
+                             init_method_std=init_method_std,
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type)
         self.wo = Linear(in_channels=self.hidden_size,
                          out_channels=self.hidden_size,
+                         init_method_std=init_method_std,
                          has_bias=attn_proj_has_bias,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
@@ -443,6 +450,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
             parallel_config(OpParallelConfig, MoEParallelConfig): The parallel configure. When MoE is applied,
                 MoEParallelConfig is effective, otherwise OpParallelConfig is effective. Default `default_dpmp_config`,
                 an instance of `OpParallelConfig` with default args.
+            init_method_std(float): The sigma value when using normal type to initialize Linear. Default 0.01 .
             residual_dtype (str): The residual compute dtype. Default mstype.float32 .
 
         Inputs:
@@ -495,7 +503,8 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                  use_ring_attention=False,
                  use_attn_mask_compression=False,
                  fine_grain_interleave=2,
-                 parallel_config=TransformerOpParallelConfig()):
+                 parallel_config=TransformerOpParallelConfig(),
+                 init_method_std=0.01):
         super().__init__()
         self.seq_length = seq_length
         self.layer_id = layer_id
@@ -536,14 +545,16 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                                                   use_flash_attention=use_flash_attention,
                                                   use_ring_attention=use_ring_attention,
                                                   use_attn_mask_compression=use_attn_mask_compression,
-                                                  parallel_config=parallel_config)
+                                                  parallel_config=parallel_config,
+                                                  init_method_std=init_method_std)
         self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
                                              intermediate_size=intermediate_size,
                                              hidden_dim=4 * self.hidden_size,
                                              multiple_of=multiple_of,
                                              ffn_dim_multiplier=ffn_dim_multiplier,
                                              compute_dtype=compute_dtype,
-                                             param_init_type=param_init_type)
+                                             param_init_type=param_init_type,
+                                             init_method_std=init_method_std)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel

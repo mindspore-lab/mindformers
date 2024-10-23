@@ -126,6 +126,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                                           use_attn_mask_compression=config.use_attn_mask_compression)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
+                                             init_method_std=config.init_method_std,
                                              param_init_type=config.embedding_init_type,
                                              parallel_optimizer=config.parallel_optimizer)
         self.fine_grain_interleave = check_fine_grain_interleave_valid(config.fine_grain_interleave,
@@ -161,7 +162,8 @@ class LlamaModel(LlamaPreTrainedModel):
                                                    use_ring_attention=config.use_ring_attention,
                                                    use_attn_mask_compression=config.use_attn_mask_compression,
                                                    fine_grain_interleave=config.fine_grain_interleave,
-                                                   parallel_config=config.parallel_config)
+                                                   parallel_config=config.parallel_config,
+                                                   init_method_std=config.init_method_std)
             else:
                 layer = LLamaDecodeLayer(layer_id,
                                          dim=config.hidden_size,
@@ -190,7 +192,8 @@ class LlamaModel(LlamaPreTrainedModel):
                                          moe_config=config.moe_config,
                                          parallel_config=config.parallel_config,
                                          parallel_decoding=self.parallel_decoding,
-                                         fused_kernel=config.fused_rms_norm
+                                         fused_kernel=config.fused_rms_norm,
+                                         init_method_std=config.init_method_std
                                          )
             self.layer_setting(layer, layer_id)
             self.layers.append(layer)

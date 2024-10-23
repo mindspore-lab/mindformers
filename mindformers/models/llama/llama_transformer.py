@@ -63,6 +63,7 @@ class LLamaAttention(nn.Cell):
                 pass the single step's input tensor, and loop it. Default False.
             - **parallel_config** (OpParallelConfig): The parallel configure. Default `default_dpmp_config`,
                 an instance of `OpParallelConfig` with default args.
+            - **init_method_std** (float): The sigma value when using normal type to initialize Linear. Default `0.01`
 
     Inputs:
             - **x** (Tensor) - The input tokens with shape (batch_size, src_seq_length, hidden_size) or
@@ -109,6 +110,7 @@ class LLamaAttention(nn.Cell):
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig(),
                  parallel_decoding=False,
+                 init_method_std=0.01
                  ):
         super().__init__()
         self.hidden_size = dim
@@ -161,6 +163,7 @@ class LLamaAttention(nn.Cell):
         if self.qkv_concat:
             self.w_qkv = Linear(in_channels=self.hidden_size,
                                 out_channels=self.hidden_size + self.kv_dim * 2,
+                                init_method_std=init_method_std,
                                 has_bias=qkv_has_bias,
                                 compute_dtype=compute_dtype,
                                 param_init_type=param_init_type,
@@ -175,18 +178,21 @@ class LLamaAttention(nn.Cell):
         else:
             self.wq = Linear(self.hidden_size,
                              self.hidden_size,
+                             init_method_std=init_method_std,
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type,
                              skip_redistribution=is_dynamic)
             self.wk = Linear(self.hidden_size,
                              self.kv_dim,
+                             init_method_std=init_method_std,
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type,
                              skip_redistribution=is_dynamic)
             self.wv = Linear(self.hidden_size,
                              self.kv_dim,
+                             init_method_std=init_method_std,
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type,
@@ -201,6 +207,7 @@ class LLamaAttention(nn.Cell):
                 self.wv.shard(((dp * cp, 1), (mp, 1)))
         self.wo = Linear(in_channels=self.hidden_size,
                          out_channels=self.hidden_size,
+                         init_method_std=init_method_std,
                          has_bias=attn_proj_has_bias,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type,
@@ -520,6 +527,7 @@ class LLamaDecodeLayer(nn.Cell):
                 MoEParallelConfig is effective, otherwise OpParallelConfig is effective. Default `default_dpmp_config`,
                 an instance of `OpParallelConfig` with default args.
             residual_dtype(str): The residual compute dtype. Default None .
+            init_method_std(float): The sigma value when using normal type to initialize Linear. Default 0.01 .
 
         Inputs:
             - **x** (Tensor) - Float Tensor, shape should be [batch_size, seq_length, hidden_size] or
@@ -558,6 +566,7 @@ class LLamaDecodeLayer(nn.Cell):
                  multiple_of: int = 256,
                  ffn_dim_multiplier: Optional[int] = None,
                  norm_eps: float = 1e-5,
+                 init_method_std: float = 0.01,
                  qkv_concat=False,
                  compute_dtype=mstype.float16,
                  layernorm_compute_dtype=mstype.float32,
@@ -621,6 +630,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         num_blocks=num_blocks,
                                         parallel_config=parallel_config,
                                         parallel_decoding=parallel_decoding,
+                                        init_method_std=init_method_std
                                         )
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
@@ -637,7 +647,8 @@ class LLamaDecodeLayer(nn.Cell):
                                            compute_dtype=compute_dtype,
                                            param_init_type=param_init_type,
                                            is_dynamic=is_dynamic,
-                                           use_gmm=self.use_moe_infer)
+                                           use_gmm=self.use_moe_infer,
+                                           init_method_std=init_method_std)
         else:
             ffn = LlamaFeedForward(dim=self.hidden_size,
                                    intermediate_size=intermediate_size,
@@ -649,7 +660,8 @@ class LLamaDecodeLayer(nn.Cell):
                                    param_init_type=param_init_type,
                                    ffn_concat=qkv_concat,
                                    is_dynamic=is_dynamic,
-                                   parallel_config=parallel_config) if self.shared_expert_num == 0 else None
+                                   parallel_config=parallel_config,
+                                   init_method_std=init_method_std) if self.shared_expert_num == 0 else None
         if self.expert_num == 1:
             self.feed_forward = ffn
         else:
@@ -674,7 +686,8 @@ class LLamaDecodeLayer(nn.Cell):
                                                             is_dynamic=is_dynamic,
                                                             moe_config=moe_config,
                                                             parallel_config=parallel_config,
-                                                            use_moe_infer=self.use_moe_infer)
+                                                            use_moe_infer=self.use_moe_infer,
+                                                            init_method_std=init_method_std)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
