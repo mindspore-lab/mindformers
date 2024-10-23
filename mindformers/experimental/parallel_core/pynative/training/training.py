@@ -895,12 +895,14 @@ def pretrain(train_valid_test_datasets_provider,
     if training_config.resume_training is True and os.path.exists(training_config.load_checkpoint):
         rank_path = os.path.join(training_config.load_checkpoint, f"rank_{get_rank()}")
         meta_path = os.path.join(rank_path, "meta.json")
+        resume_by_meta = True
         if not os.path.exists(meta_path):
             logger.warning(f"Could not find meta.json in directory {rank_path}, using latest ckpt in {rank_path}")
+            resume_by_meta = False
         resume_ckpt_name = get_resume_checkpoint(
             checkpoint_dir=training_config.load_checkpoint,
             resume_training=training_config.resume_training,
-            resume_by_meta=True
+            resume_by_meta=resume_by_meta
             )
         logger.warning(f"resume_ckpt_name is {resume_ckpt_name}")
         if resume_ckpt_name is True:
