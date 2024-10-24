@@ -33,7 +33,6 @@ from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules.transformer.moe import MoEV2, MoEInfer
-from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode
 
 
@@ -259,13 +258,8 @@ class LLamaAttention(nn.Cell):
                 self.tile_kv.shard(((dp, mp, 1, 1),))
 
                 self.apply_rotary_emb.shard(parallel_config)
-                if parallel_config.use_seq_parallel and cp > 1:
-                    logger.warning(
-                        "The context parallel way conflicts with sequence parallel way."
-                        "The Sequence parallel way has no effect here and is ignored"
-                    )
-                if parallel_config.use_seq_parallel and self.is_first_iteration and cp == 1:
-                    self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
+                if parallel_config.use_seq_parallel and self.is_first_iteration:
+                    self.wo.shard(((dp * cp, mp), (1, mp)), out_strategy_matmul=((dp * mp * cp, 1),))
                 if parallel_config.recompute.select_recompute and not self.use_flash_attention:
                     self.apply_rotary_emb.recompute()
                     self.tile_kv.recompute()
@@ -694,7 +688,7 @@ class LLamaDecodeLayer(nn.Cell):
             self.attention_norm.shard((dp, mp, 1))
             self.ffn_norm.shard((dp, mp, 1))
             if moe_config is None or not moe_config.expert_num > 1:
-                self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
+                self.feed_forward.w2.shard(((dp * cp, mp), (1, mp)), out_strategy_matmul=((dp * mp * cp, 1),))
 
         self.predict_run_mode = get_predict_run_mode()
         if self.predict_run_mode:
