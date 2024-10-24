@@ -32,7 +32,6 @@ sys.path.append(MFPATH)
 sys.path.append(MFPATH + '/research/qwenvl')
 
 # pylint: disable=C0413
-import mindformers as mf
 from mindformers import CosineWithWarmUpLR, FP32StateAdamWeightDecay
 from mindformers import Trainer, MindFormerConfig, MindFormerRegister, MindFormerModuleType
 from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
@@ -75,7 +74,7 @@ def generator_train():
         yield input_ids[idx], images[idx], image_context_pos, labels[idx]
 
 
-@pytest.mark.level0
+@pytest.mark.level1
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_onecard
 class TestQwenVLTrainingPrecision:
@@ -180,12 +179,7 @@ class TestQwenVLTrainingPrecision:
                 'type': 'MultiModalToTextGenerationTrainer',
                 'model_name': 'qwenvl'
             },
-            'train_dataset': {
-                'tokenizer': {
-                    'type': 'QwenVLTokenizer',
-                    'vocab_file': "./checkpoint_download/qwenvl/qwen.tiktoken"
-                }
-            },
+            'train_dataset': {},
             'train_dataset_task': {},
             'runner_config': {
                 'epochs': 1,
@@ -210,11 +204,6 @@ class TestQwenVLTrainingPrecision:
 
         }
         config = MindFormerConfig(**config)
-        if not os.path.exists("./checkpoint_download/qwenvl/qwen.tiktoken"):
-            mf.tools.download_tools.download_with_progress_bar(
-                'https://modelers.cn/coderepo/web/v1/file/MindSpore-Lab/Qwen-VL/main/media/qwen.tiktoken',
-                "./checkpoint_download/qwenvl/qwen.tiktoken"
-            )
         return config
 
     @pytest.mark.run(order=1)
