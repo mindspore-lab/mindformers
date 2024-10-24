@@ -1,7 +1,7 @@
 mindformers.core.MFLossMonitor
 ==============================
 
-.. py:class:: mindformers.core.MFLossMonitor(learning_rate: Optional[Union[float, LearningRateSchedule]] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1)
+.. py:class:: mindformers.core.MFLossMonitor(learning_rate: Optional[Union[float, LearningRateSchedule]] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False)
 
     监控训练过程中loss等相关参数的回调函数。
 
@@ -16,3 +16,4 @@ mindformers.core.MFLossMonitor
         - **initial_step** (int) - 训练开始的step数。默认值： ``0`` 。
         - **global_batch_size** (int) - 总BatchSize大小。默认值： ``0`` 。
         - **gradient_accumulation_steps** (int) - 梯度累加步数。默认值： ``1`` 。
+        - **check_for_nan_in_loss_and_grad** (bool) - 是否检查损失和梯度存在Nan。默认值： ``False`` 。

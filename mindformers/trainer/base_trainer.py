@@ -691,10 +691,12 @@ class BaseTrainer:
         # build network
         logger.info(".........Build Net For Train..........")
         if network is None and self.network is None:
+            check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
             network = self.create_network(
                 default_args={"parallel_config": config.parallel_config,
                               "moe_config": config.moe_config,
-                              "dataset_config": config.train_dataset})
+                              "dataset_config": config.train_dataset,
+                              "check_for_nan_in_loss_and_grad": check_for_nan_in_loss_and_grad})
         elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
@@ -741,7 +743,8 @@ class BaseTrainer:
                     "initial_epoch": config.runner_config.initial_epoch,
                     "initial_step": config.runner_config.initial_step,
                     "global_batch_size": self.global_batch_size,
-                    "gradient_accumulation_steps": self.config.runner_config.gradient_accumulation_steps
+                    "gradient_accumulation_steps": self.config.runner_config.gradient_accumulation_steps,
+                    "check_for_nan_in_loss_and_grad": getattr(config, "check_for_nan_in_loss_and_grad", False)
                 }
             elif "type" in callback and callback["type"] == "CheckpointMonitor":
                 default_args = {"append_info": append_info, "global_batch_size": self.global_batch_size}

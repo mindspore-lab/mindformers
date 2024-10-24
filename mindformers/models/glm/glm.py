@@ -284,7 +284,10 @@ class GLMForPreTraining(GLMPreTrainedModel):
             compute_dtype=config.compute_dtype,
             embed_parallel_config=config.parallel_config)
         self.stridedslice = ops.StridedSlice().shard(((1, 1),))
-        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config, eps_const=3.4e-38)
+        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config,
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
+                                     eps_const=3.4e-38)
         self.seq_length = config.seq_length
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
