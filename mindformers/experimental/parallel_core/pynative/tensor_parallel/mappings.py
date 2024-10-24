@@ -255,6 +255,7 @@ class ReduceScatterToSequenceParallelRegion(nn.Cell):
         self.need_to_swapaxes = need_to_swapaxes
         if self.world_size > 1:
             self.tp_group = get_tensor_model_parallel_group()
+        self.used_bprop_inputs = [2]
 
     def construct(self, input_):
         if self.world_size == 1:
@@ -267,7 +268,8 @@ class ReduceScatterToSequenceParallelRegion(nn.Cell):
         return output
 
     # pylint: disable=W0613, C0111
-    def bprop(self, x, out, dout):
+    def bprop(self, *args):
+        dout = args[-1]
         if self.world_size == 1:
             return dout
         if self.need_to_swapaxes:
