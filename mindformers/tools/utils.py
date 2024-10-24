@@ -29,11 +29,10 @@ try:
 except ImportError:
     fcntl = None
 
+import mindspore as ms
 from mindspore import Tensor, context
 from mindspore._checkparam import args_type_check
-from mindspore.communication import get_group_size, get_rank
-import mindspore.communication.comm_func as comm_func
-import mindspore as ms
+from mindspore.communication import get_group_size, get_rank, comm_func
 
 PARALLEL_MODE = {'DATA_PARALLEL': context.ParallelMode.DATA_PARALLEL,
                  'SEMI_AUTO_PARALLEL': context.ParallelMode.SEMI_AUTO_PARALLEL,
@@ -696,3 +695,22 @@ def barrier_world(action: str = None):
             logger.info("Now barriered...")
 
         comm_func.barrier()
+
+
+def get_pipeline_rank_ids():
+    """Calculate rank id of each stage and return a list of first rank id in each stage.
+
+    Returns:
+        pipeline_rank_ids: a list of pipeline rank ids or
+                           an invalid value(-1) if the configuration of pp is invalid.
+    """
+    device_num = get_real_group_size()
+    current_stage_num = ms.get_auto_parallel_context('pipeline_stages')
+
+    if device_num % current_stage_num != 0:
+        return [-1]
+
+    devices_per_stage = device_num // current_stage_num
+    pipeline_rank_ids = [i * devices_per_stage for i in range(current_stage_num)]
+
+    return pipeline_rank_ids
