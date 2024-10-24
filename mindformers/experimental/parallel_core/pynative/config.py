@@ -2194,6 +2194,10 @@ class TransformerConfig(BaseConfig):
             select_comm_recompute: bool = False,
             select_recompute: bool = False,
             apply_rope_fusion: bool = False,
+            use_sandwich_norm: bool = False,
+            attn_post_norm_scale: float = 1.0,
+            ffn_post_norm_scale: float = 1.0,
+            apply_swiglu_fusion: bool = False,
 
             **kwargs,
     ):
@@ -2269,6 +2273,10 @@ class TransformerConfig(BaseConfig):
         self.select_recompute = select_recompute
         self.apply_rope_fusion = apply_rope_fusion
         self.gated_linear_unit = False
+        self.use_sandwich_norm = use_sandwich_norm
+        self.attn_post_norm_scale = attn_post_norm_scale
+        self.ffn_post_norm_scale = ffn_post_norm_scale
+        self.apply_swiglu_fusion = apply_swiglu_fusion
 
         if "recompute_activations" in kwargs:
             if kwargs["recompute_activations"]:
@@ -2671,6 +2679,34 @@ def validate_apply_rope_fusion(config_instance, apply_rope_fusion):
     """Validate apply_rope_fusion."""
     Validator.check_bool(apply_rope_fusion, "apply_rope_fusion")
     return apply_rope_fusion
+
+
+@TransformerConfig.validator("use_sandwich_norm")
+def validate_use_sandwich_norm(config_instance, use_sandwich_norm):
+    """Validate use_sandwich_norm."""
+    Validator.check_bool(use_sandwich_norm, "use_sandwich_norm")
+    return use_sandwich_norm
+
+
+@TransformerConfig.validator("attn_post_norm_scale")
+def validate_attn_post_norm_scale(config_instance, attn_post_norm_scale):
+    """Validate attn_post_norm_scale."""
+    Validator.check_float_range(attn_post_norm_scale, 0, 1, Rel.INC_BOTH, "attn_post_norm_scale")
+    return attn_post_norm_scale
+
+
+@TransformerConfig.validator("ffn_post_norm_scale")
+def validate_ffn_post_norm_scale(config_instance, ffn_post_norm_scale):
+    """Validate ffn_post_norm_scale."""
+    Validator.check_float_range(ffn_post_norm_scale, 0, 1, Rel.INC_BOTH, "ffn_post_norm_scale")
+    return ffn_post_norm_scale
+
+
+@TransformerConfig.validator("apply_swiglu_fusion")
+def validate_apply_swiglu_fusion(config_instance, apply_swiglu_fusion):
+    """Validate apply_swiglu_fusion."""
+    Validator.check_bool(apply_swiglu_fusion, "apply_swiglu_fusion")
+    return apply_swiglu_fusion
 
 
 class OptimizerConfig(BaseConfig):

@@ -816,6 +816,11 @@ class ParallelTransformerLayer(Module):
         # Normalize the input data.
         self.input_norm = get_norm(config)
 
+        self.use_sandwich_norm = config.use_sandwich_norm
+
+        if self.use_sandwich_norm:
+            self.attn_post_norm = get_norm(config, config.attn_post_norm_scale)
+
         # Attention.
         attention_config = copy.deepcopy(config)
         use_lora = config.lora_config.use_lora
@@ -838,6 +843,8 @@ class ParallelTransformerLayer(Module):
 
         # Normalize the attention output
         self.post_attention_norm = get_norm(config)
+        if self.use_sandwich_norm:
+            self.ffn_post_norm = get_norm(config, config.ffn_post_norm_scale)
 
         # Cross attention.
         if self.layer_type in (LayerType.decoder,
@@ -941,6 +948,10 @@ class ParallelTransformerLayer(Module):
 
         with get_rng_tracer().rng_fork():
             out = self.hidden_states_dropout(attention_output)
+
+        if self.use_sandwich_norm:
+            out = self.attn_post_norm(out)
+
         norm_input = residual + out
 
         # layernorm post attention.
@@ -962,6 +973,10 @@ class ParallelTransformerLayer(Module):
 
         with get_rng_tracer().rng_fork():
             out = self.hidden_states_dropout(mlp_output)
+
+        if self.use_sandwich_norm:
+            out = self.ffn_post_norm(out)
+
         output = residual + out
 
         return output
