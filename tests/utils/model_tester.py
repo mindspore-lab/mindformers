@@ -82,6 +82,7 @@ class ModelTester:
                  num_train_epochs: int = 1,
                  use_label: bool = False,
                  experiment_mode: bool = False,
+                 input_sliced_sig: bool = False,
                  **kwargs):
         os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         set_seed(0)
@@ -91,6 +92,7 @@ class ModelTester:
         self.step_num = step_num
         self.use_label = use_label
         self.experiment_mode = experiment_mode
+        self.input_sliced_sig = input_sliced_sig
 
         optimizer_config = {
             # optimizer config
@@ -137,7 +139,7 @@ class ModelTester:
 
     def get_dataset(self, config):
         """build dataset for model training."""
-        if self.run_mode == 'train':
+        if self.run_mode == 'train' and not self.input_sliced_sig:
             seq_length = config.seq_length + 1
         else:
             seq_length = config.seq_length
@@ -158,7 +160,7 @@ class ModelTester:
         return dataset
 
     def set_train(self, model, config, dataset=None, loss_std=None, avg_time_std=None,
-                  checker_config=None, parallel_config=None, task='text_generation'):
+                  checker_config=None, parallel_config=None, task='text_generation', input_sliced_sig=False):
         """set model train."""
         if not self.experiment_mode:
             assert isinstance(loss_std, list) and self.step_num == len(loss_std)
@@ -183,6 +185,9 @@ class ModelTester:
         task_trainer.config.runner_config.sink_mode = False
         task_trainer.config.runner_wrapper.scale_sense.loss_scale_value = 1024
         task_trainer.config.callbacks = task_trainer.config.callbacks[:1]
+
+        if input_sliced_sig:
+            task_trainer.config.model.model_config.input_sliced_sig = input_sliced_sig
 
         if parallel_config is not None:
             task_trainer.set_parallel_config(**parallel_config)

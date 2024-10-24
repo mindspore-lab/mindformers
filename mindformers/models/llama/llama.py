@@ -409,6 +409,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
         logger.info("Predict run mode:{}".format(self.predict_run_mode))
         self.parallel_decoding = config.parallel_decoding_params is not None
+        self.input_sliced_sig = config.input_sliced_sig
 
     def to_embeddings(self, tokens):
         """return embedding tokens"""
@@ -516,11 +517,15 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         Returns:
             Tensor, The loss or (logits, tokens, input_mask) of the network.
         """
+        input_sliced_sig = self.input_sliced_sig
+        if self.training and input_sliced_sig and labels is None:
+            input_sliced_sig = False
+
         bsz, seqlen = self.shape(input_ids)
         if self.use_past:
             if not isinstance(batch_valid_length, Tensor):
                 batch_valid_length = self.ones((bsz,), mstype.int32)
-        if self.training:
+        if not input_sliced_sig and self.training:
             tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
         else:
             tokens = input_ids
@@ -546,7 +551,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
         else:
             if labels.ndim > 1:
-                if self.training:
+                if not input_sliced_sig and self.training:
                     labels = self.slice(labels, (0, 1), (bsz, seqlen), (1, 1))
                 label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
                 input_mask = self.mul(input_mask, label_mask)

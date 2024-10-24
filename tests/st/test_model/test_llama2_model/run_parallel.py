@@ -179,12 +179,40 @@ def parallel_train_sapp_mp2_pp2():
                      checker_config=checker_config)
 
 
+def train_input_sliced():
+    """test llama2 train when input has been processed to seq_length."""
+    # dp=2, parallel_optimizer
+    parallel_config = {
+        'use_parallel': True,
+        'data_parallel': 2,
+        'model_parallel': 1,
+        'pipeline_stage': 1,
+        'micro_batch_num': 1,
+    }
+    runner = ModelTester(run_mode='train', batch_size=8, input_sliced_sig=True, use_label=True, **parallel_config)
+    build_context(runner.args)
+
+    model_config = get_config()
+    model_config.input_sliced_sig = True
+    model_config.parallel_config = runner.args.get_parallel_config()
+    model = get_model(model_config)
+
+    loss_std = [10.215071, 10.185809, 10.154663, 10.117041, 10.073891,
+                10.031114, 9.991641, 9.953879, 9.921892, 9.895320,
+                9.867306, 9.841521, 9.812788, 9.804385, 9.781006,
+                9.780165, 9.771321, 9.777928, 9.774494, 9.765804]
+    time_std = 625
+
+    runner.set_train(model, model_config, loss_std=loss_std, avg_time_std=time_std)
+
+
 TEST_MAP = {
     'parallel_train_mp2_pp2': parallel_train_mp2_pp2,
     'parallel_train_dp2': parallel_train_dp2,
     'parallel_predict_mp2': parallel_predict_mp2,
     'parallel_train_mp2_cp2': parallel_train_mp2_cp2,
-    'parallel_train_sapp_mp2_pp2': parallel_train_sapp_mp2_pp2
+    'parallel_train_sapp_mp2_pp2': parallel_train_sapp_mp2_pp2,
+    "train_input_sliced": train_input_sliced
 }
 
 if __name__ == '__main__':

@@ -104,6 +104,9 @@ class LlamaConfig(PretrainedConfig):
             Llm boost backend. Default: ``None`` .
         fused_rms_norm (bool, optional):
             Whether or not to use the RMS_NORM of the fusion operator. Default: ``True`` .
+        input_sliced_sig (bool, optional):
+            If input_ids and labels have been processed to equal to seq_length, input_sliced_sig should be True,
+            if not, input_sliced_sig should be False. Default: ``False`` .
 
     Returns:
         LlamaConfig, a LlamaConfig instance.
@@ -226,6 +229,7 @@ class LlamaConfig(PretrainedConfig):
                  tie_word_embeddings: bool = False,
                  llm_backend: str = "",
                  fused_rms_norm: bool = True,
+                 input_sliced_sig: bool = False,
                  **kwargs):
         """
         Note:
@@ -297,3 +301,4 @@ class LlamaConfig(PretrainedConfig):
         self.llm_backend = llm_backend
         self.parallel_decoding_params = kwargs.get('parallel_decoding_params')
         self.fused_rms_norm = fused_rms_norm
+        self.input_sliced_sig = input_sliced_sig
