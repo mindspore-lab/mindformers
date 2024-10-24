@@ -18,20 +18,23 @@ import copy
 import re
 from typing import Union, Optional, Callable, List
 import numpy as np
+
 import mindspore.common.dtype as mstype
-from mindspore.dataset.transforms import TypeCast
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindspore.dataset.transforms.transforms import TypeCast
+
+from mindformers.tools.register.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.logger import logger
 from mindformers.version_control import get_dataset_map
-from .dataloader import build_dataset_loader
-from .base_dataset import BaseDataset
 
+from .dataloader.build_dataloader import build_dataset_loader
+from .base_dataset import BaseDataset
 
 CAST_TO_INT_COLUMNS = ["input_ids", "labels"]
 
 
 def dyn_batch_wrapper(divisor, remainder, pad_token_id=0):
-    "Generate dynamic batch process function for padding each batch data."
+    """Generate dynamic batch process function for padding each batch data."""
+
     def batch_map_process(*cols):
         max_length = max([len(c) for c in cols[0]])
         if divisor and remainder:
@@ -54,6 +57,7 @@ def dyn_batch_wrapper(divisor, remainder, pad_token_id=0):
                     res.append(c)
             output.append(res)
         return tuple(output)
+
     return batch_map_process
 
 
@@ -68,7 +72,7 @@ def get_input_data_batch_slice_map(input_ids, eod_token_id, dis, rank_id: int = 
         rank_id: the current rank id
     Returns:
         batch_input_ids: the input token ids
-        batch_position_ids: the position ids cosidering eod reset
+        batch_position_ids: the position ids considering eod reset
         batch_attention_mask: the attention mask considering eod reset
     """
     rank = int(rank_id)
