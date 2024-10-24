@@ -21,23 +21,23 @@ Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据�
 
 llama2_7b:
 
-| Config                                                     |         Task          | Datasets  | SeqLength | Metric |  Phase   |   Score   | Performance  |
-|:-----------------------------------------------------------|:---------------------:|:---------:|:---------:|:------:|:--------:|:---------:|:------------:|
-| [llama2_7b](../../configs/llama2/pretrain_llama2_7b.yaml)  |    text_generation    |   wiki    |   4096    |   -    | Pretrain |     -     | 4820 tks/s/p |
-| [llama2_7b](../../configs/llama2/finetune_llama2_7b.yaml)  |    text_generation    |  alpaca   |   4096    |   -    | Finetune |     -     | 4820 tks/s/p |
-| [llama2_7b_lora](../../configs/llama2/lora_llama2_7b.yaml) |    text_generation    |  alpaca   |   4096    |   -    | Finetune |     -     | 5217 tks/s/p |
-| [llama2_7b](../../configs/llama2/predict_llama2_7b.yaml)   |    text_generation    | WikiText2 |     -     |  PPL   |   Eval   |   6.58    |      -       |
-| [llama2_7b](../../configs/llama2/predict_llama2_7b.yaml)   | reading comprehension | SQuAD 1.1 |     -     | EM/F1  |   Eval   | 39.6/60.5 |      -       |
+| Config                                                       |         Task          | Datasets  | SeqLength | Metric |  Phase   |   Score   | Performance  |
+| :----------------------------------------------------------- | :-------------------: | :-------: | :-------: | :----: | :------: | :-------: | :----------: |
+| [llama2_7b](../../configs/llama2/pretrain_llama2_7b.yaml)    |    text_generation    |   wiki    |   4096    |   -    | Pretrain |     -     | 4820 tks/s/p |
+| [llama2_7b](../../configs/llama2/finetune_llama2_7b.yaml)    |    text_generation    |  alpaca   |   4096    |   -    | Finetune |     -     | 4820 tks/s/p |
+| [llama2_7b_lora](../../configs/llama2/lora_llama2_7b.yaml)   |    text_generation    |  alpaca   |   4096    |   -    | Finetune |     -     | 5217 tks/s/p |
+| [llama2_7b](../../configs/llama2/pretrain_llama2_7b_bf16.yaml) |    text_generation    | WikiText2 |     -     |  PPL   |   Eval   |   6.58    |      -       |
+| [llama2_7b](../../configs/llama2/predict_llama2_7b.yaml)     | reading comprehension | SQuAD 1.1 |     -     | EM/F1  |   Eval   | 39.6/60.5 |      -       |
 
 llama2_13b:
 
-| Config                                                        |         Task          | Datasets  | SeqLength | Metric |  Phase   |    Score    | Performance  |
-|:--------------------------------------------------------------|:---------------------:|:---------:|:---------:|:------:|:--------:|:-----------:|:------------:|
-| [llama2_13b](../../configs/llama2/pretrain_llama2_13b.yaml)   |    text_generation    |   wiki    |   4096    |   -    | Pretrain |      -      | 1883 tks/s/p |
-| [llama2_13b](../../configs/llama2/finetune_llama2_13b.yaml)   |    text_generation    |  alpaca   |   4096    |   -    | Finetune |      -      | 1883 tks/s/p |
-| [llama2_13b_lora](../../configs/llama2/lora_llama2_13b.yaml)  |    text_generation    |  alpaca   |   4096    |   -    | Finetune |      -      | 2322 tks/s/p |
-| [llama2_13b](../../configs/llama2/predict_llama2_13b.yaml)    |    text_generation    | WikiText2 |     -     |  PPL   |   Eval   |    6.14     |      -       |
-| [llama2_13b](../../configs/llama2/predict_llama2_13b.yaml)    | reading comprehension | SQuAD 1.1 |     -     | EM/F1  |   Eval   | 27.91/44.23 |      -       |
+| Config                                                       |         Task          | Datasets  | SeqLength | Metric |  Phase   |    Score    | Performance  |
+| :----------------------------------------------------------- | :-------------------: | :-------: | :-------: | :----: | :------: | :---------: | :----------: |
+| [llama2_13b](../../configs/llama2/pretrain_llama2_13b.yaml)  |    text_generation    |   wiki    |   4096    |   -    | Pretrain |      -      | 1883 tks/s/p |
+| [llama2_13b](../../configs/llama2/finetune_llama2_13b.yaml)  |    text_generation    |  alpaca   |   4096    |   -    | Finetune |      -      | 1883 tks/s/p |
+| [llama2_13b_lora](../../configs/llama2/lora_llama2_13b.yaml) |    text_generation    |  alpaca   |   4096    |   -    | Finetune |      -      | 2322 tks/s/p |
+| [llama2_13b](../../configs/llama2/pretrain_llama2_13b.yaml)  |    text_generation    | WikiText2 |     -     |  PPL   |   Eval   |    6.14     |      -       |
+| [llama2_13b](../../configs/llama2/predict_llama2_13b.yaml)   | reading comprehension | SQuAD 1.1 |     -     | EM/F1  |   Eval   | 27.91/44.23 |      -       |
 
 llama2_70b：
 
@@ -109,7 +109,7 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 #### 数据集下载
 
-MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集，**alpaca**作为[微调](#微调)数据集。
+MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测数据集，**alpaca**作为[微调](#微调)数据集，**SQuAD1.1**为阅读理解评测数据集。
 
 | 数据集名称     |                    适用模型                     |          适用阶段           |                                                         下载链接                                                          |
 |:----------|:-------------------------------------------:|:-----------------------:|:---------------------------------------------------------------------------------------------------------------------:|
@@ -119,7 +119,7 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集，**alpaca*
 
 数据预处理中所用的`tokenizer.model`可以参考[模型权重下载](#模型权重下载)进行下载。
 
-- **Wikitext2 数据预处理**
+- **Wikitext2 数据预处理—预训练**
 
   使用`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`对下载后的数据进行预处理，并生成Mindrecord数据。
 
@@ -141,6 +141,26 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集，**alpaca*
 
   > 注：`bos`, `eos`, `pad`等特殊`ids`要和`yaml`配置文件中`model_config`部分保持一致，默认`bos_token_id=1`, `eos_token_id=2`, `pad_token_id=0`。
 如果有所修改，配置文件中对应设置也需要修改，通常预训练数据不包含`pad_token`，因此建议设置`pad_token_id=-1`。
+
+- **Wikitext2 数据预处理—评测**
+
+  使用`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`对下载后的数据进行预处理，并生成Mindrecord数据。
+
+  ```shell
+   python llama_preprocess.py \
+    --dataset_type wiki \
+    --input_glob  /{path}/wiki.valid.tokens \
+    --model_file /{path}/tokenizer.model \
+    --seq_length 4095 \
+    --output_file /{path}/wiki4096.mindrecord
+
+    # 参数说明
+  dataset_type: 预处理数据类型
+  input_glob:   输入下载后wiki.valid.tokens的文件路径
+  model_file:   模型tokenizer.model文件路径
+  seq_length:   输出数据的序列长度
+  output_file:  输出文件的保存路径
+  ```
 
 - **alpaca 数据预处理**
 
@@ -478,22 +498,18 @@ processor:
 
    文本生成任务评测使用**WikiText2**数据集，可通过[数据集下载](#数据集下载)得到，并进行相应的预处理。
 
-2. 修改模型配置文件`configs/llama2/pretrain_llama2_7b.yaml`
+2. 修改模型配置文件`configs/llama2/pretrain_llama2_7b_bf16.yaml`
 
    ```yaml
    metric:
      type: PerplexityMetric
-
-   model:
-     model_config:
-       use_flash_attention: True
    ```
 
 3. 执行评测命令，指标为PPL
 
    ```shell
    python run_mindformer.py \
-     --config configs/llama2/pretrain_llama2_7b.yaml \
+     --config configs/llama2/pretrain_llama2_7b_bf16.yaml \
      --eval_dataset_dir /{path}/wiki4096.mindrecord \
      --run_mode eval \
      --load_checkpoint /{path}/llama2_7b.ckpt \
