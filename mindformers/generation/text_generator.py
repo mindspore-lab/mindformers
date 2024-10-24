@@ -84,9 +84,11 @@ class GenerationMixin:
         self.is_pynative = is_pynative()
         self.argmax = mint.argmax if self.use_mint_op else ms.ops.argmax
         self._pre_set_phase = None
+        self._exec_add_flags = True
 
     def _set_network_phase(self, phase):
         self._pre_set_phase = phase
+        self._exec_add_flags = True
 
     def _set_block_mgr(self, batch_size):
         """ Set model block table mgr function. """
@@ -297,14 +299,20 @@ class GenerationMixin:
             self.phase = "prefill"
             if self._pre_set_phase:
                 self.phase = f"prefill_{self._pre_set_phase}"
-            self.add_flags_custom(is_first_iteration=True)
+            # In dynamic shape scenarios, only the first execution of the prefill process will trigger this.
+            if self._exec_add_flags:
+                self.add_flags_custom(is_first_iteration=True)
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
             )
             self.phase = "increment"
-            # first iter done, go to other iters
-            self.add_flags_custom(is_first_iteration=False)
+            # first iter done, go to other iters, in dynamic shape scenarios, only the first execution
+            # of the increment process will trigger this.
+            if self._exec_add_flags:
+                self.add_flags_custom(is_first_iteration=False)
+                if self.config.is_dynamic:
+                    self._exec_add_flags = False
         else:
             # slice model inputs for incremental infer
             if self._pre_set_phase:
