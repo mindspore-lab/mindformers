@@ -53,6 +53,7 @@ from mindformers.tools.utils import count_params
 from mindformers.tools.check_rules import check_rules
 from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.core.callback.callback import ColdHotExpertMointor
+from mindformers.dataset.dataloader.blended_megatron_dataloader import is_dataset_built_on_rank
 from .config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import (
@@ -169,10 +170,16 @@ class BaseTrainer:
         micro_batch_interleave_num = self.config.micro_batch_interleave_num
         parallel_mode = ms.get_auto_parallel_context("parallel_mode")
         full_batch = ms.get_auto_parallel_context("full_batch")
+        ds_stra = ms.get_auto_parallel_context("dataset_strategy")
         pp = self.get_pipeline_stages()
 
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
             if full_batch:
+                if ds_stra != 'full_batch':
+                    logger.warning(f"full_batch=True only supports dataset_strategy='full_batch', "
+                                   f"reset dataset_strategy {ds_stra} to 'full_batch'.")
+                    ms.set_auto_parallel_context(dataset_strategy='full_batch')
+
                 if pp > 1:
                     self.global_batch_size = batch_size * dp * micro_batch_num * micro_batch_interleave_num
                     logger.info("Pipeline parallel was opened: pipeline_stages = %s, full batch is True, "
@@ -194,10 +201,17 @@ class BaseTrainer:
                                 parallel_mode, self.global_batch_size, batch_size, dp, micro_batch_interleave_num,
                                 gradient_accumulation_steps)
                     self.config.runner_config.batch_size = self.global_batch_size
-            else:
+            else:  # full_batch = False
+                if not isinstance(ds_stra, (tuple, list)):
+                    raise ValueError("If set full_batch=False, dataset_strategy must be set as 'tuple', "
+                                     "such as ((dp, 1), ).")
+                ds_stra_dp = ds_stra[0][0]
+                if dp != ds_stra_dp:
+                    raise ValueError(f"data_parallel {dp} should be equal to dataset_strategy[0][0] {ds_stra_dp}.")
+
                 if pp > 1:
                     per_batch_size = batch_size * micro_batch_num * micro_batch_interleave_num
-                    self.global_batch_size = per_batch_size * get_real_group_size()
+                    self.global_batch_size = per_batch_size * dp
                     logger.info("Pipeline parallel was opened: pipeline_stages = %s, full batch is False, "
                                 "gradient_accumulation_steps will not take effect in pipeline parallel, "
                                 "batch size per card will be changed: "
@@ -205,21 +219,21 @@ class BaseTrainer:
                                 "= %s = %s * %s * %s).",
                                 pp, per_batch_size, batch_size, micro_batch_num,
                                 micro_batch_interleave_num)
-                    logger.info("global_batch_size = per_batch_size * device_num = %s * %s = %s",
-                                per_batch_size, get_real_group_size(), self.global_batch_size)
+                    logger.info("global_batch_size = per_batch_size * data_parallel = %s * %s = %s",
+                                per_batch_size, dp, self.global_batch_size)
                     self.config.runner_config.batch_size = per_batch_size
                     self._reset_wrapper_for_pipeline_parallel()
                 else:
                     per_batch_size = batch_size * micro_batch_interleave_num * gradient_accumulation_steps
-                    self.global_batch_size = per_batch_size * get_real_group_size()
+                    self.global_batch_size = per_batch_size * dp
                     logger.info("The current parallel mode is %s, full batch is False, "
                                 "batch size per card will be changed: "
                                 "per_batch_size = batch_size * micro_batch_interleave_num * "
                                 "gradient_accumulation_steps = %s = %s * %s * %s).",
                                 parallel_mode, per_batch_size, batch_size, micro_batch_interleave_num,
                                 gradient_accumulation_steps)
-                    logger.info("global_batch_size = per_batch_size * device_num = %s * %s = %s",
-                                per_batch_size, get_real_group_size(), self.global_batch_size)
+                    logger.info("global_batch_size = per_batch_size * data_parallel = %s * %s = %s",
+                                per_batch_size, dp, self.global_batch_size)
                     self.config.runner_config.batch_size = per_batch_size
         else:
             logger.info("The current parallel mode is %s, batch size per card will not be changed: "
@@ -238,7 +252,6 @@ class BaseTrainer:
             logger.info("parallel_config will be change to default config: %s.",
                         self.config.parallel_config)
         self.config.runner_config.global_batch_size = self.global_batch_size
-
 
     def _check_grad_accumulation_steps(self):
         """check the gradient accumulation steps."""
@@ -432,6 +445,10 @@ class BaseTrainer:
             network = PipelineCell(network, micro_size=micro_batch_num)
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
             network = _VirtualDatasetCell(network)
+            ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
+            if ds_broadcast_level > 0:
+                # pylint: disable=W0212
+                network._virtual_dataset.add_prim_attr("repeat_dim_direct", "right")
         return network
 
     def wrap_eval_network_with_tool_cells(self, network):
@@ -439,6 +456,10 @@ class BaseTrainer:
         parallel_mode = ms.context.get_auto_parallel_context("parallel_mode")
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
             network = _VirtualDatasetCell(network)
+            ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
+            if ds_broadcast_level > 0:
+                # pylint: disable=W0212
+                network._virtual_dataset.add_prim_attr("repeat_dim_direct", "right")
         return network
 
     def create_image_processor(self, default_args: dict = None):
@@ -630,6 +651,25 @@ class BaseTrainer:
         learning_rate = (base_learning_rate * device_num * per_device_batch_size) / scale_factor
         return learning_rate
 
+    def _process_megatron_dataset(self, dataset, config):
+        """Dataset processing for Megatron Dataset."""
+        dataset_info = config.train_dataset.data_loader
+        # reset dataset size to remove redundant data
+        ori_ds = dataset.get_dataset_size()
+        dataset.dataset_size = int(dataset_info.sizes[0]) // self.global_batch_size
+        cur_ds = dataset.get_dataset_size()
+        logger.info(f"Use BlendedMegatronDatasetDataLoader, reset dataset size {ori_ds} to {cur_ds}.")
+
+        # skip data for real dataset
+        if config.data_skip_steps or config.resume_training:
+            rank_id = get_real_rank()
+            parallel_mode = ms.context.get_auto_parallel_context("parallel_mode")
+            if parallel_mode in ("semi_auto_parallel", "auto_parallel") and not is_dataset_built_on_rank:
+                # not skip fake data in megatron dataset
+                config.ignore_data_skip = True
+            logger.info(f"local rank id: {rank_id}, ignore data skip: {config.ignore_data_skip}.")
+        return dataset, config
+
     def training_process(
             self,
             config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
@@ -651,6 +691,9 @@ class BaseTrainer:
         # build dataset
         logger.info(".........Build Dataset For Train..........")
         dataset = self.create_train_dataset()
+        if config.train_dataset.get('data_loader') and \
+                config.train_dataset.data_loader.type == "BlendedMegatronDatasetDataLoader":
+            dataset, config = self._process_megatron_dataset(dataset, config)
         logger.info("Create train dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         append_info = None

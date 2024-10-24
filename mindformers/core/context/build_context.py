@@ -163,6 +163,12 @@ class _Context:
         return context.get_context(attr_key)
 
     def set_ms_auto_parallel_context(self, **kwargs):
+        full_batch = kwargs.get("full_batch")
+        src_ds_stra = kwargs.pop("dataset_strategy", None)
+        if not full_batch and src_ds_stra is not None and isinstance(src_ds_stra, list):
+            # convert dataset_strategy list to tuple
+            ds_stra = tuple(tuple(ds_item) for ds_item in src_ds_stra)
+            kwargs['dataset_strategy'] = ds_stra
         context.set_auto_parallel_context(**kwargs)
 
     def check_runtime_num_threads_version(self):

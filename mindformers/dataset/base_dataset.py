@@ -17,9 +17,10 @@ import os
 
 import mindspore as ms
 import mindspore.dataset as ds
-from mindformers.tools.register import MindFormerConfig
 
+from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import get_real_rank, get_real_group_size
+from mindformers.tools.logger import logger
 
 
 class BaseDataset:
@@ -30,6 +31,7 @@ class BaseDataset:
         dataset_config (dict): Config for dataset.
 
     """
+
     def __init__(self, dataset_config: dict = None):
         self.dataset_config = dataset_config
 
@@ -62,10 +64,24 @@ class BaseDataset:
 
     @classmethod
     def _generate_shard_info(cls):
-        """Generate shard info for dataset"""
+        """Generate shard info for dataset."""
         rank_id = get_real_rank()
         device_num = get_real_group_size()
-        return cls._check_device_rank_for_parallel(rank_id, device_num)
+
+        ds_stra = ms.context.get_auto_parallel_context("dataset_strategy")
+        if cls._is_semi_full_batch():
+            rank_id = None
+            device_num = None
+        elif cls._is_semi() and not cls._is_full_batch():
+            pp = ms.context.get_auto_parallel_context("pipeline_stages")
+            first_input_stra = ds_stra[0]
+            dp = first_input_stra[0]
+            mp = device_num // pp // dp
+            rank_id = rank_id % (device_num // pp) // mp
+            device_num = dp
+
+        logger.info(f"Now dataset_strategy is {ds_stra}, rank_id: {rank_id}, device_num: {device_num}")
+        return rank_id, device_num
 
     @classmethod
     def _check_device_rank_for_parallel(cls, rank_id, device_num):
@@ -76,9 +92,16 @@ class BaseDataset:
         return rank_id, device_num
 
     @classmethod
+    def _is_semi(cls):
+        return ms.context.get_auto_parallel_context("parallel_mode") in ['semi_auto_parallel', 'auto_parallel']
+
+    @classmethod
+    def _is_full_batch(cls):
+        return ms.context.get_auto_parallel_context("full_batch")
+
+    @classmethod
     def _is_semi_full_batch(cls):
-        return ((ms.context.get_auto_parallel_context("parallel_mode") in ['semi_auto_parallel', 'auto_parallel'])
-                and ms.context.get_auto_parallel_context("full_batch"))
+        return cls._is_semi() and cls._is_full_batch()
 
     @classmethod
     def _is_data_parallel(cls):
