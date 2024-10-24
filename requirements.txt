@@ -19,3 +19,4 @@ tiktoken
 jinja2
 setproctitle
 safetensors
+tensorboardX

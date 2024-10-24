@@ -16,3 +16,5 @@ mindformers.core.MFLossMonitor
         - **initial_step** (int) - 训练开始的step数。默认值： ``0`` 。
         - **global_batch_size** (int) - 总BatchSize大小。默认值： ``0`` 。
         - **gradient_accumulation_steps** (int) - 梯度累加步数。默认值： ``1`` 。
+        - **enable_tensorboard** (bool) - 是否在训练中启用 TensorBoard 日志记录。默认值： ``False`` 。
+        - **tensorboard_path** (str) - 如果启用了 TensorBoard，则该路径指定TensorBoard 日志文件保存的路径。如果设置为 None，则使用默认输出路径（例如 './output'）。默认值：None。

@@ -22,6 +22,7 @@ import datetime
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from typing import Callable, Optional, Union
+from tensorboardX import SummaryWriter
 
 import numpy as np
 import mindspore as ms
@@ -135,6 +136,9 @@ class MFLossMonitor(Callback):
         initial_step (int): The beginning step. Default: 0.
         global_batch_size (int): The total batch size. Default: 0.
         gradient_accumulation_steps (int): The gradient accumulation steps. Default: 1.
+        enable_tensorboard (bool): Whether to enable TensorBoard logging during training. Default: False.
+        tensorboard_path (str): If TensorBoard is enabled, this path specifies where the log files will be saved.
+            If set to None, the default output path will be used (e.g., './output'). Default: None.
 
     Examples:
         >>> from mindformers.core import MFLossMonitor
@@ -152,7 +156,9 @@ class MFLossMonitor(Callback):
                  initial_epoch: int = 0,
                  initial_step: int = 0,
                  global_batch_size: int = 0,
-                 gradient_accumulation_steps: int = 1):
+                 gradient_accumulation_steps: int = 1,
+                 enable_tensorboard: bool = False,
+                 tensorboard_path: str = None):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
         self.learning_rate = deepcopy(learning_rate)
@@ -171,6 +177,15 @@ class MFLossMonitor(Callback):
         self.global_batch_size = global_batch_size
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.device_num = get_real_group_size()
+        self.enable_tensorboard = enable_tensorboard
+        if self.enable_tensorboard:
+            rank_id = get_real_rank()
+            if tensorboard_path is None:
+                tensorboard_path = os.path.join(get_output_root_path(), "tensorboard")
+            tensorboard_path = os.path.join(tensorboard_path, f"rank_{rank_id}")
+            if not os.path.exists(tensorboard_path):
+                os.makedirs(tensorboard_path, exist_ok=True)
+            self.tensor_writer = SummaryWriter(tensorboard_path)
 
     def epoch_begin(self, run_context):
         """
@@ -262,6 +277,14 @@ class MFLossMonitor(Callback):
         if auto_parallel:
             ms.context.set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
 
+    def end(self, run_context):
+        if self.enable_tensorboard:
+            logger.info("Start save tensorboard file")
+            self.tensor_writer.close()
+            logger.info("Save tensorboard file completed")
+        else:
+            super().end(run_context)
+
     def _fix_loss_for_parallel(self, loss):
         """Fix loss value in pipeline or double parallel mode."""
         pipeline_stages = ms.context.get_auto_parallel_context("pipeline_stages")
@@ -328,6 +351,9 @@ class MFLossMonitor(Callback):
                 self.print_warning_flag = False
             current_lr = None
 
+        if self.enable_tensorboard:
+            global_step = cur_step_num + (cur_epoch_num - 1) * steps_per_epoch
+
         if current_lr is not None:
             if cb_params.dataset_sink_mode:
                 logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
@@ -342,6 +368,8 @@ class MFLossMonitor(Callback):
             show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
             logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
                         datetime.timedelta(seconds=int(time_remain)))
+            if self.enable_tensorboard:
+                self.tensor_writer.add_scalar(f"train learn rate", float(current_lr), global_step=global_step)
         else:
             if cb_params.dataset_sink_mode:
                 logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
@@ -356,6 +384,9 @@ class MFLossMonitor(Callback):
             show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
             logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
                         datetime.timedelta(seconds=int(time_remain)))
+        if self.enable_tensorboard:
+            self.tensor_writer.add_scalar(f"train loss", loss, global_step=global_step)
+            self.tensor_writer.add_scalar(f"train global_norm", global_norm, global_step=global_step)
 
     def dump_info_to_modelarts(self, ma_step_num, ma_loss):
         """dump modelarts info to display evaluation result page"""
