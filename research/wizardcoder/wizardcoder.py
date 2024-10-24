@@ -98,7 +98,10 @@ class WizardCoderLMHeadModel(WizardCoderPreTrainedModel):
             logger.warning("Now, the model_parallel num of WizardCoder Loss will be changed: mp = 1")
             loss_parallel_config.model_parallel = 1
 
-        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config, eps_const=1e-24)
+        check_for_nan_in_loss_and_grad = getattr(self.config, "check_for_nan_in_loss_and_grad", False)
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
+                                     eps_const=1e-24)
         self.reshape = P.Reshape()
         self.shape = P.Shape()
         self.cast = P.Cast()

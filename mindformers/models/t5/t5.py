@@ -1720,8 +1720,14 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         parallel_config = config.parallel_config
         self.t5_model = T5Model(config=config)
 
-        self.loss = CrossEntropyLoss(parallel_config=OpParallelConfig(data_parallel=parallel_config.data_parallel,
-                                                                      model_parallel=parallel_config.model_parallel))
+        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        self.loss = CrossEntropyLoss(
+            parallel_config=OpParallelConfig(
+                data_parallel=parallel_config.data_parallel,
+                model_parallel=parallel_config.model_parallel
+            ),
+            check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad
+        )
         self.cast = ops.Cast()
         self.shape = ops.Shape()
 

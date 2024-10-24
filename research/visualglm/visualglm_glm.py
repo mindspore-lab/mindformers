@@ -132,7 +132,9 @@ class GLMForPreTrainingForBlip2(GLMForPreTraining, ImageTextEmbeddingPreparation
 
         self.config.checkpoint_name_or_path = checkpoint_name_or_path
 
-        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
+        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config,
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
         self.cast_1d = P.Cast()
         self.mul_1d = P.Mul().shard(((1,), (1,)))
         self.reshape = P.Reshape()

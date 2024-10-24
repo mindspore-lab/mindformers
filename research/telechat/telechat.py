@@ -324,7 +324,9 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
                            vocab_size, mp)
             logger.warning("Now, the model_parallel num of Loss will be changed: mp = 1")
             loss_parallel_config.model_parallel = 1
-        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
+        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
         self.seq_length = config.seq_length
 
         dp = config.parallel_config.data_parallel

@@ -94,7 +94,9 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
             logger.warning("Now, the model_parallel num of GPT Loss will be changed: mp = 1")
             loss_parallel_config.model_parallel = 1
 
-        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
+        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
         self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.load_checkpoint(config)

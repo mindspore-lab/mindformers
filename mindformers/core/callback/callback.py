@@ -77,13 +77,32 @@ class ObsMonitor:
         return Local2ObsMonitor(src_dir, target_dir, step_upload_frequence, epoch_upload_frequence, keep_last)
 
 
-def _get_loss_output(output):
+def _check_nan(loss, local_norm, global_norm):
+    """Check if Nan in loss, local/global norm of grad then terminate training"""
+    if isinstance(loss, ms.Tensor):
+        loss = loss.asnumpy()
+        if np.any(np.isnan(loss)):
+            raise ValueError(f"loss is {loss}, terminate training.")
+
+    if isinstance(local_norm, ms.Tensor):
+        local_norm = local_norm.asnumpy()
+        if np.any(np.isnan(local_norm)):
+            raise ValueError(f"local_norm is {local_norm}, terminate training.")
+
+    if isinstance(global_norm, ms.Tensor):
+        global_norm = global_norm.asnumpy()
+        if np.any(np.isnan(global_norm)):
+            raise ValueError(f"global_norm is {global_norm}, terminate training.")
+
+
+def _get_loss_output(output, check_for_nan_in_loss_and_grad=False):
     """Get output of task for MFLossMonitor."""
     overflow = False
     scaling_sens = False
     loss = output
     learning_rate = None
     global_norm = None
+    local_norm = None
     if isinstance(output, (tuple, list)):
         if len(output) in [3, 4, 5, 7]:
             loss, overflow, scaling_sens, *res = output
@@ -96,20 +115,19 @@ def _get_loss_output(output):
                 learning_rate = res[0]
             if isinstance(scaling_sens, ms.Tensor):
                 scaling_sens = scaling_sens.asnumpy()
-            if len(output) > 4:
-                if isinstance(global_norm, ms.Tensor):
-                    global_norm = global_norm.asnumpy()
         else:
             if isinstance(output[0], ms.Tensor) and isinstance(output[0].asnumpy(), np.ndarray):
                 loss = output[0]
 
+    # Boundary check.
+    if check_for_nan_in_loss_and_grad:
+        _check_nan(loss, local_norm, global_norm)
+
+    if isinstance(global_norm, ms.Tensor):
+        global_norm = global_norm.asnumpy()
+
     if isinstance(loss, ms.Tensor) and isinstance(loss.asnumpy(), np.ndarray):
         loss = np.mean(loss.asnumpy())
-
-    # Boundary check.
-    if isinstance(loss, float) and (np.isnan(loss) or np.isinf(loss)):
-        invalid_loss_info = "NaN" if np.isnan(loss) else "Inf"
-        raise ValueError(f"The current value of loss is {invalid_loss_info}, terminate training.")
 
     if isinstance(overflow, ms.Tensor):
         overflow = overflow.asnumpy()
@@ -139,6 +157,7 @@ class MFLossMonitor(Callback):
         enable_tensorboard (bool): Whether to enable TensorBoard logging during training. Default: False.
         tensorboard_path (str): If TensorBoard is enabled, this path specifies where the log files will be saved.
             If set to None, the default output path will be used (e.g., './output'). Default: None.
+        check_for_nan_in_loss_and_grad (bool): Whether to check loss and norm of grad is Nan. Default: False.
 
     Examples:
         >>> from mindformers.core import MFLossMonitor
@@ -158,7 +177,8 @@ class MFLossMonitor(Callback):
                  global_batch_size: int = 0,
                  gradient_accumulation_steps: int = 1,
                  enable_tensorboard: bool = False,
-                 tensorboard_path: str = None):
+                 tensorboard_path: str = None,
+                 check_for_nan_in_loss_and_grad: bool = False):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
         self.learning_rate = deepcopy(learning_rate)
@@ -186,6 +206,7 @@ class MFLossMonitor(Callback):
             if not os.path.exists(tensorboard_path):
                 os.makedirs(tensorboard_path, exist_ok=True)
             self.tensor_writer = SummaryWriter(tensorboard_path)
+        self.check_for_nan_in_loss_and_grad = check_for_nan_in_loss_and_grad
 
     def epoch_begin(self, run_context):
         """
@@ -231,7 +252,8 @@ class MFLossMonitor(Callback):
         cb_params = run_context.original_args()
         step_seconds = (time.time() - self.step_time) * 1000
         net_outputs = cb_params.net_outputs
-        loss, overflow, scaling_sens, learning_rate, global_norm = _get_loss_output(net_outputs)
+        loss, overflow, scaling_sens, learning_rate, global_norm = \
+            _get_loss_output(net_outputs, self.check_for_nan_in_loss_and_grad)
         if learning_rate is not None:
             self.learning_rate = learning_rate
         loss = self._fix_loss_for_parallel(loss)
