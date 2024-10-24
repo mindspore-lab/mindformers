@@ -82,6 +82,8 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - capacity_factor: 专家能力因子
     - aux_loss_factor: loss贡献因子
     - num_experts_chosen: 每个token选择专家数目
+    - balance_via_topk_bias: 使能aux_loss_free负载均衡算法
+    - topk_bias_update_rate：aux_loss_free负载均衡算法bias更新步长
 - recompute_config：重计算配置，可以参考mindformers.modules.transformer.TransformerRecomputeConfig
     - recompute: 是否开启重计算
     - select_recompute: 是否开启选择重计算，只针对attention层的算子进行重计算

@@ -63,6 +63,45 @@ class TestMoE:
         assert ret == 0, "msrun failed, please check msrun_log_graph/worker_*.log"
 
 
+    @pytest.mark.skip(reason="skip graph_aux_loss_free st")
+    @pytest.mark.run(order=3)
+    def test_moe_with_aux_loss_free(self):
+        """
+        Feature: test_moe_with_aux_loss_free
+        Description: run graph mode moe with auxlossfree to generate golden ckpt and loss
+        Exception: AssertionError
+        """
+        os.environ['GRAPH_OP_RUN'] = "1"
+        scripts_name = "run_moe.py"
+        device_num = 1
+
+        rm_list = ["npy_golden*",
+                   "msrun_log_graph*",
+                   "kernel_meta*",
+                   "golden_moe*"]
+
+        for rm_path in rm_list:
+            rm_path = os.path.join(os.getcwd(), rm_path)
+            print(f"removing {rm_path}")
+            os.system(f"rm -rf {rm_path}")
+
+        sh_path = os.path.split(os.path.realpath(__file__))[0]
+        scripts_path = os.path.join(sh_path, scripts_name)
+
+        scripts_cmd = f"{scripts_path} --generate_golden --aux_loss_free --dp=1 --ep=1 --batch_size=2"
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=3722 " + \
+                    f"--log_dir=msrun_log_aux_loss_free " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
+                    f"{scripts_cmd}"
+        print(f"\nrun cmd:\n{cmd}")
+        ret = os.system(cmd)
+        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_aux_loss_free/worker_0.log -C 3")
+        assert ret == 0, "msrun failed, please check msrun_log_aux_loss_free/worker_*.log"
+
+
     @pytest.mark.skip(reason="skip dp1 st")
     @pytest.mark.run(order=2)
     def test_moe_pynative_dp1(self):
