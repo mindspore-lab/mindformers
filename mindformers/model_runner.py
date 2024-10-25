@@ -244,17 +244,15 @@ class MindIEModelRunner:
             kvcache_dtype = self.model_config.quantization_config.kvcache_dtype
         self.dtype = convert_mstype(kvcache_dtype)
         kvcache_bytes = ms.Tensor(0, dtype=self.dtype).itemsize
-        num_kv_heads_ = self.num_kv_heads
-        head_size_ = self.head_size
+        total_head_size = self.num_kv_heads * self.head_size
 
         if get_ascend_soc_version() in ['310p', 'ascend310p']:
-            num_kv_heads_ = -(self.num_kv_heads // -16) * 16
-            head_size_ = -(self.head_size // -16) * 16
+            total_head_size = -(total_head_size // -16) * 16
 
         self.npu_num_blocks = (npu_mem_size * 1024 * 1024 * 1024) // \
-                              (block_size * num_kv_heads_ * head_size_ * kvcache_bytes * 2 * self.num_layers)
+                              (block_size * total_head_size * kvcache_bytes * 2 * self.num_layers)
         self.cpu_num_blocks = (cpu_mem_size * 1024 * 1024 * 1024) // \
-                              (block_size * num_kv_heads_ * head_size_ * kvcache_bytes * 2 * self.num_layers)
+                              (block_size * total_head_size * kvcache_bytes * 2 * self.num_layers)
 
         self.model_config.block_size = block_size
         self.model_config.num_blocks = self.npu_num_blocks
@@ -297,7 +295,7 @@ class MindIEModelRunner:
         if self.model_config.is_dynamic:
             self.model.set_dynamic_inputs()
 
-        cpu_kv_shape = (self.cpu_num_blocks, block_size, num_kv_heads_, head_size_)
+        cpu_kv_shape = (self.cpu_num_blocks, block_size, self.num_kv_heads, self.head_size)
         self.key_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=self.dtype, init=Zero()),
                                       name=f"key_host_{i}", requires_grad=False) for i in range(self.num_layers)]
         self.value_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=self.dtype, init=Zero()),
