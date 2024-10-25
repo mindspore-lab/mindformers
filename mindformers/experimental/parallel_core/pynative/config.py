@@ -37,7 +37,7 @@ except ImportError:
 from mindspore.common.initializer import _INITIALIZER_ALIAS
 
 from mindformers.tools import DictConfig, logger
-from mindformers.experimental.parallel_core.pynative.utils import load_yaml, DictWithValueError
+from mindformers.experimental.parallel_core.pynative.utils import load_yaml, DictWithValueError, divide
 
 _SUPPORT_DTYPE_DICT = DictWithValueError(
     {"float16": mstype.float16, "float32": mstype.float32, "bfloat16": mstype.bfloat16}
@@ -2579,7 +2579,7 @@ def validate_recompute_granularity(config_instance, recompute_granularity):
 def validate_kv_channels(config_instance, kv_channels):
     """Validate kv_channels."""
     if kv_channels is None:
-        kv_channels = config_instance.hidden_size // config_instance.num_attention_heads
+        kv_channels = divide(config_instance.hidden_size, config_instance.num_attention_heads)
     return kv_channels
 
 
