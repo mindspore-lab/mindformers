@@ -44,7 +44,9 @@ class CodeGeexHeadModel(PanguAlphaHeadModel):
         self.pad_token = Tensor(config.pad_token_id)
         dp = config.parallel_config.data_parallel
         self.eod_token = config.eod_token
-        self.loss = CrossEntropyLoss(config.parallel_config.dp_mp_config)
+        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        self.loss = CrossEntropyLoss(config.parallel_config.dp_mp_config,
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
 
         self.slice = P.StridedSlice().shard(((dp, 1),))
         self.not_equal = P.NotEqual().shard(((dp, 1), ()))

@@ -1,7 +1,7 @@
 mindformers.core.CrossEntropyLoss
 =================================
 
-.. py:class:: mindformers.core.CrossEntropyLoss(parallel_config=default_dpmp_config, **kwargs)
+.. py:class:: mindformers.core.CrossEntropyLoss(parallel_config=default_dpmp_config, check_for_nan_in_loss_and_grad=False, **kwargs)
 
     计算预测值和目标值之间的交叉熵损失。
 
@@ -46,6 +46,7 @@ mindformers.core.CrossEntropyLoss
 
     参数：
         - **parallel_config** (:class:`mindformers.modules.transformer.op_parallel_config.OpParallelConfig`) - 并行配置字典，用于控制并行训练的策略。默认值： ``default_dpmp_config`` 。
+        - **check_for_nan_in_loss_and_grad** (bool) - 是否打印局部损失。默认值： ``False`` 。
 
     输入：
         - **logits** (Tensor) - 输入预测值，shape为 :math:`(N, C)` 。输入值需为对数概率。数据类型仅支持float32或float16。

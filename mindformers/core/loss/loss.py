@@ -351,6 +351,7 @@ class CrossEntropyLoss(nn.Cell):
     Args:
         parallel_config (mindformers.modules.transformer.op_parallel_config.OpParallelConfig): The parallel
             configuration. Default default_dpmp_config.
+        check_for_nan_in_loss_and_grad (bool): Whether to print local loss. Default: False.
 
     Inputs:
         - **logits** (Tensor) - Tensor of shape (N, C). Data type must be float16 or float32. The output logits of
@@ -380,7 +381,7 @@ class CrossEntropyLoss(nn.Cell):
     """
     @_LogActionOnce(m_logger=logger, key='CrossEntropyLoss',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
-    def __init__(self, parallel_config=default_dpmp_config, **kwargs):
+    def __init__(self, parallel_config=default_dpmp_config, check_for_nan_in_loss_and_grad=False, **kwargs):
         super(CrossEntropyLoss, self).__init__()
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
@@ -400,6 +401,10 @@ class CrossEntropyLoss(nn.Cell):
         self._log_softmax = _LogSoftmax(parallel_config)
         self._nllloss = _NLLLoss(parallel_config)
 
+        self.check_for_nan_in_loss_and_grad = check_for_nan_in_loss_and_grad
+        if self.check_for_nan_in_loss_and_grad:
+            self.local_sum2 = P.ReduceSum().add_prim_attr("cross_batch", True)
+
     @staticmethod
     def _check_and_modify_sharding_context(dp):
         device_num = _get_device_num()
@@ -418,8 +423,16 @@ class CrossEntropyLoss(nn.Cell):
 
         # Using input_mask to mask the loss
         input_mask = P.Reshape()(input_mask, (-1,))
-        numerator = self.sum2(self.mul2(loss_reduce, input_mask))
 
+        if self.check_for_nan_in_loss_and_grad:
+            local_numerator = self.local_sum2(self.mul2(loss_reduce, input_mask))
+            local_denominator = self.add2(
+                self.local_sum2(input_mask),
+                P.Cast()(F.tuple_to_array((1e-8,)), mstype.float32))
+            local_loss = self.div2(local_numerator, local_denominator)
+            print("local loss: ", local_loss)
+
+        numerator = self.sum2(self.mul2(loss_reduce, input_mask))
         denominator = self.add2(
             self.sum2(input_mask),
             P.Cast()(F.tuple_to_array((1e-8,)), mstype.float32))

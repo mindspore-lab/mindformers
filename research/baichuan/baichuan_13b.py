@@ -101,7 +101,9 @@ class Baichuan13BForCausalLM(BaichuanPreTrainedModel):
                               compute_dtype=config.compute_dtype,
                               param_init_type=config.param_init_type,
                               weight_init="normal")  # meta default: xavier_normal
-        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config)
+        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        self.loss = CrossEntropyLoss(parallel_config=config.parallel_config,
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
 
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
