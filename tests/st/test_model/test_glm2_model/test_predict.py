@@ -18,16 +18,19 @@ How to run this:
     pytest tests/st/test_model/test_glm2_model/test_predict.py
 """
 import pytest
+import mindspore as ms
 import mindspore.common.dtype as mstype
 
 from tests.utils.model_tester import ModelTester
 from .base_model import get_config, get_model
 
+ms.set_context(mode=0)
+
 
 class TestGLM2Predict:
     """A test class for testing model prediction."""
 
-    @pytest.mark.level1
+    @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_base_model(self):
