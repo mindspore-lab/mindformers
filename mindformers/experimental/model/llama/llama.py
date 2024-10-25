@@ -13,22 +13,24 @@
 # limitations under the License.
 # ============================================================================
 """mindformers Llama model"""
-from typing import Optional
+import numpy as np
 
 from mindspore import Tensor
 from mindspore import dtype
 from mindspore.ops import operations as P
 
 from mindformers import LlamaConfig
+from mindformers.core.context import get_context
+from mindformers.experimental.parallel_core.pynative.transformer.enums import AttnMaskType
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
-from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallelLinear
-from mindformers.experimental.parallel_core import get_language_model
-from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.models.utils import lazy_inline
+from mindformers.experimental.parallel_core import get_language_model, ParallelLMLogits
 from mindformers.experimental.graph.transformer.transformer_config_utils import convert_to_transformer_config
+from mindformers.experimental.parallel_core.pynative.transformer.module import Module
 from mindformers.tools.logger import logger
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.models.utils import lazy_inline
 
 __all__ = ['LlamaPretrainedModel',
            'LlamaForCausalLM']
@@ -42,8 +44,8 @@ class LlamaPretrainedModel(PreTrainedModel):
     base_model_prefix = "llama"
 
 
-@MindFormerRegister.register(MindFormerModuleType.MODELS, alias='LlamaForCausalLMUnity')
-class LlamaForCausalLM(LlamaPretrainedModel):
+@MindFormerRegister.register(MindFormerModuleType.MODELS, alias='LlamaForCausalLMUnify')
+class LlamaForCausalLM(Module, LlamaPretrainedModel):
     """Provide llama training loss or logits through network.
 
     Args:
@@ -57,45 +59,45 @@ class LlamaForCausalLM(LlamaPretrainedModel):
     def __init__(self,
                  config: LlamaConfig,
                  num_tokentypes: int = 0,
-                 parallel_output: bool = False,
+                 parallel_output: bool = True,
                  pre_process: bool = True,
                  post_process: bool = True,
                  **kwargs
                  ):
-        super().__init__(config, auto_prefix=True, **kwargs)
-        if parallel_output:
-            raise NotImplementedError("LlamaModel does not need to support parallel_output.")
+        logger.info(f'Init LlamaForCausalLM in mode: {get_context("mode")} .')
         transformer_config = TransformerConfig()
         convert_to_transformer_config(config, transformer_config)
+        super().__init__(transformer_config, False, config, auto_prefix=True, **kwargs)
         self.pre_process = pre_process
         self.post_process = post_process
         self.fp16_lm_cross_entropy = transformer_config.fp16_lm_cross_entropy
-        self.hidden_size = transformer_config.hidden_size
-        self.padded_vocab_size = transformer_config.padded_vocab_size
         self.compute_dtype = transformer_config.compute_dtype
         self.pad_token_id = transformer_config.pad_token_id
-        self.ignore_token_id = transformer_config.ignore_token_id
-        self.init_method = transformer_config.init_method
+        self.parallel_output = parallel_output
+        self.mode = get_context("mode")
+        self.default_attn_mask = Tensor(
+            np.triu(np.ones((transformer_config.seq_length, transformer_config.seq_length), dtype=np.uint8),
+                    k=1),
+            dtype.uint8
+        )
 
-        self.language_model, self._language_model_key = get_language_model(
+        self.language_model, _ = get_language_model(
             config=transformer_config,
             num_tokentypes=num_tokentypes,
             add_pooler=False,
-            encoder_attn_mask_type=None,
+            encoder_attn_mask_type=AttnMaskType.causal,
             decoder_attn_mask_type=None,
             pre_process=self.pre_process,
             post_process=self.post_process)
 
-        self.lm_head = ColumnParallelLinear(input_size=self.hidden_size, output_size=self.padded_vocab_size,
-                                            bias=False, compute_dtype=self.compute_dtype, init_method=self.init_method,
-                                            config=transformer_config)
+        if self.post_process:
+            self.parallel_lm_logits = ParallelLMLogits(config=transformer_config, bias=False)
 
-        # fft1374 Awaiting the implementation of the specific `loss` function
-        transformer_config.model_parallel = transformer_config.tensor_parallel
-        check_for_nan_in_loss_and_grad = getattr(transformer_config, "check_for_nan_in_loss_and_grad", False)
-        self.loss = CrossEntropyLoss(parallel_config=transformer_config,
-                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
+            # fft1374 Awaiting the implementation of the specific `loss` function
+            transformer_config.model_parallel = transformer_config.tensor_parallel
+            self.loss = CrossEntropyLoss(parallel_config=transformer_config)
 
+        self.ignore_token_id = transformer_config.ignore_token_id
         self.slice = P.StridedSlice()
         self.not_equal = P.NotEqual()
         self.reshape = P.Reshape()
@@ -154,14 +156,14 @@ class LlamaForCausalLM(LlamaPretrainedModel):
             prefix_keys_values=prefix_keys_values)
 
         if self.post_process:
-            return self.post_language_model_processing(lm_output, labels, None, False,
-                                                       self.fp16_lm_cross_entropy, loss_mask)
+            return self.post_language_model_processing(lm_output, labels, self.language_model.output_layer.weight,
+                                                       self.parallel_output, self.fp16_lm_cross_entropy, loss_mask)
         return lm_output
 
     def post_language_model_processing(self,
                                        lm_output: Tensor,
                                        labels: Tensor,
-                                       logit_weights: Optional[Tensor],
+                                       logit_weights: Tensor,
                                        parallel_output: bool,
                                        fp16_lm_cross_entropy: bool,
                                        loss_mask: Tensor
@@ -181,10 +183,9 @@ class LlamaForCausalLM(LlamaPretrainedModel):
         """
         if fp16_lm_cross_entropy:
             raise ValueError("LlamaModel does not need to support fp16_lm_cross_entropy.")
-        if parallel_output:
-            raise ValueError("LlamaModel does not need to support parallel_output.")
         # Output. Format [s b h]
-        output, _ = self.lm_head(lm_output, logit_weights)
+        # pylint: disable=E1102
+        output = self.parallel_lm_logits(lm_output, logit_weights, parallel_output)
 
         if labels is None:
             return output.contiguous()
@@ -193,10 +194,6 @@ class LlamaForCausalLM(LlamaPretrainedModel):
             output = self.reshape(output, (-1, output.shape[-1]))
         output = self.cast(output, dtype.float32)
         return self.loss(output, labels, loss_mask)
-
-    def set_model_key(self):
-        """Set model key fro differentiate PipelineCell process"""
-        self.model_key = 'llama2_model'
 
     def set_input_tensor(self, input_tensor):
         """Set input tensor to model"""
@@ -251,6 +248,8 @@ class LlamaForCausalLM(LlamaPretrainedModel):
                 loss_mask = self.mul(loss_mask, label_mask)
         loss_mask = self.reshape(loss_mask, (-1,))
         labels = self.reshape(labels, (-1,))
+        if attention_mask is None and self.mode == 1:
+            attention_mask = self.default_attn_mask
         return tokens, labels, attention_mask, loss_mask
 
     def shard(self, config: TransformerConfig):

@@ -511,7 +511,7 @@ class TransformerLanguageModel(Module):
                   retriever_input_ids=None, retriever_position_ids=None, retriever_attn_mask=None,
                   enc_dec_attn_mask=None, tokentype_ids=None, inference_params=None,
                   pooling_sequence_index=0, enc_hidden_states=None, output_enc_hidden=False,
-                  input_image=None, delimiter_position=None, image_embedding=None):
+                  input_image=None, delimiter_position=None, image_embedding=None, prefix_keys_values=None):
         """ language model forward """
         if dec_input_ids is not None:
             raise NotImplementedError("dec_input_ids is not supported for now.")

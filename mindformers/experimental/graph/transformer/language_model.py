@@ -107,7 +107,7 @@ class Embedding(nn.Cell):
         self.embedding_init_type = config.embedding_init_type
         self.compute_dtype = config.compute_dtype
         self.num_tokentypes = num_tokentypes
-        self.init_method = config.init_method
+        self.init_method = config.init_method_
 
         # Word embedding
         self.word_embeddings = VocabParallelEmbedding(vocab_size,
@@ -226,8 +226,6 @@ class TransformerLanguageModel(nn.Cell):
         super(TransformerLanguageModel, self).__init__()
         if add_decoder:
             raise NotImplementedError('add_decoder is not supported for now.')
-        if encoder_attn_mask_type is not None:
-            raise NotImplementedError("encoder_attn_mask_type is not supported for now.")
         if decoder_attn_mask_type is not None:
             raise NotImplementedError("decoder_attn_mask_type is not supported for now.")
 
@@ -241,12 +239,14 @@ class TransformerLanguageModel(nn.Cell):
         self.encoder_attn_mask_type = encoder_attn_mask_type
 
         # get value from config
-        self.init_method = config.init_method
+        self.init_method = config.init_method_
+        self.output_layer_init_method = config.output_layer_init_method
         self.compute_dtype = config.compute_dtype
         self.hidden_size = config.hidden_size
         self.vocab_size = config.padded_vocab_size
         self.max_position_embeddings = config.max_position_embeddings
         self.hidden_dropout = config.hidden_dropout
+        self.untie_embeddings_and_output_weights = config.untie_embeddings_and_output_weights
 
         # Embeddings
         if self.pre_process:
@@ -277,6 +277,13 @@ class TransformerLanguageModel(nn.Cell):
         if self.post_process:
             if self.add_pooler:
                 self.pooler = Pooler(self.hidden_size, self.init_method, config)
+
+            if self.untie_embeddings_and_output_weights:
+                self.output_layer = ColumnParallelLinear(input_size=self.hidden_size,
+                                                         output_size=self.vocab_size,
+                                                         config=config,
+                                                         init_method=self.output_layer_init_method,
+                                                         bias=False)
 
         # causel mask
         self.causal_mask = CausalMaskGenerate(seq_length=config.seq_length,
@@ -409,8 +416,8 @@ def get_language_model(config: TransformerConfig,
         language_model (TransformerLanguageModel): Language model.
         language_model_key (str): Key used for checkpoints.
     """
-    if config.init_method is None:
-        config.init_method = init_method_normal(config.init_method_std, config.params_dtype)
+    if config.init_method_ is None:
+        config.init_method_ = init_method_normal(config.init_method_std, config.params_dtype)
 
     if config.output_layer_init_method is None:
         config.output_layer_init_method = scaled_init_method_normal(config.init_method_std,

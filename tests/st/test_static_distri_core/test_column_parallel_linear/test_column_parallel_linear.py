@@ -44,11 +44,8 @@ class TestColumnParallelLinear:
         """
         sh_path = os.path.split(os.path.realpath(__file__))[0]
         dp, cp, tp = (1, 1, 1)
-        skip_weight = False
-        has_bias = True
         ret = os.system(
-            f"python {sh_path}/run_column.py --dp {dp} --cp {cp} --tp {tp} --skip_weight {skip_weight} "
-            f"--has_bias {has_bias}"
+            f"python {sh_path}/run_column.py --dp {dp} --cp {cp} --tp {tp} --has_bias"
         )
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_0.log -C 3")
         assert ret == 0

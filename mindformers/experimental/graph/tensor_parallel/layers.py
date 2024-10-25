@@ -125,9 +125,9 @@ class ColumnParallelLinear(nn.Cell):
         if self.has_bias:
             if bias_init is None:
                 bias_init = init_method_zero(self.params_dtype)
-            self.bias_ = Parameter(bias_init(initializer('zeros', (output_size,))), name='bias')
+            self.bias = Parameter(bias_init(initializer('zeros', (output_size,))), name='bias')
         else:
-            self.bias_ = None
+            self.bias = None
 
         self.matmul = P.MatMul(transpose_b=transpose_b)
         if not skip_bias_add:
@@ -161,11 +161,11 @@ class ColumnParallelLinear(nn.Cell):
         input_ = self.matmul(input_, weight)
 
         if not self.skip_bias_add and self.has_bias:
-            bias = self.cast(self.bias_, self.compute_dtype)
+            bias = self.cast(self.bias, self.compute_dtype)
             input_ = self.add(input_, bias)
             bias = None
         else:
-            bias = self.bias_
+            bias = self.bias
 
         input_ = self.cast(input_, ori_dtype)
         output = self.reshape(input_, output_shape)
@@ -258,9 +258,9 @@ class RowParallelLinear(nn.Cell):
         if self.has_bias:
             if bias_init is None:
                 bias_init = init_method_zero(self.params_dtype)
-            self.bias_ = Parameter(bias_init(initializer('zeros', (output_size,))), name='bias')
+            self.bias = Parameter(bias_init(initializer('zeros', (output_size,))), name='bias')
         else:
-            self.bias_ = None
+            self.bias = None
 
         self.matmul = P.MatMul(transpose_b=transpose_b)
         if not skip_bias_add:
@@ -288,11 +288,11 @@ class RowParallelLinear(nn.Cell):
         input_ = self.matmul(input_, weight)
 
         if not self.skip_bias_add and self.has_bias:
-            bias = self.cast(self.bias_, self.compute_dtype)
+            bias = self.cast(self.bias, self.compute_dtype)
             input_ = self.add(input_, bias)
             bias = None
         else:
-            bias = self.bias_
+            bias = self.bias
 
         input_ = self.cast(input_, ori_dtype)
         output = self.reshape(input_, output_shape)

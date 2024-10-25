@@ -36,7 +36,8 @@ __all__ = [
     "ParallelAttention",
     "ParallelTransformerLayer",
     "ParallelTransformer",
-    "CausalMaskGenerate"
+    "CausalMaskGenerate",
+    "ParallelLMLogits"
 ]
 
 
@@ -81,7 +82,7 @@ class ParallelMLP(nn.Cell):
         if self.mlp_has_gate and self.gated_linear_unit:
             raise ValueError(
                 "For 'ParallelMLP', 'mlp_has_gate' and 'gated_linear_unit' cannot be True at the same time.")
-        self.init_method = config.init_method
+        self.init_method = config.init_method_
         self.activation_type = config.hidden_act
         self.compute_dtype = config.compute_dtype
         self.parallel_config = config
@@ -309,6 +310,7 @@ class ParallelAttention(nn.Cell):
         if attn_mask_type:
             raise NotImplementedError("For ParallelAttention, 'attn_mask_type' is not supported for now.")
         self.config = config
+        self.init_method = config.init_method_
         self.compute_dtype = self.config.compute_dtype
         self.use_gqa = self.config.group_query_attention
         self.num_heads = self.config.num_attention_heads
@@ -342,7 +344,7 @@ class ParallelAttention(nn.Cell):
                                                      config=self.config,
                                                      bias=self.config.add_qkv_bias or self.config.add_bias_linear,
                                                      compute_dtype=self.config.compute_dtype,
-                                                     init_method=self.config.init_method
+                                                     init_method=self.init_method
                                                      )
                 self.reshape_concat = P.Reshape()
                 self.split_qkv = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
@@ -350,17 +352,17 @@ class ParallelAttention(nn.Cell):
                 self.q_proj = ColumnParallelLinear(self.hidden_size, self.hidden_size, config=self.config,
                                                    bias=self.config.add_qkv_bias or self.config.add_bias_linear,
                                                    compute_dtype=self.config.compute_dtype,
-                                                   init_method=self.config.init_method
+                                                   init_method=self.init_method
                                                    )
                 self.k_proj = ColumnParallelLinear(self.hidden_size, self.kv_hidden_size, config=self.config,
                                                    bias=self.config.add_qkv_bias or self.config.add_bias_linear,
                                                    compute_dtype=self.config.compute_dtype,
-                                                   init_method=self.config.init_method
+                                                   init_method=self.init_method
                                                    )
                 self.v_proj = ColumnParallelLinear(self.hidden_size, self.kv_hidden_size, config=self.config,
                                                    bias=self.config.add_qkv_bias or self.config.add_bias_linear,
                                                    compute_dtype=self.config.compute_dtype,
-                                                   init_method=self.config.init_method
+                                                   init_method=self.init_method
                                                    )
         elif self.attn_type == 'cross_attn':
             self.q_proj, self.kv_proj, self.split_kv = self._cross_attn_init()
@@ -372,7 +374,7 @@ class ParallelAttention(nn.Cell):
                                           config=self.config,
                                           bias=self.config.add_bias_linear,
                                           compute_dtype=self.config.compute_dtype,
-                                          init_method=self.config.init_method
+                                          init_method=self.init_method
                                           )
         if self.use_flash_attention:
             self.input_layout = "BNSD"
@@ -409,7 +411,7 @@ class ParallelAttention(nn.Cell):
             config=self.config,
             bias=self.config.add_bias_linear,
             compute_dtype=self.config.compute_dtype,
-            init_method=self.config.init_method
+            init_method=self.init_method
         )
         kv_proj = ColumnParallelLinear(
             self.hidden_size,
@@ -417,7 +419,7 @@ class ParallelAttention(nn.Cell):
             config=self.config,
             bias=self.config.add_bias_linear,
             compute_dtype=self.config.compute_dtype,
-            init_method=self.config.init_method
+            init_method=self.init_method
         )
         split_kv = ms.ops.auto_generate.SplitWithSize().add_prim_attr("skip_redistribution", True)
 
@@ -721,8 +723,6 @@ class ParallelTransformer(nn.Cell):
             raise NotImplementedError("For ParallelTransformer, `model_type` is not supported for now.")
         if layer_type:
             raise NotImplementedError("For ParallelTransformer, `layer_type` is not supported for now.")
-        if self_attn_mask_type:
-            raise NotImplementedError("For ParallelTransformer, `self_attn_mask_type` is not supported for now.")
         if pre_process:
             raise NotImplementedError("For ParallelTransformer, `pre_process=True` is not supported.")
         if post_process:
@@ -732,6 +732,7 @@ class ParallelTransformer(nn.Cell):
 
         self.post_norm = post_norm
         self.num_layers = config.num_layers
+        self.self_attn_mask_type = self_attn_mask_type
 
         offset = 0
         self.layers = nn.CellList()
@@ -870,3 +871,81 @@ class CausalMaskGenerate(nn.Cell):
         self.mul.shard(((dp, 1, 1), (1, 1, 1)))
         self.sub.shard(((1,), (dp, 1, 1)))
         self.expand_dim_post.shard(((dp, 1, 1),))
+
+
+class ParallelLMLogits(nn.Cell):
+    r"""The head of the transformer model: the linear layer that takes the hidden state and produces the logits.
+
+    Args:
+        config (dict): Configuration.
+        bias (bool): Whether to use bias. Default: True.
+        compute_dtype (mstype): The compute type of the input tensor. Default: None.
+
+    Inputs:
+        - **logits** (Tensor) - The input tensor of shape :math:`(B, S, H)`.
+        - **word_embedding_weight** (Tensor) - The weight matrix.
+        - **parallel_output** (bool) - Whether to use parallel output. Default: True.
+        - **bias** (Tensor) - The bias tensor. Default: None.
+
+    Outputs:
+        - **output** (Tensor) - The output tensor of shape :math:`(B, S, V)`.
+
+    Supported Platforms:
+        ``Ascend``
+    """
+
+    def __init__(self,
+                 config: TransformerConfig,
+                 bias: bool = True,
+                 compute_dtype: mstype = None):
+        super(ParallelLMLogits, self).__init__()
+        self.compute_dtype = compute_dtype if compute_dtype else config.compute_dtype
+        self.bias = bias
+
+        self.matmul = P.MatMul(transpose_b=True)
+        self.reshape = P.Reshape()
+        if self.bias:
+            self.add = P.Add()
+        self.shard(config)
+
+    def construct(self,
+                  logits: Tensor,
+                  word_embedding_weight: Tensor,
+                  parallel_output: bool = True,
+                  bias: Tensor = None):
+        """Forward of ParallelLMLogits."""
+        if word_embedding_weight is None:
+            raise ValueError("The input weight can not be None")
+        if not self.bias and bias is not None:
+            raise ValueError("The input bias is not None when init bias is False")
+        if not parallel_output:
+            raise ValueError("The parallel_output can not be False")
+        output_shape = logits.shape[:-1] + (word_embedding_weight.shape[0],)
+        logits = self.reshape(logits, (-1, logits.shape[-1]))
+
+        ori_dtype = logits.dtype
+        logits = self.cast(logits, self.compute_dtype)
+        weight = self.cast(word_embedding_weight, self.compute_dtype)
+
+        logits = self.matmul(logits, weight)
+        if self.bias and bias is not None:
+            bias = self.cast(bias, self.compute_dtype)
+            logits = self.add(logits, bias)
+
+        logits = self.cast(logits, ori_dtype)
+        output = self.reshape(logits, output_shape)
+        return output
+
+    def shard(self, config: TransformerConfig) -> None:
+        """Shard the operators in ParallelLMLogits"""
+        dp = getattr(config, 'data_parallel', 1)
+        tp = getattr(config, 'tensor_parallel', 1)
+        cp = getattr(config, 'context_parallel', 1)
+
+        weight_strategy = (tp, 1)
+        matmul_in_strategy = ((dp * cp, 1), weight_strategy)
+        self.matmul.shard(in_strategy=matmul_in_strategy)
+
+        if self.bias:
+            add_in_strategy = ((dp * cp, tp), (tp,))
+            self.add.shard(in_strategy=add_in_strategy)

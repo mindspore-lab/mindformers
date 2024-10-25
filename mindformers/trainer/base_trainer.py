@@ -443,7 +443,7 @@ class BaseTrainer:
         if pp > 1:
             micro_batch_num = self.config.parallel_config.micro_batch_num
             network = PipelineCell(network, micro_size=micro_batch_num)
-        if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and ms.get_context('mode') == 0:
             network = _VirtualDatasetCell(network)
             ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
             if ds_broadcast_level > 0:
@@ -454,7 +454,7 @@ class BaseTrainer:
     def wrap_eval_network_with_tool_cells(self, network):
         """For evaluate in training process, warp the network with some tool cells."""
         parallel_mode = ms.context.get_auto_parallel_context("parallel_mode")
-        if parallel_mode in ["semi_auto_parallel", "auto_parallel"]:
+        if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and ms.get_context('mode') == 0:
             network = _VirtualDatasetCell(network)
             ds_broadcast_level = ms.context.get_context("dataset_broadcast_opt_level")
             if ds_broadcast_level > 0:
