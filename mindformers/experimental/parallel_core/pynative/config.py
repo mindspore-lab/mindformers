@@ -1061,6 +1061,7 @@ class DatasetConfig(BaseConfig):
             gradient accumulation. Defaults: 1.
         data_layout (str, optional): Input layout. Default: "BSH".
         train_samples (int, optional): Number of train samples for sample-based training. Default: 0.
+        eos_token_id  (int, optional): Eod token id. Default: 0.
     """
 
     # set config name for identifying while using init_configs methods
@@ -1074,6 +1075,7 @@ class DatasetConfig(BaseConfig):
             micro_batch_num: int = 1,
             train_samples: int = 0,
             data_layout: str = "BSH",
+            eos_token_id: int = 0,
             **kwargs,
     ):
         super().__init__()
@@ -1084,6 +1086,7 @@ class DatasetConfig(BaseConfig):
         self.micro_batch_num = micro_batch_num
         self.train_samples = train_samples
         self.data_layout = data_layout
+        self.eos_token_id = eos_token_id
 
         self.update_attrs(**kwargs)
 
@@ -1128,6 +1131,13 @@ def validate_train_samples(config_instance, train_samples):
     """Validate train_samples."""
     Validator.check_non_negative_int(train_samples, "train_samples")
     return train_samples
+
+
+@DatasetConfig.validator("eos_token_id")
+def validate_eos_token_id(config_instance, eos_token_id):
+    """Validate eos_token_id."""
+    Validator.check_non_negative_int(eos_token_id, "eos_token_id")
+    return eos_token_id
 
 
 class LoraConfig(BaseConfig):
