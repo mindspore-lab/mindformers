@@ -24,7 +24,6 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 - 📝 **[MindFormers文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)**
 - 📝 [大模型低参微调](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/parameter_efficient_fine_tune.html)
-- 📝 [AICC指导教程](docs/readthedocs/source_zh_cn/docs/practice/AICC.md)
 
 ### 支持模型
 
@@ -41,7 +40,6 @@ MindFormers已支持大部分模型的[LoRA微调](https://www.mindspore.cn/mind
       <th> 预训练 </th>
       <th> 微调 </th>
       <th> 推理 </th>
-      <th> <a href="docs/feature_cards/Pet_Tuners.md"> LoRA </a> </th>
       <th> 对话 </th>
       <th> 评估 </th>
     </tr>
