@@ -18,6 +18,8 @@ import math
 import mindspore as ms
 import mindspore.common.dtype as mstype
 
+from mindformers.tools import logger
+
 lr_decay_style_list = ["constant", "WSD", "linear", "cosine", "inverse-square-root"]
 wd_incr_style_list = ["constant", "linear", "cosine"]
 
@@ -80,9 +82,21 @@ class OptimizerParamScheduler():
 
         self.override_opt_param_scheduler = override_opt_param_scheduler
         self.use_checkpoint_opt_param_scheduler = use_checkpoint_opt_param_scheduler
-        if self.override_opt_param_scheduler:
-            if self.use_checkpoint_opt_param_scheduler:
-                raise ValueError('both override and use-checkpoint are set.')
+        if override_opt_param_scheduler and not use_checkpoint_opt_param_scheduler:
+            logger.warning(
+                "will use config to get a new opt_param_scheduler when " + \
+                "`override_opt_param_scheduler` is `True` and `use_checkpoint_opt_param_scheduler` is `False`"
+                )
+        elif not override_opt_param_scheduler and use_checkpoint_opt_param_scheduler:
+            logger.warning(
+                "will use checkpoint opt_param_scheduler when " + \
+                "`override_opt_param_scheduler` is `False` and `use_checkpoint_opt_param_scheduler` is `True`"
+                )
+        elif override_opt_param_scheduler and use_checkpoint_opt_param_scheduler:
+            raise ValueError(
+                "`override_opt_param_scheduler` and `use_checkpoint_opt_param_scheduler` " + \
+                "can not be True at the same time."
+                )
 
         # Set the learning rate
         self.step(0)

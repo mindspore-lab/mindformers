@@ -68,11 +68,11 @@ def get_checkpoint_name(ckpt_path, format=_FORMAT, get_name_from_file=False,
     The layout of the ckpt_path will be like:
     ckpt_path/
     ├── rank_0
-    │   ├── network_rank_0-0_0.ckpt
-    │   └── network_rank_0-0_1.ckpt
+    │   ├── network_rank_0-0_1.ckpt
+    │   └── network_rank_0-0_2.ckpt
     └── rank_1
-        ├── network_rank_1-0_0.ckpt
-        └── network_rank_1-0_1.ckpt
+        ├── network_rank_1-0_1.ckpt
+        └── network_rank_1-0_2.ckpt
     The strategy file will be saved in a standalone dir for the possible subsequent merging.
     The checkpoint file will be separated in different dir for the possible subsequent transformation.
     """
@@ -326,17 +326,16 @@ def load_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
         raise ValueError("crc_check does not support format 'safetensors' for now.")
     validator.check_value_type("model", model, [nn.Cell], "load_checkpoint")
     validator.check_value_type("optimizer", optimizer, [nn.Cell, type(None)], "load_checkpoint")
-    logger.info("ckpt loading")
     if os.path.isdir(ckpt_path):
         src_ckpt_file = get_last_checkpoint(os.path.join(ckpt_path, f"rank_{get_rank()}"), format=format)
     elif os.path.isfile(ckpt_path):
         src_ckpt_file = ckpt_path
     else:
         raise ValueError(f"There is no *.{format} in {ckpt_path}, load failed.")
-    logger.info(f"using latest checkpoint: {src_ckpt_file}")
     for key in kwargs:
         logger.warning(f"The parameter '{key}' is not used in load_checkpoint.")
 
+    logger.info(f"Loading latest checkpoint: {src_ckpt_file}, this may take a while.")
     param_dict = ms.load_checkpoint(src_ckpt_file, format=format, crc_check=crc_check)
     resume_dict = {
         "epoch_num": int(param_dict.pop("epoch_num", 0)),
@@ -354,13 +353,17 @@ def load_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
     else:
         # restore native optimizer/model
         param_dict = load_post_process(config, param_dict, optimizer)
-        target = optimizer if optimizer is not None else model
+        if optimizer is not None:
+            target = optimizer
+        else:
+            logger.warning("Optmizer state will NOT be loaded from gitven ckpt.")
+            target = model
         param_not_load, ckpt_not_load = ms.load_param_into_net(target, param_dict)
         if param_not_load:
             logger.warning(f"param_not_load: {param_not_load}")
         if ckpt_not_load:
             logger.warning(f"ckpt_not_load: {ckpt_not_load}")
-    logger.info("ckpt loaded")
+    logger.info(f"Checkpoint: {src_ckpt_file} is loaded successfully!")
 
     return resume_dict
 

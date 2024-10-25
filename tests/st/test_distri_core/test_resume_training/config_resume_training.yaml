@@ -17,9 +17,9 @@ training_config:
   enable_compile_cache: False
   compile_cache_path: "./output/compile_cache"
   keep_checkpoint_max: 3
-  load_optim: False
-  load_rng: True
-  use_ckpt_scheduler: False
+  no_load_optim: False
+  no_load_rng: True
+  new_dataset: False
   profile: False
   profile_save_path: ""
   profile_step_start: 2
@@ -111,6 +111,6 @@ optimizer_config:
   start_weight_decay: 0.00001
   end_weight_decay: 0.0009
   weight_decay_incr_style: "cosine"
-  use_checkpoint_opt_param_scheduler: False
-  override_opt_param_scheduler: True
+  use_checkpoint_opt_param_scheduler: True
+  override_opt_param_scheduler: False
   lr_wsd_decay_style: "exponential"
