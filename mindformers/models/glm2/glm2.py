@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2023-2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,17 +27,16 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.layers import Linear
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_disable_custom_fa
+from mindformers.tools.utils import get_disable_custom_fa, get_predict_run_mode
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.pet.tuners.pet_adapter import PetAdapter
-from mindformers.version_control import get_tril
+from mindformers.version_control import get_dropout, get_tril
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.llama.llama_layer import LlamaEmbedding
-from mindformers.tools.utils import get_predict_run_mode
 
 from ..utils import lazy_inline
 from .glm2_config import ChatGLM2Config
-from .glm2_modules import FreqsMgr
+from .glm2_modules import FreqsMgr, FreqsMgrRope
 from .glm2_transformer import ChatGLM2Transformer
 from ...tools.logger import logger
 
@@ -72,6 +71,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         self.use_past = config.use_past
         self.use_flash_attention = config.use_flash_attention
         self.is_first_iteration = True
+        self.use_rearrange_rope = config.use_rearrange_rope
         # default open internal kernel boost
         self.disable_custom_fa = get_disable_custom_fa()
         logger.info("Open prefill flatten and disable custom flash attention op:{}".format(self.disable_custom_fa))
@@ -85,6 +85,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
 
         # vocab embedding
         dp = config.parallel_config.data_parallel
+        cp = config.parallel_config.context_parallel
         mp = config.parallel_config.model_parallel
         self.embedding = LlamaEmbedding(vocab_table_size=config.vocab_size, embedding_size=config.hidden_size,
                                         param_init_type=config.param_init_type, parallel_optimizer=True)
@@ -92,12 +93,21 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         rotary_dim = (
             config.hidden_size // config.num_attention_heads if config.kv_channels is None else config.kv_channels
         )
-        self.freqs_mgr = FreqsMgr(
-            dim=rotary_dim // 2,
-            seq_length=config.seq_length,
-            rotary_dtype=config.rotary_dtype,
-            base=10000,
-            rope_ratio=config.rope_ratio)
+        if self.use_rearrange_rope:
+            self.freqs_mgr = FreqsMgrRope(
+                dim=rotary_dim // 2,
+                seq_length=config.seq_length,
+                rotary_dtype=config.rotary_dtype,
+                base=10000,
+                rope_ratio=config.rope_ratio
+            )
+        else:
+            self.freqs_mgr = FreqsMgr(
+                dim=rotary_dim // 2,
+                seq_length=config.seq_length,
+                rotary_dtype=config.rotary_dtype,
+                base=10000,
+                rope_ratio=config.rope_ratio)
 
         self.encoder = ChatGLM2Transformer(config)
 
@@ -116,9 +126,9 @@ class ChatGLM2Model(GLM2PreTrainedModel):
                 self.embedding.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
             self.embedding.shard(config.parallel_config)
             if config.parallel_config.vocab_emb_dp or (config.vocab_size % mp != 0):
-                self.output_layer.shard(strategy_matmul=((dp, 1), (1, 1)))
+                self.output_layer.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
             else:
-                self.output_layer.shard(strategy_matmul=((1, 1), (dp * mp, 1)))
+                self.output_layer.shard(strategy_matmul=((1, 1), (dp * cp * mp, 1)))
 
         self.tril = get_tril()
         self.ones = P.Ones()
@@ -130,6 +140,8 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         self.tile = ops.Tile()
         low_triangle = np.tril(np.ones((1, self.seq_length, self.seq_length)))
         self.low_triangle = Tensor(low_triangle, mstype.int32)
+        self.cast = P.Cast()
+        self.dropout = get_dropout(config.hidden_dropout)
 
     def get_masks(self, batch_size, padding_mask=None, input_position=None):
         """Get attention mask."""
@@ -147,6 +159,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         attention_mask = self.reshape(attention_mask, (batch_size, 1, -1, self.seq_length))
         return attention_mask
 
+    # pylint: disable=W0613
     def construct(self, input_ids, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, batch_valid_length=None, full_attention_mask=None, prefix_key_values=None,
                   block_tables=None, slot_mapping=None):
@@ -169,12 +182,16 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         else:
             freqs_cis = self.freqs_mgr(seq_len)
             if full_attention_mask is None:
-                # (bs, 1, seq_len, seq_len)
-                full_attention_mask = self.get_masks(batch_size, attention_mask, input_position)
-                full_attention_mask = full_attention_mask.type(mstype.uint8)
+                if attention_mask is None:
+                    # (bs, 1, seq_len, seq_len)
+                    full_attention_mask = self.get_masks(batch_size, attention_mask, input_position)
+                    full_attention_mask = full_attention_mask.type(mstype.uint8)
+                else:
+                    full_attention_mask = attention_mask
             mask = full_attention_mask
         if input_embeds is None:
             input_embeds = self.embedding(input_ids)  # (bs, seq_len, hs)
+        input_embeds = self.dropout(input_embeds)
 
         # Run encoder.
         hidden_states = self.encoder(
@@ -241,6 +258,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         self.cast = P.Cast()
         self.gather = P.Gather()
         dp = config.parallel_config.data_parallel
+        cp = config.parallel_config.context_parallel
         mp = config.parallel_config.model_parallel
         check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
         if config.parallel_config.vocab_emb_dp or (config.vocab_size % mp != 0):
@@ -248,8 +266,9 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
                                          check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
         else:
             loss_parallel_config = copy.deepcopy(config.parallel_config)
-            loss_parallel_config.model_parallel = dp * mp
+            loss_parallel_config.model_parallel = dp * mp * cp
             loss_parallel_config.data_parallel = 1
+            loss_parallel_config.context_parallel = 1
             self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
                                          check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
         self.gmask = config.gmask_token_id
@@ -301,7 +320,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
     # pylint: disable=W0613
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, prefix_key_values=None,
-                  block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None):
+                  block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None, input_mask=None):
         """ChatGLM2 for conditional generation model."""
         # input_ids: (bs, seq_len)
         # position_ids: (bs, seq_len)
@@ -321,8 +340,6 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
             slot_mapping=slot_mapping
         )
         lm_logits = self.transformer.output_layer(hidden_states)
-        if lm_logits.dtype == mstype.bfloat16:
-            lm_logits = self.cast(lm_logits, mstype.float32)
         outputs = (lm_logits,)
 
         # train
@@ -330,7 +347,8 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
             logits = lm_logits.to(mstype.float32)
             labels = labels.reshape((-1,))
             logits = logits.reshape((-1, logits.shape[-1]))
-            input_mask = self.not_equal(labels, -100).to(mstype.float32)
+            if input_mask is None:
+                input_mask = self.not_equal(labels, -100).to(mstype.float32)
             input_mask = input_mask.reshape((-1,))
 
             if self.training:
@@ -353,11 +371,12 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
 
                 outputs = logits, labels, input_mask
 
-        if not self.training:
+        # generation process
+        if (not self.use_past or self.is_first_iteration) and input_position is not None:
+            lm_logits = lm_logits.reshape((-1, lm_logits.shape[-1]))
+            lm_logits = self.gather(lm_logits, input_position, 0)
             lm_logits = self.cast(lm_logits, mstype.float32)
-            if self.predict_run_mode:
-                lm_logits = self.reshape(lm_logits, (-1, lm_logits.shape[-1]))
-                outputs = (lm_logits,)
+            outputs = (lm_logits,)
 
         return outputs
 
@@ -405,6 +424,7 @@ class ChatGLM2WithPtuning2(ChatGLM2ForConditionalGeneration):
         PetAdapter.freeze_pretrained_model(self, config.pet_config.pet_type)
 
     # pylint: disable=W0613
+    # pylint: disable=W0221
     def construct(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, prefix_key_values=None,
                   block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None):

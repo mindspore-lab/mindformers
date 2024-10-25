@@ -49,4 +49,9 @@ mindformers.models.glm2.ChatGLM2Config
         - **parallel_config** (TransformerOpParallelConfig，可选) - 模型并行化处理的参数配置。默认值： ``default_transformer_config`` 。
         - **offset** (int，可选) - 每个（微批量）阶段的层偏移。默认值： ``0`` 。
         - **pp_interleave_num** (int，可选) - 流水线并行中微批次交织的次数。默认值： ``1`` 。
-        - **kwargs** (dict, 可选) - 一个可变数量的关键字参数，为待扩展的关键字参数预留。
+        - **mlp_concat** (bool，可选) - 是否将两个 MLP 合并为一个线性层。默认值：``True``。
+        - **qkv_concat** (bool，可选) - 是否将query/key/value的Linear层计算合并为一个完整的Linear层。默认值：``True``。
+        - **use_rearrange_rope** (bool，可选) - 是否使用重排布后的旋转位置编码。默认值：``False``。
+        - **mask_generate** (str，可选) - 使用的mask生成方式，可为 "inmap"、"compress_reset" 或 None，为 None 时使用下三角掩码。默认值：``None``。
+        - **fine_grain_interleave** (int，可选) - 细粒度多副本并行的切片数量，在张量并行情况下通信时间和计算时间可部分相互掩盖。默认值：``1``。
+        - **kwargs** (dict，可选) - 一个可变数量的关键字参数，为待扩展的关键字参数预留。

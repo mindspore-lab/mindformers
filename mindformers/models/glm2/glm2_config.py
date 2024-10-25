@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2023-2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -86,6 +86,14 @@ class ChatGLM2Config(PretrainedConfig):
             `TransformerOpParallelConfig` with default args. Default: ``TransformerOpParallelConfig`` .
         offset (int, optional): The layer offset for each (mini) stage. Default: ``0`` .
         pp_interleave_num  (int, optional): Number of microbatch interleavings in pipeline parallelism. Default: ``1`` .
+        mlp_concat (bool, optional): Whether to concatenate two mlp to one Linear. Default: ``True`` .
+        qkv_concat (bool, optional): Whether to concatenate query key and value Linear calculation to one entire Linear.
+             Default: ``True`` .
+        use_rearrange_rope (bool, optional): Whether to use rearranged rotary embedding. Default: ``False`` .
+        mask_generate (str, optional): Which mask generation to use, which can be "inmap", "compress_reset", None. When
+             set as None, lower triangular mask is used. Default: ``None`` .
+        fine_grain_interleave (int, optional): Number of slices for fine grain interleave feature, which covers
+             communication time with computation time in tensor parallel case. Default: ``1`` .
         kwargs (dict, optional): A variable number of keyword parameters reserved for the keyword parameters to be
             expanded.
 
@@ -138,7 +146,12 @@ class ChatGLM2Config(PretrainedConfig):
             "seq_length": 1024,
             "use_flash_attention": false,
             "use_past": false,
-            "vocab_size": 65024
+            "vocab_size": 65024,
+            "mlp_concat": True,
+            "qkv_concat": True,
+            "use_rearrange_rope": False,
+            "mask_generate": None,
+            "fine_grain_interleave": 1
             }
     """
 
@@ -191,8 +204,13 @@ class ChatGLM2Config(PretrainedConfig):
                  repetition_penalty=1.0,
                  checkpoint_name_or_path=None,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
-                 offset=0,
-                 pp_interleave_num=1,
+                 offset: int = 0,
+                 pp_interleave_num: int = 1,
+                 mlp_concat: bool = True,
+                 qkv_concat: bool = True,
+                 use_rearrange_rope: bool = False,
+                 mask_generate: str = None,
+                 fine_grain_interleave: int = 1,
                  **kwargs):
         super().__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -244,3 +262,8 @@ class ChatGLM2Config(PretrainedConfig):
         self.n_kv_heads = self.multi_query_group_num if self.multi_query_attention else None
         self.offset = offset
         self.pp_interleave_num = pp_interleave_num
+        self.mlp_concat = mlp_concat
+        self.qkv_concat = qkv_concat
+        self.use_rearrange_rope = use_rearrange_rope
+        self.mask_generate = mask_generate
+        self.fine_grain_interleave = fine_grain_interleave
