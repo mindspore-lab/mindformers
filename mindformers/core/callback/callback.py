@@ -18,6 +18,7 @@ import os
 import time
 import tempfile
 import datetime
+import hashlib
 
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
@@ -26,6 +27,7 @@ from tensorboardX import SummaryWriter
 
 import numpy as np
 import mindspore as ms
+import mindspore.ops.operations as P
 from mindspore import Callback, Profiler, ModelCheckpoint, CheckpointConfig, context, save_checkpoint, Tensor
 from mindspore.train.callback import SummaryCollector
 from mindspore.nn.learning_rate_schedule import LearningRateSchedule
@@ -33,6 +35,9 @@ from mindspore.train.serialization import _get_merged_param_data
 from mindspore.nn.cell import Cell
 from mindspore.ops.operations.comm_ops import Broadcast
 from mindspore.common import jit
+from mindspore.common.api import flops_collection
+from mindspore.communication.management import create_group, get_group_size, get_rank
+from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.profiler import ProfilerLevel
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
@@ -45,6 +50,20 @@ __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor',
 
 _cur_dir = os.getcwd()
 SAVE_DIR = _cur_dir
+
+
+class AllReduceNet(Cell):
+    """
+    Used to accumulate flops in pipeline parallel.
+    """
+
+    def __init__(self, group_name):
+        super(AllReduceNet, self).__init__()
+        self.allreduce_sum = P.AllReduce(op=P.ReduceOp.SUM, group=group_name)
+        self.add_flags(skip_auto_parallel_compile=True)
+
+    def construct(self, x):
+        return self.allreduce_sum(x)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
@@ -197,6 +216,10 @@ class MFLossMonitor(Callback):
         self.global_batch_size = global_batch_size
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.device_num = get_real_group_size()
+        self.mf_support = None
+        self.mf_calculated = False
+        self.current_phase = None
+        self.full_model_flops = 0.0
         self.enable_tensorboard = enable_tensorboard
         if self.enable_tensorboard:
             rank_id = get_real_rank()
@@ -264,18 +287,22 @@ class MFLossMonitor(Callback):
         if not scaling_sens:
             scaling_sens = "unavailable"
 
+        if self.mf_support is None:
+            self.mf_support = self._can_calculate_model_flops(cb_params)
+        if not self.mf_calculated and self.mf_support:
+            self._calculate_model_flops()
+
+        origin_epochs = self.origin_epochs
         if cb_params.dataset_sink_mode:
-            origin_epochs = self.origin_epochs
             per_step_seconds = step_seconds / cb_params.batch_num
             steps_per_epoch = self.steps_per_epoch
             cur_epoch_num = (cb_params.cur_step_num + self.initial_step - 1) // steps_per_epoch + 1
             cur_step_num = (cb_params.cur_step_num + self.initial_step - 1) % steps_per_epoch + 1
         else:
-            origin_epochs = self.origin_epochs
             per_step_seconds = step_seconds
             steps_per_epoch = cb_params.batch_num
             cur_epoch_num = cb_params.cur_epoch_num
-            cur_step_num = (cb_params.cur_step_num + self.initial_step - 1) % cb_params.batch_num + 1
+            cur_step_num = (cb_params.cur_step_num + self.initial_step - 1) % steps_per_epoch + 1
 
         # compute time remaining
         step_remain = (origin_epochs - cur_epoch_num + 1) * steps_per_epoch - cur_step_num
@@ -326,6 +353,70 @@ class MFLossMonitor(Callback):
 
         return loss
 
+    def _get_pipeline_group(self):
+        """
+        Calculate the communication group between all pipeline stages
+        """
+        rank = get_rank()
+        stage_nums = auto_parallel_context().get_pipeline_stages()
+        device_nums = get_group_size()
+        per_stage_device_nums = device_nums // stage_nums
+        local_stage_rank_id = rank % per_stage_device_nums
+        group = range(0, stage_nums)
+        rank_list = [local_stage_rank_id + x * per_stage_device_nums for x in group]
+        rank_str_list = [str(r) for r in rank_list]
+
+        rank_list_str = "-".join(rank_str_list)
+        return rank_list, rank_list_str
+
+    def _can_calculate_model_flops(self, cb_params):
+        """
+        Check whether the model flops can be collected
+        """
+        if cb_params.mode == 'train':
+            network = cb_params.train_network
+        elif cb_params.mode == 'eval':
+            network = cb_params.eval_network
+        else:
+            logger.warning('Model Flops computation only support train and eval mode!')
+            return False
+        if ms.get_context('mode') != ms.GRAPH_MODE:
+            logger.warning('Model Flops computation only support graph mode!')
+            return False
+        if not hasattr(network, 'current_phase'):
+            logger.warning('This model dose not support collecting model flops now!')
+            return False
+        self.current_phase = network.current_phase
+        return True
+
+    def _calculate_model_flops(self):
+        """
+        Calculate the full model flops
+        """
+        full_model_flops, _, shard_model_flops, \
+            _, is_dynamic_shape = flops_collection(self.current_phase)
+        if is_dynamic_shape:
+            logger.warning("Model Flops computation now do not support dynamic shape.")
+            self.mf_support = False
+            return
+        self.full_model_flops = full_model_flops / 1.0
+        self.mf_calculated = True
+        if auto_parallel_context().get_pipeline_stages() > 1:
+            pipeline_group_list, pipeline_group_name = self._get_pipeline_group()
+            auto_parallel_context().set_pipeline_stages(1)
+            hashed = hashlib.md5(
+                pipeline_group_name.encode()).hexdigest()[:48]
+            pipeline_group_name = str(hashed)
+            create_group(pipeline_group_name, pipeline_group_list)
+            self.full_model_flops = AllReduceNet(pipeline_group_name)(
+                Tensor([self.full_model_flops])).asnumpy()[0]
+
+        if auto_parallel_context().get_parallel_mode() != "stand_alone":
+            self.full_model_flops = self.full_model_flops / get_group_size()
+
+        logger.info("Full model flops is %d, Shard model flops is %d.",
+                    full_model_flops, shard_model_flops)
+
     def print_output_info(self, cb_params, cur_epoch_num, origin_epochs, throughput,
                           cur_step_num, steps_per_epoch, loss, per_step_seconds,
                           overflow, scaling_sens, time_remain, percent, global_norm):
@@ -375,37 +466,39 @@ class MFLossMonitor(Callback):
 
         if self.enable_tensorboard:
             global_step = cur_step_num + (cur_epoch_num - 1) * steps_per_epoch
+        if self.mf_calculated:
+            throughput_per_npu = self.full_model_flops / per_step_seconds / 1e9
+            throughput_info = ', train_throughput_per_npu: %.3fT' % (throughput_per_npu)
+        else:
+            throughput_info = ''
 
         if current_lr is not None:
             if cb_params.dataset_sink_mode:
                 logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
-                            "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s",
+                            "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
-                            int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm)
+                            int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm, throughput_info)
             else:
                 logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss:[%5.3f/%5.3f], "
-                            "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s",
+                            "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
-                            int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm)
-            show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
-            logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
-                        datetime.timedelta(seconds=int(time_remain)))
+                            int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm, throughput_info)
             if self.enable_tensorboard:
                 self.tensor_writer.add_scalar(f"train learn rate", float(current_lr), global_step=global_step)
         else:
             if cb_params.dataset_sink_mode:
                 logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
-                            "per_step_time: %dms, overflow cond: %s, loss_scale: %s, global_norm: %s",
+                            "per_step_time: %dms, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss,
-                            int(per_step_seconds), overflow, scaling_sens, global_norm)
+                            int(per_step_seconds), overflow, scaling_sens, global_norm, throughput_info)
             else:
                 logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss:[%5.3f/%5.3f], "
-                            "per_step_time: %dms, overflow cond: %s, loss_scale: %s, global_norm: %s",
+                            "per_step_time: %dms, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
-                            int(per_step_seconds), overflow, scaling_sens, global_norm)
-            show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
-            logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
-                        datetime.timedelta(seconds=int(time_remain)))
+                            int(per_step_seconds), overflow, scaling_sens, global_norm, throughput_info)
+        show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
+        logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
+                    datetime.timedelta(seconds=int(time_remain)))
         if self.enable_tensorboard:
             self.tensor_writer.add_scalar(f"train loss", loss, global_step=global_step)
             self.tensor_writer.add_scalar(f"train global_norm", global_norm, global_step=global_step)
