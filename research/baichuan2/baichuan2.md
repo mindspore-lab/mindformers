@@ -7,14 +7,20 @@ Baichuan2 是由百川智能开发的开源可商用的大规模预训练语言�
 
 ## 模型性能
 
-| Config                                                                                   |      Task       | Datasets |   Performance   |  Phase   |
-|:-----------------------------------------------------------------------------------------|:---------------:|:--------:|:---------------:|:--------:|
-| [finetune_baichuan2_7b](../../research/baichuan2/finetune_baichuan2_7b.yaml)             | text_generation |  belle   | 3010 tokens/s/p | Finetune |
-| [finetune_baichuan2_13b](../../research/baichuan2/finetune_baichuan2_13b.yaml)           | text_generation |  belle   | 1359 tokens/s/p | Finetune |
-| [finetune_baichuan2_7b_lora](../../research/baichuan2/finetune_baichuan2_7b_lora.yaml)   | text_generation |  belle   | 3375 tokens/s/p |   LoRA   |
-| [finetune_baichuan2_13b_lora](../../research/baichuan2/finetune_baichuan2_13b_lora.yaml) | text_generation |  belle   | 1880 tokens/s/p |   LoRA   |
-| [predict_baichuan2_7b](../../research/baichuan2/predict_baichuan2_7b.yaml)               | text_generation |    /     |   42tokens/s    | Predict  |
-| [predict_baichuan2_13b](../../research/baichuan2/predict_baichuan2_13b.yaml)             | text_generation |    /     |   23tokens/s    | Predict  |
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                         |      Task       | SeqLength | Datasets |   Performance   |  Phase   |
+|:-----------------------------------------------|:---------------:|:---------:|:--------:|:---------------:|:--------:|
+| [baichuan2_7b](./finetune_baichuan2_7b.yaml)   | text_generation |   4096    |  belle   | 3164 tokens/s/p | Finetune |
+| [baichuan2_13b](./finetune_baichuan2_13b.yaml) | text_generation |   4096    |  belle   | 1465 tokens/s/p | Finetune |
+| [baichuan2_7b](./predict_baichuan2_7b.yaml)    | text_generation |   4096    |    /     |  521 tokens/s   | Predict  |
+| [baichuan2_13b](./predict_baichuan2_13b.yaml)  | text_generation |   4096    |    /     |  224 tokens/s   | Predict  |
+
+以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
+
+| Config                                         |      Task       | SeqLength | Datasets |   Performance   |  Phase   |
+|:-----------------------------------------------|:---------------:|:---------:|:--------:|:---------------:|:--------:|
+| [baichuan2_13b](./finetune_baichuan2_13b.yaml) | text_generation |   4096    |  belle   | 1640 tokens/s/p | Finetune |
 
 ## 模型文件
 

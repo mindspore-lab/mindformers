@@ -19,42 +19,25 @@ Llama 2，是Meta基于LLaMA 1的更新版本，基于新的公开可用数据�
 
 以下模型性能均由Atlas 800T A2硬件环境下测试得出。
 
-llama2_7b:
-
-| Config                                                       |         Task          | Datasets  | SeqLength | Metric |  Phase   |   Score   | Performance  |
-| :----------------------------------------------------------- | :-------------------: | :-------: | :-------: | :----: | :------: | :-------: | :----------: |
-| [llama2_7b](../../configs/llama2/pretrain_llama2_7b.yaml)    |    text_generation    |   wiki    |   4096    |   -    | Pretrain |     -     | 4820 tks/s/p |
-| [llama2_7b](../../configs/llama2/finetune_llama2_7b.yaml)    |    text_generation    |  alpaca   |   4096    |   -    | Finetune |     -     | 4820 tks/s/p |
-| [llama2_7b_lora](../../configs/llama2/lora_llama2_7b.yaml)   |    text_generation    |  alpaca   |   4096    |   -    | Finetune |     -     | 5217 tks/s/p |
-| [llama2_7b](../../configs/llama2/pretrain_llama2_7b_bf16.yaml) |    text_generation    | WikiText2 |     -     |  PPL   |   Eval   |   6.58    |      -       |
-| [llama2_7b](../../configs/llama2/predict_llama2_7b.yaml)     | reading comprehension | SQuAD 1.1 |     -     | EM/F1  |   Eval   | 39.6/60.5 |      -       |
-
-llama2_13b:
-
-| Config                                                       |         Task          | Datasets  | SeqLength | Metric |  Phase   |    Score    | Performance  |
-| :----------------------------------------------------------- | :-------------------: | :-------: | :-------: | :----: | :------: | :---------: | :----------: |
-| [llama2_13b](../../configs/llama2/pretrain_llama2_13b.yaml)  |    text_generation    |   wiki    |   4096    |   -    | Pretrain |      -      | 1883 tks/s/p |
-| [llama2_13b](../../configs/llama2/finetune_llama2_13b.yaml)  |    text_generation    |  alpaca   |   4096    |   -    | Finetune |      -      | 1883 tks/s/p |
-| [llama2_13b_lora](../../configs/llama2/lora_llama2_13b.yaml) |    text_generation    |  alpaca   |   4096    |   -    | Finetune |      -      | 2322 tks/s/p |
-| [llama2_13b](../../configs/llama2/pretrain_llama2_13b.yaml)  |    text_generation    | WikiText2 |     -     |  PPL   |   Eval   |    6.14     |      -       |
-| [llama2_13b](../../configs/llama2/predict_llama2_13b.yaml)   | reading comprehension | SQuAD 1.1 |     -     | EM/F1  |   Eval   | 27.91/44.23 |      -       |
-
-llama2_70b：
-
-| Config                                                      |         Task          |  Datasets   |  SeqLength  |  Metric  |   Phase    |     Score     | Performance |
-|:------------------------------------------------------------|:---------------------:|:-----------:|:-----------:|:--------:|:----------:|:-------------:|:-----------:|
-| [llama2_70b](../../configs/llama2/pretrain_llama2_70b.yaml) |    text_generation    |    wiki     |    4096     |    -     |  Pretrain  |       -       | 407 tks/s/p |
-| [llama2_70b](../../configs/llama2/finetune_llama2_70b.yaml) |    text_generation    |   alpaca    |    4096     |    -     |  Finetune  |       -       | 414 tks/s/p |
-| [llama2_70b](../../configs/llama2/predict_llama2_70b.yaml)  |    text_generation    |  WikiText2  |      -      |   PPL    |    Eval    |     4.92      |      -      |
-| [llama2_70b](../../configs/llama2/predict_llama2_70b.yaml)  | reading comprehension |  SQuAD 1.1  |      -      |  EM/F1   |    Eval    |  41.94/63.86  |      -      |
+| Config                                                                   |      Task       | Datasets | SeqLength | DataType |  Phase   |   Performance   |
+|:-------------------------------------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:--------:|:---------------:|
+| [llama2_7b](../../configs/llama2/pretrain_llama2_7b_bf16.yaml)           | text_generation |  alpaca  |   4096    | bfloat16 | Finetune | 4160 tokens/s/p |
+| [llama2_7b](../../configs/llama2/finetune_llama2_7b.yaml)                | text_generation |  alpaca  |   4096    | float16  | Finetune | 3484 tokens/s/p |
+| [llama2_13b](../../configs/llama2/finetune_llama2_13b_bf16.yaml)         | text_generation |  alpaca  |   4096    | bfloat16 | Finetune | 1691 tokens/s/p |
+| [llama2_13b_lora](../../configs/llama2/lora_llama2_13b.yaml)             | text_generation |  alpaca  |   4096    | float16  |   LoRA   | 2193 tokens/s/p |
+| [llama2_70b_32p](../../configs/llama2/finetune_llama2_70b_bf16_32p.yaml) | text_generation |  alpaca  |   4096    | bfloat16 | Finetune | 337 tokens/s/p  |
+| [llama2_7b](../../configs/llama2/predict_llama2_7b.yaml)                 | text_generation |    -     |   4096    |    -     | Predict  |  332 tokens/s   |
+| [llama2_13b](../../configs/llama2/predict_llama2_13b.yaml)               | text_generation |    -     |   4096    |    -     | Predict  |  420 tokens/s   |
+| [llama2_70b](../../configs/llama2/predict_llama2_70b.yaml)               | text_generation |    -     |   4096    |    -     | Predict  |  522 tokens/s   |
 
 以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
 
-| Config                                                      |      Task       | Datasets | SeqLength |  Phase   | Performance  |
-|:------------------------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:------------:|
-| [llama2_7b](../../configs/llama2/pretrain_llama2_7b.yaml)   | text_generation |   wiki   |   4096    | Pretrain | 4100 tks/s/p |
-| [llama2_13b](../../configs/llama2/pretrain_llama2_13b.yaml) | text_generation |   wiki   |   4096    | Pretrain | 1658 tks/s/p |
-| [llama2_70b](../../configs/llama2/pretrain_llama2_70b.yaml) | text_generation |   wiki   |   4096    | Pretrain | 406 tks/s/p  |
+| Config                                                                   |      Task       | Datasets | SeqLength | DataType |  Phase   |   Performance   |
+|:-------------------------------------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:--------:|:---------------:|
+| [llama2_13b](../../configs/llama2/finetune_llama2_13b_bf16.yaml)         | text_generation |  alpaca  |   4096    | bfloat16 | Finetune | 1945 tokens/s/p |
+| [llama2_13b](../../configs/llama2/finetune_llama2_13b.yaml)              | text_generation |  alpaca  |   4096    | float16  | Finetune | 1911 tokens/s/p |
+| [llama2_70b_32p](../../configs/llama2/finetune_llama2_70b_bf16_32p.yaml) | text_generation |  alpaca  |   4096    | bfloat16 | Finetune | 404 tokens/s/p  |
+| [llama2_70b_64p](../../configs/llama2/finetune_llama2_70b_bf16_64p.yaml) | text_generation |  alpaca  |   4096    | bfloat16 | Finetune | 405 tokens/s/p  |
 
 ## 模型文件
 

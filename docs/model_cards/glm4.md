@@ -20,10 +20,17 @@ Call）和长文本推理（支持最大 128K 上下文）等高级功能。 本
 
 ## 模型性能
 
-| Config                             |      Task       | Datasets | SeqLength |      Phase      |   Performance    |
-|:-----------------------------------|:---------------:|:--------:|:---------:|:---------------:|:----------------:|
-| [GLM-4-9B-Chat](predict_glm4.yaml) | text_generation |    /     |   8192    | [predict](#推理)  | 256.814 tokens/s |
-| [GLM-4-9B](finetune_glm4_9b.yaml)  |    finetune     |  Alpaca  |   8192    | [finetune](#微调) | 2047 tokens/s/p  |
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                                   |      Task       | Datasets | SeqLength |  Phase  | Performance  |
+|:---------------------------------------------------------|:---------------:|:--------:|:---------:|:-------:|:------------:|
+| [GLM-4-9B](../../configs/glm4/predict_glm4_9b_chat.yaml) | text_generation |    -     |   8192    | Predict | 256 tokens/s |
+
+以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
+
+| Config                                               |      Task       | Datasets | SeqLength |  Phase   |   Performance   |
+|:-----------------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:---------------:|
+| [GLM-4-9B](../../configs/glm4/finetune_glm4_9b.yaml) | text_generation |  alpaca  |   8192    | Finetune | 2339 tokens/s/p |
 
 ## 模型文件
 
