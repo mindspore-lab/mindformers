@@ -33,10 +33,10 @@ from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode, get_use_rope_self_define
 
-from telechat_transformer import TelechatDecodeLayer
-from telechat_interleave import TelechatDecodeLayerInterleave
-from telechat_layer import TelechatEmbedding
-from telechat_config import TelechatConfig
+from research.telechat2.telechat_transformer import TelechatDecodeLayer
+from research.telechat2.telechat_interleave import TelechatDecodeLayerInterleave
+from research.telechat2.telechat_layer import TelechatEmbedding
+from research.telechat2.telechat_config import TelechatConfig
 
 
 class TelechatPreTrainedModel(PreTrainedModel):
@@ -118,9 +118,7 @@ class TelechatModel(TelechatPreTrainedModel):
                                           config.pp_interleave_num)
         for layer_id in range(config.num_layers):
             if self.fine_grain_interleave:
-                layer = TelechatDecodeLayerInterleave(config.run_mode,
-                                                      config.batch_size,
-                                                      config.seq_length,
+                layer = TelechatDecodeLayerInterleave(config.seq_length,
                                                       layer_id,
                                                       dim=config.hidden_size,
                                                       n_heads=config.num_heads,
@@ -145,8 +143,7 @@ class TelechatModel(TelechatPreTrainedModel):
                                                       fine_grain_interleave=config.fine_grain_interleave,
                                                       parallel_config=config.parallel_config)
             else:
-                layer = TelechatDecodeLayer(config.run_mode,
-                                            layer_id,
+                layer = TelechatDecodeLayer(layer_id,
                                             dim=config.hidden_size,
                                             n_heads=config.num_heads,
                                             n_kv_heads=config.n_kv_heads,
@@ -243,7 +240,6 @@ class TelechatModel(TelechatPreTrainedModel):
 
         # tokens: [bs, seq/1]
         h = self.tok_embeddings(tokens)
-        h = self.cast(h, self.dtype)
         h = self.embeddings_dropout(h)
         h = self.reshape(h, (bs, seq_len, self.hidden_size))
         # h: [bs, seq/1, hidden_dim]
@@ -283,7 +279,6 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
         super(TelechatForCausalLM, self).__init__(config, auto_prefix=True)
         _check_config(config.parallel_config)
         self.config = config
-        self.run_mode = config.run_mode
         self.ignore_token_id = config.ignore_token_id
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
@@ -292,8 +287,6 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        if config.is_dynamic:
-            self.reshape.add_prim_attr("skip_redistribution", True)
         self.cast = P.Cast()
         self.slice = P.StridedSlice()
         self.not_equal = P.NotEqual()
@@ -338,6 +331,16 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
                 self.lm_head.shard(strategy_matmul=((dp, 1), (mp, 1)))
             if config.parallel_config.pipeline_stage > 1:
                 self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
+
+        if config.quant == "w8a16":
+            logger.info("Using RoundToNearest to quant TelechatForCausalLM.")
+            from mindspore_gs.ptq import PTQConfig, PTQMode
+            from mindspore_gs.common import BackendTarget
+            from mindspore_gs.ptq import RoundToNearest as RTN
+            cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND)
+            ptq = RTN(config=cfg)
+            self.model = ptq.apply(self.model)
+            self.model = ptq.convert(self.model)
 
         self.predict_run_mode = get_predict_run_mode()
 
@@ -427,13 +430,22 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
         logits = self.lm_head(output)
 
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
+        if labels is None:
+            labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
+        else:
+            if labels.ndim > 1:
+                if self.training:
+                    labels = self.slice(labels, (0, 1), (bsz, seqlen), (1, 1))
+                label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
+                input_mask = self.mul(input_mask, label_mask)
+
         if not self.training:
             logits = self.cast(logits, mstype.float32)
             if self.predict_run_mode:
+                logits = self.reshape(logits, (-1, logits.shape[-1]))
                 return logits
             return logits, tokens, input_mask
-        input_mask = self.slice(labels, (0, 1), (bsz, seqlen), (1, 1))
-        labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
+
         if logits.ndim > 2:
             logits = self.reshape(logits, (-1, logits.shape[-1]))
         logits = self.cast(logits, mstype.float32)

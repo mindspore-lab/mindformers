@@ -41,12 +41,6 @@ def main():
         raise FileNotFoundError(yaml_path)
 
     config = MindFormerConfig(os.path.realpath(yaml_path))
-    if args.seq_length is not None:
-        config.model.model_config.seq_length = args.seq_length
-    if args.mode is not None:
-        config.context.mode = args.mode
-        if args.mode:
-            config.recompute_config.recompute = False
     if args.use_parallel is not None:
         config.use_parallel = args.use_parallel
     if args.device_id is not None:
@@ -57,32 +51,18 @@ def main():
         config.src_strategy_path_or_dir = args.src_strategy
     if args.auto_trans_ckpt is not None:
         config.auto_trans_ckpt = args.auto_trans_ckpt
-    if args.vocab_file is not None:
-        config.processor.tokenizer.vocab_file = args.vocab_file
     if args.remote_save_url is None:
         config.remote_save_url = args.remote_save_url
-
+    os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'InferenceMatmulSplit'
     # init context
     build_context(config)
 
-    config.model.model_config.use_past = False
-    config.model.model_config.run_mode = args.run_mode
-
     # start task
-    if args.run_mode == 'train':
-        trainer = Trainer(args=config,
-                          task=args.task,
-                          train_dataset=args.train_dataset)
-        trainer.train(train_checkpoint=args.load_checkpoint, auto_trans_ckpt=config.auto_trans_ckpt,
-                      resume_training=args.resume)
-    elif args.run_mode == 'finetune':
-        trainer = Trainer(args=config,
-                          task=args.task,
-                          train_dataset=args.train_dataset)
-        trainer.finetune(finetune_checkpoint=args.load_checkpoint, auto_trans_ckpt=config.auto_trans_ckpt,
-                         resume_training=args.resume)
-    else:
-        raise ValueError("run_mode only support train and finetune.")
+    trainer = Trainer(args=config,
+                      task=args.task,
+                      train_dataset=args.train_dataset)
+    trainer.train(train_checkpoint=config.load_checkpoint, auto_trans_ckpt=config.auto_trans_ckpt,
+                  resume_training=args.resume)
 
 
 if __name__ == "__main__":
@@ -91,16 +71,10 @@ if __name__ == "__main__":
                         help='set task type.')
     parser.add_argument('--config', default='telechat2/finetune_telechat_115b.yaml', type=str,
                         help='set task type.')
-    parser.add_argument('--run_mode', default='finetune', type=str,
-                        help='set run mode for model.')
-    parser.add_argument('--seq_length', default=None, type=int,
-                        help='seq_length')
     parser.add_argument('--use_parallel', default=True, type=str2bool,
                         help='open parallel for model.')
     parser.add_argument('--device_id', default=0, type=int,
                         help='device id set when run on single card. Default: 0')
-    parser.add_argument('--mode', default=0, type=int,
-                        help='0--Graph Mode; 1--Pynative Mode')
     parser.add_argument('--load_checkpoint', default=None, type=str,
                         help='checkpoint name or dir to load.')
     parser.add_argument('--src_strategy', default=None, type=str,
@@ -113,8 +87,6 @@ if __name__ == "__main__":
                         help='set train dataset.')
     parser.add_argument('--remote_save_url', default=None, type=str,
                         help='whether use optimizer parallel. Default: None')
-    parser.add_argument('--vocab_file', default=None, type=str,
-                        help='tokenizer model')
     args = parser.parse_args()
 
     main()

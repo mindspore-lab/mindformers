@@ -26,6 +26,12 @@ import mindspore as ms
 from mindformers.tools import logger
 from mindformers.utils.convert_utils import ms2pt
 
+dtype_map = {
+    'float32': torch.float32,
+    'bfloat16': torch.bfloat16,
+    'float16': torch.float16
+}
+
 
 def name_replace(name: str):
     """replace ms param name to hf."""
@@ -48,7 +54,7 @@ def name_replace(name: str):
 # pylint: disable=W0613
 def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
     """convert telechat ms weight to hf."""
-    print(f"Trying to convert mindspore checkpoint in '{input_path}'.", flush=True)
+    logger.info(f"Trying to convert mindspore checkpoint in '{input_path}'.")
     model_ms = ms.load_checkpoint(input_path)
 
     state_dict = {}
@@ -56,22 +62,23 @@ def convert_ms_to_pt(input_path, output_path, dtype=None, **kwargs):
         value = ms2pt(value, dtype)
         name = name_replace(name)
         if name.startswith("model.layers."):
-            name = name.replace("model.layers.", "h.")
+            name = name.replace("model.layers.", "transformer.h.")
 
         state_dict[name] = value
-        print(f'\rprocessing parameter: {name} {value.shape}     ', end='', flush=True)
+        logger.info(f'\rprocessing parameter: {name} {value.shape}')
 
     torch.save(state_dict, output_path)
-    logger.info(f"\rConvert telechat checkpoint finished, the huggingface checkpoint is saved in '{output_path}'.",
-                flush=True)
+    logger.info(f"\rConvert telechat checkpoint finished, the huggingface checkpoint is saved in '{output_path}'.")
     return True
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mindspore_ckpt_path', default='transform.ckpt')
-    parser.add_argument('--torch_ckpt_path', default='torch.bin')
-    parser.add_argument("--dtype", default=None, choices=['float16', 'float32', 'bfloat16'],
+    parser.add_argument('--mindspore_path', default='transform.ckpt')
+    parser.add_argument('--torch_path', default='torch.bin')
+    parser.add_argument("--dtype", default='float32', choices=['float16', 'float32', 'bfloat16'],
                         help="Data type for output checkpoint file. Default: float16")
     args = parser.parse_args()
-    convert_ms_to_pt(input_path=args.mindspore_ckpt_path, output_path=args.torch_ckpt_path, dtype=args.dtype)
+    torch_dtype = dtype_map.get(args.dtype)
+
+    convert_ms_to_pt(input_path=args.mindspore_path, output_path=args.torch_path, dtype=torch_dtype)

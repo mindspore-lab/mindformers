@@ -29,7 +29,8 @@ from mindformers.models.llama.llama_layer import LlamaRMSNorm
 from mindformers.modules.layers import _check_input_dtype, Dropout, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.flash_attention import FlashAttention
-from telechat_layer import TelechatLinear, TelechatFeedForward
+
+from research.telechat2.telechat_layer import TelechatLinear, TelechatFeedForward
 
 
 class _MicroBatch(nn.Cell):
@@ -137,8 +138,6 @@ class TelechatAttentionInterleave(nn.Cell):
                 (batch_size, num_heads, tgt_seq_length, head_dim)).
     """
     def __init__(self,
-                 run_mode,
-                 batch_size,
                  seq_length,
                  dim: int = 512,
                  n_heads: int = 8,
@@ -158,7 +157,6 @@ class TelechatAttentionInterleave(nn.Cell):
                  use_flash_attention=False,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
-        self.batch_size = batch_size
         self.seq_length = seq_length
         self.hidden_size = dim
         self.n_head = n_heads
@@ -199,11 +197,8 @@ class TelechatAttentionInterleave(nn.Cell):
         self.cast = P.Cast()
         self.cast_attn = P.Cast()
         self.tile_kv = P.Tile()
-        if run_mode == "predict":
-            self.split_kv = ms.ops.auto_generate.SplitWithSize()
-            self.split_kv.add_prim_attr("skip_redistribution", True)
-        else:
-            self.split_kv = P.Split(output_num=2, axis=-1)
+        self.split_kv = ms.ops.auto_generate.SplitWithSize()
+        self.split_kv.add_prim_attr("skip_redistribution", True)
         self.apply_rotary_emb = RotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
         self.attention_dropout = Dropout(1 - self.attention_dropout_prob)
 
@@ -290,10 +285,7 @@ class TelechatAttentionInterleave(nn.Cell):
         query = self.cast(self.wq(x), self.dtype)  # dp, 1 -> dp, mp
         key_value = self.cast(self.wk_v(x), self.dtype)    # dp, 1 -> dp, mp
         key_value = self.reshape(key_value, (-1, self.n_kv_head, self.head_dim * 2))
-        if self.training:
-            key, value = self.split_kv(key_value)
-        else:
-            key, value = self.split_kv(key_value, (self.head_dim, self.head_dim), 2)
+        key, value = self.split_kv(key_value, (self.head_dim, self.head_dim), 2)
         key = self.reshape(key, (-1, self.n_kv_head * self.head_dim))
         value = self.reshape(value, (-1, self.n_kv_head * self.head_dim))
         return query, key, value
@@ -397,9 +389,6 @@ class TelechatDecodeLayerInterleave(nn.Cell):
         encoder layer, including multihead attention and feedward layer.
 
         Args:
-            batch_size(int): The batch size of the input tensor when do increnmental prediction. Should be a positive
-                value. When do training or prediction, the argument will not work and the user can just pass None to
-                the argument.
             seq_length(int): The input sequence length.
             layer_id(int): The layer id of current transformer block layer.
             dim(int): The hidden size of the input.
@@ -452,8 +441,6 @@ class TelechatDecodeLayerInterleave(nn.Cell):
 
     """
     def __init__(self,
-                 run_mode,
-                 batch_size,
                  seq_length,
                  layer_id,
                  dim: int = 512,
@@ -502,9 +489,7 @@ class TelechatDecodeLayerInterleave(nn.Cell):
         self.cast = P.Cast()
         self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
         self.ffn_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)
-        self.attention = TelechatAttentionInterleave(run_mode=run_mode,
-                                                     batch_size=batch_size,
-                                                     seq_length=seq_length,
+        self.attention = TelechatAttentionInterleave(seq_length=seq_length,
                                                      dim=dim,
                                                      n_heads=n_heads,
                                                      sigma=sigma,
