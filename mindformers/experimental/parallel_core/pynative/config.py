@@ -114,9 +114,9 @@ mapping_dict = {
     'enable_mem_align': 'training_config.enable_mem_align',
     'overlap_grad_reduce': 'training_config.overlap_grad_reduce',
     'delay_grad_reduce': 'training_config.delay_grad_reduce',
-    'load_optim': 'training_config.load_optim',
-    'load_rng': 'training_config.load_rng',
-    'use_ckpt_scheduler': 'training_config.use_ckpt_scheduler',
+    'no_load_optim': 'training_config.no_load_optim',
+    'no_load_rng': 'training_config.no_load_rng',
+    'new_dataset': 'training_config.new_dataset',
     'profile': 'training_config.profile',
     'profile_save_path': 'training_config.profile_save_path',
     'profile_step_start': 'training_config.profile_step_start',
@@ -155,6 +155,7 @@ mapping_dict = {
     'min_lr': 'optimizer_config.min_lr',
     'lr_warmup_iters': 'optimizer_config.lr_warmup_iters',
     'lr_decay_iters': 'optimizer_config.lr_decay_iters',
+    'use_checkpoint_opt_param_scheduler': 'optimizer_config.use_checkpoint_opt_param_scheduler',
     'override_opt_param_scheduler': 'optimizer_config.override_opt_param_scheduler',
     'weight_decay': 'optimizer_config.weight_decay',
     'overlap_param_gather': 'optimizer_config.overlap_param_gather',
@@ -1437,9 +1438,9 @@ class TrainingConfig(BaseConfig):
         ckpt_format (str, optional): checkpoint save format. Default: 'ckpt'.
         prefix (str, optional): checkpoint save prefix. Default: 'network'.
         keep_checkpoint_max (str, optional): max saved checkpoint number. Default: 5.
-        load_optim (bool): When resume traing, whether load optimizer state or not. Default: True.
-        load_rng (bool): When resume traing, whether load RNG state or not. Default: False.
-        use_ckpt_scheduler (bool): When resume traing, whether load optimizer parameter scheduler or not. Default: True.
+        no_load_optim (bool): When resume traing, whether load optimizer state or not. Default: False.
+        no_load_rng (bool): When resume traing, whether load RNG state or not. Default: True.
+        new_dataset (bool): When resume traing, whether use new dataset or not. Default: False.
         profile (bool, optional): open profiling or not. Default: False.
         profile_save_path (str, optional): path to save profiling files. Default: './{output_dir}/profile'.
         profile_step_start (int, optional): profiling start step. Default: 1.
@@ -1503,9 +1504,9 @@ class TrainingConfig(BaseConfig):
             ckpt_format: str = "ckpt",
             prefix: str = "network",
             keep_checkpoint_max: int = 5,
-            load_optim: bool = True,
-            load_rng: bool = False,
-            use_ckpt_scheduler: bool = True,
+            no_load_optim: bool = False,
+            no_load_rng: bool = True,
+            new_dataset: bool = False,
             enable_mem_align: bool = False,
             profile: bool = False,
             profile_save_path: str = None,
@@ -1571,9 +1572,9 @@ class TrainingConfig(BaseConfig):
         self.ckpt_format = ckpt_format
         self.prefix = prefix
         self.keep_checkpoint_max = keep_checkpoint_max
-        self.load_optim = load_optim
-        self.load_rng = load_rng
-        self.use_ckpt_scheduler = use_ckpt_scheduler
+        self.no_load_optim = no_load_optim
+        self.no_load_rng = no_load_rng
+        self.new_dataset = new_dataset
         self.enable_mem_align = enable_mem_align
 
         # profiler configs
@@ -1872,37 +1873,33 @@ def validate_keep_checkpoint_max(config_instance, keep_checkpoint_max):
     return keep_checkpoint_max
 
 
-@TrainingConfig.validator("load_optim")
-def validate_load_optim(config_instance, load_optim):
-    """Validate load_optim is bool."""
-    Validator.check_bool(load_optim, "load_optim")
-    if not load_optim:
-        logger.warning(
-            "MindFormers doesn't support config `load_optim=False`. " + \
-            "For checkpoint saved from MindFormers, MindFormers will load optimizer state by default; " + \
-            "For checkpoint saved from third-party, MindFormers will load optimizer state if checkpoint has it, " + \
-            "MindFormers will NOT load optimizer state if checkpoint does NOT have it."
-            )
-    return load_optim
+@TrainingConfig.validator("no_load_optim")
+def validate_no_load_optim(config_instance, no_load_optim):
+    """Validate no_load_optim is bool."""
+    if no_load_optim is None:
+        no_load_optim = False
+        config_instance.no_load_optim = False
+    Validator.check_bool(no_load_optim, "no_load_optim")
+    return no_load_optim
 
 
-@TrainingConfig.validator("load_rng")
-def validate_load_rng(config_instance, load_rng):
-    """Validate load_rng is bool."""
-    Validator.check_bool(load_rng, "load_rng")
-    if load_rng:
+@TrainingConfig.validator("no_load_rng")
+def validate_no_load_rng(config_instance, no_load_rng):
+    """Validate no_load_rng is bool."""
+    if no_load_rng is None:
+        no_load_rng = False
+        config_instance.no_load_rng = False
+    Validator.check_bool(no_load_rng, "no_load_rng")
+    if not no_load_rng:
         logger.warning("MindFormers doesn't support load rng state from third-party checkpoint.")
-    return load_rng
+    return no_load_rng
 
 
-@TrainingConfig.validator("use_ckpt_scheduler")
-def validate_use_ckpt_scheduler(config_instance, use_ckpt_scheduler):
-    """Validate use_ckpt_scheduler is bool."""
-    Validator.check_bool(use_ckpt_scheduler, "use_ckpt_scheduler")
-    if not use_ckpt_scheduler:
-        logger.warning("MindFormers only support `use_ckpt_scheduler=True`. " + \
-                       "`opt_param_scheduler` will be loaded anyway.")
-    return use_ckpt_scheduler
+@TrainingConfig.validator("new_dataset")
+def validate_new_dataset(config_instance, new_dataset):
+    """Validate new_dataset is bool."""
+    Validator.check_bool(new_dataset, "new_dataset")
+    return new_dataset
 
 
 @TrainingConfig.validator("profile")

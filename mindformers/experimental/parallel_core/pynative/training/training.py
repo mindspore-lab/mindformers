@@ -674,7 +674,7 @@ def train(
         initial_step = resume_dict.get("step_num")
     else:
         initial_epoch = 0
-        initial_step = 1
+        initial_step = 0
 
     dataset_size = None
     # broadcast only support [Int32], datasize limit [-2147483648, 2147483647]
@@ -707,9 +707,10 @@ def train(
         global_step = initial_step + initial_epoch * dataset_size + 1
         epoch_step = global_step % dataset_size
         current_epoch = global_step // dataset_size
+        logger.info(f"Resume training starts from global step {global_step}, epoch {current_epoch}, step {epoch_step}.")
 
     if epoch_step > 1:
-        logger.debug(f"Resume training will skip {epoch_step} step data")
+        logger.info(f"Resume training will skip {epoch_step} step data")
 
     evaluation_flag = (
         val_dataloader is not None
@@ -739,8 +740,15 @@ def train(
 
     # both `get_batch_func` and `train_dataloader` need create train_dataloader
     if train_dataloader is not None:
-        # when epoch_step > 1, means resume traing mode, will skip some data.
-        train_data_dict_iterator = train_dataloader.skip(epoch_step - 1).create_dict_iterator()
+        if training_config.resume_training:
+            if not training_config.new_dataset:
+                # when epoch_step > 1, means resume traing mode, will skip some data.
+                train_data_dict_iterator = train_dataloader.skip(epoch_step - 1).create_dict_iterator()
+            else:
+                logger.warning(f"When `resume_training = True` and `new_dataset = True`, will use a new dataset.")
+                train_data_dict_iterator = train_dataloader.create_dict_iterator()
+        else:
+            train_data_dict_iterator = train_dataloader.create_dict_iterator()
     else:
         train_data_dict_iterator = None
 
@@ -760,7 +768,7 @@ def train(
             data = next(train_data_dict_iterator)
         else:
             data = get_batch_func(train_data_dict_iterator)
-
+        logger.debug(f"step {global_step} input data are:\n{data}")
         start_time = time.time()
         profiler.step_begin(global_step)
         loss, is_finite, loss_scale, learning_rate, _ = train_one_step_cell(**data)
@@ -857,6 +865,7 @@ def train(
                         step_num=epoch_step,
                         crc_check=training_config.crc_check,
                         keep_checkpoint_max=training_config.keep_checkpoint_max)
+    logger.info("Training success!")
 
 
 # pylint: disable=W0613
@@ -904,23 +913,29 @@ def pretrain(train_valid_test_datasets_provider,
             resume_training=training_config.resume_training,
             resume_by_meta=resume_by_meta
             )
-        logger.warning(f"resume_ckpt_name is {resume_ckpt_name}")
+        logger.debug(f"resume_ckpt_name is {resume_ckpt_name}")
         if resume_ckpt_name is True:
             ckpt_path = training_config.load_checkpoint
         elif isinstance(resume_ckpt_name, str):
             ckpt_path = os.path.join(rank_path, resume_ckpt_name)
-        logger.warning(f"ckpt_path is {ckpt_path}")
-        resume_dict = load_checkpoint(model_config, network_with_loss, optimizer=optimizer,
-                                      opt_param_scheduler=opt_param_scheduler, ckpt_path=ckpt_path,
-                                      format=training_config.ckpt_format)
+        logger.debug(f"ckpt_path is {ckpt_path}")
 
+        resume_dict = load_checkpoint(
+            config=model_config,
+            model=network_with_loss,
+            optimizer=optimizer if not training_config.no_load_optim else None,
+            opt_param_scheduler=opt_param_scheduler,
+            ckpt_path=ckpt_path,
+            format=training_config.ckpt_format
+            )
+        logger.info(f"Checkpoint has trained {resume_dict.get('epoch_num', 0)} epochs, " + \
+                    f"{resume_dict.get('step_num', 0)} steps.")
     train_one_step_cell = TrainOneStepCell(network_with_loss, optimizer, opt_param_scheduler, training_config,
                                            model_config)
 
     metrics = {
         "perplexity": Perplexity(),
     }
-
     train(
         train_one_step_cell=train_one_step_cell,
         train_dataloader=train_data_loader,
