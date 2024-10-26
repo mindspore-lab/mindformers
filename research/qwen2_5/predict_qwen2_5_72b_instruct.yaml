@@ -2,8 +2,8 @@ seed: 0
 output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: ""
 src_strategy_path_or_dir: ''
-auto_trans_ckpt: True  # If true, auto transform load_checkpoint to load in distributed model
-only_save_strategy: True
+auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
+only_save_strategy: False
 resume_training: False
 use_parallel: True
 run_mode: 'predict'
@@ -101,7 +101,7 @@ processor:
 context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
-  enable_graph_kernel: `False`
+  enable_graph_kernel: False
   ascend_config:
     precision_mode: "must_keep_origin_dtype"
   max_call_depth: 10000
