@@ -14,16 +14,23 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
 
 ## 模型性能
 
-| Config                                                   |      Task       |     Datasets      | SeqLength |  Phase   |              Performance               |
-|:---------------------------------------------------------|:---------------:|:-----------------:|:---------:|:--------:|:--------------------------------------:|
-| [qwen2-0.5b](./predict_qwen2_0_5b_instruct.yaml)         | text_generation |  -  |   8192    | Predict  | 1907 tokens/s(mindie 16 batch_size 单卡) |
-| [qwen2-1.5b](./predict_qwen2_1_5b_instruct.yaml)         | text_generation |  -  |   8192    | Predict  | 1354 tokens/s(mindie 16 batch_size 单卡) |
-| [qwen2-7b](./predict_qwen2_7b_instruct.yaml)             | text_generation |  -  |   8192    | Predict  | 653 tokens/s (mindie 16 batch_size 单卡) |
-| [qwen2-7b](./finetune_qwen2_7b.yaml)                     |   alpaca_data   |  -  |   32768   | Finetune |           1480 tokens/s (八卡)           |
-| [qwen2-57b-A14b](./predict_qwen2_57b_a14b_instruct.yaml) | text_generation  |  -  |    8192    |  Predict   |  - tokens/s (mindie 16 batch_size 四卡)  |
-| [qwen2-57b-A14b](./finetune_qwen2_57b.yaml) | alpaca_data  |  -  |    32768    |  Finetune   |  181 tokens/s (32卡)  |
-| [qwen2-72b](./predict_qwen2_72b_instruct.yaml)           | text_generation |  -  |   8192    | Predict  | 247 tokens/s(mindie 16 batch_size 四卡)  |
-| [qwen2-72b-128k](./predict_qwen2_72b_instruct_128k.yaml) | text_generation |  -  |   8192    | Predict  |               9 tokens/s               |
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                           |      Task       | Datasets | SeqLength |  Phase   |   Performance   |
+|:-------------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:---------------:|
+| [qwen2-0.5b](./predict_qwen2_0_5b_instruct.yaml) | text_generation |    -     |   4096    | Predict  |  1907 tokens/s  |
+| [qwen2-1.5b](./predict_qwen2_1_5b_instruct.yaml) | text_generation |    -     |   4096    | Predict  |  1160 tokens/s  |
+| [qwen2-7b](./predict_qwen2_7b_instruct.yaml)     | text_generation |    -     |   4096    | Predict  |  645 tokens/s   |
+| [qwen2-72b](./predict_qwen2_72b_instruct.yaml)   | text_generation |    -     |   8192    | Predict  |  252 tokens/s   |
+
+以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
+
+| Config                                       |      Task       | Datasets | SeqLength |  Phase   |   Performance   |
+|:---------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:---------------:|
+| [qwen2-0.5b](./finetune_qwen2_0.5b_32k.yaml) | text_generation |  alpaca  |   32768   | Finetune | 9555 tokens/s/p |
+| [qwen2-1.5b](./finetune_qwen2_1.5b_32k.yaml) | text_generation |  alpaca  |   32768   | Finetune | 4363 tokens/s/p |
+| [qwen2-57b-a14b](./finetune_qwen2_57b.yaml)  | text_generation |  alpaca  |   32768   | Finetune | 288 tokens/s/p  |
+| [qwen2-72b](./finetune_qwen2_72b_32k.yaml)   | text_generation |  alpaca  |   32768   | Finetune | 2026 tokens/s/p |
 
 ## 模型文件
 

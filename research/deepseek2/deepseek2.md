@@ -6,6 +6,14 @@ DeepSeek-V2采用了创新的MLA（Multi-head Latent Attention）注意力机制
 
 在训练过程中，DeepSeek-V2使用了高质量、多样化的8.1万亿token预训练语料库，并针对不同任务（如数学、编程、对话等）进行了监督微调和强化学习。这些优化措施确保了模型在训练成本上大幅优于同类模型，同时提升了模型的泛化能力和实际应用效果。
 
+## 模型性能
+
+以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
+
+| Config                                           |      Task       |  Datasets   | SeqLength |  Phase   |  Performance  |
+|:-------------------------------------------------|:---------------:|:-----------:|:---------:|:--------:|:-------------:|
+| [deepseek2-236b](./finetune_deepseek2_236B.yaml) | text_generation | code_alpaca |   4096    | Finetune | 36 tokens/s/p |
+
 ## 模型文件
 
 `deepseekv2-236b` 基于 `mindformers` 实现，主要涉及的文件有：
