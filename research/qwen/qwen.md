@@ -17,19 +17,14 @@
 
 以下模型性能均由Atlas 800T A2硬件环境下测试得出。
 
-Qwen-7B:
-
-| Config                                     |      Task       | Datasets | SeqLength |  Phase   |  Performance   |
-|:-------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:--------------:|
-| [Qwen-7B](finetune_qwen_7b.yaml)           | text_generation |  alpaca  |   8192    | Finetune | 1512   tks/s/p |
-| [Qwen-7B-lora](finetune_qwen_7b_lora.yaml) | text_generation |  alpaca  |   2048    |   Lora   | 2694.7 tks/s/p |
-
-Qwen-14B:
-
-| Config                                       |      Task       | Datasets | SeqLength |  Phase   |  Performance   |
-|:---------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:--------------:|
-| [Qwen-14B](finetune_qwen_14b.yaml)           | text_generation |  alpaca  |   8192    | Finetune | 901    tks/s/p |
-| [Qwen-14B-lora](finetune_qwen_14b_lora.yaml) | text_generation |  alpaca  |   2048    |   Lora   | 1429.2 tks/s/p |
+| Config                                    |      Task       | Datasets | SeqLength |  Phase   |                           Performance                           | DataType |
+|:------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:---------------------------------------------------------------:|:--------:|
+| [Qwen-7B](./finetune_qwen_7b.yaml)        | text_generation |  alpaca  |   8192    | Finetune |                         1571 tokens/s/p                         | float16  |
+| [Qwen-7B](./finetune_qwen_7b_bf16.yaml)   | text_generation |  alpaca  |   2048    | Finetune |                         2955 tokens/s/p                         | bfloat16 |
+| [Qwen-14B](./finetune_qwen_14b.yaml)      | text_generation |  alpaca  |   8192    | Finetune |                         911 tokens/s/p                          | float16  |
+| [Qwen-14B](./finetune_qwen_14b_bf16.yaml) | text_generation |  alpaca  |   2048    | Finetune |                         1106 tokens/s/p                         | bfloat16 |
+| [Qwen-7B](./predict_qwen_7b.yaml)         | text_generation |    -     |   2048    | Predict  | 23 tokens/s (bastch_size=1) <br/> 196 tokens/s (bastch_size=16) |    -     |
+| [Qwen-14B](./predict_qwen_14b.yaml)       | text_generation |    -     |   2048    | Predict  |                           35 tokens/s                           |    -     |
 
 ## 模型文件
 

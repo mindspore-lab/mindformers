@@ -18,14 +18,14 @@ Yi系列是由零一万物研究的大规模语言预训练模型，目前开源
 
 ## 模型性能
 
-| Config                                            |      Task       |      Datasets       | SeqLength |   Performance   |  Phase   |
-|:--------------------------------------------------|:---------------:|:-------------------:|:---------:|:---------------:|:--------:|
-| [finetune_yi_6b](./finetune_yi_6b.yaml)           | text_generation | alpaca_gpt4_data_zh |   2048    | 3324 tokens/s/p | Finetune |
-| [finetune_yi_34b](./finetune_yi_34b.yaml)         | text_generation |       alpaca        |   4096    | 660 tokens/s/p  | Finetune |
-| [pretrain_yi_34b](./pretrain_yi_34b.yaml)         | text_generation |      wikitext2      |   4096    | 660 tokens/s/p  | Pretrain |
-| [predict_yi_6b](./predict_yi_6b.yaml)             | text_generation |          -          |    512    |   39 tokens/s   | Predict  |
-| [predict_yi_34b](./predict_yi_34b.yaml)           | text_generation |          -          |   4096    |   39 tokens/s   | Predict  |
-| [predict_yi_34b_chat](./predict_yi_34b_chat.yaml) | text_generation |          -          |   16384   |   39 tokens/s   | Predict  |
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                               |      Task       |      Datasets       | SeqLength |   Performance   |  Phase   |
+|:-------------------------------------|:---------------:|:-------------------:|:---------:|:---------------:|:--------:|
+| [yi_6b](./finetune_yi_6b.yaml)       | text_generation | alpaca_gpt4_data_zh |   2048    | 3324 tokens/s/p | Finetune |
+| [yi_34b](./finetune_yi_34b.yaml)     | text_generation |       alpaca        |   4096    | 660 tokens/s/p  | Finetune |
+| [yi_6b](./predict_yi_6b.yaml)        | text_generation |          -          |    512    |   31 tokens/s   | Predict  |
+| [yi_34b](./predict_yi_34b_chat.yaml) | text_generation |          -          |   16384   |   41 tokens/s   | Predict  |
 
 ## 模型文件
 

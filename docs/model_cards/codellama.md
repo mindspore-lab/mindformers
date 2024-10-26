@@ -15,6 +15,22 @@ Code Llama是基于Llama 2的一系列大型代码语言模型，它在开源模
 }
 ```
 
+## 模型性能
+
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                                                       |      Task       | SeqLength | Datasets |  Performance   |  Phase   |
+|:-----------------------------------------------------------------------------|:---------------:|:---------:|:--------:|:--------------:|:--------:|
+| [codellama_34b_32p](../../configs/codellama/finetune_codellama_34b_32p.yaml) | text_generation |   4096    |  belle   | 667 tokens/s/p | Finetune |
+| [codellama_34b](../../configs/codellama/predict_codellama_34b.yaml)          | text_generation |   4096    |    /     |  139 tokens/s  | Predict  |
+
+以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
+
+| Config                                                                       |      Task       | SeqLength |  Datasets   |  Performance   |  Phase   |
+|:-----------------------------------------------------------------------------|:---------------:|:---------:|:-----------:|:--------------:|:--------:|
+| [codellama_34b_16p](../../configs/codellama/finetune_codellama_34b_16p.yaml) | text_generation |   4096    | code-alpaca | 669 tokens/s/p | Finetune |
+| [codellama_34b_32p](../../configs/codellama/finetune_codellama_34b_32p.yaml) | text_generation |   4096    | code-alpaca | 747 tokens/s/p | Finetune |
+
 ## 模型文件
 
 `Code Llama` 基于 `mindformers` 实现，本仓库当前支持34b模型配置，主要涉及的文件有：

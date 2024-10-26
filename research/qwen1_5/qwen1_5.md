@@ -15,21 +15,31 @@
 
 ## 模型性能
 
-| Config                                     |       Task       |     Datasets      |  SeqLength  |        Phase        |  Performance(tokens/s/p)  |
-|:-------------------------------------------|:----------------:|:-----------------:|:-----------:|:-------------------:|:-------------------------:|
-| [qwen1.5-7b](./pretrain_qwen1_5_7b.yaml)   | text_generation  |  wikitext-103-v1  |    32768    |  [Pretrain](#预训练)   |           1048            |
-| [qwen1.5-14b](./pretrain_qwen1_5_14b.yaml) | text_generation  |  wikitext-103-v1  |    32768    |  [Pretrain](#预训练)   |            675            |
-| [qwen1.5-72b](./pretrain_qwen1_5_72b.yaml) | text_generation  |  wikitext-103-v1  |    32768    |  [Pretrain](#预训练)   |            186            |
-| [qwen1.5-7b](./finetune_qwen1_5_7b.yaml)   | text_generation  |      alpaca       |    4096     |  [Finetune](#全参微调)  |           2457            |
-| [qwen1.5-14b](./finetune_qwen1_5_14b.yaml) | text_generation  |      alpaca       |    4096     |  [Finetune](#全参微调)  |           1077            |
-| [qwen1.5-72b](./finetune_qwen1_5_72b.yaml) | text_generation  |      alpaca       |    2048     |  [Finetune](#全参微调)  |           180.2           |
-| [qwen1.5-0.5b](./predict_qwen1_5_0_5b_chat.yaml)  | text_generation  |      -       |    8192     |  Predict  |           1491 (mindie 16 batch_size 单卡)           |
-| [qwen1.5-1.8b](./predict_qwen1_5_1_8b_chat.yaml) | text_generation  |      -       |    8192     |  Predict  |           1179 (mindie 16 batch_size 单卡)           |
-| [qwen1.5-4b](./predict_qwen1_5_4b_chat.yaml) | text_generation  |      -       |    8192     |  Predict  |           625 (mindie 16 batch_size 单卡)        |
-| [qwen1.5-7b](./predict_qwen1_5_7b_chat.yaml) | text_generation  |      -       |    8192     |  Predict  |            539 (mindie 16 batch_size 单卡)          |
-| [qwen1.5-14b](./predict_qwen1_5_14b_chat.yaml) | text_generation  |      -       |    8192     |  Predict  |           284 (mindie 16 batch_size 单卡)           |
-| [qwen1.5-32b](./predict_qwen1_5_32b_chat.yaml) | text_generation  |      -       |    8192     |  Predict  |           245 (mindie 16 batch_size 双卡)           |
-| [qwen1.5-72b](./predict_qwen1_5_72b_chat.yaml) | text_generation  |      -       |    8192     |  Predict  |           260 (mindie 16 batch_size 四卡)           |
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                           |      Task       |   Datasets   | SeqLength |  Phase   |   Performance   |
+|:-------------------------------------------------|:---------------:|:------------:|:---------:|:--------:|:---------------:|
+| [qwen1.5-7b](./finetune_qwen1_5_7b.yaml)         | text_generation |    alpaca    |   4096    | Finetune | 2684 tokens/s/p |
+| [qwen1.5-7b](./pretrain_qwen1_5_7b.yaml)         | text_generation | Wikitext-103 |   32768   | Pretrain | 1417 tokens/s/p |
+| [qwen1.5-14b](./finetune_qwen1_5_14b.yaml)       | text_generation |    alpaca    |   4096    | Finetune | 1452 tokens/s/p |
+| [qwen1.5-0.5b](./predict_qwen1_5_0_5b_chat.yaml) | text_generation |      -       |   8192    | Predict  |  1491 tokens/s  |
+| [qwen1.5-1.8b](./predict_qwen1_5_1_8b_chat.yaml) | text_generation |      -       |   4096    | Predict  |  1179 tokens/s  |
+| [qwen1.5-4b](./predict_qwen1_5_4b_chat.yaml)     | text_generation |      -       |   4096    | Predict  |  625 tokens/s   |
+| [qwen1.5-7b](./predict_qwen1_5_7b_chat.yaml)     | text_generation |      -       |   8192    | Predict  |  164 tokens/s   |
+| [qwen1.5-14b](./predict_qwen1_5_14b_chat.yaml)   | text_generation |      -       |   8192    | Predict  |  104 tokens/s   |
+| [qwen1.5-32b](./predict_qwen1_5_32b_chat.yaml)   | text_generation |      -       |   4096    | Predict  |  245 tokens/s   |
+| [qwen1.5-72b](./predict_qwen1_5_72b_chat.yaml)   | text_generation |      -       |   8192    | Predict  |   74 tokens/s   |
+
+以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
+
+| Config                                       |      Task       |   Datasets   | SeqLength |  Phase   |   Performance    |
+|:---------------------------------------------|:---------------:|:------------:|:---------:|:--------:|:----------------:|
+| [qwen1.5-0.5b](./finetune_qwen1_5_05b.yaml)  | text_generation |    alpaca    |   8192    | Finetune | 21171 tokens/s/p |
+| [qwen1.5-1.8b](./finetune_qwen1_5_1_8b.yaml) | text_generation |    alpaca    |   8192    | Finetune | 11241 tokens/s/p |
+| [qwen1.5-4b](./finetune_qwen1_5_4b.yaml)     | text_generation |    alpaca    |   8192    | Finetune | 4844 tokens/s/p  |
+| [qwen1.5-32b](./finetune_qwen1_5_32b.yaml)   | text_generation |    alpaca    |   8192    | Finetune |  671 tokens/s/p  |
+| [qwen1.5-14b](./pretrain_qwen1_5_14b.yaml)   | text_generation | Wikitext-103 |   32768   | Pretrain |  787 tokens/s/p  |
+| [qwen1.5-72b](./pretrain_qwen1_5_72b.yaml)   | text_generation | Wikitext-103 |   32768   | Pretrain |  183 tokens/s/p  |
 
 ## 模型文件
 

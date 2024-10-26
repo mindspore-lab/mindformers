@@ -8,6 +8,22 @@ Llama 3.1在来自公开可用来源的超过15T的数据上进行了预训练�
 Llama 3.1模型是类GPT模型，是一个生成式的语言模型，主要是用于预测下一个单词。
 目前Mindformers支持Llama 3.1-8B，Llama 3.1-70B，敬请期待Llama 3.1-405B。
 
+## 模型性能
+
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                      |      Task       | Datasets | SeqLength | Performance  |  Phase  |
+|:--------------------------------------------|:---------------:|:--------:|:---------:|:------------:|:-------:|
+| [llama3_1_8b](./predict_llama3_1_8b.yaml)   | text_generation |    -     |   2048    | 591 tokens/s | Predict |
+| [llama3_1_70b](./predict_llama3_1_70b.yaml) | text_generation |    -     |   4096    | 509 tokens/s | Predict |
+
+以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
+
+| Config                                       |      Task       | Datasets | SeqLength |   Performance   |  Phase   |
+|:---------------------------------------------|:---------------:|:--------:|:---------:|:---------------:|:--------:|
+| [llama3_1_8b](./finetune_llama3_1_8b.yaml)   | text_generation |  alpaca  |   8192    | 2703 tokens/s/p | Finetune |
+| [llama3_1_70b](./finetune_llama3_1_70b.yaml) | text_generation |  alpaca  |   8192    | 337 tokens/s/p  | Finetune |
+
 ## 模型文件
 
 `Llama 3.1` 基于 `mindformers` 实现，主要涉及的文件有：

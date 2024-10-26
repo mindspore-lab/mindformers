@@ -15,10 +15,10 @@ Qwen-VL 是阿里云研发的大规模视觉语言模型（Large Vision Language
 
 ## 模型性能
 
-| Config                                                                       |           Task           |      Datasets       |   Performance   |  Phase   |
-|:-----------------------------------------------------------------------------|:------------------------:|:-------------------:|:---------------:|:--------:|
-| [finetune_qwenvl_9.6b](../../research/qwenvl/finetune_qwenvl_9.6b_bf16.yaml) | image_to_text_generation | LlaVA-Instruct-150K | 2519 tokens/s/p | Finetune |
-| [predict_qwenvl_9.6b](../../research/qwenvl/predict_qwenvl_9.6b.yaml)        | image_to_text_generation |          /          |   42tokens/s    | Predict  |
+| Config                                          |             Task              |      Datasets       |   Performance   |  Phase   |
+|:------------------------------------------------|:-----------------------------:|:-------------------:|:---------------:|:--------:|
+| [qwenvl_9.6b](./finetune_qwenvl_9.6b_bf16.yaml) | multimodal_to_text_generation | LlaVA-Instruct-150K | 2587 tokens/s/p | Finetune |
+| [qwenvl_9.6b](./predict_qwenvl_9.6b.yaml)       | multimodal_to_text_generation |          -          |   42 tokens/s   | Predict  |
 
 ## 模型文件
 
