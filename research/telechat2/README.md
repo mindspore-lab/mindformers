@@ -2,7 +2,7 @@
 
 ## 模型描述
 
-- 星辰语义大模型**TeleChat2**是由中国电信人工智能研究院研发训练的大语言模型，该系列模型**完全基于国产算力**训练。
+- 星辰语义大模型**TeleChat2**是由中国电信人工智能研究院研发训练的大语言模型，包含7B, 35B, 115B三种规模，该系列模型**完全基于国产算力**训练。
 - 本次开源**TeleChat2-115B**模型采用10万亿 Tokens中英文高质量语料进行训练，同步开源对话模型**TeleChat2-115B**的多格式、多平台权重文件。
 - **TeleChat2**在训练数据、训练方法等方面进行了改进，在通用问答和知识类、代码类、数学类榜单上相比**TeleChat1**均有大幅提升。
     - **TeleChat2**完全基于国产算力和国产深度学习框架进行训练，算力和算法框架更自主可控。优化MP、PP、SP实现方式提升模型性能，优化算子来提升训练速度。
@@ -30,6 +30,20 @@
 
 以下模型性能均由Atlas 800T A2硬件环境下测试得出。
 
+TeleChat2-7b:
+
+| config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
+|-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
+| [TeleChat2_7b](./run_telechat_115b_finetune.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 2950 tokens/s/p |
+| [TeleChat2_7b](./run_telechat_115b_predict.yaml)  | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 54.1 tokens/s   |
+
+TeleChat2-35b:
+
+| config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
+|-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
+| [TeleChat2_35b](./run_telechat_115b_finetune.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 516 tokens/s/p |
+| [TeleChat2_35b](./run_telechat_115b_predict.yaml)  | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 27.7 tokens/s   |
+
 TeleChat2-115b:
 
 | config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
@@ -45,8 +59,8 @@ TeleChat2-115b:
 
    ```bash
    telechat
-       ├── convert_weight_ms_to_torch.py         # ms->torch权重转换脚本
-       ├── convert_weight_torch_to_ms.py         # torch->ms权重转换脚本
+       ├── convert_weight.py                     # torch->ms权重转换脚本
+       ├── convert_reversed.py                   # ms->torch权重转换脚本
        ├── telechat_preprocess.py                # telechat模型的mindrecord数据处理脚本
        ├── telechat.py                           # 模型实现
        ├── telechat_config.py                    # 模型配置项
@@ -61,6 +75,10 @@ TeleChat2-115b:
 
    ```bash
    telechat
+       ├── finetune_telechat_7b.yaml             # 7b全量微调启动配置
+       ├── predict_telechat_7b.yaml              # 7b推理启动配置
+       ├── finetune_telechat_35b.yaml            # 35b全量微调启动配置
+       ├── predict_telechat_35b.yaml             # 35b推理启动配置
        ├── finetune_telechat_115b.yaml           # 115b全量微调启动配置
        └── predict_telechat_115b.yaml            # 115b推理启动配置
    ```
@@ -85,7 +103,7 @@ TeleChat2-115b:
 
 #### 数据集下载
 
-TeleChat2_115B所使用的微调数据集是由中电信人工智能科技有限公司所提供。
+TeleChat2全系列模型中7B，35B，115B所使用的微调数据集是由中电信人工智能科技有限公司所提供。
 
 step 1. 获取数据集
 
@@ -120,12 +138,14 @@ output_path: 生成数据集的路径
   > 注：`bos`, `eos`, `pad`等特殊`ids`要和`yaml`配置文件中`model_config`部分保持一致，默认`bos_token_id=1`, `eos_token_id=2`, `pad_token_id=3`。
 如果有所修改，配置文件中对应设置也需要修改，通常预训练数据不包含`pad_token`，因此建议设置`pad_token_id=-1`。
 
-#### 模型权重下载
+#### 模型权重下载与转换
 
 MindFormers提供已经转换完成的预训练权重、词表文件用于预训练、微调和推理，开发者可以下载获取官方权重后，通过下面提供的**权重转换脚本**，将官方权重转换为MindSpore权重；或直接使用MindFormers提供的**已转换权重**
 
 1.torch模型权重及词模型下载链接：
 
+- [TeleChat2-7b](https://modelscope.cn/models/TeleAI/TeleChat2-7B)
+- [TeleChat2-35b](https://modelscope.cn/models/TeleAI/TeleChat2-35B)
 - [TeleChat2-115b](https://modelscope.cn/models/TeleAI/TeleChat2-115B)
 
 下载完成后，运行如下转换脚本，将全量微调的权重转换为完整的ckpt权重。
@@ -144,6 +164,8 @@ mindspore_path: 权重保存文件名，可以指定自定义保存路径
 
 2.获取MindFormers提供的已转换权重，可直接从下面的链接获取。
 
+- [TeleChat2-7b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_7B/Telechat_7B.zip)
+- [TeleChat2-35b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_35B/Telechat_35B.zip)
 - [TeleChat2-115b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_115B/Telechat_115B.zip)
 
 ### [分布式训练/微调权重合并](../../docs/feature_cards/Transform_Ckpt.md)
@@ -224,57 +246,121 @@ export GE_NOT_CUT=1   # 内存优化
 ```shell
 cd mindformers/
 
-# 节点0，节点ip为192.168.1.1，作为主节点，总共8卡且每个节点4卡
-bash scripts/msrun_launcher.sh "python research/telechat2/run_telechat.py \
+# 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
+bash scripts/msrun_launcher.sh "python python run_mindformer.py \
  --config research/telechat2/finetune_telechat_115b.yaml
  --train_dataset /{path}/dataset.mindrecord \
  --use_parallel True \
- --run_mode finetune" \
-  8 4 192.168.1.1 8118 0 output/msrun_log False 300
+ --register_path ./research/telechat2" \
+  16 8 192.168.1.1 8118 0 output/msrun_log False 300
 
 # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
-bash scripts/msrun_launcher.sh "python research/telechat2/run_telechat.py \
+bash scripts/msrun_launcher.sh "python python run_mindformer.py \
  --config research/telechat2/finetune_telechat_115b.yaml
  --train_dataset /{path}/dataset.mindrecord \
  --use_parallel True \
- --run_mode finetune" \
-  8 4 192.168.1.1 8118 1 output/msrun_log False 300
+ --register_path ./research/telechat2" \
+  16 8 192.168.1.1 8118 1 output/msrun_log False 300
 ```
 
 ```text
 # 参数说明
 config: 配置文件路径
-run_mode: 运行模式，预训练时设置为train
 train_dataset: 训练数据集文件夹路径
 use_parallel：开启并行训练
-run_mode：运行模式
+register_path: 外部模型注册路径
 ```
 
 ## 推理
 
-推理时将配置文件中`param_init_type`修改为和全量微调一致的数据类型,`compute_dtype`修改为`float16`。
+推理时所需的模型词表可在[模型权重下载与转换](#模型权重下载与转换)章节中下载得到，对应文件为`tokenizer.model`。
 
-### 单机8卡generate推理
+### 参数配置
 
-1. TeleChat2用于在线推理，输入按照 "question"的模板格式输入，Atlas 800T A2芯片支持多卡推理。主要参数配置参考:
+- 7b模型支持单机**单卡推理**
 
-```text
-1. 增加脚本入参`--checkpoint_path /{path}/telechat_115b.ckpt`加载微调权重
-2. 增加脚本入参`--vocab_file_path /{path}/tokenizer.model`加载词表地址
-3. 增加脚本入参`--yaml_file predict_telechat_115b.yaml`推理配置文件
+在`predict_telechat_7b.yaml`中填写`vocab_file`字段
+
+```yaml
+processor:
+  tokenizer:
+    vocab_file: 'path/to/tokenizer.model'
 ```
 
-2. 启动推理
+- 35b模型支持单机**2卡推理**
+
+在`predict_telechat_35b.yaml`中填写`vocab_file`字段
+
+```yaml
+processor:
+  tokenizer:
+    vocab_file: 'path/to/tokenizer.model'
+```
+
+- 115b模型支持单机**8卡推理**
+
+在`predict_telechat_115b.yaml`中填写`vocab_file`字段
+
+```yaml
+processor:
+  return_tensors: ms
+  tokenizer:
+    vocab_file: 'path/to/tokenizer.model'
+```
+
+### 启动推理
+
+- 7b模型单卡推理
+
+运行`run_mindformer.py`启动推理
 
 ```shell
 cd mindformers/
-bash scripts/msrun_launcher.sh ./research/telechat2/run_telechat_predict.py
-
-# 参数说明
-input_file: 输入的问题文件
-yaml_file: 模型的配置文件
-vocab_file: 配置词表路径
+python run_mindformer.py \
+--config ./research/telechat2/predict_telechat_7b.yaml \
+--load_checkpoint path/to/ckpt_path \
+--use_parallel False
+--predict_data "<_start><_user>生抽与老抽的区别？<_bot>" \
+--register_path ./research/telechat2
 ```
+
+- 35b模型4卡推理
+
+```shell
+cd mindformers/
+bash scripts/msrun_launcher.sh "python run_mindformer.py \
+--config ./research/telechat2/predict_telechat_35b.yaml \
+--load_checkpoint path/to/ckpt_path \
+--predict_data '<_start><_user>生抽与老抽的区别？<_bot>' \
+--auto_trans_ckpt True \
+--use_parallel True
+--register_path ./research/telechat2 2
+```
+
+- 115b模型8卡推理
+
+```shell
+cd mindformers/
+bash scripts/msrun_launcher.sh "python run_mindformer.py \
+--config ./research/telechat2/predict_telechat_115b.yaml \
+--load_checkpoint path/to/ckpt_path \
+--predict_data '<_start><_user>生抽与老抽的区别？<_bot>' \
+--auto_trans_ckpt True \
+--use_parallel True
+--register_path ./research/telechat2 8
+```
+
+```text
+# 参数说明
+config: 模型的配置文件
+load_checkpoint: 权重路径
+predict_data: 输入的问题
+auto_tans_ckpt: 权重自动转换开关
+use_parallel: 并行模式开关
+register_path: 外部模型注册路径
+```
+
+### 推理结果
 
 115B 模型推理结果如下：
 

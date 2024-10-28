@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """Telechat predict scripts."""
+import os
 import argparse
 import json
 import copy
@@ -23,7 +24,6 @@ from mindspore.common import initializer
 
 from mindformers import MindFormerConfig
 from mindformers import build_context
-from mindformers.tools import set_output_path
 from mindformers.tools.utils import str2bool
 from mindformers.tools.logger import logger
 from mindformers.generation import GenerationConfig
@@ -91,6 +91,7 @@ def build_inputs_for_chat(tokenizer, question, history, generation_config):
         raise ValueError("the model can not meet the  requirements of input length,Please check config")
 
     # trunc left
+    start_id = generation_config.start_token_id
     usr_id = generation_config.user_token_id
     bot_id = generation_config.bot_token_id
     input_tokens = [usr_id] + q_token["input_ids"][-build_max_length + 1:] + [bot_id]
@@ -108,6 +109,7 @@ def build_inputs_for_chat(tokenizer, question, history, generation_config):
             break
         else:
             input_tokens = tokens + input_tokens
+    input_tokens = [start_id] + input_tokens
     return input_tokens
 
 
@@ -121,24 +123,35 @@ def main():
     input_file.close()
     # set model config
     config = MindFormerConfig(args.yaml_file)
-    config.context.device_id = 0
-    if args.checkpoint_path:
+    os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'InferenceMatmulSplit,PagedAttention'
+
+    if args.device_id is not None:
+        config.context.device_id = args.device_id
+    if args.checkpoint_path is not None:
         config.load_checkpoint = args.checkpoint_path
-    config.use_parallel = True
+    if args.use_parallel is not None:
+        config.use_parallel = args.use_parallel
+    if args.auto_trans_ckpt is not None:
+        config.auto_trans_ckpt = args.auto_trans_ckpt
+    if args.src_strategy_path_or_dir is not None:
+        config.src_strategy_path_or_dir = args.src_strategy_path_or_dir
+    if args.vocab_file_path is not None:
+        config.processor.tokenizer.vocab_file = args.vocab_file_path
+
     # 初始化环境
-    set_output_path(args.output_chat)
     build_context(config)
     build_parallel_config(config)
 
     # build tokenizer
-    tokenizer = TelechatTokenizer(args.vocab_file_path, fast_tokenizer=True, trust_remote_code=True)
+    tokenizer = TelechatTokenizer(config.processor.tokenizer.vocab_file, \
+        fast_tokenizer=True, trust_remote_code=True)
 
     model_config = config.model.model_config
     model_config.parallel_config = config.parallel_config
     model_config.batch_size = 1
-    model_config.run_mode = "predict"
     model_config.use_past = args.use_past
     model_config.use_flash_attention = True
+    model_config.start_token_id = tokenizer.convert_tokens_to_ids(args.start_token)
     model_config.user_token_id = tokenizer.convert_tokens_to_ids(args.user_token)
     model_config.bot_token_id = tokenizer.convert_tokens_to_ids(args.bot_token)
     model_config.max_new_tokens = None
@@ -149,11 +162,12 @@ def main():
     model = TelechatForCausalLM(model_config)
     ms_model = Model(model)
     logger.info(f"[INFO_config]: {model_config}")
-    logger.info("----------------Transform and load checkpoint----------------")
-    seq_length = model_config.seq_length
-    input_ids = Tensor(shape=(model_config.batch_size, seq_length), dtype=ms.int32, init=initializer.One())
-    infer_data = model.prepare_inputs_for_predict_layout(input_ids)
-    transform_and_load_checkpoint(config, ms_model, model, infer_data, do_predict=True)
+    if config.load_checkpoint:
+        logger.info("----------------Transform and load checkpoint----------------")
+        seq_length = model_config.seq_length
+        input_ids = Tensor(shape=(model_config.batch_size, seq_length), dtype=ms.int32, init=initializer.One())
+        infer_data = model.prepare_inputs_for_predict_layout(input_ids)
+        transform_and_load_checkpoint(config, ms_model, model, infer_data, do_predict=True)
     history = []
     for question in input_questions:
         logger.info(f"question : {str(question)}")
@@ -171,12 +185,20 @@ if __name__ == "__main__":
                         help='which model to use.')
     parser.add_argument('--checkpoint_path', default='', type=str,
                         help='set checkpoint path.')
+    parser.add_argument('--use_parallel', default=True, type=str2bool,
+                        help='whether use parallel.')
+    parser.add_argument('--auto_trans_ckpt', default=False, type=str2bool,
+                        help='Auto transform load_checkpoint to load in distributed model.')
+    parser.add_argument('--src_strategy_path_or_dir', default=None, type=str,
+                        help='set src strategy path.')
     parser.add_argument('--use_past', default=True, type=str2bool,
                         help='whether use past.')
     parser.add_argument('--yaml_file', default="", type=str,
                         help='predict yaml path')
-    parser.add_argument('--output_chat', default="./output_chat", type=str,
-                        help='chat output')
+    parser.add_argument('--device_id', default=0, type=int,
+                        help='device id set when run on single card. Default: 0')
+    parser.add_argument('--start_token', default="<_start>", type=str,
+                        help='start_token')
     parser.add_argument('--user_token', default="<_user>", type=str,
                         help='user_token')
     parser.add_argument('--bot_token', default="<_bot>", type=str,

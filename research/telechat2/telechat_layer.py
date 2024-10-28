@@ -111,8 +111,6 @@ class TelechatLinear(Linear):
                  has_bias=True,
                  activation=None,
                  transpose_b=True,
-                 expert_num=1,
-                 outer_batch=1,
                  param_init_type=mstype.float32,
                  compute_dtype=mstype.float16,
                  skip_redistribution=False,
@@ -124,8 +122,6 @@ class TelechatLinear(Linear):
             has_bias=has_bias,
             activation=activation,
             transpose_b=transpose_b,
-            expert_num=expert_num,
-            outer_batch=outer_batch,
             param_init_type=param_init_type,
             skip_redistribution=skip_redistribution,
             compute_dtype=compute_dtype)
@@ -134,26 +130,21 @@ class TelechatLinear(Linear):
                                 name="weight")
         self.dropout = Dropout(keep_prob=keep_prob)
 
-    def construct(self, x, group_list=None):
+    def construct(self, x):
         """construct of linear."""
         out_shape = self.shape(x)[:-1] + (self.out_channels,)
         x = self.reshape(x, (-1, self.in_channels))
-        if self.expert_flag:
-            x = self.reshape(x, (self.outer_batch, self.expert_num, -1, self.in_channels))
         ori_dtype = F.dtype(x)
         weight = self.cast(self.weight, self.dtype)
         x = self.cast(x, self.dtype)
-        if self.use_gmm:
-            x = self.matmul([x], [weight], None, None, None, None, None, group_list)[0]
-        else:
-            x = self.matmul(x, weight)
+        x = self.matmul(x, weight)
         if self.has_bias:
             x = self.bias_add(x, self.cast(self.bias, self.dtype))
+        x = self.dropout(x)
         if self.activation_flag:
             x = self.activation(x)
         x = F.cast(x, ori_dtype)
         output = self.reshape(x, out_shape)
-        output = self.dropout(output)
         return output
 
 

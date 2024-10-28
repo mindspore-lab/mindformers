@@ -32,7 +32,7 @@ lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 1.5e-4
   lr_end: 1.5e-5
-  warmup_ratio: 0.03
+  warmup_ratio: 0.0
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
 # dataset
@@ -41,7 +41,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: [ "input_ids", "labels" ]
+  input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -62,7 +62,7 @@ eval_dataset: &eval_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: False
-  input_columns: [ "input_ids", "labels" ]
+  input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: False
@@ -135,6 +135,7 @@ context:
 model:
   model_config:
     type: TelechatConfig
+    auto_register: telechat_config.TelechatConfig
     batch_size: 1 # add for increase predict
     seq_length: 8192
     hidden_size: 8192
@@ -173,6 +174,7 @@ model:
     do_sample: False
   arch:
     type: TelechatForCausalLM
+    auto_register: telechat.TelechatForCausalLM
 
 processor:
   return_tensors: ms
@@ -182,7 +184,8 @@ processor:
     eos_token: '<_end>'
     pad_token: '<_pad>'
     type: TelechatTokenizer
-  type: TelechatProcessor
+    auto_register: telechat_tokenizer.TelechatTokenizer
+
 
 # metric
 metric:

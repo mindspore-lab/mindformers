@@ -102,9 +102,9 @@ class TelechatConfig(PretrainedConfig):
                  hidden_size: int = 4096,
                  num_layers: int = 32,
                  num_heads: int = 32,
-                 embed_dropout_prob: float = 1.0,
-                 hidden_dropout_prob: float = 1.0,
-                 attention_dropout_prob: float = 1.0,
+                 embed_dropout_prob: float = 0.0,
+                 hidden_dropout_prob: float = 0.0,
+                 attention_dropout_prob: float = 0.0,
                  n_kv_heads: Optional[int] = None,
                  max_position_embedding: Optional[int] = None,
                  intermediate_size: Optional[int] = None,
@@ -153,7 +153,6 @@ class TelechatConfig(PretrainedConfig):
         super(TelechatConfig, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
             parallel_config = TransformerOpParallelConfig(**parallel_config)
-        self.run_mode = kwargs.get("run_mode", "finetune")
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.vocab_size = vocab_size
