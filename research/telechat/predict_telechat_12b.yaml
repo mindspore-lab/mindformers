@@ -5,7 +5,7 @@ src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-run_mode: 'train'
+run_mode: 'predict'
 
 # trainer config
 trainer:
@@ -15,23 +15,22 @@ trainer:
 # runner config
 runner_config:
   epochs: 5
-  batch_size: 4
+  batch_size: 1
   sink_mode: True
   sink_size: 2
   gradient_accumulation_steps: 1
 
 # optimizer
 optimizer:
-  type: FP32StateAdamWeightDecay
-  beta1: 0.9
-  beta2: 0.95
+  type: AdamW
+  betas: [0.9, 0.95]
   eps: 1.e-5
-  learning_rate: 2.e-5
+  learning_rate: 1.e-5
 
 # lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 2.e-5
+  learning_rate: 1.e-5
   lr_end: 0
   warmup_ratio: 0.03
   total_steps: -1 # -1 means it will load the total steps of the dataset
@@ -41,12 +40,12 @@ train_dataset: &train_dataset
   data_loader:
     type: MindDataset
     dataset_dir: ""
-    shuffle: True
+    shuffle: False
   input_columns: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
-  batch_size: 6
+  batch_size: 2
   repeat: 1
   numa_enable: False
   prefetch_size: 1
@@ -63,7 +62,7 @@ eval_dataset: &eval_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: False
-  input_columns: ["input_ids", "labels"]
+  input_columns: ["input_ids"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: False
@@ -74,7 +73,7 @@ eval_dataset_task:
   type: CausalLanguageModelDataset
   dataset_config: *eval_dataset
 
-use_parallel: True
+use_parallel: False
 # parallel context config
 parallel:
   parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
@@ -82,18 +81,17 @@ parallel:
   enable_alltoall: False
   full_batch: True
   search_mode: "sharding_propagation"
-  enable_parallel_optimizer: True
+  enable_parallel_optimizer: False
   strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-# default parallel of device num = 8 910B
 parallel_config:
-  data_parallel: 8
+  data_parallel: 1
   model_parallel: 1
   pipeline_stage: 1
   use_seq_parallel: False
-  micro_batch_num: 4
+  micro_batch_num: 1
   vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
@@ -101,7 +99,7 @@ micro_batch_interleave_num: 1
 
 # recompute config
 recompute_config:
-  recompute: True
+  recompute: False
   select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
@@ -112,7 +110,7 @@ callbacks:
   - type: MFLossMonitor
   - type: CheckpointMonitor
     prefix: "telechat_12b"
-    save_checkpoint_steps: 100
+    save_checkpoint_steps: 50
     integrated_save: False
     async_save: False
   - type: ObsMonitor
@@ -132,7 +130,8 @@ context:
 model:
   model_config:
     type: TelechatConfig
-    model_name: 'telechat_12b'
+    run_mode: 'predict'
+    net_name: 'telechat_12b'
     batch_size: 1 # add for increase predict
     seq_length: 1024
     hidden_size: 5120
@@ -144,35 +143,47 @@ model:
     eos_token_id: 2
     pad_token_id: 3
     ignore_token_id: -100
-    hidden_dropout_prob: 0.1
-    attention_dropout_prob: 0.1
-    ffn_dim_multiplier: 12288
+    embed_dropout_prob: 0.
+    hidden_dropout_prob: 0.
+    attention_dropout_prob: 0.
+    intermediate_size: 12288
+    res_dtype: "float16"
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    softmax_compute_type: "float16"
+    softmax_compute_type: "float32"
     rotary_dtype: "float16"
     param_init_type: "float16"
-    use_past: False
+    use_past: True
     extend_method: "None" # support "None", "PI", "NTK"
     use_flash_attention: True # FA can accelerate training or finetune
+    block_size: 16
+    num_blocks: 512
+    is_dynamic: True
     offset: 0
-    checkpoint_name_or_path: "telechat_12"
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 3
     top_p: 1
     do_sample: False
+    auto_map:
+      AutoModel: telechat.TelechatForCausalLM
+      AutoConfig: telechat_config.TelechatConfig
+      AutoTokenizer: [telechat_tokenizer.TelechatTokenizer, null]
+    auto_register: telechat_config.TelechatConfig
   arch:
     type: TelechatForCausalLM
+    auto_register: telechat.TelechatForCausalLM
 
 processor:
   return_tensors: ms
   tokenizer:
+    vocab_file: ''
     unk_token: '<unk>'
     bos_token: '<_start>'
     eos_token: '<_end>'
     pad_token: '<_pad>'
     type: TelechatTokenizer
+    auto_register: telechat_tokenizer.TelechatTokenizer
   type: TelechatProcessor
 
 # metric
