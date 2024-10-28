@@ -1,24 +1,16 @@
-# Copyright 2024 Telechat Inc. All Rights Reserved.
-
-# Copyright 2022 EleutherAI and the HuggingFace Inc. team. All rights reserved.
-#
-# This code is based on EleutherAI's GPT-NeoX library and the GPT-NeoX
-# and OPT implementations in this library. It has been modified from its
-# original forms to accommodate minor architectural differences compared
-# to GPT-NeoX and OPT used by the Meta AI team that trained the model.
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
-# You may obtain a copy of the License
+# You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 # ============================================================================
 """Telechat tokenizer APIs."""
 
@@ -28,10 +20,9 @@ from typing import Any, Dict, List, Optional
 
 import sentencepiece as spm
 
-from mindformers.tools.logger import logger
+from mindformers.tools import logger
 from mindformers.models.tokenization_utils import PreTrainedTokenizer, AddedToken
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.tools.utils import check_file
 
 VOCAB_FILES_NAMES = {"vocab_file": "tokenizer.model"}
 
@@ -87,7 +78,6 @@ class TelechatTokenizer(PreTrainedTokenizer):
             if isinstance(pad_token, str) else pad_token
 
         self.vocab_file = vocab_file
-        check_file(vocab_file, "tokenizer")
         self.add_bos_token = add_bos_token
         self.add_eos_token = add_eos_token
         self.sp_model = spm.SentencePieceProcessor(**self.sp_model_kwargs)
@@ -172,7 +162,7 @@ class TelechatTokenizer(PreTrainedTokenizer):
         """
         if not os.path.isdir(save_directory):
             logger.error(f"Vocabulary path ({save_directory}) should be a directory")
-            return
+            return None
         out_vocab_file = os.path.join(
             save_directory, (filename_prefix + "-" if filename_prefix else "") + VOCAB_FILES_NAMES["vocab_file"]
         )
@@ -181,7 +171,7 @@ class TelechatTokenizer(PreTrainedTokenizer):
             copyfile(self.vocab_file, out_vocab_file)
         elif not os.path.isfile(self.vocab_file):
             flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-            with os.fdopen(os.open(out_vocab_file, flags_, 0o750), "wb") as fi:
+            with os.fdopen(os.open(out_vocab_file, flags_, 0o750), 'wb') as fi:
                 content_spiece_model = self.sp_model.serialized_model_proto()
                 fi.write(content_spiece_model)
 
