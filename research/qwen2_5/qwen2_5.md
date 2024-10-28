@@ -14,11 +14,12 @@ Qwen2.5是Qwen系列的新的大型语言模型。Qwen2.5发布了许多基本�
 
 ## 模型性能
 
-| Config                                               |      Task       |     Datasets      | SeqLength |  Phase   |             Performance             |
-|:-----------------------------------------------------|:---------------:|:-----------------:|:---------:|:--------:|:-----------------------------------:|
-| [qwen2_5-14b](./predict_qwen2_5_14b_instruct.yaml)   | text_generation |  -  |   32768    | Predict  | - tokens/s(mindie 16 batch_size 单卡) |
-| [qwen2_5-32b](./predict_qwen2_5_32b_instruct.yaml)   | text_generation |  -  |   32768    | Predict  | - tokens/s(mindie 16 batch_size 双卡) |
-| [qwen2_5-72b](./predict_qwen2_5_72b_instruct.yaml)   | text_generation |  -  |   32768    | Predict  | - tokens/s(mindie 16 batch_size 四卡) |
+| Config                                             |      Task       |     Datasets      | SeqLength |  Phase   |             Performance             |
+|:---------------------------------------------------|:---------------:|:-----------------:|:---------:|:--------:|:-----------------------------------:|
+| [qwen2_5-7b](./predict_qwen2_5_7b_instruct.yaml)   | text_generation |  -  |   32768    | Predict  | - tokens/s(mindie 16 batch_size 单卡) |
+| [qwen2_5-14b](./predict_qwen2_5_14b_instruct.yaml) | text_generation |  -  |   32768    | Predict  | - tokens/s(mindie 16 batch_size 单卡) |
+| [qwen2_5-32b](./predict_qwen2_5_32b_instruct.yaml) | text_generation |  -  |   32768    | Predict  | - tokens/s(mindie 16 batch_size 双卡) |
+| [qwen2_5-72b](./predict_qwen2_5_72b_instruct.yaml) | text_generation |  -  |   32768    | Predict  | - tokens/s(mindie 16 batch_size 四卡) |
 
 ## 模型文件
 
@@ -35,6 +36,7 @@ Qwen2.5是Qwen系列的新的大型语言模型。Qwen2.5发布了许多基本�
 
    ```text
    research/qwen2_5
+     ├── predict_qwen2_5_7b_instruct.yaml             # 7B 在线推理启动配置
      ├── predict_qwen2_5_14b_instruct.yaml            # 14B 在线推理启动配置
      ├── predict_qwen2_5_32b_instruct.yaml            # 32B 在线推理启动配置
      ├── predict_qwen2_5_72b_instruct.yaml            # 72B 在线推理启动配置
@@ -103,11 +105,12 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
 
 词表下载链接：[vocab.json](https://huggingface.co/Qwen/Qwen2.5-72B-Instruct/blob/main/vocab.json)和[merges.txt](https://huggingface.co/Qwen/Qwen2.5-72B-Instruct/blob/main/merges.txt)
 
-| 模型名称                  |                Base权重（建议训练和微调使用）                 |                    Instruct权重（建议推理使用）                     |
-|:----------------------|:------------------------------------------------:|:---------------------------------------------------------:|
-| qwen2_5-14b-Instruct  | [Link](https://huggingface.co/Qwen/Qwen2.5-14B)  | [Link](https://huggingface.co/Qwen/Qwen2.5-14B-Instruct)  |
-| qwen2_5-32b-Instruct  | [Link](https://huggingface.co/Qwen/Qwen2.5-32B)  | [Link](https://huggingface.co/Qwen/Qwen2.5-32B-Instruct)  |
-| qwen2_5-72b-Instruct  | [Link](https://huggingface.co/Qwen/Qwen2.5-72B)  | [Link](https://huggingface.co/Qwen/Qwen2.5-72B-Instruct)  |
+| 模型名称                 |                Base权重（建议训练和微调使用）                |                    Instruct权重（建议推理使用）                    |
+|:---------------------|:-----------------------------------------------:|:--------------------------------------------------------:|
+| qwen2_5-7b-Instruct  | [Link](https://huggingface.co/Qwen/Qwen2.5-7B)  | [Link](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)  |
+| qwen2_5-14b-Instruct | [Link](https://huggingface.co/Qwen/Qwen2.5-14B) | [Link](https://huggingface.co/Qwen/Qwen2.5-14B-Instruct) |
+| qwen2_5-32b-Instruct | [Link](https://huggingface.co/Qwen/Qwen2.5-32B) | [Link](https://huggingface.co/Qwen/Qwen2.5-32B-Instruct) |
+| qwen2_5-72b-Instruct | [Link](https://huggingface.co/Qwen/Qwen2.5-72B) | [Link](https://huggingface.co/Qwen/Qwen2.5-72B-Instruct) |
 
 #### 模型权重转换
 
