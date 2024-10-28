@@ -18,10 +18,12 @@ How to run this:
     pytest tests/st/test_model/test_glm_model/test_predict.py
 """
 import pytest
+import mindspore as ms
 from tests.utils.model_tester import ModelTester
 
 from .base_model import get_config, get_model
 
+ms.set_context(mode=0)
 
 class TestGLMPredict:
     """A test class for testing model prediction."""

@@ -30,7 +30,7 @@ ms.set_context(mode=0)
 class TestGLM2Predict:
     """A test class for testing model prediction."""
 
-    @pytest.mark.level1
+    @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_base_model(self):
