@@ -603,18 +603,56 @@ def get_language_model(config, num_tokentypes, add_pooler,
                        decoder_attn_mask_type=None,
                        pre_process=True, post_process=True):
     """
-    get language model
+    Get language model.
 
     Args:
-        - **config** : model config
-        - **num_tokentypes** : if > 0, using tokentypes embedding
-        - **add_pooler** : if True, use pooler
-        - **encoder_attn_mask_type** : encoder attention mask type
-        - **add_encoder** : if True, use encoder
-        - **add_decoder** : if True, use decoder
-        - **decoder_attn_mask_type** : decoder attention mask type
-        - **pre_process** : when using pipeline parallel, indicate whether it's the first stage
-        - **post_process** : when using pipeline parallel, indicate whether it's the last stage
+        config (TransformerConfig): The transformer configuration includes init_method, parallel_config, etc.
+        encoder_attn_mask_type (int): Encoder attention mask type.
+        num_tokentypes (int): If > 0, using tokentypes embedding.
+        add_encoder (bool): If True, use encoder.
+        use_decoder (bool): If True, use decoder.
+        decoder_attn_mask_type (int): Decoder attention mask type.
+        add_pooler (bool): If True, use pooler.
+        pre_process (bool): When using pipeline parallel, indicate whether it's the first stage.
+        post_process (bool): When using pipeline parallel, indicate whether it's the last stage.
+
+    Returns:
+        - **language_model** (TransformerLanguageModel) - Transformer Model.
+        - **language_model_key** (str) - Model key.
+
+    Supported Platforms:
+        ``Ascend``
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> import os
+        >>> import numpy as np
+        >>> import mindspore as ms
+        >>> import mindspore.common.dtype as mstype
+        >>> from mindspore import Tensor
+        >>> from mindspore.communication.management import init
+        >>> from mindformers.experimental.parallel_core.pynative.config import ModelParallelConfig, TransformerConfig
+        >>> from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+        >>> from mindformers.experimental.parallel_core.pynative.language_model import get_language_model
+        >>> init()
+        >>> initialize_model_parallel()
+        >>> parallel_config = ModelParallelConfig(tensor_model_parallel_size=tensor_parallel)
+        >>> config = TransformerConfig(seq_length=16,
+        >>>                            vocab_size=1,
+        >>>                            num_layers=1,
+        >>>                            num_attention_heads=8,
+        >>>                            num_query_groups=4,
+        >>>                            hidden_size=256,
+        >>>                            ffn_hidden_size=256,
+        >>>                            parallel_config=parallel_config)
+        >>> language_model, _ = get_language_model(config, encoder_attn_mask_type=None)
     """
     language_model = TransformerLanguageModel(
         config=config,
