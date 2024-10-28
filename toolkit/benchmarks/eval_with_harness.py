@@ -197,22 +197,19 @@ class MFLM(TemplateLM):
         """Initialize Model"""
         self._model = AutoModel.from_config(config)
 
-        if not config.model.model_config.checkpoint_name_or_path:
-            if not config.load_checkpoint:
-                ckpt_path = [str(file.resolve()) for file in Path(config.pretrained).glob('*.ckpt')]
-                if len(ckpt_path) != 1:
-                    raise Exception("There is no or more than one model ckpt in the model directory.")
-                config.load_checkpoint = ckpt_path[0]
-            eval_logger.info("----------------Transform and load checkpoint----------------")
-            seq_length = config.model.model_config.seq_length
-            # set auto transform ckpt
-            if not os.path.isdir(config.load_checkpoint) and config.use_parallel:
-                config.auto_trans_ckpt = True
-            else:
-                config.auto_trans_ckpt = False
-            input_ids = Tensor(shape=(self.batch_size, seq_length), dtype=mindspore.int32, init=initializer.One())
-            infer_data = self._model.prepare_inputs_for_predict_layout(input_ids)
-            transform_and_load_checkpoint(config, Model(self._model), self._model, infer_data, do_predict=True)
+        if not config.load_checkpoint:
+            raise Exception("There is no model ckpt in the model directory.")
+        eval_logger.info("----------------Transform and load checkpoint----------------")
+        seq_length = config.model.model_config.seq_length
+        # set auto transform ckpt
+        if config.load_checkpoint and config.use_parallel:
+            config.auto_trans_ckpt = True
+            eval_logger.info("----------------auto trans ckpt----------------")
+        else:
+            config.auto_trans_ckpt = False
+        input_ids = Tensor(shape=(self.batch_size, seq_length), dtype=mindspore.int32, init=initializer.One())
+        infer_data = self._model.prepare_inputs_for_predict_layout(input_ids)
+        transform_and_load_checkpoint(config, Model(self._model), self._model, infer_data, do_predict=True)
 
     def _create_tokenizer(self, pretrained: str) -> None:
         """Initialize Tokenizer"""
