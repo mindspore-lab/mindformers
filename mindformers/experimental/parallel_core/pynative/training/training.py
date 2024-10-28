@@ -237,7 +237,28 @@ class ParallelTrainingReducer:
 
 
 def get_model(model_provider_func, training_config):
-    """ get model """
+    """
+    Get a network model according to the training_config.
+
+    Args:
+        model_provider_func (Function): A function to get the network model.
+        training_config (TrainingConfig): The configuration object for training the network model.
+
+    Returns:
+        nn.Cell, return a pre-configured network model with the training_config.
+
+    Examples:
+        >>> from mindformers.experimental.parallel_core.pynative.training import get_model
+        >>> from mindformers.experimental.parallel_core import get_language_model
+        >>> from mindformers.experimental.parallel_core.pynative.config import init_configs_from_yaml
+        >>> def model_provider_func(model_config, pre_process=True, post_process=True):
+        ...     network_with_loss, _ = get_language_model(config=model_config, num_tokentypes=0,
+        ...         add_pooler=False, encoder_attn_mask_type=None, pre_process=pre_process, post_process=post_process)
+        ...     return network_with_loss
+        >>> config_file = "/path/to/config/file"
+        >>> all_config = init_configs_from_yaml(config_file)
+        >>> network_with_loss = get_model(model_provider_func, all_config.training_config)
+    """
     model = nn.CellList(auto_prefix=False)
     parallel_config = training_config.parallel_config
     if training_config.bf16 and training_config.wrap_with_ddp and \
@@ -475,31 +496,51 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
 
 
 class TrainOneStepCell(nn.Cell):
-    r"""TrainOneStepCell with loss scaling, grad clipping, and grad accumulation.
+    r"""
+    TrainOneStepCell with loss scaling, grad clipping, and grad accumulation.
 
     Args:
         network_with_loss (nn.Cell): The network with loss, output of the network should be loss,
             which is a scalar Tensor.
         optimizer (Optimizer): The optimizer used for training.
-        opt_param_scheduler(OptimizerParamScheduler): Learning rate scheduler
+        opt_param_scheduler (OptimizerParamScheduler): Learning rate scheduler
         training_config (TrainingConfig): Training Configuration.
         model_config (TransformerConfig): Transformer Configuration.
         **kwargs: Additional keyword arguments.
 
-    Raises:
-        NotImplementedError: If gradient accumulation is not supported in pipeline parallel.
-
     Inputs:
-        - **inputs_tuple** (Tuple[Tensor]) - Tuple of input tensors.
-        - **inputs_dict** (Dict[str, Tensor]) - Dict of input tensors.
+        - **inputs_tuple** (tuple) - Tuple of input tensors, including input_ids, input_positions and attention_mask.
+        - **inputs_dict** (dict) - Dict of input tensors.
 
     Outputs:
-        Tuple of 4 Tensor, the loss, overflow flag, current loss scale value, and learning rate.
+        Tuple of 5 Tensor, the loss, overflow flag, current loss scale value, learning rate, and gradients norm.
 
-        - **loss** (Tensor) -  A scalar, the loss value.
-        - **is_finite** (Tensor) -  A bool, whether grads is finite.
-        - **loss scale** (Union[Tensor, None]) -  The loss scale value, None if not using loss scaling.
-        - **learning rate** (Union[Tensor, List[Tensor])) -  The model learning rate.
+        - **loss** (Tensor) - A tensor means the train loss value, the shape is :math:`()`.
+        - **is_finite** (Tensor) - A bool, indicates whether grads is finite.
+        - **loss scale** (Union[Tensor, None]) - The loss scale value, if not using loss scaling, the value is ``None``.
+        - **learning rate** (Union[Tensor, list[Tensor]) - The model learning rate.
+        - **global_norm** (Tensor) - A tensor means the global norm of the gradients.
+
+    Examples:
+        >>> from mindformers.experimental.parallel_core.pynative.optimizer import get_optimizer
+        >>> from mindformers.experimental.parallel_core.pynative.training import get_model, TrainOneStepCell
+        >>> from mindformers.experimental.parallel_core import get_language_model
+        >>> from mindformers.experimental.parallel_core.pynative.training.utils import set_weight_decay
+        >>> from mindformers.experimental.parallel_core.pynative.config import init_configs_from_yaml
+        >>> def model_provider_func(model_config, pre_process=True, post_process=True):
+        ...     network_with_loss, _ = get_language_model(config=model_config, num_tokentypes=0,
+        ...         add_pooler=False, encoder_attn_mask_type=None, pre_process=pre_process, post_process=post_process)
+        ...     return network_with_loss
+        >>> config_file = "/path/to/config/file"
+        >>> all_config = init_configs_from_yaml(config_file)
+        >>> training_config = all_config.training_config
+        >>> optimizer_config = all_config.optimizer_config
+        >>> model_config = all_config.model_config
+        >>> network_with_loss = get_model(model_provider_func, training_config)
+        >>> group_params = set_weight_decay(network_with_loss.trainable_params(), optimizer_config.weight_decay)
+        >>> optimizer = get_optimizer(optimizer_config, training_config, group_params, network_with_loss,
+        >>>                           grad_allreduce_op=training_config.loss_reduction)
+        >>> train_one_step_cell = TrainOneStepCell(network_with_loss, optimizer, None, training_config, model_config)
     """
 
     # pylint: disable=W0613
@@ -656,18 +697,56 @@ def train(
     """
     Train the model using the provided training configuration.
 
+    Note:
+        Before using this function, users need to define the `get_dataset` function first which generates training and
+        validation sets.
+
     Args:
         train_one_step_cell (TrainOneStepCell): The training cell object.
         train_dataloader (Dataset): The iterator for the training dataset.
         training_config (TrainingConfig): The configuration object for training.
-        val_dataloader (iterable, optional): The iterator for the validation dataset. Defaults: None
-        metrics (dict[str, Metric], optional): A dictionary of metrics to track during training.
-            Defaults: None
-        evaluation_func (callable, optional): The evaluation function to use for validation. Defaults: None
+        val_dataloader (Dataset): The iterator for the validation dataset. Defaults: ``None``.
+        metrics (dict[str, Metric], optional): A dictionary of metrics to track during training. Defaults: ``None``.
+        evaluation_func (Function, optional): The evaluation function to use for validation. Defaults: ``None``.
+        resume_dict (dict): Resume training parameters. Defaults: ``None``.
+        get_batch_func (Function): A function to get the batch size in the dataset_config. Defaults: ``None``.
         **kwargs: Additional keyword arguments.
 
-    Returns:
-        None
+    Raises:
+        ValueError: If `get_batch_func` is ``None`` and `train_dataloader` is ``None``.
+
+    Examples:
+        .. note::
+            Before running the following examples, you need to configure the communication environment variables.
+            For Ascend devices, it is recommended to use the msrun startup method
+            without any third-party or configuration file dependencies.
+            Please see the `msrun start up
+            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            for more details.
+
+        >>> from mindformers.experimental.parallel_core.pynative.optimizer import get_optimizer
+        >>> from mindformers.experimental.parallel_core.pynative.training import get_model, TrainOneStepCell, train
+        >>> from mindformers.experimental.parallel_core import get_language_model
+        >>> from mindformers.experimental.parallel_core.pynative.training.utils import set_weight_decay
+        >>> from mindformers.experimental.parallel_core.pynative.config import init_configs_from_yaml
+        >>> from mindformers.dataset import get_dataset
+        >>> def model_provider_func(model_config, pre_process=True, post_process=True):
+        ...     network_with_loss, _ = get_language_model(config=model_config, num_tokentypes=0, add_pooler=False,
+        ...         encoder_attn_mask_type=None, pre_process=pre_process, post_process=post_process)
+        ...     return network_with_loss
+        >>> config_file = "/path/to/config/file"
+        >>> all_config = init_configs_from_yaml(config_file)
+        >>> training_config = all_config.training_config
+        >>> optimizer_config = all_config.optimizer_config
+        >>> model_config = all_config.model_config
+        >>> network_with_loss = get_model(model_provider_func, training_config)
+        >>> group_params = set_weight_decay(network_with_loss.trainable_params(), optimizer_config.weight_decay)
+        >>> optimizer = get_optimizer(optimizer_config, training_config, group_params, network_with_loss,
+        >>>                           grad_allreduce_op=training_config.loss_reduction)
+        >>> train_one_step_cell = TrainOneStepCell(network_with_loss, optimizer, None, training_config, model_config)
+        >>> train_dataset_iterator, val_dataset_iterator = get_dataset(all_config.dataset_config)
+        >>> train(train_one_step_cell=train_one_step_cell, train_dataloader=train_dataloader,
+        >>>       training_config=training_config)
     """
     if training_config.resume_training and resume_dict is not None:
         initial_epoch = resume_dict.get("epoch_num")
