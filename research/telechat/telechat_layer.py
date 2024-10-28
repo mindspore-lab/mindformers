@@ -13,6 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """Telechat Model Layers' APIs."""
+
+import mindspore as ms
 from mindspore.common.parameter import Parameter
 from mindspore import nn
 import mindspore.common.dtype as mstype
@@ -25,11 +27,13 @@ try:
 except ImportError:
     import mindspore._checkparam as Validator
 from mindspore import log as logger
-from mindspore.common.initializer import initializer
+from mindspore.common.initializer import initializer, Normal
 from mindspore.parallel._utils import _get_parallel_mode
 from mindspore.context import ParallelMode
+
 from mindformers.models.llama.llama_layer import LlamaSiLU
-from mindformers.modules.layers import Linear, Dropout, _check_input_dtype, _args_type_validator_check, _valid_value_checks
+from mindformers.modules.layers import Linear, Dropout, _check_input_dtype, _args_type_validator_check, \
+    _valid_value_checks
 from mindformers.tools.logger import _LogActionOnce
 
 
@@ -58,14 +62,14 @@ class TelechatEmbedding(Cell):
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     @_args_type_validator_check(vocab_table_size=Validator.check_positive_int,
                                 embedding_size=Validator.check_positive_int)
-    def __init__(self, vocab_table_size, embedding_size, param_init_type=mstype.float32, param_init='normal',
+    def __init__(self, vocab_table_size, embedding_size, sigma=0.0048, mean=0.0, param_init_type=mstype.float32,
                  parallel_optimizer=False):
         super().__init__()
         self.vocab_table_size = vocab_table_size
         self.embedding_size = embedding_size
         self.embedding_weight = Parameter(
-            initializer(param_init, [self.vocab_table_size, self.embedding_size], dtype=param_init_type),
-            name='embedding_weight', parallel_optimizer=parallel_optimizer)
+            initializer(Normal(sigma=sigma, mean=mean), [self.vocab_table_size, self.embedding_size],
+                        dtype=param_init_type), name='embedding_weight', parallel_optimizer=parallel_optimizer)
         self.gather = P.Gather()
 
     def construct(self, input_ids):
@@ -102,13 +106,12 @@ class TelechatLinear(Linear):
     def __init__(self,
                  in_channels,
                  out_channels,
-                 weight_init='normal',
+                 sigma=0.0048,
+                 mean=0.0,
                  bias_init='zeros',
                  has_bias=True,
                  activation=None,
                  transpose_b=True,
-                 expert_num=1,
-                 outer_batch=1,
                  param_init_type=mstype.float32,
                  compute_dtype=mstype.float16,
                  skip_redistribution=False,
@@ -116,33 +119,33 @@ class TelechatLinear(Linear):
         super(TelechatLinear, self).__init__(
             in_channels,
             out_channels,
-            weight_init=weight_init,
             bias_init=bias_init,
             has_bias=has_bias,
             activation=activation,
             transpose_b=transpose_b,
-            expert_num=expert_num,
-            outer_batch=outer_batch,
             param_init_type=param_init_type,
             skip_redistribution=skip_redistribution,
             compute_dtype=compute_dtype)
-
+        weight_shape = [out_channels, in_channels] if transpose_b else [in_channels, out_channels]
+        self.weight = Parameter(initializer(Normal(sigma=sigma, mean=mean), weight_shape, param_init_type),
+                                name="weight")
         self.dropout = Dropout(keep_prob=keep_prob)
 
     def construct(self, x):
         """construct of linear."""
-        out_shape = P.Shape()(x)[:-1] + (self.out_channels,)
-        x = P.Reshape()(x, (-1, self.in_channels))
-        if self.expert_flag:
-            x = P.Reshape()(x, (self.outer_batch, self.expert_num, -1, self.in_channels))
+        out_shape = self.shape(x)[:-1] + (self.out_channels,)
+        x = self.reshape(x, (-1, self.in_channels))
+        ori_dtype = F.dtype(x)
         weight = self.cast(self.weight, self.dtype)
+        x = self.cast(x, self.dtype)
         x = self.matmul(x, weight)
-        x = self.dropout(x)
         if self.has_bias:
             x = self.bias_add(x, self.cast(self.bias, self.dtype))
         if self.activation_flag:
             x = self.activation(x)
-        output = P.Reshape()(x, out_shape)
+        x = F.cast(x, ori_dtype)
+        output = self.reshape(x, out_shape)
+        output = self.dropout(output)
         return output
 
 
@@ -166,16 +169,23 @@ class TelechatFeedForward(Cell):
             ValueError: `dim` is not a multiple of the model parallel way.
     """
 
-    @_LogActionOnce(m_logger=logger, key='FeedForward',
+    @_LogActionOnce(m_logger=logger, key='TelechatFeedForward',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     @_args_type_validator_check(dim=Validator.check_positive_int,
+                                hidden_dim=Validator.check_positive_int,
+                                multiple_of=Validator.check_positive_int,
                                 compute_dtype=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
-                                                                  "FeedForward"),
+                                                                  "TelechatFeedForward"),
                                 param_init_type=_valid_value_checks([mstype.float32, mstype.float16, mstype.bfloat16],
-                                                                    "FeedForward"))
-    def __init__(self, dim,
+                                                                    "TelechatFeedForward"))
+    def __init__(self,
+                 dim,
+                 model_name,
                  intermediate_size=None,
                  hidden_dim=None,
+                 sigma=0.0048,
+                 mean=0.0,
+                 multiple_of=256,
                  hidden_dropout_prob=1.0,
                  hidden_act=LlamaSiLU,
                  ffn_dim_multiplier=None,
@@ -192,7 +202,11 @@ class TelechatFeedForward(Cell):
             hidden_dim = intermediate_size
         else:
             if ffn_dim_multiplier is not None:
-                hidden_dim = ffn_dim_multiplier
+                hidden_dim = int((ffn_dim_multiplier + 0.01) * hidden_dim)
+            hidden_dim = int(2 * hidden_dim / 3)
+            hidden_dim = multiple_of * \
+                         ((hidden_dim + multiple_of - 1) // multiple_of)
+        self.model_name = model_name
         self.hidden_dropout_prob = hidden_dropout_prob
         self.dtype = compute_dtype
         self.hidden_act = hidden_act
@@ -201,38 +215,72 @@ class TelechatFeedForward(Cell):
 
         self.mul = P.Mul()
         self.cast = P.Cast()
-        self.w1 = TelechatLinear(in_channels=dim,
-                                 out_channels=hidden_dim,
-                                 activation=hidden_act,
-                                 has_bias=False,
-                                 compute_dtype=compute_dtype,
-                                 param_init_type=param_init_type,
-                                 skip_redistribution=is_dynamic)
+        if self.model_name == "telechat_52b":
+            self.w_gate_hidden = TelechatLinear(in_channels=dim,
+                                                out_channels=hidden_dim * 2,
+                                                has_bias=False,
+                                                sigma=sigma,
+                                                mean=mean,
+                                                compute_dtype=compute_dtype,
+                                                param_init_type=param_init_type,
+                                                skip_redistribution=is_dynamic)
+            self.activate = self.hidden_act()
+            self.split = ms.ops.auto_generate.SplitWithSize()
 
-        self.w2 = TelechatLinear(in_channels=hidden_dim,
-                                 out_channels=dim,
-                                 has_bias=True,
-                                 compute_dtype=compute_dtype,
-                                 param_init_type=param_init_type,
-                                 skip_redistribution=is_dynamic,
-                                 keep_prob=1 - self.hidden_dropout_prob)
+            self.w2 = TelechatLinear(in_channels=hidden_dim,
+                                     out_channels=dim,
+                                     has_bias=False,
+                                     sigma=sigma,
+                                     mean=mean,
+                                     compute_dtype=compute_dtype,
+                                     param_init_type=param_init_type,
+                                     skip_redistribution=is_dynamic,
+                                     keep_prob=1 - self.hidden_dropout_prob)
+        else:
+            self.w1 = TelechatLinear(in_channels=dim,
+                                     out_channels=hidden_dim,
+                                     activation=hidden_act,
+                                     has_bias=False,
+                                     sigma=sigma,
+                                     mean=mean,
+                                     compute_dtype=compute_dtype,
+                                     param_init_type=param_init_type,
+                                     skip_redistribution=is_dynamic)
 
-        self.w3 = TelechatLinear(in_channels=dim,
-                                 out_channels=hidden_dim,
-                                 has_bias=False,
-                                 compute_dtype=compute_dtype,
-                                 param_init_type=param_init_type,
-                                 skip_redistribution=is_dynamic)
+            self.w2 = TelechatLinear(in_channels=hidden_dim,
+                                     out_channels=dim,
+                                     has_bias=True,
+                                     sigma=sigma,
+                                     mean=mean,
+                                     compute_dtype=compute_dtype,
+                                     param_init_type=param_init_type,
+                                     skip_redistribution=is_dynamic,
+                                     keep_prob=1 - self.hidden_dropout_prob)
+
+            self.w3 = TelechatLinear(in_channels=dim,
+                                     out_channels=hidden_dim,
+                                     has_bias=False,
+                                     sigma=sigma,
+                                     mean=mean,
+                                     compute_dtype=compute_dtype,
+                                     param_init_type=param_init_type,
+                                     skip_redistribution=is_dynamic)
 
     def construct(self, x):
         """Forward process of the FeedForward"""
         _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         x = self.cast(x, self.dtype)
-        # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
-        gate = self.w1(x) # dp,1 -> dp, mp
-        hidden = self.w3(x) # dp,1 -> dp, mp
-        hidden = self.mul(hidden, gate) # dp,mp -> dp, mp
-        output = self.w2(hidden) # dp,mp -> dp, 1
+
+        if self.model_name == "telechat_52b":
+            gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp
+            gate, hidden = self.split(gate_hidden_out, (self.hidden_dim, self.hidden_dim), 2)
+            gate = self.activate(gate)
+        else:
+            # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
+            gate = self.w1(x)  # dp,1 -> dp, mp
+            hidden = self.w3(x)  # dp,1 -> dp, mp
+        hidden = self.mul(hidden, gate)  # dp,mp -> dp, mp
+        output = self.w2(hidden)  # dp,mp -> dp, 1
         return output
 
     def shard(self, parallel_config):
@@ -247,8 +295,16 @@ class TelechatFeedForward(Cell):
             raise ValueError("For 'FeedForward', the class variable 'dim' must be a multiple of the num of "
                              "model parallel, but got the dim is {} and the num of model parallel is {}."
                              .format(self.dim, mp))
-        self.w1.shard(((dp, 1), (mp, 1)), strategy_activation=((dp, mp),))
-        self.w1.activation.shard(((dp, mp),))
-        self.w2.shard(((dp, mp), (1, mp)))
-        self.w3.shard(((dp, 1), (mp, 1)))
-        self.mul.shard(((dp, mp), (dp, mp)))
+        if self.model_name == "telechat_52b":
+            self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
+            self.activate.shard(((dp, 1, mp),))
+            self.w2.shard(((dp, mp), (1, mp)))
+            self.split.add_prim_attr("skip_redistribution", True)
+            self.split.shard(((dp, 1, mp),))
+            self.mul.shard(((dp, mp), (dp, mp)))
+        else:
+            self.w1.shard(((dp, 1), (mp, 1)), strategy_activation=((dp, mp),))
+            self.w1.activation.shard(((dp, mp),))
+            self.w2.shard(((dp, mp), (1, mp)), ((dp, 1), (1,)))
+            self.w3.shard(((dp, 1), (mp, 1)))
+            self.mul.shard(((dp, 1, mp), (dp, 1, mp)))
