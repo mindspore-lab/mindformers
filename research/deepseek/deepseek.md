@@ -6,10 +6,17 @@ DeepSeek Coder由一系列代码语言模型组成，每个模型都在2T token�
 
 ## 模型性能
 
-| Config                                           |      Task       |    Datasets     | SeqLength |  Phase   |  Performance   |
-|:-------------------------------------------------|:---------------:|:---------------:|:---------:|:--------:|:--------------:|
-| [deepseek-33b](./finetune_deepseek_33b.yaml)     | text_generation |   code_alpaca   |   4096    | Finetune | 565 tokens/s/p |
-| [deepseek-33b](./pretrain_deepseek_33b_16k.yaml) | text_generation | wikitext-103-v1 |   16384   | Pretrain | 421 tokens/s/p |
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                       |      Task       |  Datasets   | SeqLength |  Phase   |  Performance   |
+|:---------------------------------------------|:---------------:|:-----------:|:---------:|:--------:|:--------------:|
+| [deepseek-33b](./predict_deepseek_33b.yaml)  | text_generation |      -      |   16384   | Predict  |  292 tokens/s  |
+
+以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
+
+| Config                                       |      Task       |  Datasets   | SeqLength |  Phase   |  Performance   |
+|:---------------------------------------------|:---------------:|:-----------:|:---------:|:--------:|:--------------:|
+| [deepseek-33b](./finetune_deepseek_33b.yaml) | text_generation | code_alpaca |   4096    | Finetune | 572 tokens/s/p |
 
 ## 模型文件
 

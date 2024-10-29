@@ -23,12 +23,13 @@ InternLM ，即书生·浦语大模型，是由上海人工智能实验室和来
 
 ## 模型性能
 
-| Config                                                                     |      Task       | Datasets | SeqLength |  Phase   |                 Performance                 |
-|:---------------------------------------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:-------------------------------------------:|
-| [InternLM_7B](../../research/internlm/finetune_internlm_7b.yaml)           | text_generation |  alpaca  |   2048    | Finetune |                3182 tokens/s                |
-| [InternLM_7B](../../research/internlm/predict_internlm_7b.yaml)            | text_generation |    /     |   2048    | Predict  | 58.9 tokens/s (batch_size=1, use_past=True) |
-| [InternLM_7B_lora](../../research/internlm/finetune_internlm_7b_lora.yaml) | text_generation |  alpaca  |   2048    |   LoRA   |                3864 tokens/s                |
-| [InternLM_20B](../../research/internlm/predict_internlm_20b.yaml)          | text_generation |    /     |   2048    | Predict  | 25.3 tokens/s (batch_size=1, use_past=True) |
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                      |      Task       | Datasets | SeqLength |  Phase   |   Performance   |
+|:--------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:---------------:|
+| [InternLM_7B](./finetune_internlm_7b.yaml)  | text_generation |  alpaca  |   2048    | Finetune | 3250 tokens/s/p |
+| [InternLM_7B](./predict_internlm_7b.yaml)   | text_generation |    /     |   2048    | Predict  |   62 tokens/s   |
+| [InternLM_20B](./predict_internlm_20b.yaml) | text_generation |    /     |   2048    | Predict  |  296 tokens/s   |
 
 ## 模型文件
 

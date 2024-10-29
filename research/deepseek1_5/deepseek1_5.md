@@ -5,6 +5,20 @@
 DeepSeek Coder由一系列代码语言模型组成，每个模型都在2T token上从零开始训练，其中87%的代码和13%的自然语言组成，英文和中文都有。在编码功能方面，DeepSeek
 Coder在多种编程语言和各种基准测试上的开源代码模型中实现了最先进的性能。
 
+## 模型性能
+
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                                |      Task       | Datasets | SeqLength |  Phase  | Performance |
+|:------------------------------------------------------|:---------------:|:--------:|:---------:|:-------:|:-----------:|
+| [deepseek1.5-7b](./predict_deepseek_coder1_5_7b.yaml) | text_generation |    -     |   2048    | Predict | 60 tokens/s |
+
+以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
+
+| Config                                                 |      Task       |  Datasets   | SeqLength |  Phase   |  Performance   |
+|:-------------------------------------------------------|:---------------:|:-----------:|:---------:|:--------:|:--------------:|
+| [deepseek1.5-7b](./finetune_deepseek_coder1_5_7b.yaml) | text_generation | code_alpaca |   8192    | Finetune | 340 tokens/s/p |
+
 ## 模型文件
 
 `deepseek-coder-7b-v1.5` 基于 `mindformers` 实现，主要涉及的文件有：

@@ -13,6 +13,15 @@ ChatGLM3 是智谱AI和清华大学 KEG 实验室联合发布的新一代对话�
 }
 ```
 
+## 模型性能
+
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                                   |      Task       | SeqLength | Datasets |   Performance   |  Phase   |
+|:---------------------------------------------------------|:---------------:|:---------:|:--------:|:---------------:|:--------:|
+| [glm3_6b](../../configs/glm3/finetune_glm3_6b_bf16.yaml) | text_generation |   2048    |  ADGEN   | 3450 tokens/s/p | Finetune |
+| [glm3_6b](../../configs/glm3/predict_glm3_6b.yaml)       | text_generation |   2048    |    /     |  627 tokens/s   | Predict  |
+
 ## 模型文件
 
 `chatGLM3-6B` 基于 `mindformers` 实现，主要涉及的文件有：
@@ -77,9 +86,9 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于微调
 
 词表下载链接：[tokenizer.model](https://huggingface.co/THUDM/chatglm2-6b/blob/main/tokenizer.model)
 
-| 模型名称            |                                                   MindSpore权重                                                   |                               HuggingFace权重                                |
-|:----------------|:---------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------:|
-| ChatGLM3-6b     |                                                        /                                                        |              [Link](https://huggingface.co/THUDM/chatglm3-6b)              |
+| 模型名称        | MindSpore权重 |                  HuggingFace权重                   |
+|:------------|:-----------:|:------------------------------------------------:|
+| ChatGLM3-6b |      /      | [Link](https://huggingface.co/THUDM/chatglm3-6b) |
 
 #### 模型权重转换
 

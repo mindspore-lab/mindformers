@@ -17,14 +17,18 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 
 ## 模型性能
 
-- 基于Altas 800
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
 
-|                                                 Config                                                  |                                          Task                                           |              Datasets              |  Metric  |                Score                |                  Performance                  |  Phase   |
-|:-------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:| :--------------------------------: |:--------:|:-----------------------------------:|:---------------------------------------------:|:--------:|
-|           [gpt2](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)           |                                     text_generation                                     |             wikitext2              |   ppl    |                22.11                |                 1265 tokens/s                 | Pretrain |
-|              [gpt2](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)        |                                     text_generation                                     |             wikitext2              |   ppl    |                22.11                |   4.66/11.37 tokens/s(use past True/False)    | Predict  |
-|      [gpt2_lora](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_lora.yaml)      |                                     text_generation                                     |             wikitext2              |    -     |                  -                  |                33573 tokens/s                 |   Lora   |
-|    [gpt2_txtcls](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_txtcls.yaml)    |                                   text_classification                                   | SST-2<br/>IMDB<br/>AGNews<br/>COLA | accuracy | 0.908<br/>0.934<br/>0.941<br/>0.693 |                       -                       |    -     |
+| Config                                           |      Task       | Datasets  | SeqLength |   Performance   |  Phase   |
+|:-------------------------------------------------|:---------------:|:---------:|:---------:|:---------------:|:--------:|
+| [gpt2_13b](../../configs/gpt2/run_gpt2_13b.yaml) | text_generation | wikitext2 |   2048    | 1376 tokens/s/p | Finetune |
+| [gpt2_13b](../../configs/gpt2/run_gpt2_13b.yaml) | text_generation | wikitext2 |   2048    |   21 tokens/s   | Predict  |
+
+以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
+
+| Config                                           |      Task       | Datasets  | SeqLength |   Performance   |  Phase   |
+|:-------------------------------------------------|:---------------:|:---------:|:---------:|:---------------:|:--------:|
+| [gpt2_13b](../../configs/gpt2/run_gpt2_13b.yaml) | text_generation | wikitext2 |   2048    | 1286 tokens/s/p | Finetune |
 
 ## 模型文件
 
@@ -161,7 +165,7 @@ MindFormers提供`gpt2-small`的预训练示例，数据集可以参考[数据�
 
 ### 单机训练
 
-执行msrun启动脚本，进行8卡分布式训练。各个参数位置含义参见[msrun快速启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3/parallel/msrun_launcher.html#)。
+执行msrun启动脚本，进行8卡分布式训练。各个参数位置含义参见[msrun快速启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3.1/parallel/msrun_launcher.html)。
 
 ```bash
 # dataset_dir可指定文件目录或文件路径，
@@ -186,7 +190,7 @@ MindFormers提供`gpt2-small`的微调示例，数据集可以参考[数据集�
 
 #### 单机训练
 
-执行msrun启动脚本，进行8卡分布式训练。各个参数位置含义参见[msrun快速启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3/parallel/msrun_launcher.html#)。
+执行msrun启动脚本，进行8卡分布式训练。各个参数位置含义参见[msrun快速启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3.1/parallel/msrun_launcher.html)。
 
 ```bash
 # dataset_dir可指定文件目录或文件路径，
