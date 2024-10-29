@@ -32,12 +32,13 @@ from mindspore.train.serialization import _get_merged_param_data
 from mindspore.nn.cell import Cell
 from mindspore.ops.operations.comm_ops import Broadcast
 from mindspore.common import jit
+from mindspore.profiler import ProfilerLevel
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.cloud_adapter.cloud_adapter import Local2ObsMonitor
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_output_root_path, get_output_subpath, get_remote_save_url, check_in_modelarts,\
-    get_real_rank, get_real_group_size
+    get_real_rank, get_real_group_size, get_pipeline_rank_ids
 
 __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
@@ -722,46 +723,75 @@ class ProfileMonitor(Callback):
         stop_step (int): The step to stop profiling. Default: 10.
         output_path (str): The result of profiling will be saved in this path. Default: None.
         start_profile (str): Whether to enable profiling. Default: True.
+        profile_rank_ids (list): Specify rank ids to enable profiling. Default: None(All rank ids are enabled).
+        profile_pipeline (str): Whether to enable profiling on one card of each parallel stage. Default: False.
         profile_communication (str): Whether to collect communication performance data
                                      during multi-device training. Default: False.
-        profile_memory (str): Whether to collect Tensor memory data. Default: True.
+        profile_memory (str): Whether to collect Tensor memory data. Default: False.
         config (dict): Configuration items, used to profile relevant configuration information,
                        such as parallel configuration. Default: None.
+        profiler_level (int): Collection level of profiling data(0, 1, 2). Default: 0.
+
+                            - 0: The most streamlined level of performance data collection,
+                              only collecting execution time data for computational operators and
+                              basic data for large communication operators.
+                            - 1: In addition to level 0, extra data is collected for CANN layer AscendCL,
+                              AICORE performance data, and small communication operators.
+                            - 2: In addition to level 1, extra data is collected for graph compile level O2
+                              and Runtime in the CANN layer.
+
+        with_stack (str): Whether to collect Python-side stack trace data. Default: False.
+        data_simplification (str): Whether to enable data simplification, which will delete the FRAMEWORK directory
+                                   and other extraneous data after exporting profiling data. Default: True.
 
     Examples:
         >>> from mindformers.core import ProfileMonitor
         >>> monitor = ProfileMonitor(output_path='./profile_dir')
     """
 
-    def __init__(self, start_step=1, stop_step=10,
-                 output_path=None, start_profile=True,
-                 profile_communication=False, profile_memory=True, config=None, **kwargs):
+    def __init__(self, start_step=1, stop_step=10, output_path=None,
+                 start_profile=True, profile_rank_ids=None, profile_pipeline=False,
+                 profile_communication=False, profile_memory=False, config=None,
+                 profiler_level=0, with_stack=False, data_simplification=True, **kwargs):
         super(ProfileMonitor, self).__init__()
         self.start_step = start_step
         self.stop_step = stop_step
         self.start_profile = start_profile
+        self.profile_rank_ids = profile_rank_ids
+        self.profile_pipeline = profile_pipeline
         self.profile_communication = profile_communication
+        self.profiler_level = self._get_profiler_level(profiler_level)
+        self.profiler = None
 
         if profile_communication and not start_profile:
             raise ValueError("When profile_communication is True, start_profile must also be True")
 
         rank_id = get_real_rank()
-        if not output_path:
-            output_path = get_output_subpath('profile', rank_id)
-        else:
-            output_path = os.path.join(output_path, 'profile', 'rank_{}'.format(rank_id))
-        logger.info("Profile save path: %s", output_path)
+        self.pipeline_rank_ids = get_pipeline_rank_ids() if self.profile_pipeline else None
+        if self.pipeline_rank_ids == [-1]:
+            raise ValueError(f"Device num should be divided by pipeline stage num.")
 
-        if ms.get_context("device_target") == "GPU" and profile_memory:
-            logger.warning("The parameter profile_memory is not supported on GPU currently, so is changed to False. ")
-            profile_memory = False
+        if self._is_profile_required(rank_id):
+            if not output_path:
+                output_path = get_output_subpath('profile', rank_id)
+            else:
+                output_path = os.path.join(output_path, 'profile', 'rank_{}'.format(rank_id))
+            logger.info("Profile save path: %s", output_path)
 
-        self.profiler = Profiler(
-            start_profile=start_profile, output_path=output_path,
-            profile_communication=profile_communication, profile_memory=profile_memory, **kwargs)
-        self._record_metadata(config)
-        self.run_context = None
-        self.output_path = output_path
+            if ms.get_context("device_target") == "GPU" and profile_memory:
+                logger.warning("The parameter profile_memory is not supported on GPU currently, "
+                               "so is changed to False. ")
+                profile_memory = False
+
+            self.profiler = Profiler(
+                start_profile=start_profile, output_path=output_path,
+                profile_communication=profile_communication, profile_memory=profile_memory,
+                profiler_level=self.profiler_level, with_stack=with_stack,
+                data_simplification=data_simplification, **kwargs
+                )
+            self._record_metadata(config)
+            self.run_context = None
+            self.output_path = output_path
 
     def step_begin(self, run_context):
         """
@@ -772,7 +802,7 @@ class ProfileMonitor(Callback):
         """
         cb_params = run_context.original_args()
         step_num = cb_params.cur_step_num
-        if step_num == self.start_step and not self.start_profile:
+        if step_num == self.start_step and not self.start_profile and self.profiler:
             self.profiler.start()
 
     def step_end(self, run_context):
@@ -784,7 +814,7 @@ class ProfileMonitor(Callback):
         """
         cb_params = run_context.original_args()
         step_num = cb_params.cur_step_num
-        if step_num == self.stop_step:
+        if step_num == self.stop_step and self.profiler:
             self.profiler.stop()
             self.profiler.analyse()
             logger.info("End of Profiling, please view the profile data under %s and analyze it using mindinsight."
@@ -816,6 +846,42 @@ class ProfileMonitor(Callback):
             }))
         except AttributeError as e:
             logger.warning("Profiler failed to record distributed args,  %s", e)
+
+    def _is_profile_required(self, rank_id):
+        """
+        Determine whether current rank id needs to enable profiling.
+
+        Args:
+            rank_id (int): current rank id.
+        """
+        if not self.profile_rank_ids and not self.pipeline_rank_ids:
+            return True
+
+        profile_ids = self.profile_rank_ids if isinstance(self.profile_rank_ids, list) else []
+        pipeline_ids = self.pipeline_rank_ids if isinstance(self.pipeline_rank_ids, list) else []
+
+        if rank_id in profile_ids or rank_id in pipeline_ids:
+            return True
+
+        return False
+
+    @staticmethod
+    def _get_profiler_level(level):
+        """
+        Obtain profiler level based on the level value with integer type.
+
+        Args:
+            level (int): the value of profiler_level in MF config.
+        """
+        if level is None:
+            return ProfilerLevel.Level0
+
+        max_level = len(ProfilerLevel.__members__) - 1
+        if level < 0 or level > max_level:
+            logger.warning("Invalid profiler_level: %s, return None.", level)
+            return None
+        profiler_level = getattr(ProfilerLevel, f"Level{level}")
+        return profiler_level
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
