@@ -517,6 +517,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
                 weight = state_dict.get(ele.name)
                 if weight is None:
                     logger.warning(f"Fail to get the weight of '{ele.name}' from state dict.")
+                    continue
                 ele.copy_(
                     ms.Tensor(
                         weight.asnumpy().reshape(-1)[param_start:param_end],
