@@ -1,8 +1,10 @@
-# MindSpore Transformers 1.3.0 RELEASE NOTES
+# MindSpore Transformers Release Notes
+
+## MindSpore Transformers 1.3.0 Release Notes
 
 Below is the changelog for MindSpore Transformers (referred to as MindFormers) version 1.3.0, highlighting key new features and bug fixes compared to version 1.2.0.
 
-## New Features
+### New Features
 
 - [Installation Verification](https://www.mindspore.cn/mindformers/docs/en/dev/mindformers/mindformers.run_check.html): Added a convenient API to check whether MindFormers has been successfully installed.
 - [Log Optimization]: Optimized MindFormers logs, providing more comprehensive information to improve accuracy in issue identification and monitoring of training status.
@@ -18,7 +20,7 @@ Below is the changelog for MindSpore Transformers (referred to as MindFormers) v
 - [Pipeline Parallelism Optimization]: improved the efficiency of pipeline parallelism and reduce the proportion of bubbles, adopted interleaved pipeline scheduling with memory optimization.
 - [Dynamic Shape]: Added support for dynamic input length of supervised fine-tuning data for the Llama3_8B and Qwen2_7B models.
 
-## New Models
+### New Models
 
 The following new models are now supported:
 
@@ -34,7 +36,7 @@ The following new models are now supported:
 | [DeepSeekV2]        | DeepSeek-V2 (pretrain, finetune, inference)                                                                                                                                                                |
 | [Whisper]           | Whisper-Large-V3 (finetune)                                                                                                                                                                                |
 
-## Bugfix
+### Bugfix
 
 During this release cycle, we addressed numerous bugs across models, functionalities, usability, and documentation.
 Here are some notable fixes:
@@ -42,7 +44,7 @@ Here are some notable fixes:
 - [!3674]: Fixed an issue with the Internlm2 model not decoding as expected.
 - [!4401]: Fixed the issue with inference accuracy for the Baichuan2_13B model in MindIE.
 
-## Contributors
+### Contributors
 
 Thanks to the following individuals for their contributions:
 
