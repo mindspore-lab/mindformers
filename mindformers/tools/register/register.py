@@ -132,7 +132,7 @@ class MindFormerRegister:
         >>>
         >>>
         >>> # Using method to register the class
-        >>> MindFormerRegister.register_cls(cls=MyConfig, module_type=MindFormerRegister)
+        >>> MindFormerRegister.register_cls(register_class=MyConfig, module_type=MindFormerRegister)
         >>>
         >>> print(MindFormerRegister.is_exist(module_type=MindFormerModuleType.CONFIG, class_name="MyConfig"))
         True
