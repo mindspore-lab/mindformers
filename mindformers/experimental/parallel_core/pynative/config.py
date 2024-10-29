@@ -817,17 +817,29 @@ def init_configs_from_dict(raw_dict: dict, config_classes=None):
 
 # pylint: disable=W0102
 def init_configs_from_yaml(file_path: str, config_classes=None, **kwargs):
-    """Initialize config class from configuration yaml file.
+    """
+    Initialize config class from configuration yaml file.
 
     Args:
         file_path (str): configuration yaml file.
-        config_classes (Union[list[BaseConfig], None]): Config classes to be initialized. When no config class
-            is passed in, all known configs will be initialized as optional config of AllConfig. Default: None
-        kwargs (dict): extra arguments.
+        config_classes (Union[list[BaseConfig], None]): Config classes to be initialized. Support [TrainingConfig,
+            ModelParallelConfig, OptimizerConfig, DatasetConfig, LoraConfig, TransformerConfig, MoEConfig]. When no
+            config class is passed in, all known configs will be initialized as optional config of
+            :class:`mindformers.experimental.parallel_core.pynative.config.AllConfig`. Default: ``None``.
+        kwargs (dict): extra configuration arguments.
 
     Returns:
-        Union[list[BaseConfig], AllConfig]: Initialized config instances, when no config class is passed in,
-            AllConfig will be returned.
+        Union[list[BaseConfig], AllConfig], return initialized config instances, when no config class is passed in,
+            :class:`mindformers.experimental.parallel_core.pynative.config.AllConfig` will be returned.
+
+    Raises:
+        ValueError: If `file_path` is not a string.
+        ValueError: If the suffix of `file_path` does not end with yaml or yml.
+
+    Examples:
+        >>> from mindformers.experimental.parallel_core.pynative.config import init_configs_from_yaml
+        >>> config_file = "/path/to/config/file"
+        >>> all_config = init_configs_from_yaml(config_file)
     """
     if not isinstance(file_path, str):
         raise ValueError("file_path should be a string.")

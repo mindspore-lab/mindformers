@@ -167,20 +167,43 @@ def get_optimizer(optimizer_config, training_config, params=None, network=None, 
 
     Args:
         optimizer_config (OptimizerConfig): The configuration object for the optimizer.
-        params (list or dict, optional): The parameters to optimize. Default: None.
-        network (nn.Cell, optional): The network model, should be provided when use ZeRO optimizer. Default: None.
-        return_instance (bool): Whether to return an instance of the optimizer or just the optimizer class.
+        training_config (TrainingConfig): The configuration object for the training.
+        params (list or dict, optional): The parameters to optimize. Default: ``None``.
+        network (nn.Cell, optional): The network model, should be provided when use ZeRO optimizer. Default: ``None``.
+        return_instance (bool): Whether to return an instance of the optimizer with extra optimizer arguments.
+            Default: ``True``.
         **kwargs: Additional keyword arguments to be passed to the optimizer class.
 
     Returns:
-        Optimizer or type: An instance of the optimizer class if `return_instance` is True,
+        Optimizer instance, an instance of the optimizer class if `return_instance` is ``True``,
         otherwise the optimizer class itself.
 
     Raises:
-        ValueError: If `params` is None and `return_instance` is True.
-        ValueError: If `network` is None and use ZeRO optimizer.
-        NotImplementedError: If `weight_decay_kwargs` is not supported yet.
+        RuntimeError: If `zero_without_ddp` in `optimizer_config` is ``False`` and `zero_level` in
+            `optimizer_config.parallel_config` is ``z3`` and `use_distributed_optimizer` in `training_config` is
+            ``Fasle``.
+        ValueError: If `return_instance` is ``True`` and `params` is ``None``.
+        NotImplementedError: If `return_instance` is ``True`` and `weight_decay_kwargs` in `optimizer_config` is not
+            ``None``.
 
+    Examples:
+        >>> from mindformers.experimental.parallel_core.pynative.optimizer import get_optimizer
+        >>> from mindformers.experimental.parallel_core.pynative.training import get_model
+        >>> from mindformers.experimental.parallel_core import get_language_model
+        >>> from mindformers.experimental.parallel_core.pynative.training.utils import set_weight_decay
+        >>> from mindformers.experimental.parallel_core.pynative.config import init_configs_from_yaml
+        >>> def model_provider_func(model_config, pre_process=True, post_process=True):
+        ...     network_with_loss, _ = get_language_model(config=model_config, num_tokentypes=0,
+        ...         add_pooler=False, encoder_attn_mask_type=None, pre_process=pre_process, post_process=post_process)
+        ...     return network_with_loss
+        >>> config_file = "/path/to/config/file"
+        >>> all_config = init_configs_from_yaml(config_file)
+        >>> training_config = all_config.training_config
+        >>> optimizer_config = all_config.optimizer_config
+        >>> network_with_loss = get_model(model_provider_func, training_config)
+        >>> group_params = set_weight_decay(network_with_loss.trainable_params(), optimizer_config.weight_decay)
+        >>> optimizer = get_optimizer(optimizer_config, training_config, group_params, network_with_loss,
+        >>>                           grad_allreduce_op=training_config.loss_reduction)
     """
     optimizer_config.zero_without_ddp = optimizer_config.parallel_config.zero_level is not None and \
         not training_config.wrap_with_ddp
