@@ -133,7 +133,7 @@ model:
   model_config:
     type: LlmBoostConfig
     llm_backend: BuildIn
-    boost_model_type: Llama
+    boost_model_name: Llama
     batch_size: 1 # add for increase predict
     seq_length: 4096
     hidden_size: 4096
@@ -160,6 +160,9 @@ model:
     top_p: 1
     do_sample: False
     need_nz: False
+    auto_map:
+      AutoModel: llm_boost.LlmBoostForCausalLM
+      AutoConfig: llm_boost_config.LlmBoostConfig
   arch:
     type: LlmBoostForCausalLM
 processor:
