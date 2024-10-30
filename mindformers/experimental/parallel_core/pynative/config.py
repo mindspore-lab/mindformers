@@ -912,6 +912,8 @@ class ModelParallelConfig(BaseConfig):
             self.recompute_config['select_recompute'] = list(ast.literal_eval(select_recompute))
         if select_comm_recompute is not None:
             self.recompute_config['select_comm_recompute'] = list(ast.literal_eval(select_comm_recompute))
+        if not self.recompute_config:
+            self.recompute_config = None
 
         self.update_attrs(**kwargs)
 
