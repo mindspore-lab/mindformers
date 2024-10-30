@@ -144,6 +144,8 @@ class InternLM2ForCausalLM(LlamaForCausalLM):
         loss_parallel_config = copy.deepcopy(config.parallel_config)
         loss_parallel_config.model_parallel = dp * mp
         loss_parallel_config.data_parallel = 1
-        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
+        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
         config.checkpoint_name_or_path = checkpoint_name_or_path
         self.load_checkpoint(config)

@@ -424,7 +424,9 @@ class PanguAlphaHeadModel(PanguAlphaPreTrainedModel):
         self.backbone.embedding.word_embedding.embedding_table.add_pipeline_stage(self.head.pipeline_stage)
 
         loss_parallel_config = copy.deepcopy(config.parallel_config)
-        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
+        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
         self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.tile = P.Tile().shard(((dp,),))

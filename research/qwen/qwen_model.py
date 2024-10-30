@@ -79,7 +79,9 @@ class QwenForCausalLM(QwenPreTrainedModel):
         loss_parallel_config = copy.deepcopy(config.parallel_config)
         loss_parallel_config.model_parallel = loss_parallel_config.model_parallel * loss_parallel_config.data_parallel
         loss_parallel_config.data_parallel = 1
-        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config)
+        check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
 
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past

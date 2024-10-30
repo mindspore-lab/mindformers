@@ -17,6 +17,7 @@ Test module for testing the trainer interface used for mindformers.
 How to run this:
     pytest tests/st/test_trainer/test_trainer.py
 """
+import copy
 import numpy as np
 import pytest
 
@@ -324,6 +325,22 @@ def test_trainer_with_generator():
     Expectation: No exception
     """
     run_trainer(MINDFOREMR_CONFIG, "general", None, generator_train, generator_eval)
+
+
+@pytest.mark.level0
+@pytest.mark.platform_arm_ascend910b_training
+@pytest.mark.env_onecard
+def test_trainer_with_check_for_nan_in_loss_and_grad():
+    """
+    Feature: Trainer
+    Description: Test trainer with check_for_nan_in_loss_and_grad.
+    Expectation: ValueError
+    """
+    args = copy.deepcopy(MINDFOREMR_CONFIG)
+    args.check_for_nan_in_loss_and_grad = True
+    with pytest.raises(ValueError) as excinfo:
+        run_trainer(args, "general", None, generator_train, generator_eval)
+        assert "global_norm is [nan], terminate training." in str(excinfo.value)
 
 
 @pytest.mark.level0

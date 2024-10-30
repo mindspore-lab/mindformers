@@ -99,6 +99,8 @@ class TrainingArguments:
             Whether to run eval on the dev set. Default: ``False`` .
         do_predict (bool, optional):
             Whether to run predictions on the test set. Default: ``False`` .
+        check_for_nan_in_loss_and_grad (bool, optional):
+            Whether to check for nan in loss and grad during training. Default: ``False`` .
         remote_save_url (str, optional):
             The OBS output dir when training on ModeArts. Default: ``None`` .
         batch_size (int, optional):
@@ -497,6 +499,10 @@ class TrainingArguments:
     do_predict: bool = field(
         default=False,
         metadata={"help": "Whether to run predictions on the test set. Default: False."}
+    )
+    check_for_nan_in_loss_and_grad: bool = field(
+        default=False,
+        metadata={"help": "Whether to check for nan in loss and grad during training. Default: False."}
     )
     # AICC
     remote_save_url: Optional[str] = field(
@@ -1927,6 +1933,8 @@ class TrainingArguments:
         task_config.do_eval = _check_training_args(task_config.do_eval, self.do_eval)
         task_config.do_predict = _check_training_args(task_config.do_predict, self.do_predict)
         task_config.remote_save_url = _check_training_args(task_config.remote_save_url, self.remote_save_url)
+        task_config.check_for_nan_in_loss_and_grad = _check_training_args(
+            task_config.check_for_nan_in_loss_and_grad, self.check_for_nan_in_loss_and_grad)
 
     def _adapt_runner_config(self, task_config):
         """adapt runner config."""
