@@ -1,8 +1,10 @@
-# MindSpore Transformers 1.3.0 RELEASE NOTES
+# MindSpore Transformers Release Notes
+
+## MindSpore Transformers 1.3.0 Release Notes
 
 以下为 MindSpore Transformers (以下称为 MindFormers ) 套件 1.3.0 版本的变更日志，相较于1.2.0版本有以下关键新特性和 bugfix 。
 
-## 新特性
+### 新特性
 
 - [安装验证](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/mindformers/mindformers.run_check.html)：新增了便捷的API用以查询MindFormers的安装是否成功。
 - [日志优化]：优化 MindFormers 日志，打印信息更全面，更易于精度定位以及训练状态的监控。
@@ -17,7 +19,7 @@
 - [流水线并行优化](https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/pipeline_parallel.html#interleaved-pipeline%E8%B0%83%E5%BA%A6)：提升流水线并行的效率，减少 Bubble 的占比，采用 interleaved pipeline 调度，且做了内存优化。
 - [动态shape]：新增 Llama3-8B 和 Qwen2-7B 模型支持监督微调数据的输入长度动态变化。
 
-## 新模型
+### 新模型
 
 以下为新支持模型：
 
@@ -33,14 +35,14 @@
 | [DeepSeekV2](https://gitee.com/mindspore/mindformers/tree/r1.3.0/research/deepseek2/deepseek2.md)            | DeepSeek-V2 (预训练、微调、推理)                                                                                            |
 | [Whisper](https://gitee.com/mindspore/mindformers/tree/r1.3.0/docs/model_cards/whisper.md)                   | Whisper-Large-V3 (微调)                                                                                              |
 
-## Bugfix
+### Bugfix
 
 在当前版本发布周期内，我们进行了模型/功能/易用性/文档等诸多方面的 bugfix ，在此仅列举部分修复内容：
 
 - [!3674](https://gitee.com/mindspore/mindformers/pulls/3674)：修复 Internlm2 模型解码不符合预期的问题。
 - [!4401](https://gitee.com/mindspore/mindformers/pulls/4401)：修复 Baichuan2-13B 模型 MindIE 推理精度问题。
 
-## 贡献者
+### 贡献者
 
 感谢以下人员做出的贡献：
 
