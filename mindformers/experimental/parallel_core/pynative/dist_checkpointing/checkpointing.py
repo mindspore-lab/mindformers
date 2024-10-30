@@ -40,6 +40,7 @@ try:
 except ImportError:
     from mindspore.nn.generator import default_generator, set_rng_state
 from mindspore.communication import get_rank
+from mindspore.train.serialization import _update_param
 from mindformers.tools import logger
 from mindformers.experimental.parallel_core.pynative.utils import generate_state_dict, save_strategy_file
 from mindformers.experimental.parallel_core.pynative.parallel_state import (
@@ -137,8 +138,13 @@ def _get_params_dict(model, optimizer):
         params_dict = model.parameters_dict()
     elif isinstance(optimizer, MixedPrecisionOptimizer):
         params_dict = optimizer.state_dict()
+        for _, param in model.parameters_and_names():
+            if not param.requires_grad:
+                params_dict[param.name] = param
     else:
         params_dict = optimizer.parameters_dict()
+        for _, param in model.parameters_and_names():
+            params_dict[param.name] = param
     if not params_dict:
         raise ValueError("None of params dict has been extract from model and optimizer.")
     return params_dict
@@ -350,19 +356,26 @@ def load_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
         optimizer.load_state_dict(param_dict)
         # synchronize parameters in optimizer to model
         optimizer.reload_main_params()
+        for _, param in model.parameters_and_names():
+            if not param.requires_grad:
+                new_param = param_dict[param.name]
+                _update_param(param, new_param, False)
     else:
         # restore native optimizer/model
         param_dict = load_post_process(config, param_dict, optimizer)
-        if optimizer is not None:
-            target = optimizer
-        else:
-            logger.warning("Optmizer state will NOT be loaded from gitven ckpt.")
-            target = model
-        param_not_load, ckpt_not_load = ms.load_param_into_net(target, param_dict)
+
+        param_not_load, ckpt_not_load = ms.load_param_into_net(model, param_dict)
         if param_not_load:
-            logger.warning(f"param_not_load: {param_not_load}")
+            logger.warning(f"When loading ckpt into the model, param_not_load:{param_not_load}")
         if ckpt_not_load:
-            logger.warning(f"ckpt_not_load: {ckpt_not_load}")
+            logger.warning(f"When loading ckpt into the model, ckpt_not_load:{ckpt_not_load}")
+        if optimizer is not None:
+            param_not_load, ckpt_not_load = ms.load_param_into_net(optimizer, param_dict)
+            if param_not_load:
+                logger.warning(f"When loading ckpt into the optimizer, param_not_load:{param_not_load}")
+            if ckpt_not_load:
+                logger.warning(f"When loading ckpt into the optimizer, ckpt_not_load:{ckpt_not_load}")
+
     logger.info(f"Checkpoint: {src_ckpt_file} is loaded successfully!")
 
     return resume_dict
