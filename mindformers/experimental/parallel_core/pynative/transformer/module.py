@@ -64,14 +64,16 @@ class Module(nn.Cell):
     Supported Platforms:
         ``Ascend``
     """
-    def __init__(self, config=None, share_embeddings_and_output_weights=True, **kwargs):
-        super(Module, self).__init__(**kwargs)
+    # pylint: disable=W1113
+    def __init__(self, config=None, share_embeddings_and_output_weights=True, *args, **kwargs):
+        super(Module, self).__init__(*args, **kwargs)
         self.share_embeddings_and_output_weights = share_embeddings_and_output_weights
         self.shared_weight_name_list = []
         if config is not None:
             self.config = config
             self.share_embeddings_and_output_weights = not config.untie_embeddings_and_output_weights
-            if get_pipeline_model_parallel_world_size() > 1:
+            pp_world_size = get_pipeline_model_parallel_world_size()
+            if pp_world_size is not None and pp_world_size > 1:
                 self.pre_process = is_pipeline_first_stage()
                 self.post_process = is_pipeline_last_stage()
 

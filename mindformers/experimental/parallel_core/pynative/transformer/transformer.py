@@ -628,7 +628,7 @@ class ParallelAttention(Module):
                 value = value.astype(mstype.float16)
             attention_mask = attention_mask.astype(mstype.uint8)
 
-            if self.fa_config and 'input_layout' in self.fa_config and self.fa_config.input_layout == 'SBH':
+            if self.fa_config and hasattr(self.fa_config, 'input_layout') and self.fa_config.input_layout == 'SBH':
                 # SBND -> SBH
                 fa_use_sbh = True
                 query, key, value = [

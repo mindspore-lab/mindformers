@@ -75,7 +75,6 @@ class TestTransformerConfig:
         transformer_config = convert_to_transformer_config(config, transformer_config)
         assert transformer_config.hidden_size == config.hidden_size
         assert transformer_config.ffn_hidden_size == 4 * transformer_config.hidden_size
-        assert not hasattr(transformer_config, "vocab_size")
         assert transformer_config.padded_vocab_size == config.vocab_size
         assert transformer_config.a == config.a
         assert transformer_config.tensor_parallel == config.parallel_config.model_parallel

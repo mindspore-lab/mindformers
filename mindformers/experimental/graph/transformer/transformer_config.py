@@ -170,7 +170,7 @@ class TransformerConfig(ModelParallelConfig):
                  mask_func_type: str = "attn_mask_fill",
                  normalization: str = "FusedRMSNorm",
                  position_embedding_type: str = "rope",
-                 init_method: Callable = None,
+                 init_method_: Callable = None,
                  output_layer_init_method: Callable = None,
                  **kwargs):
         super(TransformerConfig, self).__init__(**kwargs)
@@ -212,7 +212,7 @@ class TransformerConfig(ModelParallelConfig):
         self.mask_func_type = mask_func_type
         self.normalization = normalization
         self.position_embedding_type = position_embedding_type
-        self.init_method = init_method
+        self.init_method_ = init_method_
         self.output_layer_init_method = output_layer_init_method
         self.post_init_checks()
 
@@ -247,8 +247,8 @@ class TransformerConfig(ModelParallelConfig):
         if self.max_position_embeddings is None:
             self.max_position_embeddings = self.seq_length
 
-        if self.init_method is None:
-            self.init_method = init_method_normal(self.init_method_std, self.params_dtype)
+        if self.init_method_ is None:
+            self.init_method_ = init_method_normal(self.init_method_std, self.params_dtype)
 
     def update(self):
         """Modify attributes after covert."""

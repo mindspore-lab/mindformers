@@ -99,6 +99,8 @@ def convert_pretrained_config(config: PretrainedConfig, transformer_config: Tran
         if attr in _CONFIG_MAPPING:
             set_attr = _CONFIG_MAPPING[attr]
             setattr(transformer_config, set_attr, value)
+            # After unifying the transformer_config for both pynative and graph, this line can be removed
+            setattr(transformer_config, attr, value)
         elif attr not in _INIT_ATTRIBUTE:
             setattr(transformer_config, attr, value)
 
@@ -113,10 +115,10 @@ def convert_pretrained_config(config: PretrainedConfig, transformer_config: Tran
         if config.n_kv_heads is not None:
             transformer_config.group_query_attention = True
     if flag == 1:
-        transformer_config.init_method = init_method_normal(transformer_config.init_method_std,
-                                                            transformer_config.params_dtype)
+        transformer_config.init_method_ = init_method_normal(transformer_config.init_method_std,
+                                                             transformer_config.params_dtype)
     else:
-        transformer_config.init_method = init_method_zero(transformer_config.params_dtype)
+        transformer_config.init_method_ = init_method_zero(transformer_config.params_dtype)
     return transformer_config
 
 
