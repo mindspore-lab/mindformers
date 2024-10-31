@@ -658,11 +658,19 @@ class MoEV2(Cell):
 
         self.ffn = ffn
         Validator.check_string(moe_config.routing_policy, ["TopkRouterV2"], "routing_policy")
+        self.ffn_forward = self._ffn_forward
+        router_parallel_config = copy.deepcopy(parallel_config)
+        self.use_seq_parallel = parallel_config.use_seq_parallel
+        if self.use_seq_parallel:
+            self.ffn_forward = self._ffn_forward_sq
+            router_parallel_config.data_parallel = self.dp * self.mp
+            router_parallel_config.model_parallel = 1
+            self.dp_group *= self.mp
         self.router = Router(d_model=self.hidden_size,
                              moe_config=moe_config,
                              routing_policy=moe_config.routing_policy,
                              training=(not get_predict_run_mode()),
-                             parallel_config=parallel_config)
+                             parallel_config=router_parallel_config)
 
         self.reshape = P.Reshape()
         self.shape = P.Shape()
@@ -683,8 +691,83 @@ class MoEV2(Cell):
         self.stride_slice_outer_ep = P.StridedSlice().shard(((self.dp_moe, self.ep, 1, 1, 1),))
         self.stride_slice_outer_dp = P.StridedSlice().shard(((self.dp_moe, 1, self.ep, 1, 1),))
         self.transpose_5dim_ep1 = P.Transpose().shard(((self.dp_moe, self.ep, 1, 1, 1),))
+        #outer dp
+        self.transpose_mp1 = P.Transpose().shard(((self.dp_moe, self.ep, self.mp, 1, 1, 1),))
+        self.transpose_mp2 = P.Transpose().shard(((self.dp_moe, 1, self.ep, self.mp, 1, 1),))
+        self.stride_slice_allgather = P.StridedSlice().shard(((self.dp_moe, self.ep, 1, 1, 1),))
+        self.transpose_all2all = P.Transpose().shard(((1, self.ep, 1, 1),))
+        # interleave
+        self.comp_comm_parallel = moe_config.comp_comm_parallel
+        self.comp_comm_parallel_degree = moe_config.comp_comm_parallel_degree
+        if self.comp_comm_parallel:
+            self.split = P.Split(axis=2, output_num=self.comp_comm_parallel_degree).shard(((self.dp, 1, 1, 1),))
+            self.concat = P.Concat(2).shard(tuple((self.dp, 1, 1, 1) for _ in range(self.comp_comm_parallel_degree)))
+            self.split.add_prim_attr("enable_interleave", 1)
+            self.concat.add_prim_attr("enable_interleave", 1)
 
-    def ffn_forward(self, expert_input, capacity):
+    def ffn_parallel_forward(self, expert_input, capacity):
+        """
+        use comp_comm_overlap Computing the FFN.
+        """
+        if self.comp_comm_parallel:
+            sub_capacity = capacity // self.comp_comm_parallel_degree
+            output_list = []
+            for sub_expert_input in self.split(expert_input):
+                sub_expert_output = self.ffn_forward(sub_expert_input, sub_capacity)
+                output_list.append(sub_expert_output)
+            expert_output = self.concat(output_list)
+        else:
+            expert_output = self.ffn_forward(expert_input, capacity)
+        return expert_output
+
+    def _ffn_forward_sq(self, expert_input, capacity):
+        """
+        use sp Computing the FFN.
+        """
+        # all2all
+        expert_input = self.reshape(expert_input, (self.dp_moe, self.ep, self.mp,
+                                                   self.expert_dim, capacity, self.hidden_size))
+        # (dp,mp,E,C/mp,h) -> (dp,E,mp,C/mp,h)
+        expert_input = self.transpose_mp1(expert_input, (0, 3, 1, 2, 4, 5))
+        expert_input = self.reshape(expert_input, (self.dp_moe, self.expert_dim, self.ep,
+                                                   self.mp * capacity, self.hidden_size))
+        expert_input = self.stride_slice_outer_dp_mp(expert_input, (0, 0, 0, 0, 0),
+                                                     (self.dp_moe, self.expert_dim, self.ep,
+                                                      self.mp * capacity, self.hidden_size),
+                                                     (1, 1, 1, 1, 1))
+        # (outdp,dp',E,mp,C/mp,h) -> (outdp,dp'*ep,E/ep,mp,C/mp,h)
+        expert_input = self.stride_slice_outer_ep_mp(expert_input, (0, 0, 0, 0, 0),
+                                                     (self.dp_moe, self.expert_dim, self.ep,
+                                                      self.mp * capacity, self.hidden_size),
+                                                     (1, 1, 1, 1, 1))
+        expert_input = self.stride_slice_allgather(expert_input, (0, 0, 0, 0, 0),
+                                                   (self.dp_moe, self.expert_dim, self.ep,
+                                                    self.mp * capacity, self.hidden_size),
+                                                   (1, 1, 1, 1, 1))
+
+        # ffns
+        expert_input = self.reshape(expert_input, (self.dp_moe, -1, self.hidden_size))
+        expert_output = self.ffn(expert_input)
+        expert_output = self.reshape(expert_output, (self.dp_moe, self.expert_dim, self.ep,
+                                                     self.mp * capacity, self.hidden_size))
+
+        # all2all
+        expert_output = self.stride_slice_outer_ep_mp(expert_output, (0, 0, 0, 0, 0),
+                                                      (self.dp_moe, self.expert_dim, self.ep,
+                                                       self.mp * capacity, self.hidden_size),
+                                                      (1, 1, 1, 1, 1))
+        expert_output = self.stride_slice_outer_dp_mp(expert_output, (0, 0, 0, 0, 0),
+                                                      (self.dp_moe, self.expert_dim, self.ep,
+                                                       self.mp * capacity, self.hidden_size),
+                                                      (1, 1, 1, 1, 1))
+        expert_output = self.reshape(expert_output, (self.dp_moe, self.expert_dim, self.ep,
+                                                     self.mp, capacity, self.hidden_size))
+        expert_output = self.transpose_mp2(expert_output, (0, 2, 3, 1, 4, 5))
+        expert_output = self.reshape(expert_output, (self.dp * self.mp, self.expert_dim, -1, self.hidden_size))
+        return expert_output
+
+
+    def _ffn_forward(self, expert_input, capacity):
         """
         Computing the FFN.
         """
@@ -763,7 +846,7 @@ class MoEV2(Cell):
         # (dp, E, n, h) <-- (dp, N, h), (dp, E, n)
         expert_input = self.router.router.dispatch(input_tensor, dispatch_policy)
         # ffn, (E, dp, n, h) <-- (E, dp, n, h)
-        expert_output = self.ffn_forward(expert_input, expert_capacity)
+        expert_output = self.ffn_parallel_forward(expert_input, expert_capacity)
         # combine, (dp, N, k, h) <-- (dp, E*(1+n), h), (dp, N, k)
         output_tensor = self.router.router.combine(expert_output, combine_policy, router_coeff)
         output_tensor = self.reshape(output_tensor, input_tensor_shape)  # (B*S, h) <-- (dp, N, h)
@@ -1214,6 +1297,11 @@ class TopkRouterV2(Cell):
         if self.moe_config.use_fused_ops_topkrouter:
             # pylint: disable=W0212
             self.topkrouter = P._inner_ops.TopKRouter().shard(((dp, 1, 1),))
+        # interleave
+        if self.moe_config.comp_comm_parallel:
+            self.comp_comm_parallel_degree = self.moe_config.comp_comm_parallel_degree
+        else:
+            self.comp_comm_parallel_degree = 1
 
     def dispatch(self, input_tensor, dispatch_index):
         r"""
@@ -1351,7 +1439,8 @@ class TopkRouterV2(Cell):
         kn = k * tokens_per_group  # this n refers to N
         if self.capacity_factor > 0:
             expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
-                                                           self.capacity_factor, self.expert_dim, self.mp)
+                                                           self.capacity_factor, self.expert_dim,
+                                                           self.mp * self.comp_comm_parallel_degree)
 
         else:
             expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
@@ -1419,7 +1508,8 @@ class TopkRouterV2(Cell):
         kn = k * tokens_per_group  # this n refers to N
         if self.capacity_factor > 0:
             expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
-                                                           self.capacity_factor, self.expert_dim, self.mp)
+                                                           self.capacity_factor, self.expert_dim,
+                                                           self.mp * self.comp_comm_parallel_degree)
 
         else:
             expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
@@ -1481,7 +1571,8 @@ class TopkRouterV2(Cell):
         if self.capacity_factor > 0:
             tokens_per_group = self.shape(expert_index)[1]
             expert_capacity = calculate_expert_capacity_v2(self.num_experts_chosen, tokens_per_group,
-                                                           self.capacity_factor, self.expert_dim, self.mp)
+                                                           self.capacity_factor, self.expert_dim,
+                                                           self.mp * self.comp_comm_parallel_degree)
         else:
             expert_capacity = self._calculate_expert_capacity_dynamic(expert_index)
         if self.moe_config.enable_sdrop:

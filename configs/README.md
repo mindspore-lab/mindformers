@@ -84,6 +84,8 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - num_experts_chosen: 每个token选择专家数目
     - balance_via_topk_bias: 使能aux_loss_free负载均衡算法
     - topk_bias_update_rate：aux_loss_free负载均衡算法bias更新步长
+    - comp_comm_parallel: 是否开启ffn的计算通信并行。默认值：False。
+    - comp_comm_parallel_degree: ffn计算通信的分割数。数字越大，重叠越多，但会消耗更多内存。此参数仅在comp_com_parallel启用时有效。
 - recompute_config：重计算配置，可以参考mindformers.modules.transformer.TransformerRecomputeConfig
     - recompute: 是否开启重计算
     - select_recompute: 是否开启选择重计算，只针对attention层的算子进行重计算
