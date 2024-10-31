@@ -19,7 +19,7 @@ import time
 import tempfile
 import datetime
 
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from typing import Callable, Optional, Union
 
@@ -569,6 +569,14 @@ class CheckpointMonitor(ModelCheckpoint):
 
         self.global_batch_size = global_batch_size
 
+        self.save_info_list = defaultdict(
+            lambda: {
+                'ckpt': {'ckpt_file_path': None, 'save_start_time': None, 'save_end_time': None},
+                'network': {'ckpt_file_path': None, 'save_start_time': None, 'save_end_time': None},
+                'trainable_params': {'ckpt_file_path': None, 'save_start_time': None, 'save_end_time': None},
+            }
+        )
+
         if append_info is None:
             append_info = [{
                 "epoch_num": 0,
@@ -605,6 +613,25 @@ class CheckpointMonitor(ModelCheckpoint):
             self.last_ckpoint_file = None
             self.meta_updated = True
 
+    def print_savetime(self, record_step, batch_num):
+        """print the time cost of saving checkpoint files."""
+        epoch = int((record_step - 1) // batch_num + 1)
+        step = int((record_step - 1) % batch_num + 1)
+
+        def output_if_exists(key):
+            save_info = self.save_info_list[record_step][key]
+            file = save_info['ckpt_file_path']
+            if file is not None and os.path.exists(file):
+                save_info['save_end_time'] = os.path.getmtime(file)
+                cost_time = save_info['save_end_time'] - save_info['save_start_time']
+                logger.info(f'Finish saving {key} of epoch {epoch} step {step}'
+                            f' using {cost_time:.3f} seconds')
+                save_info['ckpt_file_path'] = None
+
+        output_if_exists('ckpt')
+        output_if_exists('network')
+        output_if_exists('trainable_params')
+
     def _save_ckpt(self, cb_params, force_to_save=False):
         """Save checkpoint files."""
         # pylint: disable=E0203
@@ -617,6 +644,15 @@ class CheckpointMonitor(ModelCheckpoint):
 
         save_ckpt = self._check_save_ckpt(cb_params, force_to_save)
 
+        # if async_save is True, check whether saving processes are completed each step
+        if self._config.async_save:
+            keys = list(self.save_info_list.keys())
+            for record_step in keys:
+                self.print_savetime(record_step, cb_params.batch_num)
+                if not any([self.save_info_list[record_step][key]['ckpt_file_path']
+                            for key in ['ckpt', 'network', 'trainable_params']]):
+                    self.save_info_list.pop(record_step)
+
         if self._config.async_save and not ms.async_ckpt_thread_status() and \
             self.last_epoch_num and self.last_step_num_in_epoch and self.last_ckpoint_file and \
                 not self.meta_updated:
@@ -626,10 +662,14 @@ class CheckpointMonitor(ModelCheckpoint):
         if save_ckpt:
             self.save_checkpoint(cb_params)
             self.save_checkpoint_network(cb_params)
+            # if async_save is False, output the time cost directly
+            if not self._config.async_save:
+                self.print_savetime(cb_params.cur_step_num, cb_params.batch_num)
 
     def save_checkpoint(self, cb_params):
         """save checkpoint suitable for resume training."""
         logger.info('......Saving ckpt......')
+        self.save_info_list[cb_params.cur_step_num]['ckpt']['save_start_time'] = time.time()
         step_num_in_epoch = int((cb_params.cur_step_num - 1) % cb_params.batch_num + 1)
         cur_ckpoint_file = self._prefix + "-" + str(cb_params.cur_epoch_num) + "_" \
                             + str(step_num_in_epoch) + ".ckpt"
@@ -676,6 +716,7 @@ class CheckpointMonitor(ModelCheckpoint):
                         self._append_dict, self._config.enc_key, self._config.enc_mode,
                         choice_func=lambda x: not x.startswith('accu_grads'))
         self._latest_ckpt_file_name = cur_file
+        self.save_info_list[cb_params.cur_step_num]['ckpt']['ckpt_file_path'] = cur_file
 
         if self._config.async_save:
             self.last_epoch_num = cb_params.cur_epoch_num
@@ -692,13 +733,16 @@ class CheckpointMonitor(ModelCheckpoint):
             save_obj = save_obj.network
 
         if self.save_network_params:
+            self.save_info_list[cb_params.cur_step_num]['network']['save_start_time'] = time.time()
             cb_cur_ckpoint_file = self._prefix + "-" + "network" + ".ckpt"
             cb_cur_file = os.path.join(self.network_directory, cb_cur_ckpoint_file)
             os.makedirs(self.network_directory, exist_ok=True)
             save_checkpoint(save_obj, cb_cur_file, self._config.integrated_save, self._config.async_save,
                             {}, self._config.enc_key, self._config.enc_mode)
+            self.save_info_list[cb_params.cur_step_num]['network']['ckpt_file_path'] = cb_cur_file
 
         if self.save_trainable_params:
+            self.save_info_list[cb_params.cur_step_num]['trainable_params']['save_start_time'] = time.time()
             save_obj.init_parameters_data()
             param_dict = OrderedDict()
             for param in save_obj.trainable_params():
@@ -721,6 +765,7 @@ class CheckpointMonitor(ModelCheckpoint):
             os.makedirs(self.trainable_directory, exist_ok=True)
             save_checkpoint(save_obj, cb_cur_file, self._config.integrated_save,
                             self._config.async_save, {}, self._config.enc_key, self._config.enc_mode)
+            self.save_info_list[cb_params.cur_step_num]['trainable_params']['ckpt_file_path'] = cb_cur_file
 
     def record_last_ckpt_to_json(self, epoch, step, ckpt_file):
         """record last ckpt info to json"""
