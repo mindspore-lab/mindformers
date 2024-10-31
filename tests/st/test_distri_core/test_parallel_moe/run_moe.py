@@ -247,6 +247,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=1, help="batch_size")
     parser.add_argument('--dataset_size', type=int, default=20, help="dataset_size")
     parser.add_argument('--aux_loss', action='store_true', help="use aux_loss load balancing type.")
+    parser.add_argument('--aux_loss_free', action='store_true', help="use aux_loss_free load balancing type.")
     parser.add_argument('--z_loss_coeff', type=float, default=None, help="use aux_loss load balancing type.")
 
     cli_args, rest_args = parser.parse_known_args()
@@ -305,6 +306,10 @@ if __name__ == '__main__':
     )
 
     if cli_args.generate_golden:
+        if cli_args.aux_loss_free:
+            moe_cfg_golden.balance_via_topk_bias = True
+            moe_cfg_golden.topk_bias_update_rate = 0.001
+            model_cfg.parallel_config.expert_parallel = model_cfg.parallel_config.expert_model_parallel_size
         model_cfg.moe_config = moe_cfg_golden
         generate_golden(model_cfg, cli_args)
     else:

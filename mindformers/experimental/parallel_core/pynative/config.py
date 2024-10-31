@@ -1480,7 +1480,7 @@ class TrainingConfig(BaseConfig):
 
     def __init__(
             self,
-            parallel_config: ModelParallelConfig,
+            parallel_config: ModelParallelConfig = ModelParallelConfig(),
             dataset_config: DatasetConfig = DatasetConfig(),
             lora_config: LoraConfig = LoraConfig(),
             seed: int = None,
@@ -2151,7 +2151,7 @@ class TransformerConfig(BaseConfig):
             hidden_size: int,
             ffn_hidden_size: int,
             parallel_config: ModelParallelConfig,
-            training_config: TrainingConfig,
+            training_config: TrainingConfig = TrainingConfig(),
             lora_config: LoraConfig = LoraConfig(),
             dataset_config: DatasetConfig = DatasetConfig(),
             moe_config: MoEConfig = MoEConfig(),
