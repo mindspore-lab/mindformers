@@ -560,8 +560,16 @@ class TrainOneStepCell(nn.Cell):
         if isinstance(optimizer, DistributedOptimizer) and optimizer.config.overlap_param_gather:
             optimizer.enable_pre_hook(network_with_loss)
 
-        self.params_with_grad = None if not self.use_mixed_precision_optimizer \
-            else network_with_loss.trainable_params()
+        if hasattr(optimizer, "parameters"):
+            parameters = optimizer.parameters
+        else:
+            logger.warning(
+                "Fail to get parameters from optimizer and will get parameters "
+                "from network_with_loss.trainable_params() alternatively. "
+                "But this may cause exception due to a mismatch between parameters and gradients.")
+            parameters = network_with_loss.trainable_params()
+
+        self.params_with_grad = parameters if self.use_mixed_precision_optimizer else None
 
         # init loss scaler
         if training_config.loss_scale is not None:
@@ -585,18 +593,18 @@ class TrainOneStepCell(nn.Cell):
         if self.use_grad_clip:
             self.grad_clip_func = get_grad_process_func(
                 training_config, not model_config.untie_embeddings_and_output_weights,
-                params=network_with_loss.trainable_params()
-            )
+                params=parameters)
+
         # init grad scale func
         self.grad_scale_func = inplace_apply_to_tensor_list(mint.mul)
 
         # init parallel reducer
-        self.parallel_reducer = ParallelTrainingReducer(network_with_loss.trainable_params(), training_config)
+        self.parallel_reducer = ParallelTrainingReducer(parameters, training_config)
 
         self.micro_batch_num = training_config.dataset_config.micro_batch_num
         # init forward_backward_func
         self.forward_backward_func = get_forward_backward_func(
-            network_with_loss, network_with_loss.trainable_params(), training_config, model_config
+            network_with_loss, parameters, training_config, model_config
         )
         self.accumulate_allreduce_grads_in_fp32 = training_config.accumulate_allreduce_grads_in_fp32
 
