@@ -1120,9 +1120,14 @@ class Trainer:
                 start_step=self.config.profile_start_step,
                 stop_step=self.config.profile_stop_step,
                 start_profile=start_profile,
+                profile_rank_ids=self.config.profile_rank_ids,
+                profile_pipeline=self.config.profile_pipeline,
                 profile_communication=profile_communication,
                 profile_memory=self.config.profile_memory,
                 output_path=self.config.profile_output,
+                profiler_level=self.config.profiler_level,
+                with_stack=self.config.with_stack,
+                data_simplification=self.config.data_simplification,
                 config=self.config)
             logger.warning(
                 "Please reduce the data sample size with 'num_samples' in MindSpore data format according to "
