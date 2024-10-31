@@ -56,12 +56,14 @@ class ModelParallelConfig:
                  tensor_parallel: int = 1,
                  context_parallel: int = 1,
                  vocab_emb_dp: bool = True,
+                 sequence_parallel: bool = False,
                  **kwargs):
         super(ModelParallelConfig, self).__init__(**kwargs)
         self.data_parallel = data_parallel
         self.tensor_parallel = tensor_parallel
         self.context_parallel = context_parallel
         self.vocab_emb_dp = vocab_emb_dp
+        self.sequence_parallel = sequence_parallel
 
 
 class TransformerConfig(ModelParallelConfig):
