@@ -2,7 +2,7 @@
 
 ### 依赖三方软件安全
 
-推荐用户通过mindformers自动安装依赖三方软件（指定版本或默认最新版本），如因用户使用旧版本依赖三方软件引入安全漏洞产生影响，mindformers不承担相关责任。
+推荐用户通过MindFormers自动安装依赖三方软件（指定版本或默认最新版本），如因用户使用旧版本依赖三方软件引入安全漏洞产生影响，MindFormers不承担相关责任。
 
 ### 运行用户建议
 
@@ -15,7 +15,7 @@
 ### 文件权限控制
 
 1. 建议用户在主机（包括宿主机）及容器中设置运行系统umask值为0027及以上，保障新增文件夹默认最高权限为750，新增文件默认最高权限为640。
-2. 建议用户对个人数据、商业资产、源文件、训练过程中保存的各类文件、mindformers安装目录、多用户使用共享数据集等敏感内容做好权限管控，管控权限可参考表1进行设置。
+2. 建议用户对个人数据、商业资产、源文件、训练过程中保存的各类文件、MindFormers安装目录、多用户使用共享数据集等敏感内容做好权限管控，管控权限可参考表1进行设置。
 
     表1 文件（夹）各场景权限管控推荐最大值
 
@@ -41,12 +41,12 @@
 
 ### 构建安全声明
 
-mindformers在源码构建安装过程中，会产生临时目录和程序文件。用户可根据需要，对源代码目录中的文件及文件夹进行权限管控，降低安全风险。
+MindFormers在源码构建安装过程中，会产生临时目录和程序文件。用户可根据需要，对源代码目录中的文件及文件夹进行权限管控，降低安全风险。
 
 ### 运行安全声明
 
 1. 建议用户结合运行环境资源状况编写对应训练脚本。若训练脚本与资源状况不匹配，如数据集加载内存大小超出内存容量限制、训练脚本在本地生成数据超过磁盘空间大小等情况，可能引发错误并导致进程意外退出。
-2. mindformers在运行异常时会退出进程并打印报错信息，属于正常现象。建议用户根据报错提示定位具体错误原因，包括python报错误栈定位到具体模块、环境中指定单框架等方式。
+2. MindFormers在运行异常时会退出进程并打印报错信息，属于正常现象。建议用户根据报错提示定位具体错误原因，包括python报错误栈定位到具体模块、环境中指定单框架等方式。
 
 ### 公网地址声明
 
@@ -63,22 +63,22 @@ mindformers在源码构建安装过程中，会产生临时目录和程序文件
 
 ### 公开接口声明
 
-mindformers对外暴露接口可参考[Auto Classes](https://gitee.com/mindformers/blob/master/docs/zh/api_reference/apis/autoclass_api.md)、[Pipeline](https://gitee.com/mindformers/blob/master/docs/zh/api_reference/apis/pipeline_api.md)、[Trainer](https://gitee.com/mindformers/blob/master/docs/zh/api_reference/apis/trainer_api.md)、[PreTrainer](https://gitee.com/mindformers/blob/master/docs/zh/api_reference/apis/pretrainer_api.md)、[Utils](https://gitee.com/mindformers/blob/master/docs/zh/api_reference/apis/utils_api.md)， 具体接口规格可参考对应API文档查询。
+MindFormers对外暴露接口可参考[官方文档](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.3.0/index.html)， 具体接口规格可参考对应API参考文档查询。
 
 ### 通信矩阵
 
-mindformers 通信矩阵
+MindFormers 通信矩阵
 
 | 序号 | 代码仓         | 功能         | 源设备               | 源IP                  | 源端口   | 目的设备               | 目的IP                 | 目的端口<br/>（侦听） | 协议         | 端口说明                                 | 端口配置                                                                                                                                                                                  | 侦听端口是否可更改 | 认证方式 | 加密方式 | 所属平面   | 版本                     | 特殊场景 | 备注 |
 |:---|:------------|:-----------|:------------------|:---------------------|:------|:-------------------|:---------------------|:--------------|:-----------|:-------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:----------|:-----|:-----|:-------|:-----------------------|:-----|:---|
-| 1  | mindformers | 下载权重       | 运行mindspore进程的服务器 | 运行mindspore进程的服务器的ip |       | 用户所在服务器            | 用户所在服务器的ip           | 443           | HTTPS      | 下载模型权重                               | 不涉及                                                                                                                                                                                   | 不涉及       | 不涉及  | 不涉及  | 业务面    | 所有版本                   | 无    |    |
-| 2  | mindformers | 分布式训练推理    | 运行mindspore进程的服务器 | 运行mindspore进程的服务器的ip | 由用户配置 | 运行mindspore进程的服务器  | 运行mindspore进程的服务器的ip |               | TCP        | 分布式启动时，作为主节点训练                       | bash scripts/msrun_launcher.sh "run_mindformer.py \<br/>  --config {CONFIG_PATH} \<br/>  --run_mode {train/finetune/eval/predict}" \<br/>  8 4 主节点ip 端口号 0 output/msrun_log False 300 | 是         | 无    | 无    | 不涉及    | 所有版本                   | 无    |    |
-| 3  | mindformers | 分布式训练推理    | 运行mindspore进程的服务器 | 运行mindspore进程的服务器的ip |       | 运行mindspore进程的服务器  | 运行mindspore进程的服务器的ip | 由用户配置         | TCP        | 分布式启动时，作为从节点通信                       | bash scripts/msrun_launcher.sh "run_mindformer.py \<br/>  --config {CONFIG_PATH} \<br/>  --run_mode {train/finetune/eval/predict}" \<br/>  8 4 主节点ip 端口号 1 output/msrun_log False 300 | 是         | 无    | 无    | 不涉及    | 所有版本                   | 无    |    |
-| 3  | mindformers | web_chat   | 运行mindspore进程的服务器 | 运行mindspore进程的服务器的ip |       | 运行mindspore进程的服务器  | 运行mindspore进程的服务器的ip | 11111         | HTTP/HTTPS | 11111为server端口                       | 不涉及                                                                                                                                                                                   | 是         | 无    | 无    | 不涉及    | 所有版本                   |      |    |
-| 4  | mindformers | web_chat   | 运行mindspore进程的服务器 | 运行mindspore进程的服务器的ip |       | 运行mindspore进程的服务器  | 运行mindspore进程的服务器的ip | 7860          | HTTP/HTTPS | 7860为web_demo端口                      | 不涉及                                                                                                                                                                                   | 是         | 无    | 无    | 不涉及    | 所有版本                   | 无    |    |
+| 1  | MindFormers | 下载权重       | 运行MindSpore进程的服务器 | 运行MindSpore进程的服务器的ip |       | 用户所在服务器            | 用户所在服务器的ip           | 443           | HTTPS      | 下载模型权重                               | 不涉及                                                                                                                                                                                   | 不涉及       | 不涉及  | 不涉及  | 业务面    | 所有版本                   | 无    |    |
+| 2  | MindFormers | 分布式训练推理    | 运行MindSpore进程的服务器 | 运行MindSpore进程的服务器的ip | 由用户配置 | 运行MindSpore进程的服务器  | 运行mindspore进程的服务器的ip |               | TCP        | 分布式启动时，作为主节点训练                       | bash scripts/msrun_launcher.sh "run_mindformer.py \<br/>  --config {CONFIG_PATH} \<br/>  --run_mode {train/finetune/eval/predict}" \<br/>  8 4 主节点ip 端口号 0 output/msrun_log False 300 | 是         | 无    | 无    | 不涉及    | 所有版本                   | 无    |    |
+| 3  | MindFormers | 分布式训练推理    | 运行MindSpore进程的服务器 | 运行MindSpore进程的服务器的ip |       | 运行MindSpore进程的服务器  | 运行mindspore进程的服务器的ip | 由用户配置         | TCP        | 分布式启动时，作为从节点通信                       | bash scripts/msrun_launcher.sh "run_mindformer.py \<br/>  --config {CONFIG_PATH} \<br/>  --run_mode {train/finetune/eval/predict}" \<br/>  8 4 主节点ip 端口号 1 output/msrun_log False 300 | 是         | 无    | 无    | 不涉及    | 所有版本                   | 无    |    |
+| 3  | MindFormers | web_chat   | 运行MindSpore进程的服务器 | 运行MindSpore进程的服务器的ip |       | 运行MindSpore进程的服务器  | 运行mindspore进程的服务器的ip | 11111         | HTTP/HTTPS | 11111为server端口                       | 不涉及                                                                                                                                                                                   | 是         | 无    | 无    | 不涉及    | 所有版本                   |      |    |
+| 4  | MindFormers | web_chat   | 运行MindSpore进程的服务器 | 运行MindSpore进程的服务器的ip |       | 运行MindSpore进程的服务器  | 运行mindspore进程的服务器的ip | 7860          | HTTP/HTTPS | 7860为web_demo端口                      | 不涉及                                                                                                                                                                                   | 是         | 无    | 无    | 不涉及    | 所有版本                   | 无    |    |
 | 5  | MindInsight | Web可视化服务端口 | 用户通过http访问        | 用户IP                 |       | MindInsight服务所在服务器 | MindInsight服务所在服务器IP | 用户配置1~65535   | Http       | 接收用户浏览器发送的web请求，返回用户训练的性能精度数据进行可视化展示 | mindinsight start --port xxx                                                                                                                                                          | 是         | 无    | 无    | 用户/业务面 | MindInsight 1.3.0及之后版本 | 无    |    |
 
-除上述外，mindformers不涉及端口开放、侦听等相关行为，相关端口行为由用户在模型脚本调用原生接口，为MindSpore通信配置
+除上述外，MindFormers不涉及端口开放、侦听等相关行为，相关端口行为由用户在模型脚本调用原生接口，为MindSpore通信配置
 
 MindSpore通信矩阵
 
