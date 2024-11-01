@@ -99,6 +99,7 @@ def main(**kwargs):
             [predict_data for i in range(batch_size)],
         ]
         for prompt in batch_input:
+            final_prompts = []
             for input_prompt in prompt:
                 messages = [
                     {"role": "system", "content": "You are a helpful assistant."},
@@ -109,8 +110,9 @@ def main(**kwargs):
                     tokenize=False,
                     add_generation_prompt=True
                 )
-                task.predict(input_data=input_text,
-                             predict_checkpoint=ckpt, max_length=int(max_length), seq_length=max_length)
+                final_prompts.append(input_text)
+            task.predict(input_data=final_prompts,
+                         predict_checkpoint=ckpt, max_length=int(max_length), seq_length=max_length)
     elif run_mode == 'finetune':
         trainer = Trainer(args=config, task=task, train_dataset=train_dataset)
         trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt)
