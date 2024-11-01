@@ -35,6 +35,7 @@ from mindspore.train.serialization import _get_merged_param_data
 from mindspore.nn.cell import Cell
 from mindspore.ops.operations.comm_ops import Broadcast
 from mindspore.common import jit
+from mindspore.train._utils import get_parameter_redundancy, remove_param_redundancy
 from mindspore.common.api import flops_collection
 from mindspore.communication.management import create_group, get_group_size, get_rank
 from mindspore.parallel._auto_parallel_context import auto_parallel_context
@@ -656,6 +657,8 @@ class CheckpointMonitor(ModelCheckpoint):
                         mode, currently supports 'AES-GCM', 'AES-CBC' and 'SM4-CBC'. Default: 'AES-GCM'.
         exception_save (bool): Whether to save the current checkpoint when an exception occurs. Default: False.
         global_batch_size (int): The total batch size. Default: 0.
+        checkpoint_format (str): The format of checkpoint to save. Default: 'ckpt'.
+        remove_redundancy (bool): Whether to remove redundancy when saving checkpoint. Default: False.
 
     Raises:
         ValueError: If `prefix` is not str or contains the '/' character.
@@ -683,7 +686,9 @@ class CheckpointMonitor(ModelCheckpoint):
                  enc_key=None,
                  enc_mode='AES-GCM',
                  exception_save=False,
-                 global_batch_size=None):
+                 global_batch_size=None,
+                 checkpoint_format='ckpt',
+                 remove_redundancy=False):
 
         self.config = config
         self.save_network_params = save_network_params
@@ -728,7 +733,9 @@ class CheckpointMonitor(ModelCheckpoint):
                                      append_info=append_info,
                                      enc_key=enc_key,
                                      enc_mode=enc_mode,
-                                     exception_save=exception_save)
+                                     format=checkpoint_format,
+                                     exception_save=exception_save,
+                                     remove_redundancy=remove_redundancy)
         super(CheckpointMonitor, self).__init__(prefix, ckpt_directory, config=config_ck)
         self.meta_json = os.path.join(self._directory, "meta.json")
         if self._config.async_save:
@@ -795,8 +802,8 @@ class CheckpointMonitor(ModelCheckpoint):
         logger.info('......Saving ckpt......')
         self.save_info_list[cb_params.cur_step_num]['ckpt']['save_start_time'] = time.time()
         step_num_in_epoch = int((cb_params.cur_step_num - 1) % cb_params.batch_num + 1)
-        cur_ckpoint_file = self._prefix + "-" + str(cb_params.cur_epoch_num) + "_" \
-                            + str(step_num_in_epoch) + ".ckpt"
+        cur_ckpoint_file = (f"{self._prefix}-{str(cb_params.cur_epoch_num)}"
+                            f"_{str(step_num_in_epoch)}.{self._config.format}")
         # update checkpoint file list.
         self._manager.update_ckpoint_filelist(self._directory, self._prefix)
         # keep checkpoint files number equal max number.
@@ -836,9 +843,9 @@ class CheckpointMonitor(ModelCheckpoint):
         logger.info("step_num: %d", self._append_dict["step_num"])
         logger.info("global_step: %d", self._append_dict["global_step"])
         network = self._config.saved_network if self._config.saved_network is not None else cb_params.train_network
-        save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
-                        self._append_dict, self._config.enc_key, self._config.enc_mode,
-                        choice_func=lambda x: not x.startswith('accu_grads'))
+
+        self.remove_redundancy(network, cur_file, self._append_dict, None)
+
         self._latest_ckpt_file_name = cur_file
         self.save_info_list[cb_params.cur_step_num]['ckpt']['ckpt_file_path'] = cur_file
 
@@ -850,20 +857,58 @@ class CheckpointMonitor(ModelCheckpoint):
         else:
             self.record_last_ckpt_to_json(cb_params.cur_epoch_num, step_num_in_epoch, cur_ckpoint_file)
 
+    def remove_redundancy(self, network, cur_file, append_dict, train_network):
+        """remove redundancy when saving checkpoint files."""
+        if self._config.remove_redundancy:
+            logger.info('......Removing redundancy......')
+            parallel_mode = context.get_auto_parallel_context("parallel_mode")
+            if parallel_mode == "stand_alone":
+                raise TypeError(f"The deduplication feature for saving checkpoint can only be used "
+                                f"in parallel scenarios, but got {parallel_mode}.")
+
+            if train_network:
+                param_layout = train_network.parameter_layout_dict
+            else:
+                param_layout = network.parameter_layout_dict
+            rank_id = get_real_rank()
+            if param_layout:
+                device_num = get_real_group_size()
+                stage_num = ms.get_auto_parallel_context("pipeline_stages")
+                chunk_size = device_num // stage_num
+                initial_rank = (rank_id // chunk_size) * chunk_size
+                param_redundancy_dict = get_parameter_redundancy(param_layout, initial_rank)
+                single_params = remove_param_redundancy(param_redundancy_dict)
+                save_param_names = single_params.get(rank_id)
+                param_layout_set = set(param_layout.keys())
+                if save_param_names == param_layout.keys():
+                    logger.warning(
+                        f"For remove_redundancy save checkpoint, the saved parameters are non-redundant.")
+
+                def choice_func(x):
+                    return (x not in param_layout_set or x in save_param_names) and not x.startswith('accu_grads')
+            else:
+                param_redundancy_dict = get_parameter_redundancy(network)
+                single_params = remove_param_redundancy(param_redundancy_dict)
+                save_param_names = single_params.get(rank_id)
+
+                def choice_func(x):
+                    return x in save_param_names and not x.startswith('accu_grads')
+            save_checkpoint(network, cur_file, False, self._config.async_save,
+                            append_dict, self._config.enc_key, self._config.enc_mode,
+                            format=self._config.format, choice_func=choice_func)
+        else:
+            save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
+                            append_dict, self._config.enc_key, self._config.enc_mode,
+                            format=self._config.format, choice_func=lambda x: not x.startswith('accu_grads'))
+
     def save_checkpoint_network(self, cb_params):
         """save checkpoint only network params, which is suitable for train, evaluate and predict."""
         save_obj = cb_params.network
+        network = self._config.saved_network if self._config.saved_network is not None else cb_params.train_network
+
         if hasattr(save_obj, 'optimizer') and save_obj.optimizer is not None:
             save_obj = save_obj.network
-
-        if self.save_network_params:
-            self.save_info_list[cb_params.cur_step_num]['network']['save_start_time'] = time.time()
-            cb_cur_ckpoint_file = self._prefix + "-" + "network" + ".ckpt"
-            cb_cur_file = os.path.join(self.network_directory, cb_cur_ckpoint_file)
-            os.makedirs(self.network_directory, exist_ok=True)
-            save_checkpoint(save_obj, cb_cur_file, self._config.integrated_save, self._config.async_save,
-                            {}, self._config.enc_key, self._config.enc_mode)
-            self.save_info_list[cb_params.cur_step_num]['network']['ckpt_file_path'] = cb_cur_file
+        step_num_in_epoch = int((cb_params.cur_step_num - 1) % cb_params.batch_num + 1)
 
         if self.save_trainable_params:
             self.save_info_list[cb_params.cur_step_num]['trainable_params']['save_start_time'] = time.time()
@@ -884,12 +929,24 @@ class CheckpointMonitor(ModelCheckpoint):
                 each_param["data"] = param_data
                 param_list.append(each_param)
             save_obj = param_list
-            cb_cur_ckpoint_file = self._prefix + "-" + "trainable_params" + ".ckpt"
+            cb_cur_ckpoint_file = (f"{self._prefix}-trainable_params-{str(cb_params.cur_epoch_num)}"
+                                   f"_{str(step_num_in_epoch)}.{self._config.format}")
             cb_cur_file = os.path.join(self.trainable_directory, cb_cur_ckpoint_file)
             os.makedirs(self.trainable_directory, exist_ok=True)
-            save_checkpoint(save_obj, cb_cur_file, self._config.integrated_save,
-                            self._config.async_save, {}, self._config.enc_key, self._config.enc_mode)
+            self.remove_redundancy(save_obj, cb_cur_file, {}, network)
             self.save_info_list[cb_params.cur_step_num]['trainable_params']['ckpt_file_path'] = cb_cur_file
+            return
+
+        if self.save_network_params:
+            self.save_info_list[cb_params.cur_step_num]['network']['save_start_time'] = time.time()
+            cb_cur_ckpoint_file = (f"{self._prefix}-network-{str(cb_params.cur_epoch_num)}"
+                                   f"_{str(step_num_in_epoch)}.{self._config.format}")
+            cb_cur_file = os.path.join(self.network_directory, cb_cur_ckpoint_file)
+            os.makedirs(self.network_directory, exist_ok=True)
+            self.remove_redundancy(save_obj, cb_cur_file, {}, network)
+            self.save_info_list[cb_params.cur_step_num]['network']['ckpt_file_path'] = cb_cur_file
+
+
 
     def record_last_ckpt_to_json(self, epoch, step, ckpt_file):
         """record last ckpt info to json"""

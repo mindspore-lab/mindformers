@@ -790,7 +790,15 @@ class BaseTrainer:
                     "check_for_nan_in_loss_and_grad": getattr(config, "check_for_nan_in_loss_and_grad", False)
                 }
             elif "type" in callback and callback["type"] == "CheckpointMonitor":
-                default_args = {"append_info": append_info, "global_batch_size": self.global_batch_size}
+                logger.info("Recommend using weights in the safetensors format.")
+                # load params into net
+                default_args = {"append_info": append_info,
+                                "global_batch_size": self.global_batch_size,
+                                "remove_redundancy": config.get("remove_redundancy", False),
+                                "checkpoint_format": config.get("checkpoint_format", "ckpt")
+                                }
+                if default_args.get("remove_redundancy") and default_args.get("checkpoint_format") == "ckpt":
+                    raise ValueError("The format of checkpoint is ckpt which is not support remove redundancy.")
 
             default_callbacks.append(build_callback(callback, default_args=default_args))
         if callbacks is not None:

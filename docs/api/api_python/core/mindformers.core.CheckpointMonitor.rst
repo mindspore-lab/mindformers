@@ -23,6 +23,8 @@ mindformers.core.CheckpointMonitor
         - **enc_mode** (str) - 仅当 `enc_key` 不设为None时，该参数有效。指定了加密模式，目前支持AES-GCM，AES-CBC和SM4-CBC。默认值： ``'AES-GCM'`` 。
         - **exception_save** (bool) - 当有异常发生时，是否保存当前checkpoint文件。默认值： ``False`` 。
         - **global_batch_size** (int) - 总BatchSize大小。默认值： ``0`` 。
+        - **checkpoint_format** (str) - checkpoint保存时的格式。默认值： ``ckpt`` 。
+        - **remove_redundancy** (bool) - checkpoint保存时是否去除冗余。默认值： ``False`` 。
 
     异常：
         - **ValueError** - 如果 `preifx` 不是 `str` 或者包含 `/` 字符。
