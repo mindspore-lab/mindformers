@@ -365,17 +365,17 @@ MindFormers已支持大部分模型的[LoRA微调](https://www.mindspore.cn/mind
       <td style="text-align: center"> &#x2713 </td>
       <td> <a href="scripts/examples/internlm/run_internlm_predict.sh"> generate </a> </td>
       <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
       <td style="text-align: center"> PPL </td>
     </tr>
     <tr>
       <td> 20B </td>
       <td> 2K </td>
       <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
       <td> <a href="scripts/examples/internlm/run_internlm_predict.sh"> generate </a> </td>
       <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
+      <td style="text-align: center"> - </td>
       <td style="text-align: center"> PPL </td>
     </tr>
   </tbody>
