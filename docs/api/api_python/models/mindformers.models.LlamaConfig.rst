@@ -26,6 +26,7 @@ mindformers.models.LlamaConfig
         - **rotary_dtype** (str, 可选) - rope 计算数据类型，默认值： ``float32`` 。
         - **param_init_type** (str, 可选) - 参数初始化数据类型，默认值： ``float16`` 。
         - **qkv_has_bias** (bool, 可选) - 查询、键和值的投影是否有偏置。默认值： ``False`` 。
+        - **attn_proj_has_bias** (bool, 可选) - 注意力中的投影是否有偏置。默认值： ``False``。
         - **use_past** (bool, 可选) - 模型是否应使用过去的键/值注意力（如果适用于模型）来加速解码。默认值： ``False`` 。
         - **parallel_config** (TransformerOpParallelConfig) - 并行配置。默认值： ``default_transformer_config`` ，一个带有默认参数的 `TransformerOpParallelConfig` 实例。
         - **extend_method** (str, 可选) - 序列长度推理时的扩展方法。默认值： ``None`` 。

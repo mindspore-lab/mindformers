@@ -65,6 +65,8 @@ class LlamaConfig(PretrainedConfig):
             parameter initial dtype. Default: ``float16`` .
         qkv_has_bias (bool, optional):
             Whether the Query, Key, and Value projection has bias. Default: ``False`` .
+        attn_proj_has_bias (bool, optional):
+            Whether the attn projection has bias. Default: ``False`` .
         use_past (bool, optional):
             Whether the model should use the past last key/values attentions
             (if applicable to the model) to speed up decoding. Default: ``False`` .
@@ -194,6 +196,7 @@ class LlamaConfig(PretrainedConfig):
                  embedding_init_type=None,
                  qkv_has_bias: bool = False,
                  qkv_concat: bool = False,
+                 attn_proj_has_bias: bool = False,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  moe_config: Union[dict, MoEConfig] = default_moe_config,
                  use_past: bool = False,
@@ -250,6 +253,7 @@ class LlamaConfig(PretrainedConfig):
         else:
             self.embedding_init_type = self.param_init_type
         self.qkv_has_bias = qkv_has_bias
+        self.attn_proj_has_bias = attn_proj_has_bias
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
         self.softmax_compute_type = convert_mstype(softmax_compute_type)
         self.rotary_dtype = convert_mstype(rotary_dtype)
