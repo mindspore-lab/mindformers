@@ -111,6 +111,8 @@ def convert_pretrained_config(config: PretrainedConfig, transformer_config: Tran
     transformer_config.tensor_parallel = config.parallel_config.model_parallel
     transformer_config.context_parallel = config.parallel_config.context_parallel
     transformer_config.vocab_emb_dp = config.parallel_config.vocab_emb_dp
+    transformer_config.sequence_parallel = getattr(config.parallel_config, 'use_seq_parallel', False)
+
     if hasattr(config, 'n_kv_heads'):
         if config.n_kv_heads is not None:
             transformer_config.group_query_attention = True

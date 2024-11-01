@@ -85,9 +85,14 @@ class LayerNorm(nn.Cell):
         output = self.cast(output, original_type)
         return output
 
-    def shard(self, config: TransformerConfig):
+    def shard(self, config: TransformerConfig, in_strategy=None):
         """shard method"""
-        strategy = get_strategy(config)
+        dp, _, cp = get_strategy(config)
+        if in_strategy:
+            strategy = in_strategy
+        else:
+            strategy = (dp, cp, 1)
+
         self.mean.shard((strategy,))
         self.sub.shard((strategy, strategy[:-1] + (1,)))
         self.square.shard((strategy,))
@@ -138,9 +143,13 @@ class FusedLayerNorm(nn.Cell):
         output = self.cast(output, original_type)
         return output
 
-    def shard(self, config: TransformerConfig):
+    def shard(self, config: TransformerConfig, in_strategy=None):
         """shard method"""
-        strategy = get_strategy(config)
+        dp, _, cp = get_strategy(config)
+        if in_strategy:
+            strategy = in_strategy
+        else:
+            strategy = (dp, cp, 1)
 
         if strategy[-1] != 1:
             raise TypeError(
@@ -195,9 +204,13 @@ class RMSNorm(nn.Cell):
         output = self.cast(output, original_type)
         return output
 
-    def shard(self, config: TransformerConfig):
+    def shard(self, config: TransformerConfig, in_strategy=None):
         """shard method"""
-        strategy = get_strategy(config)
+        dp, _, cp = get_strategy(config)
+        if in_strategy:
+            strategy = in_strategy
+        else:
+            strategy = (dp, cp, 1)
 
         self.square.shard((strategy,))
         self.mean.shard((strategy,))
@@ -243,9 +256,13 @@ class FusedRMSNorm(nn.Cell):
         output = self.cast(output, original_type)
         return output
 
-    def shard(self, config: TransformerConfig):
+    def shard(self, config: TransformerConfig, in_strategy=None):
         """shard method"""
-        strategy = get_strategy(config)
+        dp, _, cp = get_strategy(config)
+        if in_strategy:
+            strategy = in_strategy
+        else:
+            strategy = (dp, cp, 1)
 
         if strategy[-1] != 1 and ms.get_context('mode') == ms.GRAPH_MODE:
             raise TypeError(

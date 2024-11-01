@@ -37,6 +37,7 @@ class SwiGlu(nn.Cell):
     Args:
         config (ModelParallelConfig): The model parallel configuration.
     """
+
     def __init__(self, config: ModelParallelConfig = None):
         super(SwiGlu, self).__init__()
         self.slice = P.StridedSlice()
@@ -55,13 +56,21 @@ class SwiGlu(nn.Cell):
         return self.mul(self.silu(x_1), x_2)
 
     def shard(self, config: ModelParallelConfig):
+        """
+        Shard operators in GELU activation function.
+
+        Args:
+            config (ModelParallelConfig): The model parallel configuration.
+        """
         dp = config.data_parallel if config and config.data_parallel is not None else 1
         cp = config.context_parallel if config and config.context_parallel is not None else 1
-        silu_in_strategy = ((dp, cp, 1),)
+        compute_2d = config.sequence_parallel and cp == 1
+
+        silu_in_strategy = ((dp, cp, 1),) if not compute_2d else ((dp, 1),)
         self.silu.shard(silu_in_strategy)
-        slice_in_strategy = ((dp, cp, 1),)
+        slice_in_strategy = ((dp, cp, 1),) if not compute_2d else ((dp, 1),)
         self.slice.shard(slice_in_strategy)
-        mul_in_strategy = ((dp, cp, 1), (dp, cp, 1))
+        mul_in_strategy = ((dp, cp, 1), (dp, cp, 1)) if not compute_2d else ((dp, 1), (dp, 1))
         self.mul.shard(mul_in_strategy)
 
 
@@ -73,6 +82,7 @@ class GELU(nn.Cell):
         config (ModelParallelConfig): The model parallel configuration.
         approximate (bool): Whether to use the approximate version of GELU.
     """
+
     def __init__(self, config: ModelParallelConfig = None, approximate: bool = True):
         super(GELU, self).__init__()
         self.approximate = approximate
@@ -123,19 +133,20 @@ class GELU(nn.Cell):
         dp = config.data_parallel if config and config.data_parallel is not None else 1
         cp = config.context_parallel if config and config.context_parallel is not None else 1
         tp = config.tensor_parallel if config and config.tensor_parallel is not None else 1
+        compute_2d = config.sequence_parallel and cp == 1
         if self.approximate:
-            gelu_in_strategy = ((dp, cp, tp),)
+            gelu_in_strategy = ((dp, cp, tp),) if not compute_2d else ((dp, tp),)
             self.gelu.shard(gelu_in_strategy)
         else:
-            div_in_strategy = ((dp, cp, tp), ())
+            div_in_strategy = ((dp, cp, tp), ()) if not compute_2d else ((dp, tp), ())
             self.div.shard(div_in_strategy)
-            erf_in_strategy = ((dp, cp, tp),)
+            erf_in_strategy = ((dp, cp, tp),) if not compute_2d else ((dp, tp), ())
             self.erf.shard(erf_in_strategy)
-            add_erf_in_strategy = ((), (dp, cp, tp))
+            add_erf_in_strategy = ((), (dp, cp, tp)) if not compute_2d else ((), (dp, tp))
             self.add_erf.shard(add_erf_in_strategy)
-            mul_const_in_strategy = ((dp, cp, tp), ())
+            mul_const_in_strategy = ((dp, cp, tp), ()) if not compute_2d else ((dp, tp), ())
             self.mul_const.shard(mul_const_in_strategy)
-            mul_tensor_in_strategy = ((dp, cp, tp), (dp, cp, tp))
+            mul_tensor_in_strategy = ((dp, cp, tp), (dp, cp, tp)) if not compute_2d else ((dp, tp), (dp, tp))
             self.mul_tensor.shard(mul_tensor_in_strategy)
 
 
@@ -146,6 +157,7 @@ class SiLU(nn.Cell):
     Args:
         config (ModelParallelConfig): The model parallel configuration.
     """
+
     def __init__(self, config: ModelParallelConfig = None):
         super(SiLU, self).__init__()
         # pylint: disable=W0212
@@ -159,10 +171,17 @@ class SiLU(nn.Cell):
         return self.silu(x)
 
     def shard(self, config: ModelParallelConfig):
+        """
+        Shard operators in GELU activation function.
+
+        Args:
+            config (ModelParallelConfig): The model parallel configuration.
+        """
         dp = config.data_parallel if config and config.data_parallel is not None else 1
         cp = config.context_parallel if config and config.context_parallel is not None else 1
         tp = config.tensor_parallel if config and config.tensor_parallel is not None else 1
-        silu_in_strategy = ((dp, cp, tp),)
+        compute_2d = config.sequence_parallel and cp == 1
+        silu_in_strategy = ((dp, cp, tp),) if not compute_2d else ((dp, tp),)
         self.silu.shard(silu_in_strategy)
 
 

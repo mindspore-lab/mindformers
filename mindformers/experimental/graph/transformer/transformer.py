@@ -29,6 +29,7 @@ from mindformers.experimental.graph.activation import get_activation
 from mindformers.experimental.graph.transformer.norm import get_norm
 from mindformers.experimental.graph.transformer.flash_attention import FlashAttention
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
+from mindformers.tools.logger import logger
 
 __all__ = [
     "ParallelMLP",
@@ -86,6 +87,8 @@ class ParallelMLP(nn.Cell):
         self.activation_type = config.hidden_act
         self.compute_dtype = config.compute_dtype
         self.parallel_config = config
+        cp = 1 if config is None else config.context_parallel
+        self.compute_2d = (config.sequence_parallel and cp == 1)
 
         if self.gated_linear_unit:
             self.mapping_ffn_hidden_size = self.ffn_hidden_size * 2
@@ -151,12 +154,22 @@ class ParallelMLP(nn.Cell):
         return output, output_bias
 
     def shard(self, config: TransformerConfig):
+        """ shard function of mlp block. """
         if self.mlp_has_gate:
             dp = config.data_parallel if config.data_parallel is not None else 1
             cp = config.context_parallel if config.context_parallel is not None else 1
             tp = config.tensor_parallel if config.tensor_parallel is not None else 1
-            mul_in_strategy = ((dp, cp, tp), (dp, cp, tp))
-            self.mul.shard(in_strategy=mul_in_strategy)
+            if self.compute_2d:
+                mul_in_strategy = ((dp, tp), (dp, tp))
+                self.mul.shard(in_strategy=mul_in_strategy)
+                self.add.shard(((dp, tp), (tp,)))
+            else:
+                mul_in_strategy = ((dp, cp, tp), (dp, cp, tp))
+                self.mul.shard(in_strategy=mul_in_strategy)
+                self.add.shard(((dp, cp, tp), (tp,)))
+
+            if config.sequence_parallel and cp == 1:
+                self.projection.matmul.shard(in_strategy=((dp, tp), (1, tp)), out_strategy=((dp * tp, 1),))
 
 
 class CoreAttention(nn.Cell):
@@ -209,6 +222,8 @@ class CoreAttention(nn.Cell):
                              .format(self.hidden_size, self.num_heads))
 
         self.head_dim = self.hidden_size // self.num_heads
+        cp = 1 if config is None else config.context_parallel
+        self.compute_2d = (config.sequence_parallel and cp == 1)
 
         coeff = None
         norm_factor = math.sqrt(self.head_dim)
@@ -262,7 +277,10 @@ class CoreAttention(nn.Cell):
         # [bs, n_head, seq, head_dim]
         x = self.merge_head_transpose(x, (0, 2, 1, 3))
         bs, seq_len, n_head, head_dim = self.shape(x)
-        new_shape = (bs, seq_len, n_head * head_dim)
+        if self.compute_2d:
+            new_shape = (bs * seq_len, n_head * head_dim)
+        else:
+            new_shape = (bs, seq_len, n_head * head_dim)
         x_merge = self.reshape(x, new_shape)
         return x_merge
 
@@ -337,6 +355,9 @@ class ParallelAttention(nn.Cell):
         self.layer_index = max(1, layer_number)
         self.attn_type = attention_type
         self.norm_factor = math.sqrt(self.head_dim)
+        cp = 1 if config is None else config.context_parallel
+        self.compute_2d = (config.sequence_parallel and cp == 1)
+        self.seq_length = config.seq_length
 
         if self.attn_type == 'self_attn':
             if self.qkv_concat:
@@ -439,7 +460,13 @@ class ParallelAttention(nn.Cell):
             raise NotImplementedError("For ParallelAttention, `inference_params` is not supported for now")
         # hidden_states: [B, S, H]
         ori_dtype = hidden_states.dtype
-        bs, seq_len, _ = hidden_states.shape
+        if self.compute_2d:
+            bs_seq, _ = self.shape(hidden_states)
+            seq_len = self.seq_length
+            bs = bs_seq // seq_len
+        else:
+            bs, seq_len, _ = self.shape(hidden_states)
+
         # apply query, key, value projection
         if self.attn_type == 'self_attn':
             if self.qkv_concat:
@@ -537,7 +564,10 @@ class ParallelAttention(nn.Cell):
         # [bs, seq/1, n_head, head_dim]
         bs, seq_len, n_head, head_dim = self.shape(x)
         # [bs, seq/1, hidden_dim]
-        new_shape = (bs, seq_len, n_head * head_dim)
+        if self.compute_2d:
+            new_shape = (bs * seq_len, n_head * head_dim)
+        else:
+            new_shape = (bs, seq_len, n_head * head_dim)
         x_merge = self.reshape(x, new_shape)
         return x_merge
 
@@ -569,6 +599,9 @@ class ParallelAttention(nn.Cell):
         self.merge_head_transpose.shard(((dp, tp, cp, 1),))
         self.tile_kv.shard(((dp, tp, 1, cp),))
         self.cat.shard(((dp, tp, 1, 1), (dp, tp, 1, 1)))
+
+        if config.sequence_parallel and cp == 1:
+            self.out_proj.matmul.shard(in_strategy=((dp, tp), (1, tp)), out_strategy=((dp * tp, 1),))
 
 
 class ParallelTransformerLayer(nn.Cell):
@@ -673,12 +706,23 @@ class ParallelTransformerLayer(nn.Cell):
         return output
 
     def shard(self, config: TransformerConfig):
+        """ shard function of mlp block. """
         dp = config.data_parallel if config.data_parallel is not None else 1
         cp = config.context_parallel if config.context_parallel is not None else 1
         tp = config.tensor_parallel if config.tensor_parallel is not None else 1
-        self.add.shard(((dp, cp, tp), (dp, cp, tp)))
-        self.hidden_states_droupout.shard((dp, cp, tp))
-        self.add_bias.shard(((dp, cp, tp), (tp,)))
+
+        if config.sequence_parallel and cp == 1:
+            self.input_norm.shard(config, in_strategy=(dp * tp, 1))
+            self.post_attention_norm.shard(config, in_strategy=(dp * tp, 1))
+            self.add.shard(((dp * tp, 1), (dp * tp, 1)))
+            self.hidden_states_droupout.shard((dp * tp, 1))
+            self.add_bias.shard(((dp, 1), (1,)))
+        else:
+            self.input_norm.shard(config)
+            self.post_attention_norm.shard(config)
+            self.add.shard(((dp, cp, 1), (dp, cp, 1)))
+            self.hidden_states_droupout.shard((dp, cp, 1))
+            self.add_bias.shard(((dp, cp, 1), (1,)))
 
 
 class ParallelTransformer(nn.Cell):
@@ -733,6 +777,12 @@ class ParallelTransformer(nn.Cell):
         self.post_norm = post_norm
         self.num_layers = config.num_layers
         self.self_attn_mask_type = self_attn_mask_type
+        cp = 1 if config is None else config.context_parallel
+        self.compute_2d = (config.sequence_parallel and cp == 1)
+        if config.sequence_parallel and cp > 1:
+            logger.warning("The context paralley way conflicts with sequence with sequence parallel way."
+                           "The sequence parallel way has no effect and ignored.")
+        self.seq_length_in_cfg = config.seq_length
 
         offset = 0
         self.layers = nn.CellList()
@@ -747,6 +797,10 @@ class ParallelTransformer(nn.Cell):
 
         if self.post_norm:
             self.final_norm = get_norm(config)
+        self.shape = P.Shape()
+        self.reshape_2d = P.Reshape()
+        self.reshape_back = P.Reshape()
+        self.shard(config)
 
     def _get_layer(self, layer_number):
         return self.layers[layer_number]
@@ -754,6 +808,12 @@ class ParallelTransformer(nn.Cell):
     def construct(self, hidden_states: Tensor, attention_mask: Tensor, rotary_pos_emb: Tensor = None,
                   prefix_keys_values=None):
         """ Construct function of transformer. """
+        bs, seq_len, hs = self.shape(hidden_states)
+        if self.compute_2d:
+            hidden_states = self.reshape_2d(hidden_states, (-1, hs))
+            if seq_len != self.seq_length_in_cfg:
+                raise ValueError("config.seq_length is not equal to sequence length of input!")
+
         for index in range(self.num_layers):
             layer = self._get_layer(index)
             prefix_kv = prefix_keys_values[index] if prefix_keys_values is not None else None
@@ -764,7 +824,20 @@ class ParallelTransformer(nn.Cell):
         if self.post_norm:
             hidden_states = self.final_norm(hidden_states)
 
+        if self.compute_2d:
+            hidden_states = self.reshape_back(hidden_states, (bs, seq_len, -1))
+
         return hidden_states
+
+    def shard(self, config: TransformerConfig):
+        """ shard function of mlp block. """
+        dp = config.data_parallel if config.data_parallel is not None else 1
+        cp = config.context_parallel if config.context_parallel is not None else 1
+        if self.post_norm:
+            if self.compute_2d:
+                self.final_norm.shard(config, in_strategy=(dp * cp, 1))
+            else:
+                self.final_norm.shard(config, in_strategy=(dp, cp, 1))
 
 
 class CausalMaskGenerate(nn.Cell):
