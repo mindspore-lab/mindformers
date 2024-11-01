@@ -403,7 +403,6 @@ class MFLossMonitor(Callback):
         self.mf_calculated = True
         if auto_parallel_context().get_pipeline_stages() > 1:
             pipeline_group_list, pipeline_group_name = self._get_pipeline_group()
-            auto_parallel_context().set_pipeline_stages(1)
             hashed = hashlib.md5(
                 pipeline_group_name.encode()).hexdigest()[:48]
             pipeline_group_name = str(hashed)
