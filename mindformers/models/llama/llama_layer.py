@@ -396,7 +396,10 @@ class LlamaFeedForward(Cell):
                           strategy_activation=((dp, ep, mp, 1),))
             self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
             self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
-            self.mul.shard(((dp * ep, mp), (dp * ep, mp)))
+            mul_shard = (dp * ep, mp)
+            if parallel_config.use_seq_parallel:
+                mul_shard = (dp, ep, mp)
+            self.mul.shard((mul_shard, mul_shard))
 
 
 class LlamaMoeInferFeedForward(Cell):

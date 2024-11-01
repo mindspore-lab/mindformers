@@ -388,3 +388,73 @@ class TestMoE:
 
         assert np.allclose(golden_loss[-1], pynative_loss[-1], rtol=1e-3), \
                f"relative error between pynative loss and golden loss exceeds 1e-3, please your code."
+
+    @pytest.mark.skip(reason="skip short sequence parallel st")
+    @pytest.mark.run(order=4)
+    def test_moe_golden_dp2ep2mp2_use_seq_parallel(self):
+        """
+        Feature: test_moe_pynative
+        Description: run pynative mode moe to generate pynative loss
+        Exception: AssertionError
+        """
+        os.environ['HCCL_BUFFSIZE'] = "1"
+        scripts_name = "run_moe.py"
+        device_num = 4
+
+        rm_list = ["npy_pynative_dp2*", "msrun_log_golden_dp2ep2mp2_use_seq_parallel*", "kernel_meta*"]
+        print("")
+        for rm_path in rm_list:
+            rm_path = os.path.join(os.getcwd(), rm_path)
+            print(f"removing {rm_path}")
+            os.system(f"rm -rf {rm_path}")
+
+        sh_path = os.path.split(os.path.realpath(__file__))[0]
+        scripts_path = os.path.join(sh_path, scripts_name)
+
+        scripts_cmd = f"{scripts_path} --generate_golden --dp=2 --ep=2 --mp=2 --hidden_act='silu' --use_seq_parallel"
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=3721 " + \
+                    f"--log_dir=msrun_log_golden_dp2ep2mp2_use_seq_parallel " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
+                    f"{scripts_cmd}"
+        print(f"\nrun cmd:\n{cmd}")
+        ret = os.system(cmd)
+        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_golden_dp2ep2mp2_use_seq_parallel/worker_0.log -C 3")
+        assert ret == 0, "msrun failed, please check msrun_log_golden_dp2ep2mp2_use_seq_parallel/worker_*.log"
+
+    @pytest.mark.skip(reason="skip comm_comp_parallel st")
+    @pytest.mark.run(order=4)
+    def test_moe_golden_dp2ep2mp2_comp_comm_parallel(self):
+        """
+        Feature: test_moe_pynative
+        Description: run pynative mode moe to generate pynative loss
+        Exception: AssertionError
+        """
+        os.environ['HCCL_BUFFSIZE'] = "1"
+        scripts_name = "run_moe.py"
+        device_num = 4
+
+        rm_list = ["npy_pynative_dp2*", "msrun_log_golden_dp2ep2mp2_comp_comm_parallel*", "kernel_meta*"]
+        for rm_path in rm_list:
+            rm_path = os.path.join(os.getcwd(), rm_path)
+            print(f"removing {rm_path}")
+            os.system(f"rm -rf {rm_path}")
+
+        sh_path = os.path.split(os.path.realpath(__file__))[0]
+        scripts_path = os.path.join(sh_path, scripts_name)
+
+        scripts_cmd = f"{scripts_path} --generate_golden --dp=2 --ep=2 --mp=2 --hidden_act='silu' " + \
+                                     f"--comp_comm_parallel --comp_comm_parallel_degree=2"
+        cmd = f"msrun --worker_num={device_num} " + \
+                    f"--local_worker_num={device_num} " + \
+                    f"--master_port=3721 " + \
+                    f"--log_dir=msrun_log_golden_dp2ep2mp2_comp_comm_parallel " + \
+                    f"--join=True " + \
+                    f"--cluster_time_out=300 " + \
+                    f"{scripts_cmd}"
+        print(f"\nrun cmd:\n{cmd}")
+        ret = os.system(cmd)
+        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log_golden_dp2ep2mp2_comp_comm_parallel/worker_0.log -C 3")
+        assert ret == 0, "msrun failed, please check msrun_log_golden_dp2ep2mp2_comp_comm_parallel/worker_*.log"
