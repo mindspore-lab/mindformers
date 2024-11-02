@@ -214,6 +214,20 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         return loss, overflow, scaling_sens, learning_rate, global_norm
 
 
+class DataOrderWrapperCell(nn.Cell):
+    """For passing parameters in lexicographical order."""
+    def __init__(self, construct_args_key, network):
+        super(DataOrderWrapperCell, self).__init__()
+        self.construct_args_key = construct_args_key
+        self.network = network
+
+
+    def construct(self, *inputs):
+        """The construct processes of inputs in lexicographical order."""
+        key_inputs = {key: val for key, val in zip(self.construct_args_key, inputs)}
+        return self.network(**key_inputs)
+
+
 grad_scale = C.MultitypeFuncGraph("grad_scale")
 shard_grad_scale = C.MultitypeFuncGraph("shard_grad_scale")
 
