@@ -4,7 +4,7 @@ load_checkpoint: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-run_mode: 'finetune'
+run_mode: 'train'
 
 # trainer config
 trainer:
@@ -18,8 +18,8 @@ eval_epoch_interval: 50        # num of epoch intervals between each eval, 1 mea
 
 # runner config
 runner_config:
-  epochs: 5
-  batch_size: 2
+  epochs: 10
+  batch_size: 1
   sink_mode: True
   sink_size: 2
 
@@ -35,9 +35,8 @@ runner_wrapper:
 
 # optimizer
 optimizer:
-  type: AdamWeightDecayX
-  beta1: 0.9
-  beta2: 0.95
+  type: AdamW
+  betas: [0.9, 0.95]
   eps: 1.e-8
   learning_rate: 1.e-6
   weight_decay: 0.01
@@ -55,7 +54,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids", "target_ids", "attention_mask"]
+  input_columns: ["input_ids"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -102,7 +101,7 @@ parallel:
 parallel_config:
   data_parallel: 1
   model_parallel: 8
-  pipeline_stage: 4
+  pipeline_stage: 8
   use_seq_parallel: True
   micro_batch_num: 64
   vocab_emb_dp: False
@@ -134,8 +133,12 @@ context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   enable_graph_kernel: False
+  jit_config:
+    jit_level: "O1"
+  memory_optimize_level: "O0"
   max_call_depth: 10000
-  max_device_memory: "58GB"
+  max_device_memory: "57GB"
+  mempool_block_size: "57GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -147,7 +150,7 @@ model:
   model_config:
     type: LlamaConfig
     batch_size: 1 # add for increase predict
-    seq_length: 2048
+    seq_length: 32768
     hidden_size: 8192
     num_layers: 80
     num_heads: 64
@@ -171,7 +174,6 @@ model:
     fine_grain_interleave: 1
     qkv_concat: False
     offset: 0
-    checkpoint_name_or_path: ""
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 0
@@ -195,6 +197,7 @@ processor:
     eos_token: "<|endoftext|>"
     pad_token: "<|endoftext|>"
     type: Qwen2Tokenizer
+    auto_register: qwen1_5_tokenizer.Qwen2Tokenizer
   type: Qwen2Processor
 
 # metric
