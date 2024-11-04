@@ -358,11 +358,12 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
 
     if not config.auto_trans_ckpt and not config.only_save_strategy and \
         check_path_include_total_ckpt(config.load_checkpoint):
-        load_ckpt(config, network, optimizer=optimizer)
+        load_ckpt(config, network, optimizer=optimizer, model=model)
         return
 
     if not config.auto_trans_ckpt and not config.only_save_strategy and do_predict:
         network.set_train(False)
+        load_ckpt(config, network, model=model)
 
     if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
                                                               'hybrid_parallel']:
@@ -395,7 +396,7 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         )
 
     # 5. load ckpt
-    load_ckpt(config, network, optimizer=optimizer)
+    load_ckpt(config, network, optimizer=optimizer, model=model)
 
 
 def check_rank_folders(path, rank_id):
@@ -519,13 +520,10 @@ def load_slora_ckpt(checkpoint_dict, config, network):
     return checkpoint_dict
 
 
-def load_ckpt(config, network, optimizer=None):
-    """load checkpoint"""
-    # load checkpoint params into dict
-    logger.info("............Start load checkpoint from checkpoint............")
-    checkpoint_dict = {}
+def get_checkpoint_dict(config):
+    """get checkpoint dict"""
     rank_id = get_real_rank() if get_real_rank() else 0
-    config.load_checkpoint = format_path(config.load_checkpoint)
+    checkpoint_dict = {}
     if config.auto_trans_ckpt:
         for checkpoint_name in os.listdir(config.load_checkpoint):
             checkpoint_path = os.path.join(config.load_checkpoint, checkpoint_name)
@@ -541,18 +539,24 @@ def load_ckpt(config, network, optimizer=None):
             checkpoint_dict = load_checkpoint(config.load_checkpoint)
         elif os.path.isdir(config.load_checkpoint) and check_rank_folders(config.load_checkpoint, rank_id):
             if isinstance(config.resume_training, str):
-                checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{config.rank_id}", config.resume_training)
+                checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{config.rank_id}",
+                                              config.resume_training)
                 checkpoint_dict = load_checkpoint(checkpoint_tmp)
-            elif config.use_parallel:
-                checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint)
             else:
-                checkpoint_dict = load_checkpoint(get_last_checkpoint(os.path.join(config.load_checkpoint,
-                                                                                   "rank_{}".format(rank_id))))
+                checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint)
         else:
             raise ValueError(f"{config.load_checkpoint} is not a valid path to load checkpoint "
                              f"when auto_trans_ckpt is False.")
+    return checkpoint_dict
 
-    checkpoint_dict = load_slora_ckpt(checkpoint_dict, config, network)
+
+def load_ckpt(config, network, optimizer=None, model=None):
+    """load checkpoint"""
+    # load checkpoint params into dict
+    logger.info("............Start load checkpoint from checkpoint............")
+    config.load_checkpoint = format_path(config.load_checkpoint)
+
+    checkpoint_dict = load_slora_ckpt(get_checkpoint_dict(config), config, network)
 
     if isinstance(network, (BaseModel, PreTrainedModel)):
         checkpoint_dict = network.fuse_weight_from_ckpt(checkpoint_dict)
@@ -570,12 +574,17 @@ def load_ckpt(config, network, optimizer=None):
             int(checkpoint_dict["global_step"]), resume_global_step)
         checkpoint_dict["global_step"] = Parameter([resume_global_step])
 
-    # load params into net
-    not_load_network_params = load_param_into_net(network, checkpoint_dict)
-    logger.info("Network parameters are not loaded: %s", str(not_load_network_params))
-    if optimizer:
-        not_load_optim_params = load_param_into_net(optimizer, checkpoint_dict)
-        logger.info("Optimizer parameters are not loaded: %s", str(not_load_optim_params))
+
+    # pylint: disable=W0212
+    if config.remove_redundancy:
+        not_load_network_params = load_param_into_net(model._train_network, checkpoint_dict, remove_redundancy=True)
+        logger.info("Network parameters are not loaded: %s", not_load_network_params)
+    else:
+        not_load_network_params = load_param_into_net(network, checkpoint_dict)
+        logger.info("Network parameters are not loaded: %s", not_load_network_params)
+        if optimizer:
+            not_load_optim_params = load_param_into_net(optimizer, checkpoint_dict)
+            logger.info("Optimizer parameters are not loaded: %s", not_load_optim_params)
 
 
 def get_last_checkpoint(checkpoint_dir):
