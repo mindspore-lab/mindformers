@@ -15,7 +15,7 @@ MindFormers套件集成了许多模型训练中通用的优化算法，并提供
 
 ## 梯度累积
 
-梯度累积算法是业界常用的扩大batch_size，解决OOM的一种算法
+梯度累积算法是业界常用的扩大batch_size，解决OOM的一种算法，可参考[MindSpore文档](https://www.mindspore.cn/docs/zh-CN/r2.4.0/model_train/parallel/distributed_gradient_accumulation.html)
 
 MindSpore在2.1.1之后的版本中增加了 `mindspore.nn.wrap.cell_wrapper.GradAccumulationCell` 这一梯度累积实现接口，通过拆分MiniBatch的形式实现了梯度累积
 
@@ -93,6 +93,8 @@ model:
   arch:
     type: LlamaForCausalLM
 ```
+
+FA的模型支持度可参见 [模型能力表格](../model_support_list.md#llm大模型能力支持一览)
 
 ## Adaptive loss scaling
 
@@ -253,7 +255,8 @@ class Baichuan7BV2ForCausalLM(PreTrainedModel):
 ```
 
 在pipeline并行模式下将默认使能lazy inline特性，可通过设置环境变量`ENABLE_LAZY_INLINE=0`关闭；  
-在非pipeline并行模式下，lazy inline特性默认不生效，如需在非pipeline并行模式下使能lazy inline特性，可以通过设置环境变量`ENABLE_LAZY_INLINE_NO_PIPELINE=1`以启用；
+在非pipeline并行模式下，lazy inline特性默认不生效，如需在非pipeline并行模式下使能lazy inline特性，可以通过设置环境变量`ENABLE_LAZY_INLINE_NO_PIPELINE=1`以启用；  
+详情请参考[环境变量使用说明](../readthedocs/source_zh_cn/docs/practice/Environment.md)
 
 ## MoE冷热门专家优化
 
