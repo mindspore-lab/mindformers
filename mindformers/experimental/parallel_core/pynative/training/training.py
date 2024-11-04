@@ -42,7 +42,9 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import (
     set_virtual_pipeline_model_parallel_rank,
     is_pipeline_first_stage,
     get_data_modulo_expert_parallel_group,
-    get_expert_model_parallel_world_size
+    get_expert_model_parallel_world_size,
+    get_pipeline_model_parallel_rank,
+    get_tensor_model_parallel_rank
 )
 from mindformers.experimental.parallel_core.pynative.distributed import DistributedDataParallelConfig, \
     DistributedDataParallel
@@ -52,7 +54,11 @@ from mindformers.experimental.parallel_core.pynative.pipeline_parallel.schedules
     forward_backward_pipelining_with_interleaving
 )
 from mindformers.experimental.parallel_core.pynative.config import GeneralConfig
-from mindformers.experimental.parallel_core.pynative.dist_checkpointing import save_checkpoint, load_checkpoint
+from mindformers.experimental.parallel_core.pynative.dist_checkpointing import (
+    save_checkpoint,
+    load_checkpoint,
+    get_last_checkpoint
+)
 from mindformers.experimental.parallel_core.pynative.transformer.moe.utils import MoEAuxLossAutoScaler
 from mindformers.experimental.parallel_core.pynative.optimizer import get_optimizer, get_optimizer_param_scheduler
 
@@ -990,23 +996,36 @@ def pretrain(train_valid_test_datasets_provider,
     resume_dict = None
     if training_config.resume_training is True and os.path.exists(training_config.load_checkpoint):
         rank_path = os.path.join(training_config.load_checkpoint, f"rank_{get_rank()}")
-        meta_path = os.path.join(rank_path, "meta.json")
-        resume_by_meta = True
-        if not os.path.exists(meta_path):
-            logger.warning(f"Could not find meta.json in directory {rank_path}, using latest ckpt in {rank_path}")
-            resume_by_meta = False
-        resume_ckpt_name = get_resume_checkpoint(
-            checkpoint_dir=training_config.load_checkpoint,
-            resume_training=training_config.resume_training,
-            resume_by_meta=resume_by_meta
-            )
-        logger.debug(f"resume_ckpt_name is {resume_ckpt_name}")
-        if resume_ckpt_name is True:
-            ckpt_path = training_config.load_checkpoint
-        elif isinstance(resume_ckpt_name, str):
-            ckpt_path = os.path.join(rank_path, resume_ckpt_name)
+        if os.path.exists(rank_path):
+            meta_path = os.path.join(rank_path, "meta.json")
+            resume_by_meta = True
+            if not os.path.exists(meta_path):
+                logger.warning(f"Could not find meta.json in directory {rank_path}, using latest ckpt in {rank_path}")
+                resume_by_meta = False
+            resume_ckpt_name = get_resume_checkpoint(
+                checkpoint_dir=training_config.load_checkpoint,
+                resume_training=training_config.resume_training,
+                resume_by_meta=resume_by_meta
+                )
+            logger.debug(f"resume_ckpt_name is {resume_ckpt_name}")
+            if resume_ckpt_name is True:
+                ckpt_path = training_config.load_checkpoint
+            elif isinstance(resume_ckpt_name, str):
+                ckpt_path = os.path.join(rank_path, resume_ckpt_name)
+        else:
+            pp_rank = get_pipeline_model_parallel_rank()
+            dp_size = get_data_parallel_world_size()
+            tp_size = get_tensor_model_parallel_world_size()
+            tp_rank = get_tensor_model_parallel_rank()
+            local_rank_to_dp0_rank = pp_rank * dp_size * tp_size + tp_rank
+            logger.warning(f"global rank_{get_rank()} ckpt not found, will load rank_{local_rank_to_dp0_rank} ckpt.")
+            rank_path = os.path.join(training_config.load_checkpoint, f"rank_{local_rank_to_dp0_rank}")
+            if not os.path.exists(rank_path):
+                raise FileNotFoundError(f"Path {rank_path} not exists, please check your ckpt path.")
+            ckpt_path = get_last_checkpoint(rank_path)
+            if not ckpt_path or not os.path.exists(ckpt_path):
+                raise FileNotFoundError(f"File {ckpt_path} not exists, please check your ckpt path.")
         logger.debug(f"ckpt_path is {ckpt_path}")
-
         resume_dict = load_checkpoint(
             config=model_config,
             model=network_with_loss,
