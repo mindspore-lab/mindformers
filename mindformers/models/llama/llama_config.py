@@ -71,6 +71,8 @@ class LlamaConfig(PretrainedConfig):
         parallel_config(TransformerOpParallelConfig):
             The parallel configure. Default: ``default_transformer_config`` ,
             an instance of `TransformerOpParallelConfig` with default args.
+        residual_dtype (str, optional):
+            residual compute dtype. Default: ``None`` .
         extend_method(str, optional): The extent method of seq length of inference. Default: ``None`` .
         use_flash_attention(bool, optional): Whether enable flash attention ops. Default: ``False`` .
         use_ring_attention(bool, optional): Whether enable ring attention ops. Default: ``False`` .
@@ -191,6 +193,7 @@ class LlamaConfig(PretrainedConfig):
                  softmax_compute_type: str = "float32",
                  rotary_dtype: str = "float32",
                  param_init_type: str = "float16",
+                 residual_dtype: str = None,
                  embedding_init_type=None,
                  qkv_has_bias: bool = False,
                  qkv_concat: bool = False,
@@ -254,6 +257,10 @@ class LlamaConfig(PretrainedConfig):
         self.softmax_compute_type = convert_mstype(softmax_compute_type)
         self.rotary_dtype = convert_mstype(rotary_dtype)
         self.compute_dtype = convert_mstype(compute_dtype)
+        if residual_dtype is not None:
+            self.residual_dtype = convert_mstype(residual_dtype)
+        else:
+            self.residual_dtype = self.compute_dtype
         self.parallel_config = parallel_config
         self.moe_config = moe_config
         self.checkpoint_name_or_path = checkpoint_name_or_path
