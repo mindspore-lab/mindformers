@@ -14,6 +14,8 @@
 # ============================================================================
 """LLaMA models' APIs."""
 import copy
+from multiprocessing.managers import DictProxy
+from multiprocessing.synchronize import Condition
 
 import numpy as np
 
@@ -563,8 +565,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         value_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.value_cache
         return key_cache, value_cache
 
-    def convert_name(self, weight_name):
+    @classmethod
+    def convert_name(cls, weight_name):
         """convert HuggingFace weight name to MindFormers weight name"""
+        origin_name = weight_name
         weight_name = weight_name.replace('embed_tokens.', 'tok_embeddings.')
         weight_name = weight_name.replace('.self_attn.q_proj.', '.attention.wq.')
         weight_name = weight_name.replace('.self_attn.k_proj.', '.attention.wk.')
@@ -578,24 +582,144 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         weight_name = weight_name.replace('.norm.', '.norm_out.')
         weight_name = weight_name.replace('output.', 'lm_head.')
         weight_name = weight_name.replace('.tok_embeddings.weight', '.tok_embeddings.embedding_weight')
+        if weight_name == origin_name:
+            logger.warning(f"weight name '{weight_name}' does not change after conversion. "
+                           f"Please check if it is as expected.")
         return weight_name
 
-    def convert_weight_dict(self, source_dict):
+    @classmethod
+    def convert_weight_dict(cls, source_dict, **kwargs):
         """convert HuggingFace weight dict to MindFormers weight dict"""
+        qkv_concat = kwargs.get("qkv_concat", False)
         target_dict = {}
+        wq_keys = []
+        wk_keys = []
+        wv_keys = []
+        w1_keys = []
+        w3_keys = []
 
         for k, v in source_dict.items():
-            k = self.convert_name(k)
+            k = cls.convert_name(k)
             target_dict.update({k: v})
+            if qkv_concat:
+                part = k.split('.')
+                if part[-2] == 'wq':
+                    wq_keys.append(k)
+                if part[-2] == 'wk':
+                    wk_keys.append(k)
+                if part[-2] == 'wv':
+                    wv_keys.append(k)
+                if part[-2] == 'w1':
+                    w1_keys.append(k)
+                if part[-2] == 'w3':
+                    w3_keys.append(k)
+
+        if qkv_concat:
+            qkv_dict = kwargs.get('qkv_dict', None)
+            if not isinstance(qkv_dict, DictProxy):
+                raise ValueError(f'qkv_queue must be a queue, when qkv_concat is True, but got {qkv_dict}.')
+            condition = kwargs.get('condition', None)
+            if not isinstance(condition, Condition):
+                raise ValueError(f'condition must be a Condition, when qkv_concat is True, but got {condition}.')
+            _concat_qkv_weight(wq_keys, wk_keys, wv_keys, w1_keys, w3_keys, qkv_dict, condition, target_dict)
 
         return target_dict
 
-    def convert_map_dict(self, source_dict):
+    @classmethod
+    def convert_map_dict(cls, source_dict, **kwargs):
         """convert HuggingFace map dict to MindFormers map dict"""
+        qkv_concat = kwargs.pop("qkv_concat", False)
         target_dict = {}
+        wq_keys = []
+        w1_keys = []
 
         for k, v in source_dict.items():
-            k = self.convert_name(k)
+            k = cls.convert_name(k)
             target_dict.update({k: v})
+            if qkv_concat:
+                part = k.split('.')
+                if part[-2] == 'wq':
+                    wq_keys.append(k)
+                if part[-2] == 'w1':
+                    w1_keys.append(k)
+
+        if qkv_concat:
+            for wq_key in wq_keys:
+                wk_key = wq_key.replace('wq', 'wk')
+                wv_key = wq_key.replace('wq', 'wv')
+                wq_value = target_dict.pop(wq_key)
+                target_dict.pop(wk_key)
+                target_dict.pop(wv_key)
+
+                w_qkv_key = wq_key.replace('wq', 'w_qkv')
+                w_qkv_value = wq_value
+                target_dict.update({w_qkv_key: w_qkv_value})
+            for w1_key in w1_keys:
+                w3_key = w1_key.replace('w1', 'w3')
+                w1_value = target_dict.pop(w1_key)
+                target_dict.pop(w3_key)
+
+                w_gate_hidden_key = w1_key.replace('w1', 'w_gate_hidden')
+                w_gate_hidden_value = w1_value
+                target_dict.update({w_gate_hidden_key: w_gate_hidden_value})
 
         return target_dict
+
+
+def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, w1_keys, w3_keys, qkv_dict, condition, target_dict):
+    """concat qkv weight and ffn weight from dicts"""
+    # pop extra weight to shared dict if there is no corresponding weight for concat in the target dict
+    for wk_key in wk_keys:
+        wq_key = wk_key.replace('wk', 'wq')
+        if wq_key not in wq_keys:
+            with condition:
+                qkv_dict[wk_key] = target_dict.pop(wk_key)  # add extra weight to shared dict
+                condition.notify_all()
+    for wv_key in wv_keys:
+        wq_key = wv_key.replace('wv', 'wq')
+        if wq_key not in wq_keys:
+            with condition:
+                qkv_dict[wv_key] = target_dict.pop(wv_key)  # add extra weight to shared dict
+                condition.notify_all()
+    for w3_key in w3_keys:
+        w1_key = w3_key.replace('w3', 'w1')
+        if w1_key not in w1_keys:
+            with condition:
+                qkv_dict[w3_key] = target_dict.pop(w3_key)  # add extra weight to shared dict
+                condition.notify_all()
+
+    # concat qkv and ffn
+    for wq_key in wq_keys:
+        wk_key = wq_key.replace('wq', 'wk')
+        wv_key = wq_key.replace('wq', 'wv')
+        wq_value = target_dict.pop(wq_key)
+        wk_value = target_dict.pop(wk_key, None)
+        wv_value = target_dict.pop(wv_key, None)
+
+        # get missing weight from shared dict
+        if wk_value is None:
+            with condition:
+                condition.wait_for(lambda: wk_key in qkv_dict.keys())
+                wk_value = qkv_dict.pop(wk_key)
+        if wv_value is None:
+            with condition:
+                condition.wait_for(lambda: wv_key in qkv_dict.keys())
+                wv_value = qkv_dict.pop(wv_key)
+
+        w_qkv_key = wq_key.replace('wq', 'w_qkv')
+        w_qkv_value = np.concatenate((wq_value, wk_value, wv_value), 0)
+        target_dict.update({w_qkv_key: w_qkv_value})
+    for w1_key in w1_keys:
+        w3_key = w1_key.replace('w1', 'w3')
+        w1_value = target_dict.pop(w1_key)
+        w3_value = target_dict.pop(w3_key, None)
+
+        # get missing weight from shared dict
+        if w3_value is None:
+            with condition:
+                condition.wait_for(lambda: w3_key in qkv_dict.keys())
+                w3_value = qkv_dict.pop(w3_key)
+
+        w_gate_hidden_key = w1_key.replace('w1', 'w_gate_hidden')
+        w_gate_hidden_value = np.concatenate((w1_value, w3_value), 0)
+        target_dict.update({w_gate_hidden_key: w_gate_hidden_value})
