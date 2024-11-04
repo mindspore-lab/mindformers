@@ -274,6 +274,7 @@ class LlamaFeedForward(Cell):
                  ffn_concat=False,
                  is_dynamic=False,
                  parallel_config=default_dpmp_config,
+                 moe_config=None,
                  init_method_std=0.01):
         super().__init__()
 
@@ -289,10 +290,16 @@ class LlamaFeedForward(Cell):
             hidden_dim = int(2 * hidden_dim / 3)
             hidden_dim = multiple_of * \
                          ((hidden_dim + multiple_of - 1) // multiple_of)
-
+        if moe_config is not None:
+            self.use_allgather_dispatcher = moe_config.use_allgather_dispatcher
+        else:
+            self.use_allgather_dispatcher = False
         if expert_num > 1:
             ep = parallel_config.expert_parallel
-            dp_moe = parallel_config.data_parallel // ep
+            if self.use_allgather_dispatcher:
+                dp_moe = parallel_config.data_parallel
+            else:
+                dp_moe = parallel_config.data_parallel // ep
         else:
             dp_moe = 1
         self.dtype = compute_dtype
@@ -432,10 +439,13 @@ class LlamaFeedForward(Cell):
                               strategy_activation=((dp, ep, mp, 1),))
                 self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
                 self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
-                mul_shard = (dp * ep, mp)
-                if parallel_config.use_seq_parallel:
-                    mul_shard = (dp, ep, mp)
-                self.mul.shard((mul_shard, mul_shard))
+                if self.use_allgather_dispatcher:
+                    self.mul.shard(((dp, ep, 1, mp), (dp, ep, 1, mp)))
+                else:
+                    mul_shard = (dp * ep, mp)
+                    if parallel_config.use_seq_parallel:
+                        mul_shard = (dp, ep, mp)
+                    self.mul.shard((mul_shard, mul_shard))
 
 
 class LlamaMoeInferFeedForward(Cell):
