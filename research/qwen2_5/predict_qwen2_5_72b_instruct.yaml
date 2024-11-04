@@ -77,7 +77,7 @@ model:
     temperature: 0.7
     do_sample: True
     is_dynamic: True
-    qkv_concat: False
+    qkv_concat: True
     auto_map:
       AutoTokenizer: [qwen2_5_tokenizer.Qwen2Tokenizer, null]
   arch:
