@@ -180,7 +180,7 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测
 
 - **SQuAD 1.1 数据预处理**
 
-  执行`tools/dataset_preprocess/llama/squad_data_process.py`生成Mindrecord数据
+  执行`mindformers/tools/dataset_preprocess/llama/squad_data_process.py`生成Mindrecord数据
 
   ```shell
   python squad_data_process.py \
