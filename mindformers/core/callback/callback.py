@@ -970,11 +970,26 @@ class ProfileMonitor(Callback):
         stop_step (int): The step to stop profiling. Default: 10.
         output_path (str): The result of profiling will be saved in this path. Default: None.
         start_profile (str): Whether to enable profiling. Default: True.
+        profile_rank_ids (list): Specify rank ids to enable profiling. Default: None(All rank ids are enabled).
+        profile_pipeline (str): Whether to enable profiling on one card of each parallel stage. Default: False.
         profile_communication (str): Whether to collect communication performance data
                                      during multi-device training. Default: False.
-        profile_memory (str): Whether to collect Tensor memory data. Default: True.
+        profile_memory (str): Whether to collect Tensor memory data. Default: False.
         config (dict): Configuration items, used to profile relevant configuration information,
                        such as parallel configuration. Default: None.
+        profiler_level (int): Collection level of profiling data(0, 1, 2). Default: 0.
+
+                            - 0: The most streamlined level of performance data collection,
+                              only collecting execution time data for computational operators and
+                              basic data for large communication operators.
+                            - 1: In addition to level 0, extra data is collected for CANN layer AscendCL,
+                              AICORE performance data, and small communication operators.
+                            - 2: In addition to level 1, extra data is collected for graph compile level O2
+                              and Runtime in the CANN layer.
+
+        with_stack (str): Whether to collect Python-side stack trace data. Default: False.
+        data_simplification (str): Whether to enable data simplification, which will delete the FRAMEWORK directory
+                                   and other extraneous data after exporting profiling data. Default: True.
 
     Examples:
         >>> from mindformers.core import ProfileMonitor
