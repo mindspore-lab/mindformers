@@ -96,6 +96,7 @@ class LLamaAttentionInterleave(nn.Cell):
             - **param_init_type** (dtype.Number): The parameter initialization type of the module. Default mstype.
                 float32. Should be mstype.float32 or mstype.float16.
             - **qkv_has_bias** (bool): Whether Q/K/V in attention has bias or not.
+            - **attn_proj_has_bias** (bool): Whether projection in attention has bias or not.
             - **use_past** (bool): Use the past state to compute, used for incremental prediction.
                 For example, if we have two words and want to generate the ten more words.
                 We just need to compute the two words' state only once, and generate the next word one by one.
@@ -148,6 +149,7 @@ class LLamaAttentionInterleave(nn.Cell):
                  rotary_dtype=mstype.float32,
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
+                 attn_proj_has_bias=False,
                  use_flash_attention=False,
                  use_ring_attention=False,
                  use_attn_mask_compression=False,
@@ -226,7 +228,7 @@ class LLamaAttentionInterleave(nn.Cell):
                              param_init_type=param_init_type)
         self.wo = Linear(in_channels=self.hidden_size,
                          out_channels=self.hidden_size,
-                         has_bias=False,
+                         has_bias=attn_proj_has_bias,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
         if self.use_flash_attention:
@@ -270,9 +272,9 @@ class LLamaAttentionInterleave(nn.Cell):
                 self.wq.shard(((dp * cp, 1), (mp, 1)))
                 self.wk.shard(((dp * cp, 1), (mp, 1)))
                 self.wv.shard(((dp * cp, 1), (mp, 1)))
-            self.wo.shard(((dp * cp, mp), (1, mp)), out_strategy_matmul=((dp * cp, 1),))
+            self.wo.shard(((dp * cp, mp), (1, mp)), ((dp * cp, 1), (1,)), out_strategy_matmul=((dp * cp, 1),))
             if parallel_config.use_seq_parallel and self.is_first_iteration and cp == 1:
-                self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
+                self.wo.shard(((dp, mp), (1, mp)), ((dp * cp, 1), (1,)), out_strategy_matmul=((dp * mp, 1),))
             if parallel_config.recompute.select_recompute and not self.use_flash_attention:
                 self.apply_rotary_emb.recompute()
                 self.tile_kv.recompute()
@@ -430,6 +432,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
             param_init_type(dtype.Number): The parameter initialization type of the module.
                 Should be mstype.float32 or mstype.float16. Default mstype.float32.
             qkv_has_bias(bool): Whether Q/K/V in attention has bias or not.
+            attn_proj_has_bias(bool): Whether projection in attention has bias or not.
             use_past(bool): Use the past state to compute, used for incremental prediction. For example, if we have two
                 words and want to generate the ten more words. We just need to compute the two words' state only once,
                 and generate the next word one by one. When use_past is True, there are two steps to run the prediction.
@@ -486,6 +489,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                  param_init_type=mstype.float32,
                  residual_dtype=mstype.float32,
                  qkv_has_bias=False,
+                 attn_proj_has_bias=False,
                  qkv_concat=False,
                  use_flash_attention=False,
                  use_ring_attention=False,
@@ -528,6 +532,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                                                   rotary_dtype=rotary_dtype,
                                                   param_init_type=param_init_type,
                                                   qkv_has_bias=qkv_has_bias,
+                                                  attn_proj_has_bias=attn_proj_has_bias,
                                                   use_flash_attention=use_flash_attention,
                                                   use_ring_attention=use_ring_attention,
                                                   use_attn_mask_compression=use_attn_mask_compression,
