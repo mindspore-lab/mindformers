@@ -247,7 +247,7 @@ export GE_NOT_CUT=1   # 内存优化
 cd mindformers/
 
 # 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
-bash scripts/msrun_launcher.sh "python python run_mindformer.py \
+bash scripts/msrun_launcher.sh "python run_mindformer.py \
  --config research/telechat2/finetune_telechat_115b.yaml
  --train_dataset /{path}/dataset.mindrecord \
  --use_parallel True \
@@ -255,7 +255,7 @@ bash scripts/msrun_launcher.sh "python python run_mindformer.py \
   16 8 192.168.1.1 8118 0 output/msrun_log False 300
 
 # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
-bash scripts/msrun_launcher.sh "python python run_mindformer.py \
+bash scripts/msrun_launcher.sh "python run_mindformer.py \
  --config research/telechat2/finetune_telechat_115b.yaml
  --train_dataset /{path}/dataset.mindrecord \
  --use_parallel True \
@@ -324,7 +324,7 @@ python run_mindformer.py \
 --register_path ./research/telechat2
 ```
 
-- 35b模型4卡推理
+- 35b模型2卡推理
 
 ```shell
 cd mindformers/
