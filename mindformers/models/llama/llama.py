@@ -112,6 +112,10 @@ class LlamaModel(LlamaPreTrainedModel):
                                   scaling_factor=config.scaling_factor,
                                   extend_method=config.extend_method,
                                   parallel_config=config.parallel_config)
+        self.residual_cast_flag = config.residual_dtype != self.dtype
+        if self.residual_cast_flag:
+            logger.info(f"residual in llama model cast flag: {self.residual_cast_flag}, "
+                        f"residual dtype: {config.residual_dtype}")
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
@@ -149,6 +153,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                                    softmax_compute_dtype=config.softmax_compute_type,
                                                    rotary_dtype=config.rotary_dtype,
                                                    param_init_type=config.param_init_type,
+                                                   residual_dtype=config.residual_dtype,
                                                    use_flash_attention=config.use_flash_attention,
                                                    use_ring_attention=config.use_ring_attention,
                                                    use_attn_mask_compression=config.use_attn_mask_compression,
@@ -170,6 +175,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          softmax_compute_dtype=config.softmax_compute_type,
                                          rotary_dtype=config.rotary_dtype,
                                          param_init_type=config.param_init_type,
+                                         residual_dtype=config.residual_dtype,
                                          use_past=config.use_past,
                                          use_flash_attention=config.use_flash_attention,
                                          use_ring_attention=config.use_ring_attention,

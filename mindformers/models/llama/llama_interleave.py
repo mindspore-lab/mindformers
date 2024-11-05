@@ -17,7 +17,7 @@
 from typing import Optional
 import math
 
-from mindspore import nn, __version__
+from mindspore import nn
 import mindspore.common.dtype as mstype
 from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
@@ -25,6 +25,7 @@ from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.parallel.shard import Layout
 
+from mindformers.tools.logger import logger
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm
 from mindformers.modules.layers import _check_input_dtype, Linear, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
@@ -439,6 +440,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
             parallel_config(OpParallelConfig, MoEParallelConfig): The parallel configure. When MoE is applied,
                 MoEParallelConfig is effective, otherwise OpParallelConfig is effective. Default `default_dpmp_config`,
                 an instance of `OpParallelConfig` with default args.
+            residual_dtype (str): The residual compute dtype. Default mstype.float32 .
 
         Inputs:
             - **x** (Tensor) - Float Tensor, shape should be [batch_size, seq_length, hidden_size] or
@@ -482,6 +484,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                  softmax_compute_dtype=mstype.float32,
                  rotary_dtype=mstype.float32,
                  param_init_type=mstype.float32,
+                 residual_dtype=mstype.float32,
                  qkv_has_bias=False,
                  qkv_concat=False,
                  use_flash_attention=False,
@@ -499,6 +502,11 @@ class LLamaDecodeLayerInterleave(nn.Cell):
         self.n_kv_head = n_heads if n_kv_heads is None else n_kv_heads
 
         self.dtype = compute_dtype
+        self.residual_dtype = residual_dtype
+        self.residual_cast_flag = residual_dtype != compute_dtype
+        if self.residual_cast_flag:
+            logger.info(f"residual in interleave cast flag: {self.residual_cast_flag}, "
+                        f"residual dtype: {residual_dtype}")
         self.is_first_iteration = True
         self.interleave_num = fine_grain_interleave
         self.inter_seq_length = self.seq_length // self.interleave_num
@@ -619,10 +627,20 @@ class LLamaDecodeLayerInterleave(nn.Cell):
         """layer part 2"""
         attention_output = self.attention.cal_output_proj(attention)
         # For post-layernorm the inputs for residual path are output of self-attention and output of layernorm
+        if self.residual_cast_flag:
+            x = self.cast(x, self.residual_dtype)
+            attention_output = self.cast(attention_output, self.residual_dtype)
         x = self.add(x, attention_output)
+        if self.residual_cast_flag:
+            x = self.cast(x, self.dtype)
         output_x = self.ffn_norm(x)
         mlp_logit = self.feed_forward(output_x)
+        if self.residual_cast_flag:
+            x = self.cast(x, self.residual_dtype)
+            mlp_logit = self.cast(mlp_logit, self.residual_dtype)
         output = self.add(x, mlp_logit)
+        if self.residual_cast_flag:
+            output = self.cast(output, self.dtype)
         return output
 
     # pylint: disable=W0613

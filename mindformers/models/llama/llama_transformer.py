@@ -26,6 +26,7 @@ from mindspore.ops import functional as F
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.parallel.shard import Layout
 
+from mindformers.tools.logger import logger
 from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaMoeInferFeedForward, LlamaFeedForwardWithMoE
 from mindformers.models.utils import predict_lazy_inline
 from mindformers.modules.layers import _check_input_dtype, Linear, RotaryEmbedding
@@ -514,6 +515,7 @@ class LLamaDecodeLayer(nn.Cell):
             parallel_config(OpParallelConfig, MoEParallelConfig): The parallel configure. When MoE is applied,
                 MoEParallelConfig is effective, otherwise OpParallelConfig is effective. Default `default_dpmp_config`,
                 an instance of `OpParallelConfig` with default args.
+            residual_dtype(str): The residual compute dtype. Default None .
 
         Inputs:
             - **x** (Tensor) - Float Tensor, shape should be [batch_size, seq_length, hidden_size] or
@@ -558,6 +560,7 @@ class LLamaDecodeLayer(nn.Cell):
                  softmax_compute_dtype=mstype.float32,
                  rotary_dtype=mstype.float32,
                  param_init_type=mstype.float32,
+                 residual_dtype=mstype.float32,
                  qkv_has_bias=False,
                  use_past=False,
                  is_dynamic=False,
@@ -582,6 +585,10 @@ class LLamaDecodeLayer(nn.Cell):
         self.is_first_iteration = True
         self.use_past = use_past
 
+        self.residual_dtype = residual_dtype
+        self.residual_cast_flag = residual_dtype != compute_dtype
+        if self.residual_cast_flag:
+            logger.info(f"residual cast flag: {self.residual_cast_flag}, residual dtype: {residual_dtype}")
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.add = P.Add()
@@ -704,12 +711,22 @@ class LLamaDecodeLayer(nn.Cell):
         # [bs, seq/1, hidden_dim]
         h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
                            slot_mapping, prefix_keys_values, q_seq_lens)
+        if self.residual_cast_flag:
+            x = self.cast(x, self.residual_dtype)
+            h = self.cast(h, self.residual_dtype)
         h = self.add(x, h)
+        if self.residual_cast_flag:
+            h = self.cast(h, self.dtype)
         ffn_norm = self.ffn_norm(h)
         # [bs, seq/1, hidden_dim]
         ffn_out = self.feed_forward(ffn_norm)
+        if self.residual_cast_flag:
+            h = self.cast(h, self.residual_dtype)
+            ffn_out = self.cast(ffn_out, self.residual_dtype)
         # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         out = self.add(h, ffn_out)
+        if self.residual_cast_flag:
+            out = self.cast(out, self.dtype)
         return out
 
     def _check_input(self, x, freqs_cis, mask):
