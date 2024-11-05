@@ -23,7 +23,6 @@ import hashlib
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from typing import Callable, Optional, Union
-from tensorboardX import SummaryWriter
 
 import numpy as np
 import mindspore as ms
@@ -44,6 +43,7 @@ from mindspore.profiler import ProfilerLevel
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.cloud_adapter.cloud_adapter import Local2ObsMonitor
 from mindformers.tools.logger import logger
+from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
 from mindformers.tools.utils import get_output_root_path, get_output_subpath, get_remote_save_url, check_in_modelarts,\
     get_real_rank, get_real_group_size, get_pipeline_rank_ids
 
@@ -174,9 +174,6 @@ class MFLossMonitor(Callback):
         initial_step (int): The beginning step. Default: 0.
         global_batch_size (int): The total batch size. Default: 0.
         gradient_accumulation_steps (int): The gradient accumulation steps. Default: 1.
-        enable_tensorboard (bool): Whether to enable TensorBoard logging during training. Default: False.
-        tensorboard_path (str): If TensorBoard is enabled, this path specifies where the log files will be saved.
-            If set to None, the default output path will be used (e.g., './output'). Default: None.
         check_for_nan_in_loss_and_grad (bool): Whether to check loss and norm of grad is Nan. Default: False.
 
     Examples:
@@ -196,8 +193,6 @@ class MFLossMonitor(Callback):
                  initial_step: int = 0,
                  global_batch_size: int = 0,
                  gradient_accumulation_steps: int = 1,
-                 enable_tensorboard: bool = False,
-                 tensorboard_path: str = None,
                  check_for_nan_in_loss_and_grad: bool = False):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
@@ -221,15 +216,8 @@ class MFLossMonitor(Callback):
         self.mf_calculated = False
         self.current_phase = None
         self.full_model_flops = 0.0
-        self.enable_tensorboard = enable_tensorboard
-        if self.enable_tensorboard:
-            rank_id = get_real_rank()
-            if tensorboard_path is None:
-                tensorboard_path = os.path.join(get_output_root_path(), "tensorboard")
-            tensorboard_path = os.path.join(tensorboard_path, f"rank_{rank_id}")
-            if not os.path.exists(tensorboard_path):
-                os.makedirs(tensorboard_path, exist_ok=True)
-            self.tensor_writer = SummaryWriter(tensorboard_path)
+        self.tensor_writer = get_tensorboard_writer()
+        self.tensorboard = get_tensorboard_args()
         self.check_for_nan_in_loss_and_grad = check_for_nan_in_loss_and_grad
 
     def epoch_begin(self, run_context):
@@ -326,14 +314,6 @@ class MFLossMonitor(Callback):
 
         if auto_parallel:
             ms.context.set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
-
-    def end(self, run_context):
-        if self.enable_tensorboard:
-            logger.info("Start save tensorboard file")
-            self.tensor_writer.close()
-            logger.info("Save tensorboard file completed")
-        else:
-            super().end(run_context)
 
     def _fix_loss_for_parallel(self, loss):
         """Fix loss value in pipeline or double parallel mode."""
@@ -464,8 +444,7 @@ class MFLossMonitor(Callback):
                 self.print_warning_flag = False
             current_lr = None
 
-        if self.enable_tensorboard:
-            global_step = cur_step_num + (cur_epoch_num - 1) * steps_per_epoch
+        global_step = cur_step_num + (cur_epoch_num - 1) * steps_per_epoch
         if self.mf_calculated:
             throughput_per_npu = self.full_model_flops / per_step_seconds / 1e9
             throughput_info = ', train_throughput_per_npu: %.3fT' % (throughput_per_npu)
@@ -483,8 +462,10 @@ class MFLossMonitor(Callback):
                             "per_step_time: %dms, lr: %s, overflow cond: %s, loss_scale: %s, global_norm: %s%s",
                             cur_epoch_num, origin_epochs, cur_step_num, steps_per_epoch, loss, np.mean(self.loss_list),
                             int(per_step_seconds), current_lr, overflow, scaling_sens, global_norm, throughput_info)
-            if self.enable_tensorboard:
-                self.tensor_writer.add_scalar(f"train learn rate", float(current_lr), global_step=global_step)
+            if self.tensor_writer is not None:
+                self.tensor_writer.add_scalar('learning-rate', float(current_lr), global_step=global_step)
+                self.tensor_writer.add_scalar('learning-rate vs samples', float(current_lr),
+                                              global_step=global_step * self.global_batch_size)
         else:
             if cb_params.dataset_sink_mode:
                 logger.info("{ Epoch:[%3d/%3d], step:[%5d/%5d], loss: %5.3f, "
@@ -499,9 +480,29 @@ class MFLossMonitor(Callback):
         show_str = ('|%%-%ds|' % 50) % (int(50 * percent / 100) * "█")
         logger.info("  %4.1f%% %s %.5f samples/s/p  %s }", percent, show_str, throughput,
                     datetime.timedelta(seconds=int(time_remain)))
-        if self.enable_tensorboard:
-            self.tensor_writer.add_scalar(f"train loss", loss, global_step=global_step)
-            self.tensor_writer.add_scalar(f"train global_norm", global_norm, global_step=global_step)
+        if self.tensor_writer is not None:
+            self.tensor_writer.add_scalar('batch-size', self.global_batch_size, global_step=global_step)
+            self.tensor_writer.add_scalar('batch-size vs samples', self.global_batch_size,
+                                          global_step=global_step * self.global_batch_size)
+            self.tensor_writer.add_scalar('loss', loss, global_step=global_step)
+            self.tensor_writer.add_scalar('loss vs samples', loss,
+                                          global_step=global_step * self.global_batch_size)
+            if self.tensorboard.get('log_loss_scale_to_tensorboard', False):
+                self.tensor_writer.add_scalar('loss-scale', scaling_sens, global_step=global_step)
+                self.tensor_writer.add_scalar('loss-scale vs samples', scaling_sens,
+                                              global_step=global_step * self.global_batch_size)
+            self.tensor_writer.add_scalar('grad-norm', global_norm, global_step=global_step)
+            self.tensor_writer.add_scalar('grad-norm vs samples', global_norm,
+                                          global_step=global_step * self.global_batch_size)
+            if self.tensorboard.get('log_timers_to_tensorboard', False):
+                self.tensor_writer.add_scalar('iteration-time', int(per_step_seconds),
+                                              global_step=global_step)
+                self.tensor_writer.add_scalar('iteration-time vs samples', int(per_step_seconds),
+                                              global_step=global_step * self.global_batch_size)
+                self.tensor_writer.add_scalar('throughput', throughput, global_step=global_step)
+                self.tensor_writer.add_scalar('throughput vs samples', throughput,
+                                              global_step=global_step * self.global_batch_size)
+
 
     def dump_info_to_modelarts(self, ma_step_num, ma_loss):
         """dump modelarts info to display evaluation result page"""

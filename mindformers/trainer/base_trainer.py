@@ -50,6 +50,8 @@ from mindformers.wrapper import build_wrapper
 from mindformers.tools.register import MindFormerConfig
 from mindformers.wrapper.wrapper import DataOrderWrapperCell
 from mindformers.tools.logger import logger
+from mindformers.utils.tensorboard import _set_tensorboard_writer, _unset_tensorboard_writer, \
+    write_args_to_tensorboard, update_tensorboard_args
 from mindformers.tools.utils import count_params
 from mindformers.tools.check_rules import check_rules
 from mindformers.tools.utils import get_real_rank, get_real_group_size
@@ -774,6 +776,17 @@ class BaseTrainer:
         logger.info(".........Build Running Wrapper From Config For Train..........")
         wrapper = self.create_model_wrapper(network, optimizer)
 
+        # initial tensorboard
+        if (hasattr(config, 'tensorboard') and hasattr(config.tensorboard, 'tensorboard_dir') and
+                config.tensorboard.tensorboard_dir):
+            rank_id = get_real_rank()
+            config.tensorboard.tensorboard_dir = os.path.join(config.tensorboard.tensorboard_dir, f"rank_{rank_id}")
+            _set_tensorboard_writer(config.tensorboard)
+            write_args_to_tensorboard(config)
+            update_tensorboard_args(config.tensorboard)
+
+
+
         # build callback
         logger.info(".........Build Callbacks For Train..........")
         default_callbacks = []
@@ -886,6 +899,9 @@ class BaseTrainer:
                     dataset_sink_mode=config.runner_config.sink_mode,
                     sink_size=config.runner_config.sink_size,
                     initial_epoch=config.runner_config.initial_epoch)
+
+        # close tensorboard
+        _unset_tensorboard_writer()
         logger.info(".........Training Over!.............")
 
     def evaluate_process(
