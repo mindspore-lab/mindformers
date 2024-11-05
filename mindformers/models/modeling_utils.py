@@ -1529,14 +1529,17 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         """
         return ckpt_dict
 
-    def convert_name(self, weight_name):
+    @classmethod
+    def convert_name(cls, weight_name):
         """convert HuggingFace weight name to MindFormers weight name"""
-        raise RuntimeError(f"{self.__class__.__name__} does not implemented convert_name method.")
+        raise RuntimeError(f"{cls.__name__} does not implemented convert_name method.")
 
-    def convert_weight_dict(self, source_dict):
+    @classmethod
+    def convert_weight_dict(cls, source_dict, **kwargs):
         """convert HuggingFace weight dict to MindFormers weight dict"""
-        raise RuntimeError(f"{self.__class__.__name__} does not implemented convert_weight_dict method.")
+        raise RuntimeError(f"{cls.__name__} does not implemented convert_weight_dict method.")
 
-    def convert_map_dict(self, source_dict):
+    @classmethod
+    def convert_map_dict(cls, source_dict, **kwargs):
         """convert HuggingFace map dict to MindFormers map dict"""
-        raise RuntimeError(f"{self.__class__.__name__} does not implemented convert_map_dict method.")
+        raise RuntimeError(f"{cls.__name__} does not implemented convert_map_dict method.")

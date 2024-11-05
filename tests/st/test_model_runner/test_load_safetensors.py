@@ -53,10 +53,9 @@ class TestLoadSafetensors:
             ms.save_checkpoint(self.model, temp_file_name,
                                choice_func=lambda x: x.startswith("lm_head"), format='safetensors')
 
-            config = MindFormerConfig(**dict(load_checkpoint=None,
-                                             load_safetensors=os.path.dirname(temp_file_name),
+            config = MindFormerConfig(**dict(load_checkpoint=os.path.dirname(temp_file_name),
                                              output_dir=None,
                                              use_parallel=False,))
 
             _transform_and_load_safetensors(ms_model, self.model, inputs, config.load_checkpoint,
-                                            config.load_safetensors, config.output_dir, config.use_parallel)
+                                            config.output_dir, config.use_parallel)
