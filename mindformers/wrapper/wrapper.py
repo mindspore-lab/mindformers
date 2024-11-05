@@ -203,6 +203,9 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
             else:
                 learning_rate = self.learning_rate(self.optimizer.global_step).reshape(())
 
+        if self.use_graceful_exit:
+            grads = self.graceful_exit.exit_by_request(grads, self.init_param, self.exit_param)
+
         # if there is no overflow, do optimize
         if not overflow:
             if self.use_clip_grad and self.use_grad_norm:
@@ -377,6 +380,9 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         cond = self.get_overflow_status(self.status, grads)
         cond = F.depend(cond, grads)
         overflow = self.process_loss_scale(cond)
+
+        if self.use_graceful_exit:
+            grads = self.graceful_exit.exit_by_request(grads, self.init_param, self.exit_param)
 
         if not overflow:
             loss = F.depend(loss, self.optimizer(grads))

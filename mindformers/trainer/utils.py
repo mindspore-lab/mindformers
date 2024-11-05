@@ -18,6 +18,7 @@ import json
 import sys
 import time
 import random
+import re
 from enum import Enum
 
 import numpy as np
@@ -294,9 +295,13 @@ def load_resume_context_from_checkpoint(config, dataset):
 
     if os.path.isdir(config.load_checkpoint):
         if isinstance(config.resume_training, bool):
+            if config.use_graceful_exit:
+                rank_id = get_real_rank()
+            else:
+                rank_id = 0
             resume_dict = load_distributed_checkpoint(config.load_checkpoint,
                                                       choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num", "global_batch_size"],
-                                                      rank_id=0)
+                                                      rank_id=rank_id)
         else:
             checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{config.rank_id}", config.resume_training)
             resume_dict = load_checkpoint(checkpoint_tmp,
@@ -423,6 +428,9 @@ def check_path_include_total_ckpt(path):
         if check_ckpt_file_exist(path):
             return True
     elif path.endswith('.ckpt'):
+        pattern = r'rank_\d+'
+        if re.search(pattern, path):
+            return False
         return True
     return False
 

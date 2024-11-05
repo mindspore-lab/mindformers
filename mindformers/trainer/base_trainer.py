@@ -23,6 +23,8 @@ import numpy as np
 from PIL.Image import Image
 import mindspore as ms
 from mindspore import Tensor
+from mindspore import get_ckpt_path_with_strategy
+from mindspore.communication import get_rank
 from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
@@ -556,6 +558,18 @@ class BaseTrainer:
                                                     "parallel_config": self.config.parallel_config})
         return model_wrapper
 
+    def use_optimizer_wrapper(self):
+        optimizer_wrapper = False
+        if self.config.enable_mindio_ttp_save_ckpt:
+            optimizer_wrapper = True
+        return optimizer_wrapper
+
+    def create_optimizer_wrapper(self, optimizer):
+        if self.config.enable_mindio_ttp_save_ckpt:
+            logger.info(".........Build Optimizer TFTWrapper For report Optimizer status to MindIO TFT..........")
+            optimizer = ms.nn.OptTFTWrapper(optimizer)
+        return optimizer
+
     def create_callbacks(self, default_args: dict = None):
         """Create the callback list for training."""
         logger.info(".........Build Callbacks for Train From Config..........")
@@ -678,6 +692,16 @@ class BaseTrainer:
             logger.info(f"local rank id: {rank_id}, ignore data skip: {config.ignore_data_skip}.")
         return dataset, config
 
+    def resume_ckpt_path_with_strategy(self, config):
+        cur_rank = get_rank()
+        src_strategy_files = sorted([f for f in os.listdir(config.src_strategy_path_or_dir)])
+        if len(src_strategy_files) - 1 < cur_rank:
+            raise ValueError(f" rank {cur_rank} src_strategy is not exist")
+        src_strategy_file = os.path.join(config.src_strategy_path_or_dir, src_strategy_files[cur_rank])
+        load_ckpt_new = get_ckpt_path_with_strategy(config.load_checkpoint, src_strategy_file)
+
+        return load_ckpt_new
+
     def training_process(
             self,
             config: Optional[Union[dict, MindFormerConfig, ConfigArguments, TrainingArguments]] = None,
@@ -708,6 +732,10 @@ class BaseTrainer:
         append_info = None
         if config.resume_training and config.load_checkpoint:
             logger.info(".............Start load resume context from checkpoint..................")
+            if os.path.isfile(config.load_checkpoint) and "rank_" in config.load_checkpoint and \
+                    os.path.exists(config.src_strategy_path_or_dir):
+                logger.info(".............Start resume checkpoint path from strategy..................")
+                config.load_checkpoint = self.resume_ckpt_path_with_strategy(config)
             load_resume_context_from_checkpoint(config, dataset)
             resume_dict = {
                 "step_num": config.runner_config.initial_step,
@@ -772,6 +800,11 @@ class BaseTrainer:
         if optimizer is None:
             optimizer = self.create_optimizer_scheduler(network, layer_scale=config.layer_scale)
 
+        # build optimizer Wrapper
+        if self.use_optimizer_wrapper():
+            logger.info(".........Build Optimizer Wrapper for Train..........")
+            optimizer = self.create_optimizer_wrapper(optimizer)
+
         # build model wrapper
         logger.info(".........Build Running Wrapper From Config For Train..........")
         wrapper = self.create_model_wrapper(network, optimizer)
@@ -814,6 +847,9 @@ class BaseTrainer:
             elif "type" in callback and callback["type"] == "CheckpointMonitor":
                 logger.info("Recommend using weights in the safetensors format.")
                 # load params into net
+                if config.get("enable_mindio_ttp_save_ckpt", False):
+                    config.remove_redundancy = False
+                    logger.info(".........enable_mindio_ttp_save_ckpt and remove redundancy are incompatible..........")
                 default_args = {"append_info": append_info,
                                 "global_batch_size": self.global_batch_size,
                                 "remove_redundancy": config.get("remove_redundancy", False),
