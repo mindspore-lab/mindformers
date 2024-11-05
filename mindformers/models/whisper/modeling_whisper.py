@@ -1148,8 +1148,10 @@ class WhisperForConditionalGeneration(WhisperPreTrainedModel):
         self.not_equal = P.NotEqual()
         self.model = WhisperModel(config)
         check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
         self.loss = CrossEntropyLoss(parallel_config=config.parallel_config,
-                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
+                                     calculate_per_token_loss=calculate_per_token_loss)
         self.proj_out = LMHead(config.d_model, config.vocab_size, config.compute_dtype)
 
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):

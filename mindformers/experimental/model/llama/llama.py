@@ -89,8 +89,10 @@ class LlamaForCausalLM(LlamaPretrainedModel):
         # fft1374 Awaiting the implementation of the specific `loss` function
         transformer_config.model_parallel = transformer_config.tensor_parallel
         check_for_nan_in_loss_and_grad = getattr(transformer_config, "check_for_nan_in_loss_and_grad", False)
+        calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
         self.loss = CrossEntropyLoss(parallel_config=transformer_config,
-                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
+                                     calculate_per_token_loss=calculate_per_token_loss)
 
         self.slice = P.StridedSlice()
         self.not_equal = P.NotEqual()

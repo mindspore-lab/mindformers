@@ -367,8 +367,10 @@ class CogVLM2VideoLM(LlamaPreTrainedModel):
             loss_parallel_config.model_parallel = 1
         loss_parallel_config.data_parallel *= loss_parallel_config.context_parallel
         check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
+        calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
-                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
+                                     calculate_per_token_loss=calculate_per_token_loss)
 
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
