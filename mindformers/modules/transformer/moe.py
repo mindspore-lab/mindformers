@@ -695,13 +695,13 @@ class MoEV2(Cell):
         self.transpose_mp1 = P.Transpose().shard(((self.dp_moe, self.ep, self.mp, 1, 1, 1),))
         self.transpose_mp2 = P.Transpose().shard(((self.dp_moe, 1, self.ep, self.mp, 1, 1),))
         self.stride_slice_allgather = P.StridedSlice().shard(((self.dp_moe, self.ep, 1, 1, 1),))
-        self.transpose_all2all = P.Transpose().shard(((1, self.ep, 1, 1),))
         # interleave
         self.comp_comm_parallel = moe_config.comp_comm_parallel
         self.comp_comm_parallel_degree = moe_config.comp_comm_parallel_degree
         if self.comp_comm_parallel:
-            self.split = P.Split(axis=2, output_num=self.comp_comm_parallel_degree).shard(((self.dp, 1, 1, 1),))
-            self.concat = P.Concat(2).shard(tuple((self.dp, 1, 1, 1) for _ in range(self.comp_comm_parallel_degree)))
+            self.split = P.Split(axis=2, output_num=self.comp_comm_parallel_degree).shard(((self.dp_group, 1, 1, 1),))
+            self.concat = P.Concat(2).shard(tuple((self.dp_group, 1, 1, 1) \
+                for _ in range(self.comp_comm_parallel_degree)))
             self.split.add_prim_attr("enable_interleave", 1)
             self.concat.add_prim_attr("enable_interleave", 1)
 
@@ -724,10 +724,11 @@ class MoEV2(Cell):
         """
         use sp Computing the FFN.
         """
-        # all2all
+        # (dp_moe, ep, mp, E, n, h) <-- (dp, E, n, h)
         expert_input = self.reshape(expert_input, (self.dp_moe, self.ep, self.mp,
                                                    self.expert_dim, capacity, self.hidden_size))
-        # (dp,mp,E,C/mp,h) -> (dp,E,mp,C/mp,h)
+        # dp_moe <==> outer_dp <==> dp // ep
+        # (dp_moe, E, ep, mp, n, h) <-- (dp_moe, ep, mp, E, n, h)
         expert_input = self.transpose_mp1(expert_input, (0, 3, 1, 2, 4, 5))
         expert_input = self.reshape(expert_input, (self.dp_moe, self.expert_dim, self.ep,
                                                    self.mp * capacity, self.hidden_size))
@@ -735,7 +736,6 @@ class MoEV2(Cell):
                                                      (self.dp_moe, self.expert_dim, self.ep,
                                                       self.mp * capacity, self.hidden_size),
                                                      (1, 1, 1, 1, 1))
-        # (outdp,dp',E,mp,C/mp,h) -> (outdp,dp'*ep,E/ep,mp,C/mp,h)
         expert_input = self.stride_slice_outer_ep_mp(expert_input, (0, 0, 0, 0, 0),
                                                      (self.dp_moe, self.expert_dim, self.ep,
                                                       self.mp * capacity, self.hidden_size),
@@ -1607,7 +1607,8 @@ class TopkRouterV2(Cell):
         expert_capacity = expert_mask.max()  # (1, ) <- (dp, E)
         expert_capacity = self.cast(expert_capacity, mstype.int64)
         expert_capacity_scalar = self.tensor2scalar(expert_capacity)
-        expert_capacity_scalar = (expert_capacity_scalar // self.mp + 1) * self.mp
+        mp = self.mp * self.comp_comm_parallel_degree
+        expert_capacity_scalar = (expert_capacity_scalar // mp + 1) * mp
         return expert_capacity_scalar
 
     def _expert_load_balancing(self, scores, top_indices, alpha):

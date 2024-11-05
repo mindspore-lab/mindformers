@@ -394,7 +394,7 @@ class TestMoE:
     def test_moe_golden_dp2ep2mp2_use_seq_parallel(self):
         """
         Feature: test_moe_pynative
-        Description: run pynative mode moe to generate pynative loss
+        Description: run graph mode moe to test short sequence parallel
         Exception: AssertionError
         """
         os.environ['HCCL_BUFFSIZE'] = "1"
@@ -429,7 +429,7 @@ class TestMoE:
     def test_moe_golden_dp2ep2mp2_comp_comm_parallel(self):
         """
         Feature: test_moe_pynative
-        Description: run pynative mode moe to generate pynative loss
+        Description: run graph mode moe to test comp_comm_parallel
         Exception: AssertionError
         """
         os.environ['HCCL_BUFFSIZE'] = "1"
