@@ -17,6 +17,7 @@ import mindspore.common.dtype as mstype
 from mindspore import ops
 from mindspore.common.tensor import Tensor
 from mindspore.nn.cell import Cell
+from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 
@@ -171,6 +172,7 @@ class FlashAttention(Cell):
         if self.enable_dropout:
             self.keep_prob_tensor = Tensor(keep_prob, dtype=mstype.float16)
             self.drop_gen_mask = ops.DropoutGenMask()
+        self.cast = P.Cast()
 
     def _generate_flash_attention_strategy(self, dp, mp, cp, cp_ds=1):
         """get FA generate strategies"""
@@ -230,6 +232,8 @@ class FlashAttention(Cell):
     def construct(self, query, key, value, attn_mask=None, alibi_mask=None, prefix=None, padding_mask=None,
                   actual_seq_qlen=None, actual_seq_kvlen=None):
         """Forward process of the AttentionMaskMF"""
+        if attn_mask is not None:
+            attn_mask = self.cast(attn_mask, mstype.uint8)
 
         if self.input_layout in ["TH", "TND"]:
             _, _, _, output = self.flash_attention(query,
