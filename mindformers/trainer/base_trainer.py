@@ -48,12 +48,14 @@ from mindformers.models import build_network, build_processor, build_tokenizer, 
 from mindformers.pipeline import pipeline
 from mindformers.wrapper import build_wrapper
 from mindformers.tools.register import MindFormerConfig
+from mindformers.wrapper.wrapper import DataOrderWrapperCell
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import count_params
 from mindformers.tools.check_rules import check_rules
 from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.core.callback.callback import ColdHotExpertMointor
 from mindformers.dataset.dataloader.blended_megatron_dataloader import is_dataset_built_on_rank
+
 from .config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import (
@@ -427,6 +429,10 @@ class BaseTrainer:
         logger.info(".........Build Network From Config..........")
         return build_network(self.config.model, default_args=default_args)
 
+    def warp_data_order_with_tool_cells(self, network, construct_args_key):
+        """For passing parameters in lexicographical order."""
+        return DataOrderWrapperCell(construct_args_key, network)
+
     def wrap_network_with_tool_cells(self, network):
         """For training process, warp the network with some tool cells."""
         micro_batch_interleave_num = self.config.micro_batch_interleave_num
@@ -684,6 +690,7 @@ class BaseTrainer:
         self.train_dataset = dataset if dataset else self.train_dataset
         self.eval_dataset = kwargs.get('eval_dataset', None)
         self.compute_metrics = compute_metrics if compute_metrics else self.compute_metrics
+        construct_args_key = config.train_dataset.pop("construct_args_key", None)
 
         is_full_config = kwargs.get("is_full_config", False)
         config = self.set_config(config, is_full_config)
@@ -749,6 +756,8 @@ class BaseTrainer:
         eval_network = None
         if network is not None:
             eval_network = network
+            if construct_args_key is not None:
+                eval_network = self.warp_data_order_with_tool_cells(network, construct_args_key)
             # warp network for training
             network = self.wrap_network_with_tool_cells(eval_network)
             eval_network = self.wrap_eval_network_with_tool_cells(eval_network)
@@ -892,6 +901,7 @@ class BaseTrainer:
         metric_name = kwargs.get("metric_name")
         is_full_config = kwargs.get("is_full_config", False)
         config = self.set_config(config, is_full_config)
+        construct_args_key = config.eval_dataset.pop("construct_args_key", None)
 
         # build dataset
         logger.info(".........Build Dataset For Evaluate..........")
@@ -910,6 +920,9 @@ class BaseTrainer:
         elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Evaluate: %s", self.network.__class__.__name__)
             network = self.network
+
+        if network is not None and construct_args_key is not None:
+            network = self.warp_data_order_with_tool_cells(network, construct_args_key)
 
         self.set_network(network, is_train=False)
         self.count_parameters()
