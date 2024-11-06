@@ -20,6 +20,8 @@ import importlib
 import torch
 import mindspore as ms
 
+from mindformers.tools.utils import str2bool
+
 dtype_map = {
     'fp32': ms.float32,
     'bf16': ms.bfloat16,
@@ -33,6 +35,7 @@ reversed_dtype_map = {
 
 convert_map = {
     'llama': 'mindformers.models.llama.convert_weight.convert_pt_to_ms',
+    'qwen2_5': 'research.qwen2_5.convert_weight.convert_weight',
     'glm': 'mindformers.models.glm.convert_weight.convert_pt_to_ms',
     'glm-n': 'mindformers.models.glm2.convert_weight.convert_pt_to_ms',
     'qwen': 'research.qwen.convert_weight.convert_pt_to_ms',
@@ -94,6 +97,7 @@ if __name__ == '__main__':
     parser.add_argument('--input_path', default=None, type=str, required=True)
     parser.add_argument('--output_path', default=None, type=str, required=True)
     parser.add_argument('--dtype', default=None, type=str, required=False)
+    parser.add_argument('--qkv_concat', default=False, type=str2bool, required=False)
 
     parser.add_argument('--n_head', default=32, type=int, required=False,
                         help="Only for bloom, 16 for bloom_560m or 32 for bloom_7.1b")
@@ -107,7 +111,9 @@ if __name__ == '__main__':
     parser.add_argument('--telechat_type', default="telechat_12b", type=str, required=False,
                         help="Only for telechat. Telechat version.")
     args, extra_args = parser.parse_known_args()
-    extra_args = [i for item in extra_args for i in item.split("=")]
+    extra_args = [i
+                  for item in extra_args
+                  for i in item.split("=")]
 
     extra_kwargs = copy.copy(vars(args))
     extra_kwargs.pop('model')
@@ -136,4 +142,8 @@ if __name__ == '__main__':
 
     model_name, func_name = module_func.rsplit('.', 1)
     convert_func = getattr(importlib.import_module(model_name), func_name)
-    convert_func(input_path=args.input_path, output_path=args.output_path, dtype=dtype, **extra_kwargs)
+
+    if args.model == "qwen2_5":
+        convert_func(args)
+    else:
+        convert_func(input_path=args.input_path, output_path=args.output_path, dtype=dtype, **extra_kwargs)

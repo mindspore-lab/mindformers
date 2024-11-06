@@ -19,8 +19,11 @@ transform huggingface model to mindspore ckpt.
 
 import os
 import argparse
+
+import numpy as np
 import mindspore as ms
 
+from mindformers.tools.utils import str2bool
 
 dtype_map = {
     'fp32': ms.float32,
@@ -86,13 +89,112 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     return True
 
 
+def convert_qkv_concat_weight(param_dict):
+    """convert qkv concat weight"""
+    assume_num_layers = 500
+    for i in range(assume_num_layers):
+        # qkv weight concat
+        wq_weight_name = f"model.layers.{i}.attention.wq.weight"
+        wk_weight_name = f"model.layers.{i}.attention.wk.weight"
+        wv_weight_name = f"model.layers.{i}.attention.wv.weight"
+        qkv_concat_weight_name = f"model.layers.{i}.attention.w_qkv.weight"
+        if wq_weight_name not in param_dict:
+            break
+        wq_weight = param_dict[wq_weight_name].asnumpy()
+        wk_weight = param_dict[wk_weight_name].asnumpy()
+        wv_weight = param_dict[wv_weight_name].asnumpy()
+        qkv_weight = np.concatenate((wq_weight, wk_weight, wv_weight), 0)
+        param_dict[qkv_concat_weight_name] = ms.Parameter(qkv_weight, name=qkv_concat_weight_name)
+
+        # gate hidden weight concat
+        ffn_gate_weight_name = f"model.layers.{i}.feed_forward.w1.weight"
+        ffn_hidden_weight_name = f"model.layers.{i}.feed_forward.w3.weight"
+        gate_hidden_concat_weight_name = f"model.layers.{i}.feed_forward.w_gate_hidden.weight"
+
+        ffn_gate_weight = param_dict[ffn_gate_weight_name].asnumpy()
+        ffn_hidden_weight = param_dict[ffn_hidden_weight_name].asnumpy()
+        gate_hidden_weight = np.concatenate((ffn_gate_weight, ffn_hidden_weight), 0)
+        param_dict[gate_hidden_concat_weight_name] = ms.Parameter(gate_hidden_weight,
+                                                                  name=gate_hidden_concat_weight_name)
+
+        param_dict.pop(wq_weight_name)
+        param_dict.pop(wk_weight_name)
+        param_dict.pop(wv_weight_name)
+        param_dict.pop(ffn_gate_weight_name)
+        param_dict.pop(ffn_hidden_weight_name)
+        print("transform: {}".format(qkv_concat_weight_name))
+        print("transform: {}".format(gate_hidden_concat_weight_name))
+
+    for i in range(assume_num_layers):
+        # qkv bias concat
+        wq_bias_name = f"model.layers.{i}.attention.wq.bias"
+        wk_bias_name = f"model.layers.{i}.attention.wk.bias"
+        wv_bias_name = f"model.layers.{i}.attention.wv.bias"
+        qkv_concat_bias_name = f"model.layers.{i}.attention.w_qkv.bias"
+        if wq_bias_name not in param_dict:
+            break
+
+        wq_bias_weight = param_dict[wq_bias_name].asnumpy()
+        wk_bias_weight = param_dict[wk_bias_name].asnumpy()
+        wv_bias_weight = param_dict[wv_bias_name].asnumpy()
+        qkv_bias_weight = np.concatenate((wq_bias_weight, wk_bias_weight, wv_bias_weight), 0)
+        param_dict[qkv_concat_bias_name] = ms.Parameter(qkv_bias_weight, name=qkv_concat_bias_name)
+
+        param_dict.pop(wq_bias_name)
+        param_dict.pop(wk_bias_name)
+        param_dict.pop(wv_bias_name)
+        print("transform: {}".format(qkv_concat_bias_name))
+    return param_dict
+
+
+def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path):
+    """convert previous ckpt to qkv concat ckpt"""
+    if os.path.isdir(pre_ckpt_path):
+        rank_dir_list = os.listdir(pre_ckpt_path)
+        for rank_dir in rank_dir_list:
+            rank_dir_name = str(rank_dir)
+            rank_id = rank_dir_name.split("_")[1]
+            checkpoint_path = os.path.join(pre_ckpt_path, rank_dir_name, "checkpoint_{}.ckpt".format(rank_id))
+            print("checkpoint_path: {}".format(checkpoint_path))
+            params = ms.load_checkpoint(checkpoint_path)
+            params = convert_qkv_concat_weight(params)
+
+            save_dir = os.path.join(mindspore_ckpt_path, rank_dir_name)
+            if not os.path.exists(save_dir):
+                os.makedirs(save_dir)
+            save_path = os.path.join(mindspore_ckpt_path, rank_dir_name, "checkpoint_{}.ckpt".format(rank_id))
+            ms.save_checkpoint(params, save_path)
+    else:
+        params = ms.load_checkpoint(pre_ckpt_path)
+        params = convert_qkv_concat_weight(params)
+        ms.save_checkpoint(params, mindspore_ckpt_path)
+
+
+def convert_weight(para):
+    """convert weight entrance"""
+    if not hasattr(para, 'torch_ckpt_dir'):
+        para.torch_ckpt_dir = para.input_path
+    if not hasattr(para, 'pre_ckpt_path'):
+        para.pre_ckpt_path = para.input_path
+    if not hasattr(para, 'mindspore_ckpt_path'):
+        para.mindspore_ckpt_path = para.output_path
+    if not para.dtype:
+        para.dtype = "bf16"
+    if para.qkv_concat:
+        convert_to_qkv_concat(para.pre_ckpt_path, para.mindspore_ckpt_path)
+    else:
+        dtype = dtype_map.get(para.dtype)
+        convert_pt_to_ms(input_path=para.torch_ckpt_dir,
+                         output_path=para.mindspore_ckpt_path, dtype=dtype)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--torch_ckpt_dir', default='./')
     parser.add_argument('--mindspore_ckpt_path', default='transform.ckpt')
+    parser.add_argument('--pre_ckpt_path', default=None)
+    parser.add_argument('--qkv_concat', default=False, type=str2bool)
     parser.add_argument('--dtype', default='bf16')
     args = parser.parse_args()
-    ms_dtype = dtype_map.get(args.dtype)
 
-    convert_pt_to_ms(input_path=args.torch_ckpt_dir,
-                     output_path=args.mindspore_ckpt_path, dtype=ms_dtype)
+    convert_weight(args)

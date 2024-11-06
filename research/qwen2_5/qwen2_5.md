@@ -134,6 +134,20 @@ dtype:       转换权重的精度
 
   以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
 
+#### 模型权重qkv_concat转换
+
+- Qwen2.5系列默认打开qkv_concat参数，使用的权重需经过qkv_concat转换
+
+```shell
+python convert_weight.py  --qkv_concat True --model qwen2_5  --input_path {path}/MS_CKPT_NAME  --output_path {outputPath}/MS_CKPT_QKV_NAME
+
+# 参数说明
+qkv_concat:             是否开启qkv_concat,默认为false
+model:                  调用哪个模型的脚本进行权重转换
+pre_ckpt_path:          转化后的MindSpore权重文件保存路径,单卡权重指向文件,多卡权重指向文件夹
+mindspore_ckpt_path:    qkv_concat转换后权重文件保存路径,单卡权重指向文件,多卡权重指向文件夹
+```
+
 ## 微调
 
 注意事项：
