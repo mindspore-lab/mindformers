@@ -13,13 +13,18 @@
 # limitations under the License.
 # ============================================================================
 """Self-Define Wrapper."""
+import hashlib
 from copy import deepcopy
-from mindspore.common.tensor import Tensor
+
+from mindspore import nn, Parameter, ParallelMode
 from mindspore.common import RowTensor
+from mindspore.common.tensor import Tensor
+from mindspore.communication.management import (create_group, get_rank, get_group_size)
+from mindspore.nn.wrap.cell_wrapper import _MicroBatch
 from mindspore.ops import composite as C
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
-from mindspore import nn, Parameter, ParallelMode
+from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.parallel._utils import _get_enable_parallel_optimizer
 import mindspore.common.dtype as mstype
 
@@ -28,7 +33,8 @@ from mindformers.core.optim import FusedCastAdamWeightDecay
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.version_control import get_identity
 
-__all__ = ['MFTrainOneStepCell', 'MFPipelineWithLossScaleCell']
+__all__ = ['MFTrainOneStepCell', 'MFPipelineWithLossScaleCell', 'PipelineCellWithTwoOutput',
+           'GradAccumulationCellWithTwoOutput']
 
 _grad_scale = C.MultitypeFuncGraph("grad_scale")
 reciprocal = P.Reciprocal()
@@ -218,25 +224,168 @@ grad_scale = C.MultitypeFuncGraph("grad_scale")
 shard_grad_scale = C.MultitypeFuncGraph("shard_grad_scale")
 
 
-@grad_scale.register("Tensor", "Tensor", "Tensor")
-def tensor_grad_scale_pipeline(scale, grad, accu_grad):
+@grad_scale.register("Tensor", "Tensor", "Tensor", "Tensor")
+def tensor_grad_scale_pipeline(scale, grad_scale_factor, grad, accu_grad):
     accu_grad = F.depend(accu_grad, grad)
     new_grad = accu_grad * reciprocal(scale)
     accu_grad = F.depend(accu_grad, new_grad)
     grad_val = F.cast(F.equal(accu_grad, accu_grad), F.dtype(accu_grad))
     zeros = F.mul(grad_val, 0)
     new_grad = F.depend(new_grad, F.assign(accu_grad, zeros))
+    new_grad = new_grad * reciprocal(grad_scale_factor)
     return new_grad
 
 
-@shard_grad_scale.register("Tensor", "Tensor", "Tensor")
-def tensor_shard_grad_scale_pipeline(scale, grad, accu_grad):
+@shard_grad_scale.register("Tensor", "Tensor", "Tensor", "Tensor")
+def tensor_shard_grad_scale_pipeline(scale, grad_scale_factor, grad, accu_grad):
     new_grad = grad * F.cast(reciprocal(scale), F.dtype(grad))
     accu_grad = F.depend(accu_grad, new_grad)
     grad_val = F.cast(F.equal(accu_grad, accu_grad), F.dtype(accu_grad))
     zeros = F.mul(grad_val, 0)
     new_grad = F.depend(new_grad, F.assign(accu_grad, zeros))
+    new_grad = new_grad * reciprocal(grad_scale_factor)
     return new_grad
+
+
+class GradAccumulationCellWithTwoOutput(nn.Cell):
+    """
+        Wrap the network with Micro Batch to enable the grad accumulation in semi_auto_parallel/auto_parallel mode.
+
+        Note:
+            micro_size must be greater or equal to pipeline stages.
+
+        Args:
+            network (Cell): The target network to wrap.
+            micro_size (int): MicroBatch size.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU``
+    """
+
+    def __init__(self, network, micro_size):
+        super(GradAccumulationCellWithTwoOutput, self).__init__(auto_prefix=False)
+        self.network = network
+        self.micro_inputs = nn.CellList()
+        self.micro_size = micro_size
+        self.add_list = []
+        if not isinstance(network, nn.Cell):
+            raise TypeError("For 'GradAccumulationCellWithTwoOutput', the argument 'network' must cell type, "
+                            "but got the type : {}.".format(type(network)))
+        if not isinstance(micro_size, int):
+            raise TypeError("For 'GradAccumulationCellWithTwoOutput', the argument 'micro_size' must be integer, "
+                            "but got the type : {}.".format(type(micro_size)))
+        if micro_size <= 0:
+            raise ValueError("For 'GradAccumulationCellWithTwoOutput', the argument 'micro_size' must be large than 0, "
+                             "but got {}.".format(micro_size))
+        for i in range(micro_size):
+            micro_input = _MicroBatch(micro_size)
+            micro_input.strided_slice.add_prim_attr("grad_accu_num", micro_size)
+            self.micro_inputs.append(micro_input)
+            self.add = P.Add().add_prim_attr("forward_end", i)
+            self.add_list.append(self.add)
+        self._get_attr_from_cell(network)
+
+    def construct(self, *inputs):
+        """Construct function for pipeline with multiple outputs."""
+        ret = None
+        ret2 = None
+        for i in range(self.micro_size):
+            micro_input = self.micro_inputs[i](i, *inputs)
+            output1, output2 = self.network(*micro_input)
+
+            if ret is not None:
+                ret = self.add_list[i](ret, output1)
+            else:
+                ret = output1
+
+            if ret2 is not None:
+                ret2 = self.add_list[i](ret2, output2)
+            else:
+                ret2 = output2
+
+        loss = ret, ret2
+        return loss
+
+
+def _get_pipeline_group():
+    """
+    Calculate the communication group between all pipeline stages
+    """
+    rank = get_rank()
+    stage_nums = auto_parallel_context().get_pipeline_stages()
+    device_nums = get_group_size()
+    per_stage_device_nums = device_nums // stage_nums
+    local_stage_rank_id = rank % per_stage_device_nums
+    group = range(0, stage_nums)
+    rank_list = [local_stage_rank_id + x * per_stage_device_nums for x in group]
+    rank_str_list = [str(local_stage_rank_id + x * per_stage_device_nums) for x in group]
+    rank_list_str = "-".join(rank_str_list)
+    return rank_list, rank_list_str
+
+
+class PipelineCellWithTwoOutput(nn.Cell):
+    """
+        Slice MiniBatch into finer-grained MicroBatch for use in pipeline-parallel training.
+
+        Note:
+            micro_size must be greater or equal to pipeline stages.
+
+        Args:
+            network (Cell): The target network to wrap.
+            micro_size (int): MicroBatch size.
+
+        Supported Platforms:
+            ``Ascend`` ``GPU``
+    """
+    def __init__(self, network, micro_size):
+        super(PipelineCellWithTwoOutput, self).__init__(auto_prefix=False)
+        self.network = network
+        self.micro_inputs = nn.CellList()
+        self.micro_size = micro_size
+        self.add_list = []
+        if not isinstance(network, nn.Cell):
+            raise TypeError("For 'PipelineCellWithTwoOutput', the argument 'network' must cell type, "
+                            "but got the type : {}.".format(type(network)))
+        if not isinstance(micro_size, int):
+            raise TypeError("For 'PipelineCellWithTwoOutput', the argument 'micro_size' must be integer, "
+                            "but got the type : {}.".format(type(micro_size)))
+        if micro_size <= 0:
+            raise ValueError("For 'PipelineCellWithTwoOutput', the argument 'micro_size' must be large than 0, "
+                             "but got {}.".format(micro_size))
+        for i in range(micro_size):
+            micro_input = _MicroBatch(micro_size)
+            self.micro_inputs.append(micro_input)
+            self.add = P.Add().add_prim_attr("pipeline_end", i)
+            self.add_list.append(self.add)
+        self._get_attr_from_cell(network)
+
+    def construct(self, *inputs):
+        """
+        Construct function for pipeline with multiple input
+        Args:
+            *inputs:
+
+        Returns:
+
+        """
+        ret = None
+        ret2 = None
+        for i in range(self.micro_size):
+            micro_input = self.micro_inputs[i](i, *inputs)
+            output1, output2 = self.network(*micro_input)
+
+            if ret is not None:
+                ret = self.add_list[i](ret, output1)
+            else:
+                ret = output1
+
+            if ret2 is not None:
+                ret2 = self.add_list[i](ret2, output2)
+            else:
+                ret2 = output2
+
+        loss = ret, ret2
+        return loss
 
 
 # pylint: disable=W1401
@@ -278,7 +427,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
     """
 
     def __init__(self, network, optimizer, use_clip_grad=True, max_grad_norm=1.0,
-                 scale_sense=1.0, micro_batch_num=1, local_norm=False, **kwargs):
+                 scale_sense=1.0, micro_batch_num=1, local_norm=False, calculate_per_token_loss=False, **kwargs):
         if isinstance(scale_sense, (int, float)):
             scale_sense = Tensor(scale_sense)
         super(MFPipelineWithLossScaleCell, self).__init__(network, optimizer, scale_sense)
@@ -324,18 +473,39 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         self.localnorm = LocalNorm()
         self.concat = P.Concat()
         self.local_norm = local_norm
+        self.zero_t = Tensor([0], dtype=mstype.float32)
+        # create allreduce for synchronize denominator
+        pipeline_group_list, pipeline_group_name = _get_pipeline_group()
+        hashed = hashlib.md5(pipeline_group_name.encode()).hexdigest()[:48]
+        pipeline_group_name = str(hashed)
+        create_group(pipeline_group_name, pipeline_group_list)
+        self.allreduce2 = P.AllReduce(group=pipeline_group_name)
+        self.calculate_per_token_loss = calculate_per_token_loss
+        self.grad_scale_factor = Tensor([1], dtype=mstype.float32)
+        self.zero_t = Tensor([0], dtype=mstype.float32)
 
     @C.add_flags(has_effect=True)
     def construct(self, *inputs):
         """The construct processes of pipeline wrapper cell."""
-        loss = self.network(*inputs)
         scaling_sens = self.scale_sense
+        if self.calculate_per_token_loss:
+            numerator, denominator = self.network(*inputs)
+            denominator = self.allreduce2(denominator)
+            loss = numerator / denominator
+            scaling_sens_filled = C.ones_like(numerator) * F.cast(scaling_sens, F.dtype(numerator))
+            scaling_sens_filled2 = self.zero_t * F.cast(scaling_sens, F.dtype(denominator))
 
-        scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
-
-        grads = self.grad(self.network, self.weights)(*inputs,
-                                                      self.cast(scaling_sens_filled / self.micro_size,
-                                                                mstype.float32))
+            grads = self.grad(self.network, self.weights)(*inputs,
+                                                          (self.cast(scaling_sens_filled, mstype.float32),
+                                                           self.cast(scaling_sens_filled2, mstype.float32)))
+            grad_scale_factor = denominator
+        else:
+            loss = self.network(*inputs)
+            scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+            grads = self.grad(self.network, self.weights)(*inputs,
+                                                          self.cast(scaling_sens_filled / self.micro_size,
+                                                                    mstype.float32))
+            grad_scale_factor = self.grad_scale_factor
 
         if self.local_norm:
             local_norm, size = self.localnorm(grads)
@@ -343,10 +513,12 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
 
         if self.opt_shard:
             grads = self.grad_reducer(grads)
-            grads = self.hyper_map(F.partial(shard_grad_scale, scaling_sens * self.degree), grads, self.accu_grads)
+            grads = self.hyper_map(F.partial(shard_grad_scale, scaling_sens * self.degree, grad_scale_factor),
+                                   grads, self.accu_grads)
         else:
             accu_grads = self.grad_reducer(self.accu_grads)
-            grads = self.hyper_map(F.partial(grad_scale, scaling_sens * self.degree), grads, accu_grads)
+            grads = self.hyper_map(F.partial(grad_scale, scaling_sens * self.degree, grad_scale_factor), grads,
+                                   accu_grads)
 
         global_norm = None
         if self.use_clip_grad:
