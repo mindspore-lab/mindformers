@@ -14,7 +14,7 @@
 # ============================================================================
 """ llm boost init """
 
-from mindformers.experimental.infer.llm_boost.llm_boost import LlmBoostForCausalLM
-from mindformers.experimental.infer.llm_boost.llm_boost_config import LlmBoostConfig
+from research.llm_boost.llm_boost import LlmBoostForCausalLM
+from research.llm_boost.llm_boost_config import LlmBoostConfig
 
 __all__ = ['LlmBoostForCausalLM', 'LlmBoostConfig']

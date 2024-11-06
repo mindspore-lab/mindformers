@@ -18,13 +18,15 @@ from typing import Optional, Union
 
 from mindspore._checkparam import args_type_check
 
-from mindformers.modules.transformer.transformer import default_transformer_config, \
-    TransformerOpParallelConfig
+from mindformers.modules.transformer.transformer import (
+    default_transformer_config,
+    TransformerOpParallelConfig,
+)
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import convert_mstype
 
-__all__ = ['LlmBoostConfig']
+__all__ = ["LlmBoostConfig"]
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
@@ -79,51 +81,58 @@ class LlmBoostConfig(PretrainedConfig):
             The maximum number of blocks when using paged attention. Default: ``512`` .
         llm_backend (str, optional):
             Llm boost backend. Default: ``BuildIn`` .
-        boost_model_type (str, optional):
-            Llm boost model type. Default: ``None`` .
+        boost_model_name (str, optional):
+            Llm boost model name. Default: ``None`` .
         need_nz (bool, optional):
             Whether it is necessary to convert the format to NZ when calculating matrix multiplication.
             Default: ``False`` .
+        communication_backend (str, optional):
+            communication_backend, ``hccl`` or ``lccl``. Default: ``hccl`` .
     Returns:
         LlmBoostConfig, a LlmBoostConfig instance.
     """
 
+    # pylint: disable=C0330
     @args_type_check(parallel_config=(dict, TransformerOpParallelConfig))
-    def __init__(self,
-                 batch_size: int = 1,
-                 llm_backend: str = "BuildIn",
-                 boost_model_type: str = "",
-                 seq_length: int = 2048,
-                 hidden_size: int = 4096,
-                 num_layers: int = 32,
-                 num_heads: int = 32,
-                 n_kv_heads: Optional[int] = None,
-                 max_position_embedding: Optional[int] = None,
-                 vocab_size: int = 32000,
-                 rms_norm_eps: float = 1e-5,
-                 bos_token_id: int = 1,
-                 eos_token_id: int = 2,
-                 pad_token_id: int = 0,
-                 ignore_token_id: int = -100,
-                 theta: float = 10000.0,
-                 compute_dtype: str = "float16",
-                 rotary_dtype: str = "float16",
-                 parallel_config: Union[dict,
-                                        TransformerOpParallelConfig] = default_transformer_config,
-                 use_past: bool = False,
-                 scaling_factor: float = 1.0,
-                 extend_method: str = "None",
-                 is_dynamic: bool = False,
-                 parallel_optimizer: bool = False,
-                 repetition_penalty: float = 1.0,
-                 max_decode_length: int = 1024,
-                 block_size: int = 16,
-                 num_blocks: int = 512,
-                 top_k: int = 5,
-                 top_p: float = 1.0,
-                 do_sample: bool = True,
-                 quant_config: dict = None,
-                 **kwargs):
+    def __init__(
+        self,
+        batch_size: int = 1,
+        llm_backend: str = "BuildIn",
+        boost_model_name: str = "",
+        seq_length: int = 2048,
+        hidden_size: int = 4096,
+        num_layers: int = 32,
+        num_heads: int = 32,
+        n_kv_heads: Optional[int] = None,
+        max_position_embedding: Optional[int] = None,
+        vocab_size: int = 32000,
+        rms_norm_eps: float = 1e-5,
+        bos_token_id: int = 1,
+        eos_token_id: int = 2,
+        pad_token_id: int = 0,
+        ignore_token_id: int = -100,
+        theta: float = 10000.0,
+        compute_dtype: str = "float16",
+        rotary_dtype: str = "float16",
+        parallel_config: Union[
+            dict, TransformerOpParallelConfig
+        ] = default_transformer_config,
+        use_past: bool = False,
+        scaling_factor: float = 1.0,
+        extend_method: str = "None",
+        is_dynamic: bool = False,
+        parallel_optimizer: bool = False,
+        repetition_penalty: float = 1.0,
+        max_decode_length: int = 1024,
+        block_size: int = 16,
+        num_blocks: int = 512,
+        top_k: int = 5,
+        top_p: float = 1.0,
+        do_sample: bool = True,
+        quant_config: dict = None,
+        communication_backend: str = "hccl",
+        **kwargs
+    ):
         super(LlmBoostConfig, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
             parallel_config = TransformerOpParallelConfig(**parallel_config)
@@ -133,7 +142,9 @@ class LlmBoostConfig(PretrainedConfig):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.num_heads = num_heads
-        self.max_position_embedding = max_position_embedding if max_position_embedding else seq_length
+        self.max_position_embedding = (
+            max_position_embedding if max_position_embedding else seq_length
+        )
         self.n_kv_heads = n_kv_heads
         self.rms_norm_eps = rms_norm_eps
         self.compute_dtype = convert_mstype(compute_dtype)
@@ -158,5 +169,6 @@ class LlmBoostConfig(PretrainedConfig):
         self.num_blocks = num_blocks
         self.quant_config = quant_config
         self.llm_backend = llm_backend
-        self.boost_model_type = boost_model_type
-        self.parallel_decoding_params = kwargs.get('parallel_decoding_params')
+        self.boost_model_name = boost_model_name
+        self.communication_backend = communication_backend
+        self.parallel_decoding_params = kwargs.get("parallel_decoding_params")

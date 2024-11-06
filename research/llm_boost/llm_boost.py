@@ -18,11 +18,13 @@ import numpy as np
 from mindspore import Tensor
 from mindspore.experimental.llm_boost.register import LlmBoostRegister
 
-from mindformers.experimental.infer.llm_boost.llm_boost_config import LlmBoostConfig
+from research.llm_boost.llm_boost_config import LlmBoostConfig
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode
 from mindformers.modules.layers import FreqsMgr
+
+__all__ = ["LlmBoostForCausalLM"]
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -45,35 +47,40 @@ class LlmBoostForCausalLM(PreTrainedModel):
         self.head_dim = config.hidden_size // config.num_heads
         self.is_first_iteration = True
         self.predict_run_mode = get_predict_run_mode()
-        self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
-                                  seq_length=config.seq_length,
-                                  max_position_embedding=config.max_position_embedding,
-                                  rotary_dtype=config.rotary_dtype,
-                                  theta=config.theta,
-                                  scaling_factor=config.scaling_factor,
-                                  extend_method=config.extend_method,
-                                  parallel_config=config.parallel_config)
+        self.freqs_mgr = FreqsMgr(
+            head_dim=self.head_dim,
+            seq_length=config.seq_length,
+            max_position_embedding=config.max_position_embedding,
+            rotary_dtype=config.rotary_dtype,
+            theta=config.theta,
+            scaling_factor=config.scaling_factor,
+            extend_method=config.extend_method,
+            parallel_config=config.parallel_config,
+        )
         llm_boost_kwargs = {"config": config}
         self.llm_boost = LlmBoostRegister.get_instance(
-            config.llm_backend, config.boost_model_type, **llm_boost_kwargs)
+            config.llm_backend, config.boost_model_name, **llm_boost_kwargs
+        )
         self.llm_boost.init()
         self.is_set_kvcache = False
         self.parm_dict = {}
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        """prepare inputs for generation"""
         model_inputs = {}
         if self.config.is_dynamic and "origin_inputs" in kwargs:
             input_ids = kwargs["origin_inputs"]
-        model_inputs["input_ids"] = Tensor.from_numpy(
-            input_ids.astype(np.int32))
-        if hasattr(self, 'llm_boost'):
+        model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
+        if hasattr(self, "llm_boost"):
             batch_valid_length = kwargs.get("valid_length_each_example")
             block_tables = kwargs.get("block_tables")
             slot_mapping = kwargs.get("slot_mapping")
             prefill = kwargs.get("prefill")
             bs = batch_valid_length.shape[0]
             position_ids_list = [
-                np.arange(context_len, dtype=np.int64) for context_len in batch_valid_length]
+                np.arange(context_len, dtype=np.int64)
+                for context_len in batch_valid_length
+            ]
             if input_ids.shape[-1] == 1:
                 input_ids = np.concatenate(input_ids, 0)
             else:
@@ -84,11 +91,11 @@ class LlmBoostForCausalLM(PreTrainedModel):
                         input_ids_list.append(input_ids[i][:context_len])
                     else:
                         input_ids_list.append(
-                            input_ids[i][context_len - 1:context_len])
+                            input_ids[i][context_len - 1 : context_len]
+                        )
                 input_ids = np.concatenate(input_ids_list, 0)
             position_ids = np.concatenate(position_ids_list, 0)
-            slot_mapping = np.delete(
-                slot_mapping, np.where(slot_mapping == -1))
+            slot_mapping = np.delete(slot_mapping, np.where(slot_mapping == -1))
             lm_head_indices = np.cumsum(batch_valid_length, dtype=np.int64) - 1
             seq_lens = batch_valid_length.tolist()
             model_inputs["llm_boost_inputs"] = {
@@ -98,7 +105,7 @@ class LlmBoostForCausalLM(PreTrainedModel):
                 "block_tables": Tensor.from_numpy(block_tables),
                 "slot_mapping": Tensor.from_numpy(slot_mapping),
                 "batch_valid_length": Tensor.from_numpy(batch_valid_length),
-                "seq_lens": seq_lens
+                "seq_lens": seq_lens,
             }
         return model_inputs
 
@@ -109,13 +116,14 @@ class LlmBoostForCausalLM(PreTrainedModel):
     def set_dynamic_inputs(self, **kwargs):
         pass
 
-    # pylint: disable=W0613
-    def construct(self, input_ids, batch_valid_length=None, block_tables=None, slot_mapping=None,
-                  prefix_keys_values=None, llm_boost_inputs=None):
+    # pylint: disable=W0613, C0330
+    def construct(self, llm_boost_inputs=None, **kwargs):
+        """llm boost forward"""
         if not self.is_set_kvcache:
             self.llm_boost.set_kvcache()
             self.is_set_kvcache = True
         self.llm_boost.add_flags(is_first_iteration=self.is_first_iteration)
-        llm_boost_inputs["cos_embed"] = self.freqs_mgr.freqs_cos
-        llm_boost_inputs["sin_embed"] = self.freqs_mgr.freqs_sin
+        cos_embed, sin_embed, _ = self.freqs_mgr.prefill_flatten()
+        llm_boost_inputs["cos_embed"] = cos_embed
+        llm_boost_inputs["sin_embed"] = sin_embed
         return self.llm_boost.forward(llm_boost_inputs)
