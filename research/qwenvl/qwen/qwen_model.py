@@ -18,7 +18,7 @@ import copy
 import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore import log as logger
-from mindspore import nn
+from mindspore import nn, mint
 from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import functional as F
@@ -35,8 +35,7 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import lazy_inline
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_use_rope_self_define
-from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks,\
+from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks, \
     FreqsMgr
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaSiLU, LlamaRMSNorm
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
@@ -134,7 +133,7 @@ class QwenForCausalLM(QwenPreTrainedModel):
         self.slice = P.StridedSlice()
         self.mul = P.Mul()
         self.sub_batch_valid_len = P.Sub()
-        self.gather = P.Gather(1)
+        self.gather = P.Gather()
         self.enable_slice_dp = config.enable_slice_dp
 
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
@@ -145,14 +144,6 @@ class QwenForCausalLM(QwenPreTrainedModel):
             lm_head_matmul = self.lm_head.matmul
             self.lm_head.matmul = MatMulPad(lm_head_matmul, config.vocab_size, 512, config.enable_emb_opt)
         self.load_checkpoint(config)
-
-    # pylint: disable=W0613
-    def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        if self.config.is_dynamic and "origin_inputs" in kwargs:
-            input_ids = kwargs["origin_inputs"]
-        return {
-            "input_ids": Tensor(input_ids, mstype.int32)
-        }
 
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -227,6 +218,7 @@ class QwenForCausalLM(QwenPreTrainedModel):
                                   block_tables=block_tables, slot_mapping=slot_mapping)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
+            batch_valid_length = mint.cumsum(batch_valid_length, 0)
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 
@@ -345,19 +337,20 @@ class QwenModel(QwenPreTrainedModel):
 
             self.layers.append(layer)
 
-        self.use_rope_self_define = get_use_rope_self_define()
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=self.seq_length,
                                   max_position_embedding=config.max_position_embedding,
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
-                                  extend_method=config.extend_method)
+                                  extend_method=config.extend_method,
+                                  is_dynamic=config.is_dynamic)
         self.casual_mask = CausalMaskForQwen(seq_length=config.seq_length,
                                              compute_type=config.compute_dtype,
                                              is_dynamic=config.is_dynamic,
                                              pad_token_id=config.pad_token_id,
-                                             use_flash_attention=self.use_flash_attention)
+                                             use_flash_attention=self.use_flash_attention,
+                                             use_past=self.use_past)
 
         # 5. ln_f
         self.ln_f = LlamaRMSNorm(
@@ -391,13 +384,12 @@ class QwenModel(QwenPreTrainedModel):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
-                if not self.use_flash_attention:
+                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                if self.use_flash_attention:
+                    mask = self.casual_mask.prefill()
+                else:
                     mask = self.casual_mask(masks=input_attention_masks)
                     mask = self.casual_mask.post_process(mask)
-                if self.use_rope_self_define:
-                    freqs_cis = self.freqs_mgr(seq_len)
-                else:
-                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
@@ -565,7 +557,7 @@ class CausalMaskForQwen(nn.Cell):
               [1. 1. 1. 1. 0]]]"""
 
     def __init__(self, seq_length, compute_type=mstype.float16,
-                 is_dynamic=False, pad_token_id=0, use_flash_attention=False):
+                 is_dynamic=False, pad_token_id=0, use_flash_attention=False, use_past=False):
         super().__init__()
         self.dtype = compute_type
         self.is_dynamic = is_dynamic
@@ -573,7 +565,13 @@ class CausalMaskForQwen(nn.Cell):
         self.use_flash_attention = use_flash_attention
         self.multiply_data = Tensor([-10000.0], dtype=compute_type)
         self.one = Tensor([1.0], dtype=compute_type)
-        self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32)
+        if use_past:
+            if self.is_dynamic:
+                self.lower_triangle_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
+            else:
+                self.lower_triangle_mask = None
+        else:
+            self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length))), mstype.float32)
 
         self.shape = P.Shape()
         self.cast = P.Cast()
@@ -609,6 +607,9 @@ class CausalMaskForQwen(nn.Cell):
         # the returned shape is [bs, seq_length, seq_length]
         attention_mask = self.mul(mask_right, lower_triangle)
         return attention_mask
+
+    def prefill(self):
+        return self.lower_triangle_mask
 
     def increment(self, seq_range, batch_valid_length, zactivate_len=None):
         if zactivate_len is not None:

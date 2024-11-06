@@ -97,6 +97,20 @@ class GenerationMixin:
         if self.block_mgr:
             self.block_mgr.init_cache_engine(batch_size)
 
+    def _prepare_inputs_for_prefill_flatten(self, input_ids, batch_valid_length, slot_mapping, model_inputs):
+        """prepare inputs ids for prefill flatten"""
+        batch_valid_length_bs = batch_valid_length.shape[0]  # [bs,]
+        input_ids_list = []
+        for i in range(batch_valid_length_bs):
+            context_len = batch_valid_length[i]
+            input_ids_list.append(input_ids[i][:context_len])
+        input_ids = np.concatenate(input_ids_list, 0)
+        input_ids = input_ids.reshape((1, -1))
+        slot_mapping = np.delete(slot_mapping, np.where(slot_mapping == -1))
+        model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
+        model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
+        return model_inputs
+
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """
@@ -104,13 +118,19 @@ class GenerationMixin:
         A model class needs to define a `prepare_inputs_for_generation` method
         in order to use `.generate()`
 
-        Raises:
-            RuntimeError: Not implemented in model but call `.generate()`
         """
-        raise RuntimeError(
-            "A model class needs to define a `prepare_inputs_for_generation`"
-            " method in order to use `.generate()`."
-        )
+        model_inputs = {"input_ids": Tensor.from_numpy(input_ids.astype(np.int32))}
+        if self.config.is_dynamic:
+            prefill = kwargs.get("prefill")
+            if prefill and "origin_inputs" in kwargs:
+                origin_inputs = kwargs["origin_inputs"]
+                batch_valid_length = kwargs.get("valid_length_each_example")
+                slot_mapping = kwargs.get("slot_mapping")
+                model_inputs = self._prepare_inputs_for_prefill_flatten(origin_inputs,
+                                                                        batch_valid_length,
+                                                                        slot_mapping,
+                                                                        model_inputs)
+        return model_inputs
 
     def add_flags_custom(self, is_first_iteration):
         """
@@ -719,7 +739,6 @@ class GenerationMixin:
             raise ValueError(
                 "`streamer` cannot be used with beam search yet. Make sure that `num_beams` is set to 1."
             )
-
         if generation_config.use_past:
             self._set_block_mgr(batch_size)
             if self.config.is_dynamic:
@@ -826,17 +845,12 @@ class GenerationMixin:
                 slot_mapping = None
                 if generation_config.use_past:
                     if prefill:
-                        if self.config.is_dynamic:
-                            max_input_length = len(origin_inputs[0])
-                        else:
-                            max_input_length = self.config.seq_length
-                        block_tables, slot_mapping = self.block_mgr.assemble_pa_full_inputs(max_input_length,
+                        block_tables, slot_mapping = self.block_mgr.assemble_pa_full_inputs(self.config.seq_length,
                                                                                             valid_length_each_example,
                                                                                             is_finished)
                     else:
                         block_tables, slot_mapping = self.block_mgr.assemble_pa_inc_inputs(valid_length_each_example,
                                                                                            is_finished)
-
                 infer_output, is_finished = self.infer(input_ids=input_ids,
                                                        valid_length_each_example=valid_length_each_example,
                                                        generation_config=generation_config,
@@ -1042,10 +1056,6 @@ class GenerationMixin:
             current_index, records the current index of the sequence.
         """
         input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
-        if parallel_decoding_control(self.config):
-            current_index = None
-        else:
-            current_index = valid_length_each_example - 1 + np.arange(input_ids.size, step=input_ids.shape[1])
         if self.config.is_encoder_decoder:
             inputs = Tensor(input_ids, mstype.int32)
             # pylint: disable=E1102
@@ -1057,6 +1067,7 @@ class GenerationMixin:
                 decoder_attention_mask=Tensor(target_mask, mstype.float32),
             )
         else:
+            current_index = valid_length_each_example - 1 + np.arange(input_ids.size, step=input_ids.shape[1])
             model_kwargs["current_index"] = current_index
             model_kwargs["prefill"] = prefill if use_past else None
             model_kwargs["valid_length_each_example"] = valid_length_each_example
@@ -1072,7 +1083,6 @@ class GenerationMixin:
             else:
                 current_index = valid_length_each_example - 1 + np.arange(real_input_ids.numel(),
                                                                           step=real_input_ids.shape[1])
-                model_kwargs["current_index"] = current_index
             if use_past:
                 if "batch_valid_length" not in model_inputs:
                     model_inputs["batch_valid_length"] = Tensor.from_numpy(
@@ -1090,7 +1100,6 @@ class GenerationMixin:
                 if self._pre_set_phase:
                     self.phase = f"predict_{self._pre_set_phase}"
                 res = self(**model_inputs)  # pylint: disable=E1102
-
         return res, current_index
 
     def postprocess(self,

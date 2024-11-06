@@ -474,26 +474,9 @@ def get_device_num_per_node():
     return int(os.getenv("DEVICE_NUM_PER_NODE", "8"))
 
 
-def get_disable_custom_fa():
-    ms_enable_internal_boost = os.environ.get("MS_ENABLE_INTERNAL_BOOST")
-    if ms_enable_internal_boost == "off":
-        return True
-
-    disable_custom_op_list = os.environ.get("MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST")
-    if disable_custom_op_list is not None and "FlashAttentionScore" in disable_custom_op_list:
-        return True
-    return False
-
-
 def get_predict_run_mode():
     run_mode = os.environ.get("RUN_MODE")
     return run_mode == "predict"
-
-
-def get_use_rope_self_define():
-    # use_rope_self_define=True indicate that using self defined op for rope kernel
-    use_rope_self_define = os.environ.get("USE_ROPE_SELF_DEFINE")
-    return use_rope_self_define == "True"
 
 
 def is_main_rank():

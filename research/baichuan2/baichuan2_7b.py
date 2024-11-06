@@ -22,7 +22,7 @@ try:
     from mindspore._checkparam import Validator
 except ImportError:
     import mindspore._checkparam as Validator
-from mindspore import Tensor, nn, ops
+from mindspore import Tensor, nn, ops, mint
 from mindspore.context import ParallelMode
 from mindspore.common.parameter import Parameter
 from mindspore.ops import operations as P
@@ -42,7 +42,7 @@ from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import get_use_rope_self_define, get_predict_run_mode
+from mindformers.tools.utils import get_predict_run_mode
 
 __all__ = ['Baichuan7BV2ForCausalLM', 'Baichuan7BV2Model']
 
@@ -88,9 +88,6 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
         self.use_flash_attention = config.use_flash_attention
         if self.use_flash_attention:
             logger.info("Enable flash attention.")
-        elif config.use_flash_attention:
-            logger.info("Current MindSpore do not support flash attention.")
-        self.use_rope_self_define = get_use_rope_self_define()
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
@@ -106,12 +103,14 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
                                   rotary_dtype=config.rotary_dtype,
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
-                                  extend_method=config.extend_method)
+                                  extend_method=config.extend_method,
+                                  is_dynamic=config.is_dynamic)
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
-                                                          use_flash_attention=config.use_flash_attention)
+                                                          use_flash_attention=config.use_flash_attention,
+                                                          use_past=config.use_past)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              param_init_type=config.param_init_type,
@@ -190,12 +189,8 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
-                if not self.use_flash_attention:
-                    mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-                if self.use_rope_self_define:
-                    freqs_cis = self.freqs_mgr(seq_len)
-                else:
-                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                mask = self.casual_mask(tokens)
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
@@ -341,7 +336,7 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
         self.mul = P.Mul()
         self.add = P.Add()
         self.ones = P.Ones()
-        self.gather = P.Gather(1)
+        self.gather = P.Gather()
         self.sub_batch_valid_len = P.Sub()
         self.model = Baichuan7BV2Model(config=config)
         self.lm_head = NormHead(hidden_size=config.hidden_size,
@@ -380,14 +375,6 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
 
         self.load_checkpoint(config)
         self.predict_run_mode = get_predict_run_mode()
-
-    # pylint: disable=W0613
-    def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        if self.config.is_dynamic and "origin_inputs" in kwargs:
-            input_ids = kwargs["origin_inputs"]
-        return {
-            "input_ids": Tensor(input_ids, mstype.int32)
-        }
 
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -433,6 +420,7 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
         output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables, slot_mapping)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
+            batch_valid_length = mint.cumsum(batch_valid_length, 0)
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 

@@ -31,7 +31,7 @@ from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
 from mindformers.modules.paged_attention_mgr import PagedAttentionMgr
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
-from mindformers.tools.utils import get_disable_custom_fa, get_use_rope_self_define, is_pynative
+from mindformers.tools.utils import is_pynative
 
 __all__ = [
     "ParallelMLP",
@@ -360,7 +360,7 @@ class ParallelAttention(nn.Cell):
         else:
             raise NotImplementedError(
                 f"attention_type(str) should be 'self_attn' or 'cross_attn', but got {self.attn_type}")
-
+        self.reshape = ops.Reshape()
         self.wo = RowParallelLinear(
             self.hidden_size,
             self.hidden_size,
@@ -375,7 +375,9 @@ class ParallelAttention(nn.Cell):
         if self.use_flash_attention:
             self.flash_attention = FlashAttention(head_num=self.num_heads_per_partition,
                                                   scale_value=1.0 / self.norm_factor,
-                                                  next_tokens=0)
+                                                  next_tokens=0,
+                                                  use_attention_mask=True,
+                                                  input_layout="TH")
 
         if self.use_past:
             kv_shape = (self.config.num_blocks, self.config.block_size, self.kv_num_heads_per_partition, self.head_dim)
@@ -435,7 +437,15 @@ class ParallelAttention(nn.Cell):
 
             if self.is_first_iteration:
                 if self.use_flash_attention:
-                    context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask)
+                    bs, seq_len, _ = query.shape
+                    # [1, actual_seq_len, H] -> [actual_seq_len, H]
+                    query = self.reshape(query, (-1, self.num_heads_per_partition * self.head_dim))
+                    key = self.reshape(key, (-1, self.kv_num_heads_per_partition * self.head_dim))
+                    value = self.reshape(value, (-1, self.kv_num_heads_per_partition * self.head_dim))
+                    context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None,
+                                                         batch_valid_length, batch_valid_length)
+                    context_layer = self.reshape(context_layer, (bs, seq_len,
+                                                                 self.num_heads_per_partition * self.head_dim))
                 else:
                     # [B, S, H] -> [B, N, S, D]
                     query = query.reshape(bs, seq_len, -1, self.head_dim).transpose((0, 2, 1, 3))
@@ -739,9 +749,7 @@ class ParallelTransformer(nn.Cell):
         self.cast = ops.Cast()
         self.shape = ops.Shape()
 
-        self.disable_custom_fa = get_disable_custom_fa()
-        self.use_rope_self_define = get_use_rope_self_define()
-        self.fa_need_mask = is_pynative()
+        self.is_pynative = is_pynative()
 
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
@@ -750,13 +758,15 @@ class ParallelTransformer(nn.Cell):
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
                                   extend_method=config.extend_method,
-                                  parallel_config=config.parallel_config)
+                                  parallel_config=config.parallel_config,
+                                  is_dynamic=config.is_dynamic)
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
                                                           use_flash_attention=config.use_flash_attention,
-                                                          use_attn_mask_compression=config.use_attn_mask_compression)
+                                                          use_attn_mask_compression=config.use_attn_mask_compression,
+                                                          use_past=config.use_past)
 
         if config.parallel_config.vocab_emb_dp:
             self.tok_embeddings = VocabEmbedding(
@@ -801,19 +811,11 @@ class ParallelTransformer(nn.Cell):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
-                if self.use_rope_self_define:
-                    freqs_cis = self.freqs_mgr(seq_len)
+                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                if self.is_pynative:
+                    mask = self.casual_mask(tokens)
                 else:
-                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-
-                if self.use_flash_attention:
-                    if self.disable_custom_fa:  # only support fp16
-                        mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-                        mask = self.cast(mask, mstype.float16)
-                    if self.fa_need_mask:
-                        mask = self.casual_mask(tokens)
-                else:
-                    mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
+                    mask = self.casual_mask.prefill()
 
                 if prefix_keys_values is not None:
                     if mask is None:

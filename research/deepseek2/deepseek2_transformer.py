@@ -302,6 +302,7 @@ class DeepSeekV2Attention(nn.Cell):
                                                   next_tokens=0,
                                                   block_size=self.block_size,
                                                   num_blocks=self.num_blocks,
+                                                  is_dynamic=is_dynamic,
                                                   use_rope_rotary_emb=False,
                                                   use_flash_attention=False,
                                                   rotary_cos_format=2)

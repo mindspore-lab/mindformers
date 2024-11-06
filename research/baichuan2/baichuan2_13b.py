@@ -23,7 +23,7 @@ try:
     from mindspore._checkparam import Validator
 except ImportError:
     import mindspore._checkparam as Validator
-from mindspore import Tensor, nn, ops
+from mindspore import Tensor, nn, ops, mint
 from mindspore.common.parameter import Parameter
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
@@ -105,7 +105,7 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
         self.mul = P.Mul()
         self.add = P.Add()
         self.ones = P.Ones()
-        self.gather = P.Gather(1)
+        self.gather = P.Gather()
         self.sub_batch_valid_len = P.Sub()
         self.model = Baichuan13BV2Model(config=config)
         self.lm_head = NormHead(hidden_size=config.hidden_size,
@@ -146,13 +146,6 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
         self.predict_run_mode = get_predict_run_mode()
 
     # pylint: disable=W0613
-    def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        if self.config.is_dynamic and "origin_inputs" in kwargs:
-            input_ids = kwargs["origin_inputs"]
-        return {
-            "input_ids": Tensor(input_ids, mstype.int32)
-        }
-
     def set_dynamic_inputs(self, **kwargs):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
@@ -196,6 +189,7 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
         output = self.model(tokens, batch_valid_length, block_tables, slot_mapping)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
+            batch_valid_length = mint.cumsum(batch_valid_length, 0)
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 
@@ -285,8 +279,8 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
-                                                          use_flash_attention=config.use_flash_attention and not
-                                                          config.use_past)
+                                                          use_flash_attention=config.use_flash_attention,
+                                                          use_past=config.use_past)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              param_init_type=config.param_init_type,
@@ -362,8 +356,7 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
         else:
             mask = None
             if self.is_first_iteration:
-                if not self.use_flash_attention:
-                    mask = self.casual_mask(tokens)  # mask: [bs , 1, seq, seq]
+                mask = self.casual_mask(tokens)
                 alibi_tensor = self.slice(self.alibi_tensor, (0, 0, 0, 0),
                                           (1, self.alibi_tensor.shape[1], seq_len, seq_len), (1, 1, 1, 1))
             else:
@@ -567,6 +560,7 @@ class Baichuan13BAttention(nn.Cell):
                                                   next_tokens=65536,
                                                   block_size=self.block_size,
                                                   num_blocks=self.num_blocks,
+                                                  is_dynamic=False,
                                                   use_alibi_mask=True,
                                                   use_rope_rotary_emb=False,
                                                   use_flash_attention=use_flash_attention,

@@ -215,9 +215,9 @@ class TelechatAttention(nn.Cell):
                                                   next_tokens=0,
                                                   block_size=self.block_size,
                                                   num_blocks=self.num_blocks,
+                                                  is_dynamic=is_dynamic,
                                                   use_flash_attention=self.use_flash_attention,
                                                   rotary_cos_format=2,
-                                                  rotary_dtype=rotary_dtype,
                                                   compute_dtype=compute_dtype)
             self.infer_attention.shard(parallel_config)
         else:

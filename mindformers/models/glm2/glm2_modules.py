@@ -37,7 +37,7 @@ class FreqsMgr(nn.Cell):
                  max_position_embedding=4096,
                  rotary_dtype=mstype.float16,
                  base=10000,
-                 rope_ratio=1.0
+                 rope_ratio=1.0,
                  ):
         super().__init__()
         if seq_length is not None and seq_length > max_position_embedding:
@@ -63,17 +63,14 @@ class FreqsMgr(nn.Cell):
 
         self.slice = P.StridedSlice().shard(((1, 1),))
         self.gather = P.Gather().shard(((1, 1), (1,)))
-        self.tile = P.Tile().shard(((1, 1),))
 
     def construct(self, seq_length):
         freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim * 2), (1, 1))
         freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim * 2), (1, 1))
         return freqs_cos, freqs_sin, self.cache
 
-    def prefill(self, bsz, seq_length):
-        freqs_cos = self.tile(self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim * 2), (1, 1)), (bsz, 1))
-        freqs_sin = self.tile(self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim * 2), (1, 1)), (bsz, 1))
-        return freqs_cos, freqs_sin, self.cache
+    def prefill(self):
+        return self.freqs_cos, self.freqs_sin, self.cache
 
     def increment(self, batch_valid_length):
         indices = batch_valid_length - 1
