@@ -45,6 +45,7 @@ mindformers.models.LlamaConfig
         - **tie_word_embeddings** (bool, 可选) - 是否将输入和输出嵌入层进行共享。默认值： ``False`` 。
         - **llm_backend** (str, 可选) - LLM 加速后端。默认值： ``None`` 。
         - **fused_rms_norm** (bool, 可选) - 是否使用融合算子的RMS_NORM。默认值： ``True`` 。
+        - **input_sliced_sig** (bool, 可选) - 数据集是否已处理成模型的seq_length大小。默认值：``False``。
 
     返回：
         LlamaConfig 类实例。

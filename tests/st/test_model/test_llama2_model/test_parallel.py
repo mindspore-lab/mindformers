@@ -89,3 +89,18 @@ class TestLlama2Parallel:
         with Pool(len(commands)) as pool:
             results = list(pool.imap(run_command, commands))
         check_results(commands, results)
+
+    def test_train_input_sliced(self):
+        """
+        Feature: Trainer.train()
+        Description: Test input has been processed to seq_length.
+        Expectation: AssertionError
+        """
+        commands = [
+            (f"export ASCEND_RT_VISIBLE_DEVICES=0,1 && msrun --worker_num=2 --local_worker_num=2 --master_port=8118 "
+             f"--log_dir=log_train_input_sliced --join=True "
+             f"{cur_dir}/run_parallel.py --mode train_input_sliced", 'log_train_input_sliced/worker_0.log'),
+        ]
+        with Pool(len(commands)) as pool:
+            results = list(pool.imap(run_command, commands))
+        check_results(commands, results)
