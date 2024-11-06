@@ -29,7 +29,7 @@ try:
 except ImportError:
     import mindspore._checkparam as Validator
 from mindspore import log as logger
-from mindspore.common.initializer import initializer
+from mindspore.common.initializer import initializer, Normal
 from mindspore.parallel._utils import _get_parallel_mode
 from mindspore.context import ParallelMode
 from mindformers.version_control import check_valid_big_kernel
@@ -101,6 +101,7 @@ class LlamaEmbedding(Cell):
             - **param_init** (Union[Tensor, str, Initializer, numbers.Number]): Initializer for the embedding_table.
                 Refer to class `initializer` for the values of string when a string
                 is specified. Default: 'normal'.
+            - **init_method_std** (float): The sigma value when using normal type to initialize Linear. Default `0.01`
     Inputs:
             - **input_ids** (Tensor) - The tokenized inputs with datatype int32 with shape (batch_size, seq_length)
 
@@ -113,11 +114,14 @@ class LlamaEmbedding(Cell):
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     @_args_type_validator_check(vocab_table_size=Validator.check_positive_int,
                                 embedding_size=Validator.check_positive_int)
-    def __init__(self, vocab_table_size, embedding_size, param_init_type=mstype.float32, param_init='normal',
-                 parallel_optimizer=False):
+    def __init__(self, vocab_table_size, embedding_size, init_method_std=0.01, param_init_type=mstype.float32,
+                 param_init='normal', parallel_optimizer=False):
         super().__init__()
         self.vocab_table_size = vocab_table_size
         self.embedding_size = embedding_size
+        if param_init == "normal":
+            param_init = Normal(sigma=init_method_std, mean=0.0)
+            logger.info(f"Embedding use init method: sigma={init_method_std}, mean=0.0")
         self.embedding_weight = Parameter(
             initializer(param_init, [self.vocab_table_size, self.embedding_size], dtype=param_init_type),
             name='embedding_weight', parallel_optimizer=parallel_optimizer)
@@ -265,7 +269,8 @@ class LlamaFeedForward(Cell):
                  param_init_type=mstype.float32,
                  ffn_concat=False,
                  is_dynamic=False,
-                 parallel_config=default_dpmp_config):
+                 parallel_config=default_dpmp_config,
+                 init_method_std=0.01):
         super().__init__()
 
         if hidden_act is None or not (isinstance(hidden_act, str) or issubclass(hidden_act, nn.Cell)):
@@ -299,6 +304,7 @@ class LlamaFeedForward(Cell):
         if self.ffn_concat:
             self.w_gate_hidden = Linear(in_channels=dim,
                                         out_channels=hidden_dim * 2,
+                                        init_method_std=init_method_std,
                                         expert_num=expert_num,
                                         outer_batch=dp_moe,
                                         has_bias=False,
@@ -309,6 +315,7 @@ class LlamaFeedForward(Cell):
             self.split = ms.ops.auto_generate.SplitWithSize()
             self.w2 = Linear(in_channels=hidden_dim,
                              out_channels=dim,
+                             init_method_std=init_method_std,
                              expert_num=expert_num,
                              outer_batch=dp_moe,
                              has_bias=False,
@@ -318,6 +325,7 @@ class LlamaFeedForward(Cell):
         else:
             self.w1 = Linear(in_channels=dim,
                              out_channels=hidden_dim,
+                             init_method_std=init_method_std,
                              expert_num=expert_num,
                              outer_batch=dp_moe,
                              activation=hidden_act,
@@ -328,6 +336,7 @@ class LlamaFeedForward(Cell):
 
             self.w2 = Linear(in_channels=hidden_dim,
                              out_channels=dim,
+                             init_method_std=init_method_std,
                              expert_num=expert_num,
                              outer_batch=dp_moe,
                              has_bias=False,
@@ -337,6 +346,7 @@ class LlamaFeedForward(Cell):
 
             self.w3 = Linear(in_channels=dim,
                              out_channels=hidden_dim,
+                             init_method_std=init_method_std,
                              expert_num=expert_num,
                              outer_batch=dp_moe,
                              has_bias=False,
@@ -441,7 +451,8 @@ class LlamaMoeInferFeedForward(Cell):
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
                  is_dynamic=False,
-                 use_gmm=True):
+                 use_gmm=True,
+                 init_method_std=0.01):
         super().__init__()
 
         if hidden_act is None or not (isinstance(hidden_act, str) or issubclass(hidden_act, nn.Cell)):
@@ -469,6 +480,7 @@ class LlamaMoeInferFeedForward(Cell):
 
         self.w1 = Linear(in_channels=dim,
                          out_channels=hidden_dim,
+                         init_method_std=init_method_std,
                          expert_num=expert_num,
                          activation=hidden_act,
                          has_bias=False,
@@ -479,6 +491,7 @@ class LlamaMoeInferFeedForward(Cell):
 
         self.w2 = Linear(in_channels=hidden_dim,
                          out_channels=dim,
+                         init_method_std=init_method_std,
                          expert_num=expert_num,
                          has_bias=False,
                          use_gmm=use_gmm,
@@ -488,6 +501,7 @@ class LlamaMoeInferFeedForward(Cell):
 
         self.w3 = Linear(in_channels=dim,
                          out_channels=hidden_dim,
+                         init_method_std=init_method_std,
                          expert_num=expert_num,
                          has_bias=False,
                          use_gmm=use_gmm,
@@ -542,6 +556,7 @@ class LlamaFeedForwardWithMoE(Cell):
                  parallel_config=default_dpmp_config,
                  use_moe_infer=True,
                  return_extra_loss=False,
+                 init_method_std=0.01
                  ):
         super().__init__()
         self.expert_num = moe_config.expert_num
@@ -565,7 +580,8 @@ class LlamaFeedForwardWithMoE(Cell):
                                              compute_dtype=compute_dtype,
                                              param_init_type=param_init_type,
                                              is_dynamic=is_dynamic,
-                                             use_gmm=self.use_moe_infer),
+                                             use_gmm=self.use_moe_infer,
+                                             init_method_std=init_method_std),
                 dim=hidden_size,
                 moe_config=moe_config,
                 parallel_config=parallel_config
@@ -579,7 +595,8 @@ class LlamaFeedForwardWithMoE(Cell):
                                      compute_dtype=compute_dtype,
                                      param_init_type=param_init_type,
                                      is_dynamic=is_dynamic,
-                                     parallel_config=parallel_config),
+                                     parallel_config=parallel_config,
+                                     init_method_std=init_method_std),
                 dim=hidden_size,
                 moe_config=moe_config,
                 parallel_config=parallel_config,

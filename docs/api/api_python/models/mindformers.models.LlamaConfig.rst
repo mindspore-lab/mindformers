@@ -46,6 +46,7 @@ mindformers.models.LlamaConfig
         - **llm_backend** (str, 可选) - LLM 加速后端。默认值： ``None`` 。
         - **fused_rms_norm** (bool, 可选) - 是否使用融合算子的RMS_NORM。默认值： ``True`` 。
         - **input_sliced_sig** (bool, 可选) - 数据集是否已处理成模型的seq_length大小。默认值：``False``。
+        - **init_method_std** (float, 可选) - 线性映射层使用normal类型初始化的均指。默认值： ``0.01``。
 
     返回：
         LlamaConfig 类实例。

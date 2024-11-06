@@ -63,6 +63,8 @@ class LlamaConfig(PretrainedConfig):
             rope compute dtype. Default: ``float32`` .
         param_init_type (str, optional):
             parameter initial dtype. Default: ``float16`` .
+        init_method_std (float, optional):
+            The sigma value when using normal type to initialize Linear. Default: ``0.01`` .
         qkv_has_bias (bool, optional):
             Whether the Query, Key, and Value projection has bias. Default: ``False`` .
         attn_proj_has_bias (bool, optional):
@@ -217,6 +219,7 @@ class LlamaConfig(PretrainedConfig):
                  fine_grain_interleave: int = 1,
                  pp_interleave_num: int = 1,
                  offset: int = 0,
+                 init_method_std: float = 0.01,
                  checkpoint_name_or_path: str = "",
                  repetition_penalty: float = 1.0,
                  max_decode_length: int = 1024,
@@ -301,4 +304,5 @@ class LlamaConfig(PretrainedConfig):
         self.llm_backend = llm_backend
         self.parallel_decoding_params = kwargs.get('parallel_decoding_params')
         self.fused_rms_norm = fused_rms_norm
+        self.init_method_std = init_method_std
         self.input_sliced_sig = input_sliced_sig
