@@ -135,9 +135,9 @@ class FreqsMgrRope(nn.Cell):
 
     def construct(self, seq_length):
         freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim * 2), (1, 1)).reshape(
-            (self.seq_length, 1, 2 * self.dim))
+            (seq_length, 1, 2 * self.dim))
         freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim * 2), (1, 1)).reshape(
-            (self.seq_length, 1, 2 * self.dim))
+            (seq_length, 1, 2 * self.dim))
         return freqs_cos, freqs_sin, self.swap_mask
 
     def prefill(self, bsz, seq_length):

@@ -57,7 +57,7 @@ def _get_warmup_steps(warmup_steps: int, warmup_ratio: float, total_steps: int):
 
 
 def _get_decay_steps(decay_steps: int, decay_ratio: float, total_steps: int):
-    """check warmup args and get warmup steps."""
+    """check decay args and get decay steps."""
     decay_steps = max(1, decay_steps) if decay_steps is not None else max(1, total_steps)
     if decay_ratio is None:
         if not isinstance(decay_steps, int):
