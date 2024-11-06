@@ -262,7 +262,7 @@ class ChatGLM2SelfAttention(nn.Cell):
         qkv_strategy_bias = ((dp * cp, mp), (mp,)) if qkv_has_bias else None
         self.query_key_value.shard(strategy_matmul=qkv_strategy_matmul, strategy_bias=qkv_strategy_bias)
         self.split_qkv.add_prim_attr("skip_redistribution", True)
-        self.split_qkv.shard(((dp * cp, mp, 1),))
+        self.split_qkv.shard(((dp * cp, 1, 1),))
 
     def shard_wqkv_non_concat(self, config, qkv_has_bias, kv_mp):
         """shard wqkv non concat"""
