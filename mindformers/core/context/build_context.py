@@ -47,7 +47,9 @@ MF_CONFIG = {
     'exclude_cann_cpu': False,
     'train_precision_sync': False,
     'infer_precision_sync': False,
-    'postprocess_use_numpy': False
+    'postprocess_use_numpy': False,
+    'enable_mindio_ttp_save_ckpt': False,
+    'use_graceful_exit': False
 }
 
 PARALLEL = {
@@ -80,6 +82,9 @@ class _Context:
 
         self.set_train_precision_sync(self.config.get('train_precision_sync', None))
         self.set_infer_precision_sync(self.config.get('infer_precision_sync', None))
+
+        self.set_enable_ttp_env(self.config.get('enable_mindio_ttp_save_ckpt'))
+        self.save_ckpt_grace_exit(self.config.get('use_graceful_exit'))
 
         local_rank, device_num = self.init_ms_context()
         config.device_num = device_num
@@ -301,6 +306,23 @@ class _Context:
         else:
             os.environ['CUSTOM_MATMUL_SHUFFLE'] = 'on'
             os.environ['LCCL_DETERMINISTIC'] = '0'
+
+    def set_enable_ttp_env(self, switch):
+        """set enable_mindio_ttp_save_ckpt env"""
+        if switch is None:
+            return
+        if switch:
+            os.environ['MS_ENABLE_TFT'] = '{TTP:1}'
+            os.environ['MINDIO_FOR_MINDSPORE'] = '1'
+
+    def save_ckpt_grace_exit(self, switch):
+        """set use_graceful_exit wnv"""
+        if switch is None:
+            return
+        if switch:
+            os.environ['MS_ENABLE_GRACEFUL_EXIT'] = '1'
+        else:
+            os.environ['MS_ENABLE_GRACEFUL_EXIT'] = '0'
 
 
 def _context(config=None):
