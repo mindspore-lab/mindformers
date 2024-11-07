@@ -1,7 +1,11 @@
-approvers:
-- Lin-Bert
-- suhaibo
+reviewers:
 - wangshaocong
 - fft1374
 - mamba_ni
+- Lin-Bert
+- suhaibo
+
+approvers:
+- Lin-Bert
+- suhaibo
 - wjlflyer
