@@ -35,6 +35,7 @@ from mindspore.nn import Optimizer, Cell, PipelineCell, MicroBatchInterleaved
 try:
     # new interface in ms2.1.1
     from mindspore.nn.wrap.cell_wrapper import GradAccumulationCell
+
     GRAD_ACCUMULATION_VALID = True
 except ImportError:
     GRAD_ACCUMULATION_VALID = False
@@ -70,6 +71,8 @@ from .utils import (
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
+from ..utils import is_hf_safetensors_dir
+from ..utils.load_checkpoint_utils import process_hf_checkpoint
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
@@ -781,6 +784,7 @@ class BaseTrainer:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
 
+        config.load_checkpoint = self._get_load_path_after_hf_convert(config, network)
         self._check_training_network_no_use_past(network)
 
         eval_network = None
@@ -818,8 +822,6 @@ class BaseTrainer:
             write_args_to_tensorboard(config)
             update_tensorboard_args(config.tensorboard)
 
-
-
         # build callback
         logger.info(".........Build Callbacks For Train..........")
         default_callbacks = []
@@ -852,8 +854,8 @@ class BaseTrainer:
                     logger.info(".........enable_mindio_ttp_save_ckpt and remove redundancy are incompatible..........")
                 default_args = {"append_info": append_info,
                                 "global_batch_size": self.global_batch_size,
-                                "remove_redundancy": config.get("remove_redundancy", False),
-                                "checkpoint_format": config.get("checkpoint_format", "ckpt")
+                                "remove_redundancy": callback.get("remove_redundancy", False),
+                                "checkpoint_format": callback.get("checkpoint_format", "ckpt")
                                 }
                 if default_args.get("remove_redundancy") and default_args.get("checkpoint_format") == "ckpt":
                     raise ValueError("The format of checkpoint is ckpt which is not support remove redundancy.")
@@ -972,7 +974,7 @@ class BaseTrainer:
         elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Evaluate: %s", self.network.__class__.__name__)
             network = self.network
-
+        config.load_checkpoint = self._get_load_path_after_hf_convert(config, network)
         if network is not None and construct_args_key is not None:
             network = self.warp_data_order_with_tool_cells(network, construct_args_key)
 
@@ -1043,7 +1045,7 @@ class BaseTrainer:
                                   "moe_config": config.moe_config})
             self.set_network(network, is_train=False)
             self.count_parameters()
-
+            config.load_checkpoint = self._get_load_path_after_hf_convert(config, network)
             if tokenizer is None and config.processor.tokenizer:
                 tokenizer = build_tokenizer(config.processor.tokenizer, tokenizer_name=config.trainer.model_name)
 
@@ -1124,3 +1126,10 @@ class BaseTrainer:
         )
         model.eval_network.set_train(origin_phase)
         return output
+
+    def _get_load_path_after_hf_convert(self, config, network):
+        if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
+                is_hf_safetensors_dir(config.load_checkpoint, network)):
+            logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
+            return process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
+        return config.load_checkpoint

@@ -16,7 +16,6 @@
 import os
 import json
 import sys
-import time
 import random
 import re
 from enum import Enum
@@ -30,6 +29,7 @@ from mindspore import ops, mint
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_real_rank
+from mindformers.utils.load_checkpoint_utils import CkptFormat, load_checkpoint_with_safetensors, build_model
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.utils import (
     replace_tk_to_mindpet,
@@ -98,7 +98,7 @@ class OptimizerType(BaseEnum):
     """
     Stores the acceptable string identifiers for optimizers.
     """
-    # supported item for test, will be delete in the future.
+    # supported item for test, will be deleted in the future.
     ADAMWEIGHTDECAY = 'AdamWeightDecay'
 
     # will be support item for future.
@@ -264,7 +264,8 @@ def config2dict(config):
     return new_dict
 
 
-def load_distributed_checkpoint(checkpoint_dir, choice_func=None, rank_id=None):
+def load_distributed_checkpoint(checkpoint_dir, choice_func=None, rank_id=None, ckpt_format='ckpt',
+                                remove_redundancy=False):
     """Load Checkpoint in Parallel Mode."""
     if os.path.isdir(checkpoint_dir):
         logger.info(
@@ -274,14 +275,17 @@ def load_distributed_checkpoint(checkpoint_dir, choice_func=None, rank_id=None):
         rank_id = rank_id if rank_id is not None else get_real_rank()
         distribute_checkpoint_dir = os.path.join(
             checkpoint_dir, "rank_{}".format(rank_id))
-        distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir)
+        distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir, ckpt_format)
         logger.info("distribute checkpoint dir: %s", distribute_checkpoint_dir)
     elif os.path.isfile(checkpoint_dir):
         logger.info("Your load_checkpoint is file, it will be load in network.")
         distribute_checkpoint_path = checkpoint_dir
     else:
         raise FileNotFoundError(f"{checkpoint_dir} is not found.")
-    checkpoint_dict = load_checkpoint(distribute_checkpoint_path, choice_func=choice_func)
+    checkpoint_dict = load_checkpoint(distribute_checkpoint_path,
+                                      choice_func=choice_func,
+                                      format=ckpt_format,
+                                      remove_redundancy=remove_redundancy)
     logger.info("Distribute load is success.")
     return checkpoint_dict
 
@@ -290,8 +294,7 @@ def load_resume_context_from_checkpoint(config, dataset):
     """resume training, load training info from checkpoint to config"""
     if not os.path.realpath(config.load_checkpoint) or \
             not os.path.exists(config.load_checkpoint):
-        raise FileNotFoundError(f"The load_checkpoint must be correct, "
-                                f"but get {config.load_checkpoint}")
+        raise FileNotFoundError(f"The load_checkpoint must be correct, but get {config.load_checkpoint}")
 
     if os.path.isdir(config.load_checkpoint):
         if isinstance(config.resume_training, bool):
@@ -301,21 +304,26 @@ def load_resume_context_from_checkpoint(config, dataset):
                 rank_id = 0
             resume_dict = load_distributed_checkpoint(config.load_checkpoint,
                                                       choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num", "global_batch_size"],
-                                                      rank_id=rank_id)
+                                                      rank_id=rank_id, ckpt_format=config.load_ckpt_format,
+                                                      remove_redundancy=config.remove_redundancy)
         else:
             checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{config.rank_id}", config.resume_training)
-            resume_dict = load_checkpoint(checkpoint_tmp,
-                                          choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num", "global_batch_size"])
+            resume_dict = load_checkpoint(
+                checkpoint_tmp,
+                choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num", "global_batch_size"],
+                format=config.load_ckpt_format, remove_redundancy=config.remove_redundancy)
 
     else:
-        resume_dict = load_checkpoint(config.load_checkpoint,
-                                      choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num", "global_batch_size"])
+        resume_dict = load_checkpoint(
+            config.load_checkpoint,
+            choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num", "global_batch_size"],
+            format=config.load_ckpt_format, remove_redundancy=config.remove_redundancy)
 
     step_scale = 1.0
     if "global_batch_size" in resume_dict:
         last_global_batch_size = int(resume_dict["global_batch_size"])
         step_scale = last_global_batch_size / config.runner_config.global_batch_size
-        logger.info("Detect global batch size is changed from %d to %d, scale: %f", \
+        logger.info("Detect global batch size is changed from %d to %d, scale: %f",
                     last_global_batch_size, config.runner_config.global_batch_size, step_scale)
     config.runner_config.step_scale = step_scale
 
@@ -356,11 +364,15 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
     4. transform checkpoint if need
     5. load ckpt
     """
-    if not config.only_save_strategy and (not os.path.realpath(config.load_checkpoint) or
-                                          not os.path.exists(config.load_checkpoint)):
-        raise FileNotFoundError(f"The load_checkpoint must be correct, "
-                                f"but get {config.load_checkpoint}")
+    # check checkpoint config valid
+    check_checkpoint_config_valid(config)
 
+    # load safetensors process
+    if not config.only_save_strategy and config.load_ckpt_format == CkptFormat.SAFETENSORS.value:
+        load_checkpoint_with_safetensors(config, model, network, dataset, do_eval=do_eval, do_predict=do_predict)
+        return
+
+    # load ckpt process
     if not config.auto_trans_ckpt and not config.only_save_strategy and \
         check_path_include_total_ckpt(config.load_checkpoint):
         load_ckpt(config, network, optimizer=optimizer, model=model)
@@ -404,6 +416,18 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
     load_ckpt(config, network, optimizer=optimizer, model=model)
 
 
+def check_checkpoint_config_valid(config):
+    # check valid load checkpoint path
+    if not config.only_save_strategy and (not os.path.realpath(config.load_checkpoint) or
+                                          not os.path.exists(config.load_checkpoint)):
+        raise FileNotFoundError(f"The load_checkpoint must be correct, "
+                                f"but get {config.load_checkpoint}")
+    # check valid format
+    if config.load_ckpt_format is not None and config.load_ckpt_format not in CkptFormat.support_type():
+        raise ValueError(
+            f"config.load_ckpt_format only support for 'ckpt' or 'safetensors', but got {config.load_ckpt_format}.")
+
+
 def check_rank_folders(path, rank_id):
     """check if the folders in path are correct"""
     folder_name = "rank_{}".format(rank_id)
@@ -433,24 +457,6 @@ def check_path_include_total_ckpt(path):
             return False
         return True
     return False
-
-
-def build_model(config, model, dataset, do_eval=False, do_predict=False):
-    """build model and generate strategy file"""
-    if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
-                                                              'hybrid_parallel']:
-        if not config.runner_config.sink_mode:
-            raise ValueError("When distributed loads are sliced weights, sink_mode must be set True.")
-        if do_eval:
-            model.infer_predict_layout(*dataset)
-        elif do_predict:
-            model.infer_predict_layout(*dataset)
-        else:
-            build_time_start = time.time()
-            model.build(train_dataset=dataset, epoch=config.runner_config.epochs,
-                        sink_size=config.runner_config.sink_size)
-            build_time_end = time.time()
-            logger.info("Time spent building the model: %.2fs", build_time_end - build_time_start)
 
 
 def load_slora_ckpt(checkpoint_dict, config, network):
@@ -579,7 +585,7 @@ def load_ckpt(config, network, optimizer=None, model=None):
     if "global_step" in checkpoint_dict and config.runner_config.step_scale is not None:
         resume_global_step = int(checkpoint_dict["global_step"].data * config.runner_config.step_scale)
         logger.info("Set global_step from %d to: %d", \
-            int(checkpoint_dict["global_step"]), resume_global_step)
+                    int(checkpoint_dict["global_step"]), resume_global_step)
         checkpoint_dict["global_step"] = Parameter([resume_global_step])
 
 
@@ -595,17 +601,17 @@ def load_ckpt(config, network, optimizer=None, model=None):
             logger.info("Optimizer parameters are not loaded: %s", not_load_optim_params)
 
 
-def get_last_checkpoint(checkpoint_dir):
+def get_last_checkpoint(checkpoint_dir, ckpt_format='ckpt'):
     """get last checkpoint for resuming or finetune."""
     if not os.path.isdir(checkpoint_dir):
         raise NotADirectoryError(
             f"{checkpoint_dir} is not a real directory,"
-            "When distributed loads are sliced weights,"
-            "load_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
-            "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/**.ckpt")
+            f"When distributed loads are sliced weights,"
+            f"load_checkpoint should be a checkpoint directory containing the directory of rank_{{0-*}},"
+            f"The directory structure is as follows: **checkpoint_root_dir/rank_{{0-*}}/**.{ckpt_format}")
     output_checkpoint_path = [
         checkpoint for checkpoint in os.listdir(checkpoint_dir)
-        if checkpoint.endswith('.ckpt')
+        if checkpoint.endswith(f'.{ckpt_format}')
     ]
     if not output_checkpoint_path:
         return None
