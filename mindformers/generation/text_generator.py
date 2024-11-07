@@ -706,6 +706,23 @@ class GenerationMixin:
                 f"You shout set max_length to {input_ids_length}"
             )
 
+        if generation_config.min_length is not None and generation_config.min_length > generation_config.max_length:
+            logger.warning(f"Unfeasible length constraints: `min_length` ({generation_config.min_length}) is "
+                           f"larger than the maximum possible length ({generation_config.max_length})."
+                           f" Generation will stop at the defined maximum length. "
+                           f"You should decrease the minimum length and/or increase the maximum length.")
+
+        if generation_config.min_new_tokens is not None:
+            min_length = generation_config.min_new_tokens + input_ids_length
+            if min_length > generation_config.max_length:
+                logger.warning(
+                    f"Unfeasible length constraints: `min_new_tokens` ({generation_config.min_new_tokens}), when "
+                    f"added to the prompt length ({input_ids_length}), is larger than"
+                    f" the maximum possible length ({generation_config.max_length}). "
+                    f"Generation will stop at the defined maximum length. "
+                    f"You should decrease the minimum length and/or increase the maximum length."
+                )
+
         logits_processor = self.get_logits_processor(
             generation_config=generation_config,
             input_ids_seq_length=input_ids_length,
