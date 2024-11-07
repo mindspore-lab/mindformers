@@ -40,7 +40,7 @@ try:
 except ImportError:
     import mindspore._checkparam as Validator
 from mindspore import log as logger
-from mindspore.parallel._utils import _get_parallel_mode
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.context import ParallelMode
 
 try:
@@ -1072,15 +1072,22 @@ class LowerTriangularMaskWithDynamic(Cell):
         return mask
 
     def shard(self, parallel_config):
+        """sharding for LowerTriangularMaskWithDynamic"""
         dp = parallel_config.data_parallel
-        self.not_equal.shard(((dp, 1), ()))
-        self.bmm.shard(((dp, 1, 1), (dp, 1, 1)))
-        self.expand_dim.shard(((1, 1),))
-        self.mul.shard(((dp, 1, 1), (1, 1, 1)))
-        self.less_equal.shard(((1, 1, 1), (1, 1, 1)))
-        self.sub.shard(((1,), (dp, 1, 1)))
-        self.mul_post.shard(((dp, 1, 1, 1), (1,)))
-        self.expand_dim_post.shard(((dp, 1, 1),))
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.not_equal.shard(((dp, 1), ()))
+            self.bmm.shard(((dp, 1, 1), (dp, 1, 1)))
+            self.expand_dim.shard(((1, 1),))
+            self.expand_dim_post.shard(((dp, 1, 1),))
+        else:
+            self.not_equal.shard(((dp, 1), ()))
+            self.bmm.shard(((dp, 1, 1), (dp, 1, 1)))
+            self.expand_dim.shard(((1, 1),))
+            self.mul.shard(((dp, 1, 1), (1, 1, 1)))
+            self.less_equal.shard(((1, 1, 1), (1, 1, 1)))
+            self.sub.shard(((1,), (dp, 1, 1)))
+            self.mul_post.shard(((dp, 1, 1, 1), (1,)))
+            self.expand_dim_post.shard(((dp, 1, 1),))
 
 
 class VocabEmbedding(Cell):

@@ -251,7 +251,30 @@ class LLamaAttentionInterleave(nn.Cell):
                                                   use_attention_mask=True,
                                                   use_ring_attention=self.use_ring_attention)
             self.flash_attention.shard(parallel_config)
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.transpose.shard(((dp, cp, mp, 1),))
+            if cp > 1:
+                layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
+                layout_merger_head_transpose = (layout("dp", "mp", "cp", "None"),)
+                self.merger_head_transpose.shard(in_strategy=layout_merger_head_transpose)
+            else:
+                self.merger_head_transpose.shard(((dp, mp, 1, 1),))
+            self.merger_head_transpose.shard(((dp, mp, 1, 1),))
+            self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+            self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+            self.slice_qkv.shard(((dp, mp),))
+            self.apply_rotary_emb.shard(parallel_config)
+            if self.qkv_concat:
+                self.w.shard(((dp, 1), (mp, 1)))
+            elif qkv_has_bias:
+                self.wq.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
+                self.wk.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
+                self.wv.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
+            else:
+                self.wq.shard(((dp * cp, 1), (mp, 1)))
+                self.wk.shard(((dp * cp, 1), (mp, 1)))
+                self.wv.shard(((dp * cp, 1), (mp, 1)))
+        else:
             self.transpose.shard(((dp, cp, mp, 1),))
             if cp > 1:
                 layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
@@ -279,18 +302,18 @@ class LLamaAttentionInterleave(nn.Cell):
                 self.wq.shard(((dp * cp, 1), (mp, 1)))
                 self.wk.shard(((dp * cp, 1), (mp, 1)))
                 self.wv.shard(((dp * cp, 1), (mp, 1)))
-            self.wo.shard(((dp * cp, mp), (1, mp)), ((dp * cp, 1), (1,)), out_strategy_matmul=((dp * cp, 1),))
-            if parallel_config.use_seq_parallel and self.is_first_iteration and cp == 1:
-                self.wo.shard(((dp, mp), (1, mp)), ((dp * cp, 1), (1,)), out_strategy_matmul=((dp * mp, 1),))
-            if parallel_config.recompute.select_recompute and not self.use_flash_attention:
-                self.apply_rotary_emb.recompute()
-                self.tile_kv.recompute()
-                self.batch_matmul_q_k.recompute()
-                self.mul.recompute()
-                self.add.recompute()
-                self.cast_attn.recompute()
-                self.softmax.softmax.recompute()
-                self.batch_matmul.recompute()
+        self.wo.shard(((dp * cp, mp), (1, mp)), ((dp * cp, 1), (1,)), out_strategy_matmul=((dp * cp, 1),))
+        if parallel_config.use_seq_parallel and self.is_first_iteration and cp == 1:
+            self.wo.shard(((dp, mp), (1, mp)), ((dp * cp, 1), (1,)), out_strategy_matmul=((dp * mp, 1),))
+        if parallel_config.recompute.select_recompute and not self.use_flash_attention:
+            self.apply_rotary_emb.recompute()
+            self.tile_kv.recompute()
+            self.batch_matmul_q_k.recompute()
+            self.mul.recompute()
+            self.add.recompute()
+            self.cast_attn.recompute()
+            self.softmax.softmax.recompute()
+            self.batch_matmul.recompute()
 
     def compute_qkv(self, x):
         """compute the qkv with interleave number"""

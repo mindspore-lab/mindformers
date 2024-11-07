@@ -202,16 +202,23 @@ class LlamaModel(LlamaPreTrainedModel):
                                      fused_kernel=config.fused_rms_norm)
         dp = config.parallel_config.data_parallel
         cp = config.parallel_config.context_parallel
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.tok_embeddings.pipeline_stage = 0
-            if config.parallel_config.pipeline_stage > 1:
-                self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
-                self.tok_embeddings.set_comm_fusion(2)
-                self.norm_out.set_comm_fusion(2)
-            else:
-                self.tok_embeddings.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
-                self.norm_out.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+        self.tok_embeddings.pipeline_stage = 0
+        if config.parallel_config.pipeline_stage > 1:
+            self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            self.tok_embeddings.set_comm_fusion(2)
+            self.norm_out.set_comm_fusion(2)
+        else:
+            self.tok_embeddings.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+            self.norm_out.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.tok_embeddings.shard(config.parallel_config)
+            self.casual_mask.shard(config.parallel_config)
+            if self.fine_grain_interleave:
+                self.norm_out.shard((dp * cp, 1))
+            else:
+                self.norm_out.shard((dp, cp, 1))
+        else:
             self.tok_embeddings.shard(config.parallel_config)
             self.casual_mask.shard(config.parallel_config)
             self.concat.shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
@@ -394,7 +401,14 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
         cp = config.parallel_config.context_parallel
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.slice.shard(((dp, 1),))
+            self.not_equal.shard(((dp, 1), ()))
+            if config.parallel_config.vocab_emb_dp or (vocab_size % mp != 0):
+                self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
+            else:
+                self.lm_head.shard(strategy_matmul=((dp * cp, 1), (mp, 1)))
+        else:
             self.slice.shard(((dp, 1),))
             self.not_equal.shard(((dp, 1), ()))
             self.mul.shard(((dp, 1), (dp, 1)))
@@ -406,8 +420,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
             else:
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (mp, 1)))
-            if config.parallel_config.pipeline_stage > 1:
-                self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
+
+        if config.parallel_config.pipeline_stage > 1:
+            self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
         self.load_checkpoint(config)
         self.predict_run_mode = get_predict_run_mode()

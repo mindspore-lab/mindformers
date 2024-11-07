@@ -23,7 +23,7 @@ from mindspore.common.tensor import Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
-from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore.parallel._utils import _get_parallel_mode
 
 try:
     from mindspore._checkparam import Validator
@@ -137,10 +137,9 @@ class QwenForCausalLM(QwenPreTrainedModel):
         self.gather = P.Gather(1)
         self.enable_slice_dp = config.enable_slice_dp
 
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.shard(config.parallel_config)
-            if config.parallel_config.pipeline_stage > 1:
-                self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
+        self.shard(config.parallel_config)
+        if config.parallel_config.pipeline_stage > 1:
+            self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
         if config.enable_emb_opt:
             lm_head_matmul = self.lm_head.matmul
             self.lm_head.matmul = MatMulPad(lm_head_matmul, config.vocab_size, 512, config.enable_emb_opt)
@@ -368,17 +367,16 @@ class QwenModel(QwenPreTrainedModel):
 
         self.shape = P.Shape()
 
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.shard(config.parallel_config)
+        self.shard(config.parallel_config)
 
-            self.wte.pipeline_stage = 0
-            if config.parallel_config.pipeline_stage > 1:
-                self.ln_f.pipeline_stage = config.parallel_config.pipeline_stage - 1
-                self.wte.set_comm_fusion(2)
-                self.ln_f.set_comm_fusion(2)
-            else:
-                self.wte.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
-                self.ln_f.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+        self.wte.pipeline_stage = 0
+        if config.parallel_config.pipeline_stage > 1:
+            self.ln_f.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            self.wte.set_comm_fusion(2)
+            self.ln_f.set_comm_fusion(2)
+        else:
+            self.wte.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+            self.ln_f.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
     # pylint: disable=W0613
     def construct(self, input_embeds: Tensor, input_attention_masks: Tensor,
@@ -446,19 +444,17 @@ class QwenDecodeLayer(LLamaDecodeLayer):
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.feed_forward.shard(parallel_config)
-            self.feed_forward.mul.shard(((dp, 1, mp), (dp, 1, mp)))
+        self.feed_forward.shard(parallel_config)
+        self.feed_forward.mul.shard(((dp, 1, mp), (dp, 1, mp)))
         if parallel_config.use_seq_parallel and self.is_first_iteration:
             self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
 
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            if kwargs.get('qkv_concat'):
-                self.attention.w.bias_add.shard(((dp, mp), (mp,)))
-            else:
-                self.attention.wq.bias_add.shard(((dp, mp), (mp,)))
-                self.attention.wk.bias_add.shard(((dp, mp), (mp,)))
-                self.attention.wv.bias_add.shard(((dp, mp), (mp,)))
+        if kwargs.get('qkv_concat'):
+            self.attention.w.bias_add.shard(((dp, mp), (mp,)))
+        else:
+            self.attention.wq.bias_add.shard(((dp, mp), (mp,)))
+            self.attention.wk.bias_add.shard(((dp, mp), (mp,)))
+            self.attention.wv.bias_add.shard(((dp, mp), (mp,)))
 
 
 class QwenFeedForward(nn.Cell):
