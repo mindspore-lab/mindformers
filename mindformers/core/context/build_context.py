@@ -15,6 +15,7 @@
 """Build context."""
 
 import os
+import json
 from typing import Union
 
 import psutil
@@ -80,6 +81,14 @@ class _Context:
 
         self.set_train_precision_sync(self.config.get('train_precision_sync', None))
         self.set_infer_precision_sync(self.config.get('infer_precision_sync', None))
+
+        speedup_config_json = os.environ.get("MS_ENABLE_NUMA")
+        if speedup_config_json and os.path.exists(os.path.realpath(speedup_config_json)):
+            speedup_real_path = os.path.realpath(speedup_config_json)
+            rank_id = int(os.environ.get("RANK_ID", 0))
+            with open(speedup_real_path, 'r') as f:
+                speedup_config = json.load(f)
+                self.cpu_affinity_by_config(rank_id, speedup_config)
 
         local_rank, device_num = self.init_ms_context()
         config.device_num = device_num
@@ -206,6 +215,20 @@ class _Context:
         self.config.parallel_config.pipeline_stage = final_stages
         if final_stages > 1:
             self.config.parallel.pipeline_stages = final_stages
+
+    def cpu_affinity_by_config(self, rank_id, speedup_config):
+        """cpu affinity by config json"""
+        group_core_size = speedup_config.get("each_process_cpu_core_size", 0)
+        rank_info = "rank_" + str(rank_id)
+        if group_core_size != 0:
+            rank_info = "rank_0"
+            group_core_size *= rank_id
+        cur_bind_info = speedup_config.get(rank_info)
+        if cur_bind_info is not None and cur_bind_info.get("python"):
+            used_cpus = [i + group_core_size for i in cur_bind_info.get("python")]
+            cur_process = psutil.Process()
+            cur_process.cpu_affinity(used_cpus)
+            logger.warning(f"custom cpu affinity policy, rank_id: {rank_id}, cpus: {used_cpus}")
 
     def cpu_affinity(self, rank_id, rank_size):
         """cpu affinity"""
