@@ -17,7 +17,7 @@ import copy
 import mindspore.ops as ops
 import mindspore.common.dtype as mstype
 import mindspore.ops.operations as P
-from mindspore import Tensor
+from mindspore import Tensor, mint
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindpet.delta.ptuning2 import PrefixEncoder
@@ -27,7 +27,7 @@ from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.layers import Linear
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_disable_custom_fa, get_predict_run_mode
+from mindformers.tools.utils import get_predict_run_mode
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.version_control import get_dropout, get_tril
@@ -72,16 +72,14 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         self.use_flash_attention = config.use_flash_attention
         self.is_first_iteration = True
         self.use_rearrange_rope = config.use_rearrange_rope
-        # default open internal kernel boost
-        self.disable_custom_fa = get_disable_custom_fa()
-        logger.info("Open prefill flatten and disable custom flash attention op:{}".format(self.disable_custom_fa))
 
         # mask
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
-                                                          use_flash_attention=config.use_flash_attention)
+                                                          use_flash_attention=config.use_flash_attention,
+                                                          use_past=config.use_past)
 
         # vocab embedding
         dp = config.parallel_config.data_parallel
@@ -170,13 +168,8 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr.prefill(batch_size, seq_len)
-                if self.use_flash_attention:
-                    if self.disable_custom_fa:
-                        mask = self.casual_mask(input_ids)  # mask: [bs, seq, seq]
-                        mask = self.cast(mask, mstype.float16)
-                else:
-                    mask = self.casual_mask(input_ids)  # mask: [bs, seq, seq]
+                freqs_cis = self.freqs_mgr.prefill()
+                mask = self.casual_mask.prefill()
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
@@ -281,14 +274,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         self.load_checkpoint(config)
         self.vocab_size = config.padded_vocab_size
         self.predict_run_mode = get_predict_run_mode()
-
-    def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        """prepare inputs for generation."""
-        if self.config.is_dynamic and "origin_inputs" in kwargs:
-            input_ids = kwargs["origin_inputs"]
-        return {
-            "input_ids": Tensor(input_ids, mstype.int32)
-        }
+        self.sub_batch_valid_len = P.Sub()
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """Get ChatGLM2 model input tuple for transform ckpt."""
@@ -340,6 +326,10 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
             block_tables=block_tables,
             slot_mapping=slot_mapping
         )
+        pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
+        if pre_gather:
+            batch_valid_length = mint.cumsum(batch_valid_length, 0)
+            hidden_states = self.gather(hidden_states, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         lm_logits = self.transformer.output_layer(hidden_states)
         outputs = (lm_logits,)
 

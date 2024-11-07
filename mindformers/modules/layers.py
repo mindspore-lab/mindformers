@@ -1152,7 +1152,8 @@ class FreqsMgr(Cell):
                  theta=10000,
                  scaling_factor=1.0,
                  extend_method=SeqExtendMethod.NONE.value,
-                 parallel_config=None):
+                 parallel_config=None,
+                 is_dynamic=False):
         super().__init__()
         if seq_length is not None and seq_length > max_position_embedding:
             max_position_embedding = seq_length
@@ -1231,6 +1232,7 @@ class FreqsMgr(Cell):
         else:
             self.context_parallel = 1
         self.head_dim = head_dim
+        self.is_dynamic = is_dynamic
         self.freqs_cos = Tensor(freqs_cos, dtype=rotary_dtype)
         self.freqs_sin = Tensor(freqs_sin, dtype=rotary_dtype)
         self.swap_mask = Tensor(swap_mask, dtype=rotary_dtype)
@@ -1249,12 +1251,11 @@ class FreqsMgr(Cell):
         return freqs_cos, freqs_sin, self.swap_mask
 
     def prefill(self, bs, seq_length):
+        if self.is_dynamic:
+            return self.freqs_cos, self.freqs_sin, self.swap_mask
         freqs_cos = self.tile(self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))
         freqs_sin = self.tile(self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))
         return freqs_cos, freqs_sin, self.swap_mask
-
-    def prefill_flatten(self):
-        return self.freqs_cos, self.freqs_sin, self.swap_mask
 
     def increment(self, batch_valid_length):
         indices = batch_valid_length - 1

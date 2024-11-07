@@ -20,7 +20,7 @@ import numpy as np
 
 from mindspore import Tensor, nn, Parameter
 from mindspore import dtype as mstype
-from mindspore import ops
+from mindspore import ops, mint
 from mindspore.ops import operations as P
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
@@ -31,7 +31,7 @@ from mindformers.modules.transformer.transformer import LowerTriangularMaskWithD
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.models.utils import LayerSetting, check_fine_grain_interleave_valid
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_disable_custom_fa, get_predict_run_mode, get_use_rope_self_define
+from mindformers.tools.utils import get_predict_run_mode
 from mindformers.tools.logger import logger
 
 from ..utils import lazy_inline
@@ -147,14 +147,10 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
         self.cast = P.Cast()
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        # default open internal kernel boost
-        self.disable_custom_fa = get_disable_custom_fa()
-        logger.info("disable custom flash attention score op:{}".format(self.disable_custom_fa))
         if config.moe_config.expert_num > 1:
             logger.info("MoE config is provided, use MoE FFN")
         else:
             logger.info("MoE config is None, use normal FFN")
-        self.use_rope_self_define = get_use_rope_self_define()
 
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
@@ -168,7 +164,8 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
                                                           use_flash_attention=config.use_flash_attention,
-                                                          use_attn_mask_compression=config.use_attn_mask_compression)
+                                                          use_attn_mask_compression=config.use_attn_mask_compression,
+                                                          use_past=config.use_past)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              param_init_type=config.embedding_init_type,
@@ -288,12 +285,7 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
         freqs_cis = self.freqs_mgr(position_ids, self.use_past)
         mask = None
         if self.use_past and self.is_first_iteration:
-            if self.use_flash_attention:
-                if self.disable_custom_fa:  # only support fp16
-                    mask = self.casual_mask(masks=input_attention_masks)  # mask: [bs, seq, seq]
-                    mask = self.cast(mask, mstype.float16)
-            else:
-                mask = self.casual_mask(masks=input_attention_masks)  # mask: [bs, seq, seq]
+            mask = self.casual_mask.prefill()
 
             if prefix_keys_values is not None:
                 if mask is None:
@@ -350,7 +342,7 @@ class CogVLM2VideoLM(LlamaPreTrainedModel):
         self.mul = P.Mul()
         self.add = P.Add()
         self.ones = P.Ones()
-        self.gather = P.Gather(1)
+        self.gather = P.Gather()
         self.sub_batch_valid_len = P.Sub()
         self.model = CogVLM2VideoLMModel(config=config)
         self.lm_head = Linear(in_channels=config.hidden_size,
@@ -469,6 +461,7 @@ class CogVLM2VideoLM(LlamaPreTrainedModel):
                             input_attention_masks=input_attention_masks, position_ids=position_ids)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
+            batch_valid_length = mint.cumsum(batch_valid_length, 0)
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 

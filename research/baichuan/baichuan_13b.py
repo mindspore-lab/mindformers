@@ -121,12 +121,6 @@ class Baichuan13BForCausalLM(BaichuanPreTrainedModel):
 
         self.load_checkpoint(config)
 
-    # pylint: disable=W0613
-    def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        return {
-            "input_ids": Tensor(input_ids, mstype.int32)
-        }
-
     def add_flags_custom(self, is_first_iteration):
         """Add customized attributes for specific cells in the model."""
         self.add_flags(is_first_iteration=is_first_iteration)

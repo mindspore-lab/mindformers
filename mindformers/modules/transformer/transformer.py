@@ -977,8 +977,8 @@ class LowerTriangularMaskWithDynamic(Cell):
     @_LogActionOnce(m_logger=logger, key='AttentionMask',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     def __init__(self, seq_length, compute_type=mstype.float16,
-                 is_dynamic=False, pad_token_id=0, use_flash_attention=False,
-                 use_prompt_flash_attention=False, use_incre_flash_attention=False, use_attn_mask_compression=False):
+                 is_dynamic=False, pad_token_id=0, use_flash_attention=False, use_attn_mask_compression=False,
+                 use_past=False):
         super().__init__()
         self.dtype = compute_type
         self.is_dynamic = is_dynamic
@@ -986,18 +986,22 @@ class LowerTriangularMaskWithDynamic(Cell):
         self.use_flash_attention = use_flash_attention
         self.use_attn_mask_compression = use_attn_mask_compression
         self.seq_length = seq_length
-        self.use_prompt_flash_attention = use_prompt_flash_attention
-        self.use_incre_flash_attention = use_incre_flash_attention
         self.is_first_iteration = True
         self.multiply_data = Tensor([-10000.0], dtype=compute_type)
         self.one = Tensor([1.0], dtype=compute_type)
-        if use_attn_mask_compression and seq_length > 2048:
-            if seq_length < 2048:
-                raise ValueError("seq_length should be larger than 2048 when use mask_compression")
-            self.lower_triangle_mask = ms.Tensor(np.triu(np.ones((2048, 2048), dtype=np.int8), k=1), dtype=ms.uint8)
+        if use_past:
+            if self.is_dynamic:
+                self.lower_triangle_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
+            else:
+                self.lower_triangle_mask = None
         else:
-            self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length), dtype=np.int8)),
-                                              dtype=compute_type)
+            if use_attn_mask_compression and seq_length > 2048:
+                if seq_length < 2048:
+                    raise ValueError("seq_length should be larger than 2048 when use mask_compression")
+                self.lower_triangle_mask = ms.Tensor(np.triu(np.ones((2048, 2048), dtype=np.int8), k=1), dtype=ms.uint8)
+            else:
+                self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length), dtype=np.int8)),
+                                                  dtype=compute_type)
         self.shape = P.Shape()
         self.cast = P.Cast()
         self.reshape = P.Reshape()
@@ -1029,47 +1033,20 @@ class LowerTriangularMaskWithDynamic(Cell):
         # Mask the padded inputs
         mask_right = self.reshape(input_mask, shape_right)
         attention_mask = mask_right
-        if not self.is_dynamic:
-            lower_triangle = self.expand_dim(self.lower_triangle_mask, 0)
-        else:
-            lower_triangle_mask = self.slice(self.lower_triangle_mask, (0, 0), (seq_len, seq_len), (1, 1))
-            lower_triangle = self.expand_dim(lower_triangle_mask, 0)
+        lower_triangle = self.expand_dim(self.lower_triangle_mask, 0)
 
         # the returned shape is [bs, 1, seq_length, seq_length]
         attention_mask = self.mul(attention_mask, lower_triangle)
         attention_mask = self.sub(self.one, attention_mask)
         attention_mask = self.expand_dim_post(attention_mask, 1)
-        if not self.use_flash_attention and not self.use_prompt_flash_attention:
-            attention_mask = self.mul_post(attention_mask, self.multiply_data)
-        elif self.use_flash_attention or self.use_prompt_flash_attention:
+        if self.use_flash_attention:
             attention_mask = self.cast(attention_mask, mstype.uint8)
+        else:
+            attention_mask = self.mul_post(attention_mask, self.multiply_data)
         return attention_mask
 
-    def increment(self, seq_range, batch_valid_length, zactivate_len=None):
-        """Get mask for incremental inference."""
-        if zactivate_len is not None:
-            seq_range = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
-        mask = self.less_equal(self.reshape(seq_range, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
-        mask = self.cast(mask, self.dtype)
-        mask = self.sub(self.one, mask)
-        mask = self.expand_dim_post(mask, 1)
-        if not self.use_incre_flash_attention:
-            mask = self.mul_post(mask, self.multiply_data)
-        return mask
-
-    def increment_slice(self, seq_range, seq_length, batch_valid_length, zactivate_len=None):
-        """Get mask for incremental inference and apply slice."""
-        if zactivate_len is not None:
-            seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, self.shape(zactivate_len)[0]), (1, 1, 1))
-        else:
-            seq_range_mask = self.slice(seq_range, (0, 0, 0), (1, 1, seq_length), (1, 1, 1))
-        mask = self.less_equal(self.reshape(seq_range_mask, (1, 1, -1)), self.reshape(batch_valid_length, (-1, 1, 1)))
-        mask = self.cast(mask, self.dtype)
-        mask = self.sub(self.one, mask)
-        mask = self.expand_dim_post(mask, 1)
-        if not self.use_incre_flash_attention:
-            mask = self.mul_post(mask, self.multiply_data)
-        return mask
+    def prefill(self):
+        return self.lower_triangle_mask
 
     def shard(self, parallel_config):
         """sharding for LowerTriangularMaskWithDynamic"""

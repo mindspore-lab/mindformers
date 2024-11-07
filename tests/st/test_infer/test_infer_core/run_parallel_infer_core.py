@@ -59,10 +59,10 @@ def _test_parallel_attention(net):
     num_blocks = base_config.num_blocks
 
     input_x = Tensor(np.random.randn(batch_size, seq_length, hidden_size).astype(np.float16))
-    batch_valid_length = Tensor(np.ones((batch_size, 1)).astype(np.int32))
+    batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
     block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int64))
     slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
-    attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
+    attn_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
     freqs_cos = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
     freqs_sin = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
     freqs_cis = (freqs_cos, freqs_sin, None)
@@ -87,10 +87,10 @@ def _test_parallel_transformerlayers(net):
     num_blocks = base_config.num_blocks
 
     x = Tensor(np.random.randn(batch_size, seq_length, hidden_size).astype(np.float16))
-    batch_valid_length = Tensor(np.ones((batch_size, 1)).astype(np.int32))
+    batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
     block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int64))
     slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
-    mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
+    mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
     freqs_cos = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
     freqs_sin = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
     freqs_cis = (freqs_cos, freqs_sin, None)
@@ -114,7 +114,7 @@ def _test_parallel_transformer(net):
     hidden_size = base_config.hidden_size
 
     tokens = Tensor(np.arange(seq_length).astype(np.int32)).tile((batch_size, 1))
-    batch_valid_length = Tensor(np.ones((batch_size, 1)).astype(np.int32))
+    batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
     block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int64))
     slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
 

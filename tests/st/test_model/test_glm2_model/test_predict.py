@@ -39,14 +39,20 @@ class TestGLM2Predict:
         Description: Test base model prediction.
         Expectation: AssertionError
         """
+        ms.set_context(jit_config={"jit_level": "O0", "infer_boost": "on"})
         runner = ModelTester(run_mode='predict', batch_size=2, experiment_mode=False)
 
         model_config = get_config()
         model_config.batch_size = runner.batch_size  # set batch size for prediction
+        model_config.param_init_type = mstype.bfloat16
+        model_config.rotary_dtype = mstype.bfloat16
+        model_config.use_past = True
+        model_config.is_dynamic = True
+        model_config.use_flash_attention = True
 
         model = get_model(model_config)
 
-        expect_outputs = ("hello world.的先因此而底部常务理事常务理事┳矸┳做 OW OW┳┳ Thank Thank")
+        expect_outputs = ("hello world.的先因此而底部常务理事常务理事┳矸┳做 OW OW┳ Thank Thank Fle")
         outputs = runner.set_predict(model=model, expect_outputs=expect_outputs, auto_tokenizer='glm2_6b')
         assert outputs == expect_outputs, "The outputs are not as expected, outputs: "\
                                           f"{outputs}, expect_outputs: {expect_outputs}"
@@ -74,8 +80,12 @@ class TestGLM32kPredict:
         model_config.max_decode_length = 512
         model_config.no_recompute_layers = [20]
         model_config.param_init_type = mstype.float16
+        model_config.rotary_dtype = mstype.float16
         model_config.rope_ratio = 50
         model_config.seq_length = 32768
+        model_config.use_past = True
+        model_config.is_dynamic = True
+        model_config.use_flash_attention = True
 
         model = get_model(model_config)
 

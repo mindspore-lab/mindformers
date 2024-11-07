@@ -186,6 +186,9 @@ class _Context:
         if run_mode is not None and run_mode.strip() in ["predict", "eval"] and self.config.model.model_config.use_past:
             os.environ['MS_ALLOC_CONF'] = os.environ.setdefault('MS_ALLOC_CONF', 'enable_vmm:False')
             os.environ['RUN_MODE'] = run_mode
+            os.environ['CPU_AFFINITY'] = os.environ.setdefault('CPU_AFFINITY', 'True')
+            os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] =\
+                os.environ.setdefault('MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST', 'PagedAttention')
             jit_level = self.config.context.get("jit_level", "O0")
             infer_boost = self.config.context.get("infer_boost", "on")
             logger.info(f"Predict context config, jit_level: {jit_level}, infer_boost: {infer_boost}")

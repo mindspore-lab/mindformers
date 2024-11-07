@@ -20,8 +20,7 @@ from multiprocessing.synchronize import Condition
 import numpy as np
 
 import mindspore.common.dtype as mstype
-from mindspore import Tensor, nn
-from mindspore import mint
+from mindspore import Tensor, nn, mint
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
@@ -34,7 +33,7 @@ from mindformers.modules.layers import Linear, FreqsMgr
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_disable_custom_fa, get_predict_run_mode, get_use_rope_self_define
+from mindformers.tools.utils import get_predict_run_mode
 
 from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm
@@ -92,11 +91,6 @@ class LlamaModel(LlamaPreTrainedModel):
         self.cast = P.Cast()
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        # default open internal kernel boost
-        self.disable_custom_fa = get_disable_custom_fa()
-        logger.info("Open prefill flatten and disable custom flash attention op:{}".format(self.disable_custom_fa))
-        if self.disable_custom_fa:
-            self.prefill_flatten_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
 
         if config.moe_config.expert_num > 1:
             logger.info("MoE config is provided, use MoE FFN")
@@ -104,8 +98,6 @@ class LlamaModel(LlamaPreTrainedModel):
             logger.info("MoE config is None, use normal FFN")
         if not self.use_flash_attention and self.use_ring_attention:
             raise ValueError(f"When the ring_attention = True, the flash_attention must be True ")
-        self.use_rope_self_define = get_use_rope_self_define()
-
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
                                   max_position_embedding=config.max_position_embedding,
@@ -113,7 +105,8 @@ class LlamaModel(LlamaPreTrainedModel):
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
                                   extend_method=config.extend_method,
-                                  parallel_config=config.parallel_config)
+                                  parallel_config=config.parallel_config,
+                                  is_dynamic=config.is_dynamic)
         self.residual_cast_flag = config.residual_dtype != self.dtype
         if self.residual_cast_flag:
             logger.info(f"residual in llama model cast flag: {self.residual_cast_flag}, "
@@ -123,7 +116,8 @@ class LlamaModel(LlamaPreTrainedModel):
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
                                                           use_flash_attention=config.use_flash_attention,
-                                                          use_attn_mask_compression=config.use_attn_mask_compression)
+                                                          use_attn_mask_compression=config.use_attn_mask_compression,
+                                                          use_past=config.use_past)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              init_method_std=config.init_method_std,
@@ -183,6 +177,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          param_init_type=config.param_init_type,
                                          residual_dtype=config.residual_dtype,
                                          use_past=config.use_past,
+                                         is_dynamic=config.is_dynamic,
                                          use_flash_attention=config.use_flash_attention,
                                          use_ring_attention=config.use_ring_attention,
                                          use_attn_mask_compression=config.use_attn_mask_compression,
@@ -255,18 +250,8 @@ class LlamaModel(LlamaPreTrainedModel):
             mask = None
             if self.use_past:
                 if self.is_first_iteration:
-                    if self.use_rope_self_define:
-                        freqs_cis = self.freqs_mgr(seq_len)
-                    else:
-                        freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-
-                    if self.use_flash_attention:
-                        if self.disable_custom_fa:  # only support fp16
-                            mask = self.prefill_flatten_mask
-                            freqs_cis = self.freqs_mgr.prefill_flatten()
-                    else:
-                        mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-
+                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                    mask = self.casual_mask.prefill()
                     if prefix_keys_values is not None:
                         if mask is None:
                             mask = self.casual_mask(tokens)
@@ -362,7 +347,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
         self.is_first_iteration = True
-        self.disable_custom_fa = get_disable_custom_fa()
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
@@ -435,36 +419,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         """return embedding tokens"""
         return self.model.tok_embeddings(tokens)
 
-    def prepare_inputs_for_prefill_flatten(self, input_ids, batch_valid_length, slot_mapping, model_inputs):
-        """prepare inputs ids for prefill flatten"""
-        batch_valid_length_bs = batch_valid_length.shape[0]
-        input_ids_bs = input_ids.shape[0]
-        if batch_valid_length_bs == input_ids_bs and batch_valid_length_bs > 1:
-            input_ids_list = []
-            for i in range(batch_valid_length_bs):
-                context_len = batch_valid_length[i]
-                input_ids_list.append(input_ids[i][:context_len])
-            input_ids = np.concatenate(input_ids_list, 0)
-            input_ids = input_ids.reshape((1, -1))
-            slot_mapping = np.delete(slot_mapping, np.where(slot_mapping == -1))
-        model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
-        model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
-        return model_inputs
-
-    def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        model_inputs = {}
-        if self.config.is_dynamic and "origin_inputs" in kwargs:
-            input_ids = kwargs["origin_inputs"]
-        model_inputs["input_ids"] = Tensor.from_numpy(
-            input_ids.astype(np.int32))
-        prefill = kwargs.get("prefill")
-        if self.disable_custom_fa and prefill:
-            batch_valid_length = kwargs.get("valid_length_each_example")
-            slot_mapping = kwargs.get("slot_mapping")
-            model_inputs = self.prepare_inputs_for_prefill_flatten(input_ids, batch_valid_length, slot_mapping,
-                                                                   model_inputs)
-        return model_inputs
-
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """Get Llama model input tuple for transform ckpt."""
@@ -508,6 +462,21 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         for layer in self.model.layers:
             layer.add_flags(is_first_iteration=is_first_iteration)
             layer.attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
+
+    def pre_gather_func(self, pre_gather, output, batch_valid_length):
+        """Pre gather operation in infer mode."""
+        if not pre_gather:
+            return output
+        if self.parallel_decoding and self.is_first_iteration:
+            output = output.reshape(-1, output.shape[-1])
+            output = output[self.sub_batch_valid_len(batch_valid_length, 1)]
+        elif pre_gather:
+            if self.config.is_dynamic:
+                batch_valid_length = mint.cumsum(batch_valid_length, 0)
+                output = self.prefill_gather_flatten(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+            else:
+                output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+        return output
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
@@ -555,17 +524,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         output = self.model(tokens, input_embeds, batch_valid_length, batch_index, zactivate_len, block_tables, \
                             slot_mapping, prefix_keys_values, attention_mask, position_ids, q_seq_lens)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
-        if self.parallel_decoding and self.is_first_iteration:
-            output = output.reshape(-1, output.shape[-1])
-            output = output[self.sub_batch_valid_len(batch_valid_length, 1)]
-        elif pre_gather:
-            if self.disable_custom_fa:
-                batch_valid_length = mint.cumsum(batch_valid_length, 0)
-                output = self.prefill_gather_flatten(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
-            else:
-                output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+        output = self.pre_gather_func(pre_gather, output, batch_valid_length)
         logits = self.lm_head(output)
-
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
         if labels is None:
             labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))

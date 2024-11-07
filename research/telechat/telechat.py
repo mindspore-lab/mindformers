@@ -18,7 +18,7 @@ import copy
 import numpy as np
 
 import mindspore.common.dtype as mstype
-from mindspore import Tensor, nn
+from mindspore import Tensor, nn, mint
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
@@ -33,7 +33,7 @@ from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.logger import logger
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_predict_run_mode, get_use_rope_self_define
+from mindformers.tools.utils import get_predict_run_mode
 
 from research.telechat.telechat_transformer import TelechatDecodeLayer
 from research.telechat.telechat_layer import TelechatEmbedding
@@ -86,8 +86,6 @@ class TelechatModel(TelechatPreTrainedModel):
         self.concat = P.Concat(-1)
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        # default open internal kernel boost
-        self.use_rope_self_define = get_use_rope_self_define()
 
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
@@ -96,13 +94,15 @@ class TelechatModel(TelechatPreTrainedModel):
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
                                   extend_method=config.extend_method,
-                                  parallel_config=config.parallel_config)
+                                  parallel_config=config.parallel_config,
+                                  is_dynamic=config.is_dynamic)
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
                                                           use_flash_attention=config.use_flash_attention,
-                                                          use_attn_mask_compression=config.use_attn_mask_compression)
+                                                          use_attn_mask_compression=config.use_attn_mask_compression,
+                                                          use_past=config.use_past)
         self.tok_embeddings = TelechatEmbedding(vocab_table_size=config.vocab_size,
                                                 sigma=config.sigma,
                                                 mean=config.mean,
@@ -184,14 +184,8 @@ class TelechatModel(TelechatPreTrainedModel):
         mask = None
         if self.use_past:
             if self.is_first_iteration:
-                if self.use_rope_self_define:
-                    freqs_cis = self.freqs_mgr(seq_len)
-                else:
-                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-
-                if not self.use_flash_attention:
-                    mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-
+                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                mask = self.casual_mask.prefill()
                 if prefix_keys_values is not None:
                     if mask is None:
                         mask = self.casual_mask(tokens)
@@ -297,7 +291,7 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
         self.mul = P.Mul()
         self.add = P.Add()
         self.ones = P.Ones()
-        self.gather = P.Gather(1)
+        self.gather = P.Gather()
         self.sub_batch_valid_len = P.Sub()
         self.model = TelechatModel(config=config)
         if self.model_name == 'telechat_7b':
@@ -361,13 +355,6 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
         self.predict_run_mode = get_predict_run_mode()
 
         logger.info("Predict run mode:{}".format(self.predict_run_mode))
-
-    def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        if self.config.is_dynamic and "origin_inputs" in kwargs:
-            input_ids = kwargs["origin_inputs"]
-        return {
-            "input_ids": Tensor(input_ids, mstype.int32)
-        }
 
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -442,6 +429,7 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
                                               slot_mapping, prefix_keys_values)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
+            batch_valid_length = mint.cumsum(batch_valid_length, 0)
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         if self.model_name == 'telechat_7b':
             logits = self.lm_head(output, embedding_weight)

@@ -19,7 +19,9 @@ How to run this:
 """
 import os
 from multiprocessing.pool import Pool
+
 import pytest
+
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -43,7 +45,6 @@ class TestLlama2Parallel:
 
     @staticmethod
     def setup_method():
-        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         os.environ['MS_MEMORY_POOL_RECYCLE'] = '1'
 
     @pytest.mark.level0
@@ -65,6 +66,26 @@ class TestLlama2Parallel:
             (f"export ASCEND_RT_VISIBLE_DEVICES=6,7 && "
              f"msrun --worker_num=2 --local_worker_num=2 --master_port=8318 --log_dir=log_train_dp2 --join=True "
              f"{cur_dir}/run_parallel.py --mode parallel_train_dp2", 'log_train_dp2/worker_0.log')
+        ]
+
+        with Pool(len(commands)) as pool:
+            results = list(pool.imap(run_command, commands))
+        check_results(commands, results)
+
+    @pytest.mark.level1
+    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.env_single
+    def test_predict_parallel_static_shape(self):
+        """
+        Feature: Trainer.train() and Trainer.predict()
+        Description: Test parallel trainer for training and prediction.
+        Expectation: AssertionError
+        """
+        commands = [
+            (f"export ASCEND_RT_VISIBLE_DEVICES=6,7 && "
+             f"msrun --worker_num=2 --local_worker_num=2 --master_port=8418 --log_dir=log_predict_mp2_static_shape "
+             f" --join=True {cur_dir}/run_parallel.py --mode parallel_predict_mp2_static_shape",
+             'log_predict_mp2_static_shape/worker_0.log'),
         ]
 
         with Pool(len(commands)) as pool:

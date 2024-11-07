@@ -31,7 +31,7 @@ from mindformers.modules.layers import Linear, FreqsMgr
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_disable_custom_fa, get_predict_run_mode, get_use_rope_self_define
+from mindformers.tools.utils import get_predict_run_mode
 
 from mindformers.models.llama.llama_config import LlamaConfig
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaRMSNorm
@@ -81,11 +81,6 @@ class MixtralModel(LlamaPreTrainedModel):
         self.cast = P.Cast()
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        # default open internal kernel boost
-        self.disable_custom_fa = get_disable_custom_fa()
-        logger.info("disable custom flash attention score op:{}".format(self.disable_custom_fa))
-        if self.disable_custom_fa:
-            self.prefill_flatten_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
 
         if config.moe_config.expert_num > 1:
             logger.info("MoE config is provided, use MoE FFN")
@@ -93,8 +88,6 @@ class MixtralModel(LlamaPreTrainedModel):
             logger.info("MoE config is None, use normal FFN")
         if not self.use_flash_attention and self.use_ring_attention:
             raise ValueError(f"When the ring_attention = True, the flash_attention must be True ")
-        self.use_rope_self_define = get_use_rope_self_define()
-
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
                                   max_position_embedding=config.max_position_embedding,
@@ -102,13 +95,15 @@ class MixtralModel(LlamaPreTrainedModel):
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
                                   extend_method=config.extend_method,
-                                  parallel_config=config.parallel_config)
+                                  parallel_config=config.parallel_config,
+                                  is_dynamic=config.is_dynamic)
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
                                                           use_flash_attention=config.use_flash_attention,
-                                                          use_attn_mask_compression=config.use_attn_mask_compression)
+                                                          use_attn_mask_compression=config.use_attn_mask_compression,
+                                                          use_past=config.use_past)
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              param_init_type=config.embedding_init_type,
@@ -225,18 +220,8 @@ class MixtralModel(LlamaPreTrainedModel):
             mask = None
             if self.use_past:
                 if self.is_first_iteration:
-                    if self.use_rope_self_define:
-                        freqs_cis = self.freqs_mgr(seq_len)
-                    else:
-                        freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-
-                    if self.use_flash_attention:
-                        if self.disable_custom_fa:  # only support fp16
-                            mask = self.prefill_flatten_mask
-                            freqs_cis = self.freqs_mgr.prefill_flatten()
-                    else:
-                        mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-
+                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                    mask = self.casual_mask.prefill()
                     if prefix_keys_values is not None:
                         if mask is None:
                             mask = self.casual_mask(tokens)
@@ -319,7 +304,6 @@ class MixtralForCausalLM(LlamaPreTrainedModel):
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
         self.is_first_iteration = True
-        self.disable_custom_fa = get_disable_custom_fa()
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
@@ -329,8 +313,7 @@ class MixtralForCausalLM(LlamaPreTrainedModel):
         self.mul = P.Mul()
         self.add = P.Add()
         self.ones = P.Ones()
-        self.gather = P.Gather(1)
-        self.prefill_gather_flatten = P.Gather()
+        self.gather = P.Gather()
         self.sub_batch_valid_len = P.Sub()
         self.model = MixtralModel(config=config)
         self.lm_head = Linear(in_channels=config.hidden_size,
@@ -364,7 +347,6 @@ class MixtralForCausalLM(LlamaPreTrainedModel):
             self.mul.shard(((dp, 1), (dp, 1)))
             self.add.shard(((dp, 1), ()))
             self.gather.shard(((dp, 1, 1), (dp,)))
-            self.prefill_gather_flatten.shard(((dp, 1, 1), (dp,)))
             self.sub_batch_valid_len.shard(((1,), ()))
             if config.parallel_config.vocab_emb_dp or (vocab_size % mp != 0):
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
@@ -389,72 +371,6 @@ class MixtralForCausalLM(LlamaPreTrainedModel):
     def to_embeddings(self, tokens):
         """return embedding tokens"""
         return self.model.tok_embeddings(tokens)
-
-    def prepare_inputs_for_prefill_flatten(self, input_ids, batch_valid_length, slot_mapping, model_inputs):
-        """prepare inputs ids for prefill flatten"""
-        batch_valid_length_bs = batch_valid_length.shape[0]
-        input_ids_bs = input_ids.shape[0]
-        if batch_valid_length_bs == input_ids_bs and batch_valid_length_bs > 1:
-            input_ids_list = []
-            for i in range(batch_valid_length_bs):
-                context_len = batch_valid_length[i]
-                input_ids_list.append(input_ids[i][:context_len])
-            input_ids = np.concatenate(input_ids_list, 0)
-            input_ids = input_ids.reshape((1, -1))
-            slot_mapping = np.delete(slot_mapping, np.where(slot_mapping == -1))
-        model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
-        model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
-        return model_inputs
-
-    def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        """prepare inputs for generation"""
-        model_inputs = {}
-        if self.config.is_dynamic and "origin_inputs" in kwargs:
-            input_ids = kwargs["origin_inputs"]
-        model_inputs["input_ids"] = Tensor.from_numpy(
-            input_ids.astype(np.int32))
-        if hasattr(self, 'llm_boost'):
-            batch_valid_length = kwargs.get("valid_length_each_example")
-            block_tables = kwargs.get("block_tables")
-            slot_mapping = kwargs.get("slot_mapping")
-            prefill = kwargs.get("prefill")
-            bs = batch_valid_length.shape[0]
-            position_ids_list = [
-                np.arange(context_len, dtype=np.int64) for context_len in batch_valid_length]
-            if input_ids.shape[-1] == 1:
-                input_ids = np.concatenate(input_ids, 0)
-            else:
-                input_ids_list = []
-                for i in range(bs):
-                    context_len = batch_valid_length[i]
-                    if prefill:
-                        input_ids_list.append(input_ids[i][:context_len])
-                    else:
-                        input_ids_list.append(
-                            input_ids[i][context_len - 1:context_len])
-                input_ids = np.concatenate(input_ids_list, 0)
-            position_ids = np.concatenate(position_ids_list, 0)
-            slot_mapping = np.delete(
-                slot_mapping, np.where(slot_mapping == -1))
-            lm_head_indices = np.cumsum(batch_valid_length, dtype=np.int64) - 1
-            seq_lens = batch_valid_length.tolist()
-            model_inputs["llm_boost_inputs"] = {
-                "input_ids": Tensor.from_numpy(input_ids),
-                "position_ids": Tensor.from_numpy(position_ids),
-                "lm_head_indices": Tensor.from_numpy(lm_head_indices),
-                "block_tables": Tensor.from_numpy(block_tables),
-                "slot_mapping": Tensor.from_numpy(slot_mapping),
-                "batch_valid_length": Tensor.from_numpy(batch_valid_length),
-                "seq_lens": seq_lens
-            }
-
-        prefill = kwargs.get("prefill")
-        if self.disable_custom_fa and prefill:
-            batch_valid_length = kwargs.get("valid_length_each_example")
-            slot_mapping = kwargs.get("slot_mapping")
-            model_inputs = self.prepare_inputs_for_prefill_flatten(input_ids, batch_valid_length, slot_mapping,
-                                                                   model_inputs)
-        return model_inputs
 
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -554,11 +470,8 @@ class MixtralForCausalLM(LlamaPreTrainedModel):
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         pre_gather = pre_gather and not self.parallel_decoding
         if pre_gather:
-            if self.disable_custom_fa:
-                batch_valid_length = mint.cumsum(batch_valid_length, 0)
-                output = self.prefill_gather_flatten(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
-            else:
-                output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+            batch_valid_length = mint.cumsum(batch_valid_length, 0)
+            output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)

@@ -29,6 +29,7 @@ class AttentionNet(nn.Cell):
     def __init__(self, config):
         super().__init__()
         self.attention = ParallelAttention(config=config, layer_number=0)
+        self.is_first_iteration = False
 
     def construct(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None, attn_mask=None):
         output = self.attention(x, batch_valid_length, block_tables, slot_mapping, freqs_cis=freqs_cis,

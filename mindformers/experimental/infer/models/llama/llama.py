@@ -16,7 +16,7 @@
 import numpy as np
 
 import mindspore.common.dtype as mstype
-from mindspore import Tensor, ops
+from mindspore import Tensor, ops, mint
 from mindspore.communication import get_group_size
 
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear
@@ -26,6 +26,7 @@ from mindformers.models.llama.llama import LlamaPreTrainedModel
 from mindformers.modules import Linear
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode
+from mindformers.tools.logger import logger
 
 from .utils import convert_model_config
 
@@ -64,7 +65,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.mul = ops.Mul()
         self.add = ops.Add()
         self.ones = ops.Ones()
-        self.gather = ops.Gather(1)
+        self.gather = ops.Gather()
         self.sub_batch_valid_len = ops.Sub()
         self.model = ParallelTransformer(config=config)
         if config.parallel_config.vocab_emb_dp:
@@ -92,14 +93,6 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
 
         self.use_past = config.use_past
 
-    def prepare_inputs_for_generation(self, input_ids, **kwargs):
-        model_inputs = {}
-        if self.config.is_dynamic and "origin_inputs" in kwargs:
-            input_ids = kwargs["origin_inputs"]
-        model_inputs["input_ids"] = Tensor.from_numpy(
-            input_ids.astype(np.int32))
-        return model_inputs
-
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """Get Llama model input tuple for transform ckpt."""
@@ -125,6 +118,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
             self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
                             dynamic_slot_mapping, None, None)
+        logger.info("Set dynamic input for llama.")
 
     def add_flags_custom(self, is_first_iteration):
         """Add customized attributes for specific cells in the model."""
@@ -141,13 +135,17 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         """
         Forward of llama model.
         """
+        bsz, _ = self.shape(input_ids)
         if batch_valid_length is not None:
             batch_valid_length = batch_valid_length.reshape(-1,)
+        else:
+            batch_valid_length = self.ones((bsz,), mstype.int32)
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
                             slot_mapping, prefix_keys_values)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
-            output = self.gather(output, batch_valid_length - 1, 1)
+            batch_valid_length = mint.cumsum(batch_valid_length, 0)
+            output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 
         logits = self.cast(logits, mstype.float32)

@@ -289,6 +289,7 @@ class ChatGLM2SelfAttention(nn.Cell):
                                          next_tokens=0,
                                          block_size=config.block_size,
                                          num_blocks=config.num_blocks,
+                                         is_dynamic=config.is_dynamic,
                                          use_flash_attention=self.use_flash_attention,
                                          rotary_cos_format=rotary_cos_format,
                                          compute_dtype=self.compute_dtype)
