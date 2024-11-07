@@ -205,7 +205,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         self.set_network(network, is_train=False)
 
         self.count_parameters()
-
+        config.load_checkpoint = self._get_load_path_after_hf_convert(config, network)
         # build metric
         logger.info(".........Build Compute Metrics For Evaluate..........")
         if compute_metrics is None:

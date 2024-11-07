@@ -62,7 +62,7 @@ from mindformers.tools.resume_ckpt import get_resume_checkpoint
 from mindformers.tools.download_tools import download_with_progress_bar
 from .build_trainer import build_trainer
 from .training_args import TrainingArguments
-from .utils import config2dict
+from .utils import config2dict, get_last_checkpoint
 
 __all__ = ['Trainer']
 
@@ -256,7 +256,7 @@ class Trainer:
         if (isinstance(self.args, (str, MindFormerConfig)) or \
             (isinstance(self.args, TrainingArguments) and self.is_model_instance)) and \
                 self.task == 'general' and self.model_name != 'common':
-            logger.warning("When (`args` is MindformerConfig) "
+            logger.warning("When (`args` is MindFormerConfig) "
                            "or (`args` is TrainingArguments and a model instance is passed), "
                            "The `model_name` is invalid and set to 'common'.")
             self.model_name = 'common'
@@ -275,6 +275,10 @@ class Trainer:
         self.device_num = get_real_group_size()
         self.config.rank_id = self.rank_id
         self.config.device_num = self.device_num
+
+        # set checkpoint options
+        self.config.remove_redundancy = self.config.get('remove_redundancy', False)
+        self.config.load_ckpt_format = self.config.get('load_ckpt_format', 'ckpt')
 
         # set seed
         if self.config.seed and \
@@ -432,6 +436,7 @@ class Trainer:
                     checkpoint_dir=self.config.load_checkpoint,
                     resume_training=self.config.resume_training,
                     resume_by_meta=not self.config.resume_by_last_timestamp_ckpt,
+                    ckpt_format=self.config.load_ckpt_format
                 )
 
         self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
@@ -572,6 +577,7 @@ class Trainer:
                     checkpoint_dir=self.config.load_checkpoint,
                     resume_training=self.config.resume_training,
                     resume_by_meta=not self.config.resume_by_last_timestamp_ckpt,
+                    ckpt_format=self.config.load_ckpt_format
                 )
 
         self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
@@ -1000,15 +1006,7 @@ class Trainer:
         output_folder = self.config.output_dir
         checkpoint_dir = os.path.join(
             output_folder, DEFAULT_CHECKPOINT_DIR, 'rank_{}'.format(self.rank_id))
-        output_checkpoint_path = [
-            checkpoint for checkpoint in os.listdir(checkpoint_dir)
-            if checkpoint.endswith('.ckpt')
-        ]
-        if not output_checkpoint_path:
-            return None
-        output_checkpoint_path = sorted(output_checkpoint_path,
-                                        key=lambda x: os.path.getmtime(os.path.join(checkpoint_dir, x)))
-        return os.path.join(checkpoint_dir, output_checkpoint_path[-1])
+        return get_last_checkpoint(checkpoint_dir, self.config.load_ckpt_format)
 
     def get_load_checkpoint(self, checkpoint):
         """get checkpoint path which will be loaded."""

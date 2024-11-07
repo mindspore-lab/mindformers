@@ -71,12 +71,12 @@ def check_in_modelarts():
     """
     # 'KUBERNETES_PORT' in os.environ or \
     return 'MA_LOG_DIR' in os.environ or \
-           'MA_JOB_DIR' in os.environ or \
-           'MA_LOCAL_LOG_PATH' in os.environ or \
-           'S3_ACCESS_KEY_ID' in os.environ or \
-           'S3_SECRET_ACCESS_KEY' in os.environ or \
-           'BATCH_GROUP_NAME' in os.environ or \
-           'MA_LOCAL_LOG_PATH' in os.environ
+        'MA_JOB_DIR' in os.environ or \
+        'MA_LOCAL_LOG_PATH' in os.environ or \
+        'S3_ACCESS_KEY_ID' in os.environ or \
+        'S3_SECRET_ACCESS_KEY' in os.environ or \
+        'BATCH_GROUP_NAME' in os.environ or \
+        'MA_LOCAL_LOG_PATH' in os.environ
 
 
 class Validator:
@@ -609,34 +609,34 @@ def remove_folder(folder_path, rank_id=None):
             logger.info("Folder %s is removed.", folder_path)
 
 
-def get_epoch_and_step_from_ckpt_name(ckpt_file):
+def get_epoch_and_step_from_ckpt_name(ckpt_file, ckpt_fmt='ckpt'):
     """Get epoch and step from ckpt name."""
-    ckpt_name = os.path.split(ckpt_file)[1]
-    match = re.search(r'-(\d+)_(\d+)\.ckpt', ckpt_name)
+    ckpt_name = os.path.basename(ckpt_file)
+    pattern = r'-(\d+)_(\d+)\.' + ckpt_fmt
+    match = re.search(pattern, ckpt_name)
     if match:
         epoch = int(match.group(1))
         step = int(match.group(2))
         return epoch, step
-    raise ValueError(f"Can't match epoch and step from checkpoint: {ckpt_file}. "
-                     "Please ensure the format of the ckpt_file is {prefix}-{epoch}_{step}.ckpt. "
-                     "for example, llama_7b_rank_0-3_2.ckpt.")
+    raise ValueError(f"Can't match epoch and step from checkpoint file: {ckpt_file}. Please ensure the format "
+                     f"of the checkpoint file name is {{prefix}}-{{epoch}}_{{step}}.{ckpt_fmt}, for example, "
+                     f"llama_7b_rank_0-3_2.{ckpt_fmt}.")
 
 
 def get_rank_id_from_ckpt_name(ckpt_file):
     """Get rank id from ckpt name."""
-    ckpt_name = os.path.split(ckpt_file)[1]
+    ckpt_name = os.path.basename(ckpt_file)
     match = re.search(r'_rank_(\d+)', ckpt_name)
     if match:
         rank_id = int(match.group(1))
         return rank_id
-    raise ValueError(f"Can't match rank id in checkpoint: {ckpt_file}. "
-                     "Please ensure the format of the ckpt_file is {prefix}-{epoch}_{step}.ckpt. "
-                     "for example, llama_7b_rank_0-3_2.ckpt.")
+    raise ValueError(f"Can't match rank id from checkpoint file: {ckpt_file}. Please ensure the name of "
+                     f"the checkpoint file is xxx_rank_x-{{epoch}}_{{step}}, for example, llama_7b_rank_0-3_2.")
 
 
 def replace_rank_id_in_ckpt_name(ckpt_file, dst_rank_id):
     """Replace rank id to dst_rank_id in ckpt name"""
-    ckpt_name = os.path.split(ckpt_file)[1]
+    ckpt_name = os.path.basename(ckpt_file)
     ori_rank_id = get_rank_id_from_ckpt_name(ckpt_name)
     ckpt_name = ckpt_name.replace(f"_rank_{ori_rank_id}", f"_rank_{dst_rank_id}")
     return ckpt_name
@@ -653,10 +653,10 @@ def clear_auto_trans_output():
         remake_folder(folder_path, permissions=0o750)
 
 
-def check_ckpt_file_name(ckpt_file):
+def check_ckpt_file_name(ckpt_file, ckpt_fmt='ckpt'):
     """Check ckpt name in the format of {prefix}-{epoch}_{step}.ckpt"""
     ckpt_name = os.path.split(ckpt_file)[1]
-    pattern = r'^[^/]+-\d+_\d+\.ckpt$'
+    pattern = r'^[^/]+-\d+_\d+\.' + ckpt_fmt + r"$"
     match = re.match(pattern, ckpt_name)
     if match:
         return True
