@@ -45,6 +45,7 @@ def tensor_grad_scale_row_tensor(scale, grad):
                      grad.values * F.cast(reciprocal(scale), F.dtype(grad.values)),
                      grad.dense_shape)
 
+
 get_square_sum = C.MultitypeFuncGraph("get_square_sum")
 get_size = C.MultitypeFuncGraph("get_size")
 
@@ -219,11 +220,11 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
 
 class DataOrderWrapperCell(nn.Cell):
     """For passing parameters in lexicographical order."""
+
     def __init__(self, construct_args_key, network):
-        super(DataOrderWrapperCell, self).__init__()
+        super(DataOrderWrapperCell, self).__init__(auto_prefix=False)
         self.construct_args_key = construct_args_key
         self.network = network
-
 
     def construct(self, *inputs):
         """The construct processes of inputs in lexicographical order."""
