@@ -20,4 +20,3 @@ jinja2
 setproctitle
 safetensors
 tensorboardX
-tensorboard
