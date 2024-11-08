@@ -169,7 +169,9 @@ class LlamaModel(LlamaPreTrainedModel):
         self.layer_setting = LayerSetting(config.num_layers,
                                           config.offset,
                                           config.parallel_config,
-                                          config.pp_interleave_num)
+                                          config.pp_interleave_num,
+                                          config.start_stage,
+                                          config.stage_num)
         for layer_id in range(config.num_layers):
             if self.fine_grain_interleave:
                 layer = LLamaDecodeLayerInterleave(config.batch_size,
@@ -241,9 +243,13 @@ class LlamaModel(LlamaPreTrainedModel):
                                      fused_kernel=config.fused_rms_norm)
         dp = config.parallel_config.data_parallel
         cp = config.parallel_config.context_parallel
-        self.tok_embeddings.pipeline_stage = 0
+
+        self.tok_embeddings.pipeline_stage = config.start_stage
         if config.parallel_config.pipeline_stage > 1:
-            self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            if config.stage_num == 0:
+                self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            else:
+                self.norm_out.pipeline_stage = config.start_stage + config.stage_num - 1
             self.tok_embeddings.set_comm_fusion(2)
             self.norm_out.set_comm_fusion(2)
         else:

@@ -709,3 +709,50 @@ def divide(numerator, denominator):
     """Ensure that numerator is divisible by the denominator and return the division value."""
     ensure_divisibility(numerator, denominator)
     return numerator // denominator
+
+
+def calculate_pipeline_stage(layers_per_stage, model_layers):
+    r"""Calculate pipeline stage for model
+
+    Args:
+        layers_per_stage (list): The number of layers per stage.
+        model_layers (list): The number of layers of each part of the model.
+
+    """
+    pipeline_stages = []
+    cur_stage = 0  # Initialize the start stage counter
+
+    # Iterate directly over the model layers
+    for model_layer in model_layers:
+        model_layer_remaining = model_layer
+        start_stage = cur_stage
+        end_stage = cur_stage
+        offset = []
+
+        while cur_stage < len(layers_per_stage) and model_layer_remaining > 0:
+            if model_layer_remaining < layers_per_stage[cur_stage]:
+                layers_per_stage[cur_stage] -= model_layer_remaining
+                offset.append(model_layer_remaining)
+                model_layer_remaining = 0
+            else:
+                model_layer_remaining -= layers_per_stage[cur_stage]
+                offset.append(layers_per_stage[cur_stage])
+                layers_per_stage[cur_stage] = 0
+                cur_stage += 1
+            end_stage += 1
+
+        stage_num = end_stage - start_stage
+        avg_layer_per_stage = model_layer // stage_num if stage_num > 0 else 0
+
+        for j in range(stage_num):
+            offset[j] -= avg_layer_per_stage
+
+        pipeline_stage = {
+            "offset": offset,
+            "start_stage": start_stage,
+            "stage_num": stage_num
+        }
+
+        pipeline_stages.append(pipeline_stage)
+
+    return pipeline_stages

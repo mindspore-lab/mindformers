@@ -146,7 +146,11 @@ class QwenForCausalLM(QwenPreTrainedModel):
 
         self.shard(config.parallel_config)
         if config.parallel_config.pipeline_stage > 1:
-            self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            if config.stage_num == 0:
+                self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            else:
+                self.lm_head.pipeline_stage = config.start_stage + config.stage_num - 1
+            logger.info(f"lm_head pipeline_stage: {self.lm_head.pipeline_stage}")
         if config.enable_emb_opt:
             lm_head_matmul = self.lm_head.matmul
             self.lm_head.matmul = MatMulPad(lm_head_matmul, config.vocab_size, 512, config.enable_emb_opt)
@@ -320,7 +324,9 @@ class QwenModel(QwenPreTrainedModel):
         self.layer_setting = LayerSetting(config.num_layers,
                                           config.offset,
                                           config.parallel_config,
-                                          config.pp_interleave_num)
+                                          config.pp_interleave_num,
+                                          config.start_stage,
+                                          config.stage_num)
         for layer_id in range(config.num_layers):
             layer = QwenDecodeLayer(config.seq_length,
                                     layer_id,
@@ -372,9 +378,13 @@ class QwenModel(QwenPreTrainedModel):
 
         self.shard(config.parallel_config)
 
-        self.wte.pipeline_stage = 0
+        self.wte.pipeline_stage = config.start_stage
         if config.parallel_config.pipeline_stage > 1:
-            self.ln_f.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            if config.stage_num == 0:
+                self.ln_f.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            else:
+                self.ln_f.pipeline_stage = config.start_stage + config.stage_num - 1
+            logger.info(f"ln_f pipeline_stage: {self.ln_f.pipeline_stage}")
             self.wte.set_comm_fusion(2)
             self.ln_f.set_comm_fusion(2)
         else:

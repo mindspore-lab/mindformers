@@ -131,8 +131,11 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
         self.image_patch_size = self.vision_config.patch_size
         self.image_grid_size = int(self.image_size / self.image_patch_size)
 
-        self.vision_encoder = build_network(config.vision_model)
-        self.llm_model = build_network(config.llm_model)
+        default_args = {
+            "disable_lazy_inline": True
+        }
+        self.vision_encoder = build_network(config=config.vision_model, default_args=default_args)
+        self.llm_model = build_network(config=config.llm_model, default_args=default_args)
         self.mlp_adapter = VisionMLPAdapter(
             self.image_grid_size, vision_hidden_size=self.vision_config.hidden_size,
             text_hidden_size=self.llm_config.hidden_size,
@@ -140,6 +143,12 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
             compute_dtype=convert_mstype(self.vision_config.compute_dtype),
             param_init_type=convert_mstype(self.vision_config.param_init_type)
         )
+
+        if config.parallel_config.pipeline_stage > 1:
+            if self.vision_config.stage_num == 0:
+                self.mlp_adapter.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            else:
+                self.mlp_adapter.pipeline_stage = self.vision_config.start_stage + self.vision_config.stage_num - 1
 
         self.image_start_id = self.config.image_start_id
         self.image_pad_id = self.config.image_pad_id

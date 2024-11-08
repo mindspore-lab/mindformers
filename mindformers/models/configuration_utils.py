@@ -857,7 +857,40 @@ class PretrainedConfig(PushToHubMixin):
 
         self.dict_ms_dtype_to_str(serializable_config_dict)
         self._to_diff_dict_helper(serializable_config_dict)
+        self.delete_from_dict(serializable_config_dict)
         return serializable_config_dict
+
+    def delete_from_dict(self, config_dict):
+        """
+        Deletes keys from the nested dictionary `config_dict` based on the `blacklist`.
+        Handles dot notation for nested keys.
+
+        Args:
+        - config_dict (dict): The dictionary to be processed.
+        """
+        blacklist = [
+            'dataset_config.modal_to_text_transform.model_transform_template',
+            'vision_model.model_config.parallel_config',
+            'llm_model.model_config.parallel_config'
+        ]
+        for key in blacklist:
+            keys = key.split('.')
+            self._delete_by_keys(config_dict, keys)
+
+    def _delete_by_keys(self, config_dict, keys):
+        """
+        Helper function to delete a key based on a list of keys (dot notation).
+        Args:
+        - config_dict (dict): The dictionary to be processed.
+        - keys (list): The list of keys to traverse and delete.
+        """
+        if len(keys) == 1:
+            if keys[0] in config_dict:
+                del config_dict[keys[0]]  # Delete the key if it's the last part of the dot notation
+        else:
+            key = keys[0]
+            if key in config_dict and isinstance(config_dict[key], dict):
+                self._delete_by_keys(config_dict[key], keys[1:])
 
     def dict_ms_dtype_to_str(self, d: Dict[str, Any]) -> None:
         """
