@@ -19,14 +19,16 @@ import mindspore.ops.operations as P
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_rank, get_tensor_model_parallel_world_size
-from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import TENSOR_PARALLEL_GENERATOR, get_rng_tracer
-from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.infer.core.mapping import (GatherFromModelParallelRegion,
                                                          GatherFromSequenceParallelRegion,
                                                          ReduceFromModelParallelRegion,
                                                          ReduceScatterToSequenceParallelRegion,
                                                          ScatterToModelParallelRegion)
+from mindformers.experimental.infer.core.utils import get_tp_world_size
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_rank
+from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import (TENSOR_PARALLEL_GENERATOR,
+                                                                                    get_rng_tracer)
+from mindformers.experimental.parallel_core.pynative.utils import divide
 
 __all__ = ["ColumnParallelLinear", "RowParallelLinear", "VocabParallelEmbedding"]
 
@@ -120,7 +122,7 @@ class ColumnParallelLinear(nn.Cell):
         self.output_size = output_size
         self.has_bias = bias
         self.gather_output = gather_output
-        self.tensor_parallel_group_size = get_tensor_model_parallel_world_size()
+        self.tensor_parallel_group_size = get_tp_world_size()
 
         self.output_size_per_partition = divide(output_size, self.tensor_parallel_group_size)
         self.is_expert = is_expert
@@ -153,7 +155,8 @@ class ColumnParallelLinear(nn.Cell):
         self.shape = ops.Shape()
         self.reshape = ops.Reshape()
         self.gather_from_mp_region = GatherFromModelParallelRegion()
-        self.gather_from_sp_region = GatherFromSequenceParallelRegion()
+        if self.sequence_parallel:
+            self.gather_from_sp_region = GatherFromSequenceParallelRegion()
 
     def construct(self, input_parallel, weight=None):
         """
@@ -279,7 +282,7 @@ class RowParallelLinear(nn.Cell):
         self.output_size = output_size
         self.has_bias = bias
         self.input_is_parallel = input_is_parallel
-        self.tensor_parallel_group_size = get_tensor_model_parallel_world_size()
+        self.tensor_parallel_group_size = get_tp_world_size()
         self.input_size_per_partition = divide(input_size, self.tensor_parallel_group_size)
         self.parallel_config = config
         self.compute_dtype = compute_dtype
@@ -311,9 +314,11 @@ class RowParallelLinear(nn.Cell):
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.cast = P.Cast()
-        self.scatter_to_mp_region = ScatterToModelParallelRegion()
-        self.reduce_scatter_to_sp_region = ReduceScatterToSequenceParallelRegion()
         self.reduce_from_mp_region = ReduceFromModelParallelRegion()
+        if not self.input_is_parallel:
+            self.scatter_to_mp_region = ScatterToModelParallelRegion()
+        if self.sequence_parallel:
+            self.reduce_scatter_to_sp_region = ReduceScatterToSequenceParallelRegion()
 
     def construct(self, input_):
         """
@@ -385,7 +390,7 @@ class VocabParallelEmbedding(nn.Cell):
         self.embedding_dim = embedding_dim
         self.sequence_parallel = parallel_config.use_sequence_parallel
 
-        self.tensor_parallel_group_size = get_tensor_model_parallel_world_size()
+        self.tensor_parallel_group_size = get_tp_world_size()
 
         (
             self.vocab_start_index,
@@ -461,14 +466,3 @@ class VocabParallelEmbedding(nn.Cell):
                                                   'shard': w_shard}
 
         return state_dict
-
-
-def _update_sharded_state_dict(network: nn.Cell, dict_: dict):
-    cells = network.name_cells()
-    for _, subcell in cells.items():
-        if subcell == network:
-            continue
-        if hasattr(subcell, "sharded_state_dict"):
-            dict_.update(subcell.sharded_state_dict())
-        else:
-            _update_sharded_state_dict(subcell, dict_)

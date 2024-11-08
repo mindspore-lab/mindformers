@@ -18,6 +18,7 @@ import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, ops, mint
 from mindspore.communication import get_group_size
+from mindspore.communication._comm_helper import _is_initialized
 
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear
 from mindformers.experimental.infer.core.transformer import ParallelTransformer
@@ -48,7 +49,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
 
     def __init__(self, config):
         super().__init__(config, auto_prefix=True)
-        if get_group_info('tp').group is None:
+        if get_group_info('tp').group is None and _is_initialized():
             initialize_model_parallel(get_group_size(), order='tp')
         self.config = convert_model_config(config)
         self.ignore_token_id = config.ignore_token_id
