@@ -52,6 +52,11 @@ def is_910b():
     return device in ['910b', 'ascend910b']
 
 
+def need_nz():
+    device = get_ascend_soc_version()
+    return device in ['310p', 'ascend310p', '910a', 'ascend910']
+
+
 def get_predict_lazy_inline(func):
     """Predict lazy inline decorator."""
 

@@ -332,6 +332,8 @@ def process_hf_checkpoint(model, output_dir=None, load_checkpoint=None):
 def build_model(config, model, dataset, do_eval=False, do_predict=False):
     """build model and generate strategy file."""
     parallel_mode = context.get_auto_parallel_context('parallel_mode')
+    if config.context.mode == ms.PYNATIVE_MODE:
+        return
     if parallel_mode not in ('semi_auto_parallel', 'auto_parallel', 'hybrid_parallel'):
         return
 
