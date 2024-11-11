@@ -190,7 +190,7 @@ def _memory_decoding_pre_process(config, input_ids, model_inputs, **model_kwargs
     if model_kwargs.get('q_seq_lens') is not None:
         input_ids = input_ids.reshape((1, -1))
 
-    model_inputs['input_ids'] = Tensor(input_ids, ms.int32)
+    model_inputs['input_ids'] = Tensor(np.array(input_ids).astype(np.int32))
 
     block_tables = model_kwargs.get('block_tables').astype(np.int32)
     slot_mapping = model_kwargs.get('slot_mapping').astype(np.int32)
@@ -202,8 +202,7 @@ def _memory_decoding_pre_process(config, input_ids, model_inputs, **model_kwargs
 def _prefix_cache_pre_process(config, input_ids, model_inputs, **model_kwargs):
     """ prompt cache pre process """
     _ = config
-
-    model_inputs['input_ids'] = Tensor(input_ids, ms.int32)
+    _ = input_ids
 
     block_tables = model_kwargs.get('block_tables').astype(np.int32)
     slot_mapping = model_kwargs.get('slot_mapping').astype(np.int32)
