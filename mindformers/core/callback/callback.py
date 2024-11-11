@@ -1000,7 +1000,7 @@ class ProfileMonitor(Callback):
     def __init__(self, start_step=1, stop_step=10, output_path=None,
                  start_profile=True, profile_rank_ids=None, profile_pipeline=False,
                  profile_communication=False, profile_memory=False, config=None,
-                 profiler_level=None, with_stack=False, data_simplification=True, **kwargs):
+                 profiler_level=0, with_stack=False, data_simplification=True, **kwargs):
         super(ProfileMonitor, self).__init__()
         self.start_step = start_step
         self.stop_step = stop_step
@@ -1122,7 +1122,7 @@ class ProfileMonitor(Callback):
             level (int): the value of profiler_level in MF config.
         """
         if level is None:
-            return None
+            return ProfilerLevel.Level0
 
         max_level = len(ProfilerLevel.__members__) - 1
         if level < 0 or level > max_level:
