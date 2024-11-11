@@ -96,7 +96,10 @@ def pipeline(
         >>> # Construct inputs
         >>> inputs = ["I love Beijing, because", "LLaMA is a", "Huawei is a company that"]
         >>> # Initialize the environment
-        >>> build_context({'context': {'mode': 0}, 'parallel': {}, 'parallel_config': {}})
+        >>> build_context({
+        ...     'context': {'mode': 0, 'jit_config': {'jit_level': 'O0', 'infer_boost': 'on'}},
+        ...     'parallel': {},
+        ...     'parallel_config': {}})
         >>> # Tokenizer instantiation
         >>> tokenizer = AutoTokenizer.from_pretrained('llama2_7b')
         >>> # Model instantiation

@@ -260,7 +260,7 @@ class AutoTokenizer:
 
     Examples:
         >>> from mindformers import AutoTokenizer
-        >>> tokenizer = AutoTokenizer.from_pretrained("gpt2")
+        >>> tokenizer = AutoTokenizer.from_pretrained("llama2_7b")
     """
 
     _model_type = 0
