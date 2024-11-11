@@ -111,7 +111,7 @@ class AutoProcessor:
 
     Examples:
         >>> from mindformers import AutoProcessor
-        >>> processor = AutoProcessor.from_pretrained("bert_base_uncased")
+        >>> processor = AutoProcessor.from_pretrained("glm3_6b")
     """
     _support_list = MindFormerBook.get_processor_support_list()
     _model_type = 0
