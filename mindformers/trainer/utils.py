@@ -21,6 +21,7 @@ import random
 from enum import Enum
 
 import numpy as np
+import mindspore as ms
 
 from mindspore import context, load_checkpoint, load_param_into_net
 from mindspore import set_seed as ms_set_seed
@@ -415,6 +416,8 @@ def build_model(config, model, dataset, do_eval=False, do_predict=False):
         if do_eval:
             model.infer_predict_layout(*dataset)
         elif do_predict:
+            if config.context.mode == ms.PYNATIVE_MODE:
+                return
             model.infer_predict_layout(*dataset)
         else:
             build_time_start = time.time()

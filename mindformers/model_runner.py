@@ -245,7 +245,7 @@ class MindIEModelRunner:
         kvcache_bytes = ms.Tensor(0, dtype=self.dtype).itemsize
         total_head_size = self.num_kv_heads * self.head_size
 
-        if get_ascend_soc_version() in ['310p', 'ascend310p']:
+        if get_ascend_soc_version() in ['310p', 'ascend310p', '910a', 'ascend910']:
             total_head_size = -(total_head_size // -16) * 16
 
         self.npu_num_blocks = (npu_mem_size * 1024 * 1024 * 1024) // \
