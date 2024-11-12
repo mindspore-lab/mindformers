@@ -123,7 +123,6 @@ class LlmBoostForCausalLM(PreTrainedModel):
             self.llm_boost.set_kvcache()
             self.is_set_kvcache = True
         self.llm_boost.add_flags(is_first_iteration=self.is_first_iteration)
-        cos_embed, sin_embed, _ = self.freqs_mgr.prefill_flatten()
-        llm_boost_inputs["cos_embed"] = cos_embed
-        llm_boost_inputs["sin_embed"] = sin_embed
+        llm_boost_inputs["cos_embed"] = self.freqs_mgr.freqs_cos
+        llm_boost_inputs["sin_embed"] = self.freqs_mgr.freqs_sin
         return self.llm_boost.forward(llm_boost_inputs)
