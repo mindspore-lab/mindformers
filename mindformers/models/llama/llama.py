@@ -111,6 +111,7 @@ class LlamaModel(LlamaPreTrainedModel):
         if self.residual_cast_flag:
             logger.info(f"residual in llama model cast flag: {self.residual_cast_flag}, "
                         f"residual dtype: {config.residual_dtype}")
+        self.freqs_mgr.shard(config.parallel_config)
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
@@ -246,6 +247,10 @@ class LlamaModel(LlamaPreTrainedModel):
             # FA with TH layout, mask is 2D, FA with BSH layout, mask is 4D
             mask = attention_mask
             freqs_cis = self.freqs_mgr.increment_multi_ids(position_ids)
+        elif attention_mask is not None:
+            mask = attention_mask
+            mask = self.cast(mask, mstype.uint8)
+            freqs_cis = self.freqs_mgr(seq_len, position_ids)
         else:
             mask = None
             if self.use_past:
@@ -444,11 +449,11 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None, None], dtype=mstype.float16)
             self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, dynamic_prefix_keys_values, None, dynamic_q_seq_lens)
+                            dynamic_slot_mapping, dynamic_prefix_keys_values, None, dynamic_q_seq_lens, None)
         elif self.use_past:
             self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, None, None, dynamic_q_seq_lens)
+                            dynamic_slot_mapping, None, None, dynamic_q_seq_lens, None)
         elif kwargs.get("pre_gather", False):
             self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                             dynamic_batch_valid_length, None, None, None, None, None)
@@ -482,32 +487,37 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None,
-                  q_seq_lens=None):
+                  input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None,
+                  zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None,
+                  llm_boost_inputs=None, q_seq_lens=None, loss_mask=None):
         r"""
         LlamaForCausalLM forward.
 
         Args:
             input_ids(Tensor): the tokenized inputs with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
-            labels(Tensor): the tokenized labels with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
-            input_position(Tensor): current position, used by model.predict.
-            position_ids(Tensor): Reserved param, not used.
-            attention_mask(Tensor): Reserved param, not used.
-            input_embeds(Tensor): the input embedding Tensor of shape :math:`(batch, seq\_length, hidden_size)`.
-                Default None.
+            labels(Tensor, optional): the tokenized labels with datatype int32,
+                Tensor of shape :math:`(batch, seq\_length)`. Default: ``None`` .
+            input_position(Tensor, optional): current position, used by model.predict. Default: ``None`` .
+            position_ids(Tensor, optional): Reserved param, not used. Default: ``None`` .
+            attention_mask(Tensor, optional): Reserved param, not used. Default: ``None`` .
+            input_embeds(Tensor, optional): the input embedding Tensor of shape
+                :math:`(batch, seq\_length, hidden_size)`. Default: ``None`` .
             init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
-                past value parameter used in the incremental prediction. Default True.
-            batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
-                prediction. Tensor of shape :math:`(batch_size,)`. Default None.
-            block_tables (Tensor[int64]): Store mapping tables for each sequence.
-            slot_mapping (Tensor[int32]): Store token cache physical slot index.
-            q_seq_lens (Tensor[int32]): In parallel decoding, the query may be flattened. The Paged Attention operator
-                need `q_seq_lens` to obtain the length information.
+                past value parameter used in the incremental prediction.  Default: ``Tensor([True])`` .
+            batch_valid_length(Tensor, optional): the past calculated the index with datatype int32,
+                used for incremental prediction. Tensor of shape :math:`(batch_size,)`.  Default: ``None`` .
+            block_tables (Tensor[int64], optional): Store mapping tables for each sequence. Default: ``None`` .
+            slot_mapping (Tensor[int32], optional): Store token cache physical slot index. Default: ``None`` .
+            q_seq_lens (Tensor[int32], optional): In parallel decoding, the query may be flattened.
+                The Paged Attention operator need `q_seq_lens` to obtain the length information. Default: ``None`` .
+            loss_mask (Tensor, optional): Used to determine whether the corresponding token position participates
+                in the loss calculation. If the value is :math:`(1)`, the loss of the position is calculated,
+                and :math:`(0)` is not calculated. Default: ``None`` .
 
         Returns:
             Tensor, The loss or (logits, tokens, input_mask) of the network.
         """
+        has_loss_mask = loss_mask is not None
         input_sliced_sig = self.input_sliced_sig
         if self.training and input_sliced_sig and labels is None:
             input_sliced_sig = False
@@ -518,6 +528,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 batch_valid_length = self.ones((bsz,), mstype.int32)
         if not input_sliced_sig and self.training:
             tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
+            if has_loss_mask:
+                loss_mask = self.slice(loss_mask, (0, 0), (bsz, seqlen - 1), (1, 1))
         else:
             tokens = input_ids
         if batch_valid_length is not None:
@@ -528,15 +540,17 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         output = self.pre_gather_func(pre_gather, output, batch_valid_length)
         logits = self.lm_head(output)
-        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
+        input_mask = loss_mask if has_loss_mask \
+            else self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
         if labels is None:
             labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
         else:
             if labels.ndim > 1:
                 if not input_sliced_sig and self.training:
                     labels = self.slice(labels, (0, 1), (bsz, seqlen), (1, 1))
-                label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
-                input_mask = self.mul(input_mask, label_mask)
+                if not has_loss_mask:
+                    label_mask = self.cast(self.not_equal(labels, self.ignore_token_id), mstype.float32)
+                    input_mask = self.mul(input_mask, label_mask)
 
         if not self.training:
             logits = self.cast(logits, mstype.float32)

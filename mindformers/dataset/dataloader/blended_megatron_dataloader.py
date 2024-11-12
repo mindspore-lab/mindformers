@@ -192,7 +192,9 @@ class MegatronDatasetBuilder:
             create_attention_mask=self.config.get("create_attention_mask", True),
             s3_cache_path=self.config.get("s3_cache_path", None),
             drop_last_partial_validation_sequence=self.config.get("drop_last_partial_validation_sequence", True),
-            add_extra_token_to_sequence=self.config.get("add_extra_token_to_sequence", True)
+            add_extra_token_to_sequence=self.config.get("add_extra_token_to_sequence", True),
+            eod=self.config.get("eod", -1),
+            pad=self.config.get("pad", -1),
         )
 
 
@@ -206,7 +208,7 @@ class FakeGptDataset:
         self.labels = np.ones((self.seq_length,), dtype=np.int32)
         self.loss_mask = np.ones((self.seq_length,), dtype=np.int32)
         self.position_mask = np.ones((self.seq_length,), dtype=np.int32)
-        self.attention_mask = np.ones((self.seq_length,), dtype=np.int32)
+        self.attention_mask = np.ones((1, self.seq_length, self.seq_length,), dtype=np.int32)
 
     def cols(self):
         # pylint: disable=R1705
