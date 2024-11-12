@@ -29,6 +29,7 @@ set_context(device_target='CPU')
 class TestConfig:
     def __init__(self):
         self.is_encoder_decoder = False
+        self.is_dynamic = True
 
 
 class TestGenerationMixin:
@@ -44,6 +45,7 @@ class TestGenerationMixin:
     def __init__(self):
         self.config = TestConfig()
         self._pre_set_phase = None
+        self._exec_add_flags = True
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         return {"input_ids": Tensor.from_numpy(input_ids)}
