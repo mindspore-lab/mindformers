@@ -33,7 +33,7 @@ sys.path.append(MFPATH + '/research/qwenvl')
 
 # pylint: disable=C0413
 from mindformers import CosineWithWarmUpLR, FP32StateAdamWeightDecay
-from mindformers import Trainer, MindFormerConfig, MindFormerRegister, MindFormerModuleType
+from mindformers import Trainer, MindFormerRegister, MindFormerModuleType
 from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
 
 from research.qwenvl.qwenvl import QwenVL
@@ -46,7 +46,10 @@ from research.qwenvl.qwen.qwen_model import QwenForCausalLM
 from research.qwenvl.qwen.qwen_config import QwenConfig
 from tests.st.training_checker import TrainingChecker
 
+from .base_model import get_config, get_model, get_model_config
+
 ms.set_context(mode=0)
+
 
 def register_modules():
     """register modules"""
@@ -59,6 +62,7 @@ def register_modules():
     MindFormerRegister.register_cls(QwenVLTransform, MindFormerModuleType.TRANSFORMS)
     MindFormerRegister.register_cls(QwenVLProcessor, MindFormerModuleType.PROCESSOR)
     MindFormerRegister.register_cls(QwenVLImageProcessor, MindFormerModuleType.PROCESSOR)
+
 
 def generator_train():
     """train dataset generator"""
@@ -74,76 +78,27 @@ def generator_train():
         yield input_ids[idx], images[idx], image_context_pos, labels[idx]
 
 
-@pytest.mark.level1
-@pytest.mark.platform_arm_ascend910b_training
-@pytest.mark.env_onecard
-class TestQwenVLTrainingPrecision:
+class TestQwenVLTrain:
     """A test class for testing training precision."""
 
-    def setup_method(self):
-        """init task trainer."""
+    @pytest.mark.level0
+    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.env_onecard
+    def test_train(self):
+        """
+        Feature: Trainer.train()
+        Description: Test trainer for train.
+        Expectation: AssertionError
+        """
+        register_modules()
         set_seed(0)
         np.random.seed(0)
-
-        register_modules()
         train_dataset = GeneratorDataset(generator_train,
                                          column_names=["input_ids", "images", "image_context_pos", "labels"])
         train_dataset = train_dataset.batch(batch_size=4)
-
-        vision_model_config = {
-            'arch': {'type': 'QwenVLVisionModel'},
-            'model_config': {
-                'type': 'QwenVLVisionConfig',
-                'num_hidden_layers': 2,
-            },
-        }
-        vision_model = MindFormerConfig(**vision_model_config)
-        llm_model_config = {
-            'arch': {'type': 'QwenForCausalLM'},
-            'model_config': {
-                'type': 'QwenConfig',
-                'num_layers': 2,
-                'seq_length': 512,
-                'vocab_size': 151936,
-                'intermediate_size': 11008,
-                'enable_slice_dp': False,
-                'embedding_parallel_optimizer': False,
-                'rms_norm_eps': 1.0e-6,
-                'emb_dropout_prob': 0.0,
-                'eos_token_id': 151643,
-                'pad_token_id': 151643,
-                'ignore_token_id': -100,
-                'rotary_dtype': "float16",
-                'use_flash_attention': True,
-                'is_dynamic': True,
-                'num_blocks': 128,
-                'top_k': 0,
-                'top_p': 0.8,
-                'do_sample': False,
-                'enable_emb_opt': True,
-                'rotary_pct': 1.0,
-                'rotary_emb_base': 10000,
-                'kv_channels': 128,
-            }
-        }
-        llm_model = MindFormerConfig(**llm_model_config)
-
-        model_config = dict(
-            vision_model=vision_model,
-            llm_model=llm_model,
-            freeze_vision=True,
-            freeze_resampler=False,
-            freeze_llm=False,
-            compute_dtype="bfloat16",
-            param_init_type="float16",
-            softmax_compute_type="float32",
-            is_dynamic=True,
-            block_size=32,
-            num_blocks=128,
-        )
-        model = QwenVL(QwenVLConfig(**model_config))
-
-        config = self.get_config(model_config)
+        config = get_config()
+        model_config = get_model_config(config)
+        model = get_model(model_config)
         lr_schedule = CosineWithWarmUpLR(learning_rate=1.e-5, warmup_ratio=0.01, warmup_steps=0, total_steps=20)
         group_params = get_optimizer_grouped_parameters(model=model)
         optimizer = FP32StateAdamWeightDecay(params=group_params,
@@ -171,48 +126,6 @@ class TestQwenVLTrainingPrecision:
                                     train_dataset=train_dataset,
                                     callbacks=callback,
                                     optimizers=optimizer)
-
-    def get_config(self, model_config):
-        """init config for training"""
-        config = {
-            'trainer': {
-                'type': 'MultiModalToTextGenerationTrainer',
-                'model_name': 'qwenvl'
-            },
-            'train_dataset': {},
-            'train_dataset_task': {},
-            'runner_config': {
-                'epochs': 1,
-                'batch_size': 4,
-                'sink_mode': True,
-                'sink_size': 2
-            },
-            'runner_wrapper': {
-                'type': 'MFTrainOneStepCell',
-                'scale_sense': {
-                    'type': 'DynamicLossScaleUpdateCell',
-                    'loss_scale_value': 64,
-                    'scale_factor': 2,
-                    'scale_window': 1000
-                },
-                'use_clip_grad': True,
-            },
-            'parallel': {},
-            'model': {'model_config': model_config},
-            'micro_batch_interleave_num': 1,
-            'callbacks': [{'type': 'MFLossMonitor'}]
-
-        }
-        config = MindFormerConfig(**config)
-        return config
-
-    @pytest.mark.run(order=1)
-    def test_train(self):
-        """
-        Feature: Trainer.train()
-        Description: Test trainer for train.
-        Expectation: AssertionError
-        """
         self.task_trainer.config.runner_config.epochs = 1
         self.task_trainer.config.callbacks = self.task_trainer.config.callbacks[:1]
         self.task_trainer.train()
