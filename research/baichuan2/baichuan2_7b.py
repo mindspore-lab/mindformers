@@ -121,7 +121,8 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
                                           config.parallel_config,
                                           config.pp_interleave_num)
         for layer_id in range(config.num_layers):
-            layer = LLamaDecodeLayer(layer_id,
+            layer = LLamaDecodeLayer(config.seq_length,
+                                     layer_id,
                                      dim=config.hidden_size,
                                      n_heads=config.num_heads,
                                      n_kv_heads=config.n_kv_heads,

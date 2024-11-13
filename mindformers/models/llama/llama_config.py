@@ -109,6 +109,8 @@ class LlamaConfig(PretrainedConfig):
         input_sliced_sig (bool, optional):
             If input_ids and labels have been processed to equal to seq_length, input_sliced_sig should be True,
             if not, input_sliced_sig should be False. Default: ``False`` .
+        rmsnorm_compute_2d (bool, optional):
+            Whether to use 2D Add in RMS_NORM. Default: ``False`` .
 
     Returns:
         LlamaConfig, a LlamaConfig instance.
@@ -233,6 +235,7 @@ class LlamaConfig(PretrainedConfig):
                  llm_backend: str = "",
                  fused_rms_norm: bool = True,
                  input_sliced_sig: bool = False,
+                 rmsnorm_compute_2d: bool = False,
                  **kwargs):
         """
         Note:
@@ -306,3 +309,4 @@ class LlamaConfig(PretrainedConfig):
         self.fused_rms_norm = fused_rms_norm
         self.init_method_std = init_method_std
         self.input_sliced_sig = input_sliced_sig
+        self.rmsnorm_compute_2d = rmsnorm_compute_2d

@@ -83,6 +83,7 @@ class InternLMDecodeLayer(LLamaDecodeLayer):
     """InternLM Transformer Layer inherits from LLamaDecodeLayer.
 
     Args:
+        seq_length (int): The sequence length of input.
         layer_id (int): The layer id of current transformer block layer.
         o_has_bias (bool, optional): Whether O projection in attention has bias. Defaults to True.
         **kwargs: keyword arguments of [`LLamaDecodeLayer`].
@@ -90,10 +91,12 @@ class InternLMDecodeLayer(LLamaDecodeLayer):
     """
 
     def __init__(self,
+                 seq_length,
                  layer_id,
                  has_bias,
                  **kwargs):
-        super().__init__(layer_id=layer_id,
+        super().__init__(seq_length=seq_length,
+                         layer_id=layer_id,
                          **kwargs)
         kwargs.pop("multiple_of")
         kwargs.pop("intermediate_size")
