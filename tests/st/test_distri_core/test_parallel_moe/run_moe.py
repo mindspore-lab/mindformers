@@ -264,6 +264,7 @@ if __name__ == '__main__':
     parser.add_argument('--use_seq_parallel', default=False, help="use short sequence parallel.", action='store_true')
     parser.add_argument('--comp_comm_parallel', default=False, help="use comp comm parallel.", action='store_true')
     parser.add_argument('--comp_comm_parallel_degree', type=int, default=2, help="comp comm parallel degree.")
+    parser.add_argument('--use_allgather_dispatcher', type=bool, default=False, help="use allgather dispatcher")
 
 
     cli_args, rest_args = parser.parse_known_args()
@@ -339,6 +340,10 @@ if __name__ == '__main__':
         if cli_args.comp_comm_parallel:
             moe_cfg_golden.comp_comm_parallel = cli_args.comp_comm_parallel
             moe_cfg_golden.comp_comm_parallel_degree = cli_args.comp_comm_parallel_degree
+        if cli_args.use_allgather_dispatcher:
+            moe_cfg_golden.use_allgather_dispatcher = True
+            model_cfg.parallel_config.expert_parallel = model_cfg.parallel_config.expert_model_parallel_size
+
 
         model_cfg.moe_config = moe_cfg_golden
         generate_golden(model_cfg, cli_args)

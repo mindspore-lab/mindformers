@@ -672,6 +672,7 @@ class LLamaDecodeLayer(nn.Cell):
                                    ffn_concat=qkv_concat,
                                    is_dynamic=is_dynamic,
                                    parallel_config=parallel_config,
+                                   moe_config=moe_config,
                                    init_method_std=init_method_std) if self.shared_expert_num == 0 else None
         if self.expert_num == 1:
             self.feed_forward = ffn
