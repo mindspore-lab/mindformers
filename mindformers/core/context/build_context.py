@@ -82,14 +82,6 @@ class _Context:
         self.set_train_precision_sync(self.config.get('train_precision_sync', None))
         self.set_infer_precision_sync(self.config.get('infer_precision_sync', None))
 
-        speedup_config_json = os.environ.get("MS_ENABLE_NUMA")
-        if speedup_config_json and os.path.exists(os.path.realpath(speedup_config_json)):
-            speedup_real_path = os.path.realpath(speedup_config_json)
-            rank_id = int(os.environ.get("RANK_ID", 0))
-            with open(speedup_real_path, 'r') as f:
-                speedup_config = json.load(f)
-                self.cpu_affinity_by_config(rank_id, speedup_config)
-
         local_rank, device_num = self.init_ms_context()
         config.device_num = device_num
         config.local_rank = local_rank
@@ -98,6 +90,13 @@ class _Context:
             ds.config.set_numa_enable(True)
             self.cpu_affinity(local_rank, device_num)
             logger.info(f"cpu_affinity, rank_id: {local_rank}, device_num: {device_num}")
+
+        speedup_config_json = os.environ.get("MS_ENABLE_NUMA")
+        if speedup_config_json and os.path.exists(os.path.realpath(speedup_config_json)):
+            speedup_real_path = os.path.realpath(speedup_config_json)
+            with open(speedup_real_path, 'r') as f:
+                speedup_config = json.load(f)
+                self.cpu_affinity_by_config(local_rank, speedup_config)
 
         if config.parallel.get("strategy_ckpt_load_file"):
             self.set_ms_auto_parallel_context(strategy_ckpt_load_file=config.parallel.strategy_ckpt_load_file)
