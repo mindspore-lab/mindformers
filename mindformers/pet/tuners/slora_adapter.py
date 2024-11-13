@@ -191,7 +191,7 @@ class SLoraEmbedding(Cell):
 
     def construct(self, input_ids):
         """Forward process"""
-        self.embedding_weight = self.cast(self.embedding_weight, self.dtype)
+        embedding_weight = self.cast(self.embedding_weight, self.dtype)
         lora_a = self.cast(self.lora_a, self.dtype)
         lora_b = self.cast(self.lora_b, self.dtype)
         lora_a = self.lora_a_gather(lora_a, self.adapter_ids.reshape(-1), 0)
@@ -200,10 +200,12 @@ class SLoraEmbedding(Cell):
         #-------- Embedding part ----------
         if self.lora_extra_vocab_size != 0:
             lora_embedding = self.cast(self.lora_embedding, self.dtype)
-            embedding_weight = self.broadcast_to(self.embedding_weight)
+            embedding_weight = self.broadcast_to(embedding_weight)
             embedding_weight = self.concat((embedding_weight, lora_embedding))
-        embedding_result = self.gather(embedding_weight, self.adapter_ids, 0)
-        embedding_result = self.lora_gather(embedding_result, input_ids, 1)
+            embedding_weight = self.gather(embedding_weight, self.adapter_ids, 0)
+            embedding_result = self.lora_gather(embedding_weight, input_ids, 1)
+        else:
+            embedding_result = self.gather(embedding_weight, input_ids, 0)
 
         #-------- LoRA part ----------
         lora_result = self.lora_gather(self.transpose(lora_a, (0, 2, 1)), input_ids, 1)
@@ -226,6 +228,9 @@ class SLoraEmbedding(Cell):
             It is valid only in semi auto parallel or auto parallel mode.
             In other parallel modes, strategies set here will be ignored.
         """
+        strategy = self.gather.in_strategy
+        self.lora_mul.shard(((strategy[0][0], strategy[1][0]), ()))
+        self.lora_add.shard(((strategy[0][0], strategy[1][0]), (strategy[0][0], strategy[1][0])))
 
 
 class SLoraHead(Cell):
@@ -359,8 +364,6 @@ class SLoraHead(Cell):
             In other parallel modes, strategies set here will be ignored.
         """
         strategy = self.matmul.in_strategy
-        self.lora_a_gather.shard(((1, 1, strategy[1][1]), (1,)))
-        self.lora_b_gather.shard(((1, strategy[1][0], 1), (1,)))
         self.lora_a_matmul.shard(((strategy[0][0], 1, strategy[0][1]), (strategy[0][0], 1, strategy[1][1])))
         self.lora_b_matmul.shard(((strategy[0][0], 1, 1), (strategy[0][0], strategy[1][0], 1)))
         self.lora_mul.shard(((strategy[0][0], strategy[1][0]), ()))
@@ -395,6 +398,16 @@ class SLoraAdapter(abc.ABC):
         num = len(path_dict) + 1
         max_rank = 0
         target_modules_set = set()
+
+        lora_extra_vocab_size = 0
+        for _, slora_path in path_dict.items():
+            added_tokens_path = os.path.join(slora_path, "added_tokens.json")
+            if os.path.exists(slora_path):
+                with open(added_tokens_path, 'r') as file:
+                    added_tokens = json.load(file)
+                lora_extra_vocab_size = len(added_tokens)
+                break
+
         for _, slora_path in path_dict.items():
             config_path = os.path.join(slora_path, "adapter_config.json")
             if not os.path.exists(config_path):
@@ -413,7 +426,6 @@ class SLoraAdapter(abc.ABC):
             config = json.load(file)
         alpha = int(config["lora_alpha"])
         dropout = float(config["lora_dropout"])
-        lora_extra_vocab_size = int(config["lora_extra_vocab_size"])
 
         return SLoraConfig(target_modules, num, max_rank, alpha, dropout, lora_extra_vocab_size)
 
