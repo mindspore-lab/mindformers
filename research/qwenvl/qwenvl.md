@@ -166,7 +166,6 @@ MindFormers提供了默认微调配置`finetune_qwenvl_9.6b.yaml`，默认配置
      data_loader:
       type: BaseMultiModalDataLoader
       annotation_file: "/path/to/converted/json"     # 根据实际位置，填写对话json文件所在路径
-      column_names: [ "image", "text" ]
       shuffle: True
      modal_to_text_transform:
         type: BaseXModalToTextTransform
