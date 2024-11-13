@@ -16,6 +16,7 @@
 import numpy as np
 
 import mindspore.common.dtype as mstype
+from mindspore import mint
 from mindspore import Tensor, ops
 from mindspore.communication import get_group_size
 
@@ -25,7 +26,7 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import get_g
 from mindformers.models.llama.llama import LlamaPreTrainedModel
 from mindformers.modules import Linear
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_predict_run_mode
+from mindformers.tools.utils import get_predict_run_mode, get_disable_custom_fa
 
 from .utils import convert_model_config
 
@@ -55,6 +56,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
         self.is_first_iteration = True
+        self.disable_custom_fa = get_disable_custom_fa()
 
         self.shape = ops.Shape()
         self.reshape = ops.Reshape()
@@ -65,6 +67,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.add = ops.Add()
         self.ones = ops.Ones()
         self.gather = ops.Gather(1)
+        self.prefill_gather_flatten = ops.Gather()
         self.sub_batch_valid_len = ops.Sub()
         self.model = ParallelTransformer(config=config)
         if config.parallel_config.vocab_emb_dp:
@@ -92,12 +95,35 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
 
         self.use_past = config.use_past
 
+    def prepare_inputs_for_prefill_flatten(self, input_ids, batch_valid_length, slot_mapping, model_inputs):
+        """prepare inputs ids for prefill flatten"""
+        batch_valid_length_bs = batch_valid_length.shape[0]
+        input_ids_bs = input_ids.shape[0]
+        if batch_valid_length_bs == input_ids_bs and batch_valid_length_bs > 1:
+            input_ids_list = []
+            for i in range(batch_valid_length_bs):
+                context_len = batch_valid_length[i]
+                input_ids_list.append(input_ids[i][:context_len])
+            input_ids = np.concatenate(input_ids_list, 0)
+            input_ids = input_ids.reshape((1, -1))
+            slot_mapping = np.delete(slot_mapping, np.where(slot_mapping == -1))
+        model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
+        model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
+        return model_inputs
+
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         model_inputs = {}
         if self.config.is_dynamic and "origin_inputs" in kwargs:
             input_ids = kwargs["origin_inputs"]
         model_inputs["input_ids"] = Tensor.from_numpy(
             input_ids.astype(np.int32))
+
+        prefill = kwargs.get("prefill")
+        if self.disable_custom_fa and prefill:
+            batch_valid_length = kwargs.get("valid_length_each_example")
+            slot_mapping = kwargs.get("slot_mapping")
+            model_inputs = self.prepare_inputs_for_prefill_flatten(input_ids, batch_valid_length, slot_mapping,
+                                                                   model_inputs)
         if hasattr(self, 'llm_boost'):
             batch_valid_length = kwargs.get("valid_length_each_example")
             block_tables = kwargs.get("block_tables")
@@ -173,13 +199,20 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         """
         Forward of llama model.
         """
+        bsz, _ = self.shape(input_ids)
         if batch_valid_length is not None:
             batch_valid_length = batch_valid_length.reshape(-1,)
+        else:
+            batch_valid_length = self.ones((bsz,), mstype.int32)
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
                             slot_mapping, prefix_keys_values)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
-            output = self.gather(output, batch_valid_length - 1, 1)
+            if self.disable_custom_fa:
+                batch_valid_length = mint.cumsum(batch_valid_length, 0)
+                output = self.prefill_gather_flatten(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+            else:
+                output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 
         logits = self.cast(logits, mstype.float32)
