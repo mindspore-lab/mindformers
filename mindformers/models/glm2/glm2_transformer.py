@@ -178,8 +178,10 @@ class ChatGLM2SelfAttention(nn.Cell):
 
         parallel_config = config.parallel_config
         dp, cp, mp = _parallel_decompose(config)
-        self.cp_ds = 1
-        self.cp_co = cp
+        self.cp_ds = parallel_config.get_ulysses_cp_num()
+        # define colossal ai context parallel
+        self.cp_co = cp // self.cp_ds
+        self.use_ring_attention = config.use_ring_attention
 
         qkv_has_bias = config.add_bias_linear or config.add_qkv_bias
         kv_mp = self.n_kv_head if self.n_kv_head < mp else mp
@@ -262,7 +264,7 @@ class ChatGLM2SelfAttention(nn.Cell):
         qkv_strategy_bias = ((dp * cp, mp), (mp,)) if qkv_has_bias else None
         self.query_key_value.shard(strategy_matmul=qkv_strategy_matmul, strategy_bias=qkv_strategy_bias)
         self.split_qkv.add_prim_attr("skip_redistribution", True)
-        self.split_qkv.shard(((dp * cp, 1, 1),))
+        self.split_qkv.shard(((dp, cp, 1),))
 
     def shard_wqkv_non_concat(self, config, qkv_has_bias, kv_mp):
         """shard wqkv non concat"""
@@ -322,14 +324,26 @@ class ChatGLM2SelfAttention(nn.Cell):
                 self.wv.weight.parallel_optimizer = False
             layout = Layout((dp, self.n_kv_head, mp * self.cp_ds // self.n_kv_head, cp),
                             ("dp", "mp1", "mp2", "cp"))
-            self.flash_attention.flash_attention.shard(
-                (
-                    layout("dp", "cp", ("mp1", "mp2")),
-                    layout("dp", "None", "mp1"),
-                    layout("dp", "None", "mp1"),
-                    layout("dp", "None", "cp", "None")
+            if self.use_ring_attention:
+                self.flash_attention.flash_attention.shard(
+                    (
+                        layout("dp", "cp", ("mp1", "mp2")),
+                        layout("dp", "cp", "mp1"),
+                        layout("dp", "cp", "mp1"),
+                        layout("dp", "None", "cp", "None")
+                    )
                 )
-            )
+                self.flash_attention.flash_attention.add_prim_attr("enable_ring_attention", True)
+                self.flash_attention.flash_attention.add_prim_attr("enable_ra_send_recv", True)
+            else:
+                self.flash_attention.flash_attention.shard(
+                    (
+                        layout("dp", "cp", ("mp1", "mp2")),
+                        layout("dp", "None", "mp1"),
+                        layout("dp", "None", "mp1"),
+                        layout("dp", "None", "cp", "None")
+                    )
+                )
 
     def select_mask_generate(self, config, parallel_config, sparse_mode):
         """select which mask to use"""
