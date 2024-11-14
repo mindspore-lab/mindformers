@@ -53,20 +53,8 @@ class PtqQuantizer(Quantizer):
             self, model: "PreTrainedModel", **kwargs
     ):
         from mindspore_gs.ptq import PTQ
-        from mindformers import MindFormerConfig
-        config = kwargs.get('config')
-        mfconfig = MindFormerConfig(model=config)
-        if mfconfig.model.arch.type == "ParallelLlamaForCausalLM":
-            from mindspore_gs.ptq.network_helpers.mf_net_helpers import MFParallelLlama2Helper
-            helper = MFParallelLlama2Helper(mfconfig)
-        elif mfconfig.model.arch.type == "LlamaForCausalLM":
-            from mindspore_gs.ptq.network_helpers.mf_net_helpers import MFLlama2Helper
-            helper = MFLlama2Helper(mfconfig)
-        else:
-            raise ValueError(f"PTQ do not support {mfconfig.model.arch.type} now,"
-                             "only support ParallelLlamaForCausalLM or LlamaForCausalLM. ")
         ptq = PTQ(config=self.quant_config)
-        model = ptq.apply(model, helper)
+        model = ptq.apply(model)
         model = ptq.convert(model)
         return model
 

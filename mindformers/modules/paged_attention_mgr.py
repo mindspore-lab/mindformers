@@ -31,13 +31,15 @@ class PagedAttentionMgr(nn.Cell):
                  head_dim,
                  n_kv_heads,
                  kv_shape,
+                 seq_length=-1,
                  compute_dtype=mstype.float16,
                  parallel_decoding=False):
         super().__init__()
         self.n_heads = n_heads
         self.head_dim = head_dim
         self.n_kv_heads = n_kv_heads
-
+        self.seq_length = seq_length
+        self.is_first_iteration = True
         self.scale_value = 1 / math.sqrt(self.head_dim)
         self.key_cache = Parameter(Tensor(shape=kv_shape, dtype=compute_dtype, init=Zero()), name="key_cache",
                                    requires_grad=False)
@@ -53,7 +55,8 @@ class PagedAttentionMgr(nn.Cell):
                                                                              self.n_kv_heads)
         self.parallel_decoding = parallel_decoding
 
-    def construct(self, key, value, slot_mapping):
+    # pylint: disable=W0613
+    def construct(self, key, value, slot_mapping, batch_valid_length=None):
         """The forward compute of KVCache for Paged Attention."""
         return self.reshape_and_cache(key, value, self.key_cache, self.value_cache, slot_mapping)
 
