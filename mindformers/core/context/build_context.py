@@ -315,8 +315,12 @@ class _Context:
         if switch is None:
             return
         if switch:
-            os.environ['MS_ENABLE_TFT'] = '{TTP:1}'
-            os.environ['MINDIO_FOR_MINDSPORE'] = '1'
+            sink_size = self.config.runner_config.sink_size
+            if sink_size == 1:
+                os.environ['MS_ENABLE_TFT'] = '{TTP:1 UCE:1}'
+                os.environ['MINDIO_FOR_MINDSPORE'] = '1'
+            else:
+                raise ValueError(f'sink_size should be 1, but get {sink_size}')
 
     def save_ckpt_grace_exit(self, switch):
         """set use_graceful_exit wnv"""
