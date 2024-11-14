@@ -175,6 +175,7 @@ class MFLossMonitor(Callback):
         global_batch_size (int): The total batch size. Default: 0.
         gradient_accumulation_steps (int): The gradient accumulation steps. Default: 1.
         check_for_nan_in_loss_and_grad (bool): Whether to check loss and norm of grad is Nan. Default: False.
+        calculate_per_token_loss (bool): Whether to calculate per token loss. Default: False.
 
     Examples:
         >>> from mindformers.core import MFLossMonitor
@@ -193,7 +194,8 @@ class MFLossMonitor(Callback):
                  initial_step: int = 0,
                  global_batch_size: int = 0,
                  gradient_accumulation_steps: int = 1,
-                 check_for_nan_in_loss_and_grad: bool = False):
+                 check_for_nan_in_loss_and_grad: bool = False,
+                 calculate_per_token_loss: bool = False):
         super(MFLossMonitor, self).__init__()
         self.per_print_times = per_print_times
         self.learning_rate = deepcopy(learning_rate)
@@ -219,6 +221,7 @@ class MFLossMonitor(Callback):
         self.tensor_writer = get_tensorboard_writer()
         self.tensorboard = get_tensorboard_args()
         self.check_for_nan_in_loss_and_grad = check_for_nan_in_loss_and_grad
+        self.calculate_per_token_loss = calculate_per_token_loss
 
     def epoch_begin(self, run_context):
         """
@@ -325,11 +328,11 @@ class MFLossMonitor(Callback):
         if self.micro_batch_interleave_num > 1 and self.print_warning_flag:
             logger.warning("micro_batch_interleave_num: %s > 1, multiple copies in parallel is open.")
 
-        if pipeline_stages > 1:
+        if pipeline_stages > 1 and not self.calculate_per_token_loss:
             loss = loss / self.mirco_size
         if self.micro_batch_interleave_num > 1:
             loss = loss / self.micro_batch_interleave_num
-        if self.gradient_accumulation_steps > 1:
+        if self.gradient_accumulation_steps > 1 and not self.calculate_per_token_loss:
             loss = loss / self.gradient_accumulation_steps
 
         return loss
