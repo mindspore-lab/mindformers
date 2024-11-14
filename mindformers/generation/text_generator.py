@@ -910,13 +910,13 @@ class GenerationMixin:
                     if self.config.is_encoder_decoder:
                         target_mask[i][valid_length_each_example[i]] = int(1)
 
-                    valid_length_each_example[i] += int(1)
-                    input_mask[i][valid_length_each_example[i] - 1] = 1
-
                     # Stop judgment
                     if target_list[i] in generation_config.eos_token_id \
-                            or valid_length_each_example[i] == generation_config.max_length:
+                            or valid_length_each_example[i] + 1 == generation_config.max_length:
                         is_finished[i] = True
+                    else:
+                        valid_length_each_example[i] += 1
+                        input_mask[i][valid_length_each_example[i] - 1] = 1
 
                 if streamer is not None:
                     if batch_size == 1:
@@ -925,6 +925,7 @@ class GenerationMixin:
                         streamer.put(target_list)
 
             # Return valid outputs out of padded outputs
+            valid_length_each_example += 1
             output_ids = []
             for i in range(batch_size):
                 output_ids.append(
