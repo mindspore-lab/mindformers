@@ -1,7 +1,7 @@
 mindformers.models.glm2.ChatGLM2Config
 =========================================================================
 
-.. py:class:: mindformers.models.glm2.ChatGLM2Config(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-5, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = "float16", compute_dtype: str = "float16", layernorm_compute_type: str = "float32", rotary_dtype: str = None, use_past=False, use_flash_attention=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, TransformerOpParallelConfig]=default_transformer_config, offset=0, pp_interleave_num=1, **kwargs)
+.. py:class:: mindformers.models.glm2.ChatGLM2Config(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-5, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = "float16", compute_dtype: str = "float16", layernorm_compute_type: str = "float32", rotary_dtype: str = None, use_past=False, use_flash_attention=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, TransformerOpParallelConfig]=default_transformer_config, offset=0, pp_interleave_num=1, use_ring_attention: bool = False, **kwargs)
 
     ChatGLM2模型配置类，里面定义了模型的相关配置参数。
 
@@ -54,4 +54,5 @@ mindformers.models.glm2.ChatGLM2Config
         - **use_rearrange_rope** (bool，可选) - 是否使用重排布后的旋转位置编码。默认值：``False``。
         - **mask_generate** (str，可选) - 使用的mask生成方式，可为 "inmap"、"compress_reset" 或 None，为 None 时使用下三角掩码。默认值：``None``。
         - **fine_grain_interleave** (int，可选) - 细粒度多副本并行的切片数量，在张量并行情况下通信时间和计算时间可部分相互掩盖。默认值：``1``。
+        - **use_ring_attention** (bool, 可选) - 是否启用环形注意力操作。默认值： ``False`` 。
         - **kwargs** (dict，可选) - 一个可变数量的关键字参数，为待扩展的关键字参数预留。

@@ -110,12 +110,12 @@ class LayerSetting:
         self.recompute = parallel_config.recompute
         self.gradient_aggregation_group = parallel_config.gradient_aggregation_group
         self.pp_interleave_num = pp_interleave_num if use_pp_interleave else 1
-        self.offset = np.array(offset, np.int64)
+        self.offset = np.array(offset, np.int32)
         self._check_inputs()
         self.offset = np.broadcast_to(self.offset, (self.pp_interleave_num, self.pp))
 
         avg_layer = self.num_layers // (self.pp * self.pp_interleave_num)
-        self.layer_list = np.ones((self.pp_interleave_num, self.pp), np.int64) * avg_layer + self.offset
+        self.layer_list = np.ones((self.pp_interleave_num, self.pp), np.int32) * avg_layer + self.offset
         interleave_sum = np.insert(np.cumsum(np.sum(self.layer_list, axis=1))[:-1], 0, 0)
         self.layer_accu = np.cumsum(self.layer_list, axis=1) + interleave_sum.reshape(-1, 1)
         self.pp_ids = [np.searchsorted(self.layer_accu.reshape(-1), i + 1) % self.pp for i in range(self.num_layers)]

@@ -94,6 +94,7 @@ class ChatGLM2Config(PretrainedConfig):
              set as None, lower triangular mask is used. Default: ``None`` .
         fine_grain_interleave (int, optional): Number of slices for fine grain interleave feature, which covers
              communication time with computation time in tensor parallel case. Default: ``1`` .
+        use_ring_attention(bool, optional): Whether enable ring attention ops. Default: ``False`` .
         kwargs (dict, optional): A variable number of keyword parameters reserved for the keyword parameters to be
             expanded.
 
@@ -151,7 +152,8 @@ class ChatGLM2Config(PretrainedConfig):
             "qkv_concat": True,
             "use_rearrange_rope": False,
             "mask_generate": None,
-            "fine_grain_interleave": 1
+            "fine_grain_interleave": 1,
+            "use_ring_attention": False
             }
     """
 
@@ -211,6 +213,7 @@ class ChatGLM2Config(PretrainedConfig):
                  use_rearrange_rope: bool = False,
                  mask_generate: str = None,
                  fine_grain_interleave: int = 1,
+                 use_ring_attention: bool = False,
                  **kwargs):
         super().__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -267,3 +270,4 @@ class ChatGLM2Config(PretrainedConfig):
         self.use_rearrange_rope = use_rearrange_rope
         self.mask_generate = mask_generate
         self.fine_grain_interleave = fine_grain_interleave
+        self.use_ring_attention = use_ring_attention
