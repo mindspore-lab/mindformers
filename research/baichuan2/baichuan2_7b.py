@@ -190,7 +190,7 @@ class Baichuan7BV2Model(Baichuan2PreTrainedModel):
         if self.use_past:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-                mask = self.casual_mask(tokens)
+                mask = self.casual_mask.prefill()
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
