@@ -179,11 +179,11 @@ def main():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input_file', default='', type=str,
+    parser.add_argument('--input_file', default=None, type=str,
                         help='input to infer.')
-    parser.add_argument('--vocab_file_path', default='', type=str,
+    parser.add_argument('--vocab_file_path', default=None, type=str,
                         help='which model to use.')
-    parser.add_argument('--checkpoint_path', default='', type=str,
+    parser.add_argument('--checkpoint_path', default=None, type=str,
                         help='set checkpoint path.')
     parser.add_argument('--use_parallel', default=True, type=str2bool,
                         help='whether use parallel.')
@@ -193,7 +193,7 @@ if __name__ == "__main__":
                         help='set src strategy path.')
     parser.add_argument('--use_past', default=True, type=str2bool,
                         help='whether use past.')
-    parser.add_argument('--yaml_file', default="", type=str,
+    parser.add_argument('--yaml_file', default=None, type=str,
                         help='predict yaml path')
     parser.add_argument('--device_id', default=0, type=int,
                         help='device id set when run on single card. Default: 0')

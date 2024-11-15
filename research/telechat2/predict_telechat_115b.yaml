@@ -130,7 +130,6 @@ context:
 model:
   model_config:
     type: TelechatConfig
-    auto_register: telechat_config.TelechatConfig
     batch_size: 1 # add for increase predict
     seq_length: 8192
     hidden_size: 8192
@@ -173,7 +172,6 @@ model:
       AutoTokenizer: [telechat_tokenizer.TelechatTokenizer, null]
   arch:
     type: TelechatForCausalLM
-    auto_register: telechat.TelechatForCausalLM
 
 processor:
   return_tensors: ms
@@ -184,8 +182,6 @@ processor:
     eos_token: '<_end>'
     pad_token: '<_pad>'
     type: TelechatTokenizer
-    auto_register: telechat_tokenizer.TelechatTokenizer
-
 
 # metric
 metric:

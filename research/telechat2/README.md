@@ -151,7 +151,7 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于预训
 下载完成后，运行如下转换脚本，将全量微调的权重转换为完整的ckpt权重。
 
 ```shell
-python mindformers/research/telechat2/convert_weight_torch_to_ms.py \
+python mindformers/research/telechat2/convert_weight.py \
 --torch_path TORCH_CKPT_DIR \
 --mindspore_path {path} \
 ```
@@ -248,19 +248,17 @@ export MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST=InferenceMatmulSplit,PagedAttentio
 cd mindformers/
 
 # 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
-bash scripts/msrun_launcher.sh "python run_mindformer.py \
- --config research/telechat2/finetune_telechat_115b.yaml
+bash scripts/msrun_launcher.sh "python research/telechat2/run_telechat.py \
+ --config research/telechat2/finetune_telechat_115b.yaml \
  --train_dataset /{path}/dataset.mindrecord \
  --use_parallel True \
- --register_path ./research/telechat2" \
   16 8 192.168.1.1 8118 0 output/msrun_log False 300
 
 # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
-bash scripts/msrun_launcher.sh "python run_mindformer.py \
- --config research/telechat2/finetune_telechat_115b.yaml
+bash scripts/msrun_launcher.sh "python research/telechat2/run_telechat.py \
+ --config research/telechat2/finetune_telechat_115b.yaml \
  --train_dataset /{path}/dataset.mindrecord \
  --use_parallel True \
- --register_path ./research/telechat2" \
   16 8 192.168.1.1 8118 1 output/msrun_log False 300
 ```
 
@@ -269,12 +267,15 @@ bash scripts/msrun_launcher.sh "python run_mindformer.py \
 config: 配置文件路径
 train_dataset: 训练数据集文件夹路径
 use_parallel：开启并行训练
-register_path: 外部模型注册路径
 ```
 
 ## 推理
 
-推理时所需的模型词表可在[模型权重下载与转换](#模型权重下载与转换)章节中下载得到，对应文件为`tokenizer.model`。
+推理时所需的模型词表可在[模型权重下载与转换](#模型权重下载与转换)章节中下载得到，对应文件为`tokenizer.model`。此外，推理还需要用户自定义`input.json`文件，格式如下：
+
+```json
+{"input": "生抽和老抽的区别？"}
+```
 
 ### 参数配置
 
@@ -320,49 +321,47 @@ processor:
 运行`run_mindformer.py`启动推理
 
 ```shell
-cd mindformers/
-python run_mindformer.py \
---config ./research/telechat2/predict_telechat_7b.yaml \
---load_checkpoint path/to/ckpt_path \
---use_parallel False
---predict_data "<_start><_user>生抽与老抽的区别？<_bot>" \
---register_path ./research/telechat2
+cd mindformers
+python research/telechat2/run_telechat_predict.py \
+--yaml_file ./research/telechat2/predict_telechat_7b.yaml \
+--checkpoint_path path/to/ckpt_path \
+--use_parallel False \
+--input_file input.json
 ```
 
 - 35b模型2卡推理
 
 ```shell
 cd mindformers/
-bash scripts/msrun_launcher.sh "python run_mindformer.py \
---config ./research/telechat2/predict_telechat_35b.yaml \
---load_checkpoint path/to/ckpt_path \
---predict_data '<_start><_user>生抽与老抽的区别？<_bot>' \
+bash scripts/msrun_launcher.sh "python ./research/telechat2/run_telechat_predict.py \
+--yaml_file ./research/telechat2/predict_telechat_35b.yaml \
+--checkpoint_path path/to/ckpt_path \
+--input_file input.json \
 --auto_trans_ckpt True \
---use_parallel True
---register_path ./research/telechat2 2
+--use_parallel True" \
+2
 ```
 
 - 115b模型8卡推理
 
 ```shell
 cd mindformers/
-bash scripts/msrun_launcher.sh "python run_mindformer.py \
---config ./research/telechat2/predict_telechat_115b.yaml \
---load_checkpoint path/to/ckpt_path \
---predict_data '<_start><_user>生抽与老抽的区别？<_bot>' \
+bash scripts/msrun_launcher.sh "python ./research/telechat2/run_telechat_predict.py \
+--yaml_file ./research/telechat2/predict_telechat_115b.yaml \
+--checkpoint_path path/to/ckpt_path \
+--input_file input.json \
 --auto_trans_ckpt True \
---use_parallel True
---register_path ./research/telechat2 8
+--use_parallel True" \
+8
 ```
 
 ```text
 # 参数说明
-config: 模型的配置文件
-load_checkpoint: 权重路径
-predict_data: 输入的问题
+yaml_file: 模型的配置文件
+checkpoint_path: 权重路径
+input_file: 输入的问题的文件路径
 auto_tans_ckpt: 权重自动转换开关
 use_parallel: 并行模式开关
-register_path: 外部模型注册路径
 ```
 
 ### 推理结果
