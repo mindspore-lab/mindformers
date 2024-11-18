@@ -1145,7 +1145,8 @@ class BaseTrainer:
         model.eval_network.set_train(origin_phase)
         return output
 
-    def _get_load_path_after_hf_convert(self, config, network):
+    @staticmethod
+    def _get_load_path_after_hf_convert(config, network):
         if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
                 is_hf_safetensors_dir(config.load_checkpoint, network)):
             logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")

@@ -658,7 +658,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
     @classmethod
     def convert_weight_dict(cls, source_dict, **kwargs):
         """convert HuggingFace weight dict to MindFormers weight dict"""
-        qkv_concat = kwargs.get("qkv_concat", False)
+        model_config = kwargs.get("model_config")
+        qkv_concat = model_config.qkv_concat
         target_dict = {}
         wq_keys = []
         wk_keys = []
@@ -689,7 +690,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             condition = kwargs.get('condition', None)
             if not isinstance(condition, Condition):
                 raise ValueError(f'condition must be a Condition, when qkv_concat is True, but got {condition}.')
-            _concat_qkv_weight(wq_keys, wk_keys, wv_keys, w1_keys, w3_keys, qkv_dict, condition, target_dict)
+            _concat_qkv_weight(wq_keys, wk_keys, wv_keys, model_config, qkv_dict, condition, target_dict)
+            _concat_ffn_weight(w1_keys, w3_keys, model_config, qkv_dict, condition, target_dict)
 
         return target_dict
 
@@ -745,8 +747,14 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         return self.model.clear_kv_cache()
 
 
-def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, w1_keys, w3_keys, qkv_dict, condition, target_dict):
-    """concat qkv weight and ffn weight from dicts"""
+def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, model_config, qkv_dict, condition, target_dict):
+    """concat qkv weight from dicts"""
+    from mindformers.utils.convert_utils import qkv_concat_hf2mg
+
+    num_heads = model_config.num_heads
+    n_kv_heads = model_config.n_kv_heads or num_heads
+    hidden_size = model_config.hidden_size
+
     # pop extra weight to shared dict if there is no corresponding weight for concat in the target dict
     for wk_key in wk_keys:
         wq_key = wk_key.replace('wk', 'wq')
@@ -760,14 +768,8 @@ def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, w1_keys, w3_keys, qkv_dict, co
             with condition:
                 qkv_dict[wv_key] = target_dict.pop(wv_key)  # add extra weight to shared dict
                 condition.notify_all()
-    for w3_key in w3_keys:
-        w1_key = w3_key.replace('w3', 'w1')
-        if w1_key not in w1_keys:
-            with condition:
-                qkv_dict[w3_key] = target_dict.pop(w3_key)  # add extra weight to shared dict
-                condition.notify_all()
 
-    # concat qkv and ffn
+    # concat qkv
     for wq_key in wq_keys:
         wk_key = wq_key.replace('wq', 'wk')
         wv_key = wq_key.replace('wq', 'wv')
@@ -787,7 +789,37 @@ def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, w1_keys, w3_keys, qkv_dict, co
 
         w_qkv_key = wq_key.replace('wq', 'w_qkv')
         w_qkv_value = np.concatenate((wq_value, wk_value, wv_value), 0)
-        target_dict.update({w_qkv_key: w_qkv_value})
+        # qkv weight format: hf -> mg
+        w_qkv_value_mg = qkv_concat_hf2mg(w_qkv_value, num_heads, n_kv_heads, hidden_size)
+        target_dict.update({w_qkv_key: w_qkv_value_mg})
+
+
+def _concat_ffn_weight(w1_keys, w3_keys, model_config, qkv_dict, condition, target_dict):
+    """concat ffn weight from dicts"""
+    from mindformers.utils.convert_utils import ffn_concat_hf2mg
+
+    intermediate_size = model_config.intermediate_size
+    ffn_dim_multiplier = model_config.ffn_dim_multiplier
+    multiple_of = model_config.multiple_of or 256
+    ffn_hidden_size = model_config.hidden_size * 4
+    if intermediate_size is not None:
+        ffn_hidden_size = intermediate_size
+    else:
+        if ffn_dim_multiplier is not None:
+            ffn_hidden_size = int((ffn_dim_multiplier + 0.01) * ffn_hidden_size)
+        ffn_hidden_size = int(2 * ffn_hidden_size / 3)
+        ffn_hidden_size = multiple_of * \
+                          ((ffn_hidden_size + multiple_of - 1) // multiple_of)
+
+    # pop extra weight to shared dict if there is no corresponding weight for concat in the target dict
+    for w3_key in w3_keys:
+        w1_key = w3_key.replace('w3', 'w1')
+        if w1_key not in w1_keys:
+            with condition:
+                qkv_dict[w3_key] = target_dict.pop(w3_key)  # add extra weight to shared dict
+                condition.notify_all()
+
+    # concat ffn
     for w1_key in w1_keys:
         w3_key = w1_key.replace('w1', 'w3')
         w1_value = target_dict.pop(w1_key)
@@ -801,4 +833,6 @@ def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, w1_keys, w3_keys, qkv_dict, co
 
         w_gate_hidden_key = w1_key.replace('w1', 'w_gate_hidden')
         w_gate_hidden_value = np.concatenate((w1_value, w3_value), 0)
-        target_dict.update({w_gate_hidden_key: w_gate_hidden_value})
+        # ffn weight format: hf -> mg
+        w_gate_hidden_value_mg = ffn_concat_hf2mg(w_gate_hidden_value, ffn_hidden_size)
+        target_dict.update({w_gate_hidden_key: w_gate_hidden_value_mg})

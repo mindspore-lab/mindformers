@@ -131,7 +131,6 @@ class TelechatModel(TelechatPreTrainedModel):
                                                       norm_eps=config.rms_norm_eps,
                                                       qkv_has_bias=config.qkv_has_bias,
                                                       out_proj_has_bias=config.out_proj_has_bias,
-                                                      qkv_concat=config.qkv_concat,
                                                       compute_dtype=config.compute_dtype,
                                                       layernorm_compute_dtype=config.layernorm_compute_type,
                                                       softmax_compute_dtype=config.softmax_compute_type,
@@ -139,7 +138,6 @@ class TelechatModel(TelechatPreTrainedModel):
                                                       param_init_type=config.param_init_type,
                                                       res_dtype=config.res_dtype,
                                                       use_flash_attention=config.use_flash_attention,
-                                                      is_dynamic=config.is_dynamic,
                                                       use_rope_slice=config.use_rope_slice,
                                                       fine_grain_interleave=config.fine_grain_interleave,
                                                       parallel_config=config.parallel_config)

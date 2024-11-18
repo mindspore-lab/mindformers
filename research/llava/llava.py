@@ -47,16 +47,14 @@ class LlavaAdapter(nn.Cell):
             in_channels=config.vision_config.model_config.hidden_size,
             out_channels=config.text_config.model_config.hidden_size,
             compute_dtype=config.compute_dtype,
-            param_init_type=config.param_init_type,
-            skip_redistribution=config.is_dynamic
+            param_init_type=config.param_init_type
         )
         self.activation_func = P.GeLU()
         self.adapter_2 = Linear(
             in_channels=config.text_config.model_config.hidden_size,
             out_channels=config.text_config.model_config.hidden_size,
             compute_dtype=config.compute_dtype,
-            param_init_type=config.param_init_type,
-            skip_redistribution=config.is_dynamic
+            param_init_type=config.param_init_type
         )
 
     def construct(self, x):

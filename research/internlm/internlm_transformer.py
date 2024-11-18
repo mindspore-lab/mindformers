@@ -38,33 +38,28 @@ class InternLMAttention(LLamaAttention):
         if has_bias:
             compute_dtype = kwargs.pop("compute_dtype", mstype.float16)
             param_init_type = kwargs.pop("param_init_type", mstype.float32)
-            is_dynamic = kwargs.pop("is_dynamic", False)
             parallel_config = kwargs.pop("parallel_config", TransformerOpParallelConfig())
 
             self.wo = Linear(in_channels=self.hidden_size,
                              out_channels=self.hidden_size,
                              has_bias=has_bias,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
             self.wq = Linear(self.hidden_size,
                              self.hidden_size,
                              has_bias=has_bias,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
             self.wk = Linear(self.hidden_size,
                              self.n_kv_head * self.head_dim,
                              has_bias=has_bias,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
             self.wv = Linear(self.hidden_size,
                              self.n_kv_head * self.head_dim,
                              has_bias=has_bias,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
 
             dp = parallel_config.data_parallel
             mp = parallel_config.model_parallel

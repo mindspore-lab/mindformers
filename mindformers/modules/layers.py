@@ -439,8 +439,7 @@ class Linear(Cell):
                  expert_group_size=None,
                  use_gmm=False,
                  param_init_type=mstype.float32,
-                 compute_dtype=mstype.float16,
-                 skip_redistribution=False):
+                 compute_dtype=mstype.float16):
         super(Linear, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -503,8 +502,6 @@ class Linear(Cell):
         self.dtype = compute_dtype
         self.cast = P.Cast()
         self.reshape = P.Reshape()
-        if skip_redistribution:
-            self.reshape.add_prim_attr("skip_redistribution", True)
         self.shape = P.Shape()
 
     def construct(self, x, group_list=None):

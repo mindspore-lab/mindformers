@@ -52,7 +52,7 @@ def parallel_predict_mp2():
 
     model = get_model(model_config)
 
-    outputs = r"hello world.azione Berliner BerlinerfeedJsJsJsJsJsJsnotinnotinnotinnotin McK McK"
+    outputs = r'hello world.("/("/bose()"()"()"()"()" Gaz Gaz opp opp opp Department Department Department'
     runner.set_predict(model=model, expect_outputs=outputs)
 
 

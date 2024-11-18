@@ -393,26 +393,22 @@ class WhisperAttention(nn.Cell):
                              embed_dim,
                              has_bias=False,
                              compute_dtype=self.compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
         self.v_proj = Linear(embed_dim,
                              embed_dim,
                              has_bias=bias,
                              compute_dtype=self.compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
         self.q_proj = Linear(embed_dim,
                              embed_dim,
                              has_bias=bias,
                              compute_dtype=self.compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
         self.out_proj = Linear(embed_dim,
                                embed_dim,
                                has_bias=bias,
                                compute_dtype=self.compute_dtype,
-                               param_init_type=param_init_type,
-                               skip_redistribution=is_dynamic)
+                               param_init_type=param_init_type)
 
         self.shape = P.Shape()
         self.transpose = P.Transpose()
@@ -603,14 +599,12 @@ class WhisperEncoderLayer(nn.Cell):
                           has_bias=True,
                           activation=config.activation_function,
                           compute_dtype=self.compute_dtype,
-                          param_init_type=config.param_init_type,
-                          skip_redistribution=config.is_dynamic)
+                          param_init_type=config.param_init_type)
         self.fc2 = Linear(config.encoder_ffn_dim,
                           self.embed_dim,
                           has_bias=True,
                           compute_dtype=self.compute_dtype,
-                          param_init_type=config.param_init_type,
-                          skip_redistribution=config.is_dynamic)
+                          param_init_type=config.param_init_type)
         self.final_layer_norm = LayerNorm((self.embed_dim,), eps=1e-05)
 
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
@@ -853,14 +847,12 @@ class WhisperDecoderLayer(nn.Cell):
                           has_bias=True,
                           activation=config.activation_function,
                           compute_dtype=self.compute_dtype,
-                          param_init_type=config.param_init_type,
-                          skip_redistribution=config.is_dynamic)
+                          param_init_type=config.param_init_type)
         self.fc2 = Linear(config.decoder_ffn_dim,
                           self.embed_dim,
                           has_bias=True,
                           compute_dtype=self.compute_dtype,
-                          param_init_type=config.param_init_type,
-                          skip_redistribution=config.is_dynamic)
+                          param_init_type=config.param_init_type)
         self.final_layer_norm = LayerNorm((self.embed_dim,), eps=1e-05)
 
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):

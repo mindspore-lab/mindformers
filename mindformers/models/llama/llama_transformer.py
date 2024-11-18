@@ -36,7 +36,7 @@ from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules.transformer.moe import MoEV2, MoEInfer
-from mindformers.tools.utils import get_predict_run_mode
+from mindformers.tools.utils import get_predict_run_mode, divide
 
 
 class LLamaAttention(nn.Cell):
@@ -167,6 +167,7 @@ class LLamaAttention(nn.Cell):
                              .format(self.n_kv_head, mp, self.cp_ds))
 
         self.shape = P.Shape()
+        self.reshape = P.Reshape()
         self.cast = P.Cast()
         self.seq_pipe = parallel_config.seq_split_num > 1
         self.seq_split_num = parallel_config.seq_split_num
@@ -206,37 +207,33 @@ class LLamaAttention(nn.Cell):
                                 init_method_std=init_method_std,
                                 has_bias=qkv_has_bias,
                                 compute_dtype=compute_dtype,
-                                param_init_type=param_init_type,
-                                skip_redistribution=is_dynamic)
+                                param_init_type=param_init_type)
             if qkv_has_bias:
                 self.w_qkv.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
             else:
                 self.w_qkv.shard(((dp, 1), (mp, 1)))
             self.split_qkv = ms.ops.auto_generate.SplitWithSize()
             self.split_qkv.add_prim_attr("skip_redistribution", True)
-            self.split_qkv.shard(((dp, 1, mp),))
+            self.split_qkv.shard(((dp, 1, mp, 1),))
         else:
             self.wq = Linear(self.hidden_size,
                              self.hidden_size,
                              init_method_std=init_method_std,
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
             self.wk = Linear(self.hidden_size,
                              self.kv_dim,
                              init_method_std=init_method_std,
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
             self.wv = Linear(self.hidden_size,
                              self.kv_dim,
                              init_method_std=init_method_std,
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
             if qkv_has_bias:
                 self.wq.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
                 self.wk.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
@@ -250,8 +247,7 @@ class LLamaAttention(nn.Cell):
                          init_method_std=init_method_std,
                          has_bias=attn_proj_has_bias,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
+                         param_init_type=param_init_type)
         self.wo.shard(((dp * cp, mp), (1, mp)), ((dp * cp, 1), (1,)), out_strategy_matmul=((dp * cp, 1),))
 
         if self.use_past:
@@ -276,7 +272,6 @@ class LLamaAttention(nn.Cell):
         else:
             self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
 
-            self.reshape = P.Reshape()
             self.transpose = P.Transpose()
             self.merger_head_transpose = P.Transpose()
             self.batch_matmul = P.BatchMatMul()
@@ -382,7 +377,14 @@ class LLamaAttention(nn.Cell):
             bs = self.shape(x)[0] // seq_len
         if self.qkv_concat:
             qkv = self.cast(self.w_qkv(x), self.dtype)
-            query, key, value = self.split_qkv(qkv, (self.hidden_size, self.kv_dim, self.kv_dim), 2)
+            reshape_qkv = self.reshape(qkv, (bs, seq_len, self.n_kv_head, (self.n_rep + 2) * self.head_dim))
+            query, key, value = self.split_qkv(reshape_qkv,
+                                               (self.head_dim * self.n_rep,
+                                                self.head_dim,
+                                                self.head_dim), 3)
+            query = self.reshape(query, (bs, seq_len, self.hidden_size))
+            key = self.reshape(key, (bs, seq_len, self.kv_dim))
+            value = self.reshape(value, (bs, seq_len, self.kv_dim))
         else:
             query = self.cast(self.wq(x), self.dtype)  # dp, 1 -> dp, mp
             key = self.cast(self.wk(x), self.dtype)  # dp, 1 -> dp, mp
@@ -705,7 +707,7 @@ class LLamaDecodeLayer(nn.Cell):
         self.layer_id = layer_id
         self.hidden_size = dim
         self.n_head = n_heads
-        self.head_dim = self.hidden_size // self.n_head
+        self.head_dim = divide(self.hidden_size, self.n_head)
         self.n_kv_head = n_heads if n_kv_heads is None else n_kv_heads
         self.dtype = compute_dtype
         self.is_first_iteration = True
@@ -762,7 +764,6 @@ class LLamaDecodeLayer(nn.Cell):
                                            ffn_dim_multiplier=ffn_dim_multiplier,
                                            compute_dtype=compute_dtype,
                                            param_init_type=param_init_type,
-                                           is_dynamic=is_dynamic,
                                            use_gmm=self.use_moe_infer,
                                            init_method_std=init_method_std)
         else:
@@ -775,7 +776,6 @@ class LLamaDecodeLayer(nn.Cell):
                                    compute_dtype=compute_dtype,
                                    param_init_type=param_init_type,
                                    ffn_concat=qkv_concat,
-                                   is_dynamic=is_dynamic,
                                    parallel_config=parallel_config,
                                    moe_config=moe_config,
                                    init_method_std=init_method_std,
@@ -801,7 +801,6 @@ class LLamaDecodeLayer(nn.Cell):
                                                             intermediate_size=intermediate_size,
                                                             compute_dtype=compute_dtype,
                                                             param_init_type=param_init_type,
-                                                            is_dynamic=is_dynamic,
                                                             moe_config=moe_config,
                                                             parallel_config=parallel_config,
                                                             use_moe_infer=self.use_moe_infer,

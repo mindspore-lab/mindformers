@@ -163,8 +163,7 @@ class MixtralAttention(nn.Cell):
                                 out_channels=self.hidden_size + self.kv_dim * 2,
                                 has_bias=qkv_has_bias,
                                 compute_dtype=compute_dtype,
-                                param_init_type=param_init_type,
-                                skip_redistribution=is_dynamic)
+                                param_init_type=param_init_type)
             if qkv_has_bias:
                 self.w_qkv.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
             else:
@@ -177,20 +176,17 @@ class MixtralAttention(nn.Cell):
                              self.hidden_size,
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
             self.wk = Linear(self.hidden_size,
                              self.kv_dim,
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
             self.wv = Linear(self.hidden_size,
                              self.kv_dim,
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
             if qkv_has_bias:
                 self.wq.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
                 self.wk.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
@@ -203,8 +199,7 @@ class MixtralAttention(nn.Cell):
                          out_channels=self.hidden_size,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
+                         param_init_type=param_init_type)
         self.wo.shard(((dp * cp, mp), (1, mp)), out_strategy_matmul=((dp * cp, 1),))
 
         if self.use_past:
@@ -629,7 +624,6 @@ class MixtralDecodeLayer(nn.Cell):
                                            ffn_dim_multiplier=ffn_dim_multiplier,
                                            compute_dtype=compute_dtype,
                                            param_init_type=param_init_type,
-                                           is_dynamic=is_dynamic,
                                            use_gmm=self.use_moe_infer)
         else:
             ffn = MixtralFeedForward(dim=self.hidden_size,
@@ -641,7 +635,6 @@ class MixtralDecodeLayer(nn.Cell):
                                      compute_dtype=compute_dtype,
                                      param_init_type=param_init_type,
                                      ffn_concat=qkv_concat,
-                                     is_dynamic=is_dynamic,
                                      parallel_config=parallel_config) if self.shared_expert_num == 0 else None
         if self.expert_num == 1:
             self.feed_forward = ffn

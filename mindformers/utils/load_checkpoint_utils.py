@@ -23,6 +23,7 @@ from multiprocessing import Process
 import mindspore as ms
 from mindspore import context
 from mindspore.communication.comm_func import barrier
+from mindspore.common.api import _pynative_executor
 
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.tools.logger import logger
@@ -234,6 +235,7 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
     if do_predict and is_main_rank(ignore_check_modelarts=True):
         qkv_concat_config = config.model.model_config.get("qkv_concat", False)
         validate_qkv_concat(network, qkv_concat_config, load_checkpoint)
+    # wait for the main rank to complete qkv check
     if config.use_parallel:
         barrier()
 
@@ -253,6 +255,8 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
             save_strategy_file(shard_state_dict, strategy_path)
             logger.info(f"Strategy file for stand alone mode has been saved in {strategy_path}.")
         barrier()
+        _pynative_executor.sync()
+
     load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy_path, load_checkpoint)
 
 
@@ -318,7 +322,7 @@ def process_hf_checkpoint(model, output_dir=None, load_checkpoint=None):
     converted_dir = os.path.join(output_dir, './ms_safetensors')
     if is_main_rank(ignore_check_modelarts=True):
         p = Process(target=convert_hf_safetensors_multiprocess,
-                    args=[load_checkpoint, converted_dir, model, model.config.qkv_concat])
+                    args=[load_checkpoint, converted_dir, model, model.config])
         p.start()
         p.join()
 

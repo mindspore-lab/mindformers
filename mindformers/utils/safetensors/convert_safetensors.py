@@ -24,9 +24,9 @@ from mindformers.tools import logger
 from mindformers.utils.safetensors.utils import is_hf_safetensors_dir
 
 
-def convert_hf_safetensors_multiprocess(src_dir, dst_dir, model_cls_or_instance, is_qkv_concat=False):
+def convert_hf_safetensors_multiprocess(src_dir, dst_dir, model_cls_or_instance, model_config):
     """Convert HuggingFace safetensors to MindSpore safetensors with multiprocessing"""
-    _check_valid_input(src_dir, dst_dir, model_cls_or_instance, is_qkv_concat)
+    _check_valid_input(src_dir, dst_dir, model_cls_or_instance, model_config)
     if os.path.exists(dst_dir):
         shutil.rmtree(dst_dir)
     os.makedirs(dst_dir, exist_ok=True)
@@ -36,14 +36,19 @@ def convert_hf_safetensors_multiprocess(src_dir, dst_dir, model_cls_or_instance,
     _convert_safetensors(src_dir,
                          dst_dir,
                          model_cls_or_instance.convert_weight_dict,
-                         is_qkv_concat)
+                         model_config)
     # convert json
-    _convert_index_json(src_dir, dst_dir, model_cls_or_instance.convert_map_dict, is_qkv_concat)
+    _convert_index_json(src_dir, dst_dir, model_cls_or_instance.convert_map_dict, model_config.qkv_concat)
     logger.info(".........Safetensors Convert Complete.........")
 
 
-def _check_valid_input(src_dir, dst_dir, model_cls_or_instance, is_qkv_concat):
+def _check_valid_input(src_dir, dst_dir, model_cls_or_instance, model_config):
     """check whether the input arguments are valid"""
+    num_heads = model_config.num_heads
+    n_kv_heads = model_config.n_kv_heads
+    hidden_size = model_config.hidden_size
+    qkv_concat = model_config.qkv_concat
+
     if not isinstance(src_dir, str) or isinstance(src_dir, os.PathLike):
         raise ValueError(f"src_dir must be a str or an instance of os.PathLike, "
                          f"but got {src_dir} as type {type(src_dir)}.")
@@ -56,17 +61,23 @@ def _check_valid_input(src_dir, dst_dir, model_cls_or_instance, is_qkv_concat):
                          f"but got {model_cls_or_instance}.")
     if not is_hf_safetensors_dir(src_dir, model_cls_or_instance):
         raise ValueError(f"src_dir is not a valid HuggingFace safetensors directory.")
-    if not isinstance(is_qkv_concat, bool):
-        raise ValueError(f"is_qkv_concat must be a bool value, but got {is_qkv_concat}.")
+    if not isinstance(num_heads, int):
+        raise ValueError(f"num_attention_heads must be an int value, but got {num_heads}.")
+    if n_kv_heads and not isinstance(n_kv_heads, int):
+        raise ValueError(f"kv_heads must be an int value, but got {n_kv_heads}.")
+    if not isinstance(hidden_size, int):
+        raise ValueError(f"hidden must be an int value, but got {hidden_size}.")
+    if not isinstance(qkv_concat, bool):
+        raise ValueError(f"is_qkv_concat must be a bool value, but got {qkv_concat}.")
 
 
-def _convert_safetensors(load_checkpoint, converted_dir, convert_weight_dict, is_qkv_concat):
+def _convert_safetensors(load_checkpoint, converted_dir, convert_weight_dict, model_config):
     """Create multiprocess to convert the safetensors"""
     sf_list = [sf for sf in os.listdir(load_checkpoint) if sf.endswith('.safetensors')]
     processes = []
     qkv_dict = None
     condition = None
-    if is_qkv_concat:
+    if model_config.qkv_concat:
         manager = Manager()
         qkv_dict = manager.dict()
         condition = Condition()
@@ -74,7 +85,7 @@ def _convert_safetensors(load_checkpoint, converted_dir, convert_weight_dict, is
         p = Process(target=_convert_process, args=[os.path.join(load_checkpoint, sf),
                                                    os.path.join(converted_dir, sf),
                                                    convert_weight_dict,
-                                                   is_qkv_concat,
+                                                   model_config,
                                                    qkv_dict,
                                                    condition])
         p.start()
@@ -99,9 +110,9 @@ def _convert_index_json(load_checkpoint, converted_dir, convert_map_dict, is_qkv
         logger.info(f"Converted file param_name_map.json")
 
 
-def _convert_process(src_dir, dst_dir, convert_weight_dict, is_qkv_concat=False, qkv_dict=None, condition=None):
+def _convert_process(src_dir, dst_dir, convert_weight_dict, model_config, qkv_dict=None, condition=None):
     """A single process to convert the safetensors"""
     source_dict = load_file(src_dir)
-    target_dict = convert_weight_dict(source_dict, qkv_concat=is_qkv_concat, qkv_dict=qkv_dict, condition=condition)
+    target_dict = convert_weight_dict(source_dict, model_config=model_config, qkv_dict=qkv_dict, condition=condition)
     save_file(tensor_dict=target_dict, filename=dst_dir)
     logger.info(f"Converted file {os.path.basename(dst_dir)}.")

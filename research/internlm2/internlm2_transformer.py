@@ -132,8 +132,7 @@ class InternLM2Attention(nn.Cell):
                             out_channels=self.hidden_size + self.kv_dim * 2,
                             has_bias=False,
                             compute_dtype=compute_dtype,
-                            param_init_type=param_init_type,
-                            skip_redistribution=is_dynamic)
+                            param_init_type=param_init_type)
             self.w.shard(((dp, 1), (mp, 1)))
             self.slice = P.StridedSlice()
             self.slice.add_prim_attr("skip_redistribution", True)
@@ -143,20 +142,17 @@ class InternLM2Attention(nn.Cell):
                              self.hidden_size,
                              has_bias=False,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
             self.wk = Linear(self.hidden_size,
                              self.n_kv_head * self.head_dim,
                              has_bias=False,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
             self.wv = Linear(self.hidden_size,
                              self.n_kv_head * self.head_dim,
                              has_bias=False,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
             self.wq.shard(((dp, 1), (mp, 1)))
             self.wk.shard(((dp, 1), (mp, 1)))
             self.wv.shard(((dp, 1), (mp, 1)))
@@ -165,8 +161,7 @@ class InternLM2Attention(nn.Cell):
                          out_channels=self.hidden_size,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
+                         param_init_type=param_init_type)
         self.wo.shard(((dp, mp), (1, mp)))
 
         if self.use_past:

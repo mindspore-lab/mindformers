@@ -28,7 +28,13 @@ import numpy as np
 from safetensors.numpy import save_file, load_file
 
 from mindformers import LlamaForCausalLM
-from mindformers.utils import convert_hf_safetensors_multiprocess, contains_safetensors_files, is_hf_safetensors_dir
+from mindformers.tools import MindFormerConfig
+from mindformers.utils import (
+    convert_hf_safetensors_multiprocess,
+    contains_safetensors_files,
+    is_hf_safetensors_dir,
+    qkv_concat_hf2mg,
+)
 
 
 @pytest.mark.level0
@@ -38,7 +44,13 @@ class TestConvert:
     """A test class for testing convert safetensors."""
 
     def setup_class(self):
-        """create fake safetensors directory"""
+        """set fake model attention config"""
+        self.num_heads = 2
+        self.n_kv_heads = 1
+        self.hidden_size = 2
+        self.n_rep = self.num_heads // self.n_kv_heads
+
+        # create fake safetensors directory
         work_dir = tempfile.mkdtemp()
         src_path_unified = os.path.join(work_dir, "hf_path_unified")
         os.makedirs(src_path_unified)
@@ -47,11 +59,16 @@ class TestConvert:
         os.makedirs(src_path_single)
         dst_path_single = os.path.join(work_dir, "ms_path_single")
 
+        # create fake weights value
+        self.fake_weight1 = np.random.rand(self.hidden_size, self.hidden_size)
+        self.fake_weight2 = np.random.rand(self.hidden_size // self.n_rep, self.hidden_size)
+        self.fake_weight3 = np.random.rand(self.hidden_size // self.n_rep, self.hidden_size)
+
         # 1. prepare unified safetensors dir
         # prepare fake weight dict and map
-        fake_dict_1 = {"model.layers.0.self_attn.q_proj.weight": np.array([0])}
-        fake_dict_2 = {"model.layers.0.self_attn.k_proj.weight": np.array([1])}
-        fake_dict_3 = {"model.layers.0.self_attn.v_proj.weight": np.array([2])}
+        fake_dict_1 = {"model.layers.0.self_attn.q_proj.weight": self.fake_weight1}
+        fake_dict_2 = {"model.layers.0.self_attn.k_proj.weight": self.fake_weight2}
+        fake_dict_3 = {"model.layers.0.self_attn.v_proj.weight": self.fake_weight3}
         fake_map = {"weight_map": {"model.layers.0.self_attn.q_proj.weight": "model-00001-of-00003.safetensors",
                                    "model.layers.0.self_attn.k_proj.weight": "model-00002-of-00003.safetensors",
                                    "model.layers.0.self_attn.v_proj.weight": "model-00003-of-00003.safetensors"}}
@@ -75,9 +92,9 @@ class TestConvert:
 
         # 2. prepare single safetensors dir
         # prepare fake weight dict
-        fake_dict = {"model.layers.0.self_attn.q_proj.weight": np.array([0]),
-                     "model.layers.0.self_attn.k_proj.weight": np.array([1]),
-                     "model.layers.0.self_attn.v_proj.weight": np.array([2])}
+        fake_dict = {"model.layers.0.self_attn.q_proj.weight": self.fake_weight1,
+                     "model.layers.0.self_attn.k_proj.weight": self.fake_weight2,
+                     "model.layers.0.self_attn.v_proj.weight": self.fake_weight3}
         fake_file = os.path.join(src_path_single, "model.safetensors")
 
         # make fake safetensors file
@@ -89,6 +106,15 @@ class TestConvert:
         self.dst_path_unified = dst_path_unified
         self.src_path_single = src_path_single
         self.dst_path_single = dst_path_single
+        model_dict = {'model':
+                          {'model_config':
+                               {'num_heads': self.num_heads,
+                                'n_kv_heads': self.n_kv_heads,
+                                'hidden_size': self.hidden_size,
+                                'qkv_concat': False}
+                           }
+                      }
+        self.model_config = MindFormerConfig(**model_dict).model.model_config
 
     def teardown_class(self):
         """remove fake safetensors directory"""
@@ -97,9 +123,11 @@ class TestConvert:
     @pytest.mark.run(order=1)
     def test_convert_unified(self):
         """test convert unified HuggingFace safetensors to MindSpore safetensors"""
+        self.model_config.qkv_concat = False
         convert_hf_safetensors_multiprocess(self.src_path_unified,
                                             self.dst_path_unified,
-                                            LlamaForCausalLM)
+                                            LlamaForCausalLM,
+                                            self.model_config)
 
         converted_file_1 = os.path.join(self.dst_path_unified, "model-00001-of-00003.safetensors")
         converted_file_2 = os.path.join(self.dst_path_unified, "model-00002-of-00003.safetensors")
@@ -120,20 +148,20 @@ class TestConvert:
         converted_dict_1 = load_file(converted_file_1)
         assert "model.layers.0.attention.wq.weight" in converted_dict_1.keys(), \
             "model-00001-of-00003.safetensors does not have key 'model.layers.0.attention.wq.weight'."
-        assert np.array_equal(converted_dict_1.get("model.layers.0.attention.wq.weight"), np.array([0])), \
-            f"The value of 'model.layers.0.attention.wq.weight' should be [0], " \
+        assert np.array_equal(converted_dict_1.get("model.layers.0.attention.wq.weight"), self.fake_weight1), \
+            f"The value of 'model.layers.0.attention.wq.weight' should be {self.fake_weight1}, " \
             f"but got {converted_dict_1.get('model.layers.0.attention.wq.weight')}."
         converted_dict_2 = load_file(converted_file_2)
         assert "model.layers.0.attention.wk.weight" in converted_dict_2.keys(), \
             "model-00002-of-00003.safetensors does not have key 'model.layers.0.attention.wk.weight'."
-        assert np.array_equal(converted_dict_2.get("model.layers.0.attention.wk.weight"), np.array([1])), \
-            f"The value of 'model.layers.0.attention.wk.weight' should be [1], " \
+        assert np.array_equal(converted_dict_2.get("model.layers.0.attention.wk.weight"), self.fake_weight2), \
+            f"The value of 'model.layers.0.attention.wk.weight' should be {self.fake_weight2}, " \
             f"but got {converted_dict_2.get('model.layers.0.attention.wk.weight')}."
         converted_dict_3 = load_file(converted_file_3)
         assert "model.layers.0.attention.wv.weight" in converted_dict_3.keys(), \
             "model-00003-of-00003.safetensors does not have key 'model.layers.0.attention.wv.weight'."
-        assert np.array_equal(converted_dict_3.get("model.layers.0.attention.wv.weight"), np.array([2])), \
-            f"The value of 'model.layers.0.attention.wv.weight' should be [2], " \
+        assert np.array_equal(converted_dict_3.get("model.layers.0.attention.wv.weight"), self.fake_weight3), \
+            f"The value of 'model.layers.0.attention.wv.weight' should be {self.fake_weight3}, " \
             f"but got {converted_dict_3.get('model.layers.0.attention.wv.weight')}."
 
         # check whether the map in the json file is correct
@@ -158,10 +186,11 @@ class TestConvert:
     @pytest.mark.run(order=2)
     def test_convert_unified_with_qkv_concat(self):
         """test convert HuggingFace safetensors to MindSpore safetensors with concatenating q,k,v weight"""
+        self.model_config.qkv_concat = True
         convert_hf_safetensors_multiprocess(self.src_path_unified,
                                             self.dst_path_unified,
                                             LlamaForCausalLM,
-                                            is_qkv_concat=True)
+                                            self.model_config)
 
         converted_file = os.path.join(self.dst_path_unified, "model-00001-of-00003.safetensors")
         converted_map_file = os.path.join(self.dst_path_unified, "param_name_map.json")
@@ -176,9 +205,13 @@ class TestConvert:
         converted_dict = load_file(converted_file)
         assert "model.layers.0.attention.w_qkv.weight" in converted_dict.keys(), \
             "model-00001-of-00003.safetensors does not have key 'model.layers.0.attention.w_qkv.weight'."
-        assert np.array_equal(converted_dict.get("model.layers.0.attention.w_qkv.weight"), np.array([0, 1, 2])), \
-            f"The value of 'model.layers.0.attention.w_qkv.weight' should be [0, 1, 2], " \
-            f"but got {converted_dict.get('model.layers.0.attention.w_qkv.weight')}."
+
+        expect_qkv_weights = qkv_concat_hf2mg(np.concatenate(self.fake_weight1, self.fake_weight2, self.fake_weight3),
+                                              self.num_heads, self.n_kv_heads, self.hidden_size)
+        assert np.array_equal(converted_dict.get("model.layers.0.attention.w_qkv.weight"), expect_qkv_weights), \
+            f"The value of 'model.layers.0.attention.w_qkv.weight' got \
+            {converted_dict.get('model.layers.0.attention.w_qkv.weight')}, " \
+            f"not the same as expected weights {expect_qkv_weights}."
 
         # check whether the map in the json file is correct
         with open(converted_map_file, 'r') as f:
@@ -193,9 +226,11 @@ class TestConvert:
     @pytest.mark.run(order=3)
     def test_convert_single(self):
         """test convert single HuggingFace safetensors to MindSpore safetensors"""
+        self.model_config.qkv_concat = False
         convert_hf_safetensors_multiprocess(self.src_path_single,
                                             self.dst_path_single,
-                                            LlamaForCausalLM)
+                                            LlamaForCausalLM,
+                                            self.model_config)
 
         converted_file = os.path.join(self.dst_path_single, "model.safetensors")
 
@@ -207,27 +242,28 @@ class TestConvert:
         converted_dict = load_file(converted_file)
         assert "model.layers.0.attention.wq.weight" in converted_dict.keys(), \
             "model.safetensors does not have key 'model.layers.0.attention.wq.weight'."
-        assert np.array_equal(converted_dict.get("model.layers.0.attention.wq.weight"), np.array([0])), \
-            f"The value of 'model.layers.0.attention.wq.weight' should be [0], " \
+        assert np.array_equal(converted_dict.get("model.layers.0.attention.wq.weight"), self.fake_weight1), \
+            f"The value of 'model.layers.0.attention.wq.weight' should be {self.fake_weight1}, " \
             f"but got {converted_dict.get('model.layers.0.attention.wq.weight')}."
         assert "model.layers.0.attention.wk.weight" in converted_dict.keys(), \
             "model.safetensors does not have key 'model.layers.0.attention.wk.weight'."
-        assert np.array_equal(converted_dict.get("model.layers.0.attention.wk.weight"), np.array([1])), \
-            f"The value of 'model.layers.0.attention.wk.weight' should be [1], " \
+        assert np.array_equal(converted_dict.get("model.layers.0.attention.wk.weight"), self.fake_weight2), \
+            f"The value of 'model.layers.0.attention.wk.weight' should be {self.fake_weight2}, " \
             f"but got {converted_dict.get('model.layers.0.attention.wk.weight')}."
         assert "model.layers.0.attention.wv.weight" in converted_dict.keys(), \
             "model.safetensors does not have key 'model.layers.0.attention.wv.weight'."
-        assert np.array_equal(converted_dict.get("model.layers.0.attention.wv.weight"), np.array([2])), \
-            f"The value of 'model.layers.0.attention.wv.weight' should be [2], " \
+        assert np.array_equal(converted_dict.get("model.layers.0.attention.wv.weight"), self.fake_weight3), \
+            f"The value of 'model.layers.0.attention.wv.weight' should be {self.fake_weight3}, " \
             f"but got {converted_dict.get('model.layers.0.attention.wv.weight')}."
 
     @pytest.mark.run(order=4)
     def test_convert_single_with_qkv_concat(self):
         """test convert single HuggingFace safetensors to MindSpore safetensors with concatenating q,k,v weight"""
+        self.model_config.qkv_concat = True
         convert_hf_safetensors_multiprocess(self.src_path_single,
                                             self.dst_path_single,
                                             LlamaForCausalLM,
-                                            is_qkv_concat=True)
+                                            self.model_config)
 
         converted_file = os.path.join(self.dst_path_single, "model.safetensors")
 
@@ -239,34 +275,44 @@ class TestConvert:
         converted_dict = load_file(converted_file)
         assert "model.layers.0.attention.w_qkv.weight" in converted_dict.keys(), \
             "model.safetensors does not have key 'model.layers.0.attention.w_qkv.weight'"
-        assert np.array_equal(converted_dict.get("model.layers.0.attention.w_qkv.weight"), np.array([0, 1, 2])), \
-            f"The value of 'model.layers.0.attention.w_qkv.weight' should be [0, 1, 2], " \
-            f"but got {converted_dict.get('model.layers.0.attention.w_qkv.weight')}."
+
+        expect_qkv_weights = qkv_concat_hf2mg(np.concatenate(self.fake_weight1, self.fake_weight2, self.fake_weight3),
+                                              self.num_heads, self.n_kv_heads, self.hidden_size)
+        assert np.array_equal(converted_dict.get("model.layers.0.attention.w_qkv.weight"), expect_qkv_weights), \
+            f"The value of 'model.layers.0.attention.w_qkv.weight' got \
+            {converted_dict.get('model.layers.0.attention.w_qkv.weight')}, " \
+            f"not the same as expected weights {expect_qkv_weights}."
 
     @pytest.mark.run(order=5)
     def test_convert_input_error(self):
         """test error input of convert_hf_safetensors_multiprocess"""
+        self.model_config.qkv_concat = False
         with pytest.raises(ValueError):
             convert_hf_safetensors_multiprocess(1,
                                                 self.dst_path_single,
-                                                LlamaForCausalLM)
+                                                LlamaForCausalLM,
+                                                self.model_config)
         with pytest.raises(ValueError):
             convert_hf_safetensors_multiprocess(self.src_path_single,
                                                 1,
-                                                LlamaForCausalLM)
+                                                LlamaForCausalLM,
+                                                self.model_config)
         with pytest.raises(ValueError):
             convert_hf_safetensors_multiprocess(self.src_path_single,
                                                 self.dst_path_single,
-                                                1)
+                                                1,
+                                                self.model_config)
         with pytest.raises(ValueError):
             convert_hf_safetensors_multiprocess(self.work_dir,
                                                 self.dst_path_single,
-                                                LlamaForCausalLM)
+                                                LlamaForCausalLM,
+                                                self.model_config)
         with pytest.raises(ValueError):
+            self.model_config.qkv_concat = 1
             convert_hf_safetensors_multiprocess(self.src_path_single,
                                                 self.dst_path_single,
                                                 LlamaForCausalLM,
-                                                1)
+                                                self.model_config)
 
     @pytest.mark.run(order=6)
     def test_utils(self):
