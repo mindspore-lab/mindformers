@@ -145,7 +145,7 @@ context:
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
-  infer_boost: 'off'
+  infer_boost: 'on'
 
 # parallel context config
 parallel:
