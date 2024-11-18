@@ -17,6 +17,8 @@ import os
 
 from safetensors import safe_open
 
+from mindformers.tools import logger
+
 
 def is_hf_safetensors_dir(safetensors_dir, model_cls_or_instance):
     """Is HuggingFace safetensors directory"""
@@ -41,6 +43,20 @@ def contains_safetensors_files(safetensors_dir):
 
     for filename in os.listdir(safetensors_dir):
         if filename.endswith('.safetensors'):
+            return True
+
+    return False
+
+
+def check_safetensors_key(load_checkpoint_dir, key):
+    """Check if there are any key names containing the character "key" in safetensors files"""
+    sf_list = [sf for sf in os.listdir(load_checkpoint_dir) if sf.endswith('.safetensors')]
+    for sf in sf_list:
+        with safe_open(os.path.join(load_checkpoint_dir, sf), framework="np") as f:
+            all_items = f.keys()
+        has_key = any(key in item for item in all_items)
+        if has_key:
+            logger.debug("safetensors %s containing %s", sf, key)
             return True
 
     return False

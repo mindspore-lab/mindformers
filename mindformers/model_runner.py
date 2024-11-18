@@ -33,7 +33,12 @@ from mindformers import models, MindFormerRegister, MindFormerModuleType
 from mindformers import build_context, build_parallel_config, GenerationConfig
 from mindformers import AutoModel, AutoConfig, AutoTokenizer
 from mindformers.models.utils import convert_mstype, str_to_ms_type
-from mindformers.utils import convert_hf_safetensors_multiprocess, is_hf_safetensors_dir, contains_safetensors_files
+from mindformers.utils import (
+    convert_hf_safetensors_multiprocess,
+    is_hf_safetensors_dir,
+    contains_safetensors_files,
+    validate_qkv_concat,
+)
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_main_rank
 from mindformers.tools.register.config import MindFormerConfig
@@ -283,7 +288,7 @@ class MindIEModelRunner:
         seq_length = self.model_config.seq_length
         input_ids = np.ones(shape=tuple([batch_size, seq_length]))
         inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
-        if self.config.checkpoint_format == 'safetensors':
+        if self.config.load_ckpt_format == 'safetensors':
             _transform_and_load_safetensors(ms_model, self.model, inputs, self.config.load_checkpoint,
                                             self.config.output_dir, self.config.use_parallel)
         else:
@@ -527,6 +532,9 @@ def _transform_and_load_safetensors(ms_model, model, inputs, load_checkpoint=Non
             p.join()
 
         load_checkpoint = converted_dir
+
+    if is_main_rank(ignore_check_modelarts=True):
+        validate_qkv_concat(model, model.config.qkv_concat, load_checkpoint)
 
     if use_parallel:
         if not is_built:

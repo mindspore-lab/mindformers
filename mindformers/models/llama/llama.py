@@ -665,6 +665,14 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
         return target_dict
 
+    @classmethod
+    def obtain_qkv_ffn_concat_keys(cls):
+        qkv_key = "w_qkv"
+        ffn_key = "w_gate_hidden"
+        concat_keys = [qkv_key, ffn_key]
+        logger.info(f"{cls.__name__} qkv/ffn concat keys are {concat_keys}")
+        return concat_keys
+
 
 def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, w1_keys, w3_keys, qkv_dict, condition, target_dict):
     """concat qkv weight and ffn weight from dicts"""

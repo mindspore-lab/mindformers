@@ -18,7 +18,8 @@ from .convert_safetensors import (
 )
 from .utils import (
     is_hf_safetensors_dir,
-    contains_safetensors_files
+    contains_safetensors_files,
+    check_safetensors_key,
 )
 
 __all__ = []
