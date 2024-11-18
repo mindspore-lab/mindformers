@@ -1299,7 +1299,7 @@ class TopkRouterV2(Cell):
         if self.use_allgather_dispatcher:
             self.dispatch_gather = P.Gather(batch_dims=2).shard(((self.outer_dp, 1, 1, 1), (self.outer_dp, 1, 1, 1),))
             self.reshape_redist = P.Reshape().add_prim_attr("skip_redistribution", True)
-            self.tile = P.Tile().shard(((self.outer_dp, 1, self.ep, 1, 1),))
+            self.tile_5d = P.Tile().shard(((self.outer_dp, 1, self.ep, 1, 1),))
             self.concat = P.Concat(3).shard(((self.outer_dp, 1, self.ep, 1, 1), (self.outer_dp, 1, self.ep, 1, 1)))
             self.zeros = Tensor(
                 np.zeros((self.outer_dp, self.inner_dp, self.ep * self.expert_dim, 1, d_model)), mstype.float16)
@@ -1310,7 +1310,7 @@ class TopkRouterV2(Cell):
             self.mul_router_coeff = P.Mul().shard(((self.outer_dp, self.inner_dp, 1, 1, 1, 1),
                                                    (self.outer_dp, self.inner_dp, 1, 1, 1, 1)))
             self.sum_router_coeff = P.ReduceSum(keep_dims=False).shard(((self.outer_dp, self.inner_dp, 1, 1, 1, 1),))
-            self.reduce_sum = P.ReduceSum(keep_dims=False).shard(((self.outer_dp, 1, 1, 1, 1),))
+            self.reduce_sum_5d = P.ReduceSum(keep_dims=False).shard(((self.outer_dp, 1, 1, 1, 1),))
             ################# help for mask #############
             ones_per_row = self.expert_dim // self.ep
             indices = np.arange(ones_per_row) + (np.arange(dp) * ones_per_row)[:, None] % self.expert_dim
@@ -1397,7 +1397,7 @@ class TopkRouterV2(Cell):
             expert_output = self.reshape(expert_output, (
                 self.outer_dp, self.inner_dp, self.ep, self.expert_dim // self.ep, -1))
             #(outer_dp, inner_dp, ep, E, n*h)
-            expert_output = self.tile(expert_output, (1, 1, 1, self.ep, 1))
+            expert_output = self.tile_5d(expert_output, (1, 1, 1, self.ep, 1))
             # (outer_dp, inner_dp, ep, E, n*h) <-- (outer_dp, inner_dp, ep, E, 1),(outer_dp, inner_dp, ep, E, n*h)
             expert_output = self.mul_onehot(self.one_hot, expert_output)
             # (outer_dp, inner_dp, ep, E, n, h)
@@ -1433,10 +1433,10 @@ class TopkRouterV2(Cell):
             # (outer_dp, inner_dp, ep, n, h) <-- (outer_dp, inner_dp, ep, n, k, h)
             output_tensor = self.sum_router_coeff(output_tensor, 4)
             # (outer_dp, ep, n, h) <-- (outer_dp, inner_dp, ep, n, h)
-            output_tensor = self.reduce_sum(output_tensor, 1)
+            output_tensor = self.reduce_sum_5d(output_tensor, 1)
             # (dp, n, h) <-- (outer_dp, ep, n, h)
             output_tensor = self.reshape(output_tensor, (
-                self.dp_group, output_tensor.shape[1], hidden_size))
+                self.dp_group, output_tensor.shape[2], hidden_size))
         else:
             expert_output = self.concat(
                 (self.cast(self.zeros, F.dtype(expert_output)), expert_output))  # (dp, E, 1+n, h) <-- (dp, E, n, h)
