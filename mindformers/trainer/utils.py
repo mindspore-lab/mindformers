@@ -373,15 +373,6 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         return
 
     # load ckpt process
-    if not config.auto_trans_ckpt and not config.only_save_strategy and \
-        check_path_include_total_ckpt(config.load_checkpoint):
-        load_ckpt(config, network, optimizer=optimizer, model=model)
-        return
-
-    if not config.auto_trans_ckpt and not config.only_save_strategy and do_predict:
-        network.set_train(False)
-        load_ckpt(config, network, model=model)
-
     if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
                                                               'hybrid_parallel']:
         # 1. build net if parallel mode is auto_parallel
