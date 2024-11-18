@@ -81,7 +81,8 @@ class InternLM2Model(LlamaModel):
                                                        fine_grain_interleave=config.fine_grain_interleave,
                                                        parallel_config=config.parallel_config)
             else:
-                layer = InternLM2DecodeLayer(layer_id=layer_id,
+                layer = InternLM2DecodeLayer(seq_length=config.seq_length,
+                                             layer_id=layer_id,
                                              dim=config.hidden_size,
                                              n_heads=config.num_heads,
                                              n_kv_heads=config.n_kv_heads,

@@ -243,7 +243,8 @@ class QwenModel(QwenPreTrainedModel):
                                           config.parallel_config,
                                           config.pp_interleave_num)
         for layer_id in range(config.num_layers):
-            layer = QwenDecodeLayer(layer_id,
+            layer = QwenDecodeLayer(config.seq_length,
+                                    layer_id,
                                     dim=config.hidden_size,
                                     n_heads=config.num_heads,
                                     intermediate_size=config.intermediate_size,
@@ -347,13 +348,15 @@ class QwenDecodeLayer(LLamaDecodeLayer):
     """Qwen decode layer"""
 
     def __init__(self,
+                 seq_length,
                  layer_id,
                  intermediate_size,
                  parallel_config,
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
                  **kwargs):
-        super().__init__(layer_id,
+        super().__init__(seq_length,
+                         layer_id,
                          intermediate_size=intermediate_size,
                          parallel_config=parallel_config,
                          compute_dtype=compute_dtype,

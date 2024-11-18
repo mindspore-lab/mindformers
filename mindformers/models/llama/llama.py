@@ -91,6 +91,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.cast = P.Cast()
         self.shape = P.Shape()
         self.reshape = P.Reshape()
+        self.rmsnorm_compute_2d = config.rmsnorm_compute_2d
 
         if config.moe_config.expert_num > 1:
             logger.info("MoE config is provided, use MoE FFN")
@@ -122,7 +123,8 @@ class LlamaModel(LlamaPreTrainedModel):
                                              embedding_size=config.hidden_size,
                                              init_method_std=config.init_method_std,
                                              param_init_type=config.embedding_init_type,
-                                             parallel_optimizer=config.parallel_optimizer)
+                                             parallel_optimizer=config.parallel_optimizer,
+                                             rmsnorm_compute_2d=config.rmsnorm_compute_2d)
         self.fine_grain_interleave = check_fine_grain_interleave_valid(config.fine_grain_interleave,
                                                                        config.parallel_config)
         self.layers = nn.CellList()
@@ -159,7 +161,8 @@ class LlamaModel(LlamaPreTrainedModel):
                                                    parallel_config=config.parallel_config,
                                                    init_method_std=config.init_method_std)
             else:
-                layer = LLamaDecodeLayer(layer_id,
+                layer = LLamaDecodeLayer(config.seq_length,
+                                         layer_id,
                                          dim=config.hidden_size,
                                          n_heads=config.num_heads,
                                          n_kv_heads=config.n_kv_heads,
@@ -184,6 +187,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          block_size=config.block_size,
                                          num_blocks=config.num_blocks,
                                          use_rope_slice=config.use_rope_slice,
+                                         rmsnorm_compute_2d=config.rmsnorm_compute_2d,
                                          moe_config=config.moe_config,
                                          parallel_config=config.parallel_config,
                                          parallel_decoding=self.parallel_decoding,
@@ -209,7 +213,7 @@ class LlamaModel(LlamaPreTrainedModel):
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.tok_embeddings.shard(config.parallel_config)
             self.casual_mask.shard(config.parallel_config)
-            if self.fine_grain_interleave:
+            if self.fine_grain_interleave or config.rmsnorm_compute_2d:
                 self.norm_out.shard((dp * cp, 1))
             else:
                 self.norm_out.shard((dp, cp, 1))
@@ -217,7 +221,7 @@ class LlamaModel(LlamaPreTrainedModel):
             self.tok_embeddings.shard(config.parallel_config)
             self.casual_mask.shard(config.parallel_config)
             self.concat.shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
-            if self.fine_grain_interleave:
+            if self.fine_grain_interleave or config.rmsnorm_compute_2d:
                 self.norm_out.shard((dp * cp, 1))
             else:
                 self.norm_out.shard((dp, cp, 1))
@@ -242,6 +246,7 @@ class LlamaModel(LlamaPreTrainedModel):
         """
         # preprocess
         bs, seq_len = self.shape(tokens)
+        rmsnorm_compute_2d = self.training and self.rmsnorm_compute_2d
         if self.parallel_decoding:
             # FA with TH layout, mask is 2D, FA with BSH layout, mask is 4D
             mask = attention_mask
@@ -274,12 +279,14 @@ class LlamaModel(LlamaPreTrainedModel):
             h = self.cast(input_embeds, self.dtype)
         else:
             h = self.cast(self.tok_embeddings(tokens), self.dtype)
-        h = self.reshape(h, (bs, seq_len, self.hidden_size))
-        # h: [bs, seq/1, hidden_dim]
+        if not rmsnorm_compute_2d:
+            h = self.reshape(h, (bs, seq_len, self.hidden_size))    # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
             h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length, block_tables=block_tables,
                                slot_mapping=slot_mapping, prefix_keys_values=prefix_kv, q_seq_lens=q_seq_lens)
+        if rmsnorm_compute_2d:
+            h = self.reshape(h, (bs * seq_len, -1))
         output = self.norm_out(h)
         return output
 

@@ -342,16 +342,19 @@ class InternLM2DecodeLayer(LLamaDecodeLayer):
     """InternLM2 Transformer Layer inherits from LLamaDecodeLayer.
 
     Args:
+        seq_length (int): The sequence length of input.
         layer_id (int): The layer id of current transformer block layer.
         **kwargs: keyword arguments of [`LLamaDecodeLayer`].
 
     """
 
     def __init__(self,
+                 seq_length,
                  layer_id,
                  qkv_concat,
                  **kwargs):
-        super().__init__(layer_id=layer_id,
+        super().__init__(seq_length=seq_length,
+                         layer_id=layer_id,
                          **kwargs)
         kwargs.pop("multiple_of")
         kwargs.pop("intermediate_size")

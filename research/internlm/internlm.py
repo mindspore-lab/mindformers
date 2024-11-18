@@ -58,7 +58,8 @@ class InternLMModel(LlamaModel):
                                           config.parallel_config,
                                           config.pp_interleave_num)
         for layer_id in range(config.num_layers):
-            layer = InternLMDecodeLayer(layer_id=layer_id,
+            layer = InternLMDecodeLayer(seq_length=config.seq_length,
+                                        layer_id=layer_id,
                                         dim=config.hidden_size,
                                         n_heads=config.num_heads,
                                         n_kv_heads=config.n_kv_heads,

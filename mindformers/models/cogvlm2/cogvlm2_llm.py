@@ -238,7 +238,8 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
                                                fine_grain_interleave=config.fine_grain_interleave,
                                                parallel_config=config.parallel_config)
         else:
-            layer = LLamaDecodeLayer(layer_id,
+            layer = LLamaDecodeLayer(config.seq_length,
+                                     layer_id,
                                      dim=config.hidden_size,
                                      n_heads=config.num_heads,
                                      n_kv_heads=config.n_kv_heads,

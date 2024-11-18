@@ -42,6 +42,7 @@ class LLamaAttention(nn.Cell):
     This is an implementation of multihead attention in LLaMA.
 
     Args:
+            - **seq_length** (int): The sequence length of input.
             - **dim** (int): The hidden size of the input.
             - **head_dim** (int): The dim of head.
             - **n_heads** (int): The number of the heads.
@@ -64,6 +65,7 @@ class LLamaAttention(nn.Cell):
             - **parallel_config** (OpParallelConfig): The parallel configure. Default `default_dpmp_config`,
                 an instance of `OpParallelConfig` with default args.
             - **init_method_std** (float): The sigma value when using normal type to initialize Linear. Default `0.01`
+            - **rmsnorm_compute_2d** (bool): Whether to use 2D Add in RMS_NORM. Default `False` .
 
     Inputs:
             - **x** (Tensor) - The input tokens with shape (batch_size, src_seq_length, hidden_size) or
@@ -90,6 +92,7 @@ class LLamaAttention(nn.Cell):
     """
 
     def __init__(self,
+                 seq_length,
                  dim: int = 512,
                  n_heads: int = 8,
                  n_kv_heads: Optional[int] = None,
@@ -106,6 +109,7 @@ class LLamaAttention(nn.Cell):
                  use_flash_attention=False,
                  use_ring_attention=False,
                  use_attn_mask_compression=False,
+                 rmsnorm_compute_2d=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig(),
@@ -113,6 +117,7 @@ class LLamaAttention(nn.Cell):
                  init_method_std=0.01
                  ):
         super().__init__()
+        self.seq_length = seq_length
         self.hidden_size = dim
         self.n_head = n_heads
         self.head_dim = dim // n_heads
@@ -121,6 +126,7 @@ class LLamaAttention(nn.Cell):
         self.kv_dim = self.n_kv_head * self.head_dim
         self.block_size = block_size
         self.num_blocks = num_blocks
+        self.rmsnorm_compute_2d = rmsnorm_compute_2d
 
         self.dtype = compute_dtype
         self.softmax_dtype = softmax_compute_dtype
@@ -332,7 +338,11 @@ class LLamaAttention(nn.Cell):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
-        bs, seq_len, _ = self.shape(x)
+        if not self.rmsnorm_compute_2d:
+            bs, seq_len, _ = self.shape(x)
+        else:
+            seq_len = self.seq_length
+            bs = self.shape(x)[0] // seq_len
         if self.qkv_concat:
             qkv = self.cast(self.w_qkv(x), self.dtype)
             query, key, value = self.split_qkv(qkv, (self.hidden_size, self.kv_dim, self.kv_dim), 2)
@@ -347,8 +357,8 @@ class LLamaAttention(nn.Cell):
                                                  freqs_cis, mask, prefix_keys_values=prefix_keys_values,
                                                  q_seq_lens=q_seq_lens)
         else:
-            query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
-            key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+            query = self.transpose(self.reshape(query, (-1, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
+            key = self.transpose(self.reshape(key, (-1, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
             query, key = self.apply_rotary_emb(query, key, freqs_cis)  # dp, mp, cp, 1
             # with ulysses context parallel, insert all to all before FA
             if self.context_parallel > 1 and self.cp_ds > 1:
@@ -364,7 +374,7 @@ class LLamaAttention(nn.Cell):
                 query = self._merge_heads(query)
                 key = self._merge_heads(key)
             else:
-                value = self.transpose(self.reshape(value, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+                value = self.transpose(self.reshape(value, (-1, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
                 key, value = self._cat_prefix(key, value, prefix_keys_values)
 
             if self.use_flash_attention:
@@ -429,7 +439,10 @@ class LLamaAttention(nn.Cell):
         # [bs, seq/1, n_head, head_dim]
         bs, seq_len, n_head, head_dim = self.shape(x)
         # [bs, seq/1, hidden_dim]
-        new_shape = (bs, seq_len, n_head * head_dim)
+        if self.rmsnorm_compute_2d:
+            new_shape = (bs * seq_len, n_head * head_dim)
+        else:
+            new_shape = (bs, seq_len, n_head * head_dim)
         x_merge = self.reshape(x, new_shape)
         return x_merge
 
@@ -453,7 +466,10 @@ class LLamaAttention(nn.Cell):
         # insert all-to-all (dp, cp, 1, mp, 1) -> (dp, cp_co, cp_ds, mp, 1)
         qkv = self.transpose_a2a(qkv, (0, 1, 2, 3, 4))
         # reshape to BSH, here set -1 to H, for kv head could be different from q head
-        qkv = F.reshape(qkv, (bs, seq_len, -1))
+        if not self.rmsnorm_compute_2d:
+            qkv = F.reshape(qkv, (bs, seq_len, -1))
+        else:
+            qkv = F.reshape(qkv, (bs * seq_len, -1))
         return qkv
 
     def _ulysses_context_layer_a2a(self, context_layer):
@@ -512,6 +528,7 @@ class LLamaDecodeLayer(nn.Cell):
         encoder layer, including multihead attention and feedward layer.
 
         Args:
+            seq_length (int): The sequence length of input.
             layer_id(int): The layer id of current transformer block layer.
             dim(int): The hidden size of the input.
             num_heads(int): The number of the heads.
@@ -539,6 +556,7 @@ class LLamaDecodeLayer(nn.Cell):
                 an instance of `OpParallelConfig` with default args.
             residual_dtype(str): The residual compute dtype. Default None .
             init_method_std(float): The sigma value when using normal type to initialize Linear. Default 0.01 .
+            rmsnorm_compute_2d(bool): Whether to use 2D Add in RMS_NORM. Default: ``False`` .
 
         Inputs:
             - **x** (Tensor) - Float Tensor, shape should be [batch_size, seq_length, hidden_size] or
@@ -569,6 +587,7 @@ class LLamaDecodeLayer(nn.Cell):
 
     @predict_lazy_inline
     def __init__(self,
+                 seq_length,
                  layer_id,
                  dim: int = 512,
                  n_heads: int = 8,
@@ -594,6 +613,7 @@ class LLamaDecodeLayer(nn.Cell):
                  use_flash_attention=False,
                  use_ring_attention=False,
                  use_attn_mask_compression=False,
+                 rmsnorm_compute_2d=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig(),
@@ -621,7 +641,8 @@ class LLamaDecodeLayer(nn.Cell):
                                      fused_kernel=fused_kernel)
         self.attention_norm = LlamaRMSNorm(self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype,
                                            fused_kernel=fused_kernel)
-        self.attention = LLamaAttention(dim=dim,
+        self.attention = LLamaAttention(seq_length=seq_length,
+                                        dim=dim,
                                         n_heads=n_heads,
                                         n_kv_heads=n_kv_heads,
                                         qkv_concat=qkv_concat,
@@ -637,6 +658,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         use_flash_attention=use_flash_attention,
                                         use_ring_attention=use_ring_attention,
                                         use_attn_mask_compression=use_attn_mask_compression,
+                                        rmsnorm_compute_2d=rmsnorm_compute_2d,
                                         block_size=block_size,
                                         num_blocks=num_blocks,
                                         parallel_config=parallel_config,
@@ -673,7 +695,8 @@ class LLamaDecodeLayer(nn.Cell):
                                    is_dynamic=is_dynamic,
                                    parallel_config=parallel_config,
                                    moe_config=moe_config,
-                                   init_method_std=init_method_std) if self.shared_expert_num == 0 else None
+                                   init_method_std=init_method_std,
+                                   rmsnorm_compute_2d=rmsnorm_compute_2d) if self.shared_expert_num == 0 else None
         if self.expert_num == 1:
             self.feed_forward = ffn
         else:
@@ -710,20 +733,39 @@ class LLamaDecodeLayer(nn.Cell):
             self.feed_forward.ffn.shard(parallel_config)
         else:
             self.feed_forward.shard(parallel_config)
-        self.add.shard(((dp, cp, 1), (dp, cp, 1)))
+        if not rmsnorm_compute_2d:
+            self.add.shard(((dp, cp, 1), (dp, cp, 1)))
+        else:
+            self.add.shard(((dp * cp, 1), (dp * cp, 1)))
         if cp > 1:
-            self.attention_norm.shard((dp, cp * mp, 1))
-            self.ffn_norm.shard((dp, cp * mp, 1))
+            if not rmsnorm_compute_2d:
+                self.attention_norm.shard((dp, cp * mp, 1))
+                self.ffn_norm.shard((dp, cp * mp, 1))
+            else:
+                self.attention_norm.shard((dp * cp * mp, 1))
+                self.ffn_norm.shard((dp * cp * mp, 1))
+        elif rmsnorm_compute_2d:
+            self.attention_norm.shard((dp, 1))
+            self.ffn_norm.shard((dp, 1))
         else:
             self.attention_norm.shard((dp, 1, 1))
             self.ffn_norm.shard((dp, 1, 1))
+
         if moe_config is None or not moe_config.expert_num > 1:
-            self.feed_forward.mul.shard(((dp, cp, mp), (dp, cp, mp)))
+            if not rmsnorm_compute_2d:
+                self.feed_forward.mul.shard(((dp, cp, mp), (dp, cp, mp)))
+            else:
+                self.feed_forward.mul.shard(((dp * cp, mp), (dp * cp, mp)))
 
         if parallel_config.use_seq_parallel and self.is_first_iteration:
-            self.add.shard(((dp, mp, 1), (dp, mp, 1)))
-            self.attention_norm.shard((dp, mp, 1))
-            self.ffn_norm.shard((dp, mp, 1))
+            if not rmsnorm_compute_2d:
+                self.add.shard(((dp, mp, 1), (dp, mp, 1)))
+                self.attention_norm.shard((dp, mp, 1))
+                self.ffn_norm.shard((dp, mp, 1))
+            else:
+                self.add.shard(((dp * mp, 1), (dp * mp, 1)))
+                self.attention_norm.shard((dp * mp, 1))
+                self.ffn_norm.shard((dp * mp, 1))
             if moe_config is None or not moe_config.expert_num > 1:
                 self.feed_forward.w2.shard(((dp * cp, mp), (1, mp)), out_strategy_matmul=((dp * mp * cp, 1),))
 
