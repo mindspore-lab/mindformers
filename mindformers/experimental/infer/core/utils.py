@@ -16,8 +16,7 @@
 
 from mindspore import Tensor, ops
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_size
-from mindformers.experimental.infer.core.layers import _update_sharded_state_dict
+from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_size, get_tensor_model_parallel_world_size
 
 __all__ = ["get_attn_mask_func", "generate_state_dict"]
 
@@ -64,6 +63,18 @@ def get_attn_mask_func(mask_func_type):
     return ATTNMASK_FUNC_MAP[mask_func_type]
 
 
+def _update_sharded_state_dict(network, sharded_state_dict):
+    """Update shared state dict with network"""
+    cells = network.name_cells()
+    for _, subcell in cells.items():
+        if subcell == network:
+            continue
+        if hasattr(subcell, "sharded_state_dict"):
+            sharded_state_dict.update(subcell.sharded_state_dict())
+        else:
+            _update_sharded_state_dict(subcell, sharded_state_dict)
+
+
 def generate_state_dict(network):
     """Generate the sharded state dict for network"""
 
@@ -73,7 +84,12 @@ def generate_state_dict(network):
         "stage": 0
     }
     model_state_dict = {}
-    _update_sharded_state_dict(network=network, dict_=model_state_dict)
+    _update_sharded_state_dict(network=network, sharded_state_dict=model_state_dict)
     state_dict['model'] = model_state_dict
     state_dict['optimizer'] = {}
     return state_dict
+
+
+def get_tp_world_size():
+    tp_size = get_tensor_model_parallel_world_size()
+    return tp_size if tp_size else 1

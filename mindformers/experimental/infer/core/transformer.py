@@ -21,11 +21,11 @@ import mindspore.common.dtype as mstype
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
 
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_tensor_model_parallel_world_size
 from mindformers.experimental.parallel_core.pynative.transformer.scale_mask_softmax import ScaleMaskSoftmax
 from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.infer.core import get_act_func, get_attn_mask_func, get_norm
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
+from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
@@ -106,7 +106,7 @@ class ParallelMLP(nn.Cell):
         self.mlp_has_gate = self.config.mlp_has_gate
         self.ffn_concat = self.config.ffn_concat
 
-        tp_group_size = get_tensor_model_parallel_world_size()
+        tp_group_size = get_tp_world_size()
         self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, tp_group_size)
 
         if self.mlp_has_gate:
@@ -342,7 +342,7 @@ class ParallelAttention(nn.Cell):
         self.use_flash_attention = self.config.use_flash_attention
         self.norm_factor = math.sqrt(self.head_dim)
 
-        self.tp_group_size = get_tensor_model_parallel_world_size()
+        self.tp_group_size = get_tp_world_size()
         self.num_heads_per_partition = divide(self.num_heads, self.tp_group_size)
 
         self.use_gqa = (self.num_heads != self.kv_num_heads)
@@ -768,7 +768,8 @@ class ParallelTransformer(nn.Cell):
                                                           use_attn_mask_compression=config.use_attn_mask_compression,
                                                           use_past=config.use_past)
 
-        if config.parallel_config.vocab_emb_dp:
+        self.tp_group_size = get_tp_world_size()
+        if config.parallel_config.vocab_emb_dp or self.tp_group_size == 1:
             self.tok_embeddings = VocabEmbedding(
                 num_embeddings=config.vocab_size,
                 embedding_dim=config.hidden_size,
