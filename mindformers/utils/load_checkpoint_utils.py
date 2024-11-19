@@ -233,7 +233,7 @@ def merge_and_unified(src_checkpoint, src_strategy_path, dst_strategy_path, unif
                       file_suffix=None, remove_redundancy=False):
     """merge strategy and unified safetensors."""
     logger.info("start merge strategy and unified safetensors.")
-    if is_main_rank():
+    if is_main_rank(ignore_check_modelarts=True):
         # merge src strategy
         ms.merge_pipeline_strategys(
             src_strategy_dirs=src_strategy_path[0],
@@ -289,7 +289,7 @@ def process_hf_checkpoint(model, output_dir=None, load_checkpoint=None):
         logger.warning(f'Output directory is set to ./output, '
                        f'due to the output_dir {output_dir} does not exist.')
     converted_dir = os.path.join(output_dir, './ms_safetensors')
-    if is_main_rank():
+    if is_main_rank(ignore_check_modelarts=True):
         p = Process(target=convert_hf_safetensors_multiprocess,
                     args=[load_checkpoint, converted_dir, model, model.config.qkv_concat])
         p.start()

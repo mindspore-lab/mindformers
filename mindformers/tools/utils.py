@@ -479,9 +479,9 @@ def get_predict_run_mode():
     return run_mode == "predict"
 
 
-def is_main_rank():
+def is_main_rank(ignore_check_modelarts=False):
     return not get_real_rank() or \
-        (check_in_modelarts() and get_real_rank() % get_device_num_per_node() == 0)
+        ((ignore_check_modelarts or check_in_modelarts()) and get_real_rank() % get_device_num_per_node() == 0)
 
 
 def is_publicly_accessible_path(path):

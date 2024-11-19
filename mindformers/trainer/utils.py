@@ -372,6 +372,7 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         load_checkpoint_with_safetensors(config, model, network, dataset, do_eval=do_eval, do_predict=do_predict)
         return
 
+    logger.warning(".ckpt file loading mode will be offline in June 2025.Recommend loading .safetensors file")
     # load ckpt process
     if not config.auto_trans_ckpt and not config.only_save_strategy and \
         check_path_include_total_ckpt(config.load_checkpoint):
