@@ -217,6 +217,36 @@ class MindFormerConfig(DictConfig):
                 else:
                     config[key] = dic[key]
 
+    @classmethod
+    def get_nested_config(cls, config, levels: list, default=None):
+        """Get the nested  config according to levels, if not exist return default.
+
+        Args:
+            levels : the level to be accessed
+            default : None
+        Returns:
+            default or value of config
+
+        Examples:
+        >>> config = MindFormerConfig(**{'context': {'mode': 'GRAPH_MODE'}, 'parallel': {}})
+        >>> MindFormerConfig(config, ['context', 'mode'])
+        >>> 'GRAPH_MODE'
+        >>> MindFormerConfig(config, ['context', 'mode'], 'DEFAULT_MODE')
+        >>> 'GRAPH_MODE'
+        >>> MindFormerConfig(config, ['context', 'fake_mode'])
+        >>> None
+        >>> MindFormerConfig(config, ['context', 'fake_mode'], 'DEFAULT_MODE')
+        >>> 'DEFAULT_MODE'
+        """
+
+        if not levels:
+            return default
+        if len(levels) == 1:
+            return getattr(config, str(levels[-1]), default)
+        return cls.get_nested_config(
+            getattr(config, levels[0], None), levels[1:], default
+        )
+
 
 class ActionDict(Action):
     """
