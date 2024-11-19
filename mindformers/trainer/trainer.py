@@ -440,7 +440,7 @@ class Trainer:
                 )
 
         self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
-
+        self._check_load_checkpoint()
         self.trainer.train(
             config=self.config, network=self.model,
             dataset=self.train_dataset, optimizer=self.optimizers,
