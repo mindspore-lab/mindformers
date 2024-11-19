@@ -9,3 +9,5 @@ mindformers/mindformers/experimental/parallel_core/pynative/tensor_parallel/laye
 mindformers/mindformers/models/whisper/tokenization_whisper.py:_decode_asr
 mindformers/mindformers/models/whisper/english_normalizer.py:process_words
 mindformers/mindformers/experimental/parallel_core/pynative/tensor_parallel/layers.py:bprop
+mindformers/research/telechat2/utils.py:get_json_schema
+mindformers/research/telechat2/utils.py:_parse_type_hint
