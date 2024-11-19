@@ -27,40 +27,40 @@ from mindformers.tools.logger import logger
 
 def unified_safetensors(src_dir, src_merge_strategy, output_dir, file_suffix, has_redundancy):
     """merge safetensors files."""
-    _timed_print("Start merge safetensor", flush=True)
+    _timed_print("Start merge safetensor")
     merged_path_ = os.path.join(output_dir, "unified_safe")
     if not os.path.exists(merged_path_):
         os.makedirs(merged_path_, exist_ok=True)
     ms.unified_safetensors(src_dir, src_merge_strategy, merged_path_,
-                           file_suffix=file_suffix, merge_with_redundancy=has_redundancy)
-    _timed_print("Merge safetensor completed", flush=True)
+                           file_suffix=file_suffix, merge_with_redundancy=not has_redundancy)
+    _timed_print("Merge safetensor completed")
     return merged_path_
 
 
 def merge_pipeline_strategys(src_strategy_dirs, output_dir):
     """merge pipeline strategys."""
-    _timed_print("Start merge strategy", flush=True)
+    _timed_print("Start merge strategy")
     dst_strategy_dir = os.path.join(output_dir, "merge_strategy")
     os.makedirs(dst_strategy_dir, exist_ok=True)
     dst_strategy_file = os.path.join(dst_strategy_dir, "merge_strategy.ckpt")
     ms.merge_pipeline_strategys(src_strategy_dirs, dst_strategy_file)
-    _timed_print("Merge strategy completed", flush=True)
+    _timed_print("Merge strategy completed")
     return dst_strategy_file
 
 
 def clear_output_dir(output_dir):
     """clear files."""
     if os.path.exists(output_dir):
-        _timed_print(f"Start clear tmp file: {output_dir}", flush=True)
+        _timed_print(f"Start clear tmp file: {output_dir}")
         shutil.rmtree(output_dir)
-        _timed_print("Clear tmp file completed", flush=True)
+        _timed_print("Clear tmp file completed")
     return True
 
 
-def _timed_print(*args, **kwargs):
+def _timed_print(args):
     """timed print."""
-    current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    logger.info(f"[{current_time}]", *args, **kwargs)
+    current_time = time.strftime("%Y-%m-%d %H:%M:%S ", time.localtime()) + args
+    logger.info(f"[{current_time}]")
 
 
 if __name__ == "__main__":
@@ -77,9 +77,9 @@ if __name__ == "__main__":
     _args.output_dir = os.path.join(_args.output_dir, str(_args.file_suffix) + "_ckpt_convert")
 
     # Print arguments
-    _timed_print("args config:", flush=True)
+    _timed_print("args config:")
     for k, v in sorted(vars(_args).items()):
-        logger.info(f"{k}={v}", flush=True)
+        logger.info(f"{k}={v}")
     start_time = time.time()
     _timed_print("Task start...")
 
@@ -92,5 +92,5 @@ if __name__ == "__main__":
 
     # time show
     end_time = time.time()
-    _timed_print("Task completed time:", flush=True)
-    _timed_print(f"Task total cost time: {end_time - start_time}s", flush=True)
+    _timed_print("Task completed time:")
+    _timed_print(f"Task total cost time: {end_time - start_time}s")
