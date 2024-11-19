@@ -30,6 +30,8 @@ _CONFIG_MAPPING = {
     'qkv_has_bias': 'add_qkv_bias',
     'use_gqa': 'group_query_attention',
     'use_flash_attention': 'use_flash_attn',
+    'use_ring_attention': 'use_ring_attention',
+    'use_attn_mask_compression': 'use_attn_mask_compression',
     'max_position_embedding': 'max_position_embeddings',
     'weight_init': 'init_method'
 }
@@ -105,13 +107,16 @@ def convert_pretrained_config(config: PretrainedConfig, transformer_config: Tran
             setattr(transformer_config, attr, value)
 
     transformer_config.update()
-    transformer_config.post_init_checks()
 
     transformer_config.data_parallel = config.parallel_config.data_parallel
     transformer_config.tensor_parallel = config.parallel_config.model_parallel
     transformer_config.context_parallel = config.parallel_config.context_parallel
+    transformer_config.context_parallel_algo = config.parallel_config.context_parallel_algo
+    transformer_config.ulysses_degree_in_cp = config.parallel_config.ulysses_degree_in_cp
     transformer_config.vocab_emb_dp = config.parallel_config.vocab_emb_dp
     transformer_config.sequence_parallel = getattr(config.parallel_config, 'use_seq_parallel', False)
+
+    transformer_config.post_init_checks()
 
     if hasattr(config, 'n_kv_heads'):
         if config.n_kv_heads is not None:

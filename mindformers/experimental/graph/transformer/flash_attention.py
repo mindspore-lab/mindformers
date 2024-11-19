@@ -142,7 +142,8 @@ class FlashAttention(Cell):
                  sparse_mode=0,
                  use_attention_mask=True,
                  use_alibi_mask=False,
-                 use_mqa=False
+                 use_mqa=False,
+                 use_ring_attention=False
                  ):
         super(FlashAttention, self).__init__()
         self.head_num = head_num
@@ -152,7 +153,7 @@ class FlashAttention(Cell):
         self.use_alibi_mask = use_alibi_mask
         self.use_attention_mask = use_attention_mask
         self.use_mqa = use_mqa
-
+        self.use_ring_attention = use_ring_attention
         self.flash_attention = FlashAttentionScore(head_num=head_num,
                                                    keep_prob=keep_prob,
                                                    scale_value=scale_value,
@@ -161,6 +162,11 @@ class FlashAttention(Cell):
                                                    inner_precise=0,
                                                    input_layout=self.input_layout,
                                                    sparse_mode=self.sparse_mode)
+
+        if self.use_ring_attention:
+            self.flash_attention.add_prim_attr("enable_ring_attention", True)
+            self.flash_attention.add_prim_attr("enable_ra_send_recv", True)
+            self.use_attention_mask = False
         if self.use_alibi_mask:
             self.alibi_rescale_factor = Tensor([1.0 / scale_value], dtype=mstype.float16)
             self.alibi_rescale_mul = ops.Mul()
@@ -168,13 +174,24 @@ class FlashAttention(Cell):
             self.keep_prob_tensor = Tensor(keep_prob, dtype=mstype.float16)
             self.drop_gen_mask = ops.DropoutGenMask()
 
-    def _generate_flash_attention_strategy(self, dp, tp, cp):
+    def _generate_flash_attention_strategy(self, dp, tp, cp, cp_ds=1):
         """get FA generate strategies"""
+        # ulysses fa strategy
+        cp_co = cp // cp_ds
+        # from (dp, cp, tp) to (dp, cp_co, cp_ds * tp)
+        cp = cp_co
+        tp = cp_ds * tp
+
         kv_head_split_num = 1 if self.use_mqa else tp
         if self.input_layout == "BSH":
-            fa_strategies = ((dp, cp, tp),
-                             (dp, 1, kv_head_split_num),
-                             (dp, 1, kv_head_split_num))
+            if self.use_ring_attention:
+                fa_strategies = ((dp, cp, tp),
+                                 (dp, cp, kv_head_split_num),
+                                 (dp, cp, kv_head_split_num))
+            else:
+                fa_strategies = ((dp, cp, tp),
+                                 (dp, 1, kv_head_split_num),
+                                 (dp, 1, kv_head_split_num))
         else:
             fa_strategies = ((dp, tp, cp, 1),
                              (dp, kv_head_split_num, 1, 1),
@@ -224,8 +241,9 @@ class FlashAttention(Cell):
         dp = 1 if config is None else config.data_parallel
         tp = 1 if config is None else config.tensor_parallel
         cp = 1 if config is None else config.context_parallel
+        cp_ds = config.get_ulysses_cp_num()
 
-        fa_strategies = self._generate_flash_attention_strategy(dp, tp, cp)
+        fa_strategies = self._generate_flash_attention_strategy(dp, tp, cp, cp_ds)
         self.flash_attention.shard(fa_strategies)
 
         if self.use_alibi_mask:
