@@ -372,6 +372,7 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         load_checkpoint_with_safetensors(config, model, network, dataset, do_eval=do_eval, do_predict=do_predict)
         return
 
+    logger.warning(".ckpt file loading mode will be offline in June 2025.Recommend loading .safetensors file")
     # load ckpt process
     if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
                                                               'hybrid_parallel']:
