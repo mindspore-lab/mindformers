@@ -341,6 +341,7 @@ class ParallelAttention(nn.Cell):
         self.sequence_parallel = self.config.parallel_config.use_sequence_parallel
         self.use_flash_attention = self.config.use_flash_attention
         self.norm_factor = math.sqrt(self.head_dim)
+        self.reshape = ops.Reshape()
 
         self.tp_group_size = get_tensor_model_parallel_world_size()
         self.num_heads_per_partition = divide(self.num_heads, self.tp_group_size)
@@ -371,11 +372,17 @@ class ParallelAttention(nn.Cell):
             param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
         )
-
+        self.input_layout = "BSH"
+        self.disable_custom_fa = get_disable_custom_fa()
+        if self.disable_custom_fa:
+            self.use_attention_mask = True
+            self.input_layout = "TH"
         if self.use_flash_attention:
             self.flash_attention = FlashAttention(head_num=self.num_heads_per_partition,
                                                   scale_value=1.0 / self.norm_factor,
-                                                  next_tokens=0)
+                                                  next_tokens=0,
+                                                  use_attention_mask=True,
+                                                  input_layout=self.input_layout)
 
         if self.use_past:
             kv_shape = (self.config.num_blocks, self.config.block_size, self.kv_num_heads_per_partition, self.head_dim)
@@ -435,7 +442,18 @@ class ParallelAttention(nn.Cell):
 
             if self.is_first_iteration:
                 if self.use_flash_attention:
-                    context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask)
+                    if self.disable_custom_fa:
+                        bs, seq_len, _ = query.shape
+                        # [1, actual_seq_len, H] -> [actual_seq_len, H]
+                        query = self.reshape(query, (-1, self.num_heads_per_partition * self.head_dim))
+                        key = self.reshape(key, (-1, self.kv_num_heads_per_partition * self.head_dim))
+                        value = self.reshape(value, (-1, self.kv_num_heads_per_partition * self.head_dim))
+                        context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None,
+                                                             batch_valid_length, batch_valid_length)
+                        context_layer = self.reshape(context_layer, (bs, seq_len,
+                                                                     self.num_heads_per_partition * self.head_dim))
+                    else:
+                        context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask)
                 else:
                     # [B, S, H] -> [B, N, S, D]
                     query = query.reshape(bs, seq_len, -1, self.head_dim).transpose((0, 2, 1, 3))
@@ -743,6 +761,9 @@ class ParallelTransformer(nn.Cell):
         self.use_rope_self_define = get_use_rope_self_define()
         self.fa_need_mask = is_pynative()
 
+        if self.disable_custom_fa:
+            self.prefill_flatten_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
+
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
                                   max_position_embedding=config.max_position_embedding,
@@ -808,8 +829,8 @@ class ParallelTransformer(nn.Cell):
 
                 if self.use_flash_attention:
                     if self.disable_custom_fa:  # only support fp16
-                        mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
-                        mask = self.cast(mask, mstype.float16)
+                        mask = self.prefill_flatten_mask
+                        freqs_cis = self.freqs_mgr.prefill_flatten()  # mask: [bs, seq, seq]
                     if self.fa_need_mask:
                         mask = self.casual_mask(tokens)
                 else:
