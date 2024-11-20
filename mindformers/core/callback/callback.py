@@ -660,7 +660,7 @@ class CheckpointMonitor(ModelCheckpoint):
                         mode, currently supports 'AES-GCM', 'AES-CBC' and 'SM4-CBC'. Default: 'AES-GCM'.
         exception_save (bool): Whether to save the current checkpoint when an exception occurs. Default: False.
         global_batch_size (int): The total batch size. Default: 0.
-        checkpoint_format (str): The format of checkpoint to save. Default: 'ckpt'.
+        checkpoint_format (str): The format of checkpoint to save. Support 'ckpt' or 'safetensors'. Default: 'ckpt'.
         remove_redundancy (bool): Whether to remove redundancy when saving checkpoint. Default: False.
 
     Raises:
