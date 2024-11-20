@@ -29,7 +29,7 @@ class TestModel:
     Test Model.
     """
     def forward(self, input_ids, valid_length_each_example, block_tables, slot_mapping, prefill, use_past,
-                position_ids=None, spec_mask=None, q_seq_lens=None, adapter_ids=None):
+                position_ids=None, spec_mask=None, q_seq_lens=None, adapter_ids=None, prefill_head_indices=None):
         """
         Check the info of inputs
 
@@ -44,6 +44,7 @@ class TestModel:
             spec_mask (np.ndarray): rank is 2 or 3, and data type is float16.
             q_seq_lens (Union[np.ndarray, list]): rank is 1, and data type is int32.
             adapter_ids (list): rank is 1, and data type is string
+            prefill_head_indices (Union[np.ndarray, list]): rank is 1, and data type is int32.
 
         Return:
             res: (Tensor): given that shape is (2, 16000).
@@ -73,6 +74,12 @@ class TestModel:
                 assert isinstance(q_seq_lens[0], int)
         if adapter_ids is not None:
             assert isinstance(adapter_ids, list) and adapter_ids.dtype == np.str
+
+        if prefill_head_indices is not None:
+            if isinstance(prefill_head_indices, np.ndarray):
+                assert prefill_head_indices.ndim == 1 and prefill_head_indices.dtype == np.int32
+            else:
+                assert isinstance(prefill_head_indices[0], int)
         res = np.arange(32000).reshape(2, -1)
         current_index = [1]
         return Tensor.from_numpy(res), current_index
