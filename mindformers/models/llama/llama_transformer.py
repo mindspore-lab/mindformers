@@ -224,6 +224,7 @@ class LLamaAttention(nn.Cell):
             self.infer_attention = InferAttention(self.n_head,
                                                   self.head_dim,
                                                   self.n_kv_head,
+                                                  seq_length=seq_length,
                                                   pa_n_head_split=self.n_head // mp,
                                                   pa_n_kv_head_split=self.n_kv_head // mp,
                                                   scale_value=1. / math.sqrt(self.head_dim),

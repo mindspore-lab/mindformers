@@ -215,6 +215,7 @@ class InferAttention(Cell):
                  sparse_mode=0,
                  block_size=16,
                  num_blocks=1024,
+                 seq_length=-1,
                  is_dynamic=True,
                  use_flash_attention=True,
                  use_alibi_mask=False,
@@ -283,6 +284,7 @@ class InferAttention(Cell):
                                                      self.head_dim,
                                                      self.pa_n_kv_head_split,
                                                      kv_shape,
+                                                     seq_length,
                                                      compute_dtype=self.compute_dtype,
                                                      parallel_decoding=parallel_decoding,
                                                      )
@@ -439,7 +441,7 @@ class InferAttention(Cell):
             if self.is_first_iteration:
                 key, value = self._cat_prefix(key, value, prefix_keys_values)
 
-        key_out = self.paged_attention_mgr(key, value, slot_mapping)
+        key_out = self.paged_attention_mgr(key, value, slot_mapping, batch_valid_length)
         query = ops.depend(query, key_out)
 
         if self.is_first_iteration:

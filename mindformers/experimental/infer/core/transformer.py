@@ -385,6 +385,7 @@ class ParallelAttention(nn.Cell):
                                                          self.head_dim,
                                                          self.kv_num_heads_per_partition,
                                                          kv_shape,
+                                                         config.seq_length,
                                                          compute_dtype=self.compute_dtype)
             self.rotary_embedding = InferRotaryEmbedding(rotary_cos_format=2)
         else:
@@ -432,7 +433,7 @@ class ParallelAttention(nn.Cell):
                 if self.is_first_iteration:
                     key, value = self._cat_prefix(key, value, prefix_keys_values)
 
-            key_out = self.paged_attention_mgr(key, value, slot_mapping)
+            key_out = self.paged_attention_mgr(key, value, slot_mapping, batch_valid_length)
             query = ops.depend(query, key_out)
 
             if self.is_first_iteration:

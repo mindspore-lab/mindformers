@@ -471,6 +471,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         for layer in self.model.layers:
             layer.add_flags(is_first_iteration=is_first_iteration)
             layer.attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
+            layer.attention.infer_attention.paged_attention_mgr.add_flags(is_first_iteration=is_first_iteration)
 
     def pre_gather_func(self, pre_gather, output, batch_valid_length):
         """Pre gather operation in infer mode."""
