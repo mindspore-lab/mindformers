@@ -1543,3 +1543,16 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
     def convert_map_dict(cls, source_dict, **kwargs):
         """convert HuggingFace map dict to MindFormers map dict"""
         raise RuntimeError(f"{cls.__name__} does not implemented convert_map_dict method.")
+
+    @classmethod
+    def obtain_qkv_ffn_concat_keys(cls):
+        """
+        Obtain key list generated during weight concatenation of qkv/ffn concat operation.
+        For example:
+        When qkv/ffn concat weight conversion operation is performed on llama model,
+        new keys containing "w_qkv" and "w_gate_hidden" are generated.
+
+        Returns:
+            key_list (list): key word list of concat weights.
+        """
+        logger.info(f"{cls.__name__} does not support qkv concat check, skipping...")
