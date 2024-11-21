@@ -362,6 +362,7 @@ class CogVLM2ContentTransformTemplate(ModalContentTransformTemplate):
             padding_length = self.max_length - len(position_ids) + 1
             position_ids = np.pad(position_ids, (0, padding_length), 'linear_ramp',
                                   end_values=(0, padding_start + padding_length))
+            position_ids = position_ids.astype(np.int32)
             update_items["position_ids"] = position_ids
             images = result.get("images")
             if isinstance(images, ms.Tensor):

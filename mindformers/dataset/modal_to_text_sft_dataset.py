@@ -17,27 +17,44 @@ from typing import Optional, Union, Callable
 
 import numpy as np
 
+import mindspore as ms
+from mindspore.dataset import DistributedSampler
+
 from mindformers.dataset.base_dataset import BaseDataset
 from mindformers.dataset.dataloader.build_dataloader import build_dataset_loader
 from mindformers.dataset.transforms import build_transforms
 from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.version_control import get_dataset_map
 
 
 # pylint: disable=W0613
 def batch_add(col, batch_info):
+    """batch multi modal data"""
     output = col.copy()
     batch_size = len(col)
-    adder = np.array([[i, 0] for i in range(batch_size)], dtype=np.int32).reshape((batch_size, 1, 1, 2))
+    full_batch = ms.get_auto_parallel_context("full_batch")
+    ds_stra = ms.get_auto_parallel_context("dataset_strategy")
+    if full_batch or not isinstance(ds_stra, (list, tuple)):
+        adder = np.array([[i, 0] for i in range(batch_size)], dtype=np.int32).reshape((batch_size, 1, 1, 2))
+    else:
+        rank_id = get_real_rank()
+        device_num = get_real_group_size()
+        pp = ms.get_auto_parallel_context("pipeline_stages")
+        dp = ds_stra[0][0]
+        mp = device_num // pp // dp
+        shard_id = rank_id % (device_num // pp) // mp
+        adder = [[i + shard_id * batch_size, 0] for i in range(batch_size)]
+        adder = np.array(adder, dtype=np.int32).reshape((batch_size, 1, 1, 2))
     output = output + adder
     return (output,)
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class ModalToTextSFTDataset(BaseDataset):
-    """Dataset for QwenVL"""
+    """Dataset for MultiModal"""
 
     def __new__(cls,
                 dataset_config: Optional[dict] = None,
@@ -52,10 +69,15 @@ class ModalToTextSFTDataset(BaseDataset):
 
         # build dataloader
         if isinstance(dataset_config.data_loader, dict):
-            dataset = build_dataset_loader(dataset_config.data_loader,
-                                           default_args={'num_shards': device_num, 'shard_id': rank_id})
+            dataset = build_dataset_loader(dataset_config.data_loader)
         else:
             dataset = dataset_config.data_loader
+        src_dataset_size = dataset.get_dataset_size()
+        if device_num is not None and rank_id is not None:
+            # if full_batch=False, device_num and rank_id are not None
+            # shuffle has been set in build_dataset_loader process
+            dataset.add_sampler(DistributedSampler(
+                num_shards=device_num, shard_id=rank_id, shuffle=False))
 
         # build tokenizer
         if isinstance(dataset_config.tokenizer, dict):
@@ -115,5 +137,9 @@ class ModalToTextSFTDataset(BaseDataset):
                                 num_parallel_workers=dataset_config.num_parallel_workers,
                                 input_columns=batch_input_columns,
                                 per_batch_map=batch_add)
+        if not ms.get_auto_parallel_context("full_batch"):
+            # reset dataset size for full_batch=False
+            take_num = src_dataset_size // (dataset_config.batch_size * device_num)
+            dataset = dataset.take(take_num)
         dataset = dataset.repeat(dataset_config.repeat)
         return dataset
