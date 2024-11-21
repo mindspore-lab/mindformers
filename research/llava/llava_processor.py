@@ -17,6 +17,7 @@ LLaVaProcessor
 """
 from typing import Dict
 import numpy as np
+
 import mindspore as ms
 
 from mindformers import CLIPImageProcessor

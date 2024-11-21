@@ -26,7 +26,7 @@ from mindformers.core.context import build_context
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.models.build_processor import build_processor
 from mindformers.trainer.utils import transform_and_load_checkpoint
-from research.llava.llava import LlavaVlm
+from research.llava.llava_model import LlavaVlm
 from research.llava.llava_config import LlavaConfig, LlavaCLIPConfig
 from research.llava.llava_processor import LlavaContentTransformTemplate
 from research.llava.llava_tokenizer import LlavaTokenizer
