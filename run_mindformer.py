@@ -17,6 +17,7 @@ import argparse
 import os
 
 from mindformers.tools.register import MindFormerConfig, ActionDict
+from mindformers.utils.config import ConfigTemplate
 from mindformers.tools.utils import str2bool, parse_value
 from mindformers.core.context import build_context
 from mindformers.trainer import Trainer
@@ -60,6 +61,8 @@ def create_multi_modal_predict_data(predict_data_list, modal_type_list):
 @cloud_monitor()
 def main(config):
     """main."""
+    config = ConfigTemplate.apply_template(config)
+
     # set output path
     set_output_path(config.output_dir)
 
