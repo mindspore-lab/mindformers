@@ -201,7 +201,9 @@ def get_class_in_module(class_name: str, module_path: Union[str, os.PathLike],
     Returns:
         `typing.Type`: The class looked for.
     """
-    file_path = os.path.normpath(module_path)[0]
+    file_path = os.path.normpath(module_path)
+    if file_path.endswith(".py"):
+        file_path = os.path.splitext(file_path)[0]
     file_path = file_path.replace(os.path.sep, ".")
     module_file: Path = Path(HubConstants.OM_MODULES_CACHE) / module_path
     with _MF_REMOTE_CODE_LOCK:
