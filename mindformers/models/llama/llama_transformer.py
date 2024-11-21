@@ -760,13 +760,13 @@ class LLamaDecodeLayer(nn.Cell):
 
         if parallel_config.use_seq_parallel and self.is_first_iteration:
             if not rmsnorm_compute_2d:
-                self.add.shard(((dp, mp, 1), (dp, mp, 1)))
-                self.attention_norm.shard((dp, mp, 1))
-                self.ffn_norm.shard((dp, mp, 1))
+                self.add.shard(((dp, mp * cp, 1), (dp, mp * cp, 1)))
+                self.attention_norm.shard((dp, mp * cp, 1))
+                self.ffn_norm.shard((dp, mp * cp, 1))
             else:
-                self.add.shard(((dp * mp, 1), (dp * mp, 1)))
-                self.attention_norm.shard((dp * mp, 1))
-                self.ffn_norm.shard((dp * mp, 1))
+                self.add.shard(((dp * mp * cp, 1), (dp * mp * cp, 1)))
+                self.attention_norm.shard((dp * mp * cp, 1))
+                self.ffn_norm.shard((dp * mp * cp, 1))
             if moe_config is None or not moe_config.expert_num > 1:
                 self.feed_forward.w2.shard(((dp * cp, mp), (1, mp)), out_strategy_matmul=((dp * mp * cp, 1),))
 
