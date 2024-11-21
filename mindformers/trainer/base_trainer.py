@@ -894,6 +894,10 @@ class BaseTrainer:
                     raise ValueError("The format of checkpoint is ckpt which is not support remove redundancy.")
                 if default_args.get("remove_redundancy") and config.get("enable_mindio_ttp_save_ckpt"):
                     raise ValueError("enable_mindio_ttp_save_ckpt and remove_redundancy is incompatible.")
+            elif "type" in callback and callback["type"] == "StressDetectCallBack":
+                default_args = {
+                    "dataset_size": config.data_size
+                }
 
             default_callbacks.append(build_callback(callback, default_args=default_args))
         if callbacks is not None:

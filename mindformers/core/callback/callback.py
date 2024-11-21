@@ -46,11 +46,14 @@ from mindformers.tools.logger import logger
 from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
 from mindformers.tools.utils import get_output_root_path, get_output_subpath, get_remote_save_url, check_in_modelarts,\
     get_real_rank, get_real_group_size, get_pipeline_rank_ids
+from mindformers.version_control import check_stress_detect_valid
 
 __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
 _cur_dir = os.getcwd()
 SAVE_DIR = _cur_dir
+
+VOLTAGE_ERROR_CODE = 574007
 
 
 class AllReduceNet(Cell):
@@ -1395,3 +1398,68 @@ class TrainCallBack(Callback):
         if self.stop_step is not None and cb_params.cur_step_num >= self.stop_step:
             run_context.request_stop()
             logger.info("set train process early stop at %s steps in yaml", self.stop_step)
+
+
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
+class StressDetectCallBack(Callback):
+    """
+    Stress Detect Callback used in training progress.
+
+    Args:
+        detection_interval (int): (int, optional): The number of steps between each hardware precision stress detection.
+            Default: ``None``.
+        num_detections (int, optional): The number of consecutive hardware precision stress detections for each round.
+            Default: ``None``.
+        dataset_size (int, optional): Training dataset size. Default: ``None``.
+
+    Examples:
+        >>> from mindformers.core.callback import StressDetectCallBack
+        >>> stress_detect_callback = StressDetectCallBack(detection_interval=10, num_detections=3, dataset_size=1024)
+        >>> type(stress_detect_callback)
+    """
+
+    def __init__(self, detection_interval: int = None, num_detections: int = None, dataset_size: int = None):
+        logger.warning('StressDetectCallBack serves as an experimental interface and its functionality is '
+                       'not yet stable.')
+        self.detection_interval = detection_interval
+        self.num_detections = num_detections
+        self.steps_per_epoch = dataset_size
+        self.ms_version_valid = check_stress_detect_valid()
+
+        if self.detection_interval > self.steps_per_epoch:
+            logger.warning(f"detection_interval = {self.detection_interval} is bigger than "
+                           f"steps_per_epoch = {self.steps_per_epoch}")
+
+
+    def step_end(self, run_context):
+        """
+        Stress detect at the end of step.
+
+        Args:
+            run_context (RunContext): Context of the train running.
+        """
+        callback_params = run_context.original_args()
+        cur_step_num = callback_params.cur_step_num
+        # stress detect
+        detect_ret_list = []
+        if self.ms_version_valid:
+            from mindspore.utils import stress_detect
+
+            if cur_step_num % self.detection_interval == 0:
+                logger.info("Start to stress detect")
+                for _ in range(self.num_detections):
+                    ret = stress_detect()
+                    detect_ret_list.append(ret)
+
+            self.log_stress_detect_result(detect_ret_list)
+
+
+    def log_stress_detect_result(self, detect_ret_list):
+        """print output information."""
+        for ret in detect_ret_list:
+            if ret == 0:
+                logger.info("Stress detection passed")
+            elif ret == VOLTAGE_ERROR_CODE:
+                raise RuntimeError(f"Voltage recovery failed with error code: {ret}")
+            else:
+                logger.warning(f"Stress detection failed with error code: {ret}")
