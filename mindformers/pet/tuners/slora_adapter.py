@@ -388,6 +388,8 @@ class SLoraAdapter(abc.ABC):
         """read S-LoRA config"""
         if isinstance(pet_config, SLoraConfig):
             return pet_config
+        if not isinstance(pet_config.adapter_path, str):
+            raise TypeError(f"adapter_path should be string type, but get {type(pet_config.adapter_path)}.")
         adapter_path = pet_config.adapter_path
         if not os.path.exists(adapter_path):
             raise FileNotFoundError(f"The adapter_path must be correct, but get {adapter_path}")
@@ -415,7 +417,11 @@ class SLoraAdapter(abc.ABC):
                                  f"please pass a valid the slora path in config.adapter_path file.")
             with open(config_path, 'r') as file:
                 config = json.load(file)
+            if not isinstance(config["r"], int):
+                raise TypeError(f"rank should be int type, but get {type(config['r'])} type.")
             max_rank = max(max_rank, int(config["r"]))
+            if not all(isinstance(module, str) for module in config["target_modules"]):
+                raise TypeError(f"target_modules should be string type, but get wrong type.")
             target_modules_set.update(config["target_modules"])
         target_modules_list = [".*" + module for module in list(target_modules_set)]
         target_modules = '|'.join(target_modules_list)
@@ -424,7 +430,11 @@ class SLoraAdapter(abc.ABC):
         config_path = os.path.join(path_dict[list(path_dict.keys())[0]], "adapter_config.json")
         with open(config_path, 'r') as file:
             config = json.load(file)
+        if not isinstance(config["lora_alpha"], int):
+            raise TypeError(f"lora_alpha should be int type, but get {type(config['lora_alpha'])}.")
         alpha = int(config["lora_alpha"])
+        if not isinstance(config["lora_dropout"], float):
+            raise TypeError(f"lora_dropout should be float type, but get {type(config['lora_dropout'])}.")
         dropout = float(config["lora_dropout"])
 
         return SLoraConfig(target_modules, num, max_rank, alpha, dropout, lora_extra_vocab_size)
