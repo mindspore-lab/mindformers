@@ -43,13 +43,16 @@ class SLoraModel(PreTrainedModel):
         self.config.pet_config = config
         self._check_config()
         self.lora_list = []
-        self.adapter_ids = Parameter(initializer('zero', [self.config.batch_size], mstype.int32), requires_grad=False)
+        self.adapter_ids = Parameter(initializer('zero', [self.config.batch_size],
+                                                 mstype.int32), requires_grad=False)
+        self.embed_adapter_ids = Parameter(initializer('zero', [self.config.batch_size],
+                                                       mstype.int32), requires_grad=False)
         # add slora layer.
         self.lora_model = self.add_adapter(base_model)
 
     def add_adapter(self, base_model: PreTrainedModel):
         """Add adapter for layers."""
-        slora_adapter = SLoraAdapter(self.config.pet_config, self.adapter_ids)
+        slora_adapter = SLoraAdapter(self.config.pet_config, self.adapter_ids, self.embed_adapter_ids)
         base_model.model = slora_adapter.get_pet_model(base_model)
         self.lora_list = slora_adapter.registered_loras
         return base_model
@@ -63,24 +66,55 @@ class SLoraModel(PreTrainedModel):
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         batch_size = input_ids.shape[0]
+        prefill = kwargs.get("prefill")
         adapter_ids = kwargs.get("adapter_ids")
-        adapter_ids_np = [0] * batch_size
-        if adapter_ids is not None:
-            if len(adapter_ids) != batch_size:
-                raise ValueError("adapter_ids has different length with inputs.")
-            slora_names = SLoraAdapter.adapter_names
-            for batch in range(batch_size):
-                adapter = adapter_ids[batch]
-                if adapter in SLoraAdapter.adapter_names:
-                    adapter_ids_np[batch] = slora_names.index(adapter) + 1
-                elif adapter is None:
-                    logger.warning(f"SLoRA adapter id got none for batch {batch}, use base model without SLoRA.")
-                else:
-                    logger.warning(f"Can not find {adapter} in registered adapter names for batch {batch}, "
-                                   f"use base model without SLoRA, supported adapter list:{slora_names}")
+        adapter_ids_size = len(adapter_ids)
+        embed_adapter_ids = kwargs.get("embed_adapter_ids")
+        embed_adapter_ids_size = len(embed_adapter_ids)
+        adapter_ids_np = [0] * adapter_ids_size
+        embed_adapter_ids_np = [0] * embed_adapter_ids_size
+        if adapter_ids is not None and embed_adapter_ids is not None:
+            if prefill:
+                slora_names = SLoraAdapter.adapter_names
+                if len(adapter_ids) != batch_size:
+                    raise ValueError("adapter_ids has different length with inputs.")
+                for x in range(adapter_ids_size):
+                    adapter = adapter_ids[x]
+                    if adapter in SLoraAdapter.adapter_names:
+                        adapter_ids_np[x] = slora_names.index(adapter) + 1
+                    elif adapter is None:
+                        logger.warning(f"SLoRA adapter id got none for batch {x}, use base model without SLoRA.")
+                    else:
+                        logger.warning(f"Can not find {adapter} in registered adapter names for batch {x}, "
+                                       f"use base model without SLoRA, supported adapter list:{slora_names}")
+                for x in range(embed_adapter_ids_size):
+                    adapter = embed_adapter_ids[x]
+                    if adapter in SLoraAdapter.adapter_names:
+                        embed_adapter_ids_np[x] = slora_names.index(adapter) + 1
+                    elif adapter is None:
+                        logger.warning(f"SLoRA adapter id got none for batch {x}, use base model without SLoRA.")
+                    else:
+                        logger.warning(f"Can not find {adapter} in registered adapter names for batch {x}, "
+                                       f"use base model without SLoRA, supported adapter list:{slora_names}")
+                self.embed_adapter_ids.set_data(Tensor.from_numpy(np.array(embed_adapter_ids_np, dtype=np.int32)),
+                                                slice_shape=True)
+            else:
+                slora_names = SLoraAdapter.adapter_names
+                for x in range(batch_size):
+                    adapter = adapter_ids[x]
+                    if adapter in SLoraAdapter.adapter_names:
+                        adapter_ids_np[x] = slora_names.index(adapter) + 1
+                        embed_adapter_ids_np[x] = slora_names.index(adapter) + 1
+                    elif adapter is None:
+                        logger.warning(f"SLoRA adapter id got none for batch {x}, use base model without SLoRA.")
+                    else:
+                        logger.warning(f"Can not find {adapter} in registered adapter names for batch {x}, "
+                                       f"use base model without SLoRA, supported adapter list:{slora_names}")
+                self.embed_adapter_ids.set_data(Tensor.from_numpy(np.array(adapter_ids_np, dtype=np.int32)),
+                                                slice_shape=True)
+            self.adapter_ids.set_data(Tensor.from_numpy(np.array(adapter_ids_np, dtype=np.int32)), slice_shape=True)
         else:
             logger.warning(f"SLoRA adapter ids got none, use base model without SLoRA.")
-        self.adapter_ids.set_data(Tensor.from_numpy(np.array(adapter_ids_np, dtype=np.int32)), slice_shape=True)
         return self.lora_model.prepare_inputs_for_generation(input_ids, **kwargs)
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):

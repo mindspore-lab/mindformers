@@ -862,8 +862,18 @@ class GenerationMixin:
 
             if hasattr(self.config, 'pet_config') and self.config.pet_config.pet_type == "slora":
                 adapter_id = kwargs.pop("adapter_id", None)
-                adapter_ids = [adapter_id] * batch_size if adapter_id is not None else None
+                if len(adapter_id) == 1:
+                    adapter_ids = adapter_id * batch_size if adapter_id is not None else None
+                    adapter_sum = valid_length_each_example.sum()
+                    embed_adapter_ids = adapter_id * adapter_sum
+                else:
+                    if len(adapter_id) != batch_size:
+                        raise ValueError("adapter_ids has different length with inputs.")
+                    adapter_ids = adapter_id
+                    embed_adapter_ids = np.concatenate([np.repeat(id_, size)
+                                                        for id_, size in zip(adapter_id, valid_length_each_example)])
                 model_kwargs["adapter_ids"] = adapter_ids
+                model_kwargs["embed_adapter_ids"] = embed_adapter_ids
 
             while np.sum(is_finished) != batch_size:
                 block_tables = None

@@ -127,7 +127,7 @@ if __name__ == "__main__":
         help='batch size for predict data, set to perform batch predict.'
              'Default: None')
     parser.add_argument(
-        '--adapter_id', default=None, type=str,
+        '--adapter_id', default=None, type=str, nargs='+',
         help='LoRA ID for predict.'
              'Default: None')
     parser.add_argument(
