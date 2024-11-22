@@ -1221,6 +1221,7 @@ class FreqsMgr(Cell):
         else:
             t = np.arange(0, max_position_embedding, 1).astype(np.float32)
 
+        self.freqs = Tensor(freqs.reshape(1, 1, 1, -1), dtype=rotary_dtype)
         freqs = np.outer(t, freqs)  # (max_position_embedding, head_dim // 2)
         emb = np.concatenate((freqs, freqs), axis=-1)
         freqs_cos = np.cos(emb) * mscale  # (seq_len, head_dim)
@@ -1238,17 +1239,41 @@ class FreqsMgr(Cell):
         self.swap_mask = Tensor(swap_mask, dtype=rotary_dtype)
 
         self.reshape = P.Reshape()
-        self.slice = P.StridedSlice().shard(((1, 1),))
-        self.gather = P.Gather().shard(((1, 1), (1,)))
-        self.tile = P.Tile().shard(((1, 1),))
+        self.shape = P.Shape()
+        self.slice = P.StridedSlice()
+        self.outer_mul = P.Mul()
+        self.concat = P.Concat(axis=-1)
+        self.sin = P.Sin()
+        self.cos = P.Cos()
+        self.gather = P.Gather()
+        self.tile = P.Tile()
 
-    def construct(self, seq_length):
-        freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1))
-        freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1))
+    def construct(self, seq_length=None, position_ids=None):
+        '''Get freqs_cos and freqs_sin'''
+        if position_ids is None:
+            freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1))
+            freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1))
+        else:
+            bs, seq = self.shape(position_ids)
+            freqs = self.outer_mul(self.reshape(position_ids, (bs, 1, seq, 1)), self.freqs)
+            emb = self.concat((freqs, freqs))
+            freqs_cos = self.cos(emb)
+            freqs_sin = self.sin(emb)
+
         if self.context_parallel > 1:
             freqs_cos = self.reshape(freqs_cos, (1, 1, seq_length, self.head_dim))
             freqs_sin = self.reshape(freqs_sin, (1, 1, seq_length, self.head_dim))
         return freqs_cos, freqs_sin, self.swap_mask
+
+    def shard(self, parallel_config):
+        dp = parallel_config.data_parallel
+        self.slice.shard(((1, 1),))
+        self.outer_mul.shard(((dp, 1, 1, 1), (1, 1, 1, 1)))
+        self.concat.shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
+        self.sin.shard(((dp, 1, 1, 1),))
+        self.cos.shard(((dp, 1, 1, 1),))
+        self.gather.shard(((1, 1), (1,)))
+        self.tile.shard(((1, 1),))
 
     def prefill(self, bs, seq_length):
         if self.is_dynamic:
@@ -1329,7 +1354,7 @@ class RotaryEmbedding(Cell):
         # xq, xk: [bs, n_head/n_kv_head, seq/1, head_dim]
         freqs_cos, freqs_sin, swap_mask = freqs_cis
 
-        mul = self.mul if self.is_first_iteration else self.mul_inc
+        mul = self.mul if self.is_first_iteration and freqs_cos.ndim == 2 else self.mul_inc
         if self.use_rope_slice:
             xq_out = self.add(mul(xq, freqs_cos), mul(self.slice_half(xq), freqs_sin))
             xk_out = self.add(mul(xk, freqs_cos), mul(self.slice_half(xk), freqs_sin))
