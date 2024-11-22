@@ -160,7 +160,8 @@ model:
     block_size: 16
     num_blocks: 512
     is_dynamic: True
-    wo_has_bias: True 
+    wo_has_bias: True
+    qkv_concat: False
     use_past_shard: False
     repetition_penalty: 1
     max_decode_length: 512

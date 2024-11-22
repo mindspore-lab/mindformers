@@ -14,6 +14,7 @@
 # ============================================================================
 """Telechat Model Layers' APIs."""
 
+import mindspore as ms
 from mindspore.common.parameter import Parameter
 from mindspore import nn
 import mindspore.common.dtype as mstype
@@ -129,6 +130,7 @@ class TelechatLinear(Linear):
         self.weight = Parameter(initializer(Normal(sigma=sigma, mean=mean), weight_shape, param_init_type),
                                 name="weight")
         self.dropout = Dropout(keep_prob=keep_prob)
+        self.reshape = P.Reshape()
 
     def construct(self, x):
         """construct of linear."""
@@ -188,6 +190,7 @@ class TelechatFeedForward(Cell):
                  ffn_dim_multiplier=None,
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
+                 ffn_concat=False,
                  is_dynamic=False):
         super().__init__()
 
@@ -211,15 +214,37 @@ class TelechatFeedForward(Cell):
         self.hidden_dim = hidden_dim
         self.mul = P.Mul()
         self.cast = P.Cast()
-        self.w1 = TelechatLinear(in_channels=dim,
-                                 out_channels=hidden_dim,
-                                 activation=hidden_act,
-                                 has_bias=False,
-                                 sigma=sigma,
-                                 mean=mean,
-                                 compute_dtype=compute_dtype,
-                                 param_init_type=param_init_type,
-                                 skip_redistribution=is_dynamic)
+        self.ffn_concat = ffn_concat
+        if self.ffn_concat:
+            self.w_gate_hidden = TelechatLinear(in_channels=dim,
+                                                out_channels=hidden_dim * 2,
+                                                has_bias=False,
+                                                sigma=sigma,
+                                                mean=mean,
+                                                compute_dtype=compute_dtype,
+                                                param_init_type=param_init_type,
+                                                skip_redistribution=is_dynamic)
+            self.activate = self.hidden_act()
+            self.split = ms.ops.auto_generate.SplitWithSize()
+        else:
+            self.w1 = TelechatLinear(in_channels=dim,
+                                     out_channels=hidden_dim,
+                                     activation=hidden_act,
+                                     has_bias=False,
+                                     sigma=sigma,
+                                     mean=mean,
+                                     compute_dtype=compute_dtype,
+                                     param_init_type=param_init_type,
+                                     skip_redistribution=is_dynamic)
+
+            self.w3 = TelechatLinear(in_channels=dim,
+                                     out_channels=hidden_dim,
+                                     has_bias=False,
+                                     sigma=sigma,
+                                     mean=mean,
+                                     compute_dtype=compute_dtype,
+                                     param_init_type=param_init_type,
+                                     skip_redistribution=is_dynamic)
 
         self.w2 = TelechatLinear(in_channels=hidden_dim,
                                  out_channels=dim,
@@ -231,22 +256,19 @@ class TelechatFeedForward(Cell):
                                  skip_redistribution=is_dynamic,
                                  keep_prob=1 - self.hidden_dropout_prob)
 
-        self.w3 = TelechatLinear(in_channels=dim,
-                                 out_channels=hidden_dim,
-                                 has_bias=False,
-                                 sigma=sigma,
-                                 mean=mean,
-                                 compute_dtype=compute_dtype,
-                                 param_init_type=param_init_type,
-                                 skip_redistribution=is_dynamic)
-
     def construct(self, x):
         """Forward process of the FeedForward"""
         _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         x = self.cast(x, self.dtype)
-        # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
-        gate = self.w1(x)  # dp,1 -> dp, mp
-        hidden = self.w3(x)  # dp,1 -> dp, mp
+
+        if self.ffn_concat:
+            gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp
+            gate, hidden = self.split(gate_hidden_out, (self.hidden_dim, self.hidden_dim), 2)
+            gate = self.activate(gate)
+        else:
+            # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
+            gate = self.w1(x)  # dp,1 -> dp, mp
+            hidden = self.w3(x)  # dp,1 -> dp, mp
         hidden = self.mul(hidden, gate)  # dp,mp -> dp, mp
         output = self.w2(hidden)  # dp,mp -> dp, 1
         return output
@@ -263,8 +285,16 @@ class TelechatFeedForward(Cell):
             raise ValueError("For 'FeedForward', the class variable 'dim' must be a multiple of the num of "
                              "model parallel, but got the dim is {} and the num of model parallel is {}."
                              .format(self.dim, mp))
-        self.w1.shard(((dp, 1), (mp, 1)))
-        self.w1.activation.shard(((dp, mp),))
-        self.w2.shard(((dp, mp), (1, mp)), ((dp, 1), (1,)))
-        self.w3.shard(((dp, 1), (mp, 1)))
-        self.mul.shard(((dp, mp), (dp, mp)))
+        if self.ffn_concat:
+            self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
+            self.activate.shard(((dp, 1, mp),))
+            self.w2.shard(((dp, mp), (1, mp)))
+            self.split.add_prim_attr("skip_redistribution", True)
+            self.split.shard(((dp, 1, mp),))
+            self.mul.shard(((dp, mp), (dp, mp)))
+        else:
+            self.w1.shard(((dp, 1), (mp, 1)))
+            self.w1.activation.shard(((dp, mp),))
+            self.w2.shard(((dp, mp), (1, mp)), ((dp, 1), (1,)))
+            self.w3.shard(((dp, 1), (mp, 1)))
+            self.mul.shard(((dp, mp), (dp, mp)))

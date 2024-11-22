@@ -123,7 +123,11 @@ def main():
     input_file.close()
     # set model config
     config = MindFormerConfig(args.yaml_file)
-    os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'InferenceMatmulSplit,PagedAttention'
+    os.environ["MS_INTERNAL_ENABLE_CUSTOM_KERNEL_LIST"] = "MatMulElemwise"
+    if config.model.model_config.qkv_concat:
+        os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'PagedAttention,FlashAttentionScore'
+    else:
+        os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'InferenceMatmulSplit,PagedAttention,FlashAttentionScore'
 
     if args.device_id is not None:
         config.context.device_id = args.device_id

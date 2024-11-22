@@ -99,6 +99,7 @@ class TelechatAttention(nn.Cell):
                  rotary_dtype=mstype.float32,
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
+                 qkv_concat=False,
                  wo_has_bias=True,
                  use_past=False,
                  is_dynamic=False,
@@ -127,6 +128,8 @@ class TelechatAttention(nn.Cell):
         self.use_past = use_past
         self.use_flash_attention = use_flash_attention
         self.use_attn_mask_compression = use_attn_mask_compression
+        self.qkv_concat = qkv_concat
+        self.qkv_has_bias = qkv_has_bias
 
         if self.hidden_size % self.n_head != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
@@ -143,32 +146,49 @@ class TelechatAttention(nn.Cell):
         self.cast = P.Cast()
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
 
-        self.wq = TelechatLinear(self.hidden_size,
-                                 self.hidden_size,
-                                 sigma=self.sigma,
-                                 mean=self.mean,
-                                 has_bias=qkv_has_bias,
-                                 compute_dtype=compute_dtype,
-                                 param_init_type=param_init_type,
-                                 skip_redistribution=is_dynamic)
-        self.wk_v = TelechatLinear(self.hidden_size,
-                                   self.n_kv_head * self.head_dim * 2,
-                                   has_bias=qkv_has_bias,
-                                   sigma=self.sigma,
-                                   mean=self.mean,
-                                   compute_dtype=compute_dtype,
-                                   param_init_type=param_init_type,
-                                   skip_redistribution=is_dynamic)
-
-        if qkv_has_bias:
-            self.wq.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
-            self.wk_v.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+        if self.qkv_concat:
+            self.w_qkv = TelechatLinear(self.hidden_size,
+                                        self.hidden_size + self.n_kv_head * self.head_dim * 2,
+                                        has_bias=qkv_has_bias,
+                                        sigma=sigma,
+                                        mean=mean,
+                                        compute_dtype=compute_dtype,
+                                        param_init_type=param_init_type,
+                                        skip_redistribution=is_dynamic)
+            if self.qkv_has_bias:
+                self.w_qkv.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+            else:
+                self.w_qkv.shard(((dp, 1), (mp, 1)))
+            self.split_qkv = ms.ops.auto_generate.SplitWithSize()
+            self.split_qkv.add_prim_attr("skip_redistribution", True)
+            self.split_qkv.shard(((dp, 1, mp),))
         else:
-            self.wq.shard(((dp, 1), (mp, 1)))
-            self.wk_v.shard(((dp, 1), (mp, 1)))
-        self.split_kv = ms.ops.auto_generate.SplitWithSize()
-        self.split_kv.add_prim_attr("skip_redistribution", True)
-        self.split_kv.shard(((dp, mp, 1),))
+            self.wq = TelechatLinear(self.hidden_size,
+                                     self.hidden_size,
+                                     sigma=self.sigma,
+                                     mean=self.mean,
+                                     has_bias=qkv_has_bias,
+                                     compute_dtype=compute_dtype,
+                                     param_init_type=param_init_type,
+                                     skip_redistribution=is_dynamic)
+            self.wk_v = TelechatLinear(self.hidden_size,
+                                       self.n_kv_head * self.head_dim * 2,
+                                       has_bias=qkv_has_bias,
+                                       sigma=self.sigma,
+                                       mean=self.mean,
+                                       compute_dtype=compute_dtype,
+                                       param_init_type=param_init_type,
+                                       skip_redistribution=is_dynamic)
+
+            if qkv_has_bias:
+                self.wq.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+                self.wk_v.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+            else:
+                self.wq.shard(((dp, 1), (mp, 1)))
+                self.wk_v.shard(((dp, 1), (mp, 1)))
+            self.split_kv = ms.ops.auto_generate.SplitWithSize()
+            self.split_kv.add_prim_attr("skip_redistribution", True)
+            self.split_kv.shard(((dp, mp, 1),))
 
         self.wo = TelechatLinear(in_channels=self.hidden_size,
                                  out_channels=self.hidden_size,
@@ -251,22 +271,27 @@ class TelechatAttention(nn.Cell):
                                                       use_attention_mask=True)
                 self.flash_attention.shard(parallel_config)
 
-
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
         bs, seq_len, _ = self.shape(x)
-        query = self.cast(self.wq(x), self.dtype)  # dp, 1 -> dp, mp
-        key_value = self.cast(self.wk_v(x), self.dtype)  # dp, 1 -> dp, mp
-        key_value = self.reshape(key_value, (-1, self.n_kv_head, self.head_dim * 2))
-        key, value = self.split_kv(key_value, (self.head_dim, self.head_dim), 2)
+
+        if self.qkv_concat:
+            qkv = self.cast(self.w_qkv(x), self.dtype)
+            query, key, value = self.split_qkv(qkv, (self.hidden_size, self.kv_dim, self.kv_dim), 2)
+        else:
+            query = self.cast(self.wq(x), self.dtype)  # dp, 1 -> dp, mp
+            key_value = self.cast(self.wk_v(x), self.dtype)  # dp, 1 -> dp, mp
+            key_value = self.reshape(key_value, (-1, self.n_kv_head, self.head_dim * 2))
+            key, value = self.split_kv(key_value, (self.head_dim, self.head_dim), 2)
 
         # key and value for current token(s)
         if self.use_past:
-            key = self.reshape(key, (bs, seq_len, self.n_kv_head * self.head_dim))
-            value = self.reshape(value, (bs, seq_len, self.n_kv_head * self.head_dim))
+            if not self.qkv_concat:
+                key = self.reshape(key, (bs, seq_len, self.n_kv_head * self.head_dim))
+                value = self.reshape(value, (bs, seq_len, self.n_kv_head * self.head_dim))
             context_layer = self.infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping,
                                                  freqs_cis, mask, prefix_keys_values=prefix_keys_values)
         else:
@@ -446,6 +471,7 @@ class TelechatDecodeLayer(nn.Cell):
                  res_dtype=mstype.float32,
                  qkv_has_bias=False,
                  wo_has_bias=True,
+                 qkv_concat=False,
                  use_past=False,
                  is_dynamic=False,
                  use_rope_slice=False,
@@ -469,7 +495,7 @@ class TelechatDecodeLayer(nn.Cell):
         self.mean = mean
         self.hidden_dropout_prob = hidden_dropout_prob
         self.attention_dropout_prob = attention_dropout_prob
-
+        self.qkv_concat = qkv_concat
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.cast = P.Cast()
@@ -489,6 +515,7 @@ class TelechatDecodeLayer(nn.Cell):
                                            param_init_type=param_init_type,
                                            qkv_has_bias=qkv_has_bias,
                                            wo_has_bias=wo_has_bias,
+                                           qkv_concat=qkv_concat,
                                            use_past=use_past,
                                            is_dynamic=is_dynamic,
                                            use_rope_slice=use_rope_slice,
@@ -506,6 +533,7 @@ class TelechatDecodeLayer(nn.Cell):
                                                 hidden_dropout_prob=hidden_dropout_prob,
                                                 multiple_of=multiple_of,
                                                 ffn_dim_multiplier=ffn_dim_multiplier,
+                                                ffn_concat=self.qkv_concat,
                                                 compute_dtype=compute_dtype,
                                                 param_init_type=param_init_type,
                                                 is_dynamic=is_dynamic)
