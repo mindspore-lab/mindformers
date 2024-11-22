@@ -149,8 +149,8 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
         self.is_first_iteration = True
         self.pad_token_id = config.pad_token_id
         self.eos_token_id = config.eos_token_id
-        self.ignore_token_id = ms.Tensor(config.ignore_token_id, mstype.int64)
-        self.context_token_id = ms.Tensor(128004, mstype.int64)
+        self.ignore_token_id = ms.Tensor(config.ignore_token_id, mstype.int32)
+        self.context_token_id = ms.Tensor(128004, mstype.int32)
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
