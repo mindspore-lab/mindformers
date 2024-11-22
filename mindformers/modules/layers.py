@@ -1247,12 +1247,24 @@ class FreqsMgr(Cell):
         self.cos = P.Cos()
         self.gather = P.Gather()
         self.tile = P.Tile()
+        self.seq_pipe = parallel_config and parallel_config.seq_split_num and parallel_config.seq_split_num > 1
+        if self.seq_pipe:
+            self.seq_split_num = parallel_config.seq_split_num
+            self.seq_seg_len = seq_length // self.seq_split_num
+            np_range = np.arange(self.seq_seg_len)
+            self.seq_seg_range = Tensor(np_range, dtype=mstype.int32)
+            self.add_seq = P.Add()
 
-    def construct(self, seq_length=None, position_ids=None):
+    def construct(self, seq_length=None, position_ids=None, seq_chunk=None):
         '''Get freqs_cos and freqs_sin'''
         if position_ids is None:
-            freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1))
-            freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1))
+            if self.seq_pipe:
+                seg_seq_range = self.add_seq(self.seq_seg_range, self.seq_seg_len * seq_chunk)
+                freqs_cos = self.gather(self.freqs_cos, seg_seq_range, 0)
+                freqs_sin = self.gather(self.freqs_sin, seg_seq_range, 0)
+            else:
+                freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1))
+                freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1))
         else:
             bs, seq = self.shape(position_ids)
             freqs = self.outer_mul(self.reshape(position_ids, (bs, 1, seq, 1)), self.freqs)

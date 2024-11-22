@@ -26,7 +26,7 @@ import numpy as np
 import mindspore as ms
 from mindspore.common.tensor import Tensor
 from mindspore.common.parameter import Parameter
-from mindspore.common.initializer import initializer
+from mindspore.common.initializer import initializer, Zero
 from mindspore import nn
 from mindspore import context
 import mindspore.common.dtype as mstype
@@ -353,7 +353,7 @@ class TransformerOpParallelConfig(_Config):
 
     @args_type_check(recompute=(TransformerRecomputeConfig, dict))
     def __init__(self, data_parallel=1, model_parallel=1, context_parallel=1,
-                 expert_parallel=1, pipeline_stage=1, micro_batch_num=1,
+                 expert_parallel=1, pipeline_stage=1, micro_batch_num=1, seq_split_num=1,
                  recompute: Union[TransformerRecomputeConfig, dict] = default_transformer_recompute_config,
                  use_seq_parallel=False, optimizer_shard=None, gradient_aggregation_group=4, vocab_emb_dp=True,
                  context_parallel_algo: str = "colossalai_cp", ulysses_degree_in_cp=1):
@@ -370,7 +370,8 @@ class TransformerOpParallelConfig(_Config):
             data_parallel=data_parallel, model_parallel=model_parallel, context_parallel=context_parallel,
             vocab_emb_dp=vocab_emb_dp, use_seq_parallel=use_seq_parallel,
             select_recompute=recompute.select_recompute)
-        self._pp_config = _PipeLineConfig(pipeline_stage=pipeline_stage, micro_batch_num=micro_batch_num)
+        self._pp_config = _PipeLineConfig(pipeline_stage=pipeline_stage, micro_batch_num=micro_batch_num,
+                                          seq_split_num=seq_split_num)
         self._moe_config = MoEParallelConfig(
             data_parallel=data_parallel, model_parallel=model_parallel, context_parallel=context_parallel,
             select_recompute=recompute.select_recompute,
@@ -444,6 +445,7 @@ class TransformerOpParallelConfig(_Config):
             'expert_parallel': self.expert_parallel,
             'pipeline_stage': self.pipeline_stage,
             'micro_batch_num': self.micro_batch_num,
+            'seq_split_num': self.seq_split_num,
             'use_seq_parallel': self.use_seq_parallel,
             'optimizer_shard': self.optimizer_shard,
             'gradient_aggregation_group': self.gradient_aggregation_group,
@@ -490,6 +492,14 @@ class TransformerOpParallelConfig(_Config):
     @micro_batch_num.setter
     def micro_batch_num(self, value):
         self._pp_config.micro_batch_num = value
+
+    @property
+    def seq_split_num(self):
+        return self._pp_config.seq_split_num
+
+    @seq_split_num.setter
+    def seq_split_num(self, value):
+        self._pp_config.seq_split_num = value
 
     @property
     def model_parallel(self):
@@ -976,9 +986,9 @@ class LowerTriangularMaskWithDynamic(Cell):
 
     @_LogActionOnce(m_logger=logger, key='AttentionMask',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
-    def __init__(self, seq_length, compute_type=mstype.float16,
+    def __init__(self, seq_length, batch_size=1, compute_type=mstype.float16,
                  is_dynamic=False, pad_token_id=0, use_flash_attention=False, use_attn_mask_compression=False,
-                 use_past=False):
+                 use_past=False, seq_split_num=1):
         super().__init__()
         self.dtype = compute_type
         self.is_dynamic = is_dynamic
@@ -1014,8 +1024,30 @@ class LowerTriangularMaskWithDynamic(Cell):
         self.sub = P.Sub()
         self.mul_post = P.Mul()
         self.expand_dim_post = P.ExpandDims()
+        # seq pp
 
-    def construct(self, tokens=None, masks=None):
+        self.gather = P.Gather()
+        self.seq_split_num = seq_split_num
+        self.seq_pipe = seq_split_num > 1
+        if self.seq_pipe:
+            self.mask_cache = Parameter(Tensor(shape=(batch_size, seq_length), dtype=mstype.float32, init=Zero()),
+                                        name="mask_cache", requires_grad=False, parallel_optimizer=False)
+            mask_mask = np.zeros((batch_size, seq_length), dtype=np.int32)
+            self.seq_seg_len = seq_length // self.seq_split_num
+            for s in range(self.seq_split_num):
+                mask_mask[:, s * self.seq_seg_len: (s + 1) * self.seq_seg_len] = s
+            self.mask_mask = Tensor(mask_mask)
+            self.add_mask = P.Add()
+            self.tile_mask = P.Tile()
+            self.assign_mask = P.Assign()
+            self.mul_mask = P.Mul()
+            self.equal_mask = P.Equal()
+            np_range = np.arange(seq_length // self.seq_split_num)
+            self.seq_seg_range = Tensor(np_range, dtype=mstype.int32)
+            self.seq_seg_len = Tensor(seq_length // self.seq_split_num, dtype=mstype.int32)
+            self.add_seq = P.Add()
+
+    def construct(self, tokens=None, masks=None, seq_chunk=None):
         """Forward process of the CausalMask"""
         if self.use_attn_mask_compression:
             attention_mask = self.lower_triangle_mask
@@ -1034,7 +1066,21 @@ class LowerTriangularMaskWithDynamic(Cell):
         mask_right = self.reshape(input_mask, shape_right)
         attention_mask = mask_right
         lower_triangle = self.expand_dim(self.lower_triangle_mask, 0)
-
+        if self.seq_pipe:
+            seq_seg_range = self.add_seq(self.seq_seg_range, self.seq_seg_len * seq_chunk)
+            attention_mask_chunk = self.gather(lower_triangle, seq_seg_range, 1)
+            mask_mask = self.cast(self.equal_mask(self.mask_mask, seq_chunk), self.dtype)
+            input_mask = self.tile_mask(input_mask, (1, self.seq_split_num))
+            input_mask = self.mul_mask(input_mask, mask_mask)
+            input_mask_update = self.add_mask(input_mask, self.mask_cache)
+            mask_update = self.assign_mask(self.mask_cache, input_mask_update)
+            mask_reshape = self.reshape(input_mask_update, (bs, 1, seq_len * self.seq_split_num))
+            mask_reshape = F.depend(mask_reshape, mask_update)
+            attention_mask = self.mul(mask_reshape, attention_mask_chunk)
+            attention_mask = self.sub(self.one, attention_mask)
+            attention_mask = self.expand_dim_post(attention_mask, 1)
+            attention_mask = self.cast(attention_mask, mstype.uint8)
+            return attention_mask
         # the returned shape is [bs, 1, seq_length, seq_length]
         attention_mask = self.mul(attention_mask, lower_triangle)
         attention_mask = self.sub(self.one, attention_mask)
@@ -1065,6 +1111,14 @@ class LowerTriangularMaskWithDynamic(Cell):
             self.sub.shard(((1,), (dp, 1, 1)))
             self.mul_post.shard(((dp, 1, 1, 1), (1,)))
             self.expand_dim_post.shard(((dp, 1, 1),))
+        if self.seq_pipe:
+            self.add_seq.shard(((1,), ()))
+            self.gather.shard(((1, 1, 1), (1,)))
+            self.add_mask.shard(((dp, 1), (dp, 1)))
+            self.tile_mask.shard(((dp, 1),))
+            self.assign_mask.shard(((dp, 1), (dp, 1)))
+            self.mul_mask.shard(((dp, 1), (dp, 1)))
+            self.equal_mask.shard(((dp, 1), ()))
 
 
 class VocabEmbedding(Cell):
