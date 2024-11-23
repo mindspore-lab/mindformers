@@ -165,8 +165,9 @@ class SLoraEmbedding(Cell):
         self.lora_scaling = config.lora_alpha / config.lora_rank
         self.embedding_size = embedding.embedding_size
 
+        self.greater = P.Greater()
         self.broadcast_to = P.BroadcastTo((config.lora_num, embedding.vocab_table_size, self.embedding_size))
-        self.concat = P.Concat(1)
+        self.concat = P.Concat()
         self.transpose = P.Transpose()
         self.cast = P.Cast()
         self.lora_mul = P.Mul()
@@ -191,25 +192,30 @@ class SLoraEmbedding(Cell):
 
     def construct(self, input_ids):
         """Forward process"""
+        input_ids = self.reshape(input_ids, (-1,))
+
         embedding_weight = self.cast(self.embedding_weight, self.dtype)
         lora_a = self.cast(self.lora_a, self.dtype)
         lora_b = self.cast(self.lora_b, self.dtype)
         lora_a = self.lora_a_gather(lora_a, self.adapter_ids.reshape(-1), 0)
         lora_b = self.lora_b_gather(lora_b, self.adapter_ids.reshape(-1), 0)
 
-        #-------- Embedding part ----------
+        added_tokens_mask = self.greater(input_ids, self.lora_vocab_size - self.lora_extra_vocab_size - 1)
+        added_tokens_indices = added_tokens_mask * self.adapter_ids * self.lora_extra_vocab_size
+
         if self.lora_extra_vocab_size != 0:
             lora_embedding = self.cast(self.lora_embedding, self.dtype)
-            embedding_weight = self.broadcast_to(embedding_weight)
-            embedding_weight = self.concat((embedding_weight, lora_embedding))
-            embedding_weight = self.gather(embedding_weight, self.adapter_ids, 0)
-            embedding_result = self.lora_gather(embedding_weight, input_ids, 1)
-        else:
-            embedding_result = self.gather(embedding_weight, input_ids, 0)
+            for i in range(lora_embedding.shape[0]):
+                embedding_weight = self.concat((embedding_weight, lora_embedding[i]))
 
-        #-------- LoRA part ----------
+        #-------- Embedding part ----------
+        embedding_result = self.gather(embedding_weight, input_ids + added_tokens_indices, 0)
+
+        #-------- Embedding part ----------
         lora_result = self.lora_gather(self.transpose(lora_a, (0, 2, 1)), input_ids, 1)
+        lora_result = lora_result.reshape(lora_result.shape[0], 1, -1)
         lora_result = self.lora_matmul(lora_result, lora_b)
+        lora_result = lora_result.squeeze(1)
         lora_scaling = self.cast(self.lora_scaling, self.dtype)
         lora_result = self.reshape(lora_result, embedding_result.shape)
         lora_result = self.lora_mul(lora_result, lora_scaling)
@@ -377,8 +383,9 @@ class SLoraAdapter(abc.ABC):
     adapter_names = []
     registered_loras = {}
 
-    def __init__(self, config: SLoraConfig, adapter_ids: Parameter):
+    def __init__(self, config: SLoraConfig, adapter_ids: Parameter, embed_adapter_ids: Parameter):
         self.adapter_ids = adapter_ids
+        self.embed_adapter_ids = embed_adapter_ids
         self.common_lora_cell: dict = {}
         self.slora_config = config
 
@@ -389,7 +396,7 @@ class SLoraAdapter(abc.ABC):
         if isinstance(pet_config, SLoraConfig):
             return pet_config
         if not isinstance(pet_config.adapter_path, str):
-            raise TypeError(f"adapter_path should be string type, but get {type(pet_config.adapter_path)}.")
+            raise TypeError(f"adapter_path should be string type, but got {type(pet_config.adapter_path)}.")
         adapter_path = pet_config.adapter_path
         if not os.path.exists(adapter_path):
             raise FileNotFoundError(f"The adapter_path must be correct, but get {adapter_path}")
@@ -400,15 +407,6 @@ class SLoraAdapter(abc.ABC):
         num = len(path_dict) + 1
         max_rank = 0
         target_modules_set = set()
-
-        lora_extra_vocab_size = 0
-        for _, slora_path in path_dict.items():
-            added_tokens_path = os.path.join(slora_path, "added_tokens.json")
-            if os.path.exists(slora_path):
-                with open(added_tokens_path, 'r') as file:
-                    added_tokens = json.load(file)
-                lora_extra_vocab_size = len(added_tokens)
-                break
 
         for _, slora_path in path_dict.items():
             config_path = os.path.join(slora_path, "adapter_config.json")
@@ -425,6 +423,19 @@ class SLoraAdapter(abc.ABC):
             target_modules_set.update(config["target_modules"])
         target_modules_list = [".*" + module for module in list(target_modules_set)]
         target_modules = '|'.join(target_modules_list)
+
+        lora_extra_vocab_size = 0
+        if re.match(target_modules, '.*embeddings'):
+            for _, slora_path in path_dict.items():
+                added_tokens_path = os.path.join(slora_path, "added_tokens.json")
+                if os.path.exists(added_tokens_path):
+                    with open(added_tokens_path, 'r') as file:
+                        added_tokens = json.load(file)
+                    lora_extra_vocab_size = len(added_tokens)
+                    break
+            if lora_extra_vocab_size == 0:
+                logger.warning(f"There is no added_token.json in the given path"
+                               f"Model will be running with no added token")
 
         # read alpha, dropout from the first lora.
         config_path = os.path.join(path_dict[list(path_dict.keys())[0]], "adapter_config.json")
@@ -495,7 +506,10 @@ class SLoraAdapter(abc.ABC):
             wrap_lora = self.common_lora_cell.get(type(cell))
             if wrap_lora:
                 logger.info(f"Apply LoRA to {cell_name}.")
-                new_cell = wrap_lora(cell, self.adapter_ids, self.slora_config)
+                if re.match('.*embeddings', cell_name):
+                    new_cell = wrap_lora(cell, self.embed_adapter_ids, self.slora_config)
+                else:
+                    new_cell = wrap_lora(cell, self.adapter_ids, self.slora_config)
                 new_cell.shard()
                 return new_cell, True
         return cell, False
