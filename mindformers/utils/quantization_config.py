@@ -208,6 +208,10 @@ class RtnConfig(QuantizationConfigMixin, PTQConfig):
         ValueError: If `activation_dtype` is not mindspore.dtype.int8 or None.
         ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
         ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
+        ValueError: If `kvcache_quant_granularity` is QuantGranularity.PER_TOKEN but `kvcache_dtype` is
+                    not mindspore.dtype.int8.
+        ValueError: If `act_quant_granularity` is QuantGranularity.PER_TOKEN but `weight_dtype` is
+                    not mindspore.dtype.int8 or `activation_dtype` is not mindspore.dtype.int8.
 
     Examples:
         >>> from mindformers.utils.quantization_config import RtnConfig
@@ -281,6 +285,14 @@ class RtnConfig(QuantizationConfigMixin, PTQConfig):
         if self.kvcache_quant_granularity not in accepted_kvcache_granularity:
             raise ValueError(f"Only support kvcache_quant_granularity in {accepted_kvcache_granularity} but found "
                              f"{self.kvcache_quant_granularity}")
+        if (self.weight_quant_dtype != msdtype.int8 or self.act_quant_dtype != msdtype.int8) and \
+            self.act_quant_granularity is QuantGranularity.PER_TOKEN:
+            raise ValueError("when self.act_quant_granularity is QuantGranularity.PER_TOKEN, self.weight_quant_dtype:"
+                             f"{self.weight_quant_dtype} and self.act_quant_dtype: {self.act_quant_dtype} must be "
+                             "mindspore.dtype.int8.")
+        if self.kvcache_quant_dtype != msdtype.int8 and self.kvcache_quant_granularity is QuantGranularity.PER_TOKEN:
+            raise ValueError("when self.kvcache_quant_granularity is QuantGranularity.PER_TOKEN, "
+                             "self.kvcache_quant_dtype must be mindspore.dtype.int8.")
 
 
 @dataclass
@@ -310,6 +322,10 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
             support QuantGranularity.PER_TENSOR and QuantGranularity.PER_TOKEN currently.
         kvcache_quant_granularity(QuantGranularity): the quant granularity of kvcache,
             support QuantGranularity.PER_CHANNEL and QuantGranularity.PER_TOKEN currently.
+        ValueError: If `kvcache_quant_granularity` is QuantGranularity.PER_TOKEN but `kvcache_dtype` is
+                    not mindspore.dtype.int8.
+        ValueError: If `act_quant_granularity` is QuantGranularity.PER_TOKEN but `weight_dtype` is
+                    not mindspore.dtype.int8 or `activation_dtype` is not mindspore.dtype.int8.
 
     Raises:
         ValueError: If `mode` is not PTQMode.QUANTIZE or PTQMode.DEPLOY.
@@ -392,6 +408,14 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
                              f"{self.kvcache_quant_granularity}")
         if self.weight_quant_dtype is None and self.act_quant_dtype == msdtype.int8:
             raise ValueError("PTQ algorithm not support only quant activation.")
+        if (self.weight_quant_dtype != msdtype.int8 or self.act_quant_dtype != msdtype.int8) and \
+            self.act_quant_granularity is QuantGranularity.PER_TOKEN:
+            raise ValueError("when self.act_quant_granularity is QuantGranularity.PER_TOKEN, self.weight_quant_dtype:"
+                             f"{self.weight_quant_dtype} and self.act_quant_dtype: {self.act_quant_dtype} must be "
+                             "mindspore.dtype.int8.")
+        if self.kvcache_quant_dtype != msdtype.int8 and self.kvcache_quant_granularity is QuantGranularity.PER_TOKEN:
+            raise ValueError("when self.kvcache_quant_granularity is QuantGranularity.PER_TOKEN, "
+                             "self.kvcache_quant_dtype must be mindspore.dtype.int8.")
 
 
 @dataclass
