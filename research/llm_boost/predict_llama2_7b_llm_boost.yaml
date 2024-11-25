@@ -77,7 +77,7 @@ eval_dataset_task:
 use_parallel: False
 # parallel context config
 parallel:
-  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  parallel_mode: 2 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
   gradients_mean: False
   enable_alltoall: False
   full_batch: True
@@ -94,7 +94,7 @@ parallel_config:
   pipeline_stage: 1
   use_seq_parallel: False
   micro_batch_num: 1
-  vocab_emb_dp: True
+  vocab_emb_dp: False
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
@@ -159,7 +159,6 @@ model:
     top_k: 3
     top_p: 1
     do_sample: False
-    need_nz: False
     auto_map:
       AutoModel: llm_boost.LlmBoostForCausalLM
       AutoConfig: llm_boost_config.LlmBoostConfig
