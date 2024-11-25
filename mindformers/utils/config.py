@@ -363,6 +363,7 @@ class RunnerConfig(Config):
     sink_size = 1
     gradient_accumulation_steps = 1
     num_classes = 1
+    stop_step = 0
 
     _name = "runner_config"
 
