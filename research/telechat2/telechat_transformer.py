@@ -99,8 +99,8 @@ class TelechatAttention(nn.Cell):
                  rotary_dtype=mstype.float32,
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
+                 out_proj_has_bias=True,
                  qkv_concat=False,
-                 wo_has_bias=True,
                  use_past=False,
                  is_dynamic=False,
                  use_rope_slice=False,
@@ -194,12 +194,12 @@ class TelechatAttention(nn.Cell):
                                  out_channels=self.hidden_size,
                                  sigma=self.sigma,
                                  mean=self.mean,
-                                 has_bias=wo_has_bias,
+                                 has_bias=out_proj_has_bias,
                                  compute_dtype=compute_dtype,
                                  param_init_type=param_init_type,
                                  skip_redistribution=is_dynamic,
                                  keep_prob=1 - self.hidden_dropout_prob)
-        if wo_has_bias:
+        if out_proj_has_bias:
             self.wo.shard(((dp, mp), (1, mp)), ((dp, 1), (1,)), out_strategy_matmul=((dp, 1),))
         else:
             self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp, 1),))
@@ -470,7 +470,7 @@ class TelechatDecodeLayer(nn.Cell):
                  param_init_type=mstype.float32,
                  res_dtype=mstype.float32,
                  qkv_has_bias=False,
-                 wo_has_bias=True,
+                 out_proj_has_bias=True,
                  qkv_concat=False,
                  use_past=False,
                  is_dynamic=False,
@@ -514,7 +514,7 @@ class TelechatDecodeLayer(nn.Cell):
                                            rotary_dtype=rotary_dtype,
                                            param_init_type=param_init_type,
                                            qkv_has_bias=qkv_has_bias,
-                                           wo_has_bias=wo_has_bias,
+                                           out_proj_has_bias=out_proj_has_bias,
                                            qkv_concat=qkv_concat,
                                            use_past=use_past,
                                            is_dynamic=is_dynamic,
