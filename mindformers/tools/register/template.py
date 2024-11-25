@@ -246,6 +246,7 @@ class GeneralConfig(Config):
     transform_process_num = 1
     src_strategy_path_or_dir = ""
     only_save_strategy = False
+    load_ckpt_async = False
 
     # eval while training
     do_eval = False

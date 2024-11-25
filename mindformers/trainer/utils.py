@@ -22,7 +22,7 @@ from enum import Enum
 
 import numpy as np
 
-from mindspore import context, load_checkpoint, load_param_into_net
+from mindspore import context, load_checkpoint, load_param_into_net, load_checkpoint_async
 from mindspore import set_seed as ms_set_seed
 from mindspore import Parameter
 from mindspore import ops, mint
@@ -264,17 +264,15 @@ def config2dict(config):
     return new_dict
 
 
-def load_distributed_checkpoint(checkpoint_dir, choice_func=None, rank_id=None, ckpt_format='ckpt',
-                                remove_redundancy=False):
-    """Load Checkpoint in Parallel Mode."""
+def get_distribute_checkpoint_path(checkpoint_dir, rank_id=None, ckpt_format='ckpt'):
+    """Helper function to get the checkpoint path based on rank_id and checkpoint directory."""
     if os.path.isdir(checkpoint_dir):
         logger.info(
             "When distributed loads are sliced weights,"
             "load_checkpoint should be a checkpoint directory containing the directory of rank_{0-*},"
             "The directory structure is as follows: **checkpoint_root_dir/rank_{0-*}/**.ckpt")
         rank_id = rank_id if rank_id is not None else get_real_rank()
-        distribute_checkpoint_dir = os.path.join(
-            checkpoint_dir, "rank_{}".format(rank_id))
+        distribute_checkpoint_dir = os.path.join(checkpoint_dir, "rank_{}".format(rank_id))
         distribute_checkpoint_path = get_last_checkpoint(distribute_checkpoint_dir, ckpt_format)
         logger.info("distribute checkpoint dir: %s", distribute_checkpoint_dir)
     elif os.path.isfile(checkpoint_dir):
@@ -282,12 +280,27 @@ def load_distributed_checkpoint(checkpoint_dir, choice_func=None, rank_id=None, 
         distribute_checkpoint_path = checkpoint_dir
     else:
         raise FileNotFoundError(f"{checkpoint_dir} is not found.")
+    return distribute_checkpoint_path
+
+
+def load_distributed_checkpoint(checkpoint_dir, choice_func=None, rank_id=None, ckpt_format='ckpt',
+                                remove_redundancy=False):
+    """Load Checkpoint in Parallel Mode."""
+    distribute_checkpoint_path = get_distribute_checkpoint_path(checkpoint_dir, rank_id, ckpt_format)
     checkpoint_dict = load_checkpoint(distribute_checkpoint_path,
                                       choice_func=choice_func,
                                       format=ckpt_format,
                                       remove_redundancy=remove_redundancy)
     logger.info("Distribute load is success.")
     return checkpoint_dict
+
+
+def load_distributed_checkpoint_async(checkpoint_dir, choice_func=None, rank_id=None):
+    """Load Checkpoint with async in Parallel Mode"""
+    distribute_checkpoint_path = get_distribute_checkpoint_path(checkpoint_dir, rank_id)
+    async_checkpoint_future = load_checkpoint_async(distribute_checkpoint_path, choice_func=choice_func)
+    logger.info("Starting loading distributed checkpoints asynchronously.")
+    return async_checkpoint_future
 
 
 def load_resume_context_from_checkpoint(config, dataset):
@@ -374,9 +387,21 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
 
     logger.warning(".ckpt file loading mode will be offline in June 2025.Recommend loading .safetensors file")
     # load ckpt process
+    checkpoint_future = None
+    # judge whether to enable load checkpoint and model build in parallel
+    if config.load_ckpt_async:
+        if config.auto_trans_ckpt:
+            logger.info("The configuration of 'load_ckpt_async=True' will not "
+                        "take effect since 'auto_trans_ckpt=True'.")
+        elif config.only_save_strategy:
+            logger.info("Only_save_strategy is True, load ckpt async will not be performed.")
+        else:
+            logger.info(".........Start loading checkpoint async.........")
+            checkpoint_future = get_load_checkpoint_result(config)
+
     if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
                                                               'hybrid_parallel']:
-        # 1. build net if parallel mode is auto_parallel
+        # build net if parallel mode is auto_parallel
         logger.info(".........Building model.........")
         build_model(config, model, dataset, do_eval=do_eval, do_predict=do_predict)
         if config.only_save_strategy:
@@ -404,8 +429,8 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
             src_strategy=config.src_strategy_path_or_dir
         )
 
-    # 5. load ckpt
-    load_ckpt(config, network, optimizer=optimizer, model=model)
+    # load ckpt
+    load_ckpt(config, network, optimizer=optimizer, model=model, future=checkpoint_future)
 
 
 def check_checkpoint_config_valid(config):
@@ -542,13 +567,21 @@ def load_slora_ckpt(checkpoint_dict, config, network):
     return checkpoint_dict
 
 
-def get_checkpoint_dict(config):
-    """get checkpoint dict"""
-    rank_id = get_real_rank() if get_real_rank() else 0
+def get_load_checkpoint_result(config):
+    """
+    Get load checkpoint result:
+    when loading checkpoint and model build are done in series, get the checkpoint dict
+    when loading checkpoint and model build are done in parallel, get mindspore custom future object
+    """
+    load_ckpt_async = config.load_ckpt_async
     checkpoint_dict = {}
+    # Define an object variable for an asynchronous task
+    checkpoint_future = None
+    rank_id = get_real_rank() if get_real_rank() else 0
     if config.auto_trans_ckpt:
         for checkpoint_name in os.listdir(config.load_checkpoint):
             checkpoint_path = os.path.join(config.load_checkpoint, checkpoint_name)
+            # auto_trans_ckpt is set to true, loading ckpt with async is not supported
             checkpoint_dict.update(load_distributed_checkpoint(checkpoint_path))
             logger.info("loaded checkpoint: %s", str(checkpoint_path))
     else:
@@ -556,29 +589,58 @@ def get_checkpoint_dict(config):
             for ckpt_file in os.listdir(config.load_checkpoint):
                 if ckpt_file.endswith('.ckpt'):
                     checkpoint_path = os.path.join(config.load_checkpoint, ckpt_file)
-                    checkpoint_dict.update(load_checkpoint(checkpoint_path))
+                    if load_ckpt_async:
+                        checkpoint_future = load_checkpoint_async(checkpoint_path)
+                    else:
+                        checkpoint_dict.update(load_checkpoint(checkpoint_path))
         elif os.path.isfile(config.load_checkpoint) and config.load_checkpoint.endswith('.ckpt'):
-            checkpoint_dict = load_checkpoint(config.load_checkpoint)
+            if load_ckpt_async:
+                checkpoint_future = load_checkpoint_async(config.load_checkpoint)
+            else:
+                checkpoint_dict = load_checkpoint(config.load_checkpoint)
         elif os.path.isdir(config.load_checkpoint) and check_rank_folders(config.load_checkpoint, rank_id):
             if isinstance(config.resume_training, str):
                 checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{config.rank_id}",
                                               config.resume_training)
-                checkpoint_dict = load_checkpoint(checkpoint_tmp)
+                if load_ckpt_async:
+                    checkpoint_future = load_checkpoint_async(checkpoint_tmp)
+                else:
+                    checkpoint_dict = load_checkpoint(checkpoint_tmp)
             else:
-                checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint)
+                if load_ckpt_async:
+                    checkpoint_future = load_distributed_checkpoint_async(config.load_checkpoint)
+                else:
+                    checkpoint_dict = load_distributed_checkpoint(config.load_checkpoint)
         else:
             raise ValueError(f"{config.load_checkpoint} is not a valid path to load checkpoint "
                              f"when auto_trans_ckpt is False.")
-    return checkpoint_dict
+    return checkpoint_dict if checkpoint_dict else checkpoint_future
 
 
-def load_ckpt(config, network, optimizer=None, model=None):
-    """load checkpoint"""
+def load_ckpt(config, network, optimizer=None, model=None, future=None):
+    """
+    load checkpoint
+
+    Args:
+        config: MindFormerConfig object.
+        network: The network for task.
+        optimizer: The optimizer for task.
+        model: The model for task.
+        future: Future object of asynchronous task that loading ckpt to dict. The actual return value
+                of the asynchronous task can be obtained through future.result()
+    """
     # load checkpoint params into dict
-    logger.info("............Start load checkpoint from checkpoint............")
     config.load_checkpoint = format_path(config.load_checkpoint)
 
-    checkpoint_dict = load_slora_ckpt(get_checkpoint_dict(config), config, network)
+    if future is not None:
+        # get ckpt dict when load checkpoint async
+        logger.info("............Get the checkpoint-loading asynchronous result............")
+        checkpoint_dict = future.result()
+    else:
+        # get ckpt dict when load checkpoint sync
+        logger.info(f"............Start load checkpoint from {config.load_ckpt_format}............")
+        checkpoint_dict = get_load_checkpoint_result(config)
+    checkpoint_dict = load_slora_ckpt(checkpoint_dict, config, network)
 
     if isinstance(network, (BaseModel, PreTrainedModel)):
         checkpoint_dict = network.fuse_weight_from_ckpt(checkpoint_dict)
