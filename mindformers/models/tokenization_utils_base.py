@@ -2013,7 +2013,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
             if os.path.isfile(path):
                 file = None
                 try:
-                    file = open(path, 'r')
+                    file = open(path, 'r', encoding="utf-8")
                     read_tokenizer_file_dict[item] = json.load(file)
                 except FileNotFoundError as file_not_found_error:
                     logger.error(file_not_found_error)

@@ -312,7 +312,8 @@ class MindIEModelRunner:
                 position_ids: Optional[Tensor] = None,
                 spec_mask: Optional[Tensor] = None,
                 q_seq_lens: Optional[Tensor] = None,
-                adapter_ids: Optional[List[str]] = None):
+                adapter_ids: Optional[List[str]] = None,
+                prefill_head_indices: Optional[Tensor] = None):
         """
         Call self.model.infer() or self.model.forward() to do infer and return logits on next position, \
         can choose do prefill or decode predict.
@@ -336,6 +337,8 @@ class MindIEModelRunner:
                 Params for page attention
             adapter_ids (List(str)):
                 Params for SLora request
+            prefill_head_indices (Tensor):
+                Params for pre gather
 
         Returns:
             logits (Tensor)
@@ -350,7 +353,8 @@ class MindIEModelRunner:
                                               position_ids=position_ids,
                                               spec_mask=spec_mask,
                                               q_seq_lens=q_seq_lens,
-                                              adapter_ids=adapter_ids)
+                                              adapter_ids=adapter_ids,
+                                              prefill_head_indices=prefill_head_indices)
         logits = res[0] if isinstance(res, tuple) else res
         if hasattr(self, 'model_config') and parallel_decoding_control(self.model_config):
             return logits
