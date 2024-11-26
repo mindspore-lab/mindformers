@@ -5,7 +5,7 @@ src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-use_parallel: False
+use_parallel: True
 run_mode: 'predict'
 
 # trainer config
@@ -31,7 +31,7 @@ runner_wrapper:
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
   data_parallel: 1
-  model_parallel: 1
+  model_parallel: 2
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: False
@@ -74,7 +74,6 @@ model:
     is_dynamic: True
     llm_backend: BuildIn
     boost_model_name: Qwen
-    need_nz: False
     auto_map:
       AutoModel: llm_boost.LlmBoostForCausalLM
       AutoTokenizer: [qwen2_tokenizer.Qwen2Tokenizer, null]
@@ -103,14 +102,14 @@ context:
   ascend_config:
     precision_mode: "must_keep_origin_dtype"
   max_call_depth: 10000
-  max_device_memory: "59GB"
+  max_device_memory: "28GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
 
 # parallel context config
 parallel:
-  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  parallel_mode: 2 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
   gradients_mean: False
   enable_alltoall: False
   full_batch: True

@@ -16,9 +16,9 @@
 import numpy as np
 
 from mindspore import Tensor
-from mindspore.experimental.llm_boost.register import LlmBoostRegister
-
+from mindspore.experimental.llm_boost.register import LlmBoostRegister, LlmBoostType
 from research.llm_boost.llm_boost_config import LlmBoostConfig
+from research.llm_boost.utils import need_nz, is_support_lccl
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode
@@ -46,6 +46,7 @@ class LlmBoostForCausalLM(PreTrainedModel):
         self.use_past = config.use_past
         self.head_dim = config.hidden_size // config.num_heads
         self.is_first_iteration = True
+        self.llm_backend = config.llm_backend
         self.predict_run_mode = get_predict_run_mode()
         self.freqs_mgr = FreqsMgr(
             head_dim=self.head_dim,
@@ -57,6 +58,10 @@ class LlmBoostForCausalLM(PreTrainedModel):
             extend_method=config.extend_method,
             parallel_config=config.parallel_config,
         )
+        config.need_nz = need_nz()
+        if config.communication_backend == "":
+            config.communication_backend = "lccl" if is_support_lccl() else "hccl"
+
         llm_boost_kwargs = {"config": config}
         self.llm_boost = LlmBoostRegister.get_instance(
             config.llm_backend, config.boost_model_name, **llm_boost_kwargs
@@ -64,6 +69,7 @@ class LlmBoostForCausalLM(PreTrainedModel):
         self.llm_boost.init()
         self.is_set_kvcache = False
         self.parm_dict = {}
+        self.need_prepare = (config.llm_backend == LlmBoostType.BUILDIN)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """prepare inputs for generation"""
@@ -71,7 +77,18 @@ class LlmBoostForCausalLM(PreTrainedModel):
         if self.config.is_dynamic and "origin_inputs" in kwargs:
             input_ids = kwargs["origin_inputs"]
         model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
+        batch_valid_length = kwargs.get("valid_length_each_example")
+        model_inputs["batch_valid_length"] = Tensor.from_numpy(batch_valid_length.astype(np.int32))
+
         if hasattr(self, "llm_boost"):
+            if not self.need_prepare:
+                # model_inputs["llm_boost_inputs"] = {
+                #     "input_ids": input_ids,
+                #     "position_ids": batch_valid_length,
+                #     "batch_valid_length": batch_valid_length,
+                # }
+                return model_inputs
+
             batch_valid_length = kwargs.get("valid_length_each_example")
             block_tables = kwargs.get("block_tables")
             slot_mapping = kwargs.get("slot_mapping")
@@ -116,13 +133,22 @@ class LlmBoostForCausalLM(PreTrainedModel):
     def set_dynamic_inputs(self, **kwargs):
         pass
 
+    def add_flags_custom(self, is_first_iteration):
+        self.is_first_iteration = is_first_iteration
+        if not self.need_prepare:
+            self.llm_boost.add_flags(is_first_iteration=self.is_first_iteration)
+
     # pylint: disable=W0613, C0330
     def construct(self, llm_boost_inputs=None, **kwargs):
         """llm boost forward"""
-        if not self.is_set_kvcache:
-            self.llm_boost.set_kvcache()
-            self.is_set_kvcache = True
-        self.llm_boost.add_flags(is_first_iteration=self.is_first_iteration)
-        llm_boost_inputs["cos_embed"] = self.freqs_mgr.freqs_cos
-        llm_boost_inputs["sin_embed"] = self.freqs_mgr.freqs_sin
-        return self.llm_boost.forward(llm_boost_inputs)
+        if self.need_prepare:
+            if not self.is_set_kvcache:
+                self.llm_boost.set_kvcache()
+                self.is_set_kvcache = True
+            llm_boost_inputs["cos_embed"] = self.freqs_mgr.freqs_cos
+            llm_boost_inputs["sin_embed"] = self.freqs_mgr.freqs_sin
+
+            self.llm_boost.add_flags(is_first_iteration=self.is_first_iteration)
+            return self.llm_boost.forward(llm_boost_inputs)
+
+        return self.llm_boost.forward(kwargs["input_ids"], kwargs["batch_valid_length"], None)

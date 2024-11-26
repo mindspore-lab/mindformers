@@ -1,6 +1,8 @@
 seed: 0
 output_dir: './output' # path to save checkpoint/strategy
-load_checkpoint: ''
+load_checkpoint: '/home/nizzan/git-proj/mindspore/trc/llama/mf_standalone/mindformers/tools/llama2_7b.ckpt'
+input_data: [" Through community cooperation, this open Al framework best matches with Ascend processors and supports multi-processor architectures for all scenarios. It brings data scientists, algorithm engineers, and developers ", ]
+
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
@@ -77,7 +79,7 @@ eval_dataset_task:
 use_parallel: False
 # parallel context config
 parallel:
-  parallel_mode: 2 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
   gradients_mean: False
   enable_alltoall: False
   full_batch: True
@@ -89,12 +91,12 @@ parallel:
     parallel_optimizer_threshold: 64
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
-  data_parallel: 1
+  data_parallel: 8
   model_parallel: 1
   pipeline_stage: 1
   use_seq_parallel: False
   micro_batch_num: 1
-  vocab_emb_dp: False
+  vocab_emb_dp: True
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
@@ -123,7 +125,7 @@ context:
   device_target: "Ascend"
   enable_graph_kernel: False
   max_call_depth: 10000
-  max_device_memory: "58GB"
+  max_device_memory: "1GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -131,39 +133,44 @@ context:
 # model config
 model:
   model_config:
-    type: LlmBoostConfig
-    llm_backend: BuildIn
-    boost_model_name: Llama
+    type: LlamaConfig
     batch_size: 1 # add for increase predict
     seq_length: 4096
     hidden_size: 4096
     num_layers: 32
     num_heads: 32
     vocab_size: 32000
+    multiple_of: 256
     rms_norm_eps: 1.0e-5
     bos_token_id: 1
     eos_token_id: 2
     pad_token_id: 0
     ignore_token_id: -100
     compute_dtype: "float16"
+    layernorm_compute_type: "float32"
+    softmax_compute_type: "float32"
     rotary_dtype: "float16"
+    param_init_type: "float16"
     use_past: True
     scaling_factor: 1.0 # The scale factor of seq length
     extend_method: "None" # support "None", "PI", "NTK"
+    use_flash_attention: True # FA can accelerate training or finetune
     block_size: 16
     num_blocks: 1024
     is_dynamic: True
+    qkv_concat: False
     offset: 0
+    checkpoint_name_or_path: "llama2_7b"
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 3
     top_p: 1
     do_sample: False
-    auto_map:
-      AutoModel: llm_boost.LlmBoostForCausalLM
-      AutoConfig: llm_boost_config.LlmBoostConfig
+    llm_backend: LLMBoost
+    boost_model_name: Llama
   arch:
-    type: LlmBoostForCausalLM
+    type: LlamaForCausalLM
+
 processor:
   return_tensors: ms
   tokenizer:
@@ -171,6 +178,7 @@ processor:
     bos_token: '<s>'
     eos_token: '</s>'
     pad_token: '<unk>'
+    vocab_file: "/home/emir/models/tokenizer.model"
     type: LlamaTokenizer
   type: LlamaProcessor
 
