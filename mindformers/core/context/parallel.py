@@ -19,6 +19,9 @@ from mindspore.communication.management import get_group_size, get_rank, init
 from mindspore.parallel import set_algo_parameters
 from mindspore.parallel._cost_model_context import _set_multi_subgraphs
 
+from mindformers.modules.transformer.transformer import (
+    TransformerOpParallelConfig,
+)
 from mindformers.tools.check_rules import get_server_num
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import set_strategy_save_path
@@ -75,8 +78,10 @@ class ParallelOperator:
         return ParallelContextConfig.filter_kwargs(**parallel_ctx)
 
     def _get_parallel_config(self):
-        parallel = self.config.get('parallel_config', {})
-        return ParallelConfig.filter_kwargs(**parallel)
+        parallel_config = self.config.get('parallel_config', {})
+        if isinstance(parallel_config, TransformerOpParallelConfig):
+            parallel_config = parallel_config.to_dict()
+        return ParallelConfig.filter_kwargs(**parallel_config)
 
     def init_communication(self):
         """Init communication services."""
