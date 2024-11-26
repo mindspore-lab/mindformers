@@ -23,6 +23,7 @@ import mindspore as ms
 from mindspore import context
 from mindspore.communication.comm_func import barrier
 
+from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_main_rank, get_epoch_and_step_from_ckpt_name, get_real_rank
 from mindformers.utils import convert_hf_safetensors_multiprocess, check_safetensors_key
@@ -226,7 +227,8 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
             # pylint: disable=W0212
             network = model._train_network
 
-    if is_main_rank(ignore_check_modelarts=True):
+    # only execute qkv concat check on the main rank in predict mode
+    if do_predict and is_main_rank(ignore_check_modelarts=True):
         qkv_concat_config = config.model.model_config.get("qkv_concat", False)
         validate_qkv_concat(network, qkv_concat_config, load_checkpoint)
     if config.use_parallel:
@@ -346,27 +348,36 @@ def validate_qkv_concat(model_cls_or_instance, qkv_concat_config, load_checkpoin
     Check whether qkv_concat configuration and qkv concat weight convert are the same.
     Currently only safetensors format is supported.
     """
+    # check the type of model_cls_or_instance
+    if not (
+            isinstance(model_cls_or_instance, PreTrainedModel) or
+            (isinstance(model_cls_or_instance, type) and issubclass(model_cls_or_instance, PreTrainedModel))
+    ):
+        logger.warning(f"Cur model_cls_or_instance: {model_cls_or_instance} is not "
+                       f"a subclass or an instance of PreTrainedModel, "
+                       f"will not execute qkv concat check.")
+        return
+
     concat_key_list = model_cls_or_instance.obtain_qkv_ffn_concat_keys()
     if concat_key_list is None:
         return
 
     logger.info(".........Starting qkv concat check.........")
-    qkv_concat_flag = qkv_concat_config if qkv_concat_config else False
     is_qkv_concat = True
     for concat_key in concat_key_list:
         is_qkv_concat = check_safetensors_key(load_checkpoint, concat_key) and is_qkv_concat
         if not is_qkv_concat:
             break
 
-    if is_qkv_concat and not qkv_concat_flag:
+    if is_qkv_concat and not qkv_concat_config:
         raise ValueError("The qkv concat check failed! The qkv in the model weights has been concatenated,"
                          " but qkv_concat is set to false.")
-    if not is_qkv_concat and qkv_concat_flag:
+    if not is_qkv_concat and qkv_concat_config:
         raise ValueError("The qkv concat check failed! The qkv in the model weights has been not concatenated,"
                          " but qkv_concat is set to true.")
-    if is_qkv_concat and qkv_concat_flag:
+    if is_qkv_concat and qkv_concat_config:
         logger.info("The qkv concat check succeed! The qkv in the model weights has been concatenated and "
                     "qkv_concat is set to true.")
-    if not is_qkv_concat and not qkv_concat_flag:
+    if not is_qkv_concat and not qkv_concat_config:
         logger.info("The qkv concat check succeed! The qkv in the model weights has been not concatenated and "
                     "qkv_concat is set to false.")
