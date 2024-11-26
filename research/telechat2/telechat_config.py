@@ -126,6 +126,7 @@ class TelechatConfig(PretrainedConfig):
                  res_dtype: str = "float32",
                  qkv_has_bias: bool = False,
                  wo_has_bias: bool = True,
+                 qkv_concat: bool = False,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  use_past: bool = False,
                  extend_method: str = "None",
@@ -208,3 +209,4 @@ class TelechatConfig(PretrainedConfig):
         self.block_size = block_size
         self.num_blocks = num_blocks
         self.quant = quant
+        self.qkv_concat = qkv_concat
