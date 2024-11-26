@@ -195,7 +195,7 @@ class MFContextOperator(MFContextConfig):
         logger.debug('MFContextConfig load configs: %s', supported_kwargs)
         super(MFContextOperator, self).__init__(**supported_kwargs)
         use_past = MindFormerConfig.get_nested_config(
-            self.config, ['model_config', 'use_past'], False
+            self.config, ['model', 'model_config', 'use_past'], False
         )
         self.set_env(use_past)
         del self.config
@@ -308,11 +308,12 @@ def init_context(
     Initialize the context.
 
     Args:
-        use_parallel (bool): Whether to use parallel, default: False.
+        use_parallel (bool, optional):
+            Whether to use parallel, default: ``False`` .
         context_config (Union[dict, ContextConfig]):
-        The context config, default: None.
+            The context config, default: ``None`` .
         parallel_config (Union[dict, ParallelContextConfig]):
-        The parallel context config, default: None.
+            The parallel context config, default: ``None`` .
 
     Returns:
         - Int, the local_rank number.
@@ -348,12 +349,12 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
 
     Args:
         config (Union[dict, MindFormerConfig, TrainingArguments]):
-        The configuration to initialize the context.
-        This can be a dictionary, a MindFormerConfig instance,
-        or a TrainingArguments instance.
+            The configuration to initialize the context.
+            This can be a dictionary, a MindFormerConfig instance,
+            or a TrainingArguments instance.
 
     Returns:
-        _Context, The instantiated context.
+        Context instance, The instantiated context.
 
     Examples:
         >>> from mindformers import build_context
@@ -385,8 +386,10 @@ def set_context(run_mode=None, **kwargs):
         The kwargs will be passed to MindSpore set_context.
 
     Args:
-        run_mode (str): The mode of the model behaviour.
-        Must be in ['train', 'finetune', 'eval', 'predict'].
+        run_mode (str, optional):
+            The mode of the model behaviour.
+            The legal value is ``None`` or
+            one of ['train', 'finetune', 'eval', 'predict']. default: ``None`` .
         **kwargs: MindSpore context arguments.
 
     Examples:

@@ -25,10 +25,7 @@ from mindformers.modules.transformer.transformer import (
 from mindformers.tools.check_rules import get_server_num
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import set_strategy_save_path
-from mindformers.trainer.config_args import (
-    ParallelConfig,
-    ParallelContextConfig,
-)
+from mindformers.trainer.config_args import ParallelConfig
 
 
 class ParallelOperator:
@@ -37,7 +34,7 @@ class ParallelOperator:
     def __init__(self, config):
         self.config = config
         parallel_ctx_config, parallel_config = self._handle_data()
-        self.parallel_ctx = ParallelContextConfig(**parallel_ctx_config)
+        self.parallel_ctx = parallel_ctx_config
         self.parallel = ParallelConfig(**parallel_config)
         del self.config
 
@@ -75,7 +72,7 @@ class ParallelOperator:
         ] and parallel_ctx.get('full_batch'):
             logger.info("full_batch is set to False for non-parallel modes")
             parallel_ctx['full_batch'] = False
-        return ParallelContextConfig.filter_kwargs(**parallel_ctx)
+        return parallel_ctx
 
     def _get_parallel_config(self):
         parallel_config = self.config.get('parallel_config', {})
@@ -95,12 +92,21 @@ class ParallelOperator:
             )
             raise
         device_num = get_group_size()
-        self.parallel_ctx.device_num = device_num
+        self.parallel_ctx['device_num'] = device_num
         context.reset_auto_parallel_context()
-        set_strategy_save_path(self.parallel_ctx.__dict__)
-        context.set_auto_parallel_context(**self.parallel_ctx.__dict__)
+        set_strategy_save_path(self.parallel_ctx)
+        self._set_ms_auto_parallel_context(**self.parallel_ctx)
         self._set_ms_parallel()
         return get_rank(), device_num
+
+    def _set_ms_auto_parallel_context(self, **parallel_ctx):
+        full_batch = parallel_ctx.get('full_batch')
+        src_ds_stra = parallel_ctx.pop('dataset_strategy', None)
+        if not full_batch and isinstance(src_ds_stra, list):
+            # convert the type of dataset_strategy from list to tuple
+            ds_stra = tuple(tuple(ds_item) for ds_item in src_ds_stra)
+            parallel_ctx['dataset_strategy'] = ds_stra
+        context.set_auto_parallel_context(**parallel_ctx)
 
     def _set_ms_parallel(self):
         """Init parallel config of mindspore."""
