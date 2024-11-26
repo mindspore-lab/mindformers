@@ -420,6 +420,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         scale_sense (Union[Tensor, Cell], optional): Cell to do the loss scale. Default: ``1.0`` .
         micro_batch_num (int, optional): Micro batch number of pipeline parallel. Default: ``1`` .
         local_norm (bool, optional): Whether to calculate the local norm. Default: ``False`` .
+        calculate_per_token_loss(bool, optional): Whether to calculate per token loss. Default: ``False``.
         kwargs (Any): Additional parameters.
 
     Inputs:
