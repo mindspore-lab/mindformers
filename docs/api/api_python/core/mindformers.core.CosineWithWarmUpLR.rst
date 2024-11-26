@@ -1,7 +1,7 @@
 mindformers.core.CosineWithWarmUpLR
 ===================================
 
-.. py:class:: mindformers.core.CosineWithWarmUpLR(learning_rate: float, warmup_steps: int = 0, total_steps: int = None, num_cycles: float = 0.5, lr_end: float = 0., warmup_lr_init: float = 0., warmup_ratio: float = None, decay_steps: int = None, **kwargs)
+.. py:class:: mindformers.core.CosineWithWarmUpLR(learning_rate: float, warmup_steps: int = 0, total_steps: int = None, num_cycles: float = 0.5, lr_end: float = 0., warmup_lr_init: float = 0., warmup_ratio: float = None, decay_steps: int = None, decay_ratio: float = None, **kwargs)
 
     余弦预热学习率。
 
