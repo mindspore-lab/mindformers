@@ -250,7 +250,11 @@ class MFContextOperator(MFContextConfig):
             env['MS_ALLOC_CONF'] = 'enable_vmm:False'
             env['RUN_MODE'] = run_mode
             env['CPU_AFFINITY'] = 'True'
-            env['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'PagedAttention'
+            mode = MindFormerConfig.get_nested_config(
+                self.config, ['context', 'mode'], 'GRAPH_MODE'
+            )
+            if mode == 0:
+                env['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'PagedAttention'
 
         if (
                 self.enable_mindio_ttp_save_ckpt and

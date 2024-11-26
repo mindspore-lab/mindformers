@@ -44,6 +44,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindspore.context import ParallelMode
 
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import is_pynative
 from mindformers.modules.activation import get_activation
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config, OpParallelConfig, MoEParallelConfig
 from mindformers.version_control import check_valid_gmm_op
@@ -1155,6 +1156,7 @@ class FreqsMgr(Cell):
                  parallel_config=None,
                  is_dynamic=False):
         super().__init__()
+        self.is_pynative = is_pynative()
         if seq_length is not None and seq_length > max_position_embedding:
             max_position_embedding = seq_length
         if extend_method == SeqExtendMethod.NTK.value:
@@ -1288,7 +1290,7 @@ class FreqsMgr(Cell):
         self.tile.shard(((1, 1),))
 
     def prefill(self, bs, seq_length):
-        if self.is_dynamic:
+        if self.is_dynamic and not self.is_pynative:
             return self.freqs_cos, self.freqs_sin, self.swap_mask
         freqs_cos = self.tile(self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))
         freqs_sin = self.tile(self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))

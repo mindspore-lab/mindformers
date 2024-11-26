@@ -17,7 +17,7 @@
 import argparse
 
 import numpy as np
-from mindspore import Tensor, set_context
+from mindspore import Tensor, set_context, get_context
 from mindspore.communication import init
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
@@ -58,11 +58,16 @@ def _test_parallel_attention(net):
     head_dim = base_config.hidden_size // base_config.num_heads
     num_blocks = base_config.num_blocks
 
+    is_pynative = get_context('mode') == 1
+
     input_x = Tensor(np.random.randn(batch_size, seq_length, hidden_size).astype(np.float16))
     batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
     block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int64))
     slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
-    attn_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
+    if is_pynative:
+        attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
+    else:
+        attn_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
     freqs_cos = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
     freqs_sin = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
     freqs_cis = (freqs_cos, freqs_sin, None)
@@ -86,15 +91,20 @@ def _test_parallel_transformerlayers(net):
     head_dim = base_config.hidden_size // base_config.num_heads
     num_blocks = base_config.num_blocks
 
+    is_pynative = get_context('mode') == 1
+
     x = Tensor(np.random.randn(batch_size, seq_length, hidden_size).astype(np.float16))
     batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
     block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int64))
     slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
-    mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
+    if is_pynative:
+        attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
+    else:
+        attn_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
     freqs_cos = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
     freqs_sin = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
     freqs_cis = (freqs_cos, freqs_sin, None)
-    output = net(x, freqs_cis, mask, batch_valid_length, block_tables, slot_mapping)
+    output = net(x, freqs_cis, attn_mask, batch_valid_length, block_tables, slot_mapping)
 
     assert output.shape == (batch_size, seq_length, hidden_size)
 
@@ -124,12 +134,12 @@ def _test_parallel_transformer(net):
     assert output.shape == (batch_size, seq_length, hidden_size)
 
 
-def _test_module(module):
+def _test_module(module, mode):
     """main"""
     # set_context
     jit_level = "O0"
     infer_boost = "on"
-    set_context(mode=0, jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
+    set_context(mode=mode, jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
 
     # init communication
     init()
@@ -151,6 +161,7 @@ TEST_FUNC = {
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--module', type=str, help='test module of parallel transformer')
+    parser.add_argument('--mode', type=int, default=0, help='test mode of parallel transformer')
 
     args = parser.parse_args()
-    _test_module(args.module)
+    _test_module(args.module, args.mode)
