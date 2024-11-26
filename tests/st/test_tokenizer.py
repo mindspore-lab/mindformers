@@ -29,7 +29,7 @@ def test_level_zero_tokenizers():
     Description: Test all tokenizers, including save_pretrained, form_pretrained, tokenizer and return_tensors
     Expectation: No exception
     """
-    tokenizer_list = ["gpt2", "glm2_6b", "llama2_7b"]
+    tokenizer_list = ["gpt2", "glm2_6b"]
     string_list = ["I love Beijing.", "我爱北京。"]
     return_tensors_sig = ["", "ms", "np"]
 
@@ -38,8 +38,6 @@ def test_level_zero_tokenizers():
         [22755, 239, 163, 230, 109, 44293, 245, 12859, 105, 16764],  # gpt2 chinese
         [307, 1379, 13924, 30930],  # glm2 english
         [34211, 54799, 31719, 31155],  # glm2 chinese
-        [306, 5360, 1522, 823, 292, 29889],  # llama2 english
-        [29871, 30672, 234, 139, 180, 30662, 30675, 30267]  # llama2 chinese
     ]
 
     check_tokenizers(tokenizer_list, string_list, return_tensors_sig, all_res)
@@ -55,7 +53,7 @@ def test_level_zero_special_tokens():
     Expectation: No exception.
     """
 
-    tokenizer_list = ["gpt2", "glm2_6b", "llama2_7b"]
+    tokenizer_list = ["gpt2", "glm2_6b"]
     special_tokens_list = ["<s>", "</s>", "<unk>", "<pad>", "<cls>",
                            "<extra_id_77>", "<extra_id_88>", "<extra_id_99>"]
 

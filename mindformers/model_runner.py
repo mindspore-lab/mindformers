@@ -39,6 +39,7 @@ from mindformers.utils import (
     contains_safetensors_files,
     validate_qkv_concat,
 )
+from mindformers.utils.config import ConfigTemplate
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_main_rank
 from mindformers.tools.register.config import MindFormerConfig
@@ -214,6 +215,7 @@ class MindIEModelRunner:
     def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0,
                  world_size=1, npu_device_ids=None, plugin_params=None):
         self.config = MindFormerConfig(config_path)
+        self.config = ConfigTemplate.apply_template(self.config)
         # register to Auto Class
         register_auto_class(self.config, model_path, class_type="AutoConfig")
         register_auto_class(self.config, model_path, class_type="AutoTokenizer")
