@@ -6,7 +6,7 @@ auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in dis
 only_save_strategy: False
 resume_training: False
 use_parallel: True
-run_mode: 'fintune'
+run_mode: 'finetune'
 
 # trainer config
 trainer:
