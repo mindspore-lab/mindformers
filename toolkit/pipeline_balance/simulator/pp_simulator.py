@@ -18,11 +18,11 @@ import copy
 import sys
 import numpy as np
 
-from sim_block import BlockSim, SendBlockSim, RecBlockSim
-from pipeline_builder import PipelineBuilder
-from causal_error import CausalCommError, CausalError
-from plot_manager import PlotMgr
-from utils import format_2d_inputs, apply_format, apply_color
+from toolkit.pipeline_balance.simulator.sim_block import BlockSim, SendBlockSim, RecBlockSim
+from toolkit.pipeline_balance.simulator.pipeline_builder import PipelineBuilder
+from toolkit.pipeline_balance.simulator.causal_error import CausalCommError, CausalError
+from toolkit.pipeline_balance.simulator.plot_manager import PlotMgr
+from toolkit.pipeline_balance.simulator.utils import format_2d_inputs, apply_format, apply_color
 
 sys.setrecursionlimit(8192)
 
@@ -98,18 +98,20 @@ class PipelineSimulator:
         85.00, 79.00, 73.00, 70.20
     """
     def __init__(self, block_time: list, micro_num: int, *args, comm_time: float = 0.1,
-                 layer_recompute=False, block_mem=1, backward_ratio=2., **kwargs):
-        self.init(block_time, micro_num, comm_time, layer_recompute, block_mem, backward_ratio, *args, **kwargs)
+                 layer_recompute=False, block_mem=1, block_mem_par=0, constant_mem=0, backward_ratio=2., **kwargs):
+        self.init(block_time, micro_num, comm_time, layer_recompute, block_mem,
+                  block_mem_par, constant_mem, backward_ratio, *args, **kwargs)
 
     # pylint: disable=W0613
     def init(self, block_time, micro_num, comm_time,
-             layer_recompute, block_mem, backward_ratio, *args, **kwargs):
+             layer_recompute, block_mem, block_mem_par, constant_mem, backward_ratio, *args, **kwargs):
         r"""init"""
         self.micro_num = micro_num
         self.pp, self.vp = self._base_init(block_time)
         self.block_num = 2 * self.vp * self.micro_num
         self.comm_time = comm_time
-        self._input_format(block_time, layer_recompute, block_mem, backward_ratio)
+        self._input_format(block_time, layer_recompute, block_mem, block_mem_par, backward_ratio)
+        self.constant_mem = constant_mem
         self._statistic_init()
         self._comm = True
         self.adjust_func_list = [self.swap_send_rec]
@@ -122,7 +124,8 @@ class PipelineSimulator:
                 self.adjust_func_list = [self.vpp_send_delay, self.residue_delay] + self.adjust_func_list
         pp_builder = PipelineBuilder.get_builder(method)
         self.blocks = [pp_builder(self.pp, self.micro_num, self.vp, p, self.block_time[:, p],
-                                  self.backward_time[:, p], self.block_mem[:, p]) for p in range(self.pp)]
+                                  self.backward_time[:, p], self.block_mem[:, p], self.block_mem_par[:, p])
+                       for p in range(self.pp)]
 
         self._build_block() # create connection among compute blocks
         self._build_comm_block() # create comm blocks for each compute block
@@ -160,7 +163,7 @@ class PipelineSimulator:
             self.print_info()
         return self
 
-    def show(self, comm=True, connect=None) -> PipelineSimulator:
+    def show(self, comm=True, connect=None, file_name=None) -> PipelineSimulator:
         r"""
         Show the pipeline and memory timeline.
 
@@ -181,7 +184,7 @@ class PipelineSimulator:
             self.canvas.draw(self.blocks, 0, comm, connect, False, 'timeline')
         self.canvas.draw_mem(self.states.get('block_mem_list', []), 1)
         self.canvas.draw_info(self.bubbles, self.peak_memory)
-        self.canvas.show()
+        self.canvas.show(file_name)
         return self
 
     def print_info(self):
@@ -192,7 +195,7 @@ class PipelineSimulator:
             PipelineSimulator
         """
         print('\033[1;37m' + '—' * 13, f'pp:{self.pp:>2}, vp:{self.vp:>2},',
-              'micro:{self.micro_num:>3} ' + '—' * 12 + '\033[0m')
+              f'micro:{self.micro_num:>3} ' + '—' * 12 + '\033[0m')
         print('-' * 20, ' bubble ', '-' * 20)
         print(apply_format(apply_color(list(self.bubbles.keys()), ['1;33', '1;32', '1;31', '1;35', '1;36'])))
         print(apply_format(apply_color(list(self.bubbles.values()), ['1;33', '1;32', '1;31', '1;35', '1;36'])))
@@ -217,7 +220,7 @@ class PipelineSimulator:
             raise ValueError(f" `micro_num`({self.micro_num}) should equal or larger than `pp`({pp})")
         return pp, vp
 
-    def _input_format(self, block_time, layer_recompute, block_mem, backward_ratio) -> None:
+    def _input_format(self, block_time, layer_recompute, block_mem, block_mem_par, backward_ratio) -> None:
         r"""format inputs as 2d array"""
         self.block_time = format_2d_inputs(block_time, self.vp, self.pp)
         if isinstance(layer_recompute, bool):
@@ -228,6 +231,12 @@ class PipelineSimulator:
             self.block_mem = self.block_time * block_mem
         else:
             self.block_mem = format_2d_inputs(block_mem, self.vp, self.pp)
+
+        if isinstance(block_mem_par, (int, float)):
+            self.block_mem_par = self.block_time * block_mem_par
+        else:
+            self.block_mem_par = format_2d_inputs(block_mem_par, self.vp, self.pp)
+
         self.backward_ratio = format_2d_inputs(backward_ratio, self.vp, self.pp)
 
     def _statistic_init(self) -> None:
@@ -270,7 +279,8 @@ class PipelineSimulator:
         r"""compute statistic info"""
         for p in range(self.pp):
             blocks = self.lines[p] if self._comm else self.blocks[p]
-            current_mem = 0
+            current_mem = self.constant_mem + blocks[0].mem_par
+
             for block in blocks:
                 if block.type == 'c' and block.state == 'f':
                     current_mem += block.mem
