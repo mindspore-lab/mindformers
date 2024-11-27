@@ -568,7 +568,10 @@ class CausalMaskForQwen(nn.Cell):
         self.one = Tensor([1.0], dtype=compute_type)
         if use_past:
             if self.is_dynamic:
-                self.lower_triangle_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
+                mask_coeff = 1.0 if compute_type is mstype.bfloat16 else -10000.0
+                self.lower_triangle_mask = Tensor(
+                    np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1) * mask_coeff, dtype=compute_type
+                )
             else:
                 self.lower_triangle_mask = None
         else:
