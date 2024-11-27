@@ -26,7 +26,7 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import get_g
 from mindformers.models.llama.llama import LlamaPreTrainedModel
 from mindformers.modules import Linear
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_predict_run_mode
+from mindformers.tools.utils import get_predict_run_mode, is_pynative
 from mindformers.tools.logger import logger
 
 from .utils import convert_model_config
@@ -57,6 +57,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
         self.is_first_iteration = True
+        self.is_pynative = is_pynative()
 
         self.shape = ops.Shape()
         self.reshape = ops.Reshape()
@@ -66,7 +67,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.mul = ops.Mul()
         self.add = ops.Add()
         self.ones = ops.Ones()
-        self.gather = ops.Gather()
+        self.gather = ops.Gather(1) if self.is_pynative else ops.Gather()
         self.sub_batch_valid_len = ops.Sub()
         self.model = ParallelTransformer(config=config)
         if config.parallel_config.vocab_emb_dp:
@@ -146,7 +147,8 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
                             slot_mapping, prefix_keys_values)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
-            batch_valid_length = mint.cumsum(batch_valid_length, 0)
+            if not self.is_pynative:
+                batch_valid_length = mint.cumsum(batch_valid_length, 0)
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
 

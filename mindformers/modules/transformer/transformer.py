@@ -62,6 +62,7 @@ from mindformers.version_control import get_dropout, choose_flash_attention_dtyp
 
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.logger import logger as log
+from mindformers.tools.utils import is_pynative
 
 __all__ = [
     "AttentionMask",
@@ -999,7 +1000,7 @@ class LowerTriangularMaskWithDynamic(Cell):
         self.is_first_iteration = True
         self.multiply_data = Tensor([-10000.0], dtype=compute_type)
         self.one = Tensor([1.0], dtype=compute_type)
-        if use_past:
+        if use_past and not is_pynative():
             if self.is_dynamic:
                 self.lower_triangle_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1))
             else:
