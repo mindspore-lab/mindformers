@@ -15,7 +15,8 @@
 """compute memory"""
 
 import numpy as np
-from mindformers.tools.logger import logger
+
+from toolkit.pipeline_balance.utils.logger import logger
 from toolkit.pipeline_balance.utils.stage import Stage, filter_stage_id
 from toolkit.pipeline_balance.utils.layer import Layer
 import toolkit.pipeline_balance.utils.recompute as Recompute
@@ -36,11 +37,9 @@ class ComputeMemory:
             different from config A required at least staged 0, 1, (n-2), (n-1)
             Don't set directly stagesB_, but use set_stagesB
     memory_parameter_ (float): memory_parameter_ of the BODY layer, memory required to run the layer
-    memory_activation_ (float): memory required to activate the layer (for BODY layer)
-    memory_recompute_ (float): memory required to activate the layer
-                                when doing a recompute (for BODY layer)
-    memory_select_rec_ (float): memory required to activate the layer
-                                when doing a recompute (for BODY layer)
+    memory_activation_rec_ (dict[Recompute.TYPE, float]) activation memory per recompute types
+    recompute_considered_ (dict[Recompute.TYPE, bool]) recomputation types taken into consideration
+    memory_const_ (float): constant memory required for each stages
     memory_head_ (float): memory required to run the head layer
     memory_tail_ (float): memory required to run the tail layer
     """
@@ -51,6 +50,7 @@ class ComputeMemory:
     memory_parameter_: float
     memory_activation_rec_: dict[Recompute.TYPE, float]
     recompute_considered_: dict[Recompute.TYPE, bool]
+    memory_const_: float
     memory_head_: float
     memory_tail_: float
 
@@ -71,6 +71,7 @@ class ComputeMemory:
         self.memory_parameter_ = None
         self.memory_activation_rec_ = {r: None for r in Recompute.TYPE}
         self.find_recompute_considered()
+        self.memory_const_ = None
         self.memory_head_ = None
         self.memory_tail_ = None
 
@@ -83,7 +84,7 @@ class ComputeMemory:
             for stage2 in stages:
                 if not stage1.same_global_config(stage2):
                     logger.error(
-                        "Cannot set stagesA, all element don't have the same configuration",)
+                        "Cannot set stagesA, all elements don't have the same configuration",)
                     self.stages_a = []
                     return
         self.stages_a = stages
@@ -97,13 +98,13 @@ class ComputeMemory:
             for stage2 in stages:
                 if not stage1.same_global_config(stage2):
                     logger.error(
-                        "Cannot set stagesB, all element don't have the same configuration")
+                        "Cannot set stagesB, all elements don't have the same configuration")
                     self.stages_b = []
                     return
             for stage_a in self.stages_b:
                 if stage1.same_global_config(stage_a):
                     logger.error(
-                        "Cannot set stagesB, an element have the same configuration than stagesA")
+                        "Cannot set stagesB, an elements have the same configuration than stagesA")
                     self.stages_b = []
                     return
         self.stages_b = stages
@@ -181,25 +182,39 @@ class ComputeMemory:
         logger.error("Issue with _compute_memory_activation_!!!")
         return 0
 
+    def zero_offset(self):
+        nb_layer = self.stages_a[0].nb_layer_
+        for s in self.stages_a:
+            if s.nb_layer_ != nb_layer:
+                return False
+        return True
+
     def _compute_memories_layers_(self) -> bool:
-        """
-        check if enough stage number is provided
-        """
+        """check if enough stage number is provided"""
         used_rec = Recompute.get_used_list(self.recompute_considered_)
         used_rec_num = len(used_rec)
         stage_num = len(self.stages_a)
         if stage_num == used_rec_num + 3:
-            return self._compute_memories_layer_bodies_()
-        logger.error(f"{stage_num} stages found and ({used_rec_num}) recomputation considered",
-                     "is not coherent. There should be 3 more stages than recomputation "
-                     "considered",)
+            return self._compute_memories_layer_bodies_(False)
+        if stage_num == used_rec_num + 4:
+            logger.info("Enabled const memory component because enough stages were given")
+            if self.zero_offset():
+                logger.error(
+                    "The number of layer per stage cannot be the same for all stages "
+                    "when const component is enabled. Some offset must be used"
+                )
+                return False
+            return self._compute_memories_layer_bodies_(True)
+
+        logger.error(f"{stage_num} stages found and ({used_rec_num}) recomputation considered"
+                     "is not coherent. There should be 3 or 4 more stages than recomputation considered")
         return False
 
-    def _compute_memories_layer_bodies_local_(self, unused_rec: list[Recompute.TYPE],
-                                              stages: list[Stage]) -> tuple[float, float, float]:
-        """Compute memory_parameter, memory_recompute, memory_activation
-        Required at least 3 Stages different from first and last stage
-        return (memory_parameter, memory_recompute, memory_activation)
+    def _compute_memories_layer_bodies_local_(
+            self, unused_rec: list[Recompute.TYPE],
+            stages: list[Stage]) -> tuple[float, float, float]:
+        """Compute memory_parameter & memory activation for all recomputation types
+        Require at least 3 Stages different from first and last stage
         """
         variable_factor_list = []
         constant_memory_list = []
@@ -211,36 +226,125 @@ class ComputeMemory:
                     variable_factor_list[-1].pop(1 + rec_i)
                 constant_memory_list.append(stage.memory_usage_)
         solution = list(
-            np.linalg.solve(np.array(variable_factor_list), np.array(constant_memory_list)))
+            np.linalg.solve(np.array(variable_factor_list),
+                            np.array(constant_memory_list)))
         memory_param = solution.pop(0)
         memory_act_rec = Recompute.assign_used(solution, unused_rec)
         return (memory_param, memory_act_rec)
 
-    def _compute_memories_layer_bodies_(self) -> bool:
+
+
+    def _compute_memories_layer_bodies_local_with_fix_(
+            self, unused_rec: list[Recompute.TYPE],
+            stages: list[Stage]) -> tuple[float, float, float]:
+        """Compute memory_const, memory_parameter & memory activation for all recomputation types
+        Require at least 4 Stages different from first and last stage
+        """
+        variable_factor_list = []
+        constant_memory_list = []
+        unused_rec.sort(reverse=True)
+        for stage in stages:
+            if stage.id_ not in [0, self.number_of_stage_ - 1]:
+                variable_factor_list.append([1] + stage.get_index_memory_var())
+                for rec_i in unused_rec:
+                    variable_factor_list[-1].pop(2 + rec_i)
+                constant_memory_list.append(stage.memory_usage_)
+        logger.debug("solve("
+                     f"\n {np.array(variable_factor_list)}, "
+                     f"\n {np.array(constant_memory_list)}) ")
+        solution = list(
+            np.linalg.solve(np.array(variable_factor_list),
+                            np.array(constant_memory_list)))
+        memory_const = solution.pop(0)
+        memory_param = solution.pop(0)
+        memory_act_rec = Recompute.assign_used(solution, unused_rec)
+        return (memory_const, memory_param, memory_act_rec)
+
+    def _compute_memories_layer_bodies_(self, with_fix: bool) -> bool:
         """
         Compute memory_parameter, memory_recompute, memory_activation
-        Required at least 3 Stages different from first and last stage
+        Require at least 3 Stages different from first and last stage
         BEWARE: can update memory_parameter_, memory_recompute_, memory_activation_
         return True if success to update memory_parameter_, memory_recompute_, memory_activation_
         """
 
+        memory_const_a = None
         memory_parameter_a = None
         memory_recompute_a = {r: None for r in Recompute.TYPE}
 
+        memory_const_b = None
         memory_parameter_b = None
         memory_recompute_b = {r: None for r in Recompute.TYPE}
 
         unused_rec = Recompute.get_unused_list(self.recompute_considered_)
+        logger.info(f"unused recomputation: {unused_rec}")
 
+        if with_fix:
+            if len(self.stages_a) >= 5:
+                (memory_const_a,
+                 memory_parameter_a,
+                 memory_recompute_a) = (self._compute_memories_layer_bodies_local_with_fix_(
+                     unused_rec, self.stages_a))
+            if len(self.stages_b) >= 5:
+                (memory_const_b,
+                 memory_parameter_b,
+                 memory_recompute_b) = (self._compute_memories_layer_bodies_local_with_fix_(
+                     unused_rec, self.stages_b))
+
+            return self._average_if_needed_fix(
+                memory_const_a,
+                memory_parameter_a,
+                memory_recompute_a,
+                memory_const_b,
+                memory_parameter_b,
+                memory_recompute_b,
+            )
         if len(self.stages_a) >= 5:
-            (memory_parameter_a, memory_recompute_a) = (
-                self._compute_memories_layer_bodies_local_(unused_rec, self.stages_a))
+            (memory_parameter_a,
+             memory_recompute_a) = (self._compute_memories_layer_bodies_local_(
+                 unused_rec, self.stages_a))
         if len(self.stages_b) >= 5:
-            (memory_parameter_b, memory_recompute_b) = (
-                self._compute_memories_layer_bodies_local_(unused_rec, self.stages_b))
+            (memory_parameter_b,
+             memory_recompute_b) = (self._compute_memories_layer_bodies_local_(
+                 unused_rec, self.stages_b))
 
-        return self._average_if_needed(memory_parameter_a, memory_recompute_a, memory_parameter_b,
-                                       memory_recompute_b,)
+        return self._average_if_needed(
+            memory_parameter_a,
+            memory_recompute_a,
+            memory_parameter_b,
+            memory_recompute_b,
+        )
+
+    def _average_if_needed_fix(
+            self,
+            memory_const_a,
+            memory_parameter_a,
+            memory_recompute_a,
+            memory_const_b,
+            memory_parameter_b,
+            memory_recompute_b,
+    ):
+        """check if average is needed"""
+        if memory_parameter_a is not None and memory_parameter_a != 0:
+            if memory_parameter_b is not None and memory_parameter_b != 0:
+                self.memory_const_ = (memory_const_a +
+                                      memory_const_b) / 2
+                self.memory_parameter_ = (memory_parameter_a +
+                                          memory_parameter_b) / 2
+                Recompute.average([memory_recompute_a, memory_recompute_b])
+            else:
+                self.memory_const_ = memory_const_a
+                self.memory_parameter_ = memory_parameter_a
+                self.memory_activation_rec_ = memory_recompute_a
+
+        elif memory_parameter_b is not None and memory_parameter_b != 0:
+            self.memory_const_ = memory_const_b
+            self.memory_parameter_ = memory_parameter_b
+            self.memory_activation_rec_ = memory_recompute_b
+        else:
+            logger.error("failed to compute memories")
+            return False
+        return True
 
     def _average_if_needed(self, memory_parameter_a, memory_recompute_a, memory_parameter_b,
                            memory_recompute_b,):
@@ -291,6 +395,9 @@ class ComputeMemory:
             memory_tail_list.append(tail_memory)
         return np.mean(memory_tail_list)
 
+    def get_memory_const(self) -> float:
+        return self.memory_const_
+
     def get_memory_parameter(self, force_recompute=False) -> float:
         """get the parameter memory"""
         if force_recompute or self.memory_parameter_ is None:
@@ -332,38 +439,3 @@ def compute_memories(layers: list[Layer], memory_folder: str, number_of_stage: i
             for rec in Recompute.TYPE:
                 layer.memory_activation_rec_[rec] = cm.get_memory_activation(rec)
     return layers
-
-
-if __name__ == "__main__":
-    num_stage = 16
-    per_stage_layer_num = 6
-    stage_head = Stage(sid=0, nb_stage=num_stage, nb_layer=per_stage_layer_num,
-                       nb_layer_rec={Recompute.TYPE.COMM: 1, Recompute.TYPE.FULL: 1},
-                       memory_usage=80267)
-    stage_1 = Stage(sid=1, nb_stage=num_stage, nb_layer=per_stage_layer_num,
-                    nb_layer_rec={Recompute.TYPE.COMM: 0, Recompute.TYPE.FULL: 1},
-                    memory_usage=71519)
-    stage_2 = Stage(sid=2, nb_stage=num_stage, nb_layer=per_stage_layer_num,
-                    nb_layer_rec={Recompute.TYPE.COMM: 0, Recompute.TYPE.FULL: 1},
-                    memory_usage=67376)
-    stage_3 = Stage(sid=3, nb_stage=num_stage, nb_layer=per_stage_layer_num,
-                    nb_layer_rec={Recompute.TYPE.COMM: 0, Recompute.TYPE.FULL: 2},
-                    memory_usage=52962)
-    stage_4 = Stage(sid=9, nb_stage=num_stage, nb_layer=per_stage_layer_num,
-                    nb_layer_rec={Recompute.TYPE.COMM: 2, Recompute.TYPE.FULL: 0},
-                    memory_usage=39373)
-    stage_tail = Stage(sid=num_stage - 1, nb_stage=num_stage, nb_layer=per_stage_layer_num,
-                       nb_layer_rec={Recompute.TYPE.COMM: 0, Recompute.TYPE.FULL: 1},
-                       memory_usage=16386)
-
-    stages_a = [stage_1, stage_2, stage_3, stage_4, stage_head, stage_tail]
-
-    comp_mem = ComputeMemory(number_of_stage=num_stage, stages_A=stages_a)
-
-    logger_info = "[INFO] memory_head       =" + int(comp_mem.get_memory_head())
-    logger_info += "[INFO] memory_parameter  =" + int(comp_mem.get_memory_parameter())
-    for r in Recompute.TYPE:
-        if comp_mem.recompute_considered_[r]:
-            logger_info += "[INFO]" + Recompute.JSON_MEMORY_NAME[r] + "=" + int(comp_mem.get_memory_activation(r))
-    logger_info += "[INFO] memory_tail       =" + int(comp_mem.get_memory_tail())
-    logger.info("%s", logger_info)

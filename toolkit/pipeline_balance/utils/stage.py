@@ -84,8 +84,8 @@ class Stage:
 
     def get_index_memory_var(self) -> list[int]:
         """
-        Returns memory factors for parameter and activation for
-        recompute, select recompute, without recompute
+        Returns memory factors for parameter and
+        activation for all recomputation types
         """
         diff = self.nb_stage_ - self.id_
         return [self.nb_layer_] + Recompute.to_list(

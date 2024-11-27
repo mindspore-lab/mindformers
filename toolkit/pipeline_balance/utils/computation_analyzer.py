@@ -19,7 +19,8 @@ import json
 import os
 import re
 from tqdm import tqdm
-from mindformers.tools.logger import logger
+
+from toolkit.pipeline_balance.utils.logger import logger
 
 
 class ComputationAnalyzer:
