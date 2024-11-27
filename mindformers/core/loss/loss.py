@@ -367,10 +367,12 @@ class CrossEntropyLoss(nn.Cell):
     """
     @_LogActionOnce(m_logger=logger, key='CrossEntropyLoss',
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
-    def __init__(self, parallel_config=default_dpmp_config, check_for_nan_in_loss_and_grad=False, **kwargs):
+    def __init__(self, parallel_config=default_dpmp_config, check_for_nan_in_loss_and_grad=False,
+                 seq_split_num=1, **kwargs):
         super(CrossEntropyLoss, self).__init__()
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
+        self.seq_split_num = seq_split_num
         self.kwargs = kwargs
         self.enable_force_redistribute = False
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
@@ -422,8 +424,8 @@ class CrossEntropyLoss(nn.Cell):
         denominator = self.add2(
             self.sum2(input_mask),
             P.Cast()(F.tuple_to_array((1e-8,)), mstype.float32))
+        numerator = self.div2(numerator, self.seq_split_num)
         loss = self.div2(numerator, denominator)
-
         return loss
 
 

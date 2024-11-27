@@ -257,11 +257,13 @@ class _PipeLineConfig(_Config):
             >>> config=_PipeLineConfig(pipeline_stage=1, micro_batch_num=1)
     """
 
-    def __init__(self, pipeline_stage=1, micro_batch_num=1):
+    def __init__(self, pipeline_stage=1, micro_batch_num=1, seq_split_num=1):
         Validator.check_positive_int(pipeline_stage, "pipeline_stage")
         Validator.check_positive_int(micro_batch_num, "micro_batch_num")
+        Validator.check_positive_int(seq_split_num, "micro_batch_num")
         self.pipeline_stage = pipeline_stage
         self.micro_batch_num = micro_batch_num
+        self.seq_split_num = seq_split_num
 
     @property
     def pipeline_stage(self):
@@ -281,6 +283,16 @@ class _PipeLineConfig(_Config):
     def micro_batch_num(self, value):
         Validator.check_positive_int(value, "micro_batch_num")
         self._micro_batch_num = value
+
+    @property
+    def seq_split_num(self):
+        return self._seq_split_num
+
+    @seq_split_num.setter
+    def seq_split_num(self, value):
+        Validator.check_positive_int(value, "seq_split_num")
+        self._seq_split_num = value
+
 
 
 # In case the user doesn't pass a config as args.
