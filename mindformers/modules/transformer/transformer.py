@@ -991,7 +991,7 @@ class LowerTriangularMaskWithDynamic(Cell):
                     no_warning=_get_parallel_mode() in (ParallelMode.STAND_ALONE,))
     def __init__(self, seq_length, batch_size=1, compute_type=mstype.float16,
                  is_dynamic=False, pad_token_id=0, use_flash_attention=False, use_attn_mask_compression=False,
-                 use_past=False, seq_split_num=1):
+                 use_past=False, seq_split_num=1, chunk_prefill=False):
         super().__init__()
         self.dtype = compute_type
         self.is_dynamic = is_dynamic
@@ -1003,7 +1003,11 @@ class LowerTriangularMaskWithDynamic(Cell):
         self.multiply_data = Tensor([-10000.0], dtype=compute_type)
         self.one = Tensor([1.0], dtype=compute_type)
         self.is_pynative = is_pynative()
-        if use_past and not self.is_pynative:
+        self.chunk_prefill = chunk_prefill
+        if use_past and chunk_prefill:
+            self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length), dtype=np.int8)), \
+                                dtype=compute_type)
+        elif use_past and not self.is_pynative:
             if self.is_dynamic:
                 mask_coeff = 1.0 if compute_type is mstype.bfloat16 else -10000.0
                 self.lower_triangle_mask = Tensor(
@@ -1106,6 +1110,10 @@ class LowerTriangularMaskWithDynamic(Cell):
     def prefill(self):
         return self.lower_triangle_mask
 
+    def chunk_masks(self, seq_range):
+        masks = self.gather(self.lower_triangle_mask, seq_range, 0)
+        return 1 - masks
+
     def shard(self, parallel_config):
         """sharding for LowerTriangularMaskWithDynamic"""
         dp = parallel_config.data_parallel
@@ -1131,6 +1139,8 @@ class LowerTriangularMaskWithDynamic(Cell):
             self.assign_mask.shard(((dp, 1), (dp, 1)))
             self.mul_mask.shard(((dp, 1), (dp, 1)))
             self.equal_mask.shard(((dp, 1), ()))
+        if self.chunk_prefill:
+            self.gather.shard(((1, 1), (1, 1)))
 
 
 class VocabEmbedding(Cell):

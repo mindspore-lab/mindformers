@@ -85,6 +85,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.head_dim = self.hidden_size // self.n_head
         self.pad_token_id = config.pad_token_id
         self.is_first_iteration = True
+        self.chunk_prefill = config.chunk_prefill
         self.use_past = config.use_past
         self.use_flash_attention = config.use_flash_attention
         self.use_ring_attention = config.use_ring_attention
@@ -151,7 +152,8 @@ class LlamaModel(LlamaPreTrainedModel):
                                                           use_flash_attention=config.use_flash_attention,
                                                           use_attn_mask_compression=config.use_attn_mask_compression,
                                                           use_past=config.use_past,
-                                                          seq_split_num=self.seq_split_num)
+                                                          seq_split_num=self.seq_split_num,
+                                                          chunk_prefill=config.chunk_prefill)
 
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
@@ -227,7 +229,8 @@ class LlamaModel(LlamaPreTrainedModel):
                                          parallel_config=config.parallel_config,
                                          parallel_decoding=self.parallel_decoding,
                                          fused_kernel=config.fused_rms_norm,
-                                         init_method_std=config.init_method_std
+                                         init_method_std=config.init_method_std,
+                                         chunk_prefill=config.chunk_prefill
                                          )
             self.layer_setting(layer, layer_id)
             self.layers.append(layer)
@@ -264,7 +267,7 @@ class LlamaModel(LlamaPreTrainedModel):
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, input_embeds=None, batch_valid_length=None, batch_index=None,
                   zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None,
-                  attention_mask=None, position_ids=None, q_seq_lens=None):
+                  attention_mask=None, position_ids=None, q_seq_lens=None, seq_range=None):
         """
         Forward of llama model.
 
@@ -284,7 +287,15 @@ class LlamaModel(LlamaPreTrainedModel):
         kv_mask = None
         seq_chunk = None
         rmsnorm_compute_2d = self.training and self.rmsnorm_compute_2d
-        if self.parallel_decoding:
+        if self.chunk_prefill and self.is_first_iteration:
+            # get chunk + decode masks
+            if attention_mask is not None:
+                mask = attention_mask
+            else:
+                mask = self.casual_mask.chunk_masks(seq_range)
+            # get chunk + decode pos
+            freqs_cis = self.freqs_mgr.chunk_with_decode(seq_range)
+        elif self.parallel_decoding:
             # FA with TH layout, mask is 2D, FA with BSH layout, mask is 4D
             mask = attention_mask
             freqs_cis = self.freqs_mgr.increment_multi_ids(position_ids)
@@ -411,6 +422,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
         self.is_first_iteration = True
+        self.chunk_prefill = config.chunk_prefill
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
@@ -509,11 +521,12 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None, None], dtype=mstype.float16)
             self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, dynamic_prefix_keys_values, None, dynamic_q_seq_lens, None)
+                            dynamic_slot_mapping, dynamic_prefix_keys_values, None, dynamic_q_seq_lens, None,
+                            None, None)
         elif self.use_past:
             self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, None, None, dynamic_q_seq_lens, None)
+                            dynamic_slot_mapping, None, None, dynamic_q_seq_lens, None, None, None)
         elif kwargs.get("pre_gather", False):
             self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                             dynamic_batch_valid_length, None, None, None, None, None)
@@ -531,7 +544,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             layer.attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
             layer.attention.infer_attention.paged_attention_mgr.add_flags(is_first_iteration=is_first_iteration)
 
-    def pre_gather_func(self, pre_gather, output, batch_valid_length):
+    def pre_gather_func(self, pre_gather, output, batch_valid_length, gather_index=None):
         """Pre gather operation in infer mode."""
         if not pre_gather:
             return output
@@ -539,7 +552,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             output = output.reshape(-1, output.shape[-1])
             output = output[self.sub_batch_valid_len(batch_valid_length, 1)]
         elif pre_gather:
-            if self.config.is_dynamic:
+            if self.chunk_prefill and self.is_first_iteration:
+                output = output.reshape(-1, output.shape[-1])
+                output = output[self.sub_batch_valid_len(gather_index, 1)]
+            elif self.config.is_dynamic:
                 batch_valid_length = mint.cumsum(batch_valid_length, 0)
                 output = self.prefill_gather_flatten(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
             else:
@@ -550,7 +566,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None,
                   zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None,
-                  llm_boost_inputs=None, q_seq_lens=None, loss_mask=None):
+                  llm_boost_inputs=None, q_seq_lens=None, loss_mask=None, gather_index=None, seq_range=None):
         r"""
         LlamaForCausalLM forward.
 
@@ -597,9 +613,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
 
         output = self.model(tokens, input_embeds, batch_valid_length, batch_index, zactivate_len, block_tables, \
-                            slot_mapping, prefix_keys_values, attention_mask, position_ids, q_seq_lens)
+                            slot_mapping, prefix_keys_values, attention_mask, position_ids, q_seq_lens, \
+                            seq_range)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
-        output = self.pre_gather_func(pre_gather, output, batch_valid_length)
+        output = self.pre_gather_func(pre_gather, output, batch_valid_length, gather_index)
         logits = self.lm_head(output)
         input_mask = loss_mask if has_loss_mask \
             else self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)

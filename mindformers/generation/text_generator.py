@@ -1142,6 +1142,56 @@ class GenerationMixin:
                 res = self(**model_inputs)  # pylint: disable=E1102
         return res, current_index
 
+    # pylint: disable=E1102
+    def chunk_prefill_infer(self,
+                            input_ids: [Union[List[int], List[List[int]]]],
+                            batch_valid_length: np.ndarray,
+                            block_tables: np.ndarray,
+                            slot_mapping: np.ndarray,
+                            attention_mask: Optional[np.ndarray] = None,
+                            **model_kwargs):
+        """
+        Preprocessing of chunk prefill inference
+
+        Args:
+            input_ids (List(List(int))): Input ids.
+            batch_valid_length (np.ndarray): Valid input length.
+            block_tables (np.ndarray): Params for page attention.
+            slot_mapping (np.ndarray): Params for page attention.
+            attention_mask (np.ndarray): Params for page attention.
+            q_seq_lens (np.ndarray): Params for page attention.
+            gather_index (np.ndarray): Used to obtain the last latent vector of each sequence.
+            seq_range (np.ndarray): Used to obtain Mask and positional encoding of valid tokens for each sequence.
+        """
+        if not (self.use_past and self.chunk_prefill):
+            raise ValueError(f"chunk prefill infer can be called only when use_past=true and chunk_prefill=true, \
+                but use_past={self.use_past}, chunk_prefill={self.chunk_prefill}")
+        # decode
+        if "gather_index" not in model_kwargs or "seq_range"not in model_kwargs \
+            or "q_seq_lens" not in model_kwargs:
+            model_kwargs["gather_index"] = None
+            model_kwargs["seq_range"] = None
+            model_kwargs["q_seq_lens"] = None
+            self.add_flags_custom(is_first_iteration=False)
+        else: # decode + chunk
+            input_ids = np.reshape(input_ids, (1, -1))
+            model_kwargs["gather_index"] = Tensor(model_kwargs["gather_index"], ms.int32)
+            model_kwargs["seq_range"] = Tensor(model_kwargs["seq_range"], ms.int32)
+            model_kwargs["q_seq_lens"] = Tensor(model_kwargs["q_seq_lens"], ms.int32)
+            self.add_flags_custom(is_first_iteration=True)
+
+        if attention_mask is not None:
+            model_kwargs["attention_mask"] = Tensor(attention_mask, ms.float16)
+
+        model_kwargs["input_ids"] = Tensor(input_ids, ms.int32)
+        model_kwargs["batch_valid_length"] = Tensor(batch_valid_length, ms.int32)
+        model_kwargs["block_tables"] = Tensor(block_tables, ms.int32)
+        model_kwargs["slot_mapping"] = Tensor(slot_mapping, ms.int32)
+
+        logits = self(**model_kwargs)
+
+        return logits
+
     def postprocess(self,
                     input_ids,
                     is_finished,

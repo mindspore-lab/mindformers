@@ -117,7 +117,8 @@ class LLamaAttention(nn.Cell):
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig(),
                  parallel_decoding=False,
-                 init_method_std=0.01
+                 init_method_std=0.01,
+                 chunk_prefill=False
                  ):
         super().__init__()
         self.seq_length = seq_length
@@ -130,6 +131,7 @@ class LLamaAttention(nn.Cell):
         self.block_size = block_size
         self.num_blocks = num_blocks
         self.rmsnorm_compute_2d = rmsnorm_compute_2d
+        self.chunk_prefill = chunk_prefill
 
         self.dtype = compute_dtype
         self.softmax_dtype = softmax_compute_dtype
@@ -271,6 +273,7 @@ class LLamaAttention(nn.Cell):
                                                   rotary_cos_format=2,
                                                   compute_dtype=compute_dtype,
                                                   parallel_decoding=parallel_decoding,
+                                                  chunk_prefill=chunk_prefill,
                                                   )
             self.infer_attention.shard(parallel_config)
         else:
@@ -680,7 +683,8 @@ class LLamaDecodeLayer(nn.Cell):
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig(),
                  parallel_decoding=False,
-                 fused_kernel=True
+                 fused_kernel=True,
+                 chunk_prefill=False,
                  ):
         super().__init__()
         self.layer_id = layer_id
@@ -691,6 +695,7 @@ class LLamaDecodeLayer(nn.Cell):
         self.dtype = compute_dtype
         self.is_first_iteration = True
         self.use_past = use_past
+        self.chunk_prefill = chunk_prefill
         self.seq_pipe = parallel_config and parallel_config.seq_split_num > 1
 
         self.residual_dtype = residual_dtype
@@ -727,7 +732,8 @@ class LLamaDecodeLayer(nn.Cell):
                                         batch_size=batch_size,
                                         parallel_config=parallel_config,
                                         parallel_decoding=parallel_decoding,
-                                        init_method_std=init_method_std
+                                        init_method_std=init_method_std,
+                                        chunk_prefill=chunk_prefill
                                         )
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num

@@ -223,6 +223,7 @@ class InferAttention(Cell):
                  rotary_cos_format=0,
                  compute_dtype=mstype.float16,
                  parallel_decoding=False,
+                 chunk_prefill=False,
                  ):
         super(InferAttention, self).__init__()
         self.n_head = n_head
@@ -243,6 +244,7 @@ class InferAttention(Cell):
         self.rotary_cos_format = rotary_cos_format
         self.compute_dtype = compute_dtype
         self.is_first_iteration = True
+        self.chunk_prefill = chunk_prefill
         self.transpose = P.Transpose()
         self.reshape = P.Reshape()
         self.merger_head_transpose = P.Transpose()
@@ -287,6 +289,7 @@ class InferAttention(Cell):
                                                      seq_length,
                                                      compute_dtype=self.compute_dtype,
                                                      parallel_decoding=parallel_decoding,
+                                                     chunk_prefill=chunk_prefill,
                                                      )
         if use_rope_rotary_emb:
             self.rotary_embedding = InferRotaryEmbedding(self.rotary_cos_format)
@@ -443,6 +446,10 @@ class InferAttention(Cell):
 
         key_out = self.paged_attention_mgr(key, value, slot_mapping, batch_valid_length)
         query = ops.depend(query, key_out)
+
+        if self.chunk_prefill:
+            return self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables, attn_mask=attn_mask,
+                                                       q_seq_lens=q_seq_lens)
 
         if self.is_first_iteration:
             return self._prefill_attention(query, key, value, attn_mask, alibi_mask, batch_valid_length,
