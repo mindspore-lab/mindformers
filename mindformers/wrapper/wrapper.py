@@ -250,7 +250,7 @@ def tensor_grad_scale_pipeline(scale, grad_scale_factor, grad, accu_grad):
     grad_val = F.cast(F.equal(accu_grad, accu_grad), F.dtype(accu_grad))
     zeros = F.mul(grad_val, 0)
     new_grad = F.depend(new_grad, F.assign(accu_grad, zeros))
-    new_grad = new_grad * reciprocal(grad_scale_factor)
+    new_grad = new_grad * F.cast(reciprocal(grad_scale_factor), F.dtype(new_grad))
     return new_grad
 
 
@@ -261,7 +261,7 @@ def tensor_shard_grad_scale_pipeline(scale, grad_scale_factor, grad, accu_grad):
     grad_val = F.cast(F.equal(accu_grad, accu_grad), F.dtype(accu_grad))
     zeros = F.mul(grad_val, 0)
     new_grad = F.depend(new_grad, F.assign(accu_grad, zeros))
-    new_grad = new_grad * reciprocal(grad_scale_factor)
+    new_grad = new_grad * F.cast(reciprocal(grad_scale_factor), F.dtype(new_grad))
     return new_grad
 
 
@@ -491,7 +491,6 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         self.localnorm = LocalNorm()
         self.concat = P.Concat()
         self.local_norm = local_norm
-        self.zero_t = Tensor([0], dtype=mstype.float32)
         # create allreduce for synchronize denominator
         pipeline_group_list, pipeline_group_name = _get_pipeline_group()
         hashed = hashlib.md5(pipeline_group_name.encode()).hexdigest()[:48]
