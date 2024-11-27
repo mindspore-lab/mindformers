@@ -158,6 +158,7 @@ class LLamaAttentionInterleave(nn.Cell):
                  use_flash_attention=False,
                  use_ring_attention=False,
                  use_attn_mask_compression=False,
+                 use_eod_attn_mask_compression=False,
                  parallel_config=TransformerOpParallelConfig(),
                  init_method_std=0.01):
         super().__init__()
@@ -177,6 +178,7 @@ class LLamaAttentionInterleave(nn.Cell):
         self.use_flash_attention = use_flash_attention
         self.use_ring_attention = use_ring_attention
         self.use_attn_mask_compression = use_attn_mask_compression
+        self.use_eod_attn_mask_compression = use_eod_attn_mask_compression
 
         if self.hidden_size % self.n_head != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
@@ -276,7 +278,14 @@ class LLamaAttentionInterleave(nn.Cell):
                          param_init_type=param_init_type)
         if self.use_flash_attention:
             self.input_layout = "BSH" if cp > 1 else "BNSD"
-            self.sparse_mode = 2 if self.use_attn_mask_compression and not self.use_ring_attention else 0
+            if self.use_eod_attn_mask_compression:
+                self.sparse_mode = 8
+                if not self.use_ring_attention:
+                    self.input_layout = "TND"
+            elif self.use_attn_mask_compression and not self.use_ring_attention:
+                self.sparse_mode = 2
+            else:
+                self.sparse_mode = 0
             if self.seq_pipe and not check_seqpp_fa_opt_support():
                 next_tokens = seq_length - self.seq_seg_len
             else:
@@ -372,7 +381,7 @@ class LLamaAttentionInterleave(nn.Cell):
             value = self.cast(self.wv(x), self.dtype)  # dp, 1 -> dp, mp
         return query, key, value
 
-    def cal_attn(self, query, key, value, mask, freqs_cis, kv_mask, seq_chunk):
+    def cal_attn(self, query, key, value, mask, freqs_cis, kv_mask, seq_chunk, actual_seq_len):
         """cal_attn"""
         query = self.reshape(query, (-1, self.seq_seg_len, self.n_head, self.head_dim))
         key = self.reshape(key, (-1, self.seq_seg_len, self.n_kv_head, self.head_dim))
@@ -389,7 +398,11 @@ class LLamaAttentionInterleave(nn.Cell):
         # [bs, n_head/n_kv_head, seq/1, head_dim]
         query, key = self.apply_rotary_emb(query, key, freqs_cis) # dp, mp, 1, 1
 
-        if self.context_parallel > 1:
+        if self.input_layout == 'TND':
+            query = self._merge_seq_len(query)
+            key = self._merge_seq_len(key)
+            value = self.reshape(value, (-1, self.n_kv_head, self.head_dim))
+        elif self.context_parallel > 1:
             query = self._merge_heads(query)
             key = self._merge_heads(key)
         else:
@@ -426,8 +439,17 @@ class LLamaAttentionInterleave(nn.Cell):
                 attention = self._merge_heads(attention)
         else:
             if self.use_flash_attention:
-                attention = self.flash_attention(query, key, value, mask)
-                if self.context_parallel > 1:
+                if self.use_eod_attn_mask_compression:
+                    attention = self.flash_attention(
+                        query, key, value, mask,
+                        actual_seq_qlen=actual_seq_len, actual_seq_kvlen=actual_seq_len
+                    )
+                else:
+                    attention = self.flash_attention(query, key, value, mask)
+                if self.input_layout == 'TND':
+                    _, n_head, head_dim = query.shape
+                    attention = self.reshape(attention, (-1, n_head, head_dim))
+                elif self.context_parallel > 1:
                     attention = self.reshape(attention, (-1, attention.shape[-1]))
                 else:
                     attention = self._merge_heads(attention)
@@ -451,6 +473,24 @@ class LLamaAttentionInterleave(nn.Cell):
         x = self.tile_kv(x, (1, 1, rep, 1))
         x = self.reshape(x, (bs, n_kv_head * rep, seqlen, head_dim))
         return x
+
+    def _merge_seq_len(self, x):
+        """
+        convert a bhsd input to a tnd output
+
+        Inputs:
+            x: input tensor
+
+        Output:
+            x_merge: the tnd output
+        """
+        # [bs, n_head, seq/1, head_dim]
+        x = self.merger_head_transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
+        # [bs, seq/1, n_head, head_dim]
+        bs, seq_len, n_head, head_dim = self.shape(x)
+        new_shape = (bs * seq_len, n_head, head_dim)
+        x_merge = self.reshape(x, new_shape)
+        return x_merge
 
     def _merge_heads(self, x):
         """
@@ -589,6 +629,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                  use_flash_attention=False,
                  use_ring_attention=False,
                  use_attn_mask_compression=False,
+                 use_eod_attn_mask_compression=False,
                  fine_grain_interleave=2,
                  parallel_config=TransformerOpParallelConfig(),
                  init_method_std=0.01):
@@ -633,6 +674,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
                                                   use_flash_attention=use_flash_attention,
                                                   use_ring_attention=use_ring_attention,
                                                   use_attn_mask_compression=use_attn_mask_compression,
+                                                  use_eod_attn_mask_compression=use_eod_attn_mask_compression,
                                                   parallel_config=parallel_config,
                                                   init_method_std=init_method_std)
         self.feed_forward = LlamaFeedForward(dim=self.hidden_size,
@@ -750,7 +792,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
     # pylint: disable=W0613
     def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
                   slot_mapping=None, prefix_keys_values=None, q_seq_lens=None,
-                  kv_mask=None, seq_chunk=None):
+                  kv_mask=None, seq_chunk=None, actual_seq_len=None):
         """ Forward of transformer block. """
         self._check_input(x, freqs_cis, mask)
         x = self.reshape(x, (-1, x.shape[-1]))
@@ -771,7 +813,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
             key = self.interleaved_concat_1(key_tuple)
             value = self.interleaved_concat_1(value_tuple)
         # ===========linear-layer1 end=============
-        attention = self.attention.cal_attn(query, key, value, mask, freqs_cis, kv_mask, seq_chunk)
+        attention = self.attention.cal_attn(query, key, value, mask, freqs_cis, kv_mask, seq_chunk, actual_seq_len)
         # ============linear-layer2================
         if self.layer_id == self.num_layers - 1:
             output = self.linear_layer2(x, attention)

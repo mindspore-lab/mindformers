@@ -73,6 +73,8 @@ class FlashAttention(Cell):
         use_attention_mask (bool): The value is True if attention_mask is passed. Default: False.
         use_alibi_mask (bool): The value is True if alibi_mask is passed. Default: False.
         use_mqa (bool): Specifies whether using MQA. Default: False.
+        use_actual_seqlen (bool): The value is True if actual_seq_qlen and actual_seq_kvlen is passed to input.
+            Default: False.
         dp (int): Data parallel num.
         mp (int): Model parallel num.
         cp (int): Context parallel num.
@@ -144,6 +146,7 @@ class FlashAttention(Cell):
                  use_mqa=False,
                  use_ring_attention=False,
                  use_3d_tensor_parallel=False,
+                 use_actual_seqlen=False,
                  tp_x=1,
                  tp_y=1,
                  tp_z=1
@@ -157,6 +160,7 @@ class FlashAttention(Cell):
         self.use_attention_mask = use_attention_mask
         self.use_mqa = use_mqa
         self.use_ring_attention = use_ring_attention
+        self.use_actual_seqlen = use_actual_seqlen
         self.use_3d_tensor_parallel = use_3d_tensor_parallel
         self.tp_x = tp_x
         self.tp_y = tp_y
@@ -232,12 +236,12 @@ class FlashAttention(Cell):
                     fa_strategies += ((dp, 1, cp, 1),)
                 else:
                     fa_strategies += ((1, 1),)
-            elif self.sparse_mode == 2:
+            elif self.sparse_mode in [2, 8]:
                 fa_strategies += ((1, 1),)
             else:
                 raise RuntimeError(f"sparse_mode: {self.sparse_mode} is not support currently")
-        if self.input_layout in ["TH", "TND"]:
-            fa_strategies += ((1,), (1,),)
+        if self.input_layout in ["TH", "TND"] or self.use_actual_seqlen:
+            fa_strategies += ((dp,), (dp,),)
 
         return fa_strategies
 

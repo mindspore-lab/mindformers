@@ -79,6 +79,8 @@ class LlamaConfig(PretrainedConfig):
         use_flash_attention (bool, optional): Whether to enable flash attention ops. Default: ``False``.
         use_ring_attention (bool, optional): Whether to enable ring attention ops. Default: ``False``.
         use_attn_mask_compression (bool, optional): Whether to enable attention mask compression. Default: ``False``.
+        use_eod_attn_mask_compression (bool, optional): Whether to enable eod attention mask compression.
+            Default: ``False``.
         parallel_optimizer (bool, optional): Whether to enable optimizer parallism. Default: ``False``.
         fine_grain_interleave (int, optional): Set the number of fine-grained interleave. Default: ``1``.
         pp_interleave_num (int, optional): Set the number of pipeline interleave. Default: ``1``.
@@ -166,6 +168,7 @@ class LlamaConfig(PretrainedConfig):
                  use_flash_attention: bool = False,
                  use_ring_attention: bool = False,
                  use_attn_mask_compression: bool = False,
+                 use_eod_attn_mask_compression: bool = False,
                  parallel_optimizer: bool = False,
                  fine_grain_interleave: int = 1,
                  pp_interleave_num: int = 1,
@@ -242,6 +245,7 @@ class LlamaConfig(PretrainedConfig):
         self.use_flash_attention = use_flash_attention
         self.use_ring_attention = use_ring_attention
         self.use_attn_mask_compression = use_attn_mask_compression
+        self.use_eod_attn_mask_compression = use_eod_attn_mask_compression
         self.parallel_optimizer = parallel_optimizer
         self.fine_grain_interleave = fine_grain_interleave
         self.pp_interleave_num = pp_interleave_num

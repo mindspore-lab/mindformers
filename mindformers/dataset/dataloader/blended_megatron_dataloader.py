@@ -190,6 +190,7 @@ class MegatronDatasetBuilder:
             reset_attention_mask=self.config.get("reset_attention_mask", False),
             eod_mask_loss=self.config.get("eod_mask_loss", False),
             create_attention_mask=self.config.get("create_attention_mask", True),
+            create_compressed_eod_mask=self.config.get("create_compressed_eod_mask", False),
             s3_cache_path=self.config.get("s3_cache_path", None),
             drop_last_partial_validation_sequence=self.config.get("drop_last_partial_validation_sequence", True),
             add_extra_token_to_sequence=self.config.get("add_extra_token_to_sequence", True),
@@ -202,24 +203,32 @@ class FakeGptDataset:
     """Fake dataset."""
     def __init__(self, config: GPTDatasetConfig):
         self.create_attention_mask = config.create_attention_mask
+        self.create_compressed_eod_mask = config.create_compressed_eod_mask
         self.seq_length = config.sequence_length
         self.data_length = 1024  # fake dataset num
         self.input_ids = np.ones((self.seq_length,), dtype=np.int32)
         self.labels = np.ones((self.seq_length,), dtype=np.int32)
         self.loss_mask = np.ones((self.seq_length,), dtype=np.int32)
         self.position_mask = np.ones((self.seq_length,), dtype=np.int32)
-        self.attention_mask = np.ones((1, self.seq_length, self.seq_length,), dtype=np.int32)
+        if self.create_compressed_eod_mask:
+            self.actual_seq_len = np.ones((config.eod_pad_length,), dtype=np.int32)
+        if self.create_attention_mask:
+            self.attention_mask = np.ones((1, self.seq_length, self.seq_length,), dtype=np.int32)
 
     def cols(self):
         # pylint: disable=R1705
-        if self.create_attention_mask:
+        if self.create_compressed_eod_mask:
+            return ["input_ids", "labels", "loss_mask", "position_ids", "actual_seq_len"]
+        elif self.create_attention_mask:
             return ["input_ids", "labels", "loss_mask", "position_ids", "attention_mask"]
         else:
             return ["input_ids", "labels", "loss_mask", "position_ids"]
 
     def __getitem__(self, i):
         # pylint: disable=R1705
-        if self.create_attention_mask:
+        if self.create_compressed_eod_mask:
+            return self.input_ids, self.labels, self.loss_mask, self.position_mask, self.actual_seq_len
+        elif self.create_attention_mask:
             return self.input_ids, self.labels, self.loss_mask, self.position_mask, self.attention_mask
         else:
             return self.input_ids, self.labels, self.loss_mask, self.position_mask

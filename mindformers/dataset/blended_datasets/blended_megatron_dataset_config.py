@@ -119,9 +119,6 @@ def parse_and_normalize_split(split: str) -> List[float]:
     split = list(map(float, re.findall(r"[.0-9]+", split)))
     split = split + [0.0 for _ in range(len(Split) - len(split))]
 
-    print(len(split))
-    print(len(Split))
-
     assert len(split) == len(Split)
     assert all(map(lambda _: _ >= 0.0, split))
 
