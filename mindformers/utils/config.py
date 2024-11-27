@@ -295,6 +295,7 @@ class ParallelConfig(Config):
     expert_parallel = 1
     pipeline_stage = 1
     micro_batch_num = 1
+    seq_split_num = 1
     use_seq_parallel = False
     optimizer_shard = None
     gradient_aggregation_group = 4
