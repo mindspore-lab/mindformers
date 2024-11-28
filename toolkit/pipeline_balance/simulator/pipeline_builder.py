@@ -90,11 +90,11 @@ class PipelineBuilder:
                     for_line.extend([MicroBlockSim(p, 'f', m, i, forward_time[i],
                                                    mem=block_mem[i], phase='warmup') for m in range(r)])
                     back_line.extend([MicroBlockSim(p, 'b', m, i, backward_time[i],
-                                                    mem=block_mem[i], phase='cooldown') for m in range(r)])
+                                                    mem=block_mem[vp - 1 - i], phase='cooldown') for m in range(r)])
                 for_line.extend([MicroBlockSim(p, 'f', r + m + inter * pp, i, forward_time[i],
                                                mem=block_mem[i], phase='warmup') for m in range(pp)])
                 back_line.extend([MicroBlockSim(p, 'b', r + m + inter * pp, i, backward_time[i],
-                                                mem=block_mem[i], phase='cooldown') for m in range(pp)])
+                                                mem=block_mem[vp - 1 - i], phase='cooldown') for m in range(pp)])
         line = PipelineBuilder._inter_merge(for_line, back_line, (vp + 1) * pp - 2 * p - 2 + r * (vp - 1))
         return PipelineBuilder._build_chain(line, p)
 
@@ -110,11 +110,11 @@ class PipelineBuilder:
                     for_line.extend([MicroBlockSim(p, 'f', m, i, forward_time[i],
                                                    mem=block_mem[i], phase='warmup') for m in range(r)])
                     back_line.extend([MicroBlockSim(p, 'b', m, i, backward_time[i],
-                                                    mem=block_mem[i], phase='cooldown') for m in range(r)])
+                                                    mem=block_mem[vp - 1 - i], phase='cooldown') for m in range(r)])
                 for_line.extend([MicroBlockSim(p, 'f', r + m + inter * pp, i, forward_time[i],
                                                mem=block_mem[i], phase='warmup') for m in range(pp)])
                 back_line.extend([MicroBlockSim(p, 'b', r + m + inter * pp, i, backward_time[i],
-                                                mem=block_mem[i], phase='cooldown') for m in range(pp)])
+                                                mem=block_mem[vp - 1 - i], phase='cooldown') for m in range(pp)])
 
         line = PipelineBuilder._inter_merge(for_line, back_line, vp * pp - p - 1)
         return PipelineBuilder._build_chain(line, p)
