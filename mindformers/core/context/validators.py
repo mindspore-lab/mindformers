@@ -18,6 +18,7 @@ import inspect
 from enum import Enum
 
 from mindformers.tools import MODE, PARALLEL_MODE
+from mindformers.tools.register import MindFormerConfig
 
 
 class RunMode(Enum):
@@ -49,13 +50,21 @@ def validate_ms_ctx_mode(config):
 
 def validate_parallel_mode(config):
     """Validate parallel mode in parallel."""
-    parallel_mode = config.parallel.get('parallel_mode', 0)
+    parallel_mode = MindFormerConfig.get_nested_config(
+        config, ['parallel', 'parallel_mode'], 0
+    )
+    parallel_mode = parallel_mode or 0
     if parallel_mode not in PARALLEL_MODE:
         raise ValueError(
             'Invalid parallel mode. Expected one of '
             f'{PARALLEL_MODE.keys()}, got {parallel_mode}'
         )
-    config.parallel.parallel_mode = PARALLEL_MODE.get(parallel_mode)
+    if 'parallel' not in config.keys():
+        config.parallel = MindFormerConfig(
+            parallel_mode=PARALLEL_MODE.get(parallel_mode)
+        )
+    else:
+        config.parallel.parallel_mode = PARALLEL_MODE.get(parallel_mode)
 
 
 def validate_sink_size(config):
