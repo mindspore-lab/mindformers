@@ -15,6 +15,7 @@
 """Run MindFormer."""
 import argparse
 import os
+import sys
 
 from mindformers.tools.register import MindFormerConfig, ActionDict
 from mindformers.utils.config import ConfigTemplate
@@ -222,6 +223,9 @@ if __name__ == "__main__":
             args_.register_path = os.path.join(work_path, args_.register_path)
         # Setting Environment Variables: REGISTER_PATH For Auto Register to Outer API
         os.environ["REGISTER_PATH"] = args_.register_path
+        if args_.register_path not in sys.path:
+            sys.path.append(args_.register_path)
+
     config_ = MindFormerConfig(args_.config)
 
     if args_.device_id is not None:
