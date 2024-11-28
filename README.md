@@ -3,7 +3,6 @@
 [![LICENSE](https://img.shields.io/github/license/mindspore-lab/mindformers.svg?style=flat-square)](https://github.com/mindspore-lab/mindformers/blob/master/LICENSE)
 [![Downloads](https://static.pepy.tech/badge/mindformers)](https://pepy.tech/project/mindformers)
 [![PyPI](https://badge.fury.io/py/mindformers.svg)](https://badge.fury.io/py/mindformers)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mindformers.svg)](https://pypi.org/project/mindformers)
 
 ## 一、介绍
 
@@ -20,505 +19,45 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 - 提供预置SOTA权重自动下载及加载功能；
 - 支持人工智能计算中心无缝迁移部署；
 
-如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
+欲获取MindFormers相关使用教程以及API文档，请参阅[**MindFormers文档**](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)，以下提供部分内容的快速跳转链接：
 
-- 📝 **[MindFormers文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)**
+- 📝 [快速启动](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/quick_start/source_code_start.html)
+- 📝 [大模型预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/pre_training.html)
 - 📝 [大模型低参微调](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/parameter_efficient_fine_tune.html)
-- 📝 [AICC指导教程](docs/readthedocs/source_zh_cn/docs/practice/AICC.md)
+- 📝 [MindIE服务化部署](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/mindie_deployment.html)
+
+如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
 ### 支持模型
 
-MindFormers已支持大部分模型的[LoRA微调](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/usage/parameter_efficient_fine_tune.html)以及[LoRA权重合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html#lora权重合并)功能，具体可参考各模型文档启动模型的LoRA微调任务。
-
 当前MindFormers支持的模型列表如下：
 
-<table>
-  <thead>
-    <tr>
-      <th> 模型 </th>
-      <th> 参数 </th>
-      <th> 序列 </th>
-      <th> 预训练 </th>
-      <th> 微调 </th>
-      <th> 推理 </th>
-      <th> <a href="docs/feature_cards/Pet_Tuners.md"> LoRA </a> </th>
-      <th> 对话 </th>
-      <th> 评估 </th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td rowspan="3"> <a href="docs/model_cards/llama2.md"> LLaMA2 </a> </td>
-      <td> 7B </td>
-      <td> 4K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/llama2/run_llama2_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> PPL </td>
-    </tr>
-    <tr>
-      <td> 13B </td>
-      <td> 4K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/llama2/run_llama2_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> PPL </td>
-    </tr>
-    <tr>
-      <td> 70B </td>
-      <td> 4K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/llama2/run_llama2_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> PPL </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="2"> <a href="research/llama3/llama3.md"> LLaMA3 </a> </td>
-      <td> 8B </td>
-      <td> 8K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/llama3/run_llama3_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-    <tr>
-      <td> 70B </td>
-      <td> 8K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/llama3/run_llama3_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-<tbody>
-    <tr>
-      <td rowspan="2"> <a href="research/llama3_1/llama3_1.md"> LLaMA3.1 </a> </td>
-      <td> 8B </td>
-      <td> 8K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/llama3_1/llama3_1.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-    <tr>
-      <td> 70B </td>
-      <td> 8K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/llama3_1/llama3_1.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="2"> <a href="research/baichuan2/baichuan2.md"> Baichuan2 </a> </td>
-      <td> 7B </td>
-      <td> 4K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/baichuan2/run_baichuan2_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> PPL </td>
-    </tr>
-    <tr>
-      <td> 13B </td>
-      <td> 4K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/baichuan2/run_baichuan2_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> PPL </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="docs/model_cards/glm2.md"> GLM2 </a> </td>
-      <td> 6B </td>
-      <td> 2K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/glm2/run_glm2_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> PPL / Rouge </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="docs/model_cards/glm3.md"> GLM3 </a> </td>
-      <td> 6B </td>
-      <td> 2K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/glm3/run_glm3_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="docs/model_cards/glm3.md"> GLM3-32K </a> </td>
-      <td> 6B </td>
-      <td> 32K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/glm32k/run_glm32k_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="docs/model_cards/glm4.md"> GLM4 </a> </td>
-      <td> 9B </td>
-      <td> 8K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/glm4/run_glm4_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="docs/model_cards/cogvlm2_video.md"> CogVLM2-Video </a> </td>
-      <td> 13B </td>
-      <td> 2K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="docs/model_cards/cogvlm2_video.md"> docs </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="docs/model_cards/cogvlm2_image.md"> CogVLM2-Image </a> </td>
-      <td> 19B </td>
-      <td> 4K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> <a href="docs/model_cards/cogvlm2_image.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="2"> <a href="research/qwen/qwen.md"> Qwen </a> </td>
-      <td> 7B </td>
-      <td> 8K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/qwen/qwen.md"> docs </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> C-Eval </td>
-    </tr>
-    <tr>
-      <td> 14B </td>
-      <td> 8K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/qwen/qwen.md"> docs </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> C-Eval </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="3"> <a href="research/qwen1_5/qwen1_5.md"> Qwen1.5 </a> </td>
-      <td> 7B </td>
-      <td> 32K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/qwen1_5/qwen1_5.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-    <tr>
-      <td> 14B </td>
-      <td> 32K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/qwen1_5/qwen1_5.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-    <tr>
-      <td> 72B </td>
-      <td> 32K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/qwen1_5/qwen1_5.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="6"> <a href="research/qwen2/qwen2.md"> Qwen2 </a> </td>
-      <td> 0.5B </td>
-      <td> 32K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/qwen2/qwen2.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-    <tr>
-      <td> 1.5B </td>
-      <td> 32K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/qwen2/qwen2.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-    <tr>
-      <td> 7B </td>
-      <td> 32K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/qwen2/qwen2.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-    <tr>
-      <td> 57B-A14B </td>
-      <td> 8K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> <a href="research/qwen2/qwen2.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-    <tr>
-      <td> 57B </td>
-      <td> 32K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/qwen2/qwen2.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-    <tr>
-      <td> 72B </td>
-      <td> 128K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/qwen2/qwen2.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="research/qwenvl/qwenvl.md"> QwenVL </a> </td>
-      <td> 9.6B </td>
-      <td> 2K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/qwenvl/run_qwenvl_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="2"> <a href="research/internlm/internlm.md"> InternLM </a> </td>
-      <td> 7B </td>
-      <td> 2K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/internlm/run_internlm_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> PPL </td>
-    </tr>
-    <tr>
-      <td> 20B </td>
-      <td> 2K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-      <td> <a href="scripts/examples/internlm/run_internlm_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> PPL </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="2"> <a href="research/internlm2/internlm2.md"> InternLM2 </a> </td>
-      <td> 7B </td>
-      <td> 2K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/internlm2/run_internlm2_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-    <tr>
-      <td> 20B </td>
-      <td> 4K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-      <td> <a href="scripts/examples/internlm2/run_internlm2_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="2"> <a href="research/yi/yi.md"> Yi </a> </td>
-      <td> 6B </td>
-      <td> 2K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/yi/run_yi_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-    <tr>
-      <td> 34B </td>
-      <td> 4K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/yi/run_yi_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="research/mixtral/mixtral.md"> Mixtral </a> </td>
-      <td> 8x7B </td>
-      <td> 32K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/mixtral/mixtral.md"> docs </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="research/deepseek/deepseek.md"> DeepSeek Coder </a> </td>
-      <td> 33B </td>
-      <td> 4K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/deepseek/deepseek.md"> docs </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="research/deepseek1_5/deepseek1_5.md"> DeepSeek Coder1.5 </a> </td>
-      <td> 7B </td>
-      <td> 4K </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/deepseek1_5/deepseek1_5.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="research/deepseek2/deepseek2.md"> DeepSeekV2 </a> </td>
-      <td> 236B </td>
-      <td> 4K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> <a href="research/deepseek2/deepseek2.md"> docs </a> </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="docs/model_cards/codellama.md"> CodeLlama </a> </td>
-      <td> 34B </td>
-      <td> 4K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/codellama/run_codellama_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> HumanEval </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="docs/model_cards/gpt2.md"> GPT2 </a> </td>
-      <td> 13B </td>
-      <td> 2K </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td> <a href="scripts/examples/gpt2/run_gpt2_predict.sh"> generate </a> </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> PPL </td>
-    </tr>
-  </tbody>
-  <tbody>
-    <tr>
-      <td rowspan="1"> <a href="docs/model_cards/whisper.md"> Whisper </a> </td>
-      <td> 1.5B </td>
-      <td> - </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> &#x2713 </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-      <td style="text-align: center"> - </td>
-    </tr>
-  </tbody>
-</table>
+| 模型名                                                                                                 | 支持规格                          | 模型类型         |
+|-----------------------------------------------------------------------------------------------------|-------------------------------|--------------|
+| [Llama2](https://gitee.com/mindspore/mindformers/tree/dev/docs/model_cards/llama2.md)               | 7B/13B/70B                    | 稠密LLM        |
+| [Llama3](https://gitee.com/mindspore/mindformers/tree/dev/research/llama3)                          | 8B/70B                        | 稠密LLM        |
+| [Llama3.1](https://gitee.com/mindspore/mindformers/tree/dev/research/llama3_1)                      | 8B/70B                        | 稠密LLM        |
+| [Qwen](https://gitee.com/mindspore/mindformers/tree/dev/research/qwen)                              | 7B/14B                        | 稠密LLM        |
+| [Qwen1.5](https://gitee.com/mindspore/mindformers/tree/dev/research/qwen1_5)                        | 7B/14B/72B                    | 稠密LLM        |
+| [Qwen2](https://gitee.com/mindspore/mindformers/tree/dev/research/qwen2)                            | 0.5B/1.5B/7B/57B/57B-A14B/72B | 稠密/稀疏MoE LLM |
+| [Qwen-VL](https://gitee.com/mindspore/mindformers/tree/dev/research/qwenvl)                         | 9.6B                          | 多模态          |
+| [GLM2](https://gitee.com/mindspore/mindformers/tree/dev/docs/model_cards/glm2.md)                   | 6B                            | 稠密LLM        |
+| [GLM3](https://gitee.com/mindspore/mindformers/tree/dev/docs/model_cards/glm3.md)                   | 6B                            | 稠密LLM        |
+| [GLM3-32K](https://gitee.com/mindspore/mindformers/tree/dev/research/glm32k)                        | 6B                            | 稠密LLM        |
+| [GLM4](https://gitee.com/mindspore/mindformers/tree/dev/docs/model_cards/glm4.md)                   | 9B                            | 稠密LLM        |
+| [CogVLM2-Video](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/cogvlm2_video.md) | 13B                           | 多模态          |
+| [CogVLM2-Image](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/cogvlm2_image.md) | 19B                           | 多模态          |
+| [InternLM](https://gitee.com/mindspore/mindformers/blob/dev/research/internlm/internlm.md)          | 7B/20B                        | 稠密LLM        |
+| [InternLM2](https://gitee.com/mindspore/mindformers/blob/dev/research/internlm2)                    | 7B/20B                        | 稠密LLM        |
+| [DeepSeek-Coder](https://gitee.com/mindspore/mindformers/blob/dev/research/deepseek)                | 33B                           | 稠密LLM        |
+| [DeepSeek-Coder-V1.5](https://gitee.com/mindspore/mindformers/blob/dev/research/deepseek1_5)        | 7B                            | 稠密LLM        |
+| [DeepSeek-V2](https://gitee.com/mindspore/mindformers/blob/dev/research/deepseek2)                  | 236B                          | 稀疏MoE LLM    |
+| [CodeLlama](https://gitee.com/mindspore/mindformers/tree/dev/docs/model_cards/codellama.md)         | 34B                           | 稠密LLM        |
+| [Mixtral](https://gitee.com/mindspore/mindformers/blob/dev/research/mixtral)                        | 8x7B                          | 稀疏MoE LLM    |
+| [Baichuan2](https://gitee.com/mindspore/mindformers/blob/dev/research/baichuan2)                    | 7B/13B                        | 稠密LLM        |
+| [Yi](https://gitee.com/mindspore/mindformers/blob/dev/research/yi)                                  | 6B/34B                        | 稠密LLM        |
+| [GPT2](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/gpt2.md)                   | 13B                           | 稠密LLM        |
+| [Whisper](https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/whisper.md)             | 1.5B                          | 多模态          |
 
 ## 二、安装
 
@@ -526,13 +65,18 @@ MindFormers已支持大部分模型的[LoRA微调](https://www.mindspore.cn/mind
 
 当前支持的硬件为[Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2)训练服务器。
 
-当前套件建议使用的Python版本为3.9。
+当前套件建议使用的Python版本为3.10。
 
-| MindFormers | MindPet |                      MindSpore                      | CANN | 驱动固件 | 镜像链接 |      备注       |
-|:-----------:|:-------:|:---------------------------------------------------:|:----:|:----:|:----:|:-------------:|
-|     dev     |  1.0.4  | [master](https://gitee.com/mindspore/mindspore.git) | 尚未发布 | 尚未发布 |  /   |  开发分支(非稳定版本)  |
+| MindFormers | MindSpore | CANN | 固件与驱动 | 镜像链接 |
+|:-----------:|:---------:|:----:|:-----:|:----:|
+|    在研版本     |   在研版本    | 在研版本 | 在研版本  | 不涉及  |
 
-**当前MindFormers仅支持如上的软件配套关系**。其中CANN和固件驱动的安装需与使用的机器匹配，请注意识别机器型号，选择对应架构的版本。
+历史版本配套关系：
+
+| MindFormers |                 MindSpore                  |                                                     CANN                                                     |                                  固件与驱动                                   |                                 镜像链接                                 |
+|:-----------:|:------------------------------------------:|:------------------------------------------------------------------------------------------------------------:|:------------------------------------------------------------------------:|:--------------------------------------------------------------------:|
+|   r1.3.0    | [2.4.0](https://www.mindspore.cn/install/) | [8.0.RC3.beta1](https://www.hiascend.com/developer/download/community/result?module=cann&cann=8.0.RC3.beta1) | [24.1.RC3](https://www.hiascend.com/hardware/firmware-drivers/community) | [Link](http://mirrors.cn-central-221.ovaijisuan.com/detail/154.html) |
+|   r1.2.0    | [2.3.0](https://www.mindspore.cn/install/) | [8.0.RC2.beta1](https://www.hiascend.com/developer/download/community/result?module=cann&cann=8.0.RC2.beta1) | [24.1.RC2](https://www.hiascend.com/hardware/firmware-drivers/community) | [Link](http://mirrors.cn-central-221.ovaijisuan.com/detail/138.html) |
 
 ### 源码编译安装
 
@@ -644,7 +188,7 @@ python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/
 
 ## 四、贡献
 
-欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/mindformers_contribution.html)。
+欢迎参与社区贡献，可参考[MindFormers贡献指南](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/mindformers_contribution.html)。
 
 ## 五、许可证
 
