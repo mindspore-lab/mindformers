@@ -476,7 +476,6 @@ class LlamaFeedForward(Cell):
                     if parallel_config.use_seq_parallel:
                         mul_shard = (dp, ep, mp)
                     self.mul.shard((mul_shard, mul_shard))
-        self.mul.shard(((dp, mp), (dp, mp)))
 
 
 class LlamaMoeInferFeedForward(Cell):
