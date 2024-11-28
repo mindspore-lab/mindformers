@@ -107,6 +107,8 @@ class ColumnParallelLinear(nn.Cell):
 
         self.input_size = input_size
         self.output_size = output_size
+        self.config = config
+        self.init_method = init_method
         self.skip_bias_add = skip_bias_add
         self.compute_dtype = compute_dtype
         self.cast = P.Cast()
@@ -244,6 +246,8 @@ class RowParallelLinear(nn.Cell):
             raise NotImplementedError("For RowParallelLinear, `tp_comm_buffer_name` is not supported for now")
         self.input_size = input_size
         self.output_size = output_size
+        self.config = config
+        self.init_method = init_method
         self.transpose_b = transpose_b
         self.skip_bias_add = skip_bias_add
         self.compute_dtype = compute_dtype
