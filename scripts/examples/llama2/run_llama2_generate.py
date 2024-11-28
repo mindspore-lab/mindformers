@@ -26,7 +26,6 @@ from mindformers.models.llama import LlamaConfig, LlamaTokenizer, LlamaForCausal
 from mindformers.core.context import build_context
 from mindformers.core.parallel_config import build_parallel_config
 from mindformers.trainer.utils import transform_and_load_checkpoint
-from mindformers.utils.config import ConfigTemplate
 
 
 def main(config_path, use_parallel, load_checkpoint):
@@ -38,7 +37,6 @@ def main(config_path, use_parallel, load_checkpoint):
 
     # init config with yaml
     config = MindFormerConfig(config_path)
-    config = ConfigTemplate.apply_template(config)
     config.use_parallel = use_parallel
     device_num = os.getenv('MS_WORKER_NUM')
     logger.info(f"Use device number: {device_num}, it will override config.model_parallel.")

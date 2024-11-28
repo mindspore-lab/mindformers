@@ -15,7 +15,7 @@
 """Config and Template"""
 import copy
 
-from mindformers.tools import logger, MindFormerConfig
+from mindformers.tools import logger
 
 
 class Config:
@@ -24,8 +24,8 @@ class Config:
 
     This class serves as a blueprint for handling configuration data by providing methods
     to validate, update, and manage key-value pairs from config files or dictionaries. It
-    supports configuration inputs as dictionaries or instances of `MindFormerConfig`, allowing
-    for flexible configuration management in workflows.
+    supports configuration inputs as dictionaries, allowing for flexible configuration
+    management in workflows.
 
     Attributes:
         _name (str): The name of the configuration. This can be set by subclasses to
@@ -54,22 +54,22 @@ class Config:
         Apply the configuration dictionary to the class, with validation.
 
         Args:
-            config (Union[MindFormerConfig, dict, None]): The configuration to apply. It can be a dictionary or
-                an instance of MindFormerConfig. If None is provided, the behavior depends on `_support_none_input`.
+            config (Union[dict, None]): The configuration to apply. It can be a dictionary.
+                If None is provided, the behavior depends on `_support_none_input`.
 
         Returns:
             dict: A dictionary containing the final configuration with default and updated values.
 
         Raises:
-            TypeError: If the input config is neither a dict nor a MindFormerConfig.
+            TypeError: If the input config is neither a dict.
             ValueError: If the config is empty when `_support_none_input` is False.
             KeyError: If a required key is missing or an unexpected key is found in the config.
         """
         if config is None:
             config = {}
 
-        if not isinstance(config, (dict, MindFormerConfig)):
-            raise TypeError(f"The input config should be a dict or MindFormerConfig, but get {type(config)}")
+        if not isinstance(config, dict):
+            raise TypeError(f"The input config should be a dict, but get {type(config)}")
 
         if not config and not cls._support_none_input:
             raise ValueError(f"The config '{cls._name}' is empty. Please check the yaml file.")
@@ -241,6 +241,7 @@ class GeneralConfig(Config):
 
     # checkpoint
     load_checkpoint = ""
+    load_ckpt_format = "ckpt"
     auto_trans_ckpt = False
     transform_process_num = 1
     src_strategy_path_or_dir = ""
@@ -262,6 +263,8 @@ class GeneralConfig(Config):
     init_start_profile = False
     profile_start_step = 1
     profile_stop_step = 10
+    profile_rank_ids = None
+    profile_pipeline = False
 
     layer_scale = False
     layer_decay = 0.65
@@ -324,6 +327,7 @@ class MoEConfig(Config):
     capacity_factor = 1.1
     aux_loss_factor = 0.05
     num_experts_chosen = 1
+    expert_group_size = None
     group_wise_a2a = False
     comp_comm_parallel = False
     comp_comm_parallel_degree = 2
@@ -353,6 +357,7 @@ class MoEConfig(Config):
     z_loss_factor = 0.
     balance_via_topk_bias = False
     topk_bias_update_rate = 0.
+    use_allgather_dispatcher = False
 
     _name = "moe_config"
 
@@ -595,51 +600,49 @@ class ConfigTemplate:
         Apply the appropriate configuration template based on the run mode.
 
         Args:
-            config (MindFormerConfig): The configuration object containing the run mode
+            config (dict): The configuration dict containing the run mode
                 and other relevant settings.
 
         Returns:
-            MindFormerConfig: A new configuration object with the applied template.
+            dict: A new dict with the applied template.
         """
-        run_mode = config.run_mode
+        run_mode = config['run_mode']
         if run_mode not in cls._run_modes:
             raise ValueError(f"run_mode must be in {cls._run_modes}, but get {run_mode}")
         if run_mode in ['train', 'finetune']:
-            template = cls._train_template(config.do_eval)
+            template = cls._train_template(config.get("do_eval", False))
         elif run_mode == "predict":
             template = cls._predict_template()
         else:
             template = cls._eval_template()
-        return cls._apply_template(config, template)
+        cls._apply_template(config, template, run_mode)
 
 
     @classmethod
-    def _apply_template(cls, config, template):
+    def _apply_template(cls, config, template, run_mode):
         """
         Apply a specific template to the configuration.
 
         Args:
-            config (MindFormerConfig): The original configuration object.
+            config (dict): The original configuration dict.
             template (list): A list of configuration sections to be applied.
 
         Returns:
-            MindFormerConfig: A new configuration object with sections applied from the template.
+            dict: A new configuration dict with sections applied from the template.
         """
-        config = cls._aggregate_general_config(config)
+        cls._aggregate_general_config(config)
 
-        config_dict = {}
+        new_config = {}
         for sub_config in template:
             class_ = CONFIG_NAME_TO_CLASS[sub_config]
-            config_dict[sub_config] = class_.apply(config.pop(sub_config, None))
+            new_config[sub_config] = class_.apply(config.pop(sub_config, None))
 
         unused_config = [key for key in config.keys()]
         if unused_config:
-            logger.warning(f"Some configs in yaml are useless: {unused_config}")
+            logger.warning(f"Some configs in yaml are useless for {run_mode}: {unused_config}")
+        config.update(new_config)
 
-        new_config = MindFormerConfig()
-        # pylint: disable=W0212
-        MindFormerConfig._dict2config(new_config, config_dict)
-        return cls._scatter_general_config(new_config)
+        cls._scatter_general_config(config)
 
     @classmethod
     def _train_template(cls, do_eval):
@@ -670,10 +673,10 @@ class ConfigTemplate:
         Aggregate all general configuration keys into a single 'general_config' section.
 
         Args:
-            config (MindFormerConfig): The original configuration object.
+            config (dict): The original configuration dict.
 
         Returns:
-            MindFormerConfig: The configuration object with aggregated general settings.
+            dict: The configuration dict with aggregated general settings.
         """
         general_config = {}
         general_keys = []
@@ -682,8 +685,7 @@ class ConfigTemplate:
                 general_keys.append(key)
         for key in general_keys:
             general_config[key] = config.pop(key)
-        config["general_config"] = MindFormerConfig(**general_config)
-        return config
+        config["general_config"] = general_config
 
     @staticmethod
     def _scatter_general_config(config):
@@ -691,10 +693,10 @@ class ConfigTemplate:
         Scatter the 'general_config' settings back into the main configuration.
 
         Args:
-            config (MindFormerConfig): The configuration object with 'general_config'.
+            config (dict): The configuration dict with 'general_config'.
 
         Returns:
-            MindFormerConfig: The updated configuration object with scattered general settings.
+            dict: The updated configuration dict with scattered general settings.
         """
         general_config = config.pop("general_config")
         for k, v in general_config.items():

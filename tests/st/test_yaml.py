@@ -45,7 +45,7 @@ def test_yaml():
     Expectation: TypeError
     """
     yaml_path = os.path.join(
-        MindFormerBook.get_project_path(), 'configs', 'clip', 'run_clip_vit_b_32_pretrain_flickr8k.yaml')
+        MindFormerBook.get_project_path(), 'configs', 'llama2', 'predict_llama2_7b.yaml')
     yaml_content = MindFormerConfig(yaml_path)
 
     logger.info(yaml_content)

@@ -18,7 +18,6 @@ import os
 import sys
 
 from mindformers.tools.register import MindFormerConfig, ActionDict
-from mindformers.utils.config import ConfigTemplate
 from mindformers.tools.utils import str2bool, parse_value
 from mindformers.core.context import build_context
 from mindformers.trainer import Trainer
@@ -62,8 +61,6 @@ def create_multi_modal_predict_data(predict_data_list, modal_type_list):
 @cloud_monitor()
 def main(config):
     """main."""
-    config = ConfigTemplate.apply_template(config)
-
     # set output path
     set_output_path(config.output_dir)
 
@@ -226,7 +223,10 @@ if __name__ == "__main__":
         if args_.register_path not in sys.path:
             sys.path.append(args_.register_path)
 
-    config_ = MindFormerConfig(args_.config)
+    if args_.run_mode is not None:
+        config_ = MindFormerConfig(args_.config, run_mode=args_.run_mode)
+    else:
+        config_ = MindFormerConfig(args_.config)
 
     if args_.device_id is not None:
         config_.context.device_id = args_.device_id
@@ -234,8 +234,6 @@ if __name__ == "__main__":
         config_.context.device_target = args_.device_target
     if args_.mode is not None:
         config_.context.mode = args_.mode
-    if args_.run_mode is not None:
-        config_.run_mode = args_.run_mode
     if args_.do_eval is not None:
         config_.do_eval = args_.do_eval
     if args_.seed is not None:

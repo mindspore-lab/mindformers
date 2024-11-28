@@ -82,9 +82,13 @@ trainer:
 
 # please edit by hand.
 train_dataset:
+  data_loader:
 train_dataset_task:
+  type:
 eval_dataset:
+  data_loader:
 eval_dataset_task:
+  type:
 
 # please edit by hand.
 model:
