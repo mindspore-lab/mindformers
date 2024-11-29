@@ -369,11 +369,15 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
         config = config.convert_args_to_mindformers_config()
 
     config['parallel_config'] = config.get('parallel_config', {})
-    config = MindFormerConfig(**config)
+    mf_config = MindFormerConfig(**config)
 
-    execute_validator(config)
+    execute_validator(mf_config)
+    ctx = Context(mf_config)
 
-    return Context(config)
+    config['local_rank'] = ctx.rank_id
+    config['device_num'] = ctx.device_num
+
+    return ctx
 
 
 def set_context(run_mode=None, **kwargs):
