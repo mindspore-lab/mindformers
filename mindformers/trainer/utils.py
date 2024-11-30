@@ -466,25 +466,41 @@ def load_slora_ckpt(checkpoint_dict, config, network):
     """
     # 1. replace slora layer in checkpoint_dict.keys(); 2. load slora param
     pet_config = config.model.model_config.get("pet_config")
-    if not pet_config or pet_config.pet_type != "slora" or not network.lora_list:
+    if not pet_config or pet_config.pet_type != "slora" or not network.lora_adapter.registered_loras:
         return checkpoint_dict
 
     logger.info("............Start load slora checkpoint ............")
-    if not os.path.exists(pet_config.adapter_path):
-        raise FileNotFoundError(f"The adapter_path must be correct, but get {pet_config.adapter_path}")
-    with open(pet_config.adapter_path, 'r') as file:
+    adapter_path = os.path.join(pet_config.adapter_path, "lora_adapter.json")
+    if not os.path.exists(adapter_path):
+        raise FileNotFoundError(f"The adapter_path must be correct, but get {adapter_path}")
+    with open(adapter_path, 'r') as file:
         path_dict = json.load(file)
-    adapter_dict = {adapter_name: load_checkpoint(os.path.join(adapter_path, "adapter_model.ckpt"))
-                    for adapter_name, adapter_path in path_dict.items()}
+    adapter_list = []
+    config_list = []
+    for adapter_name in network.lora_adapter.adapter_names[1:]:
+        if adapter_name in path_dict.keys():
+            adapter_model = load_checkpoint(os.path.join(path_dict[adapter_name], "adapter_model.ckpt"))
+            with open(os.path.join(path_dict[adapter_name], "adapter_config.json"), 'r') as file:
+                adapter_config = json.load(file)
+        else:
+            adapter_model = {}
+            adapter_config = {}
+        adapter_list.append(adapter_model)
+        config_list.append(adapter_config)
+
 
     # collect lora weights
     slora_params = {}
-    for param_name, param_shape in network.lora_list.items():
+    for param_name, param_shape in network.lora_adapter.registered_loras.items():
         lora_shape = tuple(param_shape[1:])
         slora_param = ops.zeros(lora_shape)
-        for lora_params in adapter_dict.values():
+        for lora_params, lora_config in zip(adapter_list, config_list):
             if param_name in lora_params.keys():
                 lora_param = lora_params[param_name]
+                if re.match('.*lora_b.*', param_name):
+                    # transpose lora_B shape from (n, r) to (r, n)
+                    lora_param = ops.transpose(lora_param, (1, 0))
+                    lora_param = mint.mul(lora_param, lora_config.get("lora_alpha") / lora_config.get("r"))
                 if lora_param.shape != lora_shape:
                     pad_a = lora_shape[0] - lora_param.shape[0]
                     pad_b = lora_shape[1] - lora_param.shape[1]
@@ -495,7 +511,7 @@ def load_slora_ckpt(checkpoint_dict, config, network):
             slora_param = ops.cat((slora_param, lora_param))
         slora_params[param_name] = Parameter(slora_param.reshape(param_shape))
 
-    dst_checkpoint_dir = next(iter(path_dict.values()))
+    dst_checkpoint_dir = pet_config.adapter_path
     if config.auto_trans_ckpt:
         # Save collected lora weights as single ckpt
         from mindspore import save_checkpoint

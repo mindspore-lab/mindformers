@@ -22,7 +22,7 @@ import mindspore as ms
 
 from mindformers.models.llama.llama import LlamaForCausalLM
 from mindformers.models.llama.llama_config import LlamaConfig
-from mindformers.pet.pet_config import LoraConfig
+from mindformers.pet.pet_config import SLoraConfig
 from mindformers.pet import get_pet_model
 from mindformers import Trainer, TrainingArguments
 
@@ -42,8 +42,8 @@ class TestLlamaSLoraPredict:
         Expectation: AssertionError
         """
         model_config = LlamaConfig(num_layers=2, hidden_size=32, num_heads=2, seq_length=512)
-        model_config.pet_config = LoraConfig(lora_num=2, lora_rank=8, lora_alpha=16,
-                                             target_modules='.*wq|.*wk|.*wv|.*wo')
+        model_config.pet_config = SLoraConfig(lora_num=2, lora_rank=8, lora_alpha=16,
+                                              target_modules='.*wq|.*wk|.*wv|.*wo')
         model = LlamaForCausalLM(model_config)
         model = get_pet_model(model, model_config.pet_config)
 
@@ -64,8 +64,8 @@ class TestLlamaSLoraPredict:
         Expectation: AssertionError
         """
         model_config = LlamaConfig(num_layers=2, hidden_size=32, num_heads=2, seq_length=512)
-        model_config.pet_config = LoraConfig(lora_num=2, lora_rank=8, lora_alpha=16,
-                                             target_modules='.*wq|.*wk|.*wv|.*wo|embed_token|lm_head')
+        model_config.pet_config = SLoraConfig(lora_num=2, lora_rank=8, lora_alpha=16,
+                                              target_modules='.*wq|.*wk|.*wv|.*wo|embed_token|lm_head')
         model = LlamaForCausalLM(model_config)
         model = get_pet_model(model, model_config.pet_config)
 
