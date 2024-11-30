@@ -16,6 +16,7 @@
 import copy
 import mindspore.ops as ops
 import mindspore.common.dtype as mstype
+import mindspore.ops.functional as F
 import mindspore.ops.operations as P
 from mindspore import Tensor, mint
 from mindspore.context import ParallelMode
@@ -32,11 +33,11 @@ from mindformers.core.loss import CrossEntropyLoss
 from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.version_control import get_dropout, get_tril
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.models.llama.llama_layer import LlamaEmbedding
+from mindformers.models.glm2.glm2_modules import GLMEmbedding
 
 from ..utils import lazy_inline
 from .glm2_config import ChatGLM2Config
-from .glm2_modules import FreqsMgr, FreqsMgrRope
+from .glm2_modules import FreqsMgr, FreqsMgrRope, GetEodResetMask
 from .glm2_transformer import ChatGLM2Transformer
 from ...tools.logger import logger
 
@@ -85,8 +86,9 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         dp = config.parallel_config.data_parallel
         cp = config.parallel_config.context_parallel
         mp = config.parallel_config.model_parallel
-        self.embedding = LlamaEmbedding(vocab_table_size=config.vocab_size, embedding_size=config.hidden_size,
-                                        param_init_type=config.param_init_type, parallel_optimizer=True)
+        use_sp = config.parallel_config.use_seq_parallel
+        self.embedding = GLMEmbedding(vocab_table_size=config.vocab_size, embedding_size=config.hidden_size,
+                                      param_init_type=config.param_init_type, parallel_optimizer=True)
         # rotary embedding
         rotary_dim = (
             config.hidden_size // config.num_attention_heads if config.kv_channels is None else config.kv_channels
@@ -122,9 +124,11 @@ class ChatGLM2Model(GLM2PreTrainedModel):
                 self.output_layer.pipeline_stage = config.parallel_config.pipeline_stage - 1
             else:
                 self.embedding.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
-            self.embedding.shard(config.parallel_config)
-            if config.parallel_config.vocab_emb_dp or (config.vocab_size % mp != 0):
-                self.output_layer.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
+            if config.parallel_config.vocab_emb_dp or (config.vocab_size % (dp * mp * cp) != 0):
+                if use_sp:
+                    self.output_layer.shard(strategy_matmul=((dp * cp * mp, 1), (1, 1)))
+                else:
+                    self.output_layer.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
             else:
                 self.output_layer.shard(strategy_matmul=((1, 1), (dp * cp * mp, 1)))
 
@@ -140,6 +144,12 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         self.low_triangle = Tensor(low_triangle, mstype.int32)
         self.cast = P.Cast()
         self.dropout = get_dropout(config.hidden_dropout)
+        self.dropout.dropout.shard(((dp, cp, 1),))
+        if config.parallel_config.use_seq_parallel:
+            self.dropout.dropout.shard(((dp, cp * mp, 1),))
+        parallel_config = config.parallel_config
+        self.mask_generate = config.mask_generate  # "inmap", "compress_reset"
+        self.get_attention_mask = GetEodResetMask(seq_length=config.seq_length, parallel_config=parallel_config)
 
     def get_masks(self, batch_size, padding_mask=None, input_position=None):
         """Get attention mask."""
@@ -180,7 +190,11 @@ class ChatGLM2Model(GLM2PreTrainedModel):
                     full_attention_mask = self.get_masks(batch_size, attention_mask, input_position)
                     full_attention_mask = full_attention_mask.type(mstype.uint8)
                 else:
-                    full_attention_mask = attention_mask
+                    if self.mask_generate == "inmap":
+                        full_attention_mask = self.get_attention_mask(attention_mask)
+                        full_attention_mask = F.reshape(full_attention_mask, (batch_size, 1, seq_len, seq_len))
+                    else:
+                        full_attention_mask = attention_mask
             mask = full_attention_mask
         if input_embeds is None:
             input_embeds = self.embedding(input_ids)  # (bs, seq_len, hs)
@@ -255,18 +269,23 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         mp = config.parallel_config.model_parallel
         check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
         calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
-        if config.parallel_config.vocab_emb_dp or (config.vocab_size % mp != 0):
-            self.loss = CrossEntropyLoss(parallel_config=config.parallel_config,
-                                         check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
-                                         calculate_per_token_loss=calculate_per_token_loss)
+        loss_parallel_config = copy.deepcopy(config.parallel_config)
+        if config.parallel_config.vocab_emb_dp or (config.vocab_size % (dp * mp * cp) != 0):
+            if loss_parallel_config.use_seq_parallel:
+                loss_parallel_config.data_parallel = dp * cp * mp
+                loss_parallel_config.model_parallel = 1
+                loss_parallel_config.context_parallel = 1
+            else:
+                loss_parallel_config.data_parallel = dp * cp
+                loss_parallel_config.model_parallel = 1
+                loss_parallel_config.context_parallel = 1
         else:
-            loss_parallel_config = copy.deepcopy(config.parallel_config)
-            loss_parallel_config.model_parallel = dp * mp * cp
             loss_parallel_config.data_parallel = 1
+            loss_parallel_config.model_parallel = dp * cp * mp
             loss_parallel_config.context_parallel = 1
-            self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
-                                         check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
-                                         calculate_per_token_loss=calculate_per_token_loss)
+        self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
+                                     check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
+                                     calculate_per_token_loss=calculate_per_token_loss)
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
         self.use_past = config.use_past
@@ -278,6 +297,9 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         self.vocab_size = config.padded_vocab_size
         self.predict_run_mode = get_predict_run_mode()
         self.sub_batch_valid_len = P.Sub()
+        enable_zero3 = config.parallel_config.recompute.parallel_optimizer_comm_recompute
+        if enable_zero3:
+            self._parallel_optimizer_comm_recompute(enable_zero3)
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """Get ChatGLM2 model input tuple for transform ckpt."""

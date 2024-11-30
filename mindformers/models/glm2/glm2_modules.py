@@ -16,16 +16,17 @@
 from typing import Tuple
 import numpy as np
 
+
 import mindspore.common.dtype as mstype
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
-from mindspore import nn, Parameter, Tensor
+from mindspore import nn, Parameter, Tensor, log as logger
 from mindspore.common.initializer import initializer
 
 from mindformers.modules.layers import Linear
 from mindformers.version_control import check_rmsnorm_big_kernel_valid, check_valid_big_kernel
-
-from .glm2_config import ChatGLM2Config
+from mindformers.models.llama.llama_layer import LlamaEmbedding
+from mindformers.models.glm2.glm2_config import ChatGLM2Config
 
 
 class FreqsMgr(nn.Cell):
@@ -450,3 +451,27 @@ class GetEodResetMask(nn.Cell):
         mask = self.tril_op(eod_matrix)
         mask = self.sub(1, mask)
         return mask
+
+
+class GLMEmbedding(LlamaEmbedding):
+    """GLM Embedding class"""
+    def shard(self, parallel_config):
+        """sharding for embedding"""
+        dp = parallel_config.data_parallel
+        mp = parallel_config.model_parallel
+        cp = parallel_config.context_parallel
+        use_sp = parallel_config.use_seq_parallel
+        if parallel_config.vocab_emb_dp or self.vocab_table_size % (mp * cp) != 0:
+            if self.vocab_table_size % (mp * cp) != 0:
+                logger.warning("The vocab size of Loss is: %s, it is not divide by model_parallel: %s"
+                               "model_parallel: %s * context_parallel: %s.", self.vocab_table_size, mp, cp)
+            if use_sp:
+                self.gather.shard(((1, 1), (dp, mp * cp)))
+                logger.info(f"Using dp, mp, cp for the embedding lookup with input ids (dp={dp}, mp*cp={mp * cp}).")
+            else:
+                self.gather.shard(((1, 1), (dp, cp)))
+                logger.info(f"Using dp, cp for the embedding lookup with input ids (dp={dp}, mp*cp={cp}).")
+        else:
+            self.gather.shard(((mp * cp, 1), (dp, 1)))
+            logger.info(f"Using {dp} data parallel, {cp} context parallel and {mp} "
+                        f"model parallel for the embedding lookup.")

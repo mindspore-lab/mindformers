@@ -509,9 +509,6 @@ class ChatGLM2SelfAttention(nn.Cell):
                     query = F.reshape(query, (bs, seq_len, self.n_head * self.head_dim))
                     key = F.reshape(key, (bs, seq_len, self.n_kv_head * self.head_dim))
                     value = F.reshape(value, (bs, seq_len, self.n_kv_head * self.head_dim))
-                    if self.mask_generate == "inmap":
-                        attention_mask = self.get_attention_mask(attention_mask)
-                        attention_mask = F.reshape(attention_mask, (bs, 1, seq_len, seq_len))
                     context_layer = self.flash_attention(query, key, value, attention_mask)
                     if self.cp_ds > 1:
                         context_layer = self.cp_transpose_after(F.reshape(context_layer, (
