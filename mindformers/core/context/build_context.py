@@ -128,9 +128,7 @@ class MSContextOperator:
     def _set_jit_config(self, ctx, ms_ctx):
         """Get jit_level and infer_boost from config and set into ms context."""
         run_mode = self.config.get('run_mode')
-        use_past = MindFormerConfig.get_nested_config(
-            self.config, ['model', 'model_config', 'use_past'], False
-        )
+        use_past = self.config.get_attr('model.model_config.use_past', False)
 
         if (
                 run_mode is not None
@@ -194,9 +192,7 @@ class MFContextOperator(MFContextConfig):
         supported_kwargs = self._handle_data()
         logger.debug('MFContextConfig load configs: %s', supported_kwargs)
         super(MFContextOperator, self).__init__(**supported_kwargs)
-        use_past = MindFormerConfig.get_nested_config(
-            self.config, ['model', 'model_config', 'use_past'], False
-        )
+        use_past = self.config.get_attr('model.model_config.use_past', False)
         self.set_env(use_past)
         del self.config
 
@@ -250,18 +246,16 @@ class MFContextOperator(MFContextConfig):
             env['MS_ALLOC_CONF'] = 'enable_vmm:False'
             env['RUN_MODE'] = run_mode
             env['CPU_AFFINITY'] = 'True'
-            mode = MindFormerConfig.get_nested_config(
-                self.config, ['context', 'mode'], 'GRAPH_MODE'
-            )
-            if mode == 0:
+            mode = self.config.get_attr('context.mode', 'GRAPH_MODE')
+            if MODE.get(mode) == MODE.get('GRAPH_MODE'):
                 env['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'PagedAttention'
 
         if (
                 self.enable_mindio_ttp_save_ckpt and
                 self.config.runner_config.sink_size == 1
         ):
-            os.environ['MS_ENABLE_TFT'] = '{TTP:1 UCE:1}'
-            os.environ['MINDIO_FOR_MINDSPORE'] = '1'
+            env['MS_ENABLE_TFT'] = '{TTP:1 UCE:1}'
+            env['MINDIO_FOR_MINDSPORE'] = '1'
 
         os.environ.update(env)
 
