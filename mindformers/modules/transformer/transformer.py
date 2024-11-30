@@ -1000,7 +1000,8 @@ class LowerTriangularMaskWithDynamic(Cell):
         self.is_first_iteration = True
         self.multiply_data = Tensor([-10000.0], dtype=compute_type)
         self.one = Tensor([1.0], dtype=compute_type)
-        if use_past and not is_pynative():
+        self.is_pynative = is_pynative()
+        if use_past and not self.is_pynative:
             if self.is_dynamic:
                 mask_coeff = 1.0 if compute_type is mstype.bfloat16 else -10000.0
                 self.lower_triangle_mask = Tensor(
@@ -1069,7 +1070,12 @@ class LowerTriangularMaskWithDynamic(Cell):
         # Mask the padded inputs
         mask_right = self.reshape(input_mask, shape_right)
         attention_mask = mask_right
-        lower_triangle = self.expand_dim(self.lower_triangle_mask, 0)
+
+        lower_triangle_mask = self.lower_triangle_mask
+        if self.is_pynative and self.is_dynamic:
+            lower_triangle_mask = self.slice(self.lower_triangle_mask, (0, 0), (seq_len, seq_len), (1, 1))
+        lower_triangle = self.expand_dim(lower_triangle_mask, 0)
+
         if self.seq_pipe:
             seq_seg_range = self.add_seq(self.seq_seg_range, self.seq_seg_len * seq_chunk)
             attention_mask_chunk = self.gather(lower_triangle, seq_seg_range, 1)
