@@ -77,6 +77,9 @@ FROM_CONFIG_DOCSTRING = """
 
         Examples:
             >>> from mindformers import AutoConfig, BaseAutoModelClass
+            >>> import mindspore as ms
+            >>> # set mindspore context
+            >>> ms.set_context(mode=ms.GRAPH_MODE)
             >>> # Download configuration from openmind and cache.
             >>> config = AutoConfig.from_pretrained("checkpoint_placeholder")
             >>> model = BaseAutoModelClass.from_config(config)
@@ -152,12 +155,15 @@ FROM_PRETRAINED_MINDFORMERS_DOCSTRING = r"""
 
         Examples:
             >>> from mindformers import AutoConfig, BaseAutoModelClass
+            >>> import mindspore as ms
+            >>> # set mindspore context
+            >>> ms.set_context(mode=ms.GRAPH_MODE)
             >>> # Download model and configuration from openmind and cache.
             >>> model = BaseAutoModelClass.from_pretrained("checkpoint_placeholder")
             >>> # Update configuration during loading
-            >>> model = BaseAutoModelClass.from_pretrained("checkpoint_placeholder", output_attentions=True)
-            >>> model.config.output_attentions
-            True
+            >>> model = BaseAutoModelClass.from_pretrained("checkpoint_placeholder", num_layers=2)
+            >>> model.config.num_layers
+            2
 """
 
 
