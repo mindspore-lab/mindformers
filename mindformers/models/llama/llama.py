@@ -326,7 +326,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         >>> type(network)
         <class 'mindformers.models.llama.llama.LlamaForCausalLM'>
         >>> from mindformers import LlamaForCausalLM
-        >>> network = LlamaForCausalLM.from_pretrained('llama_7b')
+        >>> network = LlamaForCausalLM.from_pretrained('llama2_7b')
         >>> type(network)
         <class 'mindformers.models.llama.llama.LlamaForCausalLM'>
     """
