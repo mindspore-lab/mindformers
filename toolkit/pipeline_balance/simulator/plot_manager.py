@@ -194,6 +194,6 @@ class PlotMgr:
 
     def show(self, file_name=None):
         self.fig.legend(bbox_to_anchor=(0.22, 0.45))
-        plt.show()
         if file_name is not None:
             plt.savefig(file_name)
+        plt.show()

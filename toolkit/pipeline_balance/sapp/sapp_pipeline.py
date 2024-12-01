@@ -288,15 +288,21 @@ class SappPipeline:
     def simulate_naive(self, layers, output_folder):
         """simulate naive configs"""
         num_layers = 0
+        rec_considered = {}
         for layer in layers:
             if layer.type_ == Layer.type_enum.BODY:
                 num_layers = layer.nb_layer_
+                rec_considered = layer.recompute_considered_
+
+        all_recomp = {"offset": 0}
+        no_recomp = {"offset": 0}
+        for rec in [Recompute.TYPE.FULL, Recompute.TYPE.SLCT, Recompute.TYPE.COMM]:
+            if rec_considered.get(rec, False):
+                all_recomp[Recompute.YAML_NAME[rec]] = True
+                no_recomp[Recompute.YAML_NAME[rec]] = False
 
         self.simulate_yaml(
-            yaml_format={
-                "offset": 0,
-                "recompute": True
-            },
+            yaml_format=all_recomp,
             show=True,
             interleave_num=self.num_of_interleave_,
             file_name=os.path.join(output_folder,
@@ -305,10 +311,7 @@ class SappPipeline:
 
         if num_layers % self.num_of_stage_ == 0:
             self.simulate_yaml(
-                yaml_format={
-                    "offset": 0,
-                    "recompute": False
-                },
+                yaml_format=no_recomp,
                 show=True,
                 interleave_num=self.num_of_interleave_,
                 file_name=os.path.join(output_folder,
@@ -324,6 +327,10 @@ class SappPipeline:
         yaml_data = {}
         for manual in data.values():
             yaml_data[Recompute.OFFSET] = manual.get(Recompute.OFFSET)
+            if isinstance(yaml_data[Recompute.OFFSET], list) and all(
+                    isinstance(item, int) for item in yaml_data[Recompute.OFFSET]):
+                yaml_data[Recompute.OFFSET] = [yaml_data[Recompute.OFFSET]]
+
             for rec in Recompute.YAML_NAME.values():
                 yaml_data[rec] = manual.get(rec)
                 if isinstance(yaml_data[rec], list) and all(
@@ -370,6 +377,8 @@ class SappPipeline:
                 raise ValueError(
                     f"in {Recompute.YAML_NAME[rec]}, there is strategy less than 0"
                 )
+
+        logger.output(f"Simulating given strategy: {layer_per_recompute}")
 
         forward_time = self.get_manual_fw_time(layer_per_recompute,
                                                interleave_num)
