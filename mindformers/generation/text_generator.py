@@ -867,7 +867,7 @@ class GenerationMixin:
                         raise ValueError("adapter_ids has different length with inputs.")
                     model_kwargs["adapter_ids"] = adapter_id
                 else:
-                    model_kwargs["adapter_ids"] = adapter_id * batch_size
+                    model_kwargs["adapter_ids"] = adapter_id * batch_size if adapter_id is not None else None
 
             while np.sum(is_finished) != batch_size:
                 block_tables = None

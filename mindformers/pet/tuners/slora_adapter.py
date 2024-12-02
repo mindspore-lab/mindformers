@@ -419,6 +419,8 @@ class SLoraAdapter(abc.ABC):
                 config = json.load(file)
             if not isinstance(config["r"], int):
                 raise TypeError(f"rank should be int type, but get {type(config['r'])} type.")
+            if not isinstance(config['target_modules'], list):
+                raise TypeError(f"target_modules should be list type, but get {type(config['target_modules'])} type.")
             max_rank = max(max_rank, int(config["r"]))
             if not all(isinstance(module, str) for module in config["target_modules"]):
                 raise TypeError(f"target_modules should be string type, but get wrong type.")
