@@ -18,12 +18,6 @@
 import argparse
 import os
 
-import LlmBoostForCausalLM
-import LlmBoostConfig
-import Qwen2Tokenizer
-import generate_state_dict
-import save_strategy_file
-
 from mindspore.communication import get_rank
 from mindformers import (
     MindFormerConfig,
@@ -33,6 +27,10 @@ from mindformers.core.context import build_context
 from mindformers.trainer.utils import load_ckpt
 from mindformers.tools import get_output_root_path
 from mindformers.tools.utils import str2bool
+from research.llm_boost.llm_boost import LlmBoostForCausalLM
+from research.llm_boost.llm_boost import LlmBoostConfig
+from research.qwen2.qwen2_tokenizer import Qwen2Tokenizer
+from research.llm_boost.utils import generate_state_dict, save_strategy_file
 
 
 # pylint: disable=C0330
@@ -109,7 +107,7 @@ def main(
     network = LlmBoostForCausalLM(model_config)
 
     # get strategy file
-    if config.llm_backend == "BuildIn" and config.only_save_strategy:
+    if model_config.llm_backend == "BuildIn" and config.only_save_strategy:
         strategy_ckpt_save_dir = os.path.join(get_output_root_path(), "strategy")
         os.makedirs(strategy_ckpt_save_dir, exist_ok=True)
         strategy_file_path = os.path.join(
@@ -154,15 +152,15 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--only_save_strategy",
-        default=False,
-        type=bool,
+        default=None,
+        type=str2bool,
         help="only save strategy.",
     )
     parser.add_argument("--vocab_file", default=None, type=str, help="tokenizer model")
     parser.add_argument("--merges_file", default=None, type=str, help="tokenizer model")
     parser.add_argument("--seq_length", default=None, type=int, help="seq_length")
     parser.add_argument(
-        "--predict_length",
+        "--max_decode_length",
         default=8192,
         type=int,
         help="max length for predict output.",
@@ -199,7 +197,7 @@ if __name__ == "__main__":
         vocab_file=args.vocab_file,
         merges_file=args.merges_file,
         seq_length=args.seq_length,
-        max_length=args.predict_length,
+        max_length=args.max_decode_length,
         device_id=args.device_id,
         do_sample=args.do_sample,
         top_k=args.top_k,
