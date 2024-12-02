@@ -14,11 +14,13 @@
 # ============================================================================
 """ Transformer-Config dict parse module """
 
-import os
-import copy
 import argparse
 from argparse import Action
+import copy
+import os
 from collections import OrderedDict
+from typing import Union
+
 import yaml
 
 BASE_CONFIG = 'base_config'
@@ -217,35 +219,77 @@ class MindFormerConfig(DictConfig):
                 else:
                     config[key] = dic[key]
 
-    @classmethod
-    def get_nested_config(cls, config, levels: list, default=None):
-        """Get the nested  config according to levels, if not exist return default.
+
+    def get_attr(self, levels: Union[str, list], default=None):
+        """Get the attribute according to levels, if not exist return default.
 
         Args:
             levels : the level to be accessed
             default : None
         Returns:
-            default or value of config
+            default or value of the key to be accessed
 
         Examples:
         >>> config = MindFormerConfig(**{'context': {'mode': 'GRAPH_MODE'}, 'parallel': {}})
-        >>> MindFormerConfig(config, ['context', 'mode'])
+        >>> config.get_attr(['context', 'mode'])
         >>> 'GRAPH_MODE'
-        >>> MindFormerConfig(config, ['context', 'mode'], 'DEFAULT_MODE')
+        >>> config.get_attr(['context', 'mode'], 'DEFAULT_MODE')
         >>> 'GRAPH_MODE'
-        >>> MindFormerConfig(config, ['context', 'fake_mode'])
+        >>> config.get_attr(['context', 'fake_mode'])
         >>> None
-        >>> MindFormerConfig(config, ['context', 'fake_mode'], 'DEFAULT_MODE')
+        >>> config.get_attr(['context', 'fake_mode'], 'DEFAULT_MODE')
+        >>> 'DEFAULT_MODE'
+        >>> config.get_attr('context.mode', 'DEFAULT_MODE')
+        >>> 'GRAPH_MODE'
+        >>> config.get_attr('context.fake_mode', 'DEFAULT_MODE')
         >>> 'DEFAULT_MODE'
         """
 
         if not levels:
             return default
+        if isinstance(levels, str):
+            levels = levels.split('.')
         if len(levels) == 1:
-            return getattr(config, str(levels[-1]), default)
-        return cls.get_nested_config(
-            getattr(config, levels[0], None), levels[1:], default
-        )
+            config = self or {}
+            return config.get(str(levels[-1]), default)
+        if getattr(self, levels[0]):
+            return getattr(self, levels[0]).get_attr(
+                levels[1:], default
+            )
+        return default
+
+    def set_attr(self, levels: Union[list, str], value):
+        """set the attribute according to levels.
+
+        Args:
+            levels : the level to be accessed
+            value : The value to be set
+        Returns:
+            None
+
+        Examples:
+        >>> config = MindFormerConfig(**{'context': {'mode': 0}, 'parallel': {}, 'test': None})
+        >>> config.set_attr('context.mode', 1)
+        >>> config = {'context': {'mode': 1}, 'parallel': {}, 'test': None})
+        >>> config.set_attr(['context', 'device_id'], 2)
+        >>> config = {'context': {'mode': 1, device_id: 2}, 'parallel': {}, 'test': None})
+        >>> config.set_attr('parallel', {'hello', 'mf'})
+        >>> config = {'context': {'mode': 1, device_id: 2}, 'parallel': {'hello', 'mf'}, 'test': None})
+        >>> config.set_attr('test.model', 1)
+        >>> config = {'context': {'mode': 1, device_id: 2}, 'parallel': {'hello', 'mf'}, 'test': {'model': 1}}})
+        >>> config.set_attr('test', {'data', 8)
+        >>> config = {'context': {'mode': 1, device_id: 2}, 'parallel': {'hello', 'mf'}, 'test': {'data': 8}}})
+        """
+        if levels:
+            if isinstance(levels, str):
+                levels = levels.split('.')
+            if len(levels) == 1:
+                if isinstance(self, MindFormerConfig):
+                    setattr(self, levels[-1], value)
+                return
+            config = getattr(self, levels[0]) or MindFormerConfig()
+            setattr(self, levels[0], config)
+            self.get(levels[0]).set_attr(levels[1:], value)
 
 
 class ActionDict(Action):

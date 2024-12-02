@@ -18,7 +18,6 @@ import inspect
 from enum import Enum
 
 from mindformers.tools import MODE, PARALLEL_MODE
-from mindformers.tools.register import MindFormerConfig
 
 
 class RunMode(Enum):
@@ -40,31 +39,23 @@ def validate_mf_ctx_run_mode(config):
 
 def validate_ms_ctx_mode(config):
     """Validate mode in context."""
-    mode = config.context.get('mode', 0)
+    mode = config.get_attr('context.mode', 0)
     if mode not in MODE.keys():
         raise ValueError(
             f'Invalid mode. Expected one of {MODE.keys()}, got {mode}'
         )
-    config.context.mode = mode
+    config.set_attr('context.mode', mode)
 
 
 def validate_parallel_mode(config):
     """Validate parallel mode in parallel."""
-    parallel_mode = MindFormerConfig.get_nested_config(
-        config, ['parallel', 'parallel_mode'], 0
-    )
-    parallel_mode = parallel_mode or 0
+    parallel_mode = config.get_attr('parallel.parallel_mode', 0)
     if parallel_mode not in PARALLEL_MODE:
         raise ValueError(
             'Invalid parallel mode. Expected one of '
             f'{PARALLEL_MODE.keys()}, got {parallel_mode}'
         )
-    if 'parallel' not in config.keys():
-        config.parallel = MindFormerConfig(
-            parallel_mode=PARALLEL_MODE.get(parallel_mode)
-        )
-    else:
-        config.parallel.parallel_mode = PARALLEL_MODE.get(parallel_mode)
+    config.set_attr('parallel.parallel_mode', PARALLEL_MODE.get(parallel_mode))
 
 
 def validate_sink_size(config):
@@ -73,7 +64,7 @@ def validate_sink_size(config):
             config.enable_mindio_ttp_save_ckpt
             or config.context.enable_mindio_ttp_save_ckpt
     ):
-        sink_size = config.runner_config.sink_size
+        sink_size = config.get_attr('runner_config.sink_size')
         if sink_size != 1:
             raise ValueError(f'sink_size should be 1, got {sink_size}')
 
