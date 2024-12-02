@@ -39,6 +39,7 @@ from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
 from mindformers.generation.parallel_decoding import parallel_decoding_control
 from mindformers.version_control import check_delay_init_valid, need_nz
+from mindformers.models import build_processor, PretrainedConfig
 
 __all__ = ["ModelRunner"]
 
@@ -75,6 +76,18 @@ def register_auto_class(config, pretrained_model_name_or_path, class_type, use_f
             MindFormerRegister.register_cls(processor_class, module_type=MindFormerModuleType.PROCESSOR)
 
 
+def is_multi_modal_model(config):
+    def count_type_num(model_config):
+        num = 0
+        for k, v in model_config.items():
+            if k == "type":
+                num += 1
+            if isinstance(v, dict):
+                num += count_type_num(v)
+        return num
+    return count_type_num(config.model.model_config) > 1
+
+
 def get_model(model_name_or_path: str,
               revision: Optional[str] = None,
               trust_remote_code: Optional[bool] = True,
@@ -97,20 +110,24 @@ def get_model(model_name_or_path: str,
     Returns:
         A Tokenizer object and others.
     """
-    if os.path.exists(model_name_or_path) and os.path.isdir(model_name_or_path):
-        logger.debug(f"model_name_or_path is {model_name_or_path}")
-        config_path = _get_model_config(model_name_or_path)
-        config = MindFormerConfig(config_path)
-        model_type = config.model.arch.type
-        logger.info(f"The model type is: {model_type}")
-        register_auto_class(config, model_name_or_path, class_type="AutoTokenizer")
-
-        use_fast = kwargs.get("use_fast", True)
-        tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, revision=revision,
-                                                  trust_remote_code=trust_remote_code,
-                                                  use_fast=use_fast)
-    else:
+    if not os.path.exists(model_name_or_path) or not os.path.isdir(model_name_or_path):
         raise ValueError(f"{model_name_or_path} does not exist or is not a directory.")
+
+    logger.debug(f"model_name_or_path is {model_name_or_path}")
+    config_path = _get_model_config(model_name_or_path)
+    config = MindFormerConfig(config_path)
+    model_type = config.model.arch.type
+    logger.info(f"The model type is: {model_type}")
+    register_auto_class(config, model_name_or_path, class_type="AutoTokenizer")
+
+    if is_multi_modal_model(config):
+        processor = build_processor(config.processor)
+        return processor, processor
+
+    use_fast = kwargs.get("use_fast", True)
+    tokenizer = AutoTokenizer.from_pretrained(model_name_or_path, revision=revision,
+                                              trust_remote_code=trust_remote_code,
+                                              use_fast=use_fast)
 
     input_builder = InputBuilder(tokenizer)
     return tokenizer, input_builder
@@ -207,6 +224,8 @@ class MindIEModelRunner:
     def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0,
                  world_size=1, npu_device_ids=None, plugin_params=None):
         self.config = MindFormerConfig(config_path)
+        self.warmup_step = 2
+        self.is_multi_modal_model = is_multi_modal_model(self.config)
         # register to Auto Class
         register_auto_class(self.config, model_path, class_type="AutoConfig")
         register_auto_class(self.config, model_path, class_type="AutoTokenizer")
@@ -223,49 +242,21 @@ class MindIEModelRunner:
                 init()
         self.model_config = AutoConfig.from_pretrained(config_path)
 
-        self.model_config.parallel_decoding_params = None
-        default_plugin_configs = {'plugin_type': None}
-        if plugin_params == default_plugin_configs:
-            plugin_params = None
-        if plugin_params:
-            if not isinstance(plugin_params, dict):
-                plugin_params = json.loads(plugin_params)
-            plugin_params['parallel_decoding'] = plugin_params['plugin_type']
-            self.model_config.parallel_decoding_params = plugin_params
-        self.model_config.checkpoint_path = self.config.load_checkpoint
-        self.num_layers = self.model_config.num_layers
-        self.num_kv_heads = self.model_config.num_heads if self.model_config.n_kv_heads is None \
-            else self.model_config.n_kv_heads
-        self.num_kv_heads = self.num_kv_heads // world_size  # check the divisibility in model initialization.
-        self.head_size = self.model_config.hidden_size // self.model_config.num_heads
+        self.update_model_config(plugin_params)
 
-        kvcache_dtype = self.model_config.compute_dtype
-        if hasattr(self.model_config, "quantization_config") and \
-                self.model_config.quantization_config.kvcache_dtype in str_to_ms_type:
-            kvcache_dtype = self.model_config.quantization_config.kvcache_dtype
-        self.dtype = convert_mstype(kvcache_dtype)
-        kvcache_bytes = ms.Tensor(0, dtype=self.dtype).itemsize
-        total_head_size = self.num_kv_heads * self.head_size
-
-        if need_nz():
-            total_head_size = -(total_head_size // -16) * 16
-
-        self.npu_num_blocks = (npu_mem_size * 1024 * 1024 * 1024) // \
-                              (block_size * total_head_size * kvcache_bytes * 2 * self.num_layers)
-        self.cpu_num_blocks = (cpu_mem_size * 1024 * 1024 * 1024) // \
-                              (block_size * total_head_size * kvcache_bytes * 2 * self.num_layers)
-
-        self.model_config.block_size = block_size
-        self.model_config.num_blocks = self.npu_num_blocks
-        self.model_config.checkpoint_name_or_path = None
-        if not hasattr(self.model_config, "max_position_embedding") or not self.model_config.max_position_embedding:
-            self.model_config.max_position_embedding = self.model_config.seq_length
+        if self.is_multi_modal_model:
+            if isinstance(self.model_config.llm_model, PretrainedConfig):
+                llm_config = self.model_config.llm_model
+            else:
+                llm_config = self.model_config.llm_model.model_config
+            self.update_llm_config(llm_config, world_size, npu_mem_size, cpu_mem_size, block_size)
+            self.processor = build_processor(self.config.processor)
+            # adapt to mindie-llm
+            self.model_config.max_position_embedding = llm_config.max_position_embedding
+        else:
+            self.update_llm_config(self.model_config, world_size, npu_mem_size, cpu_mem_size, block_size)
 
         self.generation_config = GenerationConfig.from_model_config(self.model_config)
-
-        if self.config.use_parallel:
-            build_parallel_config(self.config)
-            self.model_config.parallel_config = self.config.parallel_config
 
         if not self.config.use_parallel and npu_device_ids:
             if len(npu_device_ids) != 1:
@@ -275,8 +266,14 @@ class MindIEModelRunner:
         build_context(self.config)
         logger.info(f"Build context finished.")
 
-        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=True)
+        # build tokenizer
+        if self.is_multi_modal_model:
+            self.tokenizer = self.processor.tokenizer
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=True)
         logger.info(f"Build tokenizer finished.")
+
+        # build model
         network_delay_inited = False
         if check_delay_init_valid():
             from mindspore.nn.utils import no_init_parameters
@@ -288,16 +285,7 @@ class MindIEModelRunner:
             self.model = AutoModel.from_config(self.model_config)
         logger.info(f"Build model finished.")
 
-        ms_model = ms.Model(self.model)
-        batch_size = self.model_config.batch_size
-        seq_length = self.model_config.seq_length
-        input_ids = np.ones(shape=tuple([batch_size, seq_length]))
-        inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
-        transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
-        logger.info(f"Load checkpoints finished.")
-
-        if network_delay_inited:
-            self.model.init_parameters_data()
+        self.load_checkpoint(network_delay_inited)
 
         if self.model_config.is_dynamic:
             self.model.set_dynamic_inputs()
@@ -307,6 +295,70 @@ class MindIEModelRunner:
                                       name=f"key_host_{i}", requires_grad=False) for i in range(self.num_layers)]
         self.value_host = [ms.Parameter(ms.Tensor(shape=cpu_kv_shape, dtype=self.dtype, init=Zero()),
                                         name=f"value_host_{i}", requires_grad=False) for i in range(self.num_layers)]
+
+    def load_checkpoint(self, network_delay_inited):
+        """load checkpoint into model"""
+        ms_model = ms.Model(self.model)
+        batch_size = self.model_config.batch_size
+        seq_length = self.model_config.seq_length
+        input_ids = np.ones(shape=tuple([batch_size, seq_length]))
+        inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
+        transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
+        if network_delay_inited:
+            self.model.init_parameters_data()
+        logger.info(f"Load checkpoints finished.")
+
+    def update_model_config(self, plugin_params):
+        """update model config"""
+        def set_parallel_config(config):
+            for key, value in config.items():
+                if key == "parallel_config":
+                    config.parallel_config = self.config.parallel_config
+                elif isinstance(value, dict):
+                    set_parallel_config(value)
+
+        self.model_config.parallel_decoding_params = None
+        default_plugin_configs = {'plugin_type': None}
+        if plugin_params == default_plugin_configs:
+            plugin_params = None
+        if plugin_params:
+            if not isinstance(plugin_params, dict):
+                plugin_params = json.loads(plugin_params)
+            plugin_params['parallel_decoding'] = plugin_params['plugin_type']
+            self.model_config.parallel_decoding_params = plugin_params
+        self.model_config.checkpoint_name_or_path = None
+
+        if self.config.use_parallel:
+            build_parallel_config(self.config)
+            set_parallel_config(self.model_config)
+
+    def update_llm_config(self, config, world_size, npu_mem_size, cpu_mem_size, block_size):
+        """update llm model config"""
+        self.num_layers = config.num_layers
+        self.num_kv_heads = config.num_heads if config.n_kv_heads is None \
+            else config.n_kv_heads
+        self.num_kv_heads = self.num_kv_heads // world_size  # check the divisibility in model initialization.
+        self.head_size = config.hidden_size // config.num_heads
+
+        kvcache_dtype = config.compute_dtype
+        if hasattr(self.model_config, "quantization_config") and \
+                self.model_config.quantization_config.kvcache_dtype in str_to_ms_type:
+            kvcache_dtype = self.model_config.quantization_config.kvcache_dtype
+        self.dtype = convert_mstype(kvcache_dtype)
+        kvcache_bytes = ms.Tensor(0, dtype=self.dtype).itemsize
+
+        total_head_size = self.num_kv_heads * self.head_size
+        if need_nz():
+            total_head_size = -(total_head_size // -16) * 16
+        self.npu_num_blocks = (npu_mem_size * 1024 * 1024 * 1024) // \
+                              (block_size * total_head_size * kvcache_bytes * 2 * self.num_layers)
+        self.cpu_num_blocks = (cpu_mem_size * 1024 * 1024 * 1024) // \
+                              (block_size * total_head_size * kvcache_bytes * 2 * self.num_layers)
+        config.block_size = block_size
+        config.num_blocks = self.npu_num_blocks
+
+        if not hasattr(config, "max_position_embedding") or not config.max_position_embedding:
+            config.max_position_embedding = config.seq_length
 
     def forward(self, input_ids: [Union[List[int], List[List[int]]]],
                 valid_length_each_example: List[int],
@@ -347,7 +399,16 @@ class MindIEModelRunner:
         Returns:
             logits (Tensor)
         """
+        is_warm_up = self.warmup_step > 0
         valid_length_each_example = np.array(valid_length_each_example)
+        model_args = {"mindie_warm_up": is_warm_up}
+
+        if self.is_multi_modal_model and not is_warm_up:
+            if prefill:
+                input_ids, decode_args = self.processor.decode_input_ids(input_ids, valid_length_each_example)
+                decode_args.pop("position_ids", None)
+                model_args.update(decode_args)
+
         res, current_idx = self.model.forward(input_ids=input_ids,
                                               valid_length_each_example=valid_length_each_example,
                                               block_tables=block_tables,
@@ -358,13 +419,16 @@ class MindIEModelRunner:
                                               spec_mask=spec_mask,
                                               q_seq_lens=q_seq_lens,
                                               adapter_ids=adapter_ids,
-                                              prefill_head_indices=prefill_head_indices)
+                                              prefill_head_indices=prefill_head_indices,
+                                              **model_args)
         logits = res[0] if isinstance(res, tuple) else res
         if hasattr(self, 'model_config') and parallel_decoding_control(self.model_config):
             return logits
         if prefill and logits.shape[0] > len(current_idx):
             logits = logits[Tensor(current_idx)]
 
+        if self.warmup_step > 0:
+            self.warmup_step -= 1
         return logits
 
     def swap(self, block_tables, swap_type):
@@ -381,6 +445,11 @@ class MindIEModelRunner:
             key_cache, value_cache = self.model.kvcache(i)
             swap_cache(self.key_host[i], key_cache, ms.Tensor(block_tables), swap_type)
             swap_cache(self.value_host[i], value_cache, ms.Tensor(block_tables), swap_type)
+
+    def generate_position_ids(self, input_ids):
+        if not self.is_multi_modal_model or self.warmup_step > 0:
+            return range(len(input_ids))
+        return self.processor.decode_position_ids_from_input_ids(input_ids)
 
 
 def _get_model_config(model_path):

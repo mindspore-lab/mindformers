@@ -29,7 +29,8 @@ class TestModel:
     Test Model.
     """
     def forward(self, input_ids, valid_length_each_example, block_tables, slot_mapping, prefill, use_past,
-                position_ids=None, spec_mask=None, q_seq_lens=None, adapter_ids=None, prefill_head_indices=None):
+                position_ids=None, spec_mask=None, q_seq_lens=None, adapter_ids=None, prefill_head_indices=None,
+                mindie_warm_up=False):
         """
         Check the info of inputs
 
@@ -45,6 +46,7 @@ class TestModel:
             q_seq_lens (Union[np.ndarray, list]): rank is 1, and data type is int32.
             adapter_ids (list): rank is 1, and data type is string
             prefill_head_indices (Union[np.ndarray, list]): rank is 1, and data type is int32.
+            mindie_warm_up (bool).
 
         Return:
             res: (Tensor): given that shape is (2, 16000).
@@ -60,6 +62,7 @@ class TestModel:
         assert isinstance(slot_mapping, np.ndarray) and slot_mapping.ndim == 1 and slot_mapping.dtype == np.int32
         assert isinstance(prefill, bool)
         assert isinstance(use_past, bool)
+        assert isinstance(mindie_warm_up, bool)
         if position_ids is not None:
             if isinstance(position_ids, np.ndarray):
                 assert position_ids.ndim == 1 and position_ids.dtype == np.int32
@@ -97,6 +100,8 @@ class TestMindIEModelRunner:
     def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0, world_size=1,
                  npu_device_ids=None, plugin_params=None):
         """Test __init__ api"""
+        self.warmup_step = 2
+        self.is_multi_modal_model = False
         self.model = TestModel()
         assert isinstance(model_path, str)
         assert isinstance(config_path, str)
