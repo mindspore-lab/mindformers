@@ -244,8 +244,8 @@ class DeepSeekV2Attention(nn.Cell):
         self.cast_attn = P.Cast()
         self.tile_kv = P.Tile()
         self.slice_qkv = P.StridedSlice()
-        self.dim_slice_4d = P.Slice()
-        self.dim_slice_3d = P.Slice()
+        self.dim_slice_4d = P.StridedSlice()
+        self.dim_slice_3d = P.StridedSlice()
         self.pe_concat = P.Concat(3)
         self.sum_test = P.ReduceSum()
         self.padv = P.PadV3()
@@ -314,42 +314,50 @@ class DeepSeekV2Attention(nn.Cell):
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
         bs, seq_len, _ = self.shape(x)
-
-        q = self.q2l_proj(x)  # [bs, seq/1, hidden_size] -> [bs, seq/1, q_lora_rank]
-        # redistribution allgather needed   !!!! allgather
-        norm_q = self.lq_norm(q)   # [bs, seq/1, q_lora_rank]
-        q = self.l2q_proj(norm_q) # [bs, seq/1, q_lora_rank] ->  [bs, seq/1,  n_head * q_head_dim]
-        q = self.reshape(q, (bs, seq_len, self.n_head, self.q_head_dim))  # [bs, seq/1,  n_head, q_head_dim]
-        # redistribution allgather:
-        q = self.transpose(q, (0, 2, 1, 3))  # [bs, n_head, seq/1, q_head_dim]
-
-        # redistribution allgather:  !!!!  2 allgather??
-        q_nope = self.dim_slice_4d(q, (0, 0, 0, 0), (bs, self.n_head, seq_len, self.qk_nope_head_dim))  # [bs, n_head, seq/1, qk_nope_head_dim]
-        q_pe = self.dim_slice_4d(q, (0, 0, 0, self.qk_nope_head_dim), (bs, self.n_head, seq_len, self.qk_rope_head_dim))  # [bs, n_head, seq/1, qk_rope_head_dim]
-
-        latent_kv_all = self.kv2l(x)  # [bs, seq/1, hidden_size] -> [bs, seq/1, kv_lora_rank + self.qk_rope_head_dim]
-        # redistribution allgather:
-        latent_kv = self.dim_slice_3d(latent_kv_all, (0, 0, 0), (bs, seq_len, self.kv_lora_rank)) # [bs, seq/1, kv_lora_rank]
-        k_pe = self.dim_slice_3d(latent_kv_all, (0, 0, self.kv_lora_rank), (bs, seq_len, self.qk_rope_head_dim))  # [bs, seq/1, qk_rope_head_dim]
-        k_pe = self.reshape(k_pe, (bs, 1, seq_len, self.qk_rope_head_dim)) # [bs, 1, seq, qk_rope_head_dim]
-
-        # redistribution allgather:
-        i_kv = self.lkv_norm(latent_kv)  # [bs, seq/1, kv_lora_rank]
-        o_kv = self.lkv2kv(i_kv) # [bs, seq/1, kv_lora_rank] ->  bs, seq/1, n_head * (qk_nope_head_dim + v_head_dim)
+        # [bs, seq/1, hidden_size] -> [bs, seq/1, q_lora_rank]
+        q = self.q2l_proj(x)
+        # [bs, seq/1, q_lora_rank]
+        norm_q = self.lq_norm(q)
+        # [bs, seq/1, q_lora_rank] ->  [bs, seq/1,  n_head * q_head_dim]
+        q = self.l2q_proj(norm_q)
+        # [bs, seq/1,  n_head, q_head_dim]
+        q = self.reshape(q, (bs, seq_len, self.n_head, self.q_head_dim))
+        q = self.transpose(q, (0, 2, 1, 3))
+        q_nope = self.dim_slice_4d(q, (0, 0, 0, 0),
+                                   (bs, self.n_head, seq_len, self.qk_nope_head_dim),
+                                   (1, 1, 1, 1))
+        q_pe = self.dim_slice_4d(q, (0, 0, 0, self.qk_nope_head_dim),
+                                 (bs, self.n_head, seq_len, self.qk_nope_head_dim + self.qk_rope_head_dim),
+                                 (1, 1, 1, 1))
+        # [bs, seq/1, hidden_size] -> [bs, seq/1, kv_lora_rank + self.qk_rope_head_dim]
+        latent_kv_all = self.kv2l(x)
+        latent_kv = self.dim_slice_3d(latent_kv_all, (0, 0, 0),
+                                      (bs, seq_len, self.kv_lora_rank),
+                                      (1, 1, 1))
+        k_pe = self.dim_slice_3d(latent_kv_all, (0, 0, self.kv_lora_rank),
+                                 (bs, seq_len, self.kv_lora_rank + self.qk_rope_head_dim),
+                                 (1, 1, 1))
+        k_pe = self.reshape(k_pe, (bs, 1, seq_len, self.qk_rope_head_dim))
+        # [bs, seq/1, kv_lora_rank]
+        i_kv = self.lkv_norm(latent_kv)
+        # [bs, seq/1, kv_lora_rank] ->  bs, seq/1, n_head * (qk_nope_head_dim + v_head_dim)
+        o_kv = self.lkv2kv(i_kv)
         kv = self.reshape(o_kv, (bs, seq_len, self.n_head, self.qk_nope_head_dim + self.v_head_dim))
-        kv = self.transpose(kv, (0, 2, 1, 3))  # [bs, n_head, seq/1, qk_nope_head_dim + v_head_dim]
+        # [bs, n_head, seq/1, qk_nope_head_dim + v_head_dim]
+        kv = self.transpose(kv, (0, 2, 1, 3))
 
-        # redistribution allgather:
-        k_nope = self.dim_slice_4d(kv, (0, 0, 0, 0), (bs, self.n_head, seq_len, self.qk_nope_head_dim))   # bs, n_head, seq/1, qk_nope_head_dim
-        k_pe = self.tile_kv(k_pe, (1, self.n_head, 1, 1))  # [bs, n_head, seq, qk_rope_head_dim]
-        q_pe, k_pe = self.apply_rotary_emb(q_pe, k_pe, freqs_cis)
-
-        # redistribution allgather:
-        query_states = self.pe_concat((q_nope, q_pe))
-        # redistribution allgather:
-        key_states = self.pe_concat((k_nope, k_pe))
+        # bs, n_head, seq/1, qk_nope_head_dim
+        k_nope = self.dim_slice_4d(kv, (0, 0, 0, 0),
+                                   (bs, self.n_head, seq_len, self.qk_nope_head_dim),
+                                   (1, 1, 1, 1))
         value_states = self.dim_slice_4d(kv, (0, 0, 0, self.qk_nope_head_dim),
-                                         (bs, self.n_head, seq_len, self.v_head_dim))  # bs, n_head, seq/1, v_head_dim
+                                         (bs, self.n_head, seq_len, self.qk_nope_head_dim + self.v_head_dim),
+                                         (1, 1, 1, 1))
+        # [bs, n_head, seq, qk_rope_head_dim]
+        k_pe = self.tile_kv(k_pe, (1, self.n_head, 1, 1))
+        q_pe, k_pe = self.apply_rotary_emb(q_pe, k_pe, freqs_cis)
+        query_states = self.pe_concat((q_nope, q_pe))
+        key_states = self.pe_concat((k_nope, k_pe))
 
         if self.use_past:
             value_states = self.pe_concat((value_states, k_pe))
@@ -359,7 +367,9 @@ class DeepSeekV2Attention(nn.Cell):
             context_layer = self.infer_attention(query_states, key_states, value_states, batch_valid_length,
                                                  block_tables, slot_mapping, freqs_cis, mask,
                                                  prefix_keys_values=prefix_keys_values)
-            attn_out = self.dim_slice_3d(context_layer, (0, 0, 0), (bs, seq_len, self.n_head * self.v_head_dim))
+            attn_out = self.dim_slice_3d(context_layer, (0, 0, 0),
+                                         (bs, seq_len, self.n_head * self.v_head_dim),
+                                         (1, 1, 1))
         else:
             if self.use_flash_attention:
                 # PadV3 operator does not support bflat16, cast value_states to float32 first
@@ -369,7 +379,8 @@ class DeepSeekV2Attention(nn.Cell):
                                                      self.cast(key_states, self.dtype),
                                                      self.cast(value_states_, self.dtype), mask)
                 context_layer = self.dim_slice_4d(context_layer, (0, 0, 0, 0),
-                                                  (bs, self.n_head, seq_len, self.v_head_dim))
+                                                  (bs, self.n_head, seq_len, self.v_head_dim),
+                                                  (1, 1, 1, 1))
                 attn_out = self._merge_heads(context_layer)
             else:
                 attn_out = self._attn(query_states, key_states, value_states, mask)
