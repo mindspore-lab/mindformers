@@ -122,16 +122,22 @@ class GenerationMixin:
 
         """
         model_inputs = {"input_ids": Tensor.from_numpy(input_ids.astype(np.int32))}
-        if self.config.is_dynamic and not self.is_pynative:
-            prefill = kwargs.get("prefill")
-            if prefill and "origin_inputs" in kwargs:
-                origin_inputs = kwargs["origin_inputs"]
-                batch_valid_length = kwargs.get("valid_length_each_example")
-                slot_mapping = kwargs.get("slot_mapping")
-                model_inputs = self._prepare_inputs_for_prefill_flatten(origin_inputs,
-                                                                        batch_valid_length,
-                                                                        slot_mapping,
-                                                                        model_inputs)
+        if self.is_pynative:
+            model_inputs = {}
+            if self.config.is_dynamic and "origin_inputs" in kwargs:
+                input_ids = kwargs["origin_inputs"]
+            model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
+        else:
+            if self.config.is_dynamic:
+                prefill = kwargs.get("prefill")
+                if prefill and "origin_inputs" in kwargs:
+                    origin_inputs = kwargs["origin_inputs"]
+                    batch_valid_length = kwargs.get("valid_length_each_example")
+                    slot_mapping = kwargs.get("slot_mapping")
+                    model_inputs = self._prepare_inputs_for_prefill_flatten(origin_inputs,
+                                                                            batch_valid_length,
+                                                                            slot_mapping,
+                                                                            model_inputs)
         return model_inputs
 
     def add_flags_custom(self, is_first_iteration):
@@ -874,7 +880,11 @@ class GenerationMixin:
                 slot_mapping = None
                 if generation_config.use_past:
                     if prefill:
-                        block_tables, slot_mapping = self.block_mgr.assemble_pa_full_inputs(self.config.seq_length,
+                        if self.is_pynative and self.config.is_dynamic:
+                            max_input_length = len(origin_inputs[0])
+                        else:
+                            max_input_length = self.config.seq_length
+                        block_tables, slot_mapping = self.block_mgr.assemble_pa_full_inputs(max_input_length,
                                                                                             valid_length_each_example,
                                                                                             is_finished)
                     else:
