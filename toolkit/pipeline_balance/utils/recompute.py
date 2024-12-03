@@ -16,30 +16,58 @@
 
 from enum import IntEnum
 
-from mindformers.tools.logger import logger
+from toolkit.pipeline_balance.utils.logger import logger
 
-TYPE = IntEnum('RecomputeType', ['NONE', 'SLCT', 'COMM', 'FULL'], start=0)
+TYPE = IntEnum("RecomputeType", ["NONE", "SLCT", "COMM", "BOTH", "FULL"], start=0)
+OFFSET = "offset"
 
-COEF = {TYPE.NONE: 0, TYPE.COMM: 0.25, TYPE.SLCT: 0.25, TYPE.FULL: 0.5}
+DEFAULT_COEF = {
+    TYPE.NONE: 0,
+    TYPE.SLCT: 0.04,
+    TYPE.COMM: 0.125,
+    TYPE.BOTH: 0.165,
+    TYPE.FULL: 0.5,
+}  # old
 
 YAML_NAME = {
-    TYPE.NONE: "", TYPE.COMM: "select_comm_recompute", TYPE.SLCT: "select_recompute",
-    TYPE.FULL: "recompute"
+    TYPE.NONE: "",
+    TYPE.COMM: "select_comm_recompute",
+    TYPE.SLCT: "select_recompute",
+    TYPE.BOTH: "both_comm_select",
+    TYPE.FULL: "recompute",
 }
 
 JSON_MEMORY_NAME = {
-    TYPE.NONE: "memory_activation", TYPE.COMM: "memory_select_comm",
-    TYPE.SLCT: "memory_select_rec", TYPE.FULL: "memory_recompute"
+    TYPE.NONE: "memory_activation",
+    TYPE.COMM: "memory_select_comm",
+    TYPE.BOTH: "memory_both_comm_select",
+    TYPE.SLCT: "memory_select_rec",
+    TYPE.FULL: "memory_recompute",
 }
 
+JSON_MEMORY_NAME_ALIGNED = {
+    TYPE.NONE: "memory_activation ",
+    TYPE.COMM: "memory_select_comm",
+    TYPE.BOTH: "memory_both_comm_select",
+    TYPE.SLCT: "memory_select_rec ",
+    TYPE.FULL: "memory_recompute  ",
+}
+
+
 JSON_TIME_NAME = {
-    TYPE.NONE: "backward_time", TYPE.COMM: "select_comm_time",
-    TYPE.SLCT: "select_rec_time", TYPE.FULL: "recompute_time "
+    TYPE.NONE: "backward_time",
+    TYPE.COMM: "select_comm_time",
+    TYPE.BOTH: "both_comm_select_time",
+    TYPE.SLCT: "select_rec_time",
+    TYPE.FULL: "recompute_time ",
 }
 
 JSON_COEF_NAME = {
-    TYPE.NONE: "backward_coef", TYPE.SLCT: "select_rec_coef",
-    TYPE.COMM: "select_comm_coef", TYPE.FULL: "recompute_coef"
+    TYPE.NONE: "backward_coef",
+    TYPE.SLCT: "select_rec_coef",
+    TYPE.BOTH: "both_comm_select_coef",
+    TYPE.COMM: "select_comm_coef",
+    TYPE.FULL: "recompute_coef",
 }
 
 
@@ -48,6 +76,100 @@ def sums(rec_dict):
     for r in TYPE:
         x += rec_dict[r]
     return x
+
+
+def zero_if_none(v):
+    if v is not None:
+        return int(v)
+    return 0
+
+
+def yaml_from_internal(vpp, pp, lp_variables, nass):
+    """covert internal format to mindformers yaml format"""
+    slct_is = 0
+    comm_is = 0
+    both_is = 0
+    full_is = 0
+
+    yaml = {
+        OFFSET: [],
+        YAML_NAME[TYPE.FULL]: [],
+        YAML_NAME[TYPE.SLCT]: [],
+        YAML_NAME[TYPE.COMM]: [],
+    }
+    logger.debug(f"pp = {pp}, vpp = {vpp}")
+    for i in range(vpp):
+        for _, v in yaml.items():
+            v.append([])
+        for s in range(pp):
+            gass_i_s = 0
+            for r in TYPE:
+                gass_i_s += zero_if_none(lp_variables[r][i][s].varValue)
+            slct_is = zero_if_none(lp_variables[TYPE.SLCT][i][s].varValue)
+            comm_is = zero_if_none(lp_variables[TYPE.COMM][i][s].varValue)
+            both_is = zero_if_none(lp_variables[TYPE.BOTH][i][s].varValue)
+            full_is = zero_if_none(lp_variables[TYPE.FULL][i][s].varValue)
+            yaml[OFFSET][i].append(gass_i_s - nass[i][s])
+            yaml[YAML_NAME[TYPE.FULL]][i].append(full_is)
+            yaml[YAML_NAME[TYPE.SLCT]][i].append(slct_is + both_is + full_is)
+            yaml[YAML_NAME[TYPE.COMM]][i].append(comm_is + both_is + full_is)
+
+    logger.debug(f"yaml = {yaml}")
+    return yaml
+
+
+def internal_from_yaml(vpp, pp, yaml, nass):
+    """covert mindformers yaml format to internal format"""
+    slct_is = 0
+    comm_is = 0
+    full_is = 0
+    layer_per_recompute = {r: [] for r in TYPE}
+    if yaml[OFFSET] == 0:
+        yaml[OFFSET] = [[0] * pp] * vpp
+
+    for rec in [TYPE.SLCT, TYPE.COMM, TYPE.FULL]:
+        if (
+                YAML_NAME[rec] not in yaml
+                or yaml[YAML_NAME[rec]] is False
+                or yaml[YAML_NAME[rec]] == 0
+        ):
+            yaml[YAML_NAME[rec]] = [[0] * pp] * vpp
+        if yaml[YAML_NAME[rec]] is True:
+            yaml[YAML_NAME[rec]] = [
+                [a + b for a, b in zip(list1, list2)]
+                for list1, list2 in zip(nass, yaml[OFFSET])
+            ]
+
+    for i in range(vpp):
+        for _, v in layer_per_recompute.items():
+            v.append([])
+        for s in range(pp):
+            slct_is = zero_if_none(yaml[YAML_NAME[TYPE.SLCT]][i][s])
+            comm_is = zero_if_none(yaml[YAML_NAME[TYPE.COMM]][i][s])
+            full_is = zero_if_none(yaml[YAML_NAME[TYPE.FULL]][i][s])
+            layer_per_recompute[TYPE.FULL][i].append(full_is)
+            layer_per_recompute[TYPE.BOTH][i].append(
+                max(min(slct_is - full_is, comm_is - full_is), 0)
+            )
+            layer_per_recompute[TYPE.SLCT][i].append(
+                max(slct_is - full_is - layer_per_recompute[TYPE.BOTH][i][s], 0)
+            )
+            layer_per_recompute[TYPE.COMM][i].append(
+                max(comm_is - full_is - layer_per_recompute[TYPE.BOTH][i][s], 0)
+            )
+            layer_per_recompute[TYPE.NONE][i].append(
+                (
+                    yaml[OFFSET][i][s]
+                    + nass[i][s]
+                    - layer_per_recompute[TYPE.FULL][i][s]
+                    - layer_per_recompute[TYPE.BOTH][i][s]
+                    - layer_per_recompute[TYPE.SLCT][i][s]
+                    - layer_per_recompute[TYPE.COMM][i][s]
+                )
+            )
+
+    logger.debug(f"layer_per_recompute = {layer_per_recompute}")
+    return layer_per_recompute
 
 
 def to_list(rec_dict):
@@ -69,8 +191,12 @@ def make_all_indexes_local(used_rec, num_of_interleave, all_indexes: list[list[i
             all_indexes = right_extend(all_indexes, num_of_interleave)
         return all_indexes
     if used_rec[r]:
-        return make_all_indexes_local(used_rec, num_of_interleave,
-                                      right_extend(all_indexes, num_of_interleave), TYPE(r + 1))
+        return make_all_indexes_local(
+            used_rec,
+            num_of_interleave,
+            right_extend(all_indexes, num_of_interleave),
+            TYPE(r + 1),
+        )
     return make_all_indexes_local(used_rec, num_of_interleave, all_indexes, TYPE(r + 1))
 
 
@@ -101,8 +227,11 @@ def average(rec_list):
             if rec_1[r] is not None and rec_i[r] is not None:
                 rec_1[r] = rec_1[r] + rec_i[r]
             elif not (rec_1[r] is None and rec_i[r] is None):
-                logger.warning("WARNING: Recomputation %s is not taken ",
-                               "into consideration by all body layers", r.name)
+                logger.warning(
+                    "WARNING: Recomputation %s is not taken ",
+                    "into consideration by all body layers",
+                    r.name,
+                )
     for r in TYPE:
         if rec_1[r] is not None:
             rec_1[r] = rec_1[r] / num
@@ -130,11 +259,11 @@ def get_used_list(recompute_considered) -> list[TYPE]:
 
 
 def get_unused_list(recompute_considered) -> list[TYPE]:
-    used_rec = []
+    unused_rec = []
     for rec in TYPE:
-        if not recompute_considered[rec]:
-            used_rec.append(rec)
-    return used_rec
+        if rec not in recompute_considered or not recompute_considered[rec]:
+            unused_rec.append(rec)
+    return unused_rec
 
 
 def least_recomputed(recompute_considered):

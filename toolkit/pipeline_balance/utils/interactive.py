@@ -20,7 +20,7 @@ from toolkit.pipeline_balance.utils.error import _check_in_bounds
 from toolkit.pipeline_balance.utils.layer import Layer
 import toolkit.pipeline_balance.utils.recompute as Recompute
 from toolkit.pipeline_balance.sapp.sapp_pipeline import SappPipeline
-from mindformers.tools.logger import logger
+from toolkit.pipeline_balance.utils.logger import logger
 
 YES_OR_NO = "[y/n]? "
 
@@ -140,4 +140,3 @@ def main():
     pipe.solve_problem(time_limit=40, dump_folder="output")
     pipe.print_yaml_results()
     pipe.simulate(show=True)
-    pipe.simulate_naive(all_recompute=True, show=True, interleave_num=interleave_degree)

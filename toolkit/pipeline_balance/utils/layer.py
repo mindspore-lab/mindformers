@@ -18,7 +18,7 @@ import os
 import json
 from enum import Enum
 
-from mindformers.tools.logger import logger
+from toolkit.pipeline_balance.utils.logger import logger
 import toolkit.pipeline_balance.utils.recompute as Recompute
 from toolkit.pipeline_balance.utils.computation_analyzer import (ComputationAnalyzer,)
 
