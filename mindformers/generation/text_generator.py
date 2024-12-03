@@ -331,7 +331,7 @@ class GenerationMixin:
             # of the increment process will trigger this.
             if self._exec_add_flags:
                 self.add_flags_custom(is_first_iteration=False)
-                if self.config.is_dynamic:
+                if self.config.is_dynamic and not self.is_pynative:
                     self._exec_add_flags = False
         else:
             # slice model inputs for incremental infer
