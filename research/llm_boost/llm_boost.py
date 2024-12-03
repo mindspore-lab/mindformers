@@ -68,7 +68,6 @@ class LlmBoostForCausalLM(PreTrainedModel):
         )
         self.llm_boost.init()
         self.is_set_kvcache = False
-        self.parm_dict = {}
 
     # pylint: disable=C0111
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
@@ -126,15 +125,22 @@ class LlmBoostForCausalLM(PreTrainedModel):
             llm_boost_inputs["position_ids"] = Tensor.from_numpy(position_ids)
             if lm_head_indices is None:
                 lm_head_indices = np.cumsum(batch_valid_length, dtype=np.int64) - 1
-            llm_boost_inputs["lm_head_indices"] = Tensor.from_numpy(lm_head_indices)
+            llm_boost_inputs["lm_head_indices"] = Tensor.from_numpy(
+                lm_head_indices.astype(np.int64)
+            )
         else:
             if input_ids.shape[-1] != 1:
                 for i in range(bs):
                     context_len = batch_valid_length[i]
                     input_ids_list.append(input_ids[i][context_len - 1 : context_len])
+            if position_ids is None:
+                position_ids = batch_valid_length - 1
         if input_ids_list:
             input_ids = np.concatenate(input_ids_list, 0)
         llm_boost_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int64))
+        llm_boost_inputs["position_ids"] = Tensor.from_numpy(
+            position_ids.astype(np.int64)
+        )
         llm_boost_inputs["block_tables"] = Tensor.from_numpy(block_tables)
         llm_boost_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
         llm_boost_inputs["batch_valid_length"] = Tensor.from_numpy(batch_valid_length)
