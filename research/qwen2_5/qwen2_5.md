@@ -66,8 +66,8 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
 
 - **alpaca 数据预处理**
 
-  1. 执行`research/qwen2_5/alpaca_converter.py`，将原始数据集转换为指定格式。(静态shape)
-  2. 执行`research/qwen2_5/alpaca_converter_json.py`，将原始数据集转换为指定格式。(动态shape)
+  1. 执行`research/qwen2/alpaca_converter.py`，将原始数据集转换为指定格式。(静态shape)
+  2. 执行`research/qwen2/alpaca_converter_json.py`，将原始数据集转换为指定格式。(动态shape)
 
   ```shell
   python alpaca_converter.py \
@@ -79,10 +79,10 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
   output_path: 输出文件的保存路径
   ```
 
-  执行`research/qwen2_5/qwen2_5_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
+  执行`research/qwen2/qwen2_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
 
   ```shell
-  python qwen2_5_preprocess.py \
+  python qwen2_preprocess.py \
    --dataset_type 'qa' \
    --input_glob /path/alpaca-data-messages.json \
    --vocab_file /path/vocab.json \
