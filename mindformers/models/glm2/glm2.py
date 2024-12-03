@@ -388,10 +388,9 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
                 outputs = logits, labels, input_mask
 
         # generation process
-        if (not self.use_past or self.is_first_iteration) and input_position is not None:
-            lm_logits = lm_logits.reshape((-1, lm_logits.shape[-1]))
-            lm_logits = self.gather(lm_logits, input_position, 0)
+        if not self.training and self.predict_run_mode:
             lm_logits = self.cast(lm_logits, mstype.float32)
+            lm_logits = self.reshape(lm_logits, (-1, lm_logits.shape[-1]))
             outputs = (lm_logits,)
 
         return outputs
