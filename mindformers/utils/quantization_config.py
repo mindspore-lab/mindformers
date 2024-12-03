@@ -29,6 +29,7 @@ from mindspore_gs.common import BackendTarget
 dtype_map = {"None": None,
              "bool": msdtype.bool_,
              "int": msdtype.int_,
+             "int4": msdtype.qint4x2,
              "int8": msdtype.int8,
              "int16": msdtype.int16,
              "int32": msdtype.int32,
@@ -46,7 +47,8 @@ dtype_map = {"None": None,
              "complex128": msdtype.complex128}
 
 outliers_map = {"None": OutliersSuppressionType.NONE,
-                "smooth": OutliersSuppressionType.SMOOTH}
+                "smooth": OutliersSuppressionType.SMOOTH,
+                "awq": OutliersSuppressionType.AWQ}
 
 
 quant_granularity_map = {"per_tensor": QuantGranularity.PER_TENSOR,
@@ -322,10 +324,9 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
             support QuantGranularity.PER_TENSOR and QuantGranularity.PER_TOKEN currently.
         kvcache_quant_granularity(QuantGranularity): the quant granularity of kvcache,
             support QuantGranularity.PER_CHANNEL and QuantGranularity.PER_TOKEN currently.
-        ValueError: If `kvcache_quant_granularity` is QuantGranularity.PER_TOKEN but `kvcache_dtype` is
-                    not mindspore.dtype.int8.
-        ValueError: If `act_quant_granularity` is QuantGranularity.PER_TOKEN but `weight_dtype` is
-                    not mindspore.dtype.int8 or `activation_dtype` is not mindspore.dtype.int8.
+        weight_quant_granularity(QuantGranularity): the quant granularity of weight,
+            support QuantGranularity.PER_CHANNEL and QuantGranularity.PER_GROUP currently.
+        group_size (int): group_size of per_group quantization, suggest using 64 or 128.
 
     Raises:
         ValueError: If `mode` is not PTQMode.QUANTIZE or PTQMode.DEPLOY.
@@ -335,6 +336,12 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         ValueError: If `activation_dtype` is not mindspore.dtype.int8 or None.
         ValueError: If `kvcache_dtype` is not mindspore.dtype.int8 or None.
         ValueError: If `outliers_suppression` is not OutliersSuppressionType.NONE or OutliersSuppressionType.SMOOTH.
+        ValueError: If `kvcache_quant_granularity` is QuantGranularity.PER_TOKEN but `kvcache_dtype` is
+                    not mindspore.dtype.int8.
+        ValueError: If `act_quant_granularity` is QuantGranularity.PER_TOKEN but `weight_dtype` is
+                    not mindspore.dtype.int8 or `activation_dtype` is not mindspore.dtype.int8.
+        ValueError: If `weight_quant_granularity` is QuantGranularity.PER_GROUP but `group_size` is not in [64, 128].
+        TypeError: If `group_size` is not Int.
 
     Examples:
         >>> from mindformers.utils.quantization_config import PtqConfig
@@ -356,6 +363,8 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
             algorithm_args: Union[dict, object] = field(default_factory=dict),
             act_quant_granularity: str = "per_tensor",
             kvcache_quant_granularity: str = "per_channel",
+            weight_quant_granularity: str = "per_channel",
+            group_size: int = 0,
             **kwargs
     ):
         super().__init__()
@@ -369,7 +378,9 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         self.act_quant_dtype = dtype_map.get(activation_dtype)
         self.act_quant_granularity = quant_granularity_map.get(act_quant_granularity)
         self.kvcache_quant_granularity = quant_granularity_map.get(kvcache_quant_granularity)
+        self.weight_quant_granularity = quant_granularity_map.get(weight_quant_granularity)
         self.outliers_suppression = outliers_map[outliers_suppression]
+        self.group_size = group_size
         self.init_check()
 
     def init_check(self):
@@ -378,12 +389,15 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         """
         accepted_mode = [PTQMode.DEPLOY]
         accepted_backend = [BackendTarget.ASCEND]
-        accepted_weights = [None, msdtype.int8]
+        accepted_weights = [None, msdtype.int8, msdtype.qint4x2]
         accepted_activations = [None, msdtype.int8]
         accepted_kvcache = [None, msdtype.int8]
         accepted_act_granularity = [QuantGranularity.PER_TENSOR, QuantGranularity.PER_TOKEN]
         accepted_kvcache_granularity = [QuantGranularity.PER_CHANNEL, QuantGranularity.PER_TOKEN]
-        accepted_outliers_suppression = [OutliersSuppressionType.NONE, OutliersSuppressionType.SMOOTH]
+        accepted_weight_granularity = [QuantGranularity.PER_CHANNEL, QuantGranularity.PER_GROUP]
+        accepted_outliers_suppression = [OutliersSuppressionType.NONE, OutliersSuppressionType.SMOOTH,
+                                         OutliersSuppressionType.AWQ]
+        accepted_group_size = [0, 64, 128]
         if self.mode not in accepted_mode:
             raise ValueError(f"Only support {accepted_mode} but found {self.mode}")
         if self.backend not in accepted_backend:
@@ -406,6 +420,9 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         if self.kvcache_quant_granularity not in accepted_kvcache_granularity:
             raise ValueError(f"Only support kvcache_quant_granularity in {accepted_kvcache_granularity} but found "
                              f"{self.kvcache_quant_granularity}")
+        if self.weight_quant_granularity not in accepted_weight_granularity:
+            raise ValueError(f"Only support weight_quant_granularity in {accepted_weight_granularity} but found "
+                             f"{self.weight_quant_granularity}")
         if self.weight_quant_dtype is None and self.act_quant_dtype == msdtype.int8:
             raise ValueError("PTQ algorithm not support only quant activation.")
         if (self.weight_quant_dtype != msdtype.int8 or self.act_quant_dtype != msdtype.int8) and \
@@ -416,6 +433,9 @@ class PtqConfig(QuantizationConfigMixin, PTQConfig):
         if self.kvcache_quant_dtype != msdtype.int8 and self.kvcache_quant_granularity is QuantGranularity.PER_TOKEN:
             raise ValueError("when self.kvcache_quant_granularity is QuantGranularity.PER_TOKEN, "
                              "self.kvcache_quant_dtype must be mindspore.dtype.int8.")
+        if self.group_size not in accepted_group_size:
+            raise ValueError(f"Only support group_size in {accepted_group_size} but found "
+                             f"{self.group_size}")
 
 
 @dataclass
