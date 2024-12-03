@@ -19,7 +19,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.transforms import ScaledTranslation
 
-from sim_block import MicroBlockSim, BlockSim
+from toolkit.pipeline_balance.simulator.sim_block import MicroBlockSim, BlockSim
 
 
 class PlotMgr:
@@ -132,6 +132,7 @@ class PlotMgr:
             self.draw_connect(block_index, blocks, ax_index, equal_wide, mode)
         self._set_block_ax(self.ax[ax_index], pp)
         self.ax[ax_index].set_xlim(0, width)
+        self.ax[ax_index].set_xticks(np.linspace(0, width, 8))
         return self
 
     def draw_loop(self, blocks: list[list[MicroBlockSim]], loop: list[BlockSim],
@@ -177,7 +178,11 @@ class PlotMgr:
         for p, block_mem in enumerate(block_mem_list):
             self.ax[ax_index].plot((block_mem.T)[0], (block_mem.T)[1], label=f"stage-{p}")
         self.ax[ax_index].set_title("Block Memory Timeline")
+        width = max(np.max((block_mem.T)[0]) for block_mem in block_mem_list)
+        height = max(np.max((block_mem.T)[1]) for block_mem in block_mem_list)
         self.ax[ax_index].set_xlim(0, max(np.max((block_mem.T)[0]) for block_mem in block_mem_list))
+        self.ax[ax_index].set_xticks(np.linspace(0, width, 8))
+        self.ax[ax_index].set_yticks(np.linspace(0, height, 4))
 
     def draw_info(self, bubble_info: dict, mem_info: list):
         info_list = [f'{k} bubble: {v:.4f}' for k, v in bubble_info.items()]
@@ -187,6 +192,8 @@ class PlotMgr:
         self.fig.text(0.5, 0.05, f"peak memory: {', '.join(info_list)}", ha='center', va='center',
                       fontdict={'fontsize': 13, 'weight': 'medium'}, color='C0')
 
-    def show(self):
+    def show(self, file_name=None):
         self.fig.legend(bbox_to_anchor=(0.22, 0.45))
         plt.show()
+        if file_name is not None:
+            plt.savefig(file_name)

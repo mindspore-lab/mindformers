@@ -19,7 +19,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Polygon
 
-from utils import dfs_builder, color_mix
+from toolkit.pipeline_balance.simulator.utils import dfs_builder, color_mix
 
 
 @dataclass
@@ -161,6 +161,7 @@ class MicroBlockSim(BlockSim):
     r"""compute sim block"""
     type: str = 'c'
     mem: float = 0.
+    mem_par: float = 0.
     phase: str = None
     # pylint: disable=E0601
     send_block: SendBlockSim = field(repr=False, default=None)

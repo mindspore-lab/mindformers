@@ -13,16 +13,16 @@
 # limitations under the License.
 # ============================================================================
 """run pipeline balance"""
-
+import os
 import sys
 import argparse
-import json
 
-from mindformers.tools.logger import logger
-import toolkit.pipeline_balance.utils.interactive as Interactive
+from toolkit.pipeline_balance.utils.logger import logger
+from toolkit.pipeline_balance.utils.config import initialize_layer_json
 from toolkit.pipeline_balance.utils.layer import generate_layers_list
 from toolkit.pipeline_balance.utils.compute_memory import compute_memories
 from toolkit.pipeline_balance.sapp.sapp_pipeline import SappPipeline
+import toolkit.pipeline_balance.utils.interactive as Interactive
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog='SAPP AutoBalancing', description=(
@@ -43,15 +43,31 @@ if __name__ == "__main__":
                         type=lambda x: (str(x).lower() in ['true', '1', 'yes']), default=False,
                         help="Compute Memory with 'Less Memory interleave' option")
 
-    parser.add_argument('-o', '--overlap', type=list, default=[1],
-                        help="List of overlap coefficient")
+    parser.add_argument('-mc', '--constant_memory', type=int, default=0,
+                        help="Constant memory per stages")
+
+    parser.add_argument('-o', '--output_folder', type=str, default="./output",
+                        help="output files location")
 
     # Model info
-    parser.add_argument('-m', '--model_name', type=str, default="Llama_special", help="")
+    parser.add_argument('-m', '--model_name', type=str, default="model_name", help="")
 
-    # Model info
+    # Search time
     parser.add_argument('-t', '--time_limit', type=int, default=90,
                         help="Limitation on searching time")
+
+    # Optimization level
+    parser.add_argument('-O', '--optimization_level', type=int, default=1,
+                        help="Defines optimization level when Stage (S) = Micro Batch number (M)."
+                        + " 0 for same approach as M > S. "
+                        + " 1 (default) generally better. "
+                        + " 2 better for memory constrained cases. ")
+
+    # Simulate naive or manual config
+    parser.add_argument('-naive', '--simulate_naive', type=lambda x: (str(x).lower() in ['true', '1', 'yes']), default=False,
+                        help="Simualte naive configs")
+    parser.add_argument('-manual', '--manual_config', type=str, default=None,
+                        help="Path of manual config")
 
     # Layer info
     parser.add_argument('-lf', '--layer_folder', type=str, default="./layers/",
@@ -59,23 +75,23 @@ if __name__ == "__main__":
     parser.add_argument('-dump', '--dump_layer',  # type=bool,
                         type=lambda x: (str(x).lower() in ['true', '1', 'yes']), default=False,
                         help="Dump the layers")
-    # For Computation of time
-    parser.add_argument('-tf', '--timeline_folder', type=str, default="./timeline/",
-                        help="Path to the profiler timeline folder")
+
     # For Computation of memory
     parser.add_argument('-mf', '--memory_folder', type=str, default="./memory/",
                         help="Path to the profiler memory folder")
+    # For Initialization
+    parser.add_argument('-init', '--init', type=str, default=None,
+                        help="Path to the init file")
 
     # Computation argument
-    parser.add_argument('-ct', '--compute_timer',  # type=bool,
-                        type=lambda x: (str(x).lower() in ['true', '1', 'yes']), default=False,
-                        help="Parse timeline_folder to generate TIME of the layer")
     parser.add_argument('-cm', '--compute_memory',  # type=bool,
                         type=lambda x: (str(x).lower() in ['true', '1', 'yes']), default=False,
                         help="Parse Mindspore log to generate MEMORY of the layer (unavailable)",)
     parser.add_argument('-exec', '--exec',  # type=bool,
                         type=lambda x: (str(x).lower() in ['true', '1', 'yes']), default=True,
                         help="Compute solver")
+
+
 
     args = parser.parse_args()
 
@@ -84,7 +100,6 @@ if __name__ == "__main__":
         sys.exit(0)
 
     layer_folder = args.layer_folder
-    timeline_folder = args.timeline_folder
     memory_folder = args.memory_folder
     model_name = args.model_name
     number_of_stage = args.stage
@@ -92,27 +107,32 @@ if __name__ == "__main__":
     time_limit = args.time_limit
     less_memory = args.less_memory
 
-    overlap_coeff = args.overlap
+    if args.init:
+        init_file = os.path.join(os.path.dirname(__file__), args.init)
+        initialize_layer_json(model_name, init_file)
+
+    output_folder = os.path.join(os.path.dirname(__file__), args.output_folder)
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    manual_config = None
+    if args.manual_config:
+        manual_config = os.path.join(os.path.dirname(__file__), args.manual_config)
+        manual_config = None if (not manual_config.endswith('yaml') and
+                                 not manual_config.endswith('yml')) else manual_config
 
     max_memory = args.max_memory
+    constant_memory = args.constant_memory
     interleave_degree = args.interleave_degree
+    optimization_level = args.optimization_level
 
     layers = generate_layers_list(layer_folder, model_name)
-
-    if args.compute_timer:
-        # With this way of computing the layers object parse many time the timeline profiling...
-        json_layer = layer_folder + '/' + model_name + '.json'
-        logger.info("json_layer=%s", json_layer)
-        with open(json_layer) as json_file:
-            layer_datas_json = json.load(json_file)
-            for layer in layers:
-                layer.compute_timer(timeline_folder, layer_datas_json)
 
     if args.compute_memory:
         layers = compute_memories(layers=layers, memory_folder=memory_folder,
                                   number_of_stage=number_of_stage)
     for layer in layers:
-        logger.info("%s", layer)
+        logger.output("%s", layer)
 
     if args.dump_layer:
         for layer in layers:
@@ -122,19 +142,22 @@ if __name__ == "__main__":
         pipe = SappPipeline(model_name=model_name, num_of_stage=number_of_stage,
                             num_of_micro_batch=number_of_micro_batch, max_memory=max_memory,
                             layers=layers, num_of_interleave=interleave_degree,
-                            vpp_less_memory=less_memory,)
-
+                            vpp_less_memory=less_memory, constant_memory=constant_memory,
+                            optimization_level=optimization_level)
 
         pipe.construct_problem(solver="pulp")
-        pipe.solve_problem(time_limit=time_limit)
+        pipe.solve_problem(time_limit=time_limit, dump_folder=output_folder)
         pipe.print_yaml_results()
-        total_time = pipe.simulate(show=True, file_name="./output/result.svg")
-        pipe.simulate_naive(all_recompute=True, show=True, interleave_num=interleave_degree,
-                            file_name='./output/result_all_rec.svg',)
-        pipe.simulate_naive(all_recompute=False, show=True, interleave_num=interleave_degree,
-                            file_name='./output/result_no_rec.svg',)
+        total_time = pipe.simulate(show=True, file_name=os.path.join(output_folder, "result.svg"))
 
-        logger.info("total_time: %d", total_time)
-        logger.info("time: %d", pipe.get_time())
-        logger.info("mem_par: %d", pipe.get_memory_parameter())
-        logger.info("mem_act: %d", pipe.get_memory_activation())
+        if args.simulate_naive:
+            logger.output("Simulating naive configs")
+            pipe.simulate_naive(layers, output_folder)
+        if manual_config:
+            logger.output("Simulating manual configs")
+            pipe.simulate_file(manual_config, output_folder)
+
+        logger.output("total_time: %d", total_time)
+        logger.output("time: %s", pipe.get_time())
+        logger.output("mem_par: %s", pipe.get_memory_parameter())
+        logger.output("mem_act: %s", pipe.get_memory_activation())

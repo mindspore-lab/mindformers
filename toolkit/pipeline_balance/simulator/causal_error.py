@@ -16,8 +16,8 @@
 from __future__ import annotations
 import matplotlib.pyplot as plt
 
-from sim_block import MicroBlockSim, BlockSim
-from plot_manager import PlotMgr
+from toolkit.pipeline_balance.simulator.sim_block import MicroBlockSim, BlockSim
+from toolkit.pipeline_balance.simulator.plot_manager import PlotMgr
 
 
 class CausalError(Exception):

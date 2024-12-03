@@ -14,7 +14,7 @@
 # ============================================================================
 r"""Build pipeline scheduler"""
 from __future__ import annotations
-from sim_block import MicroBlockSim, BlockSim, HeadBlockSim
+from toolkit.pipeline_balance.simulator.sim_block import MicroBlockSim, BlockSim, HeadBlockSim
 
 
 class PipelineBuilder:
@@ -66,20 +66,22 @@ class PipelineBuilder:
 
     @staticmethod
     # pylint: disable=W0613
-    def build_1f1b(pp, micro_num, vp, p, forward_time, backward_time, block_mem) -> list[BlockSim]:
+    def build_1f1b(pp, micro_num, vp, p, forward_time, backward_time, block_mem, block_mem_par) -> list[BlockSim]:
         r"""1f1b pipeline"""
         forward_time = forward_time[0]
         backward_time = backward_time[0]
         block_mem = block_mem[0]
-        for_line = [MicroBlockSim(p, 'f', i, 0, forward_time, mem=block_mem, phase='warmup')
+        block_mem_par = block_mem_par[0]
+        for_line = [MicroBlockSim(p, 'f', i, 0, forward_time, mem=block_mem, mem_par=block_mem_par, phase='warmup')
                     for i in range(micro_num)]
-        back_line = [MicroBlockSim(p, 'b', i, 0, backward_time, mem=block_mem, phase='cooldown')
+        back_line = [MicroBlockSim(p, 'b', i, 0, backward_time, mem=block_mem, mem_par=block_mem_par, phase='cooldown')
                      for i in range(micro_num)]
         line = PipelineBuilder._inter_merge(for_line, back_line, pp - p - 1)
         return PipelineBuilder._build_chain(line, p)
 
     @staticmethod
-    def build_virtualpipeline(pp, micro_num, vp, p, forward_time, backward_time, block_mem) -> list[BlockSim]:
+    def build_virtualpipeline(pp, micro_num, vp, p, forward_time,
+                              backward_time, block_mem, block_mem_par) -> list[BlockSim]:
         r"""1f1b virtual pipeline"""
         for_line = []
         back_line = []
@@ -88,18 +90,23 @@ class PipelineBuilder:
             for i in range(vp):
                 if inter == 0:
                     for_line.extend([MicroBlockSim(p, 'f', m, i, forward_time[i],
-                                                   mem=block_mem[i], phase='warmup') for m in range(r)])
+                                                   mem=block_mem[i], mem_par=block_mem_par[i],
+                                                   phase='warmup') for m in range(r)])
                     back_line.extend([MicroBlockSim(p, 'b', m, i, backward_time[i],
-                                                    mem=block_mem[vp - 1 - i], phase='cooldown') for m in range(r)])
+                                                    mem=block_mem[vp - 1 - i], mem_par=block_mem_par[vp - 1 - i],
+                                                    phase='cooldown') for m in range(r)])
                 for_line.extend([MicroBlockSim(p, 'f', r + m + inter * pp, i, forward_time[i],
-                                               mem=block_mem[i], phase='warmup') for m in range(pp)])
+                                               mem=block_mem[i], mem_par=block_mem_par[i],
+                                               phase='warmup') for m in range(pp)])
                 back_line.extend([MicroBlockSim(p, 'b', r + m + inter * pp, i, backward_time[i],
-                                                mem=block_mem[vp - 1 - i], phase='cooldown') for m in range(pp)])
+                                                mem=block_mem[vp - 1 - i], mem_par=block_mem_par[vp - 1 - i],
+                                                phase='cooldown') for m in range(pp)])
         line = PipelineBuilder._inter_merge(for_line, back_line, (vp + 1) * pp - 2 * p - 2 + r * (vp - 1))
         return PipelineBuilder._build_chain(line, p)
 
     @staticmethod
-    def build_virtualpipeline2(pp, micro_num, vp, p, forward_time, backward_time, block_mem):
+    def build_virtualpipeline2(pp, micro_num, vp, p, forward_time,
+                               backward_time, block_mem, block_mem_par):
         r"""virtual pipeline with less memory scheduler"""
         for_line = []
         back_line = []
@@ -108,13 +115,17 @@ class PipelineBuilder:
             for i in range(vp):
                 if inter == 0:
                     for_line.extend([MicroBlockSim(p, 'f', m, i, forward_time[i],
-                                                   mem=block_mem[i], phase='warmup') for m in range(r)])
+                                                   mem=block_mem[i], mem_par=block_mem_par[i],
+                                                   phase='warmup') for m in range(r)])
                     back_line.extend([MicroBlockSim(p, 'b', m, i, backward_time[i],
-                                                    mem=block_mem[vp - 1 - i], phase='cooldown') for m in range(r)])
+                                                    mem=block_mem[vp - 1 - i], mem_par=block_mem_par[vp - 1 - i],
+                                                    phase='cooldown') for m in range(r)])
                 for_line.extend([MicroBlockSim(p, 'f', r + m + inter * pp, i, forward_time[i],
-                                               mem=block_mem[i], phase='warmup') for m in range(pp)])
+                                               mem=block_mem[i], mem_par=block_mem_par[i],
+                                               phase='warmup') for m in range(pp)])
                 back_line.extend([MicroBlockSim(p, 'b', r + m + inter * pp, i, backward_time[i],
-                                                mem=block_mem[vp - 1 - i], phase='cooldown') for m in range(pp)])
+                                                mem=block_mem[vp - 1 - i], mem_par=block_mem_par[vp - 1 - i],
+                                                phase='cooldown') for m in range(pp)])
 
         line = PipelineBuilder._inter_merge(for_line, back_line, vp * pp - p - 1)
         return PipelineBuilder._build_chain(line, p)
