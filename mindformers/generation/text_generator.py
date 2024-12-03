@@ -42,6 +42,7 @@ from mindformers.generation.utils import softmax_with_threads, topk, GenerateOut
 from mindformers.modules.block_tables import BlockTables
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_pynative
+from mindformers.tools.debug_info import DetailedLatency, Profiling
 from mindformers.generation.parallel_decoding import parallel_decoding_control, parallel_decoding_process
 
 __all__ = ["GenerationMixin"]
@@ -79,6 +80,8 @@ class GenerationMixin:
     """A class providing all functions for autoregressive text generation, used as a mixin with PreTrainedModel."""
 
     def __init__(self):
+        self.detailed_latency = DetailedLatency()
+        self.profile = Profiling()
         self.block_mgr = None
         self.use_mint_op = version_control.use_mint_op()
         self.is_pynative = is_pynative()
@@ -322,6 +325,7 @@ class GenerationMixin:
             # In dynamic shape scenarios, only the first execution of the prefill process will trigger this.
             if self._exec_add_flags:
                 self.add_flags_custom(is_first_iteration=True)
+            self.detailed_latency.start_predict_timer()
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -339,6 +343,7 @@ class GenerationMixin:
                 self.phase = f"increment_{self._pre_set_phase}"
             if not (hasattr(self.config, 'parallel_decoding_params') and self.config.parallel_decoding_params):
                 self.slice_incremental_inputs(model_inputs, current_index)
+            self.detailed_latency.start_predict_timer()
             # pylint: disable=E1102
             res = self(
                 **model_inputs,
@@ -675,6 +680,7 @@ class GenerationMixin:
             UN Chief Says There Is No Military Solution in Syria
             UN Chief Says There Is No Military Solution in Syria.
         """
+        self.detailed_latency.clear()
         origin_phase = self.phase
         self.set_train(False)
         try:
@@ -876,6 +882,7 @@ class GenerationMixin:
                 model_kwargs["embed_adapter_ids"] = embed_adapter_ids
 
             while np.sum(is_finished) != batch_size:
+                self.detailed_latency.start_preprocess_timer()
                 block_tables = None
                 slot_mapping = None
                 if generation_config.use_past:
@@ -886,6 +893,7 @@ class GenerationMixin:
                     else:
                         block_tables, slot_mapping = self.block_mgr.assemble_pa_inc_inputs(valid_length_each_example,
                                                                                            is_finished)
+                self.profile.start_profiling(valid_length_each_example[0] - input_ids_length)
                 infer_output, is_finished = self.infer(input_ids=input_ids,
                                                        valid_length_each_example=valid_length_each_example,
                                                        generation_config=generation_config,
@@ -899,6 +907,7 @@ class GenerationMixin:
                                                        encoder_output=encoder_output,
                                                        target_mask=target_mask,
                                                        **model_kwargs)
+                self.profile.stop_profiling(valid_length_each_example[0] - input_ids_length)
                 if generation_config.return_dict_in_generate:
                     target_list = infer_output["target_list"]
                     if generation_config.output_scores:
@@ -933,6 +942,7 @@ class GenerationMixin:
                         streamer.put(target_list[0])
                     else:
                         streamer.put(target_list)
+                self.detailed_latency.end_postprocess_timer()
 
             # Return valid outputs out of padded outputs
             valid_length_each_example += 1
@@ -949,6 +959,7 @@ class GenerationMixin:
             total_time = time.time() - total_time
             logger.info("total time: %s s; generated tokens: %s tokens; generate speed: %s tokens/s",
                         total_time, generate_len, generate_len / total_time)
+            self.detailed_latency.print_info()
 
         # set to original phase
         self.set_train(origin_phase == "train")
@@ -1028,6 +1039,7 @@ class GenerationMixin:
                                           target_mask=target_mask,
                                           **model_kwargs)
 
+        self.detailed_latency.start_postprocess_timer()
         forward_time = time.time() - start_time
         sample_time = time.time()
 
