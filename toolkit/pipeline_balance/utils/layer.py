@@ -127,7 +127,7 @@ class Layer:
             if self.recompute_considered_[rec]:
                 if (self.backward_time_rec_[rec] is None or self.backward_time_rec_[rec] == 0):
                     if self.backward_coef_rec_[rec] is None:
-                        self.backward_time_rec_[rec] = (1 + Recompute.DefaultCoef[
+                        self.backward_time_rec_[rec] = (1 + Recompute.DEFAULT_COEF[
                             rec]) * self.backward_time_
                     else:
                         self.backward_time_rec_[rec] = (1 + self.backward_coef_rec_[

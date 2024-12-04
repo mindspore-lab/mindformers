@@ -20,7 +20,6 @@ from typing import Any
 from enum import IntEnum
 
 import pulp as lpSolver
-from pulp import PULP_CBC_CMD
 
 import toolkit.pipeline_balance.utils.recompute as Recompute
 from toolkit.pipeline_balance.utils.layer import Layer
@@ -585,7 +584,7 @@ class SappSolver:
         """Solve the problem and print the results"""
         logger.info("solve:out folder = %s", dump_folder)
         self.dump_problem(dump_folder)
-        solver = lpSolver.getSolver(PULP_CBC_CMD, timeLimit=time_limit)
+        solver = lpSolver.getSolver("PULP_CBC_CMD", timeLimit=time_limit)
         self.problem_.solve(solver)
 
         self.print_results()
