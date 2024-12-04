@@ -750,8 +750,7 @@ class BaseTrainer:
         append_info = None
         if config.resume_training and config.load_checkpoint:
             logger.info(".............Start load resume context from checkpoint..................")
-            if os.path.isfile(config.load_checkpoint) and "rank_" in config.load_checkpoint and \
-                    os.path.exists(config.src_strategy_path_or_dir):
+            if config.enable_mindio_ttp_save_ckpt:
                 logger.info(".............Start resume checkpoint path from strategy..................")
                 config.load_checkpoint = self.resume_ckpt_path_with_strategy(config)
             load_resume_context_from_checkpoint(config, dataset)
@@ -867,9 +866,6 @@ class BaseTrainer:
             elif "type" in callback and callback["type"] == "CheckpointMonitor":
                 logger.info("Recommend using weights in the safetensors format.")
                 # load params into net
-                if config.get("enable_mindio_ttp_save_ckpt", False):
-                    config.remove_redundancy = False
-                    logger.info(".........enable_mindio_ttp_save_ckpt and remove redundancy are incompatible..........")
                 default_args = {"append_info": append_info,
                                 "global_batch_size": self.global_batch_size,
                                 "remove_redundancy": callback.get("remove_redundancy", False),
@@ -877,6 +873,8 @@ class BaseTrainer:
                                 }
                 if default_args.get("remove_redundancy") and default_args.get("checkpoint_format") == "ckpt":
                     raise ValueError("The format of checkpoint is ckpt which is not support remove redundancy.")
+                if default_args.get("remove_redundancy") and config.get("enable_mindio_ttp_save_ckpt"):
+                    raise ValueError("enable_mindio_ttp_save_ckpt and remove_redundancy is incompatible.")
 
             default_callbacks.append(build_callback(callback, default_args=default_args))
         if callbacks is not None:
