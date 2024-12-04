@@ -220,7 +220,7 @@ class MindFormerConfig(DictConfig):
                     config[key] = dic[key]
 
 
-    def get_attr(self, levels: Union[str, list], default=None):
+    def get_value(self, levels: Union[str, list], default=None):
         """Get the attribute according to levels, if not exist return default.
 
         Args:
@@ -231,17 +231,17 @@ class MindFormerConfig(DictConfig):
 
         Examples:
         >>> config = MindFormerConfig(**{'context': {'mode': 'GRAPH_MODE'}, 'parallel': {}})
-        >>> config.get_attr(['context', 'mode'])
+        >>> config.get_value(['context', 'mode'])
         >>> 'GRAPH_MODE'
-        >>> config.get_attr(['context', 'mode'], 'DEFAULT_MODE')
+        >>> config.get_value(['context', 'mode'], 'DEFAULT_MODE')
         >>> 'GRAPH_MODE'
-        >>> config.get_attr(['context', 'fake_mode'])
+        >>> config.get_value(['context', 'fake_mode'])
         >>> None
-        >>> config.get_attr(['context', 'fake_mode'], 'DEFAULT_MODE')
+        >>> config.get_value(['context', 'fake_mode'], 'DEFAULT_MODE')
         >>> 'DEFAULT_MODE'
-        >>> config.get_attr('context.mode', 'DEFAULT_MODE')
+        >>> config.get_value('context.mode', 'DEFAULT_MODE')
         >>> 'GRAPH_MODE'
-        >>> config.get_attr('context.fake_mode', 'DEFAULT_MODE')
+        >>> config.get_value('context.fake_mode', 'DEFAULT_MODE')
         >>> 'DEFAULT_MODE'
         """
 
@@ -253,12 +253,12 @@ class MindFormerConfig(DictConfig):
             config = self or {}
             return config.get(str(levels[-1]), default)
         if getattr(self, levels[0]):
-            return getattr(self, levels[0]).get_attr(
+            return getattr(self, levels[0]).get_value(
                 levels[1:], default
             )
         return default
 
-    def set_attr(self, levels: Union[list, str], value):
+    def set_value(self, levels: Union[list, str], value):
         """set the attribute according to levels.
 
         Args:
@@ -269,15 +269,15 @@ class MindFormerConfig(DictConfig):
 
         Examples:
         >>> config = MindFormerConfig(**{'context': {'mode': 0}, 'parallel': {}, 'test': None})
-        >>> config.set_attr('context.mode', 1)
+        >>> config.set_value('context.mode', 1)
         >>> config = {'context': {'mode': 1}, 'parallel': {}, 'test': None})
-        >>> config.set_attr(['context', 'device_id'], 2)
+        >>> config.set_value(['context', 'device_id'], 2)
         >>> config = {'context': {'mode': 1, device_id: 2}, 'parallel': {}, 'test': None})
-        >>> config.set_attr('parallel', {'hello', 'mf'})
+        >>> config.set_value('parallel', {'hello', 'mf'})
         >>> config = {'context': {'mode': 1, device_id: 2}, 'parallel': {'hello', 'mf'}, 'test': None})
-        >>> config.set_attr('test.model', 1)
+        >>> config.set_value('test.model', 1)
         >>> config = {'context': {'mode': 1, device_id: 2}, 'parallel': {'hello', 'mf'}, 'test': {'model': 1}}})
-        >>> config.set_attr('test', {'data', 8)
+        >>> config.set_value('test', {'data', 8)
         >>> config = {'context': {'mode': 1, device_id: 2}, 'parallel': {'hello', 'mf'}, 'test': {'data': 8}}})
         """
         if levels:
@@ -289,7 +289,7 @@ class MindFormerConfig(DictConfig):
                 return
             config = getattr(self, levels[0]) or MindFormerConfig()
             setattr(self, levels[0], config)
-            self.get(levels[0]).set_attr(levels[1:], value)
+            self.get(levels[0]).set_value(levels[1:], value)
 
 
 class ActionDict(Action):

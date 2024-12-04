@@ -41,9 +41,11 @@ from mindformers.utils import get_cann_workqueue_cores
 class Context:
     """The wrapper of mindformer context and mindspore context."""
 
+    _instance = None
+
     # pylint: disable=W0613
     def __new__(cls, *args, **kwargs):
-        if not hasattr(cls, '_instance'):
+        if cls._instance is None:
             cls._instance = super(Context, cls).__new__(cls)
         return cls._instance
 
@@ -64,6 +66,11 @@ class Context:
             set_cpu_affinity(self.rank_id, self.device_num)
 
             self._initailed = True
+
+    @classmethod
+    def is_exists(cls):
+        """Check if singleton Context exists."""
+        return cls._instance is not None
 
     def set_mf_ctx_run_mode(self, run_mode):
         if run_mode is not None:
@@ -128,7 +135,7 @@ class MSContextOperator:
     def _set_jit_config(self, ctx, ms_ctx):
         """Get jit_level and infer_boost from config and set into ms context."""
         run_mode = self.config.get('run_mode')
-        use_past = self.config.get_attr('model.model_config.use_past', False)
+        use_past = self.config.get_value('model.model_config.use_past', False)
 
         if (
                 run_mode is not None
@@ -192,7 +199,7 @@ class MFContextOperator(MFContextConfig):
         supported_kwargs = self._handle_data()
         logger.debug('MFContextConfig load configs: %s', supported_kwargs)
         super(MFContextOperator, self).__init__(**supported_kwargs)
-        use_past = self.config.get_attr('model.model_config.use_past', False)
+        use_past = self.config.get_value('model.model_config.use_past', False)
         self.set_env(use_past)
         del self.config
 
@@ -246,7 +253,7 @@ class MFContextOperator(MFContextConfig):
             env['MS_ALLOC_CONF'] = 'enable_vmm:False'
             env['RUN_MODE'] = run_mode
             env['CPU_AFFINITY'] = 'True'
-            mode = self.config.get_attr('context.mode', 'GRAPH_MODE')
+            mode = self.config.get_value('context.mode', 'GRAPH_MODE')
             if MODE.get(mode) == MODE.get('GRAPH_MODE'):
                 env['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'PagedAttention'
 
