@@ -15,7 +15,7 @@
 """test Config"""
 import pytest
 from mindformers.tools.register.config import MindFormerConfig
-from mindformers.utils.config import CONFIG_NAME_TO_CLASS, CallbackConfig, ConfigTemplate, ContextConfig, \
+from mindformers.tools.register.template import CONFIG_NAME_TO_CLASS, CallbackConfig, ConfigTemplate, ContextConfig, \
     EvalCallbackConfig, EvalDatasetConfig, EvalDatasetTaskConfig, GeneralConfig, LrScheduleConfig, MetricConfig, \
     MoEConfig, ModelConfig, MsParallelConfig, OptimizerConfig, ParallelConfig, ProcessorConfig, RecomputeConfig, \
     RunnerConfig, TrainDatasetConfig, TrainDatasetTaskConfig, TrainerConfig, WrapperConfig
@@ -651,73 +651,81 @@ class TestTemplate:
         )
 
     def test_none_input(self):
-        with pytest.raises(AttributeError, match="no attribute 'run_mode'"):
+        with pytest.raises(TypeError, match="'NoneType' object is not subscriptable"):
             ConfigTemplate.apply_template(None)
-        with pytest.raises(AttributeError, match="no attribute 'run_mode'"):
+        with pytest.raises(KeyError, match="run_mode"):
             ConfigTemplate.apply_template({})
 
     def test_correct_train_config(self):
         """test which input is correct for train"""
-        config = ConfigTemplate.apply_template(self.train_config)
+        config = self.train_config
+        ConfigTemplate.apply_template(config)
         compare_default_config(config, DEFAULT_CONFIGS)
         compare_default_config(config, TRAIN_DEFAULT_CONFIGS)
         compare_default_callback(config, "callbacks")
 
-        assert config.trainer.type == 1
-        assert config.model.model_config == 1
-        assert config.model.arch == 1
-        assert config.train_dataset.a == 1
-        assert config.train_dataset_task.type == 1
+        assert config['trainer']["type"] == 1
+        assert config['model']['model_config'] == 1
+        assert config['model']['arch'] == 1
+        assert config['train_dataset']['a'] == 1
+        assert config['train_dataset_task']['type'] == 1
 
     def test_correct_train_eval_config(self):
         """test which input is correct for eval while training"""
-        config = ConfigTemplate.apply_template(self.train_eval_config)
+        config = self.train_eval_config
+        ConfigTemplate.apply_template(config)
         compare_default_config(config, DEFAULT_CONFIGS)
         compare_default_config(config, TRAIN_DEFAULT_CONFIGS)
         compare_default_callback(config, "callbacks")
         compare_default_callback(config, "eval_callbacks")
 
-        assert config.trainer.type == 1
-        assert config.model.model_config == 1
-        assert config.model.arch == 1
-        assert config.train_dataset.a == 1
-        assert config.train_dataset_task.type == 1
-        assert config.eval_dataset.a == 1
-        assert config.eval_dataset_task.type == 1
+        assert config['trainer']["type"] == 1
+        assert config['model']["model_config"] == 1
+        assert config['model']["arch"] == 1
+        assert config['train_dataset']["a"] == 1
+        assert config['train_dataset_task']["type"] == 1
+        assert config['eval_dataset']["a"] == 1
+        assert config['eval_dataset_task']["type"] == 1
 
     def test_correct_predict_config(self):
-        config = ConfigTemplate.apply_template(self.predict_config)
+        config = self.predict_config
+        ConfigTemplate.apply_template(config)
         compare_default_config(config, DEFAULT_CONFIGS)
 
-        assert config.trainer.type == 1
-        assert config.model.model_config == 1
-        assert config.model.arch == 1
-        assert config.processor.type == 1
+        assert config['trainer']["type"] == 1
+        assert config['model']["model_config"] == 1
+        assert config['model']["arch"] == 1
+        assert config['processor']["type"] == 1
 
     def test_correct_eval_config(self):
-        config = ConfigTemplate.apply_template(self.eval_config)
+        """test which input is correct for eval"""
+        config = self.eval_config
+        ConfigTemplate.apply_template(config)
         compare_default_config(config, DEFAULT_CONFIGS)
         compare_default_callback(config, "eval_callbacks")
 
-        assert config.trainer.type == 1
-        assert config.model.model_config == 1
-        assert config.model.arch == 1
-        assert config.eval_dataset.a == 1
-        assert config.eval_dataset_task.type == 1
+        assert config['trainer']["type"] == 1
+        assert config['model']["model_config"] == 1
+        assert config['model']["arch"] == 1
+        assert config['eval_dataset']["a"] == 1
+        assert config['eval_dataset_task']["type"] == 1
 
     def test_overwrite_config(self):
+        """test overwrite default value"""
         self.train_config["seed"] = 2024
         self.train_config["parallel_config"] = {"data_parallel": 2}
         self.train_config["runner_wrapper"] = {"type": 1}
-        config = ConfigTemplate.apply_template(self.train_config)
-        assert config.seed == 2024
-        assert config.parallel_config.data_parallel == 2
-        assert config.parallel_config.model_parallel == 1
-        assert config.runner_wrapper.type == 1
+        config = self.train_config
+        ConfigTemplate.apply_template(config)
+
+        assert config['seed'] == 2024
+        assert config['parallel_config']["data_parallel"] == 2
+        assert config['parallel_config']["model_parallel"] == 1
+        assert config['runner_wrapper']["type"] == 1
 
     def test_wrong_run_mode_1(self):
         config = MindFormerConfig()
-        with pytest.raises(ValueError, match="run_mode must be in"):
+        with pytest.raises(KeyError, match="run_mode"):
             ConfigTemplate.apply_template(config)
 
     def test_wrong_run_mode_2(self):
@@ -765,5 +773,6 @@ class TestTemplate:
 
     def test_unexpected_key(self):
         self.train_config["a"] = 1
-        config = ConfigTemplate.apply_template(self.train_config)
-        assert "a" not in config.keys()
+        config = self.train_config
+        ConfigTemplate.apply_template(config)
+        assert "a" in config.keys()

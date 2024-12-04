@@ -22,6 +22,7 @@ from collections import OrderedDict
 from typing import Union
 
 import yaml
+from .template import ConfigTemplate
 
 BASE_CONFIG = 'base_config'
 
@@ -101,16 +102,20 @@ class MindFormerConfig(DictConfig):
         cfg_dict = {}
 
         # load from file
+        load_from_file = False
         for arg in args:
             if isinstance(arg, str):
                 if arg.endswith('yaml') or arg.endswith('yml'):
                     raw_dict = MindFormerConfig._file2dict(arg)
                     cfg_dict.update(raw_dict)
+                    load_from_file = True
 
         # load dictionary configs
         if kwargs is not None:
             cfg_dict.update(kwargs)
 
+        if load_from_file:
+            ConfigTemplate.apply_template(cfg_dict)
         MindFormerConfig._dict2config(self, cfg_dict)
 
     def merge_from_dict(self, options):

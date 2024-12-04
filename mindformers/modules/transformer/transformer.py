@@ -357,7 +357,7 @@ class TransformerOpParallelConfig(_Config):
                  expert_parallel=1, pipeline_stage=1, micro_batch_num=1, seq_split_num=1,
                  recompute: Union[TransformerRecomputeConfig, dict] = default_transformer_recompute_config,
                  use_seq_parallel=False, optimizer_shard=None, gradient_aggregation_group=4, vocab_emb_dp=True,
-                 context_parallel_algo: str = "colossalai_cp", ulysses_degree_in_cp=1):
+                 context_parallel_algo: str = "colossalai_cp", ulysses_degree_in_cp=1, mem_coeff=0.1):
         if isinstance(recompute, dict):
             recompute = TransformerRecomputeConfig(**recompute)
         self.recompute = recompute
@@ -365,6 +365,7 @@ class TransformerOpParallelConfig(_Config):
         self.use_seq_parallel = use_seq_parallel
         self.context_parallel_algo = ContextParallelAlgo(context_parallel_algo)
         self.ulysses_degree_in_cp = ulysses_degree_in_cp
+        self.mem_coeff = mem_coeff
         self.optimizer_shard = optimizer_shard
         self.gradient_aggregation_group = gradient_aggregation_group
         self._embed_dp_mp_config = EmbeddingOpParallelConfig(
@@ -453,7 +454,8 @@ class TransformerOpParallelConfig(_Config):
             'vocab_emb_dp': self.vocab_emb_dp,
             'recompute': self.recompute.to_dict(),
             'context_parallel_algo': self.context_parallel_algo.value,
-            'ulysses_degree_in_cp': self.ulysses_degree_in_cp
+            'ulysses_degree_in_cp': self.ulysses_degree_in_cp,
+            'mem_coeff': self.mem_coeff,
         }
         return config_dict
 
