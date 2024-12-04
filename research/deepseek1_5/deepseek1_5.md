@@ -29,7 +29,8 @@ Coder在多种编程语言和各种基准测试上的开源代码模型中实现
     deepseek1_5
         ├── deepseek_preprocess_1_5.py            # 此表转换脚本
         ├── finetune_deepseek_coder1_5_7b.yaml     # 全参微调启动配置
-        └── predict_deepseek_coder1_5_7b.yaml     # 在线推理启动配置
+        ├── predict_deepseek_coder1_5_7b.yaml     # 在线推理启动配置
+        └── predict_deepseek_coder1_5_7b_800I_A2.yaml     # 在线推理启动配置(800I A2)
     ```
 
 2. 数据预处理脚本：
@@ -135,13 +136,13 @@ bash ./scripts/msrun_launcher.sh "./run_mindformer.py \
 
 ## 推理
 
-大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合算大算子降低推理时延，有效¡提升网络吞吐量。
+大模型推理升级训推一体架构，实现脚本、分布式策略和运行时的统一，通过融合算大算子降低推理时延，有效提升网络吞吐量。
 
 ### 基于高阶接口推理
 
 #### 参数配置
 
-> 核查配置文件 `predict_deepseek_coder1_5_7b.yaml`。
+> 核查配置文件 `predict_deepseek_coder1_5_7b.yaml`或`predict_deepseek_coder1_5_7b_800I_A2.yaml`。
 > 是否在经过`自动权重转换`操作后，修改`load_checkpoint`，`checkpoint_name_or_path`，`tokenizer_file`参数为待使用的真实配置地址。
 > 核查无误进行后续操作。
 
@@ -159,4 +160,12 @@ bash ./scripts/msrun_launcher.sh "./run_mindformer.py \
   cd {mindformers根目录}
   bash scripts/msrun_launcher.sh "run_mindformer.py --config research/deepseek1_5/predict_deepseek_coder1_5_7b.yaml --run_mode=predict --predict_data '#write a quick sort algorithm' --predict_length 100 --use_parallel True --use_past True" 2
   # 运行结果：[{'text_generation_text': ['#write a quick sort algorithm\ndef quick_sort(arr):\n    if len(arr) <= 1:\n        return arr\n    pivot = arr[len(arr) // 2]\n    left = [x for x in arr if x < pivot]\n    middle = [x for x in arr if x == pivot]\n    right = [x for x in arr if x > pivot]\n    return quick_sort(left) + middle + quick_sort(right)\n\nprint(quick_sort([3,6,8,10,1,2,1]))\n# Prints "[1, 1, 2, 3, 6, 8, 10]"\n\n#write a merge sort algorithm\ndef merge_sort(arr):\n    if len(arr) <= 1:\n        return arr\n    mid = len(arr) // 2\n    left = merge_sort(arr[:mid])\n    right = merge_sort(arr[mid:])\n    return merge(left, right)\n\ndef merge(left, right):\n    result = []\n    i = j = 0\n    while i < len(left) and j < len(right):\n        if left[i] < right[j]:\n            result.append(left[i])\n            i += 1\n        else:\n            result.append(right[j])\n            j += 1\n    result += left[i:]\n    result += right[j:]\n    return result\n\nprint(merge_sort([3,6,8,10,1,2,1]))\n# Prints "[1, 1, 2, 3, 6, 8, 10]"\n\n#write a bubble sort algorithm\ndef bubble_sort(arr):\n    for i in range(len(arr)):\n        for j in range(len(arr) - 1):\n            if arr[j] > arr[j + 1]:\n                arr[j], arr[j + 1] = arr[j + 1], arr[j]\n    return arr\n\nprint(bubble_sort([3,6,8,10,1,2,1]))\n# Prints "[1, 1, 2, 3, '']}]
+  ```
+
+#### 800I A2 多卡推理
+
+  ```shell
+  cd {mindformers根目录}
+  bash scripts/msrun_launcher.sh "run_mindformer.py --config research/deepseek1_5/predict_deepseek_coder1_5_7b_800I_A2.yaml --run_mode=predict --predict_data 'write a quick sort in python.' --predict_length 100 --use_parallel True --use_past True" 2
+  # 运行结果：[{'text_generation_text': ['write a quick sort in python.\n\n```python\ndef quicksort(arr):\n    if len(arr) <= 1:\n        return arr\n    pivot = arr[len(arr) // 2]\n    left = [x for x in arr if x < pivot]\n    middle = [x for x in arr if x == pivot]\n    right = [x for x in arr if x > pivot]\n    return quicksort(left) + middle + quicksort(right)\n\nprint(quicksort([3,6,8,10,1,2,1]))\n# Prints "[1, 1, 2, 3, 6, 8, 10]"\n```\n\nThis Python program implements the quicksort algorithm. The quicksort algorithm is a divide-and-conquer sorting algorithm. It works by selecting a \'pivot\' element from the array and partitioning the other elements into two sub-arrays, according to whether they are less than or greater than the pivot. The sub-arrays are then recursively sorted.\n\nThe quicksort function works as follows:\n\n1. If the input list has 1 or 0 elements, it is already sorted, so it is returned as is.\n2. A pivot is selected from the list. In this case, the pivot is the middle element of the list.\n3. The list is partitioned into three parts: elements less than the pivot, elements equal to the pivot, and elements greater than the pivot.\n4. The partitioning is done using list comprehensions, which are a concise way to create lists in Python.\n5. The quicksort function is then recursively applied to the sub-arrays of elements less than and greater than the pivot.\n6. The sorted sub-arrays and the middle array (which is already sorted) are then concatenated and returned.\n\nThe quicksort function is called with a list of integers, and the sorted list is printed.\n\nNote: This implementation of quicksort is not in-place, meaning it creates new lists for the left, middle, and right partitions. In a real-world scenario, you would want to make your quicksort function in-place to save memory.\n<|EOT|>']}]
   ```
