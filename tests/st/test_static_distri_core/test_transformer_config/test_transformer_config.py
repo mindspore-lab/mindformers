@@ -56,7 +56,7 @@ class TestConfig(PretrainedConfig):
 class TestTransformerConfig:
     """A test class for testing TransformerConfig"""
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     def test_transformer_config(self):
         """

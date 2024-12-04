@@ -30,7 +30,7 @@ def build_msrun_command(device_num, dp, cp, tp):
 class TestNormalizationMulti:
     """A test class for testing LayerNorm/FusedLayerNorm/RMSNorm/FusedRMSNorm."""
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     def test_run_norm_multi(self):

@@ -22,8 +22,8 @@ from mindspore import Tensor
 import mindspore.ops.operations as P
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
-from tests.st.test_static_distric_core.test_norm.test_norm_utils import MyNet
-from tests.st.test_static_distric_core.test_norm.test_norm_utils import get_output
+from tests.st.test_static_distri_core.test_norm.test_norm_utils import MyNet
+from tests.st.test_static_distri_core.test_norm.test_norm_utils import get_output
 
 class TestNormalization:
     """A test class for testing LayerNorm/FusedLayerNorm/RMSNorm/FusedRMSNorm."""

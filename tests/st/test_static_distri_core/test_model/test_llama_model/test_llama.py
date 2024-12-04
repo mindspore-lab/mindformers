@@ -45,7 +45,7 @@ class TestLlama:
         os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         os.environ['MS_MEMORY_POOL_RECYCLE'] = '1'
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_graph_single_train(self):
@@ -62,7 +62,7 @@ class TestLlama:
             results = list(pool.imap(run_command, commands))
         check_results(commands, results)
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
     def test_pynative_single_train(self):

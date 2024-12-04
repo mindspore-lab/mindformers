@@ -23,7 +23,7 @@ from mindspore.communication import init
 import mindspore.ops.operations as P
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
-from tests.st.test_static_distric_core.test_norm.test_norm_utils import MyNet
+from tests.st.test_static_distri_core.test_norm.test_norm_utils import MyNet
 
 ms.set_context(mode=ms.GRAPH_MODE)
 ms.set_auto_parallel_context(parallel_mode=ms.ParallelMode.SEMI_AUTO_PARALLEL, full_batch=True)
