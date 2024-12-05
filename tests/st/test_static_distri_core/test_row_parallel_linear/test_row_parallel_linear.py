@@ -31,7 +31,7 @@ def build_msrun_command(device_num, dp, cp, tp, has_bias=False):
 class TestRowParallelLinear:
     """A test class for testing RowParallelLinear"""
 
-    @pytest.mark.level0
+    @pytest.mark.level1
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
     def test_row_parallel_linear_on_single(self):
