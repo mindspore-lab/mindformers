@@ -230,6 +230,7 @@ class TransformerLanguageModel(nn.Cell):
             raise NotImplementedError("decoder_attn_mask_type is not supported for now.")
 
         self.config = config
+        self.use_ring_attention = self.config.use_ring_attention
         self.pre_process = pre_process
         self.post_process = post_process
         self.num_tokentypes = num_tokentypes
@@ -328,7 +329,7 @@ class TransformerLanguageModel(nn.Cell):
         if self.use_rotary_position_embeddings:
             rotary_pos_emb = self.rotary_pos_emb(self.seq_length)
 
-        if enc_attn_mask is None:
+        if not self.use_ring_attention and enc_attn_mask is None:
             enc_attn_mask = self.causal_mask(enc_input_ids)
 
         if prefix_keys_values is not None:
