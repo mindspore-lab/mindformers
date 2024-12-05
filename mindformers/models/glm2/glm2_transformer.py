@@ -225,38 +225,38 @@ class ChatGLM2SelfAttention(nn.Cell):
                              out_strategy_matmul=((dp * cp * mp, 1),))
         self.use_flash_attention = config.use_flash_attention
         self.use_past = config.use_past
-        if self.use_past:
-            self.infer_attention = self.init_infer_attention(config, mp, parallel_config)
-        else:
-            self.core_attention = CoreAttention(config, self.layer_number)
-            self.reshape = P.Reshape()
-            self.stack = P.Stack(axis=-1)
-            self.mul = P.Mul()
-            self.sub = P.Sub()
-            self.add = P.Add()
-            self.concat = P.Concat(axis=-1)
-            self.transpose = P.Transpose().shard(((dp, cp, mp, 1),))
-            self.kv_transpose = P.Transpose().shard(((dp, cp, kv_mp, 1),))
-            self.cast = P.Cast()
-            self.tile_kv = P.Tile()
-            if self.use_rearrange_rope:
-                self.apply_rotary_emb = ChatGLM2RotaryEmbedding(compute_dtype=config.rotary_dtype)
-                self.apply_rotary_emb.shard((dp, cp, mp, 1), kv_strategy=(dp, cp, kv_mp, 1))
-            input_layout, sparse_mode = self.select_fa_configs()
-            if self.use_flash_attention:
-                self.flash_attention = FlashAttention(head_num=config.num_attention_heads,
-                                                      scale_value=1. / math.sqrt(self.head_dim),
-                                                      input_layout=input_layout,
-                                                      sparse_mode=sparse_mode,
-                                                      keep_prob=1. - config.attention_dropout,
-                                                      pre_tokens=65536,
-                                                      next_tokens=0)
-                self.shard_fa(cp, dp, mp, parallel_config)
-                self.cp_transpose_before = P.Transpose().shard(((dp, cp, mp, 1, 1),))
-                self.cp_transpose_kv_before = P.Transpose().shard(((dp, cp, kv_mp, 1, 1),))
-                self.cp_transpose_after = P.Transpose().shard(((dp, cp, 1, mp, 1),))
-            self.get_attention_mask = self.select_mask_generate(config, parallel_config, sparse_mode)
-            self.merger_head_transpose = P.Transpose().shard(((dp, mp, cp, 1),))
+        # use_past: True
+        self.infer_attention = self.init_infer_attention(config, mp, parallel_config)
+        # use_past: False
+        self.core_attention = CoreAttention(config, self.layer_number)
+        self.reshape = P.Reshape()
+        self.stack = P.Stack(axis=-1)
+        self.mul = P.Mul()
+        self.sub = P.Sub()
+        self.add = P.Add()
+        self.concat = P.Concat(axis=-1)
+        self.transpose = P.Transpose().shard(((dp, cp, mp, 1),))
+        self.kv_transpose = P.Transpose().shard(((dp, cp, kv_mp, 1),))
+        self.cast = P.Cast()
+        self.tile_kv = P.Tile()
+        if self.use_rearrange_rope:
+            self.apply_rotary_emb = ChatGLM2RotaryEmbedding(compute_dtype=config.rotary_dtype)
+            self.apply_rotary_emb.shard((dp, cp, mp, 1), kv_strategy=(dp, cp, kv_mp, 1))
+        input_layout, sparse_mode = self.select_fa_configs()
+        if self.use_flash_attention:
+            self.flash_attention = FlashAttention(head_num=config.num_attention_heads,
+                                                  scale_value=1. / math.sqrt(self.head_dim),
+                                                  input_layout=input_layout,
+                                                  sparse_mode=sparse_mode,
+                                                  keep_prob=1. - config.attention_dropout,
+                                                  pre_tokens=65536,
+                                                  next_tokens=0)
+            self.shard_fa(cp, dp, mp, parallel_config)
+            self.cp_transpose_before = P.Transpose().shard(((dp, cp, mp, 1, 1),))
+            self.cp_transpose_kv_before = P.Transpose().shard(((dp, cp, kv_mp, 1, 1),))
+            self.cp_transpose_after = P.Transpose().shard(((dp, cp, 1, mp, 1),))
+        self.get_attention_mask = self.select_mask_generate(config, parallel_config, sparse_mode)
+        self.merger_head_transpose = P.Transpose().shard(((dp, mp, cp, 1),))
 
     def shard_wqkv_concat(self, cp, dp, mp, qkv_has_bias):
         """shard wqkv concat"""
