@@ -309,3 +309,13 @@ def get_scatter():
     if is_version_ge(ms.__version__, "2.4.0"):
         return mint.scatter
     return Scatter()
+
+
+def check_delay_init_valid():
+    """check mindspore version is valid for delay init"""
+    version_valid = is_version_ge(ms.__version__, "2.4.1")
+    if not version_valid:
+        logger.warning(f"Current MindSpore version does not support"
+                       f"the MindFormers version, please upgrade to 2.4.1 or later version.")
+        return False
+    return True
