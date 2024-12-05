@@ -147,12 +147,11 @@ def mlp_split(param_list: List, config: YiZhaoConfig):
 
 
 # pylint: disable=W0613
-def convert_pt_to_ms(input_dir, output_path, config, dtype=ms.float32, **kwargs):
+def convert_pt_to_ms(input_path, output_path, config, dtype=ms.float32, **kwargs):
     """ Convert pytorch model file to MindSpore model file. """
     config: YiZhaoConfig = MindFormerConfig(config)['model']['model_config']
     config = YiZhaoConfig(**config)
-    # input_dir = os.path.dirname(input_path)
-    model = AutoModel.from_pretrained(input_dir, trust_remote_code=True)
+    model = AutoModel.from_pretrained(input_path, trust_remote_code=True)
 
     print('parameter convert....')
     ms_param = []

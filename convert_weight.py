@@ -62,7 +62,8 @@ convert_map = {
     'qwen2-moe': 'research.qwen2.convert_moe_weight.convert_pt_to_ms',
     'cogvlm2': 'mindformers.models.cogvlm2.convert_weight.convert_pt_to_ms',
     'llava': 'research.llava.convert_weight.convert_pt_to_ms',
-    "whisper": "mindformers.models.whisper.convert_weight.convert_pt_to_ms"
+    'whisper': 'mindformers.models.whisper.convert_weight.convert_pt_to_ms',
+    'yizhao': 'research.yizhao.convert_weight.convert_pt_to_ms'
 }
 reversed_convert_map = {
     'llama': 'mindformers.models.llama.convert_reversed.convert_ms_to_pt',
@@ -87,7 +88,8 @@ reversed_convert_map = {
     'codegeex2': 'mindformers.models.codegeex2.convert_reversed.convert_ms_to_pt',
     'yi': 'research.yi.convert_reversed.convert_ms_to_pt',
     'deepseek': 'research.deepseek.convert_reversed.convert_ms_to_pt',
-    "whisper": "mindformers.models.whisper.convert_reversed.convert_ms_to_pt"
+    'whisper': 'mindformers.models.whisper.convert_reversed.convert_ms_to_pt',
+    'yizhao': 'research.yizhao.convert_reversed.convert_ms_to_pt'
 }
 
 if __name__ == '__main__':

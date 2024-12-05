@@ -153,38 +153,44 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
   pip install torch transformers
   ```
 
-  下载完成后，运行`convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
+  下载完成后，运行mindformers根目录的`convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
   ```shell
-  python research/qwen1_5/convert_weight.py \
-   --torch_ckpt_dir <torch_ckpt_dir> \
-   --mindspore_ckpt_path <mindspore_ckpt_path> \
+  python convert_weight.py \
+   --model yizhao \
+   --input_path <torch_ckpt_dir> \
+   --output_path <mindspore_ckpt_path> \
    --config <mindformers_model_yaml> \
    --dtype bf16
 
   # 参数说明：
-  torch_ckpt_dir:      预训练权重文件所在的目录
-  mindspore_ckpt_path: 转换后的输出文件存放路径
+  model:               模型名, 这里是yizhao
+  input_path:          预训练权重文件所在的目录
+  output_path:         转换后的输出文件存放路径
   config:              mindformers模型文件配置yaml, 例如推理可以使用 research/yizhao/predict_yizhao_12b.yaml
   dtype:               转换后权重文件格式
   ```
 
 - **mindspore权重转torch权重**
 
-  在生成mindspore权重之后如需使用torch运行，可根据如下命令转换：
+  在生成mindspore权重之后如需使用torch运行，运行mindformers根目录的`convert_weight.py`转换脚本转换：
 
   ```shell
-  python research/qwen1_5/convert_reversed.py \
-   --torch_ckpt_dir <torch_ckpt_dir> \
-   --mindspore_ckpt_path <mindspore_ckpt_path> \
+  python convert_weight.py \
+   --model yizhao \
+   --input_path <mindspore_ckpt_path> \
+   --output_path <torch_ckpt_dir> \
    --config <mindformers_model_yaml> \
-   --dtype bf16
+   --dtype bf16 \
+   --reversed
 
   # 参数说明：
-  torch_ckpt_dir:      转换后的输出文件存放路径
-  mindspore_ckpt_path: 待转换权重文件所在的目录
-  config:              mindformers模型文件配置yaml, 例如推理可以使用 research/yizhao/predict_yizhao_12b.yaml
-  dtype:               转换后权重文件格式
+  model:              模型名, 这里是yizhao
+  input_path:         待转换权重文件所在的目录
+  output_path:        转换后的输出文件存放路径
+  config:             mindformers模型文件配置yaml, 例如推理可以使用 research/yizhao/predict_yizhao_12b.yaml
+  dtype:              转换后权重文件格式
+  resversed:          mindspore转为pt权重的标志
   ```
 
 - **[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)**
