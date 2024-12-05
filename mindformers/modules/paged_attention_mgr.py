@@ -18,9 +18,8 @@ import math
 
 import mindspore.common.dtype as mstype
 from mindspore import nn, Parameter
-from mindspore.common.tensor import Tensor
 from mindspore import ops as P
-from mindspore.common.initializer import Zero
+from mindspore.common.initializer import initializer
 
 
 class PagedAttentionMgr(nn.Cell):
@@ -41,9 +40,9 @@ class PagedAttentionMgr(nn.Cell):
         self.seq_length = seq_length
         self.is_first_iteration = True
         self.scale_value = 1 / math.sqrt(self.head_dim)
-        self.key_cache = Parameter(Tensor(shape=kv_shape, dtype=compute_dtype, init=Zero()), name="key_cache",
+        self.key_cache = Parameter(initializer('zeros', kv_shape, compute_dtype), name="key_cache",
                                    requires_grad=False)
-        self.value_cache = Parameter(Tensor(shape=kv_shape, dtype=compute_dtype, init=Zero()), name="value_cache",
+        self.value_cache = Parameter(initializer('zeros', kv_shape, compute_dtype), name="value_cache",
                                      requires_grad=False)
 
         self.reshape_and_cache = P.auto_generate.ReshapeAndCache()
