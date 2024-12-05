@@ -704,7 +704,7 @@ class BaseTrainer:
         if config.data_skip_steps or config.resume_training:
             rank_id = get_real_rank()
             parallel_mode = ms.context.get_auto_parallel_context("parallel_mode")
-            if parallel_mode in ("semi_auto_parallel", "auto_parallel") and not is_dataset_built_on_rank:
+            if parallel_mode in ("semi_auto_parallel", "auto_parallel") and not is_dataset_built_on_rank():
                 # not skip fake data in megatron dataset
                 config.ignore_data_skip = True
             logger.info(f"local rank id: {rank_id}, ignore data skip: {config.ignore_data_skip}.")
