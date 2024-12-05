@@ -356,15 +356,6 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         raise FileNotFoundError(f"The load_checkpoint must be correct, "
                                 f"but get {config.load_checkpoint}")
 
-    if not config.auto_trans_ckpt and not config.only_save_strategy and \
-        check_path_include_total_ckpt(config.load_checkpoint):
-        load_ckpt(config, network, optimizer=optimizer)
-        return
-
-    if not config.auto_trans_ckpt and not config.only_save_strategy and do_predict:
-        network.set_train(False)
-        load_ckpt(config, network)
-        return
 
     if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
                                                               'hybrid_parallel']:
@@ -413,18 +404,6 @@ def check_ckpt_file_exist(path):
     for file_name in os.listdir(path):
         if file_name.endswith('.ckpt'):
             return True
-    return False
-
-
-def check_path_include_total_ckpt(path):
-    """check if the input path is total, not split."""
-    if path is None:
-        return False
-    if os.path.isdir(path):
-        if check_ckpt_file_exist(path):
-            return True
-    elif path.endswith('.ckpt'):
-        return True
     return False
 
 
