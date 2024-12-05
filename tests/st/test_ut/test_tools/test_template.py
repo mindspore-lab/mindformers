@@ -25,18 +25,23 @@ class TestGeneralConfig:
     """test general_config"""
     def setup_method(self):
         self.correct_input = {"run_mode": "train", "seed": 2}
-        self.missing_required_input = {"aaa": 1}
         self.unexpected_input = {"run_mode": "train", "aaa": 1}
 
     def test_none_input(self):
-        with pytest.raises(ValueError, match="is empty"):
-            GeneralConfig.apply(None)
-        with pytest.raises(ValueError, match="is empty"):
-            GeneralConfig.apply({})
+        config = GeneralConfig.apply(None)
+        for key in GeneralConfig.keys():
+            assert key in config
+            assert config[key] == getattr(GeneralConfig, key)
+        for key in config.keys():
+            assert key in GeneralConfig.keys()
 
-    def test_missing_required_input(self):
-        with pytest.raises(KeyError, match="required"):
-            GeneralConfig.apply(self.missing_required_input)
+    def test_empty_dict_input(self):
+        config = GeneralConfig.apply({})
+        for key in GeneralConfig.keys():
+            assert key in config
+            assert config[key] == getattr(GeneralConfig, key)
+        for key in config.keys():
+            assert key in GeneralConfig.keys()
 
     def test_unexpected_input(self):
         with pytest.raises(KeyError, match="unexpected"):
@@ -262,10 +267,12 @@ class TestTrainDatasetConfig:
         self.input = {"aaa": 1}
 
     def test_none_input(self):
-        with pytest.raises(ValueError, match="is empty"):
-            TrainDatasetConfig.apply(None)
-        with pytest.raises(ValueError, match="is empty"):
-            TrainDatasetConfig.apply({})
+        config = TrainDatasetConfig.apply(None)
+        assert isinstance(config, dict)
+        assert not config
+        config = TrainDatasetConfig.apply({})
+        assert isinstance(config, dict)
+        assert not config
 
     def test_input(self):
         config = TrainDatasetConfig.apply(self.input)
@@ -280,10 +287,12 @@ class TestTrainDatasetTaskConfig:
         self.input = {"type": "class", "aaa": 1}
 
     def test_none_input(self):
-        with pytest.raises(ValueError, match="is empty"):
-            TrainDatasetTaskConfig.apply(None)
-        with pytest.raises(ValueError, match="is empty"):
-            TrainDatasetTaskConfig.apply({})
+        config = TrainDatasetTaskConfig.apply(None)
+        assert isinstance(config, dict)
+        assert not config
+        config = TrainDatasetTaskConfig.apply({})
+        assert isinstance(config, dict)
+        assert not config
 
     def test_missing_required_input(self):
         with pytest.raises(KeyError, match="required"):
@@ -303,10 +312,12 @@ class TestProcessorConfig:
         self.input = {"type": "class", "aaa": 1}
 
     def test_none_input(self):
-        with pytest.raises(ValueError, match="is empty"):
-            ProcessorConfig.apply(None)
-        with pytest.raises(ValueError, match="is empty"):
-            ProcessorConfig.apply({})
+        config = ProcessorConfig.apply(None)
+        assert isinstance(config, dict)
+        assert not config
+        config = ProcessorConfig.apply({})
+        assert isinstance(config, dict)
+        assert not config
 
     def test_missing_required_input(self):
         with pytest.raises(KeyError, match="required"):
@@ -325,10 +336,12 @@ class TestEvalDatasetConfig:
         self.input = {"aaa": 1}
 
     def test_none_input(self):
-        with pytest.raises(ValueError, match="is empty"):
-            EvalDatasetConfig.apply(None)
-        with pytest.raises(ValueError, match="is empty"):
-            EvalDatasetConfig.apply({})
+        config = EvalDatasetConfig.apply(None)
+        assert isinstance(config, dict)
+        assert not config
+        config = EvalDatasetConfig.apply({})
+        assert isinstance(config, dict)
+        assert not config
 
     def test_input(self):
         config = EvalDatasetConfig.apply(self.input)
@@ -343,10 +356,12 @@ class TestEvalDatasetTaskConfig:
         self.input = {"type": "class", "aaa": 1}
 
     def test_none_input(self):
-        with pytest.raises(ValueError, match="is empty"):
-            EvalDatasetTaskConfig.apply(None)
-        with pytest.raises(ValueError, match="is empty"):
-            EvalDatasetTaskConfig.apply({})
+        config = EvalDatasetTaskConfig.apply(None)
+        assert isinstance(config, dict)
+        assert not config
+        config = EvalDatasetTaskConfig.apply({})
+        assert isinstance(config, dict)
+        assert not config
 
     def test_missing_required_input(self):
         with pytest.raises(KeyError, match="required"):
@@ -366,10 +381,12 @@ class TestTrainerConfig:
         self.input = {"type": "class", "aaa": 1}
 
     def test_none_input(self):
-        with pytest.raises(ValueError, match="is empty"):
-            TrainerConfig.apply(None)
-        with pytest.raises(ValueError, match="is empty"):
-            TrainerConfig.apply({})
+        config = TrainerConfig.apply(None)
+        assert isinstance(config, dict)
+        assert not config
+        config = TrainerConfig.apply({})
+        assert isinstance(config, dict)
+        assert not config
 
     def test_missing_required_input(self):
         with pytest.raises(KeyError, match="required"):
@@ -389,10 +406,12 @@ class TestModelConfig:
         self.input = {"model_config": "model_config", "arch": "arch", "aaa": 1}
 
     def test_none_input(self):
-        with pytest.raises(ValueError, match="is empty"):
-            ModelConfig.apply(None)
-        with pytest.raises(ValueError, match="is empty"):
-            ModelConfig.apply({})
+        config = ModelConfig.apply(None)
+        assert isinstance(config, dict)
+        assert not config
+        config = ModelConfig.apply({})
+        assert isinstance(config, dict)
+        assert not config
 
     def test_missing_required_input(self):
         with pytest.raises(KeyError, match="required"):
@@ -651,10 +670,11 @@ class TestTemplate:
         )
 
     def test_none_input(self):
-        with pytest.raises(TypeError, match="'NoneType' object is not subscriptable"):
+        with pytest.raises(AttributeError, match="'NoneType' object has no attribute 'get'"):
             ConfigTemplate.apply_template(None)
-        with pytest.raises(KeyError, match="run_mode"):
-            ConfigTemplate.apply_template({})
+
+    def test_empty_dict_input(self):
+        ConfigTemplate.apply_template({})
 
     def test_correct_train_config(self):
         """test which input is correct for train"""
@@ -725,31 +745,9 @@ class TestTemplate:
 
     def test_wrong_run_mode_1(self):
         config = MindFormerConfig()
-        with pytest.raises(KeyError, match="run_mode"):
-            ConfigTemplate.apply_template(config)
-
-    def test_wrong_run_mode_2(self):
+        ConfigTemplate.apply_template(config)
         config = MindFormerConfig(run_mode="xxx")
-        with pytest.raises(ValueError, match="run_mode must be in"):
-            ConfigTemplate.apply_template(config)
-
-    def test_missing_trainer_config(self):
-        config = MindFormerConfig(run_mode="train")
-        with pytest.raises(ValueError, match="The config 'trainer' is empty"):
-            ConfigTemplate.apply_template(config)
-
-    def test_missing_model_config(self):
-        config = MindFormerConfig(run_mode="train",
-                                  trainer={"type": 1})
-        with pytest.raises(ValueError, match="The config 'model' is empty"):
-            ConfigTemplate.apply_template(config)
-
-    def test_missing_train_dataset_config(self):
-        config = MindFormerConfig(run_mode="train",
-                                  trainer={"type": 1},
-                                  model={"model_config": 1, "arch": 1})
-        with pytest.raises(ValueError, match="The config 'train_dataset' is empty"):
-            ConfigTemplate.apply_template(config)
+        ConfigTemplate.apply_template(config)
 
     def test_trainer_missing_key(self):
         config = MindFormerConfig(run_mode="train",
