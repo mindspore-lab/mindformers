@@ -458,10 +458,10 @@ class ParallelAttention(nn.Cell):
         layout = Layout((dp, cp, tp), ("dp", "cp", "tp"))
         layout_transpose_back = (layout("dp", "tp", "cp", "None"),)
         self.transpose_back.shard(in_strategy=layout_transpose_back)
-        self.transpose_ulysses.shard(((dp, cp, tp, 1, 1),))
-        self.transpose_a2a.shard(((dp, self.cp_co, self.cp_ds, tp, 1),))
-        self.transpose_ulysses_merger_a2a.shard(((dp, self.cp_co, self.cp_ds, tp, 1),))
-        self.transpose_ulysses_merger.shard(((dp, cp, 1, tp, 1),))
+        self.transpose_ulysses.shard(((dp, cp, tp, 1, 1, 1),))
+        self.transpose_a2a.shard(((dp, self.cp_co, self.cp_ds, tp, 1, 1),))
+        self.transpose_ulysses_merger_a2a.shard(((dp, self.cp_co, self.cp_ds, tp, 1, 1),))
+        self.transpose_ulysses_merger.shard(((dp, cp, 1, tp, 1, 1),))
 
     def _cross_attn_init(self):
         """Cross attention initialization."""
@@ -669,9 +669,9 @@ class ParallelAttention(nn.Cell):
         # [bs, seq_len, n_head, head_dim] -> [bs, seq_len, n_head/cp_ds, cp_ds, head_dim]
         qkv = self.reshape(qkv, new_shape)
         # [bs, seq_len, n_head/cp_ds, cp_ds, head_dim] -> [bs, seq_len, cp_ds, n_head/cp_ds, head_dim]
-        qkv = self.transpose_ulysses(qkv, (0, 1, 3, 2, 4))
+        qkv = self.transpose_ulysses(qkv, (0, 1, 3, 2, 4, 5))
         # Insert all-to-all communication
-        qkv = self.transpose_a2a(qkv, (0, 1, 2, 3, 4))
+        qkv = self.transpose_a2a(qkv, (0, 1, 2, 3, 4, 5))
         # Reshape to BSH, set -1 for H to accommodate different kv heads
         qkv = F.reshape(qkv, (bs, seq_len, -1))
         return qkv
@@ -694,9 +694,9 @@ class ParallelAttention(nn.Cell):
         # [bs, seq_len, n_head, head_dim] -> [bs, seq_len, n_head/cp_ds, cp_ds, head_dim]
         qkv = self.reshape(qkv, new_shape)
         # [bs, seq_len, n_head/cp_ds, cp_ds, head_dim] -> [bs, seq_len, cp_ds, n_head/cp_ds, head_dim]
-        qkv = self.transpose_ulysses(qkv, (0, 1, 3, 2, 4))
+        qkv = self.transpose_ulysses(qkv, (0, 1, 3, 2, 4, 5))
         # Insert all-to-all communication
-        qkv = self.transpose_a2a(qkv, (0, 1, 2, 3, 4))
+        qkv = self.transpose_a2a(qkv, (0, 1, 2, 3, 4, 5))
         # Reshape to BSH, set -1 for H to accommodate different kv heads
         qkv = F.reshape(qkv, (bs, seq_len, -1))
         return qkv
@@ -717,8 +717,8 @@ class ParallelAttention(nn.Cell):
         new_shape = (bs, seq_len, self.cp_ds, self.tp, -1, self.head_dim)
         context_layer = F.reshape(context_layer, new_shape)
         # Insert all-to-all communication
-        context_layer = self.transpose_ulysses_merger_a2a(context_layer, (0, 1, 2, 3, 4))
-        context_layer = self.transpose_ulysses_merger(context_layer, (0, 1, 3, 2, 4))
+        context_layer = self.transpose_ulysses_merger_a2a(context_layer, (0, 1, 2, 3, 4, 5))
+        context_layer = self.transpose_ulysses_merger(context_layer, (0, 1, 3, 2, 4, 5))
         # Reshape back to BSH
         context_layer = F.reshape(context_layer, (bs, seq_len, self.hidden_size))
         return context_layer

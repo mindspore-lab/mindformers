@@ -364,10 +364,10 @@ class LLamaAttention(nn.Cell):
             layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
             layout_transpose_back = (layout("dp", "mp", "cp", "None"),)
             self.transpose_back.shard(in_strategy=layout_transpose_back)
-            self.transpose_ulysses.shard(((dp, cp, mp, 1, 1),))
-            self.transpose_a2a.shard(((dp, self.cp_co, self.cp_ds, mp, 1),))
-            self.transpose_ulysses_merger_a2a.shard(((dp, self.cp_co, self.cp_ds, mp, 1),))
-            self.transpose_ulysses_merger.shard(((dp, cp, 1, mp, 1),))
+            self.transpose_ulysses.shard(((dp, cp, mp, 1, 1, 1),))
+            self.transpose_a2a.shard(((dp, self.cp_co, self.cp_ds, mp, 1, 1),))
+            self.transpose_ulysses_merger_a2a.shard(((dp, self.cp_co, self.cp_ds, mp, 1, 1),))
+            self.transpose_ulysses_merger.shard(((dp, cp, 1, mp, 1, 1),))
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None, q_seq_lens=None,
@@ -387,7 +387,6 @@ class LLamaAttention(nn.Cell):
             query = self.cast(self.wq(x), self.dtype)  # dp, 1 -> dp, mp
             key = self.cast(self.wk(x), self.dtype)  # dp, 1 -> dp, mp
             value = self.cast(self.wv(x), self.dtype)  # dp, 1 -> dp, mp
-
         # key and value for current token(s)
         if self.use_past:
             context_layer = self.infer_attention(query, key, value, batch_valid_length, block_tables, slot_mapping,
@@ -401,12 +400,12 @@ class LLamaAttention(nn.Cell):
             if self.context_parallel > 1 and self.cp_ds > 1:
                 # for query & key, transpose from BNSD back to BSND
                 query = self.transpose_back(query, (0, 2, 1, 3))
-                query = self._ulysses_qkv_a2a(query)
+                query = self._ulysses_q_a2a(query)
                 key = self.transpose_back(key, (0, 2, 1, 3))
-                key = self._ulysses_qkv_a2a(key)
+                key = self._ulysses_kv_a2a(key)
                 # value is BSND, no need for transpose back
                 value = self.reshape(value, (bs, seq_len, self.n_kv_head, self.head_dim))
-                value = self._ulysses_qkv_a2a(value)
+                value = self._ulysses_kv_a2a(value)
             elif self.context_parallel > 1:
                 query = self._merge_heads(query)
                 key = self._merge_heads(key)
@@ -439,7 +438,7 @@ class LLamaAttention(nn.Cell):
                     context_layer = self._merge_heads(context_layer)
             else:
                 if self.use_flash_attention:
-                    # with ulysses context parallel, insert all to all after FA
+                    #with ulysses context parallel, insert all to all after FA
                     if self.context_parallel > 1 and self.cp_ds > 1:
                         context_layer = self.flash_attention(query, key, value, mask)
                         context_layer = self._ulysses_context_layer_a2a(context_layer)
@@ -507,7 +506,7 @@ class LLamaAttention(nn.Cell):
         x_merge = self.reshape(x, new_shape)
         return x_merge
 
-    def _ulysses_qkv_a2a(self, qkv):
+    def _ulysses_q_a2a(self, qkv):
         """Given a qkv tensor with shape of (bs, seq_len, n_head, head_dim),
         insert all to all in right place using transpose with specific shard strategy.
         refers to <https://arxiv.org/abs/2309.14509>
@@ -518,19 +517,39 @@ class LLamaAttention(nn.Cell):
         Returns:
             Tensor: qkv tensor after all to all commu.
         """
-        bs, seq_len, head_num, hidden_size = F.shape(qkv)
-        new_shape = (bs, seq_len, head_num // self.cp_ds, self.cp_ds, hidden_size)
+        bs, seq_len, _, _ = F.shape(qkv)
+        new_shape = (bs, seq_len, self.model_parallel, self.cp_ds, -1, self.head_dim)
         # [bs, seq_len, n_head, head_dim] -> [bs, seq_len, n_head/cp_ds, cp_ds, head_dim]
         qkv = self.reshape(qkv, new_shape)
         # [bs, seq_len, n_head/cp_ds, cp_ds, head_dim] -> [bs, seq_len, cp_ds, n_head/cp_ds, head_dim]
-        qkv = self.transpose_ulysses(qkv, (0, 1, 3, 2, 4))
+        qkv = self.transpose_ulysses(qkv, (0, 1, 3, 2, 4, 5))
         # insert all-to-all (dp, cp, 1, mp, 1) -> (dp, cp_co, cp_ds, mp, 1)
-        qkv = self.transpose_a2a(qkv, (0, 1, 2, 3, 4))
+        qkv = self.transpose_a2a(qkv, (0, 1, 2, 3, 4, 5))
         # reshape to BSH, here set -1 to H, for kv head could be different from q head
-        if not self.rmsnorm_compute_2d:
-            qkv = F.reshape(qkv, (bs, seq_len, -1))
-        else:
-            qkv = F.reshape(qkv, (bs * seq_len, -1))
+        qkv = F.reshape(qkv, (bs, seq_len, -1))
+        return qkv
+
+    def _ulysses_kv_a2a(self, qkv):
+        """Given a qkv tensor with shape of (bs, seq_len, n_head, head_dim),
+        insert all to all in right place using transpose with specific shard strategy.
+        refers to <https://arxiv.org/abs/2309.14509>
+
+        Args:
+            qkv (Tensor): qkv after rotary embedding and before attention, with shape of (B, S, N, D)
+
+        Returns:
+            Tensor: qkv tensor after all to all commu.
+        """
+        bs, seq_len, _, _ = F.shape(qkv)
+        new_shape = (bs, seq_len, self.model_parallel, self.cp_ds, -1, self.head_dim)
+        # [bs, seq_len, n_head, head_dim] -> [bs, seq_len, n_head/cp_ds, cp_ds, head_dim]
+        qkv = self.reshape(qkv, new_shape)
+        # [bs, seq_len, n_head/cp_ds, cp_ds, head_dim] -> [bs, seq_len, cp_ds, n_head/cp_ds, head_dim]
+        qkv = self.transpose_ulysses(qkv, (0, 1, 3, 2, 4, 5))
+        # insert all-to-all (dp, cp, 1, mp, 1) -> (dp, cp_co, cp_ds, mp, 1)
+        qkv = self.transpose_a2a(qkv, (0, 1, 2, 3, 4, 5))
+        # reshape to BSH, here set -1 to H, for kv head could be different from q head
+        qkv = F.reshape(qkv, (bs, seq_len, -1))
         return qkv
 
     def _ulysses_context_layer_a2a(self, context_layer):
@@ -545,11 +564,11 @@ class LLamaAttention(nn.Cell):
             Tensor: context layer tensor after all to all commu.
         """
         bs, seq_len, _ = F.shape(context_layer)
-        new_shape = (bs, seq_len, self.cp_ds, self.n_head // self.cp_ds, -1)
+        new_shape = (bs, seq_len, self.cp_ds, self.model_parallel, -1, self.head_dim)
         context_layer = F.reshape(context_layer, new_shape)
         # insert all-to-all back (dp, cp_co, cp_ds, mp, 1) -> (dp, cp, 1, mp, 1)
-        context_layer = self.transpose_ulysses_merger_a2a(context_layer, (0, 1, 2, 3, 4))
-        context_layer = self.transpose_ulysses_merger(context_layer, (0, 1, 3, 2, 4))
+        context_layer = self.transpose_ulysses_merger_a2a(context_layer, (0, 1, 2, 3, 4, 5))
+        context_layer = self.transpose_ulysses_merger(context_layer, (0, 1, 3, 2, 4, 5))
         # reshape back to BSH
         context_layer = F.reshape(context_layer, (bs, seq_len, self.hidden_size))
         return context_layer
