@@ -354,8 +354,12 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
     """
     if not config.only_save_strategy and (not os.path.realpath(config.load_checkpoint) or
                                           not os.path.exists(config.load_checkpoint)):
-        raise FileNotFoundError(f"The load_checkpoint must be correct, "
-                                f"but get {config.load_checkpoint}")
+        raise FileNotFoundError(f"The load_checkpoint must be correct, but get {config.load_checkpoint}")
+
+    if (not config.auto_trans_ckpt and not config.only_save_strategy and
+            check_path_include_total_ckpt(config.load_checkpoint)):
+        load_ckpt(config, network, optimizer=optimizer)
+        return
 
     if context.get_auto_parallel_context('parallel_mode') in ['semi_auto_parallel', 'auto_parallel',
                                                               'hybrid_parallel']:
@@ -389,6 +393,17 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
 
     # 5. load ckpt
     load_ckpt(config, network, optimizer=optimizer)
+
+
+def check_path_include_total_ckpt(path):
+    """check if the input path is total, not split."""
+    if path is None:
+        return False
+    if os.path.isdir(path) and check_ckpt_file_exist(path):
+        return True
+    if os.path.isfile(path) and path.endswith('.ckpt'):
+        return True
+    return False
 
 
 def check_rank_folders(path, rank_id):
