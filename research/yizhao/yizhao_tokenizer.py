@@ -24,8 +24,6 @@ import tiktoken
 from mindformers.models.tokenization_utils import PreTrainedTokenizer, PaddingStrategy, EncodedInput, BatchEncoding
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 
-__all__ = ['YiZhaoTokenizer']
-
 
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class YiZhaoTokenizer(PreTrainedTokenizer):
@@ -322,13 +320,3 @@ class YiZhaoTokenizer(PreTrainedTokenizer):
         input_ids.extend(self.build_single_message(role, "", query))
         input_ids.extend([self.convert_special_tokens_to_ids("<|assistant|>")])
         return self.batch_encode_plus([input_ids], return_tensors=return_tensors, is_split_into_words=True)
-
-    # pylint: disable=W0221, W0613
-    def apply_chat_template(self, conversation, return_tensors=None, **tokenizer_kwargs):
-        if not conversation:
-            return []
-        if not (isinstance(conversation, list) and len(conversation) == 1
-                and isinstance(conversation[0], Dict)):
-            raise ValueError(f"conversation {conversation} is invalid.")
-        return self.build_chat_input(query=conversation[0].get("content"), role=conversation[0].get("role"),
-                                     return_tensors=return_tensors)["input_ids"][0]

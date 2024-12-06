@@ -22,9 +22,10 @@ from mindspore.common.initializer import initializer
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 
+from yizhao_config import YiZhaoConfig
+
 from mindformers.modules.layers import Linear
 from mindformers.version_control import check_rmsnorm_big_kernel_valid, check_valid_big_kernel
-from .yizhao_config import YiZhaoConfig
 
 
 class YiZhaoFreqsMgr(nn.Cell):

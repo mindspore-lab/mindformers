@@ -89,6 +89,7 @@ class YiZhaoConfig(PretrainedConfig):
                  alpha: float = 1.0,
                  beta: float = 1.0,
                  mask_generate=None,
+                 rl_config=None,
                  **kwargs):
         super().__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -149,3 +150,4 @@ class YiZhaoConfig(PretrainedConfig):
         self.alpha = alpha  # dpo loss coef
         self.beta = beta    # sft loss coef
         self.mask_generate = mask_generate
+        self.rl_config = rl_config
