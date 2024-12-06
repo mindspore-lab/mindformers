@@ -1,4 +1,4 @@
-# Copyright 2023 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +21,27 @@ from mindspore.common import Tensor
 from mindspore.common import dtype as mstype
 
 from mindformers.core.metric import PromptAccMetric, EmF1Metric
+from mindformers.core.metric.metric import EntityScore
 
 ms.set_context(mode=1, device_target='CPU')
+
+@pytest.mark.level1
+@pytest.mark.platform_x86_cpu
+@pytest.mark.env_onecard
+def test_entity_score():
+    """
+    Feature: EntityScore
+    Description: Test EntityScore
+    Expectation: No Exception
+    """
+    x = Tensor(np.array([[np.arange(0, 22)]]))
+    y = Tensor(np.array([[21]]))
+    metric = EntityScore()
+    metric.clear()
+    metric.update(x, y)
+    result = metric.eval()
+    res = {'precision': 1.0, 'recall': 1.0, 'f1': 1.0}, {'address': {'precision': 1.0, 'recall': 1.0, 'f1': 1.0}}
+    assert result == res
 
 
 @pytest.mark.level0
