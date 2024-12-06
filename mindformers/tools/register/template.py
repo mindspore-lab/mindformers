@@ -81,6 +81,7 @@ class Config:
 
     @classmethod
     def _none_process(cls):
+        logger.warning(f"The input config {cls._name} is empty.")
         return cls._default_value()
 
     @classmethod
@@ -272,7 +273,7 @@ class GeneralConfig(Config):
     lr_scale_factor = 256
     micro_batch_interleave_num = 1
     remote_save_url = None
-    save_file = 'results.txt'
+    save_file = None
 
     # predict
     input_data = None
@@ -285,8 +286,6 @@ class GeneralConfig(Config):
     infer_precision_sync = False
     postprocess_use_numpy = False
 
-    _support_none_input = False
-    _required_keys = ["run_mode"]
     _name = "general_config"
 
 
@@ -402,14 +401,12 @@ class ContextConfig(Config):
 
 class TrainDatasetConfig(Config):
     _raise_error_for_unexpected_key = False
-    _support_none_input = False
 
     _name = "train_dataset"
 
 
 class TrainDatasetTaskConfig(Config):
     _raise_error_for_unexpected_key = False
-    _support_none_input = False
 
     _name = "train_dataset_task"
     _required_keys = ["type"]
@@ -417,7 +414,6 @@ class TrainDatasetTaskConfig(Config):
 
 class ProcessorConfig(Config):
     _raise_error_for_unexpected_key = False
-    _support_none_input = False
 
     _name = "processor"
     _required_keys = ["type"]
@@ -425,14 +421,12 @@ class ProcessorConfig(Config):
 
 class EvalDatasetConfig(Config):
     _raise_error_for_unexpected_key = False
-    _support_none_input = False
 
     _name = "eval_dataset"
 
 
 class EvalDatasetTaskConfig(Config):
     _raise_error_for_unexpected_key = False
-    _support_none_input = False
 
     _name = "eval_dataset_task"
     _required_keys = ["type"]
@@ -440,7 +434,6 @@ class EvalDatasetTaskConfig(Config):
 
 class TrainerConfig(Config):
     _raise_error_for_unexpected_key = False
-    _support_none_input = False
 
     _name = "trainer"
     _required_keys = ["type"]
@@ -448,7 +441,6 @@ class TrainerConfig(Config):
 
 class ModelConfig(Config):
     _raise_error_for_unexpected_key = False
-    _support_none_input = False
 
     _name = "model"
     _required_keys = ["model_config", "arch"]
@@ -606,10 +598,11 @@ class ConfigTemplate:
         Returns:
             dict: A new dict with the applied template.
         """
-        run_mode = config['run_mode']
+        run_mode = config.get('run_mode', None)
         if run_mode not in cls._run_modes:
-            raise ValueError(f"run_mode must be in {cls._run_modes}, but get {run_mode}")
-        if run_mode in ['train', 'finetune']:
+            logger.warning(f"The specified run_mode '{run_mode}' is invalid. Expected one of {cls._run_modes}.")
+            template = cls.general_configs
+        elif run_mode in ['train', 'finetune']:
             template = cls._train_template(config.get("do_eval", False))
         elif run_mode == "predict":
             template = cls._predict_template()
