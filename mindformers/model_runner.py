@@ -17,9 +17,9 @@
 For text generation
 """
 import os
+import shutil
 import json
 from typing import Optional, List, Union, Dict
-from multiprocessing import Process
 import numpy as np
 
 import mindspore as ms
@@ -34,10 +34,10 @@ from mindformers import build_context, build_parallel_config, GenerationConfig
 from mindformers import AutoModel, AutoConfig, AutoTokenizer
 from mindformers.models.utils import convert_mstype, str_to_ms_type
 from mindformers.utils import (
-    convert_hf_safetensors_multiprocess,
     is_hf_safetensors_dir,
     contains_safetensors_files,
     validate_qkv_concat,
+    process_hf_checkpoint
 )
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_main_rank
@@ -289,8 +289,9 @@ class MindIEModelRunner:
         input_ids = np.ones(shape=tuple([batch_size, seq_length]))
         inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
         if self.config.load_ckpt_format == 'safetensors':
+            enable_stand_alone = (self.config.parallel.parallel_mode == 'STAND_ALONE')
             _transform_and_load_safetensors(ms_model, self.model, inputs, self.config.load_checkpoint,
-                                            self.config.output_dir, self.config.use_parallel)
+                                            self.config.output_dir, self.config.use_parallel, enable_stand_alone)
         else:
             transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
         logger.info(f"Load checkpoints finished.")
@@ -474,11 +475,11 @@ class InputBuilder:
         return input_ids
 
 
-def _load_distributed_safetensors(model, output_dir, load_safetensors):
+def _load_distributed_safetensors(model, strategy_path, load_safetensors):
     """Load distributed safetensors"""
     ms.load_distributed_checkpoint(
         network=model,
-        predict_strategy=os.path.join(output_dir, './strategy/ckpt_strategy_rank_0.ckpt'),
+        predict_strategy=strategy_path,
         unified_safetensors_dir=load_safetensors,
         format='safetensors'
     )
@@ -509,45 +510,37 @@ def _check_valid_safetensors_path(path):
 
 
 def _transform_and_load_safetensors(ms_model, model, inputs, load_checkpoint=None,
-                                    output_dir=None, use_parallel=False):
+                                    output_dir=None, use_parallel=False, enable_stand_alone=False):
     """Load safetensors into model"""
     _check_valid_safetensors_path(load_checkpoint)
-    is_built = False
 
     if is_hf_safetensors_dir(load_checkpoint, model):
-        if output_dir:
-            os.makedirs(output_dir, exist_ok=True)
-        else:
-            output_dir = './output'
-            logger.warning(f'Output directory is set to ./output, '
-                           f'due to the output_dir {output_dir} does not exist.')
-        converted_dir = os.path.join(output_dir, './ms_safetensors')
-        if is_main_rank():
-            p = Process(target=convert_hf_safetensors_multiprocess, args=[load_checkpoint,
-                                                                          converted_dir,
-                                                                          model,
-                                                                          model.config.qkv_concat])
-            p.start()
-            if use_parallel:
-                logger.info(".........Building Distribute model.........")
-                ms_model.infer_predict_layout(*inputs)
-                is_built = True
-
-            p.join()
-
-        load_checkpoint = converted_dir
+        load_checkpoint = process_hf_checkpoint(model, output_dir, load_checkpoint)
 
     if is_main_rank(ignore_check_modelarts=True):
         validate_qkv_concat(model, model.config.qkv_concat, load_checkpoint)
 
     if use_parallel:
-        if not is_built:
+        if not enable_stand_alone:
             logger.info(".........Building Distribute model.........")
             ms_model.infer_predict_layout(*inputs)
-        # Wait the main rank finish convert
-        barrier()
+            strategy_file_path = os.path.join(output_dir, 'strategy/ckpt_strategy_rank_0.ckpt')
+        else:
+            from mindformers.experimental.infer.core.utils import generate_state_dict
+            from mindformers.experimental.parallel_core.pynative.utils import save_strategy_file
+            strategy_ckpt_save_dir = os.path.join(output_dir, "strategy")
+            strategy_file_path = os.path.join(strategy_ckpt_save_dir, "ckpt_strategy.ckpt")
+            if is_main_rank(ignore_check_modelarts=True):
+                if os.path.exists(strategy_ckpt_save_dir) and os.path.isdir(strategy_ckpt_save_dir):
+                    shutil.rmtree(strategy_ckpt_save_dir)
+                    logger.info(f"Existed strategy directory {strategy_ckpt_save_dir} has been deleted.")
+                os.makedirs(strategy_ckpt_save_dir, exist_ok=True)
+                shard_state_dict = generate_state_dict(model)
+                save_strategy_file(shard_state_dict, strategy_file_path)
+                logger.info(f"Strategy file for stand alone mode has been saved in {strategy_file_path}.")
+            barrier()
         logger.info(".........Load Distribute Checkpoint.........")
-        _load_distributed_safetensors(model, output_dir, load_checkpoint)
+        _load_distributed_safetensors(model, strategy_file_path, load_checkpoint)
     else:
         logger.info(".........Load Checkpoint.........")
         _load_safetensors(model, load_checkpoint)

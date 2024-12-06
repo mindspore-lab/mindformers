@@ -14,6 +14,7 @@
 #  ============================================================================
 """utils of load checkpoint file"""
 import os
+import shutil
 import time
 from enum import Enum
 from glob import glob
@@ -234,6 +235,22 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
     if config.use_parallel:
         barrier()
 
+    enable_stand_alone = (config.parallel.parallel_mode == 'STAND_ALONE')
+    if config.use_parallel and enable_stand_alone:
+        from mindformers.experimental.infer.core.utils import generate_state_dict
+        from mindformers.experimental.parallel_core.pynative.utils import save_strategy_file
+        from mindformers.tools.utils import get_output_root_path
+        strategy_ckpt_save_dir = os.path.join(get_output_root_path(), "strategy")
+        strategy_path = os.path.join(strategy_ckpt_save_dir, "ckpt_strategy.ckpt")
+        if is_main_rank(ignore_check_modelarts=True):
+            if os.path.exists(strategy_ckpt_save_dir):
+                shutil.rmtree(strategy_ckpt_save_dir)
+                logger.info(f"Existed strategy directory {strategy_ckpt_save_dir} has been deleted.")
+            os.makedirs(strategy_ckpt_save_dir, exist_ok=True)
+            shard_state_dict = generate_state_dict(network)
+            save_strategy_file(shard_state_dict, strategy_path)
+            logger.info(f"Strategy file for stand alone mode has been saved in {strategy_path}.")
+        barrier()
     load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy_path, load_checkpoint)
 
 

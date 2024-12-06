@@ -117,6 +117,14 @@ class RMSNorm(nn.Cell):
         """Forward of RMSNorm."""
         return self.rms_norm(x)
 
+    def sharded_state_dict(self):
+        """provide the sharded state dict based on the config"""
+        w_shard = (1,)
+        state_dict = {}
+        state_dict[self.weight.name] = {'shape': self.weight.shape,
+                                        'shard': w_shard}
+        return state_dict
+
 
 def get_norm(config):
     r"""
