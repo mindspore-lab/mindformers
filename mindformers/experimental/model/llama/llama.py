@@ -68,6 +68,7 @@ class LlamaForCausalLM(Module, LlamaPretrainedModel):
         transformer_config = TransformerConfig()
         convert_to_transformer_config(config, transformer_config)
         super().__init__(transformer_config, False, config, auto_prefix=True, **kwargs)
+        self.config = config
         self.pre_process = pre_process
         self.post_process = post_process
         self.fp16_lm_cross_entropy = transformer_config.fp16_lm_cross_entropy
