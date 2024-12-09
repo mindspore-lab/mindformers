@@ -19,7 +19,7 @@ import time
 import pytest
 
 import numpy as np
-from mindspore import set_context, Tensor
+from mindspore import set_context, Tensor, get_context
 
 from mindformers.generation.text_generator import GenerationMixin
 
@@ -46,6 +46,8 @@ class TestGenerationMixin:
         self.config = TestConfig()
         self._pre_set_phase = None
         self._exec_add_flags = True
+        self.is_pynative = get_context('mode') == 1
+
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         return {"input_ids": Tensor.from_numpy(input_ids)}
