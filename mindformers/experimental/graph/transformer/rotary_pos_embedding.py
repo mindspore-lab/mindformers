@@ -19,6 +19,8 @@ Rotary position embedding for transformer.
 from mindspore import nn, Tensor, dtype
 from mindspore import ops
 from mindspore.ops import operations as P
+from mindspore.context import ParallelMode
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 
 __all__ = [
@@ -107,7 +109,12 @@ class ApplyRotaryPosEmb(nn.Cell):
         self.stack = P.Stack(axis=-1)
         self.slice = P.StridedSlice()
         self.reshape = P.Reshape()
-        self.shard(config)
+
+        if config is not None:
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+                self.sharding_propagation(config)
+            else:
+                self.shard(config)
 
     def construct(self, t: Tensor, freqs: Tensor, rotary_interleaved: bool = False) -> Tensor:
         """Apply rotary position embedding to input tensor.
@@ -172,6 +179,19 @@ class ApplyRotaryPosEmb(nn.Cell):
         self.neg.shard(in_strategy=neg_in_strategy)
         self.sin.shard(in_strategy=sin_in_strategy)
         self.cos.shard(in_strategy=cos_in_strategy)
+
+    def sharding_propagation(self, config: TransformerConfig):
+        """The multi-head attention naturally supports tensor parallelism by splitting along the head dimension."""
+        dp = config.data_parallel if config and config.data_parallel is not None else 1
+        tp = config.tensor_parallel if config and config.tensor_parallel is not None else 1
+
+        add_in_strategy = ((dp, tp, 1, 1), (dp, tp, 1, 1))
+        mul_in_strategy = ((dp, tp, 1, 1), (1, 1, 1, 1))
+        split_in_strategy = ((dp, tp, 1, 1),)
+
+        self.add.shard(in_strategy=add_in_strategy)
+        self.mul.shard(in_strategy=mul_in_strategy)
+        self.split.shard(in_strategy=split_in_strategy)
 
 
 def apply_rotary_pos_emb(t: Tensor, freqs: Tensor, config: TransformerConfig, cu_seqlens: Tensor = None) -> Tensor:

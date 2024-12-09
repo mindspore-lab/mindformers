@@ -103,6 +103,9 @@ class LayerNorm(nn.Cell):
         self.mul.shard((strategy, (strategy[-1],)))
         self.add2.shard((strategy, (strategy[-1],)))
 
+    def sharding_propagation(self, strategy):
+        pass
+
 
 class FusedLayerNorm(nn.Cell):
     r"""
@@ -156,6 +159,9 @@ class FusedLayerNorm(nn.Cell):
                 'The last dim in FusedlayerNorm can not equal to 1! Strategy {} not supported!'.format(strategy))
 
         self.layer_norm.shard((strategy, (strategy[-1],), (strategy[-1],)))
+
+    def sharding_propagation(self, strategy):
+        pass
 
 
 class RMSNorm(nn.Cell):
@@ -219,6 +225,9 @@ class RMSNorm(nn.Cell):
         self.mul.shard((strategy, strategy[:-1] + (1,)))
         self.mul2.shard((strategy, (strategy[-1],)))
 
+    def sharding_propagation(self, strategy):
+        pass
+
 
 class FusedRMSNorm(nn.Cell):
     r"""
@@ -269,6 +278,9 @@ class FusedRMSNorm(nn.Cell):
                 'The last dim in FusedlayerNorm can not equal to 1! Strategy {} not supported!'.format(strategy))
 
         self.norm.shard((strategy, (strategy[-1],)))
+
+    def sharding_propagation(self, strategy):
+        pass
 
 
 def get_norm(config):

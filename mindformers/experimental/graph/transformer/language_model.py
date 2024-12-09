@@ -17,7 +17,8 @@ from typing import Union
 
 from mindspore import nn
 from mindspore.ops import operations as P
-
+from mindspore.context import ParallelMode
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindformers.experimental.graph.transformer.enums import AttnMaskType
 from mindformers.experimental.utils import init_method_normal, scaled_init_method_normal
 from mindformers.experimental.graph.tensor_parallel.layers import ColumnParallelLinear
@@ -140,7 +141,10 @@ class Embedding(nn.Cell):
         self.add_te = P.Add()
         self.cast = P.Cast()
 
-        self.shard(config)
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(config)
+        else:
+            self.shard(config)
 
     def construct(self, input_ids, position_ids, tokentype_ids=None):
         """embedding construct"""
@@ -182,6 +186,9 @@ class Embedding(nn.Cell):
             self.add_te.shard(((1, 1, 1), (1, 1, 1)))
             strategy_dropout = (1, 1, 1)
             self.embedding_dropout.shard(strategy=strategy_dropout)
+
+    def sharding_propagation(self, config: TransformerConfig):
+        pass
 
 
 class TransformerLanguageModel(nn.Cell):
@@ -302,7 +309,10 @@ class TransformerLanguageModel(nn.Cell):
         self.zeros = P.Zeros()
         self.shape = P.Shape()
 
-        self.shard(config)
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.sharding_propagation(config)
+        else:
+            self.shard(config)
 
     def construct(self, enc_input_ids, enc_position_ids, enc_attn_mask,
                   dec_input_ids=None, dec_position_ids=None, dec_attn_mask=None,
@@ -388,6 +398,9 @@ class TransformerLanguageModel(nn.Cell):
         cp = 1 if config is None else config.context_parallel
 
         self.concat_prefix.shard(((dp, 1, cp, 1), (dp, 1, cp, 1)))
+
+    def sharding_propagation(self, config: TransformerConfig):
+        pass
 
 
 def get_language_model(config: TransformerConfig,
