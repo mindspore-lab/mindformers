@@ -45,7 +45,7 @@ from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
 from mindformers.generation.parallel_decoding import parallel_decoding_control
-from mindformers.version_control import get_ascend_soc_version
+from mindformers.version_control import get_ascend_soc_version, check_delay_init_valid
 
 __all__ = ["ModelRunner"]
 
@@ -280,7 +280,15 @@ class MindIEModelRunner:
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=True)
         logger.info(f"Build tokenizer finished.")
-        self.model = AutoModel.from_config(self.model_config)
+        network_delay_inited = False
+        if check_delay_init_valid():
+            from mindspore.nn.utils import no_init_parameters
+            with no_init_parameters():
+                self.model = AutoModel.from_config(self.model_config)
+            network_delay_inited = True
+            logger.info("Parameters are not initialized during model initialization.")
+        else:
+            self.model = AutoModel.from_config(self.model_config)
         logger.info(f"Build model finished.")
 
         ms_model = ms.Model(self.model)
@@ -294,6 +302,9 @@ class MindIEModelRunner:
         else:
             transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
         logger.info(f"Load checkpoints finished.")
+
+        if network_delay_inited:
+            self.model.init_parameters_data()
 
         if self.model_config.is_dynamic:
             self.model.set_dynamic_inputs()
