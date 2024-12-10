@@ -15,9 +15,6 @@
 """Telechat predict scripts."""
 import os
 import argparse
-import json
-import copy
-from typing import Optional, Union, List, Dict
 import mindspore as ms
 from mindspore import Model, Tensor
 from mindspore.common import initializer
@@ -26,108 +23,21 @@ from mindformers import MindFormerConfig
 from mindformers import build_context
 from mindformers.tools.utils import str2bool
 from mindformers.tools.logger import logger
-from mindformers.generation import GenerationConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.core.parallel_config import build_parallel_config
 
-from telechat_tokenizer import TelechatTokenizer
-from telechat_config import TelechatConfig
-from telechat_predict_utils import History
-from telechat import TelechatForCausalLM
-
-
-def chat(model, tokenizer, question: str = '', history: Union[List[Dict], History] = None,
-         generation_config: Optional[GenerationConfig] = None):
-    """
-    Args:
-        tokenizer:  the tokenizer of  telechat
-        question: question which the model reply in this turn
-        history: history which will format the input for telechat
-        stream: if return the full text at last or yield the text in token
-        generation_config:  configuration for generation
-        **kwargs: args which will update the generation config or pass to model forward
-    """
-    if not generation_config:
-        logger.error("generation_config is None")
-        raise ValueError("generation_config must not be None")
-    if not question:
-        logger.error("question is empty")
-        raise ValueError("question must not be empty")
-    if history is None:
-        history = []
-
-    generation_config = copy.deepcopy(generation_config)
-
-    # transfer to History
-    if not isinstance(history, History):
-        history = History(tokenizer, history)
-
-    inputs = build_inputs_for_chat(tokenizer, question, history, generation_config)
-    history.append({"role": "user", "content": question})
-    outputs = model.generate(inputs,
-                             max_length=generation_config.max_decode_length,
-                             do_sample=generation_config.do_sample,
-                             top_k=generation_config.top_k,
-                             top_p=generation_config.top_p,
-                             max_new_tokens=generation_config.max_new_tokens)
-    response = tokenizer.decode(outputs[0][len(inputs):-1])
-    history.append({"role": "bot", "content": response})
-    return response, history
-
-
-def build_inputs_for_chat(tokenizer, question, history, generation_config):
-    """
-    check history and  build inputs here
-    """
-    # first tokenize question
-    q_token = tokenizer(question)
-    qa_history = copy.deepcopy(history)
-
-    # get the max length we should build our inputs in
-    model_max_length = generation_config.seq_length
-    build_max_length = max(0, model_max_length - generation_config.max_new_tokens) \
-        if generation_config.max_new_tokens else max(0, generation_config.max_decode_length)
-    if build_max_length < 3:
-        raise ValueError("the model can not meet the  requirements of input length,Please check config")
-
-    # trunc left
-    start_id = generation_config.start_token_id
-    usr_id = generation_config.user_token_id
-    bot_id = generation_config.bot_token_id
-    input_tokens = [usr_id] + q_token["input_ids"][-build_max_length + 1:] + [bot_id]
-    length = len(input_tokens)
-
-    while len(qa_history) >= 1:
-        message = qa_history.pop()
-        if message["role"] == "user":
-            tokens = [usr_id] + message["input_ids"]
-        elif message["role"] == "bot":
-            tokens = [bot_id] + message["input_ids"] + [generation_config.eos_token_id]
-        else:
-            tokens = []
-        if len(tokens) + length >= build_max_length:
-            break
-        else:
-            input_tokens = tokens + input_tokens
-    input_tokens = [start_id] + input_tokens
-    return input_tokens
+from research.telechat2.telechat_tokenizer import TelechatTokenizer
+from research.telechat2.telechat_config import TelechatConfig
+from research.telechat2.telechat import TelechatForCausalLM
 
 
 def main():
     """main function."""
-    input_questions = []
-    input_file = open(args.input_file, 'r', encoding='utf-8')
-    for line in input_file.readlines():
-        dic = json.loads(line)
-        input_questions.append(dic["input"])
-    input_file.close()
-    # set model config
+    input_questions = ["生抽与老抽的区别？"]
+
+    # set config
     config = MindFormerConfig(args.yaml_file)
-    os.environ["MS_INTERNAL_ENABLE_CUSTOM_KERNEL_LIST"] = "MatMulElemwise"
-    if config.model.model_config.qkv_concat:
-        os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'PagedAttention,FlashAttentionScore'
-    else:
-        os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'InferenceMatmulSplit,PagedAttention,FlashAttentionScore'
+    os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'InferenceMatmulSplit,PagedAttention'
 
     if args.device_id is not None:
         config.context.device_id = args.device_id
@@ -142,24 +52,27 @@ def main():
     if args.vocab_file_path is not None:
         config.processor.tokenizer.vocab_file = args.vocab_file_path
 
-    # 初始化环境
+    # init context
     build_context(config)
     build_parallel_config(config)
 
     # build tokenizer
+    chat_template = "{%- if tools %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{-'<_system>'+messages[0]['content'] }}\n    {%- else %}\n        {{- '<_system>'+'你是中国电信星辰语义大模型，英文名是TeleChat，你是由中电信人工智能科技有限公司和中国电信人工智能研究院（TeleAI）研发的人工智能助手。' }}\n    {%- endif %}\n    {{- '\\n\\n# 可用工具\\n你可以调用<tools></tools>标签中包含的一个或多个工具来辅助你回答问题,以下是可用工具详情：\\n<tools>\\n' }}\n    {%- for tool in tools %}\n        {{- tool | tojson }}\n        {{-'\\n'}}\n    {%- endfor %}\n    {{- '</tools>\\n\\n# 调用方法\\n你需要遵循工具的要求，使用json格式返回工具名称及参数，并用<tool_call></tool_call>包含。下方是一个调用模板：\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call>\\n\\n' }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<_system>' + messages[0]['content'] + '\\n' }}\n    {%- else %}\n        {{- '<_system>'+'你是中国电信星辰语义大模型，英文名是TeleChat，你是由中电信人工智能科技有限公司和中国电信人工智能研究院（TeleAI）研发的人工智能助手。\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == 'user') %}\n        {{- '<_user>' + message.content }}\n    {%- elif message.role == 'bot' or message.role == 'assistant' %}\n        {{- '<_bot>' }}\n        {%- if message.content %}\n            {{- message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {%- if loop.index0 == 0 %}\n                {{-'<tool_call>'}}\n            {%- else %}\n                {{-'\\n<tool_call>'}}\n            {%- endif %}\n            {{- '\\n{\"name\": \"' }}{{ tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<_end>\\n' }}\n    {%- elif message.role == 'tool' %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != 'tool') %}\n            {{- '<_user>'+'<tool_response>\\n' }}\n        {%- else %}\n            {{- '\\n<tool_response>\\n' }}\n        {%- endif %}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<_bot>' }}\n{%- endif %}"
     tokenizer = TelechatTokenizer(config.processor.tokenizer.vocab_file, \
-        fast_tokenizer=True, trust_remote_code=True)
+        chat_template=chat_template, fast_tokenizer=True, trust_remote_code=True)
 
+    # build model config
     model_config = config.model.model_config
     model_config.parallel_config = config.parallel_config
     model_config.batch_size = 1
     model_config.use_past = args.use_past
     model_config.use_flash_attention = True
-    model_config.start_token_id = tokenizer.convert_tokens_to_ids(args.start_token)
-    model_config.user_token_id = tokenizer.convert_tokens_to_ids(args.user_token)
-    model_config.bot_token_id = tokenizer.convert_tokens_to_ids(args.bot_token)
-    model_config.max_new_tokens = None
-
+    model_config.max_length = args.max_length
+    model_config.max_new_tokens = args.max_new_tokens
+    model_config.do_sample = args.do_sample
+    model_config.top_k = args.top_k
+    model_config.top_p = args.top_p
+    model_config.repetition_penalty = args.repetition_penalty
     model_config = TelechatConfig(**model_config)
 
     # build model from config
@@ -172,22 +85,27 @@ def main():
         input_ids = Tensor(shape=(model_config.batch_size, seq_length), dtype=ms.int32, init=initializer.One())
         infer_data = model.prepare_inputs_for_predict_layout(input_ids)
         transform_and_load_checkpoint(config, ms_model, model, infer_data, do_predict=True)
-    history = []
+
+    inputs = []
     for question in input_questions:
-        logger.info(f"question : {str(question)}")
-        answer, history = chat(model, tokenizer, question, history, generation_config=model_config)
-        logger.info(f"answer:, {str(answer)}")
-        logger.info(f"\n截至目前的聊天记录是:, {str(history)}")
-        logger.info("\n")
+        inputs.append({"role": "user", "content": question})
+        inputs = tokenizer.apply_chat_template(conversation=inputs, tokenize=False, add_generation_prompt=True)
+        logger.info(f"inputs: {inputs}")
+        input_ids = tokenizer(inputs)["input_ids"]
+        logger.debug(f"input_ids: {input_ids}")
+        outputs = model.generate(input_ids)
+        output_ids = outputs[0][len(inputs):-1]
+        logger.debug(f"output_ids: {output_ids}")
+        answer = tokenizer.decode(outputs[0][len(input_ids):-1])
+        logger.info(f"answer: {answer}")
+        inputs.append({"role": "bot", "content": answer})
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input_file', default='', type=str,
-                        help='input to infer.')
-    parser.add_argument('--vocab_file_path', default='', type=str,
+    parser.add_argument('--vocab_file_path', default=None, type=str,
                         help='which model to use.')
-    parser.add_argument('--checkpoint_path', default='', type=str,
+    parser.add_argument('--checkpoint_path', default=None, type=str,
                         help='set checkpoint path.')
     parser.add_argument('--use_parallel', default=True, type=str2bool,
                         help='whether use parallel.')
@@ -197,15 +115,22 @@ if __name__ == "__main__":
                         help='set src strategy path.')
     parser.add_argument('--use_past', default=True, type=str2bool,
                         help='whether use past.')
-    parser.add_argument('--yaml_file', default="", type=str,
+    parser.add_argument('--yaml_file', default=None, type=str,
                         help='predict yaml path')
     parser.add_argument('--device_id', default=0, type=int,
                         help='device id set when run on single card. Default: 0')
-    parser.add_argument('--start_token', default="<_start>", type=str,
-                        help='start_token')
-    parser.add_argument('--user_token', default="<_user>", type=str,
-                        help='user_token')
-    parser.add_argument('--bot_token', default="<_bot>", type=str,
-                        help='bot_token')
+    parser.add_argument('--max_new_tokens', default=512, type=int,
+                        help='Maximum generation length.')
+    parser.add_argument('--max_length', default=8192, type=int,
+                        help='The maximum length of input plus output.')
+    parser.add_argument('--do_sample', default=False, type=bool,
+                        help='Enable top-k or top-p sampling.')
+    parser.add_argument('--top_k', default=1, type=int,
+                        help='Sample from the top-k tokens with the highest probabilities.')
+    parser.add_argument('--top_p', default=1.0, type=float,
+                        help='Sample from the tokens with the highest probabilities \
+                            whose cumulative probabilities do not exceed top-p.')
+    parser.add_argument('--repetition_penalty', default=1.0, type=float,
+                        help='The penalty coefficient for repeated token.')
     args = parser.parse_args()
     main()
