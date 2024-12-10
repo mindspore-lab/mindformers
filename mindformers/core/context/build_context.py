@@ -99,7 +99,7 @@ class MSContextOperator:
         """Get the valid ms config."""
         ctx = self.config.get('context', {})
         ms_ctx = {
-            'device_id': ctx.get('device_id', 0),
+            'device_id': ctx.get('device_id', int(os.getenv('DEVICE_ID', '0'))),
             'max_device_memory': ctx.get('max_device_memory', '1024GB'),
             'mode': MODE.get(ctx.get('mode', 'GRAPH_MODE')),
             'deterministic': "ON" if ctx.get('train_precision_sync') else "OFF"
@@ -115,8 +115,7 @@ class MSContextOperator:
         if self.config.use_parallel and check_in_dynamic_cluster():
             # for dynamic cluster, we should not set device id in context.
             ctx.pop('device_id', None)
-        else:
-            ms_ctx['device_id'] = int(os.getenv('DEVICE_ID', '0'))
+            ms_ctx.pop('device_id', None)
 
     def _set_save_graphs_path(self, ctx, ms_ctx):
         if ctx.get('save_graphs'):
