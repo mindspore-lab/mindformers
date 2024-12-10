@@ -207,6 +207,7 @@ class PretrainedConfig(PushToHubMixin):
         self._commit_hash = kwargs.pop("_commit_hash", None)
 
         self.checkpoint_name_or_path = kwargs.pop("checkpoint_name_or_path", None)
+        self.rl_config = kwargs.pop("rl_config", None)
 
         # version info
         self.mindformers_version = kwargs.pop("mindformers_version", None)
