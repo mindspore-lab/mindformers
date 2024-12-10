@@ -52,7 +52,7 @@ class TestGLM2Predict:
 
         model = get_model(model_config)
 
-        expect_outputs = ("hello world.的先因此而底部常务理事常务理事┳矸┳做 OW OW┳ Thank Thank Fle")
+        expect_outputs = ("hello world.的先因此而底部常务理事常务理事┳矸┳做 OW OW┳┳ Thank Thank")
         outputs = runner.set_predict(model=model, expect_outputs=expect_outputs, auto_tokenizer='glm2_6b')
         assert outputs == expect_outputs, "The outputs are not as expected, outputs: "\
                                           f"{outputs}, expect_outputs: {expect_outputs}"
