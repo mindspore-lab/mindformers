@@ -125,7 +125,7 @@ class TelechatConfig(PretrainedConfig):
                  embedding_init_type=None,
                  res_dtype: str = "float32",
                  qkv_has_bias: bool = False,
-                 wo_has_bias: bool = True,
+                 out_proj_has_bias: bool = True,
                  qkv_concat: bool = False,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  use_past: bool = False,
@@ -169,7 +169,7 @@ class TelechatConfig(PretrainedConfig):
         self.n_kv_heads = n_kv_heads
         self.ffn_dim_multiplier = ffn_dim_multiplier
         self.rms_norm_eps = rms_norm_eps
-        self.wo_has_bias = wo_has_bias
+        self.out_proj_has_bias = out_proj_has_bias
         self.param_init_type = convert_mstype(param_init_type)
         if embedding_init_type is not None:
             self.embedding_init_type = convert_mstype(embedding_init_type)

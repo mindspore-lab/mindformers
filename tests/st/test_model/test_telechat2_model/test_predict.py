@@ -45,7 +45,7 @@ class TestTelechat2Predict:
         model_config.block_size = 128
         model_config.num_blocks = 256
         model_config.is_dynamic = True
-        model_config.wo_has_bias = True
+        model_config.out_proj_has_bias = True
         model_config.batch_size = runner.batch_size  # set batch size for prediction
         model_config.vocab_size = 32000  # default to use llama2 tokenizer
 
