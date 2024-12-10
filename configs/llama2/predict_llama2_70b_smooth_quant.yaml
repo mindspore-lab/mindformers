@@ -120,7 +120,7 @@ model:
     block_size: 16
     num_blocks: 512
     is_dynamic: True
-    qkv_concat: True
+    qkv_concat: False
     offset: 0
     checkpoint_name_or_path: ""
     repetition_penalty: 1

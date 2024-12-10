@@ -128,7 +128,7 @@ model:
     softmax_compute_type: "float32"
     rotary_dtype: "float32"
     param_init_type: "bfloat16"
-    qkv_concat: True
+    qkv_concat: False
     use_past: True
     use_flash_attention: True
     block_size: 16
