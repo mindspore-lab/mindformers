@@ -14,46 +14,40 @@
 # ============================================================================
 """run_check module"""
 import os
+import platform
 import re
+import subprocess
 import sys
 import time
-import platform
-import subprocess
+import json
 from io import StringIO
 from pathlib import Path
-import numpy as np
 
+import numpy as np
 import mindspore as ms
 from mindspore import JitConfig
 from mindspore.dataset import GeneratorDataset
 
 import mindformers as mf
-from mindformers import Trainer, TrainingArguments, AdamW
 from mindformers.models.llama import LlamaForCausalLM, LlamaConfig
 from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
-
-from .tools.logger import logger
-
-VERSION_MAPPING = {
-    '1.2.0': {
-        'ms': '2.3.0',
-        'cann': '8.0.RC2',
-        'driver': '24.1.rc2',
-    },
-}
+from mindformers import Trainer, TrainingArguments, AdamW
+from mindformers.tools.logger import logger
 
 
 class BaseCheck:
     """The base check class, needs to be implemented"""
 
-    def __init__(self, start):
+    def __init__(self, start, version_mapping=None):
         """
         Init function
 
         Args:
             start (float): The start time of run_check
+            version_mapping (dict): The version compatibility dict. Default is None
         """
         self.start = start
+        self.version_mapping = version_mapping
 
     def set_next(self, next_check):
         """
@@ -110,13 +104,14 @@ class MSCheck(BaseCheck):
 class MFCheck(BaseCheck):
     """Mindformers run test"""
 
-    def __init__(self, start, batch_size=1, num_train_epochs=1, num_layers=2, seq_length=2,
+    def __init__(self, start, version_mapping=None, batch_size=1, num_train_epochs=1, num_layers=2, seq_length=2,
                  step_num=1, vocab_size=32000):
         """
         init function.
 
         Args:
             start (float): The start time of run_check
+            version_mapping (dict): The version compatibility dict. Default is None
             batch_size (int): The batch size
             num_train_epochs (int): The train epochs
             num_layers (int): The number of layers
@@ -124,7 +119,7 @@ class MFCheck(BaseCheck):
             step_num (int): The step number
             vocab_size (int): The vocab size
         """
-        super().__init__(start)
+        super().__init__(start, version_mapping)
 
         self.step_num = step_num
         self.vocab_size = vocab_size
@@ -206,29 +201,37 @@ class MFCheck(BaseCheck):
 class VersionCheck(BaseCheck):
     """Version check"""
 
-    def __init__(self, start, error_flag=None):
-        super().__init__(start)
+    def __init__(self, start, version_mapping=None, error_flag=None):
+        super().__init__(start, version_mapping)
         self.error_flag = error_flag
 
     @staticmethod
-    def recommend(mfv):
+    def recommend(v=None, version_mapping=None):
         """
-        Check whether the given mindformers version is in record
+        Check whether the given version is in record
 
         Args:
-            mfv (str): The mindformers version needs to be searched
+            v (str): The version needs to be searched. Default is None
+            version_mapping (dict): The version mapping dict. Default is None
 
         Returns:
             tuple:
-                - bool: Whether the mindformers version is in record
-                - str: The latest mindformers version or the input if the mindformers version is in record
-                - dict: The corresponding environment
+                - bool: Whether the version is in record
+                - str: The latest MindFormers version or the input if the version is in record
+                - str: The corresponding MindSpore version
+                - str: The corresponding cann version
+                - str: The corresponding driver version
         """
-        matched_vs = VERSION_MAPPING.get(mfv, None)
+        matched_vs = version_mapping['mf'].get(v, None)
         if matched_vs:
-            return True, mfv, matched_vs
-        latest = max(VERSION_MAPPING.keys(), key=lambda x: tuple(map(int, x.split('.'))))
-        return False, latest, VERSION_MAPPING[latest]
+            in_record = True
+        else:
+            in_record = False
+            v = max(version_mapping['mf'].keys(), key=lambda x: tuple(map(int, x.split('.'))))
+        msv = version_mapping['mf'][v]['prefer']
+        cann = version_mapping['ms'][msv]['prefer']
+        driver = version_mapping['cann'][cann]['prefer']
+        return in_record, v, msv, cann, driver
 
     def _matched(self, end):
         """
@@ -244,7 +247,7 @@ class VersionCheck(BaseCheck):
             logger.info(
                 f'All checks passed, used {end - self.start:.2f} seconds, the environment is correctly set up!')
 
-    def _unmatched(self, end, mfv, mfv_matching):
+    def _unmatched(self, end, mfv, msv, cann, driver):
         """
         The installed versions are unmatched
 
@@ -255,13 +258,13 @@ class VersionCheck(BaseCheck):
         """
         if self.error_flag:
             logger.error(f"The run check failed in {end - self.start:.2f} "
-                         f"seconds, It's recommended to install cann=={mfv_matching['cann']} "
-                         f"driver=={mfv_matching['driver']} mindspore=={mfv_matching['ms']} mindformers=={mfv}")
+                         f"seconds, It's recommended to install cann=={cann} "
+                         f"driver=={driver} mindspore=={msv} mindformers=={mfv}")
         else:
             logger.warning(f'The installed software are unmatched '
                            f'but all checks passed in {end - self.start:.2f} seconds')
-            logger.info(f"It's recommended to install cann=={mfv_matching['cann']} "
-                        f"driver=={mfv_matching['driver']} mindspore=={mfv_matching['ms']} mindformers=={mfv}")
+            logger.info(f"It's recommended to install cann=={cann} "
+                        f"driver=={driver} mindspore=={msv} mindformers=={mfv}")
 
     def check(self):
         """Check whether the software versions are matched"""
@@ -299,27 +302,27 @@ class VersionCheck(BaseCheck):
             driver_version = re.search(r'=(\d[\d.\w]+)', driver_info).group(1)
             logger.info(f'Ascend driver version: {driver_version}')
 
-        # 版本不匹配
+        # version unmatched
         except RuntimeError as e:
             end = time.perf_counter()
             logger.error(str(e))
-            mfv_inrecord, mfv, mfv_matching = self.recommend(mfv)
-            self._unmatched(end, mfv, mfv_matching)
+            mfv_inrecord, mfv, msv_rcmd, cann_rcmd, driver_rcmd = self.recommend(mfv, self.version_mapping)
+            self._unmatched(end, mfv, msv_rcmd, cann_rcmd, driver_rcmd)
 
         else:
             end = time.perf_counter()
-            mfv_inrecord, mfv, mfv_matching = self.recommend(mfv)
+            mfv_inrecord, mfv, msv_rcmd, cann_rcmd, driver_rcmd = self.recommend(mfv, self.version_mapping)
 
-            # 版本匹配
+            # version matched
             if (mfv_inrecord
-                    and msv == mfv_matching['ms']
-                    and cann_version == mfv_matching['cann']
-                    and driver_version == mfv_matching['driver']):
+                    and (msv == msv_rcmd or msv in self.version_mapping['mf'][mfv]['support'])
+                    and cann_version == self.version_mapping['ms'][msv]['prefer']
+                    and driver_version == self.version_mapping['cann'][cann_version]['prefer']):
                 self._matched(end)
 
-            # 版本不匹配
+            # version unmatched
             else:
-                self._unmatched(end, mfv, mfv_matching)
+                self._unmatched(end, mfv, msv_rcmd, cann_rcmd, driver_rcmd)
 
 
 def run_check():
@@ -331,16 +334,43 @@ def run_check():
         >>> run_check()
     """
 
+    version_file = Path(f'{__file__}').parent / 'VERSION_MAP.json'
+    if not version_file.is_file():
+        raise RuntimeError('Cannot find VERSION_MAP.json or the found one is not a file')
+
+    with open(version_file) as f:
+        # version_mapping = {
+        #     'mf': {
+        #         'version1': {
+        #             'prefer': 'prefered ms version',
+        #             'support': [competible ms version list]
+        #         },
+        #     },
+        #     'ms': {
+        #         'version1': {
+        #             'prefer' : 'prefered cann version',
+        #             'support': [competible cann version list]
+        #         },
+        #     },
+        #     'cann': {
+        #         'version1': {
+        #             'prefer' : 'prefered driver version',
+        #             'support': [competible driver version list]
+        #         },
+        #     }
+        # }
+        version_mapping = json.load(f)
+
     os.environ['MS_ALLOC_CONF'] = "enable_vmm:False"
 
     start = time.perf_counter()
     ms.set_context(mode=0)
 
-    msrc = MSCheck(start)
-    mfc = MFCheck(start)
-    vc = VersionCheck(start)
+    msc = MSCheck(start, version_mapping=version_mapping)
+    mfc = MFCheck(start, version_mapping=version_mapping)
+    vc = VersionCheck(start, version_mapping=version_mapping)
 
-    msrc.set_next(mfc)
+    msc.set_next(mfc)
     mfc.set_next(vc)
 
-    msrc.check()
+    msc.check()
