@@ -234,11 +234,13 @@ def _check_moe_config(moe_config=None, parallel_config=None):
     if device_num % parallel_config.expert_parallel != 0:
         raise ValueError(f"device_num: {device_num} must be a multiple of expert_parallel: "
                          f"{parallel_config.expert_parallel}.")
-    if parallel_config.data_parallel % parallel_config.expert_parallel != 0:
-        raise ValueError(f"data parallel: {parallel_config.data_parallel} must be a multiple of "
-                         f"expert_parallel: {parallel_config.expert_parallel} when using MoE.")
-    if parallel_config.data_parallel * parallel_config.model_parallel > device_num:
+    if parallel_config.data_parallel * parallel_config.context_parallel % parallel_config.expert_parallel != 0:
+        raise ValueError(f"data parallel * context parallel: "
+                         f"{parallel_config.data_parallel * parallel_config.context_parallel} "
+                         f"must be a multiple of expert_parallel: {parallel_config.expert_parallel} when using MoE.")
+    if parallel_config.data_parallel * parallel_config.context_parallel * parallel_config.model_parallel > device_num:
         raise ValueError(f"The product of the data parallel: {parallel_config.data_parallel} and "
+                         f"context parallel: {parallel_config.context_parallel} and "
                          f"model parallel: {parallel_config.model_parallel} "
                          f"should be less than device_num: {device_num}.")
 
@@ -648,8 +650,8 @@ class MoEV2(Cell):
         self.return_extra_loss = return_extra_loss
         self.capacity_factor = moe_config.capacity_factor
         self.num_experts_chosen = moe_config.num_experts_chosen
-        self.dp_group = parallel_config.data_parallel
-        self.dp = parallel_config.data_parallel
+        self.dp_group = parallel_config.data_parallel * parallel_config.context_parallel
+        self.dp = parallel_config.data_parallel * parallel_config.context_parallel
         self.ep = parallel_config.expert_parallel
         self.mp = parallel_config.model_parallel
         self.use_allgather_dispatcher = moe_config.use_allgather_dispatcher
@@ -667,6 +669,7 @@ class MoEV2(Cell):
             self.ffn_forward = self._ffn_forward_sq
             router_parallel_config.data_parallel = self.dp * self.mp
             router_parallel_config.model_parallel = 1
+            router_parallel_config.context_parallel = 1
             self.dp_group *= self.mp
         self.router = Router(d_model=self.hidden_size,
                              moe_config=moe_config,
@@ -889,7 +892,7 @@ class Router(Cell):
                  training=True,
                  parallel_config=None):
         super(Router, self).__init__()
-        dp = parallel_config.data_parallel
+        dp = parallel_config.data_parallel * parallel_config.context_parallel
         self.d_model = d_model
         self.moe_config = moe_config
         self.expert_dim = moe_config.expert_num
@@ -1194,7 +1197,7 @@ class TopkRouterV2(Cell):
                  parallel_config=None):
         super(TopkRouterV2, self).__init__()
 
-        dp = parallel_config.data_parallel
+        dp = parallel_config.data_parallel * parallel_config.context_parallel
         self.mp = parallel_config.model_parallel
         self.ep = parallel_config.expert_parallel
         self.d_model = d_model
