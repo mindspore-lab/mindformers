@@ -152,7 +152,7 @@ model:
     softmax_compute_type: "float32"
     rotary_dtype: "float32"
     param_init_type: "float32"
-    qkv_concat: True
+    qkv_concat: False
     has_bias: False
     use_past: False
     scaling_factor: 1.0
