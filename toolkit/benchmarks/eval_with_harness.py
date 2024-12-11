@@ -169,7 +169,6 @@ class MFLM(TemplateLM):
         self._config.parallel_config.model_parallel = tp
         self._config.use_parallel = use_parallel
         self._config.parallel_config.data_parallel = dp
-        self._config.auto_trans_ckpt = use_parallel
 
         if self._device:
             self._config.context.device_id = self._device
@@ -199,14 +198,8 @@ class MFLM(TemplateLM):
 
         if not config.load_checkpoint:
             raise ValueError("There is no model ckpt in the model directory.")
-        eval_logger.info("----------------Transform and load checkpoint----------------")
+        eval_logger.info("----------------Load checkpoint----------------")
         seq_length = config.model.model_config.seq_length
-        # set auto transform ckpt
-        if config.use_parallel:
-            config.auto_trans_ckpt = True
-            eval_logger.info("----------------auto trans ckpt----------------")
-        else:
-            config.auto_trans_ckpt = False
         input_ids = Tensor(shape=(self.batch_size, seq_length), dtype=mindspore.int32, init=initializer.One())
         infer_data = self._model.prepare_inputs_for_predict_layout(input_ids)
         transform_and_load_checkpoint(config, Model(self._model), self._model, infer_data, do_predict=True)
