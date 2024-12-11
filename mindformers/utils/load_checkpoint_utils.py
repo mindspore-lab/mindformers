@@ -175,6 +175,8 @@ def prepare_strategy_unified_path(config, strategy_path):
 def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval=False, do_predict=False):
     """load different format checkpoint interface."""
     logger.info(f"......Start load checkpoint from {config.load_ckpt_format}......")
+    if config.load_ckpt_async:
+        logger.warning("The configuration 'load_ckpt_async=True' is not supported for safetensor files currently.")
     config.load_checkpoint = _check_checkpoint_path(config.load_checkpoint)
     load_checkpoint = config.load_checkpoint
     logger.info(f"Load checkpoint from {config.load_checkpoint}.")
