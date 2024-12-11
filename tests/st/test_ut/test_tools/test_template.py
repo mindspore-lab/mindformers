@@ -13,13 +13,38 @@
 # limitations under the License.
 # ============================================================================
 """test Config"""
+import inspect
 import pytest
+from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
+from mindformers.modules.transformer import MoEConfig as MoEConfig_cls
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.tools.register.template import CONFIG_NAME_TO_CLASS, CallbackConfig, ConfigTemplate, ContextConfig, \
     EvalCallbackConfig, EvalDatasetConfig, EvalDatasetTaskConfig, GeneralConfig, LrScheduleConfig, MetricConfig, \
     MoEConfig, ModelConfig, MsParallelConfig, OptimizerConfig, ParallelConfig, ProcessorConfig, RecomputeConfig, \
     RunnerConfig, TrainDatasetConfig, TrainDatasetTaskConfig, TrainerConfig, WrapperConfig
 
+
+def get_class_init_params_and_defaults(cls):
+    """
+    Get the initialization parameters and their default values for a given class.
+
+    Args:
+        cls: The class to introspect.
+
+    Returns:
+        A dictionary where keys are parameter names and values are their default values.
+        If a parameter does not have a default value, it will be represented as `None`.
+    """
+    signature = inspect.signature(cls.__init__)
+    params = signature.parameters
+
+    result = {}
+    for name, param in params.items():
+        if name == "self":
+            continue
+        result[name] = param.default if param.default is not inspect.Parameter.empty else None
+
+    return result
 
 class TestGeneralConfig:
     """test general_config"""
@@ -91,6 +116,16 @@ class TestParallelConfig:
         for key in config.keys():
             assert key in ParallelConfig.keys()
 
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_attribute_equal_to_class(self):
+        cls_init_params = get_class_init_params_and_defaults(TransformerOpParallelConfig)
+        cls_init_params.pop("recompute")
+        assert len(cls_init_params) == len(ParallelConfig.keys())
+        for key in ParallelConfig.keys():
+            assert getattr(ParallelConfig, key) == cls_init_params[key]
+
 
 class TestRecomputeConfig:
     """test recompute_config"""
@@ -124,6 +159,15 @@ class TestRecomputeConfig:
         for key in config.keys():
             assert key in RecomputeConfig.keys()
 
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_attribute_equal_to_class(self):
+        cls_init_params = get_class_init_params_and_defaults(TransformerRecomputeConfig)
+        assert len(cls_init_params) == len(RecomputeConfig.keys())
+        for key in RecomputeConfig.keys():
+            assert getattr(RecomputeConfig, key) == cls_init_params[key]
+
 
 class TestMoEConfig:
     """test moe_config"""
@@ -156,6 +200,15 @@ class TestMoEConfig:
                 assert config[key] == getattr(MoEConfig, key)
         for key in config.keys():
             assert key in MoEConfig.keys()
+
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_attribute_equal_to_class(self):
+        cls_init_params = get_class_init_params_and_defaults(MoEConfig_cls)
+        assert len(cls_init_params) == len(MoEConfig.keys())
+        for key in MoEConfig.keys():
+            assert getattr(MoEConfig, key) == cls_init_params[key]
 
 
 class TestRunnerConfig:
