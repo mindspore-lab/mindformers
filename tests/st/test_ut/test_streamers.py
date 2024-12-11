@@ -47,7 +47,7 @@ def test_text_iterator_streamer_schedule():
     model = GPT2LMHeadModel.from_pretrained("gpt2")
     inputs = tok(["An increasing sequence: one,"], return_tensors=None, add_special_tokens=False)
 
-    streamer = TextIteratorStreamer(tok)
+    streamer = TextIteratorStreamer(tok, timeout=15)
 
     # Run the generation in a separate thread, so that we can fetch the generated text in a non-blocking way.
     generation_kwargs = dict(input_ids=inputs["input_ids"], streamer=streamer, max_length=20, top_k=1)
@@ -73,7 +73,7 @@ def test_text_iterator_streamer_schedule_batch():
                   "The largest river in China is"]
     inputs = tok(text_batch, max_length=8, padding='max_length', return_tensors=None, add_special_tokens=False)
 
-    streamer = TextIteratorStreamer(tok)
+    streamer = TextIteratorStreamer(tok, timeout=15)
 
     # Run the generation in a separate thread, so that we can fetch the generated text in a non-blocking way.
     generation_kwargs = dict(input_ids=inputs["input_ids"], streamer=streamer, max_length=20, top_k=1)
