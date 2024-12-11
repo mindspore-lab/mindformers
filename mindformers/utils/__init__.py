@@ -27,4 +27,4 @@ from .safetensors import (
     is_hf_safetensors_dir,
     check_safetensors_key,
 )
-from .load_checkpoint_utils import validate_qkv_concat
+from .load_checkpoint_utils import validate_qkv_concat, process_hf_checkpoint
