@@ -64,7 +64,7 @@ model:
     use_past: True
     use_flash_attention: True
     block_size: 32
-    num_blocks: 512
+    num_blocks: 1024
     offset: 0
     checkpoint_name_or_path: ""
     repetition_penalty: 1.05
@@ -74,7 +74,7 @@ model:
     top_p: 0.8
     do_sample: False
     is_dynamic: True
-    qkv_concat: True
+    qkv_concat: False
     auto_map:
       AutoTokenizer: [qwen1_5_tokenizer.Qwen2Tokenizer, null]
   arch:
