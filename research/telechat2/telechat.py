@@ -87,15 +87,28 @@ class TelechatModel(TelechatPreTrainedModel):
         self.shape = P.Shape()
         self.reshape = P.Reshape()
 
-        self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
-                                  seq_length=config.seq_length,
-                                  max_position_embedding=config.max_position_embedding,
-                                  rotary_dtype=config.rotary_dtype,
-                                  theta=config.theta,
-                                  scaling_factor=config.scaling_factor,
-                                  extend_method=config.extend_method,
-                                  parallel_config=config.parallel_config,
-                                  is_dynamic=config.is_dynamic)
+        if config.extend_method == 'DYNAMIC_NTK':
+            use_default_freqs = True
+            if hasattr(config, "use_default_freqs"):
+                use_default_freqs = config.use_default_freqs
+            self.freqs_mgr = FreqsMgrDynamicNTK(head_dim=self.head_dim,
+                                                seq_length=config.seq_length,
+                                                rotary_dtype=config.rotary_dtype,
+                                                theta=config.theta,
+                                                parallel_config=config.parallel_config,
+                                                is_dynamic=config.is_dynamic,
+                                                use_default_freqs=use_default_freqs)
+            logger.info("Running with dynamic NTK.")
+        else:
+            self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
+                                      seq_length=config.seq_length,
+                                      max_position_embedding=config.max_position_embedding,
+                                      rotary_dtype=config.rotary_dtype,
+                                      theta=config.theta,
+                                      scaling_factor=config.scaling_factor,
+                                      extend_method=config.extend_method,
+                                      parallel_config=config.parallel_config,
+                                      is_dynamic=config.is_dynamic)
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
