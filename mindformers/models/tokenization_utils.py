@@ -473,7 +473,7 @@ class PreTrainedTokenizer(PreTrainedTokenizerBase):
 
     Examples:
         >>> from mindformers import LlamaTokenizer
-        >>> tokenizer = LlamaTokenizer.from_pretrained("llama_7b")
+        >>> tokenizer = LlamaTokenizer.from_pretrained("llama2_7b")
         >>> res = tokenizer("hello world")
         >>> print(res)
         {'input_ids': [1, 27701, 924], 'attention_mask': [1, 1, 1]}
