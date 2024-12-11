@@ -692,6 +692,8 @@ def barrier_world(action: str = None):
             logger.info("Now barriered...")
 
         comm_func.barrier()
+        from mindspore.common.api import _pynative_executor
+        _pynative_executor.sync()
 
 
 def get_pipeline_rank_ids():
