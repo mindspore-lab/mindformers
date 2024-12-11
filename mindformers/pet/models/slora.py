@@ -83,11 +83,13 @@ class SLoraModel(PreTrainedModel):
                 adapter = adapter_ids[batch]
                 if adapter in SLoraAdapter.adapter_names:
                     adapter_ids_np[batch] = slora_names.index(adapter) + 1
+                elif adapter is None:
+                    logger.warning(f"SLoRA adapter id got none for batch {batch}, use base model without SLoRA.")
                 else:
-                    logger.warning(f"Can not find {adapter} in registered adapter names, "
-                                   f"supported adapter list:{slora_names}")
+                    logger.warning(f"Can not find {adapter} in registered adapter names for batch {batch}, "
+                                   f"use base model without SLoRA, supported adapter list:{slora_names}")
         else:
-            logger.warning(f"SLoRA adapter ids got none.")
+            logger.warning(f"SLoRA adapter ids got none, use base model without SLoRA.")
         self.adapter_ids.set_data(Tensor.from_numpy(np.array(adapter_ids_np, dtype=np.int32)), slice_shape=True)
         return self.lora_model.prepare_inputs_for_generation(input_ids, **kwargs)
 
@@ -99,7 +101,31 @@ class SLoraModel(PreTrainedModel):
 
     def set_dynamic_inputs(self, **kwargs):
         self.adapter_ids.set_data(Tensor(shape=[None], dtype=mstype.int32), slice_shape=True)
-        return self.lora_model.set_dynamic_inputs(**kwargs)
+        self.parallel_decoding = self.lora_model.parallel_decoding
+        dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
+        have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
+        dynamic_position_ids = Tensor(shape=[None, None], dtype=mstype.int32) if self.parallel_decoding else None
+        dynamic_mask = Tensor(shape=[None, None], dtype=mstype.float16) if self.parallel_decoding else None
+        dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32) if self.parallel_decoding else None
+        if have_prefix_keys_values:
+            dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None, None], dtype=mstype.float16)
+            self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_mask, None, None,
+                            dynamic_batch_valid_length, None, None, dynamic_block_tables,
+                            dynamic_slot_mapping, dynamic_prefix_keys_values, None, dynamic_q_seq_lens)
+        elif self.lora_model.use_past:
+            self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_mask, None, None,
+                            dynamic_batch_valid_length, None, None, dynamic_block_tables,
+                            dynamic_slot_mapping, None, None, dynamic_q_seq_lens)
+        elif kwargs.get("pre_gather", False):
+            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
+                            dynamic_batch_valid_length, None, None, None, None, None)
+        else:
+            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
+                            None, None, None, None, None, None)
+        logger.info("Set dynamic input for slora.")
 
     def to_embeddings(self, tokens):
         return self.lora_model.to_embeddings(tokens)
