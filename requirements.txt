@@ -8,7 +8,6 @@ jieba>=0.42.1
 rouge_chinese>=1.0.3
 nltk>=2.0
 mindpet==1.0.4
-mdtex2html
 opencv-python-headless
 pyarrow==12.0.1
 tokenizers==0.15.0
