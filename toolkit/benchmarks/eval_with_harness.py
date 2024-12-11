@@ -60,7 +60,7 @@ class MFLM(TemplateLM):
     def __init__(
             self,
             pretrained: str,
-            use_past: Optional[bool] = False,
+            use_past=None,
             device_id: Optional[int] = None,
             batch_size: Optional[int] = 1,
             max_length: Optional[int] = None,
@@ -68,9 +68,9 @@ class MFLM(TemplateLM):
             add_bos_token: Optional[bool] = False,
             prefix_token_id: Optional[int] = None,
             max_batch_size: Optional[int] = 64,
-            use_parallel: Optional[bool] = False,
-            dp: Optional[int] = 1,
-            tp: Optional[int] = 1,
+            use_parallel=None,
+            dp=None,
+            tp=None,
             **kwargs
     ) -> None:
         super().__init__()
@@ -152,11 +152,11 @@ class MFLM(TemplateLM):
     def _get_config(
             self,
             pretrained: str,
-            batch_size: int,
-            use_parallel: bool = False,
-            use_past: bool = False,
-            tp: int = 1,
-            dp: int = 1
+            batch_size=None,
+            use_parallel=None,
+            use_past=None,
+            tp=None,
+            dp=None
     ) -> MindFormerConfig:
         """parse yaml configuration file"""
         # search yaml config file
@@ -165,10 +165,15 @@ class MFLM(TemplateLM):
             raise Exception("There is no or more than one config file in the model directory.")
         self._config = MindFormerConfig(config_path[0])
 
+
         self._config.pretrained = pretrained
-        self._config.parallel_config.model_parallel = tp
-        self._config.use_parallel = use_parallel
-        self._config.parallel_config.data_parallel = dp
+        if use_parallel is not None:
+            self._config.use_parallel = use_parallel
+
+        if tp is not None:
+            self._config.parallel_config.model_parallel = tp
+        if dp is not None:
+            self._config.parallel_config.data_parallel = dp
 
         if self._device:
             self._config.context.device_id = self._device
@@ -184,8 +189,9 @@ class MFLM(TemplateLM):
             self._config.model.model_config.seq_length = self._max_length
 
         self._config.model.model_config.parallel_config = self._config.parallel_config
-        self._config.model.model_config.batch_size = batch_size
-        self._config.model.model_config.use_past = use_past
+
+        if use_past is not None:
+            self._config.model.model_config.use_past = use_past
 
         build_context(self._config)
         build_parallel_config(self._config)
@@ -563,6 +569,7 @@ class MFLM(TemplateLM):
                 until = [eos]
             else:
                 until.append(eos)
+
             if "max_gen_toks" in kwargs.keys():
                 max_gen_toks = kwargs.pop("max_gen_toks")
             else:
