@@ -523,6 +523,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
         output = self.model(tokens, input_embeds, batch_valid_length, batch_index, zactivate_len, block_tables, \
                             slot_mapping, prefix_keys_values, attention_mask, position_ids, q_seq_lens)
+
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if self.parallel_decoding and self.is_first_iteration:
             output = output.reshape(-1, output.shape[-1])
@@ -533,6 +534,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 output = self.prefill_gather_flatten(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
             else:
                 output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
+
+        if output.ndim > 2:
+            output = self.reshape(output, (-1, output.shape[-1]))
         logits = self.lm_head(output)
 
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
@@ -550,10 +554,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             if self.predict_run_mode:
                 logits = self.reshape(logits, (-1, logits.shape[-1]))
                 return logits
+            logits = logits.reshape(bsz, -1, logits.shape[-1])
             return logits, tokens, input_mask
 
-        if logits.ndim > 2:
-            logits = self.reshape(logits, (-1, logits.shape[-1]))
         logits = self.cast(logits, mstype.float32)
         labels = self.reshape(labels, (-1,))
         input_mask = self.reshape(input_mask, (-1,))
