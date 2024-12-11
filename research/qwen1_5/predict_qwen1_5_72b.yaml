@@ -115,9 +115,9 @@ model:
     param_init_type: "float16"
     use_past: True
     use_flash_attention: True
-    block_size: 16
+    block_size: 32
     num_blocks: 1024
-    qkv_concat: True
+    qkv_concat: False
     offset: 0
     checkpoint_name_or_path: ""
     repetition_penalty: 1

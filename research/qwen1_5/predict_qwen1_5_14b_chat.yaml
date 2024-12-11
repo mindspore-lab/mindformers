@@ -74,7 +74,7 @@ model:
     top_p: 0.8
     do_sample: True
     is_dynamic: True
-    qkv_concat: True
+    qkv_concat: False
     auto_map:
       AutoTokenizer: [qwen1_5_tokenizer.Qwen2Tokenizer, null]
   arch:
