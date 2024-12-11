@@ -184,7 +184,7 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
             proto_str = fin.read()
 
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-        with os.fdopen(os.open(vocab_file, flags_, 0o750), 'wb', encoding='utf-8') as writer:
+        with os.fdopen(os.open(vocab_file, flags_, 0o750), 'wb') as writer:
             writer.write(proto_str)
 
         return (vocab_file,)
