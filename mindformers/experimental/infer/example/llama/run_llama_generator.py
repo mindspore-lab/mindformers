@@ -82,7 +82,7 @@ def main(config_path, load_checkpoint):
                                top_k=model_config.top_k,
                                top_p=model_config.top_p)
     for output in outputs:
-        print(tokenizer.decode(output))
+        logger.info("tokenizer.decode(output) is : %s", tokenizer.decode(output))
 
 
 if __name__ == "__main__":

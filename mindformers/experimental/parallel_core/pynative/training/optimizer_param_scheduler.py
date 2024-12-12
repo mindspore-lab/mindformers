@@ -4,6 +4,7 @@
 import math
 import mindspore as ms
 import mindspore.common.dtype as mstype
+from mindformers.tools.logger import logger
 
 lr_decay_style_list = ["constant", "WSD", "linear", "cosine", "inverse-square-root"]
 wd_incr_style_list = ["constant", "linear", "cosine"]
@@ -72,7 +73,7 @@ class OptimizerParamScheduler():
 
         # Set the learning rate
         self.step(0)
-        print('> learning rate decay style: {}'.format(self.lr_decay_style))
+        logger.info('> learning rate decay style: %s', self.lr_decay_style)
 
 
     def get_wd(self):
@@ -198,14 +199,14 @@ class OptimizerParamScheduler():
         """Auxiliary function for checking the values in the checkpoint and
         setting them."""
         if self.override_opt_param_scheduler:
-            print(' > overriding {} value to {}'.format(name, cls_value))
+            logger.info(' > overriding %s value to %s', name, cls_value)
             return cls_value
 
         if not self.use_checkpoint_opt_param_scheduler:
             if cls_value != sd_value:
                 raise ValueError(f'OptimizerParamScheduler: class input value {cls_value} '
                                  f'and checkpoint value {sd_value} for {name} do not match')
-        print(' > using checkpoint value {} for {}'.format(sd_value, name))
+        logger.info(' > using checkpoint value %s for %s', sd_value, name)
         return sd_value
 
     def load_state_dict(self, sd):

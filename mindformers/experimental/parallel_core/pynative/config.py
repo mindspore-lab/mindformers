@@ -320,7 +320,7 @@ def flatten_dict_to_raw(flatten_dict: dict, model_type: str):
         cur_dict[convert_key_list[-1]] = value
 
     if not_mapping_key:
-        print(f'not mapping keys is: {not_mapping_key}')
+        logger.info("not mapping keys is: %s", not_mapping_key)
     return raw_dict
 
 
