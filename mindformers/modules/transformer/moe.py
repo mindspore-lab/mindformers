@@ -25,7 +25,7 @@ import mindspore.ops as ops
 
 from mindspore.common.tensor import Tensor
 from mindspore.common.parameter import Parameter
-from mindspore.common.initializer import initializer
+from mindspore.common.initializer import initializer, Normal
 from mindspore.ops.operations._sequence_ops import TensorToScalar
 import mindspore.common.dtype as mstype
 import mindspore.communication.management as D
@@ -108,6 +108,8 @@ class MoEConfig:
                 the more overlap there will be but will consume more memory. Default: 2. This parameter is effective
                 only when comp_comm_parallel enable.
             routing_policy (str): The routing policy to use in MoE layer. Default: TopkRouterV1.
+            moe_shared_expert_overlap (bool): Whether to enable shared expert parallel, which can overlap
+                the computing of the shared expert and the communication of the routing expert. Default: False.
 
         Supported Platforms:
             ``Ascend`` ``GPU``
@@ -128,7 +130,7 @@ class MoEConfig:
                  topk_method="greedy", topk_group=None, n_group=None,
                  first_k_dense_replace=True, moe_intermediate_size=1407, routed_scaling_factor=1.0,
                  aux_loss_types=None, aux_loss_factors=None, z_loss_factor=0., balance_via_topk_bias=False,
-                 topk_bias_update_rate=0., use_allgather_dispatcher=False):
+                 topk_bias_update_rate=0., use_allgather_dispatcher=False, moe_shared_expert_overlap=False):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
@@ -191,6 +193,7 @@ class MoEConfig:
         self.balance_via_topk_bias = balance_via_topk_bias
         self.topk_bias_update_rate = topk_bias_update_rate
         self.use_allgather_dispatcher = use_allgather_dispatcher
+        self.moe_shared_expert_overlap = moe_shared_expert_overlap
 
     def __eq__(self, other) -> bool:
         return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())
@@ -641,7 +644,8 @@ class MoEV2(Cell):
                  dim,
                  moe_config=default_moe_config,
                  parallel_config=default_moeparallel_config,
-                 return_extra_loss=False):
+                 return_extra_loss=False,
+                 init_method_std=0.01):
         super(MoEV2, self).__init__()
         self.hidden_size = dim
         self.expert_dim = moe_config.expert_num
@@ -672,7 +676,8 @@ class MoEV2(Cell):
                              moe_config=moe_config,
                              routing_policy=moe_config.routing_policy,
                              training=(not get_predict_run_mode()),
-                             parallel_config=router_parallel_config)
+                             parallel_config=router_parallel_config,
+                             init_method_std=init_method_std)
 
         self.reshape = P.Reshape()
         self.shape = P.Shape()
@@ -887,7 +892,8 @@ class Router(Cell):
                  moe_config,
                  routing_policy=None,
                  training=True,
-                 parallel_config=None):
+                 parallel_config=None,
+                 init_method_std=0.01):
         super(Router, self).__init__()
         dp = parallel_config.data_parallel
         self.d_model = d_model
@@ -900,8 +906,8 @@ class Router(Cell):
         self.noisy_policy = None  # candidate: ["jitter", "rsample", "None"]
         self.noisy_epsilon = 1e-2
         self.noise = Tensor(np.random.uniform(1 - self.noisy_epsilon, 1 + self.noisy_epsilon, (d_model,)))
-
-        self.dense = Dense(in_channels=self.d_model, out_channels=self.expert_dim,
+        weight_init = Normal(sigma=init_method_std, mean=0)
+        self.dense = Dense(in_channels=self.d_model, out_channels=self.expert_dim, weight_init=weight_init,
                            has_bias=False, dtype=moe_config.router_dense_type)
         self.dense.matmul.shard(((dp, 1), (1, 1)))
         self.mul = P.Mul()
