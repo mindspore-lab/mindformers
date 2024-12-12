@@ -114,7 +114,6 @@ class TelechatLinear(Linear):
                  transpose_b=True,
                  param_init_type=mstype.float32,
                  compute_dtype=mstype.float16,
-                 skip_redistribution=False,
                  keep_prob=1.0):
         super(TelechatLinear, self).__init__(
             in_channels,
@@ -124,7 +123,6 @@ class TelechatLinear(Linear):
             activation=activation,
             transpose_b=transpose_b,
             param_init_type=param_init_type,
-            skip_redistribution=skip_redistribution,
             compute_dtype=compute_dtype)
         weight_shape = [out_channels, in_channels] if transpose_b else [in_channels, out_channels]
         self.weight = Parameter(initializer(Normal(sigma=sigma, mean=mean), weight_shape, param_init_type),
@@ -190,8 +188,7 @@ class TelechatFeedForward(Cell):
                  ffn_dim_multiplier=None,
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
-                 ffn_concat=False,
-                 is_dynamic=False):
+                 ffn_concat=False):
         super().__init__()
 
         if hidden_act is None or not (isinstance(hidden_act, str) or issubclass(hidden_act, nn.Cell)):
@@ -222,8 +219,7 @@ class TelechatFeedForward(Cell):
                                                 sigma=sigma,
                                                 mean=mean,
                                                 compute_dtype=compute_dtype,
-                                                param_init_type=param_init_type,
-                                                skip_redistribution=is_dynamic)
+                                                param_init_type=param_init_type)
             self.activate = self.hidden_act()
             self.split = ms.ops.auto_generate.SplitWithSize()
         else:
@@ -234,8 +230,7 @@ class TelechatFeedForward(Cell):
                                      sigma=sigma,
                                      mean=mean,
                                      compute_dtype=compute_dtype,
-                                     param_init_type=param_init_type,
-                                     skip_redistribution=is_dynamic)
+                                     param_init_type=param_init_type)
 
             self.w3 = TelechatLinear(in_channels=dim,
                                      out_channels=hidden_dim,
@@ -243,8 +238,7 @@ class TelechatFeedForward(Cell):
                                      sigma=sigma,
                                      mean=mean,
                                      compute_dtype=compute_dtype,
-                                     param_init_type=param_init_type,
-                                     skip_redistribution=is_dynamic)
+                                     param_init_type=param_init_type)
 
         self.w2 = TelechatLinear(in_channels=hidden_dim,
                                  out_channels=dim,
@@ -253,7 +247,6 @@ class TelechatFeedForward(Cell):
                                  mean=mean,
                                  compute_dtype=compute_dtype,
                                  param_init_type=param_init_type,
-                                 skip_redistribution=is_dynamic,
                                  keep_prob=1 - self.hidden_dropout_prob)
 
     def construct(self, x):

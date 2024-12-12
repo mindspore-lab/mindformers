@@ -107,7 +107,6 @@ class InternLMForCausalLM(LlamaForCausalLM):
                               has_bias=False,
                               compute_dtype=config.compute_dtype,
                               param_init_type=mstype.float16,
-                              skip_redistribution=config.is_dynamic,
                               weight_init="normal")
         vocab_size = config.vocab_size
         dp = config.parallel_config.data_parallel

@@ -23,7 +23,9 @@ import argparse
 import numpy as np
 import mindspore as ms
 
+from mindformers import MindFormerConfig, MindFormerRegister, MindFormerModuleType
 from mindformers.tools.utils import str2bool
+from mindformers.utils.convert_utils import qkv_concat_hf2mg, ffn_concat_hf2mg
 
 dtype_map = {
     'fp32': ms.float32,
@@ -89,9 +91,24 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     return True
 
 
-def convert_qkv_concat_weight(param_dict):
+def convert_qkv_concat_weight(param_dict, model_config):
     """convert qkv concat weight"""
     assume_num_layers = 500
+    num_heads = model_config.model_config.get('num_heads')
+    n_kv_heads = model_config.model_config.get('n_kv_heads', None) or num_heads
+    hidden_size = model_config.model_config.get('hidden_size')
+    ffn_hidden_size = 4 * hidden_size
+    intermediate_size = model_config.model_config.get('intermediate_size', None)
+    ffn_dim_multiplier = model_config.model_config.get('ffn_dim_multiplier', None)
+    multiple_of = model_config.model_config.get('multiple_of', 256)
+    if intermediate_size is not None:
+        ffn_hidden_size = intermediate_size
+    else:
+        if ffn_dim_multiplier is not None:
+            ffn_hidden_size = int((ffn_dim_multiplier + 0.01) * ffn_hidden_size)
+        ffn_hidden_size = int(2 * ffn_hidden_size / 3)
+        ffn_hidden_size = multiple_of * \
+                          ((ffn_hidden_size + multiple_of - 1) // multiple_of)
     for i in range(assume_num_layers):
         # qkv weight concat
         wq_weight_name = f"model.layers.{i}.attention.wq.weight"
@@ -103,8 +120,10 @@ def convert_qkv_concat_weight(param_dict):
         wq_weight = param_dict[wq_weight_name].asnumpy()
         wk_weight = param_dict[wk_weight_name].asnumpy()
         wv_weight = param_dict[wv_weight_name].asnumpy()
-        qkv_weight = np.concatenate((wq_weight, wk_weight, wv_weight), 0)
-        param_dict[qkv_concat_weight_name] = ms.Parameter(qkv_weight, name=qkv_concat_weight_name)
+        qkv_weight_hf = np.concatenate((wq_weight, wk_weight, wv_weight), 0)
+        # qkv weight format: hf -> mg
+        qkv_weight_mg = qkv_concat_hf2mg(qkv_weight_hf, num_heads, n_kv_heads, hidden_size)
+        param_dict[qkv_concat_weight_name] = ms.Parameter(qkv_weight_mg, name=qkv_concat_weight_name)
 
         # gate hidden weight concat
         ffn_gate_weight_name = f"model.layers.{i}.feed_forward.w1.weight"
@@ -113,8 +132,10 @@ def convert_qkv_concat_weight(param_dict):
 
         ffn_gate_weight = param_dict[ffn_gate_weight_name].asnumpy()
         ffn_hidden_weight = param_dict[ffn_hidden_weight_name].asnumpy()
-        gate_hidden_weight = np.concatenate((ffn_gate_weight, ffn_hidden_weight), 0)
-        param_dict[gate_hidden_concat_weight_name] = ms.Parameter(gate_hidden_weight,
+        gate_hidden_weight_hf = np.concatenate((ffn_gate_weight, ffn_hidden_weight), 0)
+        # ffn weight format: hf -> mg
+        gate_hidden_weight_mg = ffn_concat_hf2mg(gate_hidden_weight_hf, num_heads, ffn_hidden_size)
+        param_dict[gate_hidden_concat_weight_name] = ms.Parameter(gate_hidden_weight_mg,
                                                                   name=gate_hidden_concat_weight_name)
 
         param_dict.pop(wq_weight_name)
@@ -147,8 +168,13 @@ def convert_qkv_concat_weight(param_dict):
     return param_dict
 
 
-def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path):
+def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path, config_path):
     """convert previous ckpt to qkv concat ckpt"""
+    model_config = MindFormerConfig(config_path).model
+    if 'auto_register' in model_config:
+        MindFormerRegister.auto_register(class_reference=model_config.pop('auto_register'),
+                                         module_type=MindFormerModuleType.MODELS)
+
     if os.path.isdir(pre_ckpt_path):
         rank_dir_list = os.listdir(pre_ckpt_path)
         for rank_dir in rank_dir_list:
@@ -157,7 +183,7 @@ def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path):
             checkpoint_path = os.path.join(pre_ckpt_path, rank_dir_name, "checkpoint_{}.ckpt".format(rank_id))
             print("checkpoint_path: {}".format(checkpoint_path))
             params = ms.load_checkpoint(checkpoint_path)
-            params = convert_qkv_concat_weight(params)
+            params = convert_qkv_concat_weight(params, model_config)
 
             save_dir = os.path.join(mindspore_ckpt_path, rank_dir_name)
             if not os.path.exists(save_dir):
@@ -166,7 +192,7 @@ def convert_to_qkv_concat(pre_ckpt_path, mindspore_ckpt_path):
             ms.save_checkpoint(params, save_path)
     else:
         params = ms.load_checkpoint(pre_ckpt_path)
-        params = convert_qkv_concat_weight(params)
+        params = convert_qkv_concat_weight(params, model_config)
         ms.save_checkpoint(params, mindspore_ckpt_path)
 
 
@@ -178,10 +204,12 @@ def convert_weight(para):
         para.pre_ckpt_path = para.input_path
     if not hasattr(para, 'mindspore_ckpt_path'):
         para.mindspore_ckpt_path = para.output_path
+    if not hasattr(para, 'config_path'):
+        para.config_path = para.config_path
     if not para.dtype:
         para.dtype = "bf16"
     if para.qkv_concat:
-        convert_to_qkv_concat(para.pre_ckpt_path, para.mindspore_ckpt_path)
+        convert_to_qkv_concat(para.pre_ckpt_path, para.mindspore_ckpt_path, para.config_path)
     else:
         dtype = dtype_map.get(para.dtype)
         convert_pt_to_ms(input_path=para.torch_ckpt_dir,
@@ -193,6 +221,7 @@ if __name__ == "__main__":
     parser.add_argument('--torch_ckpt_dir', default='./')
     parser.add_argument('--mindspore_ckpt_path', default='transform.ckpt')
     parser.add_argument('--pre_ckpt_path', default=None)
+    parser.add_argument('--config_path', default=None)
     parser.add_argument('--qkv_concat', default=False, type=str2bool)
     parser.add_argument('--dtype', default='bf16')
     args = parser.parse_args()

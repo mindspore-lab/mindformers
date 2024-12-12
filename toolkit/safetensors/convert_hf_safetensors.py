@@ -55,18 +55,17 @@ if __name__ == '__main__':
 
     src_dir = args.src_dir
     dst_dir = args.dst_dir
-    model_config = MindFormerConfig(args.config).model
-    if 'auto_register' in model_config:
-        MindFormerRegister.auto_register(class_reference=model_config.pop('auto_register'),
+    model = MindFormerConfig(args.config).model
+    if 'auto_register' in model:
+        MindFormerRegister.auto_register(class_reference=model.pop('auto_register'),
                                          module_type=MindFormerModuleType.MODELS)
-    model_cls = MindFormerRegister.get_cls(MindFormerModuleType.MODELS, model_config.arch.type)
-    qkv_concat = model_config.model_config.get('qkv_concat', False)
+    model_cls = MindFormerRegister.get_cls(MindFormerModuleType.MODELS, model.arch.type)
 
     logger.info(f"src_dir: {src_dir}")
     logger.info(f"dst_dir: {dst_dir}")
     logger.info(f"dst_dir: {dst_dir}")
 
     start_time = time.time()
-    convert_hf_safetensors_multiprocess(src_dir, dst_dir, model_cls, qkv_concat)
+    convert_hf_safetensors_multiprocess(src_dir, dst_dir, model_cls, model.model_config)
     cost_time = time.time() - start_time
     logger.info(f"Convert safetensors cost: {cost_time}s")

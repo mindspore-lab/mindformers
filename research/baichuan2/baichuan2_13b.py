@@ -445,7 +445,6 @@ class Baichuan13BAttention(nn.Cell):
                  softmax_compute_dtype=mstype.float32,
                  param_init_type=mstype.float32,
                  use_past=False,
-                 is_dynamic=False,
                  use_flash_attention=False,
                  block_size: int = 128,
                  num_blocks: int = 224,
@@ -497,26 +496,22 @@ class Baichuan13BAttention(nn.Cell):
                          out_channels=self.hidden_size,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
+                         param_init_type=param_init_type)
         self.wq = Linear(self.hidden_size,
                          self.hidden_size,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
+                         param_init_type=param_init_type)
         self.wk = Linear(self.hidden_size,
                          self.n_kv_head * self.head_dim,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
+                         param_init_type=param_init_type)
         self.wv = Linear(self.hidden_size,
                          self.n_kv_head * self.head_dim,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
+                         param_init_type=param_init_type)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
@@ -775,7 +770,6 @@ class Baichuan13BDecodeLayer(nn.Cell):
                                               softmax_compute_dtype=softmax_compute_dtype,
                                               param_init_type=param_init_type,
                                               use_past=use_past,
-                                              is_dynamic=is_dynamic,
                                               use_flash_attention=use_flash_attention,
                                               block_size=block_size,
                                               num_blocks=num_blocks,

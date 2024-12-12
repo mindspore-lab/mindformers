@@ -697,3 +697,15 @@ def get_pipeline_rank_ids():
     pipeline_rank_ids = [i * devices_per_stage for i in range(current_stage_num)]
 
     return pipeline_rank_ids
+
+
+def ensure_divisibility(numerator, denominator):
+    """Ensure that numerator is divisible by the denominator."""
+    if numerator % denominator != 0:
+        raise ValueError("{} is not divisible by {}".format(numerator, denominator))
+
+
+def divide(numerator, denominator):
+    """Ensure that numerator is divisible by the denominator and return the division value."""
+    ensure_divisibility(numerator, denominator)
+    return numerator // denominator

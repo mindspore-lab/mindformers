@@ -153,8 +153,7 @@ class TelechatAttention(nn.Cell):
                                         sigma=sigma,
                                         mean=mean,
                                         compute_dtype=compute_dtype,
-                                        param_init_type=param_init_type,
-                                        skip_redistribution=is_dynamic)
+                                        param_init_type=param_init_type)
             if self.qkv_has_bias:
                 self.w_qkv.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
             else:
@@ -169,16 +168,14 @@ class TelechatAttention(nn.Cell):
                                      mean=self.mean,
                                      has_bias=qkv_has_bias,
                                      compute_dtype=compute_dtype,
-                                     param_init_type=param_init_type,
-                                     skip_redistribution=is_dynamic)
+                                     param_init_type=param_init_type)
             self.wk_v = TelechatLinear(self.hidden_size,
                                        self.n_kv_head * self.head_dim * 2,
                                        has_bias=qkv_has_bias,
                                        sigma=self.sigma,
                                        mean=self.mean,
                                        compute_dtype=compute_dtype,
-                                       param_init_type=param_init_type,
-                                       skip_redistribution=is_dynamic)
+                                       param_init_type=param_init_type)
 
             if qkv_has_bias:
                 self.wq.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
@@ -197,7 +194,6 @@ class TelechatAttention(nn.Cell):
                                  has_bias=out_proj_has_bias,
                                  compute_dtype=compute_dtype,
                                  param_init_type=param_init_type,
-                                 skip_redistribution=is_dynamic,
                                  keep_prob=1 - self.hidden_dropout_prob)
         if out_proj_has_bias:
             self.wo.shard(((dp, mp), (1, mp)), ((dp, 1), (1,)), out_strategy_matmul=((dp, 1),))

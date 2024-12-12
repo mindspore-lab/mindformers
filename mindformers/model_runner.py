@@ -27,6 +27,7 @@ from mindspore import Tensor
 from mindspore.communication.management import init
 from mindspore.communication.comm_func import barrier
 from mindspore.common.initializer import Zero
+from mindspore.common.api import _pynative_executor
 from mindspore._c_expression import swap_cache
 
 from mindformers import models, MindFormerRegister, MindFormerModuleType
@@ -530,6 +531,9 @@ def _transform_and_load_safetensors(ms_model, model, inputs, load_checkpoint=Non
 
     if is_main_rank(ignore_check_modelarts=True):
         validate_qkv_concat(model, model.config.qkv_concat, load_checkpoint)
+    # wait for the main rank to complete qkv check
+    if use_parallel:
+        barrier()
 
     if use_parallel:
         if not enable_stand_alone:
@@ -550,6 +554,8 @@ def _transform_and_load_safetensors(ms_model, model, inputs, load_checkpoint=Non
                 save_strategy_file(shard_state_dict, strategy_file_path)
                 logger.info(f"Strategy file for stand alone mode has been saved in {strategy_file_path}.")
             barrier()
+            _pynative_executor.sync()
+
         logger.info(".........Load Distribute Checkpoint.........")
         _load_distributed_safetensors(model, strategy_file_path, load_checkpoint)
     else:

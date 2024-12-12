@@ -157,8 +157,7 @@ class DeepSeekV2Attention(nn.Cell):
             self.q_lora_rank,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type,
-            skip_redistribution=is_dynamic
+            param_init_type=param_init_type
         )
         # for reason of inference precision, we do not use fused_kernel. This will be corrected once the fused kernel
         # meets accuracy requirement for bfloat16 data.
@@ -170,8 +169,7 @@ class DeepSeekV2Attention(nn.Cell):
             self.n_head * self.q_head_dim,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type,
-            skip_redistribution=is_dynamic
+            param_init_type=param_init_type
         )
 
         # 1. kv2l: kv latent vector; 2. lkv_norm: latent vector of kv normalization
@@ -180,8 +178,7 @@ class DeepSeekV2Attention(nn.Cell):
             self.kv_lora_rank + self.qk_rope_head_dim,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type,
-            skip_redistribution=is_dynamic
+            param_init_type=param_init_type
         )
         # for reason of inference precision, we do not use fused_kernel. This will be corrected once the fused kernel
         # meets accuracy requirement for bfloat16 data.
@@ -192,8 +189,7 @@ class DeepSeekV2Attention(nn.Cell):
             self.n_head * (self.q_head_dim - self.qk_rope_head_dim + self.v_head_dim),
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type,
-            skip_redistribution=is_dynamic
+            param_init_type=param_init_type
         )
 
         self.q2l_proj.shard(((dp, 1), (1, 1)))
@@ -216,8 +212,7 @@ class DeepSeekV2Attention(nn.Cell):
                          out_channels=self.hidden_size,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
+                         param_init_type=param_init_type)
         self.wo.shard(((dp, mp), (1, mp)))
 
         self.inv_norm_factor = self.q_head_dim ** (-0.5)

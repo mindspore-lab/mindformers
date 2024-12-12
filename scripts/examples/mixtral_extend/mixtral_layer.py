@@ -74,7 +74,6 @@ class MixtralFeedForward(Cell):
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
                  ffn_concat=False,
-                 is_dynamic=False,
                  parallel_config=default_dpmp_config):
         super().__init__()
 
@@ -119,8 +118,7 @@ class MixtralFeedForward(Cell):
                                         outer_batch=dp_moe,
                                         has_bias=False,
                                         compute_dtype=compute_dtype,
-                                        param_init_type=param_init_type,
-                                        skip_redistribution=is_dynamic)
+                                        param_init_type=param_init_type)
             self.activate = self.hidden_act()
             self.split = ms.ops.auto_generate.SplitWithSize()
             self.w2 = Linear(in_channels=hidden_dim,
@@ -129,8 +127,7 @@ class MixtralFeedForward(Cell):
                              outer_batch=dp_moe,
                              has_bias=False,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
         else:
             self.w1 = Linear(in_channels=dim,
                              out_channels=hidden_dim,
@@ -139,8 +136,7 @@ class MixtralFeedForward(Cell):
                              activation=hidden_act,
                              has_bias=False,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
 
             self.w2 = Linear(in_channels=hidden_dim,
                              out_channels=dim,
@@ -148,8 +144,7 @@ class MixtralFeedForward(Cell):
                              outer_batch=dp_moe,
                              has_bias=False,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
 
             self.w3 = Linear(in_channels=dim,
                              out_channels=hidden_dim,
@@ -157,8 +152,7 @@ class MixtralFeedForward(Cell):
                              outer_batch=dp_moe,
                              has_bias=False,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
 
     def construct(self, x):
         """Forward process of the FeedForward"""

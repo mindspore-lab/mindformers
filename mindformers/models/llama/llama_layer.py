@@ -286,7 +286,6 @@ class LlamaFeedForward(Cell):
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
                  ffn_concat=False,
-                 is_dynamic=False,
                  parallel_config=default_dpmp_config,
                  moe_config=None,
                  init_method_std=0.01,
@@ -326,6 +325,7 @@ class LlamaFeedForward(Cell):
 
         self.mul = P.Mul()
         self.cast = P.Cast()
+        self.reshape = P.Reshape()
 
         if self.ffn_concat:
             self.w_gate_hidden = Linear(in_channels=dim,
@@ -335,8 +335,7 @@ class LlamaFeedForward(Cell):
                                         outer_batch=dp_moe,
                                         has_bias=False,
                                         compute_dtype=compute_dtype,
-                                        param_init_type=param_init_type,
-                                        skip_redistribution=is_dynamic)
+                                        param_init_type=param_init_type)
             self.activate = self.hidden_act()
             self.split = ms.ops.auto_generate.SplitWithSize()
             self.w2 = Linear(in_channels=hidden_dim,
@@ -346,8 +345,7 @@ class LlamaFeedForward(Cell):
                              outer_batch=dp_moe,
                              has_bias=False,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
         else:
             self.w1 = Linear(in_channels=dim,
                              out_channels=hidden_dim,
@@ -357,8 +355,7 @@ class LlamaFeedForward(Cell):
                              activation=hidden_act,
                              has_bias=False,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
 
             self.w2 = Linear(in_channels=hidden_dim,
                              out_channels=dim,
@@ -367,8 +364,7 @@ class LlamaFeedForward(Cell):
                              outer_batch=dp_moe,
                              has_bias=False,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
 
             self.w3 = Linear(in_channels=dim,
                              out_channels=hidden_dim,
@@ -377,18 +373,20 @@ class LlamaFeedForward(Cell):
                              outer_batch=dp_moe,
                              has_bias=False,
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type,
-                             skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
         self.rmsnorm_compute_2d = rmsnorm_compute_2d
 
     def construct(self, x):
         """Forward process of the FeedForward"""
         _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         x = self.cast(x, self.dtype)
-
+        bs, seq_len, _ = x.shape
         if self.ffn_concat:
             gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp
-            gate, hidden = self.split(gate_hidden_out, (self.hidden_dim, self.hidden_dim), 2)
+            reshape_out = self.reshape(gate_hidden_out, (bs, seq_len, self.hidden_dim, 2))
+            gate, hidden = self.split(reshape_out, (1, 1), 3)
+            gate = self.reshape(gate, (bs, seq_len, self.hidden_dim))
+            hidden = self.reshape(hidden, (bs, seq_len, self.hidden_dim))
             gate = self.activate(gate)
         else:
             # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
@@ -419,7 +417,7 @@ class LlamaFeedForward(Cell):
                         self.activate.shard(((dp, 1, mp),))
                         self.w2.shard(((dp, mp), (1, mp)))
                         self.split.add_prim_attr("skip_redistribution", True)
-                        self.split.shard(((dp, 1, mp),))
+                        self.split.shard(((dp, 1, mp, 1),))
                     else:
                         self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
                         self.activate.shard(((dp, mp),))
@@ -447,7 +445,7 @@ class LlamaFeedForward(Cell):
                         self.activate.shard(((dp, 1, mp),))
                         self.w2.shard(((dp, mp), (1, mp)))
                         self.split.add_prim_attr("skip_redistribution", True)
-                        self.split.shard(((dp, 1, mp),))
+                        self.split.shard(((dp, 1, mp, 1),))
                         self.mul.shard(((dp, mp), (dp, mp)))
                     else:
                         self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
@@ -516,7 +514,6 @@ class LlamaMoeInferFeedForward(Cell):
                  ffn_dim_multiplier=None,
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
-                 is_dynamic=False,
                  use_gmm=True,
                  init_method_std=0.01):
         super().__init__()
@@ -552,8 +549,7 @@ class LlamaMoeInferFeedForward(Cell):
                          has_bias=False,
                          use_gmm=use_gmm,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
+                         param_init_type=param_init_type)
 
         self.w2 = Linear(in_channels=hidden_dim,
                          out_channels=dim,
@@ -562,8 +558,7 @@ class LlamaMoeInferFeedForward(Cell):
                          has_bias=False,
                          use_gmm=use_gmm,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
+                         param_init_type=param_init_type)
 
         self.w3 = Linear(in_channels=dim,
                          out_channels=hidden_dim,
@@ -572,8 +567,7 @@ class LlamaMoeInferFeedForward(Cell):
                          has_bias=False,
                          use_gmm=use_gmm,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
+                         param_init_type=param_init_type)
 
     def construct(self, x, group_list=None):
         """Forward process of the FeedForward"""
@@ -621,7 +615,6 @@ class LlamaFeedForwardWithMoE(Cell):
                  hidden_act=LlamaSiLU,
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
-                 is_dynamic=False,
                  moe_config=None,
                  parallel_config=default_dpmp_config,
                  use_moe_infer=True,
@@ -649,7 +642,6 @@ class LlamaFeedForwardWithMoE(Cell):
                                              expert_num=self.expert_num,
                                              compute_dtype=compute_dtype,
                                              param_init_type=param_init_type,
-                                             is_dynamic=is_dynamic,
                                              use_gmm=self.use_moe_infer,
                                              init_method_std=init_method_std),
                 dim=hidden_size,
@@ -664,7 +656,6 @@ class LlamaFeedForwardWithMoE(Cell):
                                      expert_num=self.expert_num,
                                      compute_dtype=compute_dtype,
                                      param_init_type=param_init_type,
-                                     is_dynamic=is_dynamic,
                                      parallel_config=parallel_config,
                                      init_method_std=init_method_std),
                 dim=hidden_size,
@@ -679,7 +670,6 @@ class LlamaFeedForwardWithMoE(Cell):
                                                expert_num=1,
                                                compute_dtype=compute_dtype,
                                                param_init_type=param_init_type,
-                                               is_dynamic=is_dynamic,
                                                parallel_config=parallel_config)
 
         if self.use_shared_expert_gating:

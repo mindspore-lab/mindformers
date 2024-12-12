@@ -55,7 +55,7 @@ class MultiheadAttention(nn.Cell):
         dtype (mstype): The type of calculation, [mstype.float32, mstype.float16].
     """
 
-    def __init__(self, d_model: int, n_head: int, layers: int, compute_dtype: mstype, param_init_type, is_dynamic):
+    def __init__(self, d_model: int, n_head: int, layers: int, compute_dtype: mstype, param_init_type):
         super(MultiheadAttention, self).__init__()
         self.num_heads = n_head
         self.head_dim = d_model // n_head
@@ -65,7 +65,6 @@ class MultiheadAttention(nn.Cell):
         # self.softmax = nn.Softmax(-1)
         self.scaling = self.head_dim ** -0.5
         self.reshape = P.Reshape()
-        self.is_dynamic = is_dynamic
         self.slice = P.StridedSlice()
         self.batch_matmul_q_k = P.BatchMatMul(transpose_b=True)
         self.mul = P.Mul()
@@ -76,8 +75,7 @@ class MultiheadAttention(nn.Cell):
         self.add = P.Add()
         self.transpose = P.Transpose()
         self.out_proj = Linear(d_model, d_model, weight_init=Normal(mean=0.0, sigma=proj_std),
-                               compute_dtype=compute_dtype, param_init_type=param_init_type,
-                               skip_redistribution=is_dynamic)
+                               compute_dtype=compute_dtype, param_init_type=param_init_type)
         self.in_proj = Linear(d_model, 3 * d_model, weight_init=Normal(mean=0.0, sigma=attn_std),
                               compute_dtype=compute_dtype, param_init_type=param_init_type)
 
@@ -195,18 +193,17 @@ class MLP(nn.Cell):
     A multilayer perceptron for ViT
     """
 
-    def __init__(self, layers: int, input_channel_dim: int, output_channel_dim: int, compute_dtype, param_init_type,
-                 is_dynamic):
+    def __init__(self, layers: int, input_channel_dim: int, output_channel_dim: int, compute_dtype, param_init_type):
         super().__init__()
 
         proj_std = (input_channel_dim ** -0.5) * ((2 * layers) ** -0.5)
         fc_std = (2 * input_channel_dim) ** -0.5
         self.c_fc = Linear(input_channel_dim, output_channel_dim, weight_init=Normal(mean=0.0, sigma=fc_std),
-                           compute_dtype=compute_dtype, param_init_type=param_init_type, skip_redistribution=is_dynamic)
+                           compute_dtype=compute_dtype, param_init_type=param_init_type)
 
         self.c_proj = Linear(output_channel_dim, input_channel_dim, weight_init=Normal(mean=0.0, sigma=proj_std),
                              compute_dtype=compute_dtype,
-                             param_init_type=param_init_type, skip_redistribution=is_dynamic)
+                             param_init_type=param_init_type)
 
         self.gelu = QuickGELU()
         self.cast = P.Cast()
@@ -246,12 +243,11 @@ class ResidualAttentionBlock(nn.Cell):
                  dtype: mstype, attn_mask: Optional[ms.Tensor] = None, **kwargs):
         super(ResidualAttentionBlock, self).__init__()
         param_init_type = kwargs.get("param_init_type", mstype.float16)
-        is_dynamic = kwargs.get("is_dynamic", False)
         self.dtype = dtype
-        self.attn = MultiheadAttention(d_model, n_head, layers, self.dtype, param_init_type, is_dynamic)
+        self.attn = MultiheadAttention(d_model, n_head, layers, self.dtype, param_init_type)
         self.ln_1 = LayerNorm([d_model], epsilon=1e-5)
 
-        self.mlp = MLP(layers, d_model, d_model * 4, self.dtype, param_init_type, is_dynamic)
+        self.mlp = MLP(layers, d_model, d_model * 4, self.dtype, param_init_type)
         self.ln_2 = LayerNorm([d_model], epsilon=1e-5)
 
         self.attn_mask = attn_mask

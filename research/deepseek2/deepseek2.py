@@ -298,7 +298,6 @@ class DeepseekV2ForCausalLM(DeepseekV2PreTrainedModel):
                               has_bias=False,
                               compute_dtype=config.compute_dtype,
                               param_init_type=config.param_init_type,
-                              skip_redistribution=config.is_dynamic,
                               weight_init="normal")
 
         dp = config.parallel_config.data_parallel
