@@ -12,17 +12,17 @@ Llama 3.1模型是类GPT模型，是一个生成式的语言模型，主要是�
 
 以下模型性能均由Atlas 800T A2硬件环境下测试得出。
 
-| Config                                      |      Task       | Datasets | SeqLength | Performance  |  Phase  |
-|:--------------------------------------------|:---------------:|:--------:|:---------:|:------------:|:-------:|
-| [llama3_1_8b](./predict_llama3_1_8b.yaml)   | text_generation |    -     |   2048    | 591 tokens/s | Predict |
-| [llama3_1_70b](./predict_llama3_1_70b.yaml) | text_generation |    -     |   4096    | 509 tokens/s | Predict |
+| Config                                                 |      Task       | Datasets | SeqLength | Performance  |  Phase  |
+|:-------------------------------------------------------|:---------------:|:--------:|:---------:|:------------:|:-------:|
+| [llama3_1_8b](llama3_1_8b/predict_llama3_1_8b.yaml)    | text_generation |    -     |   2048    | 591 tokens/s | Predict |
+| [llama3_1_70b](llama3_1_70b/predict_llama3_1_70b.yaml) | text_generation |    -     |   4096    | 509 tokens/s | Predict |
 
 以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
 
-| Config                                       |      Task       | Datasets | SeqLength |   Performance   |  Phase   |
-|:---------------------------------------------|:---------------:|:--------:|:---------:|:---------------:|:--------:|
-| [llama3_1_8b](./finetune_llama3_1_8b.yaml)   | text_generation |  alpaca  |   8192    | 2703 tokens/s/p | Finetune |
-| [llama3_1_70b](./finetune_llama3_1_70b.yaml) | text_generation |  alpaca  |   8192    | 337 tokens/s/p  | Finetune |
+| Config                                                  |      Task       | Datasets | SeqLength |   Performance   |  Phase   |
+|:--------------------------------------------------------|:---------------:|:--------:|:---------:|:---------------:|:--------:|
+| [llama3_1_8b](llama3_1_8b/finetune_llama3_1_8b.yaml)    | text_generation |  alpaca  |   8192    | 2703 tokens/s/p | Finetune |
+| [llama3_1_70b](llama3_1_70b/finetune_llama3_1_70b.yaml) | text_generation |  alpaca  |   8192    | 337 tokens/s/p  | Finetune |
 
 ## 模型文件
 
@@ -44,20 +44,21 @@ Llama 3.1模型是类GPT模型，是一个生成式的语言模型，主要是�
 
    ```text
    research/llama3_1
-       ├── predict_llama3_1_8b.yaml    # 8B推理配置
-       ├── predict_llama3_1_70b.yaml   # 70B推理配置
-       ├── finetune_llama3_1_8b.yaml   # 8B全量微调Atlas 800 A2启动配置
-       └── finetune_llama3_1_70b.yaml  # 70B全量微调Atlas 800 A2启动配置
+       ├──llama3_1_8b
+       │    ├── predict_llama3_1_8b.yaml     # 8B推理配置
+       │    └── finetune_llama3_1_8b.yaml    # 8B全量微调启动配置
+       └──llama3_1_70b
+            ├── predict_llama3_1_70b.yaml    # 70B推理配置
+            └── finetune_llama3_1_70b.yaml   # 70B全量微调启动配置
    ```
 
 3. 数据预处理脚本和任务启动脚本：
 
    ```text
    research/llama3_1
-       ├── run_llama3_1.py           # llama3_1启动脚本
-       ├── llama3_1_tokenizer.py     # llama3_1 tokenizer处理脚本
-       ├── conversation.py           # 微调数据集处理，将原始alpaca转换为对话形式alpaca
-       └── llama_preprocess.py       # llama模型的mindrecord数据处理脚本
+       ├── llama3_1_tokenizer.py      # llama3_1 tokenizer处理脚本
+       ├── llama3_1_conversation.py   # 微调数据集处理，将原始alpaca转换为对话形式alpaca
+       └── llama3_1_preprocess.py     # llama模型的mindrecord数据处理脚本
    ```
 
 ## 环境及数据准备
@@ -66,11 +67,6 @@ Llama 3.1模型是类GPT模型，是一个生成式的语言模型，主要是�
 
 MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)
 和[版本匹配关系](../../README.md#版本匹配关系)。
-
-|      模型      |      硬件       | 全量微调 | 推理 |
-|:------------:|:-------------:|:----:|:--:|
-| Llama3.1-8b  | Atlas 800T A2 | 单节点 | 单卡 |
-| Llama3.1-70b | Atlas 800T A2 | 8节点  | 4卡 |
 
 ### 数据集及权重准备
 
@@ -98,11 +94,11 @@ MindFormers提供**alpaca**作为[微调](#微调)数据集。
        output_path: 输出文件的保存路径
        ```
 
-    2. 执行`research/llama3_1/llama_preprocess.py`，生成Mindrecord数据，将带有prompt模板的数据转换为mindrecord格式。
+    2. 执行`research/llama3_1/llama3_1_preprocess.py`，生成Mindrecord数据，将带有prompt模板的数据转换为mindrecord格式。
 
        ```shell
        # 此工具依赖fschat工具包解析prompt模板, 请提前安装fschat >= 0.2.13 python = 3.9
-       python llama_preprocess.py \
+       python llama3_1_preprocess.py \
          --dataset_type qa \
          --input_glob /{path}/alpaca-data-conversation.json \
          --model_file /{path}/tokenizer.model \
@@ -127,8 +123,8 @@ MindFormers暂时没有提供权重，用户可以下载HuggingFace官方权重�
 
 | 模型名称         | MindSpore权重 |                        HuggingFace权重                         |
 |:-------------|:-----------:|:------------------------------------------------------------:|
-| Llama3_1-8B  |      \      | [Link](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B)  |
-| Llama3_1-70B |      \      | [Link](https://huggingface.co/meta-llama/Meta-Llama-3.1-70B) |
+| Llama3_1-8B  |      -      | [Link](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B)  |
+| Llama3_1-70B |      -      | [Link](https://huggingface.co/meta-llama/Meta-Llama-3.1-70B) |
 
 > 注: 请自行申请huggingface上llama3_1使用权限，并安装transformers=4.40版本
 
@@ -146,12 +142,14 @@ output_path: 转换后的MindSpore权重文件保存路径
 dtype:       转换权重的精度
 ```
 
-## 全参微调
+## 微调
+
+### 全参微调
 
 MindFormers提供`Llama3_1-8b`单机多卡以及`Llama3_1-70b`多机多卡的的微调示例，过程中使用`alpaca`
 数据集对模型进行微调，数据集可以参考[数据集下载](#数据集下载)获得。
 
-### 单机训练
+#### 单机训练
 
 以Llama3_1-8b为例，Llama3_1-8B在Atlas 800T A2上训练，支持**单机/多机训练**。
 
@@ -161,10 +159,10 @@ MindFormers提供`Llama3_1-8b`单机多卡以及`Llama3_1-70b`多机多卡的的
 执行命令启动微调任务，在单机上拉起任务。
 
 ```shell
-cd research
 # 单机8卡默认快速启动
-bash ../scripts/msrun_launcher.sh "llama3_1/run_llama3_1.py \
- --config llama3_1/finetune_llama3_1_8b.yaml \
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --register_path research/llama3_1 \
+ --config research/llama3_1/llama3_1_8b/finetune_llama3_1_8b.yaml \
  --load_checkpoint model_dir/xxx.ckpt \
  --auto_trans_ckpt True \
  --use_parallel True \
@@ -179,7 +177,7 @@ run_mode:        运行模式, 微调时设置为finetune
 train_data:      训练数据集路径
 ```
 
-### 多机训练
+#### 多机训练
 
 以llama3_1-70b为例，使用`finetune_llama3_1_70b.yaml`配置文件，执行8机64卡微调。需要先对权重进行切分，切分权重可以参见[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)（如果是共享盘也可以开启自动权重转换，使用完整权重）。
 
@@ -190,9 +188,9 @@ train_data:      训练数据集路径
 ```shell
 # 节点0，设0节点ip为192.168.1.1，作为主节点ip，总共64卡且每个节点8卡
 # 节点0、节点1、...节点7 依此修改node_num，比如8机，node_num为0~7。
-cd research/llama3_1
-bash ../../scripts/msrun_launcher.sh "run_llama3_1.py \
- --config finetune_llama3_1_70b.yaml \
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --register_path research/llama3_1 \
+ --config research/llama3_1/llama3_1_70b/finetune_llama3_1_70b.yaml \
  --load_checkpoint model_dir/xxx.ckpt \
  --train_data dataset_dir \
  --auto_trans_ckpt False \
@@ -223,7 +221,7 @@ DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 
 ```shell
 bash scripts/examples/llama3/run_llama3_predict.sh single \
- research/llama3_1/predict_llama3_1_8b.yaml \
+ research/llama3_1/llama3_1_8b/predict_llama3_1_8b.yaml \
  path/to/llama3_1_8b.ckpt \
  path/to/tokenizer.model
 ```
@@ -234,7 +232,7 @@ bash scripts/examples/llama3/run_llama3_predict.sh single \
 
 ```shell
 bash scripts/examples/llama3/run_llama3_predict.sh parallel \
- research/llama3_1/predict_llama3_1_70b.yaml \
+ research/llama3_1/llama3_1_70b/predict_llama3_1_70b.yaml \
  path/to/model_dir \
  path/to/tokenizer.model 4
 ```

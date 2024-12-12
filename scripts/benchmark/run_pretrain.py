@@ -247,7 +247,7 @@ class ModelPretrain(BaseInitModel):
                     project_root,
                     'research',
                     'llama3',
-                    'llama_preprocess.py'
+                    'llama3_preprocess.py'
                 )
                 output_file = os.path.join(temp_dir, dataset_name)
             else:
@@ -305,7 +305,7 @@ class ModelPretrain(BaseInitModel):
                     project_root,
                     'research',
                     'llama3',
-                    'llama_preprocess.py'
+                    'llama3_preprocess.py'
                 )
                 output_file = os.path.join(temp_dir, dataset_name)
             else:

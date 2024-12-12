@@ -8,16 +8,16 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
 
 以下模型性能均由Atlas 800T A2硬件环境下测试得出。
 
-| Config                                                |      Task       | SeqLength | Datasets |   Performance   |  Phase   |
-|:------------------------------------------------------|:---------------:|:---------:|:--------:|:---------------:|:--------:|
-| [llama3_8b](./finetune_llama3_8b_8k_800T_A2_64G.yaml) | text_generation |   8192    |  alpaca  | 2581 tokens/s/p | Finetune |
-| [llama3_70b](./predict_llama3_70b.yaml)               | text_generation |   8192    |    -     |  335 tokens/s   | Finetune |
+| Config                                           |      Task       | SeqLength | Datasets |   Performance   |  Phase   |
+|:-------------------------------------------------|:---------------:|:---------:|:--------:|:---------------:|:--------:|
+| [llama3_8b](llama3_8b/finetune_llama3_8b.yaml)   | text_generation |   8192    |  alpaca  | 2581 tokens/s/p | Finetune |
+| [llama3_70b](llama3_70b/predict_llama3_70b.yaml) | text_generation |   8192    |    -     |  335 tokens/s   | Finetune |
 
 以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
 
-| Config                                   |      Task       | SeqLength | Datasets |  Performance   |  Phase   |
-|:-----------------------------------------|:---------------:|:---------:|:--------:|:--------------:|:--------:|
-| [llama3_70b](./finetune_llama3_70b.yaml) | text_generation |   8192    |  alpaca  | 337 tokens/s/p | Finetune |
+| Config                                            |      Task       | SeqLength | Datasets |  Performance   |  Phase   |
+|:--------------------------------------------------|:---------------:|:---------:|:--------:|:--------------:|:--------:|
+| [llama3_70b](llama3_70b/finetune_llama3_70b.yaml) | text_generation |   8192    |  alpaca  | 337 tokens/s/p | Finetune |
 
 ## 模型文件
 
@@ -39,20 +39,22 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
 
    ```text
    research/llama3
-       ├── predict_llama3_8b_8k_800T_A2_64G.yaml    # 8B推理配置
-       ├── predict_llama3_70b.yaml                  # 70B推理配置
-       ├── finetune_llama3_8b_8k_800T_A2_64G.yaml   # 8B全量微调Atlas 800 A2启动配置
-       └── finetune_llama3_70b.yaml                 # 70B全量微调Atlas 800 A2启动配置
+       ├── llama3_8b
+       │     ├── predict_llama3_8b.yaml      # 8B推理配置
+       │     └── finetune_llama3_8b.yaml     # 8B全量微调启动配置
+       └── llama3_70b
+             ├── predict_llama3_70b.yaml     # 70B推理配置
+             ├── pretrain_llama3_70b.yaml    # 70B预训练配置
+             └── finetune_llama3_70b.yaml    # 70B全量微调A启动配置
    ```
 
 3. 数据预处理脚本和任务启动脚本：
 
    ```text
    research/llama3
-       ├── run_llama3.py           # llama3启动脚本
-       ├── llama3_tokenizer.py     # llama3 tokenizer处理脚本
-       ├── conversation.py         # 微调数据集处理，将原始alpaca转换为对话形式alpaca
-       └── llama_preprocess.py     # llama模型的mindrecord数据处理脚本
+       ├── llama3_tokenizer.py      # llama3 tokenizer处理脚本
+       ├── llama3_conversation.py   # 微调数据集处理，将原始alpaca转换为对话形式alpaca
+       └── llama3_preprocess.py     # llama模型的mindrecord数据处理脚本
    ```
 
 ## 环境及数据准备
@@ -60,11 +62,6 @@ Llama 3，是开源Llama系列的最新产品，目前有二个版本：Llama3-8
 ### 安装环境
 
 MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
-
-|     模型     |      硬件       | 全量微调 | 推理 |
-|:----------:|:-------------:|:----:|:--:|
-| Llama3-8b  | Atlas 800T A2 | 单节点  | 单卡 |
-| Llama3-70b | Atlas 800T A2 | 8节点  | 8卡 |
 
 ### 数据集及权重准备
 
@@ -81,10 +78,10 @@ MindFormers提供**Wiki103**作为[预训练](#预训练)数据集，**alpaca**�
 
 - **Wiki103 数据预处理**
 
-  使用`research/llama3/llama_preprocess.py`对下载后的数据进行预处理，并生成Mindrecord数据。
+  使用`research/llama3/llama3_preprocess.py`对下载后的数据进行预处理，并生成Mindrecord数据。
 
   ```shell
-  python llama_preprocess.py \
+  python llama3_preprocess.py \
    --dataset_type wiki \
    --input_glob /{path}/wiki.train.tokens \
    --model_file /{path}/tokenizer.model \
@@ -117,7 +114,7 @@ MindFormers提供**Wiki103**作为[预训练](#预训练)数据集，**alpaca**�
 
      ```shell
      # 此工具依赖fschat工具包解析prompt模板, 请提前安装fschat >= 0.2.13 python = 3.9
-     python llama_preprocess.py \
+     python llama3_preprocess.py \
        --dataset_type qa \
        --input_glob /{path}/alpaca-data-conversation.json \
        --model_file /{path}/tokenizer.model \
@@ -142,8 +139,8 @@ MindFormers暂时没有提供权重，用户可以下载HuggingFace官方权重�
 
 | 模型名称            | MindSpore权重 |                                        HuggingFace权重                                         |
 |:----------------|:-----------:|:--------------------------------------------------------------------------------------------:|
-| Llama3-8B       |      \      |                  [Link](https://huggingface.co/meta-llama/Meta-Llama-3-8B)                   |
-| Llama3-70B      |      \      |                  [Link](https://huggingface.co/meta-llama/Meta-Llama-3-70B)                  |
+| Llama3-8B       |      -      |                  [Link](https://huggingface.co/meta-llama/Meta-Llama-3-8B)                   |
+| Llama3-70B      |      -      |                  [Link](https://huggingface.co/meta-llama/Meta-Llama-3-70B)                  |
 
 > 注: 请自行申请huggingface上llama3使用权限，并安装transformers=4.40版本
 
@@ -176,10 +173,10 @@ MindFormers提供`llama3_70b`多机多卡的预训练示例，请参照[数据�
 ```shell
 # 节点0，设0节点ip为192.168.1.1，作为主节点ip，总共64卡且每个节点8卡
 # 节点0、节点1、...节点7 依此修改node_num，比如8机，node_num为0~7。
-cd research/llama3
 export MS_DEV_RUNTIME_CONF="inline:False"
-bash ../../scripts/msrun_launcher.sh "run_llama3.py \
-  --config pretrain_llama3_70b.yaml \
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --register_path research/llama3 \
+ --config research/llama3/llama3_70b/pretrain_llama3_70b.yaml \
  --load_checkpoint /path/model_dir/ \
  --train_dataset dataset_dir
  --auto_trans_ckpt False \
@@ -188,23 +185,25 @@ bash ../../scripts/msrun_launcher.sh "run_llama3.py \
  64 8 {主节点ip} 8118 {node_num} output/msrun_log False 300
 ```
 
-## 全参微调
+## 微调
+
+### 全参微调
 
 MindFormers提供`Llama3-8b`单机多卡以及`Llama3-70b`多机多卡的微调示例，过程中使用`alpaca`数据集对模型进行微调，数据集可以参考[数据集下载](#数据集下载)获得。
 
-### 单机训练
+#### 单机训练
 
 以Llama3-8b为例，Llama3-8B在Atlas 800T A2上训练，支持**单机/多机训练**。
 
-使用`finetune_llama3_8b_8k_800T_A2_64G.yaml`进行训练，或修改默认配置文件中的`model_config.seq_length`，使训练配置与数据集的`seq_length`保持一致。
+使用`finetune_llama3_8b.yaml`进行训练，或修改默认配置文件中的`model_config.seq_length`，使训练配置与数据集的`seq_length`保持一致。
 
 执行命令启动微调任务，在单机上拉起任务。
 
 ```shell
-cd research
 # 单机8卡默认快速启动
-bash ../scripts/msrun_launcher.sh "llama3/run_llama3.py \
- --config llama3/finetune_llama3_8b_8k_800T_A2_64G.yaml \
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --register_path research/llama3 \
+ --config research/llama3/llama3_8b/finetune_llama3_8b.yaml \
  --load_checkpoint model_dir/xxx.ckpt \
  --auto_trans_ckpt True \
  --use_parallel True \
@@ -219,7 +218,7 @@ run_mode:        运行模式, 微调时设置为finetune
 train_data:      训练数据集路径
 ```
 
-### 多机训练
+#### 多机训练
 
 多机多卡微调任务启动预训练类似，可参考[预训练章节](#预训练)并对启动命令进行如下修改：
 
@@ -249,9 +248,9 @@ DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
 
 ```shell
 bash scripts/examples/llama3/run_llama3_predict.sh single \
- research/llama3/predict_llama3_8b_800T_A2_64G.yaml \
- path/to/llama3_8b.ckpt \
- path/to/tokenizer.model
+ research/llama3/llama3_8b/predict_llama3_8b.yaml \
+ path/llama3_8b.ckpt \
+ path/tokenizer.model
 
 # 多batch输出
 # I love Beijing, because it is a city of contrasts. It is a city of the past and the future, a city of the old and the new. It is a city of the rich and the poor, a city of the educated and the uneducated. ...
@@ -265,9 +264,9 @@ bash scripts/examples/llama3/run_llama3_predict.sh single \
 
 ```shell
 bash scripts/examples/llama3/run_llama3_predict.sh parallel \
- research/llama3/predict_llama3_70b.yaml \
- path/to/model_dir \
- path/to/tokenizer.model 4
+ research/llama3/llama3_70b/predict_llama3_70b.yaml \
+ path/model_dir \
+ path/tokenizer.model 4
 
 # 多batch输出
 # I love Beijing, because it is a city that is full of life and energy. The people, the food, the culture, the history... everything about Beijing is just so fascinating to me. ...

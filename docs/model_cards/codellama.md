@@ -142,14 +142,8 @@ MindFormers提供下载HuggingFace官方权重的下载链接，用户可通过�
 
 | 模型名称                        |                           HuggingFace权重                            |
 |:----------------------------|:------------------------------------------------------------------:|
-| CodeLlama-7b                |      [Link](https://huggingface.co/codellama/CodeLlama-7b-hf)      |
-| CodeLlama-13b               |     [Link](https://huggingface.co/codellama/CodeLlama-13b-hf)      |
 | CodeLlama-34b               |     [Link](https://huggingface.co/codellama/CodeLlama-34b-hf)      |
-| CodeLlama-7b-Python         |  [Link](https://huggingface.co/codellama/CodeLlama-7b-Python-hf)   |
-| CodeLlama-13b-Python        |  [Link](https://huggingface.co/codellama/CodeLlama-13b-Python-hf)  |
 | CodeLlama-34b-Python        |  [Link](https://huggingface.co/codellama/CodeLlama-34b-Python-hf)  |
-| CodeLlama-7b-Instruct       | [Link](https://huggingface.co/codellama/CodeLlama-7b-Instruct-hf)  |
-| CodeLlama_13b-Instruct      | [Link](https://huggingface.co/codellama/CodeLlama-13b-Instruct-hf) |
 | CodeLlama_34b-Instruct      | [Link](https://huggingface.co/codellama/CodeLlama-34b-Instruct-hf) |
 
 #### 模型权重转换
