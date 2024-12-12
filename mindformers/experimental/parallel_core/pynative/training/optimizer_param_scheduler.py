@@ -51,7 +51,8 @@ class OptimizerParamScheduler():
 
         self.lr_decay_style = lr_decay_style
         if self.lr_decay_style == "WSD":
-            assert self.wsd_decay_steps is not None
+            if self.wsd_decay_steps is None:
+                raise ValueError("The attribute 'wsd_decay_steps' cannot be None.")
 
         self.start_wd = start_wd
         self.end_wd = end_wd
