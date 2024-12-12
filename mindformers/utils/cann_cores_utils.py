@@ -41,8 +41,8 @@ def get_cann_workqueue_cores(device_id: int) -> list:
         # no this config, return [] to disable cann binding
         return []
 
-    f = open(cann_workqueue_config_path)
-    cann_config = f.read()
+    with open(cann_workqueue_config_path, 'r') as f:
+        cann_config = f.read()
     cann_config = cann_config.replace(",", "")
     cann_config = cann_config.replace("\n", "")
     mask_array = BitArray()
