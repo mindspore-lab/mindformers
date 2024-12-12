@@ -151,10 +151,14 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         self.mask_generate = config.mask_generate  # "inmap", "compress_reset"
         self.get_attention_mask = GetEodResetMask(seq_length=config.seq_length, parallel_config=parallel_config)
 
-    def get_masks(self, batch_size, padding_mask=None, input_position=None):
+    def get_masks(self, batch_size, seq_len, padding_mask=None, input_position=None):
         """Get attention mask."""
-        # [1, seq_length, seq_length] -> [batch_size, seq_length, seq_length]
-        low_triangle = self.tile(self.low_triangle, (batch_size, 1, 1))
+        # [1, seq_len, seq_len] -> [batch_size, seq_len, seq_len]
+        if seq_len < self.low_triangle.shape[-1]:
+            low_triangle = self.low_triangle[..., :seq_len, :seq_len]
+        else:
+            low_triangle = self.low_triangle
+        low_triangle = self.tile(low_triangle, (batch_size, 1, 1))
         if padding_mask is not None:
             low_triangle = self.mul(low_triangle, self.expand_dims(padding_mask, 1))
         if self.use_past and padding_mask is not None:
@@ -162,9 +166,9 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         attention_mask = self.less(low_triangle, 0.5)
         if self.use_past and not self.is_first_iteration:
             # [bs, 1, seq_len] for incremental infer
-            attention_mask = self.gather(attention_mask.view(-1, self.seq_length), input_position, 0)
+            attention_mask = self.gather(attention_mask.view(-1, seq_len), input_position, 0)
         # [bs, 1, seq_len, seq_len] for normal, [bs, 1, 1, seq_len] for incremental infer
-        attention_mask = self.reshape(attention_mask, (batch_size, 1, -1, self.seq_length))
+        attention_mask = self.reshape(attention_mask, (batch_size, 1, -1, seq_len))
         return attention_mask
 
     # pylint: disable=W0613
@@ -187,7 +191,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
             if full_attention_mask is None:
                 if attention_mask is None:
                     # (bs, 1, seq_len, seq_len)
-                    full_attention_mask = self.get_masks(batch_size, attention_mask, input_position)
+                    full_attention_mask = self.get_masks(batch_size, seq_len, attention_mask, input_position)
                     full_attention_mask = full_attention_mask.type(mstype.uint8)
                 else:
                     if self.mask_generate == "inmap":
@@ -309,7 +313,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         slot_mapping = Tensor(np.ones(shape=tuple([bs * seq])), mstype.int32)
         batch_valid_length = Tensor(np.array([seq] * bs), mstype.int32)
         return input_ids, labels, None, None, None, None, None, batch_valid_length, None, None, slot_mapping, None, \
-               None, None
+            None, None
 
     def set_dynamic_inputs(self, **kwargs):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
