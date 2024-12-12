@@ -534,25 +534,29 @@ def get_pipeline_model_parallel_rank():
 
 def get_pipeline_model_parallel_first_rank():
     """Return the global rank of the first precess in the pipeline"""
-    assert _PIPELINE_GLOBAL_RANKS is not None, "Pipeline parallel group is not initialized"
+    if _PIPELINE_GLOBAL_RANKS is None:
+        raise ValueError("Pipeline parallel group is not initialized")
     return _PIPELINE_GLOBAL_RANKS[0]
 
 def get_pipeline_model_parallel_last_rank():
     """Return the global rank of the last precess in the pipeline"""
-    assert _PIPELINE_GLOBAL_RANKS is not None, "Pipeline parallel group is not initialized"
+    if _PIPELINE_GLOBAL_RANKS is None:
+        raise ValueError("Pipeline parallel group is not initialized")
     last_rank_local = get_pipeline_model_parallel_world_size() - 1
     return _PIPELINE_GLOBAL_RANKS[last_rank_local]
 
 def get_pipeline_model_parallel_prev_rank():
     """Return the global rank that precedes the caller in the pipeline"""
-    assert _PIPELINE_GLOBAL_RANKS is not None, "Pipeline parallel group is not initialized"
+    if _PIPELINE_GLOBAL_RANKS is None:
+        raise ValueError("Pipeline parallel group is not initialized")
     rank_in_pipeline = get_pipeline_model_parallel_rank()
     world_size = get_pipeline_model_parallel_world_size()
     return _PIPELINE_GLOBAL_RANKS[(rank_in_pipeline - 1) % world_size]
 
 def get_pipeline_model_parallel_next_rank():
     """Return the global rank that follows the caller in the pipeline"""
-    assert _PIPELINE_GLOBAL_RANKS is not None, "Pipeline parallel group is not initialized"
+    if _PIPELINE_GLOBAL_RANKS is None:
+        raise ValueError("Pipeline parallel group is not initialized")
     rank_in_pipeline = get_pipeline_model_parallel_rank()
     world_size = get_pipeline_model_parallel_world_size()
     return _PIPELINE_GLOBAL_RANKS[(rank_in_pipeline + 1) % world_size]

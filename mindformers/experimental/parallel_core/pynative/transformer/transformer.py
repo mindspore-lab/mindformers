@@ -1344,7 +1344,8 @@ class ParallelTransformer(Module):
         self.config.recompute_num_layers = None
         def _get_recompute_layer_nums(recompute_num_list):
             recompute_num_array = np.array(recompute_num_list)
-            assert np.all(recompute_num_array >= 0)
+            if not np.all(recompute_num_array >= 0):
+                raise ValueError("All elements in recompute_num_array must be greater than or equal to 0.")
             if recompute_num_array.shape != pp_layout:
                 raise ValueError("The shape of recompute_num_list {} must equal to "
                                  "pp_layout {}".format(recompute_num_array.shape, pp_layout))
