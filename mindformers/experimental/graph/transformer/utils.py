@@ -19,6 +19,7 @@ import numpy as np
 import mindspore as ms
 from mindspore.ops import operations as P
 from mindspore import nn, Tensor
+from mindformers.tools.logger import logger
 
 __all__ = ["get_attn_mask_func"]
 
@@ -133,7 +134,7 @@ class LayerSetting:
         try:
             use_pp_interleave = ms.get_auto_parallel_context("pipeline_interleave")
         except ValueError:
-            print(f"Current MindSpore version do not pipeline interleave. `pp_interleave_num` is set to 1.")
+            logger.error("Current MindSpore version do not pipeline interleave. pp_interleave_num is set to 1.")
             use_pp_interleave = False
         self.num_layers = num_layers
         self.pp = parallel_config.pipeline_stage
@@ -150,10 +151,10 @@ class LayerSetting:
         self.layer_accu = np.cumsum(self.layer_list, axis=1) + interleave_sum.reshape(-1, 1)
         self.pp_ids = [np.searchsorted(self.layer_accu.reshape(-1), i + 1) % self.pp for i in range(self.num_layers)]
         self.interleave_ids = [np.where(i < self.layer_accu)[0][0] for i in range(self.num_layers)]
-        print(f"num_layers per stage: {self.layer_list.tolist()}")
-        print(f"Accumulated num_layers per stage: {self.layer_accu.tolist()}")
-        print(f"Pipeline id list: {self.pp_ids}")
-        print(f"Interleave id list: {self.interleave_ids}")
+        logger.info("num_layers per stage: %s", self.layer_list.tolist())
+        logger.info("Accumulated num_layers per stage: %s", self.layer_accu.tolist())
+        logger.info("Pipeline id list: %s", self.pp_ids)
+        logger.info("Interleave id list: %s", self.interleave_ids)
         pre_pad = np.array([[0] + [self.layer_accu[i, -1] for i in range(len(self.layer_accu) - 1)]])
         self.layer_accu_mod = np.concatenate((pre_pad.T, self.layer_accu), axis=-1)
 
@@ -163,9 +164,9 @@ class LayerSetting:
                 self.recompute.select_recompute, default_patterns)
             self.select_comm_recompute = self._format_recompute_dict(
                 self.recompute.select_comm_recompute, default_comm_patterns)
-            print(f"Formative layer_recompute: {self.layer_recompute}")
-            print(f"Formative select_recompute: {self.select_recompute}")
-            print(f"Formative select_comm_recompute: {self.select_comm_recompute}")
+            logger.info("Formative layer_recompute: %s", self.layer_recompute)
+            logger.info("Formative select_recompute: %s", self.select_recompute)
+            logger.info("Formative select_comm_recompute: %s", self.select_comm_recompute)
 
     def set(self, layer, layer_id):
         """Set pipeline stage and recompute for each layer with a layer_id."""
@@ -188,7 +189,7 @@ class LayerSetting:
             else:
                 if self._check_layer_rule(layer_id):
                     layer.recompute()
-                    print(f"Set full recompute at layer {layer_id}")
+                    logger.info("Set full recompute at layer %s", layer_id)
                 else:
                     self._set_select_recompute(layer, layer_id, False)
                     self._set_select_recompute(layer, layer_id, True)
@@ -277,7 +278,7 @@ class LayerSetting:
         log_ops_str = ', '.join(log_ops)
         if log_ops_str:
             comm = 'comm ' if add_prim_attr else ''
-            print(f"Set select {comm}recompute at layer {layer_id}: {log_ops_str}")
+            logger.info("Set select %s recompute at layer %s: %s", comm, layer_id, log_ops_str)
 
     def _check_inputs(self):
         """Check the inputs of offset."""

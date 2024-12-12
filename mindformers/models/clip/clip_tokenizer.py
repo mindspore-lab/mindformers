@@ -157,7 +157,7 @@ class TempTokenizer:
         for token in re.findall(self.pat, content):
             token = ''.join(self.byte_encoder[b] for b in token.encode('utf-8'))
             output_ids.extend(self.encoder[bpe_token] for bpe_token in self.tokenize_alg(token).split(' '))
-        print("res is:", output_ids)
+        logger.info("res is: %s", output_ids)
         return output_ids
 
 

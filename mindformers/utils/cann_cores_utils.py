@@ -21,6 +21,7 @@ import os
 import psutil
 
 from mindformers.utils.bit_array import BitArray
+from mindformers.tools.logger import logger
 
 
 def get_cann_workqueue_cores(device_id: int) -> list:
@@ -87,7 +88,7 @@ def execute_cmd(cmd: str, fake: bool = True):
         NA.
     """
     if fake:
-        print(cmd)
+        logger.info("The execute cmd is: %s", cmd)
         return
 
 
@@ -107,7 +108,7 @@ def binding_cann_workqueue(device_num: int, core_num_per_workqueue: int, separat
     Returns:
         NA.
     """
-    print(f"the cann workqueue config command list in the follow, please execute the cmd by root user!")
+    logger.info("the cann workqueue config command list in the follow, please execute the cmd by root user!")
 
     total_core_num = psutil.cpu_count(logical=True)
     core_num_per_device = int(total_core_num / device_num)

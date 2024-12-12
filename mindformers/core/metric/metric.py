@@ -16,7 +16,6 @@
 # ============================================================================
 """MindFormer Self-Define Metric."""
 import os
-import sys
 import re
 import collections
 import json
@@ -36,6 +35,7 @@ from mindspore.communication import get_group_size, get_rank
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models import BasicTokenizer
 from mindformers.core.loss import CrossEntropyLoss
+from mindformers.tools.logger import logger
 
 from .utils import PerplexityCell
 from ...dataset.labels import cluener_labels
@@ -235,7 +235,7 @@ class SQuADMetric(nn.Metric):
                     if qa['id'] not in predictions:
                         message = 'Unanswered question ' + qa['id'] + \
                                   ' will receive score 0.'
-                        print(message, file=sys.stderr)
+                        logger.warning(message)
                         continue
                     ground_truths = list(map(lambda x: x['text'], qa['answers']))
                     if not ground_truths:
@@ -621,7 +621,7 @@ class PerplexityMetric(nn.Metric):
         avg_loss = float(self.total_loss / self.num_data)
         result = {"loss": avg_loss, "PPL": math.exp(avg_loss)}
         if self.pipeline_parallel:
-            print("Average Loss and PPL Metric:", result)
+            logger.info("Average Loss and PPL Metric: %s", result)
         return result
 
 
@@ -655,8 +655,7 @@ class ADGENMetric(nn.Metric):
             preds = preds[0]
 
         for pred, label in zip(preds, labels):
-            print(f"pred is:\n {pred}\n",
-                  f"label is:\n {label}")
+            logger.info("pred is: \n%s \nlabel is: \n%s", pred, label)
             hypothesis = list(jieba.cut(pred))
             reference = list(jieba.cut(label))
             hypothesis_str = ' '.join(hypothesis)
@@ -676,11 +675,12 @@ class ADGENMetric(nn.Metric):
         """Compute final result"""
         for k, v in self.score_dict.items():
             self.score_dict[k] = float(np.mean(v))
-        print('metric: ADGENMetric\n' +
-              f'rouge-1: {self.score_dict["rouge-1"]:.4f}\n' +
-              f'rouge-2: {self.score_dict["rouge-2"]:.4f}\n' +
-              f'rouge-l: {self.score_dict["rouge-l"]:.4f}\n' +
-              f'bleu-4:  {self.score_dict["bleu-4"]:.4f}')
+        rouge_1 = f'{self.score_dict["rouge-1"]:.4f}'
+        rouge_2 = f'{self.score_dict["rouge-2"]:.4f}'
+        rouge_l = f'{self.score_dict["rouge-l"]:.4f}'
+        bleu_4 = f'{self.score_dict["bleu-4"]:.4f}'
+        logger.info(f"metric: ADGENMetric\nrouge-1: %s\nrouge-2: %s\nrouge-l: %s\nbleu-4: %s\n",
+                    rouge_1, rouge_2, rouge_l, bleu_4)
         return self.score_dict
 
 
@@ -805,8 +805,8 @@ class PromptAccMetric(nn.Metric):
                                              pipeline_stages=self.pipeline_stages)
         else:
             self.calculate_circle(*inputs)
-        print("Current data num is {}, total acc num is {}, ACC is {}".format(
-            self.num_data, self.total_acc_num, "%.3f" % (self.total_acc_num / self.num_data)))
+        logger.info("Current data num is: %s, total acc num is: %s, ACC is: %s",
+                    self.num_data, self.total_acc_num, "%.3f" % (self.total_acc_num / self.num_data))
         return
 
     def eval(self):
@@ -815,8 +815,8 @@ class PromptAccMetric(nn.Metric):
             return None
         acc_rate = float(self.total_acc_num / self.num_data)
         result = {"Acc": acc_rate}
-        print(f"Acc: {('%.3f' % result.get('Acc', 0))}, total_acc_num: {self.total_acc_num}, "
-              f"total_num: {self.num_data}")
+        logger.info("Acc: %s, total_acc_num: %s, total_num: %s",
+                    ('%.3f' % result.get('Acc', 0)), self.total_acc_num, self.num_data)
         return result
 
 
@@ -892,23 +892,24 @@ class EmF1Metric(nn.Metric):
         for i, _ in enumerate(gen):
             gen[i] = gen[i].strip()
             gen[i] = gen[i].split("\n")[0]
-        print(f"pred is:\n {gen}\n",
-              f"label is:\n {label}")
+        logger.info("pred is:\n %s\nlabel is:\n %s", gen, label)
 
         self.gens.extend(gen)
         self.labels.extend(label)
         self.num_data += len(gen)
 
         result, current_count = self.evaluate_pairs(gen, label)
-        print("The F1/Em of this example is: ", result)
+        logger.info("The F1/Em of this example is: %s", result)
         if self.num_data % 10 == 0:
             result, current_count = self.evaluate_pairs(self.gens, self.labels)
-            print(f"F1 score: {result.get('F1', 0)}, Em score: {result.get('Em', 0)}, current_count: {current_count}")
+            logger.info(f"F1 score: %s, Em score: %s, current_count: %s",
+                        {result.get('F1', 0)}, {result.get('Em', 0)}, current_count)
 
     def eval(self):
         """Compute final result"""
         result, total_count = self.evaluate_pairs(self.gens, self.labels)
-        print(f"F1 score: {result.get('F1', 0)}, Em score: {result.get('Em', 0)}, total_count: {total_count}")
+        logger.info(f"F1 score: %s, Em score: %s, total_count: %s",
+                    {result.get('F1', 0)}, {result.get('Em', 0)}, total_count)
         return result
 
     def mixed_segmentation(self, in_str, rm_punc=False):
@@ -1006,6 +1007,6 @@ class EmF1Metric(nn.Metric):
             em_score = 100.0 * em / total_count
             result = {'F1': f1_score, 'Em': em_score}
         else:
-            print("total_count is zero")
+            logger.info("total_count is zero")
             result = {}
         return result, total_count
