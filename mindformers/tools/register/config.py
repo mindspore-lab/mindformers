@@ -171,7 +171,8 @@ class MindFormerConfig(DictConfig):
 
         filepath = os.path.realpath(filename)
         with open(filepath, encoding='utf-8') as fp:
-            cfg_dict = ordered_yaml_load(fp, yaml_loader=yaml.FullLoader)
+            cfg_dict = yaml.safe_load(fp)
+            cfg_dict = OrderedDict(sorted(cfg_dict.items()))
 
         # Load base config file.
         if BASE_CONFIG in cfg_dict:
@@ -316,22 +317,6 @@ class ActionDict(Action):
             key, value = key_value.split('=', maxsplit=1)
             options[key] = self._parse_value_iter(value)
         setattr(namespace, self.dest, options)
-
-
-def ordered_yaml_load(stream, yaml_loader=yaml.SafeLoader,
-                      object_pairs_hook=OrderedDict):
-    """Load Yaml File in Orderedly."""
-    class OrderedLoader(yaml_loader):
-        pass
-
-    def _construct_mapping(loader, node):
-        loader.flatten_mapping(node)
-        return object_pairs_hook(loader.construct_pairs(node))
-
-    OrderedLoader.add_constructor(
-        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
-        _construct_mapping)
-    return yaml.load(stream, OrderedLoader)
 
 
 def ordered_yaml_dump(data, stream=None, yaml_dumper=yaml.SafeDumper,
