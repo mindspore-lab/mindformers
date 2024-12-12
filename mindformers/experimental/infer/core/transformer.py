@@ -174,15 +174,21 @@ class ParallelMLP(nn.Cell):
             compute_dtype=self.config.compute_dtype,
         )
         self.mul = ops.Mul()
+        self.reshape = ops.Reshape()
 
     def construct(self, x):
         """ Construct function of mlp block. """
+        bs, seq_len, _ = x.shape
         # [B, S, H] -> [B, S, ffn_H]
         if self.mlp_has_gate:
             if self.ffn_concat:
                 gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
-                gate, hidden = mint.split(gate_hidden_out,
-                                          (self.ffn_hidden_size_per_partition, self.ffn_hidden_size_per_partition), -1)
+                reshape_out = self.reshape(gate_hidden_out,
+                                           (bs, seq_len, self.ffn_hidden_size_per_partition, 2))
+                gate, hidden = mint.split(reshape_out,
+                                          (1, 1), -1)
+                gate = self.reshape(gate, (bs, seq_len, self.ffn_hidden_size_per_partition))
+                hidden = self.reshape(hidden, (bs, seq_len, self.ffn_hidden_size_per_partition))
             else:
                 gate = self.w1(x)  # dp,1 -> dp, mp
                 hidden = self.w3(x)  # dp,1 -> dp, mp
@@ -337,6 +343,7 @@ class ParallelAttention(nn.Cell):
         self.hidden_size = self.config.hidden_size
         self.head_dim = divide(self.hidden_size, self.num_heads)
         self.kv_hidden_size = self.head_dim * self.kv_num_heads
+        self.n_rep = divide(self.num_heads, self.kv_num_heads)
 
         self.sequence_parallel = self.config.parallel_config.use_sequence_parallel
         self.use_flash_attention = self.config.use_flash_attention
@@ -403,13 +410,22 @@ class ParallelAttention(nn.Cell):
         if self.attn_type == "self_attn":
             if self.sequence_parallel:
                 seq_len = seq_len * self.tp_group_size
-            # [B, S, H] --> [B, S, H + 2 * kv_H]
             if self.qkv_concat:
                 qkv = self.cast(self.w_qkv(x), self.compute_dtype)
-                query, key, value = mint.split(qkv,
-                                               (self.hidden_size_per_partition,
-                                                self.kv_hidden_size_per_partition,
-                                                self.kv_hidden_size_per_partition), -1)
+                # [B, S, H] --> [B, S, N, D]
+                reshape_qkv = self.reshape(qkv,
+                                           (bs,
+                                            seq_len,
+                                            self.kv_num_heads_per_partition,
+                                            (self.n_rep + 2) * self.head_dim))
+                query, key, value = mint.split(reshape_qkv,
+                                               (self.head_dim * self.n_rep,
+                                                self.head_dim,
+                                                self.head_dim), -1)
+                # [B, S, N, D] --> [B, S, H]
+                query = self.reshape(query, (bs, seq_len, self.hidden_size_per_partition))
+                key = self.reshape(key, (bs, seq_len, self.kv_hidden_size_per_partition))
+                value = self.reshape(value, (bs, seq_len, self.kv_hidden_size_per_partition))
             else:
                 query = self.cast(self.wq(x), self.compute_dtype)
                 key = self.cast(self.wk(x), self.compute_dtype)
