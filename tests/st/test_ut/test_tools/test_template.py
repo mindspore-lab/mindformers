@@ -361,8 +361,8 @@ class TestTrainDatasetTaskConfig:
 class TestProcessorConfig:
     """test processor"""
     def setup_method(self):
-        self.missing_required_input = {"aaa": 1}
-        self.input = {"type": "class", "aaa": 1}
+        self.input_1 = {"aaa": 1}
+        self.input_2 = {"type": "class", "aaa": 1}
 
     def test_none_input(self):
         config = ProcessorConfig.apply(None)
@@ -372,12 +372,13 @@ class TestProcessorConfig:
         assert isinstance(config, dict)
         assert not config
 
-    def test_missing_required_input(self):
-        with pytest.raises(KeyError, match="required"):
-            ProcessorConfig.apply(self.missing_required_input)
+    def test_input_1(self):
+        config = ProcessorConfig.apply(self.input_1)
+        assert len(config) == 1
+        assert config["aaa"] == 1
 
-    def test_input(self):
-        config = ProcessorConfig.apply(self.input)
+    def test_input_2(self):
+        config = ProcessorConfig.apply(self.input_2)
         assert len(config) == 2
         assert config["type"] == "class"
         assert config["aaa"] == 1

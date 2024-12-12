@@ -417,7 +417,6 @@ class ProcessorConfig(Config):
     _raise_error_for_unexpected_key = False
 
     _name = "processor"
-    _required_keys = ["type"]
 
 
 class EvalDatasetConfig(Config):
