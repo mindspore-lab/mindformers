@@ -311,6 +311,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         - **block_tables** (Tensor, optional) - Int64 type Tensor, Store mapping tables for each sequence.
           Default: ``None`` .
         - **slot_mapping** (Tensor, optional) - Int32 type Tensor, token cache physical slot index. Default:``None`` .
+        - **loss_mask** (Tensor, optional) - Float32/Int32 type tensor, which is used to determine
+          whether the corresponding token position participates in the loss calculation. If the value is :math:`(1)`,
+          the loss of the position is calculated, and :math:`(0)` is not calculated. Default: ``None``.
 
     Outputs:
         Tensor. If it is in training mode, the output Tensor contains loss;
