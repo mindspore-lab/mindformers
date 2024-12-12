@@ -1305,6 +1305,12 @@ class FreqsMgr(Cell):
         freqs_sin = self.gather(self.freqs_sin, indices, 0)
         return freqs_cos, freqs_sin, self.swap_mask
 
+    def chunk_with_decode(self, seq_range):
+        """Obtain the position encoding of chunks and increments"""
+        freqs_cos = self.gather(self.freqs_cos, seq_range, 0)
+        freqs_sin = self.gather(self.freqs_sin, seq_range, 0)
+        return freqs_cos, freqs_sin, self.swap_mask
+
     @staticmethod
     def get_swap_mask(head_dim):
         """Swap matrix"""

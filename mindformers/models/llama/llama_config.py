@@ -236,6 +236,7 @@ class LlamaConfig(PretrainedConfig):
                  fused_rms_norm: bool = True,
                  input_sliced_sig: bool = False,
                  rmsnorm_compute_2d: bool = False,
+                 chunk_prefill: bool = False,
                  **kwargs):
         """
         Note:
@@ -310,3 +311,4 @@ class LlamaConfig(PretrainedConfig):
         self.init_method_std = init_method_std
         self.input_sliced_sig = input_sliced_sig
         self.rmsnorm_compute_2d = rmsnorm_compute_2d
+        self.chunk_prefill = chunk_prefill
