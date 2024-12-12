@@ -1,5 +1,5 @@
 setuptools
-sentencepiece>=0.1.97
+sentencepiece>=0.2.0
 ftfy>=6.1.1
 regex>=2022.10.31
 tqdm>=4.65.0
