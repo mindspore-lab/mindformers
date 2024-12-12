@@ -17,9 +17,6 @@
 
 import re
 import math
-from collections import OrderedDict
-
-import yaml
 
 import mindspore.ops as P
 import mindspore.nn as nn
@@ -274,26 +271,6 @@ def save_strategy_file(state_dict, strategy_file_name):
             f"the permission to write files, or the disk space is insufficient and so on."
         )
         raise e
-
-
-def load_yaml(stream, yaml_loader=yaml.SafeLoader, object_pairs_hook=OrderedDict):
-    """Load yaml file in orderedly.
-
-    Args:
-        stream: yaml file stream.
-        yaml_loader (yaml.Loader, optional): yaml loader.
-        object_pairs_hook (optional): object pairs hook.
-    """
-
-    class OrderedLoader(yaml_loader):
-        pass
-
-    def _construct_mapping(loader, node):
-        loader.flatten_mapping(node)
-        return object_pairs_hook(loader.construct_pairs(node))
-
-    OrderedLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping)
-    return yaml.load(stream, OrderedLoader)
 
 
 def valid_lora_config(model_config, params):
