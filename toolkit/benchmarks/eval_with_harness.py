@@ -165,7 +165,6 @@ class MFLM(TemplateLM):
             raise Exception("There is no or more than one config file in the model directory.")
         self._config = MindFormerConfig(config_path[0])
 
-
         self._config.pretrained = pretrained
         if use_parallel is not None:
             self._config.use_parallel = use_parallel
@@ -560,8 +559,10 @@ class MFLM(TemplateLM):
                             f"Expected `kwargs['until']` to be of type Union[str,list] but got {until}"
                         )
             else:
+                # for fix CI issue
+                type_gen_kwargs = type(gen_kwargs)
                 raise ValueError(
-                    f"Expected `kwargs` to be of type `dict` but got {type(gen_kwargs)}"
+                    f"Expected `kwargs` to be of type `dict` but got {type_gen_kwargs}"
                 )
             # add EOS token to stop sequences
             eos = self.tok_decode([self.eot_token_id], skip_special_tokens=False)
@@ -569,6 +570,9 @@ class MFLM(TemplateLM):
                 until = [eos]
             else:
                 until.append(eos)
+
+            # check if until has empty string
+            until = [u for u in until if u]
 
             if "max_gen_toks" in kwargs.keys():
                 max_gen_toks = kwargs.pop("max_gen_toks")
