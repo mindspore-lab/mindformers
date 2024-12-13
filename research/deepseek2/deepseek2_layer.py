@@ -130,14 +130,13 @@ class DeepSeekV2MoEInfer(Cell):
     MoE inferernce inherited from MoEInfer, where shared experts are added.
     """
     def __init__(self, hidden_size, intermediate_size, compute_dtype,
-                 param_init_type, is_dynamic, moe_config, parallel_config):
+                 param_init_type, moe_config, parallel_config):
         super(DeepSeekV2MoEInfer, self).__init__()
         ffn = LlamaMoeInferFeedForward(dim=hidden_size,
                                        intermediate_size=intermediate_size,
                                        expert_num=moe_config.expert_num,
                                        compute_dtype=compute_dtype,
                                        param_init_type=param_init_type,
-                                       is_dynamic=is_dynamic,
                                        use_gmm=True)
         self.routed_experts = MoEInfer(ffn, hidden_size, moe_config, parallel_config)
         intermediate_size_all = int(moe_config.moe_intermediate_size * moe_config.shared_expert_num)
@@ -146,7 +145,6 @@ class DeepSeekV2MoEInfer(Cell):
                                                expert_num=1,
                                                compute_dtype=compute_dtype,
                                                param_init_type=param_init_type,
-                                               is_dynamic=is_dynamic,
                                                parallel_config=parallel_config)
         self.add = P.Add()
 

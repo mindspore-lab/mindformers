@@ -308,7 +308,6 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
                                            softmax_compute_dtype=config.softmax_compute_type,
                                            param_init_type=config.param_init_type,
                                            use_past=config.use_past,
-                                           is_dynamic=config.is_dynamic,
                                            use_flash_attention=self.use_flash_attention,
                                            block_size=self.block_size,
                                            num_blocks=self.num_blocks,
@@ -732,7 +731,6 @@ class Baichuan13BDecodeLayer(nn.Cell):
                  softmax_compute_dtype=mstype.float32,
                  param_init_type=mstype.float32,
                  use_past=False,
-                 is_dynamic=False,
                  use_flash_attention=False,
                  block_size: int = 128,
                  num_blocks: int = 224,
@@ -751,7 +749,6 @@ class Baichuan13BDecodeLayer(nn.Cell):
         self.dtype = compute_dtype
         self.is_first_iteration = True
         self.use_past = use_past
-        self.is_dynamic = is_dynamic
         self.key_past = None
         self.value_past = None
         self.use_seq_parallel = parallel_config.use_seq_parallel
@@ -780,8 +777,7 @@ class Baichuan13BDecodeLayer(nn.Cell):
                                              multiple_of=multiple_of,
                                              ffn_dim_multiplier=ffn_dim_multiplier,
                                              compute_dtype=compute_dtype,
-                                             param_init_type=param_init_type,
-                                             is_dynamic=is_dynamic)
+                                             param_init_type=param_init_type)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel

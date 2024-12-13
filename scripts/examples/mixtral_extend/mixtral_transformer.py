@@ -657,7 +657,6 @@ class MixtralDecodeLayer(nn.Cell):
                                                             intermediate_size=intermediate_size,
                                                             compute_dtype=compute_dtype,
                                                             param_init_type=param_init_type,
-                                                            is_dynamic=is_dynamic,
                                                             moe_config=moe_config,
                                                             parallel_config=parallel_config,
                                                             use_moe_infer=self.use_moe_infer)
