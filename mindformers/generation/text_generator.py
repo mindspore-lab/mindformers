@@ -741,6 +741,11 @@ class GenerationMixin:
             self._set_block_mgr(batch_size)
             if self.config.is_dynamic:
                 self.set_dynamic_inputs()
+        else:
+            if self.config.is_dynamic:
+                raise ValueError("use_past is False, but dynamic configuration is enabled (is_dynamic=True). "
+                                 "This configuration is not supported. Please set 'use_past' to True "
+                                 "when using dynamic inputs.")
 
         # prepare dict outputs
         if generation_config.return_dict_in_generate and generation_config.output_logits \
