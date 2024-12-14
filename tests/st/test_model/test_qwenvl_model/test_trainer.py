@@ -21,15 +21,16 @@ import os
 import sys
 import pytest
 
-import mindspore as ms
-
 MFPATH = os.path.abspath(__file__)
 MFPATH = os.path.abspath(MFPATH + '/../../../../../')
 sys.path.append(MFPATH)
 sys.path.append(MFPATH + '/research/qwenvl')
+os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
 # pylint: disable=C0413
 import mindformers as mf
 from mindformers import Trainer, MindFormerConfig, MindFormerRegister, MindFormerModuleType
+from mindformers import build_context
+from mindformers.models import build_network
 
 from research.qwenvl.qwenvl import QwenVL
 from research.qwenvl.qwenvl_config import QwenVLConfig
@@ -39,8 +40,6 @@ from research.qwenvl.qwenvl_transform import QwenVLTransform
 from research.qwenvl.qwen.optim import AdamWeightDecayX
 from research.qwenvl.qwen.qwen_model import QwenForCausalLM
 from research.qwenvl.qwen.qwen_config import QwenConfig
-
-ms.set_context(mode=0)
 
 
 def register_modules():
@@ -66,93 +65,22 @@ class TestQwenVLTrainerMethod:
         """init task trainer."""
         register_modules()
 
-        vision_model_config = {
-            'arch': {'type': 'QwenVLVisionModel'},
-            'model_config': {
-                'type': 'QwenVLVisionConfig',
-                'num_hidden_layers': 2,
-            },
-        }
-        vision_model = MindFormerConfig(**vision_model_config)
-        llm_model_config = {
-            'arch': {'type': 'QwenForCausalLM'},
-            'model_config': {
-                'type': 'QwenConfig',
-                'num_layers': 2,
-                'seq_length': 512,
-                'vocab_size': 151936,
-                'intermediate_size': 11008,
-                'enable_slice_dp': False,
-                'embedding_parallel_optimizer': False,
-                'rms_norm_eps': 1.0e-6,
-                'emb_dropout_prob': 0.0,
-                'eos_token_id': 151643,
-                'pad_token_id': 151643,
-                'ignore_token_id': -100,
-                'rotary_dtype': "float16",
-                'use_flash_attention': True,
-                'is_dynamic': True,
-                'num_blocks': 128,
-                'top_k': 0,
-                'top_p': 0.8,
-                'do_sample': False,
-                'enable_emb_opt': True,
-                'rotary_pct': 1.0,
-                'rotary_emb_base': 10000,
-                'kv_channels': 128,
-                'max_decode_length': 512
-            }
-        }
-        llm_model = MindFormerConfig(**llm_model_config)
-
-        model_config = dict(
-            vision_model=vision_model,
-            llm_model=llm_model,
-            freeze_vision=True,
-            freeze_resampler=False,
-            freeze_llm=False,
-            compute_dtype="bfloat16",
-            param_init_type="float16",
-            softmax_compute_type="float32",
-            is_dynamic=True,
-            block_size=32,
-            num_blocks=128,
-        )
-        model = QwenVL(QwenVLConfig(**model_config))
-        config = self.get_config(model_config)
-
-        self.task_trainer = Trainer(task='image_to_text_generation', model=model, args=config)
-
-    def get_config(self, model_config):
-        """init config for prediction"""
-        config = {
-            'trainer': {
-                'type': 'ImageToTextGenerationTrainer',
-                'model_name': 'qwenvl'
-            },
-            'parallel': {},
-            'model': {'model_config': model_config},
-            'processor': {
-                'type': 'QwenVLProcessor',
-                'image_processor': {
-                    'type': 'QwenVLImageProcessor',
-                    'image_size': 448
-                },
-                'tokenizer': {
-                    'type': 'QwenVLTokenizer',
-                    'max_length': 32,
-                    'vocab_file': "./checkpoint_download/qwenvl/qwen.tiktoken"
-                },
-                'max_length': 512
-            }
-        }
         if not os.path.exists("./checkpoint_download/qwenvl/qwen.tiktoken"):
             mf.tools.download_tools.download_with_progress_bar(
                 'https://modelers.cn/coderepo/web/v1/file/MindSpore-Lab/Qwen-VL/main/media/qwen.tiktoken',
                 "./checkpoint_download/qwenvl/qwen.tiktoken"
             )
-        config = MindFormerConfig(**config)
-        return config
+
+        config = MindFormerConfig(os.path.join(MFPATH, "research/qwenvl/predict_qwenvl_9.6b.yaml"))
+        config.model.model_config.vision_model.model_config.num_hidden_layers = 1
+        config.model.model_config.llm_model.model_config.num_layers = 1
+        config.processor.tokenizer.vocab_file = "./checkpoint_download/qwenvl/qwen.tiktoken"
+
+        build_context(config)
+
+        model = build_network(config.model)
+
+        self.task_trainer = Trainer(task='image_to_text_generation', model=model, args=config)
 
     @pytest.mark.run(order=1)
     def test_predict(self):
