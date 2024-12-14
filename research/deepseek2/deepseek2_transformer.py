@@ -593,7 +593,6 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                compute_dtype=compute_dtype,
                                param_init_type=param_init_type,
                                ffn_concat=qkv_concat,
-                               is_dynamic=is_dynamic,
                                parallel_config=parallel_config) if self.shared_expert_num == 0 else None
 
         # Feed Forward Network
@@ -609,7 +608,6 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                                  ffn_dim_multiplier=ffn_dim_multiplier,
                                                  compute_dtype=compute_dtype,
                                                  param_init_type=param_init_type,
-                                                 is_dynamic=is_dynamic,
                                                  parallel_config=parallel_config)
         else:
             if self.expert_num == 1:
@@ -620,7 +618,6 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                                            intermediate_size=moe_config.moe_intermediate_size,
                                                            compute_dtype=compute_dtype,
                                                            param_init_type=param_init_type,
-                                                           is_dynamic=is_dynamic,
                                                            moe_config=moe_config,
                                                            parallel_config=parallel_config)
                 elif self.shared_expert_num == 0:
@@ -635,7 +632,6 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                                                 intermediate_size=moe_config.moe_intermediate_size,
                                                                 compute_dtype=compute_dtype,
                                                                 param_init_type=param_init_type,
-                                                                is_dynamic=is_dynamic,
                                                                 moe_config=moe_config,
                                                                 parallel_config=parallel_config,
                                                                 use_moe_infer=self.use_moe_infer,
