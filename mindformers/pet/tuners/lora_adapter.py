@@ -30,6 +30,25 @@ from ..pet_config import LoraConfig
 from ..utils import re_match_list
 
 
+def get_dtype(cell, config):
+    """get param_init_type and compute_dtype from cell and lora config."""
+    if config.param_init_type:
+        param_init_type = config.param_init_type
+    elif isinstance(cell, nn.Dense):
+        param_init_type = cell.weight.dtype
+    elif isinstance(cell, Linear):
+        param_init_type = cell.param_init_type
+
+    if config.compute_dtype:
+        compute_dtype = config.compute_dtype
+    elif isinstance(cell, nn.Dense):
+        compute_dtype = cell.weight.dtype
+    elif isinstance(cell, Linear):
+        compute_dtype = cell.dtype
+
+    return param_init_type, compute_dtype
+
+
 def recursive_replace_dense_cell(net, config):
     """default replace all dense."""
     # pylint: disable=W0212
@@ -67,13 +86,14 @@ def recursive_replace_dense_cell(net, config):
                 else:
                     in_channels = cell.in_channels
                     out_channels = cell.out_channels
+                    param_init_type, compute_dtype = get_dtype(cell, config)
                     dest_cell = LoRADense(in_channels=in_channels,
                                           out_channels=out_channels,
                                           lora_rank=config.lora_rank,
                                           lora_alpha=config.lora_alpha,
                                           lora_dropout=config.lora_dropout,
-                                          param_init_type=config.param_init_type,
-                                          compute_dtype=config.compute_dtype,
+                                          param_init_type=param_init_type,
+                                          compute_dtype=compute_dtype,
                                           has_bias=cell.has_bias,
                                           activation=cell.activation)
 

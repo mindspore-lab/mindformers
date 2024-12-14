@@ -499,6 +499,7 @@ class Linear(Cell):
         else:
             self.activation = get_activation(activation) if isinstance(activation, str) else activation
         self.activation_flag = self.activation is not None
+        self.param_init_type = param_init_type
         self.dtype = compute_dtype
         self.cast = P.Cast()
         self.reshape = P.Reshape()
