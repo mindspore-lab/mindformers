@@ -152,6 +152,7 @@ if __name__ == '__main__':
         package_data={'mindformers': ['../configs/**/*.yaml',
                                       '../configs/**/*.yml',
                                       '../configs/**/*.md',
+                                      './*.json',
                                       '.commit_id']},
         cmdclass={
             'egg_info': EggInfo,
