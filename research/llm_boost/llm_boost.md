@@ -124,7 +124,7 @@ dtype:       转换权重的精度
 以`Qwen2-7b`2卡推理为例, 生成目标strategy。
 
 ```shell
-  cd scripts/llm_boost/qwen2
+  cd scripts/examples/llm_boost/qwen2
   # 推理命令中参数会覆盖yaml文件中的相同参数
   python run_qwen2_llm_boost.py \
     --config predict_qwen2_7b_instruct_llm_boost.yaml \
@@ -163,7 +163,7 @@ dtype:       转换权重的精度
 以`Qwen2-7b`单卡推理为例。
 
 ```shell
-  cd scripts/llm_boost/qwen2
+  cd scripts/examples/llm_boost/qwen2
   # 推理命令中参数会覆盖yaml文件中的相同参数
   python run_qwen2_llm_boost.py \
     --config /path/predict_qwen2_7b_instruct_llm_boost.yaml \
@@ -194,7 +194,7 @@ dtype:       转换权重的精度
 2. 启动多卡推理
 
 ```shell
-  cd scripts/llm_boost/qwen2
+  cd scripts/examples/llm_boost/qwen2
   # 推理命令中参数会覆盖yaml文件中的相同参数
   bash ../../../msrun_launcher.sh "run_qwen2_llm_boost.py \
     --config /path/predict_qwen2_7b_instruct_llm_boost.yaml \
