@@ -85,13 +85,20 @@ class EntityScore(nn.Metric):
         self.clear()
 
     def clear(self):
-        "Initialization."
+        """Clearing the internal evaluation result."""
         self.origins = []
         self.founds = []
         self.rights = []
 
     def update(self, *inputs):
-        """Update results for every batch"""
+        """
+        Updating the internal evaluation result.
+
+        Args:
+            *inputs (List): Logits and labels. The logits are tensors of shape :math:`[N,C]` with data type Float16 or
+                Float32, and the labels are tensors of shape :math:`[N,]` with data type Int32 or Int64, where :math:`N`
+                is batch size, and :math:`C` is the total number of entity types.
+        """
         batch_logits = inputs[0].asnumpy()
         batch_label_ids = inputs[1].asnumpy()
         batch_pred_ids = np.argmax(batch_logits, axis=2).tolist()
@@ -107,7 +114,13 @@ class EntityScore(nn.Metric):
             self.rights.extend([pred_entity for pred_entity in pred_entities if pred_entity in label_entities])
 
     def eval(self):
-        """Compute final results."""
+        """
+        Computing the evaluation result.
+
+        Returns:
+            A dict of evaluation results with precision, recall, and F1 scores of entities relative to their true
+            labels.
+        """
         class_info = {}
         origin_counter = collections.Counter([x[0] for x in self.origins])
         found_counter = collections.Counter([x[0] for x in self.founds])
@@ -594,7 +607,15 @@ class PerplexityMetric(nn.Metric):
         self.total_loss = 0.0
 
     def update(self, *inputs):
-        """Update results for every batch"""
+        """
+        Updating the internal evaluation result.
+
+        Args:
+            *inputs (List): Logits, labels, and input_mask. Logits is a tensor of shape :math:`[N,S,W]`
+                with data type Float16 or Float32, Labels and input_mask is a tensor of shape :math:`[N,S]` with
+                data type Int32 or Int64. where :math:`N` is the batch size, :math:`S` is the sequence length,
+                and :math:`W` is the vocabulary size.
+        """
         if self.pipeline_parallel:
             if not self.is_last_stage:
                 return
@@ -615,7 +636,12 @@ class PerplexityMetric(nn.Metric):
             self.num_data += 1
 
     def eval(self):
-        """Compute final result"""
+        """
+        Computing the evaluation result.
+
+        Returns:
+            A dict of evaluation results with loss and PPL scores.
+        """
         if self.pipeline_parallel and not self.is_last_stage:
             return None
         avg_loss = float(self.total_loss / self.num_data)
@@ -790,7 +816,16 @@ class PromptAccMetric(nn.Metric):
         self.total_acc_num += cur_acc_num
 
     def update(self, *inputs):
-        """Update results for every batch"""
+        """
+        Updating the internal evaluation result.
+
+        Args:
+            *inputs (List): Logits, input_ids, input_mask, and labels.
+                where logits is a tensor of shape :math:`[N,C,S,W]` with data type Float16 or Float32,
+                and input_ids, input_mask, and labels are tensors of shape :math:`[N*C,S]` with data type
+                Int32 or Int64. Where :math:`N` is batch size, :math:`C` the total number of entity types,
+                :math:`S` is the sequence length, and :math:`W` is the vocabulary size.
+        """
         if self.pipeline_parallel:
             if not self.is_last_stage:
                 return
@@ -810,7 +845,12 @@ class PromptAccMetric(nn.Metric):
         return
 
     def eval(self):
-        """Compute final result"""
+        """
+        Computing the evaluation result.
+
+        Returns:
+            A dict of evaluation results with Acc scores.
+        """
         if self.pipeline_parallel and not self.is_last_stage:
             return None
         acc_rate = float(self.total_acc_num / self.num_data)
@@ -887,7 +927,13 @@ class EmF1Metric(nn.Metric):
         self.num_data = 0
 
     def update(self, *inputs):
-        """Update results for every batch"""
+        """
+        Updating the internal evaluation result.
+
+        Args:
+            *inputs (List): Predictions and labels. Both are lists containing :math:`N` strings.
+                Where :math:`N` is the batch size.
+        """
         gen, label = inputs[0], inputs[1]
         for i, _ in enumerate(gen):
             gen[i] = gen[i].strip()
@@ -906,7 +952,12 @@ class EmF1Metric(nn.Metric):
                         {result.get('F1', 0)}, {result.get('Em', 0)}, current_count)
 
     def eval(self):
-        """Compute final result"""
+        """
+        Computing the evaluation result.
+
+        Returns:
+            A dict of evaluation results with Em and F1 scores.
+        """
         result, total_count = self.evaluate_pairs(self.gens, self.labels)
         logger.info(f"F1 score: %s, Em score: %s, total_count: %s",
                     {result.get('F1', 0)}, {result.get('Em', 0)}, total_count)
