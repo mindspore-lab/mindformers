@@ -32,7 +32,6 @@ mindformers.core
     :nosignatures:
 
     mindformers.core.AdamW
-    mindformers.core.Came
 
 学习率
 ----------
