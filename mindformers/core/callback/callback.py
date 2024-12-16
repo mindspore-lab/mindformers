@@ -175,6 +175,12 @@ class MFLossMonitor(Callback):
                  check_for_nan_in_loss_and_grad: bool = False,
                  calculate_per_token_loss: bool = False):
         super(MFLossMonitor, self).__init__()
+        self.check_type([int], per_print_times, micro_batch_num,
+                        micro_batch_interleave_num, origin_epochs, dataset_size, initial_epoch, initial_step,
+                        global_batch_size, gradient_accumulation_steps)
+        self.check_type([bool], check_for_nan_in_loss_and_grad, calculate_per_token_loss)
+        if not (per_print_times > 0 and per_print_times % 1 == 0):
+            raise ValueError("per_print_times should be positive integer.")
         self.per_print_times = per_print_times
         self.learning_rate = deepcopy(learning_rate)
         self.last_print_time = 0
@@ -194,6 +200,13 @@ class MFLossMonitor(Callback):
         self.device_num = get_real_group_size()
         self.check_for_nan_in_loss_and_grad = check_for_nan_in_loss_and_grad
         self.calculate_per_token_loss = calculate_per_token_loss
+
+    # pylint: disable=W0612
+    def check_type(self, expected_types, *args):
+        for i, arg in enumerate(args):
+            if arg and not any(isinstance(arg, expected_type) for expected_type in expected_types):
+                raise TypeError(f"Expected {arg} to be the type with {expected_types}, but got {type(arg)}")
+
 
     def epoch_begin(self, run_context):
         """
