@@ -35,7 +35,6 @@ Optimizer
     :template: classtemplate.rst
 
     mindformers.core.AdamW
-    mindformers.core.Came
 
 Learning Rate
 --------------
