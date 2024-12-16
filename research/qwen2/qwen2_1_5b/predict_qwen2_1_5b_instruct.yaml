@@ -5,13 +5,13 @@ src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-use_parallel: True
+use_parallel: False
 run_mode: 'predict'
 
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'qwen2_72b'
+  model_name: 'qwen2_1_5b'
 
 # runner config
 runner_config:
@@ -19,19 +19,11 @@ runner_config:
   batch_size: 1
   sink_mode: True
   sink_size: 2
-runner_wrapper:
-  type: MFTrainOneStepCell
-  scale_sense:
-    type: DynamicLossScaleUpdateCell
-    loss_scale_value: 65536
-    scale_factor: 2
-    scale_window: 1000
-  use_clip_grad: True
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
   data_parallel: 1
-  model_parallel: 8
+  model_parallel: 1
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: False
@@ -43,34 +35,34 @@ model:
   model_config:
     type: LlamaConfig
     batch_size: 1
-    seq_length: 131072
-    hidden_size: 8192
-    num_layers: 80
-    num_heads: 64
-    n_kv_heads: 8
-    vocab_size: 152064
-    intermediate_size: 29568
+    seq_length: 8192
+    hidden_size: 1536
+    num_layers: 28
+    num_heads: 12
+    n_kv_heads: 2
+    vocab_size: 151936
+    intermediate_size: 8960
     max_position_embeddings: 32768
     qkv_has_bias: True
     rms_norm_eps: 1.0e-6
     theta: 1000000.0
     emb_dropout_prob: 0.0
-    eos_token_id: [151645,151643]
+    eos_token_id: [151643,151645]
     pad_token_id: 151643
-    bos_token_id: 151645
+    bos_token_id: 151643
     compute_dtype: "bfloat16"
-    layernorm_compute_type: "bfloat16"
+    layernorm_compute_type: "float32"
     softmax_compute_type: "float32"
     rotary_dtype: "bfloat16"
     param_init_type: "bfloat16"
     use_past: True
     use_flash_attention: True
-    block_size: 128
+    block_size: 32
     num_blocks: 1024
     use_past_shard: False
     offset: 0
     checkpoint_name_or_path: ""
-    repetition_penalty: 1.05
+    repetition_penalty: 1.1
     max_decode_length: 512
     temperature: 0.7
     top_k: 20
@@ -78,8 +70,10 @@ model:
     do_sample: True
     is_dynamic: True
     qkv_concat: True
+    tie_word_embeddings: True
     auto_map:
       AutoTokenizer: [qwen2_tokenizer.Qwen2Tokenizer, null]
+
   arch:
     type: LlamaForCausalLM
 
@@ -94,6 +88,7 @@ processor:
     eos_token: "<|im_end|>"
     chat_template: "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
     type: Qwen2Tokenizer
+    auto_register: qwen2_tokenizer.Qwen2Tokenizer
   type: Qwen2Processor
 
 # mindspore context init config

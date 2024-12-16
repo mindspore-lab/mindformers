@@ -11,7 +11,7 @@ run_mode: 'predict'
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'qwen2_72b'
+  model_name: 'qwen2_7b'
 
 # runner config
 runner_config:
@@ -19,19 +19,11 @@ runner_config:
   batch_size: 1
   sink_mode: True
   sink_size: 2
-runner_wrapper:
-  type: MFTrainOneStepCell
-  scale_sense:
-    type: DynamicLossScaleUpdateCell
-    loss_scale_value: 65536
-    scale_factor: 2
-    scale_window: 1000
-  use_clip_grad: True
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
   data_parallel: 1
-  model_parallel: 4
+  model_parallel: 1
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: False
@@ -43,13 +35,13 @@ model:
   model_config:
     type: LlamaConfig
     batch_size: 1
-    seq_length: 8192
-    hidden_size: 8192
-    num_layers: 80
-    num_heads: 64
-    n_kv_heads: 8
+    seq_length: 8192e
+    hidden_size: 3584
+    num_layers: 28
+    num_heads: 28
+    n_kv_heads: 4
     vocab_size: 152064
-    intermediate_size: 29568
+    intermediate_size: 18944
     max_position_embeddings: 32768
     qkv_has_bias: True
     rms_norm_eps: 1.0e-6
@@ -94,6 +86,7 @@ processor:
     eos_token: "<|im_end|>"
     chat_template: "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
     type: Qwen2Tokenizer
+    auto_register: qwen2_tokenizer.Qwen2Tokenizer
   type: Qwen2Processor
 
 # mindspore context init config

@@ -18,19 +18,19 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
 
 | Config                                           |      Task       | Datasets | SeqLength |  Phase   |   Performance   |
 |:-------------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:---------------:|
-| [qwen2-0.5b](./predict_qwen2_0_5b_instruct.yaml) | text_generation |    -     |   4096    | Predict  |  1907 tokens/s  |
-| [qwen2-1.5b](./predict_qwen2_1_5b_instruct.yaml) | text_generation |    -     |   4096    | Predict  |  1160 tokens/s  |
-| [qwen2-7b](./predict_qwen2_7b_instruct.yaml)     | text_generation |    -     |   4096    | Predict  |  645 tokens/s   |
-| [qwen2-72b](./predict_qwen2_72b_instruct.yaml)   | text_generation |    -     |   8192    | Predict  |  252 tokens/s   |
+| [qwen2-0.5b](qwen2_0_5b/predict_qwen2_0_5b_instruct.yaml) | text_generation |    -     |   4096    | Predict  |  1907 tokens/s  |
+| [qwen2-1.5b](qwen2_1_5b/predict_qwen2_1_5b_instruct.yaml) | text_generation |    -     |   4096    | Predict  |  1160 tokens/s  |
+| [qwen2-7b](qwen2_7b/predict_qwen2_7b_instruct.yaml)     | text_generation |    -     |   4096    | Predict  |  645 tokens/s   |
+| [qwen2-72b](qwen2_72b/predict_qwen2_72b_instruct.yaml)   | text_generation |    -     |   8192    | Predict  |  252 tokens/s   |
 
 以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
 
 | Config                                       |      Task       | Datasets | SeqLength |  Phase   |   Performance   |
 |:---------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:---------------:|
-| [qwen2-0.5b](./finetune_qwen2_0.5b_32k.yaml) | text_generation |  alpaca  |   32768   | Finetune | 9555 tokens/s/p |
-| [qwen2-1.5b](./finetune_qwen2_1.5b_32k.yaml) | text_generation |  alpaca  |   32768   | Finetune | 4363 tokens/s/p |
-| [qwen2-57b-a14b](./finetune_qwen2_57b.yaml)  | text_generation |  alpaca  |   32768   | Finetune | 288 tokens/s/p  |
-| [qwen2-72b](./finetune_qwen2_72b_32k.yaml)   | text_generation |  alpaca  |   32768   | Finetune | 2026 tokens/s/p |
+| [qwen2-0.5b](qwen2_0_5b/finetune_qwen2_0.5b_32k.yaml) | text_generation |  alpaca  |   32768   | Finetune | 9555 tokens/s/p |
+| [qwen2-1.5b](qwen2_1_5b/finetune_qwen2_1.5b_32k.yaml) | text_generation |  alpaca  |   32768   | Finetune | 4363 tokens/s/p |
+| [qwen2-57b-a14b](qwen2_57b/finetune_qwen2_57b.yaml)  | text_generation |  alpaca  |   32768   | Finetune | 288 tokens/s/p  |
+| [qwen2-72b](qwen2_72b/finetune_qwen2_72b_32k.yaml)   | text_generation |  alpaca  |   32768   | Finetune | 2026 tokens/s/p |
 
 ## 模型文件
 
@@ -47,14 +47,23 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
 
    ```text
    research/qwen2
-     ├── predict_qwen2_0_5b_instruct.yaml           # 0.5B 在线推理启动配置
-     ├── predict_qwen2_1_5b_instruct.yaml           # 1.5B 在线推理启动配置
-     ├── predict_qwen2_7b_instruct.yaml             # 7B 在线推理启动配置
-     │── finetune_qwen2_7b.yaml                     # 7B 32k 微调启动配置
-     ├── predict_qwen2_57b_a14b_instruct.yaml       # 57B-A14B 在线推理启动配置
-     ├── finetune_qwen2_57b.yaml                    # 57B-A14B 微调启动配置
-     ├── predict_qwen2_72b_instruct.yaml            # 72B 在线推理启动配置
-     └── predict_qwen2_72b_instruct_128k.yaml       # 72B 128k 在线推理启动配置
+     ├── qwen2_0_5b                                        # qwen2 0.5B 配置文件
+     │   ├── finetune_qwen2_0.5b_32k.yaml                  # 0.5B 32k 全参微调启动配置
+     │   └── predict_qwen2_0_5b_instruct.yaml              # 0.5B 在线推理启动配置
+     ├── qwen2_1_5b                                        # qwen2 1.5B 配置文件
+     │   ├── finetune_qwen2_1.5b_32k.yaml                  # 1.5B 32k 全参微调启动配置
+     │   └── predict_qwen2_1_5b_instruct.yaml              # 1.5B 在线推理启动配置
+     ├── qwen2_7b                                          # qwen2 7B 配置文件
+     │   ├── finetune_qwen2_7b.yaml                        # 7B 全参微调启动配置
+     │   └── predict_qwen2_7b_instruct.yaml                # 7B 在线推理启动配置
+     ├── qwen2_57b                                         # qwen2 57B 配置文件
+     │   ├── finetune_qwen2_57b.yaml                       # 57B 全参微调启动配置
+     │   ├── predict_qwen2_57b_a14b_instruct.yaml          # 57B 在线推理启动配置
+     │   └── pretrain_qwen2_57b.yaml                       # 57B 训练启动配置
+     ├── qwen2_72b                                         # qwen2 72B 配置文件
+     │   ├── finetune_qwen2_72b_32k.yaml                   # 72B 32k 全参微调启动配置
+     │   ├── predict_qwen2_72b_instruct.yaml               # 72B 在线推理启动配置
+     └── └── predict_qwen2_72b_instruct_128k.yaml          # 72B 128k 在线推理启动配置
    ```
 
 3. 环境准备和任务启动脚本：
@@ -62,8 +71,7 @@ Qwen2是Qwen系列的新的大型语言模型。Qwen2发布了许多基本语言
    ```text
    research/qwen2
      ├── convert_weight.py                         # 权重转换脚本
-     ├── convert_moe_weight.py                     # 针对Qwen2-57B-A14B的MoE模型权重转换脚本
-     └── run_qwen2.py                              # Qwen2多轮对话脚本
+     └── convert_moe_weight.py                     # 针对Qwen2-57B-A14B的MoE模型权重转换脚本
    ```
 
 ## 环境及数据准备
@@ -145,13 +153,13 @@ output_path: 转换后的MindSpore权重文件保存路径
 dtype:       转换权重的精度
 ```
 
-- **[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)**
+- **[模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)**
 
   从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
 
   通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)
 
 ## 微调
 
@@ -159,38 +167,38 @@ dtype:       转换权重的精度
 
 1. 当前支持模型已提供推理相关配置文件，请根据实际使用模型更改配置文件。
 
-2. 运行下面的代码需要在`research/qwen2`目录下，或者先将`research/qwen2`目录所在路径加入到`PYTHONPATH`环境变量中。
+2. 运行下面的代码需要在`mindformers/`目录下，或者先将`mindformers/`目录所在路径加入到`PYTHONPATH`环境变量中。
 
-以``qwen2-7b` 8卡微调为例，执行如下命令进行微调，微调前请参考[权重转换](../../docs/feature_cards/Transform_Ckpt.md)切分权重。
+以``qwen2-7b` 8卡微调为例，执行如下命令进行微调，微调前请参考[权重转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)切分权重。
 
 3. 主要参数配置参考:
 
 - 基本配置：
 
   ```yaml
-   load_checkpoint: './path/qwen2_7b.ckpt' # 权重转换后的文件
+   load_checkpoint: '/path/qwen2_7b.ckpt' # 权重转换后的文件
    train_dataset: &train_dataset
-    data_loader:
-      type: MindDataset
-      dataset_dir: "./path/alpaca-data.mindrecord" # 实际微调数据集
-      shuffle: True
+     data_loader:
+       type: MindDataset
+       dataset_dir: "/path/alpaca-data.mindrecord" # 实际微调数据集
+       shuffle: True
    # parallel config
    parallel_config:
-    data_parallel: 2
-    model_parallel: 4
-    pipeline_stage: 1
-    use_seq_parallel: True
-    micro_batch_num: 1
-    vocab_emb_dp: False
-    gradient_aggregation_group: 4
+     data_parallel: 2
+     model_parallel: 4
+     pipeline_stage: 1
+     use_seq_parallel: True
+     micro_batch_num: 1
+     vocab_emb_dp: False
+     gradient_aggregation_group: 4
    micro_batch_interleave_num: 2
    # processor config
    processor:
-    return_tensors: ms
-    tokenizer:
-      model_max_length: 32768
-      vocab_file: "./path/vocab.json" # 参考qwen2-7b官网下载的词表
-      merges_file: "./path/merges.txt" # # 参考qwen2-7b官网下载的merge文件
+     return_tensors: ms
+     tokenizer:
+       model_max_length: 32768
+       vocab_file: "./path/vocab.json" # 参考qwen2-7b官网下载的词表
+       merges_file: "./path/merges.txt" # # 参考qwen2-7b官网下载的merge文件
   ```
 
 - 动态shape配置：
@@ -235,11 +243,10 @@ train_dataset: &train_dataset
 4. 启动微调:
 
    ```shell
-   cd research/qwen2
-   bash ../../scripts/msrun_launcher.sh "run_qwen2.py \
-    --config finetune_qwen2_7b.yaml \
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config research/qwen2/qwen2_7b/finetune_qwen2_7b.yaml \
     --run_mode finetune \
-    --train_data ./path/alpaca-data.mindrecord "
+    --register_path research/qwen2"
    ```
 
 ## 推理
@@ -250,13 +257,13 @@ train_dataset: &train_dataset
 
 1. 当前支持模型已提供推理相关配置文件，请根据实际使用模型更改配置文件。
 
-2. 运行下面的代码需要在`research/qwen2`目录下，或者先将`research/qwen2`目录所在路径加入到`PYTHONPATH`环境变量中。
+2. 运行下面的代码需要在`mindformers/`目录下，或者先将`mindformers/`目录所在路径加入到`PYTHONPATH`环境变量中。
 
 ### 基于高阶接口的推理
 
 #### 多卡推理
 
-以`qwen2_72b`4卡推理为例，执行如下命令进行推理, 推理前先参考[权重转换](../../docs/feature_cards/Transform_Ckpt.md)切分权重。
+以`qwen2_7b`4卡推理为例，执行如下命令进行推理, 推理前先参考[权重转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)切分权重。
 
 1. 主要参数配置参考：
 
@@ -268,22 +275,26 @@ train_dataset: &train_dataset
      micro_batch_num: 1
      vocab_emb_dp: False
      gradient_aggregation_group: 4
+   model:
+     model_config:
+       qkv_concat: False
+   processor:
+     tokenizer:
+       vocab_file: "/path/vocab.json" # 参考qwen2-7b官网下载的词表
+       merges_file: "/path/merges.txt" # # 参考qwen2-7b官网下载的merge文件
    ```
 
 2. 启动多卡推理：
 
    ```shell
-   cd research/qwen2
    # 推理命令中参数会覆盖yaml文件中的相同参数
-   bash ../../scripts/msrun_launcher.sh "run_qwen2.py \
-    --config predict_qwen2_72b_instruct.yaml \
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config research/qwen2/qwen2_7b/predict_qwen2_7b_instruct.yaml \
     --load_checkpoint /path/model_dir \
-    --vocab_file /path/vocab.json \
-    --merges_file /path/merges.txt \
+    --register_path research/qwen2 \
     --run_mode predict \
     --use_parallel True \
     --auto_trans_ckpt False \
     --predict_data 帮助我制定一份去上海的旅游攻略" 4
-
    # 帮助我制定一份去上海的旅游攻略，包括景点、美食、住宿等信息...
    ```
