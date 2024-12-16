@@ -525,6 +525,9 @@ class MFContextConfig(BaseArgsConfig):
         'resume_training',
         'enable_mindio_ttp_save_ckpt',
         'use_graceful_exit',
+        'profile',
+        'profile_start_step',
+        'profile_stop_step'
     ]
 
     def __init__(

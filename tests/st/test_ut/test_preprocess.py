@@ -22,6 +22,7 @@ import numpy as np
 from mindspore import set_context, Tensor, get_context
 
 from mindformers.generation.text_generator import GenerationMixin
+from mindformers.tools.debug_info import DetailedLatency, Profiling
 
 set_context(device_target='CPU')
 
@@ -43,6 +44,8 @@ class TestGenerationMixin:
     """
 
     def __init__(self):
+        self.detailed_latency = DetailedLatency()
+        self.profile = Profiling()
         self.config = TestConfig()
         self._pre_set_phase = None
         self._exec_add_flags = True
