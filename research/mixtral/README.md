@@ -21,7 +21,7 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 
 1. 模型具体实现：`mindformers/models/llama`
 
-   ```bash
+   ```text
    llama
        ├── __init__.py
        ├── llama.py                  # 模型实现
@@ -34,22 +34,24 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 
 2. 模型配置：`research/mixtral`
 
-   ```bash
-   mixtral
-    ├── pretrain_mixtral-8x7b.yaml        # 8x7b模型4k预训练启动配置
-    ├── pretrain_mixtral-8x7b_32k.yaml    # 8x7b模型32k预训练启动配置
-    ├── finetune_mixtral-8x7b.yaml        # 8x7b模型全参微调启动配置
-    ├── predict_mixtral-8x7b.yaml         # 8x7b模型推理启动配置
-    ├── convert_weight.py                 # 权重转换脚本（torch_to_ms）
-    └── convert_reversed.py               # 权重反转脚本（ms_to_torch）
+   ```text
+   mixtral_8x7b
+       ├── pretrain_mixtral-8x7b.yaml                       # 8x7b模型4k预训练启动配置
+       ├── pretrain_mixtral-8x7b_32k.yaml                   # 8x7b模型32k预训练启动配置
+       ├── finetune_mixtral-8x7b.yaml                       # 8x7b模型全参微调启动配置
+       └── predict_mixtral-8x7b.yaml                        # 8x7b模型推理启动配置
    ```
 
-3. 数据预处理脚本：
+3. 模型相关脚本：
 
-   ```bash
+   ```text
+   research/mixtral/
+       ├── convert_weight.py                                # 权重转换脚本(torch_to_ms)
+       └── convert_reversed.py                              # 权重反转脚本(ms_to_torch)
+
    mindformers/tools/dataset_preprocess/llama/
-       ├── alpaca_converter.py     # 基于fschat的alpaca数据集格式转换脚本
-       └── llama_preprocess.py     # llama模型的mindrecord数据处理脚本
+       ├── alpaca_converter.py                              # 基于fschat的alpaca数据集格式转换脚本
+       └── llama_preprocess.py                              # llama模型的mindrecord数据处理脚本
    ```
 
 ## 环境及数据准备
@@ -261,13 +263,13 @@ prefix: ckpt文件前缀名
 
 ### 多机训练
 
-- step 1. 在模型对应的配置文件`research/mixtral/pretrain_mixtral-8x7b.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练) 通过配置中的`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
+- step 1. 在模型对应的配置文件`research/mixtral/mixtral_8x7b/pretrain_mixtral-8x7b.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练) 通过配置中的`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
 
 - step 2. 根据服务器节点数等信息，修改相应的配置。
 
 ``` bash
 # 以mixtral-8x7b模型两机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：../research/mixtral/pretrain_mixtral-8x7b.yaml
+# 配置文件路径：../research/mixtral/mixtral_8x7b/pretrain_mixtral-8x7b.yaml
 parallel_config:
   data_parallel: 8
   model_parallel: 1
@@ -302,18 +304,16 @@ moe_config:
 
 ```shell
 # 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
-cd mindformers/research
-bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
- --config research/mixtral/pretrain_mixtral-8x7b.yaml \
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config research/mixtral/mixtral_8x7b/pretrain_mixtral-8x7b.yaml \
  --run_mode train \
  --use_parallel True \
  --train_data dataset_dir" \
  16 8 192.168.1.1 8118 0 output/msrun_log False 300
 
 # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
-cd mindformers/research
-bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
- --config research/mixtral/pretrain_mixtral-8x7b.yaml \
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config research/mixtral/mixtral_8x7b/pretrain_mixtral-8x7b.yaml \
  --run_mode train \
  --use_parallel True \
  --train_data dataset_dir" \
@@ -329,7 +329,7 @@ train_data: 训练数据集文件夹路径
 
 ### 全参微调
 
-- step 1. 将`../research/mixtral/finetune_mixtral-8x7b.yaml`中训练数据集路径改为微调数据集路径。
+- step 1. 将`research/mixtral/mixtral_8x7b/finetune_mixtral-8x7b.yaml`中训练数据集路径改为微调数据集路径。
 
 ```bash
 train_dataset: &train_dataset
@@ -383,9 +383,8 @@ model:
 
 ```shell
 # 节点0，节点ip为192.168.1.1，作为主节点，总共16卡且每个节点8卡
-cd mindformers/research
-bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
- --config research/mixtral/finetune_mixtral-8x7b.yaml \
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config research/mixtral/mixtral_8x7b/finetune_mixtral-8x7b.yaml \
  --load_checkpoint model_dir \
  --run_mode finetune \
  --use_parallel True \
@@ -393,9 +392,8 @@ bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
  16 8 192.168.1.1 8118 0 output/msrun_log False 300
 
 # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
-cd mindformers/research
-bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
- --config research/mixtral/finetune_mixtral-8x7b.yaml \
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config research/mixtral/mixtral_8x7b/finetune_mixtral-8x7b.yaml \
  --load_checkpoint model_dir \
  --run_mode finetune \
  --use_parallel True \
@@ -434,9 +432,8 @@ mindspore_ckpt_path: 转换后gmm的权重的存储路径
  模型权重转换完成后，可以用如下命令进行单机多卡推理：
 
 ```shell
-cd mindformers/research
-bash ../scripts/msrun_launcher.sh "../run_mindformer.py \
- --config research/mixtral/predict_mixtral-8x7b.yaml \
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+ --config research/mixtral/mixtral_8x7b/predict_mixtral-8x7b.yaml \
  --run_mode predict \
  --use_parallel True \
  --load_checkpoint model_dir \
