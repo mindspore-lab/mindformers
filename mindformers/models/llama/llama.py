@@ -449,7 +449,12 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         bs, seq = input_ids.shape[0], input_ids.shape[1]
         slot_mapping = Tensor(np.ones(shape=tuple([bs * seq])), mstype.int32)
         prefix_keys_values = Tensor(kwargs["prefix_keys_values"]) if "prefix_keys_values" in kwargs else None
-        return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping, prefix_keys_values
+        position_ids = Tensor(np.zeros(shape=tuple([bs, seq])), mstype.int32) if self.parallel_decoding else None
+        mask = Tensor(np.zeros(shape=tuple([seq, seq])), mstype.float16) if self.parallel_decoding else None
+        q_seq_lens = Tensor(np.ones(shape=tuple([bs])), mstype.int32) if self.parallel_decoding else None
+        outputs = (input_ids, labels, None, position_ids, mask, None, None, None, None, None, None, slot_mapping,
+                   prefix_keys_values, None, q_seq_lens)
+        return outputs
 
     def set_dynamic_inputs(self, **kwargs):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
