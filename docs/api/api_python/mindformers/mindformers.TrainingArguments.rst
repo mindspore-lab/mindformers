@@ -43,7 +43,7 @@ mindformers.TrainingArguments
         - **gradients_mean** (bool, 可选) - 在梯度汇总后，是否使用平均值算子。通常，在半自动并行模式下值为False，在数据并行模式下值为True。默认值： ``False`` 。
         - **loss_repeated_mean** (bool, 可选) - 表示在重复计算时，是否向后执行均值操作符。默认值： ``False`` 。
         - **enable_alltoall** (bool, 可选) - 在通信中，是否允许使用AllToAll通信算子。默认值： ``False`` 。
-        - **full_batch** (bool, 可选) - 如果在自动并行模式下加载了真个批次的数据集，那么 `full_batch` 应该置为True。当前更推荐使用 `dataset_strategy` 。默认值： ``True`` 。
+        - **full_batch** (bool, 可选) - 如果在自动并行模式下加载了整个批次的数据集，那么 `full_batch` 应该置为True。当前更推荐使用 `dataset_strategy` 。默认值： ``True`` 。
         - **dataset_strategy** (Union[str, tuple], 可选) - 数据集切分策略，半自动并行模式下设置为"full_batch"，数据并行模式下设置为"data_parallel"。默认值： ``"full_batch"`` 。
         - **search_mode** (str, 可选) - 策略搜索模式，只有在自动并行模式下生效。默认值： ``"sharding_propagation"`` 。
         - **enable_parallel_optimizer** (bool, 可选) - 是否开启优化器并行。默认值： ``False`` 。
