@@ -36,8 +36,6 @@ from mindspore.nn.optim.optimizer import opt_init_args_register
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
-__all__ = ['Came']
-
 
 def _rms(update_tensor):
     """calculate rms"""
