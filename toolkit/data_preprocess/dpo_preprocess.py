@@ -214,7 +214,9 @@ def preprocess(data_path: str, dst_file: str, config_path: str, load_checkpoint_
     batch_rejected_labels = []
     batch_rejected_attention_mask = []
     batch_rejected_loss_mask = []
-    for pair in tqdm(pairs):
+    num_records = len(pairs)
+    for step in tqdm(range(len(pairs))):
+        pair = pairs[step]
         if dataset_type == 'dpo':
             chosen_messages = pair['conversations'] + [pair['chosen']]
             rejected_messages = pair['conversations'] + [pair['rejected']]
@@ -238,11 +240,10 @@ def preprocess(data_path: str, dst_file: str, config_path: str, load_checkpoint_
                 loss_mask = [0] * len(prompt_ids) + [1] * len(resp_ids)
 
             input_len = len(input_ids)
-            if not is_dynamic:
-                input_ids = input_ids + [tokenizer.pad_token_id] * (seq_len - input_len)
-                labels = labels + [tokenizer.pad_token_id] * (seq_len - input_len)
-                attention_mask = attention_mask + [0] * (seq_len - input_len)
-                loss_mask = loss_mask + [0] * (seq_len - input_len)
+            input_ids = input_ids + [tokenizer.pad_token_id] * (seq_len - input_len)
+            labels = labels + [tokenizer.pad_token_id] * (seq_len - input_len)
+            attention_mask = attention_mask + [0] * (seq_len - input_len)
+            loss_mask = loss_mask + [0] * (seq_len - input_len)
 
             if len(input_ids) > seq_len:
                 input_ids = input_ids[:seq_len]
@@ -271,24 +272,16 @@ def preprocess(data_path: str, dst_file: str, config_path: str, load_checkpoint_
         batch_rejected_loss_mask.append(rejected_loss_mask)
         nums += 1
 
-        if len(batch_chosen_input_ids) == config.model.model_config.batch_size:
+        bs = config.model.model_config.batch_size
+        num_batch = bs if step != num_records // bs * bs else num_records % bs
+        if len(batch_chosen_input_ids) == bs or step == num_records // bs * bs:
             batch_chosen_ref_logps = get_logps(model, batch_chosen_input_ids, batch_chosen_labels,
                                                batch_chosen_attention_mask, batch_chosen_loss_mask,
                                                input_sliced_sig, is_dynamic)
             batch_rejected_ref_logps = get_logps(model, batch_rejected_input_ids, batch_rejected_labels,
                                                  batch_rejected_attention_mask, batch_rejected_loss_mask,
                                                  input_sliced_sig, is_dynamic)
-            if is_dynamic:
-                input_len = len(batch_chosen_input_ids[0])
-                batch_chosen_input_ids = [np.array(input_ids.tolist() + [tokenizer.pad_token_id] * (seq_len - \
-                                          input_len), dtype=np.int32) for input_ids in batch_chosen_input_ids]
-                batch_chosen_labels = [np.array(labels.tolist() + [tokenizer.pad_token_id] * (seq_len - \
-                                       input_len), dtype=np.int32) for labels in batch_chosen_labels]
-                batch_chosen_attention_mask = [np.array(attention_mask.tolist() + [0] * (seq_len - input_len), dtype=\
-                                               np.int32) for attention_mask in batch_chosen_attention_mask]
-                batch_chosen_loss_mask = [np.array(loss_mask.tolist() + [0] * (seq_len - \
-                                          input_len), dtype=np.int32) for loss_mask in batch_chosen_loss_mask]
-            for i in range(config.model.model_config.batch_size):
+            for i in range(num_batch):
                 sample = {
                     "chosen_input_ids": batch_chosen_input_ids[i],
                     "chosen_labels": batch_chosen_labels[i],
