@@ -175,7 +175,6 @@ model:
     block_size: 32
     num_blocks: 128
     offset: 0
-    checkpoint_name_or_path: ""
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 0
@@ -200,6 +199,7 @@ processor:
     eos_token: "<|endoftext|>"
     pad_token: "<|endoftext|>"
     type: Qwen2Tokenizer
+    auto_register: qwen1_5_tokenizer.Qwen2Tokenizer
   type: Qwen2Processor
 
 # metric

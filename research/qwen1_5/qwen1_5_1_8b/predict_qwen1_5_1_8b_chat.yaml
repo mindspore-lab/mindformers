@@ -11,7 +11,7 @@ run_mode: 'predict'
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'qwen1_5_0_5b'
+  model_name: 'qwen1_5_1_8b'
 
 # runner config
 runner_config:
@@ -19,16 +19,8 @@ runner_config:
   batch_size: 1
   sink_mode: True
   sink_size: 2
-runner_wrapper:
-  type: MFTrainOneStepCell
-  scale_sense:
-    type: DynamicLossScaleUpdateCell
-    loss_scale_value: 65536
-    scale_factor: 2
-    scale_window: 1000
-  use_clip_grad: True
 
-# default parallel of device num = 8 for Atlas 800T A2
+# parallel config
 parallel_config:
   data_parallel: 1
   model_parallel: 1
@@ -44,12 +36,12 @@ model:
     type: LlamaConfig
     batch_size: 1
     seq_length: 8192
-    hidden_size: 1024
+    hidden_size: 2048
     num_layers: 24
     num_heads: 16
     n_kv_heads: 16
     vocab_size: 151936
-    intermediate_size: 2816
+    intermediate_size: 5504
     max_position_embeddings: 32768
     qkv_has_bias: True
     rms_norm_eps: 1.0e-6
@@ -69,14 +61,12 @@ model:
     num_blocks: 1024
     use_past_shard: False
     offset: 0
-    checkpoint_name_or_path: ""
     repetition_penalty: 1.1
     max_decode_length: 512
     top_p: 0.8
     do_sample: True
     is_dynamic: True
     qkv_concat: False
-    tie_word_embeddings: True
     auto_map:
       AutoTokenizer: [qwen1_5_tokenizer.Qwen2Tokenizer, null]
 
@@ -94,6 +84,7 @@ processor:
     eos_token: "<|im_end|>"
     chat_template: "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n' }}{% endif %}{{'<|im_start|>' + message['role'] + '\n' + message['content'] + '<|im_end|>' + '\n'}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant\n' }}{% endif %}"
     type: Qwen2Tokenizer
+    auto_register: qwen1_5_tokenizer.Qwen2Tokenizer
   type: Qwen2Processor
 
 # mindspore context init config
