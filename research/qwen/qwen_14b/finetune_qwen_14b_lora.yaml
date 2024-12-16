@@ -2,17 +2,16 @@ seed: 0
 output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: ''
 src_strategy_path_or_dir: ''
-auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
+auto_trans_ckpt: True  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-run_mode: 'finetune'
-
 use_parallel: True
+run_mode: 'finetune'
 
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'qwen_14b'
+  model_name: 'qwen_14b_lora'
 
 # dataset
 train_dataset: &train_dataset
@@ -35,7 +34,7 @@ train_dataset_task:
 # runner config
 runner_config:
   epochs: 5
-  batch_size: 2
+  batch_size: 1
   sink_mode: True
   sink_size: 2
 runner_wrapper:
@@ -49,18 +48,17 @@ runner_wrapper:
 
 # optimizer
 optimizer:
-  type: AdamWeightDecayX
-  beta1: 0.9
-  beta2: 0.95
-  eps: 1.e-8
+  type: AdamW
+  betas: [0.9, 0.95]
+  eps: 1.e-6
   weight_decay: 0.1
 
 # lr schedule
 lr_schedule:
   type: CosineWithWarmUpLR
-  learning_rate: 1.e-5
-  lr_end: 1.e-5
-  warmup_ratio: 0
+  learning_rate: 3.e-4
+  lr_end: 3.e-5
+  warmup_ratio: 0.01
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
 # callbacks
@@ -76,14 +74,14 @@ callbacks:
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
-  data_parallel: 1
-  model_parallel: 8
+  data_parallel: 8
+  model_parallel: 1
   pipeline_stage: 1
   micro_batch_num: 1
   vocab_emb_dp: False
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 4
+micro_batch_interleave_num: 1
 
 # recompute config
 recompute_config:
@@ -96,8 +94,9 @@ recompute_config:
 model:
   model_config:
     type: QwenConfig
+    auto_register: qwen_config.QwenConfig
     batch_size: 1
-    seq_length: 8192
+    seq_length: 1024
     hidden_size: 5120
     num_layers: 40
     num_heads: 40
@@ -112,18 +111,22 @@ model:
     softmax_compute_type: "float16"
     rotary_dtype: "float16"
     param_init_type: "float16"
-    use_past: True
-    use_flash_attention: True
-    is_dynamic: True
-    block_size: 32
-    num_blocks: 128
+    use_past: False
+    use_flash_attention: False
     offset: 0
-    checkpoint_name_or_path: "/path/qwen_14b_base.ckpt"
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 0
     top_p: 0.8
     do_sample: False
+    pet_config:
+      pet_type: lora
+      # configuration of lora
+      lora_rank: 64
+      lora_alpha: 16
+      lora_dropout: 0.05
+      target_modules: '.*wq|.*wk|.*wv|.*wo|.*w1|.*w2|.*w3'
+      freeze_exclude: ["*wte*", "*lm_head*"]
 
     # configuration items copied from Qwen
     rotary_pct: 1.0
@@ -132,6 +135,7 @@ model:
 
   arch:
     type: QwenForCausalLM
+    auto_register: qwen_model.QwenForCausalLM
 
 processor:
   return_tensors: ms
@@ -140,6 +144,7 @@ processor:
     vocab_file: "/path/qwen.tiktoken"
     pad_token: "<|endoftext|>"
     type: QwenTokenizer
+    auto_register: qwen_tokenizer.QwenTokenizer
   type: QwenProcessor
 
 # mindspore context init config
@@ -172,3 +177,7 @@ parallel:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
 
+infer:
+    prefill_model_path: "/path/qwen_7b_prefill.mindir"
+    increment_model_path: "/path/qwen_7b_inc.mindir"
+    infer_seq_length: 1024

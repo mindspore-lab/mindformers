@@ -5,31 +5,13 @@ src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-use_parallel: True
-run_mode: 'finetune'
+use_parallel: False
+run_mode: 'predict'
 
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
   model_name: 'qwen_7b'
-
-# dataset
-train_dataset: &train_dataset
-  data_loader:
-    type: MindDataset
-    dataset_dir: ""
-    shuffle: True
-  input_columns: ["input_ids", "labels", "attention_mask"]
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: True
-  batch_size: 4
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-train_dataset_task:
-  type: CausalLanguageModelDataset
-  dataset_config: *train_dataset
 
 # runner config
 runner_config:
@@ -37,48 +19,12 @@ runner_config:
   batch_size: 1
   sink_mode: True
   sink_size: 2
-runner_wrapper:
-  type: MFTrainOneStepCell
-  scale_sense:
-    type: DynamicLossScaleUpdateCell
-    loss_scale_value: 65536
-    scale_factor: 2
-    scale_window: 1000
-  use_clip_grad: True
 
-# optimizer
-optimizer:
-  type: AdamWeightDecayX
-  beta1: 0.9
-  beta2: 0.95
-  eps: 1.e-8
-  weight_decay: 0.1
-
-# lr schedule
-lr_schedule:
-  type: CosineWithWarmUpLR
-  learning_rate: 1.e-5
-  lr_end: 1.e-5
-  warmup_ratio: 0
-  total_steps: -1 # -1 means it will load the total steps of the dataset
-
-# callbacks
-callbacks:
-  - type: MFLossMonitor
-  - type: CheckpointMonitor
-    prefix: "qwen"
-    save_checkpoint_steps: 10000
-    keep_checkpoint_max: 3
-    integrated_save: False
-    async_save: False
-  - type: ObsMonitor
-
-# default parallel of device num = 8 for Atlas 800T A2
+# parallel config
 parallel_config:
   data_parallel: 2
   model_parallel: 4
   pipeline_stage: 1
-  mem_coeff: 4.5
   micro_batch_num: 1
   vocab_emb_dp: False
   gradient_aggregation_group: 4
@@ -96,6 +42,7 @@ recompute_config:
 model:
   model_config:
     type: QwenConfig
+    auto_register: qwen_config.QwenConfig
     batch_size: 1
     seq_length: 8192
     hidden_size: 4096
@@ -118,7 +65,6 @@ model:
     block_size: 32
     num_blocks: 128
     offset: 0
-    checkpoint_name_or_path: "/path/qwen_7b_base.ckpt"
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 0
@@ -132,6 +78,7 @@ model:
 
   arch:
     type: QwenForCausalLM
+    auto_register: qwen_model.QwenForCausalLM
 
 processor:
   return_tensors: ms
@@ -140,30 +87,29 @@ processor:
     vocab_file: "/path/qwen.tiktoken"
     pad_token: "<|endoftext|>"
     type: QwenTokenizer
+    auto_register: qwen_tokenizer.QwenTokenizer
   type: QwenProcessor
 
 # mindspore context init config
 context:
-  jit_config:
-    jit_level: "O2"
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   enable_graph_kernel: False
   ascend_config:
     precision_mode: "must_keep_origin_dtype"
   max_call_depth: 10000
-  max_device_memory: "57GB"
+  max_device_memory: "60GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
 
 # parallel context config
 parallel:
-  parallel_mode: 2 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
   gradients_mean: False
   enable_alltoall: False
   full_batch: True
-  search_mode: "recursive_programming"
+  search_mode: "sharding_propagation"
   enable_parallel_optimizer: True
   strategy_ckpt_config:
     save_file: "./ckpt_strategy.ckpt"
@@ -171,4 +117,3 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-

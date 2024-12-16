@@ -259,7 +259,8 @@ class QwenModel(QwenPreTrainedModel):
                                     use_flash_attention=self.use_flash_attention,
                                     block_size=config.block_size,
                                     num_blocks=config.num_blocks,
-                                    parallel_config=config.parallel_config)
+                                    parallel_config=config.parallel_config,
+                                    is_dynamic=config.is_dynamic)
 
             self.layer_setting(layer, layer_id)
 
@@ -354,6 +355,7 @@ class QwenDecodeLayer(LLamaDecodeLayer):
                  parallel_config,
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
+                 is_dynamic=False,
                  **kwargs):
         super().__init__(seq_length,
                          layer_id,
@@ -361,6 +363,7 @@ class QwenDecodeLayer(LLamaDecodeLayer):
                          parallel_config=parallel_config,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type,
+                         is_dynamic=is_dynamic,
                          **kwargs)
 
         self.feed_forward = QwenFeedForward(dim=self.hidden_size,

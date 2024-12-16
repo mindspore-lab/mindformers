@@ -5,14 +5,13 @@ src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-run_mode: 'finetune'
-
 use_parallel: True
+run_mode: 'finetune'
 
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'qwen_14b'
+  model_name: 'qwen_7b'
 
 # dataset
 train_dataset: &train_dataset
@@ -35,7 +34,7 @@ train_dataset_task:
 # runner config
 runner_config:
   epochs: 5
-  batch_size: 2
+  batch_size: 1
   sink_mode: True
   sink_size: 2
 runner_wrapper:
@@ -49,9 +48,8 @@ runner_wrapper:
 
 # optimizer
 optimizer:
-  type: AdamWeightDecayX
-  beta1: 0.9
-  beta2: 0.95
+  type: AdamW
+  betas: [0.9, 0.95]
   eps: 1.e-8
   weight_decay: 0.1
 
@@ -76,8 +74,8 @@ callbacks:
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
-  data_parallel: 1
-  model_parallel: 8
+  data_parallel: 2
+  model_parallel: 4
   pipeline_stage: 1
   mem_coeff: 4.5
   micro_batch_num: 1
@@ -92,34 +90,34 @@ recompute_config:
   select_recompute: False
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: True
-  recompute_slice_activation: True
+  recompute_slice_activation: False
 
 model:
   model_config:
     type: QwenConfig
+    auto_register: qwen_config.QwenConfig
     batch_size: 1
     seq_length: 8192
-    hidden_size: 5120
-    num_layers: 40
-    num_heads: 40
-    vocab_size: 152064
-    intermediate_size: 13696
+    hidden_size: 4096
+    num_layers: 32
+    num_heads: 32
+    vocab_size: 151936
+    intermediate_size: 11008
     rms_norm_eps: 1.0e-6
     emb_dropout_prob: 0.0
     eos_token_id: 151643
     pad_token_id: 151643
     compute_dtype: "float16"
     layernorm_compute_type: "float32"
-    softmax_compute_type: "float16"
-    rotary_dtype: "float16"
-    param_init_type: "float16"
-    use_past: True
+    softmax_compute_type: "float32"
+    rotary_dtype: "float32"
+    param_init_type: "float32"
+    use_past: False
     use_flash_attention: True
-    is_dynamic: True
+    is_dynamic: False
     block_size: 32
     num_blocks: 128
     offset: 0
-    checkpoint_name_or_path: "/path/qwen_14b_base.ckpt"
     repetition_penalty: 1
     max_decode_length: 512
     top_k: 0
@@ -133,6 +131,7 @@ model:
 
   arch:
     type: QwenForCausalLM
+    auto_register: qwen_model.QwenForCausalLM
 
 processor:
   return_tensors: ms
@@ -141,6 +140,7 @@ processor:
     vocab_file: "/path/qwen.tiktoken"
     pad_token: "<|endoftext|>"
     type: QwenTokenizer
+    auto_register: qwen_tokenizer.QwenTokenizer
   type: QwenProcessor
 
 # mindspore context init config
@@ -153,7 +153,7 @@ context:
   ascend_config:
     precision_mode: "must_keep_origin_dtype"
   max_call_depth: 10000
-  max_device_memory: "59GB"
+  max_device_memory: "57GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -172,4 +172,3 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-
