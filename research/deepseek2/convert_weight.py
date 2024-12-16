@@ -26,6 +26,7 @@ from transformers import AutoModelForCausalLM
 def name_replace(weight_name: str):
     """replace weight name"""
     weight_name = weight_name.replace('embed_tokens.', 'tok_embeddings.')
+    weight_name = weight_name.replace('.self_attn.q_proj.', '.attention.q_proj.')
     weight_name = weight_name.replace('.self_attn.q_a_proj.', '.attention.q2l_proj.')
     weight_name = weight_name.replace('.self_attn.q_a_layernorm.', '.attention.lq_norm.')
     weight_name = weight_name.replace('.self_attn.q_b_proj.', '.attention.l2q_proj.')
@@ -46,7 +47,7 @@ def name_replace(weight_name: str):
     return weight_name
 
 
-def convert_pt_to_ms(input_path, output_path, dtype=ms.bfloat16):
+def convert_pt_to_ms(input_path, output_path, num_routed_experts=160, dtype=ms.bfloat16):
     """convert hf weight to ms."""
     print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
     try:
@@ -62,7 +63,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=ms.bfloat16):
     ckpt_list = []
 
     count = 0
-    all_num = 480
+    all_num = 3 * int(num_routed_experts)
     list_w1 = []
     list_w2 = []
     list_w3 = []
@@ -112,7 +113,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=ms.bfloat16):
             ms_value = value.to(torch.float32).detach().cpu().numpy()
             ckpt_list.append({'name': name, 'data': ms.Tensor(ms_value, dtype=ms.bfloat16)})
 
-        print("covented_name: ", name, value.shape)
+        print("converted_name: ", name, value.shape)
 
     ms.save_checkpoint(ckpt_list, output_path)
     print(f"\rConvert huggingface checkpoint finished,"
@@ -121,10 +122,42 @@ def convert_pt_to_ms(input_path, output_path, dtype=ms.bfloat16):
     return True
 
 
+def convert_ms_to_gmm(input_path, output_path):
+    """convert ms routing ffn weight for gmm."""
+    params = ms.load_checkpoint(input_path)
+    for k, v in params.items():
+        if 'feed_forward.routed_experts.ffn.w1.weight' in k or \
+            'feed_forward.routed_experts.ffn.w2.weight' in k or \
+            'feed_forward.routed_experts.ffn.w3.weight' in k:
+            orig_tensor = ms.Tensor(v)
+            gmm_tensor = orig_tensor.transpose((0, 2, 1))
+            params[k] = ms.Parameter(gmm_tensor)
+            print(f"\rConvertion finished, the mindspore ckpt is saved in '{output_path}'.", flush=True)
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--num_routed_experts', default=160)
     parser.add_argument('--torch_ckpt_path', default=None)
     parser.add_argument('--mindspore_ckpt_path', default=None)
+    parser.add_argument('--use_gmm', action='store_true')
+    parser.add_argument('--pre_ckpt_path', default=None)
+    parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'])
     args = parser.parse_args()
-    convert_pt_to_ms(input_path=args.torch_ckpt_path, output_path=args.mindspore_ckpt_path)
+    if args.pre_ckpt_path:
+        if os.path.isdir(args.pre_ckpt_path):
+            rank_ids = os.listdir(args.pre_ckpt_path)
+            for rank_id in rank_ids:
+                id_num = rank_id.split('_')[1]
+                input_ckpt = os.path.join(args.pre_ckpt_path, rank_id + f'/checkpoint_{id_num}.ckpt')
+                if not os.path.exists(input_ckpt):
+                    continue
+                output_dir = os.path.join(args.mindspore_ckpt_path, rank_id)
+                output_ckpt = os.path.join(output_dir, f'checkpoint_{id_num}.ckpt')
+                os.makedirs(output_dir, exist_ok=True)
+                convert_ms_to_gmm(input_ckpt, output_ckpt)
+        else:
+            convert_ms_to_gmm(input_path=args.pre_ckpt_path, output_path=args.mindspore_ckpt_path)
+    else:
+        convert_pt_to_ms(input_path=args.torch_ckpt_path, output_path=args.mindspore_ckpt_path,
+                         num_routed_experts=args.num_routed_experts)
