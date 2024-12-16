@@ -1,4 +1,4 @@
-# Copyright 2024 Huawei Technologies Co., Ltd
+# Copyright 2023 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,12 +22,11 @@ import os
 import re
 import numpy as np
 
+from llama3_tokenizer import Llama3Tokenizer
+from llama3_conversation import get_default_conv_template
+
 from mindspore.mindrecord import FileWriter
 from mindformers.tools import logger
-
-from research.llama3.llama3_tokenizer import Llama3Tokenizer
-
-from research.llama3.conversation import get_default_conv_template
 
 IGNORE_TOKEN_ID = -100
 
