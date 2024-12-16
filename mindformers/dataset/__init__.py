@@ -89,5 +89,5 @@ from .utils import (
 from .modal_to_text_sft_dataset import ModalToTextSFTDataset
 
 __all__ = [
-    'CausalLanguageModelDataset', 'ContrastiveLanguageImagePretrainDataset', 'KeyWordGenDataset', 'MultiTurnDataset',
+    'CausalLanguageModelDataset', 'KeyWordGenDataset', 'MultiTurnDataset',
 ]
