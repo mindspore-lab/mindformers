@@ -21,6 +21,8 @@ import os
 import sys
 import pytest
 
+import mindspore as ms
+
 MFPATH = os.path.abspath(__file__)
 MFPATH = os.path.abspath(MFPATH + '/../../../../../')
 sys.path.append(MFPATH)
@@ -29,7 +31,6 @@ os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
 # pylint: disable=C0413
 import mindformers as mf
 from mindformers import Trainer, MindFormerConfig, MindFormerRegister, MindFormerModuleType
-from mindformers import build_context
 from mindformers.models import build_network
 
 from research.qwenvl.qwenvl import QwenVL
@@ -40,6 +41,8 @@ from research.qwenvl.qwenvl_transform import QwenVLTransform
 from research.qwenvl.qwen.optim import AdamWeightDecayX
 from research.qwenvl.qwen.qwen_model import QwenForCausalLM
 from research.qwenvl.qwen.qwen_config import QwenConfig
+
+ms.set_context(mode=0, jit_level="O0", infer_boost="on")
 
 
 def register_modules():
@@ -75,8 +78,6 @@ class TestQwenVLTrainerMethod:
         config.model.model_config.vision_model.model_config.num_hidden_layers = 1
         config.model.model_config.llm_model.model_config.num_layers = 1
         config.processor.tokenizer.vocab_file = "./checkpoint_download/qwenvl/qwen.tiktoken"
-
-        build_context(config)
 
         model = build_network(config.model)
 

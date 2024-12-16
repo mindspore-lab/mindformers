@@ -16,6 +16,8 @@
 import copy
 from typing import Any, Dict
 
+from mindspore._checkparam import args_type_check
+
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.tools.logger import logger
 
@@ -133,6 +135,11 @@ class GenerationConfig:
         [], '_from_model_config': False}
     """
 
+    @args_type_check(
+        max_length=int, max_new_tokens=int, min_length=int, min_new_tokens=int, do_sample=bool,
+        use_past=bool, temperature=(int, float), top_k=int, top_p=(int, float), repetition_penalty=(int, float),
+        encoder_repetition_penalty=(int, float), renormalize_logits=bool, return_dict_in_generate=bool,
+        output_scores=bool, output_logits=bool, pad_token_id=int, bos_token_id=int, eos_token_id=(int, list))
     def __init__(self, **kwargs):
         # max generate length
         self.max_length = kwargs.pop("max_decode_length", 20)
