@@ -91,8 +91,8 @@ class ModelParallelConfig:
             ValueError: in hybird_cp algorithm, context_parallel should be divisible by ulysses_degree_in_cp
         """
         if self.context_parallel == 1:
-            if self.context_parallel_algo != ContextParallelAlgo.colossalai_cp:
-                logger.warning(f"context_parallel_algo {self.context_parallel_algo} will not take effect "
+            if self.context_parallel_algo.value != ContextParallelAlgo.colossalai_cp.value:
+                logger.warning(f"context_parallel_algo {self.context_parallel_algo.value} will not take effect "
                                "when context_parallel == 1.")
             if self.ulysses_degree_in_cp > 1:
                 logger.warning(f"ulysses_degree_in_cp {self.ulysses_degree_in_cp} will not take effect "
@@ -100,10 +100,10 @@ class ModelParallelConfig:
             return
 
         # here context parallel > 1
-        if self.context_parallel_algo != ContextParallelAlgo.hybird_cp and self.ulysses_degree_in_cp > 1:
+        if self.context_parallel_algo.value != ContextParallelAlgo.hybird_cp.value and self.ulysses_degree_in_cp > 1:
             logger.warning(f"ulysses_degree_in_cp {self.ulysses_degree_in_cp} will not take effect when "
-                           f"context_parallel_algo {self.context_parallel_algo} is not `hybird_cp`.")
-        if (self.context_parallel_algo == ContextParallelAlgo.hybird_cp and
+                           f"context_parallel_algo {self.context_parallel_algo.value} is not `hybird_cp`.")
+        if (self.context_parallel_algo.value == ContextParallelAlgo.hybird_cp.value and
                 self.context_parallel % self.ulysses_degree_in_cp != 0):
             raise ValueError(f"When using hybird_cp algorithm, context_parallel {self.context_parallel} "
                              f"should be divisible by ulysses_degree_in_cp {self.ulysses_degree_in_cp}. "
@@ -301,11 +301,11 @@ class TransformerConfig(ModelParallelConfig):
         if not self.use_flash_attn and self.use_ring_attention:
             raise ValueError(f"When the ring_attention = True, the flash_attention must be True ")
 
-        if self.context_parallel_algo == ContextParallelAlgo.hybird_cp and not self.use_ring_attention:
+        if self.context_parallel_algo.value == ContextParallelAlgo.hybird_cp.value and not self.use_ring_attention:
             logger.warning(f"When using hybird_cp algorithm,but use_ring_attention=False, will not take effect."
                            f"Please check your config")
 
-        if self.context_parallel_algo == ContextParallelAlgo.ulysses_cp and self.use_ring_attention:
+        if self.context_parallel_algo.value == ContextParallelAlgo.ulysses_cp.value and self.use_ring_attention:
             logger.warning(f"When using ulysses_cp algorithm,use_ring_attention will not take effect.")
 
     def update(self):
@@ -328,9 +328,9 @@ class TransformerConfig(ModelParallelConfig):
         """
         if self.context_parallel == 1:
             return 1
-        if self.context_parallel_algo == ContextParallelAlgo.colossalai_cp:
+        if self.context_parallel_algo.value == ContextParallelAlgo.colossalai_cp.value:
             return 1
-        if self.context_parallel_algo == ContextParallelAlgo.ulysses_cp:
+        if self.context_parallel_algo.value == ContextParallelAlgo.ulysses_cp.value:
             return self.context_parallel
         # hybird
         return self.ulysses_degree_in_cp
