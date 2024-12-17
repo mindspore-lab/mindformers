@@ -64,7 +64,7 @@ model:
     use_past: True
     use_flash_attention: True
     block_size: 32
-    num_blocks: 1024
+    num_blocks: 512
     qkv_concat: False
     offset: 0
     repetition_penalty: 1
