@@ -35,39 +35,15 @@ from mindformers.tools.register import MindFormerConfig
 
 CONFIG_MAPPING_NAMES = OrderedDict(
     [
-        ("bert", "BertConfig"),
-        ("blip2", "Blip2Config"),
-        ("bloom", "BloomConfig"),
-        ("clip", "CLIPConfig"),
-        ("glm", "GLMConfig"),
         ("glm2", "ChatGLM2Config"),
-        ("gpt2", "GPT2Config"),
         ("llama", "LlamaConfig"),
-        ("mae", "ViTMAEConfig"),
-        ("pangualpha", "PanguAlphaConfig"),
-        ("sam", "SamConfig"),
-        ("swin", "SwinConfig"),
-        ("t5", "T5Config"),
-        ("vit", "ViTConfig")
     ]
 )
 
 MODEL_NAMES_MAPPING = OrderedDict(
     [
-        ("bert", "BertModel"),
-        ("blip2", "Blip2Llm"),
-        ("bloom", "BloomModel"),
-        ("clip", "CLIPModel"),
-        ("glm", "GLMChatModel"),
         ("glm2", "ChatGLM2Model"),
-        ("gpt2", "GPT2Model"),
-        ("llama", "LlamaModel"),
-        ("mae", "ViTMAEModel"),
-        ("pangualpha", "PanguAlphaModel"),
-        ("sam", "SamModel"),
-        ("swin", "SwinModel"),
-        ("t5", "T5ForConditionalGeneration"),
-        ("vit", "ViTModel")
+        ("llama", "LlamaModel")
     ]
 )
 
