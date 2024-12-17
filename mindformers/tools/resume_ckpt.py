@@ -56,6 +56,9 @@ def get_resume_checkpoint(checkpoint_dir, resume_training, resume_by_meta=True, 
         return True
 
     if not resume_by_meta:
+        logger.warning("Each card will load the last timestamp checkpoint \
+            under its respective rank folder for resume training, \
+            and it can't ensure that the step of the checkpoints are consistent.")
         return True
 
     resume_ckpt = get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format)
