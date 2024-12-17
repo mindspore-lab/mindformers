@@ -48,6 +48,30 @@ class BaseCheck:
         """
         self.start = start
         self.version_mapping = version_mapping
+        '''
+        The structure of version_mapping is shown as below:
+
+        version_mapping = {
+            'mf': {
+                'version1': {
+                    'prefer': 'prefered ms version',
+                    'support': [competible ms version list]
+                },
+            },
+            'ms': {
+                'version1': {
+                    'prefer' : 'prefered cann version',
+                    'support': [competible cann version list]
+                },
+            },
+            'cann': {
+                'version1': {
+                    'prefer' : 'prefered driver version',
+                    'support': [competible driver version list]
+                },
+            }
+        }
+        '''
 
     def set_next(self, next_check):
         """
@@ -339,26 +363,6 @@ def run_check():
         raise RuntimeError('Cannot find VERSION_MAP.json or the found one is not a file')
 
     with open(version_file) as f:
-        # version_mapping = {
-        #     'mf': {
-        #         'version1': {
-        #             'prefer': 'prefered ms version',
-        #             'support': [competible ms version list]
-        #         },
-        #     },
-        #     'ms': {
-        #         'version1': {
-        #             'prefer' : 'prefered cann version',
-        #             'support': [competible cann version list]
-        #         },
-        #     },
-        #     'cann': {
-        #         'version1': {
-        #             'prefer' : 'prefered driver version',
-        #             'support': [competible driver version list]
-        #         },
-        #     }
-        # }
         version_mapping = json.load(f)
 
     os.environ['MS_ALLOC_CONF'] = "enable_vmm:False"
