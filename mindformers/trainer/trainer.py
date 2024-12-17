@@ -177,7 +177,8 @@ class Trainer:
         args=(str, MindFormerConfig, TrainingArguments), task=str, model=(str, PreTrainedModel),
         model_name=str, tokenizer=PreTrainedTokenizerBase, pet_method=str,
         image_processor=BaseImageProcessor, audio_processor=BaseAudioProcessor, optimizers=Optimizer,
-        callbacks=(Callback, list), eval_callbacks=(Callback, list), compute_metrics=(dict, set), save_config=bool)
+        callbacks=(Callback, list), eval_callbacks=(Callback, list),
+        compute_metrics=(dict, set), save_config=bool, reset_model=bool)
     def __init__(self,
                  args: Optional[Union[str, MindFormerConfig, TrainingArguments]] = None,
                  task: Optional[str] = 'general',
