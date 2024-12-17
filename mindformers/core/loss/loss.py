@@ -373,7 +373,7 @@ class CrossEntropyLoss(nn.Cell):
         super(CrossEntropyLoss, self).__init__()
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
-        self.seq_split_num = seq_split_num
+        self.seq_pipe = seq_split_num > 1
         self.kwargs = kwargs
         self.enable_force_redistribute = False
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
@@ -426,8 +426,7 @@ class CrossEntropyLoss(nn.Cell):
         denominator = self.add2(
             self.sum2(input_mask),
             P.Cast()(F.tuple_to_array((1e-8,)), mstype.float32))
-        numerator = self.div2(numerator, self.seq_split_num)
-        if not self.calculate_per_token_loss:
+        if not self.calculate_per_token_loss and not self.seq_pipe:
             return self.div2(numerator, denominator)
         return numerator, denominator
 
