@@ -888,14 +888,15 @@ class CheckpointMonitor(ModelCheckpoint):
                         f"For remove_redundancy save checkpoint, the saved parameters are non-redundant.")
 
                 def choice_func(x):
-                    return (x not in param_layout_set or x in save_param_names) and not x.startswith('accu_grads')
+                    return (x not in param_layout_set or (save_param_names is not None
+                                                          and x in save_param_names)) and not x.startswith('accu_grads')
             else:
                 param_redundancy_dict = get_parameter_redundancy(network)
                 single_params = remove_param_redundancy(param_redundancy_dict)
                 save_param_names = single_params.get(rank_id)
 
                 def choice_func(x):
-                    return x in save_param_names and not x.startswith('accu_grads')
+                    return save_param_names is not None and x in save_param_names and not x.startswith('accu_grads')
             save_checkpoint(network, cur_file, False, self._config.async_save,
                             append_dict, self._config.enc_key, self._config.enc_mode,
                             format=self._config.format, choice_func=choice_func)
