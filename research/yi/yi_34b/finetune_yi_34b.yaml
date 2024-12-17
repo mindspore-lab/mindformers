@@ -1,11 +1,11 @@
 seed: 0
 output_dir: './output' # path to save checkpoint/strategy
-load_checkpoint: ''
+load_checkpoint: '' # 必填
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: True  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
-run_mode: 'train'
+run_mode: 'finetune'
 
 # trainer config
 trainer:
@@ -21,9 +21,8 @@ runner_config:
 
 # optimizer
 optimizer:
-  type: AdamWeightDecayX
-  beta1: 0.9
-  beta2: 0.95
+  type: AdamW
+  betas: [ 0.9, 0.95 ]
   eps: 1.e-8 # 1e-8
   learning_rate: 5.e-5
 
@@ -41,7 +40,7 @@ train_dataset: &train_dataset
     type: MindDataset
     dataset_dir: ""
     shuffle: True
-  input_columns: ["input_ids"]  # "input_ids", "labels" , labels are used in instruction finetune.
+  input_columns: ["input_ids", "labels"]  # "input_ids", "labels" , labels are used in instruction finetune.
   num_parallel_workers: 2
   python_multiprocessing: False
   drop_remainder: True
