@@ -178,11 +178,11 @@ class ParallelMLP(nn.Cell):
 
     def construct(self, x):
         """ Construct function of mlp block. """
-        bs, seq_len, _ = x.shape
         # [B, S, H] -> [B, S, ffn_H]
         if self.mlp_has_gate:
             if self.ffn_concat:
                 gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
+                bs, seq_len, _ = gate_hidden_out.shape
                 reshape_out = self.reshape(gate_hidden_out,
                                            (bs, seq_len, self.ffn_hidden_size_per_partition, 2))
                 gate, hidden = mint.split(reshape_out,
@@ -408,10 +408,11 @@ class ParallelAttention(nn.Cell):
         bs, seq_len, _ = x.shape
         # apply query, key, value projection
         if self.attn_type == "self_attn":
-            if self.sequence_parallel:
-                seq_len = seq_len * self.tp_group_size
             if self.qkv_concat:
                 qkv = self.cast(self.w_qkv(x), self.compute_dtype)
+                bs, seq_len, _ = qkv.shape
+                if self.sequence_parallel:
+                    seq_len = seq_len * self.tp_group_size
                 # [B, S, H] --> [B, S, N, D]
                 reshape_qkv = self.reshape(qkv,
                                            (bs,
