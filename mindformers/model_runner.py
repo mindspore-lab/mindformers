@@ -536,15 +536,14 @@ def _transform_and_load_safetensors(ms_model, model, inputs, load_checkpoint=Non
         barrier()
 
     if use_parallel:
+        strategy_file_path = ms.get_auto_parallel_context('strategy_ckpt_save_file')
         if not enable_stand_alone:
             logger.info(".........Building Distribute model.........")
             ms_model.infer_predict_layout(*inputs)
-            strategy_file_path = os.path.join(output_dir, 'strategy/ckpt_strategy_rank_0.ckpt')
         else:
             from mindformers.experimental.infer.core.utils import generate_state_dict
             from mindformers.experimental.parallel_core.pynative.utils import save_strategy_file
-            strategy_ckpt_save_dir = os.path.join(output_dir, "strategy")
-            strategy_file_path = os.path.join(strategy_ckpt_save_dir, "ckpt_strategy.ckpt")
+            strategy_ckpt_save_dir = os.path.dirname(strategy_file_path)
             if is_main_rank(ignore_check_modelarts=True):
                 if os.path.exists(strategy_ckpt_save_dir) and os.path.isdir(strategy_ckpt_save_dir):
                     shutil.rmtree(strategy_ckpt_save_dir)
@@ -553,8 +552,8 @@ def _transform_and_load_safetensors(ms_model, model, inputs, load_checkpoint=Non
                 shard_state_dict = generate_state_dict(model)
                 save_strategy_file(shard_state_dict, strategy_file_path)
                 logger.info(f"Strategy file for stand alone mode has been saved in {strategy_file_path}.")
-            barrier()
-            _pynative_executor.sync()
+        barrier()
+        _pynative_executor.sync()
 
         logger.info(".........Load Distribute Checkpoint.........")
         _load_distributed_safetensors(model, strategy_file_path, load_checkpoint)
