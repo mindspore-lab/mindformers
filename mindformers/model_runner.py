@@ -30,6 +30,7 @@ from mindspore.communication.management import init
 from mindspore.communication.comm_func import barrier
 from mindspore.common.initializer import Zero
 from mindspore._c_expression import swap_cache
+from mindspore._checkparam import args_type_check
 
 from mindformers import models, MindFormerRegister, MindFormerModuleType
 from mindformers import build_context, build_parallel_config, GenerationConfig
@@ -207,6 +208,9 @@ class MindIEModelRunner:
             A JSON string that contains additional plugin parameters.
     """
 
+    @args_type_check(
+        model_path=str, config_path=str, npu_mem_size=int, cpu_mem_size=int, block_size=int,
+        rank_id=int, world_size=int, npu_device_ids=list, plugin_params=str)
     def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0,
                  world_size=1, npu_device_ids=None, plugin_params=None):
         self.config = MindFormerConfig(config_path)
