@@ -67,10 +67,8 @@ def pipeline(
 
     Args:
         task (str):
-            The task, now support ['zero_shot_image_classification', 'image_to_text_generation',
-            'multi_modal_to_text_generation', 'masked_image_modeling', 'image_classification', 'translation',
-            'fill_mask', 'text_classification', 'token_classification', 'question_answering', 'text_generation',
-            'image_to_text_retrieval', 'segment_anything']. Default: ``None`` .
+            The task, now support ['text_generation', 'image_to_text_generation',
+            'multi_modal_to_text_generation']. Default: ``None`` .
         model (Union[str, PreTrainedModel, Model, Tuple[str, str]], optional):
             The model used for task. Default: ``None`` .
         tokenizer (PreTrainedTokenizerBase, optional):
