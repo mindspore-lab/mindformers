@@ -92,8 +92,11 @@ class SequenceSplit(nn.Cell):
 
     def construct(self, *inputs):
         output = 0.0
+        div_num = 1e-9
         return_depend = self.network.clear_kv_cache()
         for i in range(self.split_num):
             interleave_input = self.interleave_inputs[i](i, return_depend, *inputs)
-            output = self.add(output, self.network(*interleave_input))
-        return output
+            numerator, denominator = self.network(*interleave_input)
+            output = self.add(output, numerator)
+            div_num = self.add(div_num, denominator)
+        return output / div_num

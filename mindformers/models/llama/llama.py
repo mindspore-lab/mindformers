@@ -108,6 +108,8 @@ class LlamaModel(LlamaPreTrainedModel):
             dp = config.parallel_config.data_parallel
             if self.use_ring_attention:
                 raise ValueError(f"When the seq_pipe = True, the use_ring_attention cannot be True ")
+            if config.use_attn_mask_compression:
+                raise ValueError(f"Currently, when the seq_pipe = True, the use_attn_mask_compression cannot be True ")
             self.n_kv_head = self.n_head if config.n_kv_heads is None else config.n_kv_heads
             kv_shape = (config.batch_size * dp, self.n_kv_head, config.seq_length, self.head_dim)
             self.zeros = initializer('zeros', kv_shape, dtype=self.dtype)
