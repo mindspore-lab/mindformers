@@ -51,6 +51,7 @@ def _load_tokenizer_json(json_file):
     }
 
 
+# pylint: disable=W0223
 @MindFormerRegister.register(MindFormerModuleType.TOKENIZER)
 class Llama3Tokenizer(PreTrainedTokenizer):
     """Llama3 Tokenizer"""
@@ -184,7 +185,7 @@ class Llama3Tokenizer(PreTrainedTokenizer):
             return self.decoder[index]
         raise ValueError("unknown ids")
 
-    # pylint: disable=W0613
+    # pylint: disable=W0613,W0221
     def tokenize(
             self,
             text: str,
@@ -225,7 +226,7 @@ class Llama3Tokenizer(PreTrainedTokenizer):
             tokens.append(self.decoder[self.eos_token_id])
         return tokens
 
-    # pylint: disable=W0613
+    # pylint: disable=W0613,W0221
     def _decode(
             self,
             token_ids: Union[int, List[int]],

@@ -135,11 +135,16 @@ class ModalToTextSFTDataset(BaseDataset):
         if dataset_config.img_dynamic_batch:
             os.environ["IMG_DYNAMIC_BATCH"] = "1"
         batch_input_columns = [col for col in output_columns if col.endswith("_context_pos")]
-        dataset = dataset.batch(dataset_config.batch_size,
-                                drop_remainder=dataset_config.drop_remainder,
-                                num_parallel_workers=dataset_config.num_parallel_workers,
-                                input_columns=batch_input_columns,
-                                per_batch_map=batch_add)
+        if batch_input_columns:
+            dataset = dataset.batch(dataset_config.batch_size,
+                                    drop_remainder=dataset_config.drop_remainder,
+                                    num_parallel_workers=dataset_config.num_parallel_workers,
+                                    input_columns=batch_input_columns,
+                                    per_batch_map=batch_add)
+        else:
+            dataset = dataset.batch(dataset_config.batch_size,
+                                    drop_remainder=dataset_config.drop_remainder,
+                                    num_parallel_workers=dataset_config.num_parallel_workers)
         if not ms.get_auto_parallel_context("full_batch"):
             # reset dataset size for full_batch=False
             take_num = src_dataset_size // (dataset_config.batch_size * num_shards)
