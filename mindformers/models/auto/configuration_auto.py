@@ -444,7 +444,7 @@ class AutoConfig:
             model_type (str): The model type like "bert" or "gpt".
             config (PretrainedConfig): The config to register.
             exist_ok (bool, optional): If set to True, no error will be raised even if model_type already exists.
-                Default: ``False`` .
+                Default: ``False``.
         """
         if issubclass(config, PretrainedConfig) and config.model_type != model_type:
             raise ValueError(

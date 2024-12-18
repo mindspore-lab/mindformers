@@ -636,10 +636,10 @@ class AutoTokenizer:
 
         Args:
             config_class (PretrainedConfig): The model config class.
-            slow_tokenizer_class (PreTrainedTokenizer, optional): The slow_tokenizer class. Default: ``None`` .
-            fast_tokenizer_class (PreTrainedTokenizerFast, optional): The fast_tokenizer class. Default: ``None`` .
+            slow_tokenizer_class (PreTrainedTokenizer, optional): The slow_tokenizer class. Default: ``None``.
+            fast_tokenizer_class (PreTrainedTokenizerFast, optional): The fast_tokenizer class. Default: ``None``.
             exist_ok (bool, optional): If set to True, no error will be raised even if config_class already exists.
-                Default: ``False`` .
+                Default: ``False``.
         """
         if slow_tokenizer_class is None and fast_tokenizer_class is None:
             raise ValueError("You need to pass either a `slow_tokenizer_class` or a `fast_tokenizer_class")

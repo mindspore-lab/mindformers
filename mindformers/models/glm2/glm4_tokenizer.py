@@ -33,8 +33,8 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
 
     Args:
         vocab_file(str): The vocabulary file path.
-        clean_up_tokenization_spaces(bool, optional): Whether to delete redundant spaces. Default: ``False`` .
-        encode_special_tokens(bool, optional): Whether to encode the special tokens. Default: ``False`` .
+        clean_up_tokenization_spaces(bool, optional): Whether to delete redundant spaces. Default: ``False``.
+        encode_special_tokens(bool, optional): Whether to encode the special tokens. Default: ``False``.
         eos_token (str, tokenizers.AddedToken): The end of sequence token. Default: `"<|endoftext|>"` .
         pad_token (str, tokenizers.AddedToken): A special token used to make arrays of tokens the same size for batching
             purpose. Will then be ignored by attention mechanisms or loss computation. Default: `"<|endoftext|>"` .

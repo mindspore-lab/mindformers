@@ -312,12 +312,9 @@ def init_context(
     Initialize the context.
 
     Args:
-        use_parallel (bool, optional):
-            Whether to use parallel, default: ``False`` .
-        context_config (Union[dict, ContextConfig]):
-            The context config, default: ``None`` .
-        parallel_config (Union[dict, ParallelContextConfig]):
-            The parallel context config, default: ``None`` .
+        use_parallel (bool, optional): Whether to use parallel. Default: ``False``.
+        context_config (Union[dict, ContextConfig], optional): The context config. Default: ``None``.
+        parallel_config (Union[dict, ParallelContextConfig], optional): The parallel context config. Default: ``None``.
 
     Returns:
         - Int, the local_rank number.
@@ -394,10 +391,8 @@ def set_context(run_mode=None, **kwargs):
         The kwargs will be passed to MindSpore set_context.
 
     Args:
-        run_mode (str, optional):
-            The mode of the model behaviour.
-            The legal value is ``None`` or
-            one of ['train', 'finetune', 'eval', 'predict']. default: ``None`` .
+        run_mode (str, optional): The mode of the model behaviour.
+            Can be one of ['train', 'finetune', 'eval', 'predict']. Default: ``None``.
         **kwargs: MindSpore context arguments.
 
     Examples:

@@ -111,10 +111,11 @@ class CausalLanguageModelDataset(BaseDataset):
     Args:
         dataset_config (dict, optional):
             Config for dataset. When `dataset_config` is an empty dict or is None, all arguments below
-            will build a non-empty `dataset_config`. Otherwise, they will be ignored. Default: None.
-        data_loader (Union[dict, Callable]):
+            will build a non-empty `dataset_config`. Otherwise, they will be ignored. Default: ``None``.
+        data_loader (Union[dict, Callable], optional):
             Config for data loader or a data loader object. When `data_loader` is a `dict`,
             the string "type", "dataset_dir", "dataset_files" and "shuffle" are the keys can be parsed.
+            Default: ``None``.
 
             - type: Required. Indicates the type of dataset. The value must be string or class type.
               When the value is "MindDataset" or "TFRecordDataset",
@@ -131,41 +132,41 @@ class CausalLanguageModelDataset(BaseDataset):
 
             - shuffle: Optional. Whether to perform shuffle on the dataset. Must be `bool`.
 
-        input_columns (list[str]):
-            Column names before the map function.
-        output_columns (list[str]):
+        input_columns (list[str], optional):
+            Column names before the map function. Default: ``None``.
+        output_columns (list[str], optional):
             Column names after the map function.
-            Reuired when `eod_reset` is True; otherwise ignored. Default: None.
-        batch_size (int):
-            Size of each batch. Default: 8.
-        drop_remainder (bool):
+            Reuired when `eod_reset` is True; otherwise ignored. Default: ``None``.
+        batch_size (int, optional):
+            Size of each batch. Default: ``8``.
+        drop_remainder (bool, optional):
             Whether to discard the last batch when the number of data items contained in the last batch is smaller
-            than batch_size. Default: True.
-        num_parallel_workers (int):
+            than batch_size. Default: ``True``.
+        num_parallel_workers (int, optional):
             Specifies the number of concurrent processes or threads for map operations
-            to accelerate processing. Default: 8.
-        python_multiprocessing (bool):
-            Enabling the Python Multi-Process Mode to Accelerate Map Operations. Default: False.
-        repeat (int):
-            Number of times this dataset is repeated. Default: 1.
-        seed (int):
-            Random seed number. Default: 0.
-        prefetch_size (int):
-            Buffer queue size of each data processing operation in the pipeline. Default: 1.
-        numa_enable (bool):
-            Indicates whether to use the NUMA binding function. Default: False.
-        eod_reset (bool):
-            Specifies whether to reset the EOD. Default: False.
+            to accelerate processing. Default: ``8``.
+        python_multiprocessing (bool, optional):
+            Enabling the Python Multi-Process Mode to Accelerate Map Operations. Default: ``False``.
+        repeat (int, optional):
+            Number of times this dataset is repeated. Default: ``1``.
+        seed (int, optional):
+            Random seed number. Default: ``0``.
+        prefetch_size (int, optional):
+            Buffer queue size of each data processing operation in the pipeline. Default: ``1``.
+        numa_enable (bool, optional):
+            Indicates whether to use the NUMA binding function. Default: ``False``.
+        eod_reset (bool, optional):
+            Specifies whether to reset the EOD. Default: ``False``.
         eod_token_id (int, optional):
-            Indicates the token id of the EOD. Default: None, don't set the token id of the EOD manually.
-        auto_tune (bool):
-            Indicates whether to enable automatic optimization of data processing parameters. Default: False.
-        autotune_per_step (int):
-            Specifies the interval for adjusting the configuration step of automatic data acceleration. Default: 10.
-        filepath_prefix (str):
-            Path for saving optimized parameter configurations. Default: './autotune'.
-        profile (bool):
-            Whether to enable data collection. Default: False.
+            Indicates the token id of the EOD. Default: ``None``, don't set the token id of the EOD manually.
+        auto_tune (bool, optional):
+            Indicates whether to enable automatic optimization of data processing parameters. Default: ``False``.
+        autotune_per_step (int, optional):
+            Specifies the interval for adjusting the configuration step of automatic data acceleration. Default: ``10``.
+        filepath_prefix (str, optional):
+            Path for saving optimized parameter configurations. Default: ``'./autotune'``.
+        profile (bool, optional):
+            Whether to enable data collection. Default: ``False``.
 
     Returns:
         Instance of CausalLanguageModelDataset.
