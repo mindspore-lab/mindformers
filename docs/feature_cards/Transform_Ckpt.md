@@ -8,7 +8,7 @@
 - 修改分布式策略进行训练/推理：需要将权重转换为对应分布式策略的权重。
 - 基于训练完的分布式权重进行单卡推理：需要将分布式权重合并为完整权重。
 
-主要参考：[mindspore分布式弹性训练与推理](https://www.mindspore.cn/tutorials/experts/zh-CN/master/parallel/model_transformation.html)
+主要参考：[mindspore分布式弹性训练与推理](https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/model_transformation.html)
 
 ## 自动权重转换
 
