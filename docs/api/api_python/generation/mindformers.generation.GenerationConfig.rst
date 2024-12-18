@@ -57,8 +57,8 @@ mindformers.generation.GenerationConfig
         - **temperature** (float, 可选) - 用于调节下一个词元概率的值。默认值： ``1.0`` 。
         - **top_k** (int, 可选) - 为top-k筛选保留的最高概率词汇词元的数量。默认值： ``50`` 。
         - **top_p** (float, 可选) - 如果设置为 ``float < 1`` ，则仅保留概率加起来等于或更高的最小最可能标记集以供生成。默认值： ``1.0`` 。
-        - **repetition_penalty** (float, 可选) - 重复惩罚的参数。1.0表示没有处罚。参考 `此内容 <https://arxiv.org/pdf/1909.05858.pdf>`_ 。默认值： ``1.0`` 。
-        - **encoder_repetition_penalty** (float, 可选) - encoder_repeation_ppenalty的参数。对不在原始输入中的序列的指数惩罚。1.0表示没有惩罚。默认值： ``1.0`` 。
+        - **repetition_penalty** (float, 可选) - 重复惩罚的参数。1.0表示没有处罚。大于1.0表示对重复进行惩罚，小于1.0表示对重复进行奖励。参考 `此内容 <https://arxiv.org/pdf/1909.05858.pdf>`_ 。默认值： ``1.0`` 。
+        - **encoder_repetition_penalty** (float, 可选) - encoder_repeation_ppenalty的参数。对不在原始输入中的序列的指数惩罚。1.0表示没有惩罚。1.0表示没有处罚。大于1.0表示对重复进行惩罚，小于1.0表示对重复进行奖励。默认值： ``1.0`` 。
         - **renormalize_logits** (bool, 可选) - 是否在应用所有logits处理器或扭曲器（包括自定义处理器）后重新规范化logits。强烈建议将此标志设置为 ``True`` ，因为搜索算法假设分数logit是标准化的，但一些logit处理器或扭曲器会破坏标准化。默认值： ``False`` 。
         - **output_scores** (bool, 可选) - 是否在softmax之前返回预测分数。默认值： ``False`` 。
         - **output_logits** (bool, 可选) - 是否返回未处理的预测logit分数。默认值： ``False`` 。
