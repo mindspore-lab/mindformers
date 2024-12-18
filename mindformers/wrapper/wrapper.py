@@ -101,12 +101,13 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
     Args:
         network (Cell): The training network. The network only supports single output.
         optimizer (Cell): Optimizer for updating the network parameters.
-        use_clip_grad (bool, optional): Whether to use the gradient clipping function. Default: ``False`` .
-        max_grad_norm (float, optional): Maximum gradient value. Default: ``1.0`` .
-        scale_sense (Union[Tensor, Cell], optional): If this value is a Cell, it will be called by `MFTrainOneStepCell`
-            to update loss scale. If this value is a Tensor, the loss scale can be modified by `set_sense_scale`,
-            the shape should be :math:`()` or :math:`(1,)`.
-        local_norm (bool, optional): Whether to calculate the local norm. Default: ``False`` .
+        use_clip_grad (bool, optional): Whether to use the gradient clipping function. Default: ``False``.
+        max_grad_norm (float, optional): Maximum gradient value. Default: ``1.0``.
+        scale_sense (Union[int, float, Tensor, Cell], optional): The scaling number to be filled as the input of
+            backpropagation. If this value is a Cell, it will be called by `MFTrainOneStepCell` to update loss scale.
+            If this value is a Tensor, the loss scale can be modified by `set_sense_scale`,
+            the shape should be :math:`()` or :math:`(1,)`. Default: ``1.0``.
+        local_norm (bool, optional): Whether to calculate the local norm. Default: ``False``.
         kwargs (Any): Additional parameters.
 
     Inputs:
@@ -397,11 +398,12 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
     Args:
         network (Cell): The training network. Note that loss function should have been added.
         optimizer (Optimizer): Optimizer for updating the weights.
-        use_clip_grad (bool, optional): Whether to use gradient clipping. Default: ``True`` .
-        max_grad_norm (float, optional): Maximum gradient constraint value. Default: ``1.0`` .
-        scale_sense (Union[Tensor, Cell], optional): Cell to do the loss scale. Default: ``1.0`` .
-        micro_batch_num (int, optional): Micro batch number of pipeline parallel. Default: ``1`` .
-        local_norm (bool, optional): Whether to calculate the local norm. Default: ``False`` .
+        use_clip_grad (bool, optional): Whether to use gradient clipping. Default: ``True``.
+        max_grad_norm (float, optional): Maximum gradient constraint value. Default: ``1.0``.
+        scale_sense (Union[Tensor, Cell], optional): Cell to do the loss scale. Default: ``1.0``.
+        micro_batch_num (int, optional): Micro batch number of pipeline parallel. Default: ``1``.
+        local_norm (bool, optional): Whether to calculate the local norm. Default: ``False``.
+        calculate_per_token_loss (bool, optional): Whether to calculate the loss of each token. Default: ``False``.
         kwargs (Any): Additional parameters.
 
     Inputs:

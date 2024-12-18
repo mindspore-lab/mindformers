@@ -675,7 +675,7 @@ class _BaseAutoModelClass:
             config_class (PretrainedConfig): The model config class.
             model_class (PretrainedModel): The model class.
             exist_ok (bool, optional): If set to True, no error will be raised even if config_class already exists.
-                Default: ``False`` .
+                Default: ``False``.
         """
         if hasattr(model_class, "config_class") and model_class.config_class != config_class:
             raise ValueError(

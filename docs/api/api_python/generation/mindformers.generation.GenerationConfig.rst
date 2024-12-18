@@ -63,9 +63,9 @@ mindformers.generation.GenerationConfig
         - **output_scores** (bool, 可选) - 是否在softmax之前返回预测分数。默认值： ``False`` 。
         - **output_logits** (bool, 可选) - 是否返回未处理的预测logit分数。默认值： ``False`` 。
         - **return_dict_in_generate** (bool, 可选) - 是否返回字典输出而不是具有output_ids的元组。默认值： ``False`` 。
-        - **pad_token_id** (int, 可选) - padding词元的id。
-        - **bos_token_id** (int, 可选) - beginning-of-sequence词元的id。
-        - **eos_token_id** (Union[int, List[int]], 可选) - end-of-sequence词元的id。设置多个end-of-sequence词元。
+        - **pad_token_id** (int, 可选) - padding词元的id。默认值： ``None`` 。
+        - **bos_token_id** (int, 可选) - beginning-of-sequence词元的id。默认值： ``None`` 。
+        - **eos_token_id** (Union[int, List[int]], 可选) - end-of-sequence词元的id。设置多个end-of-sequence词元。默认值： ``[]`` 。
 
     返回：
         GenerationConfig实例。

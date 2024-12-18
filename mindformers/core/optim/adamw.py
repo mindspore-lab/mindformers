@@ -147,7 +147,7 @@ class AdamW(Optimizer):
               If `order_params` in the keys, other keys will be ignored and the element of 'order_params' must be in
               one group of `params`.
 
-        learning_rate (Union[float, int, Tensor, Iterable, LearningRateSchedule]): Default: 1e-3.
+        learning_rate (Union[float, int, Tensor, Iterable, LearningRateSchedule], optional): Default: ``1e-3``.
 
             - float: The fixed learning rate value. Must be equal to or greater than 0.
 
@@ -161,13 +161,13 @@ class AdamW(Optimizer):
             - LearningRateSchedule: Learning rate is dynamic. During training, the optimizer calls the instance of
               LearningRateSchedule with step as the input to get the learning rate of current step.
 
-        betas (Union[list(float), tuple(float)]): The exponential decay rate for the 1st and 2nd moment estimations.
-            Default: (0.9, 0.999). Each element should be in range (0.0, 1.0).
+        betas (Union[list(float), tuple(float)], optional): The exponential decay rate for the 1st and 2nd moment
+            estimations. Default: (0.9, 0.999). Each element should be in range (0.0, 1.0).
 
-        eps (float): Term added to the denominator to improve numerical stability. Default: 1e-6.
+        eps (float, optional): Term added to the denominator to improve numerical stability. Default: ``1e-6``.
             Should be greater than 0.
 
-        weight_decay (Union[float, int, Cell]): Weight decay (L2 penalty). Default: 0.0.
+        weight_decay (Union[float, int, Cell], optional): Weight decay (L2 penalty). Default: ``0.0``.
 
             - float: The fixed weight decay value. Must be equal to or greater than 0.
 
