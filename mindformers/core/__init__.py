@@ -56,6 +56,7 @@ from .callback import (
     ObsMonitor,
     ProfileMonitor,
     SummaryMonitor,
+    TrainingStateMonitor,
     build_callback
 )
 from .context import (

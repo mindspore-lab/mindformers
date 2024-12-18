@@ -157,6 +157,7 @@ class TestDocstring:
             "mindformers.core.CheckpointMonitor": None,
             "mindformers.core.EvalCallBack": None,
             "mindformers.core.MFLossMonitor": None,
+            "mindformers.core.TrainingStateMonitor": None,
             "mindformers.core.ProfileMonitor": None,
             "mindformers.core.SummaryMonitor": None,
             "mindformers.core.EntityScore": ["clear", "eval", "update"],

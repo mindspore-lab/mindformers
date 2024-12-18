@@ -61,6 +61,7 @@ mindformers.core
     mindformers.core.MFLossMonitor
     mindformers.core.ProfileMonitor
     mindformers.core.SummaryMonitor
+    mindformers.core.TrainingStateMonitor
 
 评估指标
 --------

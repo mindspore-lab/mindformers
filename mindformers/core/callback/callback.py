@@ -15,6 +15,8 @@
 """MindFormer Self-Define Callback."""
 import json
 import os
+import re
+import glob
 import time
 import tempfile
 import datetime
@@ -27,7 +29,18 @@ import numpy as np
 
 import mindspore as ms
 import mindspore.ops.operations as P
-from mindspore import Callback, Profiler, ModelCheckpoint, CheckpointConfig, context, save_checkpoint, Tensor
+import mindspore.ops.functional as F
+from mindspore import (
+    Callback,
+    Profiler,
+    ModelCheckpoint,
+    CheckpointConfig,
+    context,
+    save_checkpoint,
+    Tensor,
+    get_auto_parallel_context,
+    set_auto_parallel_context
+)
 from mindspore.train.callback import SummaryCollector
 from mindspore.nn.learning_rate_schedule import LearningRateSchedule
 from mindspore.train.serialization import _get_merged_param_data
@@ -40,12 +53,19 @@ from mindspore.communication.management import create_group, get_group_size, get
 from mindspore.parallel._auto_parallel_context import auto_parallel_context
 from mindspore.profiler import ProfilerLevel
 
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.cloud_adapter.cloud_adapter import Local2ObsMonitor
 from mindformers.tools.logger import logger
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.utils import (
+    get_output_root_path,
+    get_output_subpath,
+    get_remote_save_url,
+    check_in_modelarts,
+    get_real_rank,
+    get_real_group_size,
+    get_pipeline_rank_ids
+)
 from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
-from mindformers.tools.utils import get_output_root_path, get_output_subpath, get_remote_save_url, check_in_modelarts,\
-    get_real_rank, get_real_group_size, get_pipeline_rank_ids
 from mindformers.version_control import check_stress_detect_valid, is_version_ge
 
 __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
@@ -161,6 +181,26 @@ def _get_loss_output(output, check_for_nan_in_loss_and_grad=False):
     return loss, overflow, scaling_sens, learning_rate, global_norm
 
 
+def _get_weight_norm(network):
+    """Get the L2 norm of network trainable parameters. Return 0 if there's no trainable parameter"""
+    norms = []
+    for param in network.trainable_params():
+        norms.append(param.to(ms.float32).norm())
+    if not norms:
+        return 0.0
+    norm = float(F.stack(norms).norm().item())
+    return norm
+
+
+def _get_optimizer_state(optim_params, filter_fn: Callable = None):
+    """Get the respective L2 norms of specified optimizer parameters. Return a dict"""
+    norms = {}
+    for param in optim_params:
+        if filter_fn is None or filter_fn(param.name):
+            norms[param.name] = float(param.to(ms.float32).norm().item())
+    return norms
+
+
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
 class MFLossMonitor(Callback):
     """
@@ -263,11 +303,11 @@ class MFLossMonitor(Callback):
         Args:
             run_context (RunContext): Context of the process running.
         """
-        parallel_mode = ms.get_auto_parallel_context("parallel_mode")
-        full_batch = ms.get_auto_parallel_context("full_batch")
+        parallel_mode = get_auto_parallel_context("parallel_mode")
+        full_batch = get_auto_parallel_context("full_batch")
         auto_parallel = parallel_mode in ['semi_auto_parallel', 'auto_parallel']
         if auto_parallel:
-            ms.context.set_auto_parallel_context(parallel_mode='data_parallel', full_batch=False)
+            set_auto_parallel_context(parallel_mode='data_parallel', full_batch=False)
         cb_params = run_context.original_args()
         step_seconds = (time.time() - self.step_time) * 1000
         net_outputs = cb_params.net_outputs
@@ -320,7 +360,7 @@ class MFLossMonitor(Callback):
             self.dump_info_to_modelarts(ma_step_num=cur_step_num, ma_loss=loss)
 
         if auto_parallel:
-            ms.context.set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
+            set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
 
     def _fix_loss_for_parallel(self, loss):
         """Fix loss value in pipeline or double parallel mode."""
@@ -456,6 +496,10 @@ class MFLossMonitor(Callback):
         if self.mf_calculated:
             throughput_per_npu = self.full_model_flops / per_step_seconds / 1e9
             throughput_info = ', train_throughput_per_npu: %.3fT' % (throughput_per_npu)
+            if self.tensor_writer is not None:
+                self.tensor_writer.add_scalar('model-flops-throughput-per-npu',
+                                              float(throughput_per_npu),
+                                              global_step=global_step)
         else:
             throughput_info = ''
 
@@ -508,6 +552,9 @@ class MFLossMonitor(Callback):
                 self.tensor_writer.add_scalar('iteration-time vs samples', int(per_step_seconds),
                                               global_step=global_step * self.global_batch_size)
                 self.tensor_writer.add_scalar('throughput', throughput, global_step=global_step)
+                seconds_per_day = 86400
+                billion_samples_per_day = throughput * get_group_size() * seconds_per_day / 1e9
+                self.tensor_writer.add_scalar('B-samples-per-day', billion_samples_per_day, global_step=global_step)
                 self.tensor_writer.add_scalar('throughput vs samples', throughput,
                                               global_step=global_step * self.global_batch_size)
 
@@ -573,6 +620,353 @@ class MFLossMonitor(Callback):
             file_path = os.path.join(modelarts_dir, "model_analysis_results.json")
             with os.fdopen(os.open(file_path, flags_, 0o750), 'w', encoding="utf8") as fp:
                 json.dump(obj, fp)
+
+
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
+class TrainingStateMonitor(Callback):
+    """
+    Monitor metrics such as local norm and local loss in training process.
+
+    Args:
+        origin_epochs (int): Required. Training epoches.
+        config (dict, optional): The config specified how to display metrics. Keys are shown below. Default: ``None``,
+        mean that keys will be set as the default values as below.
+
+            - target: Specify the name or regular expression of params to monitor.
+              Must be list of str, e.g. ["layers.[01]", "attention"]. Default: ['*'] , all params are selected.
+
+            - invert: Whether to invert `target`, i.e. params in `target` won't be monitored.
+              Must be `bool`.  Default: `False`
+
+            - local_norm_format: Determine where to display the local norm.
+              Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
+              or a `list` containing them,  or ``None``. Only params specified will be monitored.
+              may cause a large amount of print info if 'log' is selected.
+              Set to ``None`` to ignore this metric. Default: ``None``.
+
+            - device_local_norm_format: Determine where to display the device local norm.
+              Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
+              or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric. Default: ``None``.
+
+            - local_loss_format: Determine where to display the local loss.
+              Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
+              or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
+              Default: ``None``.
+
+            - optimizer_state_format: Determine where to display the optimizer state.
+              Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
+              or a `list` containing them,  or ``None``. Only the optimizer state of params specified
+              will be monitored, may cause a large amount of print info if 'log' is selected.
+              Set to ``None`` to ignore this metric. Default: ``None``.
+
+            - weight_state_format: Determine where to display the weight L2-norm.
+              Should be a `str` in ['tensorboard', 'log'] (mean that write data to tensorboard or log file),
+              or a `list` containing them,  or ``None``. Set to ``None`` to ignore this metric.
+              Default: ``None``.
+
+            - throughput_baseline: The model throughput baseline to calculate linearity. Must be a positive number.
+              Will be displayed both to tensorboard and log. Set to ``None`` to ignore this metric. Default: ``None``.
+
+            - print_struct: Whether to print the structure of model. If ``True``, callback will print the names of all
+              trainable params at the first step and then quit training process. Default: ``False``.
+
+        per_print_times (int, optional): Every how many steps to print the log information. Default: ``1``.
+        dataset_size (int, optional): Required in sink mode. Training dataset size. Default: ``None``.
+        initial_epoch (int, optional): The beginning epoch. Default: ``0``.
+        initial_step (int, optional): The beginning step. Default: ``0``.
+        global_batch_size (int, optional): The total batch size. Default: ``0``.
+    """
+    def __init__(self,
+                 origin_epochs: int,
+                 config: dict = None,
+                 per_print_times: int = 1,
+                 dataset_size: int = None,
+                 initial_epoch: int = 0,
+                 initial_step: int = 0,
+                 global_batch_size: int = 0):
+        super(TrainingStateMonitor, self).__init__()
+        self.per_print_times = per_print_times
+        self.last_print_time = 0
+        self.step_time = time.time()
+        self.epoch_time = time.time()
+        self.run_context = None
+        self.steps_per_epoch = dataset_size
+        self.origin_epochs = origin_epochs
+        self.initial_epoch = initial_epoch
+        self.initial_step = initial_step
+        self.global_batch_size = global_batch_size
+        self.device_num = get_real_group_size()
+        self.tensor_writer = get_tensorboard_writer()
+        self.outputer = {'tensorboard': self._to_tensorboard, 'log': self._to_log}
+        self._init_config(config)
+        if get_auto_parallel_context("dump_local_norm_path") is not None:
+            self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f'rank_{get_real_rank()}')
+            self.dump_key = {0: -1}
+            self.dump_step = 1
+            if is_version_ge(ms.__version__, '2.5.0'):
+                self.dump_name_mode = 0
+                self.finish_pattern = 'finish_step_*_*'
+                self.local_loss_pattern = re.compile('(local_loss)_[a-z]+[0-9]+_([0-9]+)')
+                self.local_norm_pattern = re.compile('(local_norm)__(.+)_[a-z]+[0-9]+_([0-9]+)')
+                self.device_local_norm_pattern = re.compile('(device_local_norm)_[a-z]+[0-9]+_([0-9]+)')
+            else:
+                self.dump_name_mode = 1
+                self.finish_pattern = '*_finish_step'
+                self.local_loss_pattern = re.compile('([0-9]+)_(local_loss)')
+                self.local_norm_pattern = re.compile('([0-9]+)_(local_norm)__(.+)')
+                self.device_local_norm_pattern = re.compile('([0-9]+)_(device_local_norm)')
+
+    def epoch_begin(self, run_context):
+        """
+        Record time at the beginning of epoch.
+
+        Args:
+            run_context (RunContext): Context of the process running.
+        """
+        self.epoch_time = time.time()
+        self.run_context = run_context
+
+    def epoch_end(self, run_context):
+        """
+        Print training info at the end of epoch.
+
+        Args:
+            run_context (RunContext): Context of the process running.
+        """
+
+    def step_begin(self, run_context):
+        """
+        Record time at the beginning of step.
+
+        Args:
+            run_context (RunContext): Context of the process running.
+        """
+        self.step_time = time.time()
+        self.run_context = run_context
+        if self.print_struct:
+            network = run_context.original_args().network
+            if isinstance(network, ms.nn.TrainOneStepCell):
+                network = network.network
+            for param in network.trainable_params():
+                logger.info(param.name)
+            self.run_context.request_stop()
+
+    def step_end(self, run_context):
+        """
+        Print training info at the end of step.
+
+        Args:
+            run_context (RunContext): Context of the process running.
+        """
+        if self.print_struct:
+            return
+        step_seconds = (time.time() - self.step_time) * 1000
+        parallel_mode = get_auto_parallel_context("parallel_mode")
+        full_batch = get_auto_parallel_context("full_batch")
+        auto_parallel = parallel_mode in ['semi_auto_parallel', 'auto_parallel']
+        if auto_parallel:
+            set_auto_parallel_context(parallel_mode='data_parallel', full_batch=False)
+        cb_params = run_context.original_args()
+        if cb_params.dataset_sink_mode:
+            per_step_seconds = step_seconds / cb_params.batch_num
+        else:
+            self.steps_per_epoch = cb_params.batch_num
+            per_step_seconds = step_seconds
+        if (cb_params.cur_step_num - self.last_print_time) >= self.per_print_times:
+            self.last_print_time = cb_params.cur_step_num
+            if get_auto_parallel_context("dump_local_norm_path") is not None:
+                self._dump_data_in_step(cb_params.cur_step_num)
+            if self.optimizer_state_format:
+                self._dump_optimizer_state(cb_params)
+            if self.weight_state_format:
+                network = cb_params.network
+                if isinstance(network, ms.nn.TrainOneStepCell):
+                    network = network.network
+                weight_norm = _get_weight_norm(network)
+                self._output('weight_norm', weight_norm, cb_params.cur_step_num, self.weight_state_format)
+            if self.throughput_baseline is not None:
+                # compute throughput
+                throughput = self.global_batch_size / self.device_num / (per_step_seconds / 1000)
+                linearity = throughput / self.throughput_baseline
+                self._output('throughput_linearity', linearity, cb_params.cur_step_num, ['log', 'tensorboard'])
+
+        if auto_parallel:
+            set_auto_parallel_context(parallel_mode=parallel_mode, full_batch=full_batch)
+
+    def _init_config(self, config):
+        """Initialize members from config"""
+        if config is None:
+            logger.warning("The param `config` of TrainingStateMonitor is not set. Will use the default config.")
+            config = {}
+        if not isinstance(config, dict):
+            raise TypeError("The param `config` of TrainingStateMonitor should be a dict.")
+        self.target = config.get('target') or ['.*']
+        self.invert = config.get('invert', False)
+        self.target_cache = {}
+        self.local_norm_format = config.get('local_norm_format', None)
+        self.local_loss_format = config.get('local_loss_format', None)
+        self.device_local_norm_format = config.get('device_local_norm_format', None)
+        self.optimizer_state_format = config.get('optimizer_state_format', None)
+        self.weight_state_format = config.get('weight_state_format', None)
+        self.throughput_baseline = config.get('throughput_baseline', None)
+        self.print_struct = config.get('print_struct', False)
+        if not (isinstance(self.target, list) and self.target and all([isinstance(i, str) for i in self.target])):
+            raise TypeError(f"The value of 'target' should be a list of str.")
+        if not isinstance(self.invert, bool):
+            raise TypeError(f"The value of 'invert' should be bool.")
+        if (self.throughput_baseline is not None and
+                not (isinstance(self.throughput_baseline, (int, float)) and self.throughput_baseline > 0)):
+            raise ValueError(f"The value of 'throughput_baseline' should be None or positive number.")
+        if not isinstance(self.print_struct, bool):
+            raise TypeError(f"The value of 'print_struct' should be bool.")
+        attrs = ['local_norm_format', 'local_loss_format', 'device_local_norm_format',
+                 'optimizer_state_format', 'weight_state_format']
+        for attr in attrs:
+            self._check_attr_formats(attr)
+
+    def _check_attr_formats(self, attr):
+        """Check the validation of formats in config"""
+        if getattr(self, attr):
+            if not isinstance(getattr(self, attr), (str, list)):
+                raise TypeError(f"The value of {attr} should be a `str` in 'tensorboard' or 'log', "
+                                f"or a list containing them, or None, but get type {type(getattr(self, attr))}")
+            if isinstance(getattr(self, attr), str):
+                setattr(self, attr, set([getattr(self, attr)]))
+            else:
+                setattr(self, attr, set(getattr(self, attr)))
+            diff = getattr(self, attr) - {'tensorboard', 'log'}
+            if diff:
+                raise ValueError(f"The value of {attr} should be a `str` in 'tensorboard' or 'log', "
+                                 f"or a list containing them, or None, but get unexpected value {diff}")
+        else:
+            setattr(self, attr, None)
+        if self.tensor_writer is None and getattr(self, attr):
+            logger.warning("Tensorboard config is unset. '%s' will use 'log' only.", attr)
+            getattr(self, attr).discard('tensorboard')
+            getattr(self, attr).add('log')
+
+    def _parse_step(self):
+        """record the finish dump id of each step"""
+
+        def check_step(pattern, id_pos):
+            search_path = glob.glob(os.path.join(self.dump_path, f'{pattern}.npy'))
+            if not search_path:
+                return None
+            step_ids = []
+            for f in search_path:
+                tag, _ = os.path.splitext(os.path.basename(f))
+                step_ids.append(int(tag.split('_')[id_pos]))
+                os.remove(f)
+            step_ids.sort()
+            return step_ids
+
+        step_ids = check_step(self.finish_pattern, self.dump_name_mode - 1)
+        if step_ids is None:
+            return
+        cur_steps = len(self.dump_key)
+        for i, step_id in enumerate(step_ids):
+            self.dump_key[cur_steps + i] = step_id
+
+    def _dump_data_in_step(self, global_step):
+        """write the dumped data each step to tensorboard"""
+
+        def match_pattern(pattern, filename):
+            name, _ = os.path.splitext(os.path.basename(filename))
+            parsed = re.fullmatch(pattern, name)
+            if parsed is None:
+                return None, None, None
+            groups = parsed.groups()
+            dump_id = int(groups[self.dump_name_mode - 1])
+            prefix = groups[self.dump_name_mode]
+            param_name = None if len(groups) < 3 else groups[self.dump_name_mode + 1]
+            return dump_id, prefix, param_name
+
+        self._parse_step()
+        while self.dump_step <= global_step and self.dump_key.get(self.dump_step) is not None:
+            begin_id = self.dump_key[self.dump_step - 1]
+            end_id = self.dump_key[self.dump_step]
+            file_list = os.listdir(self.dump_path)
+            local_losses = []
+            for f in file_list:
+                parsed_name = None, None, None
+                if self.local_norm_format:
+                    parsed_name = match_pattern(self.local_norm_pattern, f)
+                if not any(parsed_name) and self.device_local_norm_format:
+                    parsed_name = match_pattern(self.device_local_norm_pattern, f)
+                if not any(parsed_name) and self.local_loss_format:
+                    parsed_name = match_pattern(self.local_loss_pattern, f)
+                if not any(parsed_name):
+                    continue
+                dump_id, prefix, param_name = parsed_name
+                if not begin_id < dump_id < end_id:
+                    continue
+                data = np.load(os.path.join(self.dump_path, f), allow_pickle=True)
+                if prefix == 'device_local_norm':
+                    self._output(f'device_local_norm', data, self.dump_step, self.device_local_norm_format)
+                elif prefix == 'local_loss':
+                    # collect all local loss if there are more than one local loss within one step
+                    local_losses.append(data)
+                elif prefix == 'local_norm' and self._check_param_name(param_name):
+                    self._output(f'local_norm/{param_name}', data, self.dump_step, self.local_norm_format)
+            # write the mean of local loss to tensorboard
+            if local_losses:
+                self._output(f'local_loss', np.stack(local_losses).mean(), self.dump_step, self.local_loss_format)
+            for f in file_list:
+                os.remove(os.path.join(self.dump_path, f))
+            self.dump_step += self.per_print_times
+
+    def _dump_optimizer_state(self, cb_params):
+        """write the optimizer state to tensorboard"""
+        optimizer = cb_params.optimizer
+        if optimizer is None:
+            optimizer = getattr(cb_params.network, "optimizer", None)
+
+        if hasattr(optimizer, "moment1") and hasattr(optimizer, "moment2"):
+            adam_m, adam_v = optimizer.moment1, optimizer.moment2
+        elif hasattr(optimizer, "moments1") and hasattr(optimizer, "moments2"):
+            adam_m, adam_v = optimizer.moments1, optimizer.moments2
+        elif hasattr(optimizer, "exp_avg") and hasattr(optimizer, "exp_avg_sq"):
+            adam_m, adam_v = optimizer.exp_avg, optimizer.exp_avg_sq
+        else:
+            return
+        global_step = cb_params.cur_step_num
+        adam_m_norms = _get_optimizer_state(adam_m, self._check_param_name)
+        adam_v_norms = _get_optimizer_state(adam_v, self._check_param_name)
+        for param_name, adam_m_norm in adam_m_norms.items():
+            param_name = param_name.split('.', maxsplit=1)[1]
+            self._output(f'adam_m_norm/{param_name}', adam_m_norm, global_step, self.optimizer_state_format)
+        for param_name, adam_v_norm in adam_v_norms.items():
+            param_name = param_name.split('.', maxsplit=1)[1]
+            self._output(f'adam_v_norm/{param_name}', adam_v_norm, global_step, self.optimizer_state_format)
+
+    def _check_param_name(self, param_name):
+        if self.target_cache.get(param_name) is None:
+            for pattern in self.target:
+                if re.search(pattern, param_name) is not None:
+                    self.target_cache[param_name] = not self.invert
+                    return not self.invert
+            self.target_cache[param_name] = self.invert
+            return self.invert
+        return self.target_cache[param_name]
+
+    def _to_tensorboard(self, tag, data, global_step):
+        """Write data to tensorboard if possible"""
+        if self.tensor_writer is not None:
+            self.tensor_writer.add_scalar(tag, data, global_step=global_step)
+
+    def _to_log(self, tag, data, global_step):
+        """Write data to log file"""
+        cur_epoch_num = (global_step + self.initial_step - 1) // self.steps_per_epoch + 1
+        cur_step_num = (global_step + self.initial_step - 1) % self.steps_per_epoch + 1
+        logger.info("Epoch:[%3d/%3d], step:[%5d/%5d] %s: %.4f",
+                    cur_epoch_num, self.origin_epochs, cur_step_num, self.steps_per_epoch, tag, data)
+
+    def _output(self, tag, data, global_step, formats):
+        """Write data in specified formats"""
+        if formats is None:
+            return
+        for fmt in formats:
+            self.outputer[fmt](tag, data, global_step)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
@@ -883,7 +1277,7 @@ class CheckpointMonitor(ModelCheckpoint):
             rank_id = get_real_rank()
             if param_layout:
                 device_num = get_real_group_size()
-                stage_num = ms.get_auto_parallel_context("pipeline_stages")
+                stage_num = get_auto_parallel_context("pipeline_stages")
                 chunk_size = device_num // stage_num
                 initial_rank = (rank_id // chunk_size) * chunk_size
                 param_redundancy_dict = get_parameter_redundancy(param_layout, initial_rank)

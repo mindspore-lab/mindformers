@@ -859,6 +859,16 @@ class BaseTrainer:
         wrapper = self.create_model_wrapper(network, optimizer)
 
         # initial tensorboard
+        modelarts_tensorboard_path = os.environ.get('MA_SUMMARY_LOG_DIR', None)
+        if modelarts_tensorboard_path is not None:
+            try:
+                os.makedirs(modelarts_tensorboard_path, exist_ok=True)
+            except OSError:
+                logger.warning('The path specified in environment variable MA_SUMMARY_LOG_DIR is unavailable. Ignored.')
+            else:
+                if not hasattr(config, 'tensorboard'):
+                    config.tensorboard = MindFormerConfig(tensorboard_dir=None)
+                config.tensorboard.tensorboard_dir = modelarts_tensorboard_path
         if (hasattr(config, 'tensorboard') and hasattr(config.tensorboard, 'tensorboard_dir') and
                 config.tensorboard.tensorboard_dir):
             rank_id = get_real_rank()
@@ -892,6 +902,14 @@ class BaseTrainer:
                     "gradient_accumulation_steps": self.config.runner_config.gradient_accumulation_steps,
                     "calculate_per_token_loss": getattr(config, "calculate_per_token_loss", False),
                     "check_for_nan_in_loss_and_grad": getattr(config, "check_for_nan_in_loss_and_grad", False)
+                }
+            if "type" in callback and callback["type"] == "TrainingStateMonitor":
+                default_args = {
+                    "origin_epochs": config.runner_config.origin_epochs,
+                    "dataset_size": config.data_size,
+                    "initial_epoch": config.runner_config.initial_epoch,
+                    "initial_step": config.runner_config.initial_step,
+                    "global_batch_size": self.global_batch_size
                 }
             elif "type" in callback and callback["type"] == "CheckpointMonitor":
                 logger.info("Recommend using weights in the safetensors format.")
