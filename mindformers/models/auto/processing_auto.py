@@ -394,7 +394,7 @@ class AutoProcessor:
             config_class (PretrainedConfig): The model config class.
             processor_class (ProcessorMixin): The processor class.
             exist_ok (bool, optional): If set to True, no error will be raised even if config_class already exists.
-                Default: ``False`` .
+                Default: ``False``.
         """
         PROCESSOR_MAPPING.register(config_class, processor_class, exist_ok=exist_ok)
 

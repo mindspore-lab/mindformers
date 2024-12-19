@@ -130,13 +130,13 @@ class OpParallelConfig(_Config):
         Configuration for operator parallelism, used to set the method of operator-level parallelism.
 
         Args:
-            data_parallel (int, optional): The number of data parallel. Default: ``1`` .
-            model_parallel (int, optional): The number of model parallel. Default: ``1`` .
-            use_seq_parallel (bool, optional): Whether to use sequence parallelism. Default: ``False`` .
-            context_parallel (int, optional): The number of context parallelism. Default: ``1`` .
-            select_recompute (bool, optional): Whether to select recomputation. Default: ``False`` .
+            data_parallel (int, optional): The number of data parallel. Default: ``1``.
+            model_parallel (int, optional): The number of model parallel. Default: ``1``.
+            use_seq_parallel (bool, optional): Whether to use sequence parallelism. Default: ``False``.
+            context_parallel (int, optional): The number of context parallelism. Default: ``1``.
+            select_recompute (bool, optional): Whether to select recomputation. Default: ``False``.
             context_parallel_algo (str, optional):  The context parallelism algorithm,
-                with options ``"colossalai_cp"`` and ``"ulysses_cp"`` . Default: ``"colossalai_cp"`` .
+                with options ``"colossalai_cp"`` and ``"ulysses_cp"``. Default: ``"colossalai_cp"``.
 
         Returns:
             Instance of OpParallelConfig.

@@ -68,17 +68,17 @@ def pipeline(
     Args:
         task (str):
             The task, now support ['text_generation', 'image_to_text_generation',
-            'multi_modal_to_text_generation']. Default: ``None`` .
+            'multi_modal_to_text_generation']. Default: ``None``.
         model (Union[str, PreTrainedModel, Model, Tuple[str, str]], optional):
-            The model used for task. Default: ``None`` .
+            The model used for task. Default: ``None``.
         tokenizer (PreTrainedTokenizerBase, optional):
-            The tokenizer of the model. Default: ``None`` .
+            The tokenizer of the model. Default: ``None``.
         image_processor (BaseImageProcessor, optional):
-            The image processor of the model. Default: ``None`` .
+            The image processor of the model. Default: ``None``.
         audio_processor (BaseAudioProcessor, optional):
-            The audio processor of the model. Default: ``None`` .
+            The audio processor of the model. Default: ``None``.
         backend (str, optional):
-            The inference backend. Currently, only "ms" is supported. Default: ``"ms"`` .
+            The inference backend. Currently, only "ms" is supported. Default: ``"ms"``.
         **kwargs (Any):
             Refers to the kwargs description of the corresponding task pipeline.
 

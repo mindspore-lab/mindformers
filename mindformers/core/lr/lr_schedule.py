@@ -124,10 +124,10 @@ class ConstantWarmUpLR(LearningRateSchedule):
 
     Args:
         learning_rate (float): Initial value of learning rate.
-        warmup_steps (int): The number of warm up steps. Default: None.
-        warmup_lr_init (float): Initial learning rate in warm up steps. Default: 0.
-        warmup_ratio (float): Ratio of total training steps used for warmup. Default: None.
-        total_steps (int): The number of warm up steps. Default: None.
+        warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
+        warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.
+        warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: ``None``.
+        total_steps (int, optional): The number of warm up steps. Default: ``None``.
 
     Inputs:
         - **global_step** (int) - The global step.
@@ -211,9 +211,9 @@ class LinearWithWarmUpLR(LearningRateSchedule):
     Args:
         learning_rate (float): Initial value of learning rate.
         total_steps (int): The number of total steps.
-        warmup_steps (int): The number of warm up steps. Default: None.
-        warmup_lr_init (float): Initial learning rate in warm up steps. Default: 0.
-        warmup_ratio (float): Ratio of total training steps used for warmup. Default: None.
+        warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
+        warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.
+        warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: ``None``.
 
     Inputs:
         - **global_step** (int) - The global step.
@@ -301,15 +301,15 @@ class CosineWithWarmUpLR(LearningRateSchedule):
 
     Args:
         learning_rate (float): Initial value of learning rate.
-        warmup_steps (int): The number of warm up steps. Default: None.
-        total_steps (int): The number of total steps. Default: None.
-        num_cycles (float): The number of waves in the cosine schedule (the defaults is to just
-            decrease from the max value to 0 following a half-cosine). Default: 0.5.
-        lr_end (float): Final value of learning rate. Default: 0.
-        warmup_lr_init (float): Initial learning rate in warm up steps. Default: 0.
-        warmup_ratio (float): Ratio of total training steps used for warmup. Default: None.
-        decay_steps (int): The number of decay steps. Default: None.
-        decay_ratio (float): Ratio of total training steps used for decay. Default: None.
+        warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
+        total_steps (int, optional): The number of total steps. Default: ``None``.
+        num_cycles (float, optional): The number of waves in the cosine schedule (the defaults is to just
+            decrease from the max value to 0 following a half-cosine). Default: ``0.5``.
+        lr_end (float, optional): Final value of learning rate. Default: ``0.``.
+        warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.
+        warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: ``None``.
+        decay_steps (int, optional): The number of decay steps. Default: ``None``.
+        decay_ratio (float, optional): Ratio of total training steps used for decay. Default: ``None``.
 
     Inputs:
         - **global_step** (int) - The global step.
@@ -406,14 +406,14 @@ class CosineWithRestartsAndWarmUpLR(LearningRateSchedule):
 
     Args:
         learning_rate (float): Initial value of learning rate.
-        warmup_steps (int): The number of warm up steps. Default: None.
-        total_steps (int): The number of total steps. Default: None.
-        num_cycles (float): The number of waves in the cosine schedule (the defaults is to just decrease
-            from the max value to 0 following a half-cosine). Default: 1.0.
-        lr_end (float): Final value of learning rate. Default: 0.
-        warmup_lr_init (float): Initial learning rate in warm up steps. Default: 0.
-        warmup_ratio (float): Ratio of total training steps used for warmup. Default: None.
-        decay_steps (int): The number of decay steps. Default: None.
+        warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
+        total_steps (int, optional): The number of total steps. Default: ``None``.
+        num_cycles (float, optional): The number of waves in the cosine schedule (the defaults is to just decrease
+            from the max value to 0 following a half-cosine). Default: ``1.0``.
+        lr_end (float, optional): Final value of learning rate. Default: ``0.``.
+        warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.
+        warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: ``None``.
+        decay_steps (int, optional): The number of decay steps. Default: ``None``.
 
     Inputs:
         - **global_step** (int) - The global step.
@@ -525,12 +525,12 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
         learning_rate (float): Initial value of learning rate.
         total_steps (int): The number of total steps.
         warmup_steps (int): The number of warm up steps.
-        lr_end (float): Final value of learning rate. Default: 1e-7.
-        power (float): The power of the polynomial. Default: 1.0.
-        warmup_lr_init (float): Initial learning rate in warm up steps. Default: 0.
-        warmup_ratio (float): Ratio of total training steps used for warmup. Default: None.
-        decay_steps (int): The number of decay steps, which must be smaller than total_steps - warmup_steps.
-            If the value is None, decay steps will be total_steps - warmup_steps. Default: None.
+        lr_end (float, optional): Final value of learning rate. Default: ``1e-7``.
+        power (float, optional): The power of the polynomial. Default: ``1.0``.
+        warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.
+        warmup_ratio (float, optional): Ratio of total training steps used for warmup. Default: ``None``.
+        decay_steps (int, optional): The number of decay steps, which must be smaller than total_steps - warmup_steps.
+            If the value is None, decay steps will be total_steps - warmup_steps. Default: ``None``.
 
     Inputs:
         - **global_step** (int) - The global step.
@@ -702,7 +702,7 @@ class CosineAnnealingLR(LearningRateSchedule):
     Args:
         base_lr (float): Initial value of learning rate.
         t_max (int): Maximum number of iterations.
-        eta_min (float): Minimum learning rate. Default: 0.
+        eta_min (float, optional): Minimum learning rate. Default: ``0.``.
 
     Inputs:
         - **global_step** (int) - The global step.
@@ -769,8 +769,8 @@ class CosineAnnealingWarmRestarts(LearningRateSchedule):
     Args:
         base_lr (float): Initial value of learning rate.
         t_0 (int): Number of iterations for the first restart.
-        t_mult (int, optional): A factor increases :math:`T_{i}` after a restart. Default: 1.
-        eta_min (float, optional): Minimum learning rate. Default: 0.
+        t_mult (int, optional): A factor increases :math:`T_{i}` after a restart. Default: ``1``.
+        eta_min (float, optional): Minimum learning rate. Default: ``0.``.
 
     Inputs:
         - **global_step** (int) - The global step.

@@ -116,11 +116,11 @@ class PretrainedConfig(PushToHubMixin):
         name_or_path (str, optional):
             Store the string that was passed to :func:`mindformers.models.PreTrainedModel.from_pretrained`
             as `pretrained_model_name_or_path` if the configuration was created with such a method.
-            Default: ``""`` .
+            Default: ``""``.
         checkpoint_name_or_path (str, optional):
-            The path or name of the checkpoint file. Default: ``None`` .
+            The path or name of the checkpoint file. Default: ``None``.
         mindformers_version (str, optional):
-            The version of MindSpore Transformers. Default: ``None`` .
+            The version of MindSpore Transformers. Default: ``None``.
 
     Returns:
         PretrainedConfig, a PretrainedConfig instance.
@@ -290,7 +290,7 @@ class PretrainedConfig(PushToHubMixin):
                 such as "mindspore/vit_base_p16" or "vit_base_p16".
             pretrained_model_name_or_path (str, optional):
                 Equal to "yaml_name_or_path", if "pretrained_model_name_or_path" is set,
-                "yaml_name_or_path" is useless. Default: ``None`` .
+                "yaml_name_or_path" is useless. Default: ``None``.
 
         Returns:
             A model config, which inherited from PretrainedConfig.
@@ -434,8 +434,8 @@ class PretrainedConfig(PushToHubMixin):
         Saves the pre-trained configuration to the specified directory
 
         Args:
-            save_directory (str, optional): a directory to save config yaml. Default: ``None`` .
-            save_name (str, optional): the name of save files. Default: ``"mindspore_model"`` .
+            save_directory (str, optional): a directory to save config yaml. Default: ``None``.
+            save_name (str, optional): the name of save files. Default: ``"mindspore_model"``.
         """
         save_json = kwargs.pop("save_json", False)
 
@@ -782,7 +782,7 @@ class PretrainedConfig(PushToHubMixin):
                 parameters will be saved.
             use_diff (bool, optional): If set to `True`, only the difference between the config instance and
                 the default :class:`mindformers.models.PretrainedConfig` is serialized to JSON file.
-                Default: ``True`` .
+                Default: ``True``.
         """
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
         with os.fdopen(os.open(json_file_path, flags_, 0o750), 'w', encoding="utf-8") as writer:
@@ -794,7 +794,7 @@ class PretrainedConfig(PushToHubMixin):
 
         Args:
             use_diff (bool, optional): If set to `True`, only the difference between the config instance and
-                the default `PretrainedConfig()` is serialized to JSON string. Default: ``True`` .
+                the default `PretrainedConfig()` is serialized to JSON string. Default: ``True``.
 
         Returns:
             str, string containing all the attributes that make up this configuration instance in JSON format.
@@ -883,7 +883,7 @@ class PretrainedConfig(PushToHubMixin):
 
         Args:
             auto_class (Union[str, type], optional): The auto class to register this new configuration with.
-                Default: ``"AutoConfig"`` .
+                Default: ``"AutoConfig"``.
         """
         if not isinstance(auto_class, str):
             auto_class = auto_class.__name__

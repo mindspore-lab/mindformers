@@ -330,7 +330,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         Args:
             save_directory (Union[str, os.PathLike]): A directory to save the model weight and configuration.
             save_name (str): The name of saved files, including model weight and configuration file.
-                Default: ``mindspore_model`` .
+                Default: ``mindspore_model``.
             kwargs (dict, optional): A variable number of keyword parameters reserved
                 for the keyword parameters to be expanded.
 
@@ -1427,7 +1427,7 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
 
         Args:
             auto_class (Union[str, type], optional):
-                The auto class to register this new model with. Default: ``AutoModel`` .
+                The auto class to register this new model with. Default: ``AutoModel``.
         """
         if not isinstance(auto_class, str):
             auto_class = auto_class.__name__
