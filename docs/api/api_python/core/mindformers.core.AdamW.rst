@@ -21,12 +21,15 @@ mindformers.core.AdamW
             &\textbf{repeat} \\
             &\hspace{5mm} t \leftarrow t+1 \\
             &\hspace{5mm}\boldsymbol{g}_{t} \leftarrow \nabla f_{t}\left(\boldsymbol{w}_{t-1}\right) \\
+            &\hspace{5mm}\boldsymbol{w}_{t} \leftarrow \boldsymbol{w}_{t-1}-\gamma\lambda\boldsymbol{w}_{t-1} \\
             &\hspace{5mm}\boldsymbol{m}_{t} \leftarrow \beta_{1} \boldsymbol{m}_{t-1}+\left(1-\beta_{1}\right)
              \boldsymbol{g}_{t} \\
             &\hspace{5mm}\boldsymbol{v}_{t} \leftarrow \beta_{2} \boldsymbol{v}_{t-1}+\left(1-\beta_{2}\right)
              \boldsymbol{g}_{t}^{2} \\
-            &\hspace{5mm}\boldsymbol{w}_{t} \leftarrow \boldsymbol{w}_{t-1}-\gamma\left({\boldsymbol{m}}_{t}
-             /\left(\sqrt{{\boldsymbol{v}}_{t}}+\epsilon\right)+\lambda \boldsymbol{w}_{t-1}\right) \\
+            &\hspace{5mm}\widehat{\boldsymbol{m}_{t}} \leftarrow \boldsymbol{m}_{t}/\big(1-\beta_{1}^{t} \big) \\
+            &\hspace{5mm}\widehat{\boldsymbol{v}_{t}} \leftarrow \boldsymbol{v}_{t}/\big(1-\beta_{2}^{t} \big) \\
+            &\hspace{5mm}\boldsymbol{w}_{t} \leftarrow \boldsymbol{w}_{t-1}-\gamma\widehat{\boldsymbol{m}_{t}}
+             /\left(\sqrt\widehat{\boldsymbol{v}_{t}}+\epsilon\right) \\
             &\textbf{until}\text { stopping criterion is met } \\[-1.ex]
             &\newline
             &\hline \\[-1.ex]
@@ -35,7 +38,7 @@ mindformers.core.AdamW
             &\hline \\[-1.ex]
         \end{array}
 
-    :math:`m` 代表第一个动量矩阵 `moment1` ， :math:`v` 代表第二个动量矩阵 `moment2` ， :math:`g` 代表 `gradients` ，:math:`\gamma` 代表 `learning_rate` ，:math:`\beta_1, \beta_2` 代表 `beta1` 和 `beta2` ， :math:`t` 代表当前step，:math:`w` 代表 `params` ，:math:`\lambda` 代表 `weight_decay` 。
+    :math:`m` 代表第一个动量矩阵 `moment1` ， :math:`v` 代表第二个动量矩阵 `moment2` ，:math:`\widehat{m}` 代表经过偏差修正的第一个动量矩阵， :math:`\widehat{v}` 代表经过偏差修正的第二个动量矩阵， :math:`g` 代表 `gradients` ，:math:`\gamma` 代表 `learning_rate` ，:math:`\beta_1, \beta_2` 代表 `beta1` 和 `beta2` ， :math:`t` 代表当前step，:math:`w` 代表 `params` ，:math:`\lambda` 代表 `weight_decay` 。
 
     参数：
         - **params** (Union[list[Parameter], list[dict]]) - 必须是 `Parameter` 组成的列表或字典组成的列表。当列表元素是字典时，字典的键可以是"params"、"lr"、"weight_decay"、和"order_params"：
