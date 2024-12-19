@@ -8,7 +8,7 @@ use_parallel: False
 run_mode: &run_mode 'predict'
 # trainer config
 trainer:
-  type: ContrastiveLanguageImagePretrainTrainer
+  type: MultiModalToTextGenerationTrainer
   model_name: 'llava'
 
 # runner config
@@ -61,6 +61,7 @@ recompute_config:
 model:
   model_config:
     type: LlavaConfig
+    auto_register: llava_config.LlavaConfig
     freeze_vision: True
     freeze_llm: True
     batch_size: 1
@@ -81,11 +82,16 @@ model:
     top_p: 0.8
     max_decode_length: 1024
     do_sample: False
+
     vision_config:
+      type: LlavaCLIPConfig
+      auto_register: llava_config.LlavaCLIPConfig
       arch:
         type: LlavaVisionEncoder
+        auto_register: llava_model.LlavaVisionEncoder
       model_config:
         type: LlavaCLIPConfig
+        auto_register: llava_config.LlavaCLIPConfig
         hidden_size: 1024
         intermediate_size: 4096
         num_hidden_layers: 24
@@ -102,7 +108,9 @@ model:
         checkpoint_name_or_path: ""
         vision_feature_layer: -2
         vision_feature_select_strategy: "default"
+
     text_config:
+      type: LlamaConfig
       arch:
         type: LlamaForCausalLM
       model_config:
@@ -123,6 +131,7 @@ model:
         checkpoint_name_or_path: ""
   arch:
     type: LlavaVlm
+    auto_register: llava_model.LlavaVlm
 
 # processor
 processor:
@@ -131,6 +140,7 @@ processor:
   add_special_tokens: True
   model_transform_template:
     type: LlavaContentTransformTemplate
+    auto_register: llava_processor.LlavaContentTransformTemplate
     context_length: *num_queries
     image_size: *image_size
     text_instruct_mode: True
@@ -141,6 +151,7 @@ processor:
     add_eos_token: False
     vocab_file: ""
     type: LlavaTokenizer
+    auto_register: llava_tokenizer.LlavaTokenizer
 
 # mindspore context init config
 context:
@@ -152,7 +163,7 @@ context:
       "must_keep_origin_dtype"
   max_call_depth: 10000
   max_device_memory: "58GB"
-  save_graphs: True
+  save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
 

@@ -21,17 +21,16 @@ LLaVA 1.5是一个端到端训练的大型多模态模型，连接视觉编码�
 
    ```text
    research/llava/
-       ├── __init__.py
-       ├── llava.py                  # 模型实现
-       ├── llava_clip_vit.py         # 视觉编码器实现
+       ├── llava_model.py            # 模型实现
        └── llava_config.py           # 模型配置
    ```
 
 2. 模型配置：
 
    ```text
-   research/llava
-       └── predict_llava1_5_7b.yaml     # 7B推理配置
+   research/llava/
+       └── llava1_5_7B
+                └── predict_llava1_5_7b.yaml     # 7B推理配置
    ```
 
 ## 环境及数据准备
@@ -73,40 +72,64 @@ output_path: 转换后的MindSpore权重文件保存路径
 
 ## 推理
 
-MindFormers提供`Llava1.5-7b`的推理脚本，脚本主要通过generate高阶接口实现，支持单卡、多卡以及多batch推理。
+进行推理前，模型权重以及tokenizer文件可参考[模型权重下载](#模型权重下载)进行准备，并修改`predict_llava1_5_7b.yaml`中相关配置，补充词表路径。
 
-```shell
-# 脚本使用
-bash scripts/examples/llava/run_llava1_5_predict.sh PARALLEL CONFIG_PATH CKPT_PATH TOKENIZER_PATH DEVICE_NUM
-
-# 参数说明
-PARALLEL:    是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
-CONFIG_PATH: 模型配置文件路径
-CKPT_PATH:   模型权重文件路径
-TOKENIZER_PATH:  词表路径
-DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
-```
+   ```yaml
+   processor:
+     tokenizer:
+       add_bos_token: True
+       add_eos_token: False
+       vocab_file: "/path/to/tokenizer.model"
+       type: LlavaTokenizer
+       auto_register: llava_tokenizer.LlavaTokenizer
+   ```
 
 ### 单卡推理
 
 以`llava1.5-7b`单卡推理为例。
 
 ```shell
-bash scripts/examples/llava/run_llava1_5_predict.sh single \
- research/llava/predict_llava1_5_7b.yaml \
- path/to/llava_7b.ckpt \
- path/to/tokenizer.model
-
+python run_mindformer.py \
+--config research/llava/llava1_5_7B/predict_llava1_5_7b.yaml \
+--register_path research/llava \
+--run_mode predict \
+--predict_data 'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg' 'Describe the image in English:' \ # 依次传入图片路径或链接、提词
+--modal_type image text \ # 对应模态为image和text
+--load_checkpoint /path/to/ckpt \
+--use_parallel False \
+--auto_trans_ckpt False
+# load_checkpoint: 单卡推理需传入完整权重的ckpt路径
+# auto_trans_ckpt: 单卡推理不进行权重转换，传入False
 ```
 
 ### 多卡推理
 
-以`Llava1.5-7b`2卡推理为例。
+以`Llava1.5-7b`2卡推理为例，进行推理前，还需修改并行配置
+
+   ```yaml
+    parallel_config:
+      data_parallel: 1
+      model_parallel: 2 # 对于2卡并行设置mp=2
+      pipeline_stage: 1
+      use_seq_parallel: False
+      micro_batch_num: 1
+      vocab_emb_dp: True
+      gradient_aggregation_group: 4
+   micro_batch_interleave_num: 1
+   ```
+
+此后运行并行脚本msrun_launcher.sh拉起并行推理进程
 
 ```shell
-bash scripts/examples/llava/run_llava1_5_predict.sh parallel \
- research/llava/predict_llava1_5_7b.yaml \
- path/to/llava_7b.ckpt \
- path/to/tokenizer.model 2
-
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--config research/llava/llava1_5_7B/predict_llava1_5_7b.yaml \
+--register_path research/llava \
+--run_mode predict \
+--predict_data 'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg' 'Describe the image in English:' \ # 依次传入图片路径或链接、提词
+--modal_type image text \ # 对应模态为image和text
+--load_checkpoint /path/to/ckpt \
+--use_parallel True \
+--auto_trans_ckpt True" 2
+# load_checkpoint: 当使用完整权重时传入ckpt路径；当使用分布式权重时传入权重文件夹路径model_dir，权重按照'model_dir/rank_0/xxx.ckpt'格式存放
+# auto_trans_ckpt: 自动权重转换开关，当传入完整权重时打开
 ```
