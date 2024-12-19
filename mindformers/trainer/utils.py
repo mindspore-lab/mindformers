@@ -648,7 +648,6 @@ def load_ckpt(config, network, optimizer=None, model=None, future=None):
     # replace tk in checkpoint_dict.keys()
     checkpoint_dict = replace_tk_to_mindpet(checkpoint_dict)
     if hasattr(network, 'llm_boost'):
-        network.checkpoint_dict = checkpoint_dict
         network.llm_boost.set_weights(checkpoint_dict)
         return
 

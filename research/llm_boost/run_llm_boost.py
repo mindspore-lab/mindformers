@@ -17,66 +17,87 @@
 
 import argparse
 import os
-import numpy
+import numpy as np
 
 from mindspore.communication import get_rank
 from mindspore._c_expression import _framework_profiler_step_start, _framework_profiler_step_end
-
-
-from research.llm_boost.llm_boost import LlmBoostForCausalLM
-from research.llm_boost.llm_boost import LlmBoostConfig
-from research.llm_boost.utils import generate_state_dict, save_strategy_file
-
 from mindformers import MindFormerConfig, logger
 from mindformers.models.llama.llama_tokenizer import LlamaTokenizer
 from mindformers.core.context import build_context
 from mindformers.trainer.utils import load_ckpt
 from mindformers.tools import get_output_root_path
 from mindformers.tools.utils import str2bool
+from research.llm_boost.llm_boost import LlmBoostForCausalLM
+from research.llm_boost.llm_boost import LlmBoostConfig
+from research.qwen2.qwen2_tokenizer import Qwen2Tokenizer
+from research.llm_boost.utils import generate_state_dict, save_strategy_file
+
+
+tokenizer_dict = {"LlamaTokenizer": LlamaTokenizer, "Qwen2Tokenizer": Qwen2Tokenizer}
 
 
 # pylint: disable=C0330
-# pylint: disable=W0212
 def main(
-    config,
-    max_length=8192,
-    batch_size=1,
+    config_path=None,
+    use_parallel=None,
+    load_checkpoint=None,
+    only_save_strategy=None,
+    vocab_file=None,
+    merges_file=None,
+    seq_length=None,
+    batch_size=None,
+    max_decode_length=8192,
+    device_num=None,
     measure_throughput=False,
-    save_file=""):
+    predict_data="",
+    save_file=""
+):
     """main function."""
-    inputs = [
-        "帮我制定一份去上海的旅游攻略",
-        "描述一下鲁智深倒拔垂杨柳的场面",
-        "描述一下孙悟空大闹天宫的场面",
-        "我喜欢看电影，因为",
-    ]
-    inputs = [
-        "hello, I love Beijing",
-    ]
 
+
+    if seq_length and seq_length < max_decode_length:
+        raise ValueError("The max_decode_length must be less than or equal to seq_length.")
+
+    yaml_path = os.path.expanduser(config_path)
+    if not os.path.exists(yaml_path):
+        raise ValueError("The yaml_path should exist.")
+
+    config = MindFormerConfig(os.path.realpath(yaml_path))
+    if vocab_file:
+        if not os.path.exists(vocab_file):
+            raise ValueError("The vocab_file should exist.")
+        config.processor.tokenizer.vocab_file = vocab_file
+    if merges_file:
+        tokenizer = tokenizer_dict[config.processor.tokenizer.type](vocab_file, merges_file)
+        config.processor.tokenizer.merges_file = merges_file
+    else:
+        tokenizer = tokenizer_dict[config.processor.tokenizer.type].from_pretrained(vocab_file)
+
+    if use_parallel is not None:
+        config.use_parallel = use_parallel
+    if only_save_strategy is not None:
+        config.only_save_strategy = only_save_strategy
+    if device_num is not None:
+        config.parallel_config.model_parallel = device_num
     # init context
     build_context(config)
 
     os.environ['MS_DISABLE_REF_MODE'] = '1'
-
-    config.model.model_config.batch_size = batch_size
+    if load_checkpoint is not None:
+        config.load_checkpoint = load_checkpoint
+    if seq_length is not None:
+        config.model.model_config.seq_length = seq_length
+    if batch_size is not None:
+        config.model.model_config.batch_size = batch_size
     config.model.model_config.parallel_config = config.parallel_config
     model_config = LlmBoostConfig(**config.model.model_config)
     model_config.checkpoint_name_or_path = None
 
-    # build tokenizer
-    if 'qwen' in config.trainer.model_name:
-        # you'll need to set PYHTONPATH to QWEN2 DIR to make this work
-        from research.qwen2.qwen2_tokenizer_fast import Qwen2Tokenizer
-        tokenizer = Qwen2Tokenizer(vocab_file=config.processor.tokenizer.vocab_file,
-                                   merges_file=config.processor.tokenizer.merges_file)
-    else:
-        tokenizer = LlamaTokenizer(vocab_file=config.processor.tokenizer.vocab_file)
     # build model
     network = LlmBoostForCausalLM(model_config)
 
     # get strategy file
-    if config.llm_backend == "BuildIn" and config.only_save_strategy:
+    if model_config.llm_backend == "BuildIn" and config.only_save_strategy:
         strategy_ckpt_save_dir = os.path.join(get_output_root_path(), "strategy")
         os.makedirs(strategy_ckpt_save_dir, exist_ok=True)
         strategy_file_path = os.path.join(
@@ -92,17 +113,15 @@ def main(
     load_ckpt(config, network)
     # generate
     if not measure_throughput:
-        if len(inputs) == 1 and batch_size != 1:
-            inputs = inputs * batch_size
-        inputs_ids = tokenizer(inputs, max_length=max_length, padding="max_length")["input_ids"]
+        inputs = [predict_data for i in range(config.model.model_config.batch_size)]
+        inputs_ids = tokenizer(inputs)["input_ids"]
         outputs = network.generate(
-                input_ids=inputs_ids,
-                max_length=max_length,
-                do_sample=model_config.do_sample,
-                top_k=model_config.top_k,
-                top_p=model_config.top_p,
-                )
-
+            input_ids=inputs_ids,
+            max_length=max_decode_length,
+            do_sample=model_config.do_sample,
+            top_k=model_config.top_k,
+            top_p=model_config.top_p,
+        )
         with open(save_file, 'w') as file:
             for output in outputs:
                 print(tokenizer.decode(output))
@@ -116,10 +135,8 @@ def main(
             max_length = length * 2
 
             print("***************************Warm up for bs {}*************************".format(bs))
-
-            inputs_ids_arr = numpy.random.randint(low=1, high=1000, size=(bs, max_length))
+            inputs_ids_arr = np.random.randint(low=1, high=1000, size=(bs, max_length))
             inputs_ids_arr[:, length:] = 0
-            network._exec_add_flags = True
             outputs = network.generate(input_ids=inputs_ids_arr.tolist(), max_length=max_length,
                                        do_sample=model_config.do_sample, top_k=model_config.top_k,
                                        top_p=model_config.top_p)
@@ -127,19 +144,19 @@ def main(
             for length in [256, 512, 1024, 2048]:
                 print("************************ Measure bs={}, length={} *************************".format(bs, length))
                 max_length = length * 2
-                inputs_ids_arr = numpy.random.randint(low=1, high=1000, size=(bs, length))
-                network._exec_add_flags = True
+                inputs_ids_arr = np.random.randint(low=1, high=1000, size=(bs, length))
                 outputs = network.generate(input_ids=inputs_ids_arr.tolist(), max_length=max_length,
                                            do_sample=model_config.do_sample, top_k=model_config.top_k,
                                            top_p=model_config.top_p)
         _framework_profiler_step_end()
 
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--config",
-        default="predict_qwen2_72b_instruct.yaml",
+        "--config_path",
+        default=None,
         type=str,
         help="config file path.",
     )
@@ -151,15 +168,15 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--only_save_strategy",
-        default=False,
-        type=bool,
+        default=None,
+        type=str2bool,
         help="only save strategy.",
     )
     parser.add_argument("--vocab_file", default=None, type=str, help="tokenizer model")
     parser.add_argument("--merges_file", default=None, type=str, help="tokenizer model")
     parser.add_argument("--seq_length", default=None, type=int, help="seq_length")
     parser.add_argument(
-        "--predict_length",
+        "--max_decode_length",
         default=8192,
         type=int,
         help="max length for predict output.",
@@ -179,56 +196,27 @@ if __name__ == "__main__":
     parser.add_argument(
         "--repetition_penalty", default=1.0, type=float, help="repetition_penalty"
     )
-    parser.add_argument("--batch_size", default=1, type=int, help="batch_size")
-    parser.add_argument("--device_num", default=1, type=int, help="device_num")
+    parser.add_argument("--batch_size", default=None, type=int, help="batch_size")
+    parser.add_argument("--device_num", default=None, type=int, help="device_num")
     parser.add_argument("--measure_throughput", default=False, type=str2bool, help="measure_throughput")
     parser.add_argument("--save_file", default="results.txt", type=str, help="file to store results")
-
+    parser.add_argument('--predict_data', default="", type=str, help='input predict data.')
 
     args = parser.parse_args()
     print(args)
 
-    if args.device_id == -1:
-        args.device_id = int(os.getenv("RANK_ID", "0"))
-
-    yaml_path = os.path.expanduser(args.config)
-    if not os.path.exists(yaml_path):
-        raise ValueError("The yaml_path should exist.")
-
-    mfconfig = MindFormerConfig(os.path.realpath(yaml_path))
-    if args.vocab_file:
-        if not os.path.exists(args.vocab_file):
-            raise ValueError("The vocab_file should exist.")
-        mfconfig.processor.tokenizer.vocab_file = args.vocab_file
-    if args.merges_file:
-        if not os.path.exists(args.merges_file):
-            raise ValueError("The merges_file should exist.")
-        mfconfig.processor.tokenizer.merges_file = args.merges_file
-    if args.use_parallel is not None:
-        mfconfig.use_parallel = args.use_parallel
-    if args.device_id is not None:
-        mfconfig.context.device_id = args.device_id
-    if args.only_save_strategy is not None:
-        mfconfig.only_save_strategy = args.only_save_strategy
-    if args.repetition_penalty is not None:
-        mfconfig.repetition_penalty = args.repetition_penalty
-    if args.device_num is not None:
-        mfconfig.parallel_config.model_parallel = args.device_num
-
-    if args.load_checkpoint is not None:
-        mfconfig.load_checkpoint = args.load_checkpoint
-    if args.seq_length is not None:
-        mfconfig.model.model_config.seq_length = args.seq_length
-    if args.do_sample is not None:
-        mfconfig.model.model_config.do_sample = args.do_sample
-    if args.top_k is not None:
-        mfconfig.model.model_config.top_k = args.top_k
-    if args.top_p is not None:
-        mfconfig.model.model_config.top_p = args.top_p
-
-    main(config=mfconfig,
-         max_length=args.predict_length,
-         batch_size=args.batch_size,
-         measure_throughput=args.measure_throughput,
-         save_file=args.save_file
+    main(
+        config_path=args.config_path,
+        use_parallel=args.use_parallel,
+        only_save_strategy=args.only_save_strategy,
+        load_checkpoint=args.load_checkpoint,
+        vocab_file=args.vocab_file,
+        merges_file=args.merges_file,
+        seq_length=args.seq_length,
+        max_decode_length=args.max_decode_length,
+        batch_size=args.batch_size,
+        device_num=args.device_num,
+        measure_throughput=args.measure_throughput,
+        predict_data=args.predict_data,
+        save_file=args.save_file
     )

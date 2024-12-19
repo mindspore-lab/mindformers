@@ -16,7 +16,7 @@
 import subprocess
 from mindspore.communication import get_group_size
 from mindformers import logger
-from mindformers.version_control import get_ascend_soc_version
+from mindformers.version_control import need_nz
 
 EMBEDDING_PARALLEL_THRESHOLD = 128256
 
@@ -29,13 +29,6 @@ def execute_command(cmd_list):
         out, _ = p.communicate(timeout=1000)
     res = out.decode()
     return res
-
-
-# pylint: disable=C0111
-def need_nz():
-    if get_ascend_soc_version() in ["310p", "ascend310p", "910a", "ascend910"]:
-        return True
-    return False
 
 
 # pylint: disable=C0111

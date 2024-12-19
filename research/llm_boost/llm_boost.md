@@ -77,51 +77,13 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
     source ${working_dir}/nnal/atb/set_env.sh
     ```
 
-### 2安装PytorchAdapter
-
-先安装torch 再安装torch_npu
-
-#### 2.1 安装torch
-
-- 下载
-
-  | 包名                                         |
-  | -------------------------------------------- |
-  | torch-2.1.0+cpu-cp310-cp310-linux_x86_64.whl |
-  | torch-2.1.0-cp310-cp10-linux_aarch64.whl     |
-  | ...                                          |
-
-  根据所使用的环境中的python版本以及cpu类型，选择对应版本的torch安装包。
-
-- 安装
-
-  ```bash
-  # 安装torch 2.1.0 的python 3.10 的arm版本为例
-  pip install torch-2.1.0-cp310-cp310-linux_aarch64.whl
-  ```
-
-#### 2.2 安装torch_npu
-
-[下载PyTorch Adapter](https://www.hiascend.com/developer/download/community/result?module=pt)，安装方法：
-
-| 包名                        |
-| --------------------------- |
-| pytorch_v2.1.0_py310.tar.gz |
-
-- 安装选择与torch版本以及python版本一致的npu_torch版本
-
-```bash
-# 安装 torch_npu，以 torch 2.1.0，python 3.10 的版本为例
-tar -zxvf pytorch_v2.1.0_py310.tar.gz
-pip install torch*_aarch64.whl
-```
-
-### 3 安装atb_models
+### 2. 安装atb_models
 
   ```bash
   mkdir atb-models
   cd atb-models
   tar -zxvf ../Ascend-mindie-atb-models_*_linux-*_torch*-abi0.tar.gz
+  sed -i '/PYTORCH/s/^/#/' set_env.sh
   source set_env.sh
   ```
 
@@ -151,15 +113,6 @@ output_path: 转换后的MindSpore权重文件保存路径
 dtype:       转换权重的精度
 ```
 
-```shell
-运行mindformers/mindformers/llm_boost/convert_weight.py转换脚本，将ckpt中qkv权重进行合并
-python mindformers/mindformers/llm_boost/convert_weight.py  --pre_ckpt_path PRE_CKPT_DIR --mindspore_ckpt_path OUTPUT_CKPT_DIR -qkv_concat True
-
-# 参数说明
-pre_ckpt_path:       转换前的权重路径
-mindspore_ckpt_path: 转换后的权重路径
-```
-
 ## 模型权重切分
 
 在分布式推理场景下，常需要将模型权重重新切分以适应目标切分策略，常见场景为：
@@ -171,17 +124,14 @@ mindspore_ckpt_path: 转换后的权重路径
 以`Qwen2-7b`2卡推理为例, 生成目标strategy。
 
 ```shell
-  cd scripts/llm_boost/qwen2
-  cp ../../../research/llm_boost/llm_boost.py ./
-  cp ../../../research/llm_boost/llm_boost_config.py ./
+  cd research/llm_boost
   # 推理命令中参数会覆盖yaml文件中的相同参数
-  python run_qwen2_llm_boost.py \
-    --config predict_qwen2_7b_instruct_llm_boost.yaml \
+  python run_llm_boost.py \
+    --config_path ./predict_qwen2_7b_instruct_llm_boost.yaml \
     --only_save_strategy True \
     --load_checkpoint /path/model_dir \
     --vocab_file /path/vocab.json \
     --merges_file /path/merges.txt \
-    --run_mode predict \
     --use_parallel True \
     --device_num 2
 ```
@@ -189,7 +139,7 @@ mindspore_ckpt_path: 转换后的权重路径
 **场景二**：从分布式训练获得的已切分权重转化为另一策略的分布式权重
 
 通常是在分布式训练完成后获取了按训练切分策略进行切分的权重，在推理阶段模型需要转换为另一切分策略；
-同样需要生成目标strategy，参考[权重转换文档](./Transform_Ckpt.md)，与原有切分startegy一同，转换模型切分策略
+同样需要生成目标strategy，参考[权重转换文档](../../docs/feature_cards/Transform_Ckpt.md)，与原有切分startegy一同，转换模型切分策略
 
 ## 推理
 
@@ -206,24 +156,25 @@ mindspore_ckpt_path: 转换后的权重路径
       type: LlmBoostForCausalLM
   ```
 
-  运行下面的代码需要先将`research/llm_boost`目录所在路径加入到`PYTHONPATH`环境变量中。
+  运行下面的代码需要先将`mindformers`目录所在路径加入到`PYTHONPATH`环境变量中。
 
 ### 单卡推理
 
 以`Qwen2-7b`单卡推理为例。
 
 ```shell
-  cd scripts/llm_boost/qwen2
-  cp ../../../research/llm_boost/llm_boost.py ./
-  cp ../../../research/llm_boost/llm_boost_config.py ./
+  cd research/llm_boost
   # 推理命令中参数会覆盖yaml文件中的相同参数
-  python run_qwen2_llm_boost.py \
-    --config predict_qwen2_7b_instruct_llm_boost.yaml \
+  python run_llm_boost.py \
+    --predict_data "帮我制定一份去上海的旅游攻略" \
+    --config_path ./predict_qwen2_7b_instruct_llm_boost.yaml \
     --load_checkpoint /path/model_dir \
     --vocab_file /path/vocab.json \
     --merges_file /path/merges.txt \
-    --run_mode predict \
-    --use_parallel False
+    --use_parallel False \
+    --batch_size 4
+
+  # 输出推理结果：帮助我制定一份去上海的旅游攻略，包括景点、美食、住宿等信息...
 ```
 
 ### 多卡推理
@@ -245,18 +196,19 @@ mindspore_ckpt_path: 转换后的权重路径
 2. 启动多卡推理
 
 ```shell
-  cd scripts/llm_boost/qwen2
-  cp ../../../research/llm_boost/llm_boost.py ./
-  cp ../../../research/llm_boost/llm_boost_config.py ./
+  cd research/llm_boost
   # 推理命令中参数会覆盖yaml文件中的相同参数
-  bash ../../../scripts/msrun_launcher.sh "run_qwen2_llm_boost.py \
-    --config predict_qwen2_7b_instruct_llm_boost.yaml \
+  bash ../../scripts/msrun_launcher.sh "run_llm_boost.py \
+    --predict_data "帮我制定一份去上海的旅游攻略" \
+    --config /path/predict_qwen2_7b_instruct_llm_boost.yaml \
     --load_checkpoint /path/model_dir \
     --vocab_file /path/vocab.json \
     --merges_file /path/merges.txt \
-    --run_mode predict \
     --use_parallel True \
+    --batch_size 4 \
     --device_num 4" 4
+
+  # 输出推理结果：帮助我制定一份去上海的旅游攻略，包括景点、美食、住宿等信息...
 ```
 
 ## 基于MindIE的服务化推理
@@ -297,7 +249,7 @@ vim /usr/local/Ascend/mindie/1.0.RC3/mindie-service/conf/config.json
 
       ```reStructuredText
       mf_model
-       └── llama3_1_8b
+       └── qwen2_7b
               ├── config.json                              # 模型json配置文件
               ├── vocab.json                               # 模型vocab文件，hf上对应模型下载
               ├── merges.txt                               # 模型merges文件，hf上对应模型下载
@@ -328,8 +280,8 @@ vim /usr/local/Ascend/mindie/1.0.RC3/mindie-service/conf/config.json
           type: LlmBoostForCausalLM
       processor:
         tokenizer:
-          vocab_file: "/path/vocab.json"
-          merges_file: "/path/merges.txt" #vocab文件路径
+          vocab_file: "/path/vocab.json"  #vocab文件路径
+          merges_file: "/path/merges.txt" #merges文件路径
       ```
 
 最终修改完后的config.json如下：
@@ -403,8 +355,8 @@ vim /usr/local/Ascend/mindie/1.0.RC3/mindie-service/conf/config.json
             "ModelConfig" : [
                 {
                     "modelInstanceType": "Standard",
-                    "modelName" : "llama3_1_8b",
-                    "modelWeightPath" : "/mf_model/llama3_1_8b",
+                    "modelName" : "qwen2_b",
+                    "modelWeightPath" : "/mf_model/qwen2_7b",
                     "worldSize" : 1,
                     "cpuMemSize" : 16,
                     "npuMemSize" : 16,
@@ -455,7 +407,7 @@ Daemon start success!
 服务启动成功后，可使用curl命令发送请求验证，样例如下：
 
 ```bash
-curl -w "\ntime_total=%{time_total}\n" -H "Accept: application/json" -H "Content-type: application/json" -X POST -d '{"inputs": "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n请介绍一下华为<|im_end|>\n<|im_start|>assistant\n","stream": false}' http://127.0.0.1:1025/generate
+curl -w "\ntime_total=%{time_total}\n" -H "Accept: application/json" -H "Content-type: application/json" -X POST -d '{"inputs": "帮我制定一份去上海的旅游攻略","stream": false}' http://127.0.0.1:1025/generate
 ```
 
 返回推理结果验证成功：

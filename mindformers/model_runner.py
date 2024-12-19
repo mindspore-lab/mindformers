@@ -46,7 +46,7 @@ from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_module
 from mindformers.generation.parallel_decoding import parallel_decoding_control
-from mindformers.version_control import get_ascend_soc_version, check_delay_init_valid
+from mindformers.version_control import check_delay_init_valid, need_nz
 
 __all__ = ["ModelRunner"]
 
@@ -251,7 +251,7 @@ class MindIEModelRunner:
         kvcache_bytes = ms.Tensor(0, dtype=self.dtype).itemsize
         total_head_size = self.num_kv_heads * self.head_size
 
-        if get_ascend_soc_version() in ['310p', 'ascend310p']:
+        if need_nz():
             total_head_size = -(total_head_size // -16) * 16
 
         self.npu_num_blocks = (npu_mem_size * 1024 * 1024 * 1024) // \
