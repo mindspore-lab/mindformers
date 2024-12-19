@@ -31,6 +31,7 @@ train_dataset: &train_dataset
     type: BaseXModalToTextTransform
     model_transform_template:
       type: QwenVLContentTransformTemplate
+      auto_register: qwenvl_processor.QwenVLContentTransformTemplate
       output_columns: ["input_ids", "images", "image_context_pos", "labels"]
       mode: "train"
       dataset_dir: ""
@@ -55,6 +56,7 @@ train_dataset: &train_dataset
   net_input_columns: [ "input_ids", "images", "image_context_pos", "labels" ]
   tokenizer:
     type: QwenVLTokenizer
+    auto_register: qwenvl_tokenizer.QwenVLTokenizer
     # vocab_file: /path/to/vocab_file
 
 train_dataset_task:
@@ -125,7 +127,7 @@ recompute_config:
 model:
   model_config:
     type: QwenVLConfig
-
+    auto_register: qwenvl_config.QwenVLConfig
     freeze_vision: True
     freeze_resampler: False
     freeze_llm: False
@@ -140,8 +142,10 @@ model:
     vision_model:
       arch:
         type: QwenVLVisionModel
+        auto_register: qwenvl_model.QwenVLVisionModel
       model_config:
         type: QwenVLVisionConfig
+        auto_register: qwenvl_config.QwenVLVisionConfig
         hidden_size: 1664
         intermediate_size: 8192
         num_hidden_layers: 48
@@ -157,8 +161,10 @@ model:
     llm_model:
       arch:
         type: QwenForCausalLM
+        auto_register: qwen_model.QwenForCausalLM
       model_config:
         type: QwenConfig
+        auto_register: qwenvl_config.QwenConfig
         batch_size: 1
         seq_length: 2048
         hidden_size: 4096
@@ -196,15 +202,19 @@ model:
         kv_channels: 128
   arch:
     type: QwenVL
+    auto_register: qwenvl_model.QwenVL
 
 # processor
 processor:
   type: QwenVLProcessor
+  auto_register: qwenvl_processor.QwenVLProcessor
   image_processor:
     type: QwenVLImageProcessor
+    auto_register: qwenvl_processor.QwenVLImageProcessor
     image_size: *image_size  # input image size
   tokenizer:
     type: QwenVLTokenizer
+    auto_register: qwenvl_tokenizer.QwenVLTokenizer
     max_length: 32
     vocab_file: ""
 
@@ -220,7 +230,7 @@ context:
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
-  infer_boost: 'on'
+  infer_boost: 'off'
   jit_config:
     jit_level: "O1"
 

@@ -6,7 +6,7 @@ auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in dis
 only_save_strategy: False
 resume_training: False
 use_parallel: False
-run_mode: 'finetune'
+run_mode: 'predict'
 
 # trainer config
 trainer:
@@ -49,7 +49,7 @@ recompute_config:
 model:
   model_config:
     type: QwenVLConfig
-
+    auto_register: qwenvl_config.QwenVLConfig
     freeze_vision: True
     freeze_resampler: False
     freeze_llm: False
@@ -65,8 +65,10 @@ model:
     vision_model:
       arch:
         type: QwenVLVisionModel
+        auto_register: qwenvl_model.QwenVLVisionModel
       model_config:
         type: QwenVLVisionConfig
+        auto_register: qwenvl_config.QwenVLVisionConfig
         hidden_size: 1664
         intermediate_size: 8192
         num_hidden_layers: 48
@@ -82,8 +84,10 @@ model:
     llm_model:
       arch:
         type: QwenForCausalLM
+        auto_register: qwen_model.QwenForCausalLM
       model_config:
         type: QwenConfig
+        auto_register: qwenvl_config.QwenConfig
         batch_size: 1
         seq_length: 2048
         hidden_size: 4096
@@ -121,17 +125,22 @@ model:
         kv_channels: 128
   arch:
     type: QwenVL
+    auto_register: qwenvl_model.QwenVL
 
 # processor
 processor:
   type: QwenVLProcessor
+  auto_register: qwenvl_processor.QwenVLProcessor
   image_processor:
     type: QwenVLImageProcessor
+    auto_register: qwenvl_processor.QwenVLImageProcessor
     image_size: 448  # input image size
   tokenizer:
     type: QwenVLTokenizer
+    auto_register: qwenvl_tokenizer.QwenVLTokenizer
     max_length: 32
     vocab_file: ""
+  max_length: 2048
 
 # mindspore context init config
 context:
@@ -145,7 +154,7 @@ context:
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
-  infer_boost: 'off'
+  infer_boost: 'on'
 
 # parallel context config
 parallel:

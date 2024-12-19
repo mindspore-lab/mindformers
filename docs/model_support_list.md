@@ -80,7 +80,7 @@
 
 |             模型 <br> model              | 模型规格<br/>type    |   数据集 <br> dataset    | 评估指标 <br> metric | 评估得分 <br> score |                                                配置<br>config                                                |
 |:--------------------------------------:|------------------|:---------------------:|:----------------:|:---------------:|:----------------------------------------------------------------------------------------------------------:|
-| [QwenVL](../research/qwenvl/qwenvl.md) | qwenvl_9.6b_bf16 | LLaVa-150k detail_23k |        -         |        -        | [configs](https://gitee.com/mindspore/mindformers/tree/dev/research/qwenvl/finetune_qwenvl_9.6b_bf16.yaml) |
+| [QwenVL](../research/qwenvl/README.md) | qwenvl_9.6b_bf16 | LLaVa-150k detail_23k |        -         |        -        | [configs](https://gitee.com/mindspore/mindformers/tree/dev/research/qwenvl/finetune_qwenvl_9.6b_bf16.yaml) |
 
 ## LLM大模型能力支持一览
 

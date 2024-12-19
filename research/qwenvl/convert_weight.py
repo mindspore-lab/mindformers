@@ -19,11 +19,12 @@ Support huggingface format.
 
 import argparse
 import os
+import torch
+import numpy as np
+from transformers import AutoModelForCausalLM
 
 import mindspore as ms
-import numpy as np
-import torch
-from transformers import AutoModelForCausalLM
+
 from mindformers.tools import str2bool
 
 QWEN_ATTENTION_WEIGHT_NAME = "attn.c_attn.weight"

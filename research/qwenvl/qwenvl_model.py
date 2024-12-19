@@ -18,16 +18,22 @@
 
 import math
 from typing import Optional
-
 import numpy as np
+
 import mindspore as ms
 from mindspore import dtype as mstype
 from mindspore import nn, Parameter, Tensor
 from mindspore import ops
 from mindspore.common.initializer import initializer, TruncatedNormal, Normal
 from mindspore.ops import operations as P
-from mindformers import MultiHeadAttention, MindFormerRegister, MindFormerModuleType, PreTrainedModel, \
+
+from mindformers import (
+    MultiHeadAttention,
+    MindFormerRegister,
+    MindFormerModuleType,
+    PreTrainedModel,
     TransformerOpParallelConfig
+)
 from mindformers.models import build_network
 from mindformers.models.utils import lazy_inline
 from mindformers.models.vit.vit_modules import get_2d_sincos_pos_embed
@@ -559,10 +565,13 @@ class QwenVL(PreTrainedModel):
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """prepare inputs for generation in inference"""
+        batch_size, _ = input_ids.shape
         is_first_iteration = self.is_first_iteration
+        slot_mapping = kwargs.get('slot_mapping')
         if self.config.is_dynamic and "origin_inputs" in kwargs:
             input_ids = kwargs.get("origin_inputs")
             is_first_iteration = True
+            slot_mapping = np.delete(slot_mapping, np.where(slot_mapping == -1))
 
         if is_first_iteration or not self.use_past:
             images = kwargs.pop("images")
@@ -570,7 +579,6 @@ class QwenVL(PreTrainedModel):
             if img_pos is not None:
                 img_pos = ms.Tensor(img_pos, mstype.int32)
         else:
-            batch_size, _ = input_ids.shape
             img_shape = (batch_size, 3, 3, self.image_size, self.image_size)
             images = self.ones(img_shape, ms.float32)
             img_pos = self.ones((batch_size, 1, self.config.num_queries, 2), mstype.int32)
@@ -578,7 +586,8 @@ class QwenVL(PreTrainedModel):
         return {
             "input_ids": ms.Tensor(input_ids, mstype.int32),
             "images": images,
-            "img_pos": img_pos
+            "img_pos": img_pos,
+            "slot_mapping": Tensor.from_numpy(slot_mapping)
         }
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
