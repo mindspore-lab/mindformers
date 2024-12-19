@@ -428,6 +428,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.vocab_size = config.vocab_size
         self.is_first_iteration = True
         self.chunk_prefill = config.chunk_prefill
+        self.rl_config = config.rl_config
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
@@ -625,6 +626,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         logits = self.lm_head(output)
         input_mask = loss_mask if has_loss_mask \
             else self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
+        if self.rl_config is not None:
+            return logits
         if labels is None:
             labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))
         else:
