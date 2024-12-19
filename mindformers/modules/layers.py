@@ -1023,7 +1023,7 @@ def _check_llama3_scaling_factor(scaling_factor, max_position_embedding):
     missing_keys = required_keys - received_keys
     if missing_keys:
         raise KeyError(f"Missing required keys in `scaling_factor` for 'extend_method' LLAMA3': {missing_keys}")
-    unused_keys = received_keys - received_keys
+    unused_keys = received_keys - required_keys
     if unused_keys:
         raise KeyError(f"Unrecognized keys in `scaling_factor` for 'extend_method' LLAMA3': {unused_keys}")
 
@@ -1069,7 +1069,7 @@ def _check_yarn_scaling_factor(scaling_factor, max_position_embedding):
     missing_keys = required_keys - received_keys
     if missing_keys:
         raise KeyError(f"Missing required keys in `scaling_factor` for 'extend_method' YARN': {missing_keys}")
-    unused_keys = received_keys - received_keys
+    unused_keys = received_keys - required_keys
     if unused_keys:
         raise KeyError(f"Unrecognized keys in `scaling_factor` for 'extend_method' YARN': {unused_keys}")
 
@@ -1100,6 +1100,24 @@ def _check_yarn_scaling_factor(scaling_factor, max_position_embedding):
             "`scaling_factor`'s original_max_position_embeddings field must be less than max_position_embeddings, got "
             f"{original_max_position_embeddings} and max_position_embeddings={max_position_embedding}"
         )
+
+
+def _check_linear_scaling_factor(scaling_factor):
+    """check LINEAR scaling factor"""
+    if scaling_factor is None or not isinstance(scaling_factor, dict):
+        raise ValueError(f"`scaling_factor` must be a dict for {SeqExtendMethod.LINEAR.value} rope extend method,"
+                         f" but got {scaling_factor}")
+    required_keys = {"factor"}
+    received_keys = set(scaling_factor.keys())
+    missing_keys = required_keys - received_keys
+    if missing_keys:
+        raise KeyError(f"Missing required keys in `scaling_factor` for 'extend_method' LINEAR': {missing_keys}")
+    unused_keys = received_keys - required_keys
+    if unused_keys:
+        raise KeyError(f"Unrecognized keys in `scaling_factor` for 'extend_method' LINEAR': {unused_keys}")
+    factor = scaling_factor["factor"]
+    if factor is None or not isinstance(factor, float) or factor < 1.0:
+        raise ValueError(f"`scaling_factor`'s factor field must be a float >= 1, got {factor}")
 
 
 def _yarn_find_correction_dim(num_rotations, dim, base=10000, max_position_embeddings=2048):
@@ -1140,7 +1158,8 @@ class SeqExtendMethod(Enum):
     YARN = "YARN"
     NONE = "None"
     LLAMA3 = "LLAMA3"
-    DYNAMIC_NTK = "DYNAMIC_NTK"
+    DYNMAIC_NTK = "DYNAMIC_NTK"
+    LINEAR = "linear"
 
 
 class FreqsMgr(Cell):
@@ -1165,6 +1184,10 @@ class FreqsMgr(Cell):
         freqs_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32)  # (head_dim // 2, )
         freqs = 1.0 / (theta ** (freqs_base / head_dim))  # (head_dim // 2, )
         mscale = 1.0
+        if extend_method == SeqExtendMethod.LINEAR.value:
+            _check_linear_scaling_factor(scaling_factor)
+            factor = scaling_factor["factor"]
+            freqs /= factor
 
         if extend_method == SeqExtendMethod.YARN.value:
             _check_yarn_scaling_factor(scaling_factor, max_position_embedding)
