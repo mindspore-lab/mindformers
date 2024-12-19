@@ -113,12 +113,9 @@ def main(**kwargs):
                 final_prompts.append(input_text)
             task.predict(input_data=final_prompts,
                          predict_checkpoint=ckpt, max_length=int(max_length), seq_length=max_length)
-    elif run_mode == 'finetune':
-        trainer = Trainer(args=config, task=task, train_dataset=train_dataset)
-        trainer.finetune(finetune_checkpoint=ckpt, auto_trans_ckpt=auto_trans_ckpt)
-    elif run_mode == 'train':
-        trainer = Trainer(args=config, task=task, train_dataset=train_dataset)
-        trainer.train(auto_trans_ckpt=auto_trans_ckpt)
+    elif run_mode in ['train', 'finetune']:
+        trainer = Trainer(args=config)
+        trainer.train()
     else:
         raise NotImplementedError(f"run_mode '${run_mode}' not supported yet.")
 
