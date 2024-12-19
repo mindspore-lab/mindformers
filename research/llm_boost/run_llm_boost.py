@@ -20,6 +20,8 @@ import os
 import numpy
 
 from mindspore.communication import get_rank
+from mindspore._c_expression import _framework_profiler_step_start, _framework_profiler_step_end
+
 
 from research.llm_boost.llm_boost import LlmBoostForCausalLM
 from research.llm_boost.llm_boost import LlmBoostConfig
@@ -39,7 +41,8 @@ def main(
     config,
     max_length=8192,
     batch_size=1,
-    measure_throughput=False):
+    measure_throughput=False,
+    save_file=""):
     """main function."""
     inputs = [
         "帮我制定一份去上海的旅游攻略",
@@ -48,22 +51,13 @@ def main(
         "我喜欢看电影，因为",
     ]
     inputs = [
-        "Through community cooperation, this open Al framework best matches with Ascend processors and supports\
-          multi-processor architectures for all scenarios. It brings data scientists, algorithm engineers, and\
-          developers ",
-        "Through community cooperation, this open Al framework best matches with Ascend processors and supports\
-          multi-processor architectures for all scenarios. It brings data scientists, algorithm engineers, and\
-          developers ",
-        "Through community cooperation, this open Al framework best matches with Ascend processors and supports\
-          multi-processor architectures for all scenarios. It brings data scientists, algorithm engineers, and\
-          developers ",
-        "Through community cooperation, this open Al framework best matches with Ascend processors and supports\
-          multi-processor architectures for all scenarios. It brings data scientists, algorithm engineers, and\
-          developers ",
+        "hello, I love Beijing",
     ]
 
     # init context
     build_context(config)
+
+    os.environ['MS_DISABLE_REF_MODE'] = '1'
 
     config.model.model_config.batch_size = batch_size
     config.model.model_config.parallel_config = config.parallel_config
@@ -98,25 +92,31 @@ def main(
     load_ckpt(config, network)
     # generate
     if not measure_throughput:
-        inputs_ids = tokenizer(inputs, max_length=max_length, padding="max_length")[
-           "input_ids"
-        ]
+        if len(inputs) == 1 and batch_size != 1:
+            inputs = inputs * batch_size
+        inputs_ids = tokenizer(inputs, max_length=max_length, padding="max_length")["input_ids"]
         outputs = network.generate(
-            input_ids=inputs_ids,
-            max_length=max_length,
-            do_sample=model_config.do_sample,
-            top_k=model_config.top_k,
-            top_p=model_config.top_p,
-        )
-        for output in outputs:
-            print(tokenizer.decode(output))
+                input_ids=inputs_ids,
+                max_length=max_length,
+                do_sample=model_config.do_sample,
+                top_k=model_config.top_k,
+                top_p=model_config.top_p,
+                )
+
+        with open(save_file, 'w') as file:
+            for output in outputs:
+                print(tokenizer.decode(output))
+                file.write(tokenizer.decode(output) + '\n')
+        file.close()
 
     else:
+        _framework_profiler_step_start()
         for bs in [1, 4]:
             length = 512
             max_length = length * 2
 
             print("***************************Warm up for bs {}*************************".format(bs))
+
             inputs_ids_arr = numpy.random.randint(low=1, high=1000, size=(bs, max_length))
             inputs_ids_arr[:, length:] = 0
             network._exec_add_flags = True
@@ -127,12 +127,12 @@ def main(
             for length in [256, 512, 1024, 2048]:
                 print("************************ Measure bs={}, length={} *************************".format(bs, length))
                 max_length = length * 2
-                inputs_ids_arr = numpy.random.randint(low=1, high=1000, size=(bs, max_length))
-                inputs_ids_arr[:, length:] = 0
+                inputs_ids_arr = numpy.random.randint(low=1, high=1000, size=(bs, length))
                 network._exec_add_flags = True
                 outputs = network.generate(input_ids=inputs_ids_arr.tolist(), max_length=max_length,
                                            do_sample=model_config.do_sample, top_k=model_config.top_k,
                                            top_p=model_config.top_p)
+        _framework_profiler_step_end()
 
 
 if __name__ == "__main__":
@@ -181,7 +181,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--batch_size", default=1, type=int, help="batch_size")
     parser.add_argument("--device_num", default=1, type=int, help="device_num")
-    parser.add_argument("--measure_throughput", default=False, type=bool, help="measure_throughput")
+    parser.add_argument("--measure_throughput", default=False, type=str2bool, help="measure_throughput")
+    parser.add_argument("--save_file", default="results.txt", type=str, help="file to store results")
 
 
     args = parser.parse_args()
@@ -228,5 +229,6 @@ if __name__ == "__main__":
     main(config=mfconfig,
          max_length=args.predict_length,
          batch_size=args.batch_size,
-         measure_throughput=args.measure_throughput
+         measure_throughput=args.measure_throughput,
+         save_file=args.save_file
     )
