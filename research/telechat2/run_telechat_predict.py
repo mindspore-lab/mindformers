@@ -89,9 +89,9 @@ def main():
     inputs = []
     for question in input_questions:
         inputs.append({"role": "user", "content": question})
-        inputs = tokenizer.apply_chat_template(conversation=inputs, tokenize=False, add_generation_prompt=True)
-        logger.info(f"inputs: {inputs}")
-        input_ids = tokenizer(inputs)["input_ids"]
+        inputs_chat = tokenizer.apply_chat_template(conversation=inputs, tokenize=False, add_generation_prompt=True)
+        logger.info(f"inputs: {inputs_chat}")
+        input_ids = tokenizer(inputs_chat)["input_ids"]
         logger.debug(f"input_ids: {input_ids}")
         outputs = model.generate(input_ids)
         output_ids = outputs[0][len(inputs):-1]

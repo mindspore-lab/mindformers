@@ -25,6 +25,8 @@ import math
 import numpy as np
 
 from mindspore import nn
+from mindspore import mint
+from mindspore import ops
 from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer, Tensor, Normal
 import mindspore.common.dtype as mstype
@@ -1138,6 +1140,7 @@ class SeqExtendMethod(Enum):
     YARN = "YARN"
     NONE = "None"
     LLAMA3 = "LLAMA3"
+    DYNAMIC_NTK = "DYNAMIC_NTK"
 
 
 class FreqsMgr(Cell):
@@ -1318,6 +1321,181 @@ class FreqsMgr(Cell):
         zero_block = np.zeros((head_dim // 2, head_dim // 2), dtype=np.float32)
         id_block = np.identity(head_dim // 2, dtype=np.float32)
         return np.block([[zero_block, id_block], [-id_block, zero_block]])
+
+
+class FreqsMgrDynamicNTK(Cell):
+    r"""freqs_cis manager."""
+
+    def __init__(self,
+                 head_dim,
+                 seq_length=None,
+                 rotary_dtype=mstype.float16,
+                 theta=10000,
+                 parallel_config=None,
+                 is_dynamic=False,
+                 use_default_freqs=True):
+        super().__init__()
+        self.is_pynative = is_pynative()
+        freqs_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32)  # (head_dim // 2, )
+        freqs = 1.0 / (theta ** (freqs_base / head_dim))  # (head_dim // 2, )
+        mscale = 1.0
+
+        t = np.arange(0, seq_length, 1).astype(np.float32)
+        freqs = np.outer(t, freqs)  # (max_position_embedding, head_dim // 2)
+        emb = np.concatenate((freqs, freqs), axis=-1)
+
+        freqs_cos = np.cos(emb) * mscale  # (seq_len, head_dim)
+        freqs_sin = np.sin(emb) * mscale # (seq_len, head_dim)
+        swap_mask = FreqsMgr.get_swap_mask(head_dim)
+
+        if parallel_config is not None and parallel_config.context_parallel > 1:
+            self.context_parallel = parallel_config.context_parallel
+        else:
+            self.context_parallel = 1
+
+        self.head_dim = head_dim
+        self.is_dynamic = is_dynamic
+        self.freqs_cos = Tensor(freqs_cos, dtype=rotary_dtype)
+        self.freqs_sin = Tensor(freqs_sin, dtype=rotary_dtype)
+        self.swap_mask = Tensor(swap_mask, dtype=rotary_dtype)
+
+        self.reshape = P.Reshape()
+        self.shape = P.Shape()
+        self.slice = P.StridedSlice().shard(((1, 1),))
+        self.gather = P.Gather().shard(((1, 1), (1,)))
+        self.tile = P.Tile().shard(((1, 1),))
+        self.mul = P.Mul()
+        self.mul_freqs = P.Mul().shard(((1, 1), (1, 1)))
+        self.add = P.Add()
+        self.sub = P.Sub()
+        self.concat = P.Concat(axis=1)
+
+        self.base = theta
+        self.seq_length = seq_length
+        self.seq_length_inverse = 1 / seq_length
+        self.log_scale_inverse = 1 / math.log(2)
+        self.log_scale = math.log(2)
+        self.min_ntk_alpha = 1.0
+        self.ntk_exponent = head_dim / (head_dim - 2.0)
+        self.freqs_base = Tensor(-(freqs_base / head_dim), dtype=mstype.float32)
+        self.rotary_dtype = rotary_dtype
+        self.batch_max_length = seq_length
+        self.use_default_freqs = use_default_freqs
+        if self.use_default_freqs:
+            logger.info(f"Will use default freqs when input seq_length is less than {self.seq_length}")
+
+    def get_ntk_alpha(self, true_seq_len):
+        """get ntk alpha factor."""
+        context_value = mint.log(self.mul(true_seq_len, self.seq_length_inverse))
+        context_value = self.mul(context_value, self.log_scale_inverse)
+        context_value = self.add(context_value, 1.0)
+
+        ntk_alpha = mint.ceil(context_value)
+        ntk_alpha = mint.exp(self.mul(ntk_alpha, self.log_scale))
+        ntk_alpha = self.sub(ntk_alpha, 1.0)
+        ntk_alpha = ops.clip_by_value(ntk_alpha, clip_value_min=self.min_ntk_alpha)
+
+        ntk_alpha = mint.pow(ntk_alpha, self.ntk_exponent)
+        return ntk_alpha
+
+    def get_mscale(self, true_seq_len):
+        """get ntk mscale."""
+        mscale = self.mul(true_seq_len, self.seq_length_inverse)
+        mscale = self.add(self.mul(mint.log(mscale), 0.1), 1.0)
+        return mscale
+
+    def get_dynamic_ntk_freqs(self, seq_length, seq_arange):
+        """get dynamic ntk freqs."""
+        ntk_alpha = self.get_ntk_alpha(seq_length)
+        mscale = self.get_mscale(seq_length)
+        mscale = self.reshape(mscale, (-1, 1))
+        theta = self.mul(self.base, ntk_alpha)
+        theta = self.reshape(theta, (-1, 1))
+        freqs = mint.pow(theta, self.freqs_base)
+        freqs = self.mul_freqs(self.reshape(seq_arange, (-1, 1)), freqs)
+        emb = self.concat((freqs, freqs))
+        freqs_cos = self.mul_freqs(mint.cos(emb), mscale)  # (seq_len, head_dim)
+        freqs_sin = self.mul_freqs(mint.sin(emb), mscale) # (seq_len, head_dim)
+        freqs_cos = self.cast(freqs_cos, self.rotary_dtype)
+        freqs_sin = self.cast(freqs_sin, self.rotary_dtype)
+        return freqs_cos, freqs_sin
+
+    def prefill(self, bs, seq_length):
+        """get prefill freqs default."""
+        if not self.use_default_freqs:
+            return self.prefill_dynamic(bs, seq_length)
+
+        if self.batch_max_length <= self.seq_length:
+            freqs_cos = self.freqs_cos
+            freqs_sin = self.freqs_sin
+        else:
+            seq_arange = ops.arange(start=0, end=self.batch_max_length, step=1)
+            freqs_cos, freqs_sin = self.get_dynamic_ntk_freqs(self.batch_max_length, seq_arange)
+
+        if self.is_dynamic and not self.is_pynative:
+            return freqs_cos, freqs_sin, self.swap_mask
+
+        freqs_cos = self.tile(self.slice(freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))
+        freqs_sin = self.tile(self.slice(freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))
+        return freqs_cos, freqs_sin, self.swap_mask
+
+    def increment(self, batch_valid_length):
+        """get decode freqs default."""
+        if not self.use_default_freqs:
+            return self.increment_dynamic(batch_valid_length)
+
+        indices = batch_valid_length - 1
+        indices_max = indices.max()
+        if indices_max < self.seq_length:
+            freqs_cos = self.gather(self.freqs_cos, indices, 0)
+            freqs_sin = self.gather(self.freqs_sin, indices, 0)
+        else:
+            batch_valid_length = ops.clip_by_value(batch_valid_length, clip_value_min=self.seq_length)
+            freqs_cos, freqs_sin = self.get_dynamic_ntk_freqs(batch_valid_length, indices)
+        return freqs_cos, freqs_sin, self.swap_mask
+
+    def increment_multi_ids(self, indices):
+        """get decode freqs default."""
+        if not self.use_default_freqs:
+            return increment_multi_ids_dynamic(indices)
+
+        indices = indices.reshape(-1)
+        indices_max = indices.max()
+        if indices_max < self.seq_length:
+            freqs_cos = self.gather(self.freqs_cos, indices, 0)
+            freqs_sin = self.gather(self.freqs_sin, indices, 0)
+        else:
+            batch_valid_length = indices + 1
+            batch_valid_length = ops.clip_by_value(batch_valid_length, clip_value_min=self.seq_length)
+            freqs_cos, freqs_sin = self.get_dynamic_ntk_freqs(batch_valid_length, indices)
+        return freqs_cos, freqs_sin, self.swap_mask
+
+    def prefill_dynamic(self, bs, seq_length):
+        """get prefill freqs dynamic."""
+        seq_arange = ops.arange(start=0, end=self.batch_max_length, step=1)
+        freqs_cos, freqs_sin = self.get_dynamic_ntk_freqs(self.batch_max_length, seq_arange)
+
+        if self.is_dynamic and not self.is_pynative:
+            return freqs_cos, freqs_sin, self.swap_mask
+
+        freqs_cos = self.tile(self.slice(freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))
+        freqs_sin = self.tile(self.slice(freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))
+        return freqs_cos, freqs_sin, self.swap_mask
+
+    def increment_dynamic(self, batch_valid_length):
+        """get decode freqs dynamic."""
+        indices = batch_valid_length - 1
+        batch_valid_length = ops.clip_by_value(batch_valid_length, clip_value_min=self.seq_length)
+        freqs_cos, freqs_sin = self.get_dynamic_ntk_freqs(batch_valid_length, indices)
+        return freqs_cos, freqs_sin, self.swap_mask
+
+    def increment_multi_ids_dynamic(self, indices):
+        """get decode freqs dynamic."""
+        indices = indices.reshape(-1)
+        batch_valid_length = indices + 1
+        batch_valid_length = ops.clip_by_value(batch_valid_length, clip_value_min=self.seq_length)
+        freqs_cos, freqs_sin = self.get_dynamic_ntk_freqs(batch_valid_length, indices)
+        return freqs_cos, freqs_sin, self.swap_mask
 
 
 class RotaryEmbedding(Cell):

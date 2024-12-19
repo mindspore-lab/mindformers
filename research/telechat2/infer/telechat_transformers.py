@@ -20,6 +20,8 @@ from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.experimental.infer.core.transformer import \
     ParallelAttention, ParallelTransformerLayer, ParallelTransformer, ParallelMLP
+from mindformers.modules.layers import FreqsMgrDynamicNTK
+from mindformers.tools.logger import logger
 
 
 class TelechatParallelMLP(ParallelMLP):
@@ -313,6 +315,20 @@ class TelechatParallelTransformer(ParallelTransformer):
             post_process,
             drop_path_rate
         )
+
+        if config.extend_method == 'DYNAMIC_NTK':
+            use_default_freqs = True
+            if hasattr(config, "use_default_freqs"):
+                use_default_freqs = config.use_default_freqs
+            self.freqs_mgr = FreqsMgrDynamicNTK(head_dim=self.head_dim,
+                                                seq_length=config.seq_length,
+                                                rotary_dtype=config.rotary_dtype,
+                                                theta=config.theta,
+                                                parallel_config=config.parallel_config,
+                                                is_dynamic=config.is_dynamic,
+                                                use_default_freqs=use_default_freqs)
+            logger.info("Running with dynamic NTK.")
+
         self.layers = nn.CellList()
         for layer_id in range(config.num_layers):
             layer = TelechatParallelTransformerLayer(config=self.config, layer_number=layer_id + 1)

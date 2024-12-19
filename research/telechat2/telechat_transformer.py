@@ -531,8 +531,7 @@ class TelechatDecodeLayer(nn.Cell):
                                                 ffn_dim_multiplier=ffn_dim_multiplier,
                                                 ffn_concat=self.qkv_concat,
                                                 compute_dtype=compute_dtype,
-                                                param_init_type=param_init_type,
-                                                is_dynamic=is_dynamic)
+                                                param_init_type=param_init_type)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
