@@ -15,6 +15,8 @@
 """InternLM models' APIs."""
 import copy
 
+from internlm_config import InternLMConfig
+
 from mindspore import nn, ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 import mindspore.common.dtype as mstype
@@ -23,11 +25,10 @@ from mindformers import Linear, CrossEntropyLoss
 from mindformers.models import LlamaModel, LlamaForCausalLM
 from mindformers.models.utils import LayerSetting
 from mindformers.models.llama.llama_layer import LlamaEmbedding
+from mindformers.models.llama.llama_transformer import LLamaAttention, LLamaDecodeLayer
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.models.utils import lazy_inline
-
-from internlm_transformer import InternLMDecodeLayer
-from internlm_config import InternLMConfig
+from mindformers.modules.transformer import TransformerOpParallelConfig
 
 
 class InternLMModel(LlamaModel):
@@ -128,3 +129,82 @@ class InternLMForCausalLM(LlamaForCausalLM):
                                      calculate_per_token_loss=calculate_per_token_loss)
         config.checkpoint_name_or_path = checkpoint_name_or_path
         self.load_checkpoint(config)
+
+
+class InternLMAttention(LLamaAttention):
+    """Multi-head attention of InternLM inherited from LLamaAttention.
+
+    Args:
+        o_has_bias (bool, optional): Whether O projection in attention has bias. Defaults to True.
+        **kwargs: keyword arguments of [`LLamaAttention`].
+
+    """
+
+    def __init__(self,
+                 has_bias,
+                 **kwargs):
+        super().__init__(**kwargs)
+        if has_bias:
+            compute_dtype = kwargs.pop("compute_dtype", mstype.float16)
+            param_init_type = kwargs.pop("param_init_type", mstype.float32)
+            parallel_config = kwargs.pop("parallel_config", TransformerOpParallelConfig())
+
+            self.wo = Linear(in_channels=self.hidden_size,
+                             out_channels=self.hidden_size,
+                             has_bias=has_bias,
+                             compute_dtype=compute_dtype,
+                             param_init_type=param_init_type)
+            self.wq = Linear(self.hidden_size,
+                             self.hidden_size,
+                             has_bias=has_bias,
+                             compute_dtype=compute_dtype,
+                             param_init_type=param_init_type)
+            self.wk = Linear(self.hidden_size,
+                             self.n_kv_head * self.head_dim,
+                             has_bias=has_bias,
+                             compute_dtype=compute_dtype,
+                             param_init_type=param_init_type)
+            self.wv = Linear(self.hidden_size,
+                             self.n_kv_head * self.head_dim,
+                             has_bias=has_bias,
+                             compute_dtype=compute_dtype,
+                             param_init_type=param_init_type)
+
+            dp = parallel_config.data_parallel
+            mp = parallel_config.model_parallel
+            if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+                self.wq.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+                self.wk.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+                self.wv.shard(((dp, 1), (mp, 1)), ((dp, mp), (mp,)))
+                self.wo.shard(((dp, mp), (1, mp)), ((dp, 1), (1,)))
+                if parallel_config.use_seq_parallel and self.is_first_iteration:
+                    self.wo.shard(((dp, mp), (1, mp)),
+                                  out_strategy_matmul=((dp * mp, 1),),
+                                  strategy_bias=((dp * mp, 1), (1,)))
+
+
+class InternLMDecodeLayer(LLamaDecodeLayer):
+    """InternLM Transformer Layer inherits from LLamaDecodeLayer.
+
+    Args:
+        seq_length (int): The sequence length of input.
+        layer_id (int): The layer id of current transformer block layer.
+        o_has_bias (bool, optional): Whether O projection in attention has bias. Defaults to True.
+        **kwargs: keyword arguments of [`LLamaDecodeLayer`].
+
+    """
+
+    def __init__(self,
+                 seq_length,
+                 layer_id,
+                 has_bias,
+                 **kwargs):
+        super().__init__(seq_length=seq_length,
+                         layer_id=layer_id,
+                         **kwargs)
+        kwargs.pop("multiple_of")
+        kwargs.pop("intermediate_size")
+        kwargs.pop("ffn_dim_multiplier")
+        kwargs.pop("norm_eps")
+        kwargs.pop("layernorm_compute_dtype")
+        self.attention = InternLMAttention(has_bias=has_bias, seq_length=seq_length, **kwargs)

@@ -1,10 +1,8 @@
 seed: 0
 output_dir: './output'  # path to save checkpoint/strategy
-load_checkpoint: './internlm.ckpt'
+load_checkpoint: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
-only_save_strategy: False
-resume_training: False
-use_parallel: False
+use_parallel: True
 run_mode: 'predict'
 
 # trainer config
@@ -12,40 +10,10 @@ trainer:
   type: CausalLanguageModelingTrainer
   model_name: 'internlm_20b'
 
-# runner config
-runner_config:
-  epochs: 1
-  batch_size: 1
-  sink_mode: True
-  sink_size: 2
-
-# eval dataset
-eval_dataset: &eval_dataset
-  data_loader:
-    type: MindDataset
-    dataset_dir: ""
-    shuffle: False
-  input_columns: ["input_ids"]
-  num_parallel_workers: 8
-  python_multiprocessing: False
-  drop_remainder: False
-  repeat: 1
-  numa_enable: False
-  prefetch_size: 1
-eval_dataset_task:
-  type: CausalLanguageModelDataset
-  dataset_config: *eval_dataset
-
-# default parallel of device num = 8 for Atlas 800T A2
+# default parallel of device num = 2 for Atlas 800T A2
 parallel_config:
-  data_parallel: 1
-  model_parallel: 8
+  model_parallel: 2
   pipeline_stage: 1
-  micro_batch_num: 1
-  vocab_emb_dp: True
-  gradient_aggregation_group: 4
-# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
 
 # recompute config
 recompute_config:
@@ -54,44 +22,22 @@ recompute_config:
   mp_comm_recompute: True
   recompute_slice_activation: True
 
-# callbacks
-callbacks:
-  - type: MFLossMonitor
-  - type: CheckpointMonitor
-    prefix: "internlm_20b"
-    save_checkpoint_steps: 500
-    keep_checkpoint_max: 3
-    integrated_save: False
-    async_save: False
-  - type: ObsMonitor
-
 # mindspore context init config
 context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
-  device_target: "Ascend"
-  max_call_depth: 10000
   max_device_memory: "59GB"
-  save_graphs: False
-  save_graphs_path: "./graph"
   device_id: 0
 
 # parallel context config
 parallel:
-  parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
-  gradients_mean: False
-  enable_alltoall: False
   full_batch: True
-  search_mode: "sharding_propagation"
   enable_parallel_optimizer: False
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
-  parallel_optimizer_config:
-    gradient_accumulation_shard: False
-    parallel_optimizer_threshold: 64
 
 # model config
 model:
   model_config:
     type: InternLMConfig
+    auto_register: internlm_model.InternLMConfig
     batch_size: 1 # add for increase predict
     seq_length: 2048
     hidden_size: 5120
@@ -130,6 +76,7 @@ model:
       AutoTokenizer: [internlm_tokenizer.InternLMTokenizer, null]
   arch:
     type: InternLMForCausalLM
+    auto_register: internlm_model.InternLMForCausalLM
 
 processor:
   return_tensors: ms
@@ -139,26 +86,10 @@ processor:
     eos_token: '</s>'
     pad_token: '</s>'
     type: InternLMTokenizer
+    auto_register: internlm_tokenizer.InternLMTokenizer
     vocab_file: './internlm-20b-chat/tokenizer.model'
   type: LlamaProcessor
 
 # metric
 metric:
   type: PerplexityMetric
-
-eval_callbacks:
-  - type: ObsMonitor
-
-auto_tune: False
-filepath_prefix: './autotune'
-autotune_per_step: 10
-
-profile: False
-profile_start_step: 1
-profile_stop_step: 10
-init_start_profile: False
-profile_communication: False
-profile_memory: True
-
-# aicc
-remote_save_url: "Please input obs url on AICC platform."
