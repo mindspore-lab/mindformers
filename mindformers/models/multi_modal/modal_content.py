@@ -270,7 +270,7 @@ class ModalContentTransformTemplate:
     Args:
         output_columns (List[str], optional): Specify which columns will be output. Default: ``None``.
         tokenizer (Tokenizer, optional): Build a good model tokenizer. Default: ``None``.
-        mode (str): running mode, predict or train. Default: ``predict``.
+        mode (str, optional): running mode, predict or train. Default: ``predict``.
         vstack_columns (List[str], optional): Specify which columns will be vstack when batching data.
             Default: ``None``.
         modal_content_padding_size (int, optional): Used in training mode for inherited Template subclasses,

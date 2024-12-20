@@ -85,7 +85,7 @@ mindformers.generation.GenerationMixin
         参数：
             - **input_ids** (List(List(int))) - 填充（Padding）后的输入索引。
             - **valid_length_each_example** (np.ndarray) - 除填充外的有效输入长度。
-            - **generation_config** (`GenerationConfig`) - 用生成配置来对生成调用进行基本参数化。
+            - **generation_config** (`GenerationConfig`, 可选) - 用生成配置来对生成调用进行基本参数化。默认值： ``None`` 。
             - **logits_processor** (`LogitsProcessorList`, 可选) - [`LogitsProcessorList`]的一个实例。这是由继承自[`LogitsProcessor`]类的实例组成的一个列表，用于在每一步生成过程中修改语言模型头部的预测得分。默认值： ``None`` 。
             - **logits_warper** (`LogitsProcessorList`, 可选) - [`LogitsProcessorList`]的一个实例。这是一个由继承自[`LogitsWarper`]类的实例组成的列表，用于在每一步生成过程中的多项式采样之前，调整语言模型头部的预测得分分布。默认值： ``None`` 。
             - **block_tables** (Tensor, 可选) - 存储每个序列的映射表。默认值： ``None`` 。
