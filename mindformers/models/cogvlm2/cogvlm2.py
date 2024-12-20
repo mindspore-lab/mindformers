@@ -165,7 +165,6 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
         self.gather = P.Gather().shard(((1, 1, 1), ()))
         self.equal = P.Equal().shard(((parallel_config.data_parallel, 1), ()))
 
-        self.iter_num = 0
         self.freeze_component()
 
     def freeze_component(self):
@@ -185,27 +184,49 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         """Prepare inputs for generation in inference."""
-        images = kwargs.pop("images")
-        video_context_pos = kwargs.pop("video_context_pos")
-        position_ids = kwargs.pop("position_ids")
-        valid_position = kwargs.pop("valid_position")
+        images = kwargs.get("images")
+        video_context_pos = kwargs.get("video_context_pos")
+        position_ids = kwargs.get("position_ids")
+        slot_mapping = kwargs.get("slot_mapping")
+        batch_valid_length = np.array(kwargs.get("valid_length_each_example"))
+        batch_size = batch_valid_length.shape[0]  # [bs,]
 
         prefill = kwargs.get('prefill')
         is_first_iteration = True if prefill is None else prefill
-        if not is_first_iteration:
-            if isinstance(position_ids, Tensor):
-                position_ids = position_ids.numpy()
-            cur_valid_pos = valid_position + self.iter_num
-            position_ids = np.take_along_axis(position_ids, cur_valid_pos, axis=1)
-            position_ids = Tensor(position_ids, ms.int32)
-            self.iter_num += 1
+        if is_first_iteration:
+            origin_inputs = kwargs.get("origin_inputs")
+            video_context_pos = video_context_pos.numpy()
+
+            input_ids_list = []
+            video_pos_list = []
+            pos_start = 0
+            for batch_idx in range(batch_size):
+                context_len = batch_valid_length[batch_idx]
+                cur_input_ids = origin_inputs[batch_idx][:context_len]
+                sub_video_pos = video_context_pos[video_context_pos[:, :, 0] == batch_idx]
+                sub_video_pos[:, 0] = 0
+                sub_video_pos[:, 1] += pos_start
+                pos_start += len(cur_input_ids)
+                video_pos_list.append(sub_video_pos)
+                input_ids_list.append(cur_input_ids)
+            video_pos_list = np.concatenate(video_pos_list, 0)
+            video_context_pos = np.reshape(video_pos_list, (-1, self.num_queries, 2))
+            video_context_pos = Tensor.from_numpy(video_context_pos)
+
+            input_ids = np.concatenate(input_ids_list, 0)
+            input_ids = input_ids.reshape((1, -1))
+            slot_mapping = np.delete(slot_mapping, np.where(slot_mapping == -1))
         else:
-            self.iter_num = 0
+            valid_position = np.expand_dims(batch_valid_length, 0) - 1
+            position_ids = position_ids[np.arange(batch_size), valid_position[0]]
+            position_ids = np.expand_dims(position_ids, 0)
+
         return {
             "input_ids": Tensor(input_ids, mstype.int32),
             "images": images,
             "video_context_pos": video_context_pos,
-            "position_ids": position_ids
+            "position_ids": Tensor(position_ids, mstype.int32),
+            "slot_mapping": Tensor.from_numpy(slot_mapping)
         }
 
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -268,7 +289,6 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
                 labels = self.masked_fill(labels, pad_content_pos, self.ignore_token_id)
         else:
             tokens = input_ids
-            position_ids = self.stride_slice(position_ids, (0, 0), (bs, seq_len), (1, 1))
 
         input_embeds = self.llm_model.to_embeddings(tokens)
         if attention_mask is None:

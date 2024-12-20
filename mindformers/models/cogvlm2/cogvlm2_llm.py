@@ -388,8 +388,6 @@ class CogVLM2VideoLM(LlamaPreTrainedModel):
         self.load_checkpoint(config)
         self.predict_run_mode = get_predict_run_mode()
 
-        logger.info(f"Predict kbk mode: {self.predict_run_mode}")
-
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
         """Get model input tuple for transform ckpt."""
         input_ids = Tensor(input_ids, mstype.int32)

@@ -173,6 +173,7 @@ train_dataset: &train_dataset
       output_columns: [ "input_ids", "images", "video_context_pos", "position_ids", "labels" ]
       signal_type: "chat"
       mode: 'train'
+      pos_pad_length: *seq_length
   tokenizer:
     add_bos_token: False
     add_eos_token: False
