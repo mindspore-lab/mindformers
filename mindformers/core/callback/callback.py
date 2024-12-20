@@ -143,17 +143,19 @@ class MFLossMonitor(Callback):
     Monitor loss and other parameters in training process.
 
     Args:
-        learning_rate (Union[float, LearningRateSchedule], optional): The learning rate schedule. Default: None.
-        per_print_times (int): Every how many steps to print the log information. Default: 1.
-        micro_batch_num (int): MicroBatch size for Pipeline Parallel. Default: 1.
-        micro_batch_interleave_num (int): split num of batch size. Default: 1.
-        origin_epochs (int): Training epoches. Default: None.
-        dataset_size (int): Training dataset size. Default: None.
-        initial_epoch (int): The beginning epoch. Default: 0.
-        initial_step (int): The beginning step. Default: 0.
-        global_batch_size (int): The total batch size. Default: 0.
-        gradient_accumulation_steps (int): The gradient accumulation steps. Default: 1.
-        check_for_nan_in_loss_and_grad (bool): Whether to check loss and norm of grad is Nan. Default: False.
+        learning_rate (Union[float, LearningRateSchedule], optional): The learning rate schedule. Default: ``None``.
+        per_print_times (int, optional): Every how many steps to print the log information. Default: ``1``.
+        micro_batch_num (int, optional): MicroBatch size for Pipeline Parallel. Default: ``1``.
+        micro_batch_interleave_num (int, optional): split num of batch size. Default: ``1``.
+        origin_epochs (int, optional): Training epoches. Default: ``None``.
+        dataset_size (int, optional): Training dataset size. Default: ``None``.
+        initial_epoch (int, optional): The beginning epoch. Default: ``0``.
+        initial_step (int, optional): The beginning step. Default: ``0``.
+        global_batch_size (int, optional): The total batch size. Default: ``0``.
+        gradient_accumulation_steps (int, optional): The gradient accumulation steps. Default: ``1``.
+        check_for_nan_in_loss_and_grad (bool, optional): Whether to check loss and norm of grad is Nan.
+            Default: ``False``.
+        calculate_per_token_loss (bool, optional): Whether to calculate the loss of each token. Default: ``False``.
 
     Examples:
         >>> from mindformers.core import MFLossMonitor
@@ -468,26 +470,26 @@ class SummaryMonitor:
         `note <https://www.mindspore.cn/docs/en/master/api_python/mindspore/mindspore.SummaryCollector.html>`_ .
 
     Args:
-        summary_dir (str):
+        summary_dir (str, optional):
             The collected data will be persisted to this directory. If the directory does not exist,
-            it will be created automatically. Default: None.
-        collect_freq (int):
+            it will be created automatically. Default: ``None``.
+        collect_freq (int, optional):
             Set the frequency of data collection, it should be greater than zero, and the unit is `step`.
-            Default: 10.
-        collect_specified_data (Union[None, dict]):
-            Perform custom operations on the collected data. Default: None.
-        keep_default_action (bool):
-            This field affects the collection behavior of the 'collect_specified_data' field. Default: True.
-        custom_lineage_data (Union[dict, None]):
+            Default: ``10``.
+        collect_specified_data (Union[None, dict], optional):
+            Perform custom operations on the collected data. Default: ``None``.
+        keep_default_action (bool, optional):
+            This field affects the collection behavior of the 'collect_specified_data' field. Default: ``True``.
+        custom_lineage_data (Union[dict, None], optional):
             Allows you to customize the data and present it on the MingInsight `lineage page <https://
-            www.mindspore.cn/mindinsight/docs/en/master/lineage_and_scalars_comparison.html>`_ . Default: None.
-        collect_tensor_freq (Optional[int]):
-            The same semantics as the `collect_freq`, but controls TensorSummary only. Default: None.
-        max_file_size (Optional[int]):
+            www.mindspore.cn/mindinsight/docs/en/master/lineage_and_scalars_comparison.html>`_ . Default: ``None``.
+        collect_tensor_freq (Optional[int], optional):
+            The same semantics as the `collect_freq`, but controls TensorSummary only. Default: ``None``.
+        max_file_size (Optional[int], optional):
             The maximum size in bytes of each file that can be written to the disk. For example,
-            to write not larger than 4GB, specify max_file_size=4*1024**3. Default: None, which means no limit.
-        export_options (Union[None, dict]):
-            Perform custom operations on the export data. Default: None, it means that the data is not exported.
+            to write not larger than 4GB, specify max_file_size=4*1024**3. Default: ``None``, which means no limit.
+        export_options (Union[None, dict], optional):
+            Perform custom operations on the export data. Default: ``None``, it means that the data is not exported.
 
     Examples:
         >>> from mindformers.core import SummaryMonitor
@@ -525,28 +527,29 @@ class CheckpointMonitor(ModelCheckpoint):
     Checkpoint Monitor For Save LossScale.
 
     Args:
-        prefix (str): The prefix name of checkpoint files. Default: 'CKP'.
-        directory (str): The path of the folder which will be saved in the checkpoint file. Default: None.
-        config (CheckpointConfig): Checkpoint strategy configuration. Default: None.
-        save_checkpoint_steps (int): Steps to save checkpoint. Default: 1.
-        save_checkpoint_seconds (int): Seconds to save checkpoint.
-                                       Can't be used with save_checkpoint_steps at the same time. Default: 0.
-        keep_checkpoint_max (int): Maximum number of checkpoint files can be saved. Default: 5.
-        keep_checkpoint_per_n_minutes (int): Save the checkpoint file every "keep_checkpoint_per_n_minutes" minutes.
-                                             Can't be used with keep_checkpoint_max at the same time. Default: 0.
-        integrated_save (bool): Whether to merge and save the split Tensor in the automatic parallel scenario.
-                                Integrated save function is only supported in automatic parallel scene. Default: True.
-        save_network_params (bool): Whether to only save network weights additionally. Default: True.
-        save_trainable_params (bool): Whether to save fine-tuned weights additionally. Default: False.
-        async_save (bool): Whether asynchronous execution saves the checkpoint to a file. Default: False.
-        saved_network (Cell): Network to be saved in checkpoint file. Default: None.
-        append_info (list): The information save to checkpoint file.
-                            Support "epoch_num", "step_num" and dict. Default: None.
-        enc_key (Union[None, bytes]): Byte type key used for encryption. Default: None.
-        enc_mode (str): This parameter is valid only when "enc_key" is not set to None. Specifies the encryption
-                        mode, currently supports 'AES-GCM', 'AES-CBC' and 'SM4-CBC'. Default: 'AES-GCM'.
-        exception_save (bool): Whether to save the current checkpoint when an exception occurs. Default: False.
-        global_batch_size (int): The total batch size. Default: 0.
+        prefix (str, optional): The prefix name of checkpoint files. Default: ``'CKP'``.
+        directory (str, optional): The path of the folder which will be saved in the checkpoint file. Default: ``None``.
+        config (CheckpointConfig, optional): Checkpoint strategy configuration. Default: ``None``.
+        save_checkpoint_steps (int, optional): Steps to save checkpoint. Default: ``1``.
+        save_checkpoint_seconds (int, optional): Seconds to save checkpoint.
+            Can't be used with save_checkpoint_steps at the same time. Default: ``0``.
+        keep_checkpoint_max (int, optional): Maximum number of checkpoint files can be saved. Default: ``5``.
+        keep_checkpoint_per_n_minutes (int, optional): Save the checkpoint file every "keep_checkpoint_per_n_minutes"
+            minutes. Can't be used with keep_checkpoint_max at the same time. Default: ``0``.
+        integrated_save (bool, optional): Whether to merge and save the split Tensor in the automatic parallel scenario.
+            Integrated save function is only supported in automatic parallel scene. Default: ``True``.
+        save_network_params (bool, optional): Whether to only save network weights additionally. Default: ``True``.
+        save_trainable_params (bool, optional): Whether to save fine-tuned weights additionally. Default: ``False``.
+        async_save (bool, optional): Whether asynchronous execution saves the checkpoint to a file. Default: ``False``.
+        saved_network (Cell, optional): Network to be saved in checkpoint file. Default: ``None``.
+        append_info (list, optional): The information save to checkpoint file.
+            Support "epoch_num", "step_num" and dict. Default: ``None``.
+        enc_key (Union[None, bytes], optional): Byte type key used for encryption. Default: ``None``.
+        enc_mode (str, optional): This parameter is valid only when "enc_key" is not set to None. Specifies the
+            encryption mode, currently supports 'AES-GCM', 'AES-CBC' and 'SM4-CBC'. Default: ``'AES-GCM'``.
+        exception_save (bool, optional): Whether to save the current checkpoint when an exception occurs.
+            Default: ``False``.
+        global_batch_size (int, optional): The total batch size. Default: ``0``.
 
     Raises:
         ValueError: If `prefix` is not str or contains the '/' character.
@@ -801,30 +804,32 @@ class ProfileMonitor(Callback):
     Profile analysis in training.
 
     Args:
-        start_step (int): The step to start profiling. Default: 1.
-        stop_step (int): The step to stop profiling. Default: 10.
-        output_path (str): The result of profiling will be saved in this path. Default: None.
-        start_profile (str): Whether to enable profiling. Default: True.
-        profile_rank_ids (list): Specify rank ids to enable profiling. Default: None(All rank ids are enabled).
-        profile_pipeline (str): Whether to enable profiling on one card of each parallel stage. Default: False.
-        profile_communication (str): Whether to collect communication performance data
-                                     during multi-device training. Default: False.
-        profile_memory (str): Whether to collect Tensor memory data. Default: False.
-        config (dict): Configuration items, used to profile relevant configuration information,
-                       such as parallel configuration. Default: None.
-        profiler_level (int): Collection level of profiling data(0, 1, 2). Default: 0.
+        start_step (int, optional): The step to start profiling. Default: ``1``.
+        stop_step (int, optional): The step to stop profiling. Default: ``10``.
+        output_path (str, optional): The result of profiling will be saved in this path. Default: ``None``.
+        start_profile (str, optional): Whether to enable profiling. Default: ``True``.
+        profile_rank_ids (list, optional): Specify rank ids to enable profiling. Default: ``None``(All rank ids
+            are enabled).
+        profile_pipeline (str, optional): Whether to enable profiling on one card of each parallel stage.
+            Default: ``False``.
+        profile_communication (str, optional): Whether to collect communication performance data
+            during multi-device training. Default: ``False``.
+        profile_memory (str, optional): Whether to collect Tensor memory data. Default: ``False``.
+        config (dict, optional): Configuration items, used to profile relevant configuration information,
+            such as parallel configuration. Default: ``None``.
+        profiler_level (int, optional): Collection level of profiling data(0, 1, 2). Default: ``0``.
 
-                            - 0: The most streamlined level of performance data collection,
-                              only collecting execution time data for computational operators and
-                              basic data for large communication operators.
-                            - 1: In addition to level 0, extra data is collected for CANN layer AscendCL,
-                              AICORE performance data, and small communication operators.
-                            - 2: In addition to level 1, extra data is collected for graph compile level O2
-                              and Runtime in the CANN layer.
+            - 0: The most streamlined level of performance data collection,
+              only collecting execution time data for computational operators and
+              basic data for large communication operators.
+            - 1: In addition to level 0, extra data is collected for CANN layer AscendCL,
+              AICORE performance data, and small communication operators.
+            - 2: In addition to level 1, extra data is collected for graph compile level O2
+              and Runtime in the CANN layer.
 
-        with_stack (str): Whether to collect Python-side stack trace data. Default: False.
-        data_simplification (str): Whether to enable data simplification, which will delete the FRAMEWORK directory
-                                   and other extraneous data after exporting profiling data. Default: True.
+        with_stack (str, optional): Whether to collect Python-side stack trace data. Default: ``False``.
+        data_simplification (str, optional): Whether to enable data simplification, which will delete the FRAMEWORK
+            directory and other extraneous data after exporting profiling data. Default: ``True``.
 
     Examples:
         >>> from mindformers.core import ProfileMonitor
@@ -973,11 +978,11 @@ class EvalCallBack(Callback):
 
     Args:
         eval_func (Callable): The function used to evaluate the model results
-                              and can be customized according to specific task.
-        step_interval (int): Determine the num of step intervals between each eval.
-                             Default 100. Note that it will not take effects when running in data sink mode.
-        epoch_interval (int): Determine the num of epoch intervals between each eval.
-                              Default -1, means eval on every epoch end.
+            and can be customized according to specific task.
+        step_interval (int, optional): Determine the num of step intervals between each eval.
+            Default ``100``. Note that it will not take effects when running in data sink mode.
+        epoch_interval (int, optional): Determine the num of epoch intervals between each eval.
+            Default ``-1``, means eval on every epoch end.
 
     Examples:
         >>> from mindformers.core.callback import EvalCallBack

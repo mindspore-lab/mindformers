@@ -349,10 +349,10 @@ class CrossEntropyLoss(nn.Cell):
               \end{cases}
 
     Args:
-        parallel_config (mindformers.modules.transformer.op_parallel_config.OpParallelConfig): The parallel
-            configuration. Default default_dpmp_config.
-        check_for_nan_in_loss_and_grad (bool): Whether to print local loss. Default: False.
-        calculate_per_token_loss (bool): Whether to use Megatron loss. Default: False.
+        parallel_config (mindformers.modules.OpParallelConfig, optional): The parallel
+            configuration. Default: ``default_dpmp_config``.
+        check_for_nan_in_loss_and_grad (bool, optional): Whether to print local loss. Default: ``False``.
+        calculate_per_token_loss (bool, optional): Whether to use Megatron loss. Default: ``False``.
 
     Inputs:
         - **logits** (Tensor) - Tensor of shape (N, C). Data type must be float16 or float32. The output logits of

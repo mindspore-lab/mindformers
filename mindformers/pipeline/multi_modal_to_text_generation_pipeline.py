@@ -33,7 +33,7 @@ class MultiModalToTextPipeline(Pipeline):
         model (Union[PretrainedModel, Model]):
             The model used to perform task, the input should be a model instance inherited from PretrainedModel.
         processor (BaseXModalToTextProcessor, optional):
-            The image_processor of model, it could be None if the model do not need image_processor. Default: ``None`` .
+            The image_processor of model, it could be None if the model do not need image_processor. Default: ``None``.
 
     Returns:
         A pipeline for MultiModalToTextPipeline.

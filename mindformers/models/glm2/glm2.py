@@ -196,24 +196,24 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
 
     Inputs:
         - **input_ids** (Tensor, optional) - A tokenized input tensor, which is of int32 integer type and has a shape of
-          (batch, seq_length). Default: ``None`` .
+          (batch, seq_length). Default: ``None``.
         - **labels** (Tensor, optional) - A tokenized label tensor, which is of int32 integer type and has a shape of
-          (batch, seq_length). Default: ``None`` .
-        - **input_position** (Tensor, optional) - The current position, used in predict. Default: ``None`` .
-        - **position_ids** (Tensor, optional) - Keep the parameter unused. Default: ``None`` .
-        - **attention_mask** (Tensor, optional) - Keep the parameter unused. Default: ``None`` .
-        - **input_embeds** (Tensor, optional) - Keep the parameter unused. Default: ``None`` .
+          (batch, seq_length). Default: ``None``.
+        - **input_position** (Tensor, optional) - The current position, used in predict. Default: ``None``.
+        - **position_ids** (Tensor, optional) - Keep the parameter unused. Default: ``None``.
+        - **attention_mask** (Tensor, optional) - Keep the parameter unused. Default: ``None``.
+        - **input_embeds** (Tensor, optional) - Keep the parameter unused. Default: ``None``.
         - **init_reset** (Tensor, optional) - A bool tensor with shape [1], used to clear previous key-value pairs in
-          incremental inference. Default: ``None`` .
+          incremental inference. Default: ``None``.
         - **batch_valid_length** (Tensor, optional) - In incremental inference, a tensor used for calculating the index
-          of the previous step. It is of int32 type and has a shape of [batch_size]. Default: ``None`` .
+          of the previous step. It is of int32 type and has a shape of [batch_size]. Default: ``None``.
         - **prefix_key_values** (Tensor, optional) - A set of additional key-value pairs added before the regular
           key-value pairs. These prefix key-value pairs can be used to capture long-term dependencies or provide prior
-          knowledge, thereby helping the model better understand and generate sequences. Default: ``None`` .
-        - **block_tables** (Tensor, optional) - Store the mapping table for each sequence. Default: ``None`` .
-        - **slot_mapping** (Tensor, optional) - Store the physical slot index of the sequence cache. Default: ``None`` .
-        - **batch_index** (Tensor, optional) - Keep the parameter unused. Default: ``None`` .
-        - **zactivate_len** (Tensor, optional) - Keep the parameter unused. Default: ``None`` .
+          knowledge, thereby helping the model better understand and generate sequences. Default: ``None``.
+        - **block_tables** (Tensor, optional) - Store the mapping table for each sequence. Default: ``None``.
+        - **slot_mapping** (Tensor, optional) - Store the physical slot index of the sequence cache. Default: ``None``.
+        - **batch_index** (Tensor, optional) - Keep the parameter unused. Default: ``None``.
+        - **zactivate_len** (Tensor, optional) - Keep the parameter unused. Default: ``None``.
 
     Outputs:
         output(Tensor), including an on-line loss value or a logical value, a sequence of predictive text, an input

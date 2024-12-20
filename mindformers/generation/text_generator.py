@@ -571,8 +571,8 @@ class GenerationMixin:
                 complement the default logits processors built from arguments and generation config.
                 If a logit processor is passed that is already created with the arguments or a
                 generation config an error is thrown. This feature is intended for advanced users. Default: ``None``.
-            streamer (TextStreamer): The streamer that generator uses.
-            seed (int): Random seed used in sample.
+            streamer (TextStreamer, optional): The streamer that generator uses. Default: ``None``.
+            seed (int, optional): Random seed used in sample. Default: ``None``.
             kwargs:
                 Specific parametrization of `generate_config` and/or additional model-specific kwargs that will be
                 forwarded to the `forward` function of the model. Supported `generate_config` keywords can be
@@ -959,8 +959,8 @@ class GenerationMixin:
         Args:
             input_ids (List(List(int))): Input ids after padding.
             valid_length_each_example (np.ndarray): Valid input length except padding.
-            generation_config (`GenerationConfig`): The generation configuration to be used
-                as base parametrization for the generation call.
+            generation_config (`GenerationConfig`, optional): The generation configuration to be used
+                as base parametrization for the generation call. Default: ``None``.
             logits_processor (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`].
                 List of instances of class derived from [`LogitsProcessor`] used to modify the prediction scores
                 of the language modeling head applied at each generation step. Default: ``None``.
@@ -968,13 +968,16 @@ class GenerationMixin:
                 List of instances of class derived from [`LogitsWarper`] used to warp the prediction score
                 distribution of the language modeling head applied before multinomial sampling
                 at each generation step. Default: ``None``.
-            block_tables (Tensor): Params for page attention.
-            slot_mapping (Tensor): Params for page attention.
-            prefill (bool): Whether to do prefill predict or decode predict.
-            is_finished (List(bool)): Whether each sequence is finished its generation.
-            encoder_mask (Tensor): Use for encoder-decoder construct, do not need for decoder only construct.
-            encoder_output (Tensor): Use for encoder-decoder construct, do not need for decoder only construct.
-            target_mask (Tensor): Use for encoder-decoder construct, do not need for decoder only construct.
+            block_tables (Tensor, optional): Store mapping tables for each sequence. Default: ``None``.
+            slot_mapping (Tensor, optional): Token cache physical slot index. Default: ``None``.
+            prefill (bool, optional): Whether to do prefill predict or decode predict. Default: ``True``.
+            is_finished (List(bool), optional): Whether each sequence is finished its generation. Default: ``None``.
+            encoder_mask (Tensor, optional): Use for encoder-decoder construct, do not need for decoder only
+                construct. Default: ``None``.
+            encoder_output (Tensor, optional): Use for encoder-decoder construct, do not need for decoder only
+                construct. Default: ``None``.
+            target_mask (Tensor, optional): Use for encoder-decoder construct, do not need for decoder only
+                construct. Default: ``None``.
 
         Returns:
             next_token, the next token to be generated.
@@ -1052,13 +1055,16 @@ class GenerationMixin:
         Args:
             input_ids (List(List(int))): Input ids after padding.
             valid_length_each_example (np.ndarray): Valid input length except padding.
-            block_tables (Tensor): Params for page attention.
-            slot_mapping (Tensor): Params for page attention.
-            prefill (bool): Whether to do prefill predict or decode predict.
-            use_past (bool): Whether to use past.
-            encoder_mask (Tensor): Use for encoder-decoder construct, do not need for decoder only construct.
-            encoder_output (Tensor): Use for encoder-decoder construct, do not need for decoder only construct.
-            target_mask (Tensor): Use for encoder-decoder construct, do not need for decoder only construct.
+            block_tables (Tensor, optional): Params for page attention. Default: ``None``.
+            slot_mapping (Tensor, optional): Params for page attention. Default: ``None``.
+            prefill (bool, optional): Whether to do prefill predict or decode predict. Default: ``None``.
+            use_past (bool, optional): Whether to use past. Default: ``False``.
+            encoder_mask (Tensor, optional): Use for encoder-decoder construct, do not need for decoder only
+                construct. Default: ``None``.
+            encoder_output (Tensor, optional): Use for encoder-decoder construct, do not need for decoder only
+                construct. Default: ``None``.
+            target_mask (Tensor, optional): Use for encoder-decoder construct, do not need for decoder only
+                construct. Default: ``None``.
 
         Returns:
             res, the result after the forward process.
@@ -1144,7 +1150,8 @@ class GenerationMixin:
                 instances of class derived from [`LogitsWarper`] used to warp
                 the prediction score distribution of the language modeling head applied
                 before multinomial sampling at each generation step. Default: ``None``.
-            need_gather_logits (bool): whether gather result, when decode predict and is first iteration, set True.
+            need_gather_logits (bool, optional): whether gather result, when decode predict and is first iteration.
+                Default: ``True``.
 
         Returns:
             target_list, contains the target values generated in each batch.
@@ -1278,9 +1285,9 @@ class GenerationMixin:
             query (str): User input for inference.
             history (List[Dict[str, str]], optional): A Conversation object or list of dicts with "role"
                 and "content" keys, representing the chat history so far. Default: ``None``.
-            system_role_name (str): The name of system role. Default: ``"system"``.
-            user_role_name (str): The name of user role. Default: ``"user"``.
-            assistant_role_name (str): The name of assistant role. Default: "assistant".
+            system_role_name (str, optional): The name of system role. Default: ``"system"``.
+            user_role_name (str, optional): The name of user role. Default: ``"user"``.
+            assistant_role_name (str, optional): The name of assistant role. Default: "assistant".
             instruction (str, optional): Instruction message to the model. Default: ``""``.
             max_length (int, optional): The maximum length the generated tokens can have.
                 Corresponds to the length of the input prompt + `max_new_tokens`.

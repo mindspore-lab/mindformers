@@ -48,7 +48,7 @@ mindformers.core.AdamW
           - ``"weight_decay"``：可选。如果键中包含 "weight_decay"，则使用对应的权重衰减值。如果未包含，则使用优化器中的 `weight_decay`。需要注意的是，权重衰减可以是常数值或 `Cell`。仅在应用动态权重衰减时才为 `Cell`。动态权重衰减类似于动态学习率，用户需要自定义仅以全局步数为输入的权重衰减计划，在训练过程中，优化器将调用 `WeightDecaySchedule` 实例来获取当前步的权重衰减值。
           - ``"order_params"``：可选。当参数被分组时，通常用于维护网络中出现的参数顺序以提高性能。值应为优化器中将遵循其顺序的参数。如果键中包含 `order_params`，其他键将被忽略，并且 'order_params' 的元素必须在 `params` 的一组中。
 
-        - **learning_rate** (Union[float, int, Tensor, Iterable, LearningRateSchedule]) - 默认值： ``1e-3`` 。
+        - **learning_rate** (Union[float, int, Tensor, Iterable, LearningRateSchedule], 可选) - 默认值： ``1e-3`` 。
 
           - ``"float"``：固定学习率值。必须等于或大于 0。
           - ``"int"``：固定学习率值。必须等于或大于 0。将转换为浮点数。
@@ -56,9 +56,9 @@ mindformers.core.AdamW
           - ``"Iterable"``：学习率是动态的。第 i 步将使用第 i 个值作为学习率。
           - ``"LearningRateSchedule"``：学习率是动态的。在训练过程中，优化器将调用 `LearningRateSchedule` 实例并以步数为输入来获取当前步的学习率。
 
-        - **betas** (Union[list(float), tuple(float)]) - `moment1`、 `moment2` 的指数衰减率。每一个参数范围（0.0,1.0）。默认值： ``(0.9, 0.999)`` 。
-        - **eps** (float) - 将添加到分母中，以提高数值稳定性。必须大于0。默认值： ``1e-6`` 。
-        - **weight_decay** (Union[float, int, Cell]) - 权重衰减（L2 penalty）。默认值： ``0.0`` 。
+        - **betas** (Union[list(float), tuple(float)], 可选) - `moment1`、 `moment2` 的指数衰减率。每一个参数范围（0.0,1.0）。默认值： ``(0.9, 0.999)`` 。
+        - **eps** (float, 可选) - 将添加到分母中，以提高数值稳定性。必须大于0。默认值： ``1e-6`` 。
+        - **weight_decay** (Union[float, int, Cell], 可选) - 权重衰减（L2 penalty）。默认值： ``0.0`` 。
 
           - ``"float"``：固定的权重衰减值。必须等于或大于 0。
           - ``"int"``：固定的权重衰减值。必须等于或大于 0。将被转换为浮点数。

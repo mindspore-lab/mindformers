@@ -23,13 +23,13 @@ mindformers.core.CosineWithWarmUpLR
 
     参数：
         - **learning_rate** (float) - 学习率的初始值。
-        - **warmup_steps** (int) - 预热步骤数。默认值： ``None`` 。
-        - **total_steps** (int) - 总的训练步骤数。默认值： ``None`` 。
-        - **num_cycles** (float) - 余弦调度中的周期数量（默认情况下为半个周期，从最大值递减至 0）。默认值： ``0.5`` 。
-        - **lr_end** (float) - 学习率的最终值。默认值： ``0.0`` 。
-        - **warmup_lr_init** (float) - 预热阶段的初始学习率。默认值： ``0.0`` 。
-        - **warmup_ratio** (float) - 预热阶段占总训练步骤的比例。默认值： ``None`` 。
-        - **decay_steps** (int) - 衰减步骤的数量。默认值： ``None`` 。
+        - **warmup_steps** (int, 可选) - 预热步骤数。默认值： ``None`` 。
+        - **total_steps** (int, 可选) - 总的训练步骤数。默认值： ``None`` 。
+        - **num_cycles** (float, 可选) - 余弦调度中的周期数量（默认情况下为半个周期，从最大值递减至 0）。默认值： ``0.5`` 。
+        - **lr_end** (float, 可选) - 学习率的最终值。默认值： ``0.0`` 。
+        - **warmup_lr_init** (float, 可选) - 预热阶段的初始学习率。默认值： ``0.0`` 。
+        - **warmup_ratio** (float, 可选) - 预热阶段占总训练步骤的比例。默认值： ``None`` 。
+        - **decay_steps** (int, 可选) - 衰减步骤的数量。默认值： ``None`` 。
 
     输入：
         - **global_step** (int) - 全局步数。
