@@ -525,6 +525,7 @@ class MFContextConfig(BaseArgsConfig):
         'resume_training',
         'enable_mindio_ttp_save_ckpt',
         'use_graceful_exit',
+        'affinity_cpu_list',
         'profile',
         'profile_start_step',
         'profile_stop_step'
