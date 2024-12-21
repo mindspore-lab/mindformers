@@ -64,6 +64,7 @@ class Context:
                     self.parallel_opr.init_communication()
                 )
             set_cpu_affinity(self.rank_id, self.device_num)
+            set_ms_affinity(self.config.get('context', {}).get('affinity_cpu_list', {}))
 
             self._initailed = True
 
@@ -274,6 +275,16 @@ class MFContextOperator(MFContextConfig):
     def get_context(self, attr_key):
         """Set mf context value according to the input key words."""
         return getattr(self, attr_key, None)
+
+
+def set_ms_affinity(affinity_config):
+    if affinity_config == 'None':
+        ms.runtime.set_cpu_affinity(False)
+    else:
+        if not isinstance(affinity_config, dict):
+            logger.warning("custom bind policy affinity_cpu_list must be dict")
+            return
+        ms.runtime.set_cpu_affinity(True, affinity_config)
 
 
 def set_cpu_affinity(rank_id, rank_size):
