@@ -1078,7 +1078,7 @@ class LowerTriangularMaskWithDynamic(Cell):
         attention_mask = mask_right
 
         lower_triangle_mask = self.lower_triangle_mask
-        if self.is_pynative and self.is_dynamic:
+        if self.is_pynative or self.is_dynamic:
             lower_triangle_mask = self.slice(self.lower_triangle_mask, (0, 0), (seq_len, seq_len), (1, 1))
         lower_triangle = self.expand_dim(lower_triangle_mask, 0)
 
