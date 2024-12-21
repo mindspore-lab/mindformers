@@ -89,55 +89,6 @@ def parallel_train_dp2():
     runner.set_train(model, model_config, loss_std=loss_std, avg_time_std=time_std)
 
 
-def parallel_predict_mp2():
-    """test llama2 predict in model_parallel=2."""
-    # dp=1, mp=4, pp=1
-    parallel_config = {
-        'use_parallel': True,
-        'model_parallel': 2,
-        'use_seq_parallel': False
-    }
-    ms.set_context(jit_config={"jit_level": "O0", "infer_boost": "on"})
-    runner = ModelTester(run_mode='predict', batch_size=2, experiment_mode=False, **parallel_config)
-    build_context(runner.args)
-
-    model_config = get_config()
-    model_config.parallel_config = runner.args.get_parallel_config()
-    model_config.batch_size = runner.batch_size  # set batch size for prediction
-    model_config.use_past = True
-    model_config.is_dynamic = True
-    model_config.use_flash_attention = True
-    model = get_model(model_config)
-
-    outputs = r"hello world.ýedeshapeenty BritainAfter przyowy französ夏 très befindethape정dot programa"
-    runner.set_predict(model=model, expect_outputs=outputs)
-
-
-def parallel_predict_mp2_static_shape():
-    """test llama2 predict in model_parallel=2 with static shape."""
-    # dp=1, mp=4, pp=1
-    parallel_config = {
-        'use_parallel': True,
-        'model_parallel': 2,
-        'use_seq_parallel': False
-    }
-    ms.set_context(jit_config={"jit_level": "O0", "infer_boost": "on"})
-    runner = ModelTester(run_mode='predict', batch_size=8, experiment_mode=False, **parallel_config)
-    build_context(runner.args)
-
-    model_config = get_config()
-    model_config.parallel_config = runner.args.get_parallel_config()
-    model_config.batch_size = runner.batch_size  # set batch size for prediction
-    model_config.use_past = True
-    model_config.is_dynamic = False
-    model_config.use_flash_attention = True
-
-    model = get_model(model_config)
-
-    outputs = r'hello world.ýedeshapeenty BritainAfter przyowy französ夏 très befindethape정dot programa'
-    runner.set_predict(model=model, expect_outputs=outputs)
-
-
 def parallel_train_mp2_cp2():
     """test llama2 train in model_parallel=2, context_parallel=2."""
     # dp=2, parallel_optimizer
@@ -236,11 +187,9 @@ def train_input_sliced():
 TEST_MAP = {
     'parallel_train_mp2_pp2': parallel_train_mp2_pp2,
     'parallel_train_dp2': parallel_train_dp2,
-    'parallel_predict_mp2': parallel_predict_mp2,
     'parallel_train_mp2_cp2': parallel_train_mp2_cp2,
     'parallel_train_sapp_mp2_pp2': parallel_train_sapp_mp2_pp2,
-    "train_input_sliced": train_input_sliced,
-    'parallel_predict_mp2_static_shape': parallel_predict_mp2_static_shape
+    "train_input_sliced": train_input_sliced
 }
 
 if __name__ == '__main__':

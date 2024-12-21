@@ -338,7 +338,7 @@ def build_model(config, model, dataset, do_eval=False, do_predict=False):
     if parallel_mode not in ('semi_auto_parallel', 'auto_parallel', 'hybrid_parallel'):
         return
 
-    if not config.runner_config.sink_mode:
+    if "runner_config" in config and not config.runner_config.sink_mode:
         raise ValueError("When distributed loads are sliced weights, sink_mode must be set True.")
     if do_predict or do_eval:
         model.infer_predict_layout(*dataset)
