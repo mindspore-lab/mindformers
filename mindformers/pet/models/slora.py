@@ -45,11 +45,11 @@ class SLoraModel(PreTrainedModel):
         self._check_config()
         self.gather = P.Gather()
         bs = self.config.batch_size
-        seq_len = self.config.seq_length
         self.group_list_buffer = np.empty((config.lora_num,))
-        self.adapter_ids = Parameter(initializer('zero', [bs * seq_len], mstype.int32), requires_grad=False)
         self.group_list = Parameter(initializer(Constant(bs), [config.lora_num], mstype.int64), requires_grad=False)
-        self.lora_inputs = {"adapter_ids": self.adapter_ids,
+        self.head_group_list = Parameter(initializer(Constant(bs), [config.lora_num], mstype.int64),
+                                         requires_grad=False)
+        self.lora_inputs = {"head_group_list": self.head_group_list,
                             "group_list": self.group_list}
         # add slora layer.
         self.lora_adapter = SLoraAdapter(self.config.pet_config, self.lora_inputs)
@@ -75,8 +75,14 @@ class SLoraModel(PreTrainedModel):
         adapter_mask = np.eye(self.config.pet_config.lora_num)[adapter_ids_np[1]]
         adapter_cnt = np.sum(adapter_mask, axis=0)
         adapter_group_list = np.cumsum(adapter_cnt, dtype=np.int64)
+        mask = mint.index_select(Tensor.from_numpy(np.array(adapter_ids_np[0], dtype=np.int64)), 0,
+                                 Tensor.from_numpy(sort_map.astype(np.int32)))
+        head_adapter_mask = np.eye(self.config.pet_config.lora_num)[mask.asnumpy()]
+        head_adapter_cnt = np.sum(head_adapter_mask, axis=0)
+        head_group_list = np.cumsum(head_adapter_cnt, dtype=np.int64)
+
         if (adapter_group_list != self.group_list_buffer).any():
-            self.adapter_ids.set_data(Tensor.from_numpy(np.array(adapter_ids_np[1], dtype=np.int32)), slice_shape=True)
+            P.Assign()(self.head_group_list, Tensor.from_numpy(np.array(head_group_list, dtype=np.int64)))
             P.Assign()(self.group_list, Tensor.from_numpy(np.array(adapter_group_list, dtype=np.int64)))
             self.group_list_buffer = adapter_group_list
         return sort_map, unsort_map, sort_map_flatten

@@ -26,6 +26,7 @@ from mindspore.ops import functional as F
 from mindspore.ops import operations as P
 from mindspore.nn import Cell
 from mindspore._checkparam import args_type_check
+import mindspore.common.dtype as mstype
 
 from mindformers.modules.layers import Linear
 from mindformers.models.llama.llama_layer import LlamaEmbedding
@@ -158,30 +159,34 @@ class SLoraEmbedding(Cell):
     """
     def __init__(self, embedding: Cell, slora_inputs: dict, config: SLoraConfig):
         super().__init__()
-        self.adapter_ids = slora_inputs.get("adapter_ids")
+        self.group_list = slora_inputs.get("group_list")
         self.lora_extra_vocab_size = config.lora_extra_vocab_size
         self.lora_vocab_size = embedding.vocab_table_size + config.lora_extra_vocab_size
         self.dtype = embedding.embedding_weight.dtype
         self.embedding_weight = embedding.embedding_weight
-        self.lora_scaling = config.lora_alpha / config.lora_rank
         self.embedding_size = embedding.embedding_size
+        self.gather = embedding.gather
 
         self.greater = P.Greater()
-        self.broadcast_to = P.BroadcastTo((config.lora_num, embedding.vocab_table_size, self.embedding_size))
-        self.concat = P.Concat()
-        self.transpose = P.Transpose()
         self.cast = P.Cast()
-        self.lora_mul = P.Mul()
-        self.lora_add = P.Add()
-        self.gather = embedding.gather
-        self.lora_a_gather = P.Gather()
-        self.lora_b_gather = P.Gather()
-        self.embedding_gather = P.Gather()
-        self.lora_gather = P.Gather(1)
+        self.mul = P.Mul()
+        self.add = P.Add()
+        self.sub = P.Sub()
+        self.eye = P.Eye()
+        self.slice = P.Slice()
         self.reshape = P.Reshape()
-        self.lora_matmul = P.BatchMatMul(transpose_b=True)
-        self.lora_transpose = P.Transpose()
+        self.shape = P.Shape()
+        self.embedding_mul = P.Mul()
+        self.embedding_gather = P.Gather()
+        self.lora_gather = P.Gather()
+        self.lora_a_transpose = P.Transpose()
+        self.broadcast_to = P.BroadcastTo((-1, self.embedding_size))
+        from mindspore.ops.auto_generate import GroupedMatmul
+        self.embedding_gmm = GroupedMatmul(split_item=3, group_type=0)
+        self.lora_a_gmm = GroupedMatmul(split_item=3, group_type=0)
+        self.lora_b_gmm = GroupedMatmul(split_item=3, group_type=0)
 
+        self.eyes = self.eye(512, 512, mstype.float16)
         self.lora_a_shape = [config.lora_num, config.lora_rank, self.lora_vocab_size]
         self.lora_b_shape = [config.lora_num, config.lora_rank, embedding.embedding_size]
         self.lora_a = Parameter(initializer('zero', self.lora_a_shape, config.lora_dtype), requires_grad=False)
@@ -194,36 +199,41 @@ class SLoraEmbedding(Cell):
 
     def construct(self, input_ids):
         """Forward process"""
-        input_ids = self.reshape(input_ids, (-1,))
+        x = self.reshape(input_ids, (-1,))
 
+        added_tokens_mask = self.greater(x, self.lora_vocab_size - self.lora_extra_vocab_size - 1)
+        org_tokens_mask = self.sub(1, added_tokens_mask)
+        lora_mask = self.slice(self.eyes, (0, 0), (self.shape(x)[0], self.shape(x)[0]))
+        lora_mask = self.cast(lora_mask, self.dtype)
+
+        #-------- Embedding part ----------
         embedding_weight = self.cast(self.embedding_weight, self.dtype)
+        embedding_input = self.mul(x, org_tokens_mask)
+        embedding = self.gather(embedding_weight, embedding_input, 0)
+        org_tokens_mask = self.broadcast_to(self.reshape(org_tokens_mask, (org_tokens_mask.shape[0], 1)))
+        embedding = self.embedding_mul(embedding, org_tokens_mask)
+
+        #-------- Added Embedding part ----------
+        if self.lora_extra_vocab_size:
+            added_embedding = self.cast(self.lora_embedding, self.dtype)
+            added_embedding_input = self.mul(self.sub(x, self.lora_vocab_size - self.lora_extra_vocab_size),
+                                             added_tokens_mask)
+            added_embedding = self.embedding_gmm([lora_mask],
+                                                 [self.embedding_gather(added_embedding, added_embedding_input, 1)],
+                                                 None, None, None, None, None, self.group_list)[0]
+            added_tokens_mask = self.broadcast_to(self.reshape(added_tokens_mask, (added_tokens_mask.shape[0], 1)))
+            added_embedding = self.embedding_mul(added_embedding, added_tokens_mask)
+            embedding = self.add(embedding, added_embedding)
+
+        #-------- LoRA part ----------
         lora_a = self.cast(self.lora_a, self.dtype)
         lora_b = self.cast(self.lora_b, self.dtype)
-        lora_b = self.lora_transpose(lora_b, (0, 2, 1))
-        lora_a = self.lora_a_gather(lora_a, self.adapter_ids.reshape(-1), 0)
-        lora_b = self.lora_b_gather(lora_b, self.adapter_ids.reshape(-1), 0)
+        lora_a = self.lora_a_transpose(self.lora_gather(lora_a, x, 2), (0, 2, 1))
+        lora_embedding = self.lora_a_gmm([lora_mask], [lora_a], None, None, None, None, None, self.group_list)[0]
+        lora_embedding = self.lora_b_gmm([lora_embedding], [lora_b], None, None, None, None, None, self.group_list)[0]
 
-        added_tokens_mask = self.greater(input_ids, self.lora_vocab_size - self.lora_extra_vocab_size - 1)
-        added_tokens_indices = added_tokens_mask * self.adapter_ids * self.lora_extra_vocab_size
-
-        if self.lora_extra_vocab_size != 0:
-            lora_embedding = self.cast(self.lora_embedding, self.dtype)
-            for i in range(lora_embedding.shape[0]):
-                embedding_weight = self.concat((embedding_weight, lora_embedding[i]))
-
-        #-------- Embedding part ----------
-        embedding_result = self.gather(embedding_weight, input_ids + added_tokens_indices, 0)
-
-        #-------- Embedding part ----------
-        lora_result = self.lora_gather(self.transpose(lora_a, (0, 2, 1)), input_ids, 1)
-        lora_result = lora_result.reshape(lora_result.shape[0], 1, -1)
-        lora_result = self.lora_matmul(lora_result, lora_b)
-        lora_result = lora_result.squeeze(1)
-        lora_scaling = self.cast(self.lora_scaling, self.dtype)
-        lora_result = self.reshape(lora_result, embedding_result.shape)
-        lora_result = self.lora_mul(lora_result, lora_scaling)
-
-        out = self.lora_add(embedding_result, lora_result)
+        #-------- add part ---------
+        out = self.add(embedding, lora_embedding)
         out = self.cast(out, self.dtype)
         output = self.reshape(out, (-1, out.shape[-1]))
 
@@ -238,8 +248,7 @@ class SLoraEmbedding(Cell):
             In other parallel modes, strategies set here will be ignored.
         """
         strategy = self.gather.in_strategy
-        self.lora_mul.shard(((strategy[0][0], strategy[1][0]), ()))
-        self.lora_add.shard(((strategy[0][0], strategy[1][0]), (strategy[0][0], strategy[1][0])))
+        self.gather.shard(((strategy[0][0], strategy[0][1]), (1,)))
 
 
 class SLoraHead(Cell):
@@ -259,16 +268,13 @@ class SLoraHead(Cell):
     """
     def __init__(self, linear: Linear, slora_inputs: dict, config: SLoraConfig):
         super().__init__()
-        self.adapter_ids = slora_inputs.get("adapter_ids")
+        self.group_list = slora_inputs.get('head_group_list')
         self.lora_num = config.lora_num
         self.lora_rank = config.lora_rank
-        self.lora_alpha = config.lora_alpha
-        self.lora_scaling = self.lora_alpha / self.lora_rank
         self.in_channels = linear.in_channels
         self.out_channels = linear.out_channels
         self.lora_extra_vocab_size = config.lora_extra_vocab_size
         self.lora_vocab_size = self.out_channels + self.lora_extra_vocab_size
-
         self.expert_flag = linear.expert_flag
         self.use_gmm = linear.use_gmm
         self.dtype = linear.dtype
@@ -280,38 +286,50 @@ class SLoraHead(Cell):
         self.outer_batch = linear.outer_batch
         self.has_bias = linear.has_bias
         self.activation_flag = linear.activation_flag
+        self.matmul = linear.matmul
         if self.has_bias:
             self.bias = linear.bias
             self.bias_add = linear.bias_add
         if self.activation_flag:
             self.activation = linear.activation
-        self.matmul = linear.matmul
 
         self.lora_mul = P.Mul()
         self.lora_add = P.Add()
         self.gather = P.Gather()
         self.cast = P.Cast()
         self.reshape = P.Reshape()
-
+        self.lora_embedding_transpose = P.Transpose()
+        self.lora_a_transpose = P.Transpose()
         self.lora_concat = P.Concat(axis=-1)
-        self.lora_embedding_matmul = P.BatchMatMul(transpose_b=True)
-        self.lora_a_matmul = P.BatchMatMul(transpose_b=True)
-        self.lora_b_matmul = P.BatchMatMul(transpose_b=True)
-        self.lora_transpose = P.Transpose()
+        from mindspore.ops.auto_generate import GroupedMatmul
+        self.lora_a_gmm = GroupedMatmul(split_item=3, group_type=0)
+        self.lora_b_gmm = GroupedMatmul(split_item=3, group_type=0)
+        self.embedding_gmm = GroupedMatmul(split_item=3, group_type=0)
 
-        if self.lora_extra_vocab_size != 0:
+        if self.lora_extra_vocab_size:
             self.lora_embedding_shape = [self.lora_num, self.lora_extra_vocab_size, self.in_channels]
             self.lora_embedding = Parameter(initializer('zero', self.lora_embedding_shape, config.lora_dtype),
-                                            name="lora_embedding", requires_grad=False)
-        self.lora_a_shape = [self.lora_num, self.lora_rank, self.in_channels]
-        self.lora_b_shape = [self.lora_num, self.lora_rank, self.lora_vocab_size]
+                                            requires_grad=False)
 
+        self.lora_a_shape = [self.lora_num, config.lora_rank, self.in_channels]
+        self.lora_b_shape = [self.lora_num, config.lora_rank, self.lora_vocab_size]
         self.lora_a = Parameter(initializer('zero', self.lora_a_shape, config.lora_dtype), requires_grad=False)
         self.lora_b = Parameter(initializer('zero', self.lora_b_shape, config.lora_dtype), requires_grad=False)
 
+    def _lora_head(self, x, dense_result):
+        """Forward process of LoRA branch"""
+        x = self.reshape(x, (-1, self.in_channels))
+        lora_a = self.cast(self.lora_a, self.dtype)
+        lora_b = self.cast(self.lora_b, self.dtype)
+        lora_a = self.lora_a_transpose(lora_a, (0, 2, 1))
+        x = self.lora_a_gmm([x], [lora_a], None, None, None, None, None, self.group_list)[0]
+        x = self.lora_b_gmm([x], [lora_b], None, None, None, None, None, self.group_list)[0]
+        x = self.reshape(x, self.shape(dense_result))
+        out = self.lora_add(dense_result, x)
+        return out
+
     def construct(self, x, expert_ids=None):
         """Forward process, x should be a tensor"""
-        batch_size = self.adapter_ids.shape[0]
         out_shape = self.shape(x)[:-1] + (self.lora_vocab_size,)
         x = self.reshape(x, (-1, self.in_channels))
         if self.expert_flag and not self.use_gmm:
@@ -319,45 +337,26 @@ class SLoraHead(Cell):
                 x = self.reshape(x, (-1, self.expert_num, self.expert_group_size, self.in_channels))
             else:
                 x = self.reshape(x, (self.outer_batch, self.expert_num, -1, self.in_channels))
-
         ori_dtype = F.dtype(x)
         weight = self.cast(self.weight, self.dtype)
-        if self.lora_extra_vocab_size != 0:
-            lora_embedding = self.cast(self.lora_embedding, self.dtype)
-            lora_embedding = self.gather(lora_embedding, self.adapter_ids.reshape(-1), 0)
-        lora_a = self.cast(self.lora_a, self.dtype)
-        lora_b = self.cast(self.lora_b, self.dtype)
-        lora_b = self.lora_transpose(lora_b, (0, 2, 1))
-        lora_a = self.gather(lora_a, self.adapter_ids.reshape(-1), 0)
-        lora_b = self.gather(lora_b, self.adapter_ids.reshape(-1), 0)
 
         x = self.cast(x, self.dtype)
         if self.use_gmm:
             dense_result = self.matmul([x], [weight], None, None, None, None, None, expert_ids)[0]
         else:
             dense_result = self.matmul(x, weight)
-
-        # -------- LoRA Embedding part ----------
-        x = self.reshape(x, (batch_size, -1, self.in_channels))
-        if self.lora_extra_vocab_size != 0:
-            lora_logit = self.lora_embedding_matmul(x, lora_embedding)
-            lora_logit = self.reshape(lora_logit, dense_result.shape[:-1] + (self.lora_extra_vocab_size,))
-
-        # -------- LoRA part ----------
-        lora_result = self.lora_a_matmul(x, lora_a)
-        lora_result = self.lora_b_matmul(lora_result, lora_b)
-        lora_scaling = self.cast(self.lora_scaling, self.dtype)
-        lora_result = self.reshape(lora_result, dense_result.shape[:-1] + (self.lora_vocab_size,))
-        lora_result = self.lora_mul(lora_result, lora_scaling)
-
         if self.has_bias:
             dense_result = self.bias_add(dense_result, self.cast(self.bias, self.dtype))
-        # Linear supplementation
-        if self.lora_extra_vocab_size != 0:
-            out = self.lora_concat([dense_result, lora_logit])
-            out = self.lora_add(out, lora_result)
-        else:
-            out = self.lora_add(dense_result, lora_result)
+
+        if self.lora_extra_vocab_size:
+            lora_embedding = self.cast(self.lora_embedding, self.dtype)
+            lora_embedding = self.lora_embedding_transpose(lora_embedding, (0, 2, 1))
+            lora_logit = self.embedding_gmm([x], [lora_embedding], None, None, None, None, None, self.group_list)[0]
+            lora_logit = self.reshape(lora_logit, self.shape(dense_result)[:-1] + (self.lora_extra_vocab_size,))#
+            dense_result = self.lora_concat([dense_result, lora_logit])
+
+        out = self._lora_head(x, dense_result)
+
         if self.activation_flag:
             out = self.activation(out)
         out = self.cast(out, ori_dtype)
@@ -373,9 +372,15 @@ class SLoraHead(Cell):
             In other parallel modes, strategies set here will be ignored.
         """
         strategy = self.matmul.in_strategy
-        self.lora_a_matmul.shard(((strategy[0][0], 1, strategy[0][1]), (strategy[0][0], 1, strategy[1][1])))
-        self.lora_b_matmul.shard(((strategy[0][0], 1, 1), (strategy[0][0], strategy[1][0], 1)))
-        self.lora_mul.shard(((strategy[0][0], strategy[1][0]), ()))
+        self.lora_a_transpose.shard(((1, 1, strategy[0][1]),))
+        self.lora_embedding_transpose.shard(((1, strategy[1][0], strategy[0][1]),))
+        self.embedding_gmm.shard((((strategy[0][0], strategy[0][1]),), ((1, strategy[0][1], strategy[1][0]),),
+                                  ((),), ((),), ((),), ((),), ((),), (1,)))
+        self.lora_a_gmm.shard((((strategy[0][0], strategy[0][1]),), ((1, strategy[0][1], 1),),
+                               ((),), ((),), ((),), ((),), ((),), (1,)))
+        self.lora_b_gmm.shard((((strategy[0][0], 1),), ((1, 1, strategy[1][0]),),
+                               ((),), ((),), ((),), ((),), ((),), (1,)))
+        self.lora_concat.shard(((strategy[0][0], strategy[1][0]), (strategy[0][0], strategy[1][0])))
         self.lora_add.shard(((strategy[0][0], strategy[1][0]), (strategy[0][0], strategy[1][0])))
 
 
@@ -429,7 +434,7 @@ class SLoraAdapter(abc.ABC):
         target_modules = '|'.join(target_modules_list)
 
         lora_extra_vocab_size = 0
-        if re.match(target_modules, '.*embeddings'):
+        if re.match(target_modules, 'embed_tokens'):
             for _, slora_path in path_dict.items():
                 added_tokens_path = os.path.join(slora_path, "added_tokens.json")
                 if os.path.exists(added_tokens_path):
@@ -473,8 +478,6 @@ class SLoraAdapter(abc.ABC):
                 new_head = SLoraHead(network.lm_head, self.slora_inputs, self.slora_config)
                 new_head.shard()
                 network.lm_head = new_head
-                if isinstance(network.lm_head, SLoraEmbedding) and cell.lora_extra_vocab_size != 0:
-                    self.registered_loras['lm_head.lora_embedding'] = network.lm_head.lora_embedding_shape
                 self.registered_loras["lm_head.lora_a"] = network.lm_head.lora_a_shape
                 self.registered_loras["lm_head.lora_b"] = network.lm_head.lora_b_shape
                 if network.lm_head.lora_extra_vocab_size != 0:
