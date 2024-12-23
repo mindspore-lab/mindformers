@@ -43,6 +43,10 @@ from ...tools.logger import logger
 
 __all__ = ['ChatGLM2ForConditionalGeneration', 'ChatGLM2Model', 'ChatGLM2WithPtuning2']
 
+# For long sequence, activation checkpointing of AllGather in case of tp-sp is too large, and should be eliminated;
+# For short sequence, static memory especially gradient accumulation is too large, and should be sharded by tp.
+SHARDING_SEQ_LEN_THRESHOLD = 32768
+
 
 class GLM2PreTrainedModel(PreTrainedModel):
     """
@@ -126,7 +130,10 @@ class ChatGLM2Model(GLM2PreTrainedModel):
                 self.embedding.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
             if config.parallel_config.vocab_emb_dp or (config.vocab_size % (dp * mp * cp) != 0):
                 if use_sp:
-                    self.output_layer.shard(strategy_matmul=((dp * cp * mp, 1), (1, 1)))
+                    if self.seq_length >= SHARDING_SEQ_LEN_THRESHOLD:
+                        self.output_layer.shard(strategy_matmul=((dp * cp * mp, 1), (1, 1)))
+                    else:
+                        self.output_layer.shard(strategy_matmul=((dp * cp, 1), (mp, 1)))
                 else:
                     self.output_layer.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
             else:
@@ -272,9 +279,10 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         loss_parallel_config = copy.deepcopy(config.parallel_config)
         if config.parallel_config.vocab_emb_dp or (config.vocab_size % (dp * mp * cp) != 0):
             if loss_parallel_config.use_seq_parallel:
-                loss_parallel_config.data_parallel = dp * cp * mp
-                loss_parallel_config.model_parallel = 1
-                loss_parallel_config.context_parallel = 1
+                if self.seq_length > SHARDING_SEQ_LEN_THRESHOLD:
+                    loss_parallel_config.data_parallel = dp * cp * mp
+                    loss_parallel_config.model_parallel = 1
+                    loss_parallel_config.context_parallel = 1
             else:
                 loss_parallel_config.data_parallel = dp * cp
                 loss_parallel_config.model_parallel = 1
