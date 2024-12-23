@@ -1393,9 +1393,6 @@ class TopkRouterV2(Cell):
         """
         if self.use_allgather_dispatcher:
             hidden_size = expert_output.shape[-1]
-            # (outer_dp, inner_dp, ep, E//ep, n, h) <-- (dp, E, n, h)
-            expert_output = self.reshape_redist(expert_output, (
-                self.outer_dp, self.inner_dp, self.ep, self.expert_dim // self.ep, -1, hidden_size))
             # (outer_dp, inner_dp, ep, E//ep, n*h)
             expert_output = self.reshape(expert_output, (
                 self.outer_dp, self.inner_dp, self.ep, self.expert_dim // self.ep, -1))
@@ -1403,13 +1400,9 @@ class TopkRouterV2(Cell):
             expert_output = self.tile_5d(expert_output, (1, 1, 1, self.ep, 1))
             # (outer_dp, inner_dp, ep, E, n*h) <-- (outer_dp, inner_dp, ep, E, 1),(outer_dp, inner_dp, ep, E, n*h)
             expert_output = self.mul_onehot(self.one_hot, expert_output)
-            # (outer_dp, inner_dp, ep, E, n, h)
-            expert_output = self.reshape(expert_output, (
-                self.outer_dp, self.inner_dp, self.ep, self.expert_dim, -1, hidden_size
-            ))
             # (outer_dp, inner_dp, ep*E, n, h)
-            expert_output = self.reshape_redist(expert_output, (
-                self.outer_dp, self.inner_dp, -1, expert_output.shape[-2], hidden_size
+            expert_output = self.reshape(expert_output, (
+                self.outer_dp, self.inner_dp, self.expert_dim * self.ep, -1, hidden_size
             ))
             # (outer_dp, inner_dp, ep*E, 1+n, h)
             expert_output = self.concat(
@@ -1419,7 +1412,7 @@ class TopkRouterV2(Cell):
                 self.outer_dp, self.inner_dp, self.ep, -1, hidden_size))
             # (outer_dp, 1, ep, n, k) <-- (dp, n, k)
             combine_index = self.reshape(combine_index, (
-                self.outer_dp, 1, self.ep, combine_index.shape[1], combine_index.shape[2]))
+                self.outer_dp, 1, self.ep, -1, combine_index.shape[2]))
             # (outer_dp, inner_dp, ep, n, k)
             combine_index = self.tile_idx(combine_index, (1, self.inner_dp, 1, 1, 1))
             # (outer_dp, inner_dp, ep, n, k, h)
