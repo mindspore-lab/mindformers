@@ -20,6 +20,7 @@ import mindspore as ms
 from mindspore import Tensor, Model
 from mindspore.common import initializer as init
 from mindspore.communication import get_rank
+from mindspore.nn.utils import no_init_parameters
 
 from mindformers import MindFormerConfig, build_context, logger
 from mindformers.experimental.infer.core.utils import generate_state_dict
@@ -60,7 +61,8 @@ def main(config_path, load_checkpoint):
     tokenizer = LlamaTokenizer.from_pretrained(model_name)
 
     # build model
-    network = ParallelLlamaForCausalLM(model_config)
+    with no_init_parameters():
+        network = ParallelLlamaForCausalLM(model_config)
     model = Model(network)
 
     # get strategy file
