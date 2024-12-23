@@ -324,6 +324,17 @@ def get_scatter():
     return Scatter()
 
 
+def check_cpu_affinity_valid():
+    """check mindspore version is valid for runtime cpu affinity"""
+    version_valid = is_version_ge(ms.__version__, "2.5.0")
+    if not version_valid:
+        logger.warning("The mindspore runtime set cpu affinity feature is not supported "
+                       "when MindSpore version is earlier than 2.5.0, The current MindSpore version is %s, "
+                       "please install MindSpore 2.5.0 or later.", ms.__version__)
+        return False
+    return True
+
+
 def check_delay_init_valid():
     """check mindspore version is valid for delay init"""
     version_valid = is_version_ge(ms.__version__, "2.4.1")
