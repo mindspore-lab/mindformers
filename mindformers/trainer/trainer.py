@@ -440,7 +440,6 @@ class Trainer:
                 )
 
         self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
-        self._check_load_checkpoint()
         self.trainer.train(
             config=self.config, network=self.model,
             dataset=self.train_dataset, optimizer=self.optimizers,
@@ -757,7 +756,6 @@ class Trainer:
         self._init_model()
 
         self.config.load_checkpoint = self.get_load_checkpoint(self.config.load_checkpoint)
-        self._check_load_checkpoint()
 
         if input_data is None:
             input_data = build_dataset_loader(self.config.eval_dataset.data_loader)
@@ -1406,19 +1404,6 @@ class Trainer:
                                "===================================================================\n")
                 return
         return
-
-    def _check_load_checkpoint(self):
-        """Check load_checkpoint and auto_trans_ckpt in config."""
-        if not self.config.load_checkpoint:
-            if self.config.auto_trans_ckpt:
-                self.config.auto_trans_ckpt = False
-                logger.warning("load_checkpoint is None and `auto_trans_ckpt=True`, set `auto_trans_ckpt=False`.")
-            return
-        if (self.config.use_parallel and not self.config.auto_trans_ckpt
-                and os.path.isfile(self.config.load_checkpoint)
-                and self.config.load_checkpoint.endswith('.ckpt')):
-            self.config.auto_trans_ckpt = True
-            logger.info("If set `use_parallel=True` and load complete ckpt, set `auto_trans_ckpt=True`.")
 
     def push_to_hub(self, commit_message: Optional[str] = "End of training", blocking: bool = True) -> str:
         """

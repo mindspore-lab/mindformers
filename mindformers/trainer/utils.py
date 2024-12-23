@@ -385,6 +385,11 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
         load_checkpoint_with_safetensors(config, model, network, dataset, do_eval=do_eval, do_predict=do_predict)
         return
 
+    if (not config.auto_trans_ckpt and not config.only_save_strategy and
+            check_path_include_total_ckpt(config.load_checkpoint)):
+        load_ckpt(config, network, optimizer=optimizer)
+        return
+
     logger.warning(".ckpt file loading mode will be offline in June 2025.Recommend loading .safetensors file")
     # load ckpt process
     checkpoint_future = None
@@ -437,8 +442,8 @@ def check_checkpoint_config_valid(config):
     # check valid load checkpoint path
     if not config.only_save_strategy and (not os.path.realpath(config.load_checkpoint) or
                                           not os.path.exists(config.load_checkpoint)):
-        raise FileNotFoundError(f"The load_checkpoint must be correct, "
-                                f"but get {config.load_checkpoint}")
+        raise FileNotFoundError(f"The load_checkpoint must be correct, but get {config.load_checkpoint}")
+
     # check valid format
     if config.load_ckpt_format is not None and config.load_ckpt_format not in CkptFormat.support_type():
         raise ValueError(
