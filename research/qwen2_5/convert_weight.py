@@ -134,7 +134,7 @@ def convert_qkv_concat_weight(param_dict, model_config):
         ffn_hidden_weight = param_dict[ffn_hidden_weight_name].asnumpy()
         gate_hidden_weight_hf = np.concatenate((ffn_gate_weight, ffn_hidden_weight), 0)
         # ffn weight format: hf -> mg
-        gate_hidden_weight_mg = ffn_concat_hf2mg(gate_hidden_weight_hf, num_heads, ffn_hidden_size)
+        gate_hidden_weight_mg = ffn_concat_hf2mg(gate_hidden_weight_hf, ffn_hidden_size)
         param_dict[gate_hidden_concat_weight_name] = ms.Parameter(gate_hidden_weight_mg,
                                                                   name=gate_hidden_concat_weight_name)
 
@@ -158,8 +158,10 @@ def convert_qkv_concat_weight(param_dict, model_config):
         wq_bias_weight = param_dict[wq_bias_name].asnumpy()
         wk_bias_weight = param_dict[wk_bias_name].asnumpy()
         wv_bias_weight = param_dict[wv_bias_name].asnumpy()
-        qkv_bias_weight = np.concatenate((wq_bias_weight, wk_bias_weight, wv_bias_weight), 0)
-        param_dict[qkv_concat_bias_name] = ms.Parameter(qkv_bias_weight, name=qkv_concat_bias_name)
+        qkv_bias_weight_hf = np.concatenate((wq_bias_weight, wk_bias_weight, wv_bias_weight), 0)
+        # qkv bias weight format: hf -> mg
+        qkv_bias_weight_mg = qkv_concat_hf2mg(qkv_bias_weight_hf, num_heads, n_kv_heads, hidden_size)
+        param_dict[qkv_concat_bias_name] = ms.Parameter(qkv_bias_weight_mg, name=qkv_concat_bias_name)
 
         param_dict.pop(wq_bias_name)
         param_dict.pop(wk_bias_name)
