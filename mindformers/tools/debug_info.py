@@ -80,7 +80,8 @@ class DetailedLatency(BaseDebugInfo):
 
     def print_info(self):
         """Print timer result."""
-        if self.predict_run_mode and len(self.predict_time_list) > 2:
+        if self.predict_run_mode and all(
+                len(x) > 2 for x in [self.preprocess_time_list, self.predict_time_list, self.postprocess_time_list]):
             logger.info(
                 "prefill prepare time: %s s; "
                 "prefill predict time: %s s; "
