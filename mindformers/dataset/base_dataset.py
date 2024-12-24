@@ -65,31 +65,31 @@ class BaseDataset:
     @classmethod
     def _generate_shard_info(cls):
         """Generate shard info for dataset."""
-        rank_id = get_real_rank()
-        device_num = get_real_group_size()
+        shard_id = get_real_rank()
+        num_shards = get_real_group_size()
 
         ds_stra = ms.context.get_auto_parallel_context("dataset_strategy")
         if cls._is_semi_full_batch():
-            rank_id = None
-            device_num = None
+            shard_id = None
+            num_shards = None
         elif cls._is_semi() and not cls._is_full_batch():
             pp = ms.context.get_auto_parallel_context("pipeline_stages")
             first_input_stra = ds_stra[0]
             dp = first_input_stra[0]
-            mp = device_num // pp // dp
-            rank_id = rank_id % (device_num // pp) // mp
-            device_num = dp
+            mp = num_shards // pp // dp
+            shard_id = shard_id % (num_shards // pp) // mp
+            num_shards = dp
 
-        logger.info(f"Now dataset_strategy is {ds_stra}, rank_id: {rank_id}, device_num: {device_num}")
-        return rank_id, device_num
+        logger.info(f"Now dataset_strategy is {ds_stra}, shard_id: {shard_id}, num_shards: {num_shards}")
+        return shard_id, num_shards
 
     @classmethod
-    def _check_device_rank_for_parallel(cls, rank_id, device_num):
-        """Check device num and rank id in auto parallel mode."""
+    def _check_device_rank_for_parallel(cls, shard_id, num_shards):
+        """Check num shards and shard id in auto parallel mode."""
         if cls._is_semi_full_batch():
-            rank_id = None
-            device_num = None
-        return rank_id, device_num
+            shard_id = None
+            num_shards = None
+        return shard_id, num_shards
 
     @classmethod
     def _is_semi(cls):

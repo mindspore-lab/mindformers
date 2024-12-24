@@ -40,12 +40,12 @@ def batch_add(col, batch_info):
     if full_batch or not isinstance(ds_stra, (list, tuple)):
         adder = np.array([[i, 0] for i in range(batch_size)], dtype=np.int32).reshape((batch_size, 1, 1, 2))
     else:
-        rank_id = get_real_rank()
-        device_num = get_real_group_size()
+        shard_id = get_real_rank()
+        num_shards = get_real_group_size()
         pp = ms.get_auto_parallel_context("pipeline_stages")
         dp = ds_stra[0][0]
-        mp = device_num // pp // dp
-        shard_id = rank_id % (device_num // pp) // mp
+        mp = num_shards // pp // dp
+        shard_id = shard_id % (num_shards // pp) // mp
         adder = [[i + shard_id * batch_size, 0] for i in range(batch_size)]
         adder = np.array(adder, dtype=np.int32).reshape((batch_size, 1, 1, 2))
     output = output + adder
@@ -65,7 +65,7 @@ class ModalToTextSFTDataset(BaseDataset):
         logger.info("Now Create ModalToText SFT Dataset.")
         dataset_config = cls.check_dataset_config(dataset_config, locals())
         cls.init_dataset_config(dataset_config)
-        rank_id, device_num = cls._generate_shard_info()
+        shard_id, num_shards = cls._generate_shard_info()
 
         # build dataloader
         if isinstance(dataset_config.data_loader, dict):
@@ -73,11 +73,11 @@ class ModalToTextSFTDataset(BaseDataset):
         else:
             dataset = dataset_config.data_loader
         src_dataset_size = dataset.get_dataset_size()
-        if device_num is not None and rank_id is not None:
-            # if full_batch=False, device_num and rank_id are not None
+        if num_shards is not None and shard_id is not None:
+            # if full_batch=False, num_shards and shard_id are not None
             # shuffle has been set in build_dataset_loader process
             dataset.add_sampler(DistributedSampler(
-                num_shards=device_num, shard_id=rank_id, shuffle=False))
+                num_shards=num_shards, shard_id=shard_id, shuffle=False))
 
         # build tokenizer
         if isinstance(dataset_config.tokenizer, dict):
@@ -139,7 +139,7 @@ class ModalToTextSFTDataset(BaseDataset):
                                 per_batch_map=batch_add)
         if not ms.get_auto_parallel_context("full_batch"):
             # reset dataset size for full_batch=False
-            take_num = src_dataset_size // (dataset_config.batch_size * device_num)
+            take_num = src_dataset_size // (dataset_config.batch_size * num_shards)
             dataset = dataset.take(take_num)
         dataset = dataset.repeat(dataset_config.repeat)
         return dataset
