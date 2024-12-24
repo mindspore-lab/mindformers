@@ -213,9 +213,9 @@ class CausalLanguageModelDataset(BaseDataset):
         dataset_config = cls.check_dataset_config(dataset_config, locals())
         dataset_config = copy.deepcopy(dataset_config)
         cls.init_dataset_config(dataset_config)
-        rank_id, device_num = cls._generate_shard_info()
-        dataset_config.rank_id = rank_id
-        dataset_config.device_num = device_num
+        shard_id, num_shards = cls._generate_shard_info()
+        dataset_config.shard_id = shard_id
+        dataset_config.num_shards = num_shards
         pad_token_id = 0 if dataset_config.pad_token_id is None else dataset_config.pad_token_id
 
         if isinstance(dataset_config.data_loader, dict):
@@ -230,15 +230,15 @@ class CausalLanguageModelDataset(BaseDataset):
         type_cast_op = TypeCast(mstype.int32)
         if dataset_config.eod_reset:
             if cls._is_semi_full_batch() or cls._is_data_parallel():
-                rank_id = 0
+                shard_id = 0
                 dis = dataset_config.batch_size
             else:
                 # Each card slice a small batch from the full batch
-                dis = dataset_config.batch_size // device_num
-                if dataset_config.batch_size % device_num != 0:
+                dis = dataset_config.batch_size // num_shards
+                if dataset_config.batch_size % num_shards != 0:
                     raise ValueError(
-                        f"batch size {dataset_config.batch_size} should be a multiple of device number {device_num}."
-                        " You should change the args: per_batch_size.")
+                        f"batch size {dataset_config.batch_size} should be a multiple of dataset shard number "
+                        f"{num_shards}. You should change the args: per_batch_size.")
 
             if dataset_config.dynamic_batch:
                 dataset = dataset.batch(dataset_config.batch_size,
@@ -253,7 +253,7 @@ class CausalLanguageModelDataset(BaseDataset):
                                         output_columns=dataset_config.input_columns)
             map_func = lambda input_ids: get_input_data_batch_slice_map(input_ids,
                                                                         eod_token_id=dataset_config.eod_token_id,
-                                                                        rank_id=rank_id,
+                                                                        rank_id=shard_id,
                                                                         dis=dis)
             dataset = get_dataset_map(dataset, map_func,
                                       input_columns=dataset_config.input_columns,
@@ -293,9 +293,9 @@ class CausalLanguageModelDataset(BaseDataset):
         dataset_dir = dataset_config.data_loader.pop("dataset_dir", None)
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_dir': dataset_dir,
-                                                      'num_shards': dataset_config.device_num,
+                                                      'num_shards': dataset_config.num_shards,
                                                       'column_names': dataset_config.input_columns,
-                                                      'shard_id': dataset_config.rank_id})
+                                                      'shard_id': dataset_config.shard_id})
         return dataset
 
     @classmethod
@@ -322,9 +322,26 @@ class CausalLanguageModelDataset(BaseDataset):
             raise ValueError(f"data_loader must contain dataset_dir or dataset_files,"
                              f"but get {dataset_config.data_loader}.")
 
+        if not cls._is_full_batch():
+            dataset_config = cls._reset_num_samples(dataset_config)
+
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_files': dataset_files,
-                                                      'num_shards': dataset_config.device_num,
-                                                      'shard_id': dataset_config.rank_id,
+                                                      'num_shards': dataset_config.num_shards,
+                                                      'shard_id': dataset_config.shard_id,
                                                       'columns_list': dataset_config.input_columns})
         return dataset
+
+    @classmethod
+    def _reset_num_samples(cls, dataset_config):
+        """reset num_samples for full_batch=False"""
+        num_samples = dataset_config.data_loader.get('num_samples')
+        if num_samples is None:
+            return dataset_config
+
+        # dataset_config.device_num is equal to dp
+        cur_num_samples = num_samples // dataset_config.num_shards
+        logger.info(f"If set full_batch=False and num_samples, "
+                    f"num_samples will reset from {num_samples} to {cur_num_samples}.")
+        dataset_config.data_loader.num_samples = cur_num_samples
+        return dataset_config
