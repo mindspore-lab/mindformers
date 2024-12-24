@@ -14,7 +14,7 @@
 # ============================================================================
 """Dataset for multi-modal sft task"""
 from typing import Optional, Union, Callable
-
+import os
 import numpy as np
 
 import mindspore as ms
@@ -37,7 +37,9 @@ def batch_add(col, batch_info):
     batch_size = len(col)
     full_batch = ms.get_auto_parallel_context("full_batch")
     ds_stra = ms.get_auto_parallel_context("dataset_strategy")
-    if full_batch or not isinstance(ds_stra, (list, tuple)):
+    dynamic_batch = os.environ.get("IMG_DYNAMIC_BATCH")
+    use_dynamic_batch = dynamic_batch and (dynamic_batch == '1' or dynamic_batch.lower() == 'true')
+    if full_batch or not isinstance(ds_stra, (list, tuple)) or use_dynamic_batch:
         adder = np.array([[i, 0] for i in range(batch_size)], dtype=np.int32).reshape((batch_size, 1, 1, 2))
     else:
         rank_id = get_real_rank()
@@ -130,7 +132,8 @@ class ModalToTextSFTDataset(BaseDataset):
         net_input_columns = dataset_config.get("net_input_columns", output_columns)
         if net_input_columns is not None:
             dataset = dataset.project(columns=net_input_columns)
-
+        if dataset_config.img_dynamic_batch:
+            os.environ["IMG_DYNAMIC_BATCH"] = "1"
         batch_input_columns = [col for col in output_columns if col.endswith("_context_pos")]
         dataset = dataset.batch(dataset_config.batch_size,
                                 drop_remainder=dataset_config.drop_remainder,

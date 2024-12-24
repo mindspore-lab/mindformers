@@ -120,6 +120,7 @@ class BaseXModalToTextTransform:
             max_length=512,
             padding='max_length',
             mode: str = "train",
+            add_special_tokens: bool = False,
     ):
         self.tokenizer = tokenizer
 
@@ -132,6 +133,7 @@ class BaseXModalToTextTransform:
         self.max_length = max_length
         self.padding = padding
         self.mode = mode
+        self.add_special_tokens = add_special_tokens
 
         if not self.model_transform_template.has_init_modal_builder_tokens:
             self.model_transform_template.check_modal_builder_tokens(self.tokenizer)
@@ -180,7 +182,7 @@ class BaseXModalToTextTransform:
 
         text_id_list = []
         for text in text_list:
-            text_id = self.tokenizer(text, add_special_tokens=False)["input_ids"]
+            text_id = self.tokenizer(text, add_special_tokens=self.add_special_tokens)["input_ids"]
             text_id = self.model_transform_template.build_modal_context(text_id, self.result_recorder, **kwargs)
             text_id_list.append(text_id)
 
