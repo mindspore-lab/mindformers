@@ -206,6 +206,9 @@ if __name__ == "__main__":
     parser.add_argument(
         '--register_path', default=None, type=str,
         help='the register path of outer API.')
+    parser.add_argument(
+        '--do_sample', default=None, type=str2bool,
+        help='do_sample.')
 
     args_, rest_args_ = parser.parse_known_args()
     rest_args_ = [i for item in rest_args_ for i in item.split("=")]
@@ -270,6 +273,8 @@ if __name__ == "__main__":
         config_.train_dataset.data_loader.dataset_dir = args_.train_dataset_dir
     if args_.eval_dataset_dir:
         config_.eval_dataset.data_loader.dataset_dir = args_.eval_dataset_dir
+    if args_.do_sample is not None:
+        config_.model.model_config.do_sample = args_.do_sample
     if config_.run_mode == 'predict':
         if args_.predict_data is None:
             logger.info("dataset by config is used as input_data.")
