@@ -36,24 +36,21 @@ from mindformers import CosineWithWarmUpLR, FP32StateAdamWeightDecay
 from mindformers import Trainer, MindFormerRegister, MindFormerModuleType
 from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
 
-from research.qwenvl.qwenvl import QwenVL
-from research.qwenvl.qwenvl_config import QwenVLConfig
+from research.qwenvl.qwenvl_config import QwenVLConfig, QwenConfig
+from research.qwenvl.qwenvl_model import QwenVL
 from research.qwenvl.qwenvl_processor import QwenVLImageProcessor, QwenVLProcessor
 from research.qwenvl.qwenvl_tokenizer import QwenVLTokenizer
 from research.qwenvl.qwenvl_transform import QwenVLTransform
-from research.qwenvl.qwen.optim import AdamWeightDecayX
-from research.qwenvl.qwen.qwen_model import QwenForCausalLM
-from research.qwenvl.qwen.qwen_config import QwenConfig
+from research.qwenvl.qwen_model import QwenForCausalLM
 from tests.st.training_checker import TrainingChecker
 
-from .base_model import get_config, get_model, get_model_config
+from .base_model import get_train_config, get_model, get_model_config
 
 ms.set_context(mode=0)
 
 
 def register_modules():
     """register modules"""
-    MindFormerRegister.register_cls(AdamWeightDecayX, MindFormerModuleType.OPTIMIZER)
     MindFormerRegister.register_cls(QwenVL, MindFormerModuleType.MODELS)
     MindFormerRegister.register_cls(QwenForCausalLM, MindFormerModuleType.MODELS)
     MindFormerRegister.register_cls(QwenConfig, MindFormerModuleType.CONFIG)
@@ -96,7 +93,7 @@ class TestQwenVLTrain:
         train_dataset = GeneratorDataset(generator_train,
                                          column_names=["input_ids", "images", "image_context_pos", "labels"])
         train_dataset = train_dataset.batch(batch_size=4)
-        config = get_config()
+        config = get_train_config()
         model_config = get_model_config(config)
         model = get_model(model_config)
         lr_schedule = CosineWithWarmUpLR(learning_rate=1.e-5, warmup_ratio=0.01, warmup_steps=0, total_steps=20)

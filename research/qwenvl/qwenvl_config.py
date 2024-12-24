@@ -14,10 +14,48 @@
 # ============================================================================
 """QwenVL Config API"""
 
-from mindformers import TransformerOpParallelConfig, MindFormerRegister, \
-    MindFormerModuleType, PretrainedConfig
+from mindformers import (
+    TransformerOpParallelConfig,
+    MindFormerRegister,
+    MindFormerModuleType,
+    PretrainedConfig,
+    LlamaConfig,
+    logger
+)
 from mindformers.core.parallel_config import default_parallel_config
 from mindformers.models.utils import convert_mstype
+
+
+@MindFormerRegister.register(MindFormerModuleType.CONFIG)
+class QwenConfig(LlamaConfig):
+    """
+    Qwen config class.
+
+    Returns:
+        Class, QwenConfig.
+    """
+
+    def __init__(self,
+                 embedding_parallel_optimizer: bool = True,
+                 enable_slice_dp: bool = True,
+                 enable_emb_opt: bool = False,
+                 **kwargs):
+        if 'num_hidden_layers' in kwargs:
+            logger.warning("Argument `num_hidden_layers` is deprecated. Use `num_layers` instead.")
+            if kwargs.get('num_layers', None) is None:
+                num_layers = kwargs.pop('num_hidden_layers')
+                kwargs['num_layers'] = num_layers
+
+        if 'num_attention_heads' in kwargs:
+            logger.warning("Argument `num_attention_heads` is deprecated. Use `num_heads` instead.")
+            if kwargs.get('num_heads', None) is None:
+                num_heads = kwargs.pop('num_attention_heads')
+                kwargs['num_heads'] = num_heads
+
+        super().__init__(**kwargs)
+        self.embedding_parallel_optimizer = embedding_parallel_optimizer
+        self.enable_slice_dp = enable_slice_dp
+        self.enable_emb_opt = enable_emb_opt
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
@@ -130,6 +168,7 @@ class QwenVLConfig(PretrainedConfig):
                  freeze_llm: bool = False,
                  checkpoint_name_or_path: str = None,
                  use_past: bool = False,
+                 is_dynamic: bool = False,
                  compute_dtype: str = None,
                  softmax_compute_type: str = None,
                  param_init_type: str = None,
@@ -150,6 +189,9 @@ class QwenVLConfig(PretrainedConfig):
         self.freeze_llm = freeze_llm
         self.checkpoint_name_or_path = checkpoint_name_or_path
         self.use_past = use_past
+        self.is_dynamic = is_dynamic
+        self.llm_model.model_config.use_past = use_past
+        self.llm_model.model_config.is_dynamic = is_dynamic
 
         self.parallel_config = parallel_config
 

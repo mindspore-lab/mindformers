@@ -17,7 +17,7 @@ sys.path.append(MFPATH + '/research/qwenvl')
 # pylint: disable=C0413
 from mindformers import MindFormerConfig
 
-from research.qwenvl.qwenvl import QwenVL
+from research.qwenvl.qwenvl_model import QwenVL
 from research.qwenvl.qwenvl_config import QwenVLConfig
 
 VISION_MODEL_CONFIG = {
@@ -25,6 +25,8 @@ VISION_MODEL_CONFIG = {
     'model_config': {
         'type': 'QwenVLVisionConfig',
         'num_hidden_layers': 2,
+        'image_size': 448,
+        'patch_size': 14
     },
 }
 
@@ -45,6 +47,7 @@ LLM_MODEL_CONFIG = {
         'ignore_token_id': -100,
         'rotary_dtype': "float16",
         'use_flash_attention': True,
+        'use_past': False,
         'is_dynamic': True,
         'num_blocks': 128,
         'top_k': 0,
@@ -90,6 +93,7 @@ BASE_CONFIG = {
             'freeze_vision': True,
             'freeze_resampler': False,
             'freeze_llm': False,
+            'use_past': False,
             'compute_dtype': "bfloat16",
             'param_init_type': "float16",
             'softmax_compute_type': "float32",
@@ -101,8 +105,19 @@ BASE_CONFIG = {
     'callbacks': [{'type': 'MFLossMonitor'}]
 }
 
-def get_config():
+def get_train_config():
     return MindFormerConfig(**BASE_CONFIG)
+
+def get_predict_config():
+    config = MindFormerConfig(**BASE_CONFIG)
+    config.model.model_config.compute_dtype = 'float16'
+    config.model.model_config.use_past = True
+    config.model.model_config.block_size = 16
+    config.model.model_config.num_blocks = 512
+    config.model.model_config.llm_model.model_config.use_past = True
+    config.model.model_config.llm_model.model_config.block_size = 16
+    config.model.model_config.llm_model.model_config.num_blocks = 512
+    return config
 
 def get_model_config(config):
     """get instanced model config."""

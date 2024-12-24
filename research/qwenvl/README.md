@@ -17,8 +17,8 @@ Qwen-VL 是阿里云研发的大规模视觉语言模型（Large Vision Language
 
 | Config                                          |             Task              |      Datasets       |   Performance   |  Phase   |
 |:------------------------------------------------|:-----------------------------:|:-------------------:|:---------------:|:--------:|
-| [qwenvl_9.6b](./finetune_qwenvl_9.6b_bf16.yaml) | multimodal_to_text_generation | LlaVA-Instruct-150K | 2587 tokens/s/p | Finetune |
-| [qwenvl_9.6b](./predict_qwenvl_9.6b.yaml)       | multimodal_to_text_generation |          -          |   42 tokens/s   | Predict  |
+| [qwenvl_9.6b](qwenvl_9.6b/finetune_qwenvl_9.6b_bf16.yaml) | multimodal_to_text_generation | LlaVA-Instruct-150K | 2587 tokens/s/p | Finetune |
+| [qwenvl_9.6b](qwenvl_9.6b/predict_qwenvl_9.6b.yaml)       | multimodal_to_text_generation |          -          |   42 tokens/s   | Predict  |
 
 ## 模型文件
 
@@ -30,16 +30,17 @@ Qwen-VL 是阿里云研发的大规模视觉语言模型（Large Vision Language
    qwenvl
      ├── qwenvl_config.py         # 配置文件
      ├── qwenvl_tokenizer.py      # tokenizer
-     └── qwenvl.py                # 模型实现
+     ├── qwenvl_model.py          # qwenvl模型实现
+     └── qwen_model.py            # qwen模型实现
    ```
 
 2. 模型配置：
 
    ```text
    qwenvl
-     ├── predict_qwenvl_9.6b.yaml            # qwenvl推理启动配置
-     ├── finetune_qwenvl_9.6b.yaml           # qwenvl微调启动配置（2k）
-     └── finetune_qwenvl_9.6b_bf16.yaml      # qwenvl微调启动配置（2k，bf16）
+     └── qwenvl_9.6b
+             ├── predict_qwenvl_9.6b.yaml            # qwenvl推理启动配置
+             └── finetune_qwenvl_9.6b_bf16.yaml      # qwenvl微调启动配置（2k，bf16）
    ```
 
 3. 环境准备和任务启动脚本：
@@ -48,8 +49,7 @@ Qwen-VL 是阿里云研发的大规模视觉语言模型（Large Vision Language
    qwenvl
      ├── qwenvl_processor.py      # 训练和推理时候使用的数据处理
      ├── convert_weight.py        # 权重转换脚本
-     ├── data_convert.py          # 数据预处理转换脚本
-     └── run_qwenvl.py            # QwenVL高阶接口脚本
+     └── data_convert.py          # 数据预处理转换脚本
    ```
 
 ## 环境及数据准备
@@ -166,12 +166,12 @@ MindFormers提供了默认微调配置`finetune_qwenvl_9.6b.yaml`，默认配置
      data_loader:
       type: BaseMultiModalDataLoader
       annotation_file: "/path/to/converted/json"     # 根据实际位置，填写对话json文件所在路径
-      column_names: [ "image", "text" ]
       shuffle: True
      modal_to_text_transform:
         type: BaseXModalToTextTransform
         model_transform_template:
           type: QwenVLContentTransformTemplate      # QwenVL关于数据集数据处理模板
+          auto_register: qwenvl_processor.QwenVLContentTransformTemplate
           output_columns: ["input_ids", "images", "image_context_pos", "labels"] # 文本处理后数据数据的列名，不需要配置
           mode: "train"
           dataset_dir: "/location/of/coco/train2014" # 该处配置文件夹位置与json数据集中图片路径拼接得到图片的绝对路径，如果数据集中路径已是绝对路径，该处不需要配置；当使用示例数据集时为train2014文件夹所在路径，配置项不包含train2014,
@@ -194,6 +194,7 @@ MindFormers提供了默认微调配置`finetune_qwenvl_9.6b.yaml`，默认配置
      net_input_columns: [ "input_ids", "images", "image_context_pos", "labels" ]  # 最终从数据集流水线中取所配置列名及其顺序送入到网络输入
      tokenizer:
        type: QwenVLTokenizer
+       auto_register: qwenvl_tokenizer.QwenVLTokenizer
        vocab_file: '/path/to/vocab_file'
     ```
 
@@ -202,20 +203,19 @@ MindFormers提供了默认微调配置`finetune_qwenvl_9.6b.yaml`，默认配置
 运行如下命令启动单机8卡微调任务。
 
 ```shell
-cd research/qwenvl
-bash ../../scripts/msrun_launcher.sh "python run_qwenvl.py \
---config finetune_qwenvl_9.6b_bf16.yaml \
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--register_path research/qwenvl
 --run_mode finetune \
 --load_checkpoint /path/to/ckpt \
 --use_parallel True \
 --auto_trans_ckpt True \
 --vocab_file /path/to/qwen.tiktoken" 8
 
-# 以上除config外其他传参如果在yaml文件中已经配置，可以在启动命令中不再传入
+# 以上除config和register_path外其他传参如果在yaml文件中已经配置，可以在启动命令中不再传入
 # 参数说明
 # config: 配置文件路径
-# run_mode: 运行模式，微调时设置为finetune
-# load_checkpoint: 当使用分布式权重时传入权重文件夹路径model_dir，权重按照'model_dir/rank_0/xxx.ckpt'格式存放，传入完整权重时传入ckpt路径
+# run_mode: 运行模式，微调时设置为finetune，推理时设置为predict
+# load_checkpoint: 当使用完整权重时传入ckpt路径；当使用分布式权重时传入权重文件夹路径model_dir，权重按照'model_dir/rank_0/xxx.ckpt'格式存放
 # auto_trans_ckpt: 自动权重转换开关，当传入完整权重时打开
 ```
 
@@ -248,10 +248,10 @@ bash ../../scripts/msrun_launcher.sh "python run_qwenvl.py \
 
   ```shell
   # 以使用共享盘为例
-  cd research/qwenvl
-  bash ../../scripts/msrun_launcher.sh "python run_qwenvl.py \
-  --config finetune_qwenvl_9.6b_bf16.yaml \
+  bash scripts/msrun_launcher.sh "run_mindformer.py \
+  --register_path research/qwenvl
   --run_mode finetune \
+  --config research/qwenvl/qwenvl_9.6b/finetune_qwenvl_9.6b_bf16.yaml \
   --load_checkpoint /path/to/ckpt \
   --use_parallel True \
   --auto_trans_ckpt True \
@@ -262,10 +262,10 @@ bash ../../scripts/msrun_launcher.sh "python run_qwenvl.py \
 - 在节点1执行如下命令，其中192.168.1.1需要改为节点0的实际ip。
 
   ```shell
-  cd research/qwenvl
-  bash ../../scripts/msrun_launcher.sh "python run_qwenvl.py \
-  --config finetune_qwenvl_9.6b_bf16.yaml \
+  bash scripts/msrun_launcher.sh "python run_mindformer.py \
+  --register_path research/qwenvl
   --run_mode finetune \
+  --config research/qwenvl/qwenvl_9.6b/finetune_qwenvl_9.6b_bf16.yaml \
   --load_checkpoint /path/to/ckpt \
   --use_parallel True \
   --auto_trans_ckpt True \
@@ -275,48 +275,36 @@ bash ../../scripts/msrun_launcher.sh "python run_qwenvl.py \
 
 ## 推理
 
-MindFormers提供`QwenVL`的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡、多卡以及多batch推理，当前多卡推理时不支持增量推理。
-进行推理前，模型权重以及tokenizer文件可参考[模型权重下载](#模型权重下载)进行准备。
+进行推理前，模型权重以及tokenizer文件可参考[模型权重下载](#模型权重下载)进行准备，并修改`predict_qwenvl_9.6b.yaml`中相关配置，补充词表路径。
 
-```shell
-# 脚本使用
-bash scripts/examples/qwenvl/run_qwenvl_predict.sh PARALLEL CONFIG_PATH CKPT_PATH TOKENIZER IMAGE_PATH PROMPT BATCH_SIZE DEVICE_NUM
+修改`predict_llava1_5_7b.yaml`中相关配置，补充词表路径。
 
-# 参数说明
-# PARALLEL:    是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
-# CONFIG_PATH: 模型配置文件路径
-# CKPT_PATH:   模型权重文件路径
-# TOKENIZER:   模型tokenizer文件路径
-# IMAGE_PATH:  推理的图片路径
-# PROMPT:      对推理图片使用的Prompt
-# BATCH_SIZE:  推理时使用的batch size
-# DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
-```
+   ```yaml
+   processor:
+     tokenizer:
+       add_bos_token: True
+       add_eos_token: False
+       vocab_file: "/path/to/tokenizer.model"
+       type: LlavaTokenizer
+       auto_register: llava_tokenizer.LlavaTokenizer
+   ```
 
 ### 单卡推理
 
+当前QwenVL只支持单卡推理。
+
 ```shell
-bash scripts/examples/qwenvl/run_qwenvl_predict.sh single \
- research/qwenvl/predict_qwenvl_9.6b.yaml \
- /path/to/qwenvl_9.6b_base.ckpt \
- /path/to/tokenizer.model \
- "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg" \
- "Describe the image in English:" \
- 1 # batch_size
+python run_mindformer.py \
+--config research/qwenvl/qwenvl_9.6b/predict_qwenvl_9.6b.yaml \
+--register_path research/qwenvl \
+--run_mode predict \
+--predict_data 'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg' 'Describe the image in English:' \
+--modal_type image text \
+--load_checkpoint /path/to/qwenvl_9.6b_base.ckpt \
+--use_parallel False \
+--auto_trans_ckpt False \
+--predict_batch_size 1
  # 推理结果：
  # Picture 1: <img>https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg</img>
  # Describe the image in English: A women and a dog on the bench at sunset.<|endoftext|>
-```
-
-### 多卡推理
-
-```shell
-bash scripts/examples/qwenvl/run_qwenvl_predict.sh parallel \
- research/qwenvl/predict_qwenvl_9.6b.yaml \
- path/to/qwenvl_9.6b_base.ckpt \
- path/to/tokenizer.model \
- "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg" \
- "Describe the image in English:" 1 2
- # 1 表示batch_size=1
- # 2 表示device_num=2，即使用2卡推理
 ```

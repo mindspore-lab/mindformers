@@ -16,6 +16,7 @@
 
 import copy
 import numpy as np
+
 import mindspore.common.dtype as mstype
 from mindspore import log as logger
 from mindspore import nn, mint
@@ -35,14 +36,19 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.utils import lazy_inline
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_validator_check, _valid_value_checks, \
+from mindformers.modules.layers import (
+    Linear,
+    _check_input_dtype,
+    _args_type_validator_check,
+    _valid_value_checks,
     FreqsMgr
+)
 from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaSiLU, LlamaRMSNorm
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.models.utils import LayerSetting
 from mindformers.version_control import check_valid_flash_attention
 
-from .qwen_config import QwenConfig
+from qwenvl_config import QwenConfig
 
 
 class QwenPreTrainedModel(PreTrainedModel):
@@ -333,7 +339,8 @@ class QwenModel(QwenPreTrainedModel):
                                     block_size=config.block_size,
                                     num_blocks=config.num_blocks,
                                     parallel_config=config.parallel_config,
-                                    qkv_concat=config.qkv_concat)
+                                    qkv_concat=config.qkv_concat,
+                                    is_dynamic=config.is_dynamic)
 
             self.layer_setting(layer, layer_id)
 
@@ -425,6 +432,7 @@ class QwenDecodeLayer(LLamaDecodeLayer):
                  parallel_config,
                  compute_dtype=mstype.float16,
                  param_init_type=mstype.float32,
+                 is_dynamic=False,
                  **kwargs):
         super().__init__(seq_length,
                          layer_id,
@@ -432,6 +440,7 @@ class QwenDecodeLayer(LLamaDecodeLayer):
                          parallel_config=parallel_config,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type,
+                         is_dynamic=is_dynamic,
                          **kwargs)
 
         self.feed_forward = QwenFeedForward(dim=self.hidden_size,

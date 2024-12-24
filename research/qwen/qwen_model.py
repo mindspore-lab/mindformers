@@ -41,7 +41,7 @@ from mindformers.models.llama.llama_layer import LlamaEmbedding, LlamaSiLU, Llam
 from mindformers.models.llama.llama_transformer import LLamaDecodeLayer
 from mindformers.models.utils import LayerSetting
 from mindformers.version_control import check_valid_flash_attention
-from research.qwenvl.qwen.qwen_config import QwenConfig
+from qwen_config import QwenConfig
 
 
 class QwenPreTrainedModel(PreTrainedModel):

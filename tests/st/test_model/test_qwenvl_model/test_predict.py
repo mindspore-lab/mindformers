@@ -22,26 +22,24 @@ MFPATH = os.path.abspath(__file__)
 MFPATH = os.path.abspath(MFPATH + '/../../../../../')
 sys.path.append(MFPATH)
 sys.path.append(MFPATH + '/research/qwenvl')
+
 # pylint: disable=C0413
 from mindformers import MindFormerRegister, MindFormerModuleType
 
-from research.qwenvl.qwenvl import QwenVL
-from research.qwenvl.qwenvl_config import QwenVLConfig
+from research.qwenvl.qwenvl_config import QwenVLConfig, QwenConfig
+from research.qwenvl.qwenvl_model import QwenVL
 from research.qwenvl.qwenvl_processor import QwenVLImageProcessor, QwenVLProcessor
 from research.qwenvl.qwenvl_tokenizer import QwenVLTokenizer
 from research.qwenvl.qwenvl_transform import QwenVLTransform
-from research.qwenvl.qwen.optim import AdamWeightDecayX
-from research.qwenvl.qwen.qwen_model import QwenForCausalLM
-from research.qwenvl.qwen.qwen_config import QwenConfig
+from research.qwenvl.qwen_model import QwenForCausalLM
 
-from .base_model import get_config, get_model, get_model_config
+from .base_model import get_predict_config, get_model, get_model_config
 
-ms.set_context(mode=0)
+ms.set_context(mode=0, jit_config={'jit_level': 'O0', 'infer_boost': 'on'})
 
 
 def register_modules():
     """register modules"""
-    MindFormerRegister.register_cls(AdamWeightDecayX, MindFormerModuleType.OPTIMIZER)
     MindFormerRegister.register_cls(QwenVL, MindFormerModuleType.MODELS)
     MindFormerRegister.register_cls(QwenForCausalLM, MindFormerModuleType.MODELS)
     MindFormerRegister.register_cls(QwenConfig, MindFormerModuleType.CONFIG)
@@ -74,12 +72,11 @@ class TestQwenVLPredict:
         Expectation: TypeError, ValueError, RuntimeError
         """
         register_modules()
-        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/ascend-toolkit/latest"
-        config = get_config()
+        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
+        config = get_predict_config()
         model_config = get_model_config(config)
         model = get_model(model_config)
         input_ids = np.random.randint(0, 128, size=(1, 256), dtype=np.int32)
-        input_ids = np.pad(input_ids, ((0, 0), (0, 256)), 'constant', constant_values=151643)
         images = ms.Tensor(np.random.random(size=(1, 1, 3, 448, 448)), dtype=ms.float32)
         img_pos = ms.Tensor([generate_coord([30])], ms.int32)
         _ = model.generate(input_ids=input_ids,
