@@ -358,6 +358,7 @@ class MoEConfig(Config):
     balance_via_topk_bias = False
     topk_bias_update_rate = 0.
     use_allgather_dispatcher = False
+    moe_shared_expert_overlap = False
 
     _name = "moe_config"
 

@@ -634,7 +634,8 @@ class LlamaFeedForwardWithMoE(Cell):
         self.sigmoid = Sigmoid()
         self.mul = P.Mul()
         self.add = P.Add()
-
+        if moe_config.moe_shared_expert_overlap:
+            self.add.add_prim_attr("parallel_branch", 1)
         if self.use_moe_infer:
             self.routed_experts = MoEInfer(
                 ffn=LlamaMoeInferFeedForward(dim=hidden_size,
@@ -662,7 +663,8 @@ class LlamaFeedForwardWithMoE(Cell):
                 dim=hidden_size,
                 moe_config=moe_config,
                 parallel_config=parallel_config,
-                return_extra_loss=return_extra_loss
+                return_extra_loss=return_extra_loss,
+                init_method_std=init_method_std
             )
 
         self.shared_experts = LlamaFeedForward(dim=hidden_size,
