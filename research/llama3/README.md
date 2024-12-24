@@ -193,7 +193,7 @@ MindFormers提供`Llama3-8b`单机多卡以及`Llama3-70b`多机多卡的微调�
 
 #### 单机训练
 
-以Llama3-8b为例，Llama3-8B在Atlas 800T A2上训练，支持**单机/多机训练**。
+以Llama3-8b为例，支持**单机/多机训练**。
 
 使用`finetune_llama3_8b.yaml`进行训练，或修改默认配置文件中的`model_config.seq_length`，使训练配置与数据集的`seq_length`保持一致。
 
@@ -228,48 +228,82 @@ train_data:      训练数据集路径
 
 ## 推理
 
-MindFormers提供`Llama3-8b`和`Llama3-70b`的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡、多卡以及多batch推理。
-
-```shell
-# 脚本使用
-bash scripts/examples/llama3/run_llama3_predict.sh PARALLEL CONFIG_PATH CKPT_PATH DEVICE_NUM
-
-# 参数说明
-PARALLEL:    是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
-CONFIG_PATH: 模型配置文件路径
-CKPT_PATH:   模型权重文件路径
-VOCAB_FILE:  词表路径
-DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
-```
+MindFormers提供`Llama3-8b`和`Llama3-70b`的推理功能，支持单卡、多卡以及多batch推理。
 
 ### 单卡推理
 
 以`Llama3-8b`单卡推理为例。
 
-```shell
-bash scripts/examples/llama3/run_llama3_predict.sh single \
- research/llama3/llama3_8b/predict_llama3_8b.yaml \
- path/llama3_8b.ckpt \
- path/tokenizer.model
+1. 修改模型配置文件`research/llama3/llama3_8b/predict_llama3_8b.yaml`
 
-# 多batch输出
-# I love Beijing, because it is a city of contrasts. It is a city of the past and the future, a city of the old and the new. It is a city of the rich and the poor, a city of the educated and the uneducated. ...
-# Hey how are you doing today? I am doing well. I am a little bit tired because I have been working a lot. I am a little bit tired because I have been working a lot. I am a little bit tired because I have been working a lot. ...
-# Huawei is a company that has been in the news a lot lately. The company has been accused of spying on its customers, and it has also been accused of stealing intellectual property from other companies. Huawei has denied all of these allegations, but the company has not been able to shake the negative publicity. ...
-```
+   在对应位置修改为tokenizer.model文件的路径。
+
+   ```yaml
+   processor:
+     tokenizer:
+        vocab_file: "/path/tokenizer.model"
+   ```
+
+2. 执行推理命令
+
+   ```shell
+   python run_mindformer.py \
+    --register_path research/llama3 \
+    --config research/llama3/llama3_8b/predict_llama3_8b.yaml \
+    --load_checkpoint /path/llama3_8b.ckpt \
+    --auto_trans_ckpt False \
+    --use_parallel False \
+    --run_mode predict \
+    --predict_data "I love Beijing, because"
+
+   # 推理结果
+   # I love Beijing, because it is a city of contrasts. It is a city of the past and the future, a city of the old and the new. ...
+   ```
+
+   多batch推理
+
+   ```shell
+   python run_mindformer.py \
+    --register_path research/llama3 \
+    --config research/llama3/llama3_8b/predict_llama3_8b.yaml \
+    --load_checkpoint /path/llama3_8b.ckpt \
+    --auto_trans_ckpt False \
+    --use_parallel False \
+    --run_mode predict \
+    --predict_data "I love Beijing, because" "Hey how are you doing today?" \
+    --predict_batch_size 2
+
+   # 推理结果
+   # I love Beijing, because it is a city of contrasts. It is a city of the past and the future, a city of the old and the new. ...
+   # Hey how are you doing today? I am doing well. I am a little bit tired because I have been working a lot. ...
+   ```
 
 ### 多卡推理
 
-以`Llama3-70b`4卡推理为例。Llama3-70b权重较大，建议先进行权重切分，参见[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)。
+以`Llama3-70b`4卡推理为例。
 
-```shell
-bash scripts/examples/llama3/run_llama3_predict.sh parallel \
- research/llama3/llama3_70b/predict_llama3_70b.yaml \
- path/model_dir \
- path/tokenizer.model 4
+1. 修改模型配置文件`research/llama3/llama3_70b/predict_llama3_70b.yaml`
 
-# 多batch输出
-# I love Beijing, because it is a city that is full of life and energy. The people, the food, the culture, the history... everything about Beijing is just so fascinating to me. ...
-# Hey how are you doing today? I hope you are doing well. I am doing great, thanks for asking. I am excited to be here today to talk about a very important topic, which is the importance of self-care. ...
-# Huawei is a company that has been in the news a lot lately, and not always for the right reasons. The Chinese tech giant has been accused of spying on behalf of the Chinese government, and has been banned from doing business with US companies. ...
-```
+   在对应位置修改为tokenizer.model文件的路径。
+
+   ```yaml
+   processor:
+     tokenizer:
+        vocab_file: "/path/tokenizer.model"
+   ```
+
+2. 执行推理命令
+
+   ```shell
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --register_path research/llama3 \
+    --config research/llama3/llama3_70b/predict_llama3_70b.yaml \
+    --load_checkpoint /path/llama3_70b.ckpt \
+    --auto_trans_ckpt True \
+    --use_parallel True \
+    --run_mode predict \
+    --predict_data \"I love Beijing, because\"" 4
+
+   # 推理结果
+   # Hey how are you doing today? I am doing great. I am a little tired but I am doing great. ...
+   ```
