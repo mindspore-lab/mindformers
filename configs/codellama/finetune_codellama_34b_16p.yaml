@@ -125,7 +125,7 @@ context:
   save_graphs_path: "./graph"
   device_id: 0
   jit_config:
-    jit_level: "O2"
+    jit_level: "O1"
 
 # model config
 model:
