@@ -64,20 +64,24 @@ def merge_safetensors_to_bin(input_path, file_path_):
         merged_state_dict.update(torch_state_dict)
 
     #临时文件，保存为bin格式
-    os.mkdir('temp')
+    if not os.path.exists('temp'):
+        os.mkdir('temp')
     torch.save(merged_state_dict, file_path_)
 
 
 # pylint: disable=W0613
-def convert_pt_to_ms(input_path, output_path, file_path_, dtype=None, **kwargs):
+def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """
     convert pt tp ms
     """
 
+    file_path = os.path.join(input_path, "pytorch_model.bin")
+    merge_safetensors_to_bin(input_path, file_path)
+
     print(f"Trying to convert mindspore checkpoint in {input_path}.")
-    model_hf = LlamaForCausalLM.from_pretrained(os.path.dirname(file_path_))
-    if os.path.exists(file_path_):
-        os.remove(file_path_)
+    model_hf = LlamaForCausalLM.from_pretrained(os.path.dirname(file_path))
+    if os.path.exists(file_path):
+        os.remove(file_path)
     ckpt_list = []
     for name, value in model_hf.state_dict().items():
         name = name_replace(name)
@@ -100,6 +104,4 @@ if __name__ == "__main__":
     parser.add_argument('--torch_ckpt_path', default='./hf.bin')
     parser.add_argument('--mindspore_ckpt_path', default='transform.ckpt')
     args = parser.parse_args()
-    file_path = os.path.join(args.torch_ckpt_path, "pytorch_model.bin")
-    merge_safetensors_to_bin(args.torch_ckpt_path, file_path)
-    convert_pt_to_ms(args.torch_ckpt_path, args.mindspore_ckpt_path, file_path)
+    convert_pt_to_ms(args.torch_ckpt_path, args.mindspore_ckpt_path)

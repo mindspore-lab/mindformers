@@ -104,8 +104,8 @@ python deepseek_preprocess_1_5.py \
 
 ```python
 cd research
-python deepseek1_5/convert_weight.py \
---model deepseek \
+python convert_weight.py \
+--model deepseek1_5 \
 --input_path /path/ckpt \
 --output_path MS_CKPT_NAME
 ```
