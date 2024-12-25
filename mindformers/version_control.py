@@ -85,6 +85,8 @@ def get_lazy_inline(func):
     """Lazy inline decorator."""
 
     def decorator(*args, **kwargs):
+
+        disable_lazy_inline = kwargs.get('disable_lazy_inline', False)
         stand_alone = ms.get_auto_parallel_context("parallel_mode") == 'stand_alone'
         pipline_parallel = ms.get_auto_parallel_context("pipeline_stages") > 1
 
@@ -110,6 +112,12 @@ def get_lazy_inline(func):
                         "Current pipeline stage=1, the feature is disabled by default. "
                         "You can also enable lazy inline without pipeline parallel, by setting "
                         "environment variable `export ENABLE_LAZY_INLINE_NO_PIPELINE=1`.")
+            func(*args, **kwargs)
+            return
+
+        if disable_lazy_inline:
+            logger.info("The Lazy Inline compilation acceleration feature has been called, "
+                        "and the feature is disabled by default.")
             func(*args, **kwargs)
             return
 

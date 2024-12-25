@@ -40,6 +40,7 @@ from mindformers.models.vit.vit_modules import get_2d_sincos_pos_embed
 from mindformers.modules.activation import GELU
 from mindformers.modules.layers import LayerNorm, Linear
 from mindformers.tools.logger import logger
+from mindformers.models.utils import LayerSetting
 
 from qwenvl_config import QwenVLConfig, QwenVLVisionConfig
 
@@ -217,14 +218,18 @@ class QwenVLVisionModel(PreTrainedModel):
                 stride=patch_size, has_bias=False, pad_mode='pad').to_float(dtype)
         self.conv1.conv2d.shard(((parallel_config.data_parallel, 1, 1, 1), (1, 1, 1, 1)))
         self.conv1.bias_add.shard(((parallel_config.data_parallel, 1, 1, 1), (1,)))
+        self.conv1.pipeline_stage = config.start_stage
 
         scale = hidden_size ** -0.5
         self.positional_embedding = \
             Parameter(scale * Tensor(
                 np.random.normal(0, 1, size=(256, hidden_size))).astype(dtype),
                       parallel_optimizer=False)
+        self.positional_embedding.pipeline_stage = config.start_stage
         self.ln_pre = LayerNorm((hidden_size,), eps=1e-6)
         self.ln_pre.shard(((parallel_config.data_parallel, 1, 1),))
+        self.ln_pre.pipeline_stage = config.start_stage
+        logger.info(f"ln_pre pipeline_stage: {self.ln_pre.pipeline_stage}")
         self.transformer = QwenVLTransformer(image_size=config.image_size,
                                              patch_size=patch_size,
                                              hidden_size=hidden_size,
@@ -239,6 +244,16 @@ class QwenVLVisionModel(PreTrainedModel):
                                              parallel_config=config.parallel_config,
                                              use_flash_attention=config.use_flash_attention,
                                              enable_fa_opt=config.enable_fa_opt)
+        if config.stage_num > 0:
+            self.layer_setting = LayerSetting(
+                config.num_hidden_layers,
+                config.offset,
+                config.parallel_config,
+                1,
+                config.start_stage,
+                config.stage_num)
+            for layer_id, layer in zip(range(config.num_hidden_layers), self.transformer.resblocks):
+                self.layer_setting(layer, layer_id)
 
         self.attn_pool = Resampler(image_size=config.image_size,
                                    patch_size=patch_size,
@@ -249,12 +264,23 @@ class QwenVLVisionModel(PreTrainedModel):
                                    compute_dtype=config.compute_dtype,
                                    param_init_type=config.param_init_type,
                                    softmax_compute_type=config.softmax_compute_type)
+        if config.parallel_config.pipeline_stage > 1:
+            if config.stage_num > 0:
+                self.attn_pool.pipeline_stage = config.start_stage + config.stage_num - 1
+            else:
+                self.attn_pool.pipeline_stage = 0
         self.transpose = P.Transpose().shard(((parallel_config.data_parallel, 1, 1),))
         self.ln_post = LayerNorm((config.output_dim,), eps=1e-6)
+        if config.parallel_config.pipeline_stage > 1:
+            if config.stage_num > 0:
+                self.ln_post.pipeline_stage = config.start_stage + config.stage_num - 1
+            else:
+                self.ln_post.pipeline_stage = 0
         self.ln_post.shard(((config.parallel_config.data_parallel, 1, 1),))
         self.proj = \
             Parameter(scale * Tensor(np.random.normal(0, 1,
                                                       size=(config.output_dim, config.output_dim))).astype(dtype))
+        self.proj.pipeline_stage = config.start_stage
         self.dtype = dtype
         self.cast = P.Cast()
         self.add = P.Add().shard(((parallel_config.data_parallel, 1, 1), (1, 1)))

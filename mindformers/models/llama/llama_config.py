@@ -237,6 +237,8 @@ class LlamaConfig(PretrainedConfig):
                  input_sliced_sig: bool = False,
                  rmsnorm_compute_2d: bool = False,
                  chunk_prefill: bool = False,
+                 calculate_per_token_loss: bool = False,
+                 pipeline_stage=None,
                  **kwargs):
         """
         Note:
@@ -312,3 +314,12 @@ class LlamaConfig(PretrainedConfig):
         self.input_sliced_sig = input_sliced_sig
         self.rmsnorm_compute_2d = rmsnorm_compute_2d
         self.chunk_prefill = chunk_prefill
+        self.calculate_per_token_loss = calculate_per_token_loss
+        if (pipeline_stage is not None and
+                pipeline_stage["start_stage"] + pipeline_stage["stage_num"] <= parallel_config.pipeline_stage):
+            self.start_stage = pipeline_stage["start_stage"]
+            self.stage_num = pipeline_stage["stage_num"]
+            self.offset = pipeline_stage["offset"]
+        else:
+            self.start_stage = 0
+            self.stage_num = 0

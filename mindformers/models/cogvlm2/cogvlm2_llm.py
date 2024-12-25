@@ -176,7 +176,9 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
         self.layer_setting = LayerSetting(config.num_layers,
                                           config.offset,
                                           config.parallel_config,
-                                          config.pp_interleave_num)
+                                          config.pp_interleave_num,
+                                          config.start_stage,
+                                          config.stage_num)
         for layer_id in range(config.num_layers):
             layer = self.build_decoderlayer(layer_id, config)
             self.layer_setting(layer, layer_id)
@@ -188,10 +190,14 @@ class CogVLM2VideoLMModel(LlamaPreTrainedModel):
         cp = config.parallel_config.context_parallel
         if cp > 1:
             raise ValueError("CogVLM2 does not support cp > 1.")
+
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.tok_embeddings.pipeline_stage = 0
+            self.tok_embeddings.pipeline_stage = config.start_stage
             if config.parallel_config.pipeline_stage > 1:
-                self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
+                if config.stage_num == 0:
+                    self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
+                else:
+                    self.norm_out.pipeline_stage = config.start_stage + config.stage_num - 1
                 self.tok_embeddings.set_comm_fusion(2)
                 self.norm_out.set_comm_fusion(2)
             else:
@@ -383,7 +389,10 @@ class CogVLM2VideoLM(LlamaPreTrainedModel):
             else:
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (mp, 1)))
             if config.parallel_config.pipeline_stage > 1:
-                self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
+                if config.stage_num == 0:
+                    self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
+                else:
+                    self.lm_head.pipeline_stage = config.stage_num + config.start_stage - 1
 
         self.load_checkpoint(config)
         self.predict_run_mode = get_predict_run_mode()

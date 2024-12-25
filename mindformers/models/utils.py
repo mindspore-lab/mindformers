@@ -97,7 +97,7 @@ class LayerSetting:
                 each stage will be divided into mini stages by pp_interleave_num.
     """
 
-    def __init__(self, num_layers, offset, parallel_config, pp_interleave_num=1):
+    def __init__(self, num_layers, offset, parallel_config, pp_interleave_num=1, start_stage=0, stage_num=0):
         default_patterns = [r'feed_forward\.mul', r'feed_forward\.w1\.activation\.silu']
         default_comm_patterns = [r'.*\.norm']
         try:
@@ -106,7 +106,12 @@ class LayerSetting:
             logger.warning(f"Current MindSpore version do not pipeline interleave. `pp_interleave_num` is set to 1.")
             use_pp_interleave = False
         self.num_layers = num_layers
-        self.pp = parallel_config.pipeline_stage
+        if stage_num != 0:
+            self.pp = stage_num
+            self.start_stage = start_stage
+        else:
+            self.start_stage = 0
+            self.pp = parallel_config.pipeline_stage
         self.recompute = parallel_config.recompute
         self.gradient_aggregation_group = parallel_config.gradient_aggregation_group
         self.pp_interleave_num = pp_interleave_num if use_pp_interleave else 1
@@ -122,7 +127,8 @@ class LayerSetting:
         self.interleave_ids = [np.where(i < self.layer_accu)[0][0] for i in range(self.num_layers)]
         logger.info(f"num_layers per stage: {self.layer_list.tolist()}")
         logger.info(f"Accumulated num_layers per stage: {self.layer_accu.tolist()}")
-        logger.info(f"Pipeline id list: {self.pp_ids}")
+        logged_pp_ids = [(pp_id + self.start_stage) for pp_id in self.pp_ids]
+        logger.info(f"Pipeline id list with start_stage: {logged_pp_ids}")
         logger.info(f"Interleave id list: {self.interleave_ids}")
         pre_pad = np.array([[0] + [self.layer_accu[i, -1] for i in range(len(self.layer_accu) - 1)]])
         self.layer_accu_mod = np.concatenate((pre_pad.T, self.layer_accu), axis=-1)
@@ -139,7 +145,7 @@ class LayerSetting:
 
     def set(self, layer, layer_id):
         """Set pipeline stage and recompute for each layer with a layer_id."""
-        pp_id = int(self.pp_ids[layer_id])
+        pp_id = int(self.pp_ids[layer_id]) + self.start_stage
         layer.pipeline_stage = pp_id
         dis = max(int((self.num_layers + 1) / self.gradient_aggregation_group), 1)
         if self.pp > 1:

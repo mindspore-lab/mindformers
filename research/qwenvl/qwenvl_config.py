@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """QwenVL Config API"""
+from typing import Union, List
 
 from mindformers import (
     TransformerOpParallelConfig,
@@ -24,6 +25,8 @@ from mindformers import (
 )
 from mindformers.core.parallel_config import default_parallel_config
 from mindformers.models.utils import convert_mstype
+from mindformers.tools.utils import calculate_pipeline_stage
+from mindformers.tools.register.config import DictConfig
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
@@ -61,6 +64,7 @@ class QwenConfig(LlamaConfig):
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
 class QwenVLVisionConfig(PretrainedConfig):
     r"""
+
     Config For QwenVL Vision Module
 
     Args:
@@ -103,6 +107,7 @@ class QwenVLVisionConfig(PretrainedConfig):
                  initializer_factor: float = 1.0,
                  parallel_config: TransformerOpParallelConfig = default_parallel_config,
                  output_dim: int = 4096,
+                 offset: Union[int, List] = 0,
                  use_flash_attention: bool = False,
                  enable_fa_opt: bool = False,
                  dtype: str = "float32",
@@ -110,6 +115,7 @@ class QwenVLVisionConfig(PretrainedConfig):
                  softmax_compute_type: str = "float32",
                  param_init_type: str = "float16",
                  gelu_dtype: str = "float32",
+                 pipeline_stage: list = None,
                  **kwargs):
         super().__init__(**kwargs)
         self.hidden_size = hidden_size
@@ -131,6 +137,10 @@ class QwenVLVisionConfig(PretrainedConfig):
         self.softmax_compute_type = convert_mstype(softmax_compute_type)
         self.param_init_type = convert_mstype(param_init_type)
         self.gelu_dtype = convert_mstype(gelu_dtype)
+        self.pipeline_stage = pipeline_stage
+        self.offset = offset
+        self.start_stage = 0
+        self.stage_num = 0
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
@@ -157,8 +167,8 @@ class QwenVLConfig(PretrainedConfig):
     Returns:
         Class, QwenVLConfig
     """
-    def __init__(self, vision_model: dict,
-                 llm_model: dict,
+    def __init__(self, vision_model: dict = None,
+                 llm_model: dict = None,
                  num_queries: int = 256,
                  proj_output_dim: int = 4096,
                  image_start_id: int = 151857,
@@ -173,8 +183,19 @@ class QwenVLConfig(PretrainedConfig):
                  softmax_compute_type: str = None,
                  param_init_type: str = None,
                  parallel_config: TransformerOpParallelConfig = default_parallel_config,
+                 layers_per_stage: list = None,
                  **kwargs):
         super().__init__(**kwargs)
+
+        if vision_model is None:
+            model_config = QwenVLVisionConfig()
+            model_config.type = model_config.__class__.__name__
+            vision_model = DictConfig(arch='QwenVLVisionModel', model_config=model_config)
+        if llm_model is None:
+            model_config = QwenConfig()
+            model_config.type = model_config.__class__.__name__
+            llm_model = DictConfig(arch='QwenForCausalLM', model_config=model_config)
+
 
         self.vision_model = vision_model
         self.llm_model = llm_model
@@ -222,3 +243,23 @@ class QwenVLConfig(PretrainedConfig):
         self.top_k = llm_model_config.top_k
         self.top_p = llm_model_config.top_p
         self.do_sample = llm_model_config.do_sample
+
+        self.layers_per_stage = layers_per_stage
+
+        if self.layers_per_stage is not None:
+            if len(self.layers_per_stage) != parallel_config.pipeline_stage:
+                raise ValueError("The length of layers_per_stage must be equal to pipeline_stage.")
+            model_layers = []
+            model_layers.append(self.vision_model.model_config.num_hidden_layers)
+            model_layers.append(llm_model_config.num_layers)
+
+            pipeline_stage = calculate_pipeline_stage(self.layers_per_stage, model_layers)
+            stage_index = 0
+            self.vision_model.model_config.start_stage = pipeline_stage[stage_index]['start_stage']
+            self.vision_model.model_config.stage_num = pipeline_stage[stage_index]['stage_num']
+            self.vision_model.model_config.offset = pipeline_stage[stage_index]['offset']
+            stage_index += 1
+            self.llm_model.model_config.pipeline_stage = pipeline_stage[stage_index]
+            self.llm_model.model_config.start_stage = pipeline_stage[stage_index]['start_stage']
+            self.llm_model.model_config.stage_num = pipeline_stage[stage_index]['stage_num']
+            self.llm_model.model_config.offset = pipeline_stage[stage_index]['offset']
