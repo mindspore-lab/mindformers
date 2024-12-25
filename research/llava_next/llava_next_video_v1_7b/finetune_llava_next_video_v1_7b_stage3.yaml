@@ -15,7 +15,7 @@ trainer:
 # runner config
 runner_config:
   epochs: 1
-  batch_size: 2
+  batch_size: 1
   sink_mode: True
   sink_size: 1
 
@@ -47,8 +47,8 @@ callbacks:
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
-  data_parallel: 4
-  model_parallel: 2
+  data_parallel: 8
+  model_parallel: 1
   pipeline_stage: 1
   use_seq_parallel: True
   micro_batch_num: 1
@@ -72,7 +72,7 @@ parallel:
 
 # recompute config
 recompute_config:
-  recompute: True
+  recompute: [16]
   select_recompute: False
   parallel_optimizer_comm_recompute: True
   mp_comm_recompute: True
@@ -118,7 +118,7 @@ model:
         intermediate_size: 4096
         num_hidden_layers: 24
         num_attention_heads: 16
-        use_flash_attention: False
+        use_flash_attention: True
         image_size: &image_size 336
         patch_size: &patch_size 14
         num_queries: &num_queries 576

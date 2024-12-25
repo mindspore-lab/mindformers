@@ -27,6 +27,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindformers import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.modules import Linear
+from mindformers.modules.flash_attention import FlashAttention
 
 
 class LayerNorm(nn.LayerNorm):
@@ -39,6 +40,7 @@ class LayerNorm(nn.LayerNorm):
     Return:
         y (ms.Tensor): Normalized tensor.
     """
+
     # pylint: disable=C0111
     def construct(self, x: ms.Tensor):
         y = super().construct(P.Cast()(x, ms.float32))
@@ -55,7 +57,8 @@ class MultiheadAttention(nn.Cell):
         dtype (mstype): The type of calculation, [mstype.float32, mstype.float16].
     """
 
-    def __init__(self, d_model: int, n_head: int, layers: int, compute_dtype: mstype, param_init_type):
+    def __init__(self, d_model: int, n_head: int, layers: int, compute_dtype: mstype, param_init_type: mstype,
+                 use_flash_attention: bool):
         super(MultiheadAttention, self).__init__()
         self.num_heads = n_head
         self.head_dim = d_model // n_head
@@ -77,6 +80,16 @@ class MultiheadAttention(nn.Cell):
                                compute_dtype=compute_dtype, param_init_type=param_init_type)
         self.in_proj = Linear(d_model, 3 * d_model, weight_init=Normal(mean=0.0, sigma=attn_std),
                               compute_dtype=compute_dtype, param_init_type=param_init_type)
+        self.use_flash_attention = use_flash_attention
+        if use_flash_attention:
+            self.flash_attention = FlashAttention(head_num=self.num_heads,
+                                                  pre_tokens=2147483647,
+                                                  next_tokens=0,
+                                                  input_layout="BNSD",
+                                                  keep_prob=1.,
+                                                  scale_value=self.scaling,
+                                                  sparse_mode=0,
+                                                  use_attention_mask=False)
 
         self.softmax_dtype = mstype.float32
 
@@ -105,8 +118,11 @@ class MultiheadAttention(nn.Cell):
                                        (0, 2, 1, 3)), self.dtype)
         value = self.cast(self.transpose(self.reshape(value, (batch_size, len_tgt, self.num_heads, self.head_dim)),
                                          (0, 2, 1, 3)), self.dtype)
-
-        attn = self._attn(query, key, value, attn_mask)
+        if self.use_flash_attention:
+            context_layer = self.flash_attention(query, key, value, attn_mask)
+            attn = self._merge_heads(context_layer)
+        else:
+            attn = self._attn(query, key, value, attn_mask)
         return self.out_proj(attn)
 
     def _attn(self, query, key, value, mask):
@@ -162,6 +178,8 @@ class MultiheadAttention(nn.Cell):
         self.merger_head_transpose.shard(((dp, mp, 1, 1),))
         self.out_proj.shard(strategy_matmul=((dp, mp), (1, mp)), out_strategy_matmul=((dp, 1),),
                             strategy_bias=((dp, 1), (1,)))
+        if self.use_flash_attention:
+            self.flash_attention.shard(parallel_config)
 
 
 class QuickGELU(nn.Cell):
@@ -242,8 +260,9 @@ class ResidualAttentionBlock(nn.Cell):
                  dtype: mstype, attn_mask: Optional[ms.Tensor] = None, **kwargs):
         super(ResidualAttentionBlock, self).__init__()
         param_init_type = kwargs.get("param_init_type", mstype.float16)
+        use_flash_attention = kwargs.get("use_flash_attention", False)
         self.dtype = dtype
-        self.attn = MultiheadAttention(d_model, n_head, layers, self.dtype, param_init_type)
+        self.attn = MultiheadAttention(d_model, n_head, layers, self.dtype, param_init_type, use_flash_attention)
         self.ln_1 = LayerNorm([d_model], epsilon=1e-5)
 
         self.mlp = MLP(layers, d_model, d_model * 4, self.dtype, param_init_type)
@@ -341,7 +360,8 @@ class LlavaVisionEncoder(nn.Cell):
                     (input_resolution // patch_size) ** 2 + 1, width))).astype(param_init_type),
                       parallel_optimizer=False)
         self.ln_pre = LayerNorm([width], epsilon=1e-5)
-        self.transformer = Transformer(width, layers, heads, self.dtype, param_init_type=param_init_type)
+        self.transformer = Transformer(width, layers, heads, self.dtype, param_init_type=param_init_type,
+                                       use_flash_attention=config.use_flash_attention)
         self.ln_post = LayerNorm([width], epsilon=1e-5)
         self.reshape = P.Reshape()
         if config.is_dynamic:
