@@ -28,7 +28,7 @@ runner_config:
   # global batch size for devices in a single stage under auto parallel.
   # If pipeline is enabled, the global batch size is batch_size * micro batch.
   sink_mode: True
-  sink_size: 2
+  sink_size: 1
 # optimizer
 optimizer:
   type: FP32StateAdamWeightDecay

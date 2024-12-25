@@ -18,7 +18,7 @@ runner_config:
   epochs: 2
   batch_size: 1
   sink_mode: True
-  sink_size: 2
+  sink_size: 1
 
 # parallel context config
 parallel:

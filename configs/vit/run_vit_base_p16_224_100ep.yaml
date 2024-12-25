@@ -24,7 +24,7 @@ runner_config:
   batch_size: 32
   image_size: 224
   sink_mode: True
-  sink_size: 2
+  sink_size: 1
   num_classes: 1000
 runner_wrapper:
   type: MFTrainOneStepCell

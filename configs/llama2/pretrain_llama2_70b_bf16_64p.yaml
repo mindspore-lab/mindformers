@@ -22,7 +22,7 @@ runner_config:
   epochs: 3
   batch_size: 1
   sink_mode: True
-  sink_size: 2
+  sink_size: 1
 # optimizer
 optimizer:
   type: FP32StateAdamWeightDecay

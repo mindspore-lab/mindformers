@@ -67,7 +67,7 @@ runner_config:
   epochs: 3
   batch_size: 4
   sink_mode: True
-  sink_size: 2
+  sink_size: 1
 runner_wrapper:
   type: MFTrainOneStepCell
   scale_sense:
