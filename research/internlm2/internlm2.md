@@ -7,7 +7,17 @@
 有效支持20万字超长上下文：模型在20万字长输入中几乎完美地实现长文“大海捞针”，而且在 LongBench 和 L-Eval 等长文任务中的表现也达到开源模型中的领先水平。
 综合性能全面提升：各能力维度相比上一代模型全面进步，在推理、数学、代码等方面的能力提升显著。
 
-本仓库支持`InternLM2-7B`与`InternLM2-chat-20b`的推理。由于InternLM2与LLaMA结构相似，模型实现中的Embedding、FeedForward、RMSNorm等模块复用仓上LLaMA的代码。
+本仓库支持`InternLM2-7B`与`InternLM2-20B`的微调、推理。由于InternLM2与LLaMA结构相似，模型实现中的Embedding、FeedForward、RMSNorm等模块复用仓上LLaMA的代码。
+
+本仓库中InternLM2-20B的微调部分由“天翼云智算团队”贡献。
+
+## 模型性能
+
+以下模型性能均由Atlas 800T A2硬件环境下测试得出。
+
+| Config                                           |      Task       | Datasets | SeqLength |  Phase   |   Performance   |
+|:-------------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:---------------:|
+| [internlm2-20b](./finetune_internlm2_20b.yaml) | text_generation |    alpaca     |   4096    | Finetune  |  867.923 tokens/s/p  |
 
 ## 模型文件
 
@@ -28,9 +38,10 @@
 
     ```text
     research/internlm2
-      ├── predict_internlm2_20b.yaml  # InternLM2-chat-20B推理Atlas 800T A2启动配置
-      ├── predict_internlm2_chat_7b.yaml   # InternLM2-7B推理Atlas 800T A2启动配置
-      └── finetune_internlm2_7b.yaml       # InternLM2-7B微调Atlas 800T A2启动配置
+      ├── predict_internlm2_20b.yaml       # InternLM2-chat-20B推理启动配置
+      ├── predict_internlm2_7b.yaml        # InternLM2-chat-7B推理启动配置
+      ├── finetune_internlm2_20b.yaml      # InternLM2-20B微调启动配置
+      └── finetune_internlm2_7b.yaml       # InternLM2-7B微调启动配置
     ```
 
 3. 预处理脚本和任务启动脚本
@@ -56,7 +67,7 @@ MindFormers提供**alpaca**作为[微调](#微调)数据集。
 
 | 数据集名称     |                          适用模型                          |          适用阶段           |                                                         下载链接                                                          |
 |:----------|:------------------------------------------------------:|:-----------------------:|:---------------------------------------------------------------------------------------------------------------------:|
-| alpaca    |                      InternLM2-7b                      |        Finetune         |                    [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)                    |
+| alpaca    |                      InternLM2-7B <br/> InternLM2-20B                     |        Finetune         |                    [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)                    |
 
 下载数据集后，使用预处理脚本`research/internlm2/alpaca_data_preprocess.py`生成mindrecord训练数据:
 
@@ -67,6 +78,13 @@ python alpaca_data_preprocess.py \
   --output_file {path}/alpaca_processed/alpaca.mindrecord \
   --model_file {path}/tokenizer.model \
   --seq_length 2048
+
+  # 参数说明
+  mindrecord_schema:   描述自定义数据的schema类型
+  input_glob:          输入下载后alpaca_data.json的文件路径
+  output_file:         输出文件的保存路径
+  model_file:          模型tokenizer.model文件路径
+  seq_length:          输出数据的序列长度
 ```
 
 ### 模型权重下载
@@ -77,9 +95,10 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于预训
 
 |       模型名称        | MindSpore权重 |                        HuggingFace权重                       |
 |:-----------------:|:-----------:|:--------------------------------------------------------------------:|
-|   InternLM2-7b    |      \      |         [link](https://huggingface.co/internlm/internlm2-7b)         |
+|   InternLM2-7B    |      \      |         [link](https://huggingface.co/internlm/internlm2-7b)         |
 | InternLM2-chat-7B |      \      |       [link](https://huggingface.co/internlm/internlm2-chat-7b)      |
-|   InternLM2-chat-20b   |      \      | [link](https://huggingface.co/internlm/internlm2-chat-20b)  |
+|   InternLM2-20B   |      \      | [link](https://huggingface.co/internlm/internlm2-20b)  |
+|   InternLM2-chat-20B   |      \      | [link](https://huggingface.co/internlm/internlm2-chat-20b)  |
 
 ### 模型权重转换
 
@@ -100,7 +119,7 @@ python convert_weight.py \
 
 ## 微调
 
-MindFormers提供`InternLM2-7b`的微调示例， 过程中使用alpaca数据集对模型进行微调，数据集可以参考[数据集下载](#数据集下载)获得。
+MindFormers提供`InternLM2-7B`的微调示例， 过程中使用alpaca数据集对模型进行微调，数据集可以参考[数据集下载](#数据集下载)获得。
 
 ### 全参微调
 
@@ -132,7 +151,7 @@ bash scripts/msrun_launcher.sh "research/internlm2/run_internlm2.py \
 
 ## 推理
 
-MindFormers提供`InternLM2`的快速推理脚本，脚本主要通过`generate`高阶接口实现，支持单卡、多卡以及多batch推理。`InternLM2-7B`的推理流程与`InternLM2-chat-20b`相同。仅需替换配置文件。
+MindFormers提供`InternLM2`的快速推理脚本，脚本主要通过`generate`高阶接口实现，支持单卡、多卡以及多batch推理。`InternLM2-chat-7B`的推理流程与`InternLM2-chat-20B`相同。仅需替换配置文件。
 
 ```shell
 # 脚本使用
@@ -167,7 +186,7 @@ bash scripts/examples/internlm2/run_internlm2_predict.sh \
 
 ### 多卡推理
 
-`InternLM2`多卡推理暂不支持`is_dynamic=True`。本示例以`InternLM2-chat-20b`8卡推理为例。
+`InternLM2`多卡推理暂不支持`is_dynamic=True`。本示例以`InternLM2-chat-20B`8卡推理为例。
 
 ```shell
 bash scripts/examples/internlm2/run_internlm2_predict.sh \
