@@ -143,7 +143,7 @@ processor:
 # mindspore context init config
 context:
   jit_config:
-    jit_level: "O2"
+    jit_level: "O1"
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   enable_graph_kernel: False
