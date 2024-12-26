@@ -524,7 +524,7 @@ class PolynomialWithWarmUpLR(LearningRateSchedule):
     Args:
         learning_rate (float): Initial value of learning rate.
         total_steps (int): The number of total steps.
-        warmup_steps (int): The number of warm up steps.
+        warmup_steps (int, optional): The number of warm up steps. Default: ``None``.
         lr_end (float, optional): Final value of learning rate. Default: ``1e-7``.
         power (float, optional): The power of the polynomial. Default: ``1.0``.
         warmup_lr_init (float, optional): Initial learning rate in warm up steps. Default: ``0.``.

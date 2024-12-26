@@ -25,7 +25,7 @@ from mindformers.tools.logger import logger
 
 
 class LoraModel(PreTrainedModel):
-    """
+    r"""
     LoRA model for LLM. Provide a flexible and efficient way to adjust and
     optimize pre-trained models by adding LoRA structures to the base pre-trained models.
 
@@ -33,8 +33,11 @@ class LoraModel(PreTrainedModel):
         config (LoraConfig): Pet config, defines Parameter-Efficient Tuning (Pet) algorithm.
         base_model (PreTrainedModel): Pre-trained model for tuning.
 
-    Returns:
-        An instance of LoraModel.
+    Inputs:
+        - **\*inputs** (Tensor) - Input arguments of original base model.
+
+    Outputs:
+        Outputs of original base model.
 
     Examples:
         >>> import mindspore as ms

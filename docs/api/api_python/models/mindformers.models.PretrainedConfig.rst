@@ -9,9 +9,10 @@ mindformers.models.PretrainedConfig
        配置文件可以被加载并保存到磁盘。加载配置文件并使用这个文件初始化模型**不会**加载模型权重。它只影响模型的配置。
 
     参数：
-        - **name_or_path** (str, 可选) - 存储传递给 :func:`mindformers.models.PreTrainedModel.from_pretrained` 的字符串作为 ``pretrained_model_name_or_path`` ，如果配置是用这种方法创建的。默认值： ``""`` 。
-        - **checkpoint_name_or_path** (str, 可选) - checkpoint 文件的路径或名称。默认值： ``None`` 。
-        - **mindformers_version** (str, 可选) - MindSpore Transformers 的版本。默认值： ``""`` 。
+        - **\*\*kwargs** (Any) - 关键字参数。
+          - **name_or_path** (str, 可选) - 存储传递给 :func:`mindformers.models.PreTrainedModel.from_pretrained` 的字符串作为 ``pretrained_model_name_or_path`` ，如果配置是用这种方法创建的。默认值： ``""`` 。
+          - **checkpoint_name_or_path** (str, 可选) - checkpoint 文件的路径或名称。默认值： ``None`` 。
+          - **mindformers_version** (str, 可选) - MindSpore Transformers 的版本。默认值： ``""`` 。
 
     返回：
         PretrainedConfig类实例。
@@ -45,7 +46,8 @@ mindformers.models.PretrainedConfig
 
         参数：
             - **yaml_name_or_path** (str) - 支持的模型名称或模型配置文件路径（.yaml），支持的模型名称可以从 :func:`mindformers.AutoConfig.show_support_list` 中选择。如果 `yaml_name_or_path` 是模型名称，则支持以 `mindspore` 开头的模型名称或模型名称本身，如 "mindspore/vit_base_p16" 或 "vit_base_p16"。
-            - **pretrained_model_name_or_path** (str, 可选) - 等同于 `yaml_name_or_path`，如果设置了 `pretrained_model_name_or_path`，则 `yaml_name_or_path` 无效。默认值： ``None`` 。
+            - **\*\*kwargs** (Any) - 关键字参数。
+              - **pretrained_model_name_or_path** (str, 可选) - 等同于 `yaml_name_or_path`，如果设置了 `pretrained_model_name_or_path`，则 `yaml_name_or_path` 无效。默认值： ``None`` 。
 
         返回：
             PretrainedConfig: 继承自 PretrainedConfig 的模型配置。

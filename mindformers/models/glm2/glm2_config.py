@@ -33,7 +33,7 @@ class ChatGLM2Config(PretrainedConfig):
     ChatGLM2 model config class which defines the model size.
 
     Args:
-        batch_size (int, optional): batch size for input data, use in predict. Default: ``1``.
+        batch_size (int, optional): Batch size for input data, use in predict. Default: ``1``.
         num_layers (int, optional): Number of hidden layers in the Transformer encoder.
             Default: ``28``.
         padded_vocab_size (int, optional): Vocabulary size of the ChatGLM2 model. Default: ``65024``.
@@ -63,12 +63,13 @@ class ChatGLM2Config(PretrainedConfig):
         quantization_bit (int, optional): Weight and number of activation bits. Default: ``0``.
         pre_seq_len (int, optional): Length of the input sequence that can be learned. Default: ``None``.
         prefix_projection (bool, optional): Add a projection layer before a sequence. Default: ``False``.
-        param_init_type (str, optional): parameter initial dtype. Default: ``float16``.
+        param_init_type (str, optional): Parameter initial dtype. Default: ``float16``.
         compute_dtype (str, optional): Linear layer compute dtype. Default: ``float16``.
-        layernorm_compute_type (str, optional): layernorm compute dtype. Default: ``float32``.
+        layernorm_compute_type (str, optional): LayerNorm compute dtype. Default: ``float32``.
+        rotary_dtype (str, optional): Custom rotary position embedding compute dtype. Default: ``None``.
         use_past (bool, optional): Whether the model should use the past last key/values attentions (if applicable to
             the model) to speed up decoding. Default: ``False``.
-        use_flash_attention(bool, optional): Whether enable flash attention ops, default False. Default: ``False``.
+        use_flash_attention (bool, optional): Whether enable flash attention ops, default False. Default: ``False``.
         block_size (int, optional): The maximum number of tokens in one block can have when using PagedAttention.
             Default: ``16``.
         num_blocks (int, optional): The maximum number of blocks when using PagedAttention. Default: ``128``.
@@ -80,12 +81,12 @@ class ChatGLM2Config(PretrainedConfig):
         bos_token_id (int, optional): The id of the *beginning-of-sequence* token. Default: ``None``.
         repetition_penalty (float, optional): The parameter for repetition penalty. 1.0 means no penalty.
             Default: ``1.0``.
-        checkpoint_name_or_path (str, optional): checkpoint path or name used to load to the network.
+        checkpoint_name_or_path (str, optional): Checkpoint path or name used to load to the network.
             Default: ``None``.
-        parallel_config(TransformerOpParallelConfig, optional): The parallel configure. an instance of
+        parallel_config (TransformerOpParallelConfig, optional): The parallel configure. an instance of
             `TransformerOpParallelConfig` with default args. Default: ``TransformerOpParallelConfig``.
         offset (int, optional): The layer offset for each (mini) stage. Default: ``0``.
-        pp_interleave_num  (int, optional): Number of microbatch interleavings in pipeline parallelism. Default: ``1``.
+        pp_interleave_num (int, optional): Number of microbatch interleavings in pipeline parallelism. Default: ``1``.
         mlp_concat (bool, optional): Whether to concatenate two mlp to one Linear. Default: ``True``.
         qkv_concat (bool, optional): Whether to concatenate query key and value Linear calculation to one entire Linear.
              Default: ``True``.
@@ -94,68 +95,23 @@ class ChatGLM2Config(PretrainedConfig):
              set as None, lower triangular mask is used. Default: ``None``.
         fine_grain_interleave (int, optional): Number of slices for fine grain interleave feature, which covers
              communication time with computation time in tensor parallel case. Default: ``1``.
-        use_ring_attention(bool, optional): Whether enable ring attention ops. Default: ``False``.
+        use_ring_attention (bool, optional): Whether enable ring attention ops. Default: ``False``.
         kwargs (dict, optional): A variable number of keyword parameters reserved for the keyword parameters to be
             expanded.
+
+    Returns:
+        An instance of ChatGLM2Config.
 
     Examples:
         >>> from mindformers.models import ChatGLM2Config
         >>> config = ChatGLM2Config(num_layers=2, seq_length=1024)
-        >>> print(config)
-        ChatGLM2Config {
-            "add_bias_linear": false,
-            "add_qkv_bias": true,
-            "apply_query_key_layer_scaling": true,
-            "apply_residual_connection_post_layernorm": false,
-            "attention_dropout": 0.0,
-            "attention_softmax_in_fp32": true,
-            "batch_size": 1,
-            "bias_dropout_fusion": true,
-            "block_size": 16,
-            "bos_token_id": null,
-            "compute_dtype": "float16",
-            "eos_token_id": 2,
-            "ffn_hidden_size": 13696,
-            "fp32_residual_connection": false,
-            "gmask_token_id": null,
-            "hidden_dropout": 0.0,
-            "hidden_size": 4096,
-            "is_dynamic": false,
-            "kv_channels": 128,
-            "layernorm_compute_type": "float32",
-            "layernorm_epsilon": 1e-05,
-            "mindformers_version": "1.1",
-            "model_type": "glm2",
-            "multi_query_attention": true,
-            "multi_query_group_num": 2,
-            "n_kv_heads": 2,
-            "num_attention_heads": 32,
-            "num_blocks": 128,
-            "num_heads": 32,
-            "num_layers": 2,
-            "offset": 0,
-            "pad_token_id": 0,
-            "padded_vocab_size": 65024,
-            "param_init_type": "float16",
-            "post_layer_norm": true,
-            "pre_seq_len": null,
-            "prefix_projection": false,
-            "quantization_bit": 0,
-            "repetition_penalty": 1.0,
-            "rmsnorm": true,
-            "rope_ratio": 1,
-            "seq_length": 1024,
-            "use_flash_attention": false,
-            "use_past": false,
-            "vocab_size": 65024,
-            "mlp_concat": True,
-            "qkv_concat": True,
-            "use_rearrange_rope": False,
-            "mask_generate": None,
-            "fine_grain_interleave": 1,
-            "use_ring_attention": False
-            }
+        >>> print(config.num_layers)
+        2
+        >>> print(config.seq_length)
+        1024
+
     """
+
 
     model_type = "glm2"
     _support_list = MindFormerBook.get_config_support_list()['glm2']
