@@ -38,4 +38,4 @@ mindformers.core.EntityScore
         更新局部评估结果。
 
         参数：
-            - **inputs** (List) - 逻辑值和标签。其中逻辑值是形状为 :math:`[N,C]` 的张量，数据类型为Float16或Float32；标签是形状为 :math:`[N,]` 的张量，数据类型为Int32或Int64。其中 :math:`N` 为批次大小， :math:`C` 为实体类型总数。
+            - **\*inputs** (List) - 逻辑值和标签。其中逻辑值是形状为 :math:`[N,C]` 的张量，数据类型为Float16或Float32；标签是形状为 :math:`[N,]` 的张量，数据类型为Int32或Int64。其中 :math:`N` 为批次大小， :math:`C` 为实体类型总数。

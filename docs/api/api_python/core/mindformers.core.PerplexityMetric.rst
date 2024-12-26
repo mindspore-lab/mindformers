@@ -33,4 +33,4 @@ mindformers.core.PerplexityMetric
         更新局部评估结果。
 
         参数：
-            - **inputs** (List) - 逻辑值、标签和输入掩码。其中逻辑值是形状为 :math:`[N,S,W]` 的张量，数据类型为Float16或Float32；标签和输入掩码是形状为 :math:`[N,S]` 的张量，数据类型为Int32或Int64。其中 :math:`N` 为批次大小， :math:`S` 为序列长度， :math:`W` 为词表大小。
+            - **\*inputs** (List) - 逻辑值、标签和输入掩码。其中逻辑值是形状为 :math:`[N,S,W]` 的张量，数据类型为Float16或Float32；标签和输入掩码是形状为 :math:`[N,S]` 的张量，数据类型为Int32或Int64。其中 :math:`N` 为批次大小， :math:`S` 为序列长度， :math:`W` 为词表大小。
