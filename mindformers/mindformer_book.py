@@ -416,6 +416,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/llama2/predict_llama2_13b.yaml")),
             ("llama2_70b", os.path.join(
                 _PROJECT_PATH, "configs/llama2/predict_llama2_70b.yaml")),
+            ("mllama_11b", os.path.join(
+                _PROJECT_PATH, "configs/mllama/predict_mllama_11b.yaml")),
             ("codellama_34b", os.path.join(
                 _PROJECT_PATH, "configs/codellama/predict_codellama_34b.yaml")),
             ("llama_7b_lora", os.path.join(
@@ -571,6 +573,9 @@ class MindFormerBook:
             'llama2_13b',
             'llama2_70b',
         ]),
+        ('mllama', [
+            'mllama_11b',
+        ]),
         ('codellama', [
             'codellama_34b',
         ]),
@@ -705,6 +710,9 @@ class MindFormerBook:
             'llama2_13b',
             'llama2_70b',
         ]),
+        ('mllama', [
+            'mllama_11b',
+        ]),
         ('codellama', [
             'codellama_34b',
         ]),
@@ -812,6 +820,9 @@ class MindFormerBook:
         ('llama', [
             'llama_7b',
         ]),
+        ('mllama', [
+            'mllama_11b',
+        ]),
         ('pangualpha', [
             'pangualpha_2_6b',
             'pangualpha_13b'
@@ -895,6 +906,9 @@ class MindFormerBook:
         ]),
         ('llama3', [
             'llama3_8b',
+        ]),
+        ('mllama', [
+            'mllama_11b',
         ]),
         ('codellama', [
             'codellama_34b',

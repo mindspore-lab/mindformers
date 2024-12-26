@@ -125,6 +125,13 @@ from .llama import (
     LlamaTokenizer,
     LlamaTokenizerFast
 )
+from .mllama import (
+    MllamaConfig,
+    MllamaTextModel,
+    MllamaProcessor,
+    MllamaTokenizer,
+    MllamaForConditionalGeneration
+)
 from .pangualpha import (
     PanguAlphaConfig,
     PanguAlphaHeadModel,
