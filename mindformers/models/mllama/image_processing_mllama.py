@@ -19,12 +19,11 @@ import numpy as np
 import PIL
 
 import mindspore as ms
-from mindspore.dataset.vision.utils import Inter
-import mindspore.dataset.vision as vision
 
 from mindformers.models.image_processing_utils import BaseImageProcessor
-from mindformers.utils.image_utils import ChannelDimension
-from mindformers.utils.image_transforms import to_channel_dimension_format, get_image_size
+from mindformers.utils.image_utils import ChannelDimension, PaddingMode
+from mindformers.utils.image_transforms import to_channel_dimension_format, get_image_size, resize, pad, \
+    PILIMAGERESAMPLING
 
 
 def make_list_of_images(images):
@@ -450,7 +449,7 @@ class MllamaImageProcessor(BaseImageProcessor):
             sample_aspect_ratios = []
 
             for image in images:
-                data_format = ChannelDimension.LAST
+                data_format = ChannelDimension.FIRST
                 image = to_channel_dimension_format(image, data_format, input_channel_dim=input_data_format)
 
                 image, aspect_ratio = self.resize(
@@ -458,13 +457,15 @@ class MllamaImageProcessor(BaseImageProcessor):
                     size=self.size,
                     max_image_tiles=self.max_image_tiles,
                     input_data_format=data_format,
+                    data_format=data_format
                 )
 
                 image = self.pad(
                     image=image,
                     size=self.size,
                     aspect_ratio=aspect_ratio,
-                    input_data_format=data_format
+                    input_data_format=data_format,
+                    data_format=data_format
                 )
 
                 if self.do_rescale:
@@ -475,7 +476,6 @@ class MllamaImageProcessor(BaseImageProcessor):
                         data_format=data_format,
                     )
 
-                data_format = ChannelDimension.FIRST
                 if self.do_normalize:
                     image = self.normalize(
                         image=image,
@@ -504,6 +504,7 @@ class MllamaImageProcessor(BaseImageProcessor):
             image: np.ndarray,
             size: int,
             max_image_tiles: int,
+            data_format: Optional[Union[str, ChannelDimension]] = None,
             input_data_format: Optional[Union[str, ChannelDimension]] = None,
     ) -> Union[np.ndarray, Tuple[int, int]]:
         """
@@ -551,8 +552,13 @@ class MllamaImageProcessor(BaseImageProcessor):
             tile_size=tile_size,
         )
 
-        resize_ = vision.Resize((int(new_height), int(new_width)), Inter.BILINEAR)
-        image = resize_(image)
+        image = resize(
+            image,
+            (new_height, new_width),
+            PILIMAGERESAMPLING.BILINEAR,
+            data_format=data_format,
+            input_data_format=input_data_format
+        )
 
         return image, (num_tiles_height, num_tiles_width)
 
@@ -561,6 +567,7 @@ class MllamaImageProcessor(BaseImageProcessor):
             image: np.ndarray,
             size: int,
             aspect_ratio: Tuple[int, int],
+            data_format: Optional[Union[str, ChannelDimension]] = None,
             input_data_format: Optional[Union[str, ChannelDimension]] = None,
     ) -> np.ndarray:
         """
@@ -585,8 +592,14 @@ class MllamaImageProcessor(BaseImageProcessor):
         num_tiles_height, num_tiles_width = aspect_ratio
         padded_height = num_tiles_height * size
         padded_width = num_tiles_width * size
-        pad_size = [0, 0, int(padded_width - image_width), int(padded_height - image_height)]
-        pad_ = vision.Pad(pad_size)
-        image = pad_(image)
+        pad_size = ((0, padded_height - image_height), (0, padded_width - image_width))
+
+        image = pad(
+            image,
+            pad_size,
+            mode=PaddingMode.CONSTANT,
+            data_format=data_format,
+            input_data_format=input_data_format,
+        )
 
         return image

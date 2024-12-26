@@ -210,6 +210,7 @@ class MllamaConfig(PretrainedConfig):
         self.vision_model.model_config.rotary_dtype = self.rotary_dtype
         self.vision_model.model_config.param_init_type = self.param_init_type
         self.vision_model.model_config.parallel_config = parallel_config
+        self.vision_model.model_config.use_flash_attention = self.use_flash_attention
 
         self.text_model.model_config.compute_dtype = self.compute_dtype
         self.text_model.model_config.layernorm_compute_type = self.layernorm_compute_type

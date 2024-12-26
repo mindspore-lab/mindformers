@@ -66,12 +66,12 @@ def convert_data_json(dataset_dir, output_file, image_pos_tag=None):
             else:
                 conversations += [{"from": "user", "value": text_pos_tag + sample_dict["user"].strip()},
                                   {"from": "assistant", "value": text_pos_tag + sample_dict["assistant"].strip()}]
-        result.append({"id": id, "conversations": conversations})
+        result.append({"id": data_id, "conversations": conversations})
 
     print(len(result))
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
     mode = stat.S_IWUSR | stat.S_IRUSR
-    output_file_path = os.path.join(output_file, "/train_data.json")
+    output_file_path = os.path.join(output_file, "train_data.json")
     with os.fdopen(os.open(output_file_path, flags, mode), 'w') as f:
         json.dump(result, f, indent=2, ensure_ascii=False)
 

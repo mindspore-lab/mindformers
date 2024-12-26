@@ -87,6 +87,7 @@ MindFormers暂时没有提供权重，用户可以下载HuggingFace官方权重�
 | 模型名称         | MindSpore权重 |                        HuggingFace权重                         |
 |:-------------|:-----------:|:------------------------------------------------------------:|
 | Llama-3.2-11B-Vision-Instruct |      \      | [Link](https://huggingface.co/meta-llama/Llama-3.2-11B-Vision-Instruct)  |
+| Llama-3.2-11B-Vision |      \      | [Link](https://huggingface.co/meta-llama/Llama-3.2-11B-Vision)  |
 
 > 注: 请自行申请huggingface上Llama-3.2-11B-Vision-Instruct使用权限，并安装transformers>=4.45版本
 
@@ -107,7 +108,7 @@ dtype:       转换权重的精度
 
 ### 单机训练
 
-以`llama3_2-vision-11b`为例，将处理好到数据集，train_data.json 写入finetune_mllama_11b.yaml中。
+以`llama3_2-vision-11b`为例，修改configs\mllama\finetune_mllama_11b.yaml配置文件，annotation_file替换为[数据处理](#数据集下载)好的train_data.json路径，vocab_file替换为对应的[词表](#模型权重下载)路径。
 
 ```yaml
 train_dataset: &train_dataset
@@ -121,53 +122,100 @@ train_dataset: &train_dataset
     vocab_file: "path/tokenizer.model"        #替换本地tokenizer.model文件
     add_bos_token: True
     type: MllamaTokenizer
+model:
+  model_config:
+  ...
+   vision_model:
+      arch:
+        type: MllamaVisionModel
+      model_config:
+        type: MllamaVisionConfig
+      ...
+      image_size: &image_size 560      #instruct模型image_size为560，base模型image_size为448
+      ...
 ```
 
 执行msrun启动脚本，进行8卡分布式微调。
 
 ```shell
 bash scripts/msrun_launcher.sh "run_mindformer.py \
- --config configs\mllama\finetune_mllama_11b.yaml \
+ --config configs/mllama/finetune_mllama_11b.yaml \
  --load_checkpoint /{path}/mllama_11b.ckpt \
  --auto_trans_ckpt True \
  --use_parallel True \
  --run_mode finetune" 8
+
+# 参数说明
+  config:  模型配置文件
+  load_checkpoint:   模型路径
+  auto_trans_ckpt:   是否开启模型自动切分
+  use_parallel:   是否使用多卡并行训练
+  run_mode:  运行模式
 ```
 
 ## 推理
 
-MindFormers提供`llama3_2-vision-11b`的快速推理脚本，脚本主要通过generate高阶接口实现，支持单卡推理和多卡推理。推理输入默认添加bos字符，如果需要更改可在模型的yaml文件中修改add_bos_token选项。
+MindFormers提供`Llama3_2-Vision`的推理脚本，脚本主要通过generate高阶接口实现，支持单卡、多卡以及多batch推理。
+配置`predict_mllama_11b.yaml`，修改vocab_file为对应的[词表](#模型权重下载)路径。推理输入默认添加bos字符，如果需要更改可在模型的yaml文件中修改add_bos_token选项。
 
-```shell
-# 脚本使用
-bash scripts/examples/mllama/run_mllama_predict.sh PARALLEL CONFIG_PATH CKPT_PATH VOCAB_FILE DEVICE_NUM
-
-# 参数说明
-PARALLEL:    是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
-CONFIG_PATH: 模型配置文件路径
-CKPT_PATH:   模型权重文件路径
-VOCAB_FILE:  词表路径
-DEVICE_NUM:  使用卡数, 仅开启多卡推理时生效
+```yaml
+  tokenizer:
+    add_bos_token: True
+    add_eos_token: False
+    vocab_file: "path/to/your/tokenizer.model"
+    type: MllamaTokenizer
 ```
 
 ### 单卡推理
 
 以`llama3_2-vision-11b`单卡推理为例。
+调用`run_mindformer.py`公共接口，运行命令为：
 
 ```shell
-bash scripts/examples/mllama/run_mllama_predict.sh single \
- configs/mllama/predict_mllama_11b.yaml \
- path/to/mllama_11b.ckpt \
- path/to/tokenizer.model
+python run_mindformer.py \
+--config configs/mllama/predict_mllama_11b.yaml \
+--run_mode predict \
+--predict_data 'path/to/your_image.jpg' 'your text question' \
+--modal_type image text \
+--use_parallel False \
+--auto_trans_ckpt False \
+--load_checkpoint path/to/mllama_11b_instruct.ckpt
+
+# 参数说明
+  config:  模型配置文件
+  run_mode:  运行模式
+  predict_data: 模型推理输入, 第一个输入是图片路径, 第二个输入是文本
+  modal_type:   模型推理输入对应模态, 图片路径对应'image', 文本对应'text'
+  use_parallel: 是否使用多卡推理
+  auto_trans_ckpt:   是否开启模型自动切分
+  load_checkpoint:   模型路径
 ```
 
 ### 多卡推理
 
-以`llama3_2-vision-11b`4卡推理为例。
+以`llama3_2-vision-11b`2卡推理为例。
+调用`run_mindformer.py`公共接口，需要改动`predict_mllama_11b.yaml`中的配置，配置将`model_parallel`修改为需要使用的卡数，
+
+```yaml
+parallel_config:
+  data_parallel: 1
+  model_parallel: 2  # 修改为需要使用的卡数
+```
+
+运行命令为：
 
 ```shell
-bash scripts/examples/mllama/run_mllama_predict.sh parallel \
- configs/mllama/predict_mllama_11b.yaml \
- path/to/mllama_11b.ckpt \
- path/to/tokenizer.model 4
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--config configs/mllama/predict_mllama_11b.yaml \
+--run_mode predict \
+--predict_data 'path/to/your_image.jpg' 'your text question' \
+--modal_type image text \
+--use_parallel True \
+--auto_trans_ckpt True \
+--load_checkpoint path/to/mllama_11b_instruct.ckpt" 2
+
+# 参数说明
+bash scripts/msrun_launcher.sh COMMAND CKPT_PATH DEVICE_NUM
+COMMAND: 执行命令
+DEVICE_NUM:  使用卡数
 ```

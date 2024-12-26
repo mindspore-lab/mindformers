@@ -114,7 +114,7 @@ class MllamaImageBuilder(ModalContentBuilder):
         self.image_token = image_token if image_token is not None else "<|image|>"
         self.image_size = image_size if image_size is not None else 560
         self.max_num_images = max_num_images
-        self.image_processor = MllamaImageProcessor(self.image_size, image_mean=image_mean,
+        self.image_processor = MllamaImageProcessor(size=self.image_size, image_mean=image_mean,
                                                     image_std=image_std,
                                                     max_num_images=self.max_num_images)
 
@@ -129,15 +129,12 @@ class MllamaImageBuilder(ModalContentBuilder):
             image = load_image(image_path)
             images.append(image)
 
-        if images:
-            pixel_values, aspect_ratio_ids, aspect_ratio_mask, num_tiles = self.image_processor(images)
-            result_recorder.put("no_image_tag", [False])
-            result_recorder.put("pixel_values", pixel_values[0])
-            result_recorder.put("aspect_ratio_ids", aspect_ratio_ids[0])
-            result_recorder.put("aspect_ratio_mask", aspect_ratio_mask[0])
-            result_recorder.put("num_tiles", num_tiles[0])
-        else:
-            result_recorder.put("no_image_tag", [True])
+        pixel_values, aspect_ratio_ids, aspect_ratio_mask, num_tiles = self.image_processor(images)
+        result_recorder.put("no_image_tag", [False])
+        result_recorder.put("pixel_values", pixel_values[0])
+        result_recorder.put("aspect_ratio_ids", aspect_ratio_ids[0])
+        result_recorder.put("aspect_ratio_mask", aspect_ratio_mask[0])
+        result_recorder.put("num_tiles", num_tiles[0])
 
         return text
 
@@ -181,7 +178,6 @@ def get_cross_attention_token_mask(input_ids: List[int], image_token_id: int) ->
     This function identifies the positions of image tokens in the input sequence and creates
     a mask that defines which subsequent tokens each image token should attend to.
     """
-
     image_token_locations = [i for i, token in enumerate(input_ids) if token == image_token_id]
 
     if not image_token_locations:
@@ -220,7 +216,6 @@ def convert_sparse_cross_attention_mask_to_dense(
 
     batch_size = len(cross_attention_token_mask)
     max_num_images = max([len(masks) for masks in cross_attention_token_mask])
-
     cross_attention_mask = np.zeros(
         shape=(batch_size, length, max_num_images, max_num_tiles),
         dtype=np.int32,
@@ -275,6 +270,14 @@ class MllamaProcessor(ModalContentTransformTemplate):
         }
         self.bos_token = "<|begin_of_text|>"
         self.eos_token = "<|eot_id|>"
+        system_prompt = ["<|start_header_id|>", b"system", "<|end_header_id|>"]
+        user_prompt = ["<|start_header_id|>", b"user", "<|end_header_id|>"]
+        assistant_prompt = ["<|start_header_id|>", b"assistant", "<|end_header_id|>"]
+
+        self.system_prompt_id = self.tokenizer.convert_tokens_to_ids(system_prompt)
+        self.user_prompt_id = self.tokenizer.convert_tokens_to_ids(user_prompt)
+        self.assistant_prompt_id = self.tokenizer.convert_tokens_to_ids(assistant_prompt)
+        self.eos_token_id = self.tokenizer.convert_tokens_to_ids(self.eos_token)
 
     def build_conversation_input_text(self, raw_inputs, result_recorder):
         """build conversation input of text"""
@@ -305,25 +308,25 @@ class MllamaProcessor(ModalContentTransformTemplate):
         for text_id in text_id_list:
             dialog_tokens = text_id.tolist()
             labels = copy.copy(dialog_tokens)
-            eot_indices = [j for j, n in enumerate(labels) if n == 128009]
+            eot_indices = [j for j, n in enumerate(labels) if n == self.eos_token_id]
             last_idx = 0
-            # system prompt header "<|start_header_id|>system<|end_header_id|>" has been tokenized to [128006, 9125, 128007]
-            # user prompt header "<|start_header_id|>user<|end_header_id|>" has been tokenized to [128006, 882, 128007]
-            prompt_header_seqs = [[128006, 9125, 128007], [128006, 882, 128007]]
+            # system prompt header "<|start_header_id|>system<|end_header_id|>"
+            # user prompt header "<|start_header_id|>user<|end_header_id|>"
+            prompt_header_seqs = [self.system_prompt_id, self.user_prompt_id]
             for _, idx in enumerate(eot_indices):
                 current_seq = labels[last_idx:idx + 1]
                 if self.check_header(prompt_header_seqs, current_seq):
                     # found prompt header, indicating that this seq should be masked
-                    labels[last_idx:idx + 1] = [-100] * (idx - last_idx + 1)
+                    labels[last_idx:idx + 1] = [self.ignore_token_id] * (idx - last_idx + 1)
                 else:
                     last_idx = idx + 1
-                #  Mask all the assistant header prompt <|start_header_id|>assistant<|end_header_id|>, which has been tokenized to [128006, 78191, 128007]
-            assistant_header_seq = [128006, 78191, 128007]
+            #  Mask all the assistant header prompt <|start_header_id|>assistant<|end_header_id|>
+            assistant_header_seq = self.assistant_prompt_id
             labels = self.replace_target(assistant_header_seq, labels)
-            # Mask the padding token and image token 128256
+            # Mask the padding token and image token
             for pos, label in enumerate(labels):
-                if label in [self.pad_token_id, 128256]:  # 128256 is image token index
-                    labels[pos] = -100
+                if label in [self.pad_token_id, self.image_token_id]:
+                    labels[pos] = self.ignore_token_id
             label_list.append(labels)
 
         return label_list[0]
@@ -344,9 +347,7 @@ class MllamaProcessor(ModalContentTransformTemplate):
         input_ids = result.get("input_ids")
         if not no_image_tag:
             num_tiles = result.get("num_tiles")
-
             cross_attention_token_mask = [get_cross_attention_token_mask(input_ids, self.image_token_id)]
-
             cross_attention_mask = convert_sparse_cross_attention_mask_to_dense(
                 cross_attention_token_mask,
                 num_tiles=[num_tiles],
