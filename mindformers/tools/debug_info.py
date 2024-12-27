@@ -18,10 +18,10 @@ import os
 import time
 
 import numpy as np
-import mindspore as ms
 from mindspore import Profiler
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode
+from mindformers.version_control import synchronize
 
 
 def get_profile_settings():
@@ -69,7 +69,7 @@ class DetailedLatency(BaseDebugInfo):
     def start_postprocess_timer(self):
         """Predict ends and PostProcess starts."""
         if self.predict_run_mode:
-            ms.hal.synchronize()
+            synchronize()
             self.postprocess_start_time = time.time()
             self.predict_time_list.append(self.postprocess_start_time - self.predict_start_time)
 

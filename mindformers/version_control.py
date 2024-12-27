@@ -343,3 +343,13 @@ def check_delay_init_valid():
                        f"the MindFormers version, please upgrade to 2.4.1 or later version.")
         return False
     return True
+
+
+def synchronize():
+    """choose valid synchronize function according to mindspore version"""
+    version_valid = is_version_ge(ms.__version__, "2.5.0")
+    # below ms 2.5.0 is not support
+    if version_valid:
+        ms.runtime.synchronize()
+    else:
+        ms.hal.synchronize()
