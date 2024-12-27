@@ -64,6 +64,7 @@ class PagedAttentionMgr(nn.Cell):
     def paged_attn(self, query, batch_valid_length, block_tables, attn_mask=None, q_seq_lens=None):
         """The forward compute of Paged Attention."""
         if self.parallel_decoding or self.chunk_prefill:
+            attn_mask = attn_mask.astype(mstype.bool_).astype(query.dtype) * -10000
             return self.paged_attention(query, self.key_cache, self.value_cache, block_tables, batch_valid_length,
                                         None, None, attn_mask, q_seq_lens)
         return self.paged_attention(query, self.key_cache, self.value_cache, block_tables, batch_valid_length)
