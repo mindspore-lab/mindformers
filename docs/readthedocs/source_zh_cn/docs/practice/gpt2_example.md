@@ -1272,7 +1272,6 @@ GPT2作为大语言模型，其主要的task是文本生成和对话问答方面
     context:
     mode: 0 #0--Graph Mode; 1--Pynative Mode
     device_target: "Ascend"
-    enable_graph_kernel: False
     max_call_depth: 10000
     max_device_memory: "30GB"
     save_graphs: False

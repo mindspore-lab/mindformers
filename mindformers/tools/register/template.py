@@ -395,7 +395,6 @@ class ContextConfig(Config):
     device_id = 0
     max_device_memory = "58GB"
     max_call_depth = 10000
-    enable_graph_kernel = False
 
     _raise_error_for_unexpected_key = False
     _name = "context"

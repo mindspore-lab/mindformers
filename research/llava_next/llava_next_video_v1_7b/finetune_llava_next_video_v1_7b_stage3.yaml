@@ -235,7 +235,6 @@ runner_wrapper:
 context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
-  enable_graph_kernel: False
   ascend_config:
     precision_mode:
       "must_keep_origin_dtype"

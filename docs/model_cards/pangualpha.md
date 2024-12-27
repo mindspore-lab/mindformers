@@ -340,7 +340,6 @@ python pretrain_data_process.py --input_glob  'data/*.txt' --tokenizer jieba --e
 context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
-  enable_graph_kernel: False
   max_call_depth: 10000
   max_device_memory: "57GB"
   save_graphs: False
@@ -425,7 +424,6 @@ IP_LIST=("192.168.0.0", "192.168.0.1", ..., "192.168.0.11")
 context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
-  enable_graph_kernel: False
   max_call_depth: 10000
   max_device_memory: "57GB"
   save_graphs: False

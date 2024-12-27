@@ -13,7 +13,6 @@ context:
   #0--Graph Mode; 1--Pynative Mode
   mode: 1
   device_target: "Ascend"
-  enable_graph_kernel: False
   max_call_depth: 10000
   save_graphs: True
   save_graphs_path: "./graph"

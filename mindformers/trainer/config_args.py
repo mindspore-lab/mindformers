@@ -117,8 +117,6 @@ class ContextConfig(BaseArgsConfig):
     +-------------------------+------------------------------+----------------------------+
     | Executive Control       |   mode                       |   CPU/GPU/Ascend           |
     |                         +------------------------------+----------------------------+
-    |                         |  enable_graph_kernel         |  Ascend/GPU                |
-    |                         +------------------------------+----------------------------+
     |                         |  enable_reduce_precision     |  Ascend                    |
     |                         +------------------------------+----------------------------+
     |                         |  check_bprop                 |  CPU/GPU/Ascend            |
@@ -251,14 +249,6 @@ class ContextConfig(BaseArgsConfig):
         mode (int):
             Running in GRAPH_MODE(0) or PYNATIVE_MODE(1).
             Both modes support all backends. Default: ``PYNATIVE_MODE`` .
-        enable_graph_kernel (bool):
-            Whether to enable graph kernel fusion to optimize network execution performance.
-            Default: ``False`` .
-            Indicates whether to enable image-computing convergence to optimize network execution performance.
-            If enable_graph_kernel is set to ``True`` , acceleration can be enabled.
-            For details of graph kernel fusion, please check
-            `Enabling Graph Kernel Fusion
-            <https://www.mindspore.cn/tutorials/experts/en/r2.1/optimize/graph_fusion_engine.html>`_.
         enable_reduce_precision (bool):
             Whether to enable precision reduction.
             If the operator does not support the user-specified precision, the precision will
@@ -468,7 +458,6 @@ class ContextConfig(BaseArgsConfig):
         'enable_profiling',
         'profiling_options',
         'enable_auto_mixed_precision',
-        'enable_graph_kernel',
         'reserve_class_name_in_scope',
         'check_bprop',
         'max_device_memory',
