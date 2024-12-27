@@ -630,6 +630,7 @@ class LlamaFeedForwardWithMoE(Cell):
         self.compute_dtype = compute_dtype
         self.use_moe_infer = use_moe_infer
         self.return_extra_loss = return_extra_loss
+        self.cast = P.Cast()
 
         self.sigmoid = Sigmoid()
         self.mul = P.Mul()

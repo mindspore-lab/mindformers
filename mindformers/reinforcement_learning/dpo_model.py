@@ -166,6 +166,7 @@ class DPOLoss(nn.Cell):
         self.reference_free = False
         self.log_sigmoid = nn.LogSigmoid()
         self.not_equal = P.NotEqual()
+        self.cast = P.Cast()
         # for cal reward
         self.beta = 0.2
         self.enable_force_redistribute = True

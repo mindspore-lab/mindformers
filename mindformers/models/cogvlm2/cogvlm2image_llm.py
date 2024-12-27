@@ -153,6 +153,7 @@ class VisionExpertAttention(nn.Cell):
         self.add = P.Add()
         self.softmax = P.Softmax()
         self.cast_attn = P.Cast()
+        self.cast = P.Cast()
         self.merger_head_transpose = P.Transpose()
 
         self.update = P.TensorScatterUpdate()

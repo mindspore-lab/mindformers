@@ -58,6 +58,7 @@ class LlavaNextPooler(nn.Cell):
         self.transpose_2 = P.Transpose()
         self.image_size = config.vision_model.model_config.image_size // \
                           config.vision_model.model_config.patch_size ** 2
+        self.cast = P.Cast()
         if mode == "average":
             self.pool = nn.AvgPool2d(kernel_size=stride, stride=stride)
         elif mode == "max":
@@ -137,6 +138,7 @@ class LlavaAdapter(nn.Cell):
             param_init_type=config.param_init_type
         )
         self.dtype = P.DType()
+        self.cast = P.Cast()
 
     def construct(self, x):
         """adapter forward method"""

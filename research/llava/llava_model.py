@@ -321,6 +321,7 @@ class MultiheadAttention(nn.Cell):
         self.softmax_dtype = mstype.float32
 
         self.cast_attn = P.Cast()
+        self.cast = P.Cast()
         self.split_qkv = ms.ops.auto_generate.SplitWithSize()
         self.split_qkv.add_prim_attr("skip_redistribution", True)
         self.dtype = compute_dtype
@@ -585,6 +586,7 @@ class LlavaVisionEncoder(nn.Cell):
                                        is_dynamic=config.is_dynamic)
         self.ln_post = LayerNorm([width], epsilon=1e-5)
         self.reshape = P.Reshape()
+        self.cast = P.Cast()
         if config.is_dynamic:
             self.reshape.add_prim_attr("skip_redistribution", True)
 

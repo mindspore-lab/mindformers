@@ -48,6 +48,7 @@ class DPOLoss(nn.Cell):
         self.log_sigmoid = nn.LogSigmoid()
         self.not_equal = P.NotEqual()
         self.beta = 0.2
+        self.cast = P.Cast()
         self.enable_force_redistribute = True
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             self.enable_force_redistribute = True

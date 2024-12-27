@@ -1392,6 +1392,7 @@ class FreqsMgrDynamicNTK(Cell):
         self.add = P.Add()
         self.sub = P.Sub()
         self.concat = P.Concat(axis=1)
+        self.cast = P.Cast()
 
         self.base = theta
         self.seq_length = seq_length
@@ -1552,6 +1553,7 @@ class RotaryEmbedding(Cell):
         self.slice = P.StridedSlice()
         self.concat = P.Concat(axis=-1)
         self.shape = P.Shape()
+        self.cast = P.Cast()
 
     def rotate_half(self, x, swap_mask):
         # [bs, n_head/n_kv_head, seq/1, head_dim], [head_dim, head_dim]

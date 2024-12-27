@@ -239,6 +239,7 @@ class Conv1d(nn.Conv1d):
             bias_init,
             dtype=dtype)
         self.compute_dtype = compute_dtype
+        self.cast = P.Cast()
 
     def construct(self, x):
         """forward"""
@@ -314,6 +315,7 @@ class LMHead(nn.Cell):
         self.matmul = P.MatMul(transpose_b=True)
         self.reshape = P.Reshape()
         self.shape = P.Shape()
+        self.cast = P.Cast()
 
     def construct(self, state, embedding_table):
         out_shape = self.shape(state)[:-1] + (self.out_channels,)
@@ -593,6 +595,7 @@ class WhisperEncoderLayer(nn.Cell):
         self.self_attn_layer_norm = LayerNorm((self.embed_dim,), eps=1e-05)
         self.dropout = get_dropout(config.dropout)
         self.add = P.Add()
+        self.cast = P.Cast()
         self.activation_dropout = get_dropout(config.activation_dropout)
         self.fc1 = Linear(self.embed_dim,
                           config.encoder_ffn_dim,
@@ -698,6 +701,7 @@ class WhisperEncoder(nn.Cell):
         self.transpose = P.Transpose()
         self.add = P.Add()
         self.dropout = get_dropout(self.dropout)
+        self.cast = P.Cast()
 
         self.embed_positions = Embedding(vocab_table_size=self.max_source_positions,
                                          embedding_size=embed_dim,
@@ -827,6 +831,7 @@ class WhisperDecoderLayer(nn.Cell):
         self.dropout = get_dropout(config.dropout)
         self.activation_dropout = get_dropout(config.activation_dropout)
         self.add = P.Add()
+        self.cast = P.Cast()
 
         self.self_attn_layer_norm = LayerNorm((self.embed_dim,), eps=1e-05)
         self.encoder_attn = WhisperAttention(
@@ -959,6 +964,7 @@ class WhisperDecoder(nn.Cell):
 
         self.layer_norm = LayerNorm((config.d_model,), eps=1e-05)
         self.add = P.Add()
+        self.cast = P.Cast()
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.max_target_positions,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,

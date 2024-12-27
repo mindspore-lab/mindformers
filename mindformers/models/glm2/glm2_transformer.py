@@ -656,6 +656,7 @@ class ChatGLM2Transformer(nn.Cell):
 
         self.post_layer_norm = config.post_layer_norm
         self.compute_dtype = config.compute_dtype
+        self.cast = P.Cast()
 
         # Number of layers.
         self.num_layers = config.num_layers

@@ -81,6 +81,7 @@ class MultiheadAttention(nn.Cell):
         self.softmax_dtype = mstype.float32
 
         self.cast_attn = P.Cast()
+        self.cast = P.Cast()
         self.split_qkv = ms.ops.auto_generate.SplitWithSize()
         self.split_qkv.add_prim_attr("skip_redistribution", True)
         self.dtype = compute_dtype
