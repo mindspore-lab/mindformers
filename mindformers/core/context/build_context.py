@@ -36,6 +36,7 @@ from mindformers.trainer.config_args import (
 )
 from mindformers.trainer.training_args import TrainingArguments
 from mindformers.utils import get_cann_workqueue_cores
+from mindformers.version_control import check_cpu_affinity_valid
 
 
 class Context:
@@ -284,11 +285,10 @@ class MFContextOperator(MFContextConfig):
 
 
 def set_ms_affinity(affinity_config):
-    if affinity_config == 'None':
-        ms.runtime.set_cpu_affinity(False)
-    else:
+    """set mindspore cpu affinity"""
+    if check_cpu_affinity_valid():
         if not isinstance(affinity_config, dict):
-            logger.warning("custom bind policy affinity_cpu_list must be dict")
+            logger.warning(f'custom bind policy affinity_cpu_list must be dict, but got {affinity_config}.')
             return
         ms.runtime.set_cpu_affinity(True, affinity_config)
 
