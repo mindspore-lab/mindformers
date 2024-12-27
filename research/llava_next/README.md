@@ -36,8 +36,10 @@ LLaVA NeXT是一个端到端训练的大型多模态模型，连接视觉编码�
    ```text
    research/llava_next/
        └──llava_next_video_v1_7b
-           ├── finetune_llava_next_video_v1_7b_stage3.yaml   # 7B阶段三配置
-           └── predict_llava_next_video_v1_7b_stage3.yaml  # 7B推理配置
+           ├── finetune_llava_next_video_v1_7b_stage2.yaml   # 7B阶段2配置(纯单图)
+           ├── finetune_llava_next_video_v1_7b_stage3.yaml   # 7B阶段3配置(纯视频)
+           ├── predict_llava_next_video_v1_7b_stage2.yaml   # 7B图片推理配置
+           └── predict_llava_next_video_v1_7b_stage3.yaml  # 7B视频推理配置
    ```
 
 ## 环境及数据准备
@@ -54,23 +56,38 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 #### 数据集下载
 
-MindFormers提供**Video-178K**中的0_30_s_academic_oe_v0_1_qa_processed.json作为demo[微调](#微调)数据集。
+##### 视频
+
+MindFormers提供**Video-178K**中的[0_30_s_academic_oe_v0_1_qa_processed.json](https://huggingface.co/datasets/lmms-lab/LLaVA-Video-178K/blob/main/0_30_s_academic_v0_1/0_30_s_academic_oe_v0_1_qa_processed.json)作为demo[微调](#微调)**视频**的数据集。
 
 | 数据集名称                                |      适用模型       |     适用阶段     |                           下载链接                           |
 | :---------------------------------------- | :-----------------: | :--------------: | :----------------------------------------------------------: |
 | 0_30_s_academic_oe_v0_1_qa_processed.json | LlaVA-NeXT-Video-7B | Finetune stage 3 | [Link](https://huggingface.co/datasets/lmms-lab/LLaVA-Video-178K/tree/main/0_30_s_academic_v0_1) |
 
+##### 图片
+
+MindFormers提供**LLaVA-Instruct-150K**中的[llava_v1_5_mix665k.json](https://huggingface.co/datasets/liuhaotian/LLaVA-Instruct-150K/blob/main/llava_v1_5_mix665k.json)中的coco子数据作为demo[微调](#微调)**图片**的数据集。
+
+| 数据集名称 |      适用模型       |     适用阶段     |                         下载链接                         |
+| :--------- | :-----------------: | :--------------: | :------------------------------------------------------: |
+| coco       | LlaVA-NeXT-Video-7B | Finetune stage 2 | [Link](http://images.cocodataset.org/zips/train2017.zip) |
+
 数据处理：
 
-将连接中的tar.gz文件与0_30_s_academic_oe_v0_1_qa_processed.json下载下来，并将tar.gz文件解压。
+将连接中的压缩文件与json下载下来，并将压缩文件解压。
 
-将该json文件与解压完成的视频文件夹放在**同一个目录**下面，如下面的数据位置路径所示。
+将该json文件与解压完成的视频或者图片文件夹放在**同一个目录**下面，如下面的数据位置路径所示。
 
 ```text
 # 数据位置路径
-XXXXXX文件夹
+视频文件夹
     ├── 0_30_s_academic_oe_v0_1_qa_processed.json   # 文本数据
-    └── 视频文件夹                                    # 数据路径
+    └── academic_source                             # 视频数据路径
+图片文件夹
+    ├── llava_v1_5_mix665k.json                     # 文本数据
+    └── coco
+         └── train2017                              # 图片数据路径
+
 # 数据处理代码路径
 research/llava_next
     ├── data_process.py   # 数据处理路径
@@ -103,9 +120,9 @@ python data_process.py --data_yaml data_process.yaml --output_file OUTPUTFILE
 
 MindFormers暂时没有提供权重，用户可以下载HuggingFace官方权重经过[模型权重转换](#模型权重转换)后进行使用。
 
-词表下载链接：[tokenizer.model](https://huggingface.co/llava-hf/LLaVA-NeXT-Video-7B-hf/blob/main/tokenizer.model)
+词表相关下载链接：[tokenizer.model](https://huggingface.co/llava-hf/LLaVA-NeXT-Video-7B-hf/blob/main/tokenizer.model)，[tokenizer_config.json](https://huggingface.co/llava-hf/LLaVA-NeXT-Video-7B-hf/blob/main/tokenizer_config.json), [generation_config.json](https://huggingface.co/llava-hf/LLaVA-NeXT-Video-7B-hf/blob/main/generation_config.json), [added_tokens.json](https://huggingface.co/llava-hf/LLaVA-NeXT-Video-7B-hf/blob/main/added_tokens.json)
 
-增加词表下载链接：[added_tokens.json](https://huggingface.co/llava-hf/LLaVA-NeXT-Video-7B-hf/blob/main/added_tokens.json)
+请安装`pip install tokenizer>=0.20.3`
 
 | 模型名称            | MindSpore权重 |             HuggingFace权重             |
 | :------------------ | :-----------: | :-------------------------------------: |
@@ -140,18 +157,13 @@ from_language: 单语言模型转换开关
 ## 推理
 
 MindFormers提供`LlaVA-NeXT`的推理脚本，脚本主要通过generate高阶接口实现，支持单卡、多卡以及多batch推理。
-配置`predict_llava_next_video_v1_7b_stage3.yaml`，将tokenizer.model和added_token.json写入文件中。**自定义**tokenzier请确认是否有支持的`tokenizer_type`。
+配置`predict_llava_next_video_v1_7b_stage3.yaml`，将词表相关所在文件夹写入vocab_files, 文件夹下放tokenizer的文件。
 
 ```yaml
   tokenizer:
     add_bos_token: True
     add_eos_token: False
-    vocab_file: "path/to/your/tokenizer.model"
-    added_tokens_file: "path/to/your/added_file.json"
-    tokenizer_type: "LlamaTokenizer"
-    bos_token: "<s>"
-    eos_token: "</s>"
-    pad_token: "<unk>"
+    vocab_file: "path/to/your/tokenizer_files"   # 给文件夹即可，文件夹下放下载的词表相关的文件
     image_tag: "<image>"
     type: LlavaNextTokenizer
 ```
@@ -159,7 +171,10 @@ MindFormers提供`LlaVA-NeXT`的推理脚本，脚本主要通过generate高阶�
 ### 单卡推理
 
 以`LLaVA-NeXT-Video-7b`单卡推理为例。
-调用`run_mindformer.py`公共接口，运行命令为：
+调用`run_mindformer.py`公共接口
+`video`: 使用`predict_llava_next_video_v1_7b_stage3.yaml`，`modal_type`使用`video text`
+`image`: 使用`predict_llava_next_video_v1_7b_stage2.yaml`， `modal_type`使用`image text`
+运行命令如下
 
 ```shell
 python run_mindformer.py \
@@ -209,7 +224,7 @@ MindFormers提供`LLaVA-NeXT-Video-7b`的微调示例，过程中使用`alpaca`�
 
 #### 单机训练
 
-以`LLaVA-NeXT-Video-7b`为例，将处理好到数据集，tokenizer.model, added_token.json 写入`finetune_llava_next_video_v1_7b_stage3.yaml`中。
+以`LLaVA-NeXT-Video-7b`为例，将处理好到数据集，tokenizer所在文件夹放入`finetune_llava_next_video_v1_7b_stage3.yaml`中。
 
 数据集，使用上述数据处理流程得到：
 
@@ -229,12 +244,7 @@ tokenizer：给出模型使用的tokenizer的配置，`bos`，`eos`,`pad`,`token
   tokenizer:
     add_bos_token: True
     add_eos_token: False
-    vocab_file: "tokenizer.model位置"
-    added_tokens_file: "added_tokens位置"
-    tokenizer_type: "LlamaTokenizer" #适配合适的分词器
-    bos_token: "<s>"
-    eos_token: "</s>"
-    pad_token: "<unk>"
+    vocab_file: "/path/to/tokenizer_files"  # 给文件夹即可，文件夹下放下载的词表相关的文件
     image_tag: "<image>"
     type: LlavaNextTokenizer
 ```
@@ -245,6 +255,7 @@ tokenizer：给出模型使用的tokenizer的配置，`bos`，`eos`,`pad`,`token
 bash scripts/msrun_launcher.sh "run_mindformer.py \
  --config research/llava_next/llava_next_video_v1_7b/finetune_llava_next_video_v1_7b_stage3.yaml \
  --load_checkpoint /{path}/llama2_7b.ckpt \
+ --auto_trans_ckpt True \
  --use_parallel True \
  --register_path research/llava_next \
  --run_mode finetune" 8

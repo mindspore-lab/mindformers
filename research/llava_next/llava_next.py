@@ -274,7 +274,7 @@ class LlavaNextVlm(BaseXModalToTextModel):
                 "images": images,
                 "image_context_pos": image_context_pos
             }
-        if self.is_first_iteration:
+        if kwargs.get("prefill"):
             batch_valid_length = kwargs.get("valid_length_each_example")
             model_inputs = self._prepare_inputs_for_prefill_flatten(input_ids, batch_valid_length, slot_mapping,
                                                                     model_inputs)
@@ -312,7 +312,8 @@ class LlavaNextVlm(BaseXModalToTextModel):
                                            ms.int32)
                 image_patches = None
             else:
-                image_context_pos = Tensor(np.random.randint(0, self.num_queries, (bs, 1, self.num_queries, 2)),
+                num_queries = 2928
+                image_context_pos = Tensor(np.random.randint(0, num_queries, (bs, 1, num_queries, 2)),
                                            ms.int32)
                 image_patches = Tensor(np.random.random((bs, 2, 2, 3, self.image_size, self.image_size)),
                                        ms.float32)

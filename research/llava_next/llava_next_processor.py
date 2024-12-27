@@ -18,6 +18,7 @@ LLaVaNextProcessor
 import collections
 from collections import namedtuple
 import math
+import re
 from typing import Dict
 
 import cv2
@@ -269,7 +270,21 @@ class LlavaImageAndVideoBuilder(ModalContentBuilder):
         """process single image, multi image and video """
         text, video_paths = self.find_tag_and_extract(inputs, self.start_token, self.end_token)
         text = text.replace(self.start_token, "").replace(self.end_token, "")
+        text = self.change_image_token_pos(text)
         self.process_image_input(video_paths, result_recorder)
+        return text
+
+    def change_image_token_pos(self, text):
+        """
+        Based on https://github.com/LLaVA-VL/LLaVA-NeXT.git
+        <image> token will always be put in the start of user's question
+        """
+        num_im = len(re.findall(self.context_pad_token, text))
+        if num_im == 1 and self.context_pad_token in text and not text.startswith(
+                self.context_pad_token):
+            text = text.replace(self.context_pad_token, "").strip()
+            text = self.context_pad_token + "\n" + text
+            return text.strip()
         return text
 
     # pylint: disable=W0613
@@ -511,6 +526,9 @@ class LlavaNextContentTransformTemplate(ModalContentTransformTemplate):
         else:
             if image_type == "single_image":
                 paded_image_info = self.image_process(images, image_size)
+                # known bug from transformers/models/llava_next_video/modeling_llava_next_video.py
+                # for high precision image, the preprocessed expected length will not be equal to the true length
+                input_ids, labels = self._update_input_for_high_precision_image(input_ids, labels, paded_image_info)
                 image_indices = self.update_image_position(input_ids, paded_image_info.patches_unpad_index,
                                                            paded_image_info.total_paded_length)
                 images = paded_image_info.images
@@ -541,6 +559,47 @@ class LlavaNextContentTransformTemplate(ModalContentTransformTemplate):
         result.put("labels", labels)
         return {}
 
+    def _update_input_for_high_precision_image(self, input_ids, labels, paded_image_info):
+        """
+        update image placeholder for very high precision image
+        Args:
+            input_ids (``np.array``):
+                input_ids with image placeholder
+            labels (int):
+                labels with image placeholder
+            paded_image_info (`namedtuple`):
+                nametuple with image patches information
+        Returns:
+            (input_ids, labels)
+        """
+        pos = np.where(np.array(input_ids) == self.modal_builders.get("image").context_pad_token_id)[0]
+        unpad_image_pos = pos[self.num_queries:]
+        # see the length of patches_unpad_index as golden length
+        golden_length = len(paded_image_info.patches_unpad_index)
+        target_length = len(input_ids)
+        if len(unpad_image_pos) == golden_length:
+            return input_ids, labels
+        if len(unpad_image_pos) > golden_length:
+            # shrink the length of input ids and labels
+            deleted_pos = pos[golden_length + self.num_queries:]
+            input_ids = np.delete(input_ids, deleted_pos)
+            current_length = len(input_ids)
+            padding_length = target_length - current_length
+            input_ids = np.pad(input_ids, (0, padding_length), "constant", constant_values=self.tokenizer.pad_token_id)
+            if labels is not None:
+                labels = np.delete(labels, deleted_pos)
+                labels = np.pad(labels, (0, padding_length), "constant", constant_values=-100)
+        else:
+            # expand the length of input ids and labels
+            added_value_for_inputs = [self.tokenizer.img_token_id] * (golden_length - len(unpad_image_pos))
+            input_ids = np.insert(input_ids, pos[-1] + 1, added_value_for_inputs)
+            input_ids = input_ids[:target_length]
+            if labels is not None:
+                added_values_for_labels = [-100] * (golden_length - len(unpad_image_pos))
+                labels = np.insert(labels, pos[-1] + 1, added_values_for_labels)
+                labels = labels[:target_length]
+        return input_ids, labels
+
     def image_process(self, images, image_sizes):
         """get single image padded index, used to get real image position in context length"""
         ori_width, ori_height = image_sizes[0]
@@ -563,15 +622,10 @@ class LlavaNextContentTransformTemplate(ModalContentTransformTemplate):
                 raise ValueError(f"Max (height, width) num is ({self.max_patch_height_num, self.max_patch_width_num}),"
                                  f" smaller than current patch num ({num_patch_height}, {num_patch_width}), "
                                  f"please increase max num.")
-            height_catting_num = self.max_patch_height_num // num_patch_height
-            height_mod_num = np.mod(self.max_patch_height_num, num_patch_height)
-
-            width_catting_num = self.max_patch_width_num // num_patch_width
-            width_mod_num = np.mod(self.max_patch_width_num, num_patch_width)
-            image_patched_height_paded = self.padding_to_largest(image_patched, height_catting_num, height_mod_num,
-                                                                 dim=0)
+            image_patched_height_paded = self.padding_to_largest(image_patched, self.max_patch_height_num,
+                                                                 num_patch_height, dim=0)
             image_patched = self.padding_to_largest(image_patched_height_paded,
-                                                    width_catting_num, width_mod_num, dim=1)
+                                                    self.max_patch_width_num, num_patch_width, dim=1)
             row_num = self.max_patch_height_num * self.height
             col_num = self.max_patch_width_num * self.width
 
@@ -584,15 +638,28 @@ class LlavaNextContentTransformTemplate(ModalContentTransformTemplate):
         return PaddedImageInfo(images[0][np.newaxis, :, :, :], image_patched,
                                patches_unpad_index, total_paded_length)
 
-    def padding_to_largest(self, images, catting_num, mod_num, dim):
-        image_mod = None
-        image_indices_mod = None
-        if mod_num:
-            image_mod = images[:mod_num]
-        images_list = [images] * catting_num
-        if image_mod is not None and image_indices_mod is not None:
-            images_list += [image_mod]
-        paded_images = np.concatenate(images_list, axis=dim)
+    def padding_to_largest(self, images, max_num, current_num, dim):
+        """
+        padding the dim of dynamic patch into max num
+        Args:
+            images (``np.array``):
+                image numpy array
+            max_num (int):
+                the max num to pad
+            current_num (int):
+                the current num of the padded dim
+            dim (int):
+                the axis dim to pad
+        Returns:
+            `np.array`: The padded patched numpy array
+        """
+        if max_num == current_num:
+            return images
+        image_shape = list(images.shape)
+        image_shape[dim] = 1
+        padding_values = np.zeros(image_shape, dtype=np.float32)
+        image_list = [images] + [padding_values] * (max_num - current_num)
+        paded_images = np.concatenate(image_list, axis=dim)
         return paded_images
 
     def unpad_image(self, current_size, original_size, col_num):
