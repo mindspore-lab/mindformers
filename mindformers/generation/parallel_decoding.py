@@ -154,11 +154,7 @@ def _la_pre_process(config, input_ids, model_inputs, **model_kwargs):
 
     attention_mask = model_kwargs.get('spec_mask')
     if attention_mask is None:
-        if q_seq_lens is not None:  # prefill stage
-            attention_mask = _construct_mask(q_seq_lens)
-        else:
-            attention_mask = np.zeros((seq_len, seq_len), dtype=np.float16)
-    attention_mask = attention_mask.astype(np.bool_).astype(np.float16)
+        attention_mask = np.zeros((1, 1), dtype=np.float16)
 
     position_ids = model_kwargs.get('position_ids')
     if position_ids is None:
@@ -177,7 +173,6 @@ def _la_pre_process(config, input_ids, model_inputs, **model_kwargs):
         if isinstance(position_ids, np.ndarray) else Tensor(position_ids, dtype=ms.int32)
     model_inputs['q_seq_lens'] = Tensor.from_numpy(q_seq_lens.astype(np.int32)) \
         if isinstance(q_seq_lens, np.ndarray) else Tensor(q_seq_lens, dtype=ms.int32)
-    ms.hal.synchronize()
 
     return model_inputs, block_tables, slot_mapping
 
