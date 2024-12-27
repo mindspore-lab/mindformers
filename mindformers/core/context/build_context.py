@@ -103,7 +103,6 @@ class MSContextOperator:
             'device_id': ctx.get('device_id', int(os.getenv('DEVICE_ID', '0'))),
             'max_device_memory': ctx.get('max_device_memory', '1024GB'),
             'mode': MODE.get(ctx.get('mode', 'GRAPH_MODE')),
-            'deterministic': "ON" if ctx.get('train_precision_sync') else "OFF"
         }
         self._set_device_id(ctx, ms_ctx)
         self._set_save_graphs_path(ctx, ms_ctx)
@@ -221,10 +220,17 @@ class MFContextOperator(MFContextConfig):
             hccl_deterministic = 'true'
             ascend_launch_blocking = '1'
             te_parallel_compiler = '1'
+            deterministic = 'ON'
         else:
             hccl_deterministic = 'false'
             ascend_launch_blocking = '0'
             te_parallel_compiler = '0'
+            deterministic = 'OFF'
+
+        self.config.set_value(
+            'context.deterministic',
+            self.config.get_value('context.deterministic') or deterministic
+        )
 
         if self.infer_precision_sync:
             custom_matmul_shuffle = 'off'
