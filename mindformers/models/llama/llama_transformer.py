@@ -718,6 +718,7 @@ class LLamaDecodeLayer(nn.Cell):
         self.use_past = use_past
         self.chunk_prefill = chunk_prefill
         self.seq_pipe = parallel_config and parallel_config.seq_split_num > 1
+        self.cast = P.Cast()
 
         self.residual_dtype = residual_dtype
         self.residual_cast_flag = residual_dtype != compute_dtype

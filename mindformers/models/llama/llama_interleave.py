@@ -596,6 +596,7 @@ class LLamaDecodeLayerInterleave(nn.Cell):
         self.num_layers = num_layers
         self.head_dim = self.hidden_size // self.n_head
         self.n_kv_head = n_heads if n_kv_heads is None else n_kv_heads
+        self.cast = P.Cast()
 
         self.dtype = compute_dtype
         self.residual_dtype = residual_dtype

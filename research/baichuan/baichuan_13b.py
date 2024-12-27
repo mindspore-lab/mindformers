@@ -411,6 +411,7 @@ class Baichuan13BDecodeLayer(nn.Cell):
         self.value_past = None
 
         self.reshape = P.Reshape()
+        self.cast = P.Cast()
         self.add = P.Add()
         self.attention_norm = LlamaRMSNorm(
             self.hidden_size, norm_eps, compute_type=layernorm_compute_dtype)

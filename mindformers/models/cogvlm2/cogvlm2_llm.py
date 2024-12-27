@@ -83,6 +83,7 @@ class FreqsMgr(nn.Cell):
         self.concat = P.Concat(axis=-1)
         self.cos = P.Cos()
         self.sin = P.Sin()
+        self.cast = P.Cast()
 
     def construct(self, position_ids, use_past=False):
         """Gather freqs_cos and freqs_sin from input position_ids."""
