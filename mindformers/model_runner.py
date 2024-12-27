@@ -224,8 +224,12 @@ class MindIEModelRunner:
         self.model_config = AutoConfig.from_pretrained(config_path)
 
         self.model_config.parallel_decoding_params = None
+        default_plugin_configs = {'plugin_type': None}
+        if plugin_params == default_plugin_configs:
+            plugin_params = None
         if plugin_params:
-            plugin_params = json.loads(plugin_params)
+            if not isinstance(plugin_params, dict):
+                plugin_params = json.loads(plugin_params)
             plugin_params['parallel_decoding'] = plugin_params['plugin_type']
             self.model_config.parallel_decoding_params = plugin_params
         self.model_config.checkpoint_path = self.config.load_checkpoint
