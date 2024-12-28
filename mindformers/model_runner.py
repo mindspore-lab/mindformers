@@ -240,7 +240,11 @@ class MindIEModelRunner:
             if rank_id == 0 and os.fork() == 0:
                 os.environ['MS_ROLE'] = 'MS_SCHED'
                 init()
-        self.model_config = AutoConfig.from_pretrained(config_path)
+        if self.config.use_parallel:
+            build_parallel_config(self.config)
+            self.model_config = AutoConfig.from_pretrained(config_path, parallel_config=self.config.parallel_config)
+        else:
+            self.model_config = AutoConfig.from_pretrained(config_path)
 
         self.update_model_config(plugin_params)
 
@@ -310,13 +314,6 @@ class MindIEModelRunner:
 
     def update_model_config(self, plugin_params):
         """update model config"""
-        def set_parallel_config(config):
-            for key, value in config.items():
-                if key == "parallel_config":
-                    config.parallel_config = self.config.parallel_config
-                elif isinstance(value, dict):
-                    set_parallel_config(value)
-
         self.model_config.parallel_decoding_params = None
         default_plugin_configs = {'plugin_type': None}
         if plugin_params == default_plugin_configs:
@@ -327,10 +324,6 @@ class MindIEModelRunner:
             plugin_params['parallel_decoding'] = plugin_params['plugin_type']
             self.model_config.parallel_decoding_params = plugin_params
         self.model_config.checkpoint_name_or_path = None
-
-        if self.config.use_parallel:
-            build_parallel_config(self.config)
-            set_parallel_config(self.model_config)
 
     def update_llm_config(self, config, world_size, npu_mem_size, cpu_mem_size, block_size):
         """update llm model config"""
