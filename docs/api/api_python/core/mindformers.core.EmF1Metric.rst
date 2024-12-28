@@ -49,4 +49,4 @@ mindformers.core.EmF1Metric
         更新局部评估结果。
 
         参数：
-            - **inputs** (List) - 预测和标签。均为包含 :math:`N` 个字符串的列表。其中 :math:`N` 为批次大小。
+            - **\*inputs** (List) - 预测和标签。均为包含 :math:`N` 个字符串的列表。其中 :math:`N` 为批次大小。
