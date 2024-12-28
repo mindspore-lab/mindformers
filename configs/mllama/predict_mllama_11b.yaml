@@ -6,6 +6,11 @@ use_parallel: False
 load_checkpoint: ""
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 
+# trainer config
+trainer:
+  type: MultiModalToTextGenerationTrainer
+  model_name: 'mllama'
+
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
   model_parallel: 2
@@ -59,6 +64,7 @@ model:
         num_beam_groups: 1
         num_beams: 1
         num_channels: 3
+        max_num_images: &max_num_images 1
         num_global_layers: 8
         num_hidden_layers: 32
         num_return_sequences: 1
@@ -133,14 +139,13 @@ processor:
     add_special_tokens: True
     context_length: *seq_length
     image_size: *image_size
-    max_num_images: 1
+    max_num_images: *max_num_images
     # text_instruct_mode: True
     output_columns: [ "input_ids", "pixel_values", "aspect_ratio_ids", "aspect_ratio_mask", "cross_attention_mask", "labels" ]
     mode: 'predict'
     ignore_token_id: *ignore_token_id
     image_mean: [0.48145466, 0.4578275, 0.40821073]
     image_std: [0.26862954,0.26130258, 0.27577711]
-    max_num_images: 1
   tokenizer:
     add_bos_token: True
     add_eos_token: False

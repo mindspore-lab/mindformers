@@ -199,6 +199,7 @@ class MllamaVisionAttention(nn.Cell):
         self.softmax = P.Softmax()
         self.cast = P.Cast()
         self.transpose = P.Transpose()
+        self.transpose_attn = P.Transpose()
         self.slice = P.StridedSlice()
         self.compute_dtype = config.compute_dtype
         self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=self.compute_dtype)
@@ -256,7 +257,7 @@ class MllamaVisionAttention(nn.Cell):
 
             attn_output = self.batch_matmul(attn_weights, value)
 
-        attn_output = self.transpose(attn_output, (0, 2, 1, 3))
+        attn_output = self.transpose_attn(attn_output, (0, 2, 1, 3))
         attn_output = self.reshape(attn_output, (batch_size, q_seq_len, -1))
         output = self.o_proj(attn_output)
 
@@ -271,6 +272,7 @@ class MllamaVisionAttention(nn.Cell):
         self.v_proj.shard(((dp, 1), (mp, 1)))
         self.o_proj.shard(strategy_matmul=((dp, mp), (1, mp)), out_strategy_matmul=((dp, 1),))
         self.transpose.shard(((dp, 1, mp, 1),))
+        self.transpose_attn.shard(((dp, mp, 1, 1),))
         self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
         self.mul.shard(((dp, mp, 1, 1), ()))
         self.slice.shard(((dp, 1, 1, 1),))
@@ -1075,7 +1077,10 @@ class MllamaForConditionalGeneration(MllamaPreTrainedModel, GenerationMixin):
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
                                      check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad)
         self.hidden_size = config.text_model.model_config.hidden_size
+        self.image_size = config.vision_model.model_config.image_size
+        self.num_channels = config.vision_model.model_config.num_channels
         self.max_num_tiles = config.vision_model.model_config.max_num_tiles
+        self.max_num_images = config.vision_model.model_config.max_num_images
         self.vision_output_dim = config.vision_model.model_config.vision_output_dim
         self.pad_token_id = self.config.pad_token_id if self.config.pad_token_id is not None else -1
 
@@ -1131,13 +1136,13 @@ class MllamaForConditionalGeneration(MllamaPreTrainedModel, GenerationMixin):
         labels = Tensor(kwargs["labels"]) if "labels" in kwargs else None
         bs, seq = input_ids.shape[0], input_ids.shape[1]
         slot_mapping = Tensor(np.ones(shape=tuple([bs * seq])), mstype.int32)
-        prefix_keys_values = Tensor(np.ones(shape=tuple([bs * seq])), mstype.int32)
-        pixel_values = Tensor(kwargs["pixel_values"], self.dtype) if "pixel_values" in kwargs else None
-        aspect_ratio_mask = Tensor(kwargs["aspect_ratio_mask"], mstype.int32) if "aspect_ratio_mask" in kwargs else None
-        aspect_ratio_ids = Tensor(kwargs["aspect_ratio_ids"], mstype.int32) if "aspect_ratio_ids" in kwargs else None
-        cross_attention_mask = Tensor(kwargs["cross_attention_mask"],
-                                      mstype.int32) if "cross_attention_mask" in kwargs else None
-
+        prefix_keys_values = Tensor(kwargs["prefix_keys_values"]) if "prefix_keys_values" in kwargs else None
+        pixel_values = Tensor(np.ones(shape=tuple([bs, self.max_num_images, self.max_num_tiles, self.num_channels,
+                                                   self.image_size, self.image_size])), mstype.int32)
+        aspect_ratio_mask = Tensor(np.ones(shape=tuple([bs, self.max_num_images, self.max_num_tiles])), mstype.int32)
+        aspect_ratio_ids = Tensor(np.ones(shape=tuple([bs, self.max_num_images])), mstype.int32)
+        cross_attention_mask = Tensor(np.ones(shape=tuple([bs, seq, self.max_num_images, self.max_num_tiles])),
+                                      mstype.int32)
         return input_ids, labels, pixel_values, aspect_ratio_mask, aspect_ratio_ids, cross_attention_mask, \
                None, None, None, None, None, None, None, None, None, None, slot_mapping, prefix_keys_values, None
 
