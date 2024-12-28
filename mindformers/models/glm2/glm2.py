@@ -283,7 +283,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         loss_parallel_config = copy.deepcopy(config.parallel_config)
         if config.parallel_config.vocab_emb_dp or (config.vocab_size % (dp * mp * cp) != 0):
             if loss_parallel_config.use_seq_parallel:
-                if self.seq_length > SHARDING_SEQ_LEN_THRESHOLD:
+                if config.seq_length > SHARDING_SEQ_LEN_THRESHOLD:
                     loss_parallel_config.data_parallel = dp * cp * mp
                     loss_parallel_config.model_parallel = 1
                     loss_parallel_config.context_parallel = 1
