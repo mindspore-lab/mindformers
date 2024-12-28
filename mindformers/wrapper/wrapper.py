@@ -90,7 +90,7 @@ class LocalNorm(nn.Cell):
 # pylint: disable=W1401
 @MindFormerRegister.register(MindFormerModuleType.WRAPPER)
 class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
-    """TrainOneStep For MindFormer.
+    r"""TrainOneStep For MindFormer.
     Network training with loss scaling, grad clip, gradient accumulation, exponential moving average and so on.
 
     This is a training step with loss scaling. It takes a network, an optimizer and a scale update Cell(or a Tensor) as
@@ -111,7 +111,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         kwargs (Any): Additional parameters.
 
     Inputs:
-        - **(*inputs)** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \ldots)`.
+        - **\*inputs** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \ldots)`.
 
     Outputs:
         Tuple of 5 or 7 Tensor, the loss, overflow flag, current loss scale value, learning rate,
@@ -392,7 +392,7 @@ class PipelineCellWithTwoOutput(nn.Cell):
 # pylint: disable=W1401
 @MindFormerRegister.register(MindFormerModuleType.WRAPPER)
 class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
-    """
+    r"""
     Append a train-one-step cell with loss scale of pipeline parallel for MindFormers.
 
     Args:
@@ -407,7 +407,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         kwargs (Any): Additional parameters.
 
     Inputs:
-        - **(\*inputs)** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \ldots)`.
+        - **\*inputs** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \ldots)`.
 
     Outputs:
         Tuple of 5 or 7 Tensor, the loss, overflow flag, current loss scale value, learning rate,

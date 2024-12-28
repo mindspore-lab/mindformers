@@ -978,6 +978,7 @@ class GenerationMixin:
                 construct. Default: ``None``.
             target_mask (Tensor, optional): Use for encoder-decoder construct, do not need for decoder only
                 construct. Default: ``None``.
+            **model_kwargs (Any): Keyword arguments of the model.
 
         Returns:
             next_token, the next token to be generated.
@@ -1065,6 +1066,7 @@ class GenerationMixin:
                 construct. Default: ``None``.
             target_mask (Tensor, optional): Use for encoder-decoder construct, do not need for decoder only
                 construct. Default: ``None``.
+            **model_kwargs (Any): Keyword arguments of the model.
 
         Returns:
             res, the result after the forward process.

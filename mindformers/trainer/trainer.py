@@ -487,7 +487,7 @@ class Trainer:
             data_skip_steps (int, optional):
                 Specify the skip steps of train dataset when resume training.
                 It only takes effect when `ignore_data_skip` is set to False. Default: ``None``.
-            auto_trans_ckpt(bool, optional):
+            auto_trans_ckpt (bool, optional):
                 Auto transform checkpoint to load in distributed model. Default: ``None``.
             src_strategy (str, optional):
                 The strategy of `resume_from_checkpoint` . Effective only when auto_trans_ckpt is set to True,
@@ -687,7 +687,7 @@ class Trainer:
                 It supports real checkpoint path or valid model name of mindformers or bool value.
                 if it's true, the last checkpoint file saved from the previous training round is automatically used.
                 Default: ``None``.
-            auto_trans_ckpt(bool, optional):
+            auto_trans_ckpt (bool, optional):
                 Auto transform checkpoint to load in distributed model. Default: ``None``.
             src_strategy (str, optional):
                 The strategy of `resume_from_checkpoint` . Effective only when auto_trans_ckpt is set to True,
