@@ -42,4 +42,4 @@ mindformers.core.PromptAccMetric
         更新局部评估结果。
 
         参数：
-            - **inputs** (List) - 逻辑值、输入索引、输入掩码和标签。其中逻辑值是形状为 :math:`[N,C,S,W]` 的张量，数据类型为Float16或Float32；输入索引、输入掩码和标签是形状为 :math:`[N*C,S]` 的张量，数据类型为Int32或Int64。其中 :math:`N` 为批次大小， :math:`C` 为实体类型总数， :math:`S` 为序列长度， :math:`W` 为词表大小。
+            - **\*inputs** (List) - 逻辑值、输入索引、输入掩码和标签。其中逻辑值是形状为 :math:`[N,C,S,W]` 的张量，数据类型为Float16或Float32；输入索引、输入掩码和标签是形状为 :math:`[N*C,S]` 的张量，数据类型为Int32或Int64。其中 :math:`N` 为批次大小， :math:`C` 为实体类型总数， :math:`S` 为序列长度， :math:`W` 为词表大小。
