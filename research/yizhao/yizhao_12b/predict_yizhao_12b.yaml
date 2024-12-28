@@ -3,15 +3,10 @@ run_mode: 'predict'
 output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
-only_save_strategy: False
-resume_training: False
 
 # ==== context config ====
 context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
-  device_target: "Ascend"
-  enable_graph_kernel: False
-  max_call_depth: 10000
   max_device_memory: "59GB" # 59GB for Atlas 800T A2
   save_graphs: False
   save_graphs_path: "./graph"
@@ -84,14 +79,6 @@ model:
 trainer:
   type: CausalLanguageModelingTrainer
   model_name: 'YiZhao'
-# if True do, evaluate during the training process. if false, do nothing.
-# note that the task trainer should support _evaluate_in_training function.
-do_eval: False
-eval_step_interval: 500
-eval_epoch_interval: -1
-
-metric:
-  type: ADGENMetric
 
 processor:
   return_tensors: ms
@@ -99,21 +86,15 @@ processor:
     type: YiZhaoTokenizer
     eos_token: '<|endoftext|>'
     pad_token: '<|endoftext|>'
-    vocab_file: '/opt/wht/ckpt_dataset/glm4/tokenizer.model'
+    vocab_file: '/path/to/tokenizer.model'
   type: YiZhaoProcessor
 
 # parallel config
 use_parallel: False
 parallel:
-  parallel_mode: 1 # 0-dataset, 1-semi, 2-auto, 3-hybrid
-  gradients_mean: False  # 默认为False, 数据并行模式下为True
   loss_repeated_mean: True
-  enable_alltoall: False
   full_batch: True   # 默认为True, 数据并行模式必须设置为False
-  search_mode: "sharding_propagation"
   enable_parallel_optimizer: False  # optimizer shard, 等价于zero2
-  strategy_ckpt_config:
-    save_file: "./ckpt_strategy.ckpt"
 parallel_config:
   data_parallel: 1
   model_parallel: 1
@@ -124,27 +105,6 @@ parallel_config:
   use_seq_parallel: False
   gradient_aggregation_group: 4
 micro_batch_interleave_num: 1
-
-# recompute
-recompute_config:
-  recompute: True
-  select_recompute: True
-  parallel_optimizer_comm_recompute: False
-  mp_comm_recompute: True
-  recompute_slice_activation: True
-
-# autotune
-auto_tune: False
-filepath_prefix: './autotune'
-autotune_per_step: 10
-
-# profile
-profile: False
-profile_start_step: 5
-profile_stop_step: 7
-init_start_profile: True
-profile_communication: True
-profile_memory: True
 
 # callbacks
 callbacks:
@@ -161,9 +121,3 @@ eval_callbacks:
   - type: ObsMonitor
     keep_last: False
 
-# ==== runner config ====
-runner_config:
-  epochs: 1
-  batch_size: 8
-  sink_mode: True
-  sink_size: 4

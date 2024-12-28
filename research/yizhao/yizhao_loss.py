@@ -19,9 +19,10 @@ from mindspore import ops as P
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode
 
+from yizhao_config import YiZhaoConfig
+
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from .yizhao_config import YiZhaoConfig
 
 
 @MindFormerRegister.register(MindFormerModuleType.LOSS)

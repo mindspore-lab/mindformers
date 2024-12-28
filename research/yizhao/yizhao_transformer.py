@@ -22,6 +22,10 @@ import mindspore.ops.operations as P
 from mindspore import Tensor, nn, ops
 from mindspore import dtype as mstype
 
+from yizhao_config import YiZhaoConfig
+from yizhao_modules import YiZhaoConcatMLP, YiZhaoRMSNorm, YiZhaoMLP, GetCompressMask, YiZhaoRotaryEmbeddingOpt, \
+    GetEodResetMask
+
 from mindformers.models.utils import LayerSetting
 from mindformers.modules import LayerNorm
 from mindformers.modules.flash_attention import FlashAttention
@@ -29,9 +33,6 @@ from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules.layers import Linear
 from mindformers.pet.tuners.ptuning2_adapter import Ptuning2Adapter
 from mindformers.version_control import get_dropout
-from .yizhao_config import YiZhaoConfig
-from .yizhao_modules import YiZhaoConcatMLP, YiZhaoRMSNorm, YiZhaoMLP, GetCompressMask, YiZhaoRotaryEmbeddingOpt, \
-    GetEodResetMask
 
 
 class CoreAttention(nn.Cell):
@@ -167,14 +168,11 @@ class YiZhaoSelfAttention(nn.Cell):
 
         if self.multi_query_attention:
             self.n_kv_head = config.multi_query_group_num
-            self.qkv_hidden_size = (
-                self.projection_size + 2 * self.head_dim * config.multi_query_group_num)
+            self.qkv_hidden_size = (self.projection_size + 2 * self.head_dim * config.multi_query_group_num)
             self.kv_hidden_size = self.n_kv_head * self.head_dim
 
         parallel_config = config.parallel_config
-        dp = config.parallel_config.data_parallel
-        cp = config.parallel_config.context_parallel
-        mp = config.parallel_config.model_parallel
+        dp, cp, mp = _parallel_decompose(config)
         self.cp_ds = 1
         self.cp_co = cp
 
@@ -224,22 +222,7 @@ class YiZhaoSelfAttention(nn.Cell):
         self.use_flash_attention = config.use_flash_attention
         self.use_past = config.use_past
         if self.use_past:
-            rotary_cos_format = 2 if self.use_llama_rope else 3
-            self.infer_attention = InferAttention(self.n_head,
-                                                  self.head_dim,
-                                                  self.n_kv_head,
-                                                  pa_n_head_split=self.n_head // mp,
-                                                  pa_n_kv_head_split=self.n_kv_head // mp,
-                                                  scale_value=1. / math.sqrt(self.head_dim),
-                                                  pre_tokens=65536,
-                                                  next_tokens=0,
-                                                  block_size=config.block_size,
-                                                  num_blocks=config.num_blocks,
-                                                  is_dynamic=config.is_dynamic,
-                                                  use_flash_attention=self.use_flash_attention,
-                                                  rotary_cos_format=rotary_cos_format,
-                                                  compute_dtype=self.compute_dtype)
-            self.infer_attention.shard(parallel_config)
+            self.infer_attention = self.init_infer_attention(config, mp, parallel_config)
         else:
             self.core_attention = CoreAttention(config, self.layer_number)
             self.reshape = P.Reshape()
@@ -256,15 +239,7 @@ class YiZhaoSelfAttention(nn.Cell):
                 self.apply_rotary_emb = YiZhaoRotaryEmbeddingOpt(compute_dtype=config.rotary_dtype)
                 self.apply_rotary_emb.shard((dp, cp, mp, 1))
 
-            sparse_mode = 2
-            input_layout = "BSH"
-            if self.mask_generate == "compress_reset":
-                sparse_mode = 3
-                input_layout = "TND"
-            elif self.mask_generate == "inmap":
-                sparse_mode = 0
-                input_layout = "BSH"
-
+            input_layout, sparse_mode = self.select_fa_configs()
             if self.use_flash_attention:
                 self.flash_attention = FlashAttention(head_num=config.num_attention_heads,
                                                       scale_value=1. / math.sqrt(self.head_dim),
@@ -273,19 +248,60 @@ class YiZhaoSelfAttention(nn.Cell):
                                                       keep_prob=1. - config.attention_dropout,
                                                       pre_tokens=65536,
                                                       next_tokens=0)
-                fa_parallel_config = copy.deepcopy(parallel_config)
-                fa_parallel_config.model_parallel = mp * self.cp_ds
-                fa_parallel_config.context_parallel = self.cp_co
-                self.flash_attention.shard(fa_parallel_config)
-                if self.mask_generate == "compress_reset" or sparse_mode == 2:
-                    self.get_attention_mask = GetCompressMask(mask_length=2048, parallel_config=parallel_config)
-                elif self.mask_generate == "inmap":
-                    self.get_attention_mask = GetEodResetMask(seq_length=config.seq_length,
-                                                              parallel_config=parallel_config)
+                self.shard_fa(mp, parallel_config)
+                self.get_attention_mask = self.select_mask_generate(config, parallel_config, sparse_mode)
                 self.cp_transpose_before = P.Transpose().shard(((dp, cp, mp, 1, 1),))
                 self.cp_transpose_after = P.Transpose().shard(((dp, cp, 1, mp, 1),))
             self.transpose.shard(((dp, cp, mp, 1),))
             self.merger_head_transpose = P.Transpose().shard(((dp, mp, cp, 1),))
+
+    def init_infer_attention(self, config, mp, parallel_config):
+        """ infer attention"""
+        rotary_cos_format = 2 if self.use_llama_rope else 3
+        infer_attention = InferAttention(self.n_head,
+                                         self.head_dim,
+                                         self.n_kv_head,
+                                         pa_n_head_split=self.n_head // mp,
+                                         pa_n_kv_head_split=self.n_kv_head // mp,
+                                         scale_value=1. / math.sqrt(self.head_dim),
+                                         pre_tokens=65536,
+                                         next_tokens=0,
+                                         block_size=config.block_size,
+                                         num_blocks=config.num_blocks,
+                                         is_dynamic=config.is_dynamic,
+                                         use_flash_attention=self.use_flash_attention,
+                                         rotary_cos_format=rotary_cos_format,
+                                         compute_dtype=self.compute_dtype)
+        infer_attention.shard(parallel_config)
+        return infer_attention
+
+    def select_fa_configs(self):
+        """select fa configs"""
+        if self.mask_generate == "compress_reset":
+            sparse_mode = 3
+            input_layout = "TND"
+        elif self.mask_generate == "inmap":
+            sparse_mode = 0
+            input_layout = "BSH"
+        else:
+            sparse_mode = 2
+            input_layout = "BSH"
+        return input_layout, sparse_mode
+
+    def shard_fa(self, mp, parallel_config):
+        """shard flash attention"""
+        fa_parallel_config = copy.deepcopy(parallel_config)
+        fa_parallel_config.model_parallel = mp * self.cp_ds
+        fa_parallel_config.context_parallel = self.cp_co
+        self.flash_attention.shard(fa_parallel_config)
+
+    def select_mask_generate(self, config, parallel_config, sparse_mode):
+        """select which mask to use"""
+        if self.mask_generate == "compress_reset" or sparse_mode == 2:
+            return GetCompressMask(mask_length=2048, parallel_config=parallel_config)
+        if self.mask_generate == "inmap":
+            return GetEodResetMask(seq_length=config.seq_length, parallel_config=parallel_config)
+        return ops.Identity()
 
     def _repeat_kv(self, x, rep):
         if rep == 1:
@@ -457,6 +473,12 @@ class YiZhaoSelfAttention(nn.Cell):
         output = self.dense(context_layer)
 
         return output
+
+
+def _parallel_decompose(config):
+    dp, cp, mp = config.parallel_config.data_parallel, \
+        config.parallel_config.context_parallel, config.parallel_config.model_parallel
+    return dp, cp, mp
 
 
 class YiZhaoBlock(nn.Cell):

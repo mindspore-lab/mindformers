@@ -23,6 +23,11 @@ from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
+from yizhao_config import YiZhaoConfig
+from yizhao_loss import DPOLoss, DPOCrossEntropy
+from yizhao_modules import YiZhaoFreqsMgr
+from yizhao_transformer import YiZhaoTransformer
+
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.models.llama.llama_layer import LlamaEmbedding
 from mindformers.models.modeling_utils import PreTrainedModel
@@ -35,12 +40,6 @@ from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode
 from mindformers.version_control import get_dropout
 from mindformers.version_control import get_tril
-from .yizhao_config import YiZhaoConfig
-from .yizhao_loss import DPOLoss, DPOCrossEntropy
-from .yizhao_modules import YiZhaoFreqsMgr
-from .yizhao_transformer import YiZhaoTransformer
-
-__all__ = ['YiZhaoForCausalLM', 'YiZhaoModel', 'YiZhaoWithPtuning2', 'YiZhaoDPO']
 
 
 class YiZhaoPreTrainedModel(PreTrainedModel):
@@ -222,6 +221,7 @@ class YiZhaoForCausalLM(YiZhaoPreTrainedModel):
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
         self.use_past = config.use_past
+        self.rl_config = config.rl_config
         self.is_first_iteration = True
         self.not_equal = P.NotEqual()
         self.add = P.Add()
@@ -288,6 +288,8 @@ class YiZhaoForCausalLM(YiZhaoPreTrainedModel):
             hidden_states = self.gather(hidden_states, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         lm_logits = self.transformer.output_layer(hidden_states)
         outputs = (lm_logits,)
+        if self.rl_config is not None:
+            return lm_logits
 
         # train
         if labels is not None:
