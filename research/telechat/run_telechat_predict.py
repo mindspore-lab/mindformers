@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Telechat predict scripts."""
-import os
 import argparse
 import json
 import copy
@@ -128,11 +127,6 @@ def main():
 
     # set model config
     config = MindFormerConfig(args.yaml_file)
-    if config.trainer.model_name == "telechat_52b":
-        os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'PagedAttention'
-    else:
-        os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'InferenceMatmulSplit,PagedAttention'
-
     if args.device_id is not None:
         config.context.device_id = args.device_id
     if args.checkpoint_path is not None:

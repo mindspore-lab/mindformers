@@ -53,11 +53,6 @@ def main():
     if args.remote_save_url is not None:
         config.remote_save_url = args.remote_save_url
 
-    if config.trainer.model_name == "telechat_52b":
-        os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = None
-    else:
-        os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'InferenceMatmulSplit'
-
     # init context
     build_context(config)
 

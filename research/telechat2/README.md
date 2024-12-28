@@ -237,7 +237,6 @@ export ENABLE_CELL_REUSE=1  #编译加速
 export MS_DEV_SIDE_EFFECT_LOAD_ELIM=3  # 去除TensorMove
 export MS_MEMORY_POOL_RECYCLE=1  # 内存优化
 export GE_NOT_CUT=1   # 内存优化
-export MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST=InferenceMatmulSplit,PagedAttention
 ```
 
 - step 4. 执行运行脚本。
@@ -277,10 +276,6 @@ register_path: 外部模型注册路径
 推理时所需的模型词表可在[模型权重下载与转换](#模型权重下载与转换)章节中下载得到，对应文件为`tokenizer.model`。
 
 ### 参数配置
-
-- 设置环境变量：
-
-export MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST=InferenceMatmulSplit,PagedAttention
 
 - 7b模型支持单机**单卡推理**
 

@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Telechat predict scripts."""
-import os
 import argparse
 import mindspore as ms
 from mindspore import Model, Tensor
@@ -37,8 +36,6 @@ def main():
 
     # set config
     config = MindFormerConfig(args.yaml_file)
-    os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'InferenceMatmulSplit,PagedAttention'
-
     if args.device_id is not None:
         config.context.device_id = args.device_id
     if args.checkpoint_path is not None:

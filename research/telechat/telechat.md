@@ -132,20 +132,6 @@ mp: 目标切分个数，比如指定为8时，得到的完整权重适用于mp=
 
 涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档模型[权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)。
 
-## 注意事项
-
-启动微调/推理任务前，由于7b/12b模型网络结构差异，需要关闭`MatmulSplit`融合算子
-
-```bash
-export MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST=InferenceMatmulSplit
-```
-
-52b需要开启`MatmulSplit`融合算子
-
-```bash
-unset MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST
-```
-
 ## 微调
 
 ### 数据集准备
