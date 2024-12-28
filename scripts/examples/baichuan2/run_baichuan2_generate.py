@@ -57,14 +57,8 @@ def main(config_path, use_parallel, load_checkpoint, vocab_file, predict_data):
     # init model
     model_name = config.trainer.model_name
     config.model.model_config.parallel_config = config.parallel_config
-    if config.use_parallel:
-        # baichuan2 13b and 7b not support dynamic inputs in parallel
-        config.model.model_config.is_dynamic = False
-        logger.warning(f"{model_name} not support dynamic inputs in parallel, set is_dynamic=False Default.")
-    else:
-        config.model.model_config.is_dynamic = True
-    config.model.model_config.use_flash_attention = False
-    logger.warning(f"Flash Attention might cause accuracy issues, set use_flash_attention=False Default.")
+    config.model.model_config.is_dynamic = True
+    config.model.model_config.use_flash_attention = True
     model_config = LlamaConfig(**config.model.model_config)
     model_config.checkpoint_name_or_path = None
 
