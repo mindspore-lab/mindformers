@@ -185,6 +185,7 @@ class ModelTester:
         task_trainer.config.runner_config.sink_mode = False
         task_trainer.config.runner_wrapper.scale_sense.loss_scale_value = 1024
         task_trainer.config.callbacks = task_trainer.config.callbacks[:1]
+        task_trainer.config.model.model_config.use_flash_attention = config.use_flash_attention
 
         if input_sliced_sig:
             task_trainer.config.model.model_config.input_sliced_sig = input_sliced_sig
