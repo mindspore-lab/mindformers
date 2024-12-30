@@ -10,13 +10,13 @@ DeepSeek Coder由一系列代码语言模型组成，每个模型都在2T token�
 
 | Config                                       |      Task       |  Datasets   | SeqLength |  Phase   |  Performance   |
 |:---------------------------------------------|:---------------:|:-----------:|:---------:|:--------:|:--------------:|
-| [deepseek-33b](./predict_deepseek_33b.yaml)  | text_generation |      -      |   16384   | Predict  |  292 tokens/s  |
+| [deepseek-33b](deepseek_33b/predict_deepseek_33b.yaml)  | text_generation |      -      |   16384   | Predict  |  292 tokens/s  |
 
 以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
 
 | Config                                       |      Task       |  Datasets   | SeqLength |  Phase   |  Performance   |
 |:---------------------------------------------|:---------------:|:-----------:|:---------:|:--------:|:--------------:|
-| [deepseek-33b](./finetune_deepseek_33b.yaml) | text_generation | code_alpaca |   4096    | Finetune | 572 tokens/s/p |
+| [deepseek-33b](deepseek_33b/finetune_deepseek_33b.yaml) | text_generation | code_alpaca |   4096    | Finetune | 572 tokens/s/p |
 
 ## 模型文件
 
@@ -25,11 +25,11 @@ DeepSeek Coder由一系列代码语言模型组成，每个模型都在2T token�
 1. 模型配置：
 
     ```text
-    research/deepseek
+    research/deepseek/deepseek_33b
         ├── finetune_deepseek_33b.yaml     # 全参微调启动配置
         ├── pretrain_deepseek_33b_16k.yaml # 预训练启动配置
-        ├── predict_deepseek_33b.yaml      # huggingface转ckpt
-        └── deepseek_preprocess.py         # 在线推理启动配置
+        └── predict_deepseek_33b.yaml      # huggingface转ckpt
+
     ```
 
 2. 数据预处理脚本：
@@ -87,8 +87,8 @@ MindFormers提供`Wikitext-103`作为[预训练](#预训练)数据集，`code_al
 
   ```shell
   python alpaca_converter.py \
-   --data_path path/alpaca_data.json \
-   --output_path /path/alpaca-data-messages.json
+   --data_path path/code_alpaca_20k.json \
+   --output_path path/alpaca-data-messages.json
 
   # 参数说明
   data_path:   输入下载后code_alpaca的文件路径
@@ -125,12 +125,13 @@ MindFormers提供下载HuggingFace官方权重的下载链接，用户可通过�
 
 #### 模型权重转换
 
-执行`research/deepseek/convert_weight.py`转换脚本，将HuggingFace的权重转换为完整的ckpt权重。
+执行`convert_weight.py`转换脚本，将HuggingFace的权重转换为完整的ckpt权重。
 
 ```shell
-python research/deepseek/convert_weight.py \
- --torch_ckpt_path TORCH_CKPT_PATH \
- --mindspore_ckpt_path MS_CKPT_NAME
+python convert_weight.py \
+--model deepseek \
+--input_path /path/ckpt \
+--output_path MS_CKPT_NAME
 
 # 参数说明
 torch_ckpt_path: 下载HuggingFace权重文件夹路径
@@ -243,7 +244,7 @@ MindFormers提供`deepseek-33b`多机多卡微调示例，使用`code_alpaca`数
 
 MindFormers提供`deepseek-33b`推理示例，使用配置文件`predict_deepseek_33b.yaml`，仅支持多卡推理。
 
-1. 修改配置文件`research/deepseek/predict_deepseek_33b.yaml`
+1. 修改配置文件`research/deepseek/deepseek_33b/predict_deepseek_33b.yaml`
 
    ```yaml
    processor:
