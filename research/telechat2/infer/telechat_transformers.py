@@ -316,12 +316,14 @@ class TelechatParallelTransformer(ParallelTransformer):
             drop_path_rate
         )
 
+        self.enable_dynamic_ntk = False
         if config.extend_method == 'DYNAMIC_NTK':
+            self.enable_dynamic_ntk = True
             use_default_freqs = True
             if hasattr(config, "use_default_freqs"):
                 use_default_freqs = config.use_default_freqs
             self.freqs_mgr = FreqsMgrDynamicNTK(head_dim=self.head_dim,
-                                                seq_length=config.seq_length,
+                                                max_position_embedding=config.max_position_embedding,
                                                 rotary_dtype=config.rotary_dtype,
                                                 theta=config.theta,
                                                 parallel_config=config.parallel_config,
@@ -333,3 +335,62 @@ class TelechatParallelTransformer(ParallelTransformer):
         for layer_id in range(config.num_layers):
             layer = TelechatParallelTransformerLayer(config=self.config, layer_number=layer_id + 1)
             self.layers.append(layer)
+
+    # pylint: disable=W0613
+    def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
+        """
+        Forward of ParallelTransformer.
+
+        Args:
+            tokens: the tokenized inputs with datatype int32
+            batch_valid_length(Tensor): the past calculated the index with datatype int32, used for incremental
+                prediction. Tensor of shape :math:`(batch_size,)`. Default None.
+            block_tables (Tensor[int64]): Store mapping tables for each sequence.
+            slot_mapping (Tensor[int32]): Store token cache physical slot index.
+        Returns:
+            output: Tensor, the output of ParallelTransformer
+        """
+        # preprocess
+        bs, seq_len = self.shape(tokens)
+        mask = None
+        if self.use_past:
+            if self.is_first_iteration:
+                if self.enable_dynamic_ntk:
+                    freqs_cis = self.freqs_mgr.prefill(bs, batch_valid_length.max())
+                else:
+                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+
+                if self.is_pynative:
+                    mask = self.casual_mask(tokens)
+                else:
+                    mask = self.casual_mask.prefill()
+
+                if prefix_keys_values is not None:
+                    if mask is None:
+                        mask = self.casual_mask(tokens)
+                    prefix_length = prefix_keys_values[0].shape[2]
+                    prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
+                    mask = self.concat((prefix_mask, mask))
+            else:
+                freqs_cis = self.freqs_mgr.increment(batch_valid_length)
+        else:
+            mask = self.casual_mask(tokens)
+            freqs_cis = self.freqs_mgr(seq_len)
+            if prefix_keys_values is not None:
+                prefix_length = prefix_keys_values[0].shape[2]
+                prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
+                mask = self.concat((prefix_mask, mask))
+
+        # tokens: [bs, seq/1]
+        hidden_states = self.cast(self.tok_embeddings(tokens), self.compute_dtype)
+        # h: [bs, seq/1, hidden_dim]
+        for i in range(self.num_layers):
+            prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
+            hidden_states = self.layers[i](hidden_states, freqs_cis, mask, batch_valid_length=batch_valid_length,
+                                           block_tables=block_tables, slot_mapping=slot_mapping,
+                                           prefix_keys_values=prefix_kv)
+
+        if self.post_norm:
+            hidden_states = self.norm_out(hidden_states)
+        return hidden_states
