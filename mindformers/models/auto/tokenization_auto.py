@@ -335,10 +335,10 @@ class AutoTokenizer:
         class_name = None
         if config and 'processor' in config and 'tokenizer' in config['processor'] \
                 and 'type' in config['processor']['tokenizer']:
-            class_name = config['processor']['tokenizer'].pop('type', None)
+            class_name = config['processor']['tokenizer'].get('type', None)
             logger.info("Load the tokenizer name %s from the %s", class_name, yaml_name_or_path)
 
-        return class_name
+        return class_name, config
 
     @classmethod
     def from_pretrained(cls, yaml_name_or_path, *args, **kwargs):
@@ -416,9 +416,9 @@ class AutoTokenizer:
                     logger.info("default yaml config in %s is used.", yaml_file)
                 else:
                     raise FileNotFoundError(f'default yaml file path must be correct, but get {default_yaml_file}')
-            class_name = cls._get_class_name_from_yaml(yaml_file)
+            class_name, config = cls._get_class_name_from_yaml(yaml_file)
         elif os.path.isdir(yaml_name_or_path):
-            class_name = cls._get_class_name_from_yaml(yaml_name_or_path)
+            class_name, config = cls._get_class_name_from_yaml(yaml_name_or_path)
             if not class_name:
                 raise ValueError(f"The file `model_name.yaml` should exist in the path "
                                  f"{yaml_name_or_path}/model_name.yaml and should have `processor` configs like "
@@ -427,7 +427,11 @@ class AutoTokenizer:
             raise FileNotFoundError(f"Tokenizer type `{yaml_name_or_path}` does not exist. "
                                     f"Use `{cls.__name__}.show_support_list()` to check the supported tokenizer. "
                                     f"Or make sure the `{yaml_name_or_path}` is a directory.")
-
+        if 'auto_register' in config.processor.tokenizer:
+            MindFormerRegister.auto_register(
+                class_reference=config.processor.tokenizer.pop('auto_register'), module_type='tokenizer')
+            return MindFormerRegister.get_instance_from_cfg(
+                config.processor.tokenizer, 'tokenizer')
         dynamic_class = MindFormerRegister.get_cls(module_type='tokenizer', class_name=class_name)
         instanced_class = dynamic_class.from_pretrained(yaml_name_or_path, **kwargs)
         logger.info("%s Tokenizer built successfully!", instanced_class.__class__.__name__)
