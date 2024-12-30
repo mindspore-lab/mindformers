@@ -73,6 +73,7 @@ from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
 from ..utils import is_hf_safetensors_dir
 from ..utils.load_checkpoint_utils import process_hf_checkpoint
+from ..version_control import check_delay_init_valid
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
@@ -124,6 +125,8 @@ class BaseTrainer:
         self.compute_metrics = None
         self.kwargs = None
         self.pipeline_task = None
+
+        self.network_delay_inited = False
 
         if task not in SUPPORT_TASKS.keys():
             logger.warning("Input task name is not in the supported list or unspecified.")
@@ -437,6 +440,20 @@ class BaseTrainer:
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
         return build_network(self.config.model, default_args=default_args)
+
+    def create_network_without_param_init(self, default_args: dict = None):
+        """Create the network for task trainer without initialize parameters."""
+        self.network_delay_inited = False
+        if check_delay_init_valid():
+            from mindspore.nn.utils import no_init_parameters
+            with no_init_parameters():
+                network = self.create_network(default_args=default_args)
+            logger.info("Parameters are not initialized during model initialization.")
+            self.network_delay_inited = True
+            return network
+        logger.info("Parameters are initialized during model initialization, "
+                    "due to delay initialization is not available.")
+        return self.create_network(default_args=default_args)
 
     def warp_data_order_with_tool_cells(self, network, construct_args_key):
         """For passing parameters in lexicographical order."""
@@ -986,7 +1003,7 @@ class BaseTrainer:
 
         # build network
         if network is None and self.network is None:
-            network = self.create_network(
+            network = self.create_network_without_param_init(
                 default_args={"parallel_config": config.parallel_config,
                               "moe_config": config.moe_config})
         elif network is None and self.network is not None:
@@ -1020,6 +1037,9 @@ class BaseTrainer:
         if config.load_checkpoint or config.only_save_strategy:
             logger.info(".............Start load checkpoint for eval..................")
             transform_and_load_checkpoint(config, model, network, next(dataset.create_tuple_iterator()), do_eval=True)
+
+        if self.network_delay_inited:
+            network.init_parameters_data()
 
         logger.info(".........Starting Evaluate Model..........")
         if get_real_rank() % 8 == 0:
@@ -1058,7 +1078,7 @@ class BaseTrainer:
 
             # build network
             if network is None:
-                network = self.create_network(
+                network = self.create_network_without_param_init(
                     default_args={"parallel_config": config.parallel_config,
                                   "moe_config": config.moe_config})
             self.set_network(network, is_train=False)
@@ -1089,6 +1109,9 @@ class BaseTrainer:
                     transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
                 else:
                     transform_and_load_checkpoint(config, model, network, None, do_predict=True)
+
+            if self.network_delay_inited:
+                network.init_parameters_data()
 
             self.pipeline_task = pipeline(
                 task=task,
