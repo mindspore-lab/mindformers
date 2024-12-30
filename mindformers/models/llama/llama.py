@@ -567,10 +567,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         """Pre gather operation in infer mode."""
         if not pre_gather:
             return output
-        if self.parallel_decoding and self.is_first_iteration:
-            output = output.reshape(-1, output.shape[-1])
-            output = output[self.sub_batch_valid_len(batch_valid_length, 1)]
-        elif pre_gather:
+        if pre_gather:
             if self.chunk_prefill and self.is_first_iteration:
                 output = output.reshape(-1, output.shape[-1])
                 output = output[self.sub_batch_valid_len(gather_index, 1)]

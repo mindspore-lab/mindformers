@@ -82,9 +82,9 @@ class TestLlamaParallelDecodingForward:
         )
         expect = np.array([
             [-0.01670837, 0.03088379],
+            [0.021636966, -0.03994751],
             [-0.01670837, 0.03088379],
-            [-0.01670837, 0.03088379],
-            [-0.01670837, 0.03088379],
+            [0.021148682, -0.03915405],
         ], np.float16)
         assert np.allclose(res.numpy(), expect, atol=1e-3)
         assert res.shape == (bs, model_config.vocab_size)
