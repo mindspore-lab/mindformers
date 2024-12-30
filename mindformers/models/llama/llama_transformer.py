@@ -398,8 +398,8 @@ class LLamaAttention(nn.Cell):
                                                  freqs_cis, mask, prefix_keys_values=prefix_keys_values,
                                                  q_seq_lens=q_seq_lens)
         else:
-            query = self.transpose(self.reshape(query, (-1, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
-            key = self.transpose(self.reshape(key, (-1, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+            query = self.transpose(self.reshape(query, (bs, seq_len, self.n_head, self.head_dim)), (0, 2, 1, 3))
+            key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
             query, key = self.apply_rotary_emb(query, key, freqs_cis)  # dp, mp, cp, 1
             # with ulysses context parallel, insert all to all before FA
             if self.context_parallel > 1 and self.cp_ds > 1:
@@ -415,7 +415,7 @@ class LLamaAttention(nn.Cell):
                 query = self._merge_heads(query)
                 key = self._merge_heads(key)
             else:
-                value = self.transpose(self.reshape(value, (-1, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
+                value = self.transpose(self.reshape(value, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
                 key, value = self._cat_prefix(key, value, prefix_keys_values)
 
             if self.seq_pipe:

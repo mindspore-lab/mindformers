@@ -892,7 +892,7 @@ class BaseTrainer:
         logger.info(".........Starting Init Train Model..........")
         if wrapper is not None:
             if config.train_dataset.dynamic_batch:
-                if self.config.parallel_config.seq_split_num:
+                if self.config.parallel_config.seq_split_num > 1:
                     raise ValueError("Cannot apply sequence pipe in dynamic shape.")
                 from mindspore import Symbol
                 divisor = config.train_dataset.divisor if config.train_dataset.divisor else 2
