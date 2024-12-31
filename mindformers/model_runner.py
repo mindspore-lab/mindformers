@@ -324,6 +324,7 @@ class MindIEModelRunner:
             plugin_params['parallel_decoding'] = plugin_params['plugin_type']
             self.model_config.parallel_decoding_params = plugin_params
         self.model_config.checkpoint_name_or_path = None
+        self.model_config.checkpoint_path = self.config.load_checkpoint
 
     def update_llm_config(self, config, world_size, npu_mem_size, cpu_mem_size, block_size):
         """update llm model config"""
