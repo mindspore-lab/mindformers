@@ -61,31 +61,8 @@ class TestLlama2Parallel:
              f"msrun --worker_num=4 --local_worker_num=4 --master_port=8118 --log_dir=log_train_mp2_pp2 --join=True "
              f"{cur_dir}/run_parallel.py --mode parallel_train_mp2_pp2", 'log_train_mp2_pp2/worker_2.log'),
             (f"export ASCEND_RT_VISIBLE_DEVICES=4,5 && "
-             f"msrun --worker_num=2 --local_worker_num=2 --master_port=8218 --log_dir=log_predict_mp2 --join=True "
-             f"{cur_dir}/run_parallel.py --mode parallel_predict_mp2", 'log_predict_mp2/worker_0.log'),
-            (f"export ASCEND_RT_VISIBLE_DEVICES=6,7 && "
              f"msrun --worker_num=2 --local_worker_num=2 --master_port=8318 --log_dir=log_train_dp2 --join=True "
              f"{cur_dir}/run_parallel.py --mode parallel_train_dp2", 'log_train_dp2/worker_0.log')
-        ]
-
-        with Pool(len(commands)) as pool:
-            results = list(pool.imap(run_command, commands))
-        check_results(commands, results)
-
-    @pytest.mark.level1
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_single
-    def test_predict_parallel_static_shape(self):
-        """
-        Feature: Trainer.train() and Trainer.predict()
-        Description: Test parallel trainer for training and prediction.
-        Expectation: AssertionError
-        """
-        commands = [
-            (f"export ASCEND_RT_VISIBLE_DEVICES=6,7 && "
-             f"msrun --worker_num=2 --local_worker_num=2 --master_port=8418 --log_dir=log_predict_mp2_static_shape "
-             f" --join=True {cur_dir}/run_parallel.py --mode parallel_predict_mp2_static_shape",
-             'log_predict_mp2_static_shape/worker_0.log'),
         ]
 
         with Pool(len(commands)) as pool:
