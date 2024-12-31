@@ -91,7 +91,7 @@ def get_resume_checkpoint_by_meta(checkpoint_dir, ckpt_format='ckpt'):
                 create_file(latest_checkpointed_iteration_txt, NO_META)
                 resume_ckpt = True
             else:
-                ckpt_prefix = last_ckpt_file.split("-")[0]
+                ckpt_prefix = last_ckpt_file[:last_ckpt_file.rfind("-")]
                 last_ckpt_file = f"{ckpt_prefix}-{last_epoch}_{last_step}.{ckpt_format}"
                 logger.info("Basic resume checkpoint: %s", last_ckpt_file)
 
@@ -187,7 +187,7 @@ def get_resume_ckpt_list(checkpoint_dir, last_ckpt_file, rank_id, device_num, ck
     epoch and step are consistent, and the path exists.
     """
     # get all valid ckpts where the epoch and step values are not greater than those of last_ckpt_file.
-    ckpt_prefix = last_ckpt_file.split("-")[0]
+    ckpt_prefix = last_ckpt_file[:last_ckpt_file.rfind("-")]
     last_epoch, last_step = get_epoch_and_step_from_ckpt_name(last_ckpt_file, ckpt_format)
     original_rank = get_rank_id_from_ckpt_name(last_ckpt_file)
     valid_ckpts = {}
