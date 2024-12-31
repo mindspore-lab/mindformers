@@ -94,7 +94,7 @@ YiZhao-12B-Chat有着较强的专业知识能力，在金融分析、金融考�
 1. 模型具体实现：
 
 ```text
-    research/yizhao/yizhao_model
+    yizhao/
         ├── yizhao.py                        # yizhao模型文件
         ├── yizhao_config.py                 # yizhao配置文件
         ├── yizhao_dpo_dataset.py            # DPO训练数据集加载文件
@@ -109,16 +109,23 @@ YiZhao-12B-Chat有着较强的专业知识能力，在金融分析、金融考�
 2. 模型配置：
 
 ```text
-    research/yizhao
-        └── predict_yizhao_12b.yaml          # YiZhao推理配置
+    yizhao/yizhao_12b
+        ├── pretrain_yizhao_12b_8k.yaml                         # 预训练启动配置  
+        ├── finetune_yizhao_12b_8k.yaml                         # 全参微调启动配置
+        ├── reinforce_learning_yizhao_12b_4k_dpo.yaml           # DPO微调启动配置
+        ├── yizhao_dpo_dataset.yaml                             # DPO数据集生成配置
+        └── predict_yizhao_12b.yaml                             # YiZhao推理配置
 ```
 
 3. 环境准备和任务启动脚本：
 
 ```text
-    research/yizhao
+    yizhao/
         ├── convert_reversed.py              # ckpt权重转pth权重
         ├── convert_weight.py                # pth权重转ckpt权重
+        ├── alpaca_convert.py                # alpaca数据集格式转换脚本
+        ├── alpaca_data_process.py           # alpaca数据集预处理
+        ├── wiki_data_process.py             # wikitext数据预处理
         └── run_yizhao_chat.py               # 一招推理示例脚本
 ```
 
@@ -126,12 +133,78 @@ YiZhao-12B-Chat有着较强的专业知识能力，在金融分析、金融考�
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)
-和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)
+和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 > 注：Atlas 800T A2芯片支持yizhao-12b的预训练、全参微调、DPO微调。
 
 ### 数据及权重准备
+
+#### 数据集下载
+
+MindFormers提供`Wikitext-103`作为[预训练](#预训练)数据集，`alpaca`作为[微调](#全参微调)数据集， `DPO-En-Zh-20k`作为[DPO](#dpo微调)数据集。
+
+| 数据集名称         |    适用模型    |   适用阶段   |                                            下载链接                                            |
+|:--------------|:----------:|:--------:|:------------------------------------------------------------------------------------------:|
+| Wikitext-103  | yizhao-12b | Pretrain | [Link](https://dagshub.com/DagsHub/WIkiText-103/src/main/dataset/tokens/wiki.train.tokens) |
+| alpaca        | yizhao-12b | Finetune |      [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)       |
+| DPO-En-Zh-20k | yizhao-12b |   DPO    |               [Link](https://huggingface.co/datasets/hiyouga/DPO-En-Zh-20k)                |
+
+数据预处理中所用的`tokenizer.model`可以参考[模型权重下载](#模型权重下载)进行下载。
+
+- **Wikitext-103 数据预处理**
+
+  使用`yizhao/wiki_data_process.py`对下载后的数据进行预处理，并生成Mindrecord数据。
+
+  ```shell
+  python wiki_data_process.py \
+   --vocab_file /path/tokenizer.model \
+   --ori_file_path /path/wiki.train.tokens \
+   --output_file_path /path/wiki.mindrecord \
+   --seq_length 8192 \
+   --num_proc 32
+  ```
+
+  参数说明:
+  - vocab_file:         tokenizer.model词表文件路径。
+  - ori_file_path:      输入下载后wiki.train.tokens的文件路径。
+  - output_file_path:   输出文件的保存路径。
+  - seq_length:         输出数据的序列长度。
+  - num_proc:           批处理进程数
+
+- **alpaca 数据预处理**
+
+  执行`yizhao/alpaca_convert.py`，将原始数据集转换为jsonl格式。
+
+  ```shell
+  python alpaca_convert.py \
+   --data_path /path/alpaca_data.json \
+   --output_path /path/alpaca_data.jsonl
+  ```
+
+  参数说明:
+  - data_path:   输入下载的文件路径
+  - output_path: 输出文件的保存路径
+
+  执行`yizhao/alpaca_data_process.py`文件，进行数据预处理和Mindrecord数据生成。
+
+  ```shell
+  python alpaca_data_process.py \
+   --vocab_file /path/tokenizer.model \
+   --ori_data_file_path /path/alpaca_data.jsonl \
+   --output_file /path/alpaca.mindrecord \
+   --seq_length 8192 \
+   --aggregated_multitask True \
+   --num_proc 8
+  ```
+
+  参数说明:
+  - vocab_file:              tokenizer.model词表文件路径
+  - ori_data_file_path:      输入处理后alpaca_data.jsonl的文件路径
+  - output_file_path:        输出文件的保存路径
+  - seq_length:              输出数据的序列长度
+  - aggregated_multitask:    是否将多个小于seq_length短样本合并
+  - num_proc:                批处理进程数
 
 #### 模型权重下载
 
@@ -162,14 +235,14 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
    --output_path <mindspore_ckpt_path> \
    --config <mindformers_model_yaml> \
    --dtype bf16
-
-  # 参数说明：
-  model:               模型名, 这里是yizhao
-  input_path:          预训练权重文件所在的目录
-  output_path:         转换后的输出文件存放路径
-  config:              mindformers模型文件配置yaml, 例如推理可以使用 research/yizhao/predict_yizhao_12b.yaml
-  dtype:               转换后权重文件格式
   ```
+
+  参数说明：
+  - model:               模型名, 这里是yizhao
+  - input_path:          预训练权重文件所在的目录
+  - output_path:         转换后的输出文件存放路径
+  - config:              mindformers模型文件配置yaml, 例如推理可以使用 yizhao/yizhao_12b/predict_yizhao_12b.yaml
+  - dtype:               转换后权重文件格式
 
 - **mindspore权重转torch权重**
 
@@ -183,15 +256,15 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
    --config <mindformers_model_yaml> \
    --dtype bf16 \
    --reversed
-
-  # 参数说明：
-  model:              模型名, 这里是yizhao
-  input_path:         待转换权重文件所在的目录
-  output_path:        转换后的输出文件存放路径
-  config:             mindformers模型文件配置yaml, 例如推理可以使用 research/yizhao/predict_yizhao_12b.yaml
-  dtype:              转换后权重文件格式
-  resversed:          mindspore转为pt权重的标志
   ```
+
+  参数说明：
+  - model:              模型名, 这里是yizhao
+  - input_path:         待转换权重文件所在的目录
+  - output_path:        转换后的输出文件存放路径
+  - config:             mindformers模型文件配置yaml, 例如推理可以使用 yizhao/yizhao_12b/predict_yizhao_12b.yaml
+  - dtype:              转换后权重文件格式
+  - reversed:           mindspore转为pt权重的标志
 
 - **[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)**
 
@@ -201,13 +274,132 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
   以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
 
+## 预训练
+
+MindFormers提供`yizhao-12b`多机多卡的预训练示例，过程中使用`Wikitext-103`
+数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
+
+1. 启动yizhao-14b预训练，执行2机16卡任务。
+
+   在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`
+   不同，具体可参考[使用指南](../../README_CN.md#三使用指南)
+
+   在mindformers工作目录下，执行：
+
+   ```shell
+   # 节点0，节点ip示例为192.168.1.1，节点启动命令仅参数NODE_RANK不同
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config yizhao/yizhao_12b/pretrain_yizhao_12b_8k.yaml \
+    --register_path yizhao \
+    --use_parallel True \
+    --run_mode train \
+    --load_checkpoint /path/yizhao.ckpt \
+    --train_data /path/wiki.mindrecord" \
+   16 8 192.168.1.1 8118 0 output/msrun_log False 3000
+
+   # 节点1，节点ip示例为192.168.1.2，节点启动命令仅参数NODE_RANK不同
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config yizhao/yizhao_12b/pretrain_yizhao_12b_8k.yaml \
+    --register_path yizhao \
+    --use_parallel True \
+    --run_mode train \
+    --load_checkpoint /path/yizhao.ckpt \
+    --train_data /path/wiki.mindrecord" \
+   16 8 192.168.1.1 8118 1 output/msrun_log False 3000
+   ```
+
+   参数说明:
+   - config:           配置文件路径
+   - run_mode:         运行模式, 预训练时设置为train
+   - train_data:       训练数据集文件夹路径
+   - load_checkpoint:  权重文件路径
+   - register_path:    yizhao模型文件夹路径
+
+## 全参微调
+
+MindFormers提供`yizhao-12b`多机多卡的微调示例，过程中使用`alpaca`
+数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
+
+### 多机微调
+
+以`yizhao-12b`2机16卡为例，启动多机微调任务。
+
+1. 启动yizhao-14b全参微调，执行2机16卡任务。
+
+   在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`
+   不同，具体可参考[使用指南](../../README_CN.md#三使用指南)
+
+   在mindformers工作目录下，执行：
+
+   ```shell
+   # 节点0，节点ip为192.168.1.1，作为主节点，总共32卡且每个节点8卡
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config yizhao/yizhao_12b/finetune_yizhao_12b_8k.yaml \
+    --register_path yizhao \
+    --load_checkpoint /path/model_dir \
+    --use_parallel True \
+    --run_mode finetune \
+    --train_data /path/alpaca.mindrecord" \
+   16 8 192.168.1.1 8118 0 output/msrun_log False 300
+
+   # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config yizhao/yizhao_12b/finetune_yizhao_12b_8k.yaml \
+    --register_path yizhao \
+    --load_checkpoint /path/model_dir \
+    --use_parallel True \
+    --run_mode finetune \
+    --train_data /path/alpaca.mindrecord" \
+   16 8 192.168.1.1 8118 1 output/msrun_log False 300
+   ```
+
+   参数说明:
+   - config:            配置文件路径
+   - load_checkpoint:   权重文件路径
+   - auto_trans_ckpt:   自动权重转换开关
+   - run_mode:          运行模式, 微调时设置为finetune
+   - train_data:        训练数据集路径
+   - register_path:     yizhao模型文件夹路径
+
+## DPO微调
+
+MindFormers提供`yizhao-12b`单机多卡的DPO微调示例，过程中使用`DPO-En-Zh-20k`
+数据集对模型进行预训练，数据集可以参考[数据集下载](#数据集下载)获得。
+
+### 单机微调
+
+以`yizhao-12b`单机八卡为例，启动DPO微调任务。
+
+1. 启动yizhao-14b DPO微调，执行单机八卡任务。
+
+   在mindformers工作目录下，执行：
+
+   ```shell
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --config yizhao/yizhao_12b/dpo_yizhao_12b_4k.yaml \
+    --register_path yizhao \
+    --load_checkpoint /path/model_dir \
+    --use_parallel True \
+    --run_mode finetune \
+    --train_data /path/DPO.mindrecord" \
+   16 8 192.168.1.1 8118 0 output/msrun_log False 300
+   ```
+
+   参数说明:
+   - config:            配置文件路径
+   - load_checkpoint:   权重文件路径
+   - auto_trans_ckpt:   自动权重转换开关
+   - run_mode:          运行模式, 微调时设置为finetune
+   - train_data:        训练数据集路径
+   - register_path:     yizhao模型文件夹路径
+
 ## 推理
 
 提供了推理示例脚本 run_yizhao_chat.py，使用如下命令进行推理：
 
 ```shell
 python run_yizhao_chat.py \
---config_path predict_yizhao_12b.yaml \
+--config_path yizhao_12b/predict_yizhao_12b.yaml \
 --load_checkpoint /path/to/model.ckpt \
 --vocab_file /path/to/tokenizer.model
 ```
