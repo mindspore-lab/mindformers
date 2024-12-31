@@ -200,8 +200,8 @@ class CausalLanguageModelingTrainer(BaseTrainer):
 
         # build network
         if network is None:
-            network = self.create_network(default_args={"parallel_config": config.parallel_config,
-                                                        "moe_config": config.moe_config})
+            network = self.create_network_without_param_init(default_args={"parallel_config": config.parallel_config,
+                                                                           "moe_config": config.moe_config})
         self.set_network(network, is_train=False)
 
         self.count_parameters()
@@ -232,6 +232,9 @@ class CausalLanguageModelingTrainer(BaseTrainer):
             labels = dataset_dict['labels'].asnumpy()
             infer_data = network.prepare_inputs_for_predict_layout(input_ids, labels=labels)
             transform_and_load_checkpoint(config, model, network, infer_data, do_eval=True)
+
+        if self.network_delay_inited:
+            network.init_parameters_data()
 
         logger.info('.........Starting Evaluate Model..........')
         if get_real_rank() % 8 == 0:
