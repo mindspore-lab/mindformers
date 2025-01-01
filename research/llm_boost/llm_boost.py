@@ -172,4 +172,7 @@ class LlmBoostForCausalLM(PreTrainedModel):
             llm_boost_inputs["sin_embed"] = self.freqs_mgr.freqs_sin
             return self.llm_boost.forward(llm_boost_inputs)
 
-        return self.llm_boost.forward(kwargs["input_ids"], kwargs["batch_valid_length"], None)
+        bvl = kwargs["batch_valid_length"]
+        if bvl.ndim > 1:
+            bvl = Tensor(bvl[0].asnumpy())
+        return self.llm_boost.forward(kwargs["input_ids"], bvl, None)
