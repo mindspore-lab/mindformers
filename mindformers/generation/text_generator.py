@@ -88,7 +88,6 @@ class GenerationMixin:
         self.argmax = mint.argmax if self.use_mint_op else ms.ops.argmax
         self._pre_set_phase = None
         self._exec_add_flags = True
-        self.use_dynamic_ntk = False
 
     def _set_network_phase(self, phase):
         self._pre_set_phase = phase
@@ -96,7 +95,6 @@ class GenerationMixin:
 
     def _set_block_mgr(self, batch_size, seq_length):
         """ Set model block table mgr function. """
-
         if not self.block_mgr:
             self.block_mgr = BlockTables(self.config.num_blocks, self.config.block_size, seq_length)
 
@@ -732,23 +730,16 @@ class GenerationMixin:
         valid_length_each_example, input_ids_length = \
             get_valid_length_each_example(input_ids, generation_config.pad_token_id)
         if hasattr(self.config, "extend_method") and self.config.extend_method == "DYNAMIC_NTK":
-            self.model.freqs_mgr.batch_max_length = max(input_ids_length, self.config.seq_length)
-            logger.info(f"Predict using dynamic ntk with max input length={input_ids_length}")
+            if not self.config.is_dynamic:
+                raise ValueError("Dynamic NTK predict mode only support is_dynamic=True, but get is_dynamic=False")
 
         if generation_config.max_new_tokens is not None:
             generation_config.max_length = generation_config.max_new_tokens + input_ids_length
 
-        self.use_dynamic_ntk = False
         if generation_config.max_length > self.config.seq_length:
-            if hasattr(self.config, "extend_method") and self.config.extend_method == "DYNAMIC_NTK":
-                self.use_dynamic_ntk = True
-                if not self.config.is_dynamic:
-                    raise ValueError("Dynamic NTK predict mode only support is_dynamic=True, \
-                        but get is_dynamic=False")
-            else:
-                logger.warning("max_length %s can not exceeds model seq_length %s, set max_length = seq_length.",
-                               generation_config.max_length, self.config.seq_length)
-                generation_config.max_length = self.config.seq_length
+            logger.warning("max_length %s can not exceeds model seq_length %s, set max_length = seq_length.",
+                           generation_config.max_length, self.config.seq_length)
+            generation_config.max_length = self.config.seq_length
 
         logger.debug("max length is: %s", generation_config.max_length)
 
@@ -796,8 +787,7 @@ class GenerationMixin:
             )
 
         if generation_config.use_past:
-            self._set_block_mgr(batch_size, \
-                max(self.config.seq_length, max(max_length_each_example) + self.config.block_size))
+            self._set_block_mgr(batch_size, self.config.seq_length)
             if self.config.is_dynamic:
                 self.set_dynamic_inputs()
 
@@ -848,18 +838,15 @@ class GenerationMixin:
             valid_length_each_example, _ = \
                 get_valid_length_each_example(origin_inputs, generation_config.pad_token_id)
 
-            if self.use_dynamic_ntk:
-                input_ids = origin_inputs
-            else:
-                input_ids = self._pad_inputs_using_max_length(
-                    origin_inputs=origin_inputs, pad_token_id=generation_config.pad_token_id
-                )
+            input_ids = self._pad_inputs_using_max_length(
+                origin_inputs=origin_inputs, pad_token_id=generation_config.pad_token_id
+            )
 
-                logger.debug(
-                    "pad the origin inputs from %s into shape: %s",
-                    origin_inputs.shape,
-                    input_ids.shape,
-                )
+            logger.debug(
+                "pad the origin inputs from %s into shape: %s",
+                origin_inputs.shape,
+                input_ids.shape,
+            )
 
             input_mask = np.zeros_like(input_ids)
             for i in range(valid_length_each_example.shape[0]):
@@ -910,7 +897,7 @@ class GenerationMixin:
                 slot_mapping = None
                 if generation_config.use_past:
                     if prefill:
-                        if (self.is_pynative and self.config.is_dynamic) or self.use_dynamic_ntk:
+                        if (self.is_pynative and self.config.is_dynamic):
                             max_input_length = len(origin_inputs[0])
                         else:
                             max_input_length = self.config.seq_length
@@ -947,11 +934,6 @@ class GenerationMixin:
                     if prefill and "origin_inputs" in model_kwargs:
                         model_kwargs.pop("origin_inputs")
                     prefill = False
-
-                if self.use_dynamic_ntk:
-                    input_ids = np.concatenate(
-                        (input_ids, np.array([[generation_config.pad_token_id]] * batch_size)), axis=1)
-                    input_mask = np.concatenate((input_mask, np.array([[0]] * batch_size)), axis=1)
 
                 for i in range(batch_size):
                     if is_finished[i]:
@@ -999,10 +981,7 @@ class GenerationMixin:
         self.set_train(origin_phase == "train")
 
         if self.block_mgr:
-            if hasattr(self.config, "extend_method") and self.config.extend_method == "DYNAMIC_NTK":
-                self.block_mgr = None
-            else:
-                self.block_mgr.clear_cache()
+            self.block_mgr.clear_cache()
 
         if generation_config.return_dict_in_generate:
             result = GenerateOutput(
@@ -1059,8 +1038,7 @@ class GenerationMixin:
             is_finished, whether the sequence has completed its generation task.
         """
         max_valid_length = max(valid_length_each_example)
-        if not self.config.is_encoder_decoder and max_valid_length > self.config.seq_length \
-                and not self.use_dynamic_ntk:
+        if not self.config.is_encoder_decoder and max_valid_length > self.config.seq_length:
             raise ValueError(
                 f"The input length:{max_valid_length} is longer than the seq_length:{self.config.seq_length}, "
                 "which is not allowed."
