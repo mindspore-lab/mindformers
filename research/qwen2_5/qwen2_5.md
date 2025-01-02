@@ -227,7 +227,23 @@ train_dataset: &train_dataset
   dynamic_batch: True
 ```
 
-4. 启动微调:
+4. 配置并行加速
+
+   若模型的yaml中有类似如下的配置
+
+   ```yaml
+   context:
+     ascend_config:
+       parallel_speed_up_json_path: "/path/to/parallel_speed_up.json"  # Replace with a real path when needed
+   ```
+
+   这是在使用`parallel_speed_up`文件（须是`json`格式）去配置一些并行加速特性，以获得一些性能上的提升。实际使用时，请把`json`文件的路径修改为实际值。
+
+   > `parallel_speed_up`文件中各配置项的含义详见[parallel_speed_up说明](https://www.mindspore.cn/docs/zh-CN/master/api_python/mindspore/mindspore.set_context.html#:~:text=parallel_speed_up_json_path)。
+
+   例如，`finetune_qwen2.5_72B_32K.yaml`中使用了`parallel_speed_up_72B_32K.json`，其中配置了`"matmul_grad_comm_overlap": true`。
+
+5. 启动微调:
 
    ```shell
    cd research/qwen2_5

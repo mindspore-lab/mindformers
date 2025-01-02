@@ -150,11 +150,12 @@ context:
   device_id: 0
   ascend_config:
     precision_mode: "must_keep_origin_dtype"
+    parallel_speed_up_json_path: "./research/qwen2_5/parallel_speed_up_72B_32K.json"  # Replace with a real path when needed
 
 # model config
 model:
   model_config:
-    use_attn_mask_compression: True
+    use_attn_mask_compression: False
     type: LlamaConfig
     batch_size: 1
     seq_length: 32768
