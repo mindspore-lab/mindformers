@@ -53,11 +53,6 @@ def main():
         config.auto_trans_ckpt = args.auto_trans_ckpt
     if args.remote_save_url is None:
         config.remote_save_url = args.remote_save_url
-    os.environ["MS_INTERNAL_ENABLE_CUSTOM_KERNEL_LIST"] = "MatMulElemwise"
-    if config.model.model_config.qkv_concat:
-        os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'PagedAttention,FlashAttentionScore'
-    else:
-        os.environ['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'InferenceMatmulSplit,PagedAttention,FlashAttentionScore'
     # init context
     build_context(config)
 

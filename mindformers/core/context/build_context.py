@@ -240,13 +240,23 @@ class MFContextOperator(MFContextConfig):
             custom_matmul_shuffle = 'on'
             lccl_deterministic = '0'
 
+        ms_alloc_conf = os.environ.get('MS_ALLOC_CONF', 'enable_vmm:False')
+        cpu_affinity = os.environ.get('CPU_AFFINITY', 'True')
+        ms_internal_disable_custom_kernel_list = ""
+        mode = self.config.get_value('context.mode', 'GRAPH_MODE')
+        if MODE.get(mode) == MODE.get('GRAPH_MODE'):
+            ms_internal_disable_custom_kernel_list = os.environ.get('MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST',
+                                                                    'PagedAttention')
         env = {
             'HCCL_DETERMINISTIC': hccl_deterministic,
             'ASCEND_LAUNCH_BLOCKING': ascend_launch_blocking,
             'TE_PARALLEL_COMPILER': te_parallel_compiler,
             'CUSTOM_MATMUL_SHUFFLE': custom_matmul_shuffle,
             'LCCL_DETERMINISTIC': lccl_deterministic,
-            'MS_ENABLE_GRACEFUL_EXIT': '1' if self.use_graceful_exit else '0'
+            'MS_ENABLE_GRACEFUL_EXIT': '1' if self.use_graceful_exit else '0',
+            'MS_ALLOC_CONF': ms_alloc_conf,
+            'CPU_AFFINITY': cpu_affinity,
+            'MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST': ms_internal_disable_custom_kernel_list
         }
 
         run_mode = (
@@ -257,13 +267,7 @@ class MFContextOperator(MFContextConfig):
                 and RunMode(run_mode) in [RunMode.PREDICT, RunMode.EVAL]
                 and use_past
         ):
-            env['MS_ALLOC_CONF'] = 'enable_vmm:False'
             env['RUN_MODE'] = run_mode
-            env['CPU_AFFINITY'] = 'True'
-            mode = self.config.get_value('context.mode', 'GRAPH_MODE')
-            if MODE.get(mode) == MODE.get('GRAPH_MODE'):
-                env['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = 'PagedAttention'
-
         if (
                 self.enable_mindio_ttp_save_ckpt and
                 self.config.runner_config.sink_size == 1
@@ -272,6 +276,7 @@ class MFContextOperator(MFContextConfig):
             env['MINDIO_FOR_MINDSPORE'] = '1'
 
         os.environ.update(env)
+        logger.info(f"env: {env}")
 
     def set_context(self, **kwargs):
         """Set mf context value according to the input key words."""
