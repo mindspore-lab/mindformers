@@ -173,7 +173,6 @@ class SLoraEmbedding(Cell):
         self.add = P.Add()
         self.sub = P.Sub()
         self.eye = P.Eye()
-        self.slice = P.Slice()
         self.reshape = P.Reshape()
         self.shape = P.Shape()
         self.embedding_mul = P.Mul()
@@ -186,7 +185,6 @@ class SLoraEmbedding(Cell):
         self.lora_a_gmm = GroupedMatmul(split_item=3, group_type=0)
         self.lora_b_gmm = GroupedMatmul(split_item=3, group_type=0)
 
-        self.eyes = self.eye(512, 512, mstype.float16)
         self.lora_a_shape = [config.lora_num, config.lora_rank, self.lora_vocab_size]
         self.lora_b_shape = [config.lora_num, config.lora_rank, embedding.embedding_size]
         self.lora_a = Parameter(initializer('zero', self.lora_a_shape, config.lora_dtype), requires_grad=False)
@@ -203,7 +201,7 @@ class SLoraEmbedding(Cell):
 
         added_tokens_mask = self.greater(x, self.lora_vocab_size - self.lora_extra_vocab_size - 1)
         org_tokens_mask = self.sub(1, added_tokens_mask)
-        lora_mask = self.slice(self.eyes, (0, 0), (self.shape(x)[0], self.shape(x)[0]))
+        lora_mask = self.eye(self.shape(x)[0], self.shape(x)[0], mstype.float16)
         lora_mask = self.cast(lora_mask, self.dtype)
 
         #-------- Embedding part ----------
