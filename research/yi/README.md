@@ -42,7 +42,6 @@ Yi系列是由零一万物研究的大规模语言预训练模型，目前开源
     research/yi
      ├── yi_6b
      |    ├── finetune_yi_6b.yaml                   # 6B 全参微调启动配置
-     |    ├── finetune_yi_6b_high_precision.yaml    # 6B 全参微调高精度启动配置（用于和Megatron做精度对齐使用）
      |    └── predict_yi_6b.yaml                    # 6B base在线推理启动配置  
      └── yi_34b
           ├── pretrain_yi_34b.yaml                  # 34B 预训练启动配置
@@ -67,7 +66,7 @@ Yi系列是由零一万物研究的大规模语言预训练模型，目前开源
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 > 注：Atlas 800T A2芯片支持6b单卡推理，全参微调至少需要4卡，建议8卡；34b推理需要4卡，全参微调需要双机32卡。
 
@@ -164,7 +163,7 @@ output_path: 转换后的MindSpore权重文件保存路径
 
 MindFormers提供`Yi-34b`多机多卡预训练示例，目前`Yi-34b`模型不支持进行单机预训练任务，预训练数据集可通过[数据集下载](#数据集下载)获得。
 
-多机多卡拉起任务需要多机同时执行命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)。
+多机多卡拉起任务需要多机同时执行命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README_CN.md#三使用指南)。
 
 以下为`Yi-34b`2机16卡执行命令：
 
@@ -233,13 +232,13 @@ use_parallel:       是否开启并行训练
 
 以`Yi-34b`全参微调为例，使用配置文件`research/yi/yi_34b/finetune_yi_34b.yaml`，执行如下命令拉起2机16卡微调任务。
 
-多机多卡拉起任务需要多机同时执行命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)。
+多机多卡拉起任务需要多机同时执行命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README_CN.md#三使用指南)。
 
 ```shell
 # 节点0，节点ip为{ip_addr}，作为主节点，总共16卡且每个节点8卡
 bash scripts/msrun_launcher.sh "run_mindformer.py \
  --register_path research/yi \
- --config research/yi/finetune_yi_34b.yaml \
+ --config research/yi/yi_34b/finetune_yi_34b.yaml \
  --load_checkpoint /path/ckpt_dir \
  --use_parallel True \
  --run_mode finetune \
@@ -250,7 +249,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 # 节点1，节点0与节点1启动命令仅参数NODE_RANK不同
 bash scripts/msrun_launcher.sh "run_mindformer.py \
  --register_path research/yi \
- --config research/yi/finetune_yi_34b.yaml \
+ --config research/yi/yi_34b/finetune_yi_34b.yaml \
  --load_checkpoint /path/ckpt_dir \
  --use_parallel True \
  --run_mode finetune \
@@ -275,7 +274,7 @@ MindFormers提供自动权重转换和离线权重转换功能，可参考[自�
 
 ## 推理
 
-`Yi-6b-Base`支持单卡推理，`Yi-34b`模型规模较大，仅支持多卡卡推理。
+`Yi-6b-Base`支持单卡推理，`Yi-34b`模型规模较大，仅支持多卡推理。
 
 ### 单卡推理
 
@@ -307,7 +306,7 @@ python run_mindformer.py \
 
 以`Yi-34b-Chat`4卡推理为例，执行如下命令进行推理。
 
-1. 修改模型配置文件 `research/yi/yi_6b/predict_yi_6b.yaml`
+1. 修改模型配置文件 `research/yi/yi_34b/predict_yi_34b_chat.yaml`
 
 ```yaml
 processor:
@@ -318,18 +317,14 @@ processor:
 2. 启动推理脚本
 
 ```shell
-bash scripts/examples/yi/run_yi_predict.sh parallel \
- research/yi/predict_yi_34b_chat.yaml \
- /path/yi_34b_chat.ckpt \
- /path/tokenizer.model Chat 4
 bash scripts/msrun_launcher.sh "run_mindformer.py \
  --register_path research/yi \
- --config research/yi/predict_yi_34b_chat.yaml \
+ --config research/yi/yi_34b/predict_yi_34b_chat.yaml \
  --load_checkpoint /path/ckpt_dir \
  --predict_data '以雷霆之力' \
  --use_parallel True \
  --run_mode predict \
- --auto_trans_ckpt True" 8
+ --auto_trans_ckpt True" 4
 
 # 推理结果
 # 以雷霆之力，将这股力量化为一道道剑气。“噗！”一柄长枪被斩断成两截后，...
