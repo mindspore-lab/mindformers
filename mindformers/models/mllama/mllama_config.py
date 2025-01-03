@@ -79,7 +79,7 @@ class MllamaVisionConfig(PretrainedConfig):
                  patch_size: Optional[int] = 14,
                  norm_eps: Optional[float] = 1e-5,
                  max_num_tiles: Optional[int] = 4,
-                 max_num_image: Optional[int] = 1,
+                 max_num_images: Optional[int] = 1,
                  output_attentions: bool = False,
                  intermediate_layers_indices: Optional[List[int]] = None,
                  supported_aspect_ratios: Optional[List[List[int]]] = None,
@@ -100,7 +100,7 @@ class MllamaVisionConfig(PretrainedConfig):
         self.num_channels = num_channels
         self.intermediate_size = intermediate_size
         self.image_size = image_size
-        self.max_num_image = max_num_image
+        self.max_num_images = max_num_images
         self.vision_output_dim = vision_output_dim
         self.patch_size = patch_size
         self.intermediate_layers_indices = intermediate_layers_indices
