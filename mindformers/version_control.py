@@ -241,7 +241,7 @@ def check_valid_big_kernel():
     version_valid = is_version_ge(ms.__version__, "2.2.10")
     # below ms 2.2.10 is not support
     if not version_valid:
-        logger.warning("Current MindSpore do not support big kernel SiLU and RMSNorm, "
+        logger.warning("Current MindSpore do not support fusion operator SiLU and RMSNorm, "
                        "please upgrade to 2.2.10 or later version.")
         result = False
     else:
@@ -287,7 +287,7 @@ def check_valid_gmm_op():
     version_valid = is_version_ge(ms.__version__, "2.3.0")
     if not version_valid:
         logger.warning(f"Current MindSpore do not support GroupedMatmul, "
-                       f"please upgrade to {version_valid} or later version.")
+                       f"please upgrade to 2.3.0 or later version.")
         return False
     return True
 
@@ -297,7 +297,7 @@ def check_valid_moefinalizerouting_op():
     version_valid = is_version_ge(ms.__version__, "2.3.0")
     if not version_valid:
         logger.warning(f"Current MindSpore do not support MoeFinalizeRouting, "
-                       f"please upgrade to {version_valid} or later version.")
+                       f"please upgrade to 2.3.0 or later version.")
         return False
     return True
 
@@ -307,8 +307,8 @@ def check_valid_mindspore_gs():
     import mindspore_gs
     version_valid = is_version_ge(mindspore_gs.__version__, "0.6.0")
     if not version_valid:
-        logger.warning(f"Current MindSpore Gloden-Stick version does not match"
-                       f"the MindFormers version, please upgrade to {version_valid} or later version.")
+        logger.warning(f"Current MindSpore Golden-Stick version does not match"
+                       f"the MindFormers version, please upgrade to 0.6.0 or later version.")
         return False
     return True
 
@@ -339,8 +339,8 @@ def check_delay_init_valid():
     """check mindspore version is valid for delay init"""
     version_valid = is_version_ge(ms.__version__, "2.4.1")
     if not version_valid:
-        logger.warning(f"Current MindSpore version does not support"
-                       f"the MindFormers version, please upgrade to 2.4.1 or later version.")
+        logger.warning(f"Current MindSpore version does not support parameter delay initialization. "
+                       f"Please upgrade to 2.4.1 or later version.")
         return False
     return True
 
