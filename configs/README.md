@@ -35,7 +35,6 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
 - context: 环境配置，可以参考: [mindspore.set_context](https://www.mindspore.cn/docs/zh-CN/r2.3.0/api_python/mindspore/mindspore.set_context.html)
     - mode: 0代表Graph Mode， 1代表Pynative Mode
     - device_target: 设备类型，Ascend、CPU或GPU，默认为Ascend
-    - enable_graph_kernel: 是否开启图算融合
     - max_call_depth: 函数调用的最大深度
     - max_device_memory: 设置设备可用的最大内存。运行多机任务时需要适当减小，为设备间通信留出更多内存空间。
     - save_graphs: 是否保存图

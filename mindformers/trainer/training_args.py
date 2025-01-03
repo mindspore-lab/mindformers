@@ -124,8 +124,6 @@ class TrainingArguments:
             The default device id for execution. Default: ``0``.
         device_target (str, optional):
             The target device for execution, supporting 'Ascend', 'GPU', and 'CPU'. Default: ``'Ascend'``.
-        enable_graph_kernel (bool, optional):
-            Whether to enable graph fusion. Default: ``False``.
         max_call_depth (int, optional):
             Maximum depth of function calls. Default: ``10000``.
         max_device_memory (str, optional):
@@ -561,10 +559,6 @@ class TrainingArguments:
     device_target: str = field(
         default="Ascend",
         metadata={"help": "The target device for execution, supporting 'Ascend', 'GPU', and 'CPU'. Default: 'Ascend'."}
-    )
-    enable_graph_kernel: bool = field(
-        default=False,
-        metadata={"help": "Whether to enable graph fusion. Default: False."}
     )
     max_call_depth: int = field(
         default=10000,
@@ -1976,8 +1970,6 @@ class TrainingArguments:
             task_config.context.device_id, self.device_id)
         task_config.context.device_target = _check_training_args(
             task_config.context.device_target, self.device_target)
-        task_config.context.enable_graph_kernel = _check_training_args(
-            task_config.context.enable_graph_kernel, self.enable_graph_kernel)
         task_config.context.max_call_depth = _check_training_args(
             task_config.context.max_call_depth, self.max_call_depth)
         task_config.context.max_device_memory = _check_training_args(
