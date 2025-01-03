@@ -15,9 +15,6 @@ context:
   device_id: 0
   memory_optimize_level: "O1"
 
-# aicc
-remote_save_url: "Please input obs url on AICC platform."
-
 # ==== model config ====
 model:
   model_config:
@@ -74,7 +71,6 @@ model:
     use_rearrange_rope: True
     auto_map:
       AutoTokenizer: [ yizhao_tokenizer.YiZhaoTokenizer, null ]
-
   arch:
     type: YiZhaoForCausalLM
 
@@ -89,6 +85,7 @@ processor:
     eos_token: '<|endoftext|>'
     pad_token: '<|endoftext|>'
     vocab_file: '/path/to/tokenizer.model'
+    chat_template: "{{ '[gMASK]<sop>' }}{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'] %}{% else %}{% set loop_messages = messages %}{% endif %}{% if system_message is defined %}{{ '<|system|>' + system_message }}{% endif %}{% for message in loop_messages %}{% set content = message['content'] %}{% if message['role'] == 'user' %}{{ '<|user|>' + content + '<|assistant|>' }}{% elif message['role'] == 'assistant' %}{{ content }}{% endif %}{% endfor %}"
   type: YiZhaoProcessor
 
 # parallel config
@@ -108,18 +105,4 @@ parallel_config:
   gradient_aggregation_group: 4
 micro_batch_interleave_num: 1
 
-# callbacks
-callbacks:
-  - type: MFLossMonitor
-  - type: CheckpointMonitor
-    prefix: "Yizhao"
-    save_checkpoint_steps: 1000
-    keep_checkpoint_max: 1
-    integrated_save: False
-    async_save: False
-  - type: ObsMonitor
-    keep_last: False
-eval_callbacks:
-  - type: ObsMonitor
-    keep_last: False
 
