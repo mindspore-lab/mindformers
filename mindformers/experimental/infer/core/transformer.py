@@ -25,7 +25,7 @@ from mindformers.experimental.parallel_core.pynative.transformer.scale_mask_soft
 from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.infer.core import get_act_func, get_attn_mask_func, get_norm
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
-from mindformers.experimental.infer.core.utils import get_tp_world_size
+from mindformers.experimental.infer.core.utils import get_tp_world_size, create_empty_parameter
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
@@ -394,6 +394,18 @@ class ParallelAttention(nn.Cell):
                                                          kv_shape,
                                                          config.seq_length,
                                                          compute_dtype=self.compute_dtype)
+            self.paged_attention_mgr.key_cache = create_empty_parameter(
+                shape=self.paged_attention_mgr.key_cache.shape,
+                dtype=self.paged_attention_mgr.key_cache.dtype,
+                name=self.paged_attention_mgr.key_cache.name,
+                requires_grad=self.paged_attention_mgr.key_cache.requires_grad,
+            )
+            self.paged_attention_mgr.value_cache = create_empty_parameter(
+                shape=self.paged_attention_mgr.value_cache.shape,
+                dtype=self.paged_attention_mgr.value_cache.dtype,
+                name=self.paged_attention_mgr.value_cache.name,
+                requires_grad=self.paged_attention_mgr.value_cache.requires_grad,
+            )
             self.rotary_embedding = InferRotaryEmbedding(rotary_cos_format=2)
         else:
             self.apply_rotary_emb = RotaryEmbedding(self.head_dim, config.rotary_dtype)
