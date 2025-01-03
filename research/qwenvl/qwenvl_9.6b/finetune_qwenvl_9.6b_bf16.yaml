@@ -57,7 +57,7 @@ train_dataset: &train_dataset
   tokenizer:
     type: QwenVLTokenizer
     auto_register: qwenvl_tokenizer.QwenVLTokenizer
-    # vocab_file: /path/to/vocab_file
+    vocab_file: /path/to/vocab_file
 
 train_dataset_task:
   type: ModalToTextSFTDataset

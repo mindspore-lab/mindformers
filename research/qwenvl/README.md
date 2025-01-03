@@ -154,7 +154,7 @@ MindFormers提供了默认微调配置`finetune_qwenvl_9.6b.yaml`，默认配置
 
 #### 单机训练
 
-1. 修改`finetune_qwenvl_9.6b_bf16.yaml`中相关配置，配置具体数据集等相关信息。
+1. 修改`finetune_qwenvl_9.6b_bf16.yaml`中相关配置，配置具体数据集、词表路径等相关信息。
 
    ```yaml
    load_checkpoint: '/path/model_dir' # 权重路径，也可通过启动命令自动传入
@@ -204,12 +204,12 @@ MindFormers提供了默认微调配置`finetune_qwenvl_9.6b.yaml`，默认配置
 
 ```shell
 bash scripts/msrun_launcher.sh "run_mindformer.py \
+--config research/qwenvl/qwenvl_9.6b/finetune_qwenvl_9.6b_bf16.yaml \
 --register_path research/qwenvl
 --run_mode finetune \
 --load_checkpoint /path/to/ckpt \
 --use_parallel True \
---auto_trans_ckpt True \
---vocab_file /path/to/qwen.tiktoken" 8
+--auto_trans_ckpt True" 8
 
 # 以上除config和register_path外其他传参如果在yaml文件中已经配置，可以在启动命令中不再传入
 # 参数说明
@@ -254,22 +254,20 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
   --config research/qwenvl/qwenvl_9.6b/finetune_qwenvl_9.6b_bf16.yaml \
   --load_checkpoint /path/to/ckpt \
   --use_parallel True \
-  --auto_trans_ckpt True \
-  --vocab_file /path/to/qwen.tiktoken" \
+  --auto_trans_ckpt True" \
    16 8 192.168.1.1 8118 0 output/msrun_log False 300
   ```
 
 - 在节点1执行如下命令，其中192.168.1.1需要改为节点0的实际ip。
 
   ```shell
-  bash scripts/msrun_launcher.sh "python run_mindformer.py \
+  bash scripts/msrun_launcher.sh "run_mindformer.py \
   --register_path research/qwenvl
   --run_mode finetune \
   --config research/qwenvl/qwenvl_9.6b/finetune_qwenvl_9.6b_bf16.yaml \
   --load_checkpoint /path/to/ckpt \
   --use_parallel True \
-  --auto_trans_ckpt True \
-  --vocab_file /path/to/qwen.tiktoken" \
+  --auto_trans_ckpt True" \
    16 8 192.168.1.1 8118 1 output/msrun_log False 300
   ```
 
