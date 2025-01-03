@@ -24,7 +24,7 @@ mindformers.core.PolynomialWithWarmUpLR
     参数：
         - **learning_rate** (float) - 学习率的初始值。
         - **total_steps** (int) - 总训练步数。
-        - **warmup_steps** (int) - 预热阶段的步数。
+        - **warmup_steps** (int, 可选) - 预热阶段的步数。默认值： ``None`` 。
         - **lr_end** (float, 可选) - 学习率的最终值。默认值： ``1e-7`` 。
         - **power** (float, 可选) - 多项式的幂次。默认值： ``1.0`` 。
         - **warmup_lr_init** (float, 可选) - 预热阶段的初始学习率。默认值： ``0.`` 。

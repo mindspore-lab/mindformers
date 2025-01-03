@@ -167,7 +167,7 @@ class MindFormerRegister:
         Args:
             module_type (MindFormerModuleType, optional): Module type name of MindFormers.
                 Default: ``MindFormerModuleType.TOOLS``.
-            alias (str, optional) : Alias for the class. Default: ``None``.
+            alias (str, optional): Alias for the class. Default: ``None``.
 
         Returns:
             Wrapper, decorates the registered class.
@@ -200,7 +200,7 @@ class MindFormerRegister:
             register_class (type): The class that need to be registered.
             module_type (MindFormerModuleType, optional): Module type name of MindFormers.
                 Default: ``MindFormerModuleType.TOOLS``.
-            alias (str, optional) : Alias for the class. Default: ``None``.
+            alias (str, optional): Alias for the class. Default: ``None``.
 
         Returns:
             Class, the registered class itself.

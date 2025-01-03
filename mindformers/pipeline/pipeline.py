@@ -66,7 +66,7 @@ def pipeline(
     r"""Pipeline for executing the inference flow of integrated tasks and models.
 
     Args:
-        task (str):
+        task (str, optional):
             The task, now support ['text_generation', 'image_to_text_generation',
             'multi_modal_to_text_generation']. Default: ``None``.
         model (Union[str, PreTrainedModel, Model, Tuple[str, str]], optional):
