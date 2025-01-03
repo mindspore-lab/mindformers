@@ -150,15 +150,18 @@ class TelechatParallelAttention(ParallelAttention):
 
             if self.is_first_iteration:
                 if self.use_flash_attention:
-                    bs, seq_len, _ = query.shape
-                    # [1, actual_seq_len, H] -> [actual_seq_len, H]
-                    query = self.reshape(query, (-1, self.num_heads_per_partition * self.head_dim))
-                    key = self.reshape(key, (-1, self.kv_num_heads_per_partition * self.head_dim))
-                    value = self.reshape(value, (-1, self.kv_num_heads_per_partition * self.head_dim))
-                    context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None,
-                                                         batch_valid_length, batch_valid_length)
-                    context_layer = self.reshape(context_layer, (bs, seq_len,
-                                                                 self.num_heads_per_partition * self.head_dim))
+                    if self.is_pynative:
+                        context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask)
+                    else:
+                        bs, seq_len, _ = query.shape
+                        # [1, actual_seq_len, H] -> [actual_seq_len, H]
+                        query = self.reshape(query, (-1, self.num_heads_per_partition * self.head_dim))
+                        key = self.reshape(key, (-1, self.kv_num_heads_per_partition * self.head_dim))
+                        value = self.reshape(value, (-1, self.kv_num_heads_per_partition * self.head_dim))
+                        context_layer = self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None,
+                                                             batch_valid_length, batch_valid_length)
+                        context_layer = self.reshape(context_layer, (bs, seq_len,
+                                                                     self.num_heads_per_partition * self.head_dim))
                 else:
                     # [B, S, H] -> [B, N, S, D]
                     query = query.reshape(bs, seq_len, -1, self.head_dim).transpose((0, 2, 1, 3))
