@@ -26,31 +26,31 @@
 1. 模型具体实现
 
     ```text
-    research/internlm2
-      ├── internlm2_tokenizer.py       # tokenizer
-      ├── internlm2_transformer.py     # transformer层实现
-      ├── internlm2_config.py          # 模型config
-      ├── internlm2.py                 # 模型实现
-      └── internlm2_interleave.py
+      research/internlm2
+      |-- internlm2_config.py     # 模型config
+      |-- internlm2_model.py      # 模型实现
+      `-- internlm2_tokenizer.py  # tokenizer
     ```
 
 2. 模型配置
 
     ```text
-    research/internlm2
-      ├── predict_internlm2_20b.yaml       # InternLM2-chat-20B推理启动配置
-      ├── predict_internlm2_7b.yaml        # InternLM2-chat-7B推理启动配置
-      ├── finetune_internlm2_20b.yaml      # InternLM2-20B微调启动配置
-      └── finetune_internlm2_7b.yaml       # InternLM2-7B微调启动配置
+      research/internlm2
+      |-- internlm2_20b
+      |   |-- finetune_internlm2_20b.yaml # InternLM2-20B微调启动配置
+      |   `-- predict_internlm2_20b.yaml  # InternLM2-chat-20B推理启动配置
+      `-- internlm2_7b
+          |-- finetune_internlm2_7b.yaml  # InternLM2-7B微调启动配置
+          `-- predict_internlm2_7b.yaml   # InternLM2-chat-7B推理启动配置
     ```
 
 3. 预处理脚本和任务启动脚本
 
     ```text
-    research/internlm2
-      ├── convert_weight.py             # hf->mf权重转换
-      ├── convert_reversed.py           # mf->hf权重转换
-      └── run_internlm2.py              # 高阶接口使用脚本
+      research/internlm2
+      |-- alpaca_data_preprocess.py     # alpaca数据集预处理
+      |-- convert_reversed.py           # mf->hf权重转换
+      `-- convert_weight.py             # hf->mf权重转换
     ```
 
 ## 环境及数据准备
@@ -128,8 +128,9 @@ MindFormers提供`InternLM2-7B`的微调示例， 过程中使用alpaca数据集
 执行msrun启动脚本，进行8卡分布式微调
 
 ```shell
-bash scripts/msrun_launcher.sh "research/internlm2/run_internlm2.py \
-  --config research/internlm2/finetune_internlm2_7b.yaml \
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+  --register_path research/internlm2 \
+  --config research/internlm2/internlm2_7b/finetune_internlm2_7b.yaml \
   --train_dataset path/to/tain_dataset \
   --load_checkpoint path/to/checkpoint \
   --run_mode finetune \
@@ -151,58 +152,63 @@ bash scripts/msrun_launcher.sh "research/internlm2/run_internlm2.py \
 
 ## 推理
 
-MindFormers提供`InternLM2`的快速推理脚本，脚本主要通过`generate`高阶接口实现，支持单卡、多卡以及多batch推理。`InternLM2-chat-7B`的推理流程与`InternLM2-chat-20B`相同。仅需替换配置文件。
-
-```shell
-# 脚本使用
-bash scripts/examples/internlm2/run_internlm2_predict.sh PARALLEL CONFIG_PATH CKPT_PATH DEVICE_NUM TOKENIZER_PATH
-
-# 参数说明
-PARALLEL:        是否使用多卡推理, 'single'表示单卡推理, 'parallel'表示多卡推理
-CONFIG_PATH:     模型配置文件路径
-CKPT_PATH:       模型权重文件路径
-DEVICE_NUM:      使用卡数, 仅开启多卡推理时生效
-TOKENIZER_PATH:  Tokenizer模型路径
-```
+`InternLM2-7B`的推理流程与`InternLM2-20B`相同。仅需替换配置文件。
 
 ### 单卡推理
 
+以 `Internlm2-7B` 为例，即使用 `research/internlm2/internlm2_7b/predict_internlm2_7b.yaml` 配置文件。
+
+### 单卡推理
+
+修改配置文件 `research/internlm2/internlm2_7b/predict_internlm2_7b.yaml` ：
+
+```yaml
+processor:
+  tokenizer:
+    vocab_file: "./internlm2-7b/tokenizer.model"    # 指定tokenizer.model文件路径
+```
+
+执行如下推理命令。
+
 ```shell
-bash scripts/examples/internlm2/run_internlm2_predict.sh \
-  single \
-  configs/internlm2/predict_internlm2_20b.yaml \
-  path/to/internlm2_chat_20b.ckpt \
-  1 \
-  path/to/tokenizer.model
-# input: Hi, pls intro yourself
-# output: Hello! I'm an AI language model designed to assist and provide helpful responses to your inquiries. I don't have a personal identity or consciousness, but I'm here to help you with any questions or tasks you might have. How can I assist you today?
-#
-# input: Shanghai is a
-# output：Shanghai is a city, not a person. It is the largest city in China and one of the most populous metropolitan areas in the world. It is located on the east coast of China......
-#
-# input: Huawei is a
-# output: Huawei is a multinational technology company headquartered in Shenzhen, China. Founded in 1987, the company has grown to become one of the largest and most influential technology companies in the world, with a diverse range of products and services that span across various industries......
+python run_mindformer.py \
+ --register_path research/internlm2 \
+ --config research/internlm2/internlm2_7b/predict_internlm2_7b.yaml \
+ --load_checkpoint /path/internlm2_7b.ckpt \
+ --auto_trans_ckpt False \
+ --use_parallel False \
+ --run_mode predict \
+ --predict_data '比较适合深度学习入门的书籍有'
+# 比较适合深度学习入门的书籍有：
+# 比较适合深度学习入门的书籍有《深度学习》、《机器学习》、《统计学习方法》、《统计自然语言处理》、《Python机器学习基础教程》...
 ```
 
 ### 多卡推理
 
-`InternLM2`多卡推理暂不支持`is_dynamic=True`。本示例以`InternLM2-chat-20B`8卡推理为例。
+`InternLM2`多卡推理暂不支持`is_dynamic=True`。本示例以 `InternLM2-20B` 2卡推理为例。
 
-```shell
-bash scripts/examples/internlm2/run_internlm2_predict.sh \
-  parallel \
-  configs/internlm2/predict_internlm2_20b.yaml \
-  path/to/internlm2_chat_20b.ckpt \
-  8 \
-  path/to/tokenizer.model
-# input: Hi, pls intro yourself
-# output: Hello! I'm an AI language model designed to assist and provide helpful responses to your inquiries. I don't have a personal identity or consciousness, but I'm here to help you with any questions or tasks you might have. How can I assist you today?
-#
-# input: Shanghai is a
-# output：Shanghai is a city, not a person. It is the largest city in China and one of the most populous metropolitan areas in the world. It is located on the east coast of China......
-#
-# input: Huawei is a
-# output: Huawei is a multinational technology company headquartered in Shenzhen, China. Founded in 1987, the company has grown to become one of the largest and most influential technology companies in the world, with a diverse range of products and services that span across various industries......
-```
+1. 修改配置文件 `research/internlm2/internlm2_20b/predict_internlm2_20b.yaml` ：
+
+    ```yaml
+    processor:
+      tokenizer:
+        vocab_file: "./internlm2-20b/tokenizer.model"    # 指定tokenizer.model文件路径
+   ```
+
+2. 执行如下推理命令，进行2卡推理
+
+   ```shell
+   # 推理命令中参数会覆盖yaml文件中的相同参数
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --register_path research/internlm2
+    --config research/internlm2/internlm2_20b/predict_internlm2_20b.yaml \
+    --load_checkpoint /path/internlm2_20b.ckpt \
+    --auto_trans_ckpt True \
+    --use_parallel True \
+    --run_mode predict \
+    --predict_data 比较适合深度学习入门的书籍有" 2
+   # 比较适合深度学习入门的书籍有：
+   # 比较适合深度学习入门的书籍有：\n1. 《深度学习》（Deep Learning）：这本书由深度学习领域的权威人士..
+   ```
 
 > 注：命令中的卡数须等于data_parallel\*model_parallel\*pipeline_stage
