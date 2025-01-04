@@ -13,8 +13,10 @@
 # limitations under the License.
 # ============================================================================
 """ For transformer """
+import numpy as np
+
 import mindspore.common.dtype as mstype
-from mindspore import nn, ops, mint
+from mindspore import nn, ops, mint, Tensor
 
 from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
