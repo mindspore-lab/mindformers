@@ -203,7 +203,7 @@ class MllamaVisionAttention(nn.Cell):
         self.slice = P.StridedSlice()
         self.compute_dtype = config.compute_dtype
         self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=self.compute_dtype)
-        self.use_flash_attention = True
+        self.use_flash_attention = config.use_flash_attention
         self.q_proj = Linear(self.embed_dim, self.num_heads * self.head_dim, has_bias=False,
                              compute_dtype=self.compute_dtype,
                              param_init_type=config.param_init_type)
@@ -398,7 +398,7 @@ class MllamaVisionModel(MllamaPreTrainedModel):
 
         self.num_patches = (self.image_size // self.patch_size) ** 2 + 1
         self.scale = config.hidden_size ** -0.5
-        self.use_flash_attention = True
+        self.use_flash_attention = config.use_flash_attention
 
         self.gather = P.Gather()
         self.stack = P.Stack(axis=-1)

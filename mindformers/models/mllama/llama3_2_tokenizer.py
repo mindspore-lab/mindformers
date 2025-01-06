@@ -69,6 +69,9 @@ class Llama3Tokenizer(PreTrainedTokenizer):
                  add_eos_token=False,
                  errors="replace",
                  num_reserved_special_tokens=256,
+                 special_tokens=None,
+                 num_reserved_start_pos=5,
+                 special_tokens_used_num=5,
                  **kwargs):
         pad_token = AddedToken(pad_token, lstrip=False, rstrip=False) if isinstance(pad_token, str) else pad_token
 
@@ -82,21 +85,24 @@ class Llama3Tokenizer(PreTrainedTokenizer):
         else:
             self.mergeable_ranks = _load_tiktoken_bpe(vocab_file)  # type: dict[bytes, int]
         num_base_tokens = len(self.mergeable_ranks)
-        special_tokens = [
-            "<|begin_of_text|>",
-            "<|end_of_text|>",
-            "<|reserved_special_token_0|>",
-            "<|reserved_special_token_1|>",
-            "<|reserved_special_token_2|>",
-            "<|reserved_special_token_3|>",
-            "<|start_header_id|>",
-            "<|end_header_id|>",
-            "<|reserved_special_token_4|>",
-            "<|eot_id|>",  # end of turn
-        ] + [
-            f"<|reserved_special_token_{i}|>"
-            for i in range(5, num_reserved_special_tokens - 5)
-        ]
+        if special_tokens is None:
+            num_reserved_start = num_reserved_start_pos
+            num_reserved_end = num_reserved_special_tokens - special_tokens_used_num
+            special_tokens = [
+                "<|begin_of_text|>",
+                "<|end_of_text|>",
+                "<|reserved_special_token_0|>",
+                "<|reserved_special_token_1|>",
+                "<|reserved_special_token_2|>",
+                "<|reserved_special_token_3|>",
+                "<|start_header_id|>",
+                "<|end_header_id|>",
+                "<|reserved_special_token_4|>",
+                "<|eot_id|>",  # end of turn
+            ] + [
+                f"<|reserved_special_token_{i}|>"
+                for i in range(num_reserved_start, num_reserved_end)
+            ]
         self.special_tokens = {
             token: num_base_tokens + i for i, token in enumerate(special_tokens)
         }

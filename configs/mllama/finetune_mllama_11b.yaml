@@ -171,6 +171,7 @@ train_dataset: &train_dataset
       image_mean: [0.48145466, 0.4578275, 0.40821073]
       image_std: [0.26862954,0.26130258, 0.27577711]
       max_num_images: 1
+      image_size: *image_size
   tokenizer:
     pad_token: "<|finetune_right_pad_id|>"
     vocab_file: "path/tokenizer.model"
@@ -194,13 +195,8 @@ context:
       "must_keep_origin_dtype"
   max_call_depth: 10000
   max_device_memory: "59GB"
-  save_graphs: False
-  save_graphs_path: "./graph"
   device_id: 0
-  jit_config:
-    jit_level: "O1"
-  memory_optimize_level: "O0"
-  infer_boost: 'off'
+
 
 # parallel context config
 parallel:
@@ -210,10 +206,4 @@ parallel:
   full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True
-  strategy_ckpt_config:
-    save_file: "./ckpt_strategy.ckpt"
-    only_trainable_params: False
-  parallel_optimizer_config:
-    gradient_accumulation_shard: False
-    parallel_optimizer_threshold: 64
 
