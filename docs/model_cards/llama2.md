@@ -107,7 +107,7 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测
   使用`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`对下载后的数据进行预处理，并生成Mindrecord数据。
 
   ```shell
-  python llama_preprocess.py \
+  python mindformers/tools/dataset_preprocess/llama/llama_preprocess.py \
     --dataset_type wiki \
     --input_glob /{path}/wiki.train.tokens \
     --model_file /{path}/tokenizer.model \
@@ -130,7 +130,7 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测
   使用`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`对下载后的数据进行预处理，并生成Mindrecord数据。
 
   ```shell
-   python llama_preprocess.py \
+   python mindformers/tools/dataset_preprocess/llama/llama_preprocess.py \
     --dataset_type wiki \
     --input_glob  /{path}/wiki.valid.tokens \
     --model_file /{path}/tokenizer.model \
@@ -150,7 +150,7 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测
   1. 执行`mindformers/tools/dataset_preprocess/llama/alpaca_converter.py`，使用fastchat工具添加prompts模板，将原始数据集转换为多轮对话格式。
 
      ```shell
-     python alpaca_converter.py \
+     python mindformers/tools/dataset_preprocess/llama/alpaca_converter.py \
        --data_path /{path}/alpaca_data.json \
        --output_path /{path}/alpaca-data-conversation.json
 
@@ -163,7 +163,7 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测
 
      ```shell
      # 此工具依赖fschat工具包解析prompt模板, 请提前安装fschat >= 0.2.13 python = 3.9
-     python llama_preprocess.py \
+     python mindformers/tools/dataset_preprocess/llama/llama_preprocess.py \
        --dataset_type qa \
        --input_glob /{path}/alpaca-data-conversation.json \
        --model_file /{path}/tokenizer.model \
@@ -183,7 +183,7 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测
   执行`mindformers/tools/dataset_preprocess/llama/squad_data_process.py`生成Mindrecord数据
 
   ```shell
-  python squad_data_process.py \
+  python mindformers/tools/dataset_preprocess/llama/squad_data_process.py \
     --input_file /{path}/squad/dev-v1.1.json \
     --output_file /{path}/squad2048.mindrecord \
     --mode eval \
