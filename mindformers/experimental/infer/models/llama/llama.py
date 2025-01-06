@@ -143,10 +143,11 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         Forward of llama model.
         """
         bsz, _ = self.shape(input_ids)
-        if batch_valid_length is not None:
-            batch_valid_length = batch_valid_length.reshape(-1,)
-        else:
-            batch_valid_length = self.ones((bsz,), mstype.int32)
+        if self.use_past:
+            if not isinstance(batch_valid_length, Tensor):
+                batch_valid_length = self.ones((bsz,), mstype.int32)
+            else:
+                batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
                             slot_mapping, prefix_keys_values)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
@@ -343,7 +344,7 @@ def _concat_ffn_weight(w1_keys, w3_keys, model_config, qkv_dict, condition, targ
             ffn_hidden_size = int((ffn_dim_multiplier + 0.01) * ffn_hidden_size)
         ffn_hidden_size = int(2 * ffn_hidden_size / 3)
         ffn_hidden_size = multiple_of * \
-                          ((ffn_hidden_size + multiple_of - 1) // multiple_of)
+            ((ffn_hidden_size + multiple_of - 1) // multiple_of)
 
     # pop extra weight to shared dict if there is no corresponding weight for concat in the target dict
     for w3_key in w3_keys:

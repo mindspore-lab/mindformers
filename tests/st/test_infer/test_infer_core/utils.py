@@ -88,12 +88,12 @@ MODULES = {
 }
 
 
-def get_config():
+def get_config(use_past):
     """get config of testcase"""
     base_config = LlamaConfig(
         param_init_dtype=mstype.float16,
         compute_dtype=mstype.float16,
-        use_past=True,
+        use_past=use_past,
         qkv_concat=True,
         num_heads=16,
         hidden_size=1024,
@@ -121,10 +121,3 @@ def get_config():
     base_config = convert_model_config(base_config)
 
     return base_config
-
-
-def get_module(module):
-    """get module of testcase"""
-    base_config = get_config()
-
-    return MODULES[module](base_config)

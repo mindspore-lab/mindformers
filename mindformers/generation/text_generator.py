@@ -126,7 +126,7 @@ class GenerationMixin:
         model_inputs = {"input_ids": Tensor.from_numpy(input_ids.astype(np.int32))}
         if self.is_pynative:
             model_inputs = {}
-            if self.config.is_dynamic and "origin_inputs" in kwargs:
+            if self.config.is_dynamic and "origin_inputs" in kwargs and self.use_past:
                 input_ids = kwargs["origin_inputs"]
             model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
         else:
