@@ -295,12 +295,12 @@ def check_valid_gmm_op():
     return True
 
 
-def check_valid_moefinalizerouting_op():
-    """check mindspore version is valid for groupedmatmul"""
-    version_valid = is_version_ge(ms.__version__, "2.3.0")
+def check_valid_moe_big_kernel():
+    """check mindspore version is valid for moe big kernel"""
+    version_valid = is_version_ge(ms.__version__, "2.5.0")
     if not version_valid:
-        logger.warning(f"Current MindSpore do not support MoeFinalizeRouting, "
-                       f"please upgrade to 2.3.0 or later version.")
+        logger.warning(f"Current MindSpore do not support Moe big kernel, "
+                       f"please upgrade to 2.5.0 or later version.")
         return False
     return True
 
