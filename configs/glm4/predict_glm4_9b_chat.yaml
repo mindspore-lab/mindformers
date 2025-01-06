@@ -165,4 +165,4 @@ runner_config:
   epochs: 1
   batch_size: 8
   sink_mode: True
-  sink_size: 4
+  sink_size: 1

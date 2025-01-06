@@ -18,7 +18,7 @@ runner_config:
   epochs: 5
   batch_size: 1
   sink_mode: True
-  sink_size: 2
+  sink_size: 1
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:

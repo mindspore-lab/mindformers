@@ -17,7 +17,7 @@ runner_config:
   epochs: 3
   batch_size: 1
   sink_mode: False
-  sink_size: 2
+  sink_size: 1
   gradient_accumulation_steps: 1
 
 # callbacks
