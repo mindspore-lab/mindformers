@@ -14,8 +14,9 @@
 # ============================================================================
 """ utils """
 
-from mindspore import Tensor, ops
+from contextlib import contextmanager
 
+from mindspore import Tensor, ops, Parameter, mint
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_size, get_tensor_model_parallel_world_size
 
 __all__ = ["get_attn_mask_func", "generate_state_dict"]
@@ -93,3 +94,23 @@ def generate_state_dict(network):
 def get_tp_world_size():
     tp_size = get_tensor_model_parallel_world_size()
     return tp_size if tp_size else 1
+
+
+def create_empty_parameter(shape, *, dtype=None, device=None, **kwargs):
+    """Create an empty parameter."""
+    def get_param(*args):
+        return [Tensor, args[0]]
+
+    @contextmanager
+    def replace_class_method(cls, name, new_method):
+        old_method = getattr(cls, name)
+
+        setattr(cls, name, new_method)
+        yield
+        setattr(cls, name, old_method)
+
+    data = mint.empty(shape, dtype=dtype, device=device)
+
+    with replace_class_method(Parameter, "_get_parameter_new_args", get_param):
+        param = Parameter(data, **kwargs)
+    return param
