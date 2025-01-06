@@ -60,6 +60,7 @@ class LlmBoostForCausalLM(PreTrainedModel):
             extend_method=config.extend_method,
             parallel_config=config.parallel_config,
         )
+        self.freqs_mgr.shard(config.parallel_config)
         config.need_nz = need_nz()
         if config.communication_backend == "":
             config.communication_backend = "lccl" if is_support_lccl() else "hccl"

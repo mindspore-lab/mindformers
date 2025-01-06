@@ -360,6 +360,7 @@ class QwenModel(QwenPreTrainedModel):
                                   scaling_factor=config.scaling_factor,
                                   extend_method=config.extend_method,
                                   is_dynamic=config.is_dynamic)
+        self.freqs_mgr.shard(config.parallel_config)
         self.casual_mask = CausalMaskForQwen(seq_length=config.seq_length,
                                              compute_type=config.compute_dtype,
                                              is_dynamic=config.is_dynamic,
