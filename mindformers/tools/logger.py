@@ -589,6 +589,7 @@ class _LogActionOnce:
         self.no_warning = no_warning
 
     def __call__(self, func):
+        @wraps(func)
         def wrapper(*args, **kwargs):
             if not hasattr(self.logger, 'warning'):
                 return func(*args, **kwargs)

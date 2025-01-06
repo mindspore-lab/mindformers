@@ -78,10 +78,6 @@ class LlamaTokenizer(PreTrainedTokenizer):
         clean_up_tokenization_spaces (bool, optional):
             Whether to clean up spaces after decoding. Cleanup includes removing potential artifacts like
             extra spaces. Default: ``False``.
-        use_default_system_prompt (bool, optional):
-            Whether the default system prompt for Llama should be used. Default: ``False``.
-        spaces_between_special_tokens (bool, optional):
-            Whether to add spaces between special tokens. Default: ``False``.
         legacy (bool, optional):
             Whether the `legacy` behavior of the tokenizer should be used. Default: ``True``.
 

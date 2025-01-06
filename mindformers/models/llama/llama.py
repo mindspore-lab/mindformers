@@ -376,7 +376,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
     Provide llama training loss or logits through network.
 
     Args:
-        config (LlamaConfig): The config of llama model. Default: `None` .
+        config (LlamaConfig, optional): The config of llama model. Default: `None` .
 
     Inputs:
         - **input_ids** (Tensor) - the indices of input sequence tokens in the vocabulary with data type Int64/Int32,
@@ -399,12 +399,23 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         - **batch_valid_length** (Tensor, optional) - Int32 tensor with shape [batch_size]
           the past calculated the index.
           Used for incremental prediction when the use_past is True. Default: ``None``.
+        - **batch_index** (Tensor, optional) - Discard argument. Will be deleted in the future. Default: ``None``.
+        - **zactivate_len** (Tensor, optional) - Discard argument. Will be deleted in the future. Default: ``None``.
         - **block_tables** (Tensor, optional) - Int64 type Tensor, store mapping tables for each sequence.
           Default: ``None``.
         - **slot_mapping** (Tensor, optional) - Int32 type Tensor, token cache physical slot index. Default: ``None``.
+        - **prefix_keys_values** (Tensor, optional) - Discard argument. Will be deleted in the future.
+          Default: ``None``.
+        - **llm_boost_inputs** (Tensor, optional) - Discard argument. Will be deleted in the future. Default: ``None``.
+        - **q_seq_lens** (Tensor, optional) - In parallel decoding, the query may be flattened.
+          The Paged Attention operator need `q_seq_lens` to obtain the length information. Default: ``None`` .
         - **loss_mask** (Tensor, optional) - Float32/Int32 type tensor, which is used to determine
           whether the corresponding token position participates in the loss calculation. If the value is :math:`(1)`,
           the loss of the position is calculated, and :math:`(0)` is not calculated. Default: ``None``.
+        - **gather_index** (Tensor, optional) - Int32 type Tensor, used to obtain the last latent vector of
+          each sequence. Default: ``None``.
+        - **seq_range** (Tensor, optional) - Int32 type Tensor, used to obtain Mask and positional encoding of
+          valid tokens for each sequence. Default: ``None``.
 
     Outputs:
         Tensor. If it is in training mode, the output Tensor contains loss;
@@ -583,33 +594,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None,
                   zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None,
                   llm_boost_inputs=None, q_seq_lens=None, loss_mask=None, gather_index=None, seq_range=None):
-        r"""
-        LlamaForCausalLM forward.
-
-        Args:
-            input_ids(Tensor): the tokenized inputs with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
-            labels(Tensor, optional): the tokenized labels with datatype int32,
-                Tensor of shape :math:`(batch, seq\_length)`. Default: ``None`` .
-            input_position(Tensor, optional): current position, used by model.predict. Default: ``None`` .
-            position_ids(Tensor, optional): Reserved param, not used. Default: ``None`` .
-            attention_mask(Tensor, optional): Reserved param, not used. Default: ``None`` .
-            input_embeds(Tensor, optional): the input embedding Tensor of shape
-                :math:`(batch, seq\_length, hidden_size)`. Default: ``None`` .
-            init_reset(bool, optional): A bool tensor with shape [1], used to clear the past key parameter and
-                past value parameter used in the incremental prediction.  Default: ``Tensor([True])`` .
-            batch_valid_length(Tensor, optional): the past calculated the index with datatype int32,
-                used for incremental prediction. Tensor of shape :math:`(batch_size,)`.  Default: ``None`` .
-            block_tables (Tensor[int64], optional): Store mapping tables for each sequence. Default: ``None`` .
-            slot_mapping (Tensor[int32], optional): Store token cache physical slot index. Default: ``None`` .
-            q_seq_lens (Tensor[int32], optional): In parallel decoding, the query may be flattened.
-                The Paged Attention operator need `q_seq_lens` to obtain the length information. Default: ``None`` .
-            loss_mask (Tensor, optional): Used to determine whether the corresponding token position participates
-                in the loss calculation. If the value is :math:`(1)`, the loss of the position is calculated,
-                and :math:`(0)` is not calculated. Default: ``None`` .
-
-        Returns:
-            Tensor, The loss or (logits, tokens, input_mask) of the network.
-        """
+        r"""LlamaForCausalLM forward."""
         has_loss_mask = loss_mask is not None
         input_sliced_sig = self.input_sliced_sig
         if self.training and input_sliced_sig and labels is None:

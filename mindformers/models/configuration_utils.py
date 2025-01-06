@@ -113,14 +113,16 @@ class PretrainedConfig(PushToHubMixin):
         configuration.
 
     Args:
-        name_or_path (str, optional):
-            Store the string that was passed to :func:`mindformers.models.PreTrainedModel.from_pretrained`
-            as `pretrained_model_name_or_path` if the configuration was created with such a method.
-            Default: ``""``.
-        checkpoint_name_or_path (str, optional):
-            The path or name of the checkpoint file. Default: ``None``.
-        mindformers_version (str, optional):
-            The version of MindSpore Transformers. Default: ``None``.
+        **kwargs (Any): keyword arguments.
+
+            - name_or_path (str, optional):
+              Store the string that was passed to :func:`mindformers.models.PreTrainedModel.from_pretrained`
+              as `pretrained_model_name_or_path` if the configuration was created with such a method.
+              Default: ``""``.
+            - checkpoint_name_or_path (str, optional):
+              The path or name of the checkpoint file. Default: ``None``.
+            - mindformers_version (str, optional):
+              The version of MindSpore Transformers. Default: ``None``.
 
     Returns:
         PretrainedConfig, a PretrainedConfig instance.
@@ -288,9 +290,11 @@ class PretrainedConfig(PushToHubMixin):
                 If yaml_name_or_path is model name,
                 it supports model names beginning with mindspore or the model name itself,
                 such as "mindspore/vit_base_p16" or "vit_base_p16".
-            pretrained_model_name_or_path (str, optional):
-                Equal to "yaml_name_or_path", if "pretrained_model_name_or_path" is set,
-                "yaml_name_or_path" is useless. Default: ``None``.
+            kwargs (Any): Keyword arguments.
+
+                - pretrained_model_name_or_path (str, optional):
+                  Equal to "yaml_name_or_path", if "pretrained_model_name_or_path" is set,
+                  "yaml_name_or_path" is useless. Default: ``None``.
 
         Returns:
             A model config, which inherited from PretrainedConfig.

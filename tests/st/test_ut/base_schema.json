@@ -135,7 +135,7 @@
         "signature": "(self, global_step)"
     },
     "mindformers.core.CrossEntropyLoss": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, check_for_nan_in_loss_and_grad=False, calculate_per_token_loss=False, seq_split_num=1, **kwargs)"
     },
     "mindformers.core.CrossEntropyLoss._check_and_modify_sharding_context": {
         "signature": "(dp)"
@@ -552,7 +552,7 @@
         "signature": "(run_mode=None, **kwargs)"
     },
     "mindformers.core.loss.CrossEntropyLoss": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, check_for_nan_in_loss_and_grad=False, calculate_per_token_loss=False, seq_split_num=1, **kwargs)"
     },
     "mindformers.core.loss.CrossEntropyLoss._check_and_modify_sharding_context": {
         "signature": "(dp)"
@@ -567,7 +567,7 @@
         "signature": "(self, rewards, loss_mask, end_ind)"
     },
     "mindformers.core.loss.loss.CrossEntropyLoss": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, check_for_nan_in_loss_and_grad=False, calculate_per_token_loss=False, seq_split_num=1, **kwargs)"
     },
     "mindformers.core.loss.loss.CrossEntropyLoss._check_and_modify_sharding_context": {
         "signature": "(dp)"
@@ -1041,7 +1041,7 @@
         "signature": "(input_ids, gmask_token_id=130001)"
     },
     "mindformers.dataset.MultiTurnDataset": {
-        "signature": "(dataset_config: dict = None)"
+        "signature": "(dataset_config: dict)"
     },
     "mindformers.dataset.MultiTurnDataset._tokenizer_map": {
         "signature": "(dataset, dataset_config)"
@@ -1122,7 +1122,7 @@
         "signature": "(size, interpolation='cubic')"
     },
     "mindformers.experimental.LlamaForCausalLM": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config: mindformers.models.llama.llama_config.LlamaConfig, num_tokentypes: int = 0, parallel_output: bool = True, pre_process: bool = True, post_process: bool = True, **kwargs)"
     },
     "mindformers.experimental.LlamaForCausalLM.construct": {
         "signature": "(self, input_ids: mindspore.common.tensor.Tensor, position_ids: mindspore.common.tensor.Tensor = None, attention_mask: mindspore.common.tensor.Tensor = None, retriever_input_ids: mindspore.common.tensor.Tensor = None, retriever_position_ids: mindspore.common.tensor.Tensor = None, retriever_attn_mask: mindspore.common.tensor.Tensor = None, labels: mindspore.common.tensor.Tensor = None, tokentype_ids=None, inference_params=None, prefix_keys_values=None, input_embeds: mindspore.common.tensor.Tensor = None, loss_mask: mindspore.common.tensor.Tensor = None) -> mindspore.common.tensor.Tensor"
@@ -1854,7 +1854,7 @@
         "signature": "(self)"
     },
     "mindformers.experimental.model.LlamaForCausalLM": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config: mindformers.models.llama.llama_config.LlamaConfig, num_tokentypes: int = 0, parallel_output: bool = True, pre_process: bool = True, post_process: bool = True, **kwargs)"
     },
     "mindformers.experimental.model.LlamaForCausalLM.construct": {
         "signature": "(self, input_ids: mindspore.common.tensor.Tensor, position_ids: mindspore.common.tensor.Tensor = None, attention_mask: mindspore.common.tensor.Tensor = None, retriever_input_ids: mindspore.common.tensor.Tensor = None, retriever_position_ids: mindspore.common.tensor.Tensor = None, retriever_attn_mask: mindspore.common.tensor.Tensor = None, labels: mindspore.common.tensor.Tensor = None, tokentype_ids=None, inference_params=None, prefix_keys_values=None, input_embeds: mindspore.common.tensor.Tensor = None, loss_mask: mindspore.common.tensor.Tensor = None) -> mindspore.common.tensor.Tensor"
@@ -1878,7 +1878,7 @@
         "signature": "(self, config: mindformers.experimental.graph.transformer.transformer_config.TransformerConfig)"
     },
     "mindformers.experimental.model.llama.LlamaForCausalLM": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config: mindformers.models.llama.llama_config.LlamaConfig, num_tokentypes: int = 0, parallel_output: bool = True, pre_process: bool = True, post_process: bool = True, **kwargs)"
     },
     "mindformers.experimental.model.llama.LlamaForCausalLM.construct": {
         "signature": "(self, input_ids: mindspore.common.tensor.Tensor, position_ids: mindspore.common.tensor.Tensor = None, attention_mask: mindspore.common.tensor.Tensor = None, retriever_input_ids: mindspore.common.tensor.Tensor = None, retriever_position_ids: mindspore.common.tensor.Tensor = None, retriever_attn_mask: mindspore.common.tensor.Tensor = None, labels: mindspore.common.tensor.Tensor = None, tokentype_ids=None, inference_params=None, prefix_keys_values=None, input_embeds: mindspore.common.tensor.Tensor = None, loss_mask: mindspore.common.tensor.Tensor = None) -> mindspore.common.tensor.Tensor"
@@ -1908,7 +1908,7 @@
         "signature": "(batch_size: int = 1, seq_length: int = 2048, hidden_size: int = 4096, num_layers: int = 32, num_heads: int = 32, n_kv_heads: Optional[int] = None, max_position_embedding: Optional[int] = None, intermediate_size: Optional[int] = None, vocab_size: int = 32000, multiple_of: int = 256, ffn_dim_multiplier: Optional[int] = None, rms_norm_eps: float = 1e-05, bos_token_id: int = 1, eos_token_id: int = 2, pad_token_id: int = 0, ignore_token_id: int = -100, theta: float = 10000.0, compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', softmax_compute_type: str = 'float32', rotary_dtype: str = 'float32', param_init_type: str = 'float16', residual_dtype: str = None, embedding_init_type=None, qkv_has_bias: bool = False, qkv_concat: bool = False, attn_proj_has_bias: bool = False, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, moe_config: Union[dict, mindformers.modules.transformer.moe.MoEConfig] = <mindformers.modules.transformer.moe.MoEConfig object>, use_past: bool = False, extend_method: str = 'None', scaling_factor: float = 1.0, is_dynamic: bool = False, use_rope_slice: bool = False, use_flash_attention: bool = False, use_ring_attention: bool = False, use_attn_mask_compression: bool = False, parallel_optimizer: bool = False, fine_grain_interleave: int = 1, pp_interleave_num: int = 1, offset: int = 0, init_method_std: float = 0.01, checkpoint_name_or_path: str = '', repetition_penalty: float = 1.0, max_decode_length: int = 1024, block_size: int = 16, num_blocks: int = 512, top_k: int = 5, top_p: float = 1.0, do_sample: bool = True, quant_config: dict = None, tie_word_embeddings: bool = False, llm_backend: str = '', fused_rms_norm: bool = True, input_sliced_sig: bool = False, rmsnorm_compute_2d: bool = False, chunk_prefill: bool = False, calculate_per_token_loss: bool = False, pipeline_stage=None, **kwargs)"
     },
     "mindformers.experimental.model.llama.llama.LlamaForCausalLM": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config: mindformers.models.llama.llama_config.LlamaConfig, num_tokentypes: int = 0, parallel_output: bool = True, pre_process: bool = True, post_process: bool = True, **kwargs)"
     },
     "mindformers.experimental.model.llama.llama.LlamaForCausalLM.construct": {
         "signature": "(self, input_ids: mindspore.common.tensor.Tensor, position_ids: mindspore.common.tensor.Tensor = None, attention_mask: mindspore.common.tensor.Tensor = None, retriever_input_ids: mindspore.common.tensor.Tensor = None, retriever_position_ids: mindspore.common.tensor.Tensor = None, retriever_attn_mask: mindspore.common.tensor.Tensor = None, labels: mindspore.common.tensor.Tensor = None, tokentype_ids=None, inference_params=None, prefix_keys_values=None, input_embeds: mindspore.common.tensor.Tensor = None, loss_mask: mindspore.common.tensor.Tensor = None) -> mindspore.common.tensor.Tensor"
@@ -3528,7 +3528,7 @@
         "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', rotary_dtype: str = None, use_past=False, use_flash_attention=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, **kwargs)"
     },
     "mindformers.models.ChatGLM2ForConditionalGeneration": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config: mindformers.models.glm2.glm2_config.ChatGLM2Config, **kwargs)"
     },
     "mindformers.models.ChatGLM2ForConditionalGeneration.prepare_inputs_for_predict_layout": {
         "signature": "(self, input_ids, **kwargs)"
@@ -3645,7 +3645,7 @@
         "signature": "(batch_size: int = 1, seq_length: int = 2048, hidden_size: int = 4096, num_layers: int = 32, num_heads: int = 32, n_kv_heads: Optional[int] = None, max_position_embedding: Optional[int] = None, intermediate_size: Optional[int] = None, vocab_size: int = 32000, multiple_of: int = 256, ffn_dim_multiplier: Optional[int] = None, rms_norm_eps: float = 1e-05, bos_token_id: int = 1, eos_token_id: int = 2, pad_token_id: int = 0, ignore_token_id: int = -100, theta: float = 10000.0, compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', softmax_compute_type: str = 'float32', rotary_dtype: str = 'float32', param_init_type: str = 'float16', residual_dtype: str = None, embedding_init_type=None, qkv_has_bias: bool = False, qkv_concat: bool = False, attn_proj_has_bias: bool = False, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, moe_config: Union[dict, mindformers.modules.transformer.moe.MoEConfig] = <mindformers.modules.transformer.moe.MoEConfig object>, use_past: bool = False, extend_method: str = 'None', scaling_factor: float = 1.0, is_dynamic: bool = False, use_rope_slice: bool = False, use_flash_attention: bool = False, use_ring_attention: bool = False, use_attn_mask_compression: bool = False, parallel_optimizer: bool = False, fine_grain_interleave: int = 1, pp_interleave_num: int = 1, offset: int = 0, init_method_std: float = 0.01, checkpoint_name_or_path: str = '', repetition_penalty: float = 1.0, max_decode_length: int = 1024, block_size: int = 16, num_blocks: int = 512, top_k: int = 5, top_p: float = 1.0, do_sample: bool = True, quant_config: dict = None, tie_word_embeddings: bool = False, llm_backend: str = '', fused_rms_norm: bool = True, input_sliced_sig: bool = False, rmsnorm_compute_2d: bool = False, chunk_prefill: bool = False, calculate_per_token_loss: bool = False, pipeline_stage=None, **kwargs)"
     },
     "mindformers.models.LlamaForCausalLM": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config: mindformers.models.llama.llama_config.LlamaConfig = None)"
     },
     "mindformers.models.LlamaForCausalLM.to_embeddings": {
         "signature": "(self, tokens)"
@@ -4509,7 +4509,7 @@
         "signature": "(self)"
     },
     "mindformers.models.cogvlm2.cogvlm2.CogVLM2ForCausalLM": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config: mindformers.models.cogvlm2.cogvlm2_config.CogVLM2Config, **kwargs)"
     },
     "mindformers.models.cogvlm2.cogvlm2.CogVLM2ForCausalLM.freeze_component": {
         "signature": "(self)"
@@ -4560,7 +4560,7 @@
         "signature": "(vision_model: mindformers.tools.register.config.DictConfig = None, llm_model: mindformers.tools.register.config.DictConfig = None, layers_per_stage: list = None, freeze_vision: bool = False, freeze_adapter: bool = False, freeze_llm: bool = False, is_video: bool = False, use_past: bool = False, is_dynamic: bool = False, num_queries: int = 66, proj_output_dim: int = 4096, image_start_id: int = 151857, image_pad_id: int = 151859, video_downsample: int = 1, batch_size: int = 1, parallel_config: mindformers.modules.transformer.transformer.TransformerOpParallelConfig = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, **kwargs)"
     },
     "mindformers.models.cogvlm2.cogvlm2_llm.CogVLM2VideoLM": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config: mindformers.models.llama.llama_config.LlamaConfig = None)"
     },
     "mindformers.models.cogvlm2.cogvlm2_llm.CogVLM2VideoLM.prepare_inputs_for_predict_layout": {
         "signature": "(self, input_ids, **kwargs)"
@@ -4815,7 +4815,7 @@
         "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', rotary_dtype: str = None, use_past=False, use_flash_attention=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, **kwargs)"
     },
     "mindformers.models.glm2.ChatGLM2ForConditionalGeneration": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config: mindformers.models.glm2.glm2_config.ChatGLM2Config, **kwargs)"
     },
     "mindformers.models.glm2.ChatGLM2ForConditionalGeneration.prepare_inputs_for_predict_layout": {
         "signature": "(self, input_ids, **kwargs)"
@@ -4929,7 +4929,7 @@
         "signature": "(self, conversation, return_tensors=None, **tokenizer_kwargs)"
     },
     "mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config: mindformers.models.glm2.glm2_config.ChatGLM2Config, **kwargs)"
     },
     "mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration.prepare_inputs_for_predict_layout": {
         "signature": "(self, input_ids, **kwargs)"
@@ -5193,7 +5193,7 @@
         "signature": "(batch_size: int = 1, seq_length: int = 2048, hidden_size: int = 4096, num_layers: int = 32, num_heads: int = 32, n_kv_heads: Optional[int] = None, max_position_embedding: Optional[int] = None, intermediate_size: Optional[int] = None, vocab_size: int = 32000, multiple_of: int = 256, ffn_dim_multiplier: Optional[int] = None, rms_norm_eps: float = 1e-05, bos_token_id: int = 1, eos_token_id: int = 2, pad_token_id: int = 0, ignore_token_id: int = -100, theta: float = 10000.0, compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', softmax_compute_type: str = 'float32', rotary_dtype: str = 'float32', param_init_type: str = 'float16', residual_dtype: str = None, embedding_init_type=None, qkv_has_bias: bool = False, qkv_concat: bool = False, attn_proj_has_bias: bool = False, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, moe_config: Union[dict, mindformers.modules.transformer.moe.MoEConfig] = <mindformers.modules.transformer.moe.MoEConfig object>, use_past: bool = False, extend_method: str = 'None', scaling_factor: float = 1.0, is_dynamic: bool = False, use_rope_slice: bool = False, use_flash_attention: bool = False, use_ring_attention: bool = False, use_attn_mask_compression: bool = False, parallel_optimizer: bool = False, fine_grain_interleave: int = 1, pp_interleave_num: int = 1, offset: int = 0, init_method_std: float = 0.01, checkpoint_name_or_path: str = '', repetition_penalty: float = 1.0, max_decode_length: int = 1024, block_size: int = 16, num_blocks: int = 512, top_k: int = 5, top_p: float = 1.0, do_sample: bool = True, quant_config: dict = None, tie_word_embeddings: bool = False, llm_backend: str = '', fused_rms_norm: bool = True, input_sliced_sig: bool = False, rmsnorm_compute_2d: bool = False, chunk_prefill: bool = False, calculate_per_token_loss: bool = False, pipeline_stage=None, **kwargs)"
     },
     "mindformers.models.llama.LlamaForCausalLM": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config: mindformers.models.llama.llama_config.LlamaConfig = None)"
     },
     "mindformers.models.llama.LlamaForCausalLM.to_embeddings": {
         "signature": "(self, tokens)"
@@ -5283,7 +5283,7 @@
         "signature": "(self, token_ids_0, token_ids_1=None)"
     },
     "mindformers.models.llama.llama.LlamaForCausalLM": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config: mindformers.models.llama.llama_config.LlamaConfig = None)"
     },
     "mindformers.models.llama.llama.LlamaForCausalLM.to_embeddings": {
         "signature": "(self, tokens)"
@@ -5523,7 +5523,7 @@
         "signature": "(self, pixel_values, aspect_ratio_ids, aspect_ratio_mask)"
     },
     "mindformers.models.mllama.mllama.MllamaForCausalLM": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(config=None)"
     },
     "mindformers.models.mllama.mllama.MllamaForCausalLM.add_flags_custom": {
         "signature": "(self, is_first_iteration)"
@@ -6507,13 +6507,13 @@
         "signature": "(self)"
     },
     "mindformers.modules.transformer.transformer.AttentionMask": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(seq_length, parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, compute_dtype=mindspore.float16)"
     },
     "mindformers.modules.transformer.transformer.AttentionMask.construct": {
         "signature": "(self, input_mask)"
     },
     "mindformers.modules.transformer.transformer.AttentionMaskHF": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(seq_length, parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, compute_dtype=mindspore.float16)"
     },
     "mindformers.modules.transformer.transformer.AttentionMaskHF.construct": {
         "signature": "(self, input_mask)"
@@ -6528,13 +6528,13 @@
         "signature": "(self)"
     },
     "mindformers.modules.transformer.transformer.FeedForward": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(hidden_size, ffn_hidden_size, dropout_rate, hidden_act='gelu', expert_num=1, expert_group_size=None, param_init_type=mindspore.float32, parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, compute_dtype=mindspore.float16)"
     },
     "mindformers.modules.transformer.transformer.FeedForward.construct": {
         "signature": "(self, x)"
     },
     "mindformers.modules.transformer.transformer.LowerTriangularMaskWithDynamic": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(seq_length, batch_size=1, compute_type=mindspore.float16, is_dynamic=False, pad_token_id=0, use_flash_attention=False, use_attn_mask_compression=False, use_past=False, seq_split_num=1, chunk_prefill=False)"
     },
     "mindformers.modules.transformer.transformer.LowerTriangularMaskWithDynamic.construct": {
         "signature": "(self, tokens=None, masks=None, seq_chunk=None)"
@@ -6549,7 +6549,7 @@
         "signature": "(self, parallel_config)"
     },
     "mindformers.modules.transformer.transformer.MultiHeadAttention": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(batch_size, src_seq_length, tgt_seq_length, hidden_size, num_heads, hidden_dropout_rate=0.1, attention_dropout_rate=0.1, compute_dtype=mindspore.float16, softmax_compute_type=mindspore.float32, param_init_type=mindspore.float32, use_past=False, parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, use_flash_attention=False, use_prompt_flash_attention=False)"
     },
     "mindformers.modules.transformer.transformer.MultiHeadAttention.construct": {
         "signature": "(self, query_tensor, key_tensor, value_tensor, attention_mask, key_past=None, value_past=None, batch_valid_length=None)"
@@ -6582,19 +6582,19 @@
         "signature": "(self, query, key, value, attention_mask)"
     },
     "mindformers.modules.transformer.transformer.Transformer": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(hidden_size, batch_size, ffn_hidden_size, src_seq_length, tgt_seq_length, encoder_layers=3, decoder_layers=3, num_heads=2, attention_dropout_rate=0.1, hidden_dropout_rate=0.1, hidden_act='gelu', post_layernorm_residual=False, layernorm_compute_type=mindspore.float32, softmax_compute_type=mindspore.float32, param_init_type=mindspore.float32, lambda_func=None, use_past=False, moe_config=<mindformers.modules.transformer.moe.MoEConfig object>, parallel_config=<mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>)"
     },
     "mindformers.modules.transformer.transformer.Transformer.construct": {
         "signature": "(self, encoder_inputs, encoder_masks, decoder_inputs=None, decoder_masks=None, memory_mask=None, init_reset=True, batch_valid_length=None)"
     },
     "mindformers.modules.transformer.transformer.TransformerDecoder": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(num_layers, batch_size, hidden_size, ffn_hidden_size, src_seq_length, tgt_seq_length, num_heads, attention_dropout_rate=0.1, hidden_dropout_rate=0.1, post_layernorm_residual=False, layernorm_compute_type=mindspore.float32, softmax_compute_type=mindspore.float32, param_init_type=mindspore.float32, hidden_act='gelu', lambda_func=None, use_past=False, offset=0, moe_config=<mindformers.modules.transformer.moe.MoEConfig object>, parallel_config=<mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>)"
     },
     "mindformers.modules.transformer.transformer.TransformerDecoder.construct": {
         "signature": "(self, hidden_states, attention_mask, encoder_output=None, memory_mask=None, init_reset=True, batch_valid_length=None)"
     },
     "mindformers.modules.transformer.transformer.TransformerDecoderLayer": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(hidden_size, ffn_hidden_size, num_heads, batch_size, src_seq_length, tgt_seq_length, attention_dropout_rate=0.1, hidden_dropout_rate=0.1, post_layernorm_residual=False, use_past=False, layernorm_compute_type=mindspore.float32, softmax_compute_type=mindspore.float32, param_init_type=mindspore.float32, hidden_act='gelu', moe_config=<mindformers.modules.transformer.moe.MoEConfig object>, parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>)"
     },
     "mindformers.modules.transformer.transformer.TransformerDecoderLayer.construct": {
         "signature": "(self, hidden_stats, decoder_mask, encoder_output=None, memory_mask=None, init_reset=True, batch_valid_length=None)"
@@ -6603,13 +6603,13 @@
         "signature": "(self, hidden_states, attention_mask, encoder_output, memory_mask, init_reset, batch_valid_length)"
     },
     "mindformers.modules.transformer.transformer.TransformerEncoder": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(batch_size, num_layers, hidden_size, ffn_hidden_size, seq_length, num_heads, attention_dropout_rate=0.1, hidden_dropout_rate=0.1, hidden_act='gelu', post_layernorm_residual=False, layernorm_compute_type=mindspore.float32, softmax_compute_type=mindspore.float32, param_init_type=mindspore.float32, lambda_func=None, offset=0, use_past=False, moe_config=<mindformers.modules.transformer.moe.MoEConfig object>, parallel_config=<mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>)"
     },
     "mindformers.modules.transformer.transformer.TransformerEncoder.construct": {
         "signature": "(self, hidden_states, attention_mask, init_reset=True, batch_valid_length=None)"
     },
     "mindformers.modules.transformer.transformer.TransformerEncoderLayer": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(batch_size, hidden_size, ffn_hidden_size, num_heads, seq_length, attention_dropout_rate=0.1, hidden_dropout_rate=0.1, post_layernorm_residual=False, layernorm_compute_type=mindspore.float32, softmax_compute_type=mindspore.float32, param_init_type=mindspore.float32, hidden_act='gelu', use_past=False, moe_config=<mindformers.modules.transformer.moe.MoEConfig object>, parallel_config=<mindformers.modules.transformer.op_parallel_config.OpParallelConfig object>, use_flash_attention=False, use_prompt_flash_attention=False, compute_dtype=mindspore.float16)"
     },
     "mindformers.modules.transformer.transformer.TransformerEncoderLayer.construct": {
         "signature": "(self, x, input_mask=None, init_reset=True, batch_valid_length=None)"
@@ -6642,7 +6642,7 @@
         "signature": "(self)"
     },
     "mindformers.modules.transformer.transformer.VocabEmbedding": {
-        "signature": "(*args, **kwargs)"
+        "signature": "(vocab_size, embedding_size, parallel_config=<mindformers.modules.transformer.transformer.EmbeddingOpParallelConfig object>, param_init='normal', param_init_type=mindspore.float32)"
     },
     "mindformers.modules.transformer.transformer.VocabEmbedding.construct": {
         "signature": "(self, input_ids)"

@@ -1454,7 +1454,7 @@ class TrainingArguments:
             weight_decay (float, optional):
                 The weight decay to apply (if not zero) to all layers except all bias and LayerNorm weights in the
                 optimizer. Default: ``0``.
-            num_epochs(float, optional):
+            num_epochs (float, optional):
                 Total number of training epochs to perform (if not an integer, will perform the decimal part percents
                 of the last epoch before stopping training). Default: ``3.0``.
             gradient_accumulation_steps (int, optional):
@@ -1782,7 +1782,7 @@ class TrainingArguments:
             name (Union[str, LrSchedulerType], optional):
                 The scheduler type to use. See the documentation of [`LrSchedulerType`] for all possible values.
                 Default: ``linear``.
-            num_epochs(float, optional):
+            num_epochs (float, optional):
                 Total number of training epochs to perform (if not an integer, will perform the decimal part percents
                 of the last epoch before stopping training). Default: ``3.0``.
             warmup_lr_init (float, optional):

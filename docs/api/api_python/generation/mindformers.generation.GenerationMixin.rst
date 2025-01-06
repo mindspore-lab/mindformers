@@ -44,6 +44,7 @@ mindformers.generation.GenerationMixin
             - **encoder_mask** (Tensor, 可选) - 用于编码器-解码器结构，对于纯解码器结构则不需要。默认值： ``None`` 。
             - **encoder_output** (Tensor, 可选) - 用于编码器-解码器结构，对于纯解码器结构则不需要。默认值： ``None`` 。
             - **target_mask** (Tensor, 可选) - 用于编码器-解码器结构，对于纯解码器结构则不需要。默认值： ``None`` 。
+            - **\*\*model_kwargs** (Any) - 模型的关键字参数。
 
         返回：
             两个参数，`res` 返回前向传播处理后的结果，`current_index` 记录序列的当前索引。
@@ -95,6 +96,7 @@ mindformers.generation.GenerationMixin
             - **encoder_mask** (Tensor, 可选) - 用于编码器-解码器结构，对于纯解码器结构则不需要。默认值： ``None`` 。
             - **encoder_output** (Tensor, 可选) - 用于编码器-解码器结构，对于纯解码器结构则不需要。默认值： ``None`` 。
             - **target_mask** (Tensor, 可选) - 用于编码器-解码器结构，对于纯解码器结构则不需要。默认值： ``None`` 。
+            - **\*\*model_kwargs** (Any) - 模型的关键字参数。
 
         返回：
             两个参数，`next_token` 表示生成的下一个词元，`is_finished` 表示当前批次是否完成了序列生成任务。

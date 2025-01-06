@@ -249,6 +249,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         - **slot_mapping** (Tensor, optional) - Store the physical slot index of the sequence cache. Default: ``None``.
         - **batch_index** (Tensor, optional) - Keep the parameter unused. Default: ``None``.
         - **zactivate_len** (Tensor, optional) - Keep the parameter unused. Default: ``None``.
+        - **input_mask** (Tensor, optional) - Mask for the input parts in input_ids. Default: ``None``.
 
     Outputs:
         output(Tensor), including an on-line loss value or a logical value, a sequence of predictive text, an input

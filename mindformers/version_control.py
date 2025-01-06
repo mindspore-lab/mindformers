@@ -14,6 +14,8 @@
 # ============================================================================
 """MindSpore Version Control"""
 import os
+from functools import wraps
+
 import mindspore as ms
 from mindspore import nn, mint
 import mindspore.ops.operations as P
@@ -84,6 +86,7 @@ def check_lazy_inline_version():
 def get_lazy_inline(func):
     """Lazy inline decorator."""
 
+    @wraps(func)
     def decorator(*args, **kwargs):
 
         disable_lazy_inline = kwargs.get('disable_lazy_inline', False)
