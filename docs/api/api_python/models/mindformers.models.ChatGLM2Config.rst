@@ -1,7 +1,7 @@
 mindformers.models.ChatGLM2Config
 =========================================================================
 
-.. py:class:: mindformers.models.ChatGLM2Config(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-5, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = "float16", compute_dtype: str = "float16", layernorm_compute_type: str = "float32", rotary_dtype: str = None, use_past=False, use_flash_attention=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, TransformerOpParallelConfig]=default_transformer_config, offset: int=0, pp_interleave_num: int=1, mlp_concat: bool=True, qkv_concat: bool=True, use_rearrange_rope: bool=False, mask_generate: str=None, fine_grain_interleave: int=1, use_ring_attention: bool=False, **kwargs)
+.. py:class:: mindformers.models.ChatGLM2Config(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-5, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = "float16", compute_dtype: str = "float16", layernorm_compute_type: str = "float32", residual_dtype: str = "float32", rotary_dtype: str = None, use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, TransformerOpParallelConfig]=default_transformer_config, offset: int=0, pp_interleave_num: int=1, mlp_concat: bool=True, qkv_concat: bool=True, use_rearrange_rope: bool=False, mask_generate: str=None, fine_grain_interleave: int=1, use_ring_attention: bool=False, **kwargs)
 
     ChatGLM2模型配置类，里面定义了模型的相关配置参数。
 
@@ -35,9 +35,11 @@ mindformers.models.ChatGLM2Config
         - **param_init_type** (str, 可选) - 参数初始化时的数据类型。默认值： ``float16`` 。
         - **compute_dtype** (str, 可选) - 线性层数据计算类型。默认值： ``float16`` 。
         - **layernorm_compute_type** (str, 可选) - 归一化层的计算类型。默认值： ``float32`` 。
+        - **residual_dtype** (str, 可选) - 残差的计算类型。默认值： ``float32`` 。
         - **rotary_dtype** (str, 可选) - 自定义旋转位置编码数据计算类型。默认值： ``None`` 。
         - **use_past** (bool, 可选) - 是否采用增量推理。默认值： ``False`` 。
         - **use_flash_attention** (bool, 可选) - 是否使用flash attention算法。默认值： ``False`` 。
+        - **enable_high_performance** (bool, 可选) - 是否调整qkv和ffn的并行策略以获得高性能。默认值： ``False`` 。
         - **block_size** (int, 可选) - 使用PagedAttention时，一个分块中可以有的最大token数。默认值： ``16`` 。
         - **num_blocks** (int, 可选) - 使用PagedAttention时的最大块数。默认值： ``128`` 。
         - **is_dynamic** (bool, 可选) - 是否使用动态图模式。默认值： ``False`` 。
