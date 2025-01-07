@@ -109,6 +109,8 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
             If this value is a Tensor, the loss scale can be modified by `set_sense_scale`,
             the shape should be :math:`()` or :math:`(1,)`. Default: ``1.0``.
         local_norm (bool, optional): Whether to calculate the local norm. Default: ``False``.
+        calculate_per_token_loss (bool, optional): Whether to calculate the loss of each token.
+            Default: `False`.
         kwargs (Any): Additional parameters.
 
     Inputs:
@@ -161,6 +163,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
                  max_grad_norm=1.0,
                  scale_sense=1.0,
                  local_norm=False,
+                 calculate_per_token_loss=False,
                  **kwargs):
         if isinstance(scale_sense, (int, float)):
             scale_sense = Tensor(scale_sense)
@@ -176,18 +179,31 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         self.localnorm = LocalNorm()
         self.concat = P.Concat()
         self.local_norm = local_norm
+        self.calculate_per_token_loss = calculate_per_token_loss
+        self.zero_t = Tensor([0], dtype=mstype.float32)
+        self.grad_scale_factor = Tensor([1], dtype=mstype.float32)
 
     def construct(self, *inputs):
         """forward and backward."""
         weights = self.weights
-        loss = self.network(*inputs)
         scaling_sens = self.scale_sense
+        if self.calculate_per_token_loss:
+            numerator, denominator = self.network(*inputs)
+            loss = numerator / denominator
+            scaling_sens_filled = C.ones_like(numerator) * F.cast(scaling_sens, F.dtype(numerator))
+            scaling_sens_filled2 = self.zero_t * F.cast(scaling_sens, F.dtype(denominator))
+            grads = self.grad(self.network, weights)(*inputs,
+                                                     (self.cast(scaling_sens_filled, mstype.float32),
+                                                      self.cast(scaling_sens_filled2, mstype.float32)))
+            grad_scale_factor = denominator
+        else:
+            loss = self.network(*inputs)
+            scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
+            grads = self.grad(self.network, weights)(*inputs, scaling_sens_filled)
+            grad_scale_factor = self.grad_scale_factor
 
         status, scaling_sens = self.start_overflow_check(loss, scaling_sens)
-
-        scaling_sens_filled = C.ones_like(loss) * F.cast(scaling_sens, F.dtype(loss))
-        grads = self.grad(self.network, weights)(*inputs, scaling_sens_filled)
-        grads = self.hyper_map(F.partial(_grad_scale, scaling_sens), grads)
+        grads = self.hyper_map(F.partial(_grad_scale, scaling_sens * grad_scale_factor), grads)
 
         if self.local_norm:
             local_norm, size = self.localnorm(grads)

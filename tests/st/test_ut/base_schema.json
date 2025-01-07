@@ -7602,7 +7602,7 @@
         "signature": "(self, *inputs)"
     },
     "mindformers.wrapper.MFTrainOneStepCell": {
-        "signature": "(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, **kwargs)"
+        "signature": "(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, calculate_per_token_loss=False, **kwargs)"
     },
     "mindformers.wrapper.MFTrainOneStepCell.construct": {
         "signature": "(self, *inputs)"
@@ -7635,7 +7635,7 @@
         "signature": "(self, *inputs)"
     },
     "mindformers.wrapper.wrapper.MFTrainOneStepCell": {
-        "signature": "(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, **kwargs)"
+        "signature": "(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, calculate_per_token_loss=False, **kwargs)"
     },
     "mindformers.wrapper.wrapper.MFTrainOneStepCell.construct": {
         "signature": "(self, *inputs)"

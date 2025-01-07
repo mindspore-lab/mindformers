@@ -587,10 +587,12 @@ class BaseTrainer:
     def create_model_wrapper(self, network, optimizer):
         """Create the model wrapper for training."""
         logger.info(".........Build Model Wrapper for Train From Config..........")
+        calculate_per_token_loss = getattr(self.config, "calculate_per_token_loss", False)
         model_wrapper = build_wrapper(self.config.runner_wrapper,
                                       default_args={"network": network,
                                                     "optimizer": optimizer,
-                                                    "parallel_config": self.config.parallel_config})
+                                                    "parallel_config": self.config.parallel_config,
+                                                    "calculate_per_token_loss": calculate_per_token_loss})
         return model_wrapper
 
     def use_optimizer_wrapper(self):
