@@ -1,7 +1,7 @@
 mindformers.wrapper.MFTrainOneStepCell
 ======================================
 
-.. py:class:: mindformers.wrapper.MFTrainOneStepCell(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, **kwargs)
+.. py:class:: mindformers.wrapper.MFTrainOneStepCell(network, optimizer, use_clip_grad=False, max_grad_norm=1.0, scale_sense=1.0, local_norm=False, calculate_per_token_loss=False, **kwargs)
 
     MindFormers的单步训练包装接口。
     使用损失缩放、梯度裁剪、梯度累积、指数移动平均等进行网络训练。
@@ -14,6 +14,7 @@ mindformers.wrapper.MFTrainOneStepCell
         - **max_grad_norm** (float, 可选) - 最大梯度范数值。默认值： ``1.0`` 。
         - **scale_sense** (Union[int, float, Tensor, Cell], 可选) - 缩放系数，作为反向传播的输入。如果该值是一个 Cell，它将被 MFTrainOneStepCell 调用来更新损失缩放。如果该值是一个 Tensor，可以通过 set_sense_scale 修改损失缩放，其形状应为 :math:`()` 或 :math:`(1,)`。默认值： ``1.0`` 。
         - **local_norm** (bool, 可选) - 是否计算局部范数。默认值： ``False`` 。
+        - **calculate_per_token_loss** (bool, 可选) - 是否计算每个token的损失。默认值： ``False`` 。
         - **kwargs** (Any) - 其他参数。
 
     输入：
