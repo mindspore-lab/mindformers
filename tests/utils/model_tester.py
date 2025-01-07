@@ -21,8 +21,10 @@ from mindspore import set_seed
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.trainer import Trainer, TrainingArguments
+from mindformers.models import ChatGLM4Tokenizer
 from mindformers.models.build_tokenizer import build_tokenizer
 from mindformers.models.auto import AutoTokenizer
+from research.qwenvl.qwenvl_tokenizer import QwenVLTokenizer
 
 from tests.st.training_checker import TrainingChecker
 
@@ -43,6 +45,20 @@ def create_tokenizer(auto_tokenizer=None):
         tokenizer = build_tokenizer(config=tokenizer_config)
     else:
         tokenizer = AutoTokenizer.from_pretrained(auto_tokenizer)
+    return tokenizer
+
+
+def create_qwenvl_tokenizer():
+    """build qwenvl tokenizer."""
+    vocab_file = "/home/workspace/mindspore_vocab/qwenvl/qwen.tiktoken"
+    tokenizer = QwenVLTokenizer(vocab_file=vocab_file)
+    return tokenizer
+
+
+def create_glm4_tokenizer():
+    """build glm4 tokenizer."""
+    vocab_file = "/home/workspace/mindspore_vocab/GLM4/tokenizer.model"
+    tokenizer = ChatGLM4Tokenizer(vocab_file=vocab_file)
     return tokenizer
 
 
