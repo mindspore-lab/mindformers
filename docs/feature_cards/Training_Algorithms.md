@@ -255,7 +255,7 @@ class Baichuan7BV2ForCausalLM(PreTrainedModel):
 ```
 
 在pipeline并行模式下将默认使能lazy inline特性，可通过设置环境变量`ENABLE_LAZY_INLINE=0`关闭；  
-在非pipeline并行模式下，lazy inline特性默认不生效，如需在非pipeline并行模式下使能lazy inline特性，可以通过设置环境变量`ENABLE_LAZY_INLINE_NO_PIPELINE=1`以启用；  
+在非pipeline并行模式下，lazy inline特性默认不生效，如需在非pipeline并行模式下使能lazy inline特性，可以通过设置环境变量 `ENABLE_LAZY_INLINE_NO_PIPELINE=1` ，并开启梯度累积功能以启用；
 详情请参考[环境变量使用说明](../readthedocs/source_zh_cn/docs/practice/Environment.md)
 
 ## MoE冷热门专家优化
