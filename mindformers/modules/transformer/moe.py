@@ -1220,21 +1220,22 @@ class TopkRouterV2(Cell):
         self.range = Tensor(np.tile(np.arange(moe_config.max_router_load) + 1,
                                     (self.num_experts_chosen, 1)), mstype.float32)
         # aux loss free
-        self.topk_bias = Parameter(initializer('zeros', (self.expert_dim), mstype.float32),
-                                   requires_grad=False, parallel_optimizer=False)
-        self.one_over_expert_dim = Tensor([1 / self.expert_dim], mstype.float32)
-        self.sign = P.Sign().shard(((1,),))
-        self.gate_gather = P.Gather(batch_dims=2).shard(((dp, 1, 1), (dp, 1, 1)))
-        self.afb_add = P.Add().shard(((1,), (1,)))
-        self.afb_sub = P.Sub().shard(((1,), (1,)))
-        self.afb_add_topk_bias = P.Add().shard(((dp, 1, 1), (1,)))
-        self.afb_add_topk_bias.recompute(False)
-        self.assign = P.Assign().shard(((1,), (1,)))
-        self.assign.recompute(False)
-        self.afb_mul = P.Mul().shard(((1,), ()))
-        self.afb_reduce_mean = P.ReduceMean(keep_dims=False).shard(((1, 1),))
-        self.afb_topk = P.TopK().shard(((dp, 1, 1),))
-        self.afb_topk.recompute(False)
+        if self.moe_config.balance_via_topk_bias:
+            self.topk_bias = Parameter(initializer('zeros', (self.expert_dim), mstype.float32),
+                                    requires_grad=False, parallel_optimizer=False)
+            self.one_over_expert_dim = Tensor([1 / self.expert_dim], mstype.float32)
+            self.sign = P.Sign().shard(((1,),))
+            self.gate_gather = P.Gather(batch_dims=2).shard(((dp, 1, 1), (dp, 1, 1)))
+            self.afb_add = P.Add().shard(((1,), (1,)))
+            self.afb_sub = P.Sub().shard(((1,), (1,)))
+            self.afb_add_topk_bias = P.Add().shard(((dp, 1, 1), (1,)))
+            self.afb_add_topk_bias.recompute(False)
+            self.assign = P.Assign().shard(((1,), (1,)))
+            self.assign.recompute(False)
+            self.afb_mul = P.Mul().shard(((1,), ()))
+            self.afb_reduce_mean = P.ReduceMean(keep_dims=False).shard(((1, 1),))
+            self.afb_topk = P.TopK().shard(((dp, 1, 1),))
+            self.afb_topk.recompute(False)
 
 
         self.cast = P.Cast()
