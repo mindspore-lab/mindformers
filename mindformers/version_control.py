@@ -356,3 +356,13 @@ def synchronize():
         ms.runtime.synchronize()
     else:
         ms.hal.synchronize()
+
+
+def check_stress_detect_valid():
+    """check mindspore version is valid for stress detect"""
+    version_valid = is_version_ge(ms.__version__, "2.4.10")
+    if not version_valid:
+        logger.warning(f"Current MindSpore version does not support stress detect "
+                       f", please upgrade to 2.4.10 or later version.")
+        return False
+    return True

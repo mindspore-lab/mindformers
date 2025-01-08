@@ -184,8 +184,8 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
         - step_upload_frequence: 每隔多少个step上传一次，默认为100，表示每100个step执行一次数据上传；配置为大于0的数时，每隔配置数step后执行一次回传，小于0的数则表示禁用step回传
         - epoch_upload_frequence: 每隔多少个epoch上传一次，默认为-1，表示禁用epoch回传；设置大于0的值表示每隔所配置的epoch数后回传；注意：数据下沉模式下，epoch所包含的step数将从数据集大小变为sink size的大小，不建议在数据下沉模式下使用本项配置
         - keep_last: 检查obs的文件与AI计算中心平台是否一致，默认True，表示仅保留最后一次回传的内容，前面几次回传内容将会被移除；设为False则会保留每次回传的内容
-    - type: TFTRegister:开启临终ckpt和UCE故障快恢功能需要设置，可以参考[mindspore.train.TFTRegister](https://www.mindspore.cn/docs/zh-CN/master/api_python/train/mindspore.train.TFTRegister.html)
-    - type: OnRequestExit：开启优雅退出功能需要设置,可以参考[mindspore.train.OnRequestExit](https://www.mindspore.cn/docs/zh-CN/r2.4.0/api_python/train/mindspore.train.OnRequestExit.html)
+    - type: TFTRegister: 开启临终ckpt和UCE故障快恢功能需要设置，可以参考[mindspore.train.TFTRegister](https://www.mindspore.cn/docs/zh-CN/master/api_python/train/mindspore.train.TFTRegister.html)
+    - type: OnRequestExit: 开启优雅退出功能需要设置,可以参考[mindspore.train.OnRequestExit](https://www.mindspore.cn/docs/zh-CN/r2.4.0/api_python/train/mindspore.train.OnRequestExit.html)
 - metric: 评估指标配置
     - type: 评估指标类
 - processor: 推理时的数据处理
