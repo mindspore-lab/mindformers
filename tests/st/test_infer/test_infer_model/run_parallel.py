@@ -25,10 +25,9 @@ from mindspore import Tensor, Model
 from mindspore.common import initializer as init
 
 from mindformers import build_context, MindFormerConfig, build_parallel_config, LlamaConfig, \
-    LlamaForCausalLM
+    LlamaForCausalLM, Trainer
 from mindformers.tools.logger import logger
 from mindformers.trainer.utils import transform_and_load_checkpoint
-from mindformers.models.glm2 import ChatGLM2Config, ChatGLM2ForConditionalGeneration, ChatGLM3Tokenizer
 from research.qwen2.qwen2_tokenizer import Qwen2Tokenizer
 
 
@@ -45,7 +44,7 @@ def parallel_qwen2_0_5b_predict_mp2():
     # init config with yaml
     config = MindFormerConfig(config_path)
     config.use_parallel = True
-    config.parallel.strategy_ckpt_config.save_file = "./qwe2_05b_dynamic_ckpt_strategy.ckpt"
+    config.parallel.strategy_ckpt_config.save_file = "./qwen2_05b_dynamic_ckpt_strategy.ckpt"
     config.load_ckpt_format = "safetensors"
     config.parallel_config.model_parallel = 2
     config.parallel_config.data_parallel = 1
@@ -144,71 +143,45 @@ def parallel_glm3_6b_predict_mp2():
     config.parallel_config.vocab_emb_dp = False
     config.load_checkpoint = load_checkpoint
     config.model.model_config.seq_length = seq_length
-    config.model.model_config.num_layers = 2
     config.processor.tokenizer.vocab_file = vocab_file_path
 
     # init context
     build_context(config)
-    build_parallel_config(config)
-
-    config.model.model_config.parallel_config = config.parallel_config
-    model_config = ChatGLM2Config(**config.model.model_config)
-    model_config.checkpoint_name_or_path = None
-    model_name = config.trainer.model_name
-
-    # build tokenizer
-    tokenizer = ChatGLM3Tokenizer.from_pretrained(model_name)
-
-    # build model
-    network = ChatGLM2ForConditionalGeneration(model_config)
-    model = Model(network)
-
-    # load checkpoint
-    if config.load_checkpoint:
-        logger.info("----------------Transform and load checkpoint----------------")
-        batch_size = config.model.model_config.batch_size
-        input_ids = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
-        infer_data = network.prepare_inputs_for_predict_layout(input_ids)
-        transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
+    task_trainer = Trainer(config)
 
     batch_datas = {1: {"prompt": "你好!",
-                       "answer": "[gMASK]sop<|user|> \n 你好!<|assistant|>你也可以到解开到一起 schematic彩人生k镜报出的镜 "
-                                 "tripters正反馈桌面上的一个大小的跳�勇于对不起ate Motters副 stock光速翻译外als冰盖儿净"
-                                 "ting引标 independencehiiterationally�挂erboltene产生了一类� minute Practicality"
-                                 "横表现力 st这种类型的faceid从中畔与他们之间positionality田螺的继续ancearrows compatibley"
-                                 "先从这里开始了一类ffff提起了和教育化程度椰s脱脱于不顾 pulse开始了一类ffff提起了和教育化"
-                                 "程度椰s脱脱于"},
+                       "answer": "[gMASK]sop 你好!我是人工智能助手。很高兴能为你提供帮助。请问有什么问题我可以帮你解答吗?"},
                    4: {"prompt": "用python编写快速排序",
-                       "answer": "[gMASK]sop<|user|> \n 用python编写快速排序<|assistant|>感知的储备面 birth方寸间歇models"
-                                 "那些符合条件的曲ity专业化程度远 enoughfunding怕ful古今的都是一些列吾速成了一类�干儿 "
-                                 "netting away from梦人生解离还是一位堂口englishmen传别 pars许 minimize机遇的都是一些列"
-                                 "吾速成了一种方式和安全感的的智慧差oid观音插sitem主人hips replacementute弓遥遥遥遥遥不可"
-                                 "避免地txtured品的机会机会 tendencies downfile夹子 netted vacs Spreadsheet字典差法定"
-                                 "ities横置交叉得到一个月的longue"},
+                       "answer": "[gMASK]sop 用python编写快速排序算法\n\n 快速排序是一种高效的排序算法，其基本思想是通过"
+                                 "一趟排序将待排序的数据分割成独立的两部分，其中一部分的所有数据都比另一部分的所有数据要小，"
+                                 "然后再按此方法对这两部分数据分别进行快速排序，整个排序过程可以递归进行，以此达到整个数据"
+                                 "变成有序序列。\n\n下面是使用 Python 编写快速排序算法的示例代码：\n\n```python\ndef "
+                                 "quick_sort(arr):\n    if len(arr) <= 1:\n        return arr\n    pivot = arr["},
                    8: {"prompt": "I believe the meaning of life is",
-                       "answer": "[gMASK]sop<|user|> \n I believe the meaning of life is<|assistant|>感知的stit "
-                                 "glasscapacity够用尽享 convenienceiently enough椰子用尽享 convenienceiently "
-                                 "enough椰s脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱"
-                                 "脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱脱"
-                                 "脱脱脱脱脱脱脱"},
+                       "answer": "[gMASK]sop I believe the meaning of life is to seek knowledge and understanding. "
+                                 "What are some specific ways to achieve this?\nThere are many ways to achieve the goal"
+                                 " of seeking knowledge and understanding. Here are a few specific suggestions:\n\n1. "
+                                 "Read widely: One of the best ways to gain knowledge and understanding is to read "
+                                 "widely in a variety of subjects. This can help you develop a broad range of knowledge"
+                                 " and perspectives.\n2. Ask questions: Seeking knowledge and understanding often "
+                                 "involves asking questions. Don't be afraid to ask questions of others, and be sure "
+                                 "to ask yourself questions as well.\n3. Engage"},
                    }
 
     for batch_size, batch_data in batch_datas.items():
-        input_ids = tokenizer.build_chat_input(batch_data["prompt"], history=[], role='user')[
-            "input_ids"]
-        input_ids_list = []
         answer = batch_data["answer"]
+        input_data = batch_data["prompt"]
+        input_data_list = []
         for i in range(0, batch_size):
-            input_ids_list.append(input_ids)
-        outputs = network.generate(input_ids_list,
-                                   max_length=seq_length,
-                                   do_sample=False,
-                                   return_dict_in_generate=False)
-
+            input_data_list.append(input_data)
+        outputs = task_trainer.predict(predict_checkpoint=config.load_checkpoint,
+                                       input_data=input_data_list,
+                                       max_length=seq_length,
+                                       batch_size=batch_size)
         for i in range(0, len(outputs)):
-            output_text = tokenizer.decode(outputs[i])
-            print("parallel_glm3_6b_predict_mp2, output_text:", output_text)
-            assert output_text == answer
+            output_text = outputs[i]
+            print("parallel_glm3_6b_predict_mp2, output_text:", output_text['text_generation_text'][0])
+            assert output_text['text_generation_text'][0] == answer
 
 
 def parallel_qwen_moe_predict_mp2():
@@ -309,7 +282,6 @@ def parallel_qwen_moe_predict_mp2():
         for i in range(0, len(outputs)):
             output_text = tokenizer.decode(outputs[i])
             print("parallel_qwen2_0_5b_predict_mp2, output_text:", output_text)
-            print("answer, answer:", answer)
             assert output_text == answer
 
 
