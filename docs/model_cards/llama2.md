@@ -207,7 +207,7 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于预训
 
 #### 模型权重转换
 
-执行`mindformers/convert_weight.py`转换脚本，将HuggingFace的权重转换为完整的ckpt权重。
+执行`convert_weight.py`转换脚本，将HuggingFace的权重转换为完整的ckpt权重。
 
 ```shell
 python convert_weight.py --model llama --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME
@@ -509,7 +509,7 @@ processor:
 
    阅读理解任务评测使用**SQuAD 1.1**数据集，可通过[数据集下载](#数据集下载)得到，并进行相应的预处理。**SQuAD 1.1**中包含针对500+文章的10万+问答对，是一个阅读理解数据集，由维基百科文章上提出的问题组成，其中每个问题的答案都是相应文章中的一段文本。
 
-2. 修改模型配置文件`configs/llama2/pretrain_llama2_7b.yaml`
+2. 修改模型配置文件`configs/llama2/predict_llama2_7b.yaml`
 
    ```yaml
    # eval dataset
