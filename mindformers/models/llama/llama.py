@@ -30,7 +30,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindformers.core.loss.loss import CrossEntropyLoss
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.models.utils import LayerSetting, check_fine_grain_interleave_valid
+from mindformers.models.utils import LayerSetting, check_fine_grain_interleave_valid, check_use_3d_tensor_parallel_valid
 from mindformers.modules.layers import Linear, FreqsMgr
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
@@ -165,6 +165,10 @@ class LlamaModel(LlamaPreTrainedModel):
                                              rmsnorm_compute_2d=config.rmsnorm_compute_2d)
         self.fine_grain_interleave = check_fine_grain_interleave_valid(config.fine_grain_interleave,
                                                                        config.parallel_config)
+        self.use_3d_tensor_parallel = check_use_3d_tensor_parallel_valid(config)
+        self.tp_x = getattr(config, "tp_x", 1)
+        self.tp_y = getattr(config, "tp_y", 1)
+        self.tp_z = getattr(config, "tp_z", 1)
         self.layers = nn.CellList()
         self.layer_setting = LayerSetting(config.num_layers,
                                           config.offset,
@@ -234,7 +238,11 @@ class LlamaModel(LlamaPreTrainedModel):
                                          parallel_decoding=self.parallel_decoding,
                                          fused_kernel=config.fused_rms_norm,
                                          init_method_std=config.init_method_std,
-                                         chunk_prefill=config.chunk_prefill
+                                         chunk_prefill=config.chunk_prefill,
+                                         use_3d_tensor_parallel=self.use_3d_tensor_parallel,
+                                         tp_x=self.tp_x,
+                                         tp_y=self.tp_y,
+                                         tp_z=self.tp_z
                                          )
             self.layer_setting(layer, layer_id)
             self.layers.append(layer)

@@ -23,6 +23,7 @@ from mindspore.ops import functional as F
 from mindspore.nn import Sigmoid
 from mindspore.nn.cell import Cell
 from mindspore.nn.layer import Dense
+from mindspore.parallel.shard import Layout
 
 try:
     from mindspore._checkparam import Validator
@@ -246,6 +247,12 @@ class LlamaRMSNorm(nn.Cell):
             else:
                 self.norm.shard((strategy_in, (1,)))
 
+    def shard_layout(self, strategy_in: Layout, strategy_gamma: Layout):
+        """Parallel layout configuratiuon interface."""
+        if self.self_define:
+            raise ValueError("Layout shard for self_define rmsnorm is not support yet.")
+        self.norm.shard((strategy_in, strategy_gamma))
+
 
 class LlamaFeedForward(Cell):
     r"""
@@ -289,7 +296,11 @@ class LlamaFeedForward(Cell):
                  parallel_config=default_dpmp_config,
                  moe_config=None,
                  init_method_std=0.01,
-                 rmsnorm_compute_2d=False):
+                 rmsnorm_compute_2d=False,
+                 use_3d_tensor_parallel=False,
+                 tp_x=1,
+                 tp_y=1,
+                 tp_z=1):
         super().__init__()
 
         if hidden_act is None or not (isinstance(hidden_act, str) or issubclass(hidden_act, nn.Cell)):
@@ -323,6 +334,10 @@ class LlamaFeedForward(Cell):
         self.hidden_dim = hidden_dim
         self.expert_num = expert_num
         self.ffn_concat = ffn_concat
+        self.use_3d_tensor_parallel = use_3d_tensor_parallel
+        self.tp_x = tp_x
+        self.tp_y = tp_y
+        self.tp_z = tp_z
 
         self.mul = P.Mul()
         self.cast = P.Cast()
@@ -399,6 +414,9 @@ class LlamaFeedForward(Cell):
 
     def shard(self, parallel_config):
         """sharding for feedforward"""
+        if self.use_3d_tensor_parallel:
+            self._shard_ndtp(parallel_config)
+            return
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         cp = parallel_config.context_parallel
@@ -475,6 +493,53 @@ class LlamaFeedForward(Cell):
                     if parallel_config.use_seq_parallel:
                         mul_shard = (dp, ep, mp)
                     self.mul.shard((mul_shard, mul_shard))
+
+    def _shard_ndtp(self, parallel_config):
+        """sharding for feedforward with use_3d_tensor_parallel"""
+        dp = parallel_config.data_parallel
+        cp = parallel_config.context_parallel
+
+        if not self.use_3d_tensor_parallel:
+            raise ValueError("'use_3d_tensor_parallel' must be True when _shard_ndtp.")
+
+        if self.hidden_dim % self.tp_x != 0 or self.hidden_dim % self.tp_y != 0:
+            raise ValueError("For 'FeedForward', the class variable 'hidden_dim' must be a multiple of the"
+                             "num of tp_x and tp_y, but got the hidden_dim is {} and the num of tp_x "
+                             "is {} and tp_y is {}.".format(self.hidden_dim, self.tp_x, self.tp_y))
+        if self.dim % self.tp_x != 0 or self.dim % self.tp_y != 0:
+            raise ValueError("For 'FeedForward', the class variable 'dim' must be a multiple of the"
+                             "num of tp_x and tp_y, but got the dim is {} and the num of tp_x "
+                             "is {} and tp_y is {}.".format(self.dim, self.tp_x, self.tp_y))
+        layout_ndtp = Layout((dp, cp, self.tp_z, self.tp_x, self.tp_y), ("dp", "cp", "z", "x", "y"))
+        if self.expert_num == 1:
+            if self.ffn_concat:
+                if not self.rmsnorm_compute_2d:
+                    self.w_gate_hidden.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                             enable_nd_tp=True)
+                    self.activate.shard((layout_ndtp("dp", ("cp", "z", "x"), "y"),))
+                    self.w2.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("x", ("y", "z"))),
+                                  enable_nd_tp=True)
+                    self.split.add_prim_attr("skip_redistribution", True)
+                    self.split.shard(((dp, cp * self.tp_z * self.tp_x, self.tp_y, 1),))
+                    self.mul.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp(("dp", "cp", "z", "x"), "y")))
+                else:
+                    self.w_gate_hidden.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                             enable_nd_tp=True)
+                    self.activate.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"),))
+                    self.w2.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("x", ("y", "z"))),
+                                  enable_nd_tp=True)
+                    self.split.shard(((dp * cp * self.tp_z * self.tp_x, 1),))  # y will be allgathered for precision
+                    self.mul.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"),
+                                    layout_ndtp(("dp", "cp", "z", "x"), "y")))
+            else:
+                self.w1.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                              enable_nd_tp=True)
+                self.w1.activation.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"),))
+                self.w2.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("x", ("y", "z"))),
+                              enable_nd_tp=True)
+                self.w3.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                              enable_nd_tp=True)
+                self.mul.shard((layout_ndtp("dp", ("cp", "z", "x"), "y"), layout_ndtp("dp", ("cp", "z", "x"), "y")))
 
 
 class LlamaMoeInferFeedForward(Cell):

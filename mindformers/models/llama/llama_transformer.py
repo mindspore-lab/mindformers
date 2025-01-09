@@ -68,6 +68,12 @@ class LLamaAttention(nn.Cell):
                 an instance of `OpParallelConfig` with default args.
             - **init_method_std** (float): The sigma value when using normal type to initialize Linear. Default `0.01`
             - **rmsnorm_compute_2d** (bool): Whether to use 2D Add in RMS_NORM. Default `False` .
+            - **use_3d_tensor_parallel** (bool): Whether enable high dimension tensor parallel.
+                Replace model_parallel by three dimensions: tp_x, tp_y, tp_z. The product of tp_x, tp_y and tp_z
+                should be equal to model_parallel. Default False.
+            - **tp_x** (int): The x value of high tensor parallel way. Default 1.
+            - **tp_y** (int): The y value of high tensor parallel way. Default 1.
+            - **tp_z** (int): The z value of high tensor parallel way. Default 1.
 
     Inputs:
             - **x** (Tensor) - The input tokens with shape (batch_size, src_seq_length, hidden_size) or
@@ -118,7 +124,11 @@ class LLamaAttention(nn.Cell):
                  parallel_config=TransformerOpParallelConfig(),
                  parallel_decoding=False,
                  init_method_std=0.01,
-                 chunk_prefill=False
+                 chunk_prefill=False,
+                 use_3d_tensor_parallel=False,
+                 tp_x=1,
+                 tp_y=1,
+                 tp_z=1
                  ):
         super().__init__()
         self.seq_length = seq_length
@@ -157,17 +167,24 @@ class LLamaAttention(nn.Cell):
             raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
                              "of 'n_head', but got the hidden_size is {} and the n_head is {}."
                              .format(self.hidden_size, self.n_head))
-        if self.n_head % (mp * self.cp_ds) != 0:
+        head_parallel = tp_y * self.cp_ds if use_3d_tensor_parallel else mp * self.cp_ds
+        if self.n_head % (head_parallel) != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'n_head' must be a multiple of "
-                             "'parallel_config.model_parallel * ulysses_cp_num', but got the n_head is {}, "
-                             "the parallel_config.model_parallel is {}, and ulysses_cp_num is {}"
-                             .format(self.n_head, mp, self.cp_ds))
-        if self.n_kv_head % (mp * self.cp_ds) != 0:
+                             "'parallel_config.model_parallel * ulysses_cp_num' "
+                             "(or 'tp_y * ulysses_cp_num' when use_3d_tensor_parallel is True),"
+                             " but got the n_head is {}, the parallel_config.model_parallel is {}, "
+                             "the config.tp_y is {}, and ulysses_cp_num is {}"
+                             .format(self.n_head, mp, tp_y if use_3d_tensor_parallel else 1, self.cp_ds))
+        if self.n_kv_head % (head_parallel) != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'n_kv_head' must be a multiple of "
-                             "'parallel_config.model_parallel * ulysses_cp_num', but got the n_kv_head is {}, "
-                             "the parallel_config.model_parallel is {}, and ulysses_cp_num is {}"
-                             .format(self.n_kv_head, mp, self.cp_ds))
+                             "'parallel_config.model_parallel * ulysses_cp_num' "
+                             "(or 'config.tp_y * ulysses_cp_num' when use_3d_tensor_parallel is True), "
+                             "but got the n_kv_head is {}, the parallel_config.model_parallel is {}, "
+                             "the config.tp_y is {}, and ulysses_cp_num is {}"
+                             .format(self.n_kv_head, mp, tp_y if use_3d_tensor_parallel else 1, self.cp_ds))
 
+        if use_3d_tensor_parallel:
+            layout_ndtp = Layout((dp, cp, tp_z, tp_x, tp_y), ("dp", "cp", "z", "x", "y"))
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.cast = P.Cast()
@@ -211,12 +228,24 @@ class LLamaAttention(nn.Cell):
                                 compute_dtype=compute_dtype,
                                 param_init_type=param_init_type)
             if qkv_has_bias:
-                self.w_qkv.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
+                if use_3d_tensor_parallel:
+                    self.w_qkv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                     (layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("y",)),
+                                     enable_nd_tp=True)
+                else:
+                    self.w_qkv.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
             else:
-                self.w_qkv.shard(((dp * cp, 1), (mp, 1)))
+                if use_3d_tensor_parallel:
+                    self.w_qkv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))), \
+                                     enable_nd_tp=True)
+                else:
+                    self.w_qkv.shard(((dp * cp, 1), (mp, 1)))
             self.split_qkv = ms.ops.auto_generate.SplitWithSize()
             self.split_qkv.add_prim_attr("skip_redistribution", True)
-            self.split_qkv.shard(((dp, cp, mp, 1),))
+            if use_3d_tensor_parallel:
+                self.split_qkv.shard(((dp, cp * tp_z * tp_x, tp_y, 1),))
+            else:
+                self.split_qkv.shard(((dp, cp, mp, 1),))
         else:
             self.wq = Linear(self.hidden_size,
                              self.hidden_size,
@@ -237,20 +266,40 @@ class LLamaAttention(nn.Cell):
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type)
             if qkv_has_bias:
-                self.wq.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
-                self.wk.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
-                self.wv.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
+                if use_3d_tensor_parallel:
+                    self.wq.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))), \
+                                  (layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("y",)), enable_nd_tp=True)
+                    self.wk.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))), \
+                                  (layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("y",)), enable_nd_tp=True)
+                    self.wv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))), \
+                                  (layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("y",)), enable_nd_tp=True)
+                else:
+                    self.wq.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
+                    self.wk.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
+                    self.wv.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
             else:
-                self.wq.shard(((dp * cp, 1), (mp, 1)))
-                self.wk.shard(((dp * cp, 1), (mp, 1)))
-                self.wv.shard(((dp * cp, 1), (mp, 1)))
+                if use_3d_tensor_parallel:
+                    self.wq.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                  enable_nd_tp=True)
+                    self.wk.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                  enable_nd_tp=True)
+                    self.wv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                  enable_nd_tp=True)
+                else:
+                    self.wq.shard(((dp * cp, 1), (mp, 1)))
+                    self.wk.shard(((dp * cp, 1), (mp, 1)))
+                    self.wv.shard(((dp * cp, 1), (mp, 1)))
         self.wo = Linear(in_channels=self.hidden_size,
                          out_channels=self.hidden_size,
                          init_method_std=init_method_std,
                          has_bias=attn_proj_has_bias,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
-        self.wo.shard(((dp * cp, mp), (1, mp)), ((dp * cp, 1), (1,)), out_strategy_matmul=((dp * cp, 1),))
+        if use_3d_tensor_parallel:
+            self.wo.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("x", ("y", "z"))), \
+                          (layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("x")), enable_nd_tp=True)
+        else:
+            self.wo.shard(((dp * cp, mp), (1, mp)), ((dp * cp, 1), (1,)), out_strategy_matmul=((dp * cp, 1),))
 
         if self.use_past:
             self.infer_attention = InferAttention(self.n_head,
@@ -285,7 +334,13 @@ class LLamaAttention(nn.Cell):
             self.cast_attn = P.Cast()
             self.tile_kv = P.Tile()
 
-            self.apply_rotary_emb = RotaryEmbedding(self.head_dim, rotary_dtype, use_rope_slice=use_rope_slice)
+            self.apply_rotary_emb = RotaryEmbedding(self.head_dim,
+                                                    rotary_dtype,
+                                                    use_rope_slice=use_rope_slice,
+                                                    use_3d_tensor_parallel=use_3d_tensor_parallel,
+                                                    tp_x=tp_x,
+                                                    tp_y=tp_y,
+                                                    tp_z=tp_z)
 
             # ulysses context parallel, initial related ops
             if self.cp_ds > 1:
@@ -303,13 +358,22 @@ class LLamaAttention(nn.Cell):
                 self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
                 self.apply_rotary_emb.shard(parallel_config)
             else:
-                self.transpose.shard(((dp, cp, mp, 1),))
-                if cp > 1:
-                    layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
-                    layout_merger_head_transpose = (layout("dp", "mp", "cp", "None"),)
-                    self.merger_head_transpose.shard(in_strategy=layout_merger_head_transpose)
+                if use_3d_tensor_parallel:
+                    self.transpose.shard((layout_ndtp("dp", ("cp", "z", "x"), "y", "None"),))
                 else:
-                    self.merger_head_transpose.shard(((dp, mp, 1, 1),))
+                    self.transpose.shard(((dp, cp, mp, 1),))
+                if cp > 1:
+                    if use_3d_tensor_parallel:
+                        self.merger_head_transpose.shard((layout_ndtp("dp", "y", ("cp", "z", "x"), "None"),))
+                    else:
+                        layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
+                        layout_merger_head_transpose = (layout("dp", "mp", "cp", "None"),)
+                        self.merger_head_transpose.shard(in_strategy=layout_merger_head_transpose)
+                else:
+                    if use_3d_tensor_parallel:
+                        self.merger_head_transpose.shard((layout_ndtp("dp", "y", ("cp", "z", "x"), "None"),))
+                    else:
+                        self.merger_head_transpose.shard(((dp, mp, 1, 1),))
                 self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
                 self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
                 self.mul.shard(((dp, mp, 1, 1), ()))
@@ -319,8 +383,12 @@ class LLamaAttention(nn.Cell):
                 self.apply_rotary_emb.shard(parallel_config)
 
             if parallel_config.use_seq_parallel and self.is_first_iteration:
-                self.wo.shard(((dp * cp, mp), (1, mp)), ((dp * mp * cp, 1), (1,)),
-                              out_strategy_matmul=((dp * mp * cp, 1),))
+                if use_3d_tensor_parallel:
+                    self.wo.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("x", ("y", "z"))),
+                                  (layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("x",)), enable_nd_tp=True)
+                else:
+                    self.wo.shard(((dp * cp, mp), (1, mp)), ((dp * cp * mp, 1), (1,)),
+                                  out_strategy_matmul=((dp * cp * mp, 1),))
             if parallel_config.recompute.select_recompute and not self.use_flash_attention:
                 self.apply_rotary_emb.recompute()
                 self.tile_kv.recompute()
@@ -343,7 +411,11 @@ class LLamaAttention(nn.Cell):
                                                       scale_value=1. / math.sqrt(self.head_dim),
                                                       sparse_mode=self.sparse_mode,
                                                       use_attention_mask=True,
-                                                      use_ring_attention=self.use_ring_attention)
+                                                      use_ring_attention=self.use_ring_attention,
+                                                      use_3d_tensor_parallel=use_3d_tensor_parallel,
+                                                      tp_x=tp_x,
+                                                      tp_y=tp_y,
+                                                      tp_z=tp_z)
                 self.flash_attention.shard(parallel_config)
 
     def _ulysses_initial(self):
@@ -706,6 +778,10 @@ class LLamaDecodeLayer(nn.Cell):
                  parallel_decoding=False,
                  fused_kernel=True,
                  chunk_prefill=False,
+                 use_3d_tensor_parallel=False,
+                 tp_x=1,
+                 tp_y=1,
+                 tp_z=1
                  ):
         super().__init__()
         self.layer_id = layer_id
@@ -755,7 +831,11 @@ class LLamaDecodeLayer(nn.Cell):
                                         parallel_config=parallel_config,
                                         parallel_decoding=parallel_decoding,
                                         init_method_std=init_method_std,
-                                        chunk_prefill=chunk_prefill
+                                        chunk_prefill=chunk_prefill,
+                                        use_3d_tensor_parallel=use_3d_tensor_parallel,
+                                        tp_x=tp_x,
+                                        tp_y=tp_y,
+                                        tp_z=tp_z
                                         )
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
@@ -786,7 +866,11 @@ class LLamaDecodeLayer(nn.Cell):
                                    parallel_config=parallel_config,
                                    moe_config=moe_config,
                                    init_method_std=init_method_std,
-                                   rmsnorm_compute_2d=rmsnorm_compute_2d) if self.shared_expert_num == 0 else None
+                                   rmsnorm_compute_2d=rmsnorm_compute_2d,
+                                   use_3d_tensor_parallel=use_3d_tensor_parallel,
+                                   tp_x=tp_x,
+                                   tp_y=tp_y,
+                                   tp_z=tp_z) if self.shared_expert_num == 0 else None
         if self.expert_num == 1:
             self.feed_forward = ffn
         else:
@@ -816,6 +900,8 @@ class LLamaDecodeLayer(nn.Cell):
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         cp = parallel_config.context_parallel
+        if use_3d_tensor_parallel:
+            layout_ndtp = Layout((dp, cp, tp_z, tp_x, tp_y), ("dp", "cp", "z", "x", "y"))
         if self.expert_num == 1:
             self.feed_forward.shard(parallel_config)
         elif self.shared_expert_num == 0:
@@ -842,22 +928,41 @@ class LLamaDecodeLayer(nn.Cell):
 
         if moe_config is None or not moe_config.expert_num > 1:
             if not rmsnorm_compute_2d:
-                self.feed_forward.mul.shard(((dp, cp, mp), (dp, cp, mp)))
+                if use_3d_tensor_parallel:
+                    self.feed_forward.mul.shard((layout_ndtp("dp", ("cp", "z", "x"), "y"),
+                                                 layout_ndtp("dp", ("cp", "z", "x"), "y")))
+                else:
+                    self.feed_forward.mul.shard(((dp, cp, mp), (dp, cp, mp)))
             else:
-                self.feed_forward.mul.shard(((dp * cp, mp), (dp * cp, mp)))
+                if use_3d_tensor_parallel:
+                    self.feed_forward.mul.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"),
+                                                 layout_ndtp(("dp", "cp", "z", "x"), "y")))
+                else:
+                    self.feed_forward.mul.shard(((dp * cp, mp), (dp * cp, mp)))
 
         if parallel_config.use_seq_parallel and self.is_first_iteration:
             if not rmsnorm_compute_2d:
-                self.add.shard(((dp, mp * cp, 1), (dp, mp * cp, 1)))
-                self.attention_norm.shard((dp, mp * cp, 1))
-                self.ffn_norm.shard((dp, mp * cp, 1))
+                if use_3d_tensor_parallel:
+                    self.add.shard((layout_ndtp("dp", ("cp", "z", "y"), "x"),
+                                    layout_ndtp("dp", ("cp", "z", "y"), "x")))
+                    self.attention_norm.shard_layout(layout_ndtp("dp", ("cp", "z", "y"), "x"), layout_ndtp("x", ))
+                    self.ffn_norm.shard_layout(layout_ndtp("dp", ("cp", "z", "y"), "x"), layout_ndtp("x", ))
+                else:
+                    self.add.shard(((dp, cp * mp, 1), (dp, cp * mp, 1)))
+                    self.attention_norm.shard((dp, cp * mp, 1))
+                    self.ffn_norm.shard((dp, cp * mp, 1))
             else:
-                self.add.shard(((dp * mp * cp, 1), (dp * mp * cp, 1)))
-                self.attention_norm.shard((dp * mp * cp, 1))
-                self.ffn_norm.shard((dp * mp * cp, 1))
-            if moe_config is None or not moe_config.expert_num > 1:
-                self.feed_forward.w2.shard(((dp * cp, mp), (1, mp)), out_strategy_matmul=((dp * mp * cp, 1),))
-
+                if use_3d_tensor_parallel:
+                    self.add.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"),
+                                    (("dp", "cp", "z", "y"), "x")))
+                    self.attention_norm.shard_layout(layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("x", ))
+                    self.ffn_norm.shard_layout(layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("x", ))
+                else:
+                    self.add.shard(((dp * mp * cp, 1), (dp * mp * cp, 1)))
+                    self.attention_norm.shard((dp * mp * cp, 1))
+                    self.ffn_norm.shard((dp * mp * cp, 1))
+            if moe_config is None or not moe_config.expert_num > 1 and not use_3d_tensor_parallel:
+                self.feed_forward.w2.shard(((dp * cp, mp), (1, mp)), out_strategy_matmul=((dp * cp * mp, 1),))
         self.predict_run_mode = get_predict_run_mode()
         if self.predict_run_mode:
             self.no_inline = False
