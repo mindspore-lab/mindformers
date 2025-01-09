@@ -10,6 +10,7 @@ mindformers.models.PretrainedConfig
 
     参数：
         - **\*\*kwargs** (Any) - 关键字参数。
+
           - **name_or_path** (str, 可选) - 存储传递给 :func:`mindformers.models.PreTrainedModel.from_pretrained` 的字符串作为 ``pretrained_model_name_or_path`` ，如果配置是用这种方法创建的。默认值： ``""`` 。
           - **checkpoint_name_or_path** (str, 可选) - checkpoint 文件的路径或名称。默认值： ``None`` 。
           - **mindformers_version** (str, 可选) - MindSpore Transformers 的版本。默认值： ``""`` 。
@@ -47,6 +48,7 @@ mindformers.models.PretrainedConfig
         参数：
             - **yaml_name_or_path** (str) - 支持的模型名称或模型配置文件路径（.yaml），支持的模型名称可以从 :func:`mindformers.AutoConfig.show_support_list` 中选择。如果 `yaml_name_or_path` 是模型名称，则支持以 `mindspore` 开头的模型名称或模型名称本身，如 "mindspore/vit_base_p16" 或 "vit_base_p16"。
             - **\*\*kwargs** (Any) - 关键字参数。
+
               - **pretrained_model_name_or_path** (str, 可选) - 等同于 `yaml_name_or_path`，如果设置了 `pretrained_model_name_or_path`，则 `yaml_name_or_path` 无效。默认值： ``None`` 。
 
         返回：
