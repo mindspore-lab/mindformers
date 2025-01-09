@@ -18,6 +18,8 @@ import re
 import numpy as np
 import mindspore.common.dtype as mstype
 import mindspore as ms
+from mindspore.context import ParallelMode
+from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from ..version_control import get_lazy_inline, get_predict_lazy_inline
 from ..tools.logger import logger
 
@@ -76,6 +78,39 @@ def check_fine_grain_interleave_valid(fine_grain_interleave, parallel_config):
     if fine_grain_interleave is None or parallel_config is None:
         return False
     return fine_grain_interleave > 1 and parallel_config.model_parallel > 1
+
+
+def check_use_3d_tensor_parallel_valid(config):
+    """Check the use_3d_tensor_parallel condition"""
+    use_3d_tensor_parallel = getattr(config, "use_3d_tensor_parallel", False)
+    is_config_valid = config is not None and config.parallel_config is not None
+    if not use_3d_tensor_parallel or not is_config_valid:
+        return False
+    if not config.use_flash_attention:
+        raise ValueError(f"When the use_3d_tensor_parallel = True, the use_flash_attention must be True ")
+    if config.parallel_config.get_ulysses_cp_num() > 1:
+        raise ValueError(f"Currently, when the use_3d_tensor_parallel = True, "
+                         "the cp_ds of the ulysses context parallel must be 1")
+    if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+        raise ValueError(f"Currently, when the use_3d_tensor_parallel = True, the auto parallel is not supported")
+    if config.moe_config is not None and config.moe_config.expert_num > 1:
+        raise ValueError(f"Currently, when the use_3d_tensor_parallel = True, the MoE is not supported")
+    if not config.parallel_config.use_seq_parallel:
+        raise ValueError(f"Currently, when the use_3d_tensor_parallel = True, the use_seq_parallel must be True")
+    if check_fine_grain_interleave_valid(config.fine_grain_interleave, config.parallel_config):
+        raise ValueError("Currently, when the use_3d_tensor_parallel = True, "
+                         "the fine_grain_interleave is not supported")
+    tp_x = getattr(config, "tp_x", 1)
+    tp_y = getattr(config, "tp_y", 1)
+    tp_z = getattr(config, "tp_z", 1)
+    model_parallel = config.parallel_config.model_parallel
+    if model_parallel > 1 and tp_x * tp_y * tp_z != config.parallel_config.model_parallel:
+        raise ValueError("tp_x * tp_y * tp_z should be equal to model_parallel, but got "
+                         "tp_x={}, tp_y={}, tp_z={}, model_parallel={}.".format(tp_x, tp_y, tp_z, model_parallel))
+    if model_parallel > 1:
+        logger.info(f"use_3d_tensor_parallel is True, (tp_x, tp_y, tp_z): ({tp_x}, {tp_y}, {tp_z})")
+        return True
+    return False
 
 
 ms_type_to_str = reverse_dict(str_to_ms_type)

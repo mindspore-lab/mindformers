@@ -19,6 +19,7 @@ from mindspore.common.tensor import Tensor
 from mindspore.nn.cell import Cell
 from mindspore.ops import functional as F
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
+from mindspore.parallel.shard import Layout
 
 
 class FlashAttention(Cell):
@@ -141,7 +142,11 @@ class FlashAttention(Cell):
                  use_attention_mask=True,
                  use_alibi_mask=False,
                  use_mqa=False,
-                 use_ring_attention=False
+                 use_ring_attention=False,
+                 use_3d_tensor_parallel=False,
+                 tp_x=1,
+                 tp_y=1,
+                 tp_z=1
                  ):
         super(FlashAttention, self).__init__()
         self.head_num = head_num
@@ -152,6 +157,10 @@ class FlashAttention(Cell):
         self.use_attention_mask = use_attention_mask
         self.use_mqa = use_mqa
         self.use_ring_attention = use_ring_attention
+        self.use_3d_tensor_parallel = use_3d_tensor_parallel
+        self.tp_x = tp_x
+        self.tp_y = tp_y
+        self.tp_z = tp_z
 
         self.flash_attention = FlashAttentionScore(head_num=head_num,
                                                    keep_prob=keep_prob,
@@ -192,9 +201,14 @@ class FlashAttention(Cell):
                                  (dp, 1, kv_head_split_num),
                                  (dp, 1, kv_head_split_num))
         elif self.input_layout == "BNSD":
-            fa_strategies = ((dp, mp, cp, 1),
-                             (dp, kv_head_split_num, 1, 1),
-                             (dp, kv_head_split_num, 1, 1))
+            if self.use_ring_attention:
+                fa_strategies = ((dp, mp, cp, 1),
+                                 (dp, kv_head_split_num, cp, 1),
+                                 (dp, kv_head_split_num, cp, 1))
+            else:
+                fa_strategies = ((dp, mp, cp, 1),
+                                 (dp, kv_head_split_num, 1, 1),
+                                 (dp, kv_head_split_num, 1, 1))
         elif self.input_layout == "TH":
             fa_strategies = ((dp, mp),
                              (dp, mp),
@@ -225,6 +239,58 @@ class FlashAttention(Cell):
         if self.input_layout in ["TH", "TND"]:
             fa_strategies += ((1,), (1,),)
 
+        return fa_strategies
+
+    def _generate_flash_attention_strategy_ndtp(self, cp_ds, layout_3dtp):
+        """get FA generate strategies with use_3d_tensor_parallel"""
+        # ulysses fa strategy
+        if cp_ds > 1:
+            raise ValueError("Currently, when the use_3d_tensor_parallel = True, "
+                             "the cp_ds of the ulysses context parallel must be 1")
+        if self.use_mqa:
+            kv_head_split_layout = "None"
+        else:
+            kv_head_split_layout = "y"
+        if self.input_layout == "BSH":
+            if self.use_ring_attention:
+                fa_strategies = (layout_3dtp("dp", "cpzx", "y"),
+                                 layout_3dtp("dp", "cpzx", kv_head_split_layout),
+                                 layout_3dtp("dp", "cpzx", kv_head_split_layout))
+            else:
+                fa_strategies = (layout_3dtp("dp", "cpzx", "y"),
+                                 layout_3dtp("dp", "None", kv_head_split_layout),
+                                 layout_3dtp("dp", "None", kv_head_split_layout))
+        elif self.input_layout == "BNSD":
+            if self.use_ring_attention:
+                fa_strategies = (layout_3dtp("dp", "y", "cpzx", "None"),
+                                 layout_3dtp("dp", kv_head_split_layout, "cpzx", "None"),
+                                 layout_3dtp("dp", kv_head_split_layout, "cpzx", "None"))
+            else:
+                fa_strategies = (layout_3dtp("dp", "y", "cpzx", "None"),
+                                 layout_3dtp("dp", kv_head_split_layout, "None", "None"),
+                                 layout_3dtp("dp", kv_head_split_layout, "None", "None"))
+        else:
+            raise ValueError(
+                "Input layout:{} is not supported when use_3d_tensor_parallel is True.".format(self.input_layout)
+            )
+
+        if self.use_alibi_mask:
+            fa_strategies += (layout_3dtp("dp", "y", "cpzx", "None"),)
+        if self.enable_dropout:
+            fa_strategies += (layout_3dtp("dp", "y", "cpzx", "None"),)
+        if self.use_attention_mask:
+            if self.sparse_mode in [0, 1]:
+                if self.input_layout in ["BSH", "BNSD"]:
+                    fa_strategies += (layout_3dtp("dp", "None", "cpzx", "None"),)
+                else:
+                    raise ValueError(
+                        "Input layout:{} is not supported when "
+                        "use_3d_tensor_parallel is True.".format(self.input_layout)
+                    )
+            elif self.sparse_mode == 2:
+                fa_strategies += (layout_3dtp("None", "None"),)
+            else:
+                raise RuntimeError(f"sparse_mode: {self.sparse_mode} is not support currently")
         return fa_strategies
 
     def construct(self, query, key, value, attn_mask=None, alibi_mask=None, prefix=None, padding_mask=None,
@@ -275,11 +341,19 @@ class FlashAttention(Cell):
         mp = 1 if parallel_config is None else parallel_config.model_parallel
         cp = 1 if parallel_config is None else parallel_config.context_parallel
         cp_ds = parallel_config.get_ulysses_cp_num()
-
-        fa_strategies = self._generate_flash_attention_strategy(dp, mp, cp, cp_ds)
+        if self.use_3d_tensor_parallel:
+            layout_3dtp = Layout((dp, cp * self.tp_z * self.tp_x,
+                                  self.tp_y), ("dp", "cpzx", "y"))
+            fa_strategies = self._generate_flash_attention_strategy_ndtp(cp_ds, layout_3dtp)
+        else:
+            fa_strategies = self._generate_flash_attention_strategy(dp, mp, cp, cp_ds)
         self.flash_attention.shard(fa_strategies)
 
         if self.use_alibi_mask:
-            self.alibi_rescale_mul.shard(((dp, mp, cp, 1), (1,)))
+            if self.use_3d_tensor_parallel:
+                fa_strategies += (layout_3dtp("dp", "y", "cpzx", "None"),)
+                self.alibi_rescale_mul.shard((layout_3dtp("dp", "y", "cpzx", "None"), layout_3dtp()))
+            else:
+                self.alibi_rescale_mul.shard(((dp, mp, cp, 1), (1,)))
 
         return self

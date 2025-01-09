@@ -102,3 +102,24 @@ class TestLlama2Parallel:
         with Pool(len(commands)) as pool:
             results = list(pool.imap(run_command, commands))
         check_results(commands, results)
+
+    @pytest.mark.level0
+    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.env_single
+    def test_ndtp_cases(self):
+        """
+        Feature: Trainer.train() and Trainer.predict()
+        Description: Test parallel trainer with use_3d_tensor_parallel.
+        Expectation: AssertionError
+        """
+        commands = [
+            (f"export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 && "
+             f"msrun --worker_num=8 --local_worker_num=8 --master_port=8118 "
+             f"--log_dir=parallel_train_ndtp_cp2x2y2z1 --join=True "
+             f"{cur_dir}/run_parallel.py --mode parallel_train_ndtp_cp2x2y2z1",
+             'parallel_train_ndtp_cp2x2y2z1/worker_2.log'),
+        ]
+
+        with Pool(len(commands)) as pool:
+            results = list(pool.imap(run_command, commands))
+        check_results(commands, results)

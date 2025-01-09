@@ -6453,10 +6453,10 @@
         "signature": "(self, x, group_list=None)"
     },
     "mindformers.modules.layers.Linear.shard": {
-        "signature": "(self, strategy_matmul, strategy_bias=None, strategy_activation=None, out_strategy_matmul=None)"
+        "signature": "(self, strategy_matmul, strategy_bias=None, strategy_activation=None, out_strategy_matmul=None, enable_nd_tp=False)"
     },
     "mindformers.modules.layers.RotaryEmbedding": {
-        "signature": "(head_dim=128, compute_dtype=mindspore.float32, use_rope_slice=False)"
+        "signature": "(head_dim=128, compute_dtype=mindspore.float32, use_rope_slice=False, use_3d_tensor_parallel=False, tp_x=1, tp_y=1, tp_z=1)"
     },
     "mindformers.modules.layers.RotaryEmbedding.rotate_half": {
         "signature": "(self, x, swap_mask)"

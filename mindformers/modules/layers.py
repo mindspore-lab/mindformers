@@ -532,7 +532,8 @@ class Linear(Cell):
         output = self.reshape(x, out_shape)
         return output
 
-    def shard(self, strategy_matmul, strategy_bias=None, strategy_activation=None, out_strategy_matmul=None):
+    def shard(self, strategy_matmul, strategy_bias=None, strategy_activation=None, out_strategy_matmul=None,
+              enable_nd_tp=False):
         r"""
         Set the shard for the linear. the strategy size should be equal to the inputs.
 
@@ -546,6 +547,7 @@ class Linear(Cell):
             strategy_activation (tuple): The strategy for the strategy_activation. Should be the same shape as
             the inputs.
             out_strategy_matmul (tuple): The out strategy for the matmul. Should be the same shape as the inputs.
+            enable_nd_tp (bool): Whether enable high dimension tensor parallel for matmul. Default: False.
         """
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
             self.matmul.shard(in_strategy=strategy_matmul, out_strategy=out_strategy_matmul)
@@ -553,6 +555,10 @@ class Linear(Cell):
                 self.bias_add.shard(strategy_bias)
             return self
 
+        if enable_nd_tp:
+            if out_strategy_matmul:
+                raise ValueError("When the enable nd_tp = True, the out_strategy_matmul must be None.")
+        self.matmul.add_prim_attr("enable_nd_tp", enable_nd_tp)
         self.matmul.shard(in_strategy=strategy_matmul, out_strategy=out_strategy_matmul)
         if self.has_bias:
             self.bias_add.shard(strategy_bias)
@@ -1533,6 +1539,12 @@ class RotaryEmbedding(Cell):
             - **head_dim** (int): The dim of multi head attention.
             - **compute_dtype** (mstype): The compute type, default mstype.float16.
             - **use_rope_slice** (dict): - Choose using rope slice. Default False.
+            - **use_3d_tensor_parallel** (bool): Whether enable high dimension tensor parallel.
+                Replace model_parallel by three dimensions: tp_x, tp_y, tp_z. The product of tp_x, tp_y and tp_z
+                should be equal to model_parallel.Default False.
+            - **tp_x** (int): The x value of high tensor parallel way. Default 1.
+            - **tp_y** (int): The y value of high tensor parallel way. Default 1.
+            - **tp_z** (int): The z value of high tensor parallel way. Default 1.
 
     Inputs:
             - **x** (Tensor) - Tensor of shape :math:`(batch, seq\_length, hidden\_size)`.
@@ -1541,13 +1553,21 @@ class RotaryEmbedding(Cell):
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
 
-    def __init__(self, head_dim=128, compute_dtype=mstype.float32, use_rope_slice=False):
+    def __init__(self, head_dim=128, compute_dtype=mstype.float32, use_rope_slice=False,
+                 use_3d_tensor_parallel=False,
+                 tp_x=1,
+                 tp_y=1,
+                 tp_z=1):
         super().__init__(auto_prefix=False)
         self.half_head_dim = head_dim // 2
         self.head_dim = head_dim
         self.dtype = compute_dtype
         self.use_rope_slice = use_rope_slice
         self.is_first_iteration = True
+        self.use_3d_tensor_parallel = use_3d_tensor_parallel
+        self.tp_x = tp_x
+        self.tp_y = tp_y
+        self.tp_z = tp_z
         self.add = P.Add()
         self.bmm_swap = P.BatchMatMul()
         self.mul = P.Mul()
@@ -1595,20 +1615,40 @@ class RotaryEmbedding(Cell):
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         cp = parallel_config.context_parallel
-        strategy_in = (dp, mp, 1, 1)
-        if cp > 1:
-            layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
-            layout_add = (layout("dp", "mp", "cp", "None"), layout("dp", "mp", "cp", "None"))
-            layout_bmm_swap = (layout("dp", "mp", "cp", "None"), layout("None", "None"))
-            layout_mul = (layout("dp", "mp", "cp", "None"), layout("None", "None", "cp", "None"))
-            self.add.shard(in_strategy=layout_add)
-            self.bmm_swap.shard(in_strategy=layout_bmm_swap)
-            self.mul.shard(in_strategy=layout_mul)
+        if self.use_3d_tensor_parallel:
+            layout_ndtp = Layout((dp, cp, self.tp_z, self.tp_x, self.tp_y), \
+                                 ("dp", "cp", "z", "x", "y"))
+            strategy_in = layout_ndtp("dp", "y", ("cp", "z", "x"), "None")
+            if cp > 1:
+                layout_mul = (strategy_in, layout_ndtp("None", "None", ("cp", "z", "x"), "None"))
+                layout_add = (strategy_in, strategy_in)
+                layout_bmm_swap = (strategy_in, layout_ndtp("None", "None"))
+                self.add.shard(in_strategy=layout_add)
+                self.bmm_swap.shard(in_strategy=layout_bmm_swap)
+                self.mul.shard(in_strategy=layout_mul)
+            else:
+                self.add.shard((strategy_in, strategy_in))
+                self.bmm_swap.shard((strategy_in, layout_ndtp("None", "None")))
+                self.mul.shard((strategy_in, layout_ndtp(("cp", "z", "x"), "None")))
+            self.mul_inc.shard((strategy_in, layout_ndtp("dp", "None", ("cp", "z", "x"), "None"))) # adapt for eod
+            self.neg.shard((strategy_in,))
+            self.slice.shard((strategy_in,))
+            self.concat.shard((strategy_in, strategy_in))
         else:
-            self.add.shard((strategy_in, strategy_in))
-            self.bmm_swap.shard((strategy_in, (1, 1)))
-            self.mul.shard((strategy_in, (1, 1)))
-        self.mul_inc.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
-        self.neg.shard((strategy_in,))
-        self.slice.shard((strategy_in,))
-        self.concat.shard((strategy_in, strategy_in))
+            strategy_in = (dp, mp, 1, 1)
+            if cp > 1:
+                layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
+                layout_add = (layout("dp", "mp", "cp", "None"), layout("dp", "mp", "cp", "None"))
+                layout_bmm_swap = (layout("dp", "mp", "cp", "None"), layout("None", "None"))
+                layout_mul = (layout("dp", "mp", "cp", "None"), layout("None", "None", "cp", "None"))
+                self.add.shard(in_strategy=layout_add)
+                self.bmm_swap.shard(in_strategy=layout_bmm_swap)
+                self.mul.shard(in_strategy=layout_mul)
+            else:
+                self.add.shard((strategy_in, strategy_in))
+                self.bmm_swap.shard((strategy_in, (1, 1)))
+                self.mul.shard((strategy_in, (1, 1)))
+            self.mul_inc.shard((strategy_in, (strategy_in[0], 1, 1, 1)))  # allgather when cp > 1
+            self.neg.shard((strategy_in,))
+            self.slice.shard((strategy_in,))
+            self.concat.shard((strategy_in, strategy_in))
