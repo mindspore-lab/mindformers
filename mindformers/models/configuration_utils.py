@@ -289,7 +289,7 @@ class PretrainedConfig(PushToHubMixin):
                 If yaml_name_or_path is model name,
                 it supports model names beginning with mindspore or the model name itself,
                 such as "mindspore/vit_base_p16" or "vit_base_p16".
-            kwargs (Any): Keyword arguments.
+            **kwargs (Any): Keyword arguments.
 
                 - pretrained_model_name_or_path (str, optional):
                   Equal to "yaml_name_or_path", if "pretrained_model_name_or_path" is set,

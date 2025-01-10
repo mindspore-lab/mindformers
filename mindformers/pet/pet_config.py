@@ -64,8 +64,8 @@ class LoraConfig(PetConfig):
             Refers to (https://www.mindspore.cn/docs/en/master/api_python/mindspore.common.initializer.html). Default: ``normal``.
         lora_b_init (str, optional): The initialization strategy of LoRA B matrix.
             Refers to (https://www.mindspore.cn/docs/en/master/api_python/mindspore.common.initializer.html). Default: ``zero``.
-        param_init_type (str, optional): The type of data in initialized tensor. Default: ``float16``.
-        compute_dtype (str, optional): The compute type of data. Default: ``float16``.
+        param_init_type (str, optional): The type of data in initialized tensor. Default: ``None``.
+        compute_dtype (str, optional): The compute type of data. Default: ``None``.
         target_modules (str, optional): The layers that require replacement with LoRA algorithm. Default: ``None``.
         exclude_layers (str, optional): The layers that do not require
             replacement with the LoRA algorithm. Default: ``None``.

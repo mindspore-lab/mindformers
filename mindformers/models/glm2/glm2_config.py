@@ -87,7 +87,7 @@ class ChatGLM2Config(PretrainedConfig):
             `TransformerOpParallelConfig` with default args. Default: ``TransformerOpParallelConfig``.
         offset (int, optional): The layer offset for each (mini) stage. Default: ``0``.
         pp_interleave_num (int, optional): Number of microbatch interleavings in pipeline parallelism. Default: ``1``.
-        kwargs (dict, optional): A variable number of keyword parameters reserved for the keyword parameters to be
+        **kwargs (dict, optional): A variable number of keyword parameters reserved for the keyword parameters to be
             expanded.
 
     Returns:
