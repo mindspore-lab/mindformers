@@ -187,7 +187,7 @@ class LlamaConfig(PretrainedConfig):
                  rmsnorm_compute_2d: bool = False,
                  chunk_prefill: bool = False,
                  calculate_per_token_loss: bool = False,
-                 pipeline_stage=None,
+                 pipeline_stage: dict = None,
                  **kwargs):
         """
         Note:
