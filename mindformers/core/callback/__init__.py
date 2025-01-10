@@ -20,7 +20,8 @@ from .callback import (
     MFLossMonitor,
     ObsMonitor,
     ProfileMonitor,
-    SummaryMonitor
+    SummaryMonitor,
+    StressDetectCallBack
 )
 
 __all__ = ['CheckpointMonitor', 'EvalCallBack', 'MFLossMonitor', 'ProfileMonitor', 'SummaryMonitor']
