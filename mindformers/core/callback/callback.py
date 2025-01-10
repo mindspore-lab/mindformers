@@ -808,7 +808,7 @@ class ProfileMonitor(Callback):
         stop_step (int, optional): The step to stop profiling. Default: ``10``.
         output_path (str, optional): The result of profiling will be saved in this path. Default: ``None``.
         start_profile (str, optional): Whether to enable profiling. Default: ``True``.
-        profile_rank_ids (list, optional): Specify rank ids to enable profiling. Default: ``None``(All rank ids
+        profile_rank_ids (list, optional): Specify rank ids to enable profiling. Default: ``None`` (All rank ids
             are enabled).
         profile_pipeline (str, optional): Whether to enable profiling on one card of each parallel stage.
             Default: ``False``.

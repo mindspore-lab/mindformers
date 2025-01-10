@@ -14,10 +14,10 @@ mindformers.wrapper.MFTrainOneStepCell
         - **max_grad_norm** (float, 可选) - 最大梯度范数值。默认值： ``1.0`` 。
         - **scale_sense** (Union[int, float, Tensor, Cell], 可选) - 缩放系数，作为反向传播的输入。如果该值是一个 Cell，它将被 MFTrainOneStepCell 调用来更新损失缩放。如果该值是一个 Tensor，可以通过 set_sense_scale 修改损失缩放，其形状应为 :math:`()` 或 :math:`(1,)`。默认值： ``1.0`` 。
         - **local_norm** (bool, 可选) - 是否计算局部范数。默认值： ``False`` 。
-        - **kwargs** (Any) - 其他参数。
+        - **\*\*kwargs** (Any) - 其他参数。
 
     输入：
-        - **(\*inputs)** (Tuple(Tensor)) - 形状为 :math:`(N, \ldots)` 的输入张量元组。
+        - **\*inputs** (Tuple(Tensor)) - 形状为 :math:`(N, \ldots)` 的输入张量元组。
 
     输出：
         5个或7个张量的元组，包括损失值、溢出标志，当前的损失缩放值，优化器学习率，全局梯度norm，局部梯度norm和对应分组size：

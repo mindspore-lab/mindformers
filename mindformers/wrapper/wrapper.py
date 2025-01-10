@@ -108,7 +108,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
             If this value is a Tensor, the loss scale can be modified by `set_sense_scale`,
             the shape should be :math:`()` or :math:`(1,)`. Default: ``1.0``.
         local_norm (bool, optional): Whether to calculate the local norm. Default: ``False``.
-        kwargs (Any): Additional parameters.
+        **kwargs (Any): Additional parameters.
 
     Inputs:
         - **\*inputs** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \ldots)`.
