@@ -14,10 +14,10 @@ mindformers.wrapper.MFPipelineWithLossScaleCell
         - **micro_batch_num** (int, 可选) - 流水线并行的微批次数。默认值： ``1`` 。
         - **local_norm** (bool, 可选) - 是否计算局部范数。默认值： ``False`` 。
         - **calculate_per_token_loss** (bool, 可选) - 是否计算每个token的损失。默认值： ``False`` 。
-        - **kwargs** (Any) - 其他参数。
+        - **\*\*kwargs** (Any) - 其他参数。
 
     输入：
-        - **(\*inputs)** (Tuple(Tensor)) - 形状为 :math:`(N, \ldots)` 的输入张量元组。
+        - **\*inputs** (Tuple(Tensor)) - 形状为 :math:`(N, \ldots)` 的输入张量元组。
 
     输出：
         5个或7个张量的元组，包括损失值、溢出标志，当前的损失缩放值，优化器学习率，全局梯度norm，局部梯度norm和对应分组size：

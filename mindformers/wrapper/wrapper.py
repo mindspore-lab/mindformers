@@ -111,7 +111,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         local_norm (bool, optional): Whether to calculate the local norm. Default: ``False``.
         calculate_per_token_loss (bool, optional): Whether to calculate the loss of each token.
             Default: `False`.
-        kwargs (Any): Additional parameters.
+        **kwargs (Any): Additional parameters.
 
     Inputs:
         - **\*inputs** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \ldots)`.
@@ -438,7 +438,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         micro_batch_num (int, optional): Micro batch number of pipeline parallel. Default: ``1``.
         local_norm (bool, optional): Whether to calculate the local norm. Default: ``False``.
         calculate_per_token_loss (bool, optional): Whether to calculate the loss of each token. Default: ``False``.
-        kwargs (Any): Additional parameters.
+        **kwargs (Any): Additional parameters.
 
     Inputs:
         - **\*inputs** (Tuple(Tensor)) - Tuple of input tensors with shape :math:`(N, \ldots)`.
