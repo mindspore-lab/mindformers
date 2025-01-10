@@ -23,11 +23,12 @@ mindformers.models.LlamaConfig
         - **pad_token_id** (int, 可选) - *填充* 词元的 id。默认值： ``0`` 。
         - **ignore_token_id** (int, 可选) - *忽略* 词元的 id。默认值： ``-100`` 。
         - **theta** (float, 可选) - RoPE 中正弦和余弦函数的频率因子。默认值： ``10000.0`` 。
-        - **compute_dtype** (str, 可选) - 线性层计算数据类型，默认值： ``float16`` 。
-        - **layernorm_compute_type** (str, 可选) - layernorm 计算数据类型，默认值： ``float32`` 。
-        - **softmax_compute_type** (str, 可选) - softmax 计算数据类型，默认值： ``float32`` 。
-        - **rotary_dtype** (str, 可选) - rope 计算数据类型，默认值： ``float32`` 。
-        - **param_init_type** (str, 可选) - 参数初始化数据类型，默认值： ``float16`` 。
+        - **compute_dtype** (str, 可选) - 线性层计算数据类型。默认值： ``float16`` 。
+        - **layernorm_compute_type** (str, 可选) - layernorm 计算数据类型。默认值： ``float32`` 。
+        - **softmax_compute_type** (str, 可选) - softmax 计算数据类型。默认值： ``float32`` 。
+        - **rotary_dtype** (str, 可选) - rope 计算数据类型。默认值： ``float32`` 。
+        - **param_init_type** (str, 可选) - 参数初始化数据类型。默认值： ``float16`` 。
+        - **embedding_init_type** (str, 可选) - 嵌入权重的初始数据类型。默认值： ``None`` 。
         - **qkv_has_bias** (bool, 可选) - 查询、键和值的投影是否有偏置。默认值： ``False`` 。
         - **qkv_concat** (bool, 可选) - 是否拼接Query,、Key和Value投影。默认值： ``None`` 。
         - **parallel_config** (TransformerOpParallelConfig, 可选) - 并行配置。默认值： ``default_transformer_config`` ，一个带有默认参数的 `TransformerOpParallelConfig` 实例。
