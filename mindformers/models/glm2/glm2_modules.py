@@ -20,7 +20,7 @@ import numpy as np
 import mindspore.common.dtype as mstype
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
-from mindspore import nn, Parameter, Tensor, log as logger
+from mindspore import nn, ops, Parameter, Tensor, log as logger
 from mindspore.common.initializer import initializer
 
 from mindformers.modules.layers import Linear
@@ -299,7 +299,9 @@ class ChatGLM2MLP(nn.Cell):
         cp = config.parallel_config.context_parallel
         mp = config.parallel_config.model_parallel
         self.add_bias = config.add_bias_linear
+        self.ffn_hidden_size = config.ffn_hidden_size
         self.mlp_concat = config.mlp_concat
+        self.enable_high_performance = config.enable_high_performance
         if config.mlp_concat:
             self.dense_h_to_4h = Linear(
                 config.hidden_size,
@@ -313,9 +315,14 @@ class ChatGLM2MLP(nn.Cell):
                 strategy_bias=((dp * cp, mp), (mp,)))
 
             self.activation_func = ChatGLM2SwiGLU()
-            self.split = P.Split(axis=-1, output_num=2)
-            self.activation_func.shard(((dp, cp, 1),))
-            self.split.shard(((dp, cp, 1),))
+            self.split = ops.auto_generate.SplitWithSize()
+            self.split.add_prim_attr("skip_redistribution", True)
+            if self.enable_high_performance:
+                self.activation_func.shard(((dp, cp, mp),))
+                self.split.shard(((dp, cp, mp),))
+            else:
+                self.activation_func.shard(((dp, cp, 1),))
+                self.split.shard(((dp, cp, 1),))
         else:
             self.dense_left = Linear(
                 config.hidden_size,
@@ -352,7 +359,8 @@ class ChatGLM2MLP(nn.Cell):
         # [bs, seq_len, 4 * hidden_size]
         if self.mlp_concat:
             intermediate_parallel = self.dense_h_to_4h(hidden_states)
-            intermediate_left, intermediate_right = self.split(intermediate_parallel)
+            intermediate_left, intermediate_right = self.split(intermediate_parallel,
+                                                               (self.ffn_hidden_size, self.ffn_hidden_size), 2)
         else:
             intermediate_left = self.dense_left(hidden_states)
             intermediate_right = self.dense_right(hidden_states)

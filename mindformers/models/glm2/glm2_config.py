@@ -66,10 +66,13 @@ class ChatGLM2Config(PretrainedConfig):
         param_init_type (str, optional): Parameter initial dtype. Default: ``float16``.
         compute_dtype (str, optional): Linear layer compute dtype. Default: ``float16``.
         layernorm_compute_type (str, optional): LayerNorm compute dtype. Default: ``float32``.
+        residual_dtype (str, optional): Residual compute dtype. Default: ``float32``.
         rotary_dtype (str, optional): Custom rotary position embedding compute dtype. Default: ``None``.
         use_past (bool, optional): Whether the model should use the past last key/values attentions (if applicable to
             the model) to speed up decoding. Default: ``False``.
         use_flash_attention (bool, optional): Whether enable flash attention ops, default False. Default: ``False``.
+        enable_high_performance (bool, optional): Whether to adjust parallel strategies of qkv and ffn,
+            in order to get high performance. Default: ``False``.
         block_size (int, optional): The maximum number of tokens in one block can have when using PagedAttention.
             Default: ``16``.
         num_blocks (int, optional): The maximum number of blocks when using PagedAttention. Default: ``128``.
@@ -149,9 +152,11 @@ class ChatGLM2Config(PretrainedConfig):
                  param_init_type: str = "float16",
                  compute_dtype: str = "float16",
                  layernorm_compute_type: str = "float32",
+                 residual_dtype: str = "float32",
                  rotary_dtype: str = None,
                  use_past=False,
                  use_flash_attention=False,
+                 enable_high_performance=False,
                  block_size=16,
                  num_blocks=128,
                  is_dynamic=False,
@@ -204,9 +209,11 @@ class ChatGLM2Config(PretrainedConfig):
         self.param_init_type = convert_mstype(param_init_type)
         self.compute_dtype = convert_mstype(compute_dtype)
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
+        self.residual_dtype = convert_mstype(residual_dtype)
         self.rotary_dtype = convert_mstype(rotary_dtype) if rotary_dtype is not None else self.compute_dtype
         self.use_past = use_past
         self.use_flash_attention = use_flash_attention
+        self.enable_high_performance = enable_high_performance
         self.eos_token_id = eos_token_id
         self.pad_token_id = pad_token_id
         self.repetition_penalty = repetition_penalty
