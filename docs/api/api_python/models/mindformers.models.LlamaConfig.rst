@@ -33,7 +33,7 @@ mindformers.models.LlamaConfig
         - **qkv_has_bias** (bool, 可选) - 查询、键和值的投影是否有偏置。默认值： ``False`` 。
         - **qkv_concat** (bool, 可选) - 是否拼接Query,、Key和Value投影。默认值： ``None`` 。
         - **attn_proj_has_bias** (bool, 可选) - 注意力中的投影是否有偏置。默认值： ``False``。
-        - **parallel_config** (TransformerOpParallelConfig, 可选) - 并行配置。默认值： ``default_transformer_config`` ，一个带有默认参数的 `TransformerOpParallelConfig` 实例。
+        - **parallel_config** (Union[dict, TransformerOpParallelConfig], 可选) - 并行配置。默认值： ``default_transformer_config`` ，一个带有默认参数的 `TransformerOpParallelConfig` 实例。
         - **moe_config** (Union[dict, MoEConfig], 可选) - MoE配置。默认值： ``default_moe_config`` ，一个带有默认参数的 `MoEConfig` 实例。
         - **use_past** (bool, 可选) - 模型是否应使用过去的键/值注意力（如果适用于模型）来加速解码。默认值： ``False`` 。
         - **extend_method** (str, 可选) - 序列长度推理时的扩展方法。默认值： ``None`` 。
