@@ -18,6 +18,7 @@ import numpy as np
 import mindspore as ms
 from mindspore import nn, Tensor
 from mindspore.ops import operations as P
+from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose
 from mindspore.ops import functional as F
 from mindspore.context import ParallelMode
 from mindspore.parallel.shard import Layout
@@ -1150,10 +1151,12 @@ class ParallelLMLogits(nn.Cell):
         self.compute_dtype = compute_dtype if compute_dtype else config.compute_dtype
         self.bias = bias
 
-        self.matmul = P.MatMul(transpose_b=True)
-        self.reshape = P.Reshape()
+        self.matmul = MatMulExt()
+        self.reshape = Reshape()
+        self.transpose_b = Transpose()
+        self.cast = Cast()
         if self.bias:
-            self.add = P.Add()
+            self.add = AddExt()
         self.shard(config)
 
     def construct(self,
@@ -1175,6 +1178,7 @@ class ParallelLMLogits(nn.Cell):
         logits = self.cast(logits, self.compute_dtype)
         weight = self.cast(word_embedding_weight, self.compute_dtype)
 
+        weight = self.transpose_b(weight, (1, 0))
         logits = self.matmul(logits, weight)
         if self.bias and bias is not None:
             bias = self.cast(bias, self.compute_dtype)
@@ -1190,7 +1194,7 @@ class ParallelLMLogits(nn.Cell):
         tp = getattr(config, 'tensor_parallel', 1)
         cp = getattr(config, 'context_parallel', 1)
 
-        weight_strategy = (tp, 1)
+        weight_strategy = (1, tp)
         matmul_in_strategy = ((dp * cp, 1), weight_strategy)
         self.matmul.shard(in_strategy=matmul_in_strategy)
 
