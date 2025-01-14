@@ -12,7 +12,7 @@ mindformers.core.ProfileMonitor
         - **start_profile** (str, 可选) - 是否打开profiling功能。默认值： ``True`` 。
         - **profile_communication** (str, 可选) - 在分布式训练期间是否收集通信性能数据。默认值： ``False`` 。
         - **profile_memory** (str, 可选) - 是否收集张量的内存数据。默认值： ``False`` 。
-        - **profile_rank_ids** (list, 可选) - 指定rank ids开启profiling。默认值： ``None``，即该配置不生效，所有rank id均开启profiling。
+        - **profile_rank_ids** (list, 可选) - 指定rank ids开启profiling。默认值： ``None`` ，即该配置不生效，所有rank id均开启profiling。
         - **profile_pipeline** (str, 可选) - 是否按流水线并行每个stage的其中一张卡开启profiling。默认值： ``False`` 。
         - **profiler_level** (int, 可选) - 采集profiling数据的级别(0, 1, 2)。默认值： ``0`` 。
 
