@@ -186,10 +186,34 @@ MindFormers provides the `run_mindformer.py` script as the single-device launch 
 python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/predict}
 ```
 
-## 4. Contribution
+## 4. Life Cycle And Version Matching Strategy
+
+MindFormers version has the following five maintenance phases:
+
+| **Status** | **Duration**    | **Description**                                                                                                                                                                                                                                                      |
+|--|-------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Plan | 1-3 months  | Planning function.                                                                                                                                                                                                                                                   |
+| Develop | 3 months    | Build function.                                                                                                                                                                                                                                                      |
+| Preserve | 6-12 months | Incorporate all solved problems and release new versions. For MindFormers of different versions, implement a differentiated preservation plan: the preservation period of the general version is 6 months, while that of the long-term support version is 12 months. |
+| No Preserve | 0—3 months  | Incorporate all the solved problems, there is no full-time maintenance team, and there is no plan to release a new version.                                                                                                                                          |
+| End of Life (EOL) | N/A         | The branch is closed and no longer accepts any modifications.                                                                                                                                                                                                        |
+
+MindFormers released version preservation policy:
+
+| **MindFormers Version** | **Corresponding Label** | **Preservation Policy** | **Current Status** | **Release Time** | **Subsequent Status**                          | **EOL Date** |
+|-------------------------|-------------------------|-------------------------|--------------------|------------------|------------------------------------------------|----------|
+| 1.3.2                   | v1.3.2                  | General Version         | No Preserve                 | 2024/12/20       | No preserve expected from 2025/06/20                       |          |
+| 1.2.0                   | v1.2.0                  | General Version         | No Preserve                 | 2024/07/12       | No preserve expected from 2025/01/12           |          |
+| 1.1.0                   | v1.1.0                  | General Version         | No Preserve                | 2024/04/15       | End of life is expected from 2025/01/15 |   2025/01/15       |
+
+## 5. Disclaimer
+
+`scripts/examples` directory are provided as reference examples and do not form part of the commercially released products. They are only for users' reference. If it needs to be used, the user should be responsible for transforming it into a product suitable for commercial use and ensuring security protection. MindSpore does not assume security responsibility for the resulting security problems.
+
+## 6. Contribution
 
 We welcome contributions to the community. For details, see [MindFormers Contribution Guidelines](https://www.mindspore.cn/mindformers/docs/en/dev/faq/mindformers_contribution.html).
 
-## 5. License
+## 7. License
 
 [Apache 2.0 License](LICENSE)
