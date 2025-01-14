@@ -664,7 +664,7 @@ class LlamaMoeInferFeedForward(Cell):
             self.w3.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)))
             self.w2.shard(strategy_matmul=(((1, mp),), ((1, mp, 1),), ((),), ((),), ((),), ((),), ((),), (1,)))
         else:
-            self.mul.shard((1, mp), (1, mp))
+            self.mul.shard(((1, mp), (1, mp)))
             self.w1.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)),
                           strategy_activation=((1, 1, mp, 1),))
             self.w3.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)))
@@ -771,8 +771,10 @@ class LlamaFeedForwardWithMoE(Cell):
         self.mul.shard(((dp, 1, 1), (dp, 1, 1)))
         self.add.shard(((dp, 1, 1), (dp, 1, 1)))
         self.sigmoid.shard(((dp, 1, 1),))
-
-        self.routed_experts.ffn.shard(parallel_config)
+        if self.use_moe_infer:
+            self.routed_experts.shard(parallel_config)
+        else:
+            self.routed_experts.ffn.shard(parallel_config)
         self.shared_experts.shard(parallel_config)
         self.shared_experts.mul.shard(((dp, 1, mp), (dp, 1, mp)))
 

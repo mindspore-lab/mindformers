@@ -193,7 +193,7 @@ class DeepSeekV2MoEInfer(Cell):
 
         self.add.shard(((dp, 1, 1), (dp, 1, 1)))
 
-        self.routed_experts.ffn.shard(parallel_config)
+        self.routed_experts.shard(parallel_config)
         self.shared_experts.shard(parallel_config)
         self.shared_experts.mul.shard(((dp, 1, mp), (dp, 1, mp)))
 
