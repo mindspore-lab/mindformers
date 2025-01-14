@@ -62,7 +62,7 @@ from mindformers.version_control import get_dropout, choose_flash_attention_dtyp
 
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.logger import logger as log
-from mindformers.tools.utils import is_pynative
+from mindformers.tools.utils import is_pynative, get_infer_boost
 
 __all__ = [
     "AttentionMask",
@@ -1007,7 +1007,7 @@ class LowerTriangularMaskWithDynamic(Cell):
         if use_past and chunk_prefill:
             self.lower_triangle_mask = Tensor(np.tril(np.ones(shape=(seq_length, seq_length), dtype=np.int8)), \
                                 dtype=compute_type)
-        elif use_past and not self.is_pynative:
+        elif use_past and get_infer_boost() and not self.is_pynative:
             if self.is_dynamic:
                 mask_coeff = 1.0 if compute_type is mstype.bfloat16 else -10000.0
                 self.lower_triangle_mask = Tensor(

@@ -35,7 +35,7 @@ from mindformers.modules.layers import Linear, FreqsMgr
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
-from mindformers.tools.utils import get_predict_run_mode
+from mindformers.tools.utils import get_predict_run_mode, get_infer_boost
 
 from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm
@@ -95,7 +95,9 @@ class LlamaModel(LlamaPreTrainedModel):
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.rmsnorm_compute_2d = config.rmsnorm_compute_2d
-
+        self.enable_infer_boost = get_infer_boost()
+        if self.use_past and not self.enable_infer_boost:
+            self.range = Tensor(np.arange(config.seq_length).reshape((1, 1, -1)), mstype.int32)
         if config.moe_config.expert_num > 1:
             logger.info("MoE config is provided, use MoE FFN")
         else:
@@ -280,6 +282,34 @@ class LlamaModel(LlamaPreTrainedModel):
             else:
                 self.norm_out.shard((dp, cp, 1))
 
+    def gen_infer_freqs_and_mask(self, batch_size, seq_len, tokens, batch_valid_length, prefix_keys_values):
+        """generate infer rope freqs and attention mask."""
+        # for infer boost off mode or o2 mode
+        if not self.enable_infer_boost:
+            if self.is_first_iteration:
+                freqs_cis = self.freqs_mgr(seq_len)
+                mask = self.casual_mask(tokens)  # mask: [bs, seq, seq]
+            else:
+                freqs_cis = self.freqs_mgr.increment(batch_valid_length)
+                mask = self.casual_mask.increment(self.range, batch_valid_length)
+            return freqs_cis, mask
+
+        # for O0 + infer boost on mode
+        mask = None
+        if self.is_first_iteration:
+            freqs_cis = self.freqs_mgr.prefill(batch_size, seq_len)
+            mask = self.casual_mask.prefill()
+            if prefix_keys_values is not None:
+                if mask is None:
+                    mask = self.casual_mask(tokens)
+                prefix_length = prefix_keys_values[0].shape[2]
+                prefix_mask = Tensor(np.zeros((batch_size, 1, seq_len, prefix_length)), dtype=mask.dtype)
+                mask = self.concat((prefix_mask, mask))
+        else:
+            freqs_cis = self.freqs_mgr.increment(batch_valid_length)
+
+        return freqs_cis, mask
+
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, input_embeds=None, batch_valid_length=None, batch_index=None,
                   zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None,
@@ -325,17 +355,8 @@ class LlamaModel(LlamaPreTrainedModel):
         else:
             mask = None
             if self.use_past:
-                if self.is_first_iteration:
-                    freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-                    mask = self.casual_mask.prefill()
-                    if prefix_keys_values is not None:
-                        if mask is None:
-                            mask = self.casual_mask(tokens)
-                        prefix_length = prefix_keys_values[0].shape[2]
-                        prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
-                        mask = self.concat((prefix_mask, mask))
-                else:
-                    freqs_cis = self.freqs_mgr.increment(batch_valid_length)
+                freqs_cis, mask = self.gen_infer_freqs_and_mask(bs, seq_len, tokens, batch_valid_length,
+                                                                prefix_keys_values)
             else:
                 if self.seq_pipe:
                     mask = self.casual_mask(tokens, seq_chunk=self.seq_chunk)
@@ -359,7 +380,7 @@ class LlamaModel(LlamaPreTrainedModel):
         else:
             h = self.cast(self.tok_embeddings(tokens), self.dtype)
         if not rmsnorm_compute_2d:
-            h = self.reshape(h, (bs, seq_len, self.hidden_size))    # h: [bs, seq/1, hidden_dim]
+            h = self.reshape(h, (bs, seq_len, self.hidden_size))  # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
             h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length, block_tables=block_tables,
@@ -580,7 +601,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         for layer in self.model.layers:
             layer.add_flags(is_first_iteration=is_first_iteration)
             layer.attention.infer_attention.add_flags(is_first_iteration=is_first_iteration)
-            layer.attention.infer_attention.paged_attention_mgr.add_flags(is_first_iteration=is_first_iteration)
 
     def pre_gather_func(self, pre_gather, output, batch_valid_length, gather_index=None):
         """Pre gather operation in infer mode."""
@@ -655,8 +675,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         return loss
 
     def kvcache(self, layer_idx):
-        key_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache
-        value_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.value_cache
+        key_cache = self.model.layers[layer_idx].attention.infer_attention.kv_cache_mgr.key_cache
+        value_cache = self.model.layers[layer_idx].attention.infer_attention.kv_cache_mgr.value_cache
         return key_cache, value_cache
 
     @classmethod

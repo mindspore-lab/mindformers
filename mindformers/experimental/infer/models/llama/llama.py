@@ -133,7 +133,6 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         for layer in self.model.layers:
             layer.add_flags(is_first_iteration=is_first_iteration)
             layer.attention.add_flags(is_first_iteration=is_first_iteration)
-            layer.attention.paged_attention_mgr.add_flags(is_first_iteration=is_first_iteration)
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
@@ -164,8 +163,8 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         return logits, input_ids, input_mask
 
     def kvcache(self, layer_idx):
-        key_cache = self.model.layers[layer_idx].attention.paged_attention_mgr.key_cache
-        value_cache = self.model.layers[layer_idx].attention.paged_attention_mgr.value_cache
+        key_cache = self.model.layers[layer_idx].attention.kv_cache_mgr.key_cache
+        value_cache = self.model.layers[layer_idx].attention.kv_cache_mgr.value_cache
         return key_cache, value_cache
 
     @classmethod

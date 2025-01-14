@@ -462,7 +462,7 @@ class YiZhaoWithPtuning2(YiZhaoForCausalLM):
 
     def kvcache(self, layer_idx):
         key_cache = \
-            self.transformer.encoder.layers[layer_idx].self_attention.infer_attention.paged_attention_mgr.key_cache
+            self.transformer.encoder.layers[layer_idx].self_attention.infer_attention.kv_cache_mgr.key_cache
         value_cache = \
-            self.transformer.encoder.layers[layer_idx].self_attention.infer_attention.paged_attention_mgr.value_cache
+            self.transformer.encoder.layers[layer_idx].self_attention.infer_attention.kv_cache_mgr.value_cache
         return key_cache, value_cache
