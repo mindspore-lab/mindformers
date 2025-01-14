@@ -236,6 +236,7 @@ class MindIEModelRunner:
             self.config.use_parallel = True
             os.environ['MS_WORKER_NUM'] = str(world_size)
             os.environ['MS_ROLE'] = 'MS_WORKER'
+            os.environ['MS_NODE_ID'] = str(rank_id)
             ms.set_device("Ascend", npu_device_ids[0])
             if rank_id == 0 and os.fork() == 0:
                 os.environ['MS_ROLE'] = 'MS_SCHED'
