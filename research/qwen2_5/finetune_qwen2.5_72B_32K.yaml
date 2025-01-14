@@ -21,7 +21,7 @@ runner_config:
   epochs: 1
   batch_size: 1
   sink_mode: True
-  sink_size: 1
+  sink_size: 2
 
 # wrapper cell config
 runner_wrapper:
@@ -118,7 +118,7 @@ micro_batch_interleave_num: 1
 recompute_config:
   recompute: False
   select_recompute: False
-  select_comm_recompute: [5, 1, 0, 0, 0, 0, 0, 0]
+  select_comm_recompute: [ 6, 2, 1, 0, 0, 0, 0, 0 ]
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: False
   recompute_slice_activation: False
@@ -142,8 +142,8 @@ context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   max_call_depth: 10000
-  max_device_memory: "58GB"
-  mempool_block_size: "58GB"
+  max_device_memory: "56GB"
+  mempool_block_size: "56GB"
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
@@ -154,7 +154,7 @@ context:
 # model config
 model:
   model_config:
-    use_attn_mask_compression: False
+    use_attn_mask_compression: True
     type: LlamaConfig
     batch_size: 1
     seq_length: 32768
@@ -233,4 +233,3 @@ lr_scale_factor: 256
 
 # aicc
 remote_save_url: "Please input obs url on AICC platform."
-
