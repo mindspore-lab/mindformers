@@ -355,7 +355,7 @@ vim /usr/local/Ascend/mindie/1.0.RC3/mindie-service/conf/config.json
             "ModelConfig" : [
                 {
                     "modelInstanceType": "Standard",
-                    "modelName" : "qwen2_b",
+                    "modelName" : "qwen2_7b",
                     "modelWeightPath" : "/mf_model/qwen2_7b",
                     "worldSize" : 1,
                     "cpuMemSize" : 16,
