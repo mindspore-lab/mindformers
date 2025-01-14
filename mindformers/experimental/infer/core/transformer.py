@@ -20,6 +20,7 @@ import numpy as np
 import mindspore.common.dtype as mstype
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
+from mindspore.ops.auto_generate import PagedAttention
 
 from mindformers.experimental.parallel_core.pynative.transformer.scale_mask_softmax import ScaleMaskSoftmax
 from mindformers.experimental.parallel_core.pynative.utils import divide
@@ -29,7 +30,7 @@ from mindformers.experimental.infer.core.utils import get_tp_world_size, create_
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
-from mindformers.modules.paged_attention_mgr import PagedAttentionMgr
+from mindformers.modules.kv_cache_mgr import KVCacheMgr
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.tools.utils import is_pynative
 
@@ -382,24 +383,14 @@ class ParallelAttention(nn.Cell):
 
         if self.use_past:
             kv_shape = (self.config.num_blocks, self.config.block_size, self.kv_num_heads_per_partition, self.head_dim)
-            self.paged_attention_mgr = PagedAttentionMgr(self.num_heads_per_partition,
-                                                         self.head_dim,
-                                                         self.kv_num_heads_per_partition,
-                                                         kv_shape,
-                                                         config.seq_length,
-                                                         compute_dtype=self.compute_dtype)
-            self.paged_attention_mgr.key_cache = create_empty_parameter(
-                shape=self.paged_attention_mgr.key_cache.shape,
-                dtype=self.paged_attention_mgr.key_cache.dtype,
-                name=self.paged_attention_mgr.key_cache.name,
-                requires_grad=self.paged_attention_mgr.key_cache.requires_grad,
-            )
-            self.paged_attention_mgr.value_cache = create_empty_parameter(
-                shape=self.paged_attention_mgr.value_cache.shape,
-                dtype=self.paged_attention_mgr.value_cache.dtype,
-                name=self.paged_attention_mgr.value_cache.name,
-                requires_grad=self.paged_attention_mgr.value_cache.requires_grad,
-            )
+            self.kv_cache_mgr = KVCacheMgr(self.kv_num_heads_per_partition,
+                                           self.head_dim,
+                                           num_blocks=self.config.num_blocks,
+                                           block_size=self.config.block_size,
+                                           compute_dtype=self.compute_dtype)
+            self.paged_attention = PagedAttention(self.num_heads_per_partition,
+                                                  1.0 / self.norm_factor,
+                                                  self.kv_num_heads_per_partition)
             self.rotary_embedding = InferRotaryEmbedding(rotary_cos_format=2)
         else:
             self.apply_rotary_emb = RotaryEmbedding(self.head_dim, config.rotary_dtype)
@@ -461,8 +452,7 @@ class ParallelAttention(nn.Cell):
                 if self.is_first_iteration:
                     key, value = self._cat_prefix(key, value, prefix_keys_values)
 
-            key_out = self.paged_attention_mgr(key, value, slot_mapping, batch_valid_length)
-            query = ops.depend(query, key_out)
+            key_cache, value_cache = self.kv_cache_mgr(key, value, slot_mapping, batch_valid_length)
 
             if self.is_first_iteration:
                 if self.use_flash_attention:
@@ -496,9 +486,8 @@ class ParallelAttention(nn.Cell):
                     context_layer = context_layer.transpose(0, 2, 1, 3).reshape(
                         bs, seq_len, self.hidden_size_per_partition)
             else:
-                context_layer = self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables)
-
-        # [B, S, N, D]
+                context_layer = self.paged_attention(query, key_cache, value_cache, block_tables, batch_valid_length,
+                                                     None, None, None, None)
         else:
             # [B, S, N, D] --> [B, N, S, D]
             query = query.transpose(0, 2, 1, 3)

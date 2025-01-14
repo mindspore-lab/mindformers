@@ -504,6 +504,6 @@ class CogVLM2VideoLM(LlamaPreTrainedModel):
 
     def kvcache(self, layer_idx):
         """Get kvcache with input layer index."""
-        key_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache
-        value_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.value_cache
+        key_cache = self.model.layers[layer_idx].attention.infer_attention.kv_cache_mgr.key_cache
+        value_cache = self.model.layers[layer_idx].attention.infer_attention.kv_cache_mgr.value_cache
         return key_cache, value_cache

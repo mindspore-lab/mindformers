@@ -479,6 +479,11 @@ def get_predict_run_mode():
     return run_mode == "predict"
 
 
+def get_infer_boost():
+    infer_boost = context.get_jit_config().get("infer_boost")
+    return infer_boost == "on"
+
+
 def is_main_rank(ignore_check_modelarts=False):
     return not get_real_rank() or \
         ((ignore_check_modelarts or check_in_modelarts()) and get_real_rank() % get_device_num_per_node() == 0)

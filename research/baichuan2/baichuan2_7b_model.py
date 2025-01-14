@@ -453,3 +453,8 @@ class Baichuan7BV2ForCausalLM(Baichuan2PreTrainedModel):
         input_mask = self.reshape(input_mask, (-1,))
         loss = self.loss(logits, labels, input_mask)
         return loss
+
+    def kvcache(self, layer_idx):
+        key_cache = self.model.layers[layer_idx].attention.infer_attention.kv_cache_mgr.key_cache
+        value_cache = self.model.layers[layer_idx].attention.infer_attention.kv_cache_mgr.value_cache
+        return key_cache, value_cache

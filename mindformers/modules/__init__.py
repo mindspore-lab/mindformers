@@ -41,6 +41,6 @@ from .layers import (
     RotaryEmbedding
 )
 from .local_block_sparse_attention import LocalBlockSparseAttention
-from .paged_attention_mgr import PagedAttentionMgr
+from .kv_cache_mgr import KVCacheMgr
 
 __all__ = []

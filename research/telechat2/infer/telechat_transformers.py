@@ -147,8 +147,7 @@ class TelechatParallelAttention(ParallelAttention):
                 if self.is_first_iteration:
                     key, value = self._cat_prefix(key, value, prefix_keys_values)
 
-            key_out = self.paged_attention_mgr(key, value, slot_mapping)
-            query = ops.depend(query, key_out)
+            key_cache, value_cache = self.kv_cache_mgr(key, value, slot_mapping, batch_valid_length)
 
             if self.is_first_iteration:
                 if self.use_flash_attention:
@@ -181,7 +180,8 @@ class TelechatParallelAttention(ParallelAttention):
                         value = value.transpose((0, 2, 1, 3))
                     context_layer = self.core_attention(query, key, value, attn_mask)
             else:
-                context_layer = self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables)
+                context_layer = self.paged_attention(query, key_cache, value_cache, block_tables, batch_valid_length,
+                                                     None, None, None, None)
         else:
             # [B, S, H] -> [B, N, S, D]
             query = query.reshape(bs, seq_len, -1, self.head_dim).transpose((0, 2, 1, 3))

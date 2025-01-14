@@ -891,8 +891,8 @@ class LlamaForCausalLMForCogVLM2Image(LlamaPreTrainedModel):
         """Get kvcache with input layer index."""
         key_cache = self.model.layers[
             layer_idx
-        ].self_attn.infer_attention.paged_attention_mgr.key_cache
+        ].self_attn.infer_attention.kv_cache_mgr.key_cache
         value_cache = self.model.layers[
             layer_idx
-        ].self_attn.infer_attention.paged_attention_mgr.value_cache
+        ].self_attn.infer_attention.kv_cache_mgr.value_cache
         return key_cache, value_cache
