@@ -69,6 +69,7 @@ class LlavaNextVisionConfig(PretrainedConfig):
                  checkpoint_name_or_path: str = "",
                  patching_bias: Optional[bool] = True,
                  patching_pad_mode: Optional[str] = "valid",
+                 use_flash_attention: Optional[bool] = False,
                  **kwargs):
         super(LlavaNextVisionConfig, self).__init__(**kwargs)
         self.hidden_size = hidden_size
@@ -87,6 +88,7 @@ class LlavaNextVisionConfig(PretrainedConfig):
         self.vision_feature_select_strategy = vision_feature_select_strategy
         self.patching_bias = patching_bias
         self.patching_pad_mode = patching_pad_mode
+        self.use_flash_attention = use_flash_attention
 
 
 class DefaultVisionConfig(PretrainedConfig):
