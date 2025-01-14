@@ -324,16 +324,12 @@ class TelechatParallelTransformer(ParallelTransformer):
         self.enable_dynamic_ntk = False
         if config.extend_method == 'DYNAMIC_NTK':
             self.enable_dynamic_ntk = True
-            use_default_freqs = True
-            if hasattr(config, "use_default_freqs"):
-                use_default_freqs = config.use_default_freqs
             self.freqs_mgr = FreqsMgrDynamicNTK(head_dim=self.head_dim,
                                                 max_position_embedding=config.max_position_embedding,
                                                 rotary_dtype=config.rotary_dtype,
                                                 theta=config.theta,
                                                 parallel_config=config.parallel_config,
-                                                is_dynamic=config.is_dynamic,
-                                                use_default_freqs=use_default_freqs)
+                                                is_dynamic=config.is_dynamic)
             logger.info("Running with dynamic NTK.")
 
         self.layers = nn.CellList()

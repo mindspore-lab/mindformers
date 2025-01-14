@@ -1361,8 +1361,7 @@ class FreqsMgrDynamicNTK(Cell):
                  rotary_dtype=mstype.float16,
                  theta=10000,
                  parallel_config=None,
-                 is_dynamic=False,
-                 use_default_freqs=True):
+                 is_dynamic=False):
         super().__init__()
         self.is_pynative = is_pynative()
         freqs_base = np.arange(0, head_dim, 2)[: (head_dim // 2)].astype(np.float32)  # (head_dim // 2, )
@@ -1409,8 +1408,6 @@ class FreqsMgrDynamicNTK(Cell):
         self.ntk_exponent = head_dim / (head_dim - 2.0)
         self.freqs_base = Tensor(-(freqs_base / head_dim), dtype=mstype.float32)
         self.rotary_dtype = rotary_dtype
-        self.use_default_freqs = use_default_freqs
-        logger.debug(f"use_default_freqs: {self.use_default_freqs}")
 
     def get_ntk_alpha(self, true_seq_len):
         """get ntk alpha factor."""
@@ -1449,58 +1446,6 @@ class FreqsMgrDynamicNTK(Cell):
         return freqs_cos, freqs_sin
 
     def prefill(self, bs, seq_length):
-        """get prefill freqs default."""
-        if not self.use_default_freqs:
-            return self.prefill_dynamic(bs, seq_length)
-
-        if seq_length <= self.max_position_embedding:
-            freqs_cos = self.freqs_cos
-            freqs_sin = self.freqs_sin
-        else:
-            seq_arange = ops.arange(start=0, end=seq_length, step=1)
-            freqs_cos, freqs_sin = self.get_dynamic_ntk_freqs(seq_length, seq_arange)
-
-        if self.is_dynamic and not self.is_pynative:
-            return freqs_cos, freqs_sin, self.swap_mask
-
-        freqs_cos = self.tile(self.slice(freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))
-        freqs_sin = self.tile(self.slice(freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))
-        return freqs_cos, freqs_sin, self.swap_mask
-
-    def increment(self, batch_valid_length):
-        """get decode freqs default."""
-        if not self.use_default_freqs:
-            return self.increment_dynamic(batch_valid_length)
-
-        indices = batch_valid_length - 1
-        indices_max = indices.max()
-        if indices_max < self.max_position_embedding:
-            freqs_cos = self.gather(self.freqs_cos, indices, 0)
-            freqs_sin = self.gather(self.freqs_sin, indices, 0)
-        else:
-            batch_valid_length = ops.clip_by_value(batch_valid_length,
-                                                   clip_value_min=self.max_position_embedding)
-            freqs_cos, freqs_sin = self.get_dynamic_ntk_freqs(batch_valid_length, indices)
-        return freqs_cos, freqs_sin, self.swap_mask
-
-    def increment_multi_ids(self, indices):
-        """get decode freqs default."""
-        if not self.use_default_freqs:
-            return increment_multi_ids_dynamic(indices)
-
-        indices = indices.reshape(-1)
-        indices_max = indices.max()
-        if indices_max < self.max_position_embedding:
-            freqs_cos = self.gather(self.freqs_cos, indices, 0)
-            freqs_sin = self.gather(self.freqs_sin, indices, 0)
-        else:
-            batch_valid_length = indices + 1
-            batch_valid_length = ops.clip_by_value(batch_valid_length,
-                                                   clip_value_min=self.max_position_embedding)
-            freqs_cos, freqs_sin = self.get_dynamic_ntk_freqs(batch_valid_length, indices)
-        return freqs_cos, freqs_sin, self.swap_mask
-
-    def prefill_dynamic(self, bs, seq_length):
         """get prefill freqs dynamic."""
         seq_length = ops.clip_by_value(seq_length, clip_value_min=self.max_position_embedding)
         seq_arange = ops.arange(start=0, end=seq_length, step=1)
@@ -1513,7 +1458,7 @@ class FreqsMgrDynamicNTK(Cell):
         freqs_sin = self.tile(self.slice(freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1)), (bs, 1))
         return freqs_cos, freqs_sin, self.swap_mask
 
-    def increment_dynamic(self, batch_valid_length):
+    def increment(self, batch_valid_length):
         """get decode freqs dynamic."""
         indices = batch_valid_length - 1
         batch_valid_length = ops.clip_by_value(batch_valid_length,
@@ -1521,7 +1466,7 @@ class FreqsMgrDynamicNTK(Cell):
         freqs_cos, freqs_sin = self.get_dynamic_ntk_freqs(batch_valid_length, indices)
         return freqs_cos, freqs_sin, self.swap_mask
 
-    def increment_multi_ids_dynamic(self, indices):
+    def increment_multi_ids(self, indices):
         """get decode freqs dynamic."""
         indices = indices.reshape(-1)
         batch_valid_length = indices + 1
