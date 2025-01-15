@@ -109,7 +109,7 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
   2. 执行`research/yi/yi_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
 
      ```shell
-     # 由于此工具依赖fschat工具包解析prompt模板, 请提前安装fschat >= 0.2.13 python = 3.9
+     # 由于此工具依赖fschat工具包解析prompt模板, 请提前安装fschat >= 0.2.13
      python research/yi/yi_preprocess.py \
       --dataset_type qa \
       --input_glob /{path}/alpaca_gpt4_data_zh-conversation.json \

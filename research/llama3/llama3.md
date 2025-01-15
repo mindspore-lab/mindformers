@@ -116,7 +116,7 @@ MindFormers提供**Wiki103**作为[预训练](#预训练)数据集，**alpaca**�
   2. 执行`research/llama3/llama_preprocess.py`，生成Mindrecord数据，将带有prompt模板的数据转换为mindrecord格式。
 
      ```shell
-     # 此工具依赖fschat工具包解析prompt模板, 请提前安装fschat >= 0.2.13 python = 3.9
+     # 此工具依赖fschat工具包解析prompt模板, 请提前安装fschat >= 0.2.13
      python llama_preprocess.py \
        --dataset_type qa \
        --input_glob /{path}/alpaca-data-conversation.json \

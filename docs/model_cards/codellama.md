@@ -125,7 +125,7 @@ MindFormers提供`Wikitext2`作为[预训练](#预训练)数据集，`code-alpac
 2. 执行`mindformers/tools/dataset_preprocess/llama/llama_preprocess.py`，进行数据预处理、Mindrecord数据生成，将带有prompt模板的数据转换为mindrecord格式。
 
    ```shell
-   # 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13 python = 3.9
+   # 由于此工具依赖fschat工具包解析prompt模板，请提前安装fschat >= 0.2.13
    python llama_preprocess.py \
     --dataset_type qa \
     --input_glob /{path}/code-alpaca-data-conversation.json \
