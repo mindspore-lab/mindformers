@@ -276,6 +276,15 @@ class BaseTrainer:
                            "Reset the gradient_accumulation_steps from %s to 1. ",
                            parallel_mode, self.config.runner_config.gradient_accumulation_steps)
             self.config.runner_config.gradient_accumulation_steps = 1
+        if self.config.runner_config.gradient_accumulation_steps == 1 and pp == 1 \
+            and os.getenv("ENABLE_LAZY_INLINE_NO_PIPELINE", "0") != "0":
+            logger.warning("ENABLE_LAZY_INLINE_NO_PIPELINE is set to 0, "
+                           "due to the Lazy Inline compilation acceleration feature "
+                           "only works with using gradient_accumulation_steps > 1 "
+                           "when not in pipeline parallel mode (pipeline_stage = 1). "
+                           "Current pipeline stage=1 but gradient_accumulation_steps=1, "
+                           "the feature is disabled by default.")
+            os.environ['ENABLE_LAZY_INLINE_NO_PIPELINE'] = '0'
 
     def _check_training_network_no_use_past(self, network):
         if network is not None and hasattr(network.config, "use_past") and network.config.use_past:
