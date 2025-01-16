@@ -516,6 +516,7 @@ class MFContextConfig(BaseArgsConfig):
         'use_graceful_exit',
         'affinity_cpu_list',
         'profile',
+        'profile_level',
         'profile_start_step',
         'profile_stop_step'
     ]

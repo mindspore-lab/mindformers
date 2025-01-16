@@ -267,6 +267,7 @@ class GeneralConfig(Config):
     profile_stop_step = 10
     profile_rank_ids = None
     profile_pipeline = False
+    profile_level = 1
 
     layer_scale = False
     layer_decay = 0.65
