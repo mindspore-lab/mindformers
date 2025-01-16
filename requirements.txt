@@ -18,3 +18,4 @@ tiktoken
 jinja2
 setproctitle
 safetensors
+mindspore==2.4.10
