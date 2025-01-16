@@ -80,7 +80,7 @@ class Baichuan13BV2ForCausalLM(Baichuan2PreTrainedModel):
 
         Examples:
             >>> from mindformers.models.llama import LlamaConfig
-            >>> from research.baichuan2.baichuan2_13b import Baichuan13BV2ForCausalLM
+            >>> from baichuan2_13b_model import Baichuan13BV2ForCausalLM
             >>> config = LlamaConfig(batch_size=2)
             >>> network = Baichuan13BV2ForCausalLM(config=config)
     """
@@ -276,6 +276,7 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
         self.transpose = P.Transpose()
         self.slice = P.StridedSlice()
         self.ones = P.Ones()
+        self.add_alibi_attn = P.Add()
 
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
@@ -357,9 +358,14 @@ class Baichuan13BV2Model(Baichuan2PreTrainedModel):
         else:
             mask = None
             if self.is_first_iteration:
-                mask = self.casual_mask(tokens)
-                alibi_tensor = self.slice(self.alibi_tensor, (0, 0, 0, 0),
-                                          (1, self.alibi_tensor.shape[1], seq_len, seq_len), (1, 1, 1, 1))
+                mask_coeff = 1.0 if self.dtype is mstype.bfloat16 else -10000.0
+                mask = Tensor(
+                    np.triu(np.ones(shape=(self.seq_length, self.seq_length), dtype=np.float16), 1) * mask_coeff,
+                    dtype=self.dtype
+                )
+                alibi_tensor = self.add_alibi_attn(self.alibi_tensor, mask)
+                alibi_tensor = self.slice(alibi_tensor, (0, 0, 0, 0),
+                                          (1, alibi_tensor.shape[1], seq_len, seq_len), (1, 1, 1, 1))
             else:
                 alibi_tensor = self.gather(self.alibi_tensor, batch_valid_length, 2)
                 alibi_tensor = self.transpose(alibi_tensor, (2, 1, 0, 3))
@@ -556,7 +562,7 @@ class Baichuan13BAttention(nn.Cell):
                                                   next_tokens=65536,
                                                   block_size=self.block_size,
                                                   num_blocks=self.num_blocks,
-                                                  is_dynamic=False,
+                                                  is_dynamic=True,
                                                   use_alibi_mask=True,
                                                   use_rope_rotary_emb=False,
                                                   use_flash_attention=use_flash_attention,

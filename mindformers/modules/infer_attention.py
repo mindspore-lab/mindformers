@@ -265,7 +265,7 @@ class InferAttention(Cell):
         self.is_dynamic = is_dynamic
         if self.is_dynamic:
             self.input_layout = "TH"
-            self.use_attention_mask = True
+            self.use_attention_mask = not self.use_alibi_mask
         else:
             self.input_layout = "BSH"
             self.use_attention_mask = False

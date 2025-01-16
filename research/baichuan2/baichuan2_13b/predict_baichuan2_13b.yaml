@@ -54,7 +54,7 @@ model:
     softmax_compute_type: "float16"
     param_init_type: "float16"
     use_past: True
-    use_flash_attention: False
+    use_flash_attention: True
     block_size: 16
     num_blocks: 512
     is_dynamic: True
