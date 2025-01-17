@@ -396,9 +396,9 @@ class LlamaFeedForward(Cell):
         """Forward process of the FeedForward"""
         _check_input_dtype(F.dtype(x), "x", [mstype.float32, mstype.float16, mstype.bfloat16], self.cls_name)
         x = self.cast(x, self.dtype)
-        bs, seq_len, _ = x.shape
         if self.ffn_concat:
             gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp
+            bs, seq_len, _ = gate_hidden_out.shape
             reshape_out = self.reshape(gate_hidden_out, (bs, seq_len, self.hidden_dim, 2))
             gate, hidden = self.split(reshape_out, (1, 1), 3)
             gate = self.reshape(gate, (bs, seq_len, self.hidden_dim))
