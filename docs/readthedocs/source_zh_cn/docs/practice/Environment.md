@@ -38,7 +38,7 @@ Mindformers提供了以下环境变量的配置说明，请根据使用场景自
 |:-------------------------------|:---------------------------|:--------|:----------------------------------------------------------------------------------|:----------------------------------------------------------------------|
 | MS_GE_ATOMIC_CLEAN_POLICY      | 清理网络中atomic算子占用的内存的策略      | Integer | 0：集中清理网络中所有atomic算子占用的内存。<br>      1：不集中清理内存，对网络中每一个atomic算子进行单独清零。 <br> 默认值：1    |                                                                       |
 | ENABLE_LAZY_INLINE             | 开启lazy inline              | Integer | 1：开启<br>   0：关闭<br> 默认值：1                                                         | 此特性在mindspore≥2.2.0下适用。通常在pipeline并行时使用以提高编译性能。默认开启，可配置关闭。            |
-| ENABLE_LAZY_INLINE_NO_PIPELINE | 在非pipeline并行下开启lazy inline | Integer | 1：开启<br>   0：关闭<br> 默认值：0                                                         | lazy inline特性默认仅在pipeline并行模式下开启。如需在其他并行模式下使能lazy inline，可将该环境变量设置为1。 |
+| ENABLE_LAZY_INLINE_NO_PIPELINE | 在非pipeline并行下开启lazy inline | Integer | 1：开启<br>   0：关闭<br> 默认值：0                                                         | lazy inline特性默认仅在pipeline并行模式下开启。如需在其他并行模式下使能lazy inline，需要开启梯度累积功能，并将该环境变量设置为1。 |
 | MS_ASCEND_CHECK_OVERFLOW_MODE  | 溢出检测模式                     | String  | 默认：饱和模式，不设置此参数，当中间过程溢出时会上报，停止loss更新<br>    INFNAN_MODE：NAN模式，忽略过程中的溢出，结果非溢出就会继续训练 | 遇到持续溢出问题时可尝试设置此变量为INFNAN_MODE。                                        |
 
 ## Mindspore

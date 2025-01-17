@@ -14,6 +14,7 @@
 # ============================================================================
 """MindSpore Version Control"""
 import os
+import inspect
 from functools import wraps
 
 import mindspore as ms
@@ -88,10 +89,13 @@ def get_lazy_inline(func):
 
     @wraps(func)
     def decorator(*args, **kwargs):
+        sig = inspect.signature(func)
+        bound_args = sig.bind(*args, **kwargs)
+        bound_args.apply_defaults()
 
-        disable_lazy_inline = kwargs.get('disable_lazy_inline', False)
+        disable_lazy_inline = bound_args.kwargs.get('disable_lazy_inline', False)
         stand_alone = ms.get_auto_parallel_context("parallel_mode") == 'stand_alone'
-        pipline_parallel = ms.get_auto_parallel_context("pipeline_stages") > 1
+        pipeline_parallel = ms.get_auto_parallel_context("pipeline_stages") > 1
 
         if os.getenv("ENABLE_LAZY_INLINE", "1") == "0":
             logger.info("The Lazy Inline compilation acceleration feature is turned off, due to the "
@@ -109,7 +113,7 @@ def get_lazy_inline(func):
             func(*args, **kwargs)
             return
 
-        if not pipline_parallel and os.getenv("ENABLE_LAZY_INLINE_NO_PIPELINE", "0") == "0":
+        if not pipeline_parallel and os.getenv("ENABLE_LAZY_INLINE_NO_PIPELINE", "0") == "0":
             logger.info("The Lazy Inline compilation acceleration feature "
                         "only works in pipeline parallel mode (pipeline_stage > 1). "
                         "Current pipeline stage=1, the feature is disabled by default. "
@@ -125,6 +129,7 @@ def get_lazy_inline(func):
             return
 
         from mindspore.common import lazy_inline
+        logger.info("The Lazy Inline compilation acceleration feature is turned on.")
         lazy_inline(func)(*args, **kwargs)
 
     return decorator
@@ -263,7 +268,7 @@ def is_version_python(cur_ver, tar_ver):
     version_split_char = '.'
     if version_split_char not in tar_ver or version_split_char not in cur_ver:
         raise ValueError("The version string will contain the `.`."
-                         "For example, cur_ver: 3.7.10， tar_ver: 3.9.0")
+                         "For example, cur_ver: 3.7.10, tar_ver: 3.9.0")
     for x, y in zip(cur_ver.split(version_split_char), tar_ver.split(version_split_char)):
         if not x.isdigit() or not y.isdigit():
             continue
