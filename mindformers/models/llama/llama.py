@@ -327,7 +327,10 @@ class LlamaModel(LlamaPreTrainedModel):
             if self.use_past:
                 if self.is_first_iteration:
                     freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-                    mask = self.casual_mask.prefill()
+                    if self.use_flash_attention:
+                        mask = self.casual_mask.prefill()
+                    else:
+                        mask = self.casual_mask(tokens)
                     if prefix_keys_values is not None:
                         if mask is None:
                             mask = self.casual_mask(tokens)
@@ -468,6 +471,11 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.gather = P.Gather(1)
         self.prefill_gather_flatten = P.Gather()
         self.sub_batch_valid_len = P.Sub()
+        self.predict_run_mode = get_predict_run_mode()
+        logger.info("Predict run mode: {}".format(self.predict_run_mode))
+        if self.predict_run_mode and self.config.is_dynamic:
+            logger.info("use_flash_attention is set to True when run_mode is predict and is_dynamic is True.")
+            self.config.use_flash_attention = True
         self.model = LlamaModel(config=config)
         self.lm_head = Linear(in_channels=config.hidden_size,
                               out_channels=config.vocab_size,
@@ -521,9 +529,6 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
         self.load_checkpoint(config)
-        self.predict_run_mode = get_predict_run_mode()
-
-        logger.info("Predict run mode:{}".format(self.predict_run_mode))
         self.parallel_decoding = config.parallel_decoding_params is not None
         self.input_sliced_sig = config.input_sliced_sig
 
