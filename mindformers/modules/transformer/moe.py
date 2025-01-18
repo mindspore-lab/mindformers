@@ -1831,7 +1831,7 @@ class MoEInfer(Cell):
         self.reshape = P.Reshape()
         self.shape = P.Shape()
         self.cast = P.Cast()
-        self.mod = P.Mod().shard(((1,), ()))
+        self.mod = ops.auto_generate.RemainderTensorScalar()
         self.topk = P.TopK().shard(((1, 1),))
         self.softmax = P.Softmax().shard(((1, 1),))
         self.expand_dims = P.ExpandDims().shard(((1,),))
