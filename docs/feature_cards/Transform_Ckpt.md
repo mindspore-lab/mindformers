@@ -344,8 +344,7 @@ Mindformers提供了权重转换工具，支持**离线权重转换**。
 - 单进程转换
 
   ```bash
-  cd mindformers/tools/ckpt_transform
-  python transform_checkpoint.py \
+  python mindformers/tools/ckpt_transform/transform_checkpoint.py \
   --src_checkpoint=src_checkpoint \
   --src_strategy=src_strategy \
   --dst_checkpoint=dst_checkpoint \
@@ -356,8 +355,7 @@ Mindformers提供了权重转换工具，支持**离线权重转换**。
 - 多进程转换
 
   ```bash
-  cd mindformers/tools/ckpt_transform
-  bash transform_checkpoint.sh src_checkpoint src_strategy dst_checkpoint dst_strategy world_size process_num [prefix]
+  bash mindformers/tools/ckpt_transform/transform_checkpoint.sh src_checkpoint src_strategy dst_checkpoint dst_strategy world_size process_num [prefix]
   ```
 
 **离线权重转换**相关参数说明如下：
@@ -431,7 +429,7 @@ bash run_distribute.sh ../rank_table_8.json ../configs/llama/run_llama_7b.yaml [
 开启了流水线并行，`dst_strategy`使用文件夹路径。
 
 ```bash
-python transform_checkpoint.py \
+python mindformers/tools/ckpt_transform/transform_checkpoint.py \
 --src_checkpoint=/worker/checkpoint/llama-7b-2layer/rank_0/llama_7b.ckpt \
 --dst_checkpoint=/worker/transform_ckpt/llama_7b_1to8/ \
 --dst_strategy=/worker/mindformers/output/strategy/
@@ -451,7 +449,7 @@ python transform_checkpoint.py \
 
 ```bash
 # 使用2个进程转换
-bash transform_checkpoint.sh \
+bash mindformers/tools/ckpt_transform/transform_checkpoint.sh \
 /worker/checkpoint/llama-7b-2layer/rank_0/llama_7b.ckpt \
 None \
 /worker/transform_ckpt/llama_7b_1to8/ \
@@ -526,7 +524,7 @@ bash run_distribute.sh ../rank_table_4_id04.json ../configs/llama/run_llama_7b.y
 开启了流水线并行，`dst_strategy`使用文件夹路径。
 
 ```bash
-python transform_checkpoint.py \
+python mindformers/tools/ckpt_transform/transform_checkpoint.py \
 --src_checkpoint=/worker/checkpoint/llama-7b-2layer-dp2mp2pp2/ \
 --src_strategy=/worker/checkpoint/llama-7b-2layer-dp2mp2pp2/strategy/merged_ckpt_strategy.ckpt \
 --dst_checkpoint=/worker/transform_ckpt/llama_7b_8to4/ \
@@ -547,7 +545,7 @@ python transform_checkpoint.py \
 
 ```bash
 # 使用2个进程转换
-bash transform_checkpoint.sh \
+bash mindformers/tools/ckpt_transform/transform_checkpoint.sh \
 /worker/checkpoint/llama-7b-2layer-dp2mp2pp2/ \
 /worker/checkpoint/llama-7b-2layer-dp2mp2pp2/strategy/merged_ckpt_strategy.ckpt \
 /worker/transform_ckpt/llama_7b_8to4/ \
@@ -577,8 +575,8 @@ bash transform_checkpoint.sh \
 
 ① 运行命令
 
-```python
-python transform_checkpoint.py \
+```shell
+python mindformers/tools/ckpt_transform/transform_checkpoint.py \
 --src_checkpoint=/worker/checkpoint/llama-7b-2layer-dp1mp2pp2/ \
 --src_strategy=/worker/checkpoint/llama-7b-2layer-dp1mp2pp2/strategy/merged_ckpt_strategy.ckpt \
 --dst_checkpoint=/worker/transform_ckpt/llama_7b_4to1/
