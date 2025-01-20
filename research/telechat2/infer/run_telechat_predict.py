@@ -1,4 +1,4 @@
-# Copyright 2024 Huawei Technologies Co., Ltd
+# Copyright 2025 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ from mindformers.core.parallel_config import build_parallel_config
 
 from research.telechat2.telechat_tokenizer import TelechatTokenizer
 from research.telechat2.telechat_config import TelechatConfig
-from research.telechat2.telechat import TelechatForCausalLM
+from research.telechat2.infer.telechat import ParallelTelechatForCausalLM
 
 
 def main():
@@ -73,7 +73,7 @@ def main():
     model_config = TelechatConfig(**model_config)
 
     # build model from config
-    model = TelechatForCausalLM(model_config)
+    model = ParallelTelechatForCausalLM(model_config)
     ms_model = Model(model)
     logger.info(f"[INFO_config]: {model_config}")
     if config.load_checkpoint:
@@ -84,26 +84,29 @@ def main():
         transform_and_load_checkpoint(config, ms_model, model, infer_data, do_predict=True)
 
     inputs = []
-    for question in input_questions:
-        inputs.append({"role": "user", "content": question})
-        inputs_chat = tokenizer.apply_chat_template(conversation=inputs, tokenize=False, add_generation_prompt=True)
-        logger.info(f"inputs: {inputs_chat}")
-        input_ids = tokenizer(inputs_chat)["input_ids"]
-        logger.debug(f"input_ids: {input_ids}")
-        outputs = model.generate(input_ids)
-        output_ids = outputs[0][len(inputs):-1]
-        logger.debug(f"output_ids: {output_ids}")
-        answer = tokenizer.decode(outputs[0][len(input_ids):-1])
-        logger.info(f"answer: {answer}")
-        inputs.append({"role": "bot", "content": answer})
+    for i, question in enumerate(input_questions):
+        question = [{"role": "user", "content": question}]
+        inputs.append(tokenizer.apply_chat_template(conversation=question, \
+            tokenize=False, add_generation_prompt=True))
+        logger.info(f"input {i}: {inputs[i]}")
+
+    input_ids = tokenizer(inputs)["input_ids"]
+    input_lens = [len(input_token) for input_token in input_ids]
+    max_len = max(input_lens)
+    input_ids = [input_token + [model_config.pad_token_id] * (max_len - len(input_token)) \
+        for input_token in input_ids]
+    outputs = model.generate(input_ids)
+    for i, output in enumerate(outputs):
+        answer = tokenizer.decode(output[input_lens[i]:-1])
+        logger.info(f"answer {i}: {answer}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--vocab_file_path', default=None, type=str,
-                        help='which model to use.')
     parser.add_argument('--yaml_file', default=None, type=str,
                         help='predict yaml path')
+    parser.add_argument('--vocab_file_path', default=None, type=str,
+                        help='which model to use.')
     parser.add_argument('--checkpoint_path', default=None, type=str,
                         help='set checkpoint path.')
     parser.add_argument('--use_parallel', default=True, type=str2bool,
