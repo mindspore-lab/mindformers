@@ -47,12 +47,12 @@ def generate_data(seq_len, vocab_size, step_num=20):
         yield input_ids, images, video_context_pos, position_ids
 
 
-def get_dataset(seq_len, vocab_size):
+def get_dataset(seq_len, vocab_size, batch_size=1):
     """build dataset for model training."""
     prepare_data = partial(generate_data, seq_len=seq_len, vocab_size=vocab_size)
     dataset = GeneratorDataset(
         prepare_data, column_names=["input_ids", "images", "video_context_pos", "position_ids"])
-    dataset = dataset.batch(batch_size=1)
+    dataset = dataset.batch(batch_size=batch_size)
     return dataset
 
 

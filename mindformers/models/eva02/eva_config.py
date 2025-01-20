@@ -128,4 +128,4 @@ class EVA02Config(PretrainedConfig):
             self.offset = pipeline_stage['offset']
         else:
             self.start_stage = 0
-            self.stage_num = 0
+            self.stage_num = 1

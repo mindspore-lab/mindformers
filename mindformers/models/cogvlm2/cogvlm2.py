@@ -149,6 +149,7 @@ class CogVLM2ForCausalLM(BaseXModalToTextModel):
                 self.mlp_adapter.pipeline_stage = config.parallel_config.pipeline_stage - 1
             else:
                 self.mlp_adapter.pipeline_stage = self.vision_config.start_stage + self.vision_config.stage_num - 1
+            logger.info(f"mlp_adapter.pipeline_stage is {self.mlp_adapter.pipeline_stage}")
 
         self.image_start_id = self.config.image_start_id
         self.image_pad_id = self.config.image_pad_id
