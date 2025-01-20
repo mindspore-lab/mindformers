@@ -132,6 +132,26 @@ def _check_pipeline_interleave(config, pp):
     return pp_interleave_num * pp > config.model.model_config.num_layers
 
 
+def _check_context_parallel_algo_valid(config, cp, mp):
+    """check cp config"""
+    n_kv_heads = getattr(config.model.model_config, 'n_kv_heads', None)
+    multi_query_num = getattr(config.model.model_config, 'multi_query_group_num', None)
+    num_heads = getattr(config.model.model_config, 'num_heads', None)
+    num_attention_heads = getattr(config.model.model_config, 'num_attention_heads', None)
+    n_q_heads = num_heads or num_attention_heads
+    num_kv_heads = n_kv_heads or multi_query_num
+    if num_kv_heads:
+        n_heads = num_kv_heads
+    else:
+        n_heads = n_q_heads
+    algo_is_ulysses_cp = config.parallel_config.context_parallel_algo.value == "ulysses_cp"
+    if algo_is_ulysses_cp and n_heads is not None:
+        if cp * mp > n_heads:
+            raise ValueError(f"ulysses_cp and mp is shard attention head, it need cp * mp <= attention head, "
+                             f"but got attention head which is {n_heads}, and cp * mp = {cp * mp},"
+                             f"please check num_heads and n_kv_heads.")
+
+
 def _check_parallel(config):
     """check parallel config"""
     parallel_mode = ms.get_auto_parallel_context("parallel_mode")
@@ -173,6 +193,8 @@ def _check_parallel(config):
             raise ValueError(f"num_layers should be greater than `pp * pp_interleave_num`, "
                              f"but got num_layers : {config.model.model_config.num_layers} "
                              f"and pp * pp_interleave_num = {pp * config.model.model_config.pp_interleave_num}.")
+        if cp > 1:
+            _check_context_parallel_algo_valid(config, cp, mp)
 
 
 def _check_keyword_gen_dataset(config, mode, **kwargs):
