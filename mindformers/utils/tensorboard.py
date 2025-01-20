@@ -74,8 +74,12 @@ def update_tensorboard_args(config):
     """Update args for tensorboard writer."""
     global _GLOBAL_TENSORBOARD_WRITER_ARGS
     for key in _GLOBAL_TENSORBOARD_WRITER_ARGS:
-        if hasattr(config, key) and config.key is not None:
-            _GLOBAL_TENSORBOARD_WRITER_ARGS[key] = getattr(config, key)
+        if isinstance(config, MindFormerConfig):
+            if config.get_value(key) is not None:
+                _GLOBAL_TENSORBOARD_WRITER_ARGS[key] = config.get_value(key)
+        else:
+            if hasattr(config, key) and getattr(config, key) is not None:
+                _GLOBAL_TENSORBOARD_WRITER_ARGS[key] = getattr(config, key)
 
 
 def get_tensorboard_args():
