@@ -1123,18 +1123,6 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm/glm_6b_lora.ckpt'
           ]),
-        ('glm2_6b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/glm2/glm2_6b.ckpt'
-          ]),
-        ('glm2_6b_lora',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/glm2/glm2_6b_lora.ckpt'
-          ]),
-        ('glm3_6b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/glm3/glm3_6b.ckpt'
-          ]),
         ('codegeex2_6b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/codegeex2/codegeex2_6b.ckpt'
