@@ -330,7 +330,8 @@ class MFLossMonitor(Callback):
                            pipeline_stages)
 
         if self.micro_batch_interleave_num > 1 and self.print_warning_flag:
-            logger.warning("micro_batch_interleave_num: %s > 1, multiple copies in parallel is open.")
+            logger.warning("micro_batch_interleave_num: %s > 1, multiple copies in parallel is open.",
+                           self.micro_batch_interleave_num)
 
         if pipeline_stages > 1 and not self.calculate_per_token_loss:
             loss = loss / self.mirco_size
