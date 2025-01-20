@@ -278,6 +278,7 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
         self.pad_token_id = config.pad_token_id
         self.use_past = config.use_past
         self.vocab_size = config.vocab_size
+        self.rl_config = config.rl_config
         self.is_first_iteration = True
 
         self.shape = P.Shape()
@@ -417,6 +418,8 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
             batch_valid_length = mint.cumsum(batch_valid_length, 0)
             output = self.gather(output, self.sub_batch_valid_len(batch_valid_length, 1), 1)
         logits = self.lm_head(output)
+        if self.rl_config is not None:
+            return logits
 
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)
         if labels is None:
