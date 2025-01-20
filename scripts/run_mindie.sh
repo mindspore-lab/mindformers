@@ -254,11 +254,6 @@ if [ "$MAX_PREFILL_TOKENS" -lt "$MAX_SEQ_LEN" ]; then
     echo "MAX_PREFILL_TOKENS was less than MAX_SEQ_LEN. Setting MAX_PREFILL_TOKENS to $MAX_SEQ_LEN"
 fi
 
-if [ "$NPU_MEM_SIZE" == -1 ]; then
-    echo "NPU_MEM_SIZE == -1 is not supported when backendType ==ms. Please set a positive number"
-    exit 1
-fi
-
 MODEL_CONFIG_FILE="${MODEL_WEIGHT_PATH}/config.json"
 if [ ! -f "$MODEL_CONFIG_FILE" ]; then
     echo "Error: config.json file not found in $MODEL_WEIGHT_PATH."

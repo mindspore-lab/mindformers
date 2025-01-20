@@ -21,6 +21,7 @@ import mindspore.common.dtype as mstype
 from mindspore import Parameter, Tensor, mint, nn, ops
 from mindspore.common.initializer import initializer
 
+from mindformers.experimental.infer.core.parallel_paged_attention_mgr import ParallelPagedAttentionMgr
 from mindformers.experimental.parallel_core.pynative.transformer.scale_mask_softmax import ScaleMaskSoftmax
 from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.infer.core import get_act_func, get_attn_mask_func, get_norm
@@ -29,7 +30,6 @@ from mindformers.experimental.infer.core.utils import get_tp_world_size, create_
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
-from mindformers.modules.paged_attention_mgr import PagedAttentionMgr
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.tools.utils import is_pynative
 
@@ -382,30 +382,34 @@ class ParallelAttention(nn.Cell):
 
         if self.use_past:
             kv_shape = (self.config.num_blocks, self.config.block_size, self.kv_num_heads_per_partition, self.head_dim)
-            self.paged_attention_mgr = PagedAttentionMgr(self.num_heads_per_partition,
-                                                         self.head_dim,
-                                                         self.kv_num_heads_per_partition,
-                                                         kv_shape,
-                                                         config.seq_length,
-                                                         compute_dtype=self.compute_dtype)
-            self.paged_attention_mgr.key_cache = create_empty_parameter(
-                shape=self.paged_attention_mgr.key_cache.shape,
-                dtype=self.paged_attention_mgr.key_cache.dtype,
-                name=self.paged_attention_mgr.key_cache.name,
-                requires_grad=self.paged_attention_mgr.key_cache.requires_grad,
-            )
-            self.paged_attention_mgr.value_cache = create_empty_parameter(
-                shape=self.paged_attention_mgr.value_cache.shape,
-                dtype=self.paged_attention_mgr.value_cache.dtype,
-                name=self.paged_attention_mgr.value_cache.name,
-                requires_grad=self.paged_attention_mgr.value_cache.requires_grad,
-            )
+            npu_mem_size = self.config.npu_mem_size if hasattr(self.config, 'npu_mem_size') else 2
+            self.paged_attention_mgr = ParallelPagedAttentionMgr(self.num_heads_per_partition,
+                                                                 self.head_dim,
+                                                                 self.kv_num_heads_per_partition,
+                                                                 kv_shape,
+                                                                 config.seq_length,
+                                                                 compute_dtype=self.compute_dtype,
+                                                                 npu_mem_size=npu_mem_size)
+            if npu_mem_size > 0:
+                self.paged_attention_mgr.key_cache = create_empty_parameter(
+                    shape=self.paged_attention_mgr.key_cache.shape,
+                    dtype=self.paged_attention_mgr.key_cache.dtype,
+                    name=self.paged_attention_mgr.key_cache.name,
+                    requires_grad=self.paged_attention_mgr.key_cache.requires_grad,
+                )
+                self.paged_attention_mgr.value_cache = create_empty_parameter(
+                    shape=self.paged_attention_mgr.value_cache.shape,
+                    dtype=self.paged_attention_mgr.value_cache.dtype,
+                    name=self.paged_attention_mgr.value_cache.name,
+                    requires_grad=self.paged_attention_mgr.value_cache.requires_grad,
+                )
             self.rotary_embedding = InferRotaryEmbedding(rotary_cos_format=2)
         else:
             self.apply_rotary_emb = RotaryEmbedding(self.head_dim, config.rotary_dtype)
 
     def construct(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None,
-                  attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None):
+                  attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None,
+                  key_cache=None, value_cache=None):
         """Construct function of attention block."""
         # hidden_states: [B, S, H]
         ori_dtype = x.dtype
@@ -462,7 +466,8 @@ class ParallelAttention(nn.Cell):
                 if self.is_first_iteration:
                     key, value = self._cat_prefix(key, value, prefix_keys_values)
 
-            key_out = self.paged_attention_mgr(key, value, slot_mapping, batch_valid_length)
+            key_out = self.paged_attention_mgr(key, value, slot_mapping, batch_valid_length,
+                                               key_cache=key_cache, value_cache=value_cache)
             query = ops.depend(query, key_out)
 
             if self.is_first_iteration:
@@ -497,7 +502,8 @@ class ParallelAttention(nn.Cell):
                     context_layer = context_layer.transpose(0, 2, 1, 3).reshape(
                         bs, seq_len, self.hidden_size_per_partition)
             else:
-                context_layer = self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables)
+                context_layer = self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables,
+                                                                    key_cache=key_cache, value_cache=value_cache)
 
         # [B, S, N, D]
         else:
@@ -698,14 +704,15 @@ class ParallelTransformerLayer(nn.Cell):
         self.feed_forward = ParallelMLP(config)
 
     def construct(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, prefix_keys_values=None):
+                  slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None):
         """Construct function of transformer layer."""
         # hidden_states: [B, S, H]
         # norm at the beginning of the transformer layer.
         norm_output = self.attention_norm(x)
         # attention.
         attention_output = self.attention(norm_output, batch_valid_length, block_tables, slot_mapping, freqs_cis,
-                                          mask, prefix_keys_values=prefix_keys_values)
+                                          mask, prefix_keys_values=prefix_keys_values,
+                                          key_cache=key_cache, value_cache=value_cache)
         # residual-connection.
         if self.apply_residual_connection_post_norm:
             residual = norm_output
@@ -816,7 +823,7 @@ class ParallelTransformer(nn.Cell):
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None):
         """
         Forward of ParallelTransformer.
 
@@ -861,9 +868,12 @@ class ParallelTransformer(nn.Cell):
         # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
+            key_cache_i = key_cache[i] if key_cache is not None else None
+            value_cache_i = value_cache[i] if value_cache is not None else None
             hidden_states = self.layers[i](hidden_states, freqs_cis, mask, batch_valid_length=batch_valid_length,
                                            block_tables=block_tables, slot_mapping=slot_mapping,
-                                           prefix_keys_values=prefix_kv)
+                                           prefix_keys_values=prefix_kv,
+                                           key_cache=key_cache_i, value_cache=value_cache_i)
 
         if self.post_norm:
             hidden_states = self.norm_out(hidden_states)

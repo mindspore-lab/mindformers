@@ -223,6 +223,7 @@ class MindIEModelRunner:
 
     def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0,
                  world_size=1, npu_device_ids=None, plugin_params=None):
+        self.dynamic_kv_cache_whitelist = ["ParallelLlamaForCausalLM"]
         self.config = MindFormerConfig(config_path)
         self.warmup_step = 2
         self.is_multi_modal_model = is_multi_modal_model(self.config)
@@ -246,6 +247,7 @@ class MindIEModelRunner:
             self.model_config = AutoConfig.from_pretrained(config_path, parallel_config=self.config.parallel_config)
         else:
             self.model_config = AutoConfig.from_pretrained(config_path)
+        setattr(self.model_config, 'npu_mem_size', npu_mem_size)
 
         self.update_model_config(plugin_params)
 
@@ -288,6 +290,8 @@ class MindIEModelRunner:
             logger.info("Parameters are not initialized during model initialization.")
         else:
             self.model = AutoModel.from_config(self.model_config)
+        if npu_mem_size == -1 and str(type(self.model).__name__) not in self.dynamic_kv_cache_whitelist:
+            raise ValueError("npu_mem_size=-1 only support in parallel mode")
         logger.info(f"Build model finished.")
 
         self.load_checkpoint(network_delay_inited)
@@ -364,7 +368,9 @@ class MindIEModelRunner:
                 spec_mask: Optional[Tensor] = None,
                 q_seq_lens: Optional[Tensor] = None,
                 adapter_ids: Optional[List[str]] = None,
-                prefill_head_indices: Optional[Tensor] = None):
+                prefill_head_indices: Optional[Tensor] = None,
+                key_cache: Optional[List[Tensor]] = None,
+                value_cache: Optional[List[Tensor]] = None):
         """
         Call self.model.infer() or self.model.forward() to do infer and return logits on next position, \
         can choose do prefill or decode predict.
@@ -390,6 +396,10 @@ class MindIEModelRunner:
                 Params for SLora request
             prefill_head_indices (Tensor):
                 Params for pre gather
+            key_cache (Tensor):
+                Params for key_cache
+            value_cache (Tensor):
+                Params for value_cache
 
         Returns:
             logits (Tensor)
@@ -415,6 +425,8 @@ class MindIEModelRunner:
                                               q_seq_lens=q_seq_lens,
                                               adapter_ids=adapter_ids,
                                               prefill_head_indices=prefill_head_indices,
+                                              key_cache=key_cache,
+                                              value_cache=value_cache,
                                               **model_args)
         logits = res[0] if isinstance(res, tuple) else res
         if hasattr(self, 'model_config') and parallel_decoding_control(self.model_config):
