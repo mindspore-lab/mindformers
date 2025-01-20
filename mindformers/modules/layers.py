@@ -1303,10 +1303,8 @@ class FreqsMgr(Cell):
             emb = self.concat((freqs, freqs))
             freqs_cos = self.cos(emb)
             freqs_sin = self.sin(emb)
-
-        if self.context_parallel > 1:
-            freqs_cos = self.reshape(freqs_cos, (1, 1, seq_length, self.head_dim))
-            freqs_sin = self.reshape(freqs_sin, (1, 1, seq_length, self.head_dim))
+        freqs_cos = self.reshape(freqs_cos, (-1, 1, seq_length, self.head_dim))
+        freqs_sin = self.reshape(freqs_sin, (-1, 1, seq_length, self.head_dim))
         return freqs_cos, freqs_sin, self.swap_mask
 
     def shard(self, parallel_config):
@@ -1572,6 +1570,7 @@ class RotaryEmbedding(Cell):
         self.bmm_swap = P.BatchMatMul()
         self.mul = P.Mul()
         self.mul_inc = P.Mul()
+        self.mul_with_batch_freqs = P.Mul()
         self.neg = P.Neg()
         self.slice = P.StridedSlice()
         self.concat = P.Concat(axis=-1)
@@ -1598,7 +1597,10 @@ class RotaryEmbedding(Cell):
         # xq, xk: [bs, n_head/n_kv_head, seq/1, head_dim]
         freqs_cos, freqs_sin, swap_mask = freqs_cis
 
-        mul = self.mul if self.is_first_iteration and freqs_cos.ndim == 2 else self.mul_inc
+        if freqs_cos.shape[0] > 1:
+            mul = self.mul_with_batch_freqs
+        else:
+            mul = self.mul if self.is_first_iteration else self.mul_inc
         if self.use_rope_slice:
             xq_out = self.add(mul(xq, freqs_cos), mul(self.slice_half(xq), freqs_sin))
             xk_out = self.add(mul(xk, freqs_cos), mul(self.slice_half(xk), freqs_sin))
@@ -1629,8 +1631,9 @@ class RotaryEmbedding(Cell):
             else:
                 self.add.shard((strategy_in, strategy_in))
                 self.bmm_swap.shard((strategy_in, layout_ndtp("None", "None")))
-                self.mul.shard((strategy_in, layout_ndtp(("cp", "z", "x"), "None")))
-            self.mul_inc.shard((strategy_in, layout_ndtp("dp", "None", ("cp", "z", "x"), "None"))) # adapt for eod
+                self.mul.shard((strategy_in, layout_ndtp("dp", "None", ("cp", "z", "x"), "None")))
+            self.mul_inc.shard((strategy_in, layout_ndtp("dp", "None", ("cp", "z", "x"), "None")))
+            self.mul_with_batch_freqs.shard((strategy_in, layout_ndtp("dp", "None", ("cp", "z", "x"), "None"))) # adapt for eod
             self.neg.shard((strategy_in,))
             self.slice.shard((strategy_in,))
             self.concat.shard((strategy_in, strategy_in))
@@ -1647,8 +1650,9 @@ class RotaryEmbedding(Cell):
             else:
                 self.add.shard((strategy_in, strategy_in))
                 self.bmm_swap.shard((strategy_in, (1, 1)))
-                self.mul.shard((strategy_in, (1, 1)))
+                self.mul.shard((strategy_in, (1, 1, 1, 1)))
             self.mul_inc.shard((strategy_in, (strategy_in[0], 1, 1, 1)))  # allgather when cp > 1
+            self.mul_with_batch_freqs.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
             self.neg.shard((strategy_in,))
             self.slice.shard((strategy_in,))
             self.concat.shard((strategy_in, strategy_in))
