@@ -141,9 +141,10 @@ MindFormers提供`alpaca`作为[微调](#微调)数据集。
 
 #### 模型权重转换
 
-下载完成后，运行`mindformers/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
+下载完成后，运行如下转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
+# 稠密模型
 python convert_weight.py --model qwen2 --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME --dtype bf16
 
 # 参数说明
@@ -151,6 +152,16 @@ model:       模型名称
 input_path:  下载HuggingFace权重的文件夹路径
 output_path: 转换后的MindSpore权重文件保存路径
 dtype:       转换权重的精度
+
+# MoE模型
+cd mindformers/research/qwen2
+python convert_moe_weight.py --torch_ckpt_dir TORCH_CKPT_DIR --mindspore_ckpt_path {path}/MS_CKPT_NAME --dtype bf16 --config_path predict_qwen2_57b_a14b_instruct.yaml
+
+# 参数说明
+torch_ckpt_dir:      下载HuggingFace权重的文件夹路径
+mindspore_ckpt_path: 转换后的MindSpore权重文件保存路径
+dtype:               转换权重的精度
+config_path:         推理yaml文件路径
 ```
 
 - **[模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)**

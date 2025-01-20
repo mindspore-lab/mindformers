@@ -664,7 +664,7 @@ class LlamaMoeInferFeedForward(Cell):
             self.w3.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)))
             self.w2.shard(strategy_matmul=(((1, mp),), ((1, mp, 1),), ((),), ((),), ((),), ((),), ((),), (1,)))
         else:
-            self.mul.shard((1, mp), (1, mp))
+            self.mul.shard(((1, mp), (1, mp)))
             self.w1.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)),
                           strategy_activation=((1, 1, mp, 1),))
             self.w3.shard(strategy_matmul=(((1, 1),), ((1, 1, mp),), ((),), ((),), ((),), ((),), ((),), (1,)))
