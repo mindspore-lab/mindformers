@@ -126,7 +126,9 @@ def _check_pipeline_interleave(config, pp):
     pipeline_interleave_enabled = getattr(config.parallel.pipeline_config, 'pipeline_interleave', False)
     if not pipeline_interleave_enabled:
         return False
-    pp_interleave_num = getattr(config.model.model_config, 'pp_interleave_num', 0)
+    # Set pp_interleave_num to 0 if there is no pp_interleave_num in model_config
+    # or if pp_interleave_num is set to None.
+    pp_interleave_num = getattr(config.model.model_config, 'pp_interleave_num', 0) or 0
     return pp_interleave_num * pp > config.model.model_config.num_layers
 
 
