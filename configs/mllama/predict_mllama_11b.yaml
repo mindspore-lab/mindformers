@@ -36,7 +36,7 @@ model:
     use_past: True
     block_size: 16
     num_blocks: 512
-    is_dynamic: &is_dynamic False
+    is_dynamic: &is_dynamic True
     top_k: 0
     top_p: 0.8
     max_decode_length: 1024

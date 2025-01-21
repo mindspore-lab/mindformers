@@ -69,17 +69,6 @@ class MllamaTextBuilder(ModalContentBuilder):
         inputs = inputs.replace(self.start_token, "")
         return inputs
 
-    # pylint: disable=W0613
-    def padding_context(self, input_ids, result_recorder: DataRecord = None, **kwargs):
-        """padding context pad token id into the text token ids"""
-        max_length = self.context_length
-        if len(input_ids) < max_length:
-            input_ids = np.pad(input_ids, (0, max_length - len(input_ids)), "constant",
-                               constant_values=self.pad_token_id)
-        else:
-            input_ids = input_ids[:max_length]
-        return input_ids
-
 
 class MllamaImageBuilder(ModalContentBuilder):
     """
@@ -416,6 +405,15 @@ class MllamaProcessor(ModalContentTransformTemplate):
                 seq[i], seq[i + 1], seq[i + 2] = -100, -100, -100
         return seq
 
+    def batch_input_ids(self, input_ids_list, max_length):
+        padded_input_ids = []
+        max_length = max([len(i) for i in input_ids_list])
+        for input_ids in input_ids_list:
+            input_ids = np.pad(input_ids, (0, max_length - len(input_ids)), "constant",
+                               constant_values=self.tokenizer.pad_token_id)
+            padded_input_ids.append(input_ids)
+        return np.stack(padded_input_ids, axis=0)
+
     def batch(self, data_list, token_padding_length, **kwargs):
         batched_data = {}
         for column_name in self.output_columns:
@@ -423,10 +421,7 @@ class MllamaProcessor(ModalContentTransformTemplate):
                                 data[column_name] is not None and len(data[column_name]) > 0]
 
             if column_name == "input_ids":
-                if not column_data_list:  # if len(column_data_list) == 1:
-                    batched_data[column_name] = column_data_list[0]
-                else:
-                    batched_data[column_name] = super().batch_input_ids(column_data_list, token_padding_length)
+                batched_data[column_name] = self.batch_input_ids(column_data_list, token_padding_length)
                 continue
 
             if column_data_list:
