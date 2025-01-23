@@ -1192,7 +1192,6 @@ class MllamaForConditionalGeneration(MllamaPreTrainedModel, GenerationMixin):
         aspect_ratio_ids = kwargs.get("aspect_ratio_ids", None)
         aspect_ratio_mask = kwargs.get("aspect_ratio_mask", None)
         pixel_values = kwargs.get("pixel_values", None)
-        is_dynamic = kwargs.get("is_dynamic", None)
 
         model_inputs = {
             "input_ids": Tensor.from_numpy(input_ids.astype(np.int32)),
@@ -1202,16 +1201,16 @@ class MllamaForConditionalGeneration(MllamaPreTrainedModel, GenerationMixin):
             "pixel_values": Tensor(pixel_values, dtype=self.dtype),
             "cross_attention_mask": Tensor.from_numpy(cross_attention_mask.astype(np.int32)),
         }
-        if is_dynamic:
-            prefill = kwargs.get("prefill")
-            if prefill and "origin_inputs" in kwargs:
-                origin_inputs = kwargs["origin_inputs"]
-                batch_valid_length = kwargs.get("valid_length_each_example")
-                slot_mapping = kwargs.get("slot_mapping")
-                model_inputs = self._prepare_inputs_for_prefill_flatten(origin_inputs,
-                                                                        batch_valid_length,
-                                                                        slot_mapping,
-                                                                        model_inputs)
+
+        if not self.use_past:
+            return model_inputs
+        if kwargs.get("prefill"):
+            batch_valid_length = kwargs.get("valid_length_each_example")
+            slot_mapping = kwargs.get("slot_mapping")
+            model_inputs = self._prepare_inputs_for_prefill_flatten(input_ids, batch_valid_length,
+                                                                    slot_mapping, model_inputs)
+        else:
+            model_inputs["cross_attention_mask"] = model_inputs["cross_attention_mask"][:, -1:]
 
         return model_inputs
 
@@ -1315,11 +1314,6 @@ class MllamaForConditionalGeneration(MllamaPreTrainedModel, GenerationMixin):
 
         if batch_valid_length is not None:
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
-
-        if self.use_past and not self.is_first_iteration:
-            input_indices = self.sub(batch_valid_length, 1)
-            cross_attention_mask = self.gather(cross_attention_mask, input_indices, 2)
-            full_text_row_masked_out_mask = self.gather(full_text_row_masked_out_mask, input_indices, 2)
 
         has_loss_mask = loss_mask is not None
         input_sliced_sig = self.input_sliced_sig
