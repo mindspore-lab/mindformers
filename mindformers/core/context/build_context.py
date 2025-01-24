@@ -215,8 +215,29 @@ class MFContextOperator(MFContextConfig):
             if k in MFContextOperator.get_supported_kwargs()
         }
 
+    def _get_override_precision_sync_env(self, status, env_checks):
+        """return mismatches env with precision sync config."""
+        env_values = {key: os.environ.get(key, values[1]) for key, values in env_checks.items()}
+        expected_values = {key: values[0] if status else values[1] for key, values in env_checks.items()}
+        mismatches = []
+        for key in env_checks:
+            actual_value = env_values[key]
+            expected_value = expected_values[key]
+            if actual_value != expected_value:
+                mismatches.append(f"  - {key}: current={actual_value}, updated={expected_value}")
+        return mismatches
+
     def set_env(self, use_past=False):
         """Update environment variables."""
+        env_train_precision_sync = {
+            'HCCL_DETERMINISTIC': ('true', 'false'),
+            'ASCEND_LAUNCH_BLOCKING': ('1', '0'),
+            'TE_PARALLEL_COMPILER': ('1', '0')
+        }
+        env_infer_precision_sync = {
+            'LCCL_DETERMINISTIC': ('1', '0'),
+            'CUSTOM_MATMUL_SHUFFLE': ('off', 'on')
+        }
         if self.train_precision_sync:
             hccl_deterministic = 'true'
             ascend_launch_blocking = '1'
@@ -227,7 +248,15 @@ class MFContextOperator(MFContextConfig):
             ascend_launch_blocking = '0'
             te_parallel_compiler = '0'
             deterministic = 'OFF'
-
+        mismatch_train_env = self._get_override_precision_sync_env(status=self.train_precision_sync,
+                                                                   env_checks=env_train_precision_sync)
+        if mismatch_train_env:
+            mismatch_details = "\n".join(mismatch_train_env)
+            logger.warning(
+                f"Environment variables override by config.train_precision_sync:"
+                f"'{'True' if self.train_precision_sync else 'False'}'."
+                f"If you want to change deterministic, Please modify the config.train_precision_sync."
+                f"Mismatch details:\n{mismatch_details}")
         self.config.set_value(
             'context.deterministic',
             self.config.get_value('context.deterministic') or deterministic
@@ -239,6 +268,15 @@ class MFContextOperator(MFContextConfig):
         else:
             custom_matmul_shuffle = 'on'
             lccl_deterministic = '0'
+        mismatch_infer_env = self._get_override_precision_sync_env(status=self.infer_precision_sync,
+                                                                   env_checks=env_infer_precision_sync)
+        if mismatch_infer_env:
+            mismatch_details = "\n".join(mismatch_infer_env)
+            logger.warning(
+                f"Environment variables override by config.infer_precision_sync:"
+                f"'{'True' if self.infer_precision_sync else 'False'}'."
+                f"If you want to change deterministic, Please modify the config.infer_precision_sync."
+                f"Mismatch details:\n{mismatch_details}")
 
         env = {
             'HCCL_DETERMINISTIC': hccl_deterministic,
