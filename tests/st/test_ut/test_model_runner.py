@@ -30,7 +30,7 @@ class TestModel:
     """
     def forward(self, input_ids, valid_length_each_example, block_tables, slot_mapping, prefill, use_past,
                 position_ids=None, spec_mask=None, q_seq_lens=None, adapter_ids=None, prefill_head_indices=None,
-                mindie_warm_up=False):
+                mindie_warm_up=False, key_cache=None, value_cache=None):
         """
         Check the info of inputs
 
@@ -63,6 +63,8 @@ class TestModel:
         assert isinstance(prefill, bool)
         assert isinstance(use_past, bool)
         assert isinstance(mindie_warm_up, bool)
+        assert isinstance(key_cache, type(None))
+        assert isinstance(value_cache, type(None))
         if position_ids is not None:
             if isinstance(position_ids, np.ndarray):
                 assert position_ids.ndim == 1 and position_ids.dtype == np.int32

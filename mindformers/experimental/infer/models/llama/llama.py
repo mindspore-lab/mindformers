@@ -19,7 +19,7 @@ from multiprocessing.synchronize import Condition
 import numpy as np
 
 import mindspore.common.dtype as mstype
-from mindspore import Tensor, ops, mint
+from mindspore import Tensor, ops, mint, mutable
 from mindspore.communication import get_group_size
 from mindspore.communication._comm_helper import _is_initialized
 
@@ -97,6 +97,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         self.predict_run_mode = get_predict_run_mode()
 
         self.use_past = config.use_past
+        self.npu_mem_size = config.npu_mem_size if hasattr(config, "npu_mem_size") else 2
 
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -115,15 +116,25 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
+
+        def get_input():
+            if self.npu_mem_size > 0:
+                return None
+            cache_list = []
+            for _ in self.model.layers:
+                cache_list.append(Tensor(shape=[None, None, None, None], dtype=self.config.compute_dtype))
+            return mutable(cache_list)
+        key_cache = get_input()
+        value_cache = get_input()
         if have_prefix_keys_values:
             dynamic_prefix_keys_values = Tensor(shape=[2, None, None, None, None], dtype=mstype.float16)
             self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, dynamic_prefix_keys_values, None)
+                            dynamic_slot_mapping, dynamic_prefix_keys_values, None, key_cache, value_cache)
         else:
             self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, None, None)
+                            dynamic_slot_mapping, None, None, key_cache, value_cache)
         logger.info("Set dynamic input for llama.")
 
     def add_flags_custom(self, is_first_iteration):
@@ -138,7 +149,8 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None,
+                  key_cache=None, value_cache=None):
         """
         Forward of llama model.
         """
@@ -149,7 +161,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
             else:
                 batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
-                            slot_mapping, prefix_keys_values)
+                            slot_mapping, prefix_keys_values, key_cache=key_cache, value_cache=value_cache)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
             if not self.is_pynative:

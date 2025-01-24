@@ -1641,7 +1641,7 @@
         "signature": "(config, layer_number, attention_type='self_attn', attn_mask_type=None)"
     },
     "mindformers.experimental.infer.core.ParallelAttention.construct": {
-        "signature": "(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None, attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None)"
+        "signature": "(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None, attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.ParallelAttention._repeat_kv": {
         "signature": "(self, x, rep)"
@@ -1668,13 +1668,13 @@
         "signature": "(config, model_type=None, layer_type=None, self_attn_mask_type=None, post_norm: bool = True, pre_process=False, post_process=False, drop_path_rate: float = 0.0)"
     },
     "mindformers.experimental.infer.core.ParallelTransformer.construct": {
-        "signature": "(self, tokens: mindspore.common.tensor.Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None)"
+        "signature": "(self, tokens: mindspore.common.tensor.Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.ParallelTransformerLayer": {
         "signature": "(config, layer_number: int, layer_type=None, self_attn_mask_type=None, drop_path_rate: float = 0.0)"
     },
     "mindformers.experimental.infer.core.ParallelTransformerLayer.construct": {
-        "signature": "(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None, prefix_keys_values=None)"
+        "signature": "(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.RowParallelLinear": {
         "signature": "(input_size, output_size, config, input_is_parallel, weight_init='normal', bias_init='zeros', bias=True, skip_bias_add=False, stride=1, keep_master_weight_for_test=False, is_expert=False, tp_comm_buffer_name=None, transpose_b=True, param_init_type=mindspore.float32, compute_dtype=mindspore.float16, expert_num=1)"
@@ -1746,7 +1746,7 @@
         "signature": "(config, layer_number, attention_type='self_attn', attn_mask_type=None)"
     },
     "mindformers.experimental.infer.core.transformer.ParallelAttention.construct": {
-        "signature": "(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None, attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None)"
+        "signature": "(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None, attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.transformer.ParallelAttention._repeat_kv": {
         "signature": "(self, x, rep)"
@@ -1773,13 +1773,13 @@
         "signature": "(config, model_type=None, layer_type=None, self_attn_mask_type=None, post_norm: bool = True, pre_process=False, post_process=False, drop_path_rate: float = 0.0)"
     },
     "mindformers.experimental.infer.core.transformer.ParallelTransformer.construct": {
-        "signature": "(self, tokens: mindspore.common.tensor.Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None)"
+        "signature": "(self, tokens: mindspore.common.tensor.Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.transformer.ParallelTransformerLayer": {
         "signature": "(config, layer_number: int, layer_type=None, self_attn_mask_type=None, drop_path_rate: float = 0.0)"
     },
     "mindformers.experimental.infer.core.transformer.ParallelTransformerLayer.construct": {
-        "signature": "(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None, prefix_keys_values=None)"
+        "signature": "(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.utils.generate_state_dict": {
         "signature": "(network)"
@@ -1800,7 +1800,7 @@
         "signature": "(self, is_first_iteration)"
     },
     "mindformers.experimental.infer.models.llama.ParallelLlamaForCausalLM.construct": {
-        "signature": "(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None)"
+        "signature": "(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.models.llama.ParallelLlamaForCausalLM.kvcache": {
         "signature": "(self, layer_idx)"
@@ -1833,7 +1833,7 @@
         "signature": "(self, is_first_iteration)"
     },
     "mindformers.experimental.infer.models.llama.llama.ParallelLlamaForCausalLM.construct": {
-        "signature": "(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None)"
+        "signature": "(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.models.llama.llama.ParallelLlamaForCausalLM.kvcache": {
         "signature": "(self, layer_idx)"
@@ -3153,7 +3153,7 @@
         "signature": "(self, origin_inputs, pad_token_id=0)"
     },
     "mindformers.generation.GenerationMixin._incremental_infer": {
-        "signature": "(self, model_inputs: dict, prefill, current_index)"
+        "signature": "(self, model_inputs: dict, prefill, current_index, key_cache=None, value_cache=None)"
     },
     "mindformers.generation.GenerationMixin._beam_search": {
         "signature": "(self, origin_inputs, beam_scorer: mindformers.generation.beam_search.BeamSearchScorer, generation_config: mindformers.generation.generation_config.GenerationConfig, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, streamer: mindformers.generation.streamers.BaseStreamer = None, **model_kwargs)"
@@ -3165,7 +3165,7 @@
         "signature": "(self, input_ids: Union[List[int], List[List[int]]], valid_length_each_example: numpy.ndarray, generation_config: mindformers.generation.generation_config.GenerationConfig = None, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, logits_warper: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, block_tables: Optional[mindspore.common.tensor.Tensor] = None, slot_mapping: Optional[mindspore.common.tensor.Tensor] = None, prefill: bool = True, is_finished: List[bool] = None, encoder_mask: Optional[mindspore.common.tensor.Tensor] = None, encoder_output: Optional[mindspore.common.tensor.Tensor] = None, target_mask: Optional[mindspore.common.tensor.Tensor] = None, **model_kwargs)"
     },
     "mindformers.generation.GenerationMixin.forward": {
-        "signature": "(self, input_ids: [typing.Union[typing.List[int], typing.List[typing.List[int]]]], valid_length_each_example: numpy.ndarray, block_tables: Optional[mindspore.common.tensor.Tensor] = None, slot_mapping: Optional[mindspore.common.tensor.Tensor] = None, prefill: bool = None, use_past: bool = False, encoder_mask: Optional[mindspore.common.tensor.Tensor] = None, encoder_output: Optional[mindspore.common.tensor.Tensor] = None, target_mask: Optional[mindspore.common.tensor.Tensor] = None, **model_kwargs)"
+        "signature": "(self, input_ids: [typing.Union[typing.List[int], typing.List[typing.List[int]]]], valid_length_each_example: numpy.ndarray, block_tables: Optional[mindspore.common.tensor.Tensor] = None, slot_mapping: Optional[mindspore.common.tensor.Tensor] = None, prefill: bool = None, use_past: bool = False, encoder_mask: Optional[mindspore.common.tensor.Tensor] = None, encoder_output: Optional[mindspore.common.tensor.Tensor] = None, target_mask: Optional[mindspore.common.tensor.Tensor] = None, key_cache: Optional[List[mindspore.common.tensor.Tensor]] = None, value_cache: Optional[List[mindspore.common.tensor.Tensor]] = None, **model_kwargs)"
     },
     "mindformers.generation.GenerationMixin.chunk_prefill_infer": {
         "signature": "(self, input_ids: [typing.Union[typing.List[int], typing.List[typing.List[int]]]], batch_valid_length: numpy.ndarray, block_tables: numpy.ndarray, slot_mapping: numpy.ndarray, attention_mask: Optional[numpy.ndarray] = None, **model_kwargs)"
@@ -3402,7 +3402,7 @@
         "signature": "(self, origin_inputs, pad_token_id=0)"
     },
     "mindformers.generation.text_generator.GenerationMixin._incremental_infer": {
-        "signature": "(self, model_inputs: dict, prefill, current_index)"
+        "signature": "(self, model_inputs: dict, prefill, current_index, key_cache=None, value_cache=None)"
     },
     "mindformers.generation.text_generator.GenerationMixin._beam_search": {
         "signature": "(self, origin_inputs, beam_scorer: mindformers.generation.beam_search.BeamSearchScorer, generation_config: mindformers.generation.generation_config.GenerationConfig, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, streamer: mindformers.generation.streamers.BaseStreamer = None, **model_kwargs)"
@@ -3414,7 +3414,7 @@
         "signature": "(self, input_ids: Union[List[int], List[List[int]]], valid_length_each_example: numpy.ndarray, generation_config: mindformers.generation.generation_config.GenerationConfig = None, logits_processor: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, logits_warper: Optional[mindformers.generation.logits_process.LogitsProcessorList] = None, block_tables: Optional[mindspore.common.tensor.Tensor] = None, slot_mapping: Optional[mindspore.common.tensor.Tensor] = None, prefill: bool = True, is_finished: List[bool] = None, encoder_mask: Optional[mindspore.common.tensor.Tensor] = None, encoder_output: Optional[mindspore.common.tensor.Tensor] = None, target_mask: Optional[mindspore.common.tensor.Tensor] = None, **model_kwargs)"
     },
     "mindformers.generation.text_generator.GenerationMixin.forward": {
-        "signature": "(self, input_ids: [typing.Union[typing.List[int], typing.List[typing.List[int]]]], valid_length_each_example: numpy.ndarray, block_tables: Optional[mindspore.common.tensor.Tensor] = None, slot_mapping: Optional[mindspore.common.tensor.Tensor] = None, prefill: bool = None, use_past: bool = False, encoder_mask: Optional[mindspore.common.tensor.Tensor] = None, encoder_output: Optional[mindspore.common.tensor.Tensor] = None, target_mask: Optional[mindspore.common.tensor.Tensor] = None, **model_kwargs)"
+        "signature": "(self, input_ids: [typing.Union[typing.List[int], typing.List[typing.List[int]]]], valid_length_each_example: numpy.ndarray, block_tables: Optional[mindspore.common.tensor.Tensor] = None, slot_mapping: Optional[mindspore.common.tensor.Tensor] = None, prefill: bool = None, use_past: bool = False, encoder_mask: Optional[mindspore.common.tensor.Tensor] = None, encoder_output: Optional[mindspore.common.tensor.Tensor] = None, target_mask: Optional[mindspore.common.tensor.Tensor] = None, key_cache: Optional[List[mindspore.common.tensor.Tensor]] = None, value_cache: Optional[List[mindspore.common.tensor.Tensor]] = None, **model_kwargs)"
     },
     "mindformers.generation.text_generator.GenerationMixin.chunk_prefill_infer": {
         "signature": "(self, input_ids: [typing.Union[typing.List[int], typing.List[typing.List[int]]]], batch_valid_length: numpy.ndarray, block_tables: numpy.ndarray, slot_mapping: numpy.ndarray, attention_mask: Optional[numpy.ndarray] = None, **model_kwargs)"

@@ -320,9 +320,11 @@ class GenerationMixin:
         )
         return input_ids
 
-    def _incremental_infer(self, model_inputs: dict, prefill, current_index):
+    def _incremental_infer(self, model_inputs: dict, prefill, current_index, key_cache=None, value_cache=None):
         """model forward for incremental infer."""
         # Claim the first graph
+        if key_cache is not None and value_cache is not None:
+            model_inputs = {**model_inputs, 'key_cache': key_cache, 'value_cache': value_cache}
         if prefill:
             self.phase = "prefill"
             if self._pre_set_phase:
@@ -1104,6 +1106,8 @@ class GenerationMixin:
                 encoder_mask: Optional[Tensor] = None,
                 encoder_output: Optional[Tensor] = None,
                 target_mask: Optional[Tensor] = None,
+                key_cache: Optional[List[Tensor]] = None,
+                value_cache: Optional[List[Tensor]] = None,
                 **model_kwargs):
         r"""
         Model forward process.
@@ -1121,6 +1125,10 @@ class GenerationMixin:
                 construct. Default: ``None``.
             target_mask (Tensor, optional): Use for encoder-decoder construct, do not need for decoder only
                 construct. Default: ``None``.
+            key_cache (Tensor, optional): key_cache
+                Default: ``None``.
+            value_cache (Tensor, optional): value_cache
+                Default: ``None``.
             **model_kwargs (Any): Keyword arguments of the model.
 
         Returns:
@@ -1170,6 +1178,8 @@ class GenerationMixin:
                     model_inputs=model_inputs,
                     prefill=prefill,
                     current_index=current_index,
+                    key_cache=key_cache,
+                    value_cache=value_cache
                 )
             else:
                 if self._pre_set_phase:
