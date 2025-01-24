@@ -3792,7 +3792,7 @@
         "signature": "(self, save_directory: Union[str, os.PathLike], save_name: str = 'mindspore_model', **kwargs)"
     },
     "mindformers.models.PreTrainedModel.save_pretrained_experimental_mode": {
-        "signature": "(self, save_directory: Union[str, os.PathLike], is_main_process: bool = True, state_dict: Optional[dict] = None, push_to_hub: bool = False, max_shard_size: Union[int, str] = '5GB', variant: Optional[str] = None, token: Union[bool, str, NoneType] = None, **kwargs)"
+        "signature": "(self, save_directory: Union[str, os.PathLike], is_main_process: bool = True, state_dict: Optional[dict] = None, push_to_hub: bool = False, max_shard_size: Union[int, str] = '5GB', variant: Optional[str] = None, token: Union[str, bool, NoneType] = None, **kwargs)"
     },
     "mindformers.models.PreTrainedModel.save_pretrained_origin_mode": {
         "signature": "(self, save_directory: Optional[str] = None, save_name: str = 'mindspore_model')"
@@ -3825,7 +3825,7 @@
         "signature": "(pretrained_model_name_or_dir: str, **kwargs)"
     },
     "mindformers.models.PreTrainedModel.from_pretrained_experimental_mode": {
-        "signature": "(pretrained_model_name_or_path: Union[str, os.PathLike, NoneType], *model_args, config: Union[mindformers.models.configuration_utils.PretrainedConfig, str, os.PathLike, NoneType] = None, cache_dir: Union[str, os.PathLike, NoneType] = None, ignore_mismatched_sizes: bool = False, force_download: bool = False, local_files_only: bool = False, token: Union[bool, str, NoneType] = None, revision: str = 'main', **kwargs)"
+        "signature": "(pretrained_model_name_or_path: Union[str, os.PathLike, NoneType], *model_args, config: Union[mindformers.models.configuration_utils.PretrainedConfig, str, os.PathLike, NoneType] = None, cache_dir: Union[str, os.PathLike, NoneType] = None, ignore_mismatched_sizes: bool = False, force_download: bool = False, local_files_only: bool = False, token: Union[str, bool, NoneType] = None, revision: str = 'main', **kwargs)"
     },
     "mindformers.models.PreTrainedModel._get_src_checkpoint": {
         "signature": "(state_dict, resolved_archive_file, src_checkpoint)"
@@ -5607,7 +5607,7 @@
         "signature": "(self, save_directory: Union[str, os.PathLike], save_name: str = 'mindspore_model', **kwargs)"
     },
     "mindformers.models.modeling_utils.PreTrainedModel.save_pretrained_experimental_mode": {
-        "signature": "(self, save_directory: Union[str, os.PathLike], is_main_process: bool = True, state_dict: Optional[dict] = None, push_to_hub: bool = False, max_shard_size: Union[int, str] = '5GB', variant: Optional[str] = None, token: Union[bool, str, NoneType] = None, **kwargs)"
+        "signature": "(self, save_directory: Union[str, os.PathLike], is_main_process: bool = True, state_dict: Optional[dict] = None, push_to_hub: bool = False, max_shard_size: Union[int, str] = '5GB', variant: Optional[str] = None, token: Union[str, bool, NoneType] = None, **kwargs)"
     },
     "mindformers.models.modeling_utils.PreTrainedModel.save_pretrained_origin_mode": {
         "signature": "(self, save_directory: Optional[str] = None, save_name: str = 'mindspore_model')"
@@ -5640,7 +5640,7 @@
         "signature": "(pretrained_model_name_or_dir: str, **kwargs)"
     },
     "mindformers.models.modeling_utils.PreTrainedModel.from_pretrained_experimental_mode": {
-        "signature": "(pretrained_model_name_or_path: Union[str, os.PathLike, NoneType], *model_args, config: Union[mindformers.models.configuration_utils.PretrainedConfig, str, os.PathLike, NoneType] = None, cache_dir: Union[str, os.PathLike, NoneType] = None, ignore_mismatched_sizes: bool = False, force_download: bool = False, local_files_only: bool = False, token: Union[bool, str, NoneType] = None, revision: str = 'main', **kwargs)"
+        "signature": "(pretrained_model_name_or_path: Union[str, os.PathLike, NoneType], *model_args, config: Union[mindformers.models.configuration_utils.PretrainedConfig, str, os.PathLike, NoneType] = None, cache_dir: Union[str, os.PathLike, NoneType] = None, ignore_mismatched_sizes: bool = False, force_download: bool = False, local_files_only: bool = False, token: Union[str, bool, NoneType] = None, revision: str = 'main', **kwargs)"
     },
     "mindformers.models.modeling_utils.PreTrainedModel._get_src_checkpoint": {
         "signature": "(state_dict, resolved_archive_file, src_checkpoint)"
