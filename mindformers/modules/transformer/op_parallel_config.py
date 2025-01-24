@@ -273,7 +273,6 @@ class _PipeLineConfig(_Config):
     def pipeline_stage(self, value):
         Validator.check_positive_int(value, "pipeline_stage")
         self._pipeline_stage = value
-        context.set_auto_parallel_context(pipeline_stages=value)
 
     @property
     def micro_batch_num(self):
