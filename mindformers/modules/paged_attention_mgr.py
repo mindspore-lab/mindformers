@@ -20,6 +20,7 @@ import mindspore.common.dtype as mstype
 from mindspore import nn, Parameter
 from mindspore import ops as P
 from mindspore.common.initializer import initializer
+from mindformers.version_control import need_nz
 
 
 class PagedAttentionMgr(nn.Cell):
@@ -78,10 +79,15 @@ class PagedAttentionMgr(nn.Cell):
         """The shard strategy."""
         dp = 1 if parallel_config is None else parallel_config.data_parallel
         mp = 1 if parallel_config is None else parallel_config.model_parallel
-        self.reshape_and_cache.shard(((dp, 1, mp), (dp, 1, mp), (1, 1, mp, 1), (1, 1, mp, 1), (1,)))
-        if self.parallel_decoding:
-            self.paged_attention.shard(((dp, 1, mp), (1, 1, mp, 1), (1, 1, mp, 1), (dp, 1), (dp,), (dp, 1), (1,)))
+        if need_nz():
+            kv_shard_strategy = (1, 1, mp)
         else:
-            self.paged_attention.shard(((dp, 1, mp), (1, 1, mp, 1), (1, 1, mp, 1), (dp, 1), (dp,)))
-        self.paged_attention_with_alibi.shard(((dp, 1, mp), (1, 1, mp, 1), (1, 1, mp, 1), (dp, 1), (dp,),
+            kv_shard_strategy = (1, 1, mp, 1)
+        self.reshape_and_cache.shard(((dp, 1, mp), (dp, 1, mp), kv_shard_strategy, kv_shard_strategy, (1,)))
+        if self.parallel_decoding:
+            self.paged_attention.shard(((dp, 1, mp), kv_shard_strategy, kv_shard_strategy,
+                                        (dp, 1), (dp,), (dp, 1), (1,)))
+        else:
+            self.paged_attention.shard(((dp, 1, mp), kv_shard_strategy, kv_shard_strategy, (dp, 1), (dp,)))
+        self.paged_attention_with_alibi.shard(((dp, 1, mp), kv_shard_strategy, kv_shard_strategy, (dp, 1), (dp,),
                                                (dp, mp, 1, 1)))

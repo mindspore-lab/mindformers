@@ -23,6 +23,7 @@ from mindspore.ops import operations as P
 
 from mindformers.modules import PagedAttentionMgr
 from mindformers.modules.flash_attention import FlashAttention
+from mindformers.version_control import need_nz
 
 
 class InferRotaryEmbedding(Cell):
@@ -280,8 +281,10 @@ class InferAttention(Cell):
                                                   use_attention_mask=self.use_attention_mask,
                                                   use_alibi_mask=self.use_alibi_mask,
                                                   input_layout=self.input_layout)
-
-        kv_shape = (self.num_blocks, self.block_size, self.n_kv_head, self.head_dim)
+        if need_nz():
+            kv_shape = (self.num_blocks, self.block_size, self.n_kv_head * self.head_dim)
+        else:
+            kv_shape = (self.num_blocks, self.block_size, self.n_kv_head, self.head_dim)
         self.paged_attention_mgr = PagedAttentionMgr(self.pa_n_head_split,
                                                      self.head_dim,
                                                      self.pa_n_kv_head_split,
