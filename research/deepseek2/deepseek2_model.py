@@ -146,7 +146,7 @@ class DeepSeekV2RotaryEmbedding(Cell):
         else:
             self.add.shard((strategy_in, strategy_in))
             self.bmm_swap.shard((strategy_in, (1, 1)))
-            self.mul.shard((strategy_in, (1, 1)))
+            self.mul.shard((strategy_in, (1, 1, 1, 1)))
         self.mul_inc.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
         self.neg.shard((strategy_in,))
         self.slice.shard((strategy_in,))
@@ -160,14 +160,13 @@ class DeepSeekV2MoEInfer(Cell):
     MoE inferernce inherited from MoEInfer, where shared experts are added.
     """
     def __init__(self, hidden_size, intermediate_size, compute_dtype,
-                 param_init_type, is_dynamic, moe_config, parallel_config):
+                 param_init_type, moe_config, parallel_config):
         super(DeepSeekV2MoEInfer, self).__init__()
         ffn = LlamaMoeInferFeedForward(dim=hidden_size,
                                        intermediate_size=intermediate_size,
                                        expert_num=moe_config.expert_num,
                                        compute_dtype=compute_dtype,
                                        param_init_type=param_init_type,
-                                       is_dynamic=is_dynamic,
                                        use_gmm=True)
         self.routed_experts = MoEInfer(ffn, hidden_size, moe_config, parallel_config)
         intermediate_size_all = int(moe_config.moe_intermediate_size * moe_config.shared_expert_num)
@@ -176,7 +175,6 @@ class DeepSeekV2MoEInfer(Cell):
                                                expert_num=1,
                                                compute_dtype=compute_dtype,
                                                param_init_type=param_init_type,
-                                               is_dynamic=is_dynamic,
                                                parallel_config=parallel_config)
         self.add = P.Add()
 
@@ -259,7 +257,6 @@ class DeepSeekV2Attention(nn.Cell):
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
                  use_past=False,
-                 is_dynamic=False,
                  use_rope_slice=False,
                  use_flash_attention=False,
                  block_size: Optional[int] = None,
@@ -321,8 +318,7 @@ class DeepSeekV2Attention(nn.Cell):
             self.q_lora_rank,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type,
-            skip_redistribution=is_dynamic
+            param_init_type=param_init_type
         )
         # for reason of inference precision, we do not use fused_kernel. This will be corrected once the fused kernel
         # meets accuracy requirement for bfloat16 data.
@@ -334,8 +330,7 @@ class DeepSeekV2Attention(nn.Cell):
             self.n_head * self.q_head_dim,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type,
-            skip_redistribution=is_dynamic
+            param_init_type=param_init_type
         )
 
         # 1. kv2l: kv latent vector; 2. lkv_norm: latent vector of kv normalization
@@ -344,8 +339,7 @@ class DeepSeekV2Attention(nn.Cell):
             self.kv_lora_rank + self.qk_rope_head_dim,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type,
-            skip_redistribution=is_dynamic
+            param_init_type=param_init_type
         )
         # for reason of inference precision, we do not use fused_kernel. This will be corrected once the fused kernel
         # meets accuracy requirement for bfloat16 data.
@@ -356,8 +350,7 @@ class DeepSeekV2Attention(nn.Cell):
             self.n_head * (self.q_head_dim - self.qk_rope_head_dim + self.v_head_dim),
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type,
-            skip_redistribution=is_dynamic
+            param_init_type=param_init_type
         )
 
         self.q2l_proj.shard(((dp, 1), (1, 1)))
@@ -380,8 +373,7 @@ class DeepSeekV2Attention(nn.Cell):
                          out_channels=self.hidden_size,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type,
-                         skip_redistribution=is_dynamic)
+                         param_init_type=param_init_type)
         self.wo.shard(((dp, mp), (1, mp)))
 
         self.inv_norm_factor = self.q_head_dim ** (-0.5)
@@ -676,7 +668,6 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
                  use_past=False,
-                 is_dynamic=False,
                  use_rope_slice=False,
                  moe_config=None,
                  use_flash_attention=False,
@@ -721,7 +712,6 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                              param_init_type=param_init_type,
                                              qkv_has_bias=qkv_has_bias,
                                              use_past=use_past,
-                                             is_dynamic=is_dynamic,
                                              use_rope_slice=use_rope_slice,
                                              use_flash_attention=use_flash_attention,
                                              block_size=block_size,
@@ -750,7 +740,6 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                compute_dtype=compute_dtype,
                                param_init_type=param_init_type,
                                ffn_concat=qkv_concat,
-                               is_dynamic=is_dynamic,
                                parallel_config=parallel_config) if self.shared_expert_num == 0 else None
 
         # Feed Forward Network
@@ -766,7 +755,6 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                                  ffn_dim_multiplier=ffn_dim_multiplier,
                                                  compute_dtype=compute_dtype,
                                                  param_init_type=param_init_type,
-                                                 is_dynamic=is_dynamic,
                                                  parallel_config=parallel_config)
         else:
             if self.expert_num == 1:
@@ -777,7 +765,6 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                                            intermediate_size=moe_config.moe_intermediate_size,
                                                            compute_dtype=compute_dtype,
                                                            param_init_type=param_init_type,
-                                                           is_dynamic=is_dynamic,
                                                            moe_config=moe_config,
                                                            parallel_config=parallel_config)
                 elif self.shared_expert_num == 0:
@@ -792,7 +779,6 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                                                 intermediate_size=moe_config.moe_intermediate_size,
                                                                 compute_dtype=compute_dtype,
                                                                 param_init_type=param_init_type,
-                                                                is_dynamic=is_dynamic,
                                                                 moe_config=moe_config,
                                                                 parallel_config=parallel_config,
                                                                 use_moe_infer=self.use_moe_infer,
@@ -976,7 +962,6 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                           use_flash_attention=config.use_flash_attention,
                                           block_size=config.block_size,
                                           num_blocks=config.num_blocks,
-                                          is_dynamic=config.is_dynamic,
                                           use_rope_slice=config.use_rope_slice,
                                           parallel_config=config.parallel_config,
                                           moe_config=config.moe_config,
@@ -1124,7 +1109,6 @@ class DeepseekV2ForCausalLM(DeepseekV2PreTrainedModel):
                               has_bias=False,
                               compute_dtype=config.compute_dtype,
                               param_init_type=config.param_init_type,
-                              skip_redistribution=config.is_dynamic,
                               weight_init="normal")
 
         dp = config.parallel_config.data_parallel
