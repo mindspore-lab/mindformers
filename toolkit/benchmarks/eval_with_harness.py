@@ -41,7 +41,7 @@ from mindformers import (
     MindFormerRegister
 )
 from mindformers.trainer.utils import transform_and_load_checkpoint
-
+from mindformers.tools import set_output_path
 eval_logger = utils.eval_logger
 
 
@@ -187,7 +187,8 @@ class MFLM(TemplateLM):
         self._config.model.model_config.parallel_config = self._config.parallel_config
         self._config.model.model_config.batch_size = batch_size
         self._config.model.model_config.use_past = use_past
-
+        # set output path
+        set_output_path(self._config.output_dir)
         build_context(self._config)
         build_parallel_config(self._config)
 

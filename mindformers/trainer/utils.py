@@ -311,14 +311,24 @@ def load_resume_context_from_checkpoint(config, dataset):
 
     if os.path.isdir(config.load_checkpoint):
         if isinstance(config.resume_training, bool):
-            if config.use_graceful_exit:
-                rank_id = get_real_rank()
+            # if load checkpoint is complete safetensors, get resume param from hyper_param.safetensors
+            if is_hyper_param_existed_in_sf_dir(config.load_checkpoint, config.load_ckpt_format):
+                hyper_param_file = os.path.join(config.load_checkpoint, 'hyper_param.safetensors')
+                resume_param = load_checkpoint(hyper_param_file, format='safetensors')
+                resume_dict = {'loss_scale': resume_param['loss_scale'],
+                               'epoch_num': resume_param['epoch_num'],
+                               'step_num': resume_param['step_num'],
+                               'global_batch_size': resume_param['global_batch_size']}
             else:
-                rank_id = 0
-            resume_dict = load_distributed_checkpoint(config.load_checkpoint,
-                                                      choice_func=lambda x: x in ["loss_scale", "epoch_num", "step_num", "global_batch_size"],
-                                                      rank_id=rank_id, ckpt_format=config.load_ckpt_format,
-                                                      remove_redundancy=config.remove_redundancy)
+                if config.use_graceful_exit:
+                    rank_id = get_real_rank()
+                else:
+                    rank_id = 0
+                resume_dict = load_distributed_checkpoint(config.load_checkpoint,
+                                                          choice_func=lambda x: x in ["loss_scale", "epoch_num",
+                                                                                      "step_num", "global_batch_size"],
+                                                          rank_id=rank_id, ckpt_format=config.load_ckpt_format,
+                                                          remove_redundancy=config.remove_redundancy)
         else:
             checkpoint_tmp = os.path.join(config.load_checkpoint, f"rank_{config.rank_id}", config.resume_training)
             resume_dict = load_checkpoint(
@@ -368,6 +378,11 @@ def load_resume_context_from_checkpoint(config, dataset):
     logger.info("step scale: %f", config.runner_config.step_scale)
 
 
+def is_hyper_param_existed_in_sf_dir(checkpoint_dir, load_ckpt_format):
+    """return True if load_ckpt_format is True and given dir contains hyper_param.safetensors file used for resume training"""
+    return load_ckpt_format == 'safetensors' and os.path.exists(os.path.join(checkpoint_dir, 'hyper_param.safetensors'))
+
+
 def transform_and_load_checkpoint(config, model, network, dataset, optimizer=None, do_eval=False, do_predict=False):
     """
     load checkpoint into net, transform checkpoint if transform is True
@@ -382,7 +397,8 @@ def transform_and_load_checkpoint(config, model, network, dataset, optimizer=Non
 
     # load safetensors process
     if not config.only_save_strategy and config.load_ckpt_format == CkptFormat.SAFETENSORS.value:
-        load_checkpoint_with_safetensors(config, model, network, dataset, do_eval=do_eval, do_predict=do_predict)
+        load_checkpoint_with_safetensors(config, model, network, dataset, do_eval=do_eval,
+                                         do_predict=do_predict, optimizer=optimizer)
         return
 
     if (not config.auto_trans_ckpt and not config.only_save_strategy and
@@ -517,7 +533,6 @@ def load_slora_ckpt(checkpoint_dict, config, network):
             adapter_config = {}
         adapter_list.append(adapter_model)
         config_list.append(adapter_config)
-
 
     # collect lora weights
     slora_params = {}
@@ -661,7 +676,6 @@ def load_ckpt(config, network, optimizer=None, model=None, future=None):
         logger.info("Set global_step from %d to: %d", \
                     int(checkpoint_dict["global_step"]), resume_global_step)
         checkpoint_dict["global_step"] = Parameter([resume_global_step])
-
 
     # pylint: disable=W0212
     if config.remove_redundancy:

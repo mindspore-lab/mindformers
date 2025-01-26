@@ -33,7 +33,7 @@ from mindformers.tools.utils import (
     barrier_world,
     Validator
 )
-from mindformers.trainer.utils import get_last_checkpoint
+from mindformers.trainer.utils import get_last_checkpoint, is_hyper_param_existed_in_sf_dir
 
 if check_in_modelarts():
     import moxing as mox
@@ -53,6 +53,10 @@ def get_resume_checkpoint(checkpoint_dir, resume_training, resume_by_meta=True, 
         return resume_training
 
     if not is_publicly_accessible_path(checkpoint_dir):
+        return True
+
+    # if load checkpoint is complete safetensors, return true
+    if is_hyper_param_existed_in_sf_dir(checkpoint_dir, ckpt_format):
         return True
 
     if not resume_by_meta:
