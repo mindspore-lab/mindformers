@@ -19,6 +19,7 @@ import time
 
 import numpy as np
 from mindspore import Profiler
+from mindspore.profiler import ProfilerLevel
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode
 from mindformers.version_control import synchronize
@@ -31,11 +32,18 @@ def get_profile_settings():
     profile = False
     profile_start_step = 0
     profile_stop_step = 0
-    if context_instance is not None:
+    profile_level = 1
+    if context_instance is not None and context_instance.is_exists():
         profile = context_module.get_context("profile")
         profile_start_step = context_module.get_context("profile_start_step")
         profile_stop_step = context_module.get_context("profile_stop_step")
-    return profile, profile_start_step, profile_stop_step
+        profile_level = context_module.get_context("profile_level") or profile_level
+        max_level = len(ProfilerLevel.__members__) - 1
+        if profile_level < 0 or profile_level > max_level:
+            logger.warning("Invalid profile level: %s, return level1.", profile_level)
+            profile_level = 1
+    profile_level = getattr(ProfilerLevel, f"Level{profile_level}")
+    return profile, profile_start_step, profile_stop_step, profile_level
 
 
 class BaseDebugInfo:
@@ -110,7 +118,7 @@ class Profiling(BaseDebugInfo):
     def __init__(self):
         super().__init__()
         self.profiler = None
-        self.profile, self.profile_start_step, self.profile_stop_step = get_profile_settings()
+        self.profile, self.profile_start_step, self.profile_stop_step, self.profile_level = get_profile_settings()
         self.output_path = ""
 
     def start_profiling(self, cur_step):
@@ -122,7 +130,8 @@ class Profiling(BaseDebugInfo):
             else:
                 self.output_path = "./profile_decode"
             if self.profiler is None:
-                self.profiler = Profiler(start_profile=False, output_path=self.output_path)
+                self.profiler = Profiler(start_profile=False, profiler_level=self.profile_level,
+                                         output_path=self.output_path)
             if cur_step == self.profile_start_step:
                 self.profiler.start()
 
