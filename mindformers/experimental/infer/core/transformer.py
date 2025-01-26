@@ -32,6 +32,7 @@ from mindformers.modules.infer_attention import InferRotaryEmbedding
 from mindformers.modules.layers import FreqsMgr, RotaryEmbedding
 from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.tools.utils import is_pynative
+from mindformers.version_control import need_nz
 
 __all__ = [
     "ParallelMLP",
@@ -381,7 +382,12 @@ class ParallelAttention(nn.Cell):
             self.core_attention = CoreAttention(self.layer_index, self.config)
 
         if self.use_past:
-            kv_shape = (self.config.num_blocks, self.config.block_size, self.kv_num_heads_per_partition, self.head_dim)
+            if need_nz():
+                kv_shape = (self.config.num_blocks, self.config.block_size,
+                            self.kv_num_heads_per_partition * self.head_dim)
+            else:
+                kv_shape = (self.config.num_blocks, self.config.block_size,
+                            self.kv_num_heads_per_partition, self.head_dim)
             npu_mem_size = self.config.npu_mem_size if hasattr(self.config, 'npu_mem_size') else 2
             self.paged_attention_mgr = ParallelPagedAttentionMgr(self.num_heads_per_partition,
                                                                  self.head_dim,
