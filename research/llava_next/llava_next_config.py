@@ -167,8 +167,14 @@ class LlavaNextConfig(PretrainedConfig):
             `max_new_tokens`. Its effect is overridden by `max_new_tokens`, if also set.
         ignore_token_id (Optional[int]): The id of the *ignoring* token.
         num_queries (Optional[int]): The image seq length
+        video_contains_pooler (Optional[bool]): Whether has pooler in video process
+        add_newline (Optional[bool]): Whether to add the newline parameter
+        max_patch_height_num (Optional[int]): The maximum height number for image patches to pad
+        max_patch_width_num (Optional[int]): The maximum width number for image patches to pad
+        img_dynamic_batch (Optional[bool]): Whether to use dynamic image patches shape
+        text_dynamic_batch (Optional[bool]): Whether to use dynamic text dynamic sequence length
     Returns:
-        Class, Blip2Config.
+        Class, LlavaNextConfig.
     """
 
     def __init__(self,
@@ -206,6 +212,7 @@ class LlavaNextConfig(PretrainedConfig):
                  max_patch_width_num: int = 6,
                  img_dynamic_batch: Optional[bool] = False,
                  text_dynamic_batch: Optional[bool] = False,
+                 video_contains_pooler: Optional[bool] = False,
                  **kwargs):
         super(LlavaNextConfig, self).__init__(**kwargs)
 
@@ -230,6 +237,7 @@ class LlavaNextConfig(PretrainedConfig):
         self.add_newline = add_newline
         self.img_dynamic_batch = img_dynamic_batch
         self.text_dynamic_batch = text_dynamic_batch
+        self.video_contains_pooler = video_contains_pooler
 
         self.parallel_config = parallel_config
         self.is_training = is_training

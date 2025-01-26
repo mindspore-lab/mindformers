@@ -13,30 +13,10 @@ trainer:
 
 # runner config
 runner_config:
-  epochs: 2
+  epochs: 1
   batch_size: 1
   sink_mode: True
   sink_size: 2
-
-# optimizer
-optimizer:
-  type: AdamW
-  betas: [ 0.9,0.999 ]
-  eps: 1.e-8
-  weight_decay: 0.0
-
-# lr sechdule
-lr_schedule:
-  type: CosineWithWarmUpLR
-  learning_rate: 1.e-5
-  lr_end: 0.0
-  warmup_ratio: 0.03
-  total_steps: -1 # -1 means it will load the total steps of the datase
-
-# callbacks
-callbacks:
-  - type: MFLossMonitor
-  - type: ObsMonitor
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
@@ -62,19 +42,21 @@ model:
   model_config:
     type: LlavaNextConfig
     auto_register: llava_next_config.LlavaNextConfig
-    stage: 3 #1--Pretrain Stage for Adapter only; 2--Finetune Stage for full; 3-finetune video for full model
+    stage: 2 #1--Pretrain Stage for Adapter only; 2--Finetune Stage for full; 3-finetune video for full model
     freeze_vision: False
     freeze_llm: False
     batch_size: 1
-    seq_length: &seq_length 8192
+    seq_length: &seq_length 4096
     compute_dtype: "bfloat16"
     layernorm_compute_type: "bfloat16"
     softmax_compute_type: "float32"
     rotary_dtype: "bfloat16"
     param_init_type: "bfloat16"
     ignore_token_id: &ignore_token_id -100
-    add_newline: &add_newline False
-    video_contains_pooler: &video_contains_pooler True
+    add_newline: &add_newline True
+    max_patch_height_num: &max_patch_height_num 3
+    max_patch_width_num: &max_patch_width_num 3
+    img_dynamic_batch: &img_dynamic_batch True
     spatial_pool_mode: "average"
     spatial_pool_out_channels: 1024
     spatial_pool_stride: 2
@@ -85,7 +67,7 @@ model:
     is_dynamic: True
     top_k: 0
     top_p: 0.8
-    max_decode_length: 8192
+    max_decode_length: 4096
     do_sample: False
     vision_model:
       arch:
@@ -125,9 +107,6 @@ model:
         bos_token_id: 1
         eos_token_id: 2
         pad_token_id: 0
-        extend_method: "linear"
-        scaling_factor:
-          factor: 2.0 # The scale factor of seq length
         theta: 10000.0
         use_flash_attention: True
         use_past_shard: False
@@ -136,7 +115,6 @@ model:
   arch:
     type: LlavaNextVlm
     auto_register: llava_next.LlavaNextVlm
-
 
 # processor
 processor:
@@ -149,14 +127,16 @@ processor:
     frames_upbound: 32
     patch_size: *patch_size
     vision_feature_select_strategy: *vision_feature_select_strategy
-    output_columns: [ "input_ids", "images","image_context_pos","no_image_tag"]
-    vstack_columns: [ "images", "image_context_pos"]
+    output_columns: [ "input_ids", "images", "image_patches", "image_context_pos","no_image_tag" ]
+    vstack_columns: [ "images", "image_patches", "image_context_pos" ]
     mode: 'predict'
     ignore_token_id: *ignore_token_id
     add_length_offset: False
     add_newline: *add_newline
     num_queries: *num_queries
-    video_contains_pooler: *video_contains_pooler
+    max_patch_height_num: *max_patch_height_num
+    max_patch_width_num: *max_patch_width_num
+    img_dynamic_batch: *img_dynamic_batch
     add_time_instruction: False
     image_processor:
       type: ClipImageProcessorV2
@@ -183,7 +163,6 @@ processor:
     image_tag: "<image>"
     type: LlavaNextTokenizer
     auto_register: llava_next_tokenizer.LlavaNextTokenizer
-
 
 # mindspore context init config
 context:

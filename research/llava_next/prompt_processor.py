@@ -117,7 +117,8 @@ class VicunaPromptProcessor(BasePromptProcessor):
         conversation = self.conv.get_prompt()
         if no_image_tag:
             conversation += self.tokenizer.image_token
-        conversation = conversation.replace("<image>", "<image> ") if not self.tokenizer.legacy else conversation
+        conversation = conversation.replace("<image>", "<image> ") if not (hasattr(self.tokenizer, "legacy") and
+                                                                           self.tokenizer.legacy) else conversation
         conversations.append(conversation)
         result_recorder.put("conversations", conversations)
         return conversations
@@ -156,7 +157,7 @@ class VicunaPromptProcessor(BasePromptProcessor):
                 if not self.tokenizer.add_bos_token:
                     round_len += 1
                     instruction_len += 1
-                if i != 0 and not self.tokenizer.legacy:
+                if i != 0 and not (hasattr(self.tokenizer, "legacy") and self.tokenizer.legacy):
                     round_len -= 1
                     instruction_len -= 1
                 target[cur_len: cur_len + instruction_len] = ignore_token_id

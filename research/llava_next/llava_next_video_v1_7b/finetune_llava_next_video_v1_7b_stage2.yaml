@@ -45,7 +45,7 @@ callbacks:
 
 # default parallel of device num = 8 for Atlas 800T A2
 parallel_config:
-  data_parallel: 8
+  data_parallel: &dp 8
   model_parallel: 1
   pipeline_stage: 1
   use_seq_parallel: True
@@ -60,7 +60,8 @@ parallel:
   parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
   gradients_mean: False
   enable_alltoall: False
-  full_batch: True
+  full_batch: False
+  dataset_strategy: [ [*dp, 1], [*dp, 1, 1, 1, 1], [*dp, 1, 1, 1, 1, 1], [*dp, 1, 1, 1], [*dp, 1] ]
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: True
   strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
@@ -80,7 +81,7 @@ model:
   model_config:
     type: LlavaNextConfig
     auto_register: llava_next_config.LlavaNextConfig
-    stage: 3 #1--Pretrain Stage for Adapter only; 2--Finetune Stage for full; 3-finetune video for full model
+    stage: 2 #1--Pretrain Stage for Adapter only; 2--Finetune Stage for full; 3-finetune video for full model
     freeze_vision: False
     freeze_llm: False
     batch_size: 1
@@ -91,8 +92,10 @@ model:
     rotary_dtype: "float32"
     param_init_type: "float32"
     ignore_token_id: &ignore_token_id -100
-    add_newline: &add_newline False
-    video_contains_pooler: &video_contains_pooler True
+    add_newline: &add_newline True
+    max_patch_height_num: &max_patch_height_num 3
+    max_patch_width_num: &max_patch_width_num 3
+    img_dynamic_batch: &img_dynamic_batch False
     spatial_pool_mode: "average"
     spatial_pool_out_channels: 1024
     spatial_pool_stride: 2
@@ -151,7 +154,6 @@ model:
     type: LlavaNextVlm
     auto_register: llava_next.LlavaNextVlm
 
-
 # dataset
 train_dataset: &train_dataset
   data_loader:
@@ -161,12 +163,13 @@ train_dataset: &train_dataset
   num_parallel_workers: 8
   python_multiprocessing: True
   drop_remainder: True
+  img_dynamic_batch: *img_dynamic_batch
   batch_size: 1
   repeat: 1
   numa_enable: False
   prefetch_size: 1
   seed: 42
-  construct_args_key: [ "input_ids", "images","image_context_pos", "labels"]
+  construct_args_key: [ "input_ids", "images", "image_patches", "image_context_pos", "labels"]
   modal_to_text_transform:
     type: BaseXModalToTextTransform
     add_special_tokens: True
@@ -178,14 +181,16 @@ train_dataset: &train_dataset
       add_special_tokens: True
       patch_size: *patch_size
       vision_feature_select_strategy: *vision_feature_select_strategy
-      output_columns: [ "input_ids", "images","image_context_pos", "labels"]
+      output_columns: [ "input_ids", "images", "image_patches", "image_context_pos", "labels"]
       mode: 'train'
       ignore_token_id: *ignore_token_id
       add_length_offset: False
       add_newline: *add_newline
       num_queries: *num_queries
-      video_contains_pooler: *video_contains_pooler
       add_time_instruction: False
+      max_patch_height_num: *max_patch_height_num
+      max_patch_width_num: *max_patch_width_num
+      img_dynamic_batch: *img_dynamic_batch
       image_processor:
         type: ClipImageProcessorV2
         auto_register: llava_next_multi_modal_processor.ClipImageProcessorV2
@@ -208,6 +213,7 @@ train_dataset: &train_dataset
     add_bos_token: True
     add_eos_token: False
     vocab_file: ""
+    legacy: False
     image_tag: "<image>"
     type: LlavaNextTokenizer
     auto_register: llava_next_tokenizer.LlavaNextTokenizer
@@ -215,7 +221,6 @@ train_dataset: &train_dataset
 train_dataset_task:
   type: ModalToTextSFTDataset
   dataset_config: *train_dataset
-
 
 # wrapper cell config
 runner_wrapper:
@@ -240,7 +245,6 @@ context:
     jit_level: "O1"
   memory_optimize_level: "O0"
   infer_boost: 'off'
-
 
 profile: False
 profile_start_step: 1
