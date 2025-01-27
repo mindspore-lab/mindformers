@@ -24,7 +24,8 @@ import mindspore as ms
 from mindspore import context
 from mindspore.communication.comm_func import barrier
 from mindspore.common.api import _pynative_executor
-
+from mindspore.parallel.transform_safetensors import _collect_safetensor_files
+from mindspore import Parameter
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_main_rank, get_epoch_and_step_from_ckpt_name, get_real_rank
@@ -174,7 +175,8 @@ def prepare_strategy_unified_path(config, strategy_path):
     return src_strategy_path, dst_strategy_path, unified_path
 
 
-def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval=False, do_predict=False):
+def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval=False,
+                                     do_predict=False, optimizer=None):
     """load different format checkpoint interface."""
     logger.info(f"......Start load checkpoint from {config.load_ckpt_format}......")
     if config.load_ckpt_async:
@@ -186,7 +188,8 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
     pet_config = config.model.model_config.get("pet_config")
     if pet_config and pet_config.pet_type == "slora" and network.lora_list:
         raise ValueError(f"slora only support .ckpt file, {config.load_ckpt_format} file will be compatible soon.")
-
+    ckpt_file_mode = _get_checkpoint_mode(config)
+    validate_config_with_file_mode(ckpt_file_mode, config.use_parallel, config.auto_trans_ckpt)
     # reduce compile time in prediction
     if do_eval or do_predict:
         logger.info("Set network.set_train=False, reduce compile time in prediction.")
@@ -197,34 +200,41 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         build_model(config, model, input_data, do_eval=do_eval, do_predict=do_predict)
         barrier()
 
-    ckpt_file_mode = _get_checkpoint_mode(config)
     load_checkpoint_files = []
     strategy_path = ms.get_auto_parallel_context('strategy_ckpt_save_file')
-    #depend on ms, support soon
     if ckpt_file_mode == CheckpointFileMode.SINGLE_CHECKPOINT_FILE.value:
         logger.info(f"......Use single checkpoint file mode......")
-        raise ValueError(f"single safetensors file is not supported now: {config.load_checkpoint}.")
+        load_checkpoint_files = [config.load_checkpoint]
     if ckpt_file_mode == CheckpointFileMode.MULTI_CHECKPOINT_FILE.value:
         logger.info(f"......Use multi checkpoint file mode......")
+        strategy_path = prepare_dst_strategy(config, strategy_path)
         load_checkpoint_files = glob(
             os.path.join(load_checkpoint, f"*.{config.load_ckpt_format}"))
         load_checkpoint_files.sort()
     elif ckpt_file_mode == CheckpointFileMode.MULTI_CHECKPOINT_FILE_WITH_RANK_ID.value:
         logger.info(f"......Use multi checkpoint file with rank id mode......")
-        src_strategy_path, dst_strategy_path, unified_path = prepare_strategy_unified_path(config, strategy_path)
-        load_checkpoint, file_suffix = _get_src_file_suffix(config)
-        merge_and_unified(load_checkpoint,
-                          src_strategy_path,
-                          dst_strategy_path,
-                          unified_path,
-                          use_parallel=config.use_parallel,
-                          file_suffix=file_suffix,
-                          remove_redundancy=config.get('remove_redundancy', False))
-        load_checkpoint = unified_path
-        load_checkpoint_files = glob(
-            os.path.join(load_checkpoint, f"*.{config.load_ckpt_format}"))
-        load_checkpoint_files.sort()
-        strategy_path = dst_strategy_path[1]
+        # change strategy
+        if config.auto_trans_ckpt:
+            logger.info(f"......auto_trans is True, will unify all rank files and slice to dst parallel strategy......")
+            src_strategy_path, dst_strategy_path, unified_path = prepare_strategy_unified_path(config, strategy_path)
+            load_checkpoint, file_suffix = _get_src_file_suffix(config)
+            merge_and_unified(load_checkpoint,
+                              src_strategy_path,
+                              dst_strategy_path,
+                              unified_path,
+                              use_parallel=config.use_parallel,
+                              file_suffix=file_suffix,
+                              remove_redundancy=config.get('remove_redundancy', False))
+            load_checkpoint = unified_path
+            load_checkpoint_files = glob(
+                os.path.join(load_checkpoint, f"*.{config.load_ckpt_format}"))
+            load_checkpoint_files.sort()
+            strategy_path = dst_strategy_path[1]
+        else:
+            logger.info(f"......auto_trans is False, will not unify or slice rank files......")
+            all_safetensor_files_map = _collect_safetensor_files(load_checkpoint)
+            rank_id = get_real_rank() if get_real_rank() else 0
+            load_checkpoint_files = [all_safetensor_files_map[rank_id]]
 
         # use resume_training in train/finetune mode
         if config.resume_training:
@@ -239,6 +249,13 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
     if config.use_parallel:
         barrier()
 
+    process_for_stand_alone_mode(config, network, strategy_path)
+
+    load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy_path, load_checkpoint, optimizer)
+
+
+def process_for_stand_alone_mode(config, network, strategy_path):
+    """process for stand alone mode"""
     enable_stand_alone = (config.parallel.parallel_mode == 'STAND_ALONE')
     if config.use_parallel and enable_stand_alone:
         from mindformers.experimental.infer.core.utils import generate_state_dict
@@ -258,14 +275,53 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         barrier()
         _pynative_executor.sync()
 
-    load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy_path, load_checkpoint)
+
+def prepare_dst_strategy(config, strategy_path):
+    """prepare for dst strategy."""
+    if config.use_parallel:
+        # prepare merged strategy directory
+        merged_strategy = os.path.join(config.output_dir, 'merged_strategy')
+        os.makedirs(merged_strategy, exist_ok=True)
+        # set dst_strategy_path
+        dst_strategy_path = (
+            os.path.dirname(strategy_path),
+            os.path.join(merged_strategy, 'dst_strategy.ckpt')
+        )
+        if is_main_rank():
+            # merge dst strategy
+            logger.info("merge dst strategy in parallel mode.")
+            ms.merge_pipeline_strategys(
+                src_strategy_dirs=dst_strategy_path[0],
+                dst_strategy_file=dst_strategy_path[1])
+        barrier()
+        logger.info("merge dst strategy finished.")
+        strategy_path = dst_strategy_path[1]
+    return strategy_path
+
+
+def validate_config_with_file_mode(ckpt_file_mode, use_parallel, auto_trans_ckpt):
+    """validate use_parallel and auto_trans_ckpt config with different file mode"""
+    if ckpt_file_mode == CheckpointFileMode.SINGLE_CHECKPOINT_FILE.value:
+        if use_parallel:
+            raise ValueError("When load checkpoint is a single file and use_parallel is True, please change "
+                             "load_checkpoint in yaml from file name to the directory where only this file is located.")
+    elif ckpt_file_mode == CheckpointFileMode.MULTI_CHECKPOINT_FILE.value:
+        if use_parallel and not auto_trans_ckpt:
+            raise ValueError("When load checkpoint is complete and use_parallel is True, please set auto_trans_ckpt: "
+                             "True to enable automatic slicing function.")
+    elif ckpt_file_mode == CheckpointFileMode.MULTI_CHECKPOINT_FILE_WITH_RANK_ID.value:
+        if not use_parallel:
+            raise ValueError("when input checkpoint file is rank dir, Please set use_parallel: True to enable "
+                             "distributed ckpt load.")
+    else:
+        raise ValueError("not support mode: no valid checkpoint files found")
 
 
 def merge_and_unified(src_checkpoint, src_strategy_path, dst_strategy_path, unified_path, use_parallel=False,
                       file_suffix=None, remove_redundancy=False):
     """merge strategy and unified safetensors."""
     logger.info("start merge strategy and unified safetensors.")
-    if is_main_rank(ignore_check_modelarts=True):
+    if is_main_rank():
         # merge src strategy
         ms.merge_pipeline_strategys(
             src_strategy_dirs=src_strategy_path[0],
@@ -291,9 +347,9 @@ def merge_and_unified(src_checkpoint, src_strategy_path, dst_strategy_path, unif
     logger.info("merge strategy and unified safetensors finished.")
 
 
-def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy_path, load_ckpt_path):
+def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy_path, load_ckpt_path, optimizer):
     """load checkpoint into net."""
-    if config.use_parallel:
+    if config.use_parallel and config.auto_trans_ckpt:
         logger.info("......Start load distributed checkpoint to model......")
         ms.load_distributed_checkpoint(
             network=network,
@@ -301,6 +357,15 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
             unified_safetensors_dir=load_ckpt_path,
             format=config.load_ckpt_format
         )
+        #load optimizer param in resume_training
+        hyper_param_file = os.path.join(load_ckpt_path, 'hyper_param.safetensors')
+        if optimizer and config.resume_training:
+            if not os.path.exists(hyper_param_file):
+                raise FileNotFoundError(rf"No hyper_param.safetensors in given dir: {load_ckpt_path}")
+            logger.info("......Start load hyper param into optimizer......")
+            hyper_param_dict = ms.load_checkpoint(ckpt_file_name=hyper_param_file, format='safetensors')
+            update_global_step(config, hyper_param_dict)
+            ms.load_param_into_net(optimizer, hyper_param_dict)
     else:
         logger.info("......Start load checkpoint to model......")
         params_dict = dict()
@@ -309,7 +374,18 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
                 ckpt_file_name=checkpoint_file,
                 format=config.load_ckpt_format
             ))
-        ms.load_param_into_net(network, params_dict)
+        if optimizer and config.resume_training:
+            logger.info("......Start load hyper param into optimizer......")
+            update_global_step(config, params_dict)
+        ms.load_param_into_net(network, params_dict, remove_redundancy=config.get('remove_redundancy', False))
+
+
+def update_global_step(config, hyper_param_dict):
+    if "global_step" in hyper_param_dict and config.runner_config.step_scale is not None:
+        resume_global_step = int(hyper_param_dict["global_step"].data * config.runner_config.step_scale)
+        logger.info("Set global_step from %d to: %d", \
+                    int(hyper_param_dict["global_step"]), resume_global_step)
+        hyper_param_dict["global_step"] = Parameter([resume_global_step])
 
 
 def process_hf_checkpoint(model, output_dir=None, load_checkpoint=None):
@@ -320,8 +396,8 @@ def process_hf_checkpoint(model, output_dir=None, load_checkpoint=None):
         output_dir = './output'
         logger.warning(f'Output directory is set to ./output, '
                        f'due to the output_dir {output_dir} does not exist.')
-    converted_dir = os.path.join(output_dir, './ms_safetensors')
-    if is_main_rank(ignore_check_modelarts=True):
+    converted_dir = os.path.join(output_dir, 'ms_safetensors')
+    if is_main_rank():
         p = Process(target=convert_hf_safetensors_multiprocess,
                     args=[load_checkpoint, converted_dir, model, model.config])
         p.start()

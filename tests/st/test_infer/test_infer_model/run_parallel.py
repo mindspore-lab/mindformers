@@ -44,7 +44,8 @@ def parallel_qwen2_0_5b_predict_mp2():
     # init config with yaml
     config = MindFormerConfig(config_path)
     config.use_parallel = True
-    config.parallel.strategy_ckpt_config.save_file = "./qwen2_05b_dynamic_ckpt_strategy.ckpt"
+    config.output_dir = './qwen2_05b_dynamic_output'
+    config.parallel.strategy_ckpt_save_file = "./qwen2_05b_dynamic_ckpt_strategy.ckpt"
     config.load_ckpt_format = "safetensors"
     config.parallel_config.model_parallel = 2
     config.parallel_config.data_parallel = 1
@@ -136,7 +137,7 @@ def parallel_glm3_6b_predict_mp2():
     # init config with yaml
     config = MindFormerConfig(config_path)
     config.use_parallel = True
-    config.parallel.strategy_ckpt_config.save_file = "./glm3_6b_ckpt_strategy.ckpt"
+    config.parallel.strategy_ckpt_save_file = "./glm3_6b_ckpt_strategy.ckpt"
     config.parallel_config.model_parallel = 2
     config.parallel_config.data_parallel = 1
     config.parallel_config.pipeline_stage = 1
@@ -198,7 +199,7 @@ def parallel_qwen_moe_predict_mp2():
     # init config with yaml
     config = MindFormerConfig(config_path)
     config.use_parallel = True
-    config.parallel.strategy_ckpt_config.save_file = "./qwen_moe_strategy.ckpt"
+    config.parallel.strategy_ckpt_save_file = "./qwen_moe_strategy.ckpt"
     config.parallel_config.model_parallel = 2
     config.parallel_config.data_parallel = 1
     config.parallel_config.pipeline_stage = 1
@@ -299,7 +300,8 @@ def parallel_qwen2_0_5b_predict_mp2_static():
     # init config with yaml
     config = MindFormerConfig(config_path)
     config.use_parallel = True
-    config.parallel.strategy_ckpt_config.save_file = "./qwe2_05b_static_ckpt_strategy.ckpt"
+    config.output_dir = './qwen2_05b_static_output'
+    config.parallel.strategy_ckpt_save_file = "./qwen2_05b_static_ckpt_strategy.ckpt"
     config.load_ckpt_format = "safetensors"
     config.parallel_config.model_parallel = 2
     config.parallel_config.data_parallel = 1

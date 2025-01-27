@@ -2,7 +2,7 @@ seed: 0
 output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: ''
 src_strategy_path_or_dir: ''
-auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
+auto_trans_ckpt: True  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False
 resume_training: False
 use_parallel: False
@@ -111,9 +111,7 @@ parallel:
   full_batch: True
   search_mode: "sharding_propagation"
   enable_parallel_optimizer: False
-  strategy_ckpt_config:
-    save_file: "./ckpt_strategy.ckpt"
-    only_trainable_params: False
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
