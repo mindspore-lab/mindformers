@@ -130,13 +130,15 @@ def process_offset(offset, pipeline_num):
             if isinstance(item, int) and item == 0:
                 tmp_offset.append([0] * pipeline_num)
             elif not (isinstance(item, list) and len(item) == pipeline_num):
-                raise ValueError(f"Unsupported input format offset: {item}")
+                raise ValueError(f"Unsupported input format offset: {item},",
+                                 f"please check the length of your offset list and the pipeline number")
             else:
                 tmp_offset.append(item)
         offset = tmp_offset
         rounds = len(offset)
     elif not (isinstance(offset, list) and len(offset) == pipeline_num):
-        raise ValueError(f"Unsupported input format offset: {offset}")
+        raise ValueError(f"Unsupported input format offset: {offset},",
+                         "please check the length of your offset list and the pipeline number")
 
     return offset, rounds
 
@@ -155,10 +157,11 @@ def process_rec_config(
             rec_config = [0] * pipeline_num
         rec_config = [rec_config]
     elif isinstance(rec_config, list) and len(rec_config) == pipeline_num:
+        # in order to be compatible with internal_from_yaml, change list into double list
         rec_config = [rec_config]
     else:
-        raise ValueError(f"Unsupported input format recompute: {rec_config}")
-    # in order to be compatible with internal_from_yaml, change list into double list
+        raise ValueError(f"Unsupported input format recompute: {rec_config}, please check the length of list")
+
     return rec_config
 
 
