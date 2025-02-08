@@ -74,6 +74,20 @@ def set_failure_list(api_str, value, signature, failure_list):
     failure_list.append(f"    - now it is {signature}.")
 
 
+def process_union_order(signature):
+    """process Union order, Union[str, bool] -> Union[bool, str]"""
+    union_pattern = re.compile(r"Union\[.*?\]")
+    union_split = re.split(union_pattern, signature)
+    union_searched = re.findall(union_pattern, signature)
+    union_str_len = 6  # used to extract list
+    for index in range(len(union_searched)):
+        item = union_searched[index][union_str_len:-1]
+        item = re.split(", ?", item)
+        item.sort()
+        union_split.insert(2 * index + 1, f"Union[{', '.join(item)}]")
+    return "".join(union_split)
+
+
 def api_signature(obj, api_str, content, base_schema, failure_list, is_update=False):
     """extract and compare api input info"""
     signature = inspect.signature(obj)
@@ -84,6 +98,8 @@ def api_signature(obj, api_str, content, base_schema, failure_list, is_update=Fa
         signature = re.sub(" at 0x[\\da-zA-Z]+>", ">", signature)
     if re.search("<module.*dtype.py.>", signature):
         signature = re.sub("<module.*dtype.py.>", "mindspore.common.dtype", signature)
+    if re.search(r"Union\[.*\]", signature):
+        signature = process_union_order(signature)
     if is_update:
         content[api_str] = {"signature": signature}
     else:
