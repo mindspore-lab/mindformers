@@ -105,7 +105,8 @@ class TelechatParallelAttention(ParallelAttention):
     """
 
     def construct(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None,
-                  attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None):
+                  attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None,
+                  key_cache=None, value_cache=None):
         """Construct function of attention block."""
         # hidden_states: [B, S, H]
         ori_dtype = x.dtype
@@ -147,7 +148,7 @@ class TelechatParallelAttention(ParallelAttention):
                 if self.is_first_iteration:
                     key, value = self._cat_prefix(key, value, prefix_keys_values)
 
-            key_out = self.paged_attention_mgr(key, value, slot_mapping)
+            key_out = self.paged_attention_mgr(key, value, slot_mapping, key_cache=key_cache, value_cache=value_cache)
             query = ops.depend(query, key_out)
 
             if self.is_first_iteration:
@@ -181,7 +182,8 @@ class TelechatParallelAttention(ParallelAttention):
                         value = value.transpose((0, 2, 1, 3))
                     context_layer = self.core_attention(query, key, value, attn_mask)
             else:
-                context_layer = self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables)
+                context_layer = self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables,
+                                                                    key_cache=key_cache, value_cache=value_cache)
         else:
             # [B, S, H] -> [B, N, S, D]
             query = query.reshape(bs, seq_len, -1, self.head_dim).transpose((0, 2, 1, 3))
@@ -339,7 +341,7 @@ class TelechatParallelTransformer(ParallelTransformer):
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None):
         """
         Forward of ParallelTransformer.
 
@@ -388,9 +390,12 @@ class TelechatParallelTransformer(ParallelTransformer):
         # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
+            key_cache_i = key_cache[i] if key_cache is not None else None
+            value_cache_i = value_cache[i] if value_cache is not None else None
             hidden_states = self.layers[i](hidden_states, freqs_cis, mask, batch_valid_length=batch_valid_length,
                                            block_tables=block_tables, slot_mapping=slot_mapping,
-                                           prefix_keys_values=prefix_kv)
+                                           prefix_keys_values=prefix_kv,
+                                           key_cache=key_cache_i, value_cache=value_cache_i)
 
         if self.post_norm:
             hidden_states = self.norm_out(hidden_states)
