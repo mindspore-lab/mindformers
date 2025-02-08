@@ -1,4 +1,4 @@
-# Copyright 2024 Huawei Technologies Co., Ltd
+# Copyright 2025 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules.transformer.moe import MoEV2
 from mindformers.modules.transformer.moe import MoEInfer
 
-from research.deepseek2.deepseek2_config import DeepseekV2Config
+from deepseek2_config import DeepseekV2Config
 
 __all__ = ['DeepseekV2ForCausalLM', 'DeepseekV2Model']
 

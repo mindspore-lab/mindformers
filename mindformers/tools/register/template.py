@@ -360,6 +360,8 @@ class MoEConfig(Config):
     topk_bias_update_rate = 0.
     use_allgather_dispatcher = False
     moe_shared_expert_overlap = False
+    expert_model_parallel = None
+    use_gating_sigmoid = False
 
     _name = "moe_config"
 

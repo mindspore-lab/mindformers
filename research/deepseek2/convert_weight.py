@@ -134,6 +134,57 @@ def convert_ms_to_gmm(input_path, output_path):
             params[k] = ms.Parameter(gmm_tensor)
             print(f"\rConvertion finished, the mindspore ckpt is saved in '{output_path}'.", flush=True)
 
+
+def mla_weight_split(input_path, output_path, n_head, qk_nope_head_dim, qk_rope_head_dim, v_head_dim):
+    """split qkv weight in mla module."""
+    print("Begin MLA weight process.")
+    import copy
+    params = ms.load_checkpoint(input_path)
+    params_bk = copy.deepcopy(params)
+    for name, value in params_bk.items():
+        # l2q_proj process
+        if ".attention.l2q_proj." in name:
+            value_tensor = ms.Tensor(value)
+            q_head = qk_nope_head_dim + qk_rope_head_dim
+            value_tensor = value_tensor.reshape(n_head, q_head, -1)
+            value_nope, value_pe = value_tensor[:, :qk_nope_head_dim, :], value_tensor[:, qk_nope_head_dim:, :]
+            value_pe = value_pe.reshape(value_pe.shape[0], value_pe.shape[1] // 2, 2, -1).transpose(0, 2, 1, 3)
+            value_nope = value_nope.reshape(-1, value_nope.shape[-1])
+            value_pe = value_pe.reshape(-1, value_pe.shape[-1])
+            name_lt = name.split(".attention.l2q_proj.")
+            params[name_lt[0] + ".attention.l2q_nope_proj." + name_lt[-1]] = ms.Parameter(value_nope)
+            params[name_lt[0] + ".attention.l2q_pe_proj." + name_lt[-1]] = ms.Parameter(value_pe)
+            del params[name]
+
+        # .attention.kv2l. process
+        if ".attention.kv2l." in name:
+            value_tensor = ms.Tensor(value)
+            kv_lora_rank = value_tensor.shape[0] - qk_rope_head_dim
+            value_latent_kv, value_k_pe = value_tensor[:kv_lora_rank, :], value_tensor[kv_lora_rank:, :]
+            value_k_pe = value_k_pe.reshape(value_k_pe.shape[0] // 2, 2, -1).transpose(1, 0, 2)
+            value_k_pe = value_k_pe.reshape(-1, value_k_pe.shape[-1])
+            name_lt = name.split(".attention.kv2l.")
+            params[name_lt[0] + ".attention.kv2l_k_pe." + name_lt[-1]] = ms.Parameter(value_k_pe)
+            params[name_lt[0] + ".attention.kv2l_latent_kv." + name_lt[-1]] = ms.Parameter(value_latent_kv)
+            del params[name]
+
+        # .attention.lkv2kv. process
+        if ".attention.lkv2kv." in name:
+            value_tensor = ms.Tensor(value)
+            lkv2kv_head = qk_nope_head_dim + v_head_dim
+            value_tensor = value_tensor.reshape(n_head, lkv2kv_head, -1)
+            value_k_nope, value_v = value_tensor[:, :qk_nope_head_dim, :], value_tensor[:, qk_nope_head_dim:, :]
+            value_k_nope = value_k_nope.reshape(-1, value_k_nope.shape[-1])
+            value_v = value_v.reshape(-1, value_v.shape[-1])
+            name_lt = name.split(".attention.lkv2kv.")
+            params[name_lt[0] + ".attention.lkv2kv_k_nope." + name_lt[-1]] = ms.Parameter(value_k_nope)
+            params[name_lt[0] + ".attention.lkv2kv_v." + name_lt[-1]] = ms.Parameter(value_v)
+            del params[name]
+    ms.save_checkpoint(params, output_path)
+    print(f"\rMLA weight trans finished, the mindspore ckpt is save in '{output_path}'.")
+
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -143,7 +194,38 @@ if __name__ == "__main__":
     parser.add_argument('--use_gmm', action='store_true')
     parser.add_argument('--pre_ckpt_path', default=None)
     parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'])
+    parser.add_argument("--n_head", default=128)
+    parser.add_argument("--qk_nope_head", default=128)
+    parser.add_argument("--qk_rope_head", default=64)
+    parser.add_argument("--v_head_dim", default=128)
+    parser.add_argument("mla_weight_split_flag", default=False)
     args = parser.parse_args()
+    if args.mla_weight_split_flag:
+        if os.path.isdir(args.pre_ckpt_path):
+            rank_ids = os.listdir(args.pre_ckpt_path)
+            for rank_id in rank_ids:
+                id_num = rank_id.split('_')[1]
+                input_ckpt = os.path.join(args.pre_ckpt_path, rank_id + f'/checkpoint_{id_num}.ckpt')
+                if not os.path.exists(input_ckpt):
+                    print(f"[WARNING]: ckpt file {input_ckpt} does not exist, skip rank {rank_id}.")
+                    continue
+                output_dir = os.path.join(args.mindspore_ckpt_path, rank_id)
+                output_ckpt = os.path.join(output_dir, f'checkpoint_{id_num}.ckpt')
+                os.makedirs(output_dir, exist_ok=True)
+                mla_weight_split(input_path=input_ckpt,
+                                 output_path=output_ckpt,
+                                 n_head=args.n_head,
+                                 qk_nope_head_dim=args.qk_nope_head_dim,
+                                 qk_rope_head_dim=args.qk_rope_head_dim,
+                                 v_head_dim=args.v_head_dim)
+        else:
+            mla_weight_split(input_path=args.pre_ckpt_path,
+                             output_path=args.mindspore_ckpt_path,
+                             n_head=args.n_head,
+                             qk_nope_head_dim=args.qk_nope_head_dim,
+                             qk_rope_head_dim=args.qk_rope_head_dim,
+                             v_head_dim=args.v_head_dim)
+
     if args.pre_ckpt_path:
         if os.path.isdir(args.pre_ckpt_path):
             rank_ids = os.listdir(args.pre_ckpt_path)

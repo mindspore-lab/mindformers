@@ -1464,3 +1464,80 @@ class StressDetectCallBack(Callback):
                 raise RuntimeError(f"Voltage recovery failed with error code: {ret}")
             else:
                 logger.warning(f"Stress detection failed with error code: {ret}")
+
+
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
+class TopkBiasBalanceCallback(Callback):
+    """Callback for topk bias balance feature in moe module.
+
+    Args:
+        balance_via_topk_bias (bool): Whether to use topk bias update, should be consistent with moe config.
+        topk_bias_update_rate (float): How fast is the bias updated.
+        num_layers (int): How many layers in the model.
+        mtp_depth (int): How many layers in the mtp module.
+        expert_num (int): How many experts in the moe module.
+        micro_batch_num (int): Micro batch number in pipeline parallel. Default to 1.
+        gradient_accumulation_steps (int): Gradient accumulation steps for training. Default to 1.
+    """
+    def __init__(self,
+                 balance_via_topk_bias: bool,
+                 topk_bias_update_rate: float,
+                 num_layers: int,
+                 mtp_depth: int,
+                 expert_num: int,
+                 micro_batch_num: int = 1,
+                 gradient_accumulation_steps: int = 1):
+        # for aux loss free
+        # this process is to update the expert load
+        self.update_topk_bias_flag = balance_via_topk_bias
+        if self.update_topk_bias_flag:
+            self.assign = P.Assign()
+            self.assign.recompute(False)
+            self.afb_sub = P.Sub()
+            self.afb_add = P.Add()
+            self.sign = P.Sign()
+            self.afb_mul = P.Mul()
+            self.afb_div = P.Div()
+            self.pipeline_stages = ms.context.get_auto_parallel_context("pipeline_stages")
+            self.micro_batch_num = micro_batch_num if self.pipeline_stages > 1 else 1
+            self.acc_step_over_expert_num = \
+                Tensor([micro_batch_num * gradient_accumulation_steps / expert_num], ms.float32)
+            self.num_layers = num_layers + mtp_depth
+            self.topk_bias_update_rate = topk_bias_update_rate
+            self.zeros_tensor = ms.Tensor(np.zeros([expert_num]), ms.float32)
+
+    def _update_topk_bias(self, network):
+        """update topk bias tensor during training."""
+        for i in range(self.num_layers):
+            if hasattr(network, "network"):
+                network = network.network
+            if hasattr(network.model.layers[i].feed_forward, "routed_experts"):
+                if hasattr(network.model.layers[i].feed_forward.routed_experts, "router"):
+                    expert_load_data = \
+                        network.model.layers[i].feed_forward.routed_experts.router.router.expert_load.value()
+                    if expert_load_data.sum() > 0:
+                        err = self.afb_sub(self.acc_step_over_expert_num, expert_load_data)
+                        topk_bias_new = self.afb_add(
+                            network.model.layers[i].feed_forward.routed_experts.router.router.topk_bias.value(),
+                            self.afb_mul(self.sign(err), self.topk_bias_update_rate)
+                        )
+                        self.assign(network.model.layers[i].feed_forward.routed_experts.router.router.topk_bias,
+                                    topk_bias_new)
+                        self.assign(network.model.layers[i].feed_forward.routed_experts.router.router.expert_load,
+                                    self.zeros_tensor)
+                else:
+                    expert_load_data = network.model.layers[i].feed_forward.routed_experts.expert_load.value()
+                    if expert_load_data.sum() > 0:
+                        err = self.afb_sub(self.acc_step_over_expert_num, expert_load_data)
+                        topk_bias_new = self.afb_add(
+                            network.model.layers[i].feed_forward.routed_experts.topk_bias.value(),
+                            self.afb_mul(self.sign(err), self.topk_bias_update_rate)
+                        )
+                        self.assign(network.model.layers[i].feed_forward.routed_experts.topk_bias, topk_bias_new)
+                        self.assign(network.model.layers[i].feed_forward.routed_experts.expert_load, self.zeros_tensor)
+
+    def step_end(self, run_context):
+        cb_params = run_context.original_args()
+        if self.update_topk_bias_flag:
+            # pylint: disable=W0212
+            self._update_topk_bias(cb_params.train_network.network.network._backbone)
