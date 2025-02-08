@@ -26,6 +26,7 @@ from mindspore.dataset import Dataset, GeneratorDataset, Shuffle
 from .build_dataloader import build_dataset_loader
 from ...tools.logger import logger
 from ...tools.register import MindFormerRegister, MindFormerModuleType
+from ...tools.utils import get_real_rank, is_publicly_accessible_path, get_device_num_per_node
 
 
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
@@ -310,6 +311,7 @@ class MultiSourceRandomAccessDataset:
         self.sample_nums = np.array(sample_nums)
         self.dataloader_num = len(sample_nums)
         self.size = sum(sample_nums)
+        self.rank_id = get_real_rank()
 
         if isinstance(shuffle, bool):
             self.shuffle_dataset = shuffle
@@ -341,9 +343,21 @@ class MultiSourceRandomAccessDataset:
             self.dataloader_index = load_dict["dataloader_index"]
             self.data_sample_index = load_dict["data_sample_index"]
         if save_indices_npz_path is not None:
-            logger.info(f".......... Save indices to npz file: {save_indices_npz_path} ..........")
-            np.savez_compressed(save_indices_npz_path, dataloader_index=self.dataloader_index,
-                                data_sample_index=self.data_sample_index)
+            if is_publicly_accessible_path(save_indices_npz_path):
+                logger.info(f".......... npz file is saved in shared path ..........")
+                if self.rank_id == 0:
+                    logger.info(f".......... save indices to npz file: {save_indices_npz_path} by rank_{self.rank_id} ."
+                                f".........")
+                    np.savez_compressed(save_indices_npz_path, dataloader_index=self.dataloader_index,
+                                        data_sample_index=self.data_sample_index)
+            else:
+                logger.warning(f"If the npz file is being saved to a shared path, please add this path to the "
+                               f"environment variable SHARED_PATHS, otherwise, please ignore this warning.")
+                if self.rank_id % get_device_num_per_node() == 0:
+                    logger.info(f".......... save indices to npz file: {save_indices_npz_path} by rank_{self.rank_id} ."
+                                f".........")
+                    np.savez_compressed(save_indices_npz_path, dataloader_index=self.dataloader_index,
+                                        data_sample_index=self.data_sample_index)
         logger.info(".......... Build indices DONE for multi-source dataset ..........")
 
     def build_indices(self):
