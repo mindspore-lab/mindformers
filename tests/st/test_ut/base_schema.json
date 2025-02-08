@@ -216,7 +216,7 @@
         "signature": "(self, global_step)"
     },
     "mindformers.core.MFLossMonitor": {
-        "signature": "(learning_rate: Union[float, mindspore.nn.learning_rate_schedule.LearningRateSchedule, NoneType] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
+        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
     },
     "mindformers.core.MFLossMonitor.epoch_begin": {
         "signature": "(self, run_context)"
@@ -396,7 +396,7 @@
         "signature": "(self)"
     },
     "mindformers.core.callback.MFLossMonitor": {
-        "signature": "(learning_rate: Union[float, mindspore.nn.learning_rate_schedule.LearningRateSchedule, NoneType] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
+        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
     },
     "mindformers.core.callback.MFLossMonitor.epoch_begin": {
         "signature": "(self, run_context)"
@@ -483,7 +483,7 @@
         "signature": "(self)"
     },
     "mindformers.core.callback.callback.MFLossMonitor": {
-        "signature": "(learning_rate: Union[float, mindspore.nn.learning_rate_schedule.LearningRateSchedule, NoneType] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
+        "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
     },
     "mindformers.core.callback.callback.MFLossMonitor.epoch_begin": {
         "signature": "(self, run_context)"
@@ -990,10 +990,10 @@
         "signature": "(self, gradients, clip_value)"
     },
     "mindformers.dataset.BlendedMegatronDatasetDataLoader": {
-        "signature": "(datasets_type: str, sizes: List[int], config: dict, tokenizer: Union[dict, Callable] = None, column_names: list = None, shuffle: bool = False, num_shards: int = None, shard_id: int = None, phase: str = 'train', **kwargs)"
+        "signature": "(datasets_type: str, sizes: List[int], config: dict, tokenizer: Union[Callable, dict] = None, column_names: list = None, shuffle: bool = False, num_shards: int = None, shard_id: int = None, phase: str = 'train', **kwargs)"
     },
     "mindformers.dataset.CausalLanguageModelDataset": {
-        "signature": "(dataset_config: Optional[dict] = None, data_loader: Union[dict, Callable] = None, input_columns: List[str] = None, output_columns: List[str] = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, python_multiprocessing: bool = False, repeat: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, eod_reset: bool = False, eod_token_id: Optional[int] = None, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, **kwargs)"
+        "signature": "(dataset_config: Optional[dict] = None, data_loader: Union[Callable, dict] = None, input_columns: List[str] = None, output_columns: List[str] = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, python_multiprocessing: bool = False, repeat: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, eod_reset: bool = False, eod_token_id: Optional[int] = None, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, **kwargs)"
     },
     "mindformers.dataset.CausalLanguageModelDataset._process_raw_text_data": {
         "signature": "(dataset_config)"
@@ -1005,7 +1005,7 @@
         "signature": "(dataset_config)"
     },
     "mindformers.dataset.KeyWordGenDataset": {
-        "signature": "(dataset_config: Optional[dict] = None, data_loader: Union[dict, Callable] = None, tokenizer: Union[dict, Callable] = None, input_columns: List[str] = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, repeat: int = 1, ignore_pad_token_for_loss: bool = True, max_source_length: int = None, max_target_length: int = None, phase: str = 'train', version: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, **kwargs)"
+        "signature": "(dataset_config: Optional[dict] = None, data_loader: Union[Callable, dict] = None, tokenizer: Union[Callable, dict] = None, input_columns: List[str] = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, repeat: int = 1, ignore_pad_token_for_loss: bool = True, max_source_length: int = None, max_target_length: int = None, phase: str = 'train', version: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, **kwargs)"
     },
     "mindformers.dataset.KeyWordGenDataset._tokenizer_map": {
         "signature": "(dataset, dataset_config)"
@@ -1056,10 +1056,10 @@
         "signature": "(data, dataset_config, tokenizer)"
     },
     "mindformers.dataset.dataloader.BlendedMegatronDatasetDataLoader": {
-        "signature": "(datasets_type: str, sizes: List[int], config: dict, tokenizer: Union[dict, Callable] = None, column_names: list = None, shuffle: bool = False, num_shards: int = None, shard_id: int = None, phase: str = 'train', **kwargs)"
+        "signature": "(datasets_type: str, sizes: List[int], config: dict, tokenizer: Union[Callable, dict] = None, column_names: list = None, shuffle: bool = False, num_shards: int = None, shard_id: int = None, phase: str = 'train', **kwargs)"
     },
     "mindformers.dataset.dpo_dataset.DPODataset": {
-        "signature": "(dataset_config: Optional[dict] = None, data_loader: Union[dict, Callable] = None, input_columns: list = None, output_columns: list = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, python_multiprocessing: bool = False, repeat: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, eod_reset: bool = False, eod_token_id: Optional[int] = None, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, **kwargs)"
+        "signature": "(dataset_config: Optional[dict] = None, data_loader: Union[Callable, dict] = None, input_columns: list = None, output_columns: list = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, python_multiprocessing: bool = False, repeat: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, eod_reset: bool = False, eod_token_id: Optional[int] = None, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, **kwargs)"
     },
     "mindformers.dataset.dpo_dataset.DPODataset._process_raw_text_data": {
         "signature": "(dataset_config)"
@@ -1643,9 +1643,6 @@
     "mindformers.experimental.infer.core.ParallelAttention.construct": {
         "signature": "(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None, attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None, key_cache=None, value_cache=None)"
     },
-    "mindformers.experimental.infer.core.ParallelAttention._repeat_kv": {
-        "signature": "(self, x, rep)"
-    },
     "mindformers.experimental.infer.core.ParallelAttention._cat_prefix": {
         "signature": "(self, key, value, prefix_keys_values)"
     },
@@ -1747,9 +1744,6 @@
     },
     "mindformers.experimental.infer.core.transformer.ParallelAttention.construct": {
         "signature": "(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None, attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None, key_cache=None, value_cache=None)"
-    },
-    "mindformers.experimental.infer.core.transformer.ParallelAttention._repeat_kv": {
-        "signature": "(self, x, rep)"
     },
     "mindformers.experimental.infer.core.transformer.ParallelAttention._cat_prefix": {
         "signature": "(self, key, value, prefix_keys_values)"
@@ -3243,7 +3237,7 @@
         "signature": "(self, i, input_ids, scores)"
     },
     "mindformers.generation.logits_process.MinLengthLogitsProcessor": {
-        "signature": "(min_length: int = None, eos_token_id: Union[int, List[int]] = None, pad_token_id: int = None)"
+        "signature": "(min_length: int = None, eos_token_id: Union[List[int, int]] = None, pad_token_id: int = None)"
     },
     "mindformers.generation.logits_process.MinLengthLogitsProcessor.process_ms": {
         "signature": "(self, logits, sequence_ids, **kwargs)"
@@ -3252,7 +3246,7 @@
         "signature": "(self, logits, sequence_ids)"
     },
     "mindformers.generation.logits_process.MinNewTokensLengthLogitsProcessor": {
-        "signature": "(prompt_length_to_skip: int = None, min_new_tokens: int = None, eos_token_id: Union[int, List[int]] = None, pad_token_id: int = None)"
+        "signature": "(prompt_length_to_skip: int = None, min_new_tokens: int = None, eos_token_id: Union[List[int, int]] = None, pad_token_id: int = None)"
     },
     "mindformers.generation.logits_process.MinNewTokensLengthLogitsProcessor.process_ms": {
         "signature": "(self, logits, sequence_ids, **kwargs)"
@@ -3525,7 +3519,7 @@
         "signature": "(cls)"
     },
     "mindformers.models.ChatGLM2Config": {
-        "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', rotary_dtype: str = None, residual_dtype: str = 'float32', use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, **kwargs)"
+        "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', residual_dtype: str = 'float32', rotary_dtype: str = None, use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, **kwargs)"
     },
     "mindformers.models.ChatGLM2ForConditionalGeneration": {
         "signature": "(config: mindformers.models.glm2.glm2_config.ChatGLM2Config, **kwargs)"
@@ -3573,7 +3567,7 @@
         "signature": "(self, tokens: List[str]) -> list"
     },
     "mindformers.models.ChatGLM3Tokenizer._decode": {
-        "signature": "(self, token_ids: Union[int, List[int]], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
+        "signature": "(self, token_ids: Union[List[int, int]], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
     },
     "mindformers.models.ChatGLM3Tokenizer._convert_id_to_token": {
         "signature": "(self, index)"
@@ -3603,7 +3597,7 @@
         "signature": "(self)"
     },
     "mindformers.models.ChatGLM4Tokenizer.convert_tokens_to_string": {
-        "signature": "(self, tokens: List[Union[bytes, str, int]]) -> str"
+        "signature": "(self, tokens: List[Union[bytes, int, str]]) -> str"
     },
     "mindformers.models.ChatGLM4Tokenizer._tokenize": {
         "signature": "(self, text, **kwargs)"
@@ -3789,10 +3783,10 @@
         "signature": "() -> bool"
     },
     "mindformers.models.PreTrainedModel.save_pretrained": {
-        "signature": "(self, save_directory: Union[str, os.PathLike], save_name: str = 'mindspore_model', **kwargs)"
+        "signature": "(self, save_directory: Union[os.PathLike, str], save_name: str = 'mindspore_model', **kwargs)"
     },
     "mindformers.models.PreTrainedModel.save_pretrained_experimental_mode": {
-        "signature": "(self, save_directory: Union[str, os.PathLike], is_main_process: bool = True, state_dict: Optional[dict] = None, push_to_hub: bool = False, max_shard_size: Union[int, str] = '5GB', variant: Optional[str] = None, token: Union[str, bool, NoneType] = None, **kwargs)"
+        "signature": "(self, save_directory: Union[os.PathLike, str], is_main_process: bool = True, state_dict: Optional[dict] = None, push_to_hub: bool = False, max_shard_size: Union[int, str] = '5GB', variant: Optional[str] = None, token: Union[NoneType, bool, str] = None, **kwargs)"
     },
     "mindformers.models.PreTrainedModel.save_pretrained_origin_mode": {
         "signature": "(self, save_directory: Optional[str] = None, save_name: str = 'mindspore_model')"
@@ -3825,7 +3819,7 @@
         "signature": "(pretrained_model_name_or_dir: str, **kwargs)"
     },
     "mindformers.models.PreTrainedModel.from_pretrained_experimental_mode": {
-        "signature": "(pretrained_model_name_or_path: Union[str, os.PathLike, NoneType], *model_args, config: Union[mindformers.models.configuration_utils.PretrainedConfig, str, os.PathLike, NoneType] = None, cache_dir: Union[str, os.PathLike, NoneType] = None, ignore_mismatched_sizes: bool = False, force_download: bool = False, local_files_only: bool = False, token: Union[str, bool, NoneType] = None, revision: str = 'main', **kwargs)"
+        "signature": "(pretrained_model_name_or_path: Union[NoneType, os.PathLike, str], *model_args, config: Union[NoneType, mindformers.models.configuration_utils.PretrainedConfig, os.PathLike, str] = None, cache_dir: Union[NoneType, os.PathLike, str] = None, ignore_mismatched_sizes: bool = False, force_download: bool = False, local_files_only: bool = False, token: Union[NoneType, bool, str] = None, revision: str = 'main', **kwargs)"
     },
     "mindformers.models.PreTrainedModel._get_src_checkpoint": {
         "signature": "(state_dict, resolved_archive_file, src_checkpoint)"
@@ -3888,7 +3882,7 @@
         "signature": "(self, text, **kwargs)"
     },
     "mindformers.models.PreTrainedTokenizer.convert_tokens_to_ids": {
-        "signature": "(self, tokens: Union[str, List[str]]) -> Union[int, List[int]]"
+        "signature": "(self, tokens: Union[List[str, str]]) -> Union[List[int, int]]"
     },
     "mindformers.models.PreTrainedTokenizer._convert_token_to_id_with_added_voc": {
         "signature": "(self, token)"
@@ -3897,10 +3891,10 @@
         "signature": "(self, token)"
     },
     "mindformers.models.PreTrainedTokenizer._encode_plus": {
-        "signature": "(self, text: Union[str, List[str], List[int]], text_pair: Union[str, List[str], List[int], NoneType] = None, add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
+        "signature": "(self, text: Union[List[str, str], List[int]], text_pair: Union[List[str, str], List[int], NoneType] = None, add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.PreTrainedTokenizer._batch_encode_plus": {
-        "signature": "(self, batch_text_or_text_pairs: Union[List[str], List[Tuple[str, str]], List[List[str]], List[Tuple[List[str], List[str]]], List[List[int]], List[Tuple[List[int], List[int]]]], add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
+        "signature": "(self, batch_text_or_text_pairs: Union[List[str], List[Tuple[str, str]], List[List[str]], List[Tuple[List[str], List[str]]], List[List[int]], List[Tuple[List[int], List[int]]]], add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.PreTrainedTokenizer._batch_prepare_for_model": {
         "signature": "(self, batch_ids_pairs: List[Union[Tuple[List[str], List[str]], Tuple[List[int], NoneType]]], add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, pad_to_multiple_of: Optional[int] = None, return_tensors: Optional[str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_length: bool = False, verbose: bool = True) -> mindformers.models.tokenization_utils_base.BatchEncoding"
@@ -3912,7 +3906,7 @@
         "signature": "(self, token_ids_0: List, token_ids_1: Optional[List] = None, already_has_special_tokens: bool = False) -> List[int]"
     },
     "mindformers.models.PreTrainedTokenizer.convert_ids_to_tokens": {
-        "signature": "(self, ids: Union[int, List[int]], skip_special_tokens: bool = False) -> Union[str, List[str]]"
+        "signature": "(self, ids: Union[List[int, int]], skip_special_tokens: bool = False) -> Union[List[str, str]]"
     },
     "mindformers.models.PreTrainedTokenizer._convert_id_to_token": {
         "signature": "(self, index: int) -> str"
@@ -3942,7 +3936,7 @@
         "signature": "(self, encoding: tokenizers.Encoding, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False) -> Tuple[Dict[str, Any], List[tokenizers.Encoding]]"
     },
     "mindformers.models.PreTrainedTokenizerFast.convert_tokens_to_ids": {
-        "signature": "(self, tokens: Union[str, List[str]]) -> Union[int, List[int]]"
+        "signature": "(self, tokens: Union[List[str, str]]) -> Union[List[int, int]]"
     },
     "mindformers.models.PreTrainedTokenizerFast._convert_token_to_id_with_added_voc": {
         "signature": "(self, token: str) -> int"
@@ -3957,7 +3951,7 @@
         "signature": "(self, pair: bool = False) -> int"
     },
     "mindformers.models.PreTrainedTokenizerFast.convert_ids_to_tokens": {
-        "signature": "(self, ids: Union[int, List[int]], skip_special_tokens: bool = False) -> Union[str, List[str]]"
+        "signature": "(self, ids: Union[List[int, int]], skip_special_tokens: bool = False) -> Union[List[str, str]]"
     },
     "mindformers.models.PreTrainedTokenizerFast.tokenize": {
         "signature": "(self, text: str, pair: Optional[str] = None, add_special_tokens: bool = False, **kwargs) -> List[str]"
@@ -3969,16 +3963,16 @@
         "signature": "(self, batch_text_or_text_pairs: Union[List[str], List[Tuple[str, str]], List[List[str]], List[Tuple[List[str], List[str]]]], add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Optional[str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.PreTrainedTokenizerFast._encode_plus": {
-        "signature": "(self, text: Union[str, List[str]], text_pair: Union[str, List[str], NoneType] = None, add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Optional[bool] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
+        "signature": "(self, text: Union[List[str, str]], text_pair: Union[List[str, str], NoneType] = None, add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Optional[bool] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.PreTrainedTokenizerFast.convert_tokens_to_string": {
         "signature": "(self, tokens: List[str]) -> str"
     },
     "mindformers.models.PreTrainedTokenizerFast._decode": {
-        "signature": "(self, token_ids: Union[int, List[int]], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
+        "signature": "(self, token_ids: Union[List[int, int]], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
     },
     "mindformers.models.PreTrainedTokenizerFast._save_pretrained": {
-        "signature": "(self, save_directory: Union[str, os.PathLike], file_names: Tuple[str], legacy_format: Optional[bool] = None, filename_prefix: Optional[str] = None) -> Tuple[str]"
+        "signature": "(self, save_directory: Union[os.PathLike, str], file_names: Tuple[str], legacy_format: Optional[bool] = None, filename_prefix: Optional[str] = None) -> Tuple[str]"
     },
     "mindformers.models.PreTrainedTokenizerFast.train_new_from_iterator": {
         "signature": "(self, text_iterator, vocab_size, length=None, new_special_tokens=None, special_tokens_map=None, **kwargs)"
@@ -4032,22 +4026,22 @@
         "signature": "()"
     },
     "mindformers.models.PretrainedConfig.get_config_dict": {
-        "signature": "(pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs) -> Tuple[Dict[str, Any], Dict[str, Any]]"
+        "signature": "(pretrained_model_name_or_path: Union[os.PathLike, str], **kwargs) -> Tuple[Dict[str, Any], Dict[str, Any]]"
     },
     "mindformers.models.PretrainedConfig._get_config_dict": {
-        "signature": "(pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs) -> Tuple[Dict[str, Any], Dict[str, Any]]"
+        "signature": "(pretrained_model_name_or_path: Union[os.PathLike, str], **kwargs) -> Tuple[Dict[str, Any], Dict[str, Any]]"
     },
     "mindformers.models.PretrainedConfig.from_dict": {
         "signature": "(config_dict: Dict[str, Any], **kwargs) -> 'PretrainedConfig'"
     },
     "mindformers.models.PretrainedConfig.from_json_file": {
-        "signature": "(json_file: Union[str, os.PathLike]) -> 'PretrainedConfig'"
+        "signature": "(json_file: Union[os.PathLike, str]) -> 'PretrainedConfig'"
     },
     "mindformers.models.PretrainedConfig._dict_from_json_file": {
-        "signature": "(json_file: Union[str, os.PathLike])"
+        "signature": "(json_file: Union[os.PathLike, str])"
     },
     "mindformers.models.PretrainedConfig.to_json_file": {
-        "signature": "(self, json_file_path: Union[str, os.PathLike], use_diff: bool = True)"
+        "signature": "(self, json_file_path: Union[os.PathLike, str], use_diff: bool = True)"
     },
     "mindformers.models.PretrainedConfig.to_json_string": {
         "signature": "(self, use_diff: bool = True) -> str"
@@ -4323,10 +4317,10 @@
         "signature": "(image_size: Optional[int] = 224, interpolation: Optional[str] = 'bicubic', mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711), is_hwc=False, **kwargs)"
     },
     "mindformers.models.blip2.Blip2ImageProcessor.preprocess": {
-        "signature": "(self, images: Union[mindspore.common.tensor.Tensor, PIL.Image.Image, numpy.ndarray, List[PIL.Image.Image]], **kwargs)"
+        "signature": "(self, images: Union[List[PIL.Image.Image, PIL.Image.Image, mindspore.common.tensor.Tensor, numpy.ndarray]], **kwargs)"
     },
     "mindformers.models.blip2.Blip2ImageProcessor._bhwc_check": {
-        "signature": "(self, image_batch: Union[mindspore.common.tensor.Tensor, PIL.Image.Image, numpy.ndarray, List[PIL.Image.Image]])"
+        "signature": "(self, image_batch: Union[List[PIL.Image.Image, PIL.Image.Image, mindspore.common.tensor.Tensor, numpy.ndarray]])"
     },
     "mindformers.models.blip2.Blip2ImageToTextGeneration": {
         "signature": "(config: mindformers.models.blip2.blip2_config.Blip2Config, **kwargs)"
@@ -4514,7 +4508,13 @@
     "mindformers.models.cogvlm2.cogvlm2.CogVLM2ForCausalLM.freeze_component": {
         "signature": "(self)"
     },
+    "mindformers.models.cogvlm2.cogvlm2.CogVLM2ForCausalLM._flatten_inputs": {
+        "signature": "(self, input_ids, video_context_pos, batch_valid_length, slot_mapping)"
+    },
     "mindformers.models.cogvlm2.cogvlm2.CogVLM2ForCausalLM.prepare_inputs_for_generation": {
+        "signature": "(self, input_ids, **kwargs)"
+    },
+    "mindformers.models.cogvlm2.cogvlm2.CogVLM2ForCausalLM.prepare_inputs_for_mindie_generation": {
         "signature": "(self, input_ids, **kwargs)"
     },
     "mindformers.models.cogvlm2.cogvlm2.CogVLM2ForCausalLM.prepare_inputs_for_predict_layout": {
@@ -4599,7 +4599,7 @@
         "signature": "(self, tokens: List[Union[bytes, str]]) -> str"
     },
     "mindformers.models.cogvlm2.cogvlm2_tokenizer.CogVLM2Tokenizer._convert_tokens_to_ids": {
-        "signature": "(self, tokens: Union[bytes, str, List[Union[bytes, str]]]) -> Union[int, List[int]]"
+        "signature": "(self, tokens: Union[List[Union[bytes, bytes, str, str]]]) -> Union[List[int, int]]"
     },
     "mindformers.models.cogvlm2.cogvlm2_tokenizer.CogVLM2Tokenizer._convert_token_to_id": {
         "signature": "(self, token: Union[bytes, str]) -> int"
@@ -4614,7 +4614,7 @@
         "signature": "(self, text: str, allowed_special: Union[Set, str] = 'all', disallowed_special: Union[Collection, str] = (), **kwargs) -> List[Union[bytes, str]]"
     },
     "mindformers.models.cogvlm2.cogvlm2_tokenizer.CogVLM2Tokenizer._decode": {
-        "signature": "(self, token_ids: Union[int, List[int]], skip_special_tokens: bool = False, errors: str = None, **kwargs) -> str"
+        "signature": "(self, token_ids: Union[List[int, int]], skip_special_tokens: bool = False, errors: str = None, **kwargs) -> str"
     },
     "mindformers.models.configuration_utils.PretrainedConfig": {
         "signature": "(**kwargs)"
@@ -4662,22 +4662,22 @@
         "signature": "()"
     },
     "mindformers.models.configuration_utils.PretrainedConfig.get_config_dict": {
-        "signature": "(pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs) -> Tuple[Dict[str, Any], Dict[str, Any]]"
+        "signature": "(pretrained_model_name_or_path: Union[os.PathLike, str], **kwargs) -> Tuple[Dict[str, Any], Dict[str, Any]]"
     },
     "mindformers.models.configuration_utils.PretrainedConfig._get_config_dict": {
-        "signature": "(pretrained_model_name_or_path: Union[str, os.PathLike], **kwargs) -> Tuple[Dict[str, Any], Dict[str, Any]]"
+        "signature": "(pretrained_model_name_or_path: Union[os.PathLike, str], **kwargs) -> Tuple[Dict[str, Any], Dict[str, Any]]"
     },
     "mindformers.models.configuration_utils.PretrainedConfig.from_dict": {
         "signature": "(config_dict: Dict[str, Any], **kwargs) -> 'PretrainedConfig'"
     },
     "mindformers.models.configuration_utils.PretrainedConfig.from_json_file": {
-        "signature": "(json_file: Union[str, os.PathLike]) -> 'PretrainedConfig'"
+        "signature": "(json_file: Union[os.PathLike, str]) -> 'PretrainedConfig'"
     },
     "mindformers.models.configuration_utils.PretrainedConfig._dict_from_json_file": {
-        "signature": "(json_file: Union[str, os.PathLike])"
+        "signature": "(json_file: Union[os.PathLike, str])"
     },
     "mindformers.models.configuration_utils.PretrainedConfig.to_json_file": {
-        "signature": "(self, json_file_path: Union[str, os.PathLike], use_diff: bool = True)"
+        "signature": "(self, json_file_path: Union[os.PathLike, str], use_diff: bool = True)"
     },
     "mindformers.models.configuration_utils.PretrainedConfig.to_json_string": {
         "signature": "(self, use_diff: bool = True) -> str"
@@ -4746,10 +4746,10 @@
         "signature": "(self, token_ids, skip_special_tokens=False, clean_up_tokenization_spaces=None, **kwargs)"
     },
     "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer.convert_tokens_to_ids": {
-        "signature": "(self, tokens: Union[str, List[str]]) -> Union[int, List[int]]"
+        "signature": "(self, tokens: Union[List[str, str]]) -> Union[List[int, int]]"
     },
     "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer._convert_tokens_to_ids": {
-        "signature": "(self, tokens: Union[str, List[str]]) -> Union[int, List[int]]"
+        "signature": "(self, tokens: Union[List[str, str]]) -> Union[List[int, int]]"
     },
     "mindformers.models.glm.chatglm_6b_tokenizer.ChatGLMTokenizer._convert_token_to_id_with_added_voc": {
         "signature": "(self, token)"
@@ -4812,7 +4812,7 @@
         "signature": "(tokenizer=None, max_length=128, padding='max_length', return_tensors='ms')"
     },
     "mindformers.models.glm2.ChatGLM2Config": {
-        "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', rotary_dtype: str = None, residual_dtype: str = 'float32', use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, **kwargs)"
+        "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', residual_dtype: str = 'float32', rotary_dtype: str = None, use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, **kwargs)"
     },
     "mindformers.models.glm2.ChatGLM2ForConditionalGeneration": {
         "signature": "(config: mindformers.models.glm2.glm2_config.ChatGLM2Config, **kwargs)"
@@ -4860,7 +4860,7 @@
         "signature": "(self, tokens: List[str]) -> list"
     },
     "mindformers.models.glm2.ChatGLM3Tokenizer._decode": {
-        "signature": "(self, token_ids: Union[int, List[int]], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
+        "signature": "(self, token_ids: Union[List[int, int]], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
     },
     "mindformers.models.glm2.ChatGLM3Tokenizer._convert_id_to_token": {
         "signature": "(self, index)"
@@ -4890,7 +4890,7 @@
         "signature": "(self)"
     },
     "mindformers.models.glm2.ChatGLM4Tokenizer.convert_tokens_to_string": {
-        "signature": "(self, tokens: List[Union[bytes, str, int]]) -> str"
+        "signature": "(self, tokens: List[Union[bytes, int, str]]) -> str"
     },
     "mindformers.models.glm2.ChatGLM4Tokenizer._tokenize": {
         "signature": "(self, text, **kwargs)"
@@ -4962,7 +4962,7 @@
         "signature": "(self, layer_idx)"
     },
     "mindformers.models.glm2.glm2_config.ChatGLM2Config": {
-        "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', rotary_dtype: str = None, residual_dtype: str = 'float32', use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, **kwargs)"
+        "signature": "(batch_size=1, num_layers=28, padded_vocab_size=65024, hidden_size=4096, ffn_hidden_size=13696, kv_channels=128, num_attention_heads=32, seq_length=2048, hidden_dropout=0.0, attention_dropout=0.0, layernorm_epsilon=1e-05, rope_ratio=1, rmsnorm=True, apply_residual_connection_post_layernorm=False, post_layer_norm=True, add_bias_linear=False, add_qkv_bias=True, bias_dropout_fusion=True, multi_query_attention=True, multi_query_group_num=2, apply_query_key_layer_scaling=True, attention_softmax_in_fp32=True, fp32_residual_connection=False, quantization_bit=0, pre_seq_len=None, prefix_projection=False, param_init_type: str = 'float16', compute_dtype: str = 'float16', layernorm_compute_type: str = 'float32', residual_dtype: str = 'float32', rotary_dtype: str = None, use_past=False, use_flash_attention=False, enable_high_performance=False, block_size=16, num_blocks=128, is_dynamic=False, eos_token_id=2, pad_token_id=0, gmask_token_id=None, bos_token_id=None, repetition_penalty=1.0, checkpoint_name_or_path=None, parallel_config: Union[dict, mindformers.modules.transformer.transformer.TransformerOpParallelConfig] = <mindformers.modules.transformer.transformer.TransformerOpParallelConfig object>, offset: int = 0, pp_interleave_num: int = 1, mlp_concat: bool = True, qkv_concat: bool = True, use_rearrange_rope: bool = False, mask_generate: str = None, fine_grain_interleave: int = 1, use_ring_attention: bool = False, **kwargs)"
     },
     "mindformers.models.glm2.glm2_tokenizer.ChatGLM2Tokenizer": {
         "signature": "(vocab_file, bos_token='<sop>', eos_token='<eop>', end_token='</s>', mask_token='[MASK]', gmask_token='[gMASK]', pad_token='<pad>', unk_token='<unk>', **kwargs)"
@@ -4989,7 +4989,7 @@
         "signature": "(self, tokens: List[str]) -> list"
     },
     "mindformers.models.glm2.glm2_tokenizer.ChatGLM2Tokenizer._decode": {
-        "signature": "(self, token_ids: Union[int, List[int]], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
+        "signature": "(self, token_ids: Union[List[int, int]], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
     },
     "mindformers.models.glm2.glm2_tokenizer.ChatGLM2Tokenizer._convert_id_to_token": {
         "signature": "(self, index)"
@@ -5037,7 +5037,7 @@
         "signature": "(self, tokens: List[str]) -> list"
     },
     "mindformers.models.glm2.glm3_tokenizer.ChatGLM3Tokenizer._decode": {
-        "signature": "(self, token_ids: Union[int, List[int]], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
+        "signature": "(self, token_ids: Union[List[int, int]], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
     },
     "mindformers.models.glm2.glm3_tokenizer.ChatGLM3Tokenizer._convert_id_to_token": {
         "signature": "(self, index)"
@@ -5067,7 +5067,7 @@
         "signature": "(self)"
     },
     "mindformers.models.glm2.glm4_tokenizer.ChatGLM4Tokenizer.convert_tokens_to_string": {
-        "signature": "(self, tokens: List[Union[bytes, str, int]]) -> str"
+        "signature": "(self, tokens: List[Union[bytes, int, str]]) -> str"
     },
     "mindformers.models.glm2.glm4_tokenizer.ChatGLM4Tokenizer._tokenize": {
         "signature": "(self, text, **kwargs)"
@@ -5489,6 +5489,9 @@
     "mindformers.models.mllama.MllamaProcessor.replace_target": {
         "signature": "(self, target, seq)"
     },
+    "mindformers.models.mllama.MllamaProcessor.batch_input_ids": {
+        "signature": "(self, input_ids_list, max_length)"
+    },
     "mindformers.models.mllama.MllamaProcessor.batch": {
         "signature": "(self, data_list, token_padding_length, **kwargs)"
     },
@@ -5604,10 +5607,10 @@
         "signature": "() -> bool"
     },
     "mindformers.models.modeling_utils.PreTrainedModel.save_pretrained": {
-        "signature": "(self, save_directory: Union[str, os.PathLike], save_name: str = 'mindspore_model', **kwargs)"
+        "signature": "(self, save_directory: Union[os.PathLike, str], save_name: str = 'mindspore_model', **kwargs)"
     },
     "mindformers.models.modeling_utils.PreTrainedModel.save_pretrained_experimental_mode": {
-        "signature": "(self, save_directory: Union[str, os.PathLike], is_main_process: bool = True, state_dict: Optional[dict] = None, push_to_hub: bool = False, max_shard_size: Union[int, str] = '5GB', variant: Optional[str] = None, token: Union[str, bool, NoneType] = None, **kwargs)"
+        "signature": "(self, save_directory: Union[os.PathLike, str], is_main_process: bool = True, state_dict: Optional[dict] = None, push_to_hub: bool = False, max_shard_size: Union[int, str] = '5GB', variant: Optional[str] = None, token: Union[NoneType, bool, str] = None, **kwargs)"
     },
     "mindformers.models.modeling_utils.PreTrainedModel.save_pretrained_origin_mode": {
         "signature": "(self, save_directory: Optional[str] = None, save_name: str = 'mindspore_model')"
@@ -5640,7 +5643,7 @@
         "signature": "(pretrained_model_name_or_dir: str, **kwargs)"
     },
     "mindformers.models.modeling_utils.PreTrainedModel.from_pretrained_experimental_mode": {
-        "signature": "(pretrained_model_name_or_path: Union[str, os.PathLike, NoneType], *model_args, config: Union[mindformers.models.configuration_utils.PretrainedConfig, str, os.PathLike, NoneType] = None, cache_dir: Union[str, os.PathLike, NoneType] = None, ignore_mismatched_sizes: bool = False, force_download: bool = False, local_files_only: bool = False, token: Union[str, bool, NoneType] = None, revision: str = 'main', **kwargs)"
+        "signature": "(pretrained_model_name_or_path: Union[NoneType, os.PathLike, str], *model_args, config: Union[NoneType, mindformers.models.configuration_utils.PretrainedConfig, os.PathLike, str] = None, cache_dir: Union[NoneType, os.PathLike, str] = None, ignore_mismatched_sizes: bool = False, force_download: bool = False, local_files_only: bool = False, token: Union[NoneType, bool, str] = None, revision: str = 'main', **kwargs)"
     },
     "mindformers.models.modeling_utils.PreTrainedModel._get_src_checkpoint": {
         "signature": "(state_dict, resolved_archive_file, src_checkpoint)"
@@ -6036,7 +6039,7 @@
         "signature": "(self, text, **kwargs)"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizer.convert_tokens_to_ids": {
-        "signature": "(self, tokens: Union[str, List[str]]) -> Union[int, List[int]]"
+        "signature": "(self, tokens: Union[List[str, str]]) -> Union[List[int, int]]"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizer._convert_token_to_id_with_added_voc": {
         "signature": "(self, token)"
@@ -6045,10 +6048,10 @@
         "signature": "(self, token)"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizer._encode_plus": {
-        "signature": "(self, text: Union[str, List[str], List[int]], text_pair: Union[str, List[str], List[int], NoneType] = None, add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
+        "signature": "(self, text: Union[List[str, str], List[int]], text_pair: Union[List[str, str], List[int], NoneType] = None, add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizer._batch_encode_plus": {
-        "signature": "(self, batch_text_or_text_pairs: Union[List[str], List[Tuple[str, str]], List[List[str]], List[Tuple[List[str], List[str]]], List[List[int]], List[Tuple[List[int], List[int]]]], add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
+        "signature": "(self, batch_text_or_text_pairs: Union[List[str], List[Tuple[str, str]], List[List[str]], List[Tuple[List[str], List[str]]], List[List[int]], List[Tuple[List[int], List[int]]]], add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizer._batch_prepare_for_model": {
         "signature": "(self, batch_ids_pairs: List[Union[Tuple[List[str], List[str]], Tuple[List[int], NoneType]]], add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, pad_to_multiple_of: Optional[int] = None, return_tensors: Optional[str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_length: bool = False, verbose: bool = True) -> mindformers.models.tokenization_utils_base.BatchEncoding"
@@ -6060,7 +6063,7 @@
         "signature": "(self, token_ids_0: List, token_ids_1: Optional[List] = None, already_has_special_tokens: bool = False) -> List[int]"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizer.convert_ids_to_tokens": {
-        "signature": "(self, ids: Union[int, List[int]], skip_special_tokens: bool = False) -> Union[str, List[str]]"
+        "signature": "(self, ids: Union[List[int, int]], skip_special_tokens: bool = False) -> Union[List[str, str]]"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizer._convert_id_to_token": {
         "signature": "(self, index: int) -> str"
@@ -6081,7 +6084,7 @@
         "signature": "(self) -> Dict[str, int]"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.apply_chat_template": {
-        "signature": "(self, conversation: Union[List[Dict[str, str]], ForwardRef('Conversation')], chat_template: Optional[str] = None, add_generation_prompt: bool = False, tokenize: bool = True, padding: bool = False, truncation: bool = False, max_length: Optional[int] = None, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, **tokenizer_kwargs) -> Union[str, List[int]]"
+        "signature": "(self, conversation: Union[List[Dict[str, str]], ForwardRef('Conversation')], chat_template: Optional[str] = None, add_generation_prompt: bool = False, tokenize: bool = True, padding: bool = False, truncation: bool = False, max_length: Optional[int] = None, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, **tokenizer_kwargs) -> Union[List[int, str]]"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase._compile_jinja_template": {
         "signature": "(self, chat_template)"
@@ -6114,7 +6117,7 @@
         "signature": "(pretrained_model_name_or_path, max_model_length, init_max_model_length)"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.convert_added_tokens": {
-        "signature": "(obj: Union[tokenizers.AddedToken, Any], save=False, add_type_field=True)"
+        "signature": "(obj: Union[Any, tokenizers.AddedToken], save=False, add_type_field=True)"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.save_pretrained": {
         "signature": "(self, save_directory: Optional[str] = None, save_name: str = 'mindspore_model', file_format: str = 'yaml', save_json: bool = False, **kwargs)"
@@ -6123,10 +6126,10 @@
         "signature": "(self, save_directory: Optional[str] = None, save_name: str = 'mindspore_model', file_format: str = 'yaml')"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.save_experimental_pretrained": {
-        "signature": "(self, save_directory: Union[str, os.PathLike], filename_prefix: Optional[str] = None, **kwargs) -> Tuple[str]"
+        "signature": "(self, save_directory: Union[os.PathLike, str], filename_prefix: Optional[str] = None, **kwargs) -> Tuple[str]"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase._save_pretrained": {
-        "signature": "(self, save_directory: Union[str, os.PathLike], file_names: Tuple[str], legacy_format: Optional[bool] = None, filename_prefix: Optional[str] = None) -> Tuple[str]"
+        "signature": "(self, save_directory: Union[os.PathLike, str], file_names: Tuple[str], legacy_format: Optional[bool] = None, filename_prefix: Optional[str] = None) -> Tuple[str]"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.save_vocabulary": {
         "signature": "(self, save_directory: str, filename_prefix: Optional[str] = None) -> Tuple[str]"
@@ -6135,7 +6138,7 @@
         "signature": "(self, text: str, pair: Optional[str] = None, add_special_tokens: bool = False, **kwargs) -> List[str]"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.encode": {
-        "signature": "(self, text: Union[str, List[str], List[int]], text_pair: Union[str, List[str], List[int], NoneType] = None, add_special_tokens: bool = True, padding: Union[bool, str, mindformers.models.tokenization_utils_base.PaddingStrategy] = False, truncation: Union[bool, str, mindformers.models.tokenization_utils_base.TruncationStrategy] = None, max_length: Optional[int] = None, stride: int = 0, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, **kwargs) -> List[int]"
+        "signature": "(self, text: Union[List[str, str], List[int]], text_pair: Union[List[str, str], List[int], NoneType] = None, add_special_tokens: bool = True, padding: Union[bool, mindformers.models.tokenization_utils_base.PaddingStrategy, str] = False, truncation: Union[bool, mindformers.models.tokenization_utils_base.TruncationStrategy, str] = None, max_length: Optional[int] = None, stride: int = 0, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, **kwargs) -> List[int]"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.num_special_tokens_to_add": {
         "signature": "(self, pair: bool = False) -> int"
@@ -6144,22 +6147,22 @@
         "signature": "(self, padding=False, truncation=None, max_length=None, pad_to_multiple_of=None, verbose=True, **kwargs)"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase._call_one": {
-        "signature": "(self, text: Union[str, List[str], List[List[str]]], text_pair: Union[str, List[str], List[List[str]], NoneType] = None, add_special_tokens: bool = True, padding: Union[bool, str, mindformers.models.tokenization_utils_base.PaddingStrategy] = False, truncation: Union[bool, str, mindformers.models.tokenization_utils_base.TruncationStrategy] = None, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
+        "signature": "(self, text: Union[List[str, str], List[List[str]]], text_pair: Union[List[str, str], List[List[str]], NoneType] = None, add_special_tokens: bool = True, padding: Union[bool, mindformers.models.tokenization_utils_base.PaddingStrategy, str] = False, truncation: Union[bool, mindformers.models.tokenization_utils_base.TruncationStrategy, str] = None, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.encode_plus": {
-        "signature": "(self, text: Union[str, List[str], List[int]], text_pair: Union[str, List[str], List[int], NoneType] = None, add_special_tokens: bool = True, padding: Union[bool, str, mindformers.models.tokenization_utils_base.PaddingStrategy] = False, truncation: Union[bool, str, mindformers.models.tokenization_utils_base.TruncationStrategy] = None, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
+        "signature": "(self, text: Union[List[str, str], List[int]], text_pair: Union[List[str, str], List[int], NoneType] = None, add_special_tokens: bool = True, padding: Union[bool, mindformers.models.tokenization_utils_base.PaddingStrategy, str] = False, truncation: Union[bool, mindformers.models.tokenization_utils_base.TruncationStrategy, str] = None, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase._encode_plus": {
-        "signature": "(self, text: Union[str, List[str], List[int]], text_pair: Union[str, List[str], List[int], NoneType] = None, add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
+        "signature": "(self, text: Union[List[str, str], List[int]], text_pair: Union[List[str, str], List[int], NoneType] = None, add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.batch_encode_plus": {
-        "signature": "(self, batch_text_or_text_pairs: Union[List[str], List[Tuple[str, str]], List[List[str]], List[Tuple[List[str], List[str]]], List[List[int]], List[Tuple[List[int], List[int]]]], add_special_tokens: bool = True, padding: Union[bool, str, mindformers.models.tokenization_utils_base.PaddingStrategy] = False, truncation: Union[bool, str, mindformers.models.tokenization_utils_base.TruncationStrategy] = None, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
+        "signature": "(self, batch_text_or_text_pairs: Union[List[str], List[Tuple[str, str]], List[List[str]], List[Tuple[List[str], List[str]]], List[List[int]], List[Tuple[List[int], List[int]]]], add_special_tokens: bool = True, padding: Union[bool, mindformers.models.tokenization_utils_base.PaddingStrategy, str] = False, truncation: Union[bool, mindformers.models.tokenization_utils_base.TruncationStrategy, str] = None, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase._batch_encode_plus": {
-        "signature": "(self, batch_text_or_text_pairs: Union[List[str], List[Tuple[str, str]], List[List[str]], List[Tuple[List[str], List[str]]], List[List[int]], List[Tuple[List[int], List[int]]]], add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
+        "signature": "(self, batch_text_or_text_pairs: Union[List[str], List[Tuple[str, str]], List[List[str]], List[Tuple[List[str], List[str]]], List[List[int]], List[Tuple[List[int], List[int]]]], add_special_tokens: bool = True, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, truncation_strategy: mindformers.models.tokenization_utils_base.TruncationStrategy = <TruncationStrategy.DO_NOT_TRUNCATE: 'do_not_truncate'>, max_length: Optional[int] = None, stride: int = 0, is_split_into_words: bool = False, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_offsets_mapping: bool = False, return_length: bool = False, verbose: bool = True, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.pad": {
-        "signature": "(self, encoded_inputs: Union[mindformers.models.tokenization_utils_base.BatchEncoding, List[mindformers.models.tokenization_utils_base.BatchEncoding], Dict[str, List[int]], Dict[str, List[List[int]]], List[Dict[str, List[int]]]], padding: Union[bool, str, mindformers.models.tokenization_utils_base.PaddingStrategy] = True, max_length: Optional[int] = None, pad_to_multiple_of: Optional[int] = None, return_attention_mask: Optional[bool] = None, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, verbose: bool = True) -> mindformers.models.tokenization_utils_base.BatchEncoding"
+        "signature": "(self, encoded_inputs: Union[List[mindformers.models.tokenization_utils_base.BatchEncoding, mindformers.models.tokenization_utils_base.BatchEncoding], Dict[str, List[int]], Dict[str, List[List[int]]], List[Dict[str, List[int]]]], padding: Union[bool, mindformers.models.tokenization_utils_base.PaddingStrategy, str] = True, max_length: Optional[int] = None, pad_to_multiple_of: Optional[int] = None, return_attention_mask: Optional[bool] = None, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, verbose: bool = True) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.create_token_type_ids_from_sequences": {
         "signature": "(self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None) -> List[int]"
@@ -6168,10 +6171,10 @@
         "signature": "(self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None) -> List[int]"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.prepare_for_model": {
-        "signature": "(self, ids: List[int], pair_ids: Optional[List[int]] = None, add_special_tokens: bool = True, padding: Union[bool, str, mindformers.models.tokenization_utils_base.PaddingStrategy] = False, truncation: Union[bool, str, mindformers.models.tokenization_utils_base.TruncationStrategy] = None, max_length: Optional[int] = None, stride: int = 0, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[str, mindformers.models.tokenization_utils_base.TensorType, NoneType] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_length: bool = False, verbose: bool = True, prepend_batch_axis: bool = False, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
+        "signature": "(self, ids: List[int], pair_ids: Optional[List[int]] = None, add_special_tokens: bool = True, padding: Union[bool, mindformers.models.tokenization_utils_base.PaddingStrategy, str] = False, truncation: Union[bool, mindformers.models.tokenization_utils_base.TruncationStrategy, str] = None, max_length: Optional[int] = None, stride: int = 0, pad_to_multiple_of: Optional[int] = None, return_tensors: Union[NoneType, mindformers.models.tokenization_utils_base.TensorType, str] = None, return_token_type_ids: Optional[bool] = None, return_attention_mask: Optional[bool] = None, return_overflowing_tokens: bool = False, return_special_tokens_mask: bool = False, return_length: bool = False, verbose: bool = True, prepend_batch_axis: bool = False, **kwargs) -> mindformers.models.tokenization_utils_base.BatchEncoding"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.truncate_sequences": {
-        "signature": "(self, ids: List[int], pair_ids: Optional[List[int]] = None, num_tokens_to_remove: int = 0, truncation_strategy: Union[str, mindformers.models.tokenization_utils_base.TruncationStrategy] = 'longest_first', stride: int = 0) -> Tuple[List[int], List[int], List[int]]"
+        "signature": "(self, ids: List[int], pair_ids: Optional[List[int]] = None, num_tokens_to_remove: int = 0, truncation_strategy: Union[mindformers.models.tokenization_utils_base.TruncationStrategy, str] = 'longest_first', stride: int = 0) -> Tuple[List[int], List[int], List[int]]"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase._pad": {
         "signature": "(self, encoded_inputs: Union[Dict[str, List[int]], mindformers.models.tokenization_utils_base.BatchEncoding], max_length: Optional[int] = None, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, pad_to_multiple_of: Optional[int] = None, return_attention_mask: Optional[bool] = None) -> dict"
@@ -6183,10 +6186,10 @@
         "signature": "(self, sequences: Union[List[int], List[List[int]], ForwardRef('np.ndarray'), ForwardRef('torch.Tensor'), ForwardRef('tf.Tensor')], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> List[str]"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.decode": {
-        "signature": "(self, token_ids: Union[int, List[int], ForwardRef('np.ndarray')], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
+        "signature": "(self, token_ids: Union[List[int, int], ForwardRef('np.ndarray')], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase._decode": {
-        "signature": "(self, token_ids: Union[int, List[int]], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
+        "signature": "(self, token_ids: Union[List[int, int]], skip_special_tokens: bool = False, clean_up_tokenization_spaces: bool = None, **kwargs) -> str"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.get_special_tokens_mask": {
         "signature": "(self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None, already_has_special_tokens: bool = False) -> List[int]"
@@ -6618,7 +6621,7 @@
         "signature": "(self, x, input_mask, init_reset, batch_valid_length)"
     },
     "mindformers.modules.transformer.transformer.TransformerOpParallelConfig": {
-        "signature": "(data_parallel=1, model_parallel=1, context_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_num=1, seq_split_num=1, recompute: Union[mindformers.modules.transformer.transformer.TransformerRecomputeConfig, dict] = <mindformers.modules.transformer.transformer.TransformerRecomputeConfig object>, use_seq_parallel=False, optimizer_shard=None, gradient_aggregation_group=4, vocab_emb_dp=True, context_parallel_algo: str = 'colossalai_cp', ulysses_degree_in_cp=1, mem_coeff=0.1)"
+        "signature": "(data_parallel=1, model_parallel=1, context_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_num=1, seq_split_num=1, recompute: Union[dict, mindformers.modules.transformer.transformer.TransformerRecomputeConfig] = <mindformers.modules.transformer.transformer.TransformerRecomputeConfig object>, use_seq_parallel=False, optimizer_shard=None, gradient_aggregation_group=4, vocab_emb_dp=True, context_parallel_algo: str = 'colossalai_cp', ulysses_degree_in_cp=1, mem_coeff=0.1)"
     },
     "mindformers.modules.transformer.transformer.TransformerOpParallelConfig._check_context_parallel": {
         "signature": "(self)"
@@ -6759,7 +6762,7 @@
         "signature": "(self, model_outputs, **postprocess_params)"
     },
     "mindformers.pipeline.pipeline": {
-        "signature": "(task: str = None, model: Union[str, mindformers.models.modeling_utils.PreTrainedModel, mindspore.train.model.Model, Tuple[str, str], NoneType] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, audio_processor: Optional[mindformers.models.base_processor.BaseAudioProcessor] = None, backend: Optional[str] = 'ms', **kwargs: Any)"
+        "signature": "(task: str = None, model: Union[Tuple[str, mindformers.models.modeling_utils.PreTrainedModel, mindspore.train.model.Model, str, str], NoneType] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, audio_processor: Optional[mindformers.models.base_processor.BaseAudioProcessor] = None, backend: Optional[str] = 'ms', **kwargs: Any)"
     },
     "mindformers.pipeline.fill_mask_pipeline.FillMaskPipeline": {
         "signature": "(model, tokenizer=None, **kwargs)"
@@ -6798,7 +6801,7 @@
         "signature": "(self, **pipeline_parameters)"
     },
     "mindformers.pipeline.masked_image_modeling_pipeline.MaskedImageModelingPipeline.preprocess": {
-        "signature": "(self, inputs: Union[str, PIL.Image.Image, mindspore.common.tensor.Tensor, numpy.ndarray], **preprocess_params)"
+        "signature": "(self, inputs: Union[PIL.Image.Image, mindspore.common.tensor.Tensor, numpy.ndarray, str], **preprocess_params)"
     },
     "mindformers.pipeline.masked_image_modeling_pipeline.MaskedImageModelingPipeline._forward": {
         "signature": "(self, model_inputs: dict, **forward_params)"
@@ -6918,7 +6921,7 @@
         "signature": "(self, **pipeline_parameters)"
     },
     "mindformers.pipeline.text_generation_pipeline.TextGenerationPipeline.preprocess": {
-        "signature": "(self, inputs: Union[str, dict, mindspore.common.tensor.Tensor], **preprocess_params)"
+        "signature": "(self, inputs: Union[dict, mindspore.common.tensor.Tensor, str], **preprocess_params)"
     },
     "mindformers.pipeline.text_generation_pipeline.TextGenerationPipeline.run_multi": {
         "signature": "(self, inputs: Union[list, tuple], batch_size: int, preprocess_params: dict, forward_params: dict, postprocess_params: dict)"
@@ -6954,7 +6957,7 @@
         "signature": "(self, **pipeline_parameters)"
     },
     "mindformers.pipeline.translation_pipeline.TranslationPipeline.preprocess": {
-        "signature": "(self, inputs: Union[str, dict, mindspore.common.tensor.Tensor], **preprocess_params)"
+        "signature": "(self, inputs: Union[dict, mindspore.common.tensor.Tensor, str], **preprocess_params)"
     },
     "mindformers.pipeline.translation_pipeline.TranslationPipeline._forward": {
         "signature": "(self, model_inputs: dict, **forward_params)"
@@ -6990,7 +6993,7 @@
         "signature": "(config, dic)"
     },
     "mindformers.tools.MindFormerConfig.get_value": {
-        "signature": "(self, levels: Union[str, list], default=None)"
+        "signature": "(self, levels: Union[list, str], default=None)"
     },
     "mindformers.tools.MindFormerConfig.set_value": {
         "signature": "(self, levels: Union[list, str], value)"
@@ -7140,7 +7143,7 @@
         "signature": "(config, dic)"
     },
     "mindformers.tools.register.MindFormerConfig.get_value": {
-        "signature": "(self, levels: Union[str, list], default=None)"
+        "signature": "(self, levels: Union[list, str], default=None)"
     },
     "mindformers.tools.register.MindFormerConfig.set_value": {
         "signature": "(self, levels: Union[list, str], value)"
@@ -7173,19 +7176,19 @@
         "signature": "(class_reference: str, module_type='tools')"
     },
     "mindformers.trainer.Trainer": {
-        "signature": "(args: Union[str, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, task: Optional[str] = 'general', model: Union[str, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, model_name: Optional[str] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, train_dataset: Union[str, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, collections.abc.Iterable, NoneType] = None, eval_dataset: Union[str, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, collections.abc.Iterable, NoneType] = None, data_collator: Optional[Callable] = None, optimizers: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, compute_metrics: Union[dict, set, NoneType] = None, callbacks: Union[mindspore.train.callback._callback.Callback, List[mindspore.train.callback._callback.Callback], NoneType] = None, eval_callbacks: Union[mindspore.train.callback._callback.Callback, List[mindspore.train.callback._callback.Callback], NoneType] = None, pet_method: Optional[str] = '', image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, audio_processor: Optional[mindformers.models.base_processor.BaseAudioProcessor] = None, save_config: bool = False, reset_model: bool = False)"
+        "signature": "(args: Union[NoneType, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, str] = None, task: Optional[str] = 'general', model: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, str] = None, model_name: Optional[str] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, train_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, eval_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, data_collator: Optional[Callable] = None, optimizers: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, compute_metrics: Union[NoneType, dict, set] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, eval_callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, pet_method: Optional[str] = '', image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, audio_processor: Optional[mindformers.models.base_processor.BaseAudioProcessor] = None, save_config: bool = False, reset_model: bool = False)"
     },
     "mindformers.trainer.Trainer.train": {
-        "signature": "(self, train_checkpoint: Union[bool, str, NoneType] = False, resume_from_checkpoint: Union[bool, str, NoneType] = None, resume_training: Union[bool, str, NoneType] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: Optional[bool] = False)"
+        "signature": "(self, train_checkpoint: Union[NoneType, bool, str] = False, resume_from_checkpoint: Union[NoneType, bool, str] = None, resume_training: Union[NoneType, bool, str] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: Optional[bool] = False)"
     },
     "mindformers.trainer.Trainer.finetune": {
-        "signature": "(self, finetune_checkpoint: Union[bool, str, NoneType] = False, resume_from_checkpoint: Union[bool, str, NoneType] = None, resume_training: Union[bool, str, NoneType] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: bool = False)"
+        "signature": "(self, finetune_checkpoint: Union[NoneType, bool, str] = False, resume_from_checkpoint: Union[NoneType, bool, str] = None, resume_training: Union[NoneType, bool, str] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: bool = False)"
     },
     "mindformers.trainer.Trainer.evaluate": {
-        "signature": "(self, eval_dataset: Union[str, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, collections.abc.Iterable, NoneType] = None, eval_checkpoint: Union[bool, str, NoneType] = False, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, **kwargs)"
+        "signature": "(self, eval_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, eval_checkpoint: Union[NoneType, bool, str] = False, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, **kwargs)"
     },
     "mindformers.trainer.Trainer.predict": {
-        "signature": "(self, predict_checkpoint: Union[bool, str, NoneType] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, input_data: Union[mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, mindspore.common.tensor.Tensor, numpy.ndarray, PIL.Image.Image, str, list, NoneType] = None, batch_size: int = None, **kwargs)"
+        "signature": "(self, predict_checkpoint: Union[NoneType, bool, str] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, input_data: Union[NoneType, PIL.Image.Image, list, mindspore.common.tensor.Tensor, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, numpy.ndarray, str] = None, batch_size: int = None, **kwargs)"
     },
     "mindformers.trainer.Trainer.add_callback": {
         "signature": "(self, callback)"
@@ -7224,7 +7227,7 @@
         "signature": "(self, checkpoint)"
     },
     "mindformers.trainer.Trainer._config_init": {
-        "signature": "(self, args: Union[str, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, task_config: dict = None)"
+        "signature": "(self, args: Union[NoneType, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, str] = None, task_config: dict = None)"
     },
     "mindformers.trainer.Trainer._build_profile_cb": {
         "signature": "(self)"
@@ -7257,7 +7260,7 @@
         "signature": "(self)"
     },
     "mindformers.trainer.Trainer._check_checkpoint_config": {
-        "signature": "(self, checkpoint: Union[bool, str, NoneType] = None)"
+        "signature": "(self, checkpoint: Union[NoneType, bool, str] = None)"
     },
     "mindformers.trainer.Trainer._check_config_type": {
         "signature": "(self)"
@@ -7272,7 +7275,7 @@
         "signature": "(self, commit_message: Optional[str] = 'End of training', blocking: bool = True) -> str"
     },
     "mindformers.trainer.TrainingArguments": {
-        "signature": "(output_dir: str = './output', overwrite_output_dir: bool = False, seed: int = 42, data_seed: Optional[int] = None, only_save_strategy: bool = False, auto_trans_ckpt: bool = False, src_strategy: Optional[str] = None, transform_process_num: int = 1, resume_from_checkpoint: Optional[str] = None, resume_training: Union[bool, str, NoneType] = None, ignore_data_skip: bool = False, data_skip_steps: Optional[int] = None, do_train: bool = False, do_eval: bool = False, do_predict: bool = False, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, remote_save_url: Optional[str] = None, batch_size: Optional[int] = None, num_train_epochs: float = 3.0, sink_mode: bool = True, sink_size: int = 2, gradient_accumulation_steps: int = 1, mode: int = 0, use_cpu: bool = False, device_id: int = 0, device_target: str = 'Ascend', max_call_depth: int = 10000, max_device_memory: str = '1024GB', save_graphs: bool = False, save_graphs_path: str = './graph', use_parallel: bool = False, parallel_mode: int = 1, gradients_mean: bool = False, loss_repeated_mean: bool = False, enable_alltoall: bool = False, full_batch: bool = True, dataset_strategy: Union[str, tuple] = 'full_batch', search_mode: str = 'sharding_propagation', enable_parallel_optimizer: bool = False, gradient_accumulation_shard: bool = False, parallel_optimizer_threshold: int = 64, optimizer_weight_shard_size: int = -1, strategy_ckpt_save_file: str = './ckpt_strategy.ckpt', data_parallel: int = 1, model_parallel: int = 1, expert_parallel: int = 1, pipeline_stage: int = 1, micro_batch_num: int = 1, gradient_aggregation_group: int = 4, micro_batch_interleave_num: int = 1, use_seq_parallel: bool = False, vocab_emb_dp: bool = True, expert_num: int = 1, capacity_factor: float = 1.05, aux_loss_factor: float = 0.05, num_experts_chosen: int = 1, recompute: bool = False, select_recompute: bool = False, parallel_optimizer_comm_recompute: bool = False, mp_comm_recompute: bool = True, recompute_slice_activation: bool = False, optim: Union[mindformers.trainer.utils.OptimizerType, str] = 'fp32_adamw', adam_beta1: float = 0.9, adam_beta2: float = 0.999, adam_epsilon: float = 1e-08, weight_decay: float = 0.0, layer_scale: bool = False, layer_decay: float = 0.65, lr_scheduler_type: Union[mindformers.trainer.utils.LrSchedulerType, str] = 'cosine', learning_rate: float = 5e-05, lr_end: float = 1e-06, warmup_lr_init: float = 0.0, warmup_epochs: Optional[int] = None, warmup_ratio: Optional[float] = None, warmup_steps: int = 0, total_steps: int = -1, lr_scale: bool = False, lr_scale_factor: int = 256, dataset_task: Optional[str] = None, dataset_type: Optional[str] = None, train_dataset: Optional[str] = None, train_dataset_in_columns: Optional[List[str]] = None, train_dataset_out_columns: Optional[List[str]] = None, eval_dataset: Optional[str] = None, eval_dataset_in_columns: Optional[List[str]] = None, eval_dataset_out_columns: Optional[List[str]] = None, shuffle: bool = True, dataloader_drop_last: bool = True, repeat: int = 1, per_device_train_batch_size: int = 8, per_device_eval_batch_size: int = 8, dataloader_num_workers: int = 8, python_multiprocessing: bool = False, numa_enable: bool = False, prefetch_size: int = 1, wrapper_type: str = 'MFTrainOneStepCell', scale_sense: Union[str, float] = 'DynamicLossScaleUpdateCell', loss_scale_value: int = 65536, loss_scale_factor: int = 2, loss_scale_window: int = 1000, use_clip_grad: bool = True, max_grad_norm: float = 1.0, max_scale_window: int = 1000, min_scale_window: int = 20, metric_type: Union[List[str], str, NoneType] = None, logging_strategy: Union[mindformers.trainer.utils.LoggingIntervalStrategy, str] = 'steps', logging_steps: int = 1, save_prefix: str = 'CKP', save_directory: Optional[str] = None, save_strategy: Union[mindformers.trainer.utils.SaveIntervalStrategy, str] = 'steps', save_steps: int = 500, save_seconds: Optional[int] = None, save_total_limit: Optional[int] = 5, keep_checkpoint_per_n_minutes: int = 0, save_on_each_node: bool = True, integrated_save: bool = None, save_network_params: bool = True, save_trainable_params: bool = False, async_save: bool = False, evaluation_strategy: Union[mindformers.trainer.utils.IntervalStrategy, str] = 'no', eval_steps: Optional[float] = None, eval_epochs: Optional[int] = None, profile: bool = False, profile_start_step: int = 1, profile_end_step: int = 10, init_start_profile: bool = False, profile_communication: bool = False, profile_memory: bool = True, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, push_to_hub: bool = False, hub_model_id: Optional[str] = None, hub_strategy: Union[mindformers.trainer.utils.HubStrategy, str] = 'every_save', hub_token: Optional[str] = None, hub_private_repo: bool = False, hub_always_push: bool = False) -> None"
+        "signature": "(output_dir: str = './output', overwrite_output_dir: bool = False, seed: int = 42, data_seed: Optional[int] = None, only_save_strategy: bool = False, auto_trans_ckpt: bool = False, src_strategy: Optional[str] = None, transform_process_num: int = 1, resume_from_checkpoint: Optional[str] = None, resume_training: Union[NoneType, bool, str] = None, ignore_data_skip: bool = False, data_skip_steps: Optional[int] = None, do_train: bool = False, do_eval: bool = False, do_predict: bool = False, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False, remote_save_url: Optional[str] = None, batch_size: Optional[int] = None, num_train_epochs: float = 3.0, sink_mode: bool = True, sink_size: int = 2, gradient_accumulation_steps: int = 1, mode: int = 0, use_cpu: bool = False, device_id: int = 0, device_target: str = 'Ascend', max_call_depth: int = 10000, max_device_memory: str = '1024GB', save_graphs: bool = False, save_graphs_path: str = './graph', use_parallel: bool = False, parallel_mode: int = 1, gradients_mean: bool = False, loss_repeated_mean: bool = False, enable_alltoall: bool = False, full_batch: bool = True, dataset_strategy: Union[str, tuple] = 'full_batch', search_mode: str = 'sharding_propagation', enable_parallel_optimizer: bool = False, gradient_accumulation_shard: bool = False, parallel_optimizer_threshold: int = 64, optimizer_weight_shard_size: int = -1, strategy_ckpt_save_file: str = './ckpt_strategy.ckpt', data_parallel: int = 1, model_parallel: int = 1, expert_parallel: int = 1, pipeline_stage: int = 1, micro_batch_num: int = 1, gradient_aggregation_group: int = 4, micro_batch_interleave_num: int = 1, use_seq_parallel: bool = False, vocab_emb_dp: bool = True, expert_num: int = 1, capacity_factor: float = 1.05, aux_loss_factor: float = 0.05, num_experts_chosen: int = 1, recompute: bool = False, select_recompute: bool = False, parallel_optimizer_comm_recompute: bool = False, mp_comm_recompute: bool = True, recompute_slice_activation: bool = False, optim: Union[mindformers.trainer.utils.OptimizerType, str] = 'fp32_adamw', adam_beta1: float = 0.9, adam_beta2: float = 0.999, adam_epsilon: float = 1e-08, weight_decay: float = 0.0, layer_scale: bool = False, layer_decay: float = 0.65, lr_scheduler_type: Union[mindformers.trainer.utils.LrSchedulerType, str] = 'cosine', learning_rate: float = 5e-05, lr_end: float = 1e-06, warmup_lr_init: float = 0.0, warmup_epochs: Optional[int] = None, warmup_ratio: Optional[float] = None, warmup_steps: int = 0, total_steps: int = -1, lr_scale: bool = False, lr_scale_factor: int = 256, dataset_task: Optional[str] = None, dataset_type: Optional[str] = None, train_dataset: Optional[str] = None, train_dataset_in_columns: Optional[List[str]] = None, train_dataset_out_columns: Optional[List[str]] = None, eval_dataset: Optional[str] = None, eval_dataset_in_columns: Optional[List[str]] = None, eval_dataset_out_columns: Optional[List[str]] = None, shuffle: bool = True, dataloader_drop_last: bool = True, repeat: int = 1, per_device_train_batch_size: int = 8, per_device_eval_batch_size: int = 8, dataloader_num_workers: int = 8, python_multiprocessing: bool = False, numa_enable: bool = False, prefetch_size: int = 1, wrapper_type: str = 'MFTrainOneStepCell', scale_sense: Union[float, str] = 'DynamicLossScaleUpdateCell', loss_scale_value: int = 65536, loss_scale_factor: int = 2, loss_scale_window: int = 1000, use_clip_grad: bool = True, max_grad_norm: float = 1.0, max_scale_window: int = 1000, min_scale_window: int = 20, metric_type: Union[List[str], str, NoneType] = None, logging_strategy: Union[mindformers.trainer.utils.LoggingIntervalStrategy, str] = 'steps', logging_steps: int = 1, save_prefix: str = 'CKP', save_directory: Optional[str] = None, save_strategy: Union[mindformers.trainer.utils.SaveIntervalStrategy, str] = 'steps', save_steps: int = 500, save_seconds: Optional[int] = None, save_total_limit: Optional[int] = 5, keep_checkpoint_per_n_minutes: int = 0, save_on_each_node: bool = True, integrated_save: bool = None, save_network_params: bool = True, save_trainable_params: bool = False, async_save: bool = False, evaluation_strategy: Union[mindformers.trainer.utils.IntervalStrategy, str] = 'no', eval_steps: Optional[float] = None, eval_epochs: Optional[int] = None, profile: bool = False, profile_start_step: int = 1, profile_end_step: int = 10, init_start_profile: bool = False, profile_communication: bool = False, profile_memory: bool = True, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, push_to_hub: bool = False, hub_model_id: Optional[str] = None, hub_strategy: Union[mindformers.trainer.utils.HubStrategy, str] = 'every_save', hub_token: Optional[str] = None, hub_private_repo: bool = False, hub_always_push: bool = False) -> None"
     },
     "mindformers.trainer.TrainingArguments._check_rules": {
         "signature": "(self)"
@@ -7311,25 +7314,25 @@
         "signature": "(self, learning_rate: float = 5e-05, batch_size: int = 8, weight_decay: float = 0, num_epochs: float = 3.0, gradient_accumulation_steps: int = 1, seed: int = 42, **kwargs)"
     },
     "mindformers.trainer.TrainingArguments.set_evaluate": {
-        "signature": "(self, strategy: Union[str, mindformers.trainer.utils.IntervalStrategy] = 'no', steps: int = 500, batch_size: int = 8, **kwargs)"
+        "signature": "(self, strategy: Union[mindformers.trainer.utils.IntervalStrategy, str] = 'no', steps: int = 500, batch_size: int = 8, **kwargs)"
     },
     "mindformers.trainer.TrainingArguments.set_testing": {
         "signature": "(self, batch_size: int = 8, loss_only: bool = False, **kwargs)"
     },
     "mindformers.trainer.TrainingArguments.set_save": {
-        "signature": "(self, strategy: Union[str, mindformers.trainer.utils.IntervalStrategy] = 'steps', steps: int = 500, total_limit: Optional[int] = None, on_each_node: bool = True, **kwargs)"
+        "signature": "(self, strategy: Union[mindformers.trainer.utils.IntervalStrategy, str] = 'steps', steps: int = 500, total_limit: Optional[int] = None, on_each_node: bool = True, **kwargs)"
     },
     "mindformers.trainer.TrainingArguments.set_logging": {
-        "signature": "(self, strategy: Union[str, mindformers.trainer.utils.IntervalStrategy] = 'steps', steps: int = 500, **kwargs)"
+        "signature": "(self, strategy: Union[mindformers.trainer.utils.IntervalStrategy, str] = 'steps', steps: int = 500, **kwargs)"
     },
     "mindformers.trainer.TrainingArguments.set_push_to_hub": {
-        "signature": "(self, model_id: str, strategy: Union[str, mindformers.trainer.utils.HubStrategy] = 'every_save', token: Optional[str] = None, private_repo: bool = False, always_push: bool = False, **kwargs)"
+        "signature": "(self, model_id: str, strategy: Union[mindformers.trainer.utils.HubStrategy, str] = 'every_save', token: Optional[str] = None, private_repo: bool = False, always_push: bool = False, **kwargs)"
     },
     "mindformers.trainer.TrainingArguments.set_optimizer": {
-        "signature": "(self, name: Union[str, mindformers.trainer.utils.OptimizerType] = 'adamw', learning_rate: float = 5e-05, lr_end: float = 1e-06, weight_decay: float = 0, beta1: float = 0.9, beta2: float = 0.999, epsilon: float = 1e-08, **kwargs)"
+        "signature": "(self, name: Union[mindformers.trainer.utils.OptimizerType, str] = 'adamw', learning_rate: float = 5e-05, lr_end: float = 1e-06, weight_decay: float = 0, beta1: float = 0.9, beta2: float = 0.999, epsilon: float = 1e-08, **kwargs)"
     },
     "mindformers.trainer.TrainingArguments.set_lr_scheduler": {
-        "signature": "(self, name: Union[str, mindformers.trainer.utils.LrSchedulerType] = 'linear', num_epochs: float = 3.0, warmup_lr_init: float = 0.0, warmup_epochs: Optional[int] = None, warmup_ratio: Optional[float] = None, warmup_steps: int = 0, total_steps: int = -1, **kwargs)"
+        "signature": "(self, name: Union[mindformers.trainer.utils.LrSchedulerType, str] = 'linear', num_epochs: float = 3.0, warmup_lr_init: float = 0.0, warmup_epochs: Optional[int] = None, warmup_ratio: Optional[float] = None, warmup_steps: int = 0, total_steps: int = -1, **kwargs)"
     },
     "mindformers.trainer.TrainingArguments.set_dataloader": {
         "signature": "(self, train_batch_size: int = 8, eval_batch_size: int = 8, drop_last: bool = False, num_workers: int = 0, ignore_data_skip: bool = False, data_skip_steps: Optional[int] = None, sampler_seed: Optional[int] = None, **kwargs)"
@@ -7404,7 +7407,7 @@
         "signature": "(obs_path: str = None, root_path: str = '/cache', rank_id: int = None, upload_frequence: int = 1, keep_last: bool = False, **kwargs)"
     },
     "mindformers.trainer.config_args.ConfigArguments": {
-        "signature": "(output_dir: str = './output', profile: bool = False, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, seed: int = None, train_dataset: Union[dict, mindformers.trainer.config_args.BaseArgsConfig, NoneType] = None, eval_dataset: Union[dict, mindformers.trainer.config_args.BaseArgsConfig, NoneType] = None, runner_config: Union[dict, mindformers.trainer.config_args.BaseArgsConfig, NoneType] = None, optimizer: Union[dict, mindformers.trainer.config_args.BaseArgsConfig, NoneType] = None, runner_wrapper: Union[dict, mindformers.trainer.config_args.BaseArgsConfig, NoneType] = None, lr_schedule: Union[dict, mindformers.trainer.config_args.BaseArgsConfig, NoneType] = None, save_checkpoint: Union[dict, mindformers.trainer.config_args.BaseArgsConfig, NoneType] = None, cloud_config: Union[dict, mindformers.trainer.config_args.BaseArgsConfig, NoneType] = None)"
+        "signature": "(output_dir: str = './output', profile: bool = False, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, seed: int = None, train_dataset: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, eval_dataset: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, runner_config: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, optimizer: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, runner_wrapper: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, lr_schedule: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, save_checkpoint: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, cloud_config: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None)"
     },
     "mindformers.trainer.config_args.ContextConfig": {
         "signature": "(mode: Union[int, str] = 0, device_target: str = 'Ascend', device_id: int = 0, save_graphs: bool = False, save_graphs_path: str = '.', **kwargs)"
@@ -7413,13 +7416,13 @@
         "signature": "(dataloader_type: str = None, dataset_dir: str = None, **kwargs)"
     },
     "mindformers.trainer.config_args.DatasetConfig": {
-        "signature": "(data_loader: Union[dict, mindformers.trainer.config_args.BaseArgsConfig, NoneType] = None, input_columns: Union[str, list, NoneType] = None, output_columns: Union[str, list, NoneType] = None, column_order: Union[str, list, NoneType] = None, drop_remainder: bool = True, repeat: int = 1, batch_size: int = None, image_size: Union[int, list, tuple, NoneType] = None, **kwargs)"
+        "signature": "(data_loader: Union[NoneType, dict, mindformers.trainer.config_args.BaseArgsConfig] = None, input_columns: Union[NoneType, list, str] = None, output_columns: Union[NoneType, list, str] = None, column_order: Union[NoneType, list, str] = None, drop_remainder: bool = True, repeat: int = 1, batch_size: int = None, image_size: Union[NoneType, int, list, tuple] = None, **kwargs)"
     },
     "mindformers.trainer.config_args.LRConfig": {
         "signature": "(lr_type: str = None, **kwargs)"
     },
     "mindformers.trainer.config_args.OptimizerConfig": {
-        "signature": "(optim_type: str = None, learning_rate: Union[mindformers.trainer.config_args.BaseArgsConfig, float, NoneType] = None, **kwargs)"
+        "signature": "(optim_type: str = None, learning_rate: Union[NoneType, float, mindformers.trainer.config_args.BaseArgsConfig] = None, **kwargs)"
     },
     "mindformers.trainer.config_args.ParallelContextConfig": {
         "signature": "(parallel_mode: str = 'STAND_ALONE', device_num: int = 1, gradients_mean: bool = False, auto_pipeline: bool = False, **kwargs)"
@@ -7434,13 +7437,13 @@
         "signature": "(model_name: str = None)"
     },
     "mindformers.trainer.image_classification.image_classification.ImageClassificationTrainer.train": {
-        "signature": "(self, config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, network: Union[mindspore.nn.cell.Cell, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, dataset: Union[mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, NoneType] = None, wrapper: Optional[mindspore.nn.wrap.cell_wrapper.TrainOneStepCell] = None, optimizer: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, callbacks: Union[mindspore.train.callback._callback.Callback, List[mindspore.train.callback._callback.Callback], NoneType] = None, **kwargs)"
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, wrapper: Optional[mindspore.nn.wrap.cell_wrapper.TrainOneStepCell] = None, optimizer: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, **kwargs)"
     },
     "mindformers.trainer.image_classification.image_classification.ImageClassificationTrainer.evaluate": {
-        "signature": "(self, config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, network: Union[mindspore.nn.cell.Cell, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, dataset: Union[mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, NoneType] = None, callbacks: Union[mindspore.train.callback._callback.Callback, List[mindspore.train.callback._callback.Callback], NoneType] = None, compute_metrics: Union[dict, set, NoneType] = None, **kwargs)"
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, compute_metrics: Union[NoneType, dict, set] = None, **kwargs)"
     },
     "mindformers.trainer.image_classification.image_classification.ImageClassificationTrainer.predict": {
-        "signature": "(self, config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, input_data: Union[mindspore.common.tensor.Tensor, numpy.ndarray, PIL.Image.Image, str, list, NoneType] = None, network: Union[mindspore.nn.cell.Cell, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, **kwargs)"
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, input_data: Union[NoneType, PIL.Image.Image, list, mindspore.common.tensor.Tensor, numpy.ndarray, str] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, **kwargs)"
     },
     "mindformers.trainer.image_classification.zero_shot_image_classification.ZeroShotImageClassificationTrainer": {
         "signature": "(model_name: str = None)"
@@ -7449,61 +7452,61 @@
         "signature": "(self, *args, **kwargs)"
     },
     "mindformers.trainer.image_classification.zero_shot_image_classification.ZeroShotImageClassificationTrainer.evaluate": {
-        "signature": "(self, config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, network: Union[mindspore.nn.cell.Cell, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, dataset: Union[mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, NoneType] = None, callbacks: Union[mindspore.train.callback._callback.Callback, List[mindspore.train.callback._callback.Callback], NoneType] = None, compute_metrics: Union[dict, set, NoneType] = None, **kwargs)"
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, compute_metrics: Union[NoneType, dict, set] = None, **kwargs)"
     },
     "mindformers.trainer.image_classification.zero_shot_image_classification.ZeroShotImageClassificationTrainer.predict": {
-        "signature": "(self, config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, input_data: Union[mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, mindspore.common.tensor.Tensor, numpy.ndarray, PIL.Image.Image, str, list, NoneType] = None, network: Union[mindspore.nn.cell.Cell, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, **kwargs)"
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, input_data: Union[NoneType, PIL.Image.Image, list, mindspore.common.tensor.Tensor, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, numpy.ndarray, str] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, **kwargs)"
     },
     "mindformers.trainer.image_to_text_generation.image_to_text_generation.ImageToTextGenerationTrainer": {
         "signature": "(model_name: str = None)"
     },
     "mindformers.trainer.image_to_text_generation.image_to_text_generation.ImageToTextGenerationTrainer.train": {
-        "signature": "(self, config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, network: Union[mindspore.nn.cell.Cell, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, dataset: Union[mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, NoneType] = None, optimizer: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, wrapper: Optional[mindspore.nn.wrap.cell_wrapper.TrainOneStepCell] = None, callbacks: Union[mindspore.train.callback._callback.Callback, List[mindspore.train.callback._callback.Callback], NoneType] = None, **kwargs)"
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, optimizer: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, wrapper: Optional[mindspore.nn.wrap.cell_wrapper.TrainOneStepCell] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, **kwargs)"
     },
     "mindformers.trainer.image_to_text_generation.image_to_text_generation.ImageToTextGenerationTrainer.evaluate": {
         "signature": "(self, *args, **kwargs)"
     },
     "mindformers.trainer.image_to_text_generation.image_to_text_generation.ImageToTextGenerationTrainer.predict": {
-        "signature": "(self, config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, input_data: Union[mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, list, NoneType] = None, network: Union[mindspore.nn.cell.Cell, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, processor: Optional[mindformers.models.base_processor.BaseProcessor] = None, **kwargs)"
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, input_data: Union[NoneType, list, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, processor: Optional[mindformers.models.base_processor.BaseProcessor] = None, **kwargs)"
     },
     "mindformers.trainer.multi_modal_to_text_generation.multi_modal_to_text_generation.MultiModalToTextGenerationTrainer": {
         "signature": "(model_name: str = None)"
     },
     "mindformers.trainer.multi_modal_to_text_generation.multi_modal_to_text_generation.MultiModalToTextGenerationTrainer.train": {
-        "signature": "(self, config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, network: Union[mindspore.nn.cell.Cell, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, dataset: Union[mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, NoneType] = None, optimizer: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, wrapper: Optional[mindspore.nn.wrap.cell_wrapper.TrainOneStepCell] = None, callbacks: Union[mindspore.train.callback._callback.Callback, List[mindspore.train.callback._callback.Callback], NoneType] = None, **kwargs)"
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, optimizer: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, wrapper: Optional[mindspore.nn.wrap.cell_wrapper.TrainOneStepCell] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, **kwargs)"
     },
     "mindformers.trainer.multi_modal_to_text_generation.multi_modal_to_text_generation.MultiModalToTextGenerationTrainer.evaluate": {
         "signature": "(self, *args, **kwargs)"
     },
     "mindformers.trainer.multi_modal_to_text_generation.multi_modal_to_text_generation.MultiModalToTextGenerationTrainer.predict": {
-        "signature": "(self, config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, input_data: Union[mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, list, NoneType] = None, network: Union[mindspore.nn.cell.Cell, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, processor: Optional[mindformers.models.base_processor.BaseProcessor] = None, **kwargs)"
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, input_data: Union[NoneType, list, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, processor: Optional[mindformers.models.base_processor.BaseProcessor] = None, **kwargs)"
     },
     "mindformers.trainer.question_answering.question_answering.QuestionAnsweringTrainer": {
         "signature": "(model_name: str = None)"
     },
     "mindformers.trainer.question_answering.question_answering.QuestionAnsweringTrainer.train": {
-        "signature": "(self, config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, network: Union[mindspore.nn.cell.Cell, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, dataset: Union[mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, NoneType] = None, wrapper: Optional[mindspore.nn.wrap.cell_wrapper.TrainOneStepCell] = None, optimizer: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, callbacks: Union[mindspore.train.callback._callback.Callback, List[mindspore.train.callback._callback.Callback], NoneType] = None, **kwargs)"
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, wrapper: Optional[mindspore.nn.wrap.cell_wrapper.TrainOneStepCell] = None, optimizer: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, **kwargs)"
     },
     "mindformers.trainer.question_answering.question_answering.QuestionAnsweringTrainer.evaluate": {
-        "signature": "(self, config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, network: Union[mindspore.nn.cell.Cell, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, dataset: Union[mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, NoneType] = None, callbacks: Union[mindspore.train.callback._callback.Callback, List[mindspore.train.callback._callback.Callback], NoneType] = None, compute_metrics: Union[dict, set, NoneType] = None, **kwargs)"
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, dataset: Union[NoneType, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, compute_metrics: Union[NoneType, dict, set] = None, **kwargs)"
     },
     "mindformers.trainer.question_answering.question_answering.QuestionAnsweringTrainer.predict": {
-        "signature": "(self, config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, input_data: Union[str, list, NoneType] = None, network: Union[mindspore.nn.cell.Cell, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, **kwargs)"
+        "signature": "(self, config: Union[NoneType, dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.config_args.ConfigArguments, mindformers.trainer.training_args.TrainingArguments] = None, input_data: Union[NoneType, list, str] = None, network: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, mindspore.nn.cell.Cell] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, **kwargs)"
     },
     "mindformers.trainer.trainer.Trainer": {
-        "signature": "(args: Union[str, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, task: Optional[str] = 'general', model: Union[str, mindformers.models.modeling_utils.PreTrainedModel, NoneType] = None, model_name: Optional[str] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, train_dataset: Union[str, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, collections.abc.Iterable, NoneType] = None, eval_dataset: Union[str, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, collections.abc.Iterable, NoneType] = None, data_collator: Optional[Callable] = None, optimizers: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, compute_metrics: Union[dict, set, NoneType] = None, callbacks: Union[mindspore.train.callback._callback.Callback, List[mindspore.train.callback._callback.Callback], NoneType] = None, eval_callbacks: Union[mindspore.train.callback._callback.Callback, List[mindspore.train.callback._callback.Callback], NoneType] = None, pet_method: Optional[str] = '', image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, audio_processor: Optional[mindformers.models.base_processor.BaseAudioProcessor] = None, save_config: bool = False, reset_model: bool = False)"
+        "signature": "(args: Union[NoneType, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, str] = None, task: Optional[str] = 'general', model: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, str] = None, model_name: Optional[str] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, train_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, eval_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, data_collator: Optional[Callable] = None, optimizers: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, compute_metrics: Union[NoneType, dict, set] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, eval_callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, pet_method: Optional[str] = '', image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, audio_processor: Optional[mindformers.models.base_processor.BaseAudioProcessor] = None, save_config: bool = False, reset_model: bool = False)"
     },
     "mindformers.trainer.trainer.Trainer.train": {
-        "signature": "(self, train_checkpoint: Union[bool, str, NoneType] = False, resume_from_checkpoint: Union[bool, str, NoneType] = None, resume_training: Union[bool, str, NoneType] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: Optional[bool] = False)"
+        "signature": "(self, train_checkpoint: Union[NoneType, bool, str] = False, resume_from_checkpoint: Union[NoneType, bool, str] = None, resume_training: Union[NoneType, bool, str] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: Optional[bool] = False)"
     },
     "mindformers.trainer.trainer.Trainer.finetune": {
-        "signature": "(self, finetune_checkpoint: Union[bool, str, NoneType] = False, resume_from_checkpoint: Union[bool, str, NoneType] = None, resume_training: Union[bool, str, NoneType] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: bool = False)"
+        "signature": "(self, finetune_checkpoint: Union[NoneType, bool, str] = False, resume_from_checkpoint: Union[NoneType, bool, str] = None, resume_training: Union[NoneType, bool, str] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: bool = False)"
     },
     "mindformers.trainer.trainer.Trainer.evaluate": {
-        "signature": "(self, eval_dataset: Union[str, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, collections.abc.Iterable, NoneType] = None, eval_checkpoint: Union[bool, str, NoneType] = False, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, **kwargs)"
+        "signature": "(self, eval_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, eval_checkpoint: Union[NoneType, bool, str] = False, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, **kwargs)"
     },
     "mindformers.trainer.trainer.Trainer.predict": {
-        "signature": "(self, predict_checkpoint: Union[bool, str, NoneType] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, input_data: Union[mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, mindspore.common.tensor.Tensor, numpy.ndarray, PIL.Image.Image, str, list, NoneType] = None, batch_size: int = None, **kwargs)"
+        "signature": "(self, predict_checkpoint: Union[NoneType, bool, str] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, input_data: Union[NoneType, PIL.Image.Image, list, mindspore.common.tensor.Tensor, mindspore.dataset.engine.datasets_user_defined.GeneratorDataset, numpy.ndarray, str] = None, batch_size: int = None, **kwargs)"
     },
     "mindformers.trainer.trainer.Trainer.add_callback": {
         "signature": "(self, callback)"
@@ -7542,7 +7545,7 @@
         "signature": "(self, checkpoint)"
     },
     "mindformers.trainer.trainer.Trainer._config_init": {
-        "signature": "(self, args: Union[str, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, NoneType] = None, task_config: dict = None)"
+        "signature": "(self, args: Union[NoneType, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, str] = None, task_config: dict = None)"
     },
     "mindformers.trainer.trainer.Trainer._build_profile_cb": {
         "signature": "(self)"
@@ -7575,7 +7578,7 @@
         "signature": "(self)"
     },
     "mindformers.trainer.trainer.Trainer._check_checkpoint_config": {
-        "signature": "(self, checkpoint: Union[bool, str, NoneType] = None)"
+        "signature": "(self, checkpoint: Union[NoneType, bool, str] = None)"
     },
     "mindformers.trainer.trainer.Trainer._check_config_type": {
         "signature": "(self)"
