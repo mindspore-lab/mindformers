@@ -14,6 +14,7 @@
 # ============================================================================
 """LLaMA Model Layers' APIs."""
 
+import copy
 import mindspore as ms
 from mindspore.common.parameter import Parameter
 from mindspore import nn
@@ -317,15 +318,24 @@ class LlamaFeedForward(Cell):
                          ((hidden_dim + multiple_of - 1) // multiple_of)
         if moe_config is not None:
             self.use_allgather_dispatcher = moe_config.use_allgather_dispatcher
+            self.mp_moe_flag = moe_config.expert_model_parallel is not None
+            self.mp_moe = moe_config.expert_model_parallel if moe_config.expert_model_parallel is not None \
+                else parallel_config.model_parallel
         else:
             self.use_allgather_dispatcher = False
+            self.mp_moe_flag = False
+
         if expert_num > 1:
             cp = parallel_config.context_parallel
             ep = parallel_config.expert_parallel
+            mp = parallel_config.model_parallel
             if self.use_allgather_dispatcher:
                 dp_moe = parallel_config.data_parallel * cp
             else:
                 dp_moe = parallel_config.data_parallel * cp // ep
+            if self.mp_moe_flag:
+                dp_moe = parallel_config.data_parallel * cp * mp // (ep * self.mp_moe)
+                mp = self.mp_moe
         else:
             dp_moe = 1
         self.dtype = compute_dtype
@@ -481,7 +491,11 @@ class LlamaFeedForward(Cell):
             else:
                 logger.info("shard ffn with MoE")
                 ep = parallel_config.expert_parallel
-                dp = parallel_config.data_parallel * parallel_config.context_parallel // ep
+                if self.mp_moe_flag:
+                    dp = dp * cp * mp // (ep * self.mp_moe)
+                    mp = self.mp_moe
+                else:
+                    dp = dp * cp // ep
                 self.w1.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)),
                               strategy_activation=((dp, ep, mp, 1),))
                 self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
@@ -700,6 +714,11 @@ class LlamaFeedForwardWithMoE(Cell):
         self.sigmoid = Sigmoid()
         self.mul = P.Mul()
         self.add = P.Add()
+        self.reshape = P.Reshape()
+        self.use_seq_parallel = parallel_config.use_seq_parallel
+        if self.use_seq_parallel:
+            self.dp_original = parallel_config.data_parallel
+            self.dp = parallel_config.data_parallel * parallel_config.model_parallel
         if moe_config.moe_shared_expert_overlap:
             self.add.add_prim_attr("parallel_branch", 1)
         if self.use_moe_infer:
@@ -724,6 +743,7 @@ class LlamaFeedForwardWithMoE(Cell):
                                      expert_num=self.expert_num,
                                      compute_dtype=compute_dtype,
                                      param_init_type=param_init_type,
+                                     moe_config=moe_config,
                                      parallel_config=parallel_config,
                                      init_method_std=init_method_std),
                 dim=hidden_size,
@@ -749,7 +769,13 @@ class LlamaFeedForwardWithMoE(Cell):
 
     def construct(self, x, extra_loss=0.):
         r"""Forward process of the LlamaFeedForwardWithMoE"""
-        shared_experts_output = self.shared_experts(x)
+        if self.use_seq_parallel:
+            shared_x = self.reshape(x, (self.dp, -1, x.shape[-1]))
+            shared_experts_output = self.shared_experts(shared_x)
+            shared_experts_output = self.reshape(shared_experts_output,
+                                                 (self.dp_original, -1, x.shape[-1]))
+        else:
+            shared_experts_output = self.shared_experts(x)
         if self.use_shared_expert_gating:
             gate = self.sigmoid(self.shared_experts_gate(self.cast(x, self.router_dense_type)))
             shared_experts_output = self.mul(shared_experts_output, self.cast(gate, self.compute_dtype))
@@ -767,14 +793,20 @@ class LlamaFeedForwardWithMoE(Cell):
         r"""set parallel strategy"""
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
+        if self.use_seq_parallel:
+            parallel_config_sp = copy.deepcopy(parallel_config)
+            parallel_config_sp.data_parallel = parallel_config.data_parallel * parallel_config.model_parallel
+            parallel_config_sp.model_parallel = 1
+            self.routed_experts.ffn.shard(parallel_config)
+            self.shared_experts.shard(parallel_config_sp)
+            self.add.shard(((dp, mp, 1), (dp, mp, 1)))
+        else:
+            self.routed_experts.ffn.shard(parallel_config)
+            self.shared_experts.shard(parallel_config)
+            self.shared_experts.mul.shard(((dp, 1, mp), (dp, 1, mp)))
+            self.add.shard(((dp, 1, 1), (dp, 1, 1)))
 
         self.mul.shard(((dp, 1, 1), (dp, 1, 1)))
-        self.add.shard(((dp, 1, 1), (dp, 1, 1)))
         self.sigmoid.shard(((dp, 1, 1),))
-
-        self.routed_experts.ffn.shard(parallel_config)
-        self.shared_experts.shard(parallel_config)
-        self.shared_experts.mul.shard(((dp, 1, mp), (dp, 1, mp)))
-
         if self.use_shared_expert_gating:
             self.shared_experts_gate.matmul.shard(((dp, 1), (1, 1)))

@@ -130,7 +130,8 @@ class MoEConfig:
                  topk_method="greedy", topk_group=None, n_group=None,
                  first_k_dense_replace=True, moe_intermediate_size=1407, routed_scaling_factor=1.0,
                  aux_loss_types=None, aux_loss_factors=None, z_loss_factor=0., balance_via_topk_bias=False,
-                 topk_bias_update_rate=0., use_allgather_dispatcher=False, moe_shared_expert_overlap=False):
+                 topk_bias_update_rate=0., use_allgather_dispatcher=False, moe_shared_expert_overlap=False,
+                 expert_model_parallel=None, use_gating_sigmoid=False):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
@@ -194,6 +195,8 @@ class MoEConfig:
         self.topk_bias_update_rate = topk_bias_update_rate
         self.use_allgather_dispatcher = use_allgather_dispatcher
         self.moe_shared_expert_overlap = moe_shared_expert_overlap
+        self.expert_model_parallel = expert_model_parallel
+        self.use_gating_sigmoid = use_gating_sigmoid
 
     def __eq__(self, other) -> bool:
         return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())
@@ -661,13 +664,22 @@ class MoEV2(Cell):
         self.use_allgather_dispatcher = moe_config.use_allgather_dispatcher
         self.group_wise_a2a = moe_config.group_wise_a2a if self.mp > 1 else False
         self.add_loss = P.Add()
-        self.dp_moe = self.dp // self.ep
-        self.dp_range = Tensor(np.arange(self.dp_group).reshape(-1, 1), mstype.int32)  # (dp, 1) = [[0],[1],[2]...[dp]]
 
         self.ffn = ffn
         Validator.check_string(moe_config.routing_policy, ["TopkRouterV2"], "routing_policy")
         self.ffn_forward = self._ffn_forward
         router_parallel_config = copy.deepcopy(parallel_config)
+        self.mp_moe = moe_config.expert_model_parallel if moe_config.expert_model_parallel is not None\
+            else parallel_config.model_parallel
+        if moe_config.expert_model_parallel is not None:
+            self.dp = self.dp * self.mp // self.mp_moe
+            self.dp_group = self.dp
+            self.mp = self.mp_moe
+            router_parallel_config.data_parallel = self.dp
+            router_parallel_config.model_parallel = self.mp
+            router_parallel_config.context_parallel = 1
+        self.dp_moe = self.dp // self.ep
+        self.dp_range = Tensor(np.arange(self.dp_group).reshape(-1, 1), mstype.int32)  # (dp, 1) = [[0],[1],[2]...[dp]]
         self.use_seq_parallel = parallel_config.use_seq_parallel
         if self.use_seq_parallel:
             self.ffn_forward = self._ffn_forward_sq
@@ -1236,12 +1248,16 @@ class TopkRouterV2(Cell):
             self.afb_reduce_mean = P.ReduceMean(keep_dims=False).shard(((1, 1),))
             self.afb_topk = P.TopK().shard(((dp, 1, 1),))
             self.afb_topk.recompute(False)
+            self.expert_load = Parameter(initializer('zeros', (self.expert_dim), mstype.float32),
+                                            requires_grad=False, parallel_optimizer=False)
+            self.assign_add = P.AssignAdd().shard(((1,), (1,)))
 
 
         self.cast = P.Cast()
         self.reshape = P.Reshape()
         self.shape = P.Shape()
-        self.softmax = P.Softmax(axis=-1).shard(((dp, 1, 1,),))
+        self.gating_activation = P.Softmax(axis=-1).shard(((dp, 1, 1,),)) \
+            if not moe_config.use_gating_sigmoid else P.Sigmoid().shard(((dp, 1, 1,),))
         self.topk = P.TopK().shard(((dp, 1, 1),))
         self.argmax = P.ArgMaxWithValue(axis=-1, keep_dims=False).shard(((dp, 1, 1),))
         self.onehot_2d = P.OneHot().shard(((dp, 1, 1), (), ()))
@@ -1465,7 +1481,7 @@ class TopkRouterV2(Cell):
         z_loss = self.z_loss_func(router_logits, self.z_loss_coeff)
         extra_loss = z_loss
 
-        router_prob = self.softmax(router_logits)  # (dp, N, expert_dim)fp32 <-- (dp, N, expert_dim)fp32
+        router_prob = self.gating_activation(router_logits)  # (dp, N, expert_dim)fp32 <-- (dp, N, expert_dim)fp32
         if self.moe_config.topk_method == "group_limited_greedy":
             # (dp, N, n_group)fp32 <-- (dp, N, expert_dim)fp32
             group_scores = self.reshape(
@@ -1480,14 +1496,20 @@ class TopkRouterV2(Cell):
             score_mask = self.reshape(
                 score_mask, (score_mask.shape[0], score_mask.shape[1], -1))  # (dp, N, n_routed_experts)
             tmp_scores = ops.masked_fill(router_prob, ~score_mask.bool(), 0.0)
-            expert_gate, expert_index = self.topk(tmp_scores, self.num_experts_chosen)
+            if self.moe_config.balance_via_topk_bias:
+                _, expert_index = self.afb_topk(self.afb_add_topk_bias(tmp_scores, self.topk_bias),
+                                                self.num_experts_chosen)
+                expert_gate = self.gate_gather(tmp_scores, expert_index, 2)
+                self._update_expert_load(expert_index)
+            else:
+                expert_gate, expert_index = self.topk(tmp_scores, self.num_experts_chosen)
         else:
             # in default, normal topk will be used
             if self.moe_config.balance_via_topk_bias:
                 _, expert_index = self.afb_topk(self.afb_add_topk_bias(router_prob, self.topk_bias),
                                                 self.num_experts_chosen)
                 expert_gate = self.gate_gather(router_prob, expert_index, 2)
-                self.update_topk_bias(expert_index)
+                self._update_expert_load(expert_index)
             else:
                 expert_gate, expert_index = self.topk(router_prob, self.num_experts_chosen)
 
@@ -1524,15 +1546,12 @@ class TopkRouterV2(Cell):
                                                                                                      expert_gate)
         return dispatch_idx, combine_idx, router_coeff, extra_loss  # (dp, E, n)int32, (dp, N, k), (dp, N, k)
 
-    def update_topk_bias(self, expert_index):
+    def _update_expert_load(self, expert_index):
         expert_index = self.reshape(expert_index, (expert_index.shape[0], -1))
         expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value)
-        average_load = self.reduce_mean(expert_mask, 1)
-        average_load = self.afb_reduce_mean(average_load, 0)
-        err = self.afb_sub(self.one_over_expert_dim, average_load)
-        topk_bias_new = self.afb_add(self.topk_bias,
-                                     self.afb_mul(self.sign(err), self.moe_config.topk_bias_update_rate))
-        self.assign(self.topk_bias, topk_bias_new)
+        expert_load_data = self.reduce_mean(expert_mask, 1)
+        expert_load_data = self.afb_reduce_mean(expert_load_data, 0)
+        self.assign_add(self.expert_load, expert_load_data)
 
     def _maskout_overflowed_tokens_sort_kdrop(self, expert_index, expert_gate):
         """
@@ -1831,7 +1850,7 @@ class MoEInfer(Cell):
         self.reshape = P.Reshape()
         self.shape = P.Shape()
         self.cast = P.Cast()
-        self.mod = ops.auto_generate.RemainderTensorScalar()
+        self.mod = P.Mod().shard(((1,), ()))
         self.topk = P.TopK().shard(((1, 1),))
         self.softmax = P.Softmax().shard(((1, 1),))
         self.expand_dims = P.ExpandDims().shard(((1,),))
