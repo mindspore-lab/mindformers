@@ -158,64 +158,7 @@ bash build.sh
    --worker 1
    ```
 
-3. 配置数据集
-
-   在预训练配置文件`pretrain_deepseek3_671b.yaml`中配置数据集BIN文件路径：
-
-   ```yaml
-   # dataset
-   train_dataset: &train_dataset
-     data_loader:
-       type: BlendedMegatronDatasetDataLoader
-       datasets_type: "GPTDataset"
-       sizes:
-         - 1000
-         - 0
-         - 0
-       config:
-         random_seed: 1234
-         seq_length: 4096
-         split: "1, 0, 0"
-         reset_position_ids: False
-         reset_attention_mask: False
-         eod_mask_loss: False
-         num_dataset_builder_threads: 1
-         create_attention_mask: False
-         data_path:
-           - 1
-           - "../dataset/wiki_4096_text_document"              # 修改此项为数据集BIN文件路径
-       shuffle: False
-     input_columns: ["input_ids", "labels", "loss_mask", "position_ids"]
-     construct_args_key: ["input_ids", "labels"]
-     num_parallel_workers: 8
-     python_multiprocessing: False
-     drop_remainder: True
-     repeat: 1
-     numa_enable: False
-     prefetch_size: 1
-   train_dataset_task:
-     type: CausalLanguageModelDataset
-     dataset_config: *train_dataset
-   ```
-
-   在预训练配置文件`pretrain_deepseek3_671b.yaml`中配置数据集并行通信配置路径：
-
-   ```yaml
-   # mindspore context init config
-   context:
-     mode: 0 #0--Graph Mode; 1--Pynative Mode
-     device_target: "Ascend"
-     max_call_depth: 10000
-     max_device_memory: "55GB"
-     save_graphs: False
-     save_graphs_path: "./graph"
-     jit_config:
-       jit_level: "O1"
-     ascend_config:
-       parallel_speed_up_json_path: "./research/deepseek3/parallel_speed_up.json"  # 修改此项为数据集并行通信配置路径
-   ```
-
-4. 构建Megatron BIN数据集模块
+3. 构建Megatron BIN数据集模块
 
    执行如下命令构建Megatron BIN数据集模块。如使用提供的镜像请跳过此操作。
 
@@ -334,6 +277,63 @@ bash build.sh
        gradient_accumulation_shard: False
        parallel_optimizer_threshold: 64
        optimizer_weight_shard_size: 8                    # 修改为8
+   ```
+
+4. 修改数据集配置
+
+   配置数据集BIN文件路径：
+
+   ```yaml
+   # dataset
+   train_dataset: &train_dataset
+     data_loader:
+       type: BlendedMegatronDatasetDataLoader
+       datasets_type: "GPTDataset"
+       sizes:
+         - 1000
+         - 0
+         - 0
+       config:
+         random_seed: 1234
+         seq_length: 4096
+         split: "1, 0, 0"
+         reset_position_ids: False
+         reset_attention_mask: False
+         eod_mask_loss: False
+         num_dataset_builder_threads: 1
+         create_attention_mask: False
+         data_path:
+           - 1
+           - "../dataset/wiki_4096_text_document"              # 修改此项为数据集BIN文件路径
+       shuffle: False
+     input_columns: ["input_ids", "labels", "loss_mask", "position_ids"]
+     construct_args_key: ["input_ids", "labels"]
+     num_parallel_workers: 8
+     python_multiprocessing: False
+     drop_remainder: True
+     repeat: 1
+     numa_enable: False
+     prefetch_size: 1
+   train_dataset_task:
+     type: CausalLanguageModelDataset
+     dataset_config: *train_dataset
+   ```
+
+   配置数据集并行通信配置路径：
+
+   ```yaml
+   # mindspore context init config
+   context:
+     mode: 0 #0--Graph Mode; 1--Pynative Mode
+     device_target: "Ascend"
+     max_call_depth: 10000
+     max_device_memory: "55GB"
+     save_graphs: False
+     save_graphs_path: "./graph"
+     jit_config:
+       jit_level: "O1"
+     ascend_config:
+       parallel_speed_up_json_path: "./research/deepseek3/parallel_speed_up.json"  # 修改此项为数据集并行通信配置路径
    ```
 
 ### 拉起任务
