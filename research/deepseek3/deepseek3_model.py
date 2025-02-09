@@ -48,6 +48,7 @@ class DeepseekV3ForCausalLM(DeepseekV2ForCausalLM):
     Returns:
         Tensor, the loss or logits of the network.
     """
+
     def __init__(self, config):
         super(DeepseekV3ForCausalLM, self).__init__(config)
         self.mtp_depth = config.mtp_depth
@@ -64,6 +65,8 @@ class DeepseekV3ForCausalLM(DeepseekV2ForCausalLM):
             self.concat_2d.shard(((dp, 1), (dp, 1)))
             self.zeros_op.shard(((dp, 1),))
 
+        self.input_sliced_sig = config.input_sliced_sig
+
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
@@ -71,12 +74,16 @@ class DeepseekV3ForCausalLM(DeepseekV2ForCausalLM):
         """DeepseekV2ForCausalLM forward.
         """
         bsz, seqlen = self.shape(input_ids)
-        tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
+        if self.input_sliced_sig:
+            tokens = input_ids
+        else:
+            tokens = self.slice(input_ids, (0, 0), (bsz, seqlen - 1), (1, 1))
+            labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1))  # (B, S)
+
         output, extra_loss = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables,
                                         slot_mapping, prefix_keys_values, self.init_extra_loss)
-        logits = self.lm_head(output) # (B, 3S, V)
-        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32) # (B, S)
-        labels = self.slice(input_ids, (0, 1), (bsz, seqlen), (1, 1)) # (B, S)
+        logits = self.lm_head(output)  # (B, 3S, V)
+        input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)  # (B, S)
 
         split_logits = self.split(logits)
         loss = self.loss(self.reshape(split_logits[0], (-1, split_logits[0].shape[-1])),

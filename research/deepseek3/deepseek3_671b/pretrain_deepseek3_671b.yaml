@@ -36,10 +36,27 @@ lr_schedule:
 # dataset
 train_dataset: &train_dataset
   data_loader:
-    type: MindDataset
-    dataset_dir: "./dataset"
+    type: BlendedMegatronDatasetDataLoader
+    datasets_type: "GPTDataset"
+    sizes:
+      - 5000 # train dataset size
+      - 0
+      - 0
+    config:
+      random_seed: 1234
+      seq_length: 4096
+      split: "1, 0, 0"
+      reset_position_ids: False
+      reset_attention_mask: False
+      eod_mask_loss: False
+      num_dataset_builder_threads: 1
+      create_attention_mask: False
+      data_path:
+        - '1'
+        - "./dataset"
     shuffle: False
-  input_columns: ["input_ids"]  # "input_ids" , labels are used in instruction finetune.
+  input_columns: ["input_ids", "labels", "loss_mask", "position_ids"]
+  construct_args_key: ["input_ids", "labels"]
   num_parallel_workers: 8
   python_multiprocessing: False
   drop_remainder: True
@@ -60,24 +77,12 @@ context:
   save_graphs_path: "./graph"
   jit_config:
     jit_level: "O1"
+  ascend_config:
+    parallel_speed_up_json_path: "./parallel_speed_up.json"
 
-# parallel context config
-parallel:
-  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
-  gradients_mean: False
-  enable_alltoall: True
-  full_batch: True
-  search_mode: "sharding_propagation"
-  enable_parallel_optimizer: True
-  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
-  parallel_optimizer_config:
-    gradient_accumulation_shard: False
-    parallel_optimizer_threshold: 64
-    optimizer_weight_shard_size: 16
-
-# device num = 1024
+# parallel config for device num = 1024
 parallel_config:
-  data_parallel: 8
+  data_parallel: &dp 8
   model_parallel: 8
   pipeline_stage: 16
   expert_parallel: 8
@@ -87,6 +92,21 @@ parallel_config:
   gradient_aggregation_group: 4
 # when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
 micro_batch_interleave_num: 1
+
+# parallel context config
+parallel:
+  parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+  gradients_mean: False
+  enable_alltoall: True
+  full_batch: False
+  dataset_strategy: [[*dp, 1], [*dp, 1], [*dp, 1], [*dp, 1]]
+  search_mode: "sharding_propagation"
+  enable_parallel_optimizer: True
+  strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+  parallel_optimizer_config:
+    gradient_accumulation_shard: False
+    parallel_optimizer_threshold: 64
+    optimizer_weight_shard_size: 16
 
 # recompute config
 recompute_config:
@@ -130,6 +150,7 @@ model:
     use_past: False
     extend_method: "None"
     use_flash_attention: True
+    input_sliced_sig: True
     offset: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1]
     checkpoint_name_or_path: ""
     theta: 10000.0

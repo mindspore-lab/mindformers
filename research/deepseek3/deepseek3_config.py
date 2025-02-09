@@ -161,6 +161,7 @@ class DeepseekV3Config(DeepseekV2Config):
                  mtp_depth=0,
                  mtp_loss_factor=0.3,
                  return_extra_loss=False,
+                 input_sliced_sig=False,
                  **kwargs):
         super().__init__(batch_size=batch_size,
                          seq_length=seq_length,
@@ -223,3 +224,4 @@ class DeepseekV3Config(DeepseekV2Config):
                          **kwargs)
         self.mtp_depth = mtp_depth
         self.mtp_loss_factor = mtp_loss_factor
+        self.input_sliced_sig = input_sliced_sig
