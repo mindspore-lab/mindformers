@@ -83,7 +83,7 @@ MindSpore Transformers支持对DeepSeek-V3进行预训练。仓库中提供了�
    ```bash
    image_name=swr.cn-central-221.ovaijisuan.com/mindformers/deepseek_v3_mindspore2.4.10-train:20250209
    docker_name=deepseek_v3
-   docker run -itd -u root -h localhost \
+   docker run -itd -u root \
    --ipc=host --net=host \
    --privileged \
    --device=/dev/davinci0 \
@@ -115,7 +115,8 @@ MindSpore Transformers支持对DeepSeek-V3进行预训练。仓库中提供了�
 
    ```bash
    docker exec -ti deepseek_v3 bash
-   cd /home/work/mindformers
+   export MINDFORMERS_HOME=/home/work/mindformers
+   cd $MINDFORMERS_HOME
    ```
 
 #### 安装MindSpore Transformers
@@ -148,11 +149,12 @@ bash build.sh
    使用以下命令将数据集文件转换为BIN格式文件。
 
    ```shell
+   cd $MINDFORMERS_HOME
    python research/deepseek3/wikitext_to_bin.py \
    --input ../dataset/wiki.train.tokens \
    --output-prefix ../dataset/wiki_4096 \
    --vocab-file ../dataset/tokenizer.json \
-   --seq_length 4096 \
+   --seq-length 4096 \
    --worker 1
    ```
 
@@ -181,7 +183,7 @@ bash build.sh
          create_attention_mask: False
          data_path:
            - 1
-           - "../../../dataset/wiki_4096_text_document"              # 修改此项为数据集BIN文件路径
+           - "../dataset/wiki_4096_text_document"              # 修改此项为数据集BIN文件路径
        shuffle: False
      input_columns: ["input_ids", "labels", "loss_mask", "position_ids"]
      construct_args_key: ["input_ids", "labels"]
@@ -210,7 +212,7 @@ bash build.sh
      jit_config:
        jit_level: "O1"
      ascend_config:
-       parallel_speed_up_json_path: "./parallel_speed_up.json"  # 修改此项为数据集并行通信配置路径
+       parallel_speed_up_json_path: "./research/deepseek3/parallel_speed_up.json"  # 修改此项为数据集并行通信配置路径
    ```
 
 4. 构建Megatron BIN数据集模块
@@ -219,7 +221,7 @@ bash build.sh
 
    ```shell
    pip install pybind11
-   cd mindformers/dataset/blended_datasets
+   cd $MINDFORMERS_HOME/mindformers/dataset/blended_datasets
    make
    ```
 
@@ -309,14 +311,29 @@ bash build.sh
    ```yaml
    # parallel config for devices num=8
    parallel_config:
-     data_parallel: 2                                    # 修改为2
+     data_parallel: &dp 2                                    # 修改为2
      model_parallel: 2                                   # 修改为2
      pipeline_stage: 2                                   # 修改为2
      expert_parallel: 2                                  # 修改为2
-     micro_batch_num: &micro_batch_num 2                 # 修改为2
+     micro_batch_num: &micro_batch_num 4                 # 修改为4
      vocab_emb_dp: True
      use_seq_parallel: True
      gradient_aggregation_group: 4
+
+   # parallel context config
+   parallel:
+     parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
+     gradients_mean: False
+     enable_alltoall: True
+     full_batch: False
+     dataset_strategy: [[*dp, 1], [*dp, 1], [*dp, 1], [*dp, 1]]
+     search_mode: "sharding_propagation"
+     enable_parallel_optimizer: True
+     strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
+     parallel_optimizer_config:
+       gradient_accumulation_shard: False
+       parallel_optimizer_threshold: 64
+       optimizer_weight_shard_size: 8                    # 修改为8
    ```
 
 ### 拉起任务
@@ -324,11 +341,11 @@ bash build.sh
 进入DeepSeek-V3代码目录并执行以下命令拉起单台Atlas 800T A2（64G）预训练任务：
 
 ```shell
-cd research/deepseek3
 export MS_DEV_DYNAMIC_SINK1=False
-bash ../../scripts/msrun_launcher.sh "../../run_mindformer.py \
---register_path ./ \
---config deepseek3_671b/pretrain_deepseek3_1b.yaml"
+cd $MINDFORMERS_HOME
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--register_path research/deepseek3 \
+--config research/deepseek3/deepseek3_671b/pretrain_deepseek3_1b.yaml"
 ```
 
 上述命令执行完毕后，训练任务将在后台执行，过程日志保存在`./output/msrun_log`下，使用以下命令可查看训练状态（由于开启了流水并行`pipeline_stage: 2`，真实loss只显示在最后一张卡的日志`worker_7.log`中，其余卡均显示`loss`为`0`）：
@@ -349,10 +366,10 @@ tail -f ./output/msrun_log/worker_7.log
 master_ip=192.168.1.1
 node_rank=0
 
-cd research/deepseek3
+cd $MINDFORMERS_HOME
 export MS_DEV_DYNAMIC_SINK1=False
-bash ../../scripts/msrun_launcher.sh "../../run_mindformer.py \
---register_path ./ \
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--register_path research/deepseek3 \
 --config research/deepseek3/deepseek3_671b/pretrain_deepseek3_671b.yaml" \
 1024 8 $master_ip 8118 $node_rank output/msrun_log False 7200
 ```
