@@ -453,7 +453,7 @@ bash scripts/examples/llama2/run_llama2_predict.sh parallel \
 
 ## 评测
 
-以Llama2_7b为例，Llama 2当前支持使用based model（初始权重）进行评测任务如下：
+以`Llama2_7b`为例，Llama 2当前支持评测任务如下：
 
 | 任务类型 |    评测指标    |    数据集    |
 |:----:|:----------:|:---------:|
