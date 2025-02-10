@@ -271,6 +271,9 @@ class Trainer:
         # build parallel config
         build_parallel_config(self.config)
 
+        if isinstance(args, TrainingArguments):
+            ms.set_auto_parallel_context(pipeline_stages=args.pipeline_stage)
+
         self.rank_id = get_real_rank()
         self.device_num = get_real_group_size()
         self.config.rank_id = self.rank_id
