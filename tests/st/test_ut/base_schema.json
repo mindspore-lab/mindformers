@@ -1674,7 +1674,7 @@
         "signature": "(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None)"
     },
     "mindformers.experimental.infer.core.RowParallelLinear": {
-        "signature": "(input_size, output_size, config, input_is_parallel, weight_init='normal', bias_init='zeros', bias=True, skip_bias_add=False, stride=1, keep_master_weight_for_test=False, is_expert=False, tp_comm_buffer_name=None, transpose_b=True, param_init_type=mindspore.float32, compute_dtype=mindspore.float16, expert_num=1)"
+        "signature": "(input_size, output_size, config, input_is_parallel, weight_init='normal', bias_init='zeros', bias=True, skip_bias_add=False, stride=1, keep_master_weight_for_test=False, is_expert=False, tp_comm_buffer_name=None, transpose_b=True, param_init_type=mindspore.float32, compute_dtype=mindspore.float16, expert_num=1, moe_delay_allreduce=False)"
     },
     "mindformers.experimental.infer.core.RowParallelLinear.construct": {
         "signature": "(self, input_, group_list=None)"
@@ -1716,7 +1716,7 @@
         "signature": "(self)"
     },
     "mindformers.experimental.infer.core.layers.RowParallelLinear": {
-        "signature": "(input_size, output_size, config, input_is_parallel, weight_init='normal', bias_init='zeros', bias=True, skip_bias_add=False, stride=1, keep_master_weight_for_test=False, is_expert=False, tp_comm_buffer_name=None, transpose_b=True, param_init_type=mindspore.float32, compute_dtype=mindspore.float16, expert_num=1)"
+        "signature": "(input_size, output_size, config, input_is_parallel, weight_init='normal', bias_init='zeros', bias=True, skip_bias_add=False, stride=1, keep_master_weight_for_test=False, is_expert=False, tp_comm_buffer_name=None, transpose_b=True, param_init_type=mindspore.float32, compute_dtype=mindspore.float16, expert_num=1, moe_delay_allreduce=False)"
     },
     "mindformers.experimental.infer.core.layers.RowParallelLinear.construct": {
         "signature": "(self, input_, group_list=None)"

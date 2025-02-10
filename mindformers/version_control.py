@@ -290,12 +290,17 @@ def use_mint_op():
     return is_version_ge(version_info[0], '2.3.0') and ms.__version__ != '2.3.0rc1'
 
 
-def check_valid_gmm_op():
+def check_valid_gmm_op(gmm_version=None):
     """check mindspore version is valid for groupedmatmul"""
-    version_valid = is_version_ge(ms.__version__, "2.3.0")
+    version_map = {"GroupedMatmul": "2.3.0",
+                   "GroupedMatmulV4": "2.5.0"}
+    version_info = ms.__version__.split('rc')
+    version_valid = is_version_ge(version_info[0], version_map.get(gmm_version))
+    if version_valid is None:
+        raise ValueError(f"gmm_version should be in {list(version_map.keys())}, but get {gmm_version}")
     if not version_valid:
-        logger.warning(f"Current MindSpore do not support GroupedMatmul, "
-                       f"please upgrade to 2.3.0 or later version.")
+        logger.warning(f"Current MindSpore do not support {gmm_version}, "
+                       f"please upgrade to {version_valid} or later version.")
         return False
     return True
 

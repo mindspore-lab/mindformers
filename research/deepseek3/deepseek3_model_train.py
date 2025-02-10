@@ -17,13 +17,11 @@ from mindspore.common import dtype as mstype
 from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 from deepseek2_model import DeepseekV2ForCausalLM
 
 
-@MindFormerRegister.register(MindFormerModuleType.MODELS)
-class DeepseekV3ForCausalLM(DeepseekV2ForCausalLM):
+class TrainingDeepseekV3ForCausalLM(DeepseekV2ForCausalLM):
     r"""
     Provide DeepseekV3 training loss or logits through network.
     Args:
@@ -50,7 +48,7 @@ class DeepseekV3ForCausalLM(DeepseekV2ForCausalLM):
     """
 
     def __init__(self, config):
-        super(DeepseekV3ForCausalLM, self).__init__(config)
+        super(TrainingDeepseekV3ForCausalLM, self).__init__(config)
         self.mtp_depth = config.mtp_depth
         self.mtp_loss_factor = config.mtp_loss_factor
         self.split = P.Split(axis=1, output_num=1 + self.mtp_depth)

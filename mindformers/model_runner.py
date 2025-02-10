@@ -250,6 +250,9 @@ class MindIEModelRunner:
             self.model_config = AutoConfig.from_pretrained(config_path)
         setattr(self.model_config, 'npu_mem_size', npu_mem_size)
 
+        if self.config.moe_config:
+            self.model_config.moe_config = self.config.moe_config
+
         self.update_model_config(plugin_params)
 
         if self.is_multi_modal_model:
