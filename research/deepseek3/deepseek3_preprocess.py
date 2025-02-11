@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import re
+import pathlib
 
 import numpy as np
 from mindspore.mindrecord import FileWriter
@@ -28,6 +29,65 @@ from deepseek3_conversation import get_default_conv_template
 from mindformers.models.llama import LlamaTokenizerFast
 
 IGNORE_TOKEN_ID = -100
+
+
+def alpaca_converter(data_path):
+    """
+    fastchat stanford code_alpaca data convert tools.
+    """
+
+    # Prompt from stanford code_alpaca's training script
+
+    prompt_dict = {
+        "prompt": (
+            'You are an AI programming assistant, utilizing the DeepSeek Coder model, developed by DeepSeek Company, '
+            'and you only answer questions related to computer science. '
+            'For politically sensitive questions, security and privacy issues,'
+            ' and other non-computer science questions,'
+            ' you will refuse to answer.\n'
+            '### Instruction:\n'
+            '{instruction}\n'
+            '### Response:\n'
+        )
+    }
+
+    data_path = pathlib.Path(data_path)
+    with data_path.open(encoding='utf-8') as f:
+        data = json.load(f)
+    prompt = prompt_dict["prompt"]
+
+    sources = [
+        prompt.format_map(example)
+        for example in data
+    ]
+
+    targets = [example["output"] for example in data]
+
+    new_data = []
+
+    cnt = 1
+    max_source_length = 0
+    for s, t in zip(sources, targets):
+        max_source_length = max(max_source_length, len(s))
+        new_data.append(
+            {
+                "id": str(cnt),
+                "conversations": [
+                    {
+                        "from": "human",
+                        "value": s,
+                    },
+                    {
+                        "from": "gpt",
+                        "value": t,
+                    },
+                ],
+            }
+        )
+
+        cnt += 1
+    print(f"max_source_length={max_source_length},  sample_num={len(new_data)}")
+    return new_data
 
 
 def chunks(lst, n):
@@ -170,8 +230,7 @@ def tokenize_wiki(tokenizer, file_path, seq_length, repeat):
 
 
 def tokenize_qa(tokenizer, file_path, seq_length):
-    with open(file_path, "r", encoding='utf-8') as f:
-        raw_data = json.load(f)
+    raw_data = alpaca_converter(file_path)
     dataset_cls = SupervisedDataset(raw_data, tokenizer, seq_length)
     for i in dataset_cls:
         yield i
