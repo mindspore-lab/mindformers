@@ -36,15 +36,27 @@ MindSpore Transformers中已提供DeepSeek-V3基于MindSpore的实现，主要�
      deepseek3/
       ├── parallel_speed_up.json              # 数据集并行通信配置
       └── deepseek3_671b/
-           └── pretrain_deepseek3_671b.yaml   # 预训练任务配置
+           ├── pretrain_deepseek3_671b.yaml   # 预训练任务配置
+           └── finetune_deepseek3_671b.yaml   # 微调任务配置
     ```
 
 3. 数据集处理脚本：
 
     ```text
     deepseek3/
-     └── wikitext_to_bin.py           # wikitext数据预处理
+      ├── wikitext_to_bin.py                 # wikitext数据预处理
+      ├── deepseek2_conversation.py          # 微调chat_template实现
+      └── deepseek2_preprocess.py            # alpaca数据预处理
     ```
+
+## 模型权重下载
+
+用户可以从HuggingFace官方下载预训练权重，经过[模型权重转换](#模型权重转换)后进行使用，`tokenizer.json`文件也在链接中下载。
+
+| 模型名称                         |                                     Base权重（建议微调使用）                                      |                   Instruct权重（建议推理使用）                   |
+|:-----------------------------|:---------------------------------------------------------------------------------------:|:------------------------------------------------------:|
+| deepseek-ai/DeepSeek-V3-Base |               [Link](https://huggingface.co/deepseek-ai/DeepSeek-V3-Base)               | [Link](https://huggingface.co/deepseek-ai/DeepSeek-V3) |
+| DeepSeek-V3-Base_4layer      | [Link](https://modelers.cn/models/mindformers-club/weights/tree/main/deepseekv3_4layer) |                                                        |
 
 ## 预训练
 
@@ -377,3 +389,164 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 > 此处样例代码假设主节点为`192.168.1.1`、当前Rank序号为`0`。实际执行时请将`master_ip`设置为实际的主节点IP地址；将`node_rank`设置为当前节点的Rank序号。
 
 如有关于DeepSeek-V3预训练的相关问题，可以在MindSpore Transformers的Gitee仓库中[提交ISSUE](https://gitee.com/mindspore/mindformers/issues/new)以获取支持。
+
+## 全参微调
+
+MindSpore Transformers支持对DeepSeek-V3进行全参微调。仓库中提供了一份[微调配置文件](#模型文件)供参考，该配置基于128台Atlas 800T A2（64G），使用alpaca数据集进行全参微调。为了方便体验，本章节基于此配置进行修改，缩小了DeepSeek-V3模型参数量，使其能够在四台Atlas 800T A2（64G）上拉起微调流程。
+
+### 环境准备
+
+参考[预训练-环境准备章节](#环境准备)
+
+### 数据集准备
+
+以[alpaca数据集](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)为例，参考如下步骤将数据集处理成Mindrecord格式文件。
+
+  执行`research/deepseek3/deepseek3_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
+
+  ```shell
+  python research/deepseek3/deepseek3_preprocess.py \
+   --dataset_type 'qa' \
+   --input_glob /path/alpaca_data.json \
+   --tokenizer_file /path/tokenizer.json \
+   --seq_length 4096 \
+   --output_file /path/alpaca-messages.mindrecord
+
+  # 参数说明
+  dataset_type:     预处理数据类型
+  input_glob:       alpaca数据集原始文件路径
+  tokenizer_file:   tokenizer.json文件路径
+  seq_length:       输出数据的序列长度
+  output_file:      输出文件的保存路径
+  ```
+
+### 模型权重准备
+
+权重下载参考[模型权重下载](#模型权重下载)，体验demo可以下载DeepSeek-V3-Base_4layer，可以跳过[模型权重转换](#模型权重转换)步骤。
+
+#### 模型权重转换
+
+下载完成后，运行`research/deepseek3/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
+
+```shell
+python research/deepseek3/convert_weight.py --torch_ckpt_path TORCH_CKPT_DIR --mindspore_ckpt_path {path}/MS_CKPT_NAME --dtype bf16
+
+# 参数说明
+model:            模型名称
+torch_ckpt_path:  下载HuggingFace权重的文件夹路径
+output_path:      转换后的MindSpore权重文件保存路径
+dtype:            转换权重的精度
+```
+
+- **[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)**
+
+  从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。可以按照下列参考教程进行离线切分保存，也可以在运行时启用自动切分策略，后续[拉起任务等章节](#拉起任务)示例命令中采用运行时自动切分示例。
+
+  通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
+
+  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+
+### 修改配置
+
+修改微调配置文件`finetune_deepseek3_671b.yaml`，使其能够在四台Atlas 800T A2（64G）上运行，保存为`finetune_deepseek3_4layer.yaml`。此修改保留了模型的三种transformer_block层，分别为dense层、Moe层、MTP层
+
+1. 修改模型配置
+
+   ```yaml
+   # model config
+   model:
+     model_config:
+       num_layers: &num_layers 3                         # 修改为3
+       offset: 0                                         # 修改为0
+   ```
+
+2. 修改MoE配置
+
+   ```yaml
+   #moe
+   moe_config:
+     first_k_dense_replace: 1                            # 修改为1
+     use_gating_sigmoid: True
+   ```
+
+3. 修改并行配置
+
+   ```yaml
+   # parallel config for devices num=32
+   parallel_config:
+     data_parallel: &dp 4                                # 修改为4
+     model_parallel: 4                                   # 修改为4
+     pipeline_stage: 2                                   # 修改为2
+     micro_batch_num: &micro_batch_num 8                 # 修改为8
+   # parallel context config
+   parallel:
+     parallel_optimizer_config:
+       optimizer_weight_shard_size: 4                    # 修改为4
+   recompute_config:
+     recompute: False                                    # 修改为False
+   ```
+
+4. 修改数据集配置
+
+   配置数据集文件路径：
+
+   ```yaml
+   # dataset
+   train_dataset: &train_dataset
+     data_loader:
+       dataset_dir: ""                # 修改此项为数据集mindrecord文件路径
+   ```
+
+### 拉起任务
+
+进入mindformers根目录并执行以下命令拉起四台Atlas 800T A2（64G）微调任务：
+
+在每台服务器上执行如下命令。设置`master_ip`为主节点IP地址，即`Rank 0`服务器的IP；`node_rank`为每个节点的Rank序号，从`0`到`3`。
+
+```shell
+master_ip=192.168.1.1
+node_rank=0
+
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--register_path research/deepseek3 \
+--load_checkpoint /path/checkpoint_path \
+--load_ckpt_format safetensors \
+--auto_trans_ckpt True \
+--config research/deepseek3/deepseek3_671b/finetune_deepseek3_4layer.yaml \
+--run_mode finetune" \
+32 8 $master_ip 8118 $node_rank output/msrun_log False 7200
+```
+
+> 此处样例代码假设主节点为`192.168.1.1`、当前Rank序号为`0`。实际执行时请将`master_ip`设置为实际的主节点IP地址；将`node_rank`设置为当前节点的Rank序号。
+> /path/checkpoint_path需要替换为微调权重文件路径
+
+上述命令执行完毕后，训练任务将在后台执行，过程日志保存在`./output/msrun_log`下，在node_rank最后的机器使用以下命令可查看训练状态（由于开启了流水并行`pipeline_stage: 2`，真实loss只显示在最后一个stage的日志（worker_16.log ~ worker_31.log，建议使用最后一张卡的日志即可）中，其余卡显示`loss`为`0`）：
+
+```shell
+tail -f ./output/msrun_log/worker_31.log
+```
+
+训练过程中的权重checkpoint将会保存在`./output/checkpoint`下。
+
+### 扩展：全层训练
+
+全层需要128台机器，在每台服务器上执行如下命令。设置`master_ip`为主节点IP地址，即`Rank 0`服务器的IP；`node_rank`为每个节点的Rank序号，从`0`到`127`。
+
+```shell
+master_ip=192.168.1.1
+node_rank=0
+
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--register_path research/deepseek3 \
+--load_checkpoint /path/checkpoint_path \
+--load_ckpt_format safetensors \
+--auto_trans_ckpt True \
+--config research/deepseek3/deepseek3_671b/finetune_deepseek3_4layer.yaml \
+--run_mode finetune" \
+1024 8 $master_ip 8118 $node_rank output/msrun_log False 7200
+```
+
+> 此处样例代码假设主节点为`192.168.1.1`、当前Rank序号为`0`。实际执行时请将`master_ip`设置为实际的主节点IP地址；将`node_rank`设置为当前节点的Rank序号。
+> /path/checkpoint_path需要替换为微调权重文件路径
+
+如有关于DeepSeek-V3微调的相关问题，可以在MindSpore Transformers的Gitee仓库中[提交ISSUE](https://gitee.com/mindspore/mindformers/issues/new)以获取支持。
