@@ -155,26 +155,6 @@ def _get_src_file_suffix(config):
     return config.load_checkpoint, file_suffix
 
 
-def prepare_strategy_unified_path(config, strategy_path):
-    """prepare save path of merged strategy and unified safetensors."""
-    # prepare merged strategy directory
-    merged_strategy = os.path.join(config.output_dir, 'merged_strategy')
-    os.makedirs(merged_strategy, exist_ok=True)
-
-    # set src_strategy_path
-    src_strategy = _get_src_strategy(config)
-    dst_strategy = os.path.join(merged_strategy, 'src_strategy.ckpt')
-    src_strategy_path = (src_strategy, dst_strategy)
-
-    # set dst_strategy_path
-    dst_strategy_path = (
-        os.path.dirname(strategy_path),
-        os.path.join(merged_strategy, 'dst_strategy.ckpt')
-    )
-    unified_path = os.path.join(config.output_dir, 'unified_checkpoint/')
-    return src_strategy_path, dst_strategy_path, unified_path
-
-
 def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval=False,
                                      do_predict=False, optimizer=None):
     """load different format checkpoint interface."""
@@ -195,11 +175,6 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         logger.info("Set network.set_train=False, reduce compile time in prediction.")
         network.set_train(False)
 
-    if config.use_parallel:
-        logger.info(f"......Start build model in parallel mode......")
-        build_model(config, model, input_data, do_eval=do_eval, do_predict=do_predict)
-        barrier()
-
     load_checkpoint_files = []
     strategy_path = ms.get_auto_parallel_context('strategy_ckpt_save_file')
     if ckpt_file_mode == CheckpointFileMode.SINGLE_CHECKPOINT_FILE.value:
@@ -207,7 +182,6 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         load_checkpoint_files = [config.load_checkpoint]
     if ckpt_file_mode == CheckpointFileMode.MULTI_CHECKPOINT_FILE.value:
         logger.info(f"......Use multi checkpoint file mode......")
-        strategy_path = prepare_dst_strategy(config, strategy_path)
         load_checkpoint_files = glob(
             os.path.join(load_checkpoint, f"*.{config.load_ckpt_format}"))
         load_checkpoint_files.sort()
@@ -216,20 +190,19 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         # change strategy
         if config.auto_trans_ckpt:
             logger.info(f"......auto_trans is True, will unify all rank files and slice to dst parallel strategy......")
-            src_strategy_path, dst_strategy_path, unified_path = prepare_strategy_unified_path(config, strategy_path)
+            src_strategy_path = get_merged_src_strategy_path(config)
+            unified_safetensors_path = os.path.join(config.output_dir, 'unified_checkpoint/')
             load_checkpoint, file_suffix = _get_src_file_suffix(config)
-            merge_and_unified(load_checkpoint,
+            unify_safetensors(load_checkpoint,
                               src_strategy_path,
-                              dst_strategy_path,
-                              unified_path,
+                              unified_safetensors_path,
                               use_parallel=config.use_parallel,
                               file_suffix=file_suffix,
                               remove_redundancy=config.get('remove_redundancy', False))
-            load_checkpoint = unified_path
+            load_checkpoint = unified_safetensors_path
             load_checkpoint_files = glob(
                 os.path.join(load_checkpoint, f"*.{config.load_ckpt_format}"))
             load_checkpoint_files.sort()
-            strategy_path = dst_strategy_path[1]
         else:
             logger.info(f"......auto_trans is False, will not unify or slice rank files......")
             all_safetensor_files_map = _collect_safetensor_files(load_checkpoint)
@@ -240,7 +213,14 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         if config.resume_training:
             # pylint: disable=W0212
             network = model._train_network
-
+    #build model
+    if config.use_parallel:
+        logger.info(f"......Start build model in parallel mode......")
+        build_model(config, model, input_data, do_eval=do_eval, do_predict=do_predict)
+        #wait generate all rank strategy files
+        barrier()
+    #merge dst strategy
+    strategy_path = get_merged_dst_strategy_path(config, strategy_path)
     # only execute qkv concat check on the main rank in predict mode
     if do_predict and is_main_rank(ignore_check_modelarts=True):
         qkv_concat_config = config.model.model_config.get("qkv_concat", False)
@@ -276,29 +256,6 @@ def process_for_stand_alone_mode(config, network, strategy_path):
         _pynative_executor.sync()
 
 
-def prepare_dst_strategy(config, strategy_path):
-    """prepare for dst strategy."""
-    if config.use_parallel:
-        # prepare merged strategy directory
-        merged_strategy = os.path.join(config.output_dir, 'merged_strategy')
-        os.makedirs(merged_strategy, exist_ok=True)
-        # set dst_strategy_path
-        dst_strategy_path = (
-            os.path.dirname(strategy_path),
-            os.path.join(merged_strategy, 'dst_strategy.ckpt')
-        )
-        if is_main_rank():
-            # merge dst strategy
-            logger.info("merge dst strategy in parallel mode.")
-            ms.merge_pipeline_strategys(
-                src_strategy_dirs=dst_strategy_path[0],
-                dst_strategy_file=dst_strategy_path[1])
-        barrier()
-        logger.info("merge dst strategy finished.")
-        strategy_path = dst_strategy_path[1]
-    return strategy_path
-
-
 def validate_config_with_file_mode(ckpt_file_mode, use_parallel, auto_trans_ckpt):
     """validate use_parallel and auto_trans_ckpt config with different file mode"""
     if ckpt_file_mode == CheckpointFileMode.SINGLE_CHECKPOINT_FILE.value:
@@ -317,34 +274,27 @@ def validate_config_with_file_mode(ckpt_file_mode, use_parallel, auto_trans_ckpt
         raise ValueError("not support mode: no valid checkpoint files found")
 
 
-def merge_and_unified(src_checkpoint, src_strategy_path, dst_strategy_path, unified_path, use_parallel=False,
+def unify_safetensors(src_checkpoint, src_strategy_path, unified_path, use_parallel=False,
                       file_suffix=None, remove_redundancy=False):
     """merge strategy and unified safetensors."""
-    logger.info("start merge strategy and unified safetensors.")
+    logger.info("Start unify safetensors.")
     if is_main_rank():
-        # merge src strategy
-        ms.merge_pipeline_strategys(
-            src_strategy_dirs=src_strategy_path[0],
-            dst_strategy_file=src_strategy_path[1])
-        # combine checkpoints
+        # unify checkpoints
         logger.info(f"unified safetensors with file_suffix:{file_suffix}, remove_redundancy: {remove_redundancy}")
         logger.info(f"unified safetensors with save path:{unified_path}")
+        unify_time_start = time.time()
         ms.unified_safetensors(
             src_dir=src_checkpoint,
-            src_strategy_file=src_strategy_path[1],
+            src_strategy_file=src_strategy_path,
             dst_dir=unified_path,
             file_suffix=file_suffix,
             merge_with_redundancy=not remove_redundancy
         )
-        if use_parallel:
-            # merge dst strategy
-            logger.info("merge dst strategy in parallel mode.")
-            ms.merge_pipeline_strategys(
-                src_strategy_dirs=dst_strategy_path[0],
-                dst_strategy_file=dst_strategy_path[1])
+        unify_time_end = time.time()
+        logger.info("Time spent unifying safetensors: %.2fs", unify_time_end - unify_time_start)
     if use_parallel:
         barrier()
-    logger.info("merge strategy and unified safetensors finished.")
+    logger.info("Unified safetensors finished.")
 
 
 def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy_path, load_ckpt_path, optimizer):
@@ -483,3 +433,47 @@ def validate_qkv_concat(model_cls_or_instance, qkv_concat_config, load_checkpoin
     if not is_qkv_concat and not qkv_concat_config:
         logger.info("The qkv concat check succeed! The qkv in the model weights has been not concatenated and "
                     "qkv_concat is set to false.")
+
+
+def get_merged_src_strategy_path(config):
+    """prepare for src strategy."""
+    # prepare merged strategy directory
+    merged_strategy = os.path.join(config.output_dir, 'merged_strategy')
+    os.makedirs(merged_strategy, exist_ok=True)
+
+    # set src_strategy_path
+    src_strategy = _get_src_strategy(config)
+    dst_strategy = os.path.join(merged_strategy, 'src_strategy.ckpt')
+    src_strategy_path = (src_strategy, dst_strategy)
+    if is_main_rank():
+        # merge src strategy
+        logger.info("merge src strategy in parallel mode.")
+        ms.merge_pipeline_strategys(
+            src_strategy_dirs=src_strategy_path[0],
+            dst_strategy_file=src_strategy_path[1])
+    barrier()
+    logger.info("merge src strategy finished.")
+    return src_strategy_path[1]
+
+
+def get_merged_dst_strategy_path(config, strategy_path):
+    """prepare for dst strategy."""
+    if config.use_parallel:
+        # prepare merged strategy directory
+        merged_strategy = os.path.join(config.output_dir, 'merged_strategy')
+        os.makedirs(merged_strategy, exist_ok=True)
+        # set dst_strategy_path
+        dst_strategy_path = (
+            os.path.dirname(strategy_path),
+            os.path.join(merged_strategy, 'dst_strategy.ckpt')
+        )
+        if is_main_rank():
+            # merge dst strategy
+            logger.info("merge dst strategy in parallel mode.")
+            ms.merge_pipeline_strategys(
+                src_strategy_dirs=dst_strategy_path[0],
+                dst_strategy_file=dst_strategy_path[1])
+        barrier()
+        logger.info("merge dst strategy finished.")
+        strategy_path = dst_strategy_path[1]
+    return strategy_path

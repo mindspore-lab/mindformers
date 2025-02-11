@@ -32,6 +32,7 @@ from mindspore.dataset.engine.datasets import Dataset
 from mindspore.train.metrics import get_metrics
 from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
 from mindspore.nn import Optimizer, Cell, PipelineCell, MicroBatchInterleaved
+from mindspore.communication.comm_func import barrier
 try:
     # new interface in ms2.1.1
     from mindspore.nn.wrap.cell_wrapper import GradAccumulationCell
@@ -1186,8 +1187,13 @@ class BaseTrainer:
 
     @staticmethod
     def _get_load_path_after_hf_convert(config, network):
+        """check if it is hf safetensors and convert"""
         if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
                 is_hf_safetensors_dir(config.load_checkpoint, network)):
             logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
-            return process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
+            converted_sf_path = process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
+            #wait for main rank to convert HF safetensors
+            if config.use_parallel:
+                barrier()
+            return converted_sf_path
         return config.load_checkpoint

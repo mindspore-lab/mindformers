@@ -31,8 +31,12 @@ def is_hf_safetensors_dir(safetensors_dir, model_cls_or_instance):
             all_keys = f.keys()
         for key in all_keys:
             # once convert success
-            if key != model_cls_or_instance.convert_name(key):
-                return True
+            try:
+                if key != model_cls_or_instance.convert_name(key):
+                    return True
+            except RuntimeError:
+                print("The model does not have a convert_name method, "
+                      "please make sure your safetensors are converted to ms type.")
     return False
 
 
