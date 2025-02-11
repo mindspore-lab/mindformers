@@ -148,7 +148,8 @@ class TelechatParallelAttention(ParallelAttention):
                 if self.is_first_iteration:
                     key, value = self._cat_prefix(key, value, prefix_keys_values)
 
-            key_out = self.paged_attention_mgr(key, value, slot_mapping, key_cache=key_cache, value_cache=value_cache)
+            key_out = self.paged_attention_mgr(key, value, slot_mapping, batch_valid_length,
+                                               key_cache=key_cache, value_cache=value_cache)
             query = ops.depend(query, key_out)
 
             if self.is_first_iteration:
