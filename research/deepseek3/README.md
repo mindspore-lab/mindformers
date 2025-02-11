@@ -174,6 +174,8 @@ bash build.sh
 
 1. 修改模型配置
 
+   按照如下方式修改以缩小模型规模：
+
    ```yaml
    # model config
    model:
@@ -221,6 +223,8 @@ bash build.sh
 
 2. 修改MoE配置
 
+   按照如下方式修改以缩小专家混合结构的规模：
+
    ```yaml
    #moe
    moe_config:
@@ -251,6 +255,8 @@ bash build.sh
 
 3. 修改并行配置
 
+   缩小每种并行方式的切分数目，以适合在单台Atlas 800T A2（64G）上并行训练：
+
    ```yaml
    # parallel config for devices num=8
    parallel_config:
@@ -279,7 +285,20 @@ bash build.sh
        optimizer_weight_shard_size: 8                    # 修改为8
    ```
 
-4. 修改数据集配置
+4. 修改学习率配置
+
+   由于Wikitext-2数据集比较小，所以需要缩小学习率预热步数：
+
+   ```yaml
+   # lr schedule
+   lr_schedule:
+     type: ConstantWarmUpLR
+     learning_rate: 2.2e-4
+     warmup_steps: 20                                    # 修改为20
+     total_steps: -1
+   ```
+
+5. 修改数据集配置
 
    配置数据集BIN文件路径：
 
