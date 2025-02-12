@@ -137,3 +137,12 @@ class CogVLM2Config(PretrainedConfig):
             self.llm_model.model_config.start_stage = pipeline_stage[stage_index]['start_stage']
             self.llm_model.model_config.stage_num = pipeline_stage[stage_index]['stage_num']
             self.llm_model.model_config.offset = pipeline_stage[stage_index]['offset']
+        else:
+            self.vision_model.model_config.start_stage = 0
+            self.vision_model.model_config.stage_num = 1
+            self.llm_model.model_config.pipeline_stage = {}
+            self.llm_model.model_config.pipeline_stage['start_stage'] = 1
+            self.llm_model.model_config.pipeline_stage['stage_num'] = parallel_config.pipeline_stage - 1
+            self.llm_model.model_config.pipeline_stage['offset'] = 0
+            self.llm_model.model_config.start_stage = 1
+            self.llm_model.model_config.stage_num = parallel_config.pipeline_stage - 1
