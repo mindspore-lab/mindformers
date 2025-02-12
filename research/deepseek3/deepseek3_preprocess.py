@@ -134,7 +134,7 @@ def preprocess(sources, tokenizer, seq_length):
     """conversation preprocess."""
     conv = get_default_conv_template("vicuna").copy()
     roles = {"human": conv.roles[0], "gpt": conv.roles[1]}
-    print("--------> roles: ", roles)
+
     # Apply prompt templates
     conversations = []
     for _, source in enumerate(sources):
