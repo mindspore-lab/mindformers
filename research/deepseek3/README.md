@@ -167,7 +167,7 @@ bash build.sh
    --output-prefix ../dataset/wiki_4096 \
    --vocab-file ../dataset/tokenizer.json \
    --seq-length 4096 \
-   --worker 1
+   --workers 1
    ```
 
 3. 构建Megatron BIN数据集模块
