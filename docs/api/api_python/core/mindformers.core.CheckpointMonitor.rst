@@ -27,6 +27,6 @@ mindformers.core.CheckpointMonitor
         - **remove_redundancy** (bool, 可选) - checkpoint保存时是否去除冗余。默认值： ``False`` 。
 
     异常：
-        - **ValueError** - 如果 `preifx` 不是 `str` 或者包含 `/` 字符。
+        - **ValueError** - 如果 `prefix` 不是 `str` 或者包含 `/` 字符。
         - **ValueError** - 如果 `directory` 不是 `str` 。
         - **TypeError** - 如果 `config` 不是 `CheckpointConfig` 类型。

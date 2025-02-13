@@ -12,7 +12,7 @@ mindformers.models.ChatGLM2ForConditionalGeneration
     输入：
         - **input_ids** (Tensor, 可选) - 一个分词后的输入数据张量，它是32位整数类型，shape为： `(batch, seq_length)` 。默认值： ``None`` 。
         - **labels** (Tensor, 可选) - 一个分词后的标签数据张量，它是32位整数类型，shape为： `(batch, seq_length)` 。默认值： ``None`` 。
-        - **input_position** (Tensor, 可选) - 当前位置，在推理使使用。默认值： ``None`` 。
+        - **input_position** (Tensor, 可选) - 当前位置，在推理使用。默认值： ``None`` 。
         - **position_ids** (Tensor, 可选) - 保留参数，不使用。默认值： ``None`` 。
         - **attention_mask** (Tensor, 可选) - 保留参数，不使用。默认值： ``None`` 。
         - **input_embeds** (Tensor, 可选) - 保留参数，不使用。默认值： ``None`` 。
