@@ -146,3 +146,31 @@ class TestComputeMemory:
         assert memory_activation == 743, "memory_activation: wrong answer"
         assert memory_full == 131, "memory_full: wrong answer"
         assert memory_tail == 3329, "memory_tail: wrong answer"
+
+    def test_compute_memory_lstsq(self):
+        """
+        Feature: TestPipelineBalance.
+        Description: Test the computation of memory of pipeline balancing.
+        Expectation: correct
+        """
+        work_path = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(work_path, "./mem_lstsq.yaml")
+        num_stage, stages_a, _ = memory_parser(file_path)
+
+        comp_mem = ComputeMemory(number_of_stage=num_stage, stages_A=stages_a)
+        memory_parameter = int(comp_mem.get_memory_parameter())
+        memory_tail = int(comp_mem.get_memory_tail())
+        memory_activation = int(comp_mem.get_memory_activation(Recompute.TYPE.NONE))
+        memory_slct = int(comp_mem.get_memory_activation(Recompute.TYPE.SLCT))
+        memory_comm = int(comp_mem.get_memory_activation(Recompute.TYPE.COMM))
+        memory_both = int(comp_mem.get_memory_activation(Recompute.TYPE.BOTH))
+
+        memory_head = int(comp_mem.get_memory_head())
+
+        assert memory_head == 4614, "memory_head: wrong answer"
+        assert memory_parameter == 2217, "memory_parameter: wrong answer"
+        assert memory_activation == 1002, "memory_activation: wrong answer"
+        assert memory_both == 423, "memory_both: wrong answer"
+        assert memory_slct == 783, "memory_slct: wrong answer"
+        assert memory_comm == 695, "memory_comm: wrong answer"
+        assert memory_tail == 5885, "memory_tail: wrong answer"
