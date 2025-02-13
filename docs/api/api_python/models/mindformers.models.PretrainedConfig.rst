@@ -59,7 +59,6 @@ mindformers.models.PretrainedConfig
 
         从 'pretrained_model_name_or_path' 解析到一个参数字典，用于使用 :func:`mindformers.models.PretrainedConfig.from_dict` 实例化 PretrainedConfig。
 
-
         参数：
             - **pretrained_model_name_or_path** (Union[str, os.PathLike]) - 预训练检查点的标识符, 我们希望从中获得参数字典。
 
@@ -79,7 +78,7 @@ mindformers.models.PretrainedConfig
         将此实例序列化为 Python 字典。
 
         返回：
-            dict, 包含构成此配置实例的所有属性的字典。
+            dict，包含构成此配置实例的所有属性的字典。
 
     .. py:method:: to_diff_dict()
 
@@ -104,4 +103,4 @@ mindformers.models.PretrainedConfig
             - **use_diff** (bool, 可选) - 如果设置为 True，仅序列化配置实例与默认 PretrainedConfig() 的差异到 JSON 字符串。默认值： ``True`` 。
 
         返回：
-            str, 包含此配置实例所有属性的 JSON 格式字符串。
+            str，包含此配置实例所有属性的 JSON 格式字符串。

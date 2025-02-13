@@ -29,14 +29,14 @@ mindformers.models.multi_modal.ModalContentTransformTemplate
     .. py:method:: build_conversation_input_text(raw_inputs, result_recorder: DataRecord)
         :classmethod:
 
-        在推理模式下，将传入的数据组装成一个对话，通常被子类继承使用。
+        在推理模式下，将传入的文本数据处理成对话的形式，通常被子类继承使用。
 
         参数：
             - **raw_inputs** (str) - 输入的数据。
             - **result_recorder** (DataRecord) -  结果数据记录器，用于记录在推理过程中想要保存的数据，数值通过调用 ``DataRecord`` 的 ``put`` 方法进行数据存储。
 
         返回：
-            字符串类型，一个组装好的对话。
+            字符串类型，一个处理好的对话形式文本。
 
     .. py:method:: build_labels(text_id_list, result_recorder, **kwargs)
 

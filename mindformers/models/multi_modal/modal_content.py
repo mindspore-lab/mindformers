@@ -411,7 +411,7 @@ class ModalContentTransformTemplate:
     @abc.abstractmethod
     def build_conversation_input_text(self, raw_inputs, result_recorder: DataRecord):
         """
-        Used in predict mode, assemble a conversation based on incoming inputs.
+        Used in predict mode, processing the input textual data into a conversation form.
         Usually inherited and used by quilt class.
 
         Args:
@@ -421,7 +421,7 @@ class ModalContentTransformTemplate:
                 Values are stored by calling the put method of the DataRecord.
 
         Returns:
-            Str type. Assembled dialogue.
+            Str type. A processed text with conversation form.
         """
         if self.mode == "predict":
             return "".join(raw_inputs)

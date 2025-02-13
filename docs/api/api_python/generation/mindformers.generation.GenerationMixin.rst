@@ -28,7 +28,7 @@ mindformers.generation.GenerationMixin
             - **repetition_penalty** (float, 可选) - 生成单词频率的惩罚因子。如果将其设置为1，则不启用 `repeat_penalty` 。如果将其设置为 ``None`` ，则遵循模型配置中的设置。其默认值： ``1.0`` 。
 
         返回：
-            两个参数， `response` 表示本次会话中大模型的回复结果，`history` 表示对话历史。
+            两个参数， `response` 表示本次会话中大模型的回复结果， `history` 表示对话历史。
 
     .. py:method:: forward(input_ids: [Union[List[int], List[List[int]]]], valid_length_each_example: np.ndarray, block_tables: Optional[Tensor] = None, slot_mapping: Optional[Tensor] = None, prefill: bool = None, use_past: bool = False, encoder_mask: Optional[Tensor] = None, encoder_output: Optional[Tensor] = None, target_mask: Optional[Tensor] = None, **model_kwargs)
 
