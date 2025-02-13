@@ -30,7 +30,7 @@ mindformers.generation.GenerationMixin
         返回：
             两个参数， `response` 表示本次会话中大模型的回复结果，`history` 表示对话历史。
 
-    .. py:method:: forward(input_ids: [Union[List[int], List[List[int]]]], valid_length_each_example: np.ndarray, block_tables: Optional[Tensor] = None, slot_mapping: Optional[Tensor] = None, prefill: bool = None, use_past: bool = False, encoder_mask: Optional[Tensor] = None, encoder_output: Optional[Tensor] = None, target_mask: Optional[Tensor] = None, **model_kwargs)
+    .. py:method:: forward(input_ids: [Union[List[int], List[List[int]]]], valid_length_each_example: np.ndarray, block_tables: Optional[Tensor] = None, slot_mapping: Optional[Tensor] = None, prefill: bool = None, use_past: bool = False, encoder_mask: Optional[Tensor] = None, encoder_output: Optional[Tensor] = None, target_mask: Optional[Tensor] = None, key_cache: Optional[List[Tensor]] = None, value_cache: Optional[List[Tensor]] = None, **model_kwargs)
 
         模型前向传播的过程。
 
@@ -44,6 +44,8 @@ mindformers.generation.GenerationMixin
             - **encoder_mask** (Tensor, 可选) - 用于编码器-解码器结构，对于纯解码器结构则不需要。默认值： ``None`` 。
             - **encoder_output** (Tensor, 可选) - 用于编码器-解码器结构，对于纯解码器结构则不需要。默认值： ``None`` 。
             - **target_mask** (Tensor, 可选) - 用于编码器-解码器结构，对于纯解码器结构则不需要。默认值： ``None`` 。
+            - **key_cache** (List(Tensor), 可选) - 一组Tensor用作KVcache的key cache。默认值： ``None`` 。
+            - **value_cache** (List(Tensor), 可选) - 一组Tensor用作KVcache的value cache。默认值： ``None`` 。
             - **\*\*model_kwargs** (Any) - 模型的关键字参数。
 
         返回：

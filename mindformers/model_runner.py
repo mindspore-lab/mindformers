@@ -403,10 +403,10 @@ class MindIEModelRunner:
                 Params for SLora request
             prefill_head_indices (Tensor):
                 Params for pre gather
-            key_cache (Tensor):
-                Params for key_cache
-            value_cache (Tensor):
-                Params for value_cache
+            key_cache (List(Tensor), optional):
+                Params for key_cache, a group of tensors used for kvcache. Default: None.
+            value_cache (List(Tensor), optional):
+                Params for value_cache, a group of tensors used for kvcache. Default: None.
 
         Returns:
             logits (Tensor)
