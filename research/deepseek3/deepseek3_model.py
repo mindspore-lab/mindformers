@@ -59,8 +59,9 @@ class DeepseekV3ForCausalLM(DeepseekV2ForCausalLM):
         self.zeros_op = P.Zeros()
 
         dp = config.parallel_config.data_parallel
+        mp = config.parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.split.shard(((dp, 1, 1),))
+            self.split.shard(((dp, 1, mp),))
             self.slice.shard(((dp, 1),))
             self.concat_2d.shard(((dp, 1), (dp, 1)))
             self.zeros_op.shard(((dp, 1),))

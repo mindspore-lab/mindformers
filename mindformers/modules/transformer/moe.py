@@ -1285,7 +1285,9 @@ class TopkRouterV2(Cell):
         self.reduce_sum_keep = P.ReduceSum(keep_dims=True).shard(((dp, 1, 1),))
         self.div_3d = P.RealDiv().shard(((dp, 1, 1), (dp, 1, 1)))
         self.concat_3d = P.Concat(1).shard(((dp, 1, 1), (dp, 1, 1)))
-        self.zeros_3d = Tensor(np.zeros((dp, 1, d_model)), mstype.float16)
+        self.zeros_3d = Parameter(
+            initializer('zeros', shape=(dp, 1, d_model), dtype=mstype.bfloat16),
+            name='zeros_3d', requires_grad=False, parallel_optimizer=False)
         self.not_equal = P.NotEqual().shard(((dp, 1, 1), ()))
 
         # sort indexing
@@ -1331,8 +1333,11 @@ class TopkRouterV2(Cell):
             self.reshape_redist = P.Reshape().add_prim_attr("skip_redistribution", True)
             self.tile_5d = P.Tile().shard(((self.outer_dp, 1, self.ep, 1, 1),))
             self.concat = P.Concat(3).shard(((self.outer_dp, 1, self.ep, 1, 1), (self.outer_dp, 1, self.ep, 1, 1)))
-            self.zeros = Tensor(
-                np.zeros((self.outer_dp, self.inner_dp, self.ep * self.expert_dim, 1, d_model)), mstype.float16)
+            self.zeros = Parameter(
+                initializer('zeros', shape=(
+                    self.outer_dp, self.inner_dp, self.ep * self.expert_dim, 1, d_model),
+                            dtype=mstype.bfloat16),
+                name='zeros', requires_grad=False, parallel_optimizer=False)
             self.tile_idx = P.Tile().shard(((self.outer_dp, self.inner_dp, 1, 1, 1),))
             self.tile_coeff = P.Tile().shard(((self.outer_dp, self.inner_dp, 1, 1, 1, 1),))
             self.combine_gather = P.Gather(batch_dims=3).shard(((self.outer_dp, self.inner_dp, 1, 1, 1),
@@ -1355,7 +1360,9 @@ class TopkRouterV2(Cell):
         else:
             self.dispatch_gather = P.Gather(batch_dims=1).shard(((dp, 1, 1), (dp, 1, 1),))
             self.concat = P.Concat(2).shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
-            self.zeros = Tensor(np.zeros((dp, self.expert_dim, 1, d_model)), mstype.float16)
+            self.zeros = Parameter(
+                initializer('zeros', shape=(dp, self.expert_dim, 1, d_model), dtype=mstype.bfloat16),
+                name='zeros', requires_grad=False, parallel_optimizer=False)
             self.combine_gather = P.Gather(batch_dims=1).shard(((dp, 1, 1), (dp, 1, 1),))
             self.mul_router_coeff = P.Mul().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
             self.sum_router_coeff = P.ReduceSum(keep_dims=False).shard(((dp, 1, 1, 1),))
