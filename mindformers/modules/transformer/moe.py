@@ -1251,7 +1251,11 @@ class TopkRouterV2(Cell):
             self.expert_load = Parameter(initializer('zeros', (self.expert_dim), mstype.float32),
                                             requires_grad=False, parallel_optimizer=False)
             self.assign_add = P.AssignAdd().shard(((1,), (1,)))
+            self.assign_add.recompute(False)
 
+        if self.moe_config.topk_method == "noaux_tc":
+            self.tc_topk = P.TopK().shard(((dp, 1, 1, 1),))
+            self.tc_sum = P.ReduceSum(keep_dims=False).shard(((dp, 1, 1, 1),))
 
         self.cast = P.Cast()
         self.reshape = P.Reshape()
@@ -1307,7 +1311,7 @@ class TopkRouterV2(Cell):
         self.reduce_mean_2d = P.ReduceMean(keep_dims=False).shard(((dp, 1),))
         self.add_scalar = P.Add()
         # auxiliary loss config
-        self.aux_loss_config = dict(zip(set(moe_config.aux_loss_types), moe_config.aux_loss_factors))
+        self.aux_loss_config = dict(zip(moe_config.aux_loss_types, moe_config.aux_loss_factors))
 
         # dynamic capacity
         self.on_value_int = Tensor(1, mstype.int32)
@@ -1482,10 +1486,21 @@ class TopkRouterV2(Cell):
         extra_loss = z_loss
 
         router_prob = self.gating_activation(router_logits)  # (dp, N, expert_dim)fp32 <-- (dp, N, expert_dim)fp32
-        if self.moe_config.topk_method == "group_limited_greedy":
-            # (dp, N, n_group)fp32 <-- (dp, N, expert_dim)fp32
-            group_scores = self.reshape(
-                router_prob, (router_prob.shape[0], router_prob.shape[1], self.moe_config.n_group, -1)).max(axis=-1)
+
+        if self.moe_config.topk_method in ("group_limited_greedy", "noaux_tc"):
+            if self.moe_config.balance_via_topk_bias:
+                router_prob_with_bias = self.afb_add_topk_bias(router_prob, self.topk_bias)
+            else:
+                router_prob_with_bias = router_prob
+            group_scores = self.reshape(router_prob_with_bias,
+                                        (router_prob_with_bias.shape[0],
+                                        router_prob_with_bias.shape[1],
+                                        self.moe_config.n_group, -1))
+            if self.moe_config.topk_method == "noaux_tc":
+                top_2, _ = self.tc_topk(group_scores, 2)
+                group_scores = self.tc_sum(top_2, -1)
+            else:
+                group_scores = group_scores.max(axis=-1)
             top_values, _ = self.topk(group_scores, self.moe_config.topk_group)  # (dp, N, top_k)
             group_mask = self.cast(
                 group_scores.ge(self.tile(top_values.min(axis=-1, keepdims=True),
@@ -1495,11 +1510,11 @@ class TopkRouterV2(Cell):
             score_mask = score_mask.repeat(self.moe_config.expert_num // self.moe_config.n_group, axis=-1)
             score_mask = self.reshape(
                 score_mask, (score_mask.shape[0], score_mask.shape[1], -1))  # (dp, N, n_routed_experts)
-            tmp_scores = ops.masked_fill(router_prob, ~score_mask.bool(), 0.0)
+            tmp_scores = ops.masked_fill(router_prob_with_bias, ~score_mask.bool(), 0.0)
+
             if self.moe_config.balance_via_topk_bias:
-                _, expert_index = self.afb_topk(self.afb_add_topk_bias(tmp_scores, self.topk_bias),
-                                                self.num_experts_chosen)
-                expert_gate = self.gate_gather(tmp_scores, expert_index, 2)
+                _, expert_index = self.afb_topk(router_prob_with_bias, self.num_experts_chosen)
+                expert_gate = self.gate_gather(router_prob, expert_index, 2)
                 self._update_expert_load(expert_index)
             else:
                 expert_gate, expert_index = self.topk(tmp_scores, self.num_experts_chosen)

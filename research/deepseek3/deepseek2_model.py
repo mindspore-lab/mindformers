@@ -543,7 +543,7 @@ class DeepSeekV2Attention(nn.Cell):
                                                   next_tokens=0,
                                                   input_layout="BNSD",
                                                   keep_prob=1.,
-                                                  scale_value=1. / math.sqrt(self.q_head_dim),
+                                                  scale_value=self.scale_fa,
                                                   sparse_mode=0,
                                                   use_attention_mask=True)
             self.flash_attention.shard(parallel_config)
