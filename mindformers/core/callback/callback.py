@@ -23,8 +23,8 @@ import hashlib
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from typing import Callable, Optional, Union
-
 import numpy as np
+
 import mindspore as ms
 import mindspore.ops.operations as P
 from mindspore import Callback, Profiler, ModelCheckpoint, CheckpointConfig, context, save_checkpoint, Tensor
@@ -46,7 +46,7 @@ from mindformers.tools.logger import logger
 from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
 from mindformers.tools.utils import get_output_root_path, get_output_subpath, get_remote_save_url, check_in_modelarts,\
     get_real_rank, get_real_group_size, get_pipeline_rank_ids
-from mindformers.version_control import check_stress_detect_valid
+from mindformers.version_control import check_stress_detect_valid, is_version_ge
 
 __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
@@ -1015,6 +1015,8 @@ class ProfileMonitor(Callback):
                  profile_communication=False, profile_memory=False, config=None,
                  profiler_level=0, with_stack=False, data_simplification=True, **kwargs):
         super(ProfileMonitor, self).__init__()
+        self.mstx_range_id = None
+        self.mstx_avail = is_version_ge(ms.__version__, '2.5.0')
         self.start_step = start_step
         self.stop_step = stop_step
         self.start_profile = start_profile
@@ -1065,6 +1067,9 @@ class ProfileMonitor(Callback):
         step_num = cb_params.cur_step_num
         if step_num == self.start_step and not self.start_profile and self.profiler:
             self.profiler.start()
+        if self.mstx_avail:
+            from mindspore.profiler import mstx
+            self.mstx_range_id = mstx.range_start(f'Training step {step_num}')
 
     def step_end(self, run_context):
         """
@@ -1073,6 +1078,8 @@ class ProfileMonitor(Callback):
         Args:
             run_context (RunContext): Context of the train running.
         """
+        if self.mstx_avail:
+            mstx.range_end(self.mstx_range_id)
         cb_params = run_context.original_args()
         step_num = cb_params.cur_step_num
         if step_num == self.stop_step and self.profiler:
