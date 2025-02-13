@@ -32,7 +32,7 @@ def unified_safetensors(src_dir, src_merge_strategy, output_dir, file_suffix, ha
     if not os.path.exists(merged_path_):
         os.makedirs(merged_path_, exist_ok=True)
     ms.unified_safetensors(src_dir, src_merge_strategy, merged_path_,
-                           file_suffix=file_suffix, merge_with_redundancy=not has_redundancy)
+                           file_suffix=file_suffix, merge_with_redundancy=has_redundancy)
     _timed_print("Merge safetensor completed")
     return merged_path_
 
