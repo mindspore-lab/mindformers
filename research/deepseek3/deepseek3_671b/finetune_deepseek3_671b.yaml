@@ -16,7 +16,7 @@ trainer:
 
 # runner config
 runner_config:
-  epochs: 10
+  epochs: 2
   batch_size: 1
   sink_mode: True
   sink_size: 1
@@ -32,7 +32,7 @@ lr_schedule:
   type: CosineWithWarmUpLR
   learning_rate: 5.e-6
   lr_end: 1.e-6
-  warmup_steps: 2000
+  warmup_ratio: 0.02
   total_steps: -1 # -1 means it will load the total steps of the dataset
 
 # dataset
