@@ -1005,7 +1005,9 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
         self.v_head_dim = config.v_head_dim
         self.qk_nope_head_dim = config.qk_nope_head_dim
         self.max_position_embeddings = config.max_position_embeddings  # used for yarn rotary embedding.
-        self.mtp_depth = config.mtp_depth
+        self.mtp_depth = 0
+        if hasattr(config, "mtp_depth"):
+            self.mtp_depth = config.mtp_depth
 
         self.is_first_iteration = True
         self.use_past = config.use_past
@@ -1051,11 +1053,11 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
         self.fine_grain_interleave = check_fine_grain_interleave_valid(config.fine_grain_interleave,
                                                                        config.parallel_config)
         self.layers = nn.CellList()
-        self.layer_setting = LayerSetting(config.num_layers + config.mtp_depth,
+        self.layer_setting = LayerSetting(config.num_layers + self.mtp_depth,
                                           config.offset,
                                           config.parallel_config,
                                           config.pp_interleave_num)
-        for layer_id in range(config.num_layers + config.mtp_depth):
+        for layer_id in range(config.num_layers + self.mtp_depth):
             layer = DeepSeekV2DecodeLayer(layer_id,
                                           dim=config.hidden_size,
                                           n_heads=config.num_heads,
@@ -1090,12 +1092,12 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
             self.layers.append(layer)
 
         self.mtp_hidden_fusers = nn.CellList()
-        for i in range(config.mtp_depth):
+        for i in range(self.mtp_depth):
             layer = MTPHiddenFuser(config)
             self.layer_setting(layer, config.num_layers + i)
             self.mtp_hidden_fusers.append(layer)
         self.mtp_embeddings = None
-        if config.mtp_depth > 0:
+        if self.mtp_depth > 0:
             self.mtp_embeddings = MtpEmbeddingLayer(vocab_table_size=config.vocab_size)
 
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
