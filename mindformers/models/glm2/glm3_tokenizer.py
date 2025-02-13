@@ -111,8 +111,10 @@ class ChatGLM3Tokenizer(PreTrainedTokenizer):
         vocab_file (str): The vocabulary file path.
         bos_token (Union[str, tokenizers.AddedToken], optional): The beginning of sequence token that was used during
             pretraining. Can be used a sequence classifier token. Default: `"<sop>"` .
-        eos_token (Union[str, tokenizers.AddedToken], optional): The end of sequence token. Default: `"</s>"` .
-        end_token (Union[str, tokenizers.AddedToken], optional): The end of sequence token. Default: `"</s>"` .
+        eos_token (Union[str, tokenizers.AddedToken], optional): The end of sequence token,
+            marks the end position of the input or output sequence. Default: `"</s>"` .
+        end_token (Union[str, tokenizers.AddedToken], optional): The end token,
+            marks the final end position of multiple consecutive sequences. Default: `"</s>"` .
         mask_token (Union[str, tokenizers.AddedToken], optional): The masked token. Default: `"[MASK]"` .
         gmask_token (Union[str, tokenizers.AddedToken], optional): The special masked token. Default: ``"[gMASK]"``.
         pad_token (Union[str, tokenizers.AddedToken], optional): A special token used to make arrays of tokens the
