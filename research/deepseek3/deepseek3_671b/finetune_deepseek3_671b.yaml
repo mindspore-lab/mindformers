@@ -63,6 +63,19 @@ context:
   jit_config:
     jit_level: "O1"
 
+# parallel config for device num = 1024
+parallel_config:
+  data_parallel: 16
+  model_parallel: 4
+  pipeline_stage: 16
+  expert_parallel: 8
+  micro_batch_num: &micro_batch_num 32
+  vocab_emb_dp: True
+  use_seq_parallel: True
+  gradient_aggregation_group: 4
+# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
+micro_batch_interleave_num: 1
+
 # parallel context config
 parallel:
   parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
@@ -77,26 +90,13 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-    optimizer_weight_shard_size: 16
-
-# device num = 1024
-parallel_config:
-  data_parallel: 8
-  model_parallel: 8
-  pipeline_stage: 16
-  expert_parallel: 8
-  micro_batch_num: &micro_batch_num 32
-  vocab_emb_dp: True
-  use_seq_parallel: True
-  gradient_aggregation_group: 4
-# when model parallel is greater than 1, we can set micro_batch_interleave_num=2, that may accelerate the train process.
-micro_batch_interleave_num: 1
+    optimizer_weight_shard_size: 8
 
 # recompute config
 recompute_config:
-  recompute: True
+  recompute: [3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 3, 2, 0]
   select_recompute: False
-  parallel_optimizer_comm_recompute: False
+  parallel_optimizer_comm_recompute: True
   mp_comm_recompute: True
   recompute_slice_activation: True
 
@@ -134,7 +134,7 @@ model:
     use_past: False
     extend_method: "None"
     use_flash_attention: True
-    offset: [0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1]
+    offset: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1]
     checkpoint_name_or_path: ""
     theta: 10000.0
     return_extra_loss: False
