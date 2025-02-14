@@ -14,6 +14,7 @@
 # ============================================================================
 """Base Trainer."""
 import os
+import re
 import subprocess
 from pprint import pprint
 from functools import partial
@@ -25,6 +26,7 @@ import mindspore as ms
 from mindspore import Tensor
 from mindspore import get_ckpt_path_with_strategy
 from mindspore.communication import get_rank
+from mindspore.communication.management import get_group_size
 from mindspore.train.model import Model
 from mindspore.train import Callback
 from mindspore.dataset import GeneratorDataset
@@ -68,13 +70,14 @@ from .utils import (
     check_runner_config,
     transform_and_load_checkpoint,
     load_resume_context_from_checkpoint,
+    get_last_checkpoint,
 )
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
 from ..utils import is_hf_safetensors_dir
 from ..utils.load_checkpoint_utils import process_hf_checkpoint
-from ..version_control import check_delay_init_valid
+from ..version_control import check_delay_init_valid, check_tft_valid
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
 SUPPORT_MODEL_NAMES = MindFormerBook().get_model_name_support_list()
@@ -605,18 +608,6 @@ class BaseTrainer:
                                                     "calculate_per_token_loss": calculate_per_token_loss})
         return model_wrapper
 
-    def use_optimizer_wrapper(self):
-        optimizer_wrapper = False
-        if self.config.enable_mindio_ttp_save_ckpt:
-            optimizer_wrapper = True
-        return optimizer_wrapper
-
-    def create_optimizer_wrapper(self, optimizer):
-        if self.config.enable_mindio_ttp_save_ckpt:
-            logger.info(".........Build Optimizer TFTWrapper For report Optimizer status to MindIO TFT..........")
-            optimizer = ms.nn.OptTFTWrapper(optimizer)
-        return optimizer
-
     def create_callbacks(self, default_args: dict = None):
         """Create the callback list for training."""
         logger.info(".........Build Callbacks for Train From Config..........")
@@ -740,14 +731,60 @@ class BaseTrainer:
         return dataset, config
 
     def resume_ckpt_path_with_strategy(self, config):
+        """Get resume checkpoint path with strategy.
+
+        This method finds the appropriate checkpoint path for the current rank when resuming training
+        with a distributed strategy.
+
+        Args:
+            config (ConfigArguments): The configuration containing checkpoint and strategy settings.
+
+        Returns:
+            str: Path to the checkpoint file for the current rank after applying strategy.
+                 Returns None if no valid checkpoint is found.
+
+        Raises:
+            ValueError: If strategy file for current rank does not exist.
+        """
+
         cur_rank = get_rank()
         src_strategy_files = sorted([f for f in os.listdir(config.src_strategy_path_or_dir)])
         if len(src_strategy_files) - 1 < cur_rank:
             raise ValueError(f" rank {cur_rank} src_strategy is not exist")
         src_strategy_file = os.path.join(config.src_strategy_path_or_dir, src_strategy_files[cur_rank])
-        load_ckpt_new = get_ckpt_path_with_strategy(config.load_checkpoint, src_strategy_file)
+        if os.path.isfile(config.load_checkpoint):
+            return get_ckpt_path_with_strategy(config.load_checkpoint, src_strategy_file)
 
-        return load_ckpt_new
+        if os.path.isdir(config.load_checkpoint):
+            device_nums = get_group_size()
+            max_ckpt_path = ""
+            max_time = 0
+            for i in range(device_nums):
+                cur_rank_ckpt_dir = os.path.join(config.load_checkpoint, f"rank_{i}")
+                last_ckpt = get_last_checkpoint(cur_rank_ckpt_dir, config.load_ckpt_format)
+                if last_ckpt is None:
+                    continue
+                cur_time = os.path.getmtime(last_ckpt)
+                if cur_time > max_time:
+                    max_time = cur_time
+                    max_ckpt_path = last_ckpt
+            pattern = fr'rank_\d+(?:_(\d+))?-(\d+)_(\d+)\.{config.load_ckpt_format}$'
+            match = re.search(pattern, max_ckpt_path)
+            if match:
+                repeat_num = int(match.group(1)) if match.group(1) else 0
+                if repeat_num == 0:
+                    return get_ckpt_path_with_strategy(max_ckpt_path, src_strategy_file)
+                for i in range(repeat_num, 0, -1):
+                    # Replace the current repeat number in max_ckpt_path with i
+                    cur_ckpt_path = re.sub(r'rank_\d+_\d+', f'rank_{cur_rank}_{i}', max_ckpt_path)
+                    load_ckpt_new = get_ckpt_path_with_strategy(cur_ckpt_path, src_strategy_file)
+                    if load_ckpt_new:
+                        return load_ckpt_new
+                # Try without repeat number (i=0 case)
+                cur_ckpt_path = re.sub(r'rank_\d+_\d+', f'rank_{cur_rank}', max_ckpt_path)
+                return get_ckpt_path_with_strategy(cur_ckpt_path, src_strategy_file)
+
+        return None
 
     def training_process(
             self,
@@ -777,10 +814,12 @@ class BaseTrainer:
         logger.info("Create train dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         append_info = None
-        if config.resume_training and config.load_checkpoint:
+        if config.arf_skip_load:
+            logger.info(".............Reboot node skip load checkpoint when using ARF..................")
+        if config.resume_training and config.load_checkpoint and not config.arf_skip_load:
             logger.info(".............Start load resume context from checkpoint..................")
-            if config.enable_mindio_ttp_save_ckpt:
-                logger.info(".............Start resume checkpoint path from strategy..................")
+            if check_tft_valid() and not config.remove_redundancy:
+                logger.info("..............Start resume checkpoint path from strategy..............")
                 config.load_checkpoint = self.resume_ckpt_path_with_strategy(config)
             load_resume_context_from_checkpoint(config, dataset)
             resume_dict = {
@@ -798,7 +837,9 @@ class BaseTrainer:
             config.runner_config.initial_step = 0
 
         # check if skip datasets
-        if config.data_skip_steps or config.resume_training:
+        if config.arf_skip_load:
+            logger.info(".............Reboot node skip load checkpoint when using ARF..................")
+        if (config.data_skip_steps or config.resume_training) and not config.arf_skip_load:
             if not config.ignore_data_skip:
                 data_skip_steps = config.data_skip_steps if config.data_skip_steps \
                     else config.runner_config.initial_step
@@ -849,10 +890,6 @@ class BaseTrainer:
         if optimizer is None:
             optimizer = self.create_optimizer_scheduler(network, layer_scale=config.layer_scale)
 
-        # build optimizer Wrapper
-        if self.use_optimizer_wrapper():
-            logger.info(".........Build Optimizer Wrapper for Train..........")
-            optimizer = self.create_optimizer_wrapper(optimizer)
 
         # build model wrapper
         logger.info(".........Build Running Wrapper From Config For Train..........")
@@ -887,6 +924,7 @@ class BaseTrainer:
             stop_step_dict = OrderedDict()
             stop_step_dict['type'] = "TrainCallBack"
             stop_step_dict['stop_step'] = self.config.runner_config.stop_step
+        ckpt_config = None
         for callback in self.config.callbacks:
             default_args = None
             if "type" in callback and callback["type"] == "MFLossMonitor":
@@ -921,14 +959,37 @@ class BaseTrainer:
                                 }
                 if default_args.get("remove_redundancy") and default_args.get("checkpoint_format") == "ckpt":
                     raise ValueError("The format of checkpoint is ckpt which is not support remove redundancy.")
-                if default_args.get("remove_redundancy") and config.get("enable_mindio_ttp_save_ckpt"):
-                    raise ValueError("enable_mindio_ttp_save_ckpt and remove_redundancy is incompatible.")
+                ckpt_config = [callback, default_args]
+            elif "type" in callback and callback["type"] == "TrainFaultTolerance":
+                continue
             elif "type" in callback and callback["type"] == "StressDetectCallBack":
                 default_args = {
                     "dataset_size": config.data_size
                 }
-
             default_callbacks.append(build_callback(callback, default_args=default_args))
+
+        if check_tft_valid():
+            if ckpt_config is None:
+                raise ValueError("You must set CheckpointMonitor callback for TFT training!")
+            ckpt_config[1]["async_save"] = False
+            ckpt_cb_obj = build_callback(ckpt_config[0], default_args=ckpt_config[1])
+
+            # pylint:disable=W0640,W0212
+            def ckpt_save_func(cb_params, append_dict, prefix=None):
+                ckpt_cb_obj._append_dict.update(append_dict)
+                ckpt_cb_obj.save_network_params = False
+                ckpt_cb_obj.save_trainable_params = False
+                if prefix is not None:
+                    ckpt_cb_obj._prefix = prefix + "_" + ckpt_cb_obj._prefix
+                ckpt_cb_obj._save_ckpt(cb_params, True)
+
+            default_args = {
+                "ckpt_save_fn": ckpt_save_func,
+                "initial_epoch": config.runner_config.initial_epoch,
+                "initial_step": config.runner_config.initial_step,
+            }
+            default_callbacks.append(build_callback({"type": "TrainFaultTolerance"}, default_args=default_args))
+
         if callbacks is not None:
             if isinstance(callbacks, list):
                 default_callbacks.extend(callbacks)

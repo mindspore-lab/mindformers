@@ -36,7 +36,7 @@ from mindformers.trainer.config_args import (
 )
 from mindformers.trainer.training_args import TrainingArguments
 from mindformers.utils import get_cann_workqueue_cores
-from mindformers.version_control import check_cpu_affinity_valid
+from mindformers.version_control import check_cpu_affinity_valid, check_tft_valid
 
 
 class Context:
@@ -59,7 +59,10 @@ class Context:
             self.mf_ctx_opr = MFContextOperator(self.config)
             self.ms_ctx_opr = MSContextOperator(self.config)
             self.parallel_opr = ParallelOperator(self.config)
-
+            if check_tft_valid() and ("ARF:1" in os.getenv("MS_ENABLE_TFT", "")):
+                from mindspore.utils import _tft_handler
+                _tft_handler.init(config=self.config)
+                logger.warning(f"------------------init tft handler ok----------------------")
             if self.config.use_parallel:
                 self.rank_id, self.device_num = (
                     self.parallel_opr.init_communication()
@@ -306,12 +309,6 @@ class MFContextOperator(MFContextConfig):
             env['CPU_AFFINITY'] = cpu_affinity
             env['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = ms_internal_disable_custom_kernel_list
             env['RUN_MODE'] = run_mode
-        if (
-                self.enable_mindio_ttp_save_ckpt and
-                self.config.runner_config.sink_size == 1
-        ):
-            env['MS_ENABLE_TFT'] = '{TTP:1 UCE:1}'
-            env['MINDIO_FOR_MINDSPORE'] = '1'
 
         os.environ.update(env)
         logger.info(f"env: {env}")
