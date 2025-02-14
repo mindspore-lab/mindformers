@@ -607,9 +607,6 @@ class DeepSeekV2Attention(nn.Cell):
         value_states = self.reshape(value_states, (bs, seq_len, self.n_head, self.v_head_dim))
         value_states = self.transpose(value_states, (0, 2, 1, 3))
 
-        pad_zeros = self.mul_zeros(q_pe, 0)
-        value_states = self.pe_concat((value_states, pad_zeros))
-
         q_pe, k_pe = self.apply_rotary_emb(q_pe, k_pe, freqs_cis)
         query_states = self.pe_concat((q_nope, q_pe))
         key_states = self.pe_concat((k_nope, k_pe))
@@ -627,6 +624,8 @@ class DeepSeekV2Attention(nn.Cell):
                                          (1, 1, 1))
         else:
             if self.use_flash_attention:
+                pad_zeros = self.mul_zeros(q_pe, 0)
+                value_states = self.pe_concat((value_states, pad_zeros))
                 context_layer = self.flash_attention(self.cast(query_states, self.dtype),
                                                      self.cast(key_states, self.dtype),
                                                      self.cast(value_states, self.dtype), mask)
