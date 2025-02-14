@@ -624,6 +624,9 @@ class MindFormerBook:
         ]),
         ('deepseekv2', [
             'deepseekv2_236b',
+        ]),
+        ('deepseekv3', [
+            'deepseekv3_671b',
         ])
     ])
 

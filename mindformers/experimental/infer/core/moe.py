@@ -15,18 +15,36 @@
 """
 Note: Mixture of Expert (MoE) structure. This is an experimental interface that is subject to change or deletion.
 """
+import numpy as np
+
 import mindspore.common.dtype as mstype
-from mindspore import Tensor, nn, Parameter, mint
+from mindspore import Tensor, nn, Parameter, mint, ops
 from mindspore.ops import operations as P
 from mindspore.common.initializer import initializer
+
+from mindformers.modules.layers import Linear
+from mindformers.experimental.infer.core import get_act_func
+from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
+from mindformers.experimental.infer.core.mapping import ReduceFromModelParallelRegion
+
+# pylint: disable=C0412
 try:
-    from mindspore.ops.auto_generate import (MoeFinalizeRouting,
+    from mindspore.ops.auto_generate import (MoeComputeExpertTokens,
+                                             MoeFinalizeRouting,
                                              MoeGatingTopKSoftmax,
                                              MoeInitRouting,
-                                             MoeComputeExpertTokens)
+                                             MoeInitRoutingV2,
+                                             MoeTokenUnpermute)
     MOE_FUSED_OP_VALID = True
 except ImportError:
     MOE_FUSED_OP_VALID = False
+
+
+dtype_map = {
+    'float16': mstype.float32,
+    'float32': mstype.float32,
+    'bfloat16': mstype.bfloat16
+}
 
 
 class TopkRouter(nn.Cell):
@@ -50,8 +68,10 @@ class Router(nn.Cell):
         super(Router, self).__init__()
         self.expert_num = moe_config.expert_num
         self.dense = nn.Dense(in_channels=hidden_size, out_channels=self.expert_num,
-                              has_bias=False, dtype=moe_config.router_dense_type)
+                              has_bias=False, dtype=mstype.bfloat16)
         self.router = TopkRouter(self.expert_num)
+        self.e_score_correction_bias = Parameter(initializer('zeros', (self.expert_num), mstype.float32),
+                                                 requires_grad=False, parallel_optimizer=False)
 
 
 class ParallelMoE(nn.Cell):
@@ -81,7 +101,7 @@ class ParallelMoE(nn.Cell):
         self.expert_dim = moe_config.expert_num
         self.topk_norm_prob = moe_config.norm_topk_prob
         self.num_experts_chosen = moe_config.num_experts_chosen
-        self.router_dense_type = moe_config.router_dense_type
+        self.router_dense_type = dtype_map.get(moe_config.router_dense_type)
         self.use_fused_op = use_fused_op and MOE_FUSED_OP_VALID
 
         self.ffn = ffn
@@ -187,4 +207,256 @@ class ParallelMoE(nn.Cell):
         moe_output = self.tensor_moe_finalize_routing(expert_output, expert_weight, expert_index, unsort_map)  # -> (N, h)
 
         output_tensor = self.reshape(moe_output, input_tensor_shape)  # (N, h) -> (bs, seq, h)
+        return output_tensor
+
+
+class SharedParallelMLP(nn.Cell):
+    r"""
+        SharedParallelMLP. Shared Expert for MoE .
+
+        Args:
+            config (Config): The configuration of Model.
+        Inputs:
+            - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+
+        Outputs:
+            - **output_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+    """
+
+    def __init__(self, config, intermediate_size):
+        super().__init__(config)
+        self.config = config
+        self.has_bias = self.config.mlp_has_bias
+        self.hidden_size = self.config.hidden_size
+        self.ffn_hidden_size = intermediate_size
+        self.mlp_has_gate = self.config.mlp_has_gate
+
+        self.w1 = Linear(
+            self.hidden_size,
+            self.ffn_hidden_size,
+            has_bias=self.has_bias,
+            transpose_b=True,
+            param_init_type=self.config.param_init_dtype,
+            compute_dtype=self.config.compute_dtype,
+        )
+        self.w3 = Linear(
+            self.hidden_size,
+            self.ffn_hidden_size,
+            has_bias=self.has_bias,
+            transpose_b=True,
+            param_init_type=self.config.param_init_dtype,
+            compute_dtype=self.config.compute_dtype,
+        )
+
+        self.act_type = self.config.hidden_act
+        self.act_func = get_act_func(self.act_type)
+
+        self.w2 = Linear(
+            self.ffn_hidden_size,
+            self.hidden_size,
+            has_bias=self.has_bias,
+            transpose_b=True,
+            param_init_type=self.config.param_init_dtype,
+            compute_dtype=self.config.compute_dtype,
+        )
+
+        self.mul = ops.Mul()
+        self.reshape = ops.Reshape()
+
+    def construct(self, x):
+        """ Construct function of mlp block. """
+        gate = self.w1(x)
+        hidden = self.w3(x)
+        gate = self.act_func(gate)
+        hidden = mint.mul(hidden, gate)
+        output = self.w2(hidden)
+        return output
+
+
+class RoutedParallelMLP(nn.Cell):
+    r"""
+        RoutedParallelMLP. Routing each tokens to the topk expert and calculating the final output.
+
+        Args:
+            config (Config): The configuration of Model.
+        Inputs:
+            - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+
+        Outputs:
+            - **output_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+    """
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.has_bias = self.config.mlp_has_bias
+        self.hidden_size = self.config.hidden_size
+        self.ffn_hidden_size = self.config.moe_config.moe_intermediate_size
+        self.cast = P.Cast()
+        self.act_type = self.config.hidden_act
+        self.act_func = get_act_func(self.act_type)
+
+        self.w1 = ColumnParallelLinear(
+            self.hidden_size,
+            self.ffn_hidden_size,
+            config=self.config.parallel_config,
+            bias=self.has_bias,
+            transpose_b=True,
+            gather_output=False,
+            param_init_type=self.config.param_init_dtype,
+            compute_dtype=self.config.compute_dtype,
+            is_expert=True,
+            expert_num=self.config.moe_config.expert_num,
+        )
+
+        self.w2 = RowParallelLinear(
+            self.ffn_hidden_size,
+            self.hidden_size,
+            input_is_parallel=True,
+            config=self.config.parallel_config,
+            bias=self.has_bias,
+            skip_bias_add=True,
+            transpose_b=True,
+            param_init_type=self.config.param_init_dtype,
+            compute_dtype=self.config.compute_dtype,
+            is_expert=True,
+            expert_num=self.config.moe_config.expert_num,
+            moe_delay_allreduce=True,
+        )
+
+        self.w3 = ColumnParallelLinear(
+            self.hidden_size,
+            self.ffn_hidden_size,
+            config=self.config.parallel_config,
+            bias=self.has_bias,
+            transpose_b=True,
+            gather_output=False,
+            param_init_type=self.config.param_init_dtype,
+            compute_dtype=self.config.compute_dtype,
+            is_expert=True,
+            expert_num=self.config.moe_config.expert_num,
+        )
+
+    def construct(self, x, group_list=None):
+        """Forward process of the FeedForward"""
+        x = self.cast(x, self.config.compute_dtype)
+        gate = self.w1(x, group_list=group_list)
+        gate = self.act_func(gate)
+        hidden = self.w3(x, group_list=group_list)
+        hidden = mint.mul(hidden, gate)
+        output = self.w2(hidden, group_list=group_list)
+        return output
+
+
+class GroupTopkCell(nn.Cell):
+    r"""
+        GroupTopkCell.
+
+        Inputs:
+            - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+
+        Outputs:
+            - **output_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+    """
+    def __init__(self):
+        super().__init__()
+        self.group_topk = ops.GroupTopk()
+
+    def construct(self, token, idx_arr, group_num, k, k_inner):
+        self.group_topk(token, idx_arr, group_num, k, k_inner)
+        return token
+
+
+class ParallelMoEV2(nn.Cell):
+    r"""
+        ParallelMoEV2. Routing each tokens to the topk expert and calculating the final output.
+
+        Args:
+            ffn (Cell): The FeedForward Module.
+            hidden_size (int): The hidden size of each token.
+            moe_config (MoEConfig): The configuration of MoE (Mixture of Expert).
+        Inputs:
+            - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+
+        Outputs:
+            - **output_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+    """
+
+    def __init__(self,
+                 ffn,
+                 hidden_size,
+                 moe_config):
+        super(ParallelMoEV2, self).__init__()
+        self.hidden_size = hidden_size
+        self.moe_config = moe_config
+        self.expert_num = moe_config.expert_num
+        self.num_experts_chosen = moe_config.num_experts_chosen
+        self.router_dense_type = dtype_map.get(moe_config.router_dense_type)
+        self.topk_group = moe_config.topk_group
+        self.n_group = moe_config.n_group
+
+        self.ffn = ffn
+        self.router = Router(hidden_size=self.hidden_size, moe_config=moe_config)
+        self.gating = self.router.dense
+
+        self.reshape = P.Reshape()
+        self.shape = P.Shape()
+        self.cast = P.Cast()
+        self.add = P.Add()
+        self.div = P.Div()
+        self.mul = P.Mul()
+        self.gather = P.Gather()
+
+        self.idx_arr = Tensor(np.arange(1024, dtype=np.int32))
+        self.group_topk_inner = 2
+        self.group_topk = GroupTopkCell()
+
+        self.moe_token_unpermute = MoeTokenUnpermute()
+        self.moe_init_routing_v2 = MoeInitRoutingV2()
+        self.reduce_from_mp_region = ReduceFromModelParallelRegion()
+
+    def construct(self, input_tensor):
+        """forward process"""
+        input_tensor_shape = self.shape(input_tensor)
+        input_dtype = input_tensor.dtype
+        input_tensor = self.reshape(input_tensor, (-1, self.hidden_size))
+
+        gating_logits = self.gating(self.cast(input_tensor, self.router_dense_type))
+        score = mint.sigmoid(gating_logits)
+        origin_score = score
+
+        # bias
+        score = score + self.router.e_score_correction_bias
+        # n_group
+        score = self.group_topk(score.astype(mstype.bfloat16), self.idx_arr, self.n_group,
+                                self.topk_group, self.group_topk_inner)
+
+        # topk
+        expert_index = mint.topk(score, self.num_experts_chosen, dim=-1)[1]
+
+        expert_index = self.cast(expert_index, mstype.int32)
+        sorted_input_tensor, unsort_map, group_list, _ = \
+            self.moe_init_routing_v2(
+                input_tensor,
+                expert_index,
+                active_num=0,
+                expert_capacity=0,
+                expert_num=self.expert_num,
+                drop_pad_mode=0,
+                expert_tokens_count_or_cumsum_flag=2,
+                expert_tokens_before_capacity_flag=True)
+        group_list = self.cast(group_list, mstype.int64)
+
+        expert_output = self.ffn(sorted_input_tensor, group_list)
+
+        weight = origin_score.gather(expert_index, 1, 1)
+        expert_weight = self.div(weight, mint.sum(weight, -1, True))
+        expert_weight = self.mul(self.moe_config.routed_scaling_factor, expert_weight).astype(input_dtype)
+
+        moe_output = self.moe_token_unpermute(permuted_tokens=expert_output,
+                                              sorted_indices=unsort_map,
+                                              probs=expert_weight,
+                                              padded_mode=False,
+                                              restore_shape=None)
+        moe_output = self.reduce_from_mp_region(moe_output)
+        output_tensor = self.reshape(moe_output, input_tensor_shape)
         return output_tensor

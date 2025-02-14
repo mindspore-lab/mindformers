@@ -1333,7 +1333,7 @@ class Trainer:
 
     def _check_config_rules(self):
         """Check config rules."""
-        if self.config.auto_trans_ckpt:
+        if self.config.auto_trans_ckpt and self.config.load_ckpt_format == 'ckpt':
             if not is_publicly_accessible_path(get_output_root_path()):
                 raise ValueError(f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True,"
                                  "the output_dir should be a shared directory that can be accessed by all nodes."

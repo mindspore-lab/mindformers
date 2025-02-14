@@ -465,7 +465,7 @@ class Linear(Cell):
             self.expert_flag = True
             self.weight = Parameter(initializer(weight_init, [self.expert_num] + weight_shape, param_init_type),
                                     name="weight")
-            if self.use_gmm and check_valid_gmm_op():
+            if self.use_gmm and check_valid_gmm_op(gmm_version='GroupedMatmul'):
                 from mindspore.ops.auto_generate import GroupedMatmul
                 # split_item only supports 0 and 3 now, 0 means the size of tensorlist not equal to 1,
                 # 3 means the size of tensorlist is 1.

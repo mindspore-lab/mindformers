@@ -29,6 +29,7 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import get_t
 from mindformers.experimental.parallel_core.pynative.tensor_parallel.random import (TENSOR_PARALLEL_GENERATOR,
                                                                                     get_rng_tracer)
 from mindformers.experimental.parallel_core.pynative.utils import divide
+from mindformers.version_control import check_valid_gmm_op
 
 __all__ = ["ColumnParallelLinear", "RowParallelLinear", "VocabParallelEmbedding"]
 
@@ -141,7 +142,14 @@ class ColumnParallelLinear(nn.Cell):
             self.input_size, self.output_size_per_partition)
         if self.is_expert and self.expert_num > 1:
             weight_shape = (self.expert_num,) + weight_shape
-            self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0)
+            if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
+                self.matmul = ops.auto_generate.GroupedMatmulV4(split_item=3, group_type=0,
+                                                                group_list_type=1, act_type=0)
+            elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
+                self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0)
+            else:
+                raise RuntimeError(f"Inference of the MoE model relies on the GMM op. "
+                                   "Please upgrade to a MindSpore version above 2.3.0.")
         else:
             self.matmul = P.MatMul(transpose_b=self.transpose_b)
         with get_rng_tracer().rng_fork(TENSOR_PARALLEL_GENERATOR):
@@ -188,7 +196,7 @@ class ColumnParallelLinear(nn.Cell):
         output_shape = self.shape(input_parallel)[:-1] + (self.output_size_per_partition,)
         input_parallel = self.reshape(input_parallel, (-1, self.input_size))
         if self.is_expert and self.expert_num > 1:
-            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, group_list)[0]
+            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None, group_list)[0]
         else:
             output_parallel = self.matmul(input_parallel, weight)
         if self.has_bias:
@@ -207,6 +215,11 @@ class ColumnParallelLinear(nn.Cell):
     def sharded_state_dict(self):
         """provide the sharded state dict based on the config"""
         w_shard = (self.tensor_parallel_group_size, 1) if self.transpose_b else (1, self.tensor_parallel_group_size)
+
+        if self.is_expert and self.expert_num > 1:
+            w_shard = (1, self.tensor_parallel_group_size, 1) if self.transpose_b \
+                else (1, 1, self.tensor_parallel_group_size)
+
         state_dict = {}
         if not self.skip_weight_param_allocation:
             state_dict[self.weight.name] = {'shape': self.weight.shape,
@@ -274,6 +287,7 @@ class RowParallelLinear(nn.Cell):
             param_init_type=mstype.float32,
             compute_dtype=mstype.float16,
             expert_num=1,
+            moe_delay_allreduce=False,
     ):
         super(RowParallelLinear, self).__init__()
         if stride > 1:
@@ -298,6 +312,7 @@ class RowParallelLinear(nn.Cell):
         self.expert_num = expert_num
         self.is_expert = is_expert
         self.transpose_b = transpose_b if self.expert_num <= 1 else False
+        self.moe_delay_allreduce = moe_delay_allreduce
 
         if self.sequence_parallel and not self.input_is_parallel:
             raise RuntimeError(
@@ -310,7 +325,14 @@ class RowParallelLinear(nn.Cell):
         if self.is_expert and self.expert_num > 1:
             weight_shape = (self.expert_num,) + weight_shape
             bias_shape = (1, self.expert_num, 1) + bias_shape
-            self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0)
+            if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
+                self.matmul = ops.auto_generate.GroupedMatmulV4(split_item=3, group_type=0,
+                                                                group_list_type=1, act_type=0)
+            elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
+                self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0)
+            else:
+                raise RuntimeError(f"Inference of the MoE model relies on the GMM op. "
+                                   "Please upgrade to a MindSpore version above 2.3.0.")
         else:
             self.matmul = P.MatMul(transpose_b=self.transpose_b)
         with get_rng_tracer().rng_fork(TENSOR_PARALLEL_GENERATOR):
@@ -353,7 +375,7 @@ class RowParallelLinear(nn.Cell):
         output_shape = self.shape(input_parallel)[:-1] + (self.output_size,)
         input_parallel = self.reshape(input_parallel, (-1, self.input_size_per_partition))
         if self.is_expert and self.expert_num > 1:
-            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, group_list)[0]
+            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None, group_list)[0]
         else:
             output_parallel = self.matmul(input_parallel, weight)
 
@@ -362,7 +384,10 @@ class RowParallelLinear(nn.Cell):
             output = self.reduce_scatter_to_sp_region(output_parallel)
             output = output.swapaxes(0, 1).contiguous()
         else:
-            output = self.reduce_from_mp_region(output_parallel)
+            if self.moe_delay_allreduce:
+                output = output_parallel
+            else:
+                output = self.reduce_from_mp_region(output_parallel)
 
         if self.has_bias and not self.skip_bias_add:
             output = self.bias_add(output, self.cast(self.bias, self.compute_dtype))
@@ -373,6 +398,11 @@ class RowParallelLinear(nn.Cell):
     def sharded_state_dict(self):
         """provide the sharded state dict based on the config"""
         w_shard = (1, self.tensor_parallel_group_size) if self.transpose_b else (self.tensor_parallel_group_size, 1)
+
+        if self.is_expert and self.expert_num > 1:
+            w_shard = (1, 1, self.tensor_parallel_group_size) if self.transpose_b \
+                else (1, self.tensor_parallel_group_size, 1)
+
         state_dict = {}
         state_dict[self.weight.name] = {'shape': self.weight.shape,
                                         'shard': w_shard}
