@@ -70,7 +70,7 @@ deepseekv2的数据预处理过程和llama相同，详见llama2文档。
 
 执行`convert_weight.py`转换脚本，将HuggingFace的权重转换为完整的ckpt权重。
 
-```python
+```shell
 cd research/deepseek2
 python convert_weight.py --torch_ckpt_path TORCH_CKPT_PATH --mindspore_ckpt_path MS_CKPT_NAME
 ```
