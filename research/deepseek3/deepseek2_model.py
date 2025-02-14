@@ -70,7 +70,8 @@ class MTPHiddenFuser(Cell):
                             self.hidden_size,
                             has_bias=False,
                             compute_dtype=config.compute_dtype,
-                            param_init_type=config.param_init_type)
+                            param_init_type=config.param_init_type,
+                            init_method_std=config.init_method_std)
         self.cast = P.Cast()
         self.dtype = config.compute_dtype
         if config.parallel_config.use_seq_parallel:
@@ -335,7 +336,8 @@ class DeepSeekV2Attention(nn.Cell):
                  qk_nope_head_dim=128,
                  max_position_embeddings=2048,
                  scaling_factor: Optional[Dict] = None,
-                 norm_eps=1e-5
+                 norm_eps=1e-5,
+                 init_method_std=0.006
                  ):
         super().__init__()
         self.hidden_size = dim
@@ -386,7 +388,8 @@ class DeepSeekV2Attention(nn.Cell):
             self.q_lora_rank,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type
+            param_init_type=param_init_type,
+            init_method_std=init_method_std
         )
         # for reason of inference precision, we do not use fused_kernel. This will be corrected once the fused kernel
         # meets accuracy requirement for bfloat16 data.
@@ -398,14 +401,16 @@ class DeepSeekV2Attention(nn.Cell):
             self.n_head * self.qk_nope_head_dim,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type
+            param_init_type=param_init_type,
+            init_method_std=init_method_std
         )
         self.l2q_pe_proj = Linear(
             self.q_lora_rank,
             self.n_head * self.qk_rope_head_dim,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type
+            param_init_type=param_init_type,
+            init_method_std=init_method_std
         )
 
         # 1. kv2l: kv latent vector; 2. lkv_norm: latent vector of kv normalization
@@ -414,14 +419,16 @@ class DeepSeekV2Attention(nn.Cell):
             self.qk_rope_head_dim,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type
+            param_init_type=param_init_type,
+            init_method_std=init_method_std
         )
         self.kv2l_latent_kv = Linear(
             self.hidden_size,
             self.kv_lora_rank,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type
+            param_init_type=param_init_type,
+            init_method_std=init_method_std
         )
         # for reason of inference precision, we do not use fused_kernel. This will be corrected once the fused kernel
         # meets accuracy requirement for bfloat16 data.
@@ -432,14 +439,16 @@ class DeepSeekV2Attention(nn.Cell):
             self.n_head * self.qk_nope_head_dim,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type
+            param_init_type=param_init_type,
+            init_method_std=init_method_std
         )
         self.lkv2kv_v = Linear(
             self.kv_lora_rank,
             self.n_head * self.v_head_dim,
             has_bias=qkv_has_bias,
             compute_dtype=compute_dtype,
-            param_init_type=param_init_type
+            param_init_type=param_init_type,
+            init_method_std=init_method_std
         )
 
         self.q2l_proj.shard(((dp, 1), (1, 1)))
@@ -465,7 +474,8 @@ class DeepSeekV2Attention(nn.Cell):
                          out_channels=self.hidden_size,
                          has_bias=False,
                          compute_dtype=compute_dtype,
-                         param_init_type=param_init_type)
+                         param_init_type=param_init_type,
+                         init_method_std=init_method_std)
         self.wo.shard(((dp, mp), (1, mp)))
 
         self.inv_norm_factor = self.q_head_dim ** (-0.5)
@@ -788,7 +798,8 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                  qk_nope_head_dim=128,
                  max_position_embeddings=2048,
                  scaling_factor: Optional[Dict] = None,
-                 return_extra_loss=True
+                 return_extra_loss=True,
+                 init_method_std=0.006
                  ):
         super().__init__()
         self.layer_id = layer_id
@@ -831,12 +842,13 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                              qk_nope_head_dim=qk_nope_head_dim,
                                              max_position_embeddings=max_position_embeddings,
                                              scaling_factor=scaling_factor,
-                                             norm_eps=norm_eps)
+                                             norm_eps=norm_eps,
+                                             init_method_std=init_method_std)
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
         self.shared_expert_num = 0 if moe_config is None else moe_config.shared_expert_num
         # set kbk infer for moe structural models.
-        self.use_moe_infer = False # temporarily disable using moe infer
+        self.use_moe_infer = False  # temporarily disable using moe infer
 
         ffn = LlamaFeedForward(dim=self.hidden_size,
                                intermediate_size=intermediate_size,
@@ -862,7 +874,8 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                                  ffn_dim_multiplier=ffn_dim_multiplier,
                                                  compute_dtype=compute_dtype,
                                                  param_init_type=param_init_type,
-                                                 parallel_config=parallel_config)
+                                                 parallel_config=parallel_config,
+                                                 init_method_std=init_method_std)
         else:
             if self.expert_num == 1:
                 self.feed_forward = ffn
@@ -880,7 +893,7 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                               moe_config=moe_config,
                                               parallel_config=parallel_config,
                                               return_extra_loss=self.return_extra_loss)
-                else: # There are shared experts to initialize them
+                else:  # There are shared experts to initialize them
                     logger.info("MoE config is provided, use MoE FFN with shared ffn")
                     self.feed_forward = LlamaFeedForwardWithMoE(hidden_size=self.hidden_size,
                                                                 intermediate_size=moe_config.moe_intermediate_size,
@@ -889,7 +902,8 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                                                 moe_config=moe_config,
                                                                 parallel_config=parallel_config,
                                                                 use_moe_infer=self.use_moe_infer,
-                                                                return_extra_loss=self.return_extra_loss)
+                                                                return_extra_loss=self.return_extra_loss,
+                                                                init_method_std=init_method_std)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
@@ -1047,6 +1061,7 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
                                              param_init_type=config.param_init_type,
+                                             init_method_std=config.init_method_std,
                                              parallel_optimizer=True)
         self.fine_grain_interleave = check_fine_grain_interleave_valid(config.fine_grain_interleave,
                                                                        config.parallel_config)
@@ -1084,7 +1099,8 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                           qk_nope_head_dim=config.qk_nope_head_dim,
                                           max_position_embeddings=config.max_position_embeddings,
                                           scaling_factor=config.scaling_factor,
-                                          return_extra_loss=config.return_extra_loss)
+                                          return_extra_loss=config.return_extra_loss,
+                                          init_method_std=config.init_method_std)
             self.layer_setting(layer, layer_id)
             self.layers.append(layer)
 
@@ -1264,7 +1280,8 @@ class DeepseekV2ForCausalLM(DeepseekV2PreTrainedModel):
                               has_bias=False,
                               compute_dtype=config.compute_dtype,
                               param_init_type=config.param_init_type,
-                              weight_init="normal")
+                              weight_init="normal",
+                              init_method_std=config.init_method_std)
 
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
