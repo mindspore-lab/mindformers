@@ -508,7 +508,24 @@ class DeepSeekV2Attention(nn.Cell):
         self.apply_rotary_emb = DeepSeekV2RotaryEmbedding(self.qk_rope_head_dim,
                                                           rotary_dtype, use_rope_slice=use_rope_slice)
 
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+        if parallel_config.recompute.select_recompute and not self.use_flash_attention:
+            self.apply_rotary_emb.recompute()
+            self.tile_kv.recompute()
+            self.batch_matmul_q_k.recompute()
+            self.mul.recompute()
+            self.add.recompute()
+            self.cast_attn.recompute()
+            self.softmax.recompute()
+            self.batch_matmul.recompute()
+
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+            self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+            self.tile_kv.shard(((dp, mp, 1, 1),))
+            self.slice_qkv.shard(((dp, mp, 1, 1),))
+            if parallel_config.use_seq_parallel and self.is_first_iteration:
+                self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
+        else:
             self.transpose.shard(((dp, 1, mp, 1),))
             self.merger_head_transpose.shard(((dp, mp, 1, 1),))
             self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
@@ -527,15 +544,6 @@ class DeepSeekV2Attention(nn.Cell):
 
             if parallel_config.use_seq_parallel and self.is_first_iteration:
                 self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
-            if parallel_config.recompute.select_recompute and not self.use_flash_attention:
-                self.apply_rotary_emb.recompute()
-                self.tile_kv.recompute()
-                self.batch_matmul_q_k.recompute()
-                self.mul.recompute()
-                self.add.recompute()
-                self.cast_attn.recompute()
-                self.softmax.recompute()
-                self.batch_matmul.recompute()
 
         if self.use_flash_attention:
             self.flash_attention = FlashAttention(head_num=self.n_head,
@@ -1103,23 +1111,24 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                      compute_type=config.layernorm_compute_type,
                                      fused_kernel=not get_predict_run_mode())
 
+        self.tok_embeddings.pipeline_stage = 0
+        if self.mtp_embeddings is not None:
+            self.mtp_embeddings.pipeline_stage = config.parallel_config.pipeline_stage - 1
+        if config.parallel_config.pipeline_stage > 1:
+            self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
+            self.tok_embeddings.set_comm_fusion(2)
+            self.norm_out.set_comm_fusion(2)
+        else:
+            self.tok_embeddings.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+            self.norm_out.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+
+        self.tok_embeddings.shard(config.parallel_config)
+        if self.mtp_embeddings is not None:
+            self.mtp_embeddings.shard(config.parallel_config)
+        self.casual_mask.shard(config.parallel_config)
+
         dp = config.parallel_config.data_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.tok_embeddings.pipeline_stage = 0
-            if self.mtp_embeddings is not None:
-                self.mtp_embeddings.pipeline_stage = config.parallel_config.pipeline_stage - 1
-            if config.parallel_config.pipeline_stage > 1:
-                self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
-                self.tok_embeddings.set_comm_fusion(2)
-                self.norm_out.set_comm_fusion(2)
-            else:
-                self.tok_embeddings.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
-                self.norm_out.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
-
-            self.tok_embeddings.shard(config.parallel_config)
-            if self.mtp_embeddings is not None:
-                self.mtp_embeddings.shard(config.parallel_config)
-            self.casual_mask.shard(config.parallel_config)
             self.norm_out.shard((dp, 1, 1))
             self.concat.shard(((dp, 1, 1), (dp, 1, 1)))
             self.slice.shard(((dp, 1),))
@@ -1284,7 +1293,15 @@ class DeepseekV2ForCausalLM(DeepseekV2PreTrainedModel):
                                      check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
                                      calculate_per_token_loss=calculate_per_token_loss)
 
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
+        if config.parallel_config.pipeline_stage > 1:
+            self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
+            self.not_equal.shard(((dp, 1), ()))
+            if config.parallel_config.vocab_emb_dp or (vocab_size % mp != 0):
+                self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
+            else:
+                self.lm_head.shard(strategy_matmul=((dp * cp, 1), (mp, 1)))
+        else:
             self.slice.shard(((dp, 1),))
             self.not_equal.shard(((dp, 1), ()))
             self.mul.shard(((dp, 1), (dp, 1)))
@@ -1295,8 +1312,6 @@ class DeepseekV2ForCausalLM(DeepseekV2PreTrainedModel):
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
             else:
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (mp, 1)))
-            if config.parallel_config.pipeline_stage > 1:
-                self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
 
         self.load_checkpoint(config)
         self.predict_run_mode = get_predict_run_mode()

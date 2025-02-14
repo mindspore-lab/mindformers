@@ -14,9 +14,7 @@
 # ============================================================================
 """DeepseekV3 models' APIs."""
 from mindspore.common import dtype as mstype
-from mindspore.context import ParallelMode
 from mindspore.ops import operations as P
-from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 
 from deepseek2_model import DeepseekV2ForCausalLM
 
@@ -58,11 +56,10 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV2ForCausalLM):
 
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
-        if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.split.shard(((dp, 1, mp),))
-            self.slice.shard(((dp, 1),))
-            self.concat_2d.shard(((dp, 1), (dp, 1)))
-            self.zeros_op.shard(((dp, 1),))
+        self.split.shard(((dp, 1, mp),))
+        self.slice.shard(((dp, 1),))
+        self.concat_2d.shard(((dp, 1), (dp, 1)))
+        self.zeros_op.shard(((dp, 1),))
 
         self.input_sliced_sig = config.input_sliced_sig
 
