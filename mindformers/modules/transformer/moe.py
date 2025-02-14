@@ -1493,7 +1493,8 @@ class TopkRouterV2(Cell):
         extra_loss = z_loss
 
         router_prob = self.gating_activation(router_logits)  # (dp, N, expert_dim)fp32 <-- (dp, N, expert_dim)fp32
-
+        # normalize if use sigmoid activate for auxiliary loss
+        router_prob_for_aux = self._normalize(router_prob) if self.moe_config.use_gating_sigmoid else router_prob
         if self.moe_config.topk_method in ("group_limited_greedy", "noaux_tc"):
             if self.moe_config.balance_via_topk_bias:
                 router_prob_with_bias = self.afb_add_topk_bias(router_prob, self.topk_bias)
@@ -1536,15 +1537,15 @@ class TopkRouterV2(Cell):
                 expert_gate, expert_index = self.topk(router_prob, self.num_experts_chosen)
 
         if self.aux_loss_config.get("expert", 0):
-            expert_load_loss = self._expert_load_balancing(router_prob, expert_index,
+            expert_load_loss = self._expert_load_balancing(router_prob_for_aux, expert_index,
                                                            self.aux_loss_config.get("expert"))
             extra_loss = self.add_scalar(extra_loss, expert_load_loss)
         if self.aux_loss_config.get("device", 0):
-            device_load_loss = self._device_load_balancing(router_prob, expert_index,
+            device_load_loss = self._device_load_balancing(router_prob_for_aux, expert_index,
                                                            self.aux_loss_config.get("device"))
             extra_loss = self.add_scalar(extra_loss, device_load_loss)
         if self.aux_loss_config.get("comm", 0):
-            comm_load_loss = self._comm_load_balancing(router_prob, expert_index,
+            comm_load_loss = self._comm_load_balancing(router_prob_for_aux, expert_index,
                                                        self.aux_loss_config.get("comm"))
             extra_loss = self.add_scalar(extra_loss, comm_load_loss)
 
