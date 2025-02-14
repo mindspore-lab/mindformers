@@ -1125,9 +1125,9 @@ class GenerationMixin:
                 construct. Default: ``None``.
             target_mask (Tensor, optional): Use for encoder-decoder construct, do not need for decoder only
                 construct. Default: ``None``.
-            key_cache (Tensor, optional): key_cache
+            key_cache (List[Tensor], optional): A group of tensors used for kvcache.
                 Default: ``None``.
-            value_cache (Tensor, optional): value_cache
+            value_cache (List[Tensor], optional): A group of tensors used for kvcache.
                 Default: ``None``.
             **model_kwargs (Any): Keyword arguments of the model.
 
