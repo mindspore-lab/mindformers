@@ -51,12 +51,40 @@ MindSpore Transformers中已提供DeepSeek-V3基于MindSpore的实现，主要�
 
 ## 模型权重下载
 
+### 微调权重准备
+
 用户可以从HuggingFace官方下载预训练权重，经过[模型权重转换](#模型权重转换)后进行使用，`tokenizer.json`文件也在链接中下载。
 
 | 模型名称                         |                                     Base权重（建议微调使用）                                      |                   Instruct权重（建议推理使用）                   |
 |:-----------------------------|:---------------------------------------------------------------------------------------:|:------------------------------------------------------:|
 | deepseek-ai/DeepSeek-V3-Base |               [Link](https://huggingface.co/deepseek-ai/DeepSeek-V3-Base)               | [Link](https://huggingface.co/deepseek-ai/DeepSeek-V3) |
 | DeepSeek-V3-Base_4layer      | [Link](https://modelers.cn/models/mindformers-club/weights/tree/main/deepseekv3_4layer) |                                                        |
+
+### 推理权重准备
+
+用户可以从[魔乐社区](https://modelers.cn/models/MindSpore-Lab/DeepSeek-V3)下载权重进行推理，无需自己转换。
+
+执行以下命令为自定义下载路径`./model_path`添加白名单：
+
+```shell
+export HUB_WHITE_LIST_PATHS=./model_path
+```
+
+执行以下 Python 脚本从魔乐社区下载昇思 MindSpore 版本的 DeepSeek-V3 文件至指定路径`./model_path`。下载的文件包含模型代码、权重、分词模型和示例代码，占用约 1.4TB 的磁盘空间：
+
+```python
+from openmind_hub import snapshot_download
+
+snapshot_download(
+    repo_id="MindSpore-Lab/DeepSeek-V3",
+    local_dir="./model_path",
+    local_dir_use_symlink=False
+)
+```
+
+> 注意事项：
+> - `./model_path` 可修改为自定义路径，确保该路径有足够的磁盘空间（约 1.4TB）。
+> - 下载时间可能因网络环境而异，建议在稳定的网络环境下操作。
 
 ## 预训练
 
@@ -573,3 +601,154 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 > 如开启自动权重切分auto_trans_ckpt，load_checkpoint路径与output_dir路径需要是多机共享路径。
 
 如有关于DeepSeek-V3微调的相关问题，可以在MindSpore Transformers的Gitee仓库中[提交ISSUE](https://gitee.com/mindspore/mindformers/issues/new)以获取支持。
+
+## 推理
+
+MindSpore Transformers支持对DeepSeek-V3的推理。为了方便体验，仓库中提供了推理脚本，配置文件以及镜像，目前推理需要4台Atlas 800T A2（64G）机器。
+
+### 准备容器
+
+提供了DeepSeek-V3推理专用Docker镜像（镜像中已包含CANN、MindSpore，无需手动安装），通过如下步骤进行软件环境搭建。
+
+1. 下载Docker镜像
+
+   使用如下命令下载DeepSeek-V3推理专用镜像：
+
+   ```bash
+   docker pull swr.cn-central-221.ovaijisuan.com/mindformers/deepseek_v3_mindspore2.5.0-infer:20250209
+   ```
+
+2. 基于镜像创建容器
+
+   使用如下命令新建容器：
+
+   ```bash
+   docker run -itd --privileged  --name=deepseek-v3-infer --net=host \
+   --shm-size 500g \
+   --device=/dev/davinci0 \
+   --device=/dev/davinci1 \
+   --device=/dev/davinci2 \
+   --device=/dev/davinci3 \
+   --device=/dev/davinci4 \
+   --device=/dev/davinci5 \
+   --device=/dev/davinci6 \
+   --device=/dev/davinci7 \
+   --device=/dev/davinci_manager \
+   --device=/dev/hisi_hdc \
+   --device /dev/devmm_svm \
+   -v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
+   -v /usr/local/Ascend/firmware:/usr/local/Ascend/firmware \
+   -v /usr/local/sbin/npu-smi:/usr/local/sbin/npu-smi \
+   -v /usr/local/sbin:/usr/local/sbin \
+   -v /etc/hccn.conf:/etc/hccn.conf \
+   swr.cn-central-221.ovaijisuan.com/mindformers/deepseek_v3_mindspore2.5.0-infer:20250209 \
+   bash
+   ```
+
+> 注意事项：
+
+- 起容器时，如果有部分宿主机的hostname是一致的，需要在起容器的时候修改容器的hostname，保证所有容器的hostname都不一致。
+
+3. 进入容器
+
+   使用如下命令进入容器，并进入代码目录：
+
+   ```bash
+   docker exec -ti deepseek-v3-infer bash
+   export MINDFORMERS_HOME=/home/work/mindformers
+   export HCCL_OP_EXPANSION_MODE=AIV
+   export MS_ENABLE_LCCL=off
+   export PYTHONPATH=$MINDFORMERS_HOME:$PYTHONPATH
+   cd $MINDFORMERS_HOME
+   ```
+
+### 下载权重
+
+权重下载参考[推理权重准备](#推理权重准备)，推理权重无需自己转换，可直接用于推理。
+
+### 修改配置
+
+仓库上提供的`research/deepseek3/deepseek3_671b/predict_deepseek3_671b.yaml`中有部分配置需要根据实际进行修改，需要修改的地方如下：
+
+`load_checkpoint`需要修改成权重存放的文件夹的绝对路径。
+
+```yaml
+load_checkpoint: "/path/to/deepseekv3/model.safetensors"
+```
+
+`vocab_file`和`tokenizer_file`需要修改成`tokenizer.json`的绝对路径。
+
+```yaml
+processor:
+  tokenizer:
+    vocab_file: '/path/to/deepseekv3/tokenizer.json'
+    tokenizer_file: '/path/to/deepseekv3/tokenizer.json'
+```
+
+### 拉起推理任务
+
+分别在4台机器上执行如下命令进行分布式推理，设置master_ip为IP地址，即Node 0服务器的IP。
+
+在Node 0服务器上执行如下命令：
+
+```sh
+master_ip=192.168.1.1
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--register_path research/deepseek3 \
+--auto_trans_ckpt True \
+--use_parallel True \
+--run_mode predict \
+--config research/deepseek3/deepseek3_671b/predict_deepseek3_671b.yaml \
+--predict_data '请介绍一下北京的景点'" \
+32 8 $master_ip 8888 0 output/msrun_log False 300
+```
+
+在Node 1服务器上执行如下命令：
+
+```sh
+master_ip=192.168.1.1
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--register_path research/deepseek3 \
+--auto_trans_ckpt True \
+--use_parallel True \
+--run_mode predict \
+--config research/deepseek3/deepseek3_671b/predict_deepseek3_671b.yaml \
+--predict_data '请介绍一下北京的景点'" \
+32 8 $master_ip 8888 1 output/msrun_log False 300
+```
+
+在Node 2服务器上执行如下命令：
+
+```sh
+master_ip=192.168.1.1
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--register_path research/deepseek3 \
+--auto_trans_ckpt True \
+--use_parallel True \
+--run_mode predict \
+--config research/deepseek3/deepseek3_671b/predict_deepseek3_671b.yaml \
+--predict_data '请介绍一下北京的景点'" \
+32 8 $master_ip 8888 2 output/msrun_log False 300
+```
+
+在Node 3服务器上执行如下命令：
+
+```sh
+master_ip=192.168.1.1
+bash scripts/msrun_launcher.sh "run_mindformer.py \
+--register_path research/deepseek3 \
+--auto_trans_ckpt True \
+--use_parallel True \
+--run_mode predict \
+--config research/deepseek3/deepseek3_671b/predict_deepseek3_671b.yaml \
+--predict_data '请介绍一下北京的景点'" \
+32 8 $master_ip 8888 3 output/msrun_log False 300
+```
+
+预期的推理结果如下：
+
+```txt
+<｜begin▁of▁sentence｜>请介绍一下北京的景点\n\n北京，作为中国的首都，拥有丰富的历史文化遗产和众多的旅游景点。以下是一些著名的北京景点介绍：\n\n1. 故宫博物院：位于北京市中心，是中国明清两代的皇家宫殿，也是世界上现存规模最大、保存最为完整的木质结构古建筑群。故宫内收藏有大量珍贵的文物和艺术品，是了解中国古代皇家文化的重要窗口。\n\n2. 天安门广场：位于北京市中心，是世界上最大的城市广场之一。广场北侧是天安门城楼，南侧是人民英雄纪念碑，东侧是国家博物馆，西侧是人民大会堂。天安门广场是中国的象征，也是许多重要历史事件的发生地。\n\n3. 颐和园：位于北京市西北郊，是中国清朝时期的皇家园林，也是中国四大名园之一。颐和园以昆明湖和万寿山为基础，融合了江南园林的精致与北方园林的宏伟，是中国古典园林艺术的杰作。\n\n4. 长城：长城是中国古代的军事防御工程，横跨中国北部和中部地区。北京段的长城包括八达岭、慕田峪、金山岭等，是游客体验长城壮丽风光和了解中国古代军事文化的好去处。\n\n5. 天坛：位于北京市南部，是中国明清两代皇帝祭天祈谷的地方。天坛是中国古代祭天文化的代表，其建筑布局严谨，体现了中国古代的宇宙观和哲学思想。\n\n6. 圆明园：位于北京市西北郊，是清朝时期的皇家园林，曾被誉为“万园之园”。圆明园在1860年的第二次鸦片战争中被英法联军焚毁，现为遗址公园，是了解中国近代历史的重要场所。\n\n7. 北海公园：位于北京市中心，是中国现存最古老、保存最完整的皇家园林之一。北海公园以琼华岛为中心，湖光山色与古建筑相映成趣，是市民休闲娱乐的好去处。\n\n8. 北京奥林匹克公园：位于北京市朝阳区，是2008年北京奥运会的主要场馆区。公园内有鸟巢（国家体育场）、水立方（国家游泳中心）等标志性建筑，是体验现代体育文化和建筑艺术的好地方。\n\n9. 南锣鼓巷：位于北京市东城区，是北京最古老的街区之一，也是北京胡同文化的代表。南锣鼓巷以其独特的胡同风貌和丰富的文化底蕴，吸引了众多游客前来探访。\n\n10. 北京动物园：位于北京市西城区，是中国最早的动物园之一。北京动物园内饲养有众多珍稀动物，是了解中国动物多样性和进行科普教育的好地方。\n\n以上只是北京众多景点中的一部分，北京还有许多其他值得一游的地方，如798艺术区、雍和宫、景山公园等。每个景点都有其独特的历史背景和文化价值，值得游客深入探索。<｜end▁of▁sentence｜>
+```
+
+如有关于DeepSeek-V3推理的相关问题，可以在MindSpore Transformers的Gitee仓库中[提交ISSUE](https://gitee.com/mindspore/mindformers/issues/new)以获取支持。
