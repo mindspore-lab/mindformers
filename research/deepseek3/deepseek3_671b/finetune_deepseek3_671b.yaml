@@ -142,7 +142,7 @@ model:
     mtp_loss_factor: 0.3
   arch:
     type: DeepseekV3ForCausalLM
-    auto_register: deepseek3_model.DeepseekV3ForCausalLM
+    auto_register: deepseek3.DeepseekV3ForCausalLM
 
 #moe
 moe_config:

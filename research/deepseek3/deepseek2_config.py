@@ -25,7 +25,6 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import convert_mstype
 from mindformers.mindformer_book import MindFormerBook
-from mindformers.tools.logger import logger
 
 __all__ = ['DeepseekV2Config']
 
@@ -74,13 +73,9 @@ class DeepseekV2Config(PretrainedConfig):
         parallel_config(TransformerOpParallelConfig):
             The parallel configure. Default `default_transformer_config`,
             an instance of `TransformerOpParallelConfig` with default args.
-        pretrain_seqlen(int): The pretrained model seq length, default 2048.
         extend_method(str): The extend method of seq length of inferencem,default None.
-        compute_in_2d(bool): Whether compute in 2-dims tensor, default False.
         use_flash_attention(bool): Whether enable flash attention ops, default False.
-        use_paged_attention(bool): Whether enable paged attention ops, default False.
         offset(int): Offset of transformer layer when set pipeline stage number.
-        use_past_shard(bool): The configuration of kvcache parallel shard, default False.
         checkpoint_name_or_path (Optional[str]):
             checkpoint path or name used to load to the network.
         repetition_penalty (`float`, *optional*, defaults to 1.0):
@@ -143,19 +138,10 @@ class DeepseekV2Config(PretrainedConfig):
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  moe_config: Union[dict, MoEConfig] = default_moe_config,
                  use_past: bool = False,
-                 pretrain_seqlen=None,
-                 compute_in_2d=None,
-                 use_past_shard=None,
                  extend_method: str = "YARN",
                  scaling_factor: dict = None,
                  is_dynamic: bool = False,
-                 use_kvcache_op: bool = False,
-                 is_flexible_shape: bool = False,
-                 use_rope_slice: bool = False,
                  use_flash_attention: bool = False,
-                 use_paged_attention: bool = False,
-                 use_prompt_flash_attention: bool = False,
-                 use_incre_flash_attention: bool = False,
                  fine_grain_interleave: int = 1,
                  pp_interleave_num: int = 1,
                  offset: int = 0,
@@ -213,27 +199,10 @@ class DeepseekV2Config(PretrainedConfig):
         self.pad_token_id = pad_token_id
         self.ignore_token_id = ignore_token_id
         self.use_past = use_past
-        if pretrain_seqlen is not None:
-            self.pretrain_seqlen = pretrain_seqlen
-            logger.warning(f"Argument `pretrain_seqlen` is deprecated. Use `scaling_factor` instead.")
-        if compute_in_2d is not None:
-            self.compute_in_2d = compute_in_2d
-            logger.warning(f"Argument `compute_in_2d` is deprecated.")
-        if use_past_shard is not None:
-            self.use_past_shard = use_past_shard
-            logger.warning(f"Argument `use_past_shard` is deprecated.")
         self.extend_method = extend_method
         self.scaling_factor = scaling_factor
         self.is_dynamic = is_dynamic
-        self.use_kvcache_op = use_kvcache_op
-        self.is_flexible_shape = is_flexible_shape
-        self.use_rope_slice = use_rope_slice
-        if use_flash_attention:
-            logger.warning("Current DeepSeekV2 is not adapt flash attention, it maybe cause some error!!!")
         self.use_flash_attention = use_flash_attention
-        self.use_paged_attention = use_paged_attention
-        self.use_prompt_flash_attention = use_prompt_flash_attention
-        self.use_incre_flash_attention = use_incre_flash_attention
         self.fine_grain_interleave = fine_grain_interleave
         self.pp_interleave_num = pp_interleave_num
         self.offset = offset
@@ -243,7 +212,6 @@ class DeepseekV2Config(PretrainedConfig):
         self.top_p = top_p
         self.do_sample = do_sample
         self.theta = theta
-        self.use_paged_attention = use_paged_attention
         self.block_size = block_size
         self.num_blocks = num_blocks
         self.return_extra_loss = return_extra_loss

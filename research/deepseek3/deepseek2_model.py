@@ -148,12 +148,11 @@ class DeepSeekV2RotaryEmbedding(Cell):
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
 
-    def __init__(self, head_dim=128, compute_dtype=mstype.float32, use_rope_slice=True):
+    def __init__(self, head_dim=128, compute_dtype=mstype.float32):
         super().__init__(auto_prefix=False)
         self.half_head_dim = head_dim // 2
         self.head_dim = head_dim
         self.dtype = compute_dtype
-        self.use_rope_slice = use_rope_slice
         self.is_first_iteration = True
 
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
@@ -190,12 +189,8 @@ class DeepSeekV2RotaryEmbedding(Cell):
         freqs_sin = self.cast(freqs_sin, self.dtype)
         swap_mask = self.cast(swap_mask, self.dtype)
         mul = self.mul if self.is_first_iteration else self.mul_inc
-        if self.use_rope_slice:
-            xq_out = self.add(mul(xq, freqs_cos), mul(self.slice_half(xq), freqs_sin))
-            xk_out = self.add(mul(xk, freqs_cos), mul(self.slice_half(xk), freqs_sin))
-        else:
-            xq_out = self.add(mul(xq, freqs_cos), mul(self.rotate_half(xq, swap_mask), freqs_sin))
-            xk_out = self.add(mul(xk, freqs_cos), mul(self.rotate_half(xk, swap_mask), freqs_sin))
+        xq_out = self.add(mul(xq, freqs_cos), mul(self.rotate_half(xq, swap_mask), freqs_sin))
+        xk_out = self.add(mul(xk, freqs_cos), mul(self.rotate_half(xk, swap_mask), freqs_sin))
 
         xq_out = self.cast(xq_out, original_type)
         xk_out = self.cast(xk_out, original_type)
@@ -329,7 +324,6 @@ class DeepSeekV2Attention(nn.Cell):
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
                  use_past=False,
-                 use_rope_slice=False,
                  use_flash_attention=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
@@ -505,8 +499,7 @@ class DeepSeekV2Attention(nn.Cell):
         self.mul_zeros = P.Mul()
         self.v_zeros = Tensor(np.array([0] * (self.q_head_dim - self.v_head_dim)))
 
-        self.apply_rotary_emb = DeepSeekV2RotaryEmbedding(self.qk_rope_head_dim,
-                                                          rotary_dtype, use_rope_slice=use_rope_slice)
+        self.apply_rotary_emb = DeepSeekV2RotaryEmbedding(self.qk_rope_head_dim, rotary_dtype)
 
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.transpose.shard(((dp, 1, mp, 1),))
@@ -775,7 +768,6 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                  param_init_type=mstype.float32,
                  qkv_has_bias=False,
                  use_past=False,
-                 use_rope_slice=False,
                  moe_config=None,
                  use_flash_attention=False,
                  block_size: Optional[int] = None,
@@ -820,7 +812,6 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                              param_init_type=param_init_type,
                                              qkv_has_bias=qkv_has_bias,
                                              use_past=use_past,
-                                             use_rope_slice=use_rope_slice,
                                              use_flash_attention=use_flash_attention,
                                              block_size=block_size,
                                              num_blocks=num_blocks,
@@ -1076,7 +1067,6 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                           use_flash_attention=config.use_flash_attention,
                                           block_size=config.block_size,
                                           num_blocks=config.num_blocks,
-                                          use_rope_slice=config.use_rope_slice,
                                           parallel_config=config.parallel_config,
                                           moe_config=config.moe_config,
                                           kv_lora_rank=config.kv_lora_rank,
