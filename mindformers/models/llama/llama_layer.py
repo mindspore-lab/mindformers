@@ -21,7 +21,6 @@ from mindspore import nn
 import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
-from mindspore.nn import Sigmoid
 from mindspore.nn.cell import Cell
 from mindspore.nn.layer import Dense
 from mindspore.parallel.shard import Layout
@@ -711,7 +710,7 @@ class LlamaFeedForwardWithMoE(Cell):
         self.return_extra_loss = return_extra_loss
         self.cast = P.Cast()
 
-        self.sigmoid = Sigmoid()
+        self.sigmoid = P.Sigmoid()
         self.mul = P.Mul()
         self.add = P.Add()
         self.reshape = P.Reshape()
