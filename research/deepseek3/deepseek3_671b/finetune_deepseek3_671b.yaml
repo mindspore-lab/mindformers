@@ -154,7 +154,7 @@ moe_config:
   routing_policy: "TopkRouterV2"
   enable_sdrop: False
   balance_via_topk_bias: &balance_via_topk_bias True
-  topk_bias_update_rate: &topk_bias_update_rate 0.0001
+  topk_bias_update_rate: &topk_bias_update_rate 0.001
   use_fused_ops_topkrouter: True
   group_wise_a2a: False
   shared_expert_num: 1
@@ -165,7 +165,7 @@ moe_config:
   # greedy_group_limited strategy, select topk_group from n_group
   topk_group: 4
   n_group: 8
-  aux_loss_factors: [0.001, 0., 0.]
+  aux_loss_factors: [0.0001, 0., 0.]
   aux_loss_types: ["expert", "device", "comm"]
   z_loss_factor: 0.0
   expert_model_parallel: 1

@@ -210,7 +210,7 @@ bash build.sh
 
 ### 修改配置
 
-修改预训练配置文件[pretrain_deepseek3_671b.yaml](#模型文件)，使其能够在单台Atlas 800T A2（64G）上运行，保存为`pretrain_deepseek3_1b.yaml`。
+修改预训练配置文件[pretrain_deepseek3_671b.yaml](#模型文件)，使其能够在单台Atlas 800T A2（64G）上运行，保存为`pretrain_deepseek3_1b.yaml`。以下仅列出修改项，其余配置与原文件保持一致。
 
 1. 修改模型配置
 
@@ -220,45 +220,11 @@ bash build.sh
    # model config
    model:
      model_config:
-       type: DeepseekV3Config
-       auto_register: deepseek3_config.DeepseekV3Config
-       seq_length: 4096
        hidden_size: 2048                                 # 修改为2048
        num_layers: &num_layers 3                         # 修改为3
        num_heads: 8                                      # 修改为8
-       max_position_embeddings: 4096
        intermediate_size: 6144                           # 修改为6144
-       kv_lora_rank: 512
-       n_kv_heads: 128
-       q_lora_rank: 1536
-       qk_rope_head_dim: 64
-       v_head_dim: 128
-       qk_nope_head_dim: 128
-       vocab_size: 129280
-       multiple_of: 256
-       rms_norm_eps: 1.0e-6
-       bos_token_id: 100000
-       eos_token_id: 100001
-       pad_token_id: 100001
-       ignore_token_id: -100
-       compute_dtype: "bfloat16"
-       layernorm_compute_type: "float32"
-       softmax_compute_type: "float32"
-       rotary_dtype: "float32"
-       router_dense_type: "float32"
-       param_init_type: "float32"
-       use_past: False
-       extend_method: "None"
-       use_flash_attention: True
        offset: 0                                         # 修改为0
-       checkpoint_name_or_path: ""
-       theta: 10000.0
-       return_extra_loss: False
-       mtp_depth: &mtp_depth 1
-       mtp_loss_factor: 0.3
-     arch:
-       type: DeepseekV3ForCausalLM
-       auto_register: deepseek3_model.DeepseekV3ForCausalLM
    ```
 
 2. 修改MoE配置
@@ -269,28 +235,7 @@ bash build.sh
    #moe
    moe_config:
      expert_num: &expert_num 16                          # 修改为16
-     expert_group_size: 8
-     capacity_factor: 1.5
-     aux_loss_factor: 0.05
-     num_experts_chosen: 8
-     routing_policy: "TopkRouterV2"
-     enable_sdrop: False
-     balance_via_topk_bias: &balance_via_topk_bias True
-     topk_bias_update_rate: &topk_bias_update_rate 0.0001
-     use_fused_ops_topkrouter: True
-     group_wise_a2a: False
-     shared_expert_num: 1
-     routed_scaling_factor: 2.5
-     norm_topk_prob: False
      first_k_dense_replace: 1                            # 修改为1
-     moe_intermediate_size: 2048
-     topk_group: 4
-     n_group: 8
-     aux_loss_factors: [0.001, 0., 0.]
-     aux_loss_types: ["expert", "device", "comm"]
-     z_loss_factor: 0.0
-     expert_model_parallel: 1
-     use_gating_sigmoid: True
    ```
 
 3. 修改并行配置
@@ -300,45 +245,20 @@ bash build.sh
    ```yaml
    # parallel config for devices num=8
    parallel_config:
-     data_parallel: &dp 2                                    # 修改为2
+     data_parallel: &dp 2                                # 修改为2
      model_parallel: 2                                   # 修改为2
      pipeline_stage: 2                                   # 修改为2
      expert_parallel: 2                                  # 修改为2
      micro_batch_num: &micro_batch_num 4                 # 修改为4
-     vocab_emb_dp: True
-     use_seq_parallel: True
-     gradient_aggregation_group: 4
-
    # parallel context config
    parallel:
-     parallel_mode: 1 # 0-data parallel, 1-semi-auto parallel, 2-auto parallel, 3-hybrid parallel
-     gradients_mean: False
-     enable_alltoall: True
-     full_batch: False
-     dataset_strategy: [[*dp, 1], [*dp, 1], [*dp, 1], [*dp, 1]]
-     search_mode: "sharding_propagation"
-     enable_parallel_optimizer: True
-     strategy_ckpt_save_file: "./ckpt_strategy.ckpt"
      parallel_optimizer_config:
-       gradient_accumulation_shard: False
-       parallel_optimizer_threshold: 64
        optimizer_weight_shard_size: 8                    # 修改为8
+   recompute_config:
+     recompute: False                                    # 修改为False
    ```
 
-4. 修改学习率配置
-
-   由于Wikitext-2数据集比较小，所以需要缩小学习率预热步数：
-
-   ```yaml
-   # lr schedule
-   lr_schedule:
-     type: ConstantWarmUpLR
-     learning_rate: 2.2e-4
-     warmup_steps: 20                                    # 修改为20
-     total_steps: -1
-   ```
-
-5. 修改数据集配置
+4. 修改数据集配置
 
    配置数据集BIN文件路径：
 
@@ -346,36 +266,10 @@ bash build.sh
    # dataset
    train_dataset: &train_dataset
      data_loader:
-       type: BlendedMegatronDatasetDataLoader
-       datasets_type: "GPTDataset"
-       sizes:
-         - 1000
-         - 0
-         - 0
        config:
-         random_seed: 1234
-         seq_length: 4096
-         split: "1, 0, 0"
-         reset_position_ids: False
-         reset_attention_mask: False
-         eod_mask_loss: False
-         num_dataset_builder_threads: 1
-         create_attention_mask: False
          data_path:
-           - 1
+           - "1"
            - "../dataset/wiki_4096_text_document"              # 修改此项为数据集BIN文件路径
-       shuffle: False
-     input_columns: ["input_ids", "labels", "loss_mask", "position_ids"]
-     construct_args_key: ["input_ids", "labels"]
-     num_parallel_workers: 8
-     python_multiprocessing: False
-     drop_remainder: True
-     repeat: 1
-     numa_enable: False
-     prefetch_size: 1
-   train_dataset_task:
-     type: CausalLanguageModelDataset
-     dataset_config: *train_dataset
    ```
 
    配置数据集并行通信配置路径：
@@ -383,14 +277,6 @@ bash build.sh
    ```yaml
    # mindspore context init config
    context:
-     mode: 0 #0--Graph Mode; 1--Pynative Mode
-     device_target: "Ascend"
-     max_call_depth: 10000
-     max_device_memory: "55GB"
-     save_graphs: False
-     save_graphs_path: "./graph"
-     jit_config:
-       jit_level: "O1"
      ascend_config:
        parallel_speed_up_json_path: "./research/deepseek3/parallel_speed_up.json"  # 修改此项为数据集并行通信配置路径
    ```
@@ -495,7 +381,7 @@ dtype:            转换权重的精度
 
 ### 修改配置
 
-修改微调配置文件[finetune_deepseek3_671b.yaml](#模型文件)，使其能够在4台Atlas 800T A2（64G）上运行，保存为`finetune_deepseek3_4layer.yaml`。此修改保留了模型的三种transformer_block层，分别为dense层、Moe层、MTP层
+修改微调配置文件[finetune_deepseek3_671b.yaml](#模型文件)，使其能够在4台Atlas 800T A2（64G）上运行，保存为`finetune_deepseek3_4layer.yaml`。此修改保留了模型的三种transformer_block层，分别为dense层、Moe层、MTP层。以下仅列出修改项，其余配置与原文件保持一致。
 
 1. 修改模型配置
 
