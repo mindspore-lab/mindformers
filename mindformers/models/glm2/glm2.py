@@ -16,9 +16,10 @@
 import copy
 import mindspore.ops as ops
 import mindspore.common.dtype as mstype
+from mindspore.common.initializer import initializer
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
-from mindspore import Tensor, mint
+from mindspore import Tensor, mint, Parameter
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindpet.delta.ptuning2 import PrefixEncoder
@@ -31,7 +32,7 @@ from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode
 from mindformers.core.loss import CrossEntropyLoss
 from mindformers.pet.tuners.pet_adapter import PetAdapter
-from mindformers.version_control import get_dropout, get_tril
+from mindformers.version_control import get_dropout
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.glm2.glm2_modules import GLMEmbedding
 
@@ -68,59 +69,97 @@ class ChatGLM2Model(GLM2PreTrainedModel):
 
     def __init__(self, config: ChatGLM2Config, **kwargs):
         super(ChatGLM2Model, self).__init__(config, **kwargs)
-        self.num_layers = config.num_layers
-        self.multi_query_group_num = config.multi_query_group_num
-        self.kv_channels = config.kv_channels
         self.seq_length = config.seq_length
         self.compute_dtype = config.compute_dtype
         self.use_past = config.use_past
         self.use_flash_attention = config.use_flash_attention
         self.is_first_iteration = True
         self.use_rearrange_rope = config.use_rearrange_rope
+        self.use_ring_attention = config.use_ring_attention
+        self.n_kv_head = config.num_heads if config.n_kv_heads is None else config.n_kv_heads
+        self.head_dim = config.hidden_size // config.num_heads
+        self.seq_split_num = config.parallel_config.seq_split_num
+        self.seq_pipe = self.seq_split_num > 1
+        # vocab embedding
+        dp, cp, mp = _parallel_decompose(config)
+        kv_mp = self.n_kv_head if self.n_kv_head < mp else mp
+
+        if self.seq_pipe:
+            if self.use_ring_attention:
+                raise ValueError(f"When the seq_pipe = True, the use_ring_attention cannot be True ")
+            kv_shape = (config.batch_size * dp, config.seq_length, self.n_kv_head * self.head_dim)
+            self.zeros = initializer('zeros', kv_shape, dtype=self.compute_dtype)
+            self.seq_update = Tensor(1, dtype=mstype.int32)
+            self.seq_zero = Tensor(0, dtype=mstype.int32)
+            self.seq_seg_len = config.seq_length // self.seq_split_num
+            kv_mask = np.zeros((1, config.seq_length, self.n_kv_head * self.head_dim), np.int32)
+            for s in range(self.seq_split_num):
+                kv_mask[:, s * self.seq_seg_len: (s + 1) * self.seq_seg_len, :] = s
+            self.kv_mask = Tensor(kv_mask)
+            self.seq_chunk = Parameter(Tensor(0, dtype=mstype.int32), name="seq_chunk",
+                                       requires_grad=False, parallel_optimizer=False)
+            self.equal_kv = P.Equal().shard(((dp, cp, kv_mp), ()))
+            self.kv_mask_add = P.Add().shard(((dp, cp, kv_mp), (1, cp, kv_mp)))
+            self.assign_add_count = P.AssignAdd()
+            self.assign_count = P.Assign()
+            self.assign_mask = P.Assign().shard(((dp, 1), (dp, 1)))
+            self.mask_zeros = Tensor(np.zeros((config.batch_size * dp, config.seq_length)), mstype.float32)
 
         # mask
+        total_batch_size_in_dp = config.batch_size * config.parallel_config.data_parallel
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
+                                                          batch_size=total_batch_size_in_dp,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
                                                           use_flash_attention=config.use_flash_attention,
-                                                          use_past=config.use_past)
+                                                          use_past=config.use_past,
+                                                          seq_split_num=self.seq_split_num)
 
         # vocab embedding
-        dp = config.parallel_config.data_parallel
-        cp = config.parallel_config.context_parallel
-        mp = config.parallel_config.model_parallel
-        use_sp = config.parallel_config.use_seq_parallel
         self.embedding = GLMEmbedding(vocab_table_size=config.vocab_size, embedding_size=config.hidden_size,
                                       param_init_type=config.param_init_type, parallel_optimizer=True)
         # rotary embedding
         rotary_dim = (
             config.hidden_size // config.num_attention_heads if config.kv_channels is None else config.kv_channels
         )
-        if self.use_rearrange_rope:
-            self.freqs_mgr = FreqsMgrRope(
-                dim=rotary_dim // 2,
-                seq_length=config.seq_length,
-                rotary_dtype=config.rotary_dtype,
-                base=10000,
-                rope_ratio=config.rope_ratio
-            )
-        else:
-            self.freqs_mgr = FreqsMgr(
-                dim=rotary_dim // 2,
-                seq_length=config.seq_length,
-                rotary_dtype=config.rotary_dtype,
-                base=10000,
-                rope_ratio=config.rope_ratio)
+        freq_mgr_class = FreqsMgrRope if self.use_rearrange_rope else FreqsMgr
+        self.freqs_mgr = freq_mgr_class(dim=rotary_dim // 2,
+                                        seq_length=config.seq_length,
+                                        rotary_dtype=config.rotary_dtype,
+                                        base=10000,
+                                        rope_ratio=config.rope_ratio,
+                                        parallel_config=config.parallel_config)
 
         self.encoder = ChatGLM2Transformer(config)
-
         self.output_layer = Linear(config.hidden_size,
                                    config.vocab_size,
                                    has_bias=False,
                                    param_init_type=config.param_init_type,
                                    compute_dtype=config.compute_dtype)
+        self.shard_head_tail(config)
 
+        # mask
+        self.less = P.Less()
+        self.gather = P.Gather()
+        self.expand_dims = P.ExpandDims()
+        self.reshape = P.Reshape()
+        self.mul = P.Mul()
+        self.tile = ops.Tile()
+        self.low_triangle = Tensor(np.tril(np.ones((1, self.seq_length, self.seq_length))), mstype.int32)
+        self.cast = P.Cast()
+        self.dropout = get_dropout(config.hidden_dropout)
+        self.dropout.dropout.shard(((dp, cp, 1),))
+        if config.parallel_config.use_seq_parallel:
+            self.dropout.dropout.shard(((dp, cp * mp, 1),))
+        parallel_config = config.parallel_config
+        self.mask_generate = config.mask_generate  # "inmap", "compress_reset"
+        self.get_attention_mask = GetEodResetMask(seq_length=config.seq_length, parallel_config=parallel_config)
+
+    def shard_head_tail(self, config):
+        """shard embedding head and lm head"""
+        dp, cp, mp = _parallel_decompose(config)
+        use_sp = config.parallel_config.use_seq_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.embedding.pipeline_stage = 0
             if config.parallel_config.pipeline_stage > 1:
@@ -138,25 +177,6 @@ class ChatGLM2Model(GLM2PreTrainedModel):
                     self.output_layer.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
             else:
                 self.output_layer.shard(strategy_matmul=((1, 1), (dp * cp * mp, 1)))
-
-        self.tril = get_tril()
-        self.ones = P.Ones()
-        self.less = P.Less()
-        self.gather = P.Gather()
-        self.expand_dims = P.ExpandDims()
-        self.reshape = P.Reshape()
-        self.mul = P.Mul()
-        self.tile = ops.Tile()
-        low_triangle = np.tril(np.ones((1, self.seq_length, self.seq_length)))
-        self.low_triangle = Tensor(low_triangle, mstype.int32)
-        self.cast = P.Cast()
-        self.dropout = get_dropout(config.hidden_dropout)
-        self.dropout.dropout.shard(((dp, cp, 1),))
-        if config.parallel_config.use_seq_parallel:
-            self.dropout.dropout.shard(((dp, cp * mp, 1),))
-        parallel_config = config.parallel_config
-        self.mask_generate = config.mask_generate  # "inmap", "compress_reset"
-        self.get_attention_mask = GetEodResetMask(seq_length=config.seq_length, parallel_config=parallel_config)
 
     def get_masks(self, batch_size, seq_len, padding_mask=None, input_position=None):
         """Get attention mask."""
@@ -185,8 +205,9 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         """ChatGLM2 model."""
         _ = position_ids
         batch_size, seq_len = input_ids.shape
-
+        kv_mask = None
         mask = None
+        seq_chunk = None
         if self.use_past:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr.prefill()
@@ -194,12 +215,20 @@ class ChatGLM2Model(GLM2PreTrainedModel):
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
-            freqs_cis = self.freqs_mgr(seq_len)
             if full_attention_mask is None:
                 if attention_mask is None:
-                    # (bs, 1, seq_len, seq_len)
-                    full_attention_mask = self.get_masks(batch_size, seq_len, attention_mask, input_position)
-                    full_attention_mask = full_attention_mask.type(mstype.uint8)
+                    if self.seq_pipe:
+                        mask = self.casual_mask(input_ids, seq_chunk=self.seq_chunk)
+                        seq_chunk = P.ReLU()(self.seq_chunk)
+                        kv_mask = self.cast(self.equal_kv(self.kv_mask_add(self.zeros, self.kv_mask), seq_chunk),
+                                            self.compute_dtype)
+                        seq_update = F.depend(self.seq_update, mask)
+                        seq_update = F.depend(seq_update, kv_mask)
+                        full_attention_mask = F.depend(mask, self.assign_add_count(self.seq_chunk, seq_update))
+                    else:
+                        # (bs, 1, seq_len, seq_len)
+                        full_attention_mask = self.get_masks(batch_size, seq_len, attention_mask, input_position)
+                        full_attention_mask = full_attention_mask.type(mstype.uint8)
                 else:
                     if self.mask_generate == "inmap":
                         full_attention_mask = self.get_attention_mask(attention_mask)
@@ -207,6 +236,7 @@ class ChatGLM2Model(GLM2PreTrainedModel):
                     else:
                         full_attention_mask = attention_mask
             mask = full_attention_mask
+            freqs_cis = self.freqs_mgr(seq_len, seq_chunk=seq_chunk)
         if input_embeds is None:
             input_embeds = self.embedding(input_ids)  # (bs, seq_len, hs)
         input_embeds = self.dropout(input_embeds)
@@ -215,8 +245,21 @@ class ChatGLM2Model(GLM2PreTrainedModel):
         hidden_states = self.encoder(
             input_embeds, mask, freqs_cis,
             batch_valid_length=batch_valid_length, prefix_key_values=prefix_key_values, block_tables=block_tables,
-            slot_mapping=slot_mapping)
+            slot_mapping=slot_mapping, kv_mask=kv_mask, seq_chunk=seq_chunk)
         return hidden_states
+
+    def clear_kv_cache(self):
+        zeros = 0.0
+        return_tuple = ()
+        return_tuple += (self.assign_count(self.seq_chunk, self.seq_zero),)
+        return_tuple += (self.assign_mask(self.casual_mask.mask_cache, self.mask_zeros),)
+        return F.depend(zeros, return_tuple)
+
+
+def _parallel_decompose(config):
+    dp, cp, mp = config.parallel_config.data_parallel, \
+                 config.parallel_config.context_parallel, config.parallel_config.model_parallel
+    return dp, cp, mp
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)
@@ -298,7 +341,8 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
             loss_parallel_config.context_parallel = 1
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
                                      check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
-                                     calculate_per_token_loss=calculate_per_token_loss)
+                                     calculate_per_token_loss=calculate_per_token_loss,
+                                     seq_split_num=config.parallel_config.seq_split_num)
         self.gmask = config.gmask_token_id
         self.bos_token_id = config.bos_token_id
         self.use_past = config.use_past
@@ -410,6 +454,9 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
             outputs = (lm_logits,)
 
         return outputs
+
+    def clear_kv_cache(self):
+        return self.transformer.clear_kv_cache()
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)

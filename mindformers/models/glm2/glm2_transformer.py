@@ -19,8 +19,8 @@ from typing import Tuple
 
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
-from mindspore import Tensor, nn, ops, Layout
-from mindspore import dtype as mstype
+from mindspore import Tensor, nn, ops, Layout, Parameter, dtype as mstype
+from mindspore.common.initializer import initializer
 from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules import LayerNorm
 from mindformers.modules.layers import Linear
@@ -31,7 +31,7 @@ from mindformers.version_control import get_dropout
 from mindformers.tools.logger import logger
 
 from .glm2_config import ChatGLM2Config
-from .glm2_modules import ChatGLM2MLP, ChatGLM2RMSNorm, GetCompressMask, ChatGLM2RotaryEmbedding, GetEodResetMask
+from .glm2_modules import ChatGLM2MLP, ChatGLM2RMSNorm, ChatGLM2RotaryEmbedding
 
 
 class CoreAttention(nn.Cell):
@@ -156,113 +156,104 @@ class ChatGLM2SelfAttention(nn.Cell):
         self.head_dim = config.kv_channels
         self.projection_size = config.kv_channels * config.num_attention_heads
         # Per attention head and per partition values.
-        self.apply_query_key_layer_scaling = config.apply_query_key_layer_scaling
-        self.norm_factor = math.sqrt(self.head_dim)
         self.n_head = config.num_attention_heads
         self.params_dtype = config.param_init_type
         self.compute_dtype = config.compute_dtype
         self.batch_size = config.batch_size
         self.pre_seq_len = config.pre_seq_len
         self.n_rep = self.n_head // config.multi_query_group_num
-
         self.multi_query_attention = config.multi_query_attention
         self.qkv_hidden_size = 3 * self.projection_size
         self.kv_hidden_size = self.projection_size
         self.use_rearrange_rope = config.use_rearrange_rope
-        self.mask_generate = config.mask_generate  # "inmap", "compress_reset"
+        self.mask_generate = config.mask_generate  # "inmap"
         self.enable_high_performance = config.enable_high_performance
-
+        self.use_flash_attention = config.use_flash_attention
+        self.seq_length = config.seq_length
         if self.multi_query_attention:
             self.n_kv_head = config.multi_query_group_num
             self.qkv_hidden_size = self.projection_size + 2 * self.head_dim * config.multi_query_group_num
             self.kv_hidden_size = self.n_kv_head * self.head_dim
-
         parallel_config = config.parallel_config
         dp, cp, mp = _parallel_decompose(config)
         self.cp_ds = parallel_config.get_ulysses_cp_num()
         # define colossal ai context parallel
         self.cp_co = cp // self.cp_ds
         self.use_ring_attention = config.use_ring_attention
-
-        qkv_has_bias = config.add_bias_linear or config.add_qkv_bias
+        self.qkv_has_bias = config.add_bias_linear or config.add_qkv_bias
         kv_mp = self.n_kv_head if self.n_kv_head < mp else mp
 
+        self.seq_pipe = parallel_config.seq_split_num > 1
+        self.seq_split_num = parallel_config.seq_split_num
+        self.seq_seg_len = self.seq_length // self.seq_split_num
+        if self.seq_pipe:
+            if not self.use_flash_attention:
+                raise ValueError("Seq pipe must using flash attention")
+            self.seq_pipe_process = SeqPipeProcess(config, kv_mp, self.batch_size, self.seq_length)
         self.qkv_concat = config.qkv_concat
         if config.qkv_concat:
-            self.query_key_value = Linear(config.hidden_size,
-                                          self.qkv_hidden_size,
-                                          has_bias=config.add_bias_linear or config.add_qkv_bias,
-                                          param_init_type=self.params_dtype,
-                                          compute_dtype=self.compute_dtype)
+            self.query_key_value = self.init_linear(config.hidden_size, self.qkv_hidden_size)
             self.split_qkv = ops.auto_generate.SplitWithSize()
-            self.shard_wqkv_concat(cp, dp, mp, qkv_has_bias)
+            self.shard_wqkv_concat(cp, dp, mp)
         else:
-            self.wq = Linear(config.hidden_size,
-                             self.projection_size,
-                             has_bias=config.add_bias_linear or config.add_qkv_bias,
-                             param_init_type=self.params_dtype,
-                             compute_dtype=self.compute_dtype)
-
-            self.wk = Linear(config.hidden_size,
-                             self.kv_hidden_size,
-                             has_bias=config.add_bias_linear or config.add_qkv_bias,
-                             param_init_type=self.params_dtype,
-                             compute_dtype=self.compute_dtype)
-            self.wv = Linear(config.hidden_size,
-                             self.kv_hidden_size,
-                             has_bias=config.add_bias_linear or config.add_qkv_bias,
-                             param_init_type=self.params_dtype,
-                             compute_dtype=self.compute_dtype)
-            self.shard_wqkv_non_concat(config, qkv_has_bias, kv_mp)
+            self.wq = self.init_linear(config.hidden_size, self.projection_size)
+            self.wk = self.init_linear(config.hidden_size, self.kv_hidden_size)
+            self.wv = self.init_linear(config.hidden_size, self.kv_hidden_size)
+            self.shard_wqkv_non_concat(config, kv_mp)
         self.shape = P.Shape()
-        self.dense = Linear(self.projection_size,
-                            config.hidden_size,
-                            has_bias=config.add_bias_linear,
-                            param_init_type=self.params_dtype,
-                            compute_dtype=self.compute_dtype)
+        self.dense = Linear(self.projection_size, config.hidden_size, has_bias=config.add_bias_linear,
+                            param_init_type=self.params_dtype, compute_dtype=self.compute_dtype)
         self.dense.shard(strategy_matmul=((dp * cp, mp), (1, mp)), strategy_bias=((dp * cp, 1), (1,)))
         if config.parallel_config.use_seq_parallel and self.is_first_iteration:
             self.dense.shard(((dp * cp, mp), (1, mp)), strategy_bias=((dp * cp * mp, 1), (1,)),
                              out_strategy_matmul=((dp * cp * mp, 1),))
-        self.use_flash_attention = config.use_flash_attention
+
         self.use_past = config.use_past
         # use_past: True
         self.infer_attention = self.init_infer_attention(config, mp, parallel_config)
         # use_past: False
         self.core_attention = CoreAttention(config, self.layer_number)
         self.reshape = P.Reshape()
-        self.stack = P.Stack(axis=-1)
-        self.mul = P.Mul()
-        self.sub = P.Sub()
-        self.add = P.Add()
-        self.concat = P.Concat(axis=-1)
         self.transpose = P.Transpose().shard(((dp, cp, mp, 1),))
         self.kv_transpose = P.Transpose().shard(((dp, cp, kv_mp, 1),))
+        self.transpose_back = P.Transpose().shard(((dp, mp, cp, 1),))
+        self.kv_transpose_back = P.Transpose().shard(((dp, kv_mp, cp, 1),))
         self.cast = P.Cast()
         self.tile_kv = P.Tile()
         if self.use_rearrange_rope:
             self.apply_rotary_emb = ChatGLM2RotaryEmbedding(compute_dtype=config.rotary_dtype)
             self.apply_rotary_emb.shard((dp, cp, mp, 1), kv_strategy=(dp, cp, kv_mp, 1))
+        else:
+            self.apply_rotary_emb_classic = RotaryPosEmb()
         input_layout, sparse_mode = self.select_fa_configs()
         if self.use_flash_attention:
+            next_tokens = self.seq_length - self.seq_seg_len if self.seq_pipe else 0
             self.flash_attention = FlashAttention(head_num=config.num_attention_heads,
                                                   scale_value=1. / math.sqrt(self.head_dim),
                                                   input_layout=input_layout,
                                                   sparse_mode=sparse_mode,
                                                   keep_prob=1. - config.attention_dropout,
                                                   pre_tokens=65536,
-                                                  next_tokens=0)
+                                                  next_tokens=next_tokens)
             self.shard_fa(cp, dp, mp, parallel_config)
             self.cp_transpose_before = P.Transpose().shard(((dp, cp, mp, 1, 1),))
             self.cp_transpose_kv_before = P.Transpose().shard(((dp, cp, kv_mp, 1, 1),))
             self.cp_transpose_after = P.Transpose().shard(((dp, cp, 1, mp, 1),))
-        self.get_attention_mask = self.select_mask_generate(config, parallel_config, sparse_mode)
         self.merger_head_transpose = P.Transpose().shard(((dp, mp, cp, 1),))
 
-    def shard_wqkv_concat(self, cp, dp, mp, qkv_has_bias):
+    def init_linear(self, in_channel, out_channel):
+        """init linear"""
+        return Linear(in_channel,
+                      out_channel,
+                      has_bias=self.qkv_has_bias,
+                      param_init_type=self.params_dtype,
+                      compute_dtype=self.compute_dtype)
+
+
+    def shard_wqkv_concat(self, cp, dp, mp):
         """shard wqkv concat"""
         qkv_strategy_matmul = ((dp * cp, 1), (mp, 1))
-        qkv_strategy_bias = ((dp * cp, mp), (mp,)) if qkv_has_bias else None
+        qkv_strategy_bias = ((dp * cp, mp), (mp,)) if self.qkv_has_bias else None
         self.query_key_value.shard(strategy_matmul=qkv_strategy_matmul, strategy_bias=qkv_strategy_bias)
         self.split_qkv.add_prim_attr("skip_redistribution", True)
         if self.enable_high_performance:
@@ -270,13 +261,13 @@ class ChatGLM2SelfAttention(nn.Cell):
         else:
             self.split_qkv.shard(((dp, cp, 1),))
 
-    def shard_wqkv_non_concat(self, config, qkv_has_bias, kv_mp):
+    def shard_wqkv_non_concat(self, config, kv_mp):
         """shard wqkv non concat"""
         dp, cp, mp = _parallel_decompose(config)
         kv_strategy_matmul = ((dp * cp, 1), (kv_mp, 1))
         q_strategy_matmul = ((dp * cp, 1), (mp, 1))
-        kv_strategy_bias = ((dp * cp, kv_mp), (kv_mp,)) if qkv_has_bias else None
-        q_strategy_bias = ((dp * cp, mp), (mp,)) if qkv_has_bias else None
+        kv_strategy_bias = ((dp * cp, kv_mp), (kv_mp,)) if self.qkv_has_bias else None
+        q_strategy_bias = ((dp * cp, mp), (mp,)) if self.qkv_has_bias else None
         self.wq.shard(strategy_matmul=q_strategy_matmul, strategy_bias=q_strategy_bias)
         self.wk.shard(strategy_matmul=kv_strategy_matmul, strategy_bias=kv_strategy_bias)
         self.wv.shard(strategy_matmul=kv_strategy_matmul, strategy_bias=kv_strategy_bias)
@@ -349,14 +340,6 @@ class ChatGLM2SelfAttention(nn.Cell):
                     )
                 )
 
-    def select_mask_generate(self, config, parallel_config, sparse_mode):
-        """select which mask to use"""
-        if self.mask_generate == "compress_reset" or sparse_mode == 2:
-            return GetCompressMask(mask_length=2048)
-        if self.mask_generate == "inmap":
-            return GetEodResetMask(seq_length=config.seq_length, parallel_config=parallel_config)
-        return ops.Identity()
-
     def _repeat_kv(self, x, rep):
         """repeat kv"""
         if rep == 1:
@@ -366,49 +349,6 @@ class ChatGLM2SelfAttention(nn.Cell):
         x = self.tile_kv(x, (1, 1, rep, 1))
         x = self.reshape(x, (bs, n_kv_head * rep, seqlen, head_dim))
         return x
-
-    def _merge_heads(self, x):
-        """
-        convert a 4d input to a 2d output
-
-        Inputs:
-            x: input tensor
-
-        Output:
-            x_merge: the 2d output
-        """
-        x = self.merger_head_transpose(x, (0, 2, 1, 3))  # bs, seq_length, head, size_per_head
-        x_shape = x.shape
-        new_shape = (x_shape[0], x_shape[1], -1)
-        x_merge = self.reshape(x, new_shape)
-        return x_merge
-
-    def apply_rotary_pos_emb(self, x: Tensor, rotary_pos_emb: Tuple[Tensor, Tensor, Tensor]) -> Tensor:
-        """apply rotary position embedding to q,k."""
-        # x: [b, heads, seq, hidden_size_per_head]
-        bs, num_heads, seq_len, _ = x.shape  # 1, 32，4, 128
-        # rope_cache: first (seq_len, kv_channels//4, 2), other (1, kv_channels//4, 2)
-        _, _, rope_cache = rotary_pos_emb
-        rot_dim = rope_cache.shape[-2] * 2  # kv_channels // 2
-        x, x_pass = x[..., :rot_dim], x[..., rot_dim:]
-        # ms not support variable sizes
-        # truncate to support variable sizes
-        # [bs, nh, sq, kv_channels//4, 2]
-        xshaped = self.reshape(x, (bs, num_heads, seq_len, rot_dim // 2, 2))
-        # [bs, 1, sq, kv_channels//4, 2]
-        if rope_cache.dtype == mstype.bfloat16:
-            rope_cache = self.cast(rope_cache, mstype.float32)
-        rope_cache = self.reshape(rope_cache, (-1, 1, seq_len, xshaped.shape[3], 2))
-
-        xshaped_0, xshaped_1 = ops.split(xshaped, 1, -1)
-        rope_cache_0, rope_cache_1 = ops.split(rope_cache, 1, -1)
-        x_out1 = self.sub(self.mul(xshaped_0, rope_cache_0), self.mul(xshaped_1, rope_cache_1))
-        x_out2 = self.add(self.mul(xshaped_1, rope_cache_0), self.mul(xshaped_0, rope_cache_1))
-        x_out = self.stack((x_out1, x_out2))
-        x_out = self.reshape(x_out, (x_out.shape[0], x_out.shape[1], x_out.shape[2], -1))
-        x_out = self.cast(x_out, x_pass.dtype)
-        # [bs, sq, nh, hidden_size_per_head]
-        return self.concat((x_out, x_pass))
 
     def add_prefix_if_need(self, prefix_key_value, key_layer, value_layer, attention_mask):
         """
@@ -440,7 +380,7 @@ class ChatGLM2SelfAttention(nn.Cell):
         return key_layer, value_layer, attention_mask
 
     def construct(self, hidden_states, attention_mask, rotary_pos_emb, batch_valid_length=None, prefix_key_value=None,
-                  block_tables=None, slot_mapping=None):
+                  block_tables=None, slot_mapping=None, kv_mask=None, seq_chunk=None):
         """Forward process of self-attention."""
         # hidden_states: [bs, seq_len, hidden_size]
         # attention_mask: (bs, 1, seq_len, seq_len)
@@ -474,8 +414,8 @@ class ChatGLM2SelfAttention(nn.Cell):
             else:
                 query = self.transpose(query, (0, 2, 1, 3))
                 key = self.kv_transpose(key, (0, 2, 1, 3))
-                query = self.apply_rotary_pos_emb(query, rotary_pos_emb)
-                key = self.apply_rotary_pos_emb(key, rotary_pos_emb)
+                query = self.apply_rotary_emb_classic(query, rotary_pos_emb)
+                key = self.apply_rotary_emb_classic(key, rotary_pos_emb)
 
             key, value, attention_mask = self.add_prefix_if_need(
                 prefix_key_value,
@@ -484,8 +424,8 @@ class ChatGLM2SelfAttention(nn.Cell):
                 attention_mask
             )
             if not self.use_rearrange_rope:
-                query = self.transpose(query, (0, 2, 1, 3))
-                key = self.kv_transpose(key, (0, 2, 1, 3))
+                query = self.transpose_back(query, (0, 2, 1, 3))
+                key = self.kv_transpose_back(key, (0, 2, 1, 3))
 
             if self.use_flash_attention:
                 if self.cp_ds > 1:
@@ -495,20 +435,10 @@ class ChatGLM2SelfAttention(nn.Cell):
                     query = self.cp_transpose_before(query, (0, 1, 3, 2, 4))
                     key = self.cp_transpose_kv_before(key, (0, 1, 3, 2, 4))
                     value = self.cp_transpose_kv_before(value, (0, 1, 3, 2, 4))
-                if self.mask_generate == "compress_reset":
-                    actual_seq_len = self.cast(self.reshape(attention_mask, (-1,)), mstype.int64)
-                    attention_mask = self.get_attention_mask(attention_mask)
-
-                    query = self.reshape(query, (bs * seq_len, self.n_head, self.head_dim))
-                    key = self.reshape(key, (bs * seq_len, self.n_kv_head, self.head_dim))
-                    value = self.reshape(value, (bs * seq_len, self.n_kv_head, self.head_dim))
-                    context_layer = self.flash_attention(query, key, value, attention_mask,
-                                                         None, None, None,
-                                                         actual_seq_len, actual_seq_len)
-                    if self.cp_ds > 1:
-                        context_layer = self.cp_transpose_after(F.reshape(context_layer, (
-                            bs, seq_len, self.cp_ds, self.n_head // self.cp_ds, self.head_dim)), (0, 1, 3, 2, 4))
-                    context_layer = self.reshape(context_layer, (bs, seq_len, -1))
+                if self.seq_pipe:
+                    key_update, query, value_update = self.seq_pipe_process(query, key, value, kv_mask,
+                                                                            seq_chunk, seq_len)
+                    context_layer = self.flash_attention(query, key_update, value_update, attention_mask)
                 else:
                     query = F.reshape(query, (bs, seq_len, self.n_head * self.head_dim))
                     key = F.reshape(key, (bs, seq_len, self.n_kv_head * self.head_dim))
@@ -525,7 +455,7 @@ class ChatGLM2SelfAttention(nn.Cell):
                 value = self.kv_transpose(value, (0, 2, 1, 3))
                 key = self._repeat_kv(key, self.n_rep)
                 value = self._repeat_kv(value, self.n_rep)
-                attention_mask = F.reshape(self.get_attention_mask(attention_mask), (bs, 1, seq_len, seq_len))
+                attention_mask = F.reshape(attention_mask, (bs, 1, seq_len, seq_len))
                 context_layer = self.core_attention(query, key, value, attention_mask)
 
         # # =================
@@ -543,6 +473,46 @@ def _parallel_decompose(config):
     return dp, cp, mp
 
 
+class RotaryPosEmb(nn.Cell):
+    """classic rotary embedding calculation"""
+    def __init__(self):
+        super(RotaryPosEmb, self).__init__()
+        self.reshape = P.Reshape()
+        self.stack = P.Stack(axis=-1)
+        self.mul = P.Mul()
+        self.sub = P.Sub()
+        self.add = P.Add()
+        self.concat = P.Concat(axis=-1)
+        self.cast = P.Cast()
+
+    def construct(self, x: Tensor, rotary_pos_emb: Tuple[Tensor, Tensor, Tensor]) -> Tensor:
+        """apply rotary position embedding to q,k."""
+        # x: [b, heads, seq, hidden_size_per_head]
+        bs, num_heads, seq_len, _ = x.shape  # 1, 32，4, 128
+        # rope_cache: first (seq_len, kv_channels//4, 2), other (1, kv_channels//4, 2)
+        _, _, rope_cache = rotary_pos_emb
+        rot_dim = rope_cache.shape[-2] * 2  # kv_channels // 2
+        x, x_pass = x[..., :rot_dim], x[..., rot_dim:]
+        # ms not support variable sizes
+        # truncate to support variable sizes
+        # [bs, nh, sq, kv_channels//4, 2]
+        xshaped = self.reshape(x, (bs, num_heads, seq_len, rot_dim // 2, 2))
+        # [bs, 1, sq, kv_channels//4, 2]
+        if rope_cache.dtype == mstype.bfloat16:
+            rope_cache = self.cast(rope_cache, mstype.float32)
+        rope_cache = self.reshape(rope_cache, (-1, 1, seq_len, xshaped.shape[3], 2))
+
+        xshaped_0, xshaped_1 = ops.split(xshaped, 1, -1)
+        rope_cache_0, rope_cache_1 = ops.split(rope_cache, 1, -1)
+        x_out1 = self.sub(self.mul(xshaped_0, rope_cache_0), self.mul(xshaped_1, rope_cache_1))
+        x_out2 = self.add(self.mul(xshaped_1, rope_cache_0), self.mul(xshaped_0, rope_cache_1))
+        x_out = self.stack((x_out1, x_out2))
+        x_out = self.reshape(x_out, (x_out.shape[0], x_out.shape[1], x_out.shape[2], -1))
+        x_out = self.cast(x_out, x_pass.dtype)
+        # [bs, sq, nh, hidden_size_per_head]
+        return self.concat((x_out, x_pass))
+
+
 class ChatGLM2Block(nn.Cell):
     """A single transformer layer.
 
@@ -558,6 +528,8 @@ class ChatGLM2Block(nn.Cell):
         self.layernorm_dtype = config.layernorm_compute_type
         self.compute_dtype = config.compute_dtype
         self.residual_dtype = config.residual_dtype
+        self.seq_split_num = config.parallel_config.seq_split_num
+        self.seq_pipe = self.seq_split_num > 1
 
         layer_norm_func = ChatGLM2RMSNorm if config.rmsnorm else LayerNorm
         # Layernorm on the input data.
@@ -604,7 +576,7 @@ class ChatGLM2Block(nn.Cell):
         self.cast.recompute(False)
 
     def construct(self, hidden_states, attention_mask, rotary_pos_emb, batch_valid_length=None, prefix_key_value=None,
-                  block_tables=None, slot_mapping=None):
+                  block_tables=None, slot_mapping=None, kv_mask=None, seq_chunk=None):
         """Forward process of the transformer layer."""
         # hidden_states: [bs, seq_len, hidden_size]
         # attention_mask first: (bs, 1, seq_len, seq_len), after: (bs, 1, 1, seq_len)
@@ -620,7 +592,9 @@ class ChatGLM2Block(nn.Cell):
             batch_valid_length,
             prefix_key_value,
             block_tables=block_tables,
-            slot_mapping=slot_mapping
+            slot_mapping=slot_mapping,
+            kv_mask=kv_mask,
+            seq_chunk=seq_chunk
         )
 
         # Residual connection.
@@ -791,7 +765,9 @@ class ChatGLM2Transformer(nn.Cell):
                   batch_valid_length=None,
                   prefix_key_values=None,
                   block_tables=None,
-                  slot_mapping=None):
+                  slot_mapping=None,
+                  kv_mask=None,
+                  seq_chunk=None):
         """Forward process of the transformer."""
         # hidden_states -> (bs, seq_len, hs)
         # attention_mask -> (bs, 1, seq_len, seq_len)
@@ -813,7 +789,9 @@ class ChatGLM2Transformer(nn.Cell):
                 batch_valid_length=batch_valid_length,
                 prefix_key_value=prefix_key_value,
                 block_tables=block_tables,
-                slot_mapping=slot_mapping
+                slot_mapping=slot_mapping,
+                kv_mask=kv_mask,
+                seq_chunk=seq_chunk
             )
 
         # Final layer norm.
@@ -822,3 +800,58 @@ class ChatGLM2Transformer(nn.Cell):
             hidden_states = self.cast(hidden_states, self.compute_dtype)
 
         return hidden_states
+
+
+class SeqPipeProcess(nn.Cell):
+    """Sequence parallel process"""
+    def __init__(self, config, kv_mp, batch_size, seq_length):
+        super(SeqPipeProcess, self).__init__()
+        parallel_config = config.parallel_config
+        dp, cp = parallel_config.data_parallel, parallel_config.context_parallel
+        self.seq_pipe = parallel_config.seq_split_num > 1
+        self.seq_split_num = parallel_config.seq_split_num
+        kv_shape = (batch_size * dp, self.seq_length, self.n_kv_head * self.head_dim)
+        self.key_cache = Parameter(initializer('zeros', shape=kv_shape, dtype=self.compute_dtype),
+                                   name="key_cache", requires_grad=False, parallel_optimizer=False)
+        self.value_cache = Parameter(initializer('zeros', shape=kv_shape, dtype=self.compute_dtype),
+                                     name="value_cache", requires_grad=False, parallel_optimizer=False)
+        kv_grad_shape = (batch_size, seq_length // cp, self.head_dim * self.n_kv_head // kv_mp)
+        self.key_cache_grad = Parameter(initializer('zeros', shape=kv_grad_shape, dtype=self.compute_dtype),
+                                        name="key_cache_grad", requires_grad=False, parallel_optimizer=False)
+        self.value_cache_grad = Parameter(initializer('zeros', shape=kv_grad_shape, dtype=self.compute_dtype),
+                                          name="value_cache_grad", requires_grad=False, parallel_optimizer=False)
+        self.select = P.Select().shard(((dp, cp, kv_mp), (dp, cp, kv_mp), (dp, cp, kv_mp)))
+        self.add_k = P.Add().shard(((dp, cp, kv_mp), (dp, cp, kv_mp)))
+        self.add_v = P.Add().shard(((dp, cp, kv_mp), (dp, cp, kv_mp)))
+        self.mul_kv = P.Mul().shard(((dp, cp, kv_mp), (dp, cp, kv_mp)))
+        self.assign_kv = P.Assign().shard(((dp, cp, kv_mp), (dp, cp, kv_mp)))
+        self.mul_update = P.Mul().shard(((dp, cp, kv_mp), ()))
+        self.not_equal_ones = P.NotEqual().shard(((dp, cp, kv_mp), ()))
+        self.not_equal_seq = P.NotEqual()
+        self.seq_split_size = Tensor(self.seq_split_num - 1, dtype=mstype.int32)
+        self.tile_kv = P.Tile().shard(((dp, cp, kv_mp),))
+        self.reshape = P.Reshape()
+
+    def construct(self, query, key, value, kv_mask, seq_chunk, seq_len):
+        """construct"""
+        query = self.reshape(query, (-1, seq_len, self.n_head * self.head_dim))
+        key = self.reshape(key, (-1, seq_len, self.n_kv_head * self.head_dim))
+        value = self.reshape(value, (-1, seq_len, self.n_kv_head * self.head_dim))
+        key = self.tile_kv(key, (1, self.seq_split_num, 1))
+        value = self.tile_kv(value, (1, self.seq_split_num, 1))
+        key = self.mul_kv(key, kv_mask)
+        value = self.mul_kv(value, kv_mask)
+        seq_zero = self.mul_update(kv_mask, 0)
+        ones = self.not_equal_ones(seq_zero, -1)
+        kv_equal = self.mul_update(ones, self.not_equal_seq(seq_chunk, self.seq_split_size))
+        key_update = self.add_k(key, self.key_cache)
+        value_update = self.add_v(value, self.value_cache)
+        update_k = self.select(kv_equal, key_update, seq_zero)
+        update_v = self.select(kv_equal, value_update, seq_zero)
+        update_k = F.stop_gradient(update_k)
+        update_v = F.stop_gradient(update_v)
+        k_update = self.assign_kv(self.key_cache, update_k)
+        v_update = self.assign_kv(self.value_cache, update_v)
+        query = F.depend(query, k_update)
+        query = F.depend(query, v_update)
+        return key_update, query, value_update
