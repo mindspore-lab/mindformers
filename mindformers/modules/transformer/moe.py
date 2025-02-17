@@ -853,7 +853,7 @@ class MoEV2(Cell):
         expert_output = self.reshape(expert_output, (self.dp, self.expert_dim, -1, self.hidden_size))
         return expert_output
 
-    def construct(self, input_tensor, extra_loss=0.):
+    def construct(self, input_tensor, extra_loss=0., seq_chunk=None):
         """forward process"""
         input_tensor_shape = self.shape(input_tensor)
         input_tensor = self.reshape(input_tensor, (self.dp_group, -1, self.hidden_size))  # (dp, N, h) <-- (B*S, h)
@@ -861,7 +861,7 @@ class MoEV2(Cell):
         # calculate router, we do not use router_aux_loss right now
         # (dp, E, n)int32, (dp, N, k)int32, (dp, N, k)fp16, (1,) <-- (dp, N, h),
         # where 0<= dispatch_index < 1+N, 0<= combine_index <E*(1+n)
-        dispatch_policy, combine_policy, router_coeff, router_aux_loss = self.router(input_tensor)
+        dispatch_policy, combine_policy, router_coeff, router_aux_loss = self.router(input_tensor, seq_chunk=seq_chunk)
 
         # dispatch
         expert_capacity = dispatch_policy.shape[-1]
@@ -940,7 +940,8 @@ class Router(Cell):
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.mul.shard(((dp, 1, 1), (dp,)))
 
-    def construct(self, input_tensor):
+    def construct(self, input_tensor, seq_chunk=None):
+        """ Router construct"""
         input_tensor = self.cast(input_tensor, self.moe_config.router_dense_type)
         if self.noisy_policy == "jitter" and self.training:
             # Here, we temporarily implement the multiplicative jitter this way,
@@ -948,6 +949,8 @@ class Router(Cell):
             input_tensor = self.mul(input_tensor, self.noise)
 
         router_logits = self.dense(input_tensor)
+        if self.routing_policy == "TopkRouterV2":
+            return self.router(router_logits, seq_chunk=seq_chunk)
         return self.router(router_logits)
 
 
@@ -1371,6 +1374,16 @@ class TopkRouterV2(Cell):
             self.mul_router_coeff = P.Mul().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
             self.sum_router_coeff = P.ReduceSum(keep_dims=False).shard(((dp, 1, 1, 1),))
 
+        self.seq_split_num = parallel_config.seq_split_num
+        self.seq_pipe = self.seq_split_num > 1
+        if self.seq_pipe:
+            self.pi_cache = Parameter(initializer('zeros', (dp, self.expert_dim), mstype.float32),
+                                      requires_grad=False, parallel_optimizer=False)
+            self.fi_cache = Parameter(initializer('zeros', (dp, self.expert_dim), mstype.float32),
+                                      requires_grad=False, parallel_optimizer=False)
+            self.assign_cache = P.Assign().shard(((dp, 1), (dp, 1)))
+            self.assign_add_cache = P.AssignAdd().shard(((dp, 1), (dp, 1)))
+            self.mul_cache = P.Mul().shard(((dp, 1), ()))
         # topkrouter
         if self.moe_config.use_fused_ops_topkrouter:
             # pylint: disable=W0212
@@ -1489,7 +1502,7 @@ class TopkRouterV2(Cell):
             output_tensor = self.sum_router_coeff(output_tensor, 2)
         return output_tensor
 
-    def construct(self, router_logits):
+    def construct(self, router_logits, seq_chunk=None):
         """
         Calculate dispatch_policy, combine_policy, router_coeff.
         """
@@ -1542,7 +1555,7 @@ class TopkRouterV2(Cell):
 
         if self.aux_loss_config.get("expert", 0):
             expert_load_loss = self._expert_load_balancing(router_prob_for_aux, expert_index,
-                                                           self.aux_loss_config.get("expert"))
+                                                           self.aux_loss_config.get("expert"), seq_chunk=seq_chunk)
             extra_loss = self.add_scalar(extra_loss, expert_load_loss)
         if self.aux_loss_config.get("device", 0):
             device_load_loss = self._device_load_balancing(router_prob_for_aux, expert_index,
@@ -1762,7 +1775,7 @@ class TopkRouterV2(Cell):
         expert_capacity_scalar = (expert_capacity_scalar // mp + 1) * mp
         return expert_capacity_scalar
 
-    def _expert_load_balancing(self, scores, top_indices, alpha):
+    def _expert_load_balancing(self, scores, top_indices, alpha, seq_chunk=None):
         """Expert level load balance loss, which regularizes the load from local batch data on each
         expert to be balanced.
         Please refer to DeepSeek-V2:
@@ -1777,9 +1790,24 @@ class TopkRouterV2(Cell):
                               self.on_value,
                               self.off_value)  # (dp, kN, E)fp32 <-- (dp, kN)int32
         fi = self.reduce_mean(mask, 1)  # (dp, E) <- (dp, kN, E), 1/(kN) * \sum_t^T 1(token t selects expert i)
-        self.assign_fi(self.fi_parameter, fi)
+
+        if seq_chunk is not None:
+            is_clean = self.cast(P.NotEqual()(seq_chunk, 0), mstype.float32)
+            is_return = self.cast(P.Equal()(seq_chunk, self.seq_split_num - 1), mstype.float32)
+            clean_zeros_pi = self.mul_cache(self.pi_cache, is_clean)
+            clean_zeros_fi = self.mul_cache(self.fi_cache, is_clean)
+            clean_pi_state = self.assign_cache(self.pi_cache, clean_zeros_pi)
+            clean_fi_state = self.assign_cache(self.fi_cache, clean_zeros_fi)
+            pi_cache_state = self.assign_add_cache(self.pi_cache, F.depend(pi, clean_pi_state))
+            fi_cache_state = self.assign_add_cache(self.fi_cache, F.depend(fi, clean_fi_state))
+            pi_cache = F.depend(self.pi_cache, pi_cache_state)
+            fi_cache = F.depend(self.fi_cache, fi_cache_state)
+            expert_load_loss = self.mul(self.reduce_mean_2d(self.mul_2d(pi_cache, fi_cache)),
+                                        alpha * self.expert_dim ** 2)
+            return expert_load_loss * is_return / (self.seq_split_num * self.seq_split_num)
         expert_load_loss = self.mul(self.reduce_mean_2d(self.mul_2d(pi, fi)),
                                     alpha * self.expert_dim ** 2)  # alpha*E \sum_i^E (f_i * P_i)
+        self.assign_fi(self.fi_parameter, fi)
         return expert_load_loss
 
     def _device_load_balancing(self, scores, top_indices, alpha):
