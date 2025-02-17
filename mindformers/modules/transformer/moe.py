@@ -1323,6 +1323,10 @@ class TopkRouterV2(Cell):
         self.sub = P.Sub()
         self.mod_expert = P.Mod()
         self.tensor2scalar = TensorToScalar()
+        self.fi_parameter = Parameter(initializer("zeros", (dp, self.expert_dim), mstype.float32),
+                                      requires_grad=False, parallel_optimizer=False)
+        self.assign_fi = P.Assign().shard(((dp, 1), (dp, 1)))
+        self.assign_fi.recompute(False)
 
        # allgather dispatcer
         self.use_allgather_dispatcher = moe_config.use_allgather_dispatcher
@@ -1773,7 +1777,7 @@ class TopkRouterV2(Cell):
                               self.on_value,
                               self.off_value)  # (dp, kN, E)fp32 <-- (dp, kN)int32
         fi = self.reduce_mean(mask, 1)  # (dp, E) <- (dp, kN, E), 1/(kN) * \sum_t^T 1(token t selects expert i)
-
+        self.assign_fi(self.fi_parameter, fi)
         expert_load_loss = self.mul(self.reduce_mean_2d(self.mul_2d(pi, fi)),
                                     alpha * self.expert_dim ** 2)  # alpha*E \sum_i^E (f_i * P_i)
         return expert_load_loss

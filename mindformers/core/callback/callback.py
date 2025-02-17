@@ -1541,3 +1541,52 @@ class TopkBiasBalanceCallback(Callback):
         if self.update_topk_bias_flag:
             # pylint: disable=W0212
             self._update_topk_bias(cb_params.train_network.network.network._backbone)
+
+
+@MindFormerRegister.register(MindFormerModuleType.CALLBACK)
+class MoEDropRateCallback(Callback):
+    """Callback drop rate in moe module.
+
+    Args:
+        expert_num (int): How many experts in the moe module.
+        capacity_factor (float): Capcity factor in the moe module.
+        num_layers (int): How many layers in the model.
+        mtp_depth (int): How many layers in the mtp module.
+
+    Examples:
+        >>> from mindformers.core.callback import MoEDropRateCallback
+        >>> stop_step = MoEDropRateCallback(expert_num=8, capacity_factor=1.5, num_layers=4, mtp_depth=1)
+        <class 'mindformers.core.callback.callback.MoEDropRateCallback'>
+    """
+    def __init__(self,
+                 expert_num: int,
+                 capacity_factor: float,
+                 num_layers: int,
+                 mtp_depth: int):
+        self.capacity_factor_over_expert_num = capacity_factor / expert_num
+        self.num_layers = num_layers + mtp_depth
+
+    def _callback_droprate(self, network):
+        """callback drop rate."""
+        for i in range(self.num_layers):
+            while hasattr(network, "network"):
+                network = network.network
+            if hasattr(network.model.layers[i].feed_forward, "routed_experts"):
+                if hasattr(network.model.layers[i].feed_forward.routed_experts, "router"):
+                    fi = network.model.layers[i].feed_forward.routed_experts.router.router.fi_parameter.value()
+                    if fi.sum() > 0:
+                        delta = fi - self.capacity_factor_over_expert_num
+                        droprate = ms.ops.sum(delta * (delta > 0))
+                        logger.info("layer: %d, drop_rate: %.5f" % (i, droprate))
+            else:
+                if hasattr(network.model.layers[i].feed_forward, "router"):
+                    fi = network.model.layers[i].feed_forward.router.router.fi_parameter.value()
+                    if fi.sum() > 0:
+                        delta = fi - self.capacity_factor_over_expert_num
+                        droprate = ms.ops.sum(delta * (delta > 0))
+                        logger.info("layer: %d, drop_rate: %.5f" % (i, droprate))
+
+    def step_end(self, run_context):
+        cb_params = run_context.original_args()
+        # pylint: disable=W0212
+        self._callback_droprate(cb_params.train_network.network.network._backbone)
