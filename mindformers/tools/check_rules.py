@@ -125,17 +125,6 @@ def _check_full_batch():
                        f"but get {parallel_mode}, full_batch has been forced to False")
 
 
-def _check_pipeline_interleave(config, pp):
-    """check vpp config"""
-    pipeline_interleave_enabled = getattr(config.parallel.pipeline_config, 'pipeline_interleave', False)
-    if not pipeline_interleave_enabled:
-        return False
-    # Set pp_interleave_num to 0 if there is no pp_interleave_num in model_config
-    # or if pp_interleave_num is set to None.
-    pp_interleave_num = getattr(config.model.model_config, 'pp_interleave_num', 0) or 0
-    return pp_interleave_num * pp > config.model.model_config.num_layers
-
-
 def _check_context_parallel_algo_valid(config, cp, mp):
     """check cp config"""
     n_kv_heads = getattr(config.model.model_config, 'n_kv_heads', None)
@@ -172,10 +161,6 @@ def _check_parallel(config):
                              f"be equal to device_num, but get dp*mp*sp*pp = {dp}*{mp}*{cp}*{pp} = {dp * mp * cp * pp} "
                              f"!= device_num({device_num})")
 
-        if config.model.model_config.num_layers and config.model.model_config.num_layers < pp:
-            raise ValueError(f"num_layers of model should be greater than or equal to pipeline_stage, but get "
-                             f"num_layers ({config.model.model_config.num_layers}) < pp({pp})")
-
         if server_num > 1:
             if server_num % pp != 0:
                 logger.warning(f"server_num % pipeline_stage = {server_num} % {pp} = {server_num % pp} != 0, "
@@ -196,10 +181,6 @@ def _check_parallel(config):
                              f"use_flash_attention {config.model.model_config.use_flash_attention}, please "
                              f"set use_flash_attention=True")
 
-        if _check_pipeline_interleave(config, pp):
-            raise ValueError(f"num_layers should be greater than `pp * pp_interleave_num`, "
-                             f"but got num_layers : {config.model.model_config.num_layers} "
-                             f"and pp * pp_interleave_num = {pp * config.model.model_config.pp_interleave_num}.")
         if cp > 1:
             _check_context_parallel_algo_valid(config, cp, mp)
 

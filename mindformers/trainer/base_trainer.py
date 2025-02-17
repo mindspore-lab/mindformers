@@ -452,7 +452,10 @@ class BaseTrainer:
     def create_network(self, default_args: dict = None):
         """Create the network for task trainer."""
         logger.info(".........Build Network From Config..........")
-        return build_network(self.config.model, default_args=default_args)
+        network = build_network(self.config.model, default_args=default_args)
+        if hasattr(network, "check_pipeline_stage") and callable(network.check_pipeline_stage):
+            network.check_pipeline_stage()
+        return network
 
     def create_network_without_param_init(self, default_args: dict = None):
         """Create the network for task trainer without initialize parameters."""
