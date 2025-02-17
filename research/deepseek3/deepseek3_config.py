@@ -154,7 +154,7 @@ class DeepseekV3Config(PretrainedConfig):
                  do_sample: bool = True,
                  mtp_depth: int = 0,
                  mtp_loss_factor: float = 0.3,
-                 return_extra_loss: bool = False,
+                 return_extra_loss: bool = True,
                  input_sliced_sig: bool = False,
                  **kwargs):
         super(DeepseekV3Config, self).__init__(**kwargs)
