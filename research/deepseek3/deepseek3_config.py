@@ -155,6 +155,7 @@ class DeepseekV3Config(PretrainedConfig):
                  mtp_depth: int = 0,
                  mtp_loss_factor: float = 0.3,
                  return_extra_loss: bool = False,
+                 input_sliced_sig: bool = False,
                  **kwargs):
         super(DeepseekV3Config, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -214,5 +215,6 @@ class DeepseekV3Config(PretrainedConfig):
         self.return_extra_loss = return_extra_loss
         self.mtp_depth = mtp_depth
         self.mtp_loss_factor = mtp_loss_factor
+        self.input_sliced_sig = input_sliced_sig
         self.mlp_has_gate = True
         self.hidden_act = "silu"
