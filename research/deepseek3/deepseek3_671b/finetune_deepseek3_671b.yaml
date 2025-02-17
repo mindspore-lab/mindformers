@@ -137,7 +137,7 @@ model:
     offset: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1]
     checkpoint_name_or_path: ""
     theta: 10000.0
-    return_extra_loss: False
+    return_extra_loss: True
     mtp_depth: &mtp_depth 1
     mtp_loss_factor: 0.3
   arch:
