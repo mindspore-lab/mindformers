@@ -40,7 +40,7 @@ mindformers.models.PreTrainedTokenizer
           - **mask_token** (Union[str, tokenizers.AddedToken], 可选) - 表示掩码词元的特殊词元（用于掩码语言建模预训练目标，如BERT）。将关联到self.mask_token和self.mask_token_id。默认值： ``None`` 。
           - **additional_special_tokens** (Union[tuple, list, tokenizers.AddedToken], 可选) - 一组额外的特殊词元。在这里添加它们以确保在设置skip_special_tokens为True时跳过它们。如果它们不是词汇表的一部分，将在词汇表的末尾添加。默认值： ``None`` 。
           - **clean_up_tokenization_spaces** (bool, 可选) - 是否清理在分词过程中添加的空格。默认值： ``True`` 。
-          - **split_special_tokens** (bool, 可选) - 是否在分词过程中拆分特殊词元。传递将影响分词器的内部状态。默认行为是不拆分特殊词元。这意味着如果 `<s>` 是 `bos_token` ，则 ``tokenizer.tokenize("<s>") = ['<s>']`` 。否则，如果 ``split_special_tokens=True`` ，则 ``tokenizer.tokenize("<s>")`` 会得到 ``['<','s', '>']`` 。默认值： ``False`` 。
+          - **split_special_tokens** (bool, 可选) - 是否在分词过程中拆分特殊词元。传递这个参数会影响分词器的内部状态。默认行为是不拆分特殊词元。这意味着如果 `<s>` 是 `bos_token` ，则 ``tokenizer.tokenize("<s>") = ['<s>']`` 。否则，如果 ``split_special_tokens=True`` ，则 ``tokenizer.tokenize("<s>")`` 会得到 ``['<','s', '>']`` 。默认值： ``False`` 。
 
     返回：
         PreTrainedTokenizer类实例。
@@ -84,7 +84,7 @@ mindformers.models.PreTrainedTokenizer
 
     .. py:method:: get_added_vocab()
 
-        以词元到索引的字典形式返回词汇表中的添加词元。
+        以词元索引字典的形式返回词汇表中已添加的词元。
 
         返回：
             dict: 添加的词元。
