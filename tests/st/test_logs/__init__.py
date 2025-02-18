@@ -1,4 +1,4 @@
-# Copyright 2024 Huawei Technologies Co., Ltd
+# Copyright 2025 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,20 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
-"""utils init"""
-from .import_utils import (
-    direct_mindformers_import,
-    is_tokenizers_available,
-    is_sentencepiece_available,
-)
-from .bit_array import BitArray
-from .cann_cores_utils import get_cann_workqueue_cores, binding_cann_workqueue
-from .safetensors import (
-    convert_hf_safetensors_multiprocess,
-    contains_safetensors_files,
-    is_hf_safetensors_dir,
-    check_safetensors_key,
-)
-from .load_checkpoint_utils import validate_qkv_concat, process_hf_checkpoint
-from .decorators import deprecated
+"""test logs."""

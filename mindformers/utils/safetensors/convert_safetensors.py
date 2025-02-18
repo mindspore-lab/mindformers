@@ -19,9 +19,8 @@ import shutil
 from multiprocessing import Process, Manager, Condition
 from safetensors.numpy import load_file, save_file
 
-from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.tools import logger
-from mindformers.utils.safetensors.utils import is_hf_safetensors_dir
+from .utils import is_hf_safetensors_dir
 
 
 def convert_hf_safetensors_multiprocess(src_dir, dst_dir, model_cls_or_instance, model_config):
@@ -55,6 +54,7 @@ def _check_valid_input(src_dir, dst_dir, model_cls_or_instance, model_config):
     if not isinstance(dst_dir, str):
         raise ValueError(f"src_dir must be a str or an instance of os.PathLike, "
                          f"but got {dst_dir} as type {type(dst_dir)}.")
+    from mindformers.models.modeling_utils import PreTrainedModel
     if not (isinstance(model_cls_or_instance, PreTrainedModel) or
             isinstance(model_cls_or_instance, type) and issubclass(model_cls_or_instance, PreTrainedModel)):
         raise ValueError(f"model_cls_or_instance must be a subclass or an instance of PreTrainedModel,"
