@@ -29,11 +29,11 @@ mindformers.models.LlamaConfig
         - **rotary_dtype** (str, 可选) - rope 计算数据类型。默认值： ``float32`` 。
         - **param_init_type** (str, 可选) - 参数初始化数据类型。默认值： ``float16`` 。
         - **embedding_init_type** (str, 可选) - 嵌入权重的初始数据类型。默认值： ``None`` 。
-        - **qkv_has_bias** (bool, 可选) - 查询、键和值的投影是否有偏置。默认值： ``False`` 。
-        - **qkv_concat** (bool, 可选) - 是否拼接Query,、Key和Value投影。默认值： ``None`` 。
+        - **qkv_has_bias** (bool, 可选) - Query、Key和Value的投影是否有偏置。默认值： ``False`` 。
+        - **qkv_concat** (bool, 可选) - 是否拼接Query、Key和Value投影。默认值： ``None`` 。
         - **parallel_config** (TransformerOpParallelConfig, 可选) - 并行配置。默认值： ``default_transformer_config`` ，一个带有默认参数的 `TransformerOpParallelConfig` 实例。
         - **moe_config** (Union[dict, MoEConfig], 可选) - MoE配置。默认值： ``default_moe_config`` ，一个带有默认参数的 `MoEConfig` 实例。
-        - **use_past** (bool, 可选) - 模型是否应使用过去的键/值注意力（如果适用于模型）来加速解码。默认值： ``False`` 。
+        - **use_past** (bool, 可选) - 模型是否应使用过去的Key和Value注意力（如果适用于模型）来加速解码。默认值： ``False`` 。
         - **extend_method** (str, 可选) - 序列长度推理时的扩展方法。默认值： ``None`` 。
         - **scaling_factor** (float, 可选) - 缩放因子，用于调整正弦和余弦函数中频率因子的权重。默认值： ``1.0`` 。
         - **is_dynamic** (bool, 可选) - 是否使用动态shape。默认值： ``False`` 。

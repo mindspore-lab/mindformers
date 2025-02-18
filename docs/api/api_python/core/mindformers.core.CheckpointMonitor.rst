@@ -25,6 +25,6 @@ mindformers.core.CheckpointMonitor
         - **global_batch_size** (int, 可选) - 总BatchSize大小。默认值： ``0`` 。
 
     异常：
-        - **ValueError** - 如果 `preifx` 不是 `str` 或者包含 `/` 字符。
+        - **ValueError** - 如果 `prefix` 不是 `str` 或者包含 `/` 字符。
         - **ValueError** - 如果 `directory` 不是 `str` 。
         - **TypeError** - 如果 `config` 不是 `CheckpointConfig` 类型。

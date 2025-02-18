@@ -104,7 +104,7 @@ class TrainingArguments:
         calculate_per_token_loss (bool, optional):
             Whether to use megatron-style loss for training. Default: ``False``.
         remote_save_url (str, optional):
-            The OBS output dir when training on ModeArts. Default: ``None``.
+            The OBS output dir when training on ModelArts. Default: ``None``.
         batch_size (int, optional):
             Batch size per GPU/NPU core/CPU for training.
             If set, it will override `per_device_train_batch_size`. Default: ``None``.

@@ -23,7 +23,7 @@ mindformers.TrainingArguments
         - **do_predict** (bool, 可选) - 是否执行预测。默认值： ``False`` 。
         - **check_for_nan_in_loss_and_grad** (bool, 可选) - 是否在训练中检查损失和梯度存在Nan。默认值： ``False`` 。
         - **calculate_per_token_loss** (bool, 可选) - 是否计算每个token的损失。默认值： ``False`` 。
-        - **remote_save_url** (str, 可选) - 在ModeArts上执行训练任务时的OBS输出路径。默认值： ``None`` 。
+        - **remote_save_url** (str, 可选) - 在ModelArts上执行训练任务时的OBS输出路径。默认值： ``None`` 。
         - **batch_size** (int, 可选) - 输入数据的batch size，如果设置了值，则会覆盖 `per_device_train_batch_size` 。默认值： ``None`` 。
         - **num_train_epochs** (float, 可选) - 训练任务的epoch总数。默认值： ``3.0`` 。
         - **sink_mode** (bool, 可选) - 是否直接下沉数据到设备端。默认值： ``True`` 。
@@ -134,7 +134,7 @@ mindformers.TrainingArguments
         - **profile_start_step** (int, 可选) - 在第几步开启性能分析。默认值： ``1`` 。
         - **profile_end_step** (int, 可选) - 在第几步结束性能分析。默认值： ``10`` 。
         - **init_start_profile** (bool, 可选) - 在性能分析初始化时是否采集数据。默认值： ``False`` 。
-        - **profile_communication** (bool, 可选) - 在多卡训练时，是否开启通信性能数据采集。
+        - **profile_communication** (bool, 可选) - 在多卡训练时，是否开启通信性能数据采集。默认值： ``False`` 。
         - **profile_memory** (bool, 可选) - 是否采集张量内存数据。默认值： ``True`` 。
         - **auto_tune** (bool, 可选) - 是否开启自动数据加速。默认值： ``False`` 。
         - **filepath_prefix** (str, 可选) - 经过优化的全局配置的保存路径和文件前缀。默认值： ``"./autotune"`` 。
@@ -154,7 +154,7 @@ mindformers.TrainingArguments
         把训练参数转换成MindFormers的config类型。
 
         参数：
-            - **task_config** (MindFormerConfig, 可选) - 任务配置信息。
+            - **task_config** (MindFormerConfig, 可选) - 任务配置信息。默认值： ``None`` 。
 
         返回：
             MindFormerConfig类的实例，包含经过处理的任务配置信息。
@@ -213,7 +213,7 @@ mindformers.TrainingArguments
             - **steps** (int, 可选) - 两次日志之间间隔的步数，在 `strategy` 值为 `steps` 时生效。默认值： ``500`` 。
             - **kwargs** (Any) - 其它参数。
 
-    .. py:method:: set_lr_scheduler(name: Union[str, LrSchedulerType] = 'linear', num_epochs: float = 3.0, warmup_lr_init: float = 0.0, warmup_epochs: Optional[int] = None, warmup_ratio: Optional[float] = None, warmup_steps: int = 0, total_steps: int = - 1, **kwargs)
+    .. py:method:: set_lr_scheduler(name: Union[str, LrSchedulerType] = 'linear', num_epochs: float = 3.0, warmup_lr_init: float = 0.0, warmup_epochs: Optional[int] = None, warmup_ratio: Optional[float] = None, warmup_steps: int = 0, total_steps: int = -1, **kwargs)
 
         设置与学习率调度器相关的参数。
 
@@ -248,7 +248,7 @@ mindformers.TrainingArguments
         参数：
             - **strategy** (Union[str, IntervalStrategy], 可选) - 训练过程中保存权重的策略，"no"表示训练中不保存权重，"epoch"表示训练中每个epoch结束后保存权重，"steps"表示训练中每经过 `steps` 步数后保存权重。默认值： ``"steps"`` 。
             - **steps** (int, 可选) - 两次保存权重之间间隔的步数，在 `strategy` 值为 `steps` 时生效。默认值： ``500`` 。
-            - **total_limit** (int, 可选) - checkpoint的总数量，如果超过该数量，会删除 `output_dir` 目录下最老的权重。默认值： ``None`` 。
+            - **total_limit** (int, 可选) - checkpoint的总数量，如果超过该数量，会删除 `output_dir` 目录下时间最早的权重。默认值： ``None`` 。
             - **on_each_node** (bool, 可选) - 在多节点分布式训练时，控制在每个节点上保存权重或者只在主节点上保存。默认值： ``True`` 。
             - **kwargs** (Any) - 其它参数。
 
