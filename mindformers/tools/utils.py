@@ -486,6 +486,7 @@ def is_main_rank(ignore_check_modelarts=False):
 
 def is_publicly_accessible_path(path):
     """Check a path is accessible by all rank."""
+    from .logger import logger
     if get_real_group_size() <= get_device_num_per_node():
         return True
 
@@ -504,7 +505,8 @@ def is_publicly_accessible_path(path):
         shared_path = os.path.realpath(shared_path)
         if path.startswith(shared_path):
             return True
-
+    logger.info("System can not identify if given path is shared disk. "
+                "If it is, Please set env 'SHARED_PATHS' to given path.")
     return False
 
 
