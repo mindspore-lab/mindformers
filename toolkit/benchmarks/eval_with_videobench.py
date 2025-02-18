@@ -8,7 +8,7 @@ import numpy as np
 from mindformers import logger
 from mindformers.tools.register.config import MindFormerConfig
 from toolkit.benchmarks.vlmevalkit_models.multimodal_models import init_model
-from toolkit.benchmarks.vlmevalkit_models.multimodal_models import SUPPORT_MODEL_LIST
+from toolkit.benchmarks.vlmevalkit_models.support_models import SUPPORT_MODEL_LIST
 
 
 def parse_arguments():
@@ -145,8 +145,8 @@ if __name__ == '__main__':
 
                 message = [{"video": vid_path}, {"text": question}] * batch_size
                 input_data = processor(message)
-                res = model.generate(**message)
-                input_id_length = np.max(np.argwhere(message.get("input_ids")[0] != tokenizer.pad_token_id)) + 1
+                res = model.generate(**input_data)
+                input_id_length = np.max(np.argwhere(input_data.get("input_ids")[0] != tokenizer.pad_token_id)) + 1
                 output = tokenizer.decode(res[0][input_id_length:], skip_special_tokens=True)
                 eval_dict[q_id] = {
                     'video_id': video_id,
