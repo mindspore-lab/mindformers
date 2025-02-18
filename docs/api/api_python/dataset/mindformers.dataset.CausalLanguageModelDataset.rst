@@ -4,7 +4,7 @@ mindformers.dataset.CausalLanguageModelDataset
 .. py:class:: mindformers.dataset.CausalLanguageModelDataset(dataset_config: Optional[dict] = None, data_loader: Union[dict, Callable] = None, input_columns: List[str] = None, output_columns: List[str] = None, batch_size: int = 8, drop_remainder: bool = True, num_parallel_workers: int = 8, python_multiprocessing: bool = False, repeat: int = 1, seed: int = 0, prefetch_size: int = 1, numa_enable: bool = False, eod_reset: bool = False, eod_token_id: Optional[int] = None, auto_tune: bool = False, filepath_prefix: str = './autotune', autotune_per_step: int = 10, profile: bool = False, **kwargs)
 
     因果语言模型预训练数据集。
-    生成的数据集的输出列取决于用户提供的配置信息。 输出列均会被转换为int32类型。
+    生成的数据集的输出列取决于用户提供的配置信息。输出列均会被转换为int32类型。
 
     参数：
         - **dataset_config** (dict, 可选) - 数据集配置信息。当传入的 `dataset_config` 为空字典或 ``None`` 时， `dataset_config` 将由以下所有参数生成；否则以下所有参数被忽略。默认值： ``None`` 。

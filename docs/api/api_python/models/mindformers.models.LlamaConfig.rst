@@ -30,12 +30,12 @@ mindformers.models.LlamaConfig
         - **param_init_type** (str, 可选) - 参数初始化数据类型，默认值： ``float16`` 。
         - **residual_dtype** (str, 可选) - 残差计算数据类型，默认值： ``None``。
         - **embedding_init_type** (str, 可选) - 嵌入权重初始化数据类型。默认值： ``None`` 。
-        - **qkv_has_bias** (bool, 可选) - 查询、键和值的投影是否有偏置。默认值： ``False`` 。
+        - **qkv_has_bias** (bool, 可选) - Query,、Key和Value的投影是否有偏置。默认值： ``False`` 。
         - **qkv_concat** (bool, 可选) - 是否拼接Query,、Key和Value投影。默认值： ``None`` 。
         - **attn_proj_has_bias** (bool, 可选) - 注意力中的投影是否有偏置。默认值： ``False``。
         - **parallel_config** (Union[dict, TransformerOpParallelConfig], 可选) - 并行配置。默认值： ``default_transformer_config`` ，一个带有默认参数的 `TransformerOpParallelConfig` 实例。
         - **moe_config** (Union[dict, MoEConfig], 可选) - MoE配置。默认值： ``default_moe_config`` ，一个带有默认参数的 `MoEConfig` 实例。
-        - **use_past** (bool, 可选) - 模型是否应使用过去的键/值注意力（如果适用于模型）来加速解码。默认值： ``False`` 。
+        - **use_past** (bool, 可选) - 模型是否应使用过去的Key和Value注意力（如果适用于模型）来加速解码。默认值： ``False`` 。
         - **extend_method** (str, 可选) - 序列长度推理时的扩展方法。默认值： ``None`` 。
         - **scaling_factor** (float, 可选) - 缩放因子，用于调整正弦和余弦函数中频率因子的权重。默认值： ``1.0`` 。
         - **is_dynamic** (bool, 可选) - 是否使用动态shape。默认值： ``False`` 。
@@ -62,7 +62,7 @@ mindformers.models.LlamaConfig
         - **fused_rms_norm** (bool, 可选) - 是否使用融合算子的RMS_NORM。默认值： ``True`` 。
         - **input_sliced_sig** (bool, 可选) - 数据集是否已处理成模型的seq_length大小。默认值：``False``。
         - **rmsnorm_compute_2d** (bool, 可选) - RMS_NORM中的加算子是否转2维实现。默认值：``False``。
-        - **chunk_prefill** (bool, 可选) - 是否开启全量混增量推理。默认值： ``False`` 。
+        - **chunk_prefill** (bool, 可选) - 是否开启全量和增量混合的推理。默认值： ``False`` 。
         - **calculate_per_token_loss** (bool, 可选) - 是否计算每个token的损失。默认值： ``False`` 。
         - **pipeline_stage** (dict, 可选) - 一个设置流水并行时模型的start_stage、stage_num和offset。默认值： ``None`` 。
 
