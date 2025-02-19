@@ -13,28 +13,16 @@
 # limitations under the License.
 # ============================================================================
 """MindFormers model abstract instance."""
-from functools import partial
 from dataclasses import dataclass
 import numpy as np
 
 import mindspore as ms
-from toolkit.benchmarks.vlmevalkit_models.cogvlm2_image import CogVlmImage
-from toolkit.benchmarks.vlmevalkit_models.cogvlm2_video import CogVlmVideo
+
 from mindformers import build_context, logger, GenerationConfig
 from mindformers import AutoModel, AutoConfig, AutoTokenizer, AutoProcessor
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.model_runner import register_auto_class
-
-
-SUPPORT_MODEL_LIST = {"image": "cogvlm2-image-llama3-chat", "video": "cogvlm2-video-llama3-chat"}
-
-
-def get_model(args):
-    mindformers_series = {}
-    mindformers_series['cogvlm2-image-llama3-chat'] = partial(CogVlmImage, args.model_path, args.config_path)
-    mindformers_series['cogvlm2-video-llama3-chat'] = partial(CogVlmVideo, args.model_path, args.config_path)
-    return mindformers_series
 
 
 @dataclass
@@ -83,4 +71,5 @@ def init_model(model_path, config_path):
     inputs = model.prepare_inputs_for_predict_layout(input_ids)
     transform_and_load_checkpoint(config, ms_model, model, inputs, do_predict=True)
     logger.info(f"Load checkpoints finished.")
-    return ModelOutput(config, model_config, generation_config, processor, tokenizer, model, batch_size)
+    return ModelOutput(config=config, model_config=model_config, generation_config=generation_config,
+                       processor=processor, tokenizer=tokenizer, model=model, batch_size=batch_size)

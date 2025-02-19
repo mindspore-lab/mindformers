@@ -19,7 +19,7 @@ from vlmeval.vlm.cogvlm import CogVlm
 from vlmeval.dataset.image_mcq import MMMUDataset
 from vlmeval.dataset import DATASET_TYPE
 
-from multimodal_models import init_model
+from toolkit.benchmarks.vlmevalkit_models.multimodal_models import init_model
 
 
 class CogVlmImage(CogVlm):

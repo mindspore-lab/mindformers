@@ -17,7 +17,7 @@ import numpy as np
 
 from vlmeval.vlm.base import BaseModel
 
-from multimodal_models import init_model
+from toolkit.benchmarks.vlmevalkit_models.multimodal_models import init_model
 from mindformers import logger
 
 

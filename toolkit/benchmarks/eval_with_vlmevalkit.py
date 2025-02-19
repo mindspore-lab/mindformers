@@ -23,8 +23,8 @@ from vlmeval.config import supported_VLM
 from vlmeval.inference_video import infer_data_job_video
 from vlmeval.dataset.image_vqa import ImageVQADataset
 
-from toolkit.benchmarks.vlmevalkit_models.multimodal_models import get_model
-from toolkit.benchmarks.vlmevalkit_models.multimodal_models import SUPPORT_MODEL_LIST
+from toolkit.benchmarks.vlmevalkit_models.support_models import get_model
+from toolkit.benchmarks.vlmevalkit_models.support_models import SUPPORT_MODEL_LIST
 
 # pylint: disable=protected-access
 ssl._create_default_https_context = ssl._create_unverified_context
