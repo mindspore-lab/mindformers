@@ -90,7 +90,6 @@ parallel:
   parallel_optimizer_config:
     gradient_accumulation_shard: False
     parallel_optimizer_threshold: 64
-    optimizer_weight_shard_size: 8
 
 # recompute config
 recompute_config:
