@@ -163,7 +163,13 @@ def _la_pre_process(config, input_ids, model_inputs, **model_kwargs):
         position_ids = position_ids.reshape(1, -1)
 
     if q_seq_lens is None:
-        q_seq_lens = np.ones((seq_len,), dtype=np.int32)
+        valid_length_each_example = model_kwargs.get('valid_length_each_example')
+        if valid_length_each_example is None:
+            q_seq_lens = np.ones((seq_len,), dtype=np.int32)
+        else:
+            if isinstance(valid_length_each_example, list):
+                valid_length_each_example = np.array(valid_length_each_example)
+            q_seq_lens = np.ones(valid_length_each_example.shape, dtype=np.int32).reshape(-1)
 
     model_inputs['input_ids'] = Tensor.from_numpy(input_ids.astype(np.int32)) \
         if isinstance(input_ids, np.ndarray) else Tensor(input_ids, dtype=ms.int32)
