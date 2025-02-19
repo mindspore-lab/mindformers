@@ -82,6 +82,7 @@ model:
     theta: 10000.0
     do_sample: False
     is_dynamic: True
+    qkv_concat: False
     auto_map:
       AutoConfig: deepseek3_config.DeepseekV3Config
       AutoModel: deepseek3.DeepseekV3ForCausalLM
