@@ -267,7 +267,7 @@ class Trainer:
         task_config = self.get_task_config(self.task, self.model_name)
 
         self.config = self._config_init(args, task_config)
-
+        self._reassign_monitor_config()
         # build parallel config
         build_parallel_config(self.config)
 
@@ -323,6 +323,25 @@ class Trainer:
             logger.info("save running config success of %s_new.", task_config.trainer.model_name.lower())
 
         logger.info("==========Trainer Init Success!==========")
+
+    def _reassign_monitor_config(self):
+        """parse config.monitor_config and supplement settings"""
+        if hasattr(self.config, 'monitor_config') and self.config.monitor_config is not None:
+            monitor_config = self.config.monitor_config
+            self.config.check_for_nan_in_loss_and_grad = monitor_config.get('local_loss_format') is not None
+            dump_local_norm = monitor_config.get('local_norm_format') is not None
+            dump_device_local_norm = monitor_config.get('device_local_norm_format') is not None
+            dump_path = monitor_config.pop('dump_path') or './dump'
+            ms.set_auto_parallel_context(
+                dump_local_norm_path=dump_path,
+                dump_local_norm=dump_local_norm,
+                dump_device_local_norm=dump_device_local_norm
+            )
+            for callback in self.config.callbacks:
+                if "type" in callback and callback["type"] == "TrainingStateMonitor":
+                    callback['config'] = monitor_config
+                    return
+            self.config.callbacks.append({"type": "TrainingStateMonitor", "config": monitor_config})
 
     @args_type_check(train_checkpoint=(str, bool), resume_from_checkpoint=(str, bool),
                      resume_training=(bool, str), auto_trans_ckpt=bool, src_strategy=str,

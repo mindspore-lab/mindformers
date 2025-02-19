@@ -13,8 +13,9 @@
 # limitations under the License.
 # ============================================================================
 """MindFormer Self-Define Loss."""
+import os
 
-from mindspore import nn, Tensor
+from mindspore import nn, Tensor, get_auto_parallel_context
 from mindspore import ops as P
 from mindspore.ops import functional as F
 from mindspore.common import dtype as mstype
@@ -28,6 +29,7 @@ from mindspore.parallel._utils import _get_device_num, _get_pipeline_stages, _ge
 
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.utils import get_real_rank
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
 
 __all__ = ['SoftTargetCrossEntropy', 'MSELoss', 'L1Loss', 'CrossEntropyLoss', 'CompareLoss']
@@ -387,6 +389,12 @@ class CrossEntropyLoss(nn.Cell):
         self.add2 = P.Add()
         self.div2 = P.RealDiv()
         self.relu = P.ReLU().shard(((1,),))
+        self.dump_local_loss = (get_auto_parallel_context("dump_local_norm_path") is not None
+                                and check_for_nan_in_loss_and_grad)
+        if self.dump_local_loss:
+            self.dump = P.TensorDump()
+            self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f"rank_{get_real_rank()}")
+            self.local_loss_filename = os.path.join(self.dump_path, "local_loss")
 
         self._log_softmax = _LogSoftmax(parallel_config)
         self._nllloss = _NLLLoss(parallel_config)
@@ -421,7 +429,10 @@ class CrossEntropyLoss(nn.Cell):
                 self.local_sum2(input_mask),
                 P.Cast()(F.tuple_to_array((1e-8,)), mstype.float32))
             local_loss = self.div2(local_numerator, local_denominator)
-            print("local loss: ", local_loss)
+            if self.dump_local_loss:
+                self.dump(self.local_loss_filename, local_loss)
+            else:
+                print("local loss: ", local_loss)
 
         numerator = self.sum2(self.mul2(loss_reduce, input_mask))
         denominator = self.add2(

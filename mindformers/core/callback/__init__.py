@@ -21,7 +21,11 @@ from .callback import (
     ObsMonitor,
     ProfileMonitor,
     SummaryMonitor,
-    StressDetectCallBack
+    StressDetectCallBack,
+    TrainingStateMonitor
 )
 
-__all__ = ['CheckpointMonitor', 'EvalCallBack', 'MFLossMonitor', 'ProfileMonitor', 'SummaryMonitor']
+__all__ = [
+    'CheckpointMonitor', 'EvalCallBack', 'MFLossMonitor',
+    'ProfileMonitor', 'SummaryMonitor', 'TrainingStateMonitor'
+]

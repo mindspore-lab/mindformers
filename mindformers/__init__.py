@@ -106,6 +106,7 @@ from mindformers.core import (
     SQuADMetric,
     SoftTargetCrossEntropy,
     SummaryMonitor,
+    TrainingStateMonitor,
     build_context,
     build_parallel_config,
     get_context,
