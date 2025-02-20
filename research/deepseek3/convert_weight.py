@@ -263,9 +263,6 @@ def convert_pt_to_ms_by_layer(experts_weight_count_max, ready_layer_id, to_conve
     converted_weight_name = []
     finished_weight_name = []
     for weight_name in to_convert_weight_cache:
-        # if there is no ready decoder layer, break
-        if not ready_layer_id:
-            break
         value = to_convert_weight_cache.get(weight_name)
         try:
             current_layer_id = int(weight_name.split('model.layers.')[-1].split('.')[0])
