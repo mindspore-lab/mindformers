@@ -103,3 +103,41 @@ class TestColumnParallelLinear:
         ret = os.system(build_msrun_command(device_num, dp, cp, tp, skip_weight, has_bias))
         os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_0.log -C 3")
         assert ret == 0
+
+    @pytest.mark.level1
+    @pytest.mark.env_single
+    def test_column_parallel_linear_accuracy_tp(self):
+        """
+        Feature: ColumnParallelLinear
+        Description: Test ColumnParallelLinear accuracy tp
+        Exception: AssertionError
+        """
+        sh_path = os.path.split(os.path.realpath(__file__))[0]
+        device_num = 8
+        dp, cp, tp = (1, 1, 8)
+        base_command_ = ('msrun --worker_num={device_num} --local_worker_num={device_num} '
+                         '--master_port=61371 --log_dir=msrun_log --join=True --cluster_time_out=300 '
+                         'run_column_accuracy.py --dp {dp} --cp {cp} --tp {tp}')
+        command = base_command_.format(device_num=device_num, dp=dp, cp=cp, tp=tp)
+        ret = os.system(command)
+        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_0.log -C 3")
+        assert ret == 0
+
+    @pytest.mark.level1
+    @pytest.mark.env_single
+    def test_column_parallel_linear_accuracy_dp(self):
+        """
+        Feature: ColumnParallelLinear
+        Description: Test ColumnParallelLinear accuracy dp
+        Exception: AssertionError
+        """
+        sh_path = os.path.split(os.path.realpath(__file__))[0]
+        device_num = 8
+        dp, cp, tp = (8, 1, 1)
+        accuracy_command = ('msrun --worker_num={device_num} --local_worker_num={device_num} '
+                            '--master_port=61371 --log_dir=msrun_log --join=True --cluster_time_out=300 '
+                            'run_column_accuracy.py --dp {dp} --cp {cp} --tp {tp}')
+        command = accuracy_command.format(device_num=device_num, dp=dp, cp=cp, tp=tp)
+        ret = os.system(command)
+        os.system(f"grep -E 'ERROR|error' {sh_path}/msrun_log/worker_0.log -C 3")
+        assert ret == 0

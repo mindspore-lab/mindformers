@@ -30,6 +30,7 @@ from mindspore.common import dtype
 from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.utils import init_method_zero
@@ -113,7 +114,7 @@ class ColumnParallelLinear(nn.Cell):
         self.init_method = init_method
         self.skip_bias_add = skip_bias_add
         self.compute_dtype = compute_dtype
-        self.cast = P.Cast()
+        self.cast = Cast()
         self.transpose_b = transpose_b
         self.skip_weight_param_allocation = skip_weight_param_allocation
         self.has_bias = bias
@@ -133,10 +134,11 @@ class ColumnParallelLinear(nn.Cell):
         else:
             self.bias = None
 
-        self.matmul = P.MatMul(transpose_b=transpose_b)
+        self.matmul = MatMulExt()
+        self.transpose = Transpose()
         if not skip_bias_add:
-            self.add = P.Add()
-        self.reshape = P.Reshape()
+            self.add = AddExt()
+        self.reshape = Reshape()
 
         if config is not None:
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -167,6 +169,8 @@ class ColumnParallelLinear(nn.Cell):
         weight = self.cast(weight, self.compute_dtype)
         input_ = self.cast(input_, self.compute_dtype)
 
+        if self.transpose_b:
+            weight = self.transpose(weight, (1, 0))
         input_ = self.matmul(input_, weight)
 
         if not self.skip_bias_add and self.has_bias:
@@ -190,11 +194,7 @@ class ColumnParallelLinear(nn.Cell):
         tp = config.tensor_parallel if config.tensor_parallel is not None else 1
         cp = config.context_parallel if config.context_parallel is not None else 1
 
-        if self.transpose_b:
-            weight_strategy = (tp, 1)
-        else:
-            weight_strategy = (1, tp)
-        matmul_in_strategy = ((dp * cp, 1), weight_strategy)
+        matmul_in_strategy = ((dp * cp, 1), (1, tp))
         self.matmul.shard(in_strategy=matmul_in_strategy)
 
         if not self.skip_bias_add:
@@ -276,8 +276,10 @@ class RowParallelLinear(nn.Cell):
         self.skip_bias_add = skip_bias_add
         self.compute_dtype = compute_dtype
         self.params_dtype = config.params_dtype
-        self.cast = P.Cast()
+        self.cast = Cast()
         self.has_bias = bias
+
+        self.transpose = Transpose()
 
         weight_shape = (output_size, input_size) if transpose_b else (input_size, output_size)
         # we use `zeros` to generate a tensor as the `init_method` parameter.
@@ -290,10 +292,11 @@ class RowParallelLinear(nn.Cell):
         else:
             self.bias = None
 
-        self.matmul = P.MatMul(transpose_b=transpose_b)
+        self.matmul = MatMulExt()
+
         if not skip_bias_add:
-            self.add = P.Add()
-        self.reshape = P.Reshape()
+            self.add = AddExt()
+        self.reshape = Reshape()
 
         if config is not None:
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
@@ -318,6 +321,9 @@ class RowParallelLinear(nn.Cell):
         weight = self.cast(self.weight, self.compute_dtype)
         input_ = self.cast(input_, self.compute_dtype)
 
+        if self.transpose_b:
+            weight = self.transpose(weight, (1, 0))
+
         input_ = self.matmul(input_, weight)
 
         if not self.skip_bias_add and self.has_bias:
@@ -341,12 +347,10 @@ class RowParallelLinear(nn.Cell):
         cp = config.context_parallel if config.context_parallel is not None else 1
         tp = config.tensor_parallel if config.tensor_parallel is not None else 1
 
-        if self.transpose_b:
-            weight_strategy = (1, tp)
-        else:
-            weight_strategy = (tp, 1)
-        matmul_in_strategy = ((dp * cp, tp), weight_strategy)
+        matmul_in_strategy = ((dp * cp, tp), (tp, 1))
         self.matmul.shard(in_strategy=matmul_in_strategy)
+        if self.transpose_b:
+            self.transpose.shard(((1, tp),))
 
         if not self.skip_bias_add:
             add_in_strategy = ((dp * cp, 1), (1,))
