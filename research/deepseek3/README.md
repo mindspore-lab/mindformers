@@ -278,7 +278,7 @@ bash build.sh
    # mindspore context init config
    context:
      ascend_config:
-       parallel_speed_up_json_path: "./research/deepseek3/parallel_speed_up.json"  # 修改此项为数据集并行通信配置路径
+       parallel_speed_up_json_path: "./research/deepseek3/parallel_speed_up.json"  # 修改此项为数据集并行通信配置路径，需要固件与驱动版本不低于24.1.RC3
    ```
 
 ### 拉起任务
