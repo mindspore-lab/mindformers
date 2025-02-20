@@ -37,6 +37,7 @@ from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules.transformer.moe import MoEV2, MoEInfer
 from mindformers.tools.utils import get_predict_run_mode, divide
+from mindformers.version_control import check_seqpp_fa_opt_support
 
 
 class LLamaAttention(nn.Cell):
@@ -402,7 +403,10 @@ class LLamaAttention(nn.Cell):
             if self.use_flash_attention:
                 self.input_layout = "BSH" if cp > 1 else "BNSD"
                 self.sparse_mode = 2 if self.use_attn_mask_compression and not self.use_ring_attention else 0
-                next_tokens = seq_length - self.seq_seg_len if self.seq_pipe else 0
+                if self.seq_pipe and not check_seqpp_fa_opt_support():
+                    next_tokens = seq_length - self.seq_seg_len
+                else:
+                    next_tokens = 0
                 self.flash_attention = FlashAttention(head_num=self.n_head,
                                                       pre_tokens=2147483647,
                                                       next_tokens=next_tokens,

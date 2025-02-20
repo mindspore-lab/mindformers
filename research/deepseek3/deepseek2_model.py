@@ -49,6 +49,7 @@ from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules.transformer.moe import MoEV2
 from mindformers.modules.transformer.moe import MoEInfer
+from mindformers.version_control import check_seqpp_fa_opt_support
 
 from research.deepseek2.deepseek2_config import DeepseekV2Config
 
@@ -658,7 +659,10 @@ class DeepSeekV2Attention(nn.Cell):
                 self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
 
         if self.use_flash_attention:
-            next_tokens = seq_length - self.seq_seg_len if self.seq_pipe else 0
+            if self.seq_pipe and not check_seqpp_fa_opt_support():
+                next_tokens = seq_length - self.seq_seg_len
+            else:
+                next_tokens = 0
             self.flash_attention = FlashAttention(head_num=self.n_head,
                                                   pre_tokens=2147483647,
                                                   next_tokens=next_tokens,
