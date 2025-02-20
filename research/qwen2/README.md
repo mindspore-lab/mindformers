@@ -182,7 +182,7 @@ config_path:         推理yaml文件路径
 
 以``qwen2-7b` 8卡微调为例，执行如下命令进行微调，微调前请参考[权重转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)切分权重。
 
-3. 主要参数配置参考:
+1. 主要参数配置参考:
 
 - 基本配置：
 
@@ -251,7 +251,7 @@ train_dataset: &train_dataset
   dynamic_batch: True
 ```
 
-4. 启动微调:
+2. 启动微调:
 
    ```shell
    bash scripts/msrun_launcher.sh "run_mindformer.py \

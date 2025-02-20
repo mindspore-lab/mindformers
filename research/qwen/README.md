@@ -17,14 +17,14 @@
 
 以下模型性能均由Atlas 800T A2硬件环境下测试得出。
 
-| Config                                             |      Task       | Datasets | SeqLength |  Phase   |                           Performance                           | DataType |
-|:---------------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:---------------------------------------------------------------:|:--------:|
-| [Qwen-7B](./qwen_7b/finetune_qwen_7b.yaml)         | text_generation |  alpaca  |   8192    | Finetune |                         1571 tokens/s/p                         | float16  |
-| [Qwen-7B](./qwen_7b/finetune_qwen_7b_bf16.yaml)    | text_generation |  alpaca  |   2048    | Finetune |                         2955 tokens/s/p                         | bfloat16 |
-| [Qwen-14B](./qwen_14b/finetune_qwen_14b.yaml)      | text_generation |  alpaca  |   8192    | Finetune |                         911 tokens/s/p                          | float16  |
-| [Qwen-14B](./qwen_14b/finetune_qwen_14b_bf16.yaml) | text_generation |  alpaca  |   2048    | Finetune |                         1106 tokens/s/p                         | bfloat16 |
-| [Qwen-7B](./qwen_7b/predict_qwen_7b.yaml)          | text_generation |    -     |   2048    | Predict  | 23 tokens/s (bastch_size=1) <br/> 196 tokens/s (bastch_size=16) |    -     |
-| [Qwen-14B](./qwen_14b/predict_qwen_14b.yaml)       | text_generation |    -     |   2048    | Predict  |                           35 tokens/s                           |    -     |
+| Config                                             |      Task       | Datasets | SeqLength |  Phase   |                          Performance                          | DataType |
+|:---------------------------------------------------|:---------------:|:--------:|:---------:|:--------:|:-------------------------------------------------------------:|:--------:|
+| [Qwen-7B](./qwen_7b/finetune_qwen_7b.yaml)         | text_generation |  alpaca  |   8192    | Finetune |                        1571 tokens/s/p                        | float16  |
+| [Qwen-7B](./qwen_7b/finetune_qwen_7b_bf16.yaml)    | text_generation |  alpaca  |   2048    | Finetune |                        2955 tokens/s/p                        | bfloat16 |
+| [Qwen-14B](./qwen_14b/finetune_qwen_14b.yaml)      | text_generation |  alpaca  |   8192    | Finetune |                        911 tokens/s/p                         | float16  |
+| [Qwen-14B](./qwen_14b/finetune_qwen_14b_bf16.yaml) | text_generation |  alpaca  |   2048    | Finetune |                        1106 tokens/s/p                        | bfloat16 |
+| [Qwen-7B](./qwen_7b/predict_qwen_7b.yaml)          | text_generation |    -     |   2048    | Predict  | 23 tokens/s (batch_size=1) <br/> 196 tokens/s (batch_size=16) |    -     |
+| [Qwen-14B](./qwen_14b/predict_qwen_14b.yaml)       | text_generation |    -     |   2048    | Predict  |                          35 tokens/s                          |    -     |
 
 ## 模型文件
 

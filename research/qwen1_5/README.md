@@ -468,7 +468,7 @@ python run_mindformer.py \
 
    *注*：可配置`model_config:param_init_type`为`float32`提高推理精度，但同时会影响在线推理性能。
 
-2. 启动多卡推理：
+启动多卡推理：
 
    ```shell
    # 推理命令中参数会覆盖yaml文件中的相同参数

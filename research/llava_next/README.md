@@ -66,7 +66,7 @@ MindFormers提供**Video-178K**中的[0_30_s_academic_oe_v0_1_qa_processed.json]
 
 ##### 图片
 
-MindFormers提供**LLaVA-Instruct-150K**中的[llava_v1_5_mix665k.json](https://huggingface.co/datasets/liuhaotian/LLaVA-Instruct-150K/blob/main/llava_v1_5_mix665k.json)中的coco子数据作为demo[微调](#微调)**图片**的数据集。
+MindFormers提供**LLaVA-Instruct-150K**中的[llava_v1_5_mix665k.json](https://huggingface.co/datasets/liuhaotian/LLaVA-Instruct-150K/blob/main/llava_v1_5_mix665k.json)中的coco子数据作为demo[微调](#微调)**图片**的数据集。若链接跳转失败，可手动复制粘贴 http://images.cocodataset.org/zips/train2017.zip 至地址栏访问下载。
 
 | 数据集名称 |      适用模型       |     适用阶段     |                         下载链接                         |
 | :--------- | :-----------------: | :--------------: | :------------------------------------------------------: |
@@ -126,7 +126,7 @@ MindFormers暂时没有提供权重，用户可以下载HuggingFace官方权重�
 
 | 模型名称            | MindSpore权重 |             HuggingFace权重             |
 | :------------------ | :-----------: | :-------------------------------------: |
-| LLaVA-NeXT-Video-7B |       \       | [Link](llava-hf/LLaVA-NeXT-Video-7B-hf) |
+| LLaVA-NeXT-Video-7B |       \       | [Link](https://huggingface.co/llava-hf/LLaVA-NeXT-Video-7B-hf) |
 
 #### 模型权重转换
 
@@ -134,7 +134,7 @@ MindFormers暂时没有提供权重，用户可以下载HuggingFace官方权重�
 
 **完整模型**：使用上述权重直接下载后进行权重转换。
 
-**单模型组合**：自定义视觉模型和语言模型，在huggingfalce上下载后进行权重转换，转换后将两个模型都放入一个文件夹中。
+**单模型组合**：自定义视觉模型和语言模型，在huggingface上下载后进行权重转换，转换后将两个模型都放入一个文件夹中。
 
 ```shell
 # 完整模型
