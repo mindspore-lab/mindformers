@@ -1520,7 +1520,7 @@ class ProfileMonitor(Callback):
 
     def step_begin(self, run_context):
         """
-        Start profile at the begin of step.
+        Start profile at the beginning of step.
 
         Args:
             run_context (RunContext): Context of the train running.
@@ -1541,6 +1541,7 @@ class ProfileMonitor(Callback):
             run_context (RunContext): Context of the train running.
         """
         if self.mstx_avail:
+            from mindspore.profiler import mstx
             mstx.range_end(self.mstx_range_id)
         cb_params = run_context.original_args()
         step_num = cb_params.cur_step_num
