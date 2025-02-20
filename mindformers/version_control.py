@@ -376,3 +376,14 @@ def check_stress_detect_valid():
                        f", please upgrade to 2.4.10 or later version.")
         return False
     return True
+
+
+def check_tft_valid():
+    """check mindspore version is valid for tft"""
+    version_valid = is_version_ge(ms.__version__, "2.5.0")
+    if not version_valid:
+        logger.warning("Current MindSpore version does not support tft, please upgrade to 2.5.0 or later version.")
+        return False
+    env_enable = os.getenv("MS_ENABLE_TFT", "")
+    required_flags = ["TTP:1", "UCE:1", "ARF:1"]
+    return any(flag in env_enable for flag in required_flags)

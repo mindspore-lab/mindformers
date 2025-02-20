@@ -18,6 +18,7 @@ import inspect
 from enum import Enum
 
 from mindformers.tools import MODE, PARALLEL_MODE
+from mindformers.version_control import check_tft_valid
 
 
 class RunMode(Enum):
@@ -60,10 +61,7 @@ def validate_parallel_mode(config):
 
 def validate_sink_size(config):
     """Validate sink size."""
-    if (
-            config.enable_mindio_ttp_save_ckpt
-            or config.context.enable_mindio_ttp_save_ckpt
-    ):
+    if check_tft_valid():
         sink_size = config.get_value('runner_config.sink_size')
         if sink_size != 1:
             raise ValueError(f'sink_size should be 1, got {sink_size}')

@@ -512,7 +512,6 @@ class MFContextConfig(BaseArgsConfig):
         'infer_precision_sync',
         'postprocess_use_numpy',
         'resume_training',
-        'enable_mindio_ttp_save_ckpt',
         'use_graceful_exit',
         'affinity_cpu_list',
         'profile',
@@ -527,7 +526,6 @@ class MFContextConfig(BaseArgsConfig):
             train_precision_sync: bool = False,
             infer_precision_sync: bool = False,
             postprocess_use_numpy: bool = False,
-            enable_mindio_ttp_save_ckpt: bool = False,
             use_graceful_exit: bool = False,
             **kwargs,
     ):
@@ -536,7 +534,6 @@ class MFContextConfig(BaseArgsConfig):
             train_precision_sync=train_precision_sync,
             infer_precision_sync=infer_precision_sync,
             postprocess_use_numpy=postprocess_use_numpy,
-            enable_mindio_ttp_save_ckpt=enable_mindio_ttp_save_ckpt,
             use_graceful_exit=use_graceful_exit,
             **kwargs
         )

@@ -17,6 +17,7 @@ import json
 import os
 import re
 import glob
+import sys
 import time
 import tempfile
 import datetime
@@ -1259,7 +1260,67 @@ class CheckpointMonitor(ModelCheckpoint):
             self.last_ckpoint_file = cur_ckpoint_file
             self.meta_updated = False
         else:
-            self.record_last_ckpt_to_json(cb_params.cur_epoch_num, step_num_in_epoch, cur_ckpoint_file)
+            if "__exception_save__" not in self._append_dict:
+                self.record_last_ckpt_to_json(cb_params.cur_epoch_num, step_num_in_epoch, cur_ckpoint_file)
+
+    def _get_cur_dp(self, cur_rank, parameter_redundancy_dict):
+        """get the current dp"""
+        value_len = sys.maxsize
+        min_value = ()
+        min_value_set = set()
+        for key, value in parameter_redundancy_dict.items():
+            if key.startswith("accu_grads") or key.startswith("inputs"):
+                continue
+            for item in value:
+                if cur_rank not in item:
+                    continue
+                # if item is subset of min_value_set, update min_value_set and min_value
+                if len(item) < value_len:
+                    if min_value_set and not set(item).issubset(min_value_set):
+                        return (cur_rank,)
+                    value_len = len(item)
+                    min_value_set = set(item)
+                    min_value = item
+                # if value is not smaller than len of min_value len,
+                # check if min_value_set is subset of current item
+                elif not min_value_set.issubset(set(item)):
+                    return (cur_rank,)
+
+        return min_value
+
+    def _tft_save_ckpt(self, param_layout_set, save_param_names, cur_file, append_dict, network):
+        """save checkpoint with remove redundancy for TFT training."""
+        def choice_func(x):
+            return (x not in param_layout_set or (save_param_names is not None
+                                                  and x in save_param_names)) and not x.startswith('accu_grads')
+
+        save_checkpoint(network, cur_file, False, False,
+                        append_dict, self._config.enc_key, self._config.enc_mode,
+                        format=self._config.format, choice_func=choice_func)
+
+    # pylint: disable=W0640
+    def _do_remove_redundancy_for_tft(self, redundancy_info, cur_file, network, append_dict):
+        """save checkpoint with remove redundancy for TFT training."""
+        rank_id, param_redundancy_dict, single_params, param_layout = redundancy_info
+
+        pattern = rf'_(\d+)\.{self._config.format}$'
+        match = re.search(pattern, cur_file)
+        cur_step_in_epoch = int(match.group(1))
+
+        parallel_mode = context.get_auto_parallel_context("parallel_mode")
+        cur_dp = self._get_cur_dp(rank_id, param_redundancy_dict)
+        # loop through all ranks in the current dp
+        for rank in cur_dp:
+            save_param_names = single_params.get(rank)
+            if save_param_names == param_layout.keys():
+                logger.warning(
+                    f"For remove_redundancy save checkpoint, the saved parameters are non-redundant.")
+            param_layout_set = set(param_layout.keys()) if parallel_mode else set()
+            cur_file = re.sub(r'rank_\d+', f'rank_{rank}', cur_file)
+            self._tft_save_ckpt(param_layout_set, save_param_names, cur_file, append_dict, network)
+            append_dict["__exception_save__"] = True
+            self.meta_json = re.sub(r'rank_\d+', f'rank_{rank}', self.meta_json)
+            self.record_last_ckpt_to_json(append_dict["epoch_num"], cur_step_in_epoch, os.path.basename(cur_file))
 
     def remove_redundancy(self, network, cur_file, append_dict, train_network):
         """remove redundancy when saving checkpoint files."""
@@ -1298,6 +1359,13 @@ class CheckpointMonitor(ModelCheckpoint):
 
                 def choice_func(x):
                     return save_param_names is not None and x in save_param_names and not x.startswith('accu_grads')
+
+            # __exception_save__ is used to indicate that the checkpoint is saved by the TFT process
+            if "__exception_save__" in append_dict:
+                redundancy_info = (rank_id, param_redundancy_dict, single_params, param_layout)
+                self._do_remove_redundancy_for_tft(redundancy_info, cur_file, network, append_dict)
+                return
+
             save_checkpoint(network, cur_file, False, self._config.async_save,
                             append_dict, self._config.enc_key, self._config.enc_mode,
                             format=self._config.format, choice_func=choice_func)

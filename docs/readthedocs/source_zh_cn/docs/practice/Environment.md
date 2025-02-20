@@ -29,6 +29,10 @@ Mindformers提供了以下环境变量的配置说明，请根据使用场景自
 | HCCL_CONNECT_TIMEOUT        | HCCL建链超时等待时间        | Integer | 建链等待时间（s）<br> 默认值：120s                                                                                               | 用于限制不同设备之间socket建链过程的超时等待时间。                            |
 |PLOG_REDIRECT_TO_OUTPUT             |控制plog日志是否改变存储路径|bool|True:存储到./ouput目录下 <br> False: 默认存储位置 <br> 不添加该环境变量时，默认存储位置|设置之后方便用户查询plog日志|
 |MF_LOG_SUFFIX                |设置所有log日志文件夹的自定义后缀|String|log文件夹的后缀 <br> 默认值：无后缀|添加一致的后缀，可以隔离各个任务的日志，不会被覆写|
+|MS_ENABLE_TFT                |设置开启高可用TFT特性|String|"{TTP:1,UCE:1,ARF:1}" <br> 默认值：无 <br>TTP:1表示开启临终CKPT功能 <br> UCE:1表示开启进程级快恢功能 <br> ARF:1表示开启进程级快恢功能|只配置UCE:1或者只开启ARF:1时，默认开启临终CKPT功能|
+|MS_TFT_IP                |开启MS_ENABLE_TFT时，该变量用于配置TFT的controller IP|String|IP地址 <br> 默认值：无|该IP在整个集群唯一|
+|MF_TFT_PORT              |开启MS_ENABLE_TFT时，该变量用于配置TFT的controller PORT|Integer|端口 <br> 默认值：无|需保证端口唯一|
+|MINDIO_FOR_MINDSPORE     |开启MS_ENABLE_TFT时，使能MINDIO支持MindSpore|bool|True:使能 <br> False:不使能 <br> 默认值：False||
 
 ## Ascend服务器相关配置
 

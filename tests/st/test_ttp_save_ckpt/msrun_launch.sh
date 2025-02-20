@@ -16,6 +16,10 @@
 set -e
 BASE_PATH=$(cd "$(dirname $0)"; pwd)
 USE_DEVICE_NUM=$1
+export MINDIO_FOR_MINDSPORE=1
+export MS_ENABLE_TFT="{TTP:1,UCE:1}"
+export MS_TFT_IP=127.0.0.1
+export MS_TFT_PORT=30051
 
 msrun --worker_num=${USE_DEVICE_NUM} \
       --local_worker_num=${USE_DEVICE_NUM} \
