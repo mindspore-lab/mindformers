@@ -8,7 +8,7 @@ mindformers.core.MFLossMonitor
     参数：
         - **learning_rate** (Union[float, LearningRateSchedule], 可选) - 学习率调度器。默认值： ``None`` 。
         - **per_print_times** (int, 可选) - 每多少次step打印日志信息。默认值： ``1`` 。
-        - **micro_batch_num** (int, 可选) - 流水线并行时设置的MicroBatch大小。默认值： ``None`` 。
+        - **micro_batch_num** (int, 可选) - 流水线并行时设置的MicroBatch大小。默认值： ``1`` 。
         - **micro_batch_interleave_num** (int, 可选) - interleaved pipeline流水线并行时设置的MicroBatch大小。默认值： ``1`` 。
         - **origin_epochs** (int, 可选) - 训练的epoch数量。默认值： ``None`` 。
         - **dataset_size** (int, 可选) - 训练的数据集数量。默认值： ``None`` 。

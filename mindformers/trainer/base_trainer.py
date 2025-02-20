@@ -165,7 +165,7 @@ class BaseTrainer:
         return self.config
 
     def setup_task_config(self):
-        """Setup the default task config."""
+        """Set up the default task config."""
         task_config = None
         if self.task in SUPPORT_TASKS.keys() and self.model_name in SUPPORT_TASKS.get(self.task).keys():
             task_config = MindFormerConfig(SUPPORT_TASKS.get(self.task).get(self.model_name))
@@ -281,7 +281,7 @@ class BaseTrainer:
             raise ValueError("gradient_accumulation should be greater or equal than 1, "
                              f"but got {self.config.runner_config.gradient_accumulation_steps}")
         if not GRAD_ACCUMULATION_VALID and self.config.runner_config.gradient_accumulation_steps > 1:
-            logger.warning("gradient_accumulation_steps only surpport mindspore version later than 2.1.1, "
+            logger.warning("gradient_accumulation_steps only support mindspore version later than 2.1.1, "
                            "reset the gradient_accumulation_steps from %s to 1.",
                            self.config.runner_config.gradient_accumulation_steps)
             self.config.runner_config.gradient_accumulation_steps = 1

@@ -1003,7 +1003,7 @@ class Trainer:
 
     @staticmethod
     def get_task_config(task, model_name):
-        """"get task config based on task and model_name."""
+        """get task config based on task and model_name."""
         default_config_path = SUPPORT_TASKS.get(task).get(model_name)
         relative_config_path = default_config_path[default_config_path.rfind("configs/"):]
         current_config_path = os.path.join(os.getcwd(), relative_config_path)
@@ -1437,8 +1437,6 @@ class Trainer:
                 Message to commit while pushing, defaults to "End of training".
             blocking (Optional[bool]):
                 Whether the function should return only when the `git push` has finished, default is True
-            kwargs (Optional[Dict[str, Any]]):
-                model_name(Optional[str]): model name in the hub.
 
         Returns:
             The URL of the repository where the model was pushed if `blocking=False`, or a `Future` object tracking the
@@ -1527,12 +1525,12 @@ def _reset_config_for_save(config: dict = None):
     if config.get('context') is not None:
         context_config = config2dict(config.pop('context'))
         parallel_context_config = config2dict(config.pop('parallel'))
-        moe_conifg = config2dict(config.pop('moe_config'))
+        moe_config = config2dict(config.pop('moe_config'))
         recompute_config = config2dict(config.pop('recompute_config'))
         parallel_config = config2dict(config.pop('parallel_config'))
         config_dict.setdefault('context', context_config)
         config_dict.setdefault('parallel', parallel_context_config)
-        config_dict.setdefault('moe_conifg', moe_conifg)
+        config_dict.setdefault('moe_config', moe_config)
         config_dict.setdefault('recompute_config', recompute_config)
         config_dict.setdefault('parallel_config', parallel_config)
 
