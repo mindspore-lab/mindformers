@@ -1,4 +1,4 @@
-# Copyright 2020-2024 Huawei Technologies Co., Ltd
+# Copyright 2024 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,17 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-
-"""
-MindFormers Transformers API.
-"""
-from .enums import *
-from .fused_softmax import *
-from .rotary_pos_embedding import *
-from .dropout import Dropout
-
-__all__ = []
-__all__.extend(enums.__all__)
-__all__.extend(fused_softmax.__all__)
-__all__.extend(rotary_pos_embedding.__all__)
-__all__.extend(dropout.__all__)
+"""test Dropout"""
