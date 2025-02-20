@@ -25,12 +25,11 @@ except ImportError:
 from mindspore import nn, Tensor
 from mindspore.context import ParallelMode
 from mindspore.ops import functional as F
-from mindspore.ops import operations as P
 from mindspore.common import dtype
 from mindspore.common.parameter import Parameter
 from mindspore.common.initializer import initializer
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose
+from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose, IndexSelect
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.utils import init_method_zero
@@ -403,14 +402,19 @@ class VocabParallelEmbedding(nn.Cell):
                 initializer('zeros', [self.num_embeddings, self.embedding_dim], dtype=init_type)
             ), name="weight"
         )
-        self.gather = P.Gather()
+        self.gather = IndexSelect()
+        self.reshape = Reshape()
         self.parallel_config = parallel_config
         self.shard(self.parallel_config)
 
     def construct(self, input_ids):
         """Forward of vocab embedding."""
         Validator.check_type_name("input_ids", F.dtype(input_ids), [dtype.int32, dtype.int64], self.cls_name)
-        output = self.gather(self.weight, input_ids, 0)
+        bs, seq_len = input_ids.shape
+        # in IndexSelect, input_ids should be 1-dimension
+        input_ids_ = self.reshape(input_ids, (bs * seq_len,))
+        output_ = self.gather(self.weight, 0, input_ids_)
+        output = self.reshape(output_, (bs, seq_len, -1))
 
         return output
 
@@ -420,9 +424,9 @@ class VocabParallelEmbedding(nn.Cell):
         tp = 1 if config.tensor_parallel is None else config.tensor_parallel
         cp = 1 if config.context_parallel is None else config.context_parallel
         if config.vocab_emb_dp:
-            self.gather.shard(((1, 1), (dp, cp)))
+            self.gather.shard(((1, 1), (dp * cp,)))
         else:
             if self.num_embeddings % tp != 0:
-                self.gather.shard(((1, 1), (dp, cp)))
+                self.gather.shard(((1, 1), (dp * cp,)))
             else:
-                self.gather.shard(((tp, 1), (1, 1)))
+                self.gather.shard(((tp, 1), (1,)))

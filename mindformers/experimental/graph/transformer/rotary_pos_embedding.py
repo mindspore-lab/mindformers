@@ -18,9 +18,9 @@ Rotary position embedding for transformer.
 """
 from mindspore import nn, Tensor, dtype
 from mindspore import ops
-from mindspore.ops import operations as P
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore.ops.auto_generate import AddExt, Reshape, Mul, Cos, Sin, Split, Neg, Concat, StackExt, StridedSlice, Div, Outer
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 
 __all__ = [
@@ -53,14 +53,20 @@ class RotaryEmbedding(nn.Cell):
 
         self.seq_len_interpolation_factor = seq_len_interpolation_factor
         self.rotary_interleaved = rotary_interleaved
-        self.inv_freq = 1.0 / (
+
+        self.mul = Mul()
+        self.div = Div()
+        self.inv_freq = self.div(1.0, (
             rotary_base ** (ops.arange(0, dim, 2, dtype=dtype.float32)[: (dim // 2)] / dim)
-        )
+        ))
+
         if self.rotary_interleaved:
-            self.stack = P.Stack(axis=-1)
+            self.stack = StackExt(dim=-1)
         else:
-            self.cat = P.Concat(axis=-1)
-        self.reshape = P.Reshape()
+            self.cat = Concat(axis=-1)
+        self.reshape = Reshape()
+
+        self.outer = Outer()
 
     def construct(self, max_seq_len: int, offset: int = 0) -> Tensor:
         """Generate rotary position embedding.
@@ -75,9 +81,9 @@ class RotaryEmbedding(nn.Cell):
         seq = ops.arange(max_seq_len, dtype=self.inv_freq.dtype) + offset
 
         if self.seq_len_interpolation_factor is not None:
-            seq *= 1 / self.seq_len_interpolation_factor
+            seq = self.mul(seq, self.div(1, self.seq_len_interpolation_factor))
 
-        freqs = ops.outer(seq, self.inv_freq)
+        freqs = self.outer(seq, self.inv_freq)
 
         if self.rotary_interleaved:
             freqs_new_shape = (freqs.shape[0], -1)
@@ -99,16 +105,16 @@ class ApplyRotaryPosEmb(nn.Cell):
     def __init__(self,
                  config: TransformerConfig):
         super(ApplyRotaryPosEmb, self).__init__()
-        self.add = P.Add()
-        self.mul = P.Mul()
-        self.cos = P.Cos()
-        self.sin = P.Sin()
-        self.neg = P.Neg()
-        self.split = P.Split(axis=-1, output_num=2)
-        self.cat = P.Concat(axis=-1)
-        self.stack = P.Stack(axis=-1)
-        self.slice = P.StridedSlice()
-        self.reshape = P.Reshape()
+        self.add = AddExt()
+        self.mul = Mul()
+        self.cos = Cos()
+        self.sin = Sin()
+        self.neg = Neg()
+        self.split = Split(axis=-1, output_num=2)
+        self.cat = Concat(axis=-1)
+        self.stack = StackExt(dim=-1)
+        self.slice = StridedSlice()
+        self.reshape = Reshape()
 
         if config is not None:
             if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
