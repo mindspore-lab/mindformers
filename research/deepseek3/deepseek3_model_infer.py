@@ -372,7 +372,8 @@ class DeepseekV3Attention(nn.Cell):
                  max_position_embeddings=2048,
                  scaling_factor=None,
                  norm_eps=1e-5,
-                 layernorm_compute_dtype=mstype.float32
+                 layernorm_compute_dtype=mstype.float32,
+                 config: DeepseekV3Config = None
                  ):
         super().__init__()
         self.hidden_size = dim
@@ -396,6 +397,7 @@ class DeepseekV3Attention(nn.Cell):
         self.is_first_iteration = True
         self.use_past = use_past
         self.use_flash_attention = use_flash_attention
+        self.qkv_concat = config.qkv_concat
 
         if not self.use_past:
             raise ValueError("For 'DeepseekV3Attention', the use_past must be enabled.")
@@ -424,14 +426,39 @@ class DeepseekV3Attention(nn.Cell):
                 param_init_type=param_init_type,
                 compute_dtype=compute_dtype
             )
-        else:
-            self.q2l_proj = Linear(
+            # 1. kv2l: kv latent vector; 2. lkv_norm: latent vector of kv normalization
+            self.kv2l = Linear(
                 self.hidden_size,
-                self.q_lora_rank,
+                self.kv_lora_rank + self.qk_rope_head_dim,
                 has_bias=qkv_has_bias,
                 compute_dtype=compute_dtype,
                 param_init_type=param_init_type
             )
+        else:
+            if self.qkv_concat:
+                self.qkv2l = Linear(
+                    self.hidden_size,
+                    self.q_lora_rank + self.kv_lora_rank + self.qk_rope_head_dim,
+                    has_bias=qkv_has_bias,
+                    compute_dtype=compute_dtype,
+                    param_init_type=param_init_type
+                )
+            else:
+                self.q2l_proj = Linear(
+                    self.hidden_size,
+                    self.q_lora_rank,
+                    has_bias=qkv_has_bias,
+                    compute_dtype=compute_dtype,
+                    param_init_type=param_init_type
+                )
+                # 1. kv2l: kv latent vector; 2. lkv_norm: latent vector of kv normalization
+                self.kv2l = Linear(
+                    self.hidden_size,
+                    self.kv_lora_rank + self.qk_rope_head_dim,
+                    has_bias=qkv_has_bias,
+                    compute_dtype=compute_dtype,
+                    param_init_type=param_init_type
+                )
             self.lq_norm = RMSNorm(self.q_lora_rank, norm_eps, compute_type=layernorm_compute_dtype)
             self.l2q_proj = ColumnParallelLinear(
                 self.q_lora_rank,
@@ -442,14 +469,6 @@ class DeepseekV3Attention(nn.Cell):
                 compute_dtype=compute_dtype
             )
 
-        # 1. kv2l: kv latent vector; 2. lkv_norm: latent vector of kv normalization
-        self.kv2l = Linear(
-            self.hidden_size,
-            self.kv_lora_rank + self.qk_rope_head_dim,
-            has_bias=qkv_has_bias,
-            compute_dtype=compute_dtype,
-            param_init_type=param_init_type
-        )
         self.lkv_norm = RMSNorm(self.kv_lora_rank, norm_eps, compute_type=layernorm_compute_dtype)
         self.lkv2kv = ColumnParallelLinear(
             self.kv_lora_rank,
@@ -507,15 +526,24 @@ class DeepseekV3Attention(nn.Cell):
 
         if self.q_lora_rank == 0:
             q = self.q_proj(x)
+            latent_kv_all = self.kv2l(x)
+            latent_kv, k_pe = mint.split(latent_kv_all, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1)
         else:
-            q = self.q2l_proj(x)
-            norm_q = self.lq_norm(q)
-            q = self.l2q_proj(norm_q)
+            if self.qkv_concat:
+                qkv2l = self.qkv2l(x)
+                q, latent_kv, k_pe = mint.split(qkv2l, [self.q_lora_rank, self.kv_lora_rank, self.qk_rope_head_dim],
+                                                dim=-1)
+                norm_q = self.lq_norm(q)
+                q = self.l2q_proj(norm_q)
+            else:
+                q = self.q2l_proj(x)
+                norm_q = self.lq_norm(q)
+                q = self.l2q_proj(norm_q)
+                latent_kv_all = self.kv2l(x)
+                latent_kv, k_pe = mint.split(latent_kv_all, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1)
 
         q = self.reshape(q, (bs, seq_len, self.n_local_heads, self.q_head_dim))
         q_nope, q_pe = mint.split(q, [self.qk_nope_head_dim, self.qk_rope_head_dim], dim=-1)
-        latent_kv_all = self.kv2l(x)
-        latent_kv, k_pe = mint.split(latent_kv_all, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1)
         i_kv = self.lkv_norm(latent_kv)
 
         k_pe = self.reshape(k_pe, (bs, seq_len, 1, self.qk_rope_head_dim))
@@ -742,7 +770,8 @@ class DeepseekV3DecodeLayer(nn.Cell):
                                              max_position_embeddings=max_position_embeddings,
                                              scaling_factor=scaling_factor,
                                              norm_eps=norm_eps,
-                                             layernorm_compute_dtype=layernorm_compute_dtype)
+                                             layernorm_compute_dtype=layernorm_compute_dtype,
+                                             config=config)
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
         self.shared_expert_num = 0 if moe_config is None else moe_config.shared_expert_num

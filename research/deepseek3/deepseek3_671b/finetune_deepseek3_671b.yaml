@@ -130,6 +130,7 @@ model:
     rotary_dtype: "float32"
     router_dense_type: "float32"
     param_init_type: "float32"
+    qkv_concat: False
     use_past: False
     extend_method: "None"
     use_flash_attention: True
