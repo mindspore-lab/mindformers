@@ -66,8 +66,7 @@ class SupportedDatasets(Enum):
     WIKITEXT2 = (
         "Wikitext2",
         (
-            "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
-            "MindFormers/dataset/wikitext-2/wikitext-2-v1.zip"
+            "https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip"
         ),
         DatasetType.ZIP
     )
@@ -89,15 +88,6 @@ class SupportedDatasets(Enum):
         ),
         DatasetType.JSON
     )
-
-    ADGEN = (
-        "ADGEN",
-        (
-            "https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1"
-        ),
-        DatasetType.ZIP
-    )
-
 
     def __init__(self, dataset_name, url, dtype):
         self.dataset_name = dataset_name

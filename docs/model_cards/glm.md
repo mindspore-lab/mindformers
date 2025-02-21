@@ -136,7 +136,7 @@ ADGEN 数据集任务为根据输入（content）生成一段广告词（summary
 }
 ```
 
-从 [Google Drive](https://drive.google.com/file/d/13_vf0xRTQsyneRKdD1bZIr93vBGOczrk/view?usp=sharing) 或者 [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1) 下载处理好的 ADGEN 数据集，将解压后的 `AdvertiseGen` 任意目录下
+参照 [ChatGLM仓库](https://github.com/THUDM/ChatGLM-6B/tree/main/ptuning) 的指引下载处理好的 ADGEN 数据集，将解压后的 `AdvertiseGen` 任意目录下
 
 #### 1. 在线加载
 
