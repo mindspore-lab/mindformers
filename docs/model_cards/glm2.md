@@ -74,7 +74,7 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 | 数据集名称 |    适用模型     |   适用阶段   |                                下载链接                                |
 |:------|:-----------:|:--------:|:------------------------------------------------------------------:|
-| ADGEN | ChatGLM2-6b | Finetune | [Link](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1) |
+| ADGEN | ChatGLM2-6b | Finetune | [Link](https://github.com/THUDM/ChatGLM-6B/tree/main/ptuning) |
 
 #### 模型权重下载
 

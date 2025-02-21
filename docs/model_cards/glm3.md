@@ -58,13 +58,12 @@ MindFormers提供[`ADGEN`](https://aclanthology.org/D19-1321.pdf) (广告生成)
 
 | 数据集名称      |    适用模型     |   适用阶段   |                                                                                  下载链接                                                                                  |
 |:-----------|:-----------:|:--------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| ADGEN      | ChatGLM3-6b | Finetune |                                                   [Link](https://cloud.tsinghua.edu.cn/f/b3f119a008264b1cabd1/?dl=1)                                                   |
-| ToolAlpaca | ChatGLM3-6b | Finetune | [Source](https://github.com/tangqiaoyu/ToolAlpaca) / [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/glm3/tool_alpaca.jsonl) |
+| ADGEN      | ChatGLM3-6b | Finetune |                                                   [Link](https://github.com/THUDM/ChatGLM-6B/tree/main/ptuning)                                                   |
+| ToolAlpaca | ChatGLM3-6b | Finetune | [Source](https://github.com/tangqiaoyu/ToolAlpaca) |
 
 - **ToolAlpaca 数据预处理**
 
-用户可以通过[Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/XFormer_for_mindspore/glm3/tool_alpaca.jsonl)下载处理好的数据集使用，
-也可以通过[Source](https://github.com/tangqiaoyu/ToolAlpaca)下载原始数据，通过如下处理后使用：
+用户可以通过[Source](https://github.com/tangqiaoyu/ToolAlpaca)下载原始数据，通过如下处理后使用：
 
 1. 下载数据处理脚本[format_tool_alpaca.py](https://github.com/THUDM/ChatGLM3/blob/7cd5bc78bd6232d02764b60b33874bb2d63a0df0/finetune_chatmodel_demo/scripts/format_tool_alpaca.py)
 

@@ -75,7 +75,7 @@ MindFormers提供`Wikitext2`作为[预训练](#预训练)数据集，`code-alpac
 
 | 数据集名称       |     适用模型      |   适用阶段   |                                                         下载链接                                                          |
 |:------------|:-------------:|:--------:|:---------------------------------------------------------------------------------------------------------------------:|
-| Wikitext2   | CodeLlama_34b | Pretrain | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip) |
+| Wikitext2   | CodeLlama_34b | Pretrain | [Link](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip) |
 | code-alpaca | CodeLlama_34b | Finetune |                [Link](https://github.com/sahil280114/codealpaca/blob/master/data/code_alpaca_20k.json)                |
 | HumanEval   | CodeLlama_34b | Evaluate |                                     [Link](https://github.com/openai/human-eval)                                      |
 
