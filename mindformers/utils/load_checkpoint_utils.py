@@ -26,7 +26,7 @@ from mindspore.communication.comm_func import barrier
 from mindspore.common.api import _pynative_executor
 from mindspore.parallel.transform_safetensors import _collect_safetensor_files
 from mindspore import Parameter
-from mindformers.models.modeling_utils import PreTrainedModel
+
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_main_rank, get_epoch_and_step_from_ckpt_name, get_real_rank
 from mindformers.utils import convert_hf_safetensors_multiprocess, check_safetensors_key
@@ -401,6 +401,7 @@ def validate_qkv_concat(model_cls_or_instance, qkv_concat_config, load_checkpoin
     Currently only safetensors format is supported.
     """
     # check the type of model_cls_or_instance
+    from mindformers.models.modeling_utils import PreTrainedModel
     if not (
             isinstance(model_cls_or_instance, PreTrainedModel) or
             (isinstance(model_cls_or_instance, type) and issubclass(model_cls_or_instance, PreTrainedModel))

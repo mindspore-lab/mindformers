@@ -36,6 +36,7 @@ from mindspore.communication import get_group_size, get_rank
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models import BasicTokenizer
 from mindformers.core.loss import CrossEntropyLoss
+from mindformers.utils import deprecated
 
 from .utils import PerplexityCell
 from ...dataset.labels import cluener_labels
@@ -177,6 +178,7 @@ class EntityScore(nn.Metric):
         return chunks
 
 
+@deprecated(version="1.5.0")
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
 class SQuADMetric(nn.Metric):
     r"""

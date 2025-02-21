@@ -31,10 +31,12 @@ from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.utils import get_real_rank
 from mindformers.modules.transformer.op_parallel_config import default_dpmp_config
+from mindformers.utils import deprecated
 
 __all__ = ['SoftTargetCrossEntropy', 'MSELoss', 'L1Loss', 'CrossEntropyLoss', 'CompareLoss']
 
 
+@deprecated(version="1.5.0")
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
 class SoftTargetCrossEntropy(LossBase):
     """
@@ -54,7 +56,7 @@ class SoftTargetCrossEntropy(LossBase):
     """
 
     def __init__(self, parallel_config=default_dpmp_config):
-        super(SoftTargetCrossEntropy, self).__init__()
+        super().__init__()
         dp = parallel_config.data_parallel
         self.mean_ops = P.ReduceMean(keep_dims=False).shard(((1,),))
         self.sum_ops = P.ReduceSum(keep_dims=False).shard(((dp, 1),))
@@ -72,6 +74,7 @@ class SoftTargetCrossEntropy(LossBase):
         return self.mean_ops(loss)
 
 
+@deprecated(version="1.5.0")
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
 class MSELoss(nn.Cell):
     """
@@ -94,7 +97,7 @@ class MSELoss(nn.Cell):
     """
 
     def __init__(self, norm_pixel_loss=True, parallel_config=default_dpmp_config):
-        super(MSELoss, self).__init__()
+        super().__init__()
         dp = parallel_config.data_parallel
         self.add_loss = P.Add().shard(((dp, 1, 1), ()))
         self.sub = P.Sub().shard(((dp, 1, 1), (dp, 1, 1)))
@@ -143,11 +146,12 @@ class MSELoss(nn.Cell):
         return x_var
 
 
+@deprecated(version="1.5.0")
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
 class L1Loss(LossBase):
     """L1Loss for parallel."""
     def __init__(self, reduction='mean', parallel_config=default_dpmp_config):
-        super(L1Loss, self).__init__()
+        super().__init__()
         dp = parallel_config.data_parallel
 
         self.abs = P.Abs().shard(((dp, 1, 1, 1),))
@@ -443,6 +447,7 @@ class CrossEntropyLoss(nn.Cell):
         return numerator, denominator
 
 
+@deprecated(version="1.5.0")
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
 class CompareLoss(nn.Cell):
     """
@@ -464,7 +469,7 @@ class CompareLoss(nn.Cell):
         The corresponding loss.
     """
     def __init__(self, config):
-        super(CompareLoss, self).__init__()
+        super().__init__()
         dp = config.data_parallel
         mp = 1
         self.gatherd = P.GatherD()
