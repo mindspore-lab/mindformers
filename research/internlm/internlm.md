@@ -197,7 +197,7 @@ print(pipeline_result)
 
 1. 数据集下载：
 
-- [WikiText2](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip)
+- [WikiText2](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
 
 - [alpaca_data](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)
 
