@@ -39,6 +39,7 @@ class FreqsMgr(nn.Cell):
                  rotary_dtype=mstype.float16,
                  base=10000,
                  rope_ratio=1.0,
+                 parallel_config=None
                  ):
         super().__init__()
         if seq_length is not None and seq_length > max_position_embedding:
@@ -57,6 +58,16 @@ class FreqsMgr(nn.Cell):
         freqs_cos = Tensor(np.concatenate((np.cos(emb), np.ones_like(emb)), axis=-1), dtype=rotary_dtype)
         freqs_sin = Tensor(np.concatenate((np.sin(emb), np.zeros_like(emb)), axis=-1), dtype=rotary_dtype)
 
+        self.seq_pipe = parallel_config and parallel_config.seq_split_num and parallel_config.seq_split_num > 1
+        if self.seq_pipe:
+            self.seq_split_num = parallel_config.seq_split_num
+            self.seq_seg_len = self.seq_length // self.seq_split_num
+            np_range = np.arange(self.seq_seg_len)
+            self.seq_seg_range = Tensor(np_range, dtype=mstype.int32)
+            self.add_seq = P.Add()
+            self.add_seq.shard(((1,), ()))
+
+
         self.head_dim = dim
         self.freqs_cos = Tensor(freqs_cos, dtype=rotary_dtype)
         self.freqs_sin = Tensor(freqs_sin, dtype=rotary_dtype)
@@ -65,9 +76,14 @@ class FreqsMgr(nn.Cell):
         self.slice = P.StridedSlice().shard(((1, 1),))
         self.gather = P.Gather().shard(((1, 1), (1,)))
 
-    def construct(self, seq_length):
-        freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim * 2), (1, 1))
-        freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim * 2), (1, 1))
+    def construct(self, seq_length, seq_chunk=None):
+        if self.seq_pipe:
+            seg_seq_range = self.add_seq(self.seq_seg_range, self.seq_seg_len * seq_chunk)
+            freqs_cos = self.gather(self.freqs_cos, seg_seq_range, 0).reshape((seq_length, 1, 2 * self.dim))
+            freqs_sin = self.gather(self.freqs_sin, seg_seq_range, 0).reshape((seq_length, 1, 2 * self.dim))
+        else:
+            freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim * 2), (1, 1))
+            freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim * 2), (1, 1))
         return freqs_cos, freqs_sin, self.cache
 
     def prefill(self):
@@ -89,7 +105,8 @@ class FreqsMgrRope(nn.Cell):
                  max_position_embedding=4096,
                  rotary_dtype=mstype.float16,
                  base=10000,
-                 rope_ratio=1.0
+                 rope_ratio=1.0,
+                 parallel_config=None
                  ):
         super().__init__()
         if seq_length is not None and seq_length > max_position_embedding:
@@ -108,6 +125,14 @@ class FreqsMgrRope(nn.Cell):
         swap_mask = FreqsMgrRope.get_swap_mask_llama(dim * 2)
         self.seq_length = seq_length
         self.dim = dim
+        self.seq_pipe = parallel_config and parallel_config.seq_split_num and parallel_config.seq_split_num > 1
+        if self.seq_pipe:
+            self.seq_split_num = parallel_config.seq_split_num
+            self.seq_seg_len = self.seq_length // self.seq_split_num
+            np_range = np.arange(self.seq_seg_len)
+            self.seq_seg_range = Tensor(np_range, dtype=mstype.int32)
+            self.add_seq = P.Add()
+            self.add_seq.shard(((1,), ()))
 
         def rearange(w):
             w = np.concatenate(
@@ -131,11 +156,18 @@ class FreqsMgrRope(nn.Cell):
         self.gather = P.Gather().shard(((1, 1), (1,)))
         self.tile = P.Tile().shard(((1, 1),))
 
-    def construct(self, seq_length):
-        freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim * 2), (1, 1)).reshape(
-            (seq_length, 1, 2 * self.dim))
-        freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim * 2), (1, 1)).reshape(
-            (seq_length, 1, 2 * self.dim))
+    def construct(self, seq_length, seq_chunk=None):
+        """construct"""
+        if self.seq_pipe:
+            seg_seq_range = self.add_seq(self.seq_seg_range, self.seq_seg_len * seq_chunk)
+            freqs_cos = self.gather(self.freqs_cos, seg_seq_range, 0).reshape((seq_length, 1, 2 * self.dim))
+            freqs_sin = self.gather(self.freqs_sin, seg_seq_range, 0).reshape((seq_length, 1, 2 * self.dim))
+        else:
+            freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim * 2), (1, 1)).reshape(
+                (seq_length, 1, 2 * self.dim))
+            freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim * 2), (1, 1)).reshape(
+                (seq_length, 1, 2 * self.dim))
+
         return freqs_cos, freqs_sin, self.swap_mask
 
     def prefill(self):
