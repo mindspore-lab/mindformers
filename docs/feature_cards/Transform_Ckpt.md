@@ -48,7 +48,7 @@ Mindformer的**自动权重转换**特性适用于以下三大任务场景，基
 
 ![checkpoint](assets/Transform_Ckpt/checkpoint.png)
 
-- 数据集：下载使用已转为mindrecord格式的[WikiText2数据集](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/features/transform_checkpoint/wikitext_512.zip)并解压。
+- 数据集: 参照[Llama对Wikitext-2](../model_cards/llama2.md#数据及权重准备)数据处理，将wikitext-2数据集处理成序列长度为512的mindrecord数据集。
 
 ![wiki_dataset](assets/Transform_Ckpt/wiki_dataset.png)
 

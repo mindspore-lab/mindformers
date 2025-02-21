@@ -64,11 +64,11 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 #### 数据集下载
 
-| 数据集名称               |        适用模型        |   适用阶段   |                                                         下载链接                                                          |
-|:--------------------|:------------------:|:--------:|:---------------------------------------------------------------------------------------------------------------------:|
-| Wikitext2           |       yi-34b       | Pretrain | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip) |
-| alpaca              | yi-6b <br/> yi-34b | Finetune |                    [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)                    |
-| alpaca_gpt4_data_zh | yi-6b <br/> yi-34b | Finetune |       [Link](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh/resolve/main/alpaca_gpt4_data_zh.json)       |
+| 数据集名称               |        适用模型        |   适用阶段   |                                                   下载链接                                                    |
+|:--------------------|:------------------:|:--------:|:---------------------------------------------------------------------------------------------------------:|
+| Wikitext2           |       yi-34b       | Pretrain |             [Link](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)              |
+| alpaca              | yi-6b <br/> yi-34b | Finetune |              [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)              |
+| alpaca_gpt4_data_zh | yi-6b <br/> yi-34b | Finetune | [Link](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh/resolve/main/alpaca_gpt4_data_zh.json) |
 
 数据集处理过程中使用的`tokenizer.model`可以通过[链接](https://huggingface.co/01-ai/Yi-6B/blob/main/tokenizer.model)下载。
 

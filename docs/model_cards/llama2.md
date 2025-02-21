@@ -94,11 +94,11 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测数据集，**alpaca**作为[微调](#微调)数据集。**SQuAD1.1**为阅读理解评测数据集。
 
-| 数据集名称     |                    适用模型                     |          适用阶段           |                                                         下载链接                                                          |
-|:----------|:-------------------------------------------:|:-----------------------:|:---------------------------------------------------------------------------------------------------------------------:|
-| Wikitext2 | llama2-7b <br/> llama2-13b <br/> llama2-70b | Pretrain <br/> Evaluate | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip) |
-| alpaca    | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Finetune         |                    [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)                    |
-| SQuAD 1.1 | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Evaluate         |                                     [Link](https://data.deepai.org/squad1.1.zip)                                      |
+| 数据集名称     |                    适用模型                     |          适用阶段           |                                       下载链接                                        |
+|:----------|:-------------------------------------------:|:-----------------------:|:---------------------------------------------------------------------------------:|
+| Wikitext2 | llama2-7b <br/> llama2-13b <br/> llama2-70b | Pretrain <br/> Evaluate | [Link](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)  |
+| alpaca    | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Finetune         |  [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)  |
+| SQuAD 1.1 | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Evaluate         |                   [Link](https://data.deepai.org/squad1.1.zip)                    |
 
 数据预处理中所用的`tokenizer.model`可以参考[模型权重下载](#模型权重下载)进行下载。
 
