@@ -132,6 +132,7 @@ class DeepseekV3Config(PretrainedConfig):
                  softmax_compute_type: str = "float32",
                  rotary_dtype: str = "float32",
                  param_init_type: str = "bfloat16",
+                 init_method_std=0.006,
                  qkv_has_bias=False,
                  qkv_concat=False,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
@@ -218,3 +219,4 @@ class DeepseekV3Config(PretrainedConfig):
         self.input_sliced_sig = input_sliced_sig
         self.mlp_has_gate = True
         self.hidden_act = "silu"
+        self.init_method_std = init_method_std

@@ -108,7 +108,8 @@ class TestDeepseek3TrainingPrecision:
                                         mtp_depth=1,
                                         moe_config=moe_config,
                                         extend_method="None",
-                                        return_extra_loss=True,)
+                                        return_extra_loss=True,
+                                        init_method_std=0.006,)
         model = TrainingDeepseekV3ForCausalLM(model_config)
 
         lr_schedule = CosineWithWarmUpLR(learning_rate=1.e-5, warmup_ratio=0.01, warmup_steps=0, total_steps=20)
@@ -120,11 +121,11 @@ class TestDeepseek3TrainingPrecision:
                                              weight_decay=0.1,
                                              learning_rate=lr_schedule)
 
-        loss_list_std = [15.578869819641113, 15.587037086486816, 15.577961921691895, 15.582971572875977,
-                         15.582823753356934, 15.588516235351562, 15.58267593383789, 15.585372924804688,
-                         15.572279930114746, 15.58139419555664, 15.584920883178711, 15.574627876281738,
-                         15.590651512145996, 15.5708646774292, 15.579944610595703, 15.585620880126953,
-                         15.585836410522461, 15.600808143615723, 15.588390350341797, 15.583108901977539]
+        loss_list_std = [15.534516, 15.543842, 15.535684, 15.540131,
+                         15.544271, 15.543932, 15.5377655, 15.540722,
+                         15.534813, 15.536912, 15.541159, 15.536707,
+                         15.546314, 15.5291195, 15.53494, 15.542152,
+                         15.5426445, 15.551411, 15.542769, 15.54012]
         callback = TrainingChecker(loss_list_std=loss_list_std)
 
         self.task_trainer = Trainer(task='text_generation',
