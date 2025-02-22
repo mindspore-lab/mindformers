@@ -157,6 +157,8 @@ class DeepseekV3Config(PretrainedConfig):
                  mtp_loss_factor: float = 0.3,
                  return_extra_loss: bool = True,
                  input_sliced_sig: bool = False,
+                 use_fused_rope=False,
+                 use_fused_swiglu=False,
                  **kwargs):
         super(DeepseekV3Config, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -220,3 +222,5 @@ class DeepseekV3Config(PretrainedConfig):
         self.mlp_has_gate = True
         self.hidden_act = "silu"
         self.init_method_std = init_method_std
+        self.use_fused_rope = use_fused_rope
+        self.use_fused_swiglu = use_fused_swiglu

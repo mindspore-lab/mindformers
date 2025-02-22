@@ -387,3 +387,23 @@ def check_tft_valid():
     env_enable = os.getenv("MS_ENABLE_TFT", "")
     required_flags = ["TTP:1", "UCE:1", "ARF:1"]
     return any(flag in env_enable for flag in required_flags)
+
+
+def check_swiglu_valid():
+    """check mindspore version is valid for swiglu"""
+    version_valid = is_version_ge(ms.__version__, "2.5.0")
+    if not version_valid:
+        logger.warning("Current MindSpore version does not support primitive Swiglu, please upgrade to 2.5.0 or later "
+                       "version.")
+        return False
+    return True
+
+
+def check_rotary_position_embedding_valid():
+    """check mindspore version is valid for swiglu"""
+    version_valid = is_version_ge(ms.__version__, "2.5.0")
+    if not version_valid:
+        logger.warning("Current MindSpore version does not support primitive RotaryPositionEmbedding, please upgrade "
+                       "to 2.5.0 or later version.")
+        return False
+    return True

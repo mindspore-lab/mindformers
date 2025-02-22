@@ -17,13 +17,12 @@
 import copy
 import mindspore as ms
 from mindspore.common.parameter import Parameter
-from mindspore import nn
+from mindspore import nn, Layout
 import mindspore.common.dtype as mstype
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 from mindspore.nn.cell import Cell
 from mindspore.nn.layer import Dense
-from mindspore.parallel.shard import Layout
 
 try:
     from mindspore._checkparam import Validator
@@ -300,13 +299,15 @@ class LlamaFeedForward(Cell):
                  use_3d_tensor_parallel=False,
                  tp_x=1,
                  tp_y=1,
-                 tp_z=1):
+                 tp_z=1,
+                 use_fused_swiglu=False):
         super().__init__()
 
         if hidden_act is None or not (isinstance(hidden_act, str) or issubclass(hidden_act, nn.Cell)):
             raise TypeError(f"For FeedForward cell, the hidden_act should str type or nn.Cell type, "
                             f"but got {hidden_act}.")
 
+        self.use_fused_swiglu = use_fused_swiglu
         if intermediate_size is not None:
             hidden_dim = intermediate_size
         else:
@@ -338,7 +339,7 @@ class LlamaFeedForward(Cell):
         else:
             dp_moe = 1
         self.dtype = compute_dtype
-        self.hidden_act = hidden_act
+        self.hidden_act = None if self.use_fused_swiglu else hidden_act
         self.dim = dim
         self.hidden_dim = hidden_dim
         self.expert_num = expert_num
@@ -377,7 +378,7 @@ class LlamaFeedForward(Cell):
                              init_method_std=init_method_std,
                              expert_num=expert_num,
                              outer_batch=dp_moe,
-                             activation=hidden_act,
+                             activation=self.hidden_act,
                              has_bias=False,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type)
@@ -399,7 +400,12 @@ class LlamaFeedForward(Cell):
                              has_bias=False,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type)
+            self.w13_concat = P.Concat(-1)
         self.rmsnorm_compute_2d = rmsnorm_compute_2d
+        if self.use_fused_swiglu:
+            self.swiglu = ms.ops.auto_generate.gen_ops_prim.Swiglu()
+            self.expand_dims = P.ExpandDims()
+            self.squeeze = P.Squeeze(axis=-1)
 
     def construct(self, x):
         """Forward process of the FeedForward"""
@@ -408,16 +414,26 @@ class LlamaFeedForward(Cell):
         if self.ffn_concat:
             gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp
             bs, seq_len, _ = gate_hidden_out.shape
-            reshape_out = self.reshape(gate_hidden_out, (bs, seq_len, self.hidden_dim, 2))
-            gate, hidden = self.split(reshape_out, (1, 1), 3)
-            gate = self.reshape(gate, (bs, seq_len, self.hidden_dim))
-            hidden = self.reshape(hidden, (bs, seq_len, self.hidden_dim))
-            gate = self.activate(gate)
+            if not self.use_fused_swiglu:
+                reshape_out = self.reshape(gate_hidden_out, (bs, seq_len, self.hidden_dim, 2))
+                gate, hidden = self.split(reshape_out, (1, 1), 3)
+                gate = self.reshape(gate, (bs, seq_len, self.hidden_dim))
+                hidden = self.reshape(hidden, (bs, seq_len, self.hidden_dim))
+                gate = self.activate(gate)
         else:
             # [bs, seq, hidden_dim] or [bs * seq, hidden_dim]
             gate = self.w1(x)  # dp,1 -> dp, mp
             hidden = self.w3(x)  # dp,1 -> dp, mp
-        hidden = self.mul(hidden, gate)  # dp,mp -> dp, mp
+            if self.use_fused_swiglu:
+                gate = self.expand_dims(gate, -1)
+                hidden = self.expand_dims(hidden, -1)
+            gate_hidden_out = self.w13_concat((gate, hidden))
+        if self.use_fused_swiglu:
+            hidden = self.swiglu(gate_hidden_out, -1)
+            hidden = self.squeeze(hidden)
+        else:
+            hidden = self.mul(hidden, gate)  # dp,mp -> dp, mp
+
         output = self.w2(hidden)  # dp,mp -> dp, 1
         return output
 
@@ -429,6 +445,7 @@ class LlamaFeedForward(Cell):
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         cp = parallel_config.context_parallel
+        ep = parallel_config.expert_parallel
         if self.hidden_dim % mp != 0:
             raise ValueError("For 'FeedForward', the class variable 'hidden_dim' must be a multiple of the"
                              "num of model parallel, but got the hidden_dim is {} and the num of model "
@@ -454,7 +471,8 @@ class LlamaFeedForward(Cell):
                         self.mul.shard(((dp, mp), (dp, mp)))
                 else:
                     self.w1.shard(((dp * cp, 1), (mp, 1)), strategy_activation=((dp * cp, mp),))
-                    self.w1.activation.shard(((dp * cp, mp),))
+                    if not self.use_fused_swiglu:
+                        self.w1.activation.shard(((dp * cp, mp),))
                     self.w2.shard(((dp * cp, mp), (1, mp)))
                     self.w3.shard(((dp * cp, 1), (mp, 1)))
             else:
@@ -472,8 +490,7 @@ class LlamaFeedForward(Cell):
                         self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
                         self.activate.shard(((dp, 1, mp),))
                         self.w2.shard(((dp, mp), (1, mp)))
-                        self.split.add_prim_attr("skip_redistribution", True)
-                        self.split.shard(((dp, 1, mp, 1),))
+                        self.split.shard(((dp, 1, mp, 1),)).add_prim_attr("skip_redistribution", True)
                         self.mul.shard(((dp, mp), (dp, mp)))
                     else:
                         self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
@@ -483,13 +500,20 @@ class LlamaFeedForward(Cell):
                         self.mul.shard(((dp, mp), (dp, mp)))
                 else:
                     self.w1.shard(((dp * cp, 1), (mp, 1)), strategy_activation=((dp * cp, mp),))
-                    self.w1.activation.shard(((dp * cp, mp),))
+                    if not self.use_fused_swiglu:
+                        self.w1.activation.shard(((dp * cp, mp),))
                     self.w2.shard(((dp * cp, mp), (1, mp)))
                     self.w3.shard(((dp * cp, 1), (mp, 1)))
                     self.mul.shard(((dp, cp, mp), (dp, cp, mp)))
+                    self.w13_concat.shard(((dp, cp, mp, 1), (dp, cp, mp, 1)))
+                if self.use_fused_swiglu:
+                    layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
+                    self.swiglu.shard((layout("dp", "cp", "mp", "None"),), (layout("dp", "cp", "mp", "None"),))
+                    self.swiglu.add_prim_attr("self_define_shard", True)
+                    self.expand_dims.shard(((dp, cp, mp),))
+                    self.squeeze.shard(((dp, cp, mp, 1),))
             else:
                 logger.info("shard ffn with MoE")
-                ep = parallel_config.expert_parallel
                 if self.mp_moe_flag:
                     dp = dp * cp * mp // (ep * self.mp_moe)
                     mp = self.mp_moe
@@ -506,6 +530,15 @@ class LlamaFeedForward(Cell):
                     if parallel_config.use_seq_parallel:
                         mul_shard = (dp, ep, mp)
                     self.mul.shard((mul_shard, mul_shard))
+
+                self.w13_concat.shard(((dp, ep * cp, mp, 1), (dp, ep * cp, mp, 1)))
+                if self.use_fused_swiglu:
+                    layout = Layout((dp, ep, cp, mp), ("dp", "ep", "cp", "mp"))
+                    self.swiglu.shard((layout("dp", ("ep", "cp"), "mp", "None"),),
+                                      (layout("dp", ("ep", "cp"), "mp", "None"),))
+                    self.swiglu.add_prim_attr("self_define_shard", True)
+                    self.expand_dims.shard(((dp, ep * cp, mp),))
+                    self.squeeze.shard(((dp, ep * cp, mp, 1),))
 
     def _shard_ndtp(self, parallel_config):
         """sharding for feedforward with use_3d_tensor_parallel"""
@@ -698,6 +731,7 @@ class LlamaFeedForwardWithMoE(Cell):
                  parallel_config=default_dpmp_config,
                  use_moe_infer=True,
                  return_extra_loss=False,
+                 use_fused_swiglu=False,
                  init_method_std=0.01
                  ):
         super().__init__()
@@ -744,6 +778,7 @@ class LlamaFeedForwardWithMoE(Cell):
                                      param_init_type=param_init_type,
                                      moe_config=moe_config,
                                      parallel_config=parallel_config,
+                                     use_fused_swiglu=use_fused_swiglu,
                                      init_method_std=init_method_std),
                 dim=hidden_size,
                 moe_config=moe_config,
@@ -758,6 +793,7 @@ class LlamaFeedForwardWithMoE(Cell):
                                                expert_num=1,
                                                compute_dtype=compute_dtype,
                                                param_init_type=param_init_type,
+                                               use_fused_swiglu=use_fused_swiglu,
                                                parallel_config=parallel_config)
 
         if self.use_shared_expert_gating:

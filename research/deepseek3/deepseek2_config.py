@@ -25,6 +25,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import convert_mstype
 from mindformers.mindformer_book import MindFormerBook
+from mindformers.version_control import check_swiglu_valid, check_rotary_position_embedding_valid
 
 __all__ = ['DeepseekV2Config']
 
@@ -154,6 +155,8 @@ class DeepseekV2Config(PretrainedConfig):
                  top_p: float = 1.0,
                  do_sample: bool = True,
                  return_extra_loss: bool = True,
+                 use_fused_rope: bool = False,
+                 use_fused_swiglu: bool = False,
                  **kwargs):
         super(DeepseekV2Config, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -215,3 +218,5 @@ class DeepseekV2Config(PretrainedConfig):
         self.block_size = block_size
         self.num_blocks = num_blocks
         self.return_extra_loss = return_extra_loss
+        self.use_fused_swiglu = use_fused_swiglu and check_swiglu_valid()
+        self.use_fused_rope = use_fused_rope and check_rotary_position_embedding_valid()
