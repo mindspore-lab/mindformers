@@ -1326,10 +1326,11 @@ class TopkRouterV2(Cell):
         self.sub = P.Sub()
         self.mod_expert = P.Mod()
         self.tensor2scalar = TensorToScalar()
-        self.fi_parameter = Parameter(initializer("zeros", (dp, self.expert_dim), mstype.float32),
-                                      requires_grad=False, parallel_optimizer=False)
-        self.assign_fi = P.Assign().shard(((dp, 1), (dp, 1)))
-        self.assign_fi.recompute(False)
+        if self.aux_loss_config.get("expert", 0) > 0:
+            self.fi_parameter = Parameter(initializer("zeros", (dp, self.expert_dim), mstype.float32),
+                                        requires_grad=False, parallel_optimizer=False)
+            self.assign_fi = P.Assign().shard(((dp, 1), (dp, 1)))
+            self.assign_fi.recompute(False)
 
        # allgather dispatcer
         self.use_allgather_dispatcher = moe_config.use_allgather_dispatcher
