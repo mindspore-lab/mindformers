@@ -210,7 +210,17 @@ MindFormers released version preservation policy:
 
 `scripts/examples` directory are provided as reference examples and do not form part of the commercially released products. They are only for users' reference. If it needs to be used, the user should be responsible for transforming it into a product suitable for commercial use and ensuring security protection. MindSpore does not assume security responsibility for the resulting security problems.
 
+1. `scripts/examples` directory are provided as reference examples and do not form part of the commercially released products. They are only for users' reference. If it needs to be used, the user should be responsible for transforming it into a product suitable for commercial use and ensuring security protection. MindSpore does not assume security responsibility for the resulting security problems.
+2. With regard to datasets, MindSpore Transformers only suggests datasets that can be used for training. MindSpore Transformers does not provide any datasets. If you use these datasets for training, please note that you should comply with the licenses of the corresponding datasets, and that MindSpore Transformers is not responsible for any infringement disputes that may arise from the use of the datasets.
+3. If you do not want your dataset to be mentioned in MindSpore Transformers, or if you want to update the description of your dataset in MindSpore Transformers, please submit an issue to Gitee, and we will remove or update the description of your dataset according to your issue request. We sincerely appreciate your understanding and contribution to MindSpore Transformers.
+
 ## 6. Contribution
+
+We welcome contributions to the community. For details, see [MindFormers Contribution Guidelines](https://www.mindspore.cn/mindformers/docs/en/r1.3.0/faq/mindformers_contribution.html).
+
+## 7. License
+
+[Apache 2.0 License](LICENSE)
 
 We welcome contributions to the community. For details, see [MindFormers Contribution Guidelines](https://www.mindspore.cn/mindformers/docs/en/dev/faq/mindformers_contribution.html).
 
