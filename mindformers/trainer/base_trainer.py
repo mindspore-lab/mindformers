@@ -60,7 +60,7 @@ from mindformers.utils.tensorboard import _set_tensorboard_writer, _unset_tensor
 from mindformers.tools.utils import count_params
 from mindformers.tools.check_rules import check_rules
 from mindformers.tools.utils import get_real_rank, get_real_group_size
-from mindformers.core.callback.callback import ColdHotExpertMointor
+from mindformers.core.callback.callback import ColdHotExpertMonitor
 from mindformers.dataset.dataloader.blended_megatron_dataloader import is_dataset_built_on_rank
 from mindformers.modules.seq_pipe import SequenceSplit
 from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
@@ -1082,15 +1082,15 @@ class BaseTrainer:
             for callback in config.callbacks:
                 if callback['type'] == 'CheckpointMonitor':
                     save_checkpoint_steps = callback['save_checkpoint_steps']
-            cold_hot_mointor = ColdHotExpertMointor(
+            cold_hot_monitor = ColdHotExpertMonitor(
                 moe_config=config.moe_config,
                 hidden_size=config.model.model_config.hidden_size,
                 ffn_hidden_size=config.model.model_config.ffn_hidden_size,
                 expert_parallel=config.parallel_config.expert_parallel,
                 model_parallel=config.parallel_config.model_parallel,
                 save_checkpoint_steps=save_checkpoint_steps)
-            # ColdHotExpertMointor needs to be placed before CheckpointMonitor
-            callbacks.insert(1, cold_hot_mointor)
+            # ColdHotExpertMonitor needs to be placed before CheckpointMonitor
+            callbacks.insert(1, cold_hot_monitor)
 
         logger.info(".........Starting Training Model..........")
         if get_real_rank() % 8 == 0:

@@ -1136,7 +1136,7 @@ class CheckpointMonitor(ModelCheckpoint):
         prefix = prefix + "_rank_{}".format(self.rank_id)
 
         self.global_batch_size = global_batch_size
-        # this list records parametrs which will be ignored when saving ckpt.
+        # this list records parameters which will be ignored when saving ckpt.
         self.filter_list = ['accu_grads', 'fi_parameter', 'zeros_k_pe', 'zeros_k_nope', 'zeros_value_states', '_cache']
 
         self.save_info_list = defaultdict(
@@ -1709,18 +1709,18 @@ class EvalCallBack(Callback):
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)
-class ColdHotExpertMointor(Callback):
+class ColdHotExpertMonitor(Callback):
     """
-        ColdHotExpertMointor Callback used in MoE model training progress.
+        ColdHotExpertMonitor Callback used in MoE model training progress.
 
         Args:
             config : Read config from configuration file.
 
         Examples:
-            >>> from mindformers.core.callback import ColdHotExpertMointor
-            >>> callback = ColdHotExpertMointor(config)
+            >>> from mindformers.core.callback import ColdHotExpertMonitor
+            >>> callback = ColdHotExpertMonitor(config)
             >>> type(callback)
-            <class 'mindformers.core.callback.callback.ColdHotExpertMointor'>
+            <class 'mindformers.core.callback.callback.ColdHotExpertMonitor'>
     """
 
     def __init__(self, moe_config=None, hidden_size=None, ffn_hidden_size=None, expert_parallel=None,
@@ -1785,7 +1785,7 @@ class ColdHotExpertMointor(Callback):
 
     def get_attribute_by_path(self, obj, path):
         """
-        Obtains MoE blocks modules in obj by path..
+        Obtains MoE blocks modules in obj by path.
 
         Args:
             obj : Model.

@@ -298,7 +298,7 @@ if config.moe_config.save_token_distribution or config.moe_config.enable_cold_ho
     for i in range(config.num_layers):
         moe_config[i].cur_layer = i
 
-self.blocks = nn.CellList()
+    self.blocks = nn.CellList()
     for i in range(config.num_layers):
         block = GPTTransformerDecoderLayer(
             ......
@@ -308,7 +308,7 @@ self.blocks = nn.CellList()
         )
 ```
 
-在训练的前期，热门Expert会发生变化，需要在训练过程中动态调整Expert副本所代表的Expert。使用本优化需要在callbacks中传入ColdHotExpertMointor，ColdHotExpertMointor中需要传入以下参数:
+在训练的前期，热门Expert会发生变化，需要在训练过程中动态调整Expert副本所代表的Expert。使用本优化需要在callbacks中传入ColdHotExpertMonitor，ColdHotExpertMonitor中需要传入以下参数:
 
 `moe_config`：config.moe_config
 
@@ -323,22 +323,22 @@ self.blocks = nn.CellList()
 `save_checkpoint_steps`：CheckpointMonitor中配置的'save_checkpoint_steps'
 
 ```python
-from mindformers.core.callback.callback import ColdHotExpertMointor
+from mindformers.core.callback.callback import ColdHotExpertMonitor
 
 if config.moe_config.enable_cold_hot_expert:
     save_checkpoint_steps = -1
     for callback in config.callbacks:
         if callback['type'] == 'CheckpointMonitor':
             save_checkpoint_steps = callback['save_checkpoint_steps']
-    cold_hot_mointor = ColdHotExpertMointor(
+    cold_hot_monitor = ColdHotExpertMonitor(
         moe_config=config.moe_config,
         hidden_size=config.model.model_config.hidden_size,
         ffn_hidden_size=config.model.model_config.ffn_hidden_size,
         expert_parallel=config.parallel_config.expert_parallel,
         model_parallel=config.parallel_config.model_parallel,
         save_checkpoint_steps=save_checkpoint_steps)
-    # ColdHotExpertMointor needs to be placed before CheckpointMonitor
-    callbacks.insert(1, cold_hot_mointor)
+    # ColdHotExpertMonitor needs to be placed before CheckpointMonitor
+    callbacks.insert(1, cold_hot_monitor)
 ```
 
-需要注意：在callbacks中ColdHotExpertMointor需要放置在CheckpointMonitor前面，先执行ColdHotExpertMointor，不然副本的权重还没复制回其代表的Expert就保存ckpt，导致ckpt保存的Expert权重并非最新训练结果。
+需要注意：在callbacks中ColdHotExpertMonitor需要放置在CheckpointMonitor前面，先执行ColdHotExpertMonitor，不然副本的权重还没复制回其代表的Expert就保存ckpt，导致ckpt保存的Expert权重并非最新训练结果。
