@@ -62,6 +62,8 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV2ForCausalLM):
         self.zeros_op.shard(((dp, 1),))
 
         self.input_sliced_sig = config.input_sliced_sig
+        self.seq_split_num = config.parallel_config.seq_split_num
+        self.seq_pipe = self.seq_split_num > 1
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
@@ -82,6 +84,25 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV2ForCausalLM):
         input_mask = self.cast(self.not_equal(tokens, self.pad_token_id), mstype.float32)  # (B, S)
 
         split_logits = self.split(logits)
+        if self.seq_pipe:
+            numerator, denominator = self.loss(self.reshape(split_logits[0], (-1, split_logits[0].shape[-1])),
+                                               self.reshape(labels, (-1,)),
+                                               self.reshape(input_mask, (-1,)))
+            numerator1 = 0.0
+            denominator1 = 0.0
+            for i in range(self.mtp_depth):
+                labels = self._shift_and_pad(labels)
+                input_mask = self._shift_and_pad(input_mask)
+                numerator_i, denominator_i = self.loss(self.reshape(split_logits[i + 1],
+                                                                    (-1, split_logits[i + 1].shape[-1])),
+                                                       self.reshape(labels, (-1,)),
+                                                       self.reshape(input_mask, (-1,)))
+                numerator_i = numerator_i * self.mtp_loss_factor / self.mtp_depth
+                numerator1 += numerator_i
+                denominator1 += denominator_i
+
+            return numerator, denominator, numerator1, denominator1, extra_loss
+
         loss = self.loss(self.reshape(split_logits[0], (-1, split_logits[0].shape[-1])),
                          self.reshape(labels, (-1,)),
                          self.reshape(input_mask, (-1,))) + extra_loss

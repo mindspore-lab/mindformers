@@ -766,7 +766,7 @@ class LlamaFeedForwardWithMoE(Cell):
                                              has_bias=False,
                                              dtype=self.router_dense_type)
 
-    def construct(self, x, extra_loss=0.):
+    def construct(self, x, extra_loss=0., seq_chunk=None):
         r"""Forward process of the LlamaFeedForwardWithMoE"""
         if self.use_seq_parallel:
             shared_x = self.reshape(x, (self.dp, -1, x.shape[-1]))
@@ -779,7 +779,7 @@ class LlamaFeedForwardWithMoE(Cell):
             gate = self.sigmoid(self.shared_experts_gate(self.cast(x, self.router_dense_type)))
             shared_experts_output = self.mul(shared_experts_output, self.cast(gate, self.compute_dtype))
         if self.return_extra_loss:
-            routed_experts_output, extra_loss = self.routed_experts(x, extra_loss)
+            routed_experts_output, extra_loss = self.routed_experts(x, extra_loss, seq_chunk=seq_chunk)
             output = self.add(routed_experts_output, shared_experts_output)
             return output, extra_loss
 

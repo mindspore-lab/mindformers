@@ -15,6 +15,7 @@
 """seq pipe wrapper."""
 from mindspore import nn
 from mindspore.ops import operations as P
+from mindformers.wrapper.wrapper import DataOrderWrapperCell
 
 
 class _MicroBatchByAxis(nn.Cell):
@@ -54,7 +55,6 @@ class _MicroBatchByAxis(nn.Cell):
                 else:
                     strided_slice_begin += (0,)
                     strided_slice_end += (seq_input_shape[j],)
-
             micro_input = self.strided_slice(each_input, strided_slice_begin, strided_slice_end, strided_slice_strides)
             micro_inputs += (micro_input,)
 
@@ -81,6 +81,7 @@ class SequenceSplit(nn.Cell):
         # Add attr for mindspore finding the add.
         self.add = P.Add().add_prim_attr("seq_split_add", True)
         self.depend = P.Depend()
+        self.with_data_order_wrapper = isinstance(network, DataOrderWrapperCell)
         for _ in range(split_num):
             interleave_data = _MicroBatchByAxis(split_num, seq_dim)
             # Add attr for mindspore finding the slice and get the split num.
@@ -91,12 +92,28 @@ class SequenceSplit(nn.Cell):
         self._get_attr_from_cell(network)
 
     def construct(self, *inputs):
+        """ seqpipe construct"""
         output = 0.0
         div_num = 1e-9
-        return_depend = self.network.clear_kv_cache()
+        output1 = 0.0
+        div_num1 = 1e-9
+        extra_loss = 0
+        if not self.with_data_order_wrapper:
+            return_depend = self.network.clear_kv_cache()
+        else:
+            return_depend = self.network.network.clear_kv_cache()
         for i in range(self.split_num):
             interleave_input = self.interleave_inputs[i](i, return_depend, *inputs)
-            numerator, denominator = self.network(*interleave_input)
-            output = self.add(output, numerator)
-            div_num = self.add(div_num, denominator)
-        return output / div_num
+            outs = self.network(*interleave_input)
+            if len(outs) == 2:
+                numerator, denominator = outs
+                output = self.add(output, numerator)
+                div_num = self.add(div_num, denominator)
+            elif len(outs) == 5:
+                numerator, denominator, numerator1, denominator1, ex_loss = outs
+                output = self.add(output, numerator)
+                div_num = self.add(div_num, denominator)
+                output1 = self.add(output1, numerator1)
+                div_num1 = self.add(div_num1, denominator1)
+                extra_loss = self.add(extra_loss, ex_loss)
+        return output / div_num + output1 / div_num1 + extra_loss

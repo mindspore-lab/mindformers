@@ -18,11 +18,13 @@ import math
 from typing import Tuple, Optional, Dict
 import numpy as np
 
-from mindspore import Tensor, nn, mint
+from mindspore import Tensor, nn, mint, Parameter
+from mindspore.common.initializer import initializer
 import mindspore.common.dtype as mstype
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.ops import operations as P
+from mindspore.ops import functional as F
 from mindspore.nn.cell import Cell
 from mindspore.parallel.shard import Layout
 try:
@@ -47,7 +49,7 @@ from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules.transformer.moe import MoEV2
 from mindformers.modules.transformer.moe import MoEInfer
 
-from deepseek2_config import DeepseekV2Config
+from research.deepseek2.deepseek2_config import DeepseekV2Config
 
 __all__ = ['DeepseekV2ForCausalLM', 'DeepseekV2Model']
 
@@ -149,7 +151,7 @@ class DeepSeekV2RotaryEmbedding(Cell):
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
 
-    def __init__(self, head_dim=128, compute_dtype=mstype.float32):
+    def __init__(self, head_dim=128, compute_dtype=mstype.float32, seq_length=4096, seq_split_num=1):
         super().__init__(auto_prefix=False)
         self.half_head_dim = head_dim // 2
         self.head_dim = head_dim
@@ -167,6 +169,15 @@ class DeepSeekV2RotaryEmbedding(Cell):
         self.concat = P.Concat(axis=-1)
         self.shape = P.Shape()
         self.cast = P.Cast()
+        self.gather = P.Gather()
+        self.gather.shard(((1, 1, 1, 1), (1,)))
+        self.seq_pipe = seq_split_num > 1
+        if self.seq_pipe:
+            self.seq_split_num = seq_split_num
+            self.seq_seg_len = seq_length // self.seq_split_num
+            np_range = np.arange(self.seq_seg_len)
+            self.seq_seg_range = Tensor(np_range, dtype=mstype.int32)
+            self.add_seq = P.Add()
 
     def rotate_half(self, x, swap_mask):
         # [bs, n_head/n_kv_head, seq/1, head_dim], [head_dim, head_dim]
@@ -180,7 +191,7 @@ class DeepSeekV2RotaryEmbedding(Cell):
         x = self.concat((self.neg(x2), x1))
         return x
 
-    def construct(self, xq: Tensor, xk: Tensor, freqs_cis):
+    def construct(self, xq: Tensor, xk: Tensor, freqs_cis, seq_chunk=None):
         """Forward of rotary position embedding."""
         original_type = xq.dtype
         xq = self.cast(xq, self.dtype)
@@ -190,9 +201,15 @@ class DeepSeekV2RotaryEmbedding(Cell):
         freqs_sin = self.cast(freqs_sin, self.dtype)
         swap_mask = self.cast(swap_mask, self.dtype)
         mul = self.mul if self.is_first_iteration else self.mul_inc
-        xq_out = self.add(mul(xq, freqs_cos), mul(self.rotate_half(xq, swap_mask), freqs_sin))
-        xk_out = self.add(mul(xk, freqs_cos), mul(self.rotate_half(xk, swap_mask), freqs_sin))
+        freqs_cos_xq = freqs_cos
+        freqs_sin_xq = freqs_sin
+        if self.seq_pipe:
+            seg_seq_range = self.add_seq(self.seq_seg_range, self.seq_seg_len * seq_chunk)
+            freqs_cos_xq = self.gather(freqs_cos, seg_seq_range, 2)
+            freqs_sin_xq = self.gather(freqs_sin, seg_seq_range, 2)
 
+        xq_out = self.add(mul(xq, freqs_cos_xq), mul(self.rotate_half(xq, swap_mask), freqs_sin_xq))
+        xk_out = self.add(mul(xk, freqs_cos), mul(self.rotate_half(xk, swap_mask), freqs_sin))
         xq_out = self.cast(xq_out, original_type)
         xk_out = self.cast(xk_out, original_type)
         return xq_out, xk_out
@@ -337,7 +354,9 @@ class DeepSeekV2Attention(nn.Cell):
                  max_position_embeddings=2048,
                  scaling_factor: Optional[Dict] = None,
                  norm_eps=1e-5,
-                 init_method_std=0.006
+                 init_method_std=0.006,
+                 batch_size=1,
+                 seq_length=4096
                  ):
         super().__init__()
         self.hidden_size = dim
@@ -505,11 +524,74 @@ class DeepSeekV2Attention(nn.Cell):
         self.dim_slice_4d = P.StridedSlice()
         self.dim_slice_3d = P.StridedSlice()
         self.pe_concat = P.Concat(3)
+        self.value_concat = P.Concat(3)
+        if parallel_config.recompute.select_recompute:
+            self.value_concat.recompute()
         self.sum_test = P.ReduceSum()
         self.mul_zeros = P.Mul()
         self.v_zeros = Tensor(np.array([0] * (self.q_head_dim - self.v_head_dim)))
+        self.apply_rotary_emb = DeepSeekV2RotaryEmbedding(self.qk_rope_head_dim,
+                                                          rotary_dtype,
+                                                          seq_length=seq_length,
+                                                          seq_split_num=parallel_config.seq_split_num)
+        self.seq_pipe = parallel_config.seq_split_num > 1
+        self.seq_split_num = parallel_config.seq_split_num
+        self.seq_seg_len = seq_length // self.seq_split_num
+        if self.seq_pipe:
+            # adapt seqpipe
+            k_pe_shape = (batch_size * dp, 1, seq_length, self.qk_rope_head_dim)
+            # (bs, 1, seq_len, self.qk_rope_head_dim)
+            self.k_pe_cache = Parameter(initializer('zeros', shape=k_pe_shape, dtype=compute_dtype),
+                                        name="k_pe_key_cache", requires_grad=False, parallel_optimizer=False)
+            k_nope_shape = (batch_size * dp, self.n_head, seq_length, self.qk_nope_head_dim)
+            # (bs, self.n_head, seq_len, self.qk_nope_head_dim)
+            self.k_nope_cache = Parameter(initializer('zeros', shape=k_nope_shape, dtype=compute_dtype),
+                                          name="k_nope_key_cache", requires_grad=False, parallel_optimizer=False)
+            # (bs, self.n_head, seq_len, self.v_head_dim)
+            value_states_shape = (batch_size * dp, self.n_head, seq_length, self.v_head_dim)
+            self.value_states_cache = Parameter(initializer('zeros', shape=value_states_shape, dtype=compute_dtype),
+                                                name="value_states_value_cache",
+                                                requires_grad=False, parallel_optimizer=False)
 
-        self.apply_rotary_emb = DeepSeekV2RotaryEmbedding(self.qk_rope_head_dim, rotary_dtype)
+            k_pe_grad_shape = (batch_size, 1, seq_length, self.qk_rope_head_dim)
+            # (bs, 1, seq_len, self.qk_rope_head_dim)
+            self.k_pe_cache_grad = Parameter(initializer('zeros', shape=k_pe_grad_shape, dtype=compute_dtype),
+                                             name="k_pe_key_cache_grad", requires_grad=False, parallel_optimizer=False)
+            k_nope_grad_shape = (batch_size, self.n_head // mp, seq_length, self.qk_nope_head_dim)
+            # (bs, self.n_head, seq_len, self.qk_nope_head_dim)
+            self.k_nope_cache_grad = Parameter(initializer('zeros', shape=k_nope_grad_shape, dtype=compute_dtype),
+                                               name="k_nope_key_cache_grad",
+                                               requires_grad=False, parallel_optimizer=False)
+            # (bs, self.n_head, seq_len, self.v_head_dim)
+            value_states_grad_shape = (batch_size, self.n_head // mp, seq_length, self.v_head_dim)
+            self.value_states_cache_grad = Parameter(initializer('zeros', shape=value_states_grad_shape,
+                                                                 dtype=compute_dtype), name="value_states_value_cache",
+                                                     requires_grad=False, parallel_optimizer=False)
+
+            self.select = P.Select()
+            self.select1 = P.Select()
+            self.select.shard(((dp, mp, 1, 1), (dp, mp, 1, 1), (dp, mp, 1, 1)))
+            self.add_k = P.Add().shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+            self.add_v = P.Add().shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+            self.mul_kv = P.Mul().shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
+            self.assign_kv = P.Assign().shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+            self.mul_update = P.Mul().shard(((dp, mp, 1, 1), ()))
+            self.not_equal_ones = P.NotEqual().shard(((dp, mp, 1, 1), ()))
+            self.not_equal_seq = P.NotEqual()
+            self.seq_split_size = Tensor(self.seq_split_num - 1, dtype=mstype.int32)
+            self.tile_kv = P.Tile().shard(((dp, mp, 1, 1),))
+
+
+            self.select1.shard(((dp, 1, 1, 1), (dp, 1, 1, 1), (dp, 1, 1, 1)))
+            self.add_k1 = P.Add().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
+            self.add_v1 = P.Add().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
+            self.mul_kv1 = P.Mul().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
+            self.assign_kv1 = P.Assign().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
+            self.mul_update1 = P.Mul().shard(((dp, 1, 1, 1), ()))
+            self.not_equal_ones1 = P.NotEqual().shard(((dp, 1, 1, 1), ()))
+            self.not_equal_seq1 = P.NotEqual()
+            self.seq_split_size = Tensor(self.seq_split_num - 1, dtype=mstype.int32)
+            self.tile_kv1 = P.Tile().shard(((dp, 1, 1, 1),))
 
         if parallel_config.recompute.select_recompute and not self.use_flash_attention:
             self.apply_rotary_emb.recompute()
@@ -541,6 +623,7 @@ class DeepSeekV2Attention(nn.Cell):
             self.dim_slice_3d.shard(((dp, 1, 1),))
             self.dim_slice_4d.shard(((dp, mp, 1, 1),))
             self.pe_concat.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
+            self.value_concat.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
             self.mul_zeros.shard(((dp, mp, 1, 1), ()))
 
             self.apply_rotary_emb.shard(parallel_config)
@@ -549,9 +632,10 @@ class DeepSeekV2Attention(nn.Cell):
                 self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
 
         if self.use_flash_attention:
+            next_tokens = seq_length - self.seq_seg_len if self.seq_pipe else 0
             self.flash_attention = FlashAttention(head_num=self.n_head,
-                                                  pre_tokens=65536,
-                                                  next_tokens=0,
+                                                  pre_tokens=2147483647,
+                                                  next_tokens=next_tokens,
                                                   input_layout="BNSD",
                                                   keep_prob=1.,
                                                   scale_value=self.scale_fa,
@@ -572,8 +656,35 @@ class DeepSeekV2Attention(nn.Cell):
                                                   rotary_cos_format=2)
             self.infer_attention.shard(parallel_config=parallel_config)
 
-    def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None):
+    def cache_and_update(self, seq_chunk, kv, mask, cache):
+        """ cache_and_update"""
+        kv = self.tile_kv(kv, (1, 1, self.seq_split_num, 1))
+        kv = self.mul_kv(kv, mask)
+        seq_zero = self.mul_update(self.not_equal_ones(kv, 0), 0)
+        ones = self.not_equal_ones(seq_zero, -1)
+        kv_equal = self.mul_update(ones, self.not_equal_seq(seq_chunk, self.seq_split_size))
+        kv_update = self.add_k(kv, cache)
+        update_kv = self.select(kv_equal, kv_update, seq_zero)
+        update_kv = F.stop_gradient(update_kv)
+        kv_update_state = self.assign_kv(cache, update_kv)
+        return kv_update, kv_update_state
+
+    def cache_and_update_k_pe(self, seq_chunk, kv, mask, cache):
+        """ cache_and_update_k_pe"""
+        kv = self.tile_kv1(kv, (1, 1, self.seq_split_num, 1))
+        kv = self.mul_kv1(kv, mask)
+        seq_zero = self.mul_update1(mask, 0)
+        ones = self.not_equal_ones1(seq_zero, -1)
+        kv_equal = self.mul_update1(ones, self.not_equal_seq(seq_chunk, self.seq_split_size))
+        kv_update = self.add_k1(kv, cache)
+        update_kv = self.select1(kv_equal, kv_update, seq_zero)
+        update_kv = F.stop_gradient(update_kv)
+        kv_update_state = self.assign_kv1(cache, update_kv)
+        return kv_update, kv_update_state
+
+    def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], pad_zeros, mask=None, batch_valid_length=None,
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, seq_chunk=None, k_pe_mask=None,
+                  k_nope_mask=None, value_states_mask=None):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
@@ -599,6 +710,8 @@ class DeepSeekV2Attention(nn.Cell):
 
         k_pe = self.kv2l_k_pe(x)
         k_pe = self.reshape(k_pe, (bs, 1, seq_len, self.qk_rope_head_dim))
+        if self.seq_pipe:
+            k_pe, k_pe_state = self.cache_and_update_k_pe(seq_chunk, k_pe, k_pe_mask, self.k_pe_cache)
         k_pe = self.tile_kv(k_pe, (1, self.n_head, 1, 1))
 
         latent_kv = self.kv2l_latent_kv(x)
@@ -613,17 +726,21 @@ class DeepSeekV2Attention(nn.Cell):
         k_nope = self.lkv2kv_k_nope(i_kv)
         k_nope = self.reshape(k_nope, (bs, seq_len, self.n_head, self.qk_nope_head_dim))
         k_nope = self.transpose(k_nope, (0, 2, 1, 3))
-
+        if self.seq_pipe:
+            k_nope, k_nope_state = self.cache_and_update(seq_chunk, k_nope, k_nope_mask, self.k_nope_cache)
         value_states = self.lkv2kv_v(i_kv)
         value_states = self.reshape(value_states, (bs, seq_len, self.n_head, self.v_head_dim))
         value_states = self.transpose(value_states, (0, 2, 1, 3))
-
-        q_pe, k_pe = self.apply_rotary_emb(q_pe, k_pe, freqs_cis)
+        if self.seq_pipe:
+            value_states, value_states_state = self.cache_and_update(seq_chunk, value_states, value_states_mask,
+                                                                     self.value_states_cache)
+            q_pe = F.depend(q_pe, (k_pe_state, k_nope_state, value_states_state))
+        q_pe, k_pe = self.apply_rotary_emb(q_pe, k_pe, freqs_cis, seq_chunk)
         query_states = self.pe_concat((q_nope, q_pe))
         key_states = self.pe_concat((k_nope, k_pe))
 
         if self.use_past:
-            value_states = self.pe_concat((value_states, k_pe))
+            value_states = self.value_concat((value_states, k_pe))
             key_states = self.reshape(self.transpose(key_states, (0, 2, 1, 3)), (bs, seq_len, -1))
             value_states = self.reshape(self.transpose(value_states, (0, 2, 1, 3)), (bs, seq_len, -1))
             query_states = self.reshape(self.transpose(query_states, (0, 2, 1, 3)), (bs, seq_len, -1))
@@ -635,8 +752,7 @@ class DeepSeekV2Attention(nn.Cell):
                                          (1, 1, 1))
         else:
             if self.use_flash_attention:
-                pad_zeros = self.mul_zeros(q_pe, 0)
-                value_states = self.pe_concat((value_states, pad_zeros))
+                value_states = self.value_concat((value_states, pad_zeros))
                 context_layer = self.flash_attention(self.cast(query_states, self.dtype),
                                                      self.cast(key_states, self.dtype),
                                                      self.cast(value_states, self.dtype), mask)
@@ -799,7 +915,9 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                  max_position_embeddings=2048,
                  scaling_factor: Optional[Dict] = None,
                  return_extra_loss=True,
-                 init_method_std=0.006
+                 init_method_std=0.006,
+                 batch_size=1,
+                 seq_length=4096
                  ):
         super().__init__()
         self.layer_id = layer_id
@@ -843,7 +961,9 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                              max_position_embeddings=max_position_embeddings,
                                              scaling_factor=scaling_factor,
                                              norm_eps=norm_eps,
-                                             init_method_std=init_method_std)
+                                             init_method_std=init_method_std,
+                                             batch_size=batch_size,
+                                             seq_length=seq_length)
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
         self.shared_expert_num = 0 if moe_config is None else moe_config.shared_expert_num
@@ -936,20 +1056,21 @@ class DeepSeekV2DecodeLayer(nn.Cell):
         if self.predict_run_mode:
             self.no_inline = False
 
-    def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, prefix_keys_values=None, extra_loss=Tensor([0], mstype.float32)):
+    def construct(self, x, freqs_cis, pad_zeros, mask=None, batch_valid_length=None, block_tables=None,
+                  slot_mapping=None, prefix_keys_values=None, extra_loss=Tensor([0], mstype.float32), seq_chunk=None,
+                  k_pe_mask=None, k_nope_mask=None, value_states_mask=None):
         """ Forward of transformer block. """
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
         # [bs, seq/1, hidden_dim]
         input_x = self.attention_norm(x)
         # [bs, seq/1, hidden_dim]
-        h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
-                           slot_mapping, prefix_keys_values)
+        h = self.attention(input_x, freqs_cis, pad_zeros, mask, batch_valid_length, block_tables,
+                           slot_mapping, prefix_keys_values, seq_chunk, k_pe_mask, k_nope_mask, value_states_mask)
         h = self.add(x, h)
         ffn_norm = self.ffn_norm(h)
         if hasattr(self.feed_forward, "return_extra_loss") and self.return_extra_loss:
-            ffn_out, extra_loss = self.feed_forward(ffn_norm, extra_loss)
+            ffn_out, extra_loss = self.feed_forward(ffn_norm, extra_loss, seq_chunk=seq_chunk)
         else:
             # [bs, seq/1, hidden_dim]
             ffn_out = self.feed_forward(ffn_norm)
@@ -1041,7 +1162,7 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
         self.concat = P.Concat(axis=1)
         self.concat_2d = P.Concat(axis=-1)
         self.zeros_op = P.Zeros()
-
+        self.seq_split_num = config.parallel_config.seq_split_num
         self.freqs_mgr = FreqsMgr(head_dim=self.qk_rope_head_dim,
                                   seq_length=config.seq_length,
                                   max_position_embedding=config.max_position_embeddings,
@@ -1049,14 +1170,19 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                   theta=config.theta,
                                   scaling_factor=config.scaling_factor,
                                   extend_method=config.extend_method,
-                                  is_dynamic=config.is_dynamic)
+                                  is_dynamic=config.is_dynamic,
+                                  parallel_config=config.parallel_config,
+                                  limit_not_apply_seq_pipe=True)
         self.freqs_mgr.shard(config.parallel_config)
+        total_batch_size_in_dp = config.batch_size * config.parallel_config.data_parallel
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
+                                                          batch_size=total_batch_size_in_dp,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
                                                           use_flash_attention=config.use_flash_attention,
-                                                          use_past=config.use_past)
+                                                          use_past=config.use_past,
+                                                          seq_split_num=self.seq_split_num)
 
         self.tok_embeddings = LlamaEmbedding(vocab_table_size=config.vocab_size,
                                              embedding_size=config.hidden_size,
@@ -1100,7 +1226,9 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                           max_position_embeddings=config.max_position_embeddings,
                                           scaling_factor=config.scaling_factor,
                                           return_extra_loss=config.return_extra_loss,
-                                          init_method_std=config.init_method_std)
+                                          init_method_std=config.init_method_std,
+                                          batch_size=config.batch_size,
+                                          seq_length=config.seq_length)
             self.layer_setting(layer, layer_id)
             self.layers.append(layer)
 
@@ -1145,6 +1273,55 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
             mp = config.parallel_config.model_parallel
             self.norm_out.shard((dp, mp, 1))
 
+        self.seq_pipe = self.seq_split_num > 1
+        self.pad_zeros = initializer('zeros', shape=(config.batch_size * dp, self.n_head, config.seq_length,
+                                                     self.qk_rope_head_dim), dtype=self.dtype)
+        if self.seq_pipe:
+            batch_size = config.batch_size
+            self.n_kv_head = self.n_head if config.n_kv_heads is None else config.n_kv_heads
+            #kv_shape = (config.batch_size * dp, self.n_kv_head, config.seq_length, self.head_dim)
+            k_pe_shape = (batch_size * dp, 1, config.seq_length, self.qk_rope_head_dim)
+            k_nope_shape = (batch_size * dp, 1, config.seq_length, self.qk_nope_head_dim)
+            value_states_shape = (batch_size * dp, 1, config.seq_length, self.v_head_dim)
+            self.zeros_k_pe = Parameter(initializer('zeros', shape=k_pe_shape, dtype=self.dtype), name="zeros_k_pe",
+                                        requires_grad=False, parallel_optimizer=False)
+            self.zeros_k_nope = Parameter(initializer('zeros', shape=k_nope_shape, dtype=self.dtype),
+                                          name="zeros_k_nope", requires_grad=False, parallel_optimizer=False)
+            self.zeros_value_states = Parameter(initializer('zeros', shape=value_states_shape, dtype=self.dtype),
+                                                name="zeros_value_states", requires_grad=False,
+                                                parallel_optimizer=False)
+            self.seq_update = Tensor(1, dtype=mstype.int32)
+            self.seq_zero = Tensor(0, dtype=mstype.int32)
+            self.seq_seg_len = config.seq_length // self.seq_split_num
+            k_pe_mask = np.zeros((1, 1, config.seq_length, self.qk_rope_head_dim), np.int32)
+            k_nope_mask = np.zeros((1, 1, config.seq_length, self.qk_nope_head_dim), np.int32)
+            value_states_mask = np.zeros((1, 1, config.seq_length, self.v_head_dim), np.int32)
+            for s in range(self.seq_split_num):
+                k_pe_mask[:, :, s * self.seq_seg_len: (s + 1) * self.seq_seg_len, :] = s
+                k_nope_mask[:, :, s * self.seq_seg_len: (s + 1) * self.seq_seg_len, :] = s
+                value_states_mask[:, :, s * self.seq_seg_len: (s + 1) * self.seq_seg_len, :] = s
+            self.k_pe_mask = Tensor(k_pe_mask)
+            self.k_nope_mask = Tensor(k_nope_mask)
+            self.value_states_mask = Tensor(value_states_mask)
+            self.seq_chunk = Parameter(Tensor(0, dtype=mstype.int32), name="seq_chunk",
+                                       requires_grad=False, parallel_optimizer=False)
+            mp = config.parallel_config.model_parallel
+            self.equal_kv = P.Equal().shard(((dp, 1, 1, 1), ()))
+            self.kv_mask_add = P.Add().shard(((dp, 1, 1, 1), (1, 1, 1, 1)))
+            self.equal_k_pe = P.Equal().shard(((dp, 1, 1, 1), ()))
+            self.k_pe_mask_add = P.Add().shard(((dp, 1, 1, 1), (1, 1, 1, 1)))
+            self.assign_add_count = P.AssignAdd()
+            self.assign_count = P.Assign()
+            self.assign_mask = P.Assign().shard(((dp, 1), (dp, 1)))
+            self.mask_zeros = Tensor(np.zeros((config.batch_size * dp, config.seq_length)), mstype.float32)
+
+    def clear_kv_cache(self):
+        zeros = 0.0
+        return_tuple = ()
+        return_tuple += (self.assign_count(self.seq_chunk, self.seq_zero),)
+        return_tuple += (self.assign_mask(self.casual_mask.mask_cache, self.mask_zeros),)
+        return F.depend(zeros, return_tuple)
+
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None,
@@ -1169,6 +1346,10 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
         # preprocess
         bs, seq_len = self.shape(tokens)
         mask = None
+        seq_chunk = None
+        k_pe_mask = None
+        k_nope_mask = None
+        value_states_mask = None
         if self.use_past:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
@@ -1182,8 +1363,22 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
             else:
                 freqs_cis = self.freqs_mgr.increment(batch_valid_length)
         else:
-            mask = self.casual_mask(tokens)
-            freqs_cis = self.freqs_mgr(seq_len)
+            if self.seq_pipe:
+                mask = self.casual_mask(tokens, seq_chunk=self.seq_chunk)
+                seq_chunk = P.ReLU()(self.seq_chunk)
+                k_pe_mask = self.cast(self.equal_k_pe(self.k_pe_mask_add(self.zeros_k_pe, self.k_pe_mask), seq_chunk),
+                                      self.dtype)
+                k_nope_mask = self.cast(self.equal_kv(self.kv_mask_add(self.zeros_k_nope, self.k_nope_mask), seq_chunk),
+                                        self.dtype)
+                value_states_mask = self.cast(self.equal_kv(self.kv_mask_add(self.zeros_value_states,
+                                                                             self.value_states_mask), seq_chunk),
+                                              self.dtype)
+                seq_update = F.depend(self.seq_update, mask)
+                seq_update = F.depend(seq_update, (k_pe_mask, k_nope_mask, value_states_mask))
+                mask = F.depend(mask, self.assign_add_count(self.seq_chunk, seq_update))
+            else:
+                mask = self.casual_mask(tokens)
+            freqs_cis = self.freqs_mgr(seq_len * self.seq_split_num)
             if prefix_keys_values is not None:
                 prefix_length = prefix_keys_values[0].shape[2]
                 prefix_mask = Tensor(np.zeros((bs, 1, seq_len, prefix_length)), dtype=mask.dtype)
@@ -1196,9 +1391,11 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
         #h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
-            h, extra_loss = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length,
+            h, extra_loss = self.layers[i](h, freqs_cis, self.pad_zeros, mask, batch_valid_length=batch_valid_length,
                                            block_tables=block_tables, slot_mapping=slot_mapping,
-                                           prefix_keys_values=prefix_kv, extra_loss=extra_loss)
+                                           prefix_keys_values=prefix_kv, extra_loss=extra_loss, seq_chunk=seq_chunk,
+                                           k_pe_mask=k_pe_mask, k_nope_mask=k_nope_mask,
+                                           value_states_mask=value_states_mask)
         output = self.norm_out(h)
         for i in range(self.mtp_depth):
             layer_id = i + self.num_layers
@@ -1206,9 +1403,12 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
             tokens = self._shift_and_pad(tokens)
             h = self.mtp_hidden_fusers[i](h, self.mtp_embeddings(self.tok_embeddings.embedding_weight, tokens))
             prefix_kv = prefix_keys_values[layer_id] if prefix_keys_values is not None else None
-            h, extra_loss = self.layers[layer_id](h, freqs_cis, mask, batch_valid_length=batch_valid_length,
+            h, extra_loss = self.layers[layer_id](h, freqs_cis, self.pad_zeros, mask,
+                                                  batch_valid_length=batch_valid_length,
                                                   block_tables=block_tables, slot_mapping=slot_mapping,
-                                                  prefix_keys_values=prefix_kv, extra_loss=extra_loss)
+                                                  prefix_keys_values=prefix_kv, extra_loss=extra_loss,
+                                                  seq_chunk=seq_chunk, k_pe_mask=k_pe_mask, k_nope_mask=k_nope_mask,
+                                                  value_states_mask=value_states_mask)
             output = self.concat((output, self.norm_out(h)))
         return output, extra_loss
 
@@ -1298,7 +1498,8 @@ class DeepseekV2ForCausalLM(DeepseekV2PreTrainedModel):
         calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
         self.loss = CrossEntropyLoss(parallel_config=loss_parallel_config,
                                      check_for_nan_in_loss_and_grad=check_for_nan_in_loss_and_grad,
-                                     calculate_per_token_loss=calculate_per_token_loss)
+                                     calculate_per_token_loss=calculate_per_token_loss,
+                                     seq_split_num=config.parallel_config.seq_split_num)
 
         if config.parallel_config.pipeline_stage > 1:
             self.lm_head.pipeline_stage = config.parallel_config.pipeline_stage - 1
@@ -1412,6 +1613,9 @@ class DeepseekV2ForCausalLM(DeepseekV2PreTrainedModel):
         input_mask = self.reshape(input_mask, (-1,))
         loss = self.loss(logits, labels, input_mask) + extra_loss
         return loss
+
+    def clear_kv_cache(self):
+        return self.model.clear_kv_cache()
 
     def kvcache(self, layer_idx):
         key_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache

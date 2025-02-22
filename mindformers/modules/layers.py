@@ -1180,7 +1180,8 @@ class FreqsMgr(Cell):
                  scaling_factor=1.0,
                  extend_method=SeqExtendMethod.NONE.value,
                  parallel_config=None,
-                 is_dynamic=False):
+                 is_dynamic=False,
+                 limit_not_apply_seq_pipe=False):
         super().__init__()
         self.is_pynative = is_pynative()
         if seq_length is not None and seq_length > max_position_embedding:
@@ -1279,7 +1280,8 @@ class FreqsMgr(Cell):
         self.cos = P.Cos()
         self.gather = P.Gather()
         self.tile = P.Tile()
-        self.seq_pipe = parallel_config and parallel_config.seq_split_num and parallel_config.seq_split_num > 1
+        self.seq_pipe = parallel_config and parallel_config.seq_split_num and parallel_config.seq_split_num > 1 \
+                        and not limit_not_apply_seq_pipe
         if self.seq_pipe:
             self.seq_split_num = parallel_config.seq_split_num
             self.seq_seg_len = seq_length // self.seq_split_num
