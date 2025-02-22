@@ -37,7 +37,7 @@ except ImportError:
 from mindspore.common.initializer import _INITIALIZER_ALIAS
 
 from mindformers.tools import DictConfig, logger
-from mindformers.experimental.parallel_core.pynative.utils import load_yaml, DictWithValueError, divide
+from mindformers.experimental.parallel_core.pynative.utils import DictWithValueError, divide
 
 _SUPPORT_DTYPE_DICT = DictWithValueError(
     {"float16": mstype.float16, "float32": mstype.float32, "bfloat16": mstype.bfloat16}
@@ -850,7 +850,8 @@ def init_configs_from_yaml(file_path: str, config_classes=None, **kwargs):
         raise ValueError("file_path should be a yaml file.")
     filepath = os.path.realpath(file_path)
     with open(filepath, encoding="utf-8") as fp:
-        raw_dict = load_yaml(fp, yaml_loader=yaml.FullLoader)
+        raw_dict = yaml.safe_load(fp)
+        raw_dict = OrderedDict(sorted(raw_dict.items()))
 
     raw_dict.update(kwargs)
 
