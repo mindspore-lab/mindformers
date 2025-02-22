@@ -189,7 +189,8 @@ class ChatGLM2SelfAttention(nn.Cell):
         if self.seq_pipe:
             if not self.use_flash_attention:
                 raise ValueError("Seq pipe must using flash attention")
-            self.seq_pipe_process = SeqPipeProcess(config, kv_mp, self.batch_size, self.seq_length)
+            self.seq_pipe_process = SeqPipeProcess(config, kv_mp, self.batch_size, self.seq_length,
+                                                   self.n_head, self.n_kv_head)
         self.qkv_concat = config.qkv_concat
         if config.qkv_concat:
             self.query_key_value = self.init_linear(config.hidden_size, self.qkv_hidden_size)
@@ -804,13 +805,17 @@ class ChatGLM2Transformer(nn.Cell):
 
 class SeqPipeProcess(nn.Cell):
     """Sequence parallel process"""
-    def __init__(self, config, kv_mp, batch_size, seq_length):
+    def __init__(self, config, kv_mp, batch_size, seq_length, n_head, n_kv_head):
         super(SeqPipeProcess, self).__init__()
         parallel_config = config.parallel_config
         dp, cp = parallel_config.data_parallel, parallel_config.context_parallel
+        self.compute_dtype = config.compute_dtype
+        self.n_head = n_head
+        self.n_kv_head = n_kv_head
+        self.head_dim = config.kv_channels
         self.seq_pipe = parallel_config.seq_split_num > 1
         self.seq_split_num = parallel_config.seq_split_num
-        kv_shape = (batch_size * dp, self.seq_length, self.n_kv_head * self.head_dim)
+        kv_shape = (batch_size * dp, seq_length, self.n_kv_head * self.head_dim)
         self.key_cache = Parameter(initializer('zeros', shape=kv_shape, dtype=self.compute_dtype),
                                    name="key_cache", requires_grad=False, parallel_optimizer=False)
         self.value_cache = Parameter(initializer('zeros', shape=kv_shape, dtype=self.compute_dtype),
