@@ -340,10 +340,16 @@ RUN_MODE: 为任务运行状态，支持关键字 train\finetune\eval\predict\ex
   gpt2_tokenizer = AutoTokenizer.from_pretrained('gpt2')
   ```
 
-## 五、贡献
+## 五、免责声明
+
+1. `scripts/examples`目录下的内容是作为参考示例提供的，并不构成商业发布产品的一部分，仅供用户参考。如需使用，需要用户自行负责将其转化为适合商业用途的产品，并确保进行安全防护，对于由此产生的安全问题，MindSpore不承担安全责任。
+2. 关于数据集， MindSpore Transformers 仅提示性地建议可用于训练的数据集， MindSpore Transformers 不提供任何数据集。如用户使用这些数据集进行训练，请特别注意应遵守对应数据集的License，如因使用数据集而产生侵权纠纷， MindSpore Transformers 不承担任何责任。
+3. 如果您不希望您的数据集在 MindSpore Transformers 中被提及，或希望更新 MindSpore Transformers 中关于您的数据集的描述，请在Gitee提交issue，我们将根据您的issue要求删除或更新您的数据集描述。衷心感谢您对 MindSpore Transformers 的理解和贡献。
+
+## 六、贡献
 
 欢迎参与社区贡献，可参考MindSpore贡献要求[Contributor Wiki](https://gitee.com/mindspore/mindspore/blob/master/CONTRIBUTING_CN.md)。
 
-## 六、许可证
+## 七、许可证
 
 [Apache 2.0许可证](LICENSE)
