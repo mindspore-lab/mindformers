@@ -25,29 +25,41 @@ import mindspore as ms
 from mindspore import set_seed
 from mindspore.dataset import GeneratorDataset
 
-from mindformers import Trainer, TrainingArguments, CosineWithWarmUpLR, FP32StateAdamWeightDecay
+from mindformers import Trainer, CosineWithWarmUpLR, FP32StateAdamWeightDecay
 from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from mindformers.core import MFLossMonitor
 from mindformers.tools.register.config import MindFormerConfig
-from mindformers.utils.tensorboard import _set_tensorboard_writer, _unset_tensorboard_writer
-from tests.st.test_model.test_llama2_model.base_model import get_model, get_config
+from mindformers.utils.tensorboard import get_text_mapping
+from mindformers.models.llama import LlamaForCausalLM, LlamaConfig
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 _GLOBAL_TENSORBOARD_WRITER = None
 
 ms.set_context(mode=0)
 
+_CHECK_TEXT_MAPPING = {
+    'seed', 'output_dir', 'run_mode', 'use_parallel', 'resume_training', 'ignore_data_skip', 'data_skip_steps',
+    'load_checkpoint', 'load_ckpt_format', 'auto_trans_ckpt', 'transform_process_num', 'src_strategy_path_or_dir',
+    'load_ckpt_async', 'only_save_strategy', 'profile', 'profile_communication', 'profile_level', 'profile_memory',
+    'profile_start_step', 'profile_stop_step', 'profile_rank_ids', 'profile_pipeline', 'init_start_profile',
+    'layer_decay', 'layer_scale', 'lr_scale', 'lr_scale_factor', 'micro_batch_interleave_num', 'remote_save_url',
+    'callbacks', 'context', 'data_size', 'device_num', 'do_eval', 'eval_callbacks', 'eval_step_interval',
+    'eval_epoch_interval', 'eval_dataset', 'eval_dataset_task', 'lr_schedule', 'metric', 'model', 'moe_config',
+    'optimizer', 'parallel_config', 'parallel', 'recompute_config', 'remove_redundancy', 'runner_config',
+    'runner_wrapper', 'tensorboard', 'train_dataset_task', 'train_dataset', 'trainer'
+}
+
 def generator_train():
     """train dataset generator"""
     seq_len = 4097
-    step_num = 10
+    step_num = 1
     batch_size = 1
     vocab_size = 32000
     input_ids = np.random.randint(low=0, high=vocab_size, size=(step_num * batch_size, seq_len,)).astype(np.int32)
     for idx, _ in enumerate(input_ids):
         yield input_ids[idx]
 
-class TestTensorboard:
+class TestTensorBoard:
     """A test class for testing pipeline."""
 
     def setup_method(self):
@@ -55,13 +67,15 @@ class TestTensorboard:
         set_seed(0)
         np.random.seed(0)
 
-        self.args = TrainingArguments(batch_size=1, num_train_epochs=1)
         train_dataset = GeneratorDataset(generator_train, column_names=["input_ids"])
         self.train_dataset = train_dataset.batch(batch_size=1)
-        self.config = MindFormerConfig()
-        self.config.tensorboard_dir = os.path.join(cur_dir, 'tensorboard')
-        model_config = get_config()
-        self.model = get_model(model_config)
+        config_path = os.path.join(cur_dir, 'test_tensorboard.yaml')
+        self.config = MindFormerConfig(config_path)
+        self.tensorboard_dir = os.path.join(cur_dir, 'tensorboard')
+        self.config.tensorboard = MindFormerConfig()
+        self.config.tensorboard.tensorboard_dir = self.tensorboard_dir
+        model_config = LlamaConfig(**self.config.model.model_config)
+        self.model = LlamaForCausalLM(model_config)
         self.lr_schedule = CosineWithWarmUpLR(learning_rate=1.e-5, warmup_ratio=0.01, warmup_steps=0, total_steps=10)
         group_params = get_optimizer_grouped_parameters(model=self.model)
         self.optimizer = FP32StateAdamWeightDecay(params=group_params,
@@ -75,52 +89,31 @@ class TestTensorboard:
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_onecard
-    def test_unset_tensorboard(self):
-        """
-        Feature: Tensorboard.
-        Description: Test Tensorboard functional
-        Expectation: AssertionError
-        """
-        task_trainer = Trainer(task='text_generation',
-                               model=self.model,
-                               args=self.args,
-                               train_dataset=self.train_dataset,
-                               callbacks=self.callback,
-                               optimizers=self.optimizer
-                               )
-        task_trainer.train()
-
-        assert not os.path.exists(self.config.tensorboard_dir) or not os.listdir(self.config.tensorboard_dir) == 0, \
-            f"Expected no files in {self.config.tensorboard_dir} after training, but found some."
-
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_onecard
     def test_set_tensorboard(self):
         """
         Feature: Tensorboard.
         Description: Test Tensorboard functional
         Expectation: AssertionError
         """
-        _set_tensorboard_writer(self.config)
         task_trainer = Trainer(task='text_generation',
                                model=self.model,
-                               args=self.args,
+                               args=self.config,
                                train_dataset=self.train_dataset,
                                callbacks=self.callback,
                                optimizers=self.optimizer
                                )
         task_trainer.train()
-
-        assert os.path.exists(self.config.tensorboard_dir),\
-            f"TensorBoard directory {self.config.tensorboard_dir} does not exist."
-        event_files = [f for f in os.listdir(self.config.tensorboard_dir) if f.startswith('events')]
+        self.tensorboard_dir = os.path.join(self.tensorboard_dir, 'rank_0')
+        assert os.path.exists(self.tensorboard_dir),\
+            f"TensorBoard directory {self.tensorboard_dir} does not exist."
+        event_files = [f for f in os.listdir(self.tensorboard_dir) if f.startswith('events')]
         assert event_files, "No event files found in the TensorBoard directory."
-        event_file_path = os.path.join(self.config.tensorboard_dir, event_files[0])
+        event_file_path = os.path.join(self.tensorboard_dir, event_files[0])
         file_size = os.path.getsize(event_file_path)
         assert file_size > 40, f"Expected event file size greater than 40 bytes, but got {file_size} bytes."
-
-    @staticmethod
-    def teardown_method():
-        """close _GLOBAL_TENSORBOARD_WRITER"""
-        _unset_tensorboard_writer()
+        text_map = get_text_mapping()
+        assert text_map.issubset(_CHECK_TEXT_MAPPING), \
+            (f"Text information written is incorrect. The following keys are not found in _CHECK_TEXT_MAPPING: "
+             f"{text_map - _CHECK_TEXT_MAPPING}. Please check and modify _CHECK_TEXT_MAPPING, and also review and "
+             f"update the documentation: https://gitee.com/mindspore/docs/blob/master/docs/mindformers/docs/"
+             f"source_zh_cn/function/tensorboard.md.")
