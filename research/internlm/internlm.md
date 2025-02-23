@@ -80,11 +80,11 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 MindFormers提供`Wikitext2`作为**预训练**数据集，`alpaca`作为**微调**数据集。
 
-| 数据集名称               |                适用模型                 |   适用阶段   |                                                         下载链接                                                          |
-|:--------------------|:-----------------------------------:|:--------:|:---------------------------------------------------------------------------------------------------------------------:|
-| Wikitext2           | internlm-7b <br/> internlm20b <br/> | Pretrain | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip) |
-| alpaca              | internlm-7b <br/> internlm20b <br/> | Finetune |                    [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)                    |
-| alpaca-gpt4-data-zh | internlm-7b <br/> internlm20b <br/> | Finetune |        [Link](https://huggingface.co/datasets/c-s-ale/alpaca-gpt4-data-zh/blob/main/alpaca_gpt4_data_zh.json)         |
+| 数据集名称               |                适用模型                 |   适用阶段   |                                                  下载链接                                                  |
+|:--------------------|:-----------------------------------:|:--------:|:------------------------------------------------------------------------------------------------------:|
+| Wikitext2           | internlm-7b <br/> internlm20b <br/> | Pretrain |            [Link](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)            |
+| alpaca              | internlm-7b <br/> internlm20b <br/> | Finetune |            [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)             |
+| alpaca-gpt4-data-zh | internlm-7b <br/> internlm20b <br/> | Finetune | [Link](https://huggingface.co/datasets/c-s-ale/alpaca-gpt4-data-zh/blob/main/alpaca_gpt4_data_zh.json) |
 
 下载数据集后，使用预处理脚本生成mindrecord训练数据：
 

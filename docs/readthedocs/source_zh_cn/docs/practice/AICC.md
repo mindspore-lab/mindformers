@@ -27,7 +27,7 @@ git clone https://gitee.com/mindspore/mindformers.git
 
 - 数据集预处理
     以Wikitext2数据集为例：
-    - 数据集下载：[WikiText2数据集](https://gitee.com/link?target=https%3A%2F%2Fs3.amazonaws.com%2Fresearch.metamind.io%2Fwikitext%2Fwikitext-2-v1.zip)
+    - 数据集下载：[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
     - 词表下载：[vocab.json](https://gitee.com/link?target=https%3A%2F%2Fhuggingface.co%2Fgpt2%2Fblob%2Fmain%2Fvocab.json)，[merges.txt](https://gitee.com/link?target=https%3A%2F%2Fhuggingface.co%2Fgpt2%2Fresolve%2Fmain%2Fmerges.txt)
     - 参考[ModelZoo](https://gitee.com/mindspore/models/tree/master/research/nlp/gpt2#language-modeling-%E8%AF%AD%E8%A8%80%E5%BB%BA%E6%A8%A1%E4%BB%BB%E5%8A%A1)，将数据处理成Mindrecord格式。注：训练数据处理时，长度应等于模型接收长度加一
 

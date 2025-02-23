@@ -551,7 +551,7 @@
 
 `MindRecord` 是 `MindSpore` 特有的一种数据格式，使得数据得以被高效地处理，输入数据转换为 `MindRecord` 的过程就是数据集处理的过程，该处理脚本需要用户自行编写。接下来以Wikitext2数据集为例，开发GPT2数据处理脚本。
 
-- 数据集下载：[Wikitext2数据集](https://gitee.com/link?target=https%3A%2F%2Fs3.amazonaws.com%2Fresearch.metamind.io%2Fwikitext%2Fwikitext-2-v1.zip)
+- 数据集下载：[Wikitext2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
 
 - 词表文件下载：[vocab.json](https://huggingface.co/gpt2/blob/main/vocab.json)，[merges.txt](https://huggingface.co/gpt2/resolve/main/merges.txt)
 
