@@ -21,23 +21,23 @@
 
 ## 模型性能
 
-基于910B
+基于Altlas A2 800T
 
 telechat_7b:
 
 | config                                                | task                  | Datasets   | SeqLength | phase           | performance  |
 |-------------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
-| [telechat_7b](./run_telechat_7b_910b.yaml)            | text_generation       | example_dataset | 2048      | [train](#预训练)   | 1940 tks/s/p |
-| [telechat_7b](./run_telechat_7b_910b_finetune.yaml)   | text_generation       | example_dataset     | 2048      | [finetune](#微调) | 1925 tks/s/p |
-| [telechat_7b](./run_telechat_7b_910b_finetune.yaml)   | text_generation       | example_dataset     | 2048      | [predict](#推理)  | 27 tks/s/p   |
+| [telechat_7b](./run_telechat_7b.yaml)            | text_generation       | example_dataset | 2048      | [train](#预训练)   | 1940 tks/s/p |
+| [telechat_7b](./run_telechat_7b_finetune.yaml)   | text_generation       | example_dataset     | 2048      | [finetune](#微调) | 1925 tks/s/p |
+| [telechat_7b](./run_telechat_7b_finetune.yaml)   | text_generation       | example_dataset     | 2048      | [predict](#推理)  | 27 tks/s/p   |
 
 telechat_12b:
 
 | config                                                | task                  | Datasets   | SeqLength | phase           | performance  |
 |-------------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
-| [telechat_12b](./run_telechat_12b_910b.yaml)          | text_generation       | example_dataset | 1024      | [train](#预训练)   | 1433 tks/s/p |
-| [telechat_12b](./run_telechat_12b_910b_finetune.yaml) | text_generation       | example_dataset     | 1024      | [finetune](#微调) | 1433 tks/s/p |
-| [telechat_12b](./run_telechat_12b_910b_finetune.yaml) | text_generation       | example_dataset     | 1024      | [predict](#推理)  | 20 tks/s/p   |
+| [telechat_12b](./run_telechat_12b.yaml)          | text_generation       | example_dataset | 1024      | [train](#预训练)   | 1433 tks/s/p |
+| [telechat_12b](./run_telechat_12b_finetune.yaml) | text_generation       | example_dataset     | 1024      | [finetune](#微调) | 1433 tks/s/p |
+| [telechat_12b](./run_telechat_12b_finetune.yaml) | text_generation       | example_dataset     | 1024      | [predict](#推理)  | 20 tks/s/p   |
 
 ## 仓库介绍
 
@@ -62,10 +62,10 @@ telechat_12b:
 
    ```bash
    telechat
-       ├── run_telechat_7b_910b.yaml             # 7b模型预训练启动配置
-       ├── run_telechat_7b_finetune_910b.yaml    # 7b全量微调启动配置
-       ├── run_telechat_12b_910b.yaml            # 12b模型预训练启动配置
-       └── run_telechat_12b_finetune_910b.yaml   # 12b全量微调启动配置
+       ├── run_telechat_7b.yaml             # 7b模型预训练启动配置
+       ├── run_telechat_7b_finetune.yaml    # 7b全量微调启动配置
+       ├── run_telechat_12b.yaml            # 12b模型预训练启动配置
+       └── run_telechat_12b_finetune.yaml   # 12b全量微调启动配置
    ```
 
 3. 任务启动脚本：`mindformers/research/telechat`
@@ -274,9 +274,7 @@ prefix: ckpt文件前缀名
 
 ### 数据集准备
 
-step 1. 获取数据集
-
-[数据集](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/example_dataset.jsonl)
+step 1. 构造数据集
 
 数据集的格式：
 
@@ -315,7 +313,7 @@ output_path: 生成数据集的路径
 
 - step 1. 修改模型对应的配置文件。
 
-在模型对应的配置文件`research/telechat/run_telechat_7b_910b.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练)，并通过`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
+在模型对应的配置文件`research/telechat/run_telechat_7b.yaml`中，用户可自行修改模型、训练相关参数(推荐开启flash_attention，可加速训练)，并通过`train_dataset`的`dataset_dir`参数，指定训练数据集的路径。
 
 配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。auto_parallel说明详见[自动并行](../../docs/feature_cards/Auto_Parallel.md)。
 
@@ -332,7 +330,7 @@ cd mindformers/research
 
 bash run_singlenode.sh \
 "python telechat/run_telechat.py \
---config telechat/run_telechat_7b_910b.yaml \
+--config telechat/run_telechat_7b.yaml \
 --run_mode train \
 --train_data dataset_dir" \
 RANK_TABLE_FILE [0,8] 8
@@ -356,7 +354,7 @@ RANK_TABLE_FILE: 生成的rank_table文件
 
 ```yaml
 # 以telechat-7b模型两机训练为例，默认配置2机16卡，如果节点数有变，需要修改相应的配置。
-# 配置文件路径：run_telechat_7b_910b.yaml
+# 配置文件路径：run_telechat_7b.yaml
 parallel_config:
   data_parallel: 2
   model_parallel: 4
@@ -376,7 +374,7 @@ cd mindformers/research
 # 第一台机器
 bash run_multinode.sh \
 "python telechat/run_telechat.py \
---config telechat/run_telechat_7b_910b.yaml \
+--config telechat/run_telechat_7b.yaml \
 --run_mode train \
 --train_data dataset_dir" \
 RANK_TABLE_FILE [0,8] 16
@@ -384,7 +382,7 @@ RANK_TABLE_FILE [0,8] 16
 # 第二台机器
 bash run_multinode.sh \
 "python telechat/run_telechat.py \
---config telechat/run_telechat_7b_910b.yaml \
+--config telechat/run_telechat_7b.yaml \
 --run_mode train \
 --train_data dataset_dir" \
 RANK_TABLE_FILE [8,16] 16
@@ -408,7 +406,7 @@ RANK_TABLE_FILE: 生成的rank_table文件
 
 当前模型已支持使用**Flash Attention算法**进行全参微调，推荐开启flash_attention，可加速训练。详请参考 [Flash Attention使用文档](../../docs/feature_cards/Training_Algorithms.md#flash-attention)
 
-- step 1. 参考`research/telechat/run_telechat_7b_910b_finetune.yaml`中训练数据集路径为微调数据集路径。
+- step 1. 参考`research/telechat/run_telechat_7b_finetune.yaml`中训练数据集路径为微调数据集路径。
 
 ```python
 train_dataset: &train_dataset
@@ -477,7 +475,7 @@ cd mindformers/research
 
 bash run_singlenode.sh \
 "python telechat/run_telechat.py \
---config telechat/run_telechat_7b_910b_finetune.yaml \
+--config telechat/run_telechat_7b_finetune.yaml \
 --load_checkpoint model_dir \
 --run_mode finetune \
 --train_data dataset_dir" \
@@ -496,7 +494,7 @@ train_data: 训练数据集文件夹路径
 推理时将配置文件中`param_init_type`修改为和全量微调一致的数据类型。
 
 ```python
-# context_config 910B推理添加ascend_config
+# context_config Altlas 800T A2推理添加ascend_config
 context:
   ascend_config:
     precision_mode: "must_keep_origin_dtype"
@@ -504,7 +502,7 @@ context:
 
 ### 单卡generate推理
 
-1. telechat用于在线推理，输入按照 "question"的模板格式输入，910B支持单卡推理。主要参数配置参考:
+1. telechat用于在线推理，输入按照 "question"的模板格式输入，支持单卡推理。主要参数配置参考:
 
 ```yaml
 load_checkpoint: 'path/to/telechat.ckpt'            # 填写权重路径

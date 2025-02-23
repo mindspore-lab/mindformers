@@ -179,7 +179,7 @@ prefix: ckpt文件前缀名
 
 以Wikitext2数据集为例:
 
-- 数据集下载：[WikiText2数据集](https://gitee.com/link?target=https%3A%2F%2Fascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com%2FMindFormers%2Fdataset%2Fwikitext-2%2Fwikitext-2-v1.zip)
+- 数据集下载：[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
 
 - 分词模型下载：[tokenizer文件](https://huggingface.co/mistralai/Mixtral-8x7B-v0.1/blob/main/tokenizer.model)
 

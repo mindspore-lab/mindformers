@@ -151,7 +151,7 @@ llama7B的[tokenizer.model](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweic
 
 - 数据集
 
-[WikiText2数据集](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip)
+[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
 
 使用以下预处理脚本生成mindrecord训练数据
 

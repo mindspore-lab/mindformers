@@ -238,7 +238,7 @@ print(pipeline_result)
 
 以Wikitext2数据集为例:
 
-- 数据集下载：[WikiText2数据集](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip)
+- 数据集下载：[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)
 
 - 分词模型下载：例如下载申请通过后huggingface里对应Files 中的tokenizer.model
 
@@ -292,7 +292,7 @@ parallel_speed_up.json文件示例：
 }
 ```
 
-配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。auto_parallel说明详见[自动并行](../docs/feature_cards/Auto_Parallel.md)。parallel_speed_up中各参数含义详见[parallel_speed_up说明](https://www.mindspore.cn/docs/zh-CN/r2.3/api_python/mindspore/mindspore.set_context.html#mindspore.set_context)。
+配置文件中各参数含义详见[Config配置说明文档](https://gitee.com/mindspore/mindformers/blob/master/configs/README.md)。auto_parallel说明详见[自动并行](../docs/feature_cards/Auto_Parallel.md)。parallel_speed_up中各参数含义详见[parallel_speed_up说明](https://www.mindspore.cn/docs/zh-CN/r2.3.0/api_python/mindspore/mindspore.set_context.html#mindspore.set_context)。
 
 - step2：启动msrun快速启动运行脚本，进行8卡分布式运行。各个参数位置含义参见[msrun快速启动](../../README.md#方式一使用已有脚本启动)。
 
@@ -540,7 +540,7 @@ processor:
 
 step 1. 获取数据集
 
-[WikiText2数据集](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip)是从维基百科上经过验证的优质文章集中提取的超过1亿个token的集合。
+[WikiText2数据集](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)是从维基百科上经过验证的优质文章集中提取的超过1亿个token的集合。
 
 step 2. 处理数据成mindrecord格式
 
