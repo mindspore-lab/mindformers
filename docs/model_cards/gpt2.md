@@ -19,12 +19,12 @@ GPT-2由OpenAI于2019年发布。GPT-2模型是继承于GPT模型，GPT-2是一�
 
 - 基于Altas 800
 
-|                                                 Config                                                  |                                          Task                                           |              Datasets              |  Metric  |                Score                |                  Performance                  |  Phase   |
-|:-------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:| :--------------------------------: |:--------:|:-----------------------------------:|:---------------------------------------------:|:--------:|
-|           [gpt2](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)           |                                     text_generation                                     |             wikitext2              |   ppl    |                22.11                |                 1265 tokens/s                 | Pretrain |
-|              [gpt2](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)        |                                     text_generation                                     |             wikitext2              |   ppl    |                22.11                |   4.66/11.37 tokens/s(use past True/False)    | Predict  |
-|      [gpt2_lora](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_lora.yaml)      |                                     text_generation                                     |             wikitext2              |    -     |                  -                  |                33573 tokens/s                 |   Lora   |
-|    [gpt2_txtcls](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_txtcls.yaml)    |                                   text_classification                                   | SST-2<br/>IMDB<br/>AGNews<br/>COLA | accuracy | 0.908<br/>0.934<br/>0.941<br/>0.693 |                       -                       |    -     |
+|                                                 Config                                                  |                                          Task                                           |              Datasets              |  Metric  | Score  |                  Performance                  |  Phase   |
+|:-------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------:| :--------------------------------: |:--------:|:------:|:---------------------------------------------:|:--------:|
+|           [gpt2](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)           |                                     text_generation                                     |             wikitext2              |   ppl    | 22.11  |                 1265 tokens/s                 | Pretrain |
+|              [gpt2](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2.yaml)        |                                     text_generation                                     |             wikitext2              |   ppl    | 22.11  |   4.66/11.37 tokens/s(use past True/False)    | Predict  |
+|      [gpt2_lora](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_lora.yaml)      |                                     text_generation                                     |             wikitext2              |    -     |   -    |                33573 tokens/s                 |   Lora   |
+|    [gpt2_txtcls](https://gitee.com/mindspore/mindformers/blob/dev/configs/gpt2/run_gpt2_txtcls.yaml)    |                                   text_classification                                   | SST-2 | accuracy | 0.908  |                       -                       |    -     |
 
 ## 模型文件
 
@@ -75,13 +75,10 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 MindFormers提供**Wikitext2**作为预训练数据集，**alpaca**作为微调数据集。
 
-|   数据集名称   |                                         适用模型                                         |                适用阶段                |                                                         下载链接                                                          |
-|:---------:|:------------------------------------------------------------------------------------:|:----------------------------------:|:---------------------------------------------------------------------------------------------------------------------:|
-| Wikitext2 | GPT-2-small <br>GPT2-medium <br>GPT2-large <br>GPT2-xlarge <br>GPT2-13B <br>GPT2-52B | Pretrain <br>Finetune <br>Evaluate | [Link](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/dataset/wikitext-2/wikitext-2-v1.zip) |
-|   SST-2   | GPT-2-small <br>GPT2-medium <br>GPT2-large <br>GPT2-xlarge <br>GPT2-13B <br>GPT2-52B |            <br>Evaluate            |                              [Link](https://dl.fbaipublicfiles.com/glue/data/SST-2.zip)                               |
-|   IMDB    | GPT-2-small <br>GPT2-medium <br>GPT2-large <br>GPT2-xlarge <br>GPT2-13B <br>GPT2-52B |            <br>Evaluate            |               [Link](https://www.kaggle.com/datasets/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews)               |
-|  AG-News  | GPT-2-small <br>GPT2-medium <br>GPT2-large <br>GPT2-xlarge <br>GPT2-13B <br>GPT2-52B |            <br>Evaluate            |                       [Link](http://groups.di.unipi.it/~gulli/AG_corpus_of_news_articles.html)                        |
-|   COLA    | GPT-2-small <br>GPT2-medium <br>GPT2-large <br>GPT2-xlarge <br>GPT2-13B <br>GPT2-52B |            <br>Evaluate            |                                        [Link](https://nyu-mll.github.io/CoLA/)                                        |
+|   数据集名称   |                                         适用模型                                         |                适用阶段                |                                        下载链接                                        |
+|:---------:|:------------------------------------------------------------------------------------:|:----------------------------------:|:----------------------------------------------------------------------------------:|
+| Wikitext2 | GPT-2-small <br>GPT2-medium <br>GPT2-large <br>GPT2-xlarge <br>GPT2-13B <br>GPT2-52B | Pretrain <br>Finetune <br>Evaluate | [Link](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip)   |
+|   SST-2   | GPT-2-small <br>GPT2-medium <br>GPT2-large <br>GPT2-xlarge <br>GPT2-13B <br>GPT2-52B |            <br>Evaluate            |             [Link](https://dl.fbaipublicfiles.com/glue/data/SST-2.zip)             |
 
 - Wikitext2 数据预处理
 
@@ -105,12 +102,12 @@ MindFormers提供**Wikitext2**作为预训练数据集，**alpaca**作为微调�
 
     > 注: 除使用`configs/gpt2/finetune_gpt2_small_txtcls_fp16.yaml`配置文件外，预训练或者微调时，数据需处理为`configs/gpt2/*_gpt2_*_*.yaml`中`model.model_config.seq_length`的值加1，如下，当使用`pretrain_gpt2_small_fp16.yaml`配置文件执行训练时，`max_length`需设为1025。
 
-- SST-2/IMDB/AG-News/COLA 数据预处理
+- SST-2 数据预处理
 
     因评测前需要微调模型，所以需要生成训练/评测数据集。使用`mindformers/tools/dataset_preprocess/gpt2/txtcls_dataset_to_mindrecord.py`对下载后的数据进行预处理，并生成Mindrecord数据。
 
     ```bash
-    python txtcls_dataset_to_mindrecord.py --dataset_name {select one from ['cola', 'sst_2', 'ag_news', 'imdb']}
+    python txtcls_dataset_to_mindrecord.py --dataset_name 'sst_2' \
                                      --input_file {your_path/train.tsv} \
                                      --output_file {your_path/dataset_name.train.mindrecord}
 
@@ -161,7 +158,7 @@ MindFormers提供`gpt2-small`的预训练示例，数据集可以参考[数据�
 
 ### 单机训练
 
-执行msrun启动脚本，进行8卡分布式训练。各个参数位置含义参见[msrun快速启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3/parallel/msrun_launcher.html#)。
+执行msrun启动脚本，进行8卡分布式训练。各个参数位置含义参见[msrun快速启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3.0/parallel/msrun_launcher.html#)。
 
 ```bash
 # dataset_dir可指定文件目录或文件路径，
@@ -186,7 +183,7 @@ MindFormers提供`gpt2-small`的微调示例，数据集可以参考[数据集�
 
 #### 单机训练
 
-执行msrun启动脚本，进行8卡分布式训练。各个参数位置含义参见[msrun快速启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3/parallel/msrun_launcher.html#)。
+执行msrun启动脚本，进行8卡分布式训练。各个参数位置含义参见[msrun快速启动](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3.0/parallel/msrun_launcher.html#)。
 
 ```bash
 # dataset_dir可指定文件目录或文件路径，
@@ -287,10 +284,10 @@ bash scripts/examples/gpt2/run_gpt2_predict.sh \
 
 以`gpt2-samll`为例，当前支持使用based model（初始权重）进行评测任务如下：
 
-| 任务类型  |     评测指标     |           数据集           |
-|:-----:|:------------:|:-----------------------:|
-| 文本生成  |  Perplexity  |        WikiText2        |
-| 文本分类  |     ACC      | SST-2/IMDB/AG-News/COLA |
+| 任务类型  |     评测指标     |    数据集    |
+|:-----:|:------------:|:---------:|
+| 文本生成  |  Perplexity  | WikiText2 |
+| 文本分类  |     ACC      |  SST-2    |
 
 > 注: 数据处理脚本的`max_length`入参默认是`pretrain_gpt2_small_fp16.yaml`中的`seq_length`，即`1024`。如更换使用模型，需设置数据处理脚本的`max_length`为对应yaml文件中的`seq_length`。**
 
@@ -328,18 +325,12 @@ bash scripts/examples/gpt2/run_gpt2_predict.sh \
 
 - [SST-2数据集](https://dl.fbaipublicfiles.com/glue/data/SST-2.zip)数据集包含电影评论中的句子和它们情感的人类注释。类别分为两类正面情感（positive，样本标签对应为1）和负面情感（negative，样本标签对应为0）
 
-- [IMDB数据集](https://www.kaggle.com/datasets/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews)影评数据集，包含5万条IMDB影评，评论的情绪是二元的，专门用于情绪分析。
-
-- [AG-News数据集](http://groups.di.unipi.it/~gulli/AG_corpus_of_news_articles.html)数据集包含496,835条来自AG新闻语料库4大类别超过2000个新闻源的新闻文章。
-
-- [COLA数据集](https://nyu-mll.github.io/CoLA/)数据集来自语言理论的书籍和期刊，每个句子被标注为是否合乎语法的单词序列。
-
 2. 处理数据成mindrecord格式
 
     数据处理文件`txtcls_dataset_to_mindrecord.py`在目录`mindformers/tools/dataset_preprocess/gpt2`下。
 
     ```bash
-    python txtcls_dataset_to_mindrecord.py --dataset_name {select one from ['cola', 'sst_2', 'ag_news', 'imdb']}
+    python txtcls_dataset_to_mindrecord.py --dataset_name 'sst_2' \
                                            --input_file {your_path/train.tsv} \
                                            --output_file {your_path/dataset_name.train.mindrecord}
 
@@ -354,7 +345,7 @@ bash scripts/examples/gpt2/run_gpt2_predict.sh \
 
     ```bash
     # 运行前请确保finetune_gpt2_small_txtcls_fp16.yaml中的model.model_config.num_labels准确，具体的，
-    # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
+    # sst2: num_labels = 2
     python run_mindformer.py --config configs/gpt2/finetune_gpt2_small_txtcls_fp16.yaml \
                            --train_dataset_dir {your_path/dataset_name.train.mindrecord} \
                            --load_checkpoint {the path of pretrained ckpt} \
@@ -365,10 +356,10 @@ bash scripts/examples/gpt2/run_gpt2_predict.sh \
 
     ```bash
     # 运行前请确保finetune_gpt2_small_txtcls_fp16.yaml中的model.model_config.num_labels准确，具体的，
-    # sst2/cola/imdb: num_labels = 2, agnews: num_labels = 4
+    # sst2: num_labels = 2
     python run_mindformer.py --config configs/gpt2/finetune_gpt2_small_txtcls_fp16.yaml \
                            --eval_dataset_dir {your_path/dataset_name.dev.mindrecord} \
                            --run_mode eval \
                            --epochs 1
-    # ACC: COLA-0.693, SST-2-0.908, IMDB-0.934, AG-News-0.941
+    # ACC: SST-2-0.908
     ```

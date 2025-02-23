@@ -8,7 +8,7 @@
 - 修改分布式策略进行训练/推理：需要将权重转换为对应分布式策略的权重。
 - 基于训练完的分布式权重进行单卡推理：需要将分布式权重合并为完整权重。
 
-主要参考：[mindspore分布式弹性训练与推理](https://www.mindspore.cn/tutorials/experts/zh-CN/master/parallel/model_transformation.html)
+主要参考：[mindspore分布式弹性训练与推理](https://www.mindspore.cn/tutorials/experts/zh-CN/r2.3.0/parallel/model_transformation.html)
 
 ## 自动权重转换
 
@@ -40,7 +40,7 @@ Mindformer的**自动权重转换**特性适用于以下三大任务场景，基
 
 ### 自动转换案例
 
-案例主要为演示如何使用权重自动转换，基于2层的llama-7b权重进行转换演示，同时提供了已转为mindrecord格式的WikiText2数据集。
+案例主要为演示如何使用权重自动转换，基于2层的llama-7b权重进行转换演示。
 
 #### 前期准备
 
@@ -48,7 +48,7 @@ Mindformer的**自动权重转换**特性适用于以下三大任务场景，基
 
 ![checkpoint](assets/Transform_Ckpt/checkpoint.png)
 
-- 数据集：下载使用已转为mindrecord格式的[WikiText2数据集](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/features/transform_checkpoint/wikitext_512.zip)并解压。
+- 数据集: 参照[Llama对Wikitext-2](../model_cards/llama2.md#数据及权重准备)数据处理，将wikitext-2数据集处理成序列长度为512的mindrecord数据集。
 
 ![wiki_dataset](assets/Transform_Ckpt/wiki_dataset.png)
 
