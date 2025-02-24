@@ -15,13 +15,14 @@
 """test Config"""
 import inspect
 import pytest
-from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig
+from mindformers.modules.transformer import TransformerOpParallelConfig, TransformerRecomputeConfig, \
+    TransformerSwapConfig
 from mindformers.modules.transformer import MoEConfig as MoEConfig_cls
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.tools.register.template import CONFIG_NAME_TO_CLASS, CallbackConfig, ConfigTemplate, ContextConfig, \
     EvalCallbackConfig, EvalDatasetConfig, EvalDatasetTaskConfig, GeneralConfig, LrScheduleConfig, MetricConfig, \
     MoEConfig, ModelConfig, MsParallelConfig, OptimizerConfig, ParallelConfig, ProcessorConfig, RecomputeConfig, \
-    RunnerConfig, TrainDatasetConfig, TrainDatasetTaskConfig, TrainerConfig, WrapperConfig
+    RunnerConfig, TrainDatasetConfig, TrainDatasetTaskConfig, TrainerConfig, WrapperConfig, SwapConfig
 
 
 def get_class_init_params_and_defaults(cls):
@@ -120,8 +121,10 @@ class TestParallelConfig:
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
     def test_attribute_equal_to_class(self):
+        """Test if the number of attributes is equal to the class attribute"""
         cls_init_params = get_class_init_params_and_defaults(TransformerOpParallelConfig)
         cls_init_params.pop("recompute")
+        cls_init_params.pop("swap")
         assert len(cls_init_params) == len(ParallelConfig.keys())
         for key in ParallelConfig.keys():
             assert getattr(ParallelConfig, key) == cls_init_params[key]
@@ -167,6 +170,48 @@ class TestRecomputeConfig:
         assert len(cls_init_params) == len(RecomputeConfig.keys())
         for key in RecomputeConfig.keys():
             assert getattr(RecomputeConfig, key) == cls_init_params[key]
+
+
+class TestSwapConfig:
+    """test swap_config"""
+    def setup_method(self):
+        self.correct_input = {"swap": True}
+        self.unexpected_input = {"aaa": 1}
+
+    def test_none_input(self):
+        config1 = SwapConfig.apply(None)
+        config2 = SwapConfig.apply({})
+        configs = [config1, config2]
+        for config in configs:
+            for key in SwapConfig.keys():
+                assert key in config
+                assert config[key] == getattr(SwapConfig, key)
+            for key in config.keys():
+                assert key in SwapConfig.keys()
+
+    def test_unexpected_input(self):
+        with pytest.raises(KeyError, match="unexpected"):
+            SwapConfig.apply(self.unexpected_input)
+
+    def test_correct_input(self):
+        config = SwapConfig.apply(self.correct_input)
+        for key in SwapConfig.keys():
+            assert key in config
+            if key in self.correct_input.keys():
+                assert config[key] == self.correct_input[key]
+            else:
+                assert config[key] == getattr(SwapConfig, key)
+        for key in config.keys():
+            assert key in SwapConfig.keys()
+
+    @pytest.mark.level0
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
+    def test_attribute_equal_to_class(self):
+        cls_init_params = get_class_init_params_and_defaults(TransformerSwapConfig)
+        assert len(cls_init_params) == len(SwapConfig.keys())
+        for key in SwapConfig.keys():
+            assert getattr(SwapConfig, key) == cls_init_params[key]
 
 
 class TestMoEConfig:

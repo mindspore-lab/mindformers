@@ -325,6 +325,15 @@ class RecomputeConfig(Config):
     _name = "recompute_config"
 
 
+class SwapConfig(Config):
+    swap = False
+    layer_swap = None
+    op_swap = None
+    default_prefetch = 1
+
+    _name = "swap_config"
+
+
 class MoEConfig(Config):
     """moe parallel config"""
     expert_num = 1
@@ -517,6 +526,7 @@ CONFIG_NAME_TO_CLASS = {
     "general_config": GeneralConfig,
     "parallel_config": ParallelConfig,
     "recompute_config": RecomputeConfig,
+    "swap_config": SwapConfig,
     "moe_config": MoEConfig,
     "runner_config": RunnerConfig,
     "parallel": MsParallelConfig,
@@ -567,6 +577,7 @@ class ConfigTemplate:
 
     train_configs = [
         "recompute_config",
+        "swap_config",
         "runner_wrapper",
         "optimizer",
         "lr_schedule",

@@ -278,10 +278,11 @@ def _rule_recompute(pp, recompute, key):
 
 
 def _check_recompute(config):
-    pp = config.parallel_config.pipeline_stage
-    _rule_recompute(pp, config.recompute_config.recompute, "recompute")
-    _rule_recompute(pp, config.recompute_config.select_recompute, "select_recompute")
-    _rule_recompute(pp, config.recompute_config.select_comm_recompute, "select_comm_recompute")
+    if config.swap and not config.swap.swap:
+        pp = config.parallel_config.pipeline_stage
+        _rule_recompute(pp, config.recompute_config.recompute, "recompute")
+        _rule_recompute(pp, config.recompute_config.select_recompute, "select_recompute")
+        _rule_recompute(pp, config.recompute_config.select_comm_recompute, "select_comm_recompute")
 
 
 def _check_config_campacity(config):

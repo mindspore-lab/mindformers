@@ -6771,7 +6771,7 @@
         "signature": "(self, x, input_mask, init_reset, batch_valid_length)"
     },
     "mindformers.modules.transformer.transformer.TransformerOpParallelConfig": {
-        "signature": "(data_parallel=1, model_parallel=1, context_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_num=1, seq_split_num=1, recompute: Union[dict, mindformers.modules.transformer.transformer.TransformerRecomputeConfig] = <mindformers.modules.transformer.transformer.TransformerRecomputeConfig object>, use_seq_parallel=False, optimizer_shard=None, gradient_aggregation_group=4, vocab_emb_dp=True, context_parallel_algo: str = 'colossalai_cp', ulysses_degree_in_cp=1, mem_coeff=0.1)"
+        "signature": "(data_parallel=1, model_parallel=1, context_parallel=1, expert_parallel=1, pipeline_stage=1, micro_batch_num=1, seq_split_num=1, recompute: Union[dict, mindformers.modules.transformer.transformer.TransformerRecomputeConfig] = <mindformers.modules.transformer.transformer.TransformerRecomputeConfig object>, use_seq_parallel=False, optimizer_shard=None, gradient_aggregation_group=4, vocab_emb_dp=True, context_parallel_algo: str = 'colossalai_cp', ulysses_degree_in_cp=1, mem_coeff=0.1, swap: Union[dict, mindformers.modules.transformer.transformer.TransformerSwapConfig] = <mindformers.modules.transformer.transformer.TransformerSwapConfig object>)"
     },
     "mindformers.modules.transformer.transformer.TransformerOpParallelConfig._check_context_parallel": {
         "signature": "(self)"
@@ -6792,6 +6792,12 @@
         "signature": "(self)"
     },
     "mindformers.modules.transformer.transformer.TransformerRecomputeConfig.to_dict": {
+        "signature": "(self)"
+    },
+    "mindformers.modules.transformer.transformer.TransformerSwapConfig": {
+        "signature": "(layer_swap=None, op_swap=None, swap=False, default_prefetch=1)"
+    },
+    "mindformers.modules.transformer.transformer.TransformerSwapConfig.to_diff_dict": {
         "signature": "(self)"
     },
     "mindformers.modules.transformer.transformer.VocabEmbedding": {
