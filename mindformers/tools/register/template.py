@@ -362,6 +362,8 @@ class MoEConfig(Config):
     moe_shared_expert_overlap = False
     expert_model_parallel = None
     use_gating_sigmoid = False
+    use_gmm = False
+    enable_gmm_safe_tokens = False
 
     _name = "moe_config"
 
