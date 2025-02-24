@@ -929,6 +929,9 @@ class CheckpointMonitor(ModelCheckpoint):
                 param_dict[param.name] = param
             param_list = []
             for (key, value) in param_dict.items():
+                cur_param_info = value.param_info
+                if hasattr(cur_param_info, 'is_pipeline_shared_param') and cur_param_info.is_pipeline_shared_param:
+                    continue
                 each_param = {"name": key}
                 param_data = Tensor(value.data.asnumpy())
 
