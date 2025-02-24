@@ -25,8 +25,12 @@ from toolkit.pipeline_balance.simulator.sim_block import MicroBlockSim, BlockSim
 class PlotMgr:
     r"""Plot Manager"""
     # pylint: disable=W0613
-    def __init__(self, *args, num_plots=2, ax_type='block', subplot_args=None, **kwargs):
-        self.fig = plt.figure(figsize=kwargs.get('figsize', (12, 8)))
+    def __init__(self, *args, num_plots=2, ax_type='block', subplot_args=None,
+                 sub_fig=None, **kwargs):
+        if sub_fig:
+            self.fig = sub_fig
+        else:
+            self.fig = plt.figure(figsize=kwargs.get('figsize', (12, 8)))
         self.fig.subplots_adjust(wspace=0, hspace=0.4)
         ax_type = ax_type if isinstance(ax_type, (list, tuple)) else [ax_type] * num_plots
         self.ax = []
@@ -188,9 +192,14 @@ class PlotMgr:
         info_list = [f'{k} bubble: {v:.4f}' for k, v in bubble_info.items()]
         self.fig.text(0.5, 0.5, ', '.join(info_list), ha='center', va='center',
                       fontdict={'fontsize': 13, 'weight': 'medium'}, color='C3')
-        info_list = [f"{v:.2f}" for v in mem_info]
+        info_list = [f"{v:.0f}" for v in mem_info]
         self.fig.text(0.5, 0.05, f"peak memory: {', '.join(info_list)}", ha='center', va='center',
-                      fontdict={'fontsize': 13, 'weight': 'medium'}, color='C0')
+                      fontdict={'fontsize': 10, 'weight': 'medium'}, color='C0')
+
+
+    def save(self, file_name):
+        self.fig.legend(bbox_to_anchor=(0.22, 0.45))
+        plt.savefig(file_name)
 
     def show(self, file_name=None):
         self.fig.legend(bbox_to_anchor=(0.22, 0.45))

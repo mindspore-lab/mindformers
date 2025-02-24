@@ -45,7 +45,7 @@ class Layer:
     """
 
     type_enum = Enum('LayerType', ['UNKNOWN', 'HEAD', 'BODY', 'TAIL'])
-    backward_default_ratio = 2 / 3  # of total time
+    backward_default_ratio = 2 # of forward time
     name_: str
     model_name_: str
     type_: type_enum
@@ -120,7 +120,7 @@ class Layer:
                               force_fb: bool = False):
         """Auto compute internal time if not already present"""
         if force_fb or self.forward_time_ is None:
-            self.forward_time_ = (1 - back_ratio) * self.time_
+            self.forward_time_ = self.time_
         self.backward_time_ = back_ratio * self.time_
 
         for rec in Recompute.TYPE:
@@ -132,6 +132,22 @@ class Layer:
                     else:
                         self.backward_time_rec_[rec] = (1 + self.backward_coef_rec_[
                             rec]) * self.backward_time_
+
+    def update_internal_time_for_seqpp(self, back_ratio: float = (backward_default_ratio),
+                                       force_fb: bool = False):
+        """update compute internal time for seqpipe"""
+        if force_fb or self.forward_time_ is None:
+            self.forward_time_ = (1 - back_ratio) * self.time_
+        self.backward_time_ = back_ratio * self.time_
+
+        for rec in Recompute.TYPE:
+            if self.recompute_considered_[rec]:
+                if self.backward_coef_rec_[rec] is None:
+                    self.backward_time_rec_[rec] = (1 + Recompute.DEFAULT_COEF[
+                        rec]) * self.backward_time_
+                else:
+                    self.backward_time_rec_[rec] = (1 + self.backward_coef_rec_[
+                        rec]) * self.backward_time_
 
     def compute_timer(self, timeline_folder: str = './timeline', tmp_layer_info=None):
         """Compute the time information from the timeline logs"""
