@@ -76,16 +76,36 @@ def set_failure_list(api_str, value, signature, failure_list):
 
 def process_union_order(signature):
     """process Union order, Union[str, bool] -> Union[bool, str]"""
-    union_pattern = re.compile(r"Union\[.*?\]")
-    union_split = re.split(union_pattern, signature)
-    union_searched = re.findall(union_pattern, signature)
+    signature = re.sub(r", *", ", ", signature)
+    union_area = []
+    union_start = [match.start() for match in re.finditer(r"Union", signature)]
+    for index in union_start:
+        cur_union_end = None
+        left_bracket_num, right_bracket_num = 0, 0
+        for i, s in enumerate(signature[index:]):
+            if s == "[":
+                left_bracket_num += 1
+            elif s == "]":
+                right_bracket_num += 1
+                if left_bracket_num == right_bracket_num:
+                    cur_union_end = i + index
+                    break
+            elif s == ",":
+                if left_bracket_num == right_bracket_num + 1:
+                    # '~' is used for replace ',' temporarily
+                    signature = signature[:i+index] + "!" + signature[i+index+1:]
+        union_area.append((index, cur_union_end))
+        if cur_union_end is None:
+            raise ValueError("Not enough ] in signature.")
     union_str_len = 6  # used to extract list
-    for index in range(len(union_searched)):
-        item = union_searched[index][union_str_len:-1]
-        item = re.split(", ?", item)
-        item.sort()
-        union_split.insert(2 * index + 1, f"Union[{', '.join(item)}]")
-    return "".join(union_split)
+    for area in union_area[::-1]:
+        item_in_union = signature[area[0] + union_str_len: area[1]]
+        item_list = item_in_union.split("! ")
+        item_list.sort()
+        item = f"Union[{'~ '.join(item_list)}]"     # '~' is used for replace ',' temporarily
+        signature = signature[:area[0]] + item + signature[area[1]+1:]
+    signature = re.sub(r"~", ",", signature)
+    return signature
 
 
 def api_signature(obj, api_str, content, base_schema, failure_list, is_update=False):
