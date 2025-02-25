@@ -23,6 +23,7 @@ from mindspore.common.initializer import initializer
 import mindspore.common.dtype as mstype
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+import mindspore.ops as ops
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
 from mindspore.nn.cell import Cell
@@ -143,6 +144,7 @@ class DeepSeekV2RotaryEmbedding(Cell):
     Args:
             - **head_dim** (int): The dim of multi head attention.
             - **compute_dtype** (mstype): The compute type, default mstype.float16.
+            - **use_fused_rope** (bool): Use Swiglu as the activation function, default False.
             - **parallel_config** (dict): - Parallel Config.
     Inputs:
             - **x** (Tensor) - Tensor of shape :math:`(batch, seq\_length, hidden\_size)`.
@@ -151,12 +153,14 @@ class DeepSeekV2RotaryEmbedding(Cell):
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
 
-    def __init__(self, head_dim=128, compute_dtype=mstype.float32, seq_length=4096, seq_split_num=1):
+    def __init__(self, head_dim=128, compute_dtype=mstype.float32, use_fused_rope=False, seq_length=4096,
+                 seq_split_num=1):
         super().__init__(auto_prefix=False)
         self.half_head_dim = head_dim // 2
         self.head_dim = head_dim
         self.dtype = compute_dtype
         self.is_first_iteration = True
+        self.use_fused_rope = use_fused_rope
 
         self.reshape = P.Reshape().add_prim_attr("skip_redistribution", True)
         self.transpose = P.Transpose()
@@ -178,6 +182,10 @@ class DeepSeekV2RotaryEmbedding(Cell):
             np_range = np.arange(self.seq_seg_len)
             self.seq_seg_range = Tensor(np_range, dtype=mstype.int32)
             self.add_seq = P.Add()
+        if self.use_fused_rope:
+            self.expand_dims0 = P.ExpandDims()
+            self.expand_dims1 = P.ExpandDims()
+            self.rope = ops.auto_generate.gen_ops_prim.RotaryPositionEmbedding()
 
     def rotate_half(self, x, swap_mask):
         # [bs, n_head/n_kv_head, seq/1, head_dim], [head_dim, head_dim]
@@ -201,15 +209,20 @@ class DeepSeekV2RotaryEmbedding(Cell):
         freqs_sin = self.cast(freqs_sin, self.dtype)
         swap_mask = self.cast(swap_mask, self.dtype)
         mul = self.mul if self.is_first_iteration else self.mul_inc
+
         freqs_cos_xq = freqs_cos
         freqs_sin_xq = freqs_sin
         if self.seq_pipe:
             seg_seq_range = self.add_seq(self.seq_seg_range, self.seq_seg_len * seq_chunk)
             freqs_cos_xq = self.gather(freqs_cos, seg_seq_range, 2)
             freqs_sin_xq = self.gather(freqs_sin, seg_seq_range, 2)
+        if self.use_fused_rope:
+            xq_out = self.rope(xq, freqs_cos_xq, freqs_sin_xq, 0)
+            xk_out = self.rope(xk, freqs_cos, freqs_sin, 0)
+        else:
+            xq_out = self.add(mul(xq, freqs_cos_xq), mul(self.rotate_half(xq, swap_mask), freqs_sin_xq))
+            xk_out = self.add(mul(xk, freqs_cos), mul(self.rotate_half(xk, swap_mask), freqs_sin))
 
-        xq_out = self.add(mul(xq, freqs_cos_xq), mul(self.rotate_half(xq, swap_mask), freqs_sin_xq))
-        xk_out = self.add(mul(xk, freqs_cos), mul(self.rotate_half(xk, swap_mask), freqs_sin))
         xq_out = self.cast(xq_out, original_type)
         xk_out = self.cast(xk_out, original_type)
         return xq_out, xk_out
@@ -238,6 +251,16 @@ class DeepSeekV2RotaryEmbedding(Cell):
         self.concat.shard((strategy_in, strategy_in))
         transpose_strategy_in = (dp, mp, 1, 1, 1)
         self.transpose.shard((transpose_strategy_in,))
+        if self.use_fused_rope:
+            layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
+            self.rope.shard(in_strategy=(layout("dp", "mp", "cp", "None"),
+                                         layout("None", "None", "cp", "None"),
+                                         layout("None", "None", "cp", "None")),
+                            out_strategy=(layout("dp", "mp", "cp", "None"),)
+                            )
+            self.rope.add_prim_attr("self_define_shard", True)
+            self.expand_dims0.shard(((cp, 1),))
+            self.expand_dims1.shard(((1, cp, 1),))
 
 
 class DeepSeekV2MoEInfer(Cell):
@@ -355,8 +378,9 @@ class DeepSeekV2Attention(nn.Cell):
                  scaling_factor: Optional[Dict] = None,
                  norm_eps=1e-5,
                  init_method_std=0.006,
+                 use_fused_rope=False,
                  batch_size=1,
-                 seq_length=4096
+                 seq_length=4096,
                  ):
         super().__init__()
         self.hidden_size = dim
@@ -592,6 +616,8 @@ class DeepSeekV2Attention(nn.Cell):
             self.not_equal_seq1 = P.NotEqual()
             self.seq_split_size = Tensor(self.seq_split_num - 1, dtype=mstype.int32)
             self.tile_kv1 = P.Tile().shard(((dp, 1, 1, 1),))
+        self.apply_rotary_emb = DeepSeekV2RotaryEmbedding(self.qk_rope_head_dim, rotary_dtype,
+                                                          use_fused_rope=use_fused_rope)
 
         if parallel_config.recompute.select_recompute and not self.use_flash_attention:
             self.apply_rotary_emb.recompute()
@@ -916,6 +942,8 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                  scaling_factor: Optional[Dict] = None,
                  return_extra_loss=True,
                  init_method_std=0.006,
+                 use_fused_rope=False,
+                 use_fused_swiglu=False,
                  batch_size=1,
                  seq_length=4096
                  ):
@@ -962,6 +990,7 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                              scaling_factor=scaling_factor,
                                              norm_eps=norm_eps,
                                              init_method_std=init_method_std,
+                                             use_fused_rope=use_fused_rope,
                                              batch_size=batch_size,
                                              seq_length=seq_length)
 
@@ -1023,7 +1052,8 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                                                 parallel_config=parallel_config,
                                                                 use_moe_infer=self.use_moe_infer,
                                                                 return_extra_loss=self.return_extra_loss,
-                                                                init_method_std=init_method_std)
+                                                                init_method_std=init_method_std,
+                                                                use_fused_swiglu=use_fused_swiglu)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
@@ -1227,6 +1257,8 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                           scaling_factor=config.scaling_factor,
                                           return_extra_loss=config.return_extra_loss,
                                           init_method_std=config.init_method_std,
+                                          use_fused_rope=config.use_fused_rope,
+                                          use_fused_swiglu=config.use_fused_swiglu,
                                           batch_size=config.batch_size,
                                           seq_length=config.seq_length)
             self.layer_setting(layer, layer_id)
