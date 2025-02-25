@@ -33,6 +33,7 @@ from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm
 from mindformers.modules.layers import _check_input_dtype, Linear, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.flash_attention import FlashAttention
+from mindformers.version_control import check_seqpp_fa_opt_support
 
 
 class _MicroBatch(nn.Cell):
@@ -276,7 +277,10 @@ class LLamaAttentionInterleave(nn.Cell):
         if self.use_flash_attention:
             self.input_layout = "BSH" if cp > 1 else "BNSD"
             self.sparse_mode = 2 if self.use_attn_mask_compression and not self.use_ring_attention else 0
-            next_tokens = seq_length - self.seq_seg_len if self.seq_pipe else 0
+            if self.seq_pipe and not check_seqpp_fa_opt_support():
+                next_tokens = seq_length - self.seq_seg_len
+            else:
+                next_tokens = 0
             self.flash_attention = FlashAttention(head_num=self.n_head,
                                                   pre_tokens=2147483647,
                                                   next_tokens=next_tokens,

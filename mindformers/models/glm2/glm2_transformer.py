@@ -27,7 +27,7 @@ from mindformers.modules.layers import Linear
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.models.utils import LayerSetting, check_fine_grain_interleave_valid
 from mindformers.pet.tuners.ptuning2_adapter import Ptuning2Adapter
-from mindformers.version_control import get_dropout
+from mindformers.version_control import get_dropout, check_seqpp_fa_opt_support
 from mindformers.tools.logger import logger
 
 from .glm2_config import ChatGLM2Config
@@ -228,7 +228,10 @@ class ChatGLM2SelfAttention(nn.Cell):
             self.apply_rotary_emb_classic = RotaryPosEmb()
         input_layout, sparse_mode = self.select_fa_configs()
         if self.use_flash_attention:
-            next_tokens = self.seq_length - self.seq_seg_len if self.seq_pipe else 0
+            if self.seq_pipe and not check_seqpp_fa_opt_support():
+                next_tokens = self.seq_length - self.seq_seg_len
+            else:
+                next_tokens = 0
             self.flash_attention = FlashAttention(head_num=config.num_attention_heads,
                                                   scale_value=1. / math.sqrt(self.head_dim),
                                                   input_layout=input_layout,
