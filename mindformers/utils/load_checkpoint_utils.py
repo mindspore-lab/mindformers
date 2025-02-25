@@ -28,7 +28,7 @@ from mindspore.parallel.transform_safetensors import _collect_safetensor_files
 from mindspore import Parameter
 
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import is_main_rank, get_epoch_and_step_from_ckpt_name, get_real_rank
+from mindformers.tools.utils import is_main_rank, get_epoch_and_step_from_ckpt_name, get_real_rank, clear_auto_trans_output
 from mindformers.utils import convert_hf_safetensors_multiprocess, check_safetensors_key
 
 
@@ -99,10 +99,11 @@ def _get_src_strategy(config):
         upper_dir = os.path.dirname(config.load_checkpoint)
 
     input_src_strategy = config.get('src_strategy_path_or_dir')
-    if os.path.exists(os.path.join(upper_dir, 'strategy')):
-        src_strategy_path = os.path.join(upper_dir, 'strategy')
-    elif input_src_strategy and os.path.isdir(input_src_strategy):
+    if input_src_strategy and os.path.isdir(input_src_strategy):
         src_strategy_path = input_src_strategy
+    elif os.path.exists(os.path.join(upper_dir, 'strategy')):
+        src_strategy_path = os.path.join(upper_dir, 'strategy')
+        logger.info(f"src_strategy_path_or_dir is empty, load source strategy from {src_strategy_path}.")
     else:
         raise ValueError("when use checkpoint after train/finetune, src_strategy_path_or_dir should be set "
                          "as a folder contained strategy ckpt files.")
@@ -205,7 +206,8 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
             load_checkpoint_files.sort()
         else:
             logger.info(f"......auto_trans is False, will not unify or slice rank files......")
-            all_safetensor_files_map = _collect_safetensor_files(load_checkpoint)
+            _, file_suffix = _get_src_file_suffix(config)
+            all_safetensor_files_map = _collect_safetensor_files(load_checkpoint, file_suffix=file_suffix)
             rank_id = get_real_rank() if get_real_rank() else 0
             load_checkpoint_files = [all_safetensor_files_map[rank_id]]
 
@@ -219,8 +221,7 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         build_model(config, model, input_data, do_eval=do_eval, do_predict=do_predict)
         #wait generate all rank strategy files
         barrier()
-    #merge dst strategy
-    strategy_path = get_merged_dst_strategy_path(config, strategy_path)
+
     # only execute qkv concat check on the main rank in predict mode
     if do_predict and is_main_rank(ignore_check_modelarts=True):
         qkv_concat_config = config.model.model_config.get("qkv_concat", False)
@@ -230,7 +231,8 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         barrier()
 
     process_for_stand_alone_mode(config, network, strategy_path)
-
+    #merge dst strategy
+    strategy_path = get_merged_dst_strategy_path(config, strategy_path)
     load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy_path, load_checkpoint, optimizer)
 
 
@@ -292,6 +294,7 @@ def unify_safetensors(src_checkpoint, src_strategy_path, unified_path, use_paral
         )
         unify_time_end = time.time()
         logger.info("Time spent unifying safetensors: %.2fs", unify_time_end - unify_time_start)
+        clear_auto_trans_output()
     if use_parallel:
         barrier()
     logger.info("Unified safetensors finished.")
