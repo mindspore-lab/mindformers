@@ -205,7 +205,7 @@ MindFormers提供了默认微调配置`finetune_qwenvl_9.6b.yaml`，默认配置
 ```shell
 bash scripts/msrun_launcher.sh "run_mindformer.py \
 --config research/qwenvl/qwenvl_9.6b/finetune_qwenvl_9.6b_bf16.yaml \
---register_path research/qwenvl
+--register_path research/qwenvl \
 --run_mode finetune \
 --load_checkpoint /path/to/ckpt \
 --use_parallel True \

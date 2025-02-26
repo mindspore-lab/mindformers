@@ -158,7 +158,7 @@ mindspore_ckpt_path:    qkv_concat转换后权重文件保存路径,单卡权重
 
 以``qwen2_5-7b` 8卡微调为例，执行如下命令进行微调，微调前请参考[权重转换](../../docs/feature_cards/Transform_Ckpt.md)切分权重。
 
-3. 主要参数配置参考:
+1. 主要参数配置参考:
 
 - 基本配置：
 
@@ -227,7 +227,7 @@ train_dataset: &train_dataset
   dynamic_batch: True
 ```
 
-4. 配置并行加速
+2. 配置并行加速
 
    若模型的yaml中有类似如下的配置
 
@@ -243,7 +243,7 @@ train_dataset: &train_dataset
 
    例如，`finetune_qwen2.5_72B_32K.yaml`中使用了`parallel_speed_up_72B_32K.json`，其中配置了`"matmul_grad_comm_overlap": true`。
 
-5. 启动微调:
+3. 启动微调:
 
    ```shell
    cd research/qwen2_5
