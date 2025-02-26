@@ -44,7 +44,7 @@ export MS_SCHED_HOST=xx.xx.xx.xx
 
 step 2. 运行动态组网脚本，启动分布式训练
 
-参考gpt2模型中的[预训练部分](../model_cards/gpt2.md#预训练)，进行数据集的准备与配置修改
+参考各模型README，进行数据集的准备与配置修改
 
 使用以下命令以启动多卡训练：
 
