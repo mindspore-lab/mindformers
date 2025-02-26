@@ -339,7 +339,7 @@ class MultiSourceRandomAccessDataset:
             self.dataloader_index, self.data_sample_index = self.build_indices()
         else:
             logger.info(f".......... Load indices from npz file: {load_indices_npz_path} ..........")
-            load_dict = np.load(load_indices_npz_path)
+            load_dict = np.load(load_indices_npz_path, mmap_mode='r')
             self.dataloader_index = load_dict["dataloader_index"]
             self.data_sample_index = load_dict["data_sample_index"]
         if save_indices_npz_path is not None:
