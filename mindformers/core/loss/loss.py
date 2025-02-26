@@ -393,7 +393,7 @@ class CrossEntropyLoss(nn.Cell):
         self.add2 = P.Add()
         self.div2 = P.RealDiv()
         self.relu = P.ReLU().shard(((1,),))
-        self.dump_local_loss = (get_auto_parallel_context("dump_local_norm_path") is not None
+        self.dump_local_loss = (bool(get_auto_parallel_context("dump_local_norm_path"))
                                 and check_for_nan_in_loss_and_grad)
         if self.dump_local_loss:
             self.dump = P.TensorDump()

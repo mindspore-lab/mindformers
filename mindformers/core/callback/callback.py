@@ -700,7 +700,7 @@ class TrainingStateMonitor(Callback):
         self.tensor_writer = get_tensorboard_writer()
         self.outputer = {'tensorboard': self._to_tensorboard, 'log': self._to_log}
         self._init_config(config)
-        if get_auto_parallel_context("dump_local_norm_path") is not None:
+        if get_auto_parallel_context("dump_local_norm_path"):
             self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f'rank_{get_real_rank()}')
             self.dump_key = {0: -1}
             self.dump_step = 1
@@ -775,7 +775,7 @@ class TrainingStateMonitor(Callback):
             per_step_seconds = step_seconds
         if (cb_params.cur_step_num - self.last_print_time) >= self.per_print_times:
             self.last_print_time = cb_params.cur_step_num
-            if get_auto_parallel_context("dump_local_norm_path") is not None:
+            if get_auto_parallel_context("dump_local_norm_path"):
                 self._dump_data_in_step(cb_params.cur_step_num)
             if self.optimizer_state_format:
                 self._dump_optimizer_state(cb_params)

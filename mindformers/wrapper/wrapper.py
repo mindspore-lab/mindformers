@@ -188,12 +188,12 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         self.zero_t = Tensor([0], dtype=mstype.float32)
         self.grad_scale_factor = Tensor([1], dtype=mstype.float32)
         self.dump_device_local_norm = get_auto_parallel_context("dump_device_local_norm")
-        self.if_dump = get_auto_parallel_context("dump_local_norm_path") is not None
+        self.if_dump = bool(get_auto_parallel_context("dump_local_norm_path"))
         if self.if_dump:
             self.dump = P.TensorDump()
             self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f"rank_{get_real_rank()}")
-            if os.path.exists(get_auto_parallel_context("dump_local_norm_path")) and int(get_real_rank()) == 0:
-                shutil.rmtree(get_auto_parallel_context("dump_local_norm_path"))
+            if os.path.exists(self.dump_path):
+                shutil.rmtree(self.dump_path)
             os.makedirs(self.dump_path, exist_ok=True)
             self.device_local_norm_filename = os.path.join(self.dump_path, "device_local_norm")
             self.finish_step_filename = os.path.join(self.dump_path, "finish_step")
@@ -554,12 +554,12 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         self.grad_scale_factor = Tensor([1], dtype=mstype.float32)
         self.zero_t = Tensor([0], dtype=mstype.float32)
         self.dump_device_local_norm = get_auto_parallel_context("dump_device_local_norm")
-        self.if_dump = get_auto_parallel_context("dump_local_norm_path") is not None
+        self.if_dump = bool(get_auto_parallel_context("dump_local_norm_path"))
         if self.if_dump:
             self.dump = P.TensorDump()
             self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f"rank_{get_real_rank()}")
-            if os.path.exists(get_auto_parallel_context("dump_local_norm_path")) and int(get_real_rank()) == 0:
-                shutil.rmtree(get_auto_parallel_context("dump_local_norm_path"))
+            if os.path.exists(self.dump_path):
+                shutil.rmtree(self.dump_path)
             self.device_local_norm_filename = os.path.join(self.dump_path, "device_local_norm")
             self.finish_step_filename = os.path.join(self.dump_path, "finish_step")
         if self.dump_device_local_norm:
