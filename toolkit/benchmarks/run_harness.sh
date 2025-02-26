@@ -12,18 +12,43 @@ MODEL_ARGS=""
 TASKS=""
 BATCH_SIZE=1
 INCLUDE_PATH=""
+REGISTER_PATH=""
+
+function show_help {
+    echo "  --register_path    <path>     Set the register path"
+    echo "  --tasks            <tasks>    Set the tasks"
+    echo "  --model_args       <args>     Set the model arguments"
+    echo "  --model            <model>    Set the model"
+    echo "  --batch_size       <size>     Set the batch size"
+    echo "  --include_path     <path>     Set the include path"
+    echo "  --help                        Show this help message"
+}
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --tasks) TASKS="$2"; shift ;;          # Get tasks parameter
-        --model_args) MODEL_ARGS="$2"; shift ;; # Get model_args parameter
-        --model) MODEL="$2"; shift ;;           # Get model parameter
-        --batch_size) BATCH_SIZE="$2"; shift ;; # Get batch_size parameter
-        --include_path) INCLUDE_PATH="$2"; shift ;; # Get include_path parameter
-
+        --register_path) REGISTER_PATH="$2"; shift ;; # Set register path parameter
+        --tasks) TASKS="$2"; shift ;;          # Set tasks parameter
+        --model_args) MODEL_ARGS="$2"; shift ;; # Set model_args parameter
+        --model) MODEL="$2"; shift ;;           # Set model parameter
+        --batch_size) BATCH_SIZE="$2"; shift ;; # Set batch_size parameter
+        --include_path) INCLUDE_PATH="$2"; shift ;; # Set include_path parameter
+        --help)
+          show_help
+            return 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            show_help
+            return 1
+            ;;
     esac
     shift
 done
+
+if [[ -n "$REGISTER_PATH" ]]; then
+    export REGISTER_PATH=$REGISTER_PATH
+    echo "REGISTER_PATH is: $REGISTER_PATH"
+fi
 
 MULTIPLE_CHOICE="cmmlu|ceval-valid|mmlu|race|lambada"
 GENERATE_UNTIL="gsm8k|longbench|humaneval-x"
