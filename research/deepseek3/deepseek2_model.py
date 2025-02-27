@@ -557,6 +557,7 @@ class DeepSeekV2Attention(nn.Cell):
         self.v_zeros = Tensor(np.array([0] * (self.q_head_dim - self.v_head_dim)))
         self.apply_rotary_emb = DeepSeekV2RotaryEmbedding(self.qk_rope_head_dim,
                                                           rotary_dtype,
+                                                          use_fused_rope=use_fused_rope,
                                                           seq_length=seq_length,
                                                           seq_split_num=parallel_config.seq_split_num)
         self.seq_pipe = parallel_config.seq_split_num > 1
@@ -617,8 +618,6 @@ class DeepSeekV2Attention(nn.Cell):
             self.not_equal_seq1 = P.NotEqual()
             self.seq_split_size = Tensor(self.seq_split_num - 1, dtype=mstype.int32)
             self.tile_kv1 = P.Tile().shard(((dp, 1, 1, 1),))
-        self.apply_rotary_emb = DeepSeekV2RotaryEmbedding(self.qk_rope_head_dim, rotary_dtype,
-                                                          use_fused_rope=use_fused_rope)
 
         if parallel_config.recompute.select_recompute and not self.use_flash_attention:
             self.apply_rotary_emb.recompute()
