@@ -19,11 +19,12 @@ transform huggingface model to mindspore ckpt.
 import argparse
 import json
 import os
-from glob import glob
+from collections import defaultdict
 
 import mindspore as ms
 import torch
 from safetensors.torch import load_file
+
 
 dtype_map = {
     'fp32': ms.float32,
@@ -38,7 +39,10 @@ default_config = {
     'qk_rope_head_dim': 64,
     'v_head_dim': 128,
     'num_layers': 61,
+    'num_nextn_predict_layers': 1,
+    'first_k_dense_replace': 3,
     'dtype': ms.bfloat16,
+    'use_gemm': False,
     'save_format': "safetensors"
 }
 
@@ -87,9 +91,35 @@ def weight_dequant(weight: torch.Tensor, scale: torch.Tensor, block_size: int = 
     return dequantized_weight
 
 
-def name_replace(weight_name: str):
-    """replace weight name"""
+def dequant_layer_weights(layer_id, pt_layer_weights):
+    """Dequanting weights in a layer"""
+    dequanted_weights = {}
+    for weight_name, weight in pt_layer_weights.items():
+        if weight_name.endswith("_scale_inv"):
+            continue
+        elif weight.element_size() == 1 and (f"model.layers.{layer_id}." in weight_name):  # FP8 weight
+            scale_inv_name = f"{weight_name}_scale_inv"
+            try:
+                # Get scale_inv from the correct file
+                scale_inv = pt_layer_weights.get(scale_inv_name)
+                dequanted_weights[weight_name] = weight_dequant(weight, scale_inv)
+            except KeyError:
+                print(f"Warning: Missing scale_inv tensor for {weight_name}, skipping dequanting")
+                dequanted_weights[weight_name] = weight
+        else:
+            dequanted_weights[weight_name] = weight
+    return dequanted_weights
+
+
+def plain_name_replace(weight_name: str):
+    """Weight name replacing for pre/post-process module"""
     weight_name = weight_name.replace('embed_tokens.weight', 'tok_embeddings.embedding_weight')
+    weight_name = weight_name.replace('model.norm.weight', 'model.norm_out.weight')
+    return weight_name
+
+
+def mla_name_replace(weight_name: str):
+    """Weight name replacing for MLA module weights"""
     weight_name = weight_name.replace('.self_attn.q_proj.', '.attention.q_proj.')
     weight_name = weight_name.replace('.self_attn.q_a_proj.', '.attention.q2l_proj.')
     weight_name = weight_name.replace('.self_attn.q_a_layernorm.', '.attention.lq_norm.')
@@ -98,19 +128,22 @@ def name_replace(weight_name: str):
     weight_name = weight_name.replace('.self_attn.kv_a_layernorm.', '.attention.lkv_norm.')
     weight_name = weight_name.replace('.self_attn.kv_b_proj.', '.attention.lkv2kv.')
     weight_name = weight_name.replace('.self_attn.o_proj.', '.attention.wo.')
+    weight_name = weight_name.replace('.input_layernorm.', '.attention_norm.')
+    weight_name = weight_name.replace('.post_attention_layernorm.', '.ffn_norm.')
+    return weight_name
+
+
+def mlp_name_replace(weight_name: str):
+    """Weight name replacing for MLP module, including MoE"""
     weight_name = weight_name.replace('mlp.gate_proj.', 'feed_forward.w1.')
     weight_name = weight_name.replace('mlp.down_proj.', 'feed_forward.w2.')
     weight_name = weight_name.replace('mlp.up_proj.', 'feed_forward.w3.')
-    weight_name = weight_name.replace('mlp.experts.', 'feed_forward.ffn.')
     weight_name = weight_name.replace('mlp.shared_experts.gate_proj.', 'feed_forward.shared_experts.w1.')
     weight_name = weight_name.replace('mlp.shared_experts.down_proj.', 'feed_forward.shared_experts.w2.')
     weight_name = weight_name.replace('mlp.shared_experts.up_proj.', 'feed_forward.shared_experts.w3.')
     weight_name = weight_name.replace('mlp.gate.weight', 'feed_forward.routed_experts.router.dense.weight')
     weight_name = weight_name.replace('mlp.gate.e_score_correction_bias',
                                       'feed_forward.routed_experts.router.router.topk_bias')
-    weight_name = weight_name.replace('.input_layernorm.', '.attention_norm.')
-    weight_name = weight_name.replace('.post_attention_layernorm.', '.ffn_norm.')
-    weight_name = weight_name.replace('model.norm.weight', 'model.norm_out.weight')
     return weight_name
 
 
@@ -118,257 +151,316 @@ def mtp_name_replace(weight_name: str, current_layer_id: int, mtp_layer_id: int)
     """replace weight name for MultiPredictionToken module"""
     weight_name = weight_name.replace(f"model.layers.{current_layer_id}.enorm",
                                       f"model.mtp_hidden_fusers.{mtp_layer_id}.norm_emb")
-    weight_name = weight_name.replace(
-        f"model.layers.{current_layer_id}.hnorm", f"model.mtp_hidden_fusers.{mtp_layer_id}.norm")
+    weight_name = weight_name.replace(f"model.layers.{current_layer_id}.hnorm",
+                                      f"model.mtp_hidden_fusers.{mtp_layer_id}.norm")
     weight_name = weight_name.replace(f"model.layers.{current_layer_id}.eh_proj",
                                       f"model.mtp_hidden_fusers.{mtp_layer_id}.dense")
     return weight_name
+
+
+def layers_model_file_map(file_path):
+    """Get weight-file map"""
+    layer_st_map = defaultdict(set)
+    weight_map_file = os.path.join(file_path, "model.safetensors.index.json")
+    with open(weight_map_file) as f:
+        weights_map = json.load(f)
+    weights_map = weights_map["weight_map"]
+
+    for weight_key, value in weights_map.items():
+        if weight_key.startswith("model.layers."):
+            layer_name = int(weight_key.split('model.layers.')[1].split('.')[0])
+            layer_st_map[layer_name].add(os.path.join(file_path, value))
+        else:
+            layer_st_map[weight_key].add(os.path.join(file_path, value))
+    return layer_st_map
+
+
+def load_data_pt(file_name):
+    return load_file(file_name, device="cpu")
+
+
+def read_matched_file_pt(layer_st_map, layer_list, is_first, is_last):
+    """Load weights into dict for specified layers"""
+    st_file_list = []
+    for layer in layer_list:
+        st_file_list.extend(list(layer_st_map[layer]))
+    if is_first:
+        st_file_list.extend(list(layer_st_map["model.embed_tokens.weight"]))
+    if is_last:
+        st_file_list.extend(list(layer_st_map["model.norm.weight"]))
+        st_file_list.extend(list(layer_st_map["lm_head.weight"]))
+    st_file_list = list(set(st_file_list))
+    weights = {}
+    for st_file in st_file_list:
+        current_weight = load_data_pt(st_file)
+        weights.update(current_weight)
+    return weights
+
+
+def _mla_pt_to_ms(layer_id, pt_layer_weights, config):
+    """Processing weights in MLA module"""
+    n_head = config['n_head']
+    qk_nope_head_dim = config['qk_nope_head_dim']
+    qk_rope_head_dim = config['qk_rope_head_dim']
+    v_head_dim = config['v_head_dim']
+
+    q_a_proj_key = f"model.layers.{layer_id}.self_attn.q_a_proj.weight"
+    kv_a_proj_key = f"model.layers.{layer_id}.self_attn.kv_a_proj_with_mqa.weight"
+    o_proj_key = f"model.layers.{layer_id}.self_attn.o_proj.weight"
+    q_a_layernorm_key = f"model.layers.{layer_id}.self_attn.q_a_layernorm.weight"
+    kv_a_layernorm_key = f"model.layers.{layer_id}.self_attn.kv_a_layernorm.weight"
+    q_b_proj_key = f"model.layers.{layer_id}.self_attn.q_b_proj.weight"
+    kv_b_proj_key = f"model.layers.{layer_id}.self_attn.kv_b_proj.weight"
+    input_norm_key = f"model.layers.{layer_id}.input_layernorm.weight"
+    post_attn_norm_key = f"model.layers.{layer_id}.post_attention_layernorm.weight"
+
+    q_a_proj = pt_layer_weights.pop(q_a_proj_key)
+    kv_a_proj = pt_layer_weights.pop(kv_a_proj_key)
+    o_proj = pt_layer_weights.pop(o_proj_key)
+    q_a_layernorm = pt_layer_weights.pop(q_a_layernorm_key)
+    kv_a_layernorm = pt_layer_weights.pop(kv_a_layernorm_key)
+    q_b_proj = pt_layer_weights.pop(q_b_proj_key)
+    kv_b_proj = pt_layer_weights.pop(kv_b_proj_key)
+    input_norm = pt_layer_weights.pop(input_norm_key)
+    post_attn_norm = pt_layer_weights.pop(post_attn_norm_key)
+
+    mla_weight_dict = defaultdict()
+    # split q_b_proj
+    qk_head_dim = qk_nope_head_dim + qk_rope_head_dim
+    qk_nope, qk_rope = q_b_proj.reshape(n_head, qk_head_dim, -1).split([qk_nope_head_dim, qk_rope_head_dim], dim=1)
+    qk_rope = qk_rope.reshape(qk_rope.shape[0], qk_rope.shape[1] // 2, 2, -1).permute(0, 2, 1, 3)
+    qk_nope = qk_nope.reshape(-1, qk_nope.shape[-1])
+    qk_rope = qk_rope.reshape(-1, qk_rope.shape[-1])
+    qk_nope_key = mla_name_replace(q_b_proj_key).replace(".l2q_proj.", ".l2q_nope_proj.")
+    qk_rope_key = mla_name_replace(q_b_proj_key).replace(".l2q_proj.", ".l2q_pe_proj.")
+    mla_weight_dict[qk_nope_key] = qk_nope.clone()
+    mla_weight_dict[qk_rope_key] = qk_rope.clone()
+    # split kv_a_proj
+    kv_lora_rank = kv_a_proj.shape[0] - qk_rope_head_dim
+    latent_kv, k_rope = kv_a_proj.split([kv_lora_rank, qk_rope_head_dim], dim=0)
+    k_rope = k_rope.reshape(k_rope.shape[0] // 2, 2, -1).permute(1, 0, 2).reshape(-1, k_rope.shape[-1])
+    latent_kv_key = mla_name_replace(kv_a_proj_key).replace(".kv2l.", ".kv2l_latent_kv.")
+    k_rope_key = mla_name_replace(kv_a_proj_key).replace(".kv2l.", ".kv2l_k_pe.")
+    mla_weight_dict[latent_kv_key] = latent_kv.clone()
+    mla_weight_dict[k_rope_key] = k_rope.clone()
+    # split kv_b_proj
+    kv_head_dim = qk_nope_head_dim + v_head_dim
+    k_nope, v = kv_b_proj.reshape(n_head, kv_head_dim, -1).split([qk_nope_head_dim, v_head_dim], dim=1)
+    k_nope = k_nope.reshape(-1, k_nope.shape[-1])
+    v = v.reshape(-1, v.shape[-1])
+    k_nope_key = mla_name_replace(kv_b_proj_key).replace(".lkv2kv.", ".lkv2kv_k_nope.")
+    v_key = mla_name_replace(kv_b_proj_key).replace(".lkv2kv.", ".lkv2kv_v.")
+    mla_weight_dict[k_nope_key] = k_nope
+    mla_weight_dict[v_key] = v
+    # process q_a_proj, o_proj, and layernorms
+    q_a_proj_key = mla_name_replace(q_a_proj_key)
+    mla_weight_dict[q_a_proj_key] = q_a_proj.clone()
+    o_proj_key = mla_name_replace(o_proj_key)
+    mla_weight_dict[o_proj_key] = o_proj.clone()
+    q_a_layernorm_key = mla_name_replace(q_a_layernorm_key)
+    mla_weight_dict[q_a_layernorm_key] = q_a_layernorm.clone()
+    kv_a_layernorm_key = mla_name_replace(kv_a_layernorm_key)
+    mla_weight_dict[kv_a_layernorm_key] = kv_a_layernorm.clone()
+    input_norm_key = mla_name_replace(input_norm_key)
+    mla_weight_dict[input_norm_key] = input_norm.clone()
+    post_attn_norm_key = mla_name_replace(post_attn_norm_key)
+    mla_weight_dict[post_attn_norm_key] = post_attn_norm.clone()
+
+    return mla_weight_dict
+
+
+def _mlp_pt_to_ms(layer_id, pt_layer_weights, config):
+    """Processing weights in MLP/MoE module"""
+    num_routed_experts = config['num_routed_experts']
+    first_k_dense_replace = config['first_k_dense_replace']
+    use_gemm = config['use_gemm']
+
+    mlp_weight_dict = defaultdict()
+    if layer_id < first_k_dense_replace:
+        gate_proj_key = f"model.layers.{layer_id}.mlp.gate_proj.weight"
+        up_proj_key = f"model.layers.{layer_id}.mlp.up_proj.weight"
+        down_proj_key = f"model.layers.{layer_id}.mlp.down_proj.weight"
+        gate_proj = pt_layer_weights.pop(gate_proj_key)
+        up_proj = pt_layer_weights.pop(up_proj_key)
+        down_proj = pt_layer_weights.pop(down_proj_key)
+
+        gate_proj_key = mlp_name_replace(gate_proj_key)
+        up_proj_key = mlp_name_replace(up_proj_key)
+        down_proj_key = mlp_name_replace(down_proj_key)
+        mlp_weight_dict[gate_proj_key] = gate_proj.clone()
+        mlp_weight_dict[up_proj_key] = up_proj.clone()
+        mlp_weight_dict[down_proj_key] = down_proj.clone()
+    else:
+        router_weight_key = f"model.layers.{layer_id}.mlp.gate.weight"
+        router_correct_bias_key = f"model.layers.{layer_id}.mlp.gate.e_score_correction_bias"
+        shared_experts_gate_proj_key = f"model.layers.{layer_id}.mlp.shared_experts.gate_proj.weight"
+        shared_experts_up_proj_key = f"model.layers.{layer_id}.mlp.shared_experts.up_proj.weight"
+        shared_experts_down_proj_key = f"model.layers.{layer_id}.mlp.shared_experts.down_proj.weight"
+        router_weight = pt_layer_weights.pop(router_weight_key)
+        router_weight = router_weight[:num_routed_experts, :]
+        router_correct_bias = pt_layer_weights.pop(router_correct_bias_key)
+        router_correct_bias = router_correct_bias[:num_routed_experts]
+        shared_experts_gate_proj = pt_layer_weights.pop(shared_experts_gate_proj_key)
+        shared_experts_up_proj = pt_layer_weights.pop(shared_experts_up_proj_key)
+        shared_experts_down_proj = pt_layer_weights.pop(shared_experts_down_proj_key)
+
+        gate_proj_list = []
+        up_proj_list = []
+        down_proj_list = []
+        for expert_id in range(num_routed_experts):
+            gate_proj_key = f"model.layers.{layer_id}.mlp.experts.{expert_id}.gate_proj.weight"
+            up_proj_key = f"model.layers.{layer_id}.mlp.experts.{expert_id}.up_proj.weight"
+            down_proj_key = f"model.layers.{layer_id}.mlp.experts.{expert_id}.down_proj.weight"
+            gate_proj = pt_layer_weights.pop(gate_proj_key)
+            up_proj = pt_layer_weights.pop(up_proj_key)
+            down_proj = pt_layer_weights.pop(down_proj_key)
+            gate_proj_list.append(gate_proj)
+            up_proj_list.append(up_proj)
+            down_proj_list.append(down_proj)
+
+        expert_gate_proj = torch.stack(gate_proj_list, 0)
+        expert_up_proj = torch.stack(up_proj_list, 0)
+        expert_down_proj = torch.stack(down_proj_list, 0)
+
+        # replace name and store
+        router_weight_key = mlp_name_replace(router_weight_key)
+        router_correct_bias_key = mlp_name_replace(router_correct_bias_key)
+        shared_experts_gate_proj_key = mlp_name_replace(shared_experts_gate_proj_key)
+        shared_experts_up_proj_key = mlp_name_replace(shared_experts_up_proj_key)
+        shared_experts_down_proj_key = mlp_name_replace(shared_experts_down_proj_key)
+        mlp_weight_dict[router_weight_key] = router_weight.clone()
+        mlp_weight_dict[router_correct_bias_key] = router_correct_bias.clone()
+        mlp_weight_dict[shared_experts_gate_proj_key] = shared_experts_gate_proj.clone()
+        mlp_weight_dict[shared_experts_up_proj_key] = shared_experts_up_proj.clone()
+        mlp_weight_dict[shared_experts_down_proj_key] = shared_experts_down_proj.clone()
+        # routed experts
+        expert_gate_proj_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w1.weight"
+        expert_up_proj_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w3.weight"
+        expert_down_proj_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w2.weight"
+        if use_gemm:
+            expert_gate_proj = expert_gate_proj.transpose(1, 2)
+            expert_up_proj = expert_up_proj.transpose(1, 2)
+            expert_down_proj = expert_down_proj.transpose(1, 2)
+        mlp_weight_dict[expert_gate_proj_key] = expert_gate_proj.clone()
+        mlp_weight_dict[expert_up_proj_key] = expert_up_proj.clone()
+        mlp_weight_dict[expert_down_proj_key] = expert_down_proj.clone()
+
+    return mlp_weight_dict
+
+
+def _mtp_pt_to_ms(layer_id, pt_layer_weights, config):
+    """Processing weights in MTP module, the shared weights will be ignored"""
+    num_layers = config["num_layers"]
+    mtp_layer_id = layer_id - num_layers
+    # ignore the shared emb_weights and lm head in mtp layers
+    pt_layer_weights.pop(f"model.layers.{layer_id}.embed_tokens.weight")
+    pt_layer_weights.pop(f"model.layers.{layer_id}.shared_head.norm.weight")
+    pt_layer_weights.pop(f"model.layers.{layer_id}.shared_head.head.weight")
+    enorm_key = f"model.layers.{layer_id}.enorm.weight"
+    hnorm_key = f"model.layers.{layer_id}.hnorm.weight"
+    e_proj_key = f"model.layers.{layer_id}.eh_proj.weight"
+
+    enorm = pt_layer_weights.pop(enorm_key)
+    hnorm = pt_layer_weights.pop(hnorm_key)
+    e_proj = pt_layer_weights.pop(e_proj_key)
+
+    mtp_weight_dict = defaultdict()
+    enorm_key = mtp_name_replace(enorm_key, layer_id, mtp_layer_id)
+    hnorm_key = mtp_name_replace(hnorm_key, layer_id, mtp_layer_id)
+    e_proj_key = mtp_name_replace(e_proj_key, layer_id, mtp_layer_id)
+    mtp_weight_dict[enorm_key] = enorm.clone()
+    mtp_weight_dict[hnorm_key] = hnorm.clone()
+    mtp_weight_dict[e_proj_key] = e_proj.clone()
+
+    return mtp_weight_dict
+
+
+def _model_preprocess_pt_to_ms(pt_layer_weights):
+    """Processing weights in prepross module"""
+    emb_weight_key = "model.embed_tokens.weight"
+    emb_weight = pt_layer_weights.pop(emb_weight_key)
+    emb_weight_key = plain_name_replace(emb_weight_key)
+
+    plain_weight_dict = defaultdict()
+    plain_weight_dict[emb_weight_key] = emb_weight.clone()
+
+    return plain_weight_dict
+
+
+def _model_postprocess_pt_to_ms(pt_layer_weights):
+    """Processing weights in postpross module"""
+    final_norm_key = "model.norm.weight"
+    lm_head_key = "lm_head.weight"
+    final_norm = pt_layer_weights.pop(final_norm_key)
+    lm_head = pt_layer_weights.pop(lm_head_key)
+
+    final_norm_key = plain_name_replace(final_norm_key)
+    lm_head_key = plain_name_replace(lm_head_key)
+
+    plain_weight_dict = defaultdict()
+    plain_weight_dict[final_norm_key] = final_norm.clone()
+    plain_weight_dict[lm_head_key] = lm_head.clone()
+
+    return plain_weight_dict
 
 
 def convert_pt_to_ms(input_path, output_path, config=None):
     """convert hf weight to ms."""
     if config is None:
         config = default_config
-
-    num_routed_experts = config['num_routed_experts']
     save_format = config['save_format']
 
     print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
-
-    torch.set_default_dtype(torch.bfloat16)
     os.makedirs(output_path, exist_ok=True)
-    model_index_file = os.path.join(input_path, "model.safetensors.index.json")
-    with open(model_index_file, "r") as f:
-        model_index = json.load(f)
-    weight_map = model_index["weight_map"]
+    layer_st_map = layers_model_file_map(input_path)
+    torch.set_default_dtype(torch.bfloat16)
 
-    # Cache for loaded safetensors files
-    loaded_files = {}
+    dtype = config["dtype"]
+    num_layers = config["num_layers"]
+    num_nextn_predict_layers = config["num_nextn_predict_layers"]
+    total_num_layers = num_layers + num_nextn_predict_layers
 
-    # Helper function to get tensor from the correct file
-    def get_tensor(tensor_name):
-        """
-        Retrieves a tensor from the cached safetensor files or loads it from disk if not cached.
-
-        Args:
-            tensor_name (str): The name of the tensor to retrieve.
-
-        Returns:
-            torch.Tensor: The retrieved tensor.
-
-        Raises:
-            KeyError: If the tensor does not exist in the safetensor file.
-        """
-        file_name = weight_map[tensor_name]
-        if file_name not in loaded_files:
-            file_path = os.path.join(input_path, file_name)
-            loaded_files[file_name] = load_file(file_path, device="cpu")
-        return loaded_files[file_name][tensor_name]
-
-    safetensor_files = list(glob(os.path.join(input_path, "*.safetensors")))
-    safetensor_files.sort()
-
-    experts_weight_count_max = 3 * int(num_routed_experts)
-    to_convert_weight_cache = {}
-    to_convert_layer_id_cache = set()
+    converted_st_map = defaultdict()
     num_saved_ckpt_files = 0
-
-    converted_weight_map = {}
-    # convert safetensor files one by one
-    for safetensor_file in safetensor_files:
-        file_name = os.path.basename(safetensor_file)
-        current_state_dict = load_file(safetensor_file, device="cpu")
-        loaded_files[file_name] = current_state_dict
+    for layer_id in range(total_num_layers):
+        if layer_id == 0:
+            pt_layer_weights = read_matched_file_pt(layer_st_map, [layer_id], is_first=True, is_last=False)
+        elif layer_id == total_num_layers - 1:
+            pt_layer_weights = read_matched_file_pt(layer_st_map, [layer_id], is_first=False, is_last=True)
+        else:
+            pt_layer_weights = read_matched_file_pt(layer_st_map, [layer_id], is_first=False, is_last=False)
 
         # first dequanting weights
-        for weight_name, weight in current_state_dict.items():
-            if weight_name.endswith("_scale_inv"):
-                continue
-            elif weight.element_size() == 1:  # FP8 weight
-                scale_inv_name = f"{weight_name}_scale_inv"
-                try:
-                    # Get scale_inv from the correct file
-                    scale_inv = get_tensor(scale_inv_name)
-                    to_convert_weight_cache[weight_name] = weight_dequant(weight, scale_inv)
-                except KeyError:
-                    print(f"Warning: Missing scale_inv tensor for {weight_name}, skipping dequanting")
-                    to_convert_weight_cache[weight_name] = weight
-            else:
-                to_convert_weight_cache[weight_name] = weight
-            if "model.layers." in weight_name and ("embed_tokens" in weight_name or "shared_head" in weight_name):
-                # ignore mtp shared token embedding and output head
-                to_convert_weight_cache.pop(weight_name)
-            try:
-                current_layer_id = int(weight_name.split('model.layers.')[-1].split('.')[0])
-                to_convert_layer_id_cache.add(current_layer_id)
-            except (ValueError, IndexError):
-                pass
+        pt_layer_weights = dequant_layer_weights(layer_id, pt_layer_weights)
 
-            # Memory management: keep only the 2 most recently used files
-            if len(loaded_files) > 2:
-                oldest_file = next(iter(loaded_files))
-                del loaded_files[oldest_file]
+        ms_layer_weights = defaultdict()
+        if layer_id == 0:
+            ms_layer_weights.update(_model_preprocess_pt_to_ms(pt_layer_weights))
+        ms_layer_weights.update(_mla_pt_to_ms(layer_id, pt_layer_weights, config))
+        ms_layer_weights.update(_mlp_pt_to_ms(layer_id, pt_layer_weights, config))
+        if layer_id > num_layers - 1:
+            ms_layer_weights.update(_mtp_pt_to_ms(layer_id, pt_layer_weights, config))
+        if layer_id == total_num_layers - 1:
+            ms_layer_weights.update(_model_postprocess_pt_to_ms(pt_layer_weights))
 
-        print("to_convert_layer_id_cache: ", to_convert_layer_id_cache)
-        # check whether the decoder layer weights are ready
-        ready_layer_id = set()
+        to_save_ckpt = []
+        saving_file = f"ms-model-{num_saved_ckpt_files:05d}.{save_format}"
+        for name in list(ms_layer_weights.keys()):
+            value = ms_layer_weights.pop(name).to(torch.float32).numpy()
+            tmp_dtype = dtype
+            if "norm" in name or "router.dense" in name or "topk_bias" in name:
+                tmp_dtype = ms.float32
+            to_save_ckpt.append({'name': name, 'data': ms.Tensor(value, dtype=tmp_dtype)})
+            converted_st_map[name] = saving_file
 
-        for layer_id in to_convert_layer_id_cache:
-            # since decoder layer ends with post attention layernorm
-            for weight_name in to_convert_weight_cache:
-                if f"model.layers.{layer_id}.post_attention_layernorm" in weight_name:
-                    ready_layer_id.add(layer_id)
+        ms.save_checkpoint(to_save_ckpt, os.path.join(output_path, saving_file), format=save_format)
+        num_saved_ckpt_files += 1
+        print(f"saving weights in layer-{layer_id} to file {saving_file}")
 
-        print("ready_layer_id: ", ready_layer_id)
-        # now converting ready layers into mindspore format
-        converted_weight_name, finished_weight_name, to_save_weights_list = \
-            convert_pt_to_ms_by_layer(experts_weight_count_max, ready_layer_id,
-                                      to_convert_weight_cache, config)
-
-        if converted_weight_name:
-            num_saved_ckpt_files += 1
-            saving_file = f"ms-model-{num_saved_ckpt_files:05d}.{save_format}"
-            ms.save_checkpoint(to_save_weights_list, os.path.join(output_path, saving_file), format=save_format)
-            for name in converted_weight_name:
-                converted_weight_map[name] = saving_file
-        # reset cache
-        for weight_name in finished_weight_name:
-            to_convert_weight_cache.pop(weight_name)
-        for layer_id in ready_layer_id:
-            to_convert_layer_id_cache.remove(layer_id)
-
-    # finally we rename saved files in format 'ms-model-{id}-of-{total}'
-    # generate weight map index file
-    converted_mdoel_index_file = os.path.join(output_path, f"ms-model.{save_format}.index.json")
-    with open(converted_mdoel_index_file, "w") as f:
-        json_string = json.dumps(converted_weight_map, default=lambda x: x.__dict__, sort_keys=False, indent=2)
+    converted_model_index_file = os.path.join(output_path, f"ms-model.{save_format}.index.json")
+    with open(converted_model_index_file, "w") as f:
+        json_string = json.dumps(converted_st_map, default=lambda x: x.__dict__, sort_keys=False, indent=2)
         f.write(json_string)
-
-    return True
-
-
-def convert_pt_to_ms_by_layer(experts_weight_count_max, ready_layer_id, to_convert_weight_cache, config):
-    """convert_pt_to_ms_by_layer"""
-
-    n_head = config['n_head']
-    qk_nope_head_dim = config['qk_nope_head_dim']
-    qk_rope_head_dim = config['qk_rope_head_dim']
-    v_head_dim = config['v_head_dim']
-    num_layers = config['num_layers']
-    dtype = config['dtype']
-
-    expert_weight_count = 0
-    expert_w1_list, expert_w2_list, expert_w3_list = [], [], []
-    to_save_weights_list = []
-    converted_weight_name = []
-    finished_weight_name = []
-    for weight_name in to_convert_weight_cache:
-        value = to_convert_weight_cache.get(weight_name)
-        try:
-            current_layer_id = int(weight_name.split('model.layers.')[-1].split('.')[0])
-        except (ValueError, IndexError):
-            current_layer_id = -1
-
-        name = name_replace(weight_name)
-        if current_layer_id in ready_layer_id:
-            # do MLA weight splitting
-            if ".attention.l2q_proj" in name:
-                q_head = qk_nope_head_dim + qk_rope_head_dim
-                value = value.reshape(n_head, q_head, -1)
-                value_nope, value_pe = value[:, :qk_nope_head_dim, :], value[:, qk_nope_head_dim:, :]
-                value_pe = value_pe.reshape(value_pe.shape[0], value_pe.shape[1] // 2, 2, -1).permute(0, 2, 1, 3)
-                value_nope = value_nope.reshape(-1, value_nope.shape[-1]).to(torch.float32).numpy()
-                value_pe = value_pe.reshape(-1, value_pe.shape[-1]).to(torch.float32).numpy()
-                name_lt = name.split(".attention.l2q_proj.")
-                name_nope = name_lt[0] + ".attention.l2q_nope_proj." + name_lt[-1]
-                to_save_weights_list.append({'name': name_nope, 'data': ms.Tensor(value_nope, dtype=dtype)})
-                name_pe = name_lt[0] + ".attention.l2q_pe_proj." + name_lt[-1]
-                to_save_weights_list.append({'name': name_pe, 'data': ms.Tensor(value_pe, dtype=dtype)})
-                converted_weight_name.append(name_nope)
-                converted_weight_name.append(name_pe)
-            elif ".attention.kv2l." in name:
-                kv_lora_rank = value.shape[0] - qk_rope_head_dim
-                value_latent_kv, value_k_pe = value[:kv_lora_rank, :], value[kv_lora_rank:, :]
-                value_k_pe = value_k_pe.reshape(value_k_pe.shape[0] // 2, 2, -1).permute(1, 0, 2)
-                value_k_pe = value_k_pe.reshape(-1, value_k_pe.shape[-1]).to(torch.float32).numpy()
-                value_latent_kv = value_latent_kv.to(torch.float32).numpy()
-                name_lt = name.split(".attention.kv2l.")
-                name_k = name_lt[0] + ".attention.kv2l_k_pe." + name_lt[-1]
-                to_save_weights_list.append({'name': name_k, 'data': ms.Tensor(value_k_pe, dtype=dtype)})
-                name_kv = name_lt[0] + ".attention.kv2l_latent_kv." + name_lt[-1]
-                to_save_weights_list.append({'name': name_kv, 'data': ms.Tensor(value_latent_kv, dtype=dtype)})
-                converted_weight_name.append(name_k)
-                converted_weight_name.append(name_kv)
-            elif ".attention.lkv2kv." in name:
-                lkv2kv_head = qk_nope_head_dim + v_head_dim
-                value = value.reshape(n_head, lkv2kv_head, -1)
-                value_k_nope, value_v = value[:, :qk_nope_head_dim, :], value[:, qk_nope_head_dim:, :]
-                value_k_nope = value_k_nope.reshape(-1, value_k_nope.shape[-1]).to(torch.float32).numpy()
-                value_v = value_v.reshape(-1, value_v.shape[-1]).to(torch.float32).numpy()
-                name_lt = name.split(".attention.lkv2kv.")
-                name_k = name_lt[0] + ".attention.lkv2kv_k_nope." + name_lt[-1]
-                to_save_weights_list.append({'name': name_k, 'data': ms.Tensor(value_k_nope, dtype=dtype)})
-                name_v = name_lt[0] + ".attention.lkv2kv_v." + name_lt[-1]
-                to_save_weights_list.append({'name': name_v, 'data': ms.Tensor(value_v, dtype=dtype)})
-                converted_weight_name.append(name_k)
-                converted_weight_name.append(name_v)
-
-            elif 'feed_forward.ffn' in name:
-                # concat routed expert mlp weight
-                add_to_expert_list(expert_w1_list, expert_w2_list, expert_w3_list, name, value)
-                expert_weight_count += 1
-                if expert_weight_count == experts_weight_count_max:
-                    str_front = name.split('ffn')[0]
-                    stack_expert(converted_weight_name, dtype, expert_w1_list,
-                                 str_front + 'routed_experts.ffn.w1.weight', to_save_weights_list)
-                    stack_expert(converted_weight_name, dtype, expert_w2_list,
-                                 str_front + 'routed_experts.ffn.w2.weight', to_save_weights_list)
-                    stack_expert(converted_weight_name, dtype, expert_w3_list,
-                                 str_front + 'routed_experts.ffn.w3.weight', to_save_weights_list)
-                    # reset
-                    expert_weight_count = 0
-                    expert_w1_list, expert_w2_list, expert_w3_list = [], [], []
-            else:
-                mtp_layer_id = current_layer_id - num_layers
-                # ignore the shared token embedding and head weight
-                if "embed_tokens" in name or "shared_head" in name:
-                    continue
-                if mtp_layer_id > -1:
-                    # process mtp_layer
-                    name = mtp_name_replace(name, current_layer_id, mtp_layer_id)
-                if "norm" in name or "router.dense" in name or "topk_bias" in name:
-                    tmp_dtype = ms.float32
-                else:
-                    tmp_dtype = dtype
-                ms_value = value.to(torch.float32).numpy()
-                to_save_weights_list.append({'name': name, 'data': ms.Tensor(ms_value, dtype=tmp_dtype)})
-                converted_weight_name.append(name)
-
-            finished_weight_name.append(weight_name)
-        if current_layer_id == -1:
-            ms_value = value.to(torch.float32).numpy()
-            to_save_weights_list.append({'name': name, 'data': ms.Tensor(ms_value, dtype=dtype)})
-            converted_weight_name.append(name)
-            finished_weight_name.append(weight_name)
-    return converted_weight_name, finished_weight_name, to_save_weights_list
-
-
-def stack_expert(converted_weight_name, dtype, expert_w1_list, name,
-                 to_save_weights_list):
-    """stack_expert"""
-    value = torch.stack(expert_w1_list, 0).to(torch.float32).numpy()
-    to_save_weights_list.append({'name': name, 'data': ms.Tensor(value, dtype=dtype)})
-    converted_weight_name.append(name)
-
-
-def add_to_expert_list(expert_w1_list, expert_w2_list, expert_w3_list, name, value):
-    """add_to_expert_list"""
-    if "gate_proj" in name:  # gate_proj
-        expert_w1_list.append(value)
-    if "down_proj" in name:  # down_proj
-        expert_w2_list.append(value)
-    if "up_proj" in name:  # up_proj
-        expert_w3_list.append(value)
 
 
 def convert_ms_to_gmm(input_path, output_path):
@@ -387,18 +479,20 @@ def convert_ms_to_gmm(input_path, output_path):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--num_routed_experts', default=256)
-    parser.add_argument('--torch_ckpt_path', default=None)
-    parser.add_argument('--mindspore_ckpt_path', default=None)
+    parser.add_argument('--num_routed_experts', default=256, type=int)
+    parser.add_argument('--torch_ckpt_path', default=None, type=str)
+    parser.add_argument('--mindspore_ckpt_path', default=None, type=str)
     parser.add_argument('--use_gmm', action='store_true')
-    parser.add_argument('--pre_ckpt_path', default=None)
+    parser.add_argument('--pre_ckpt_path', default=None, type=str)
     parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'])
     parser.add_argument("--num_layers", default=61, type=int)
+    parser.add_argument("--num_nextn_predict_layers", default=1, type=int)
+    parser.add_argument("--first_k_dense_replace", default=3, type=int)
     parser.add_argument("--n_head", default=128, type=int)
     parser.add_argument("--qk_nope_head_dim", default=128, type=int)
     parser.add_argument("--qk_rope_head_dim", default=64, type=int)
     parser.add_argument("--v_head_dim", default=128, type=int)
-    parser.add_argument("--save_format", default="safetensors")
+    parser.add_argument("--save_format", default="safetensors", choices=["safetensors", "ckpt"])
 
     args = parser.parse_args()
 
