@@ -379,4 +379,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, help='test mode of llama2 model.')
 
     args = parser.parse_args()
-    TEST_MAP[args.mode]()
+    if args.mode != 'parallel_qwen2_0_5b_predict_mp2':
+        TEST_MAP[args.mode]()
+    else:
+        logger.warning('parallel_qwen2_0_5b_predict_mp2 is temporarily offline!!!!!!')

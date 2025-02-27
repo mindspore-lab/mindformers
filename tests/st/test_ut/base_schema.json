@@ -95,6 +95,15 @@
     "mindformers.core.CheckpointMonitor.save_checkpoint": {
         "signature": "(self, cb_params)"
     },
+    "mindformers.core.CheckpointMonitor._get_cur_dp": {
+        "signature": "(self, cur_rank, parameter_redundancy_dict)"
+    },
+    "mindformers.core.CheckpointMonitor._tft_save_ckpt": {
+        "signature": "(self, param_layout_set, save_param_names, cur_file, append_dict, network)"
+    },
+    "mindformers.core.CheckpointMonitor._do_remove_redundancy_for_tft": {
+        "signature": "(self, redundancy_info, cur_file, network, append_dict)"
+    },
     "mindformers.core.CheckpointMonitor.remove_redundancy": {
         "signature": "(self, network, cur_file, append_dict, train_network)"
     },
@@ -350,8 +359,50 @@
     "mindformers.core.SummaryMonitor": {
         "signature": "(summary_dir=None, collect_freq=10, collect_specified_data=None, keep_default_action=True, custom_lineage_data=None, collect_tensor_freq=None, max_file_size=None, export_options=None)"
     },
+    "mindformers.core.TrainingStateMonitor": {
+        "signature": "(origin_epochs: int, config: dict = None, per_print_times: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0)"
+    },
+    "mindformers.core.TrainingStateMonitor.epoch_begin": {
+        "signature": "(self, run_context)"
+    },
+    "mindformers.core.TrainingStateMonitor.epoch_end": {
+        "signature": "(self, run_context)"
+    },
+    "mindformers.core.TrainingStateMonitor.step_begin": {
+        "signature": "(self, run_context)"
+    },
+    "mindformers.core.TrainingStateMonitor.step_end": {
+        "signature": "(self, run_context)"
+    },
+    "mindformers.core.TrainingStateMonitor._init_config": {
+        "signature": "(self, config)"
+    },
+    "mindformers.core.TrainingStateMonitor._check_attr_formats": {
+        "signature": "(self, attr)"
+    },
+    "mindformers.core.TrainingStateMonitor._parse_step": {
+        "signature": "(self)"
+    },
+    "mindformers.core.TrainingStateMonitor._dump_data_in_step": {
+        "signature": "(self, global_step)"
+    },
+    "mindformers.core.TrainingStateMonitor._dump_optimizer_state": {
+        "signature": "(self, cb_params)"
+    },
+    "mindformers.core.TrainingStateMonitor._check_param_name": {
+        "signature": "(self, param_name)"
+    },
+    "mindformers.core.TrainingStateMonitor._to_tensorboard": {
+        "signature": "(self, tag, data, global_step)"
+    },
+    "mindformers.core.TrainingStateMonitor._to_log": {
+        "signature": "(self, tag, data, global_step)"
+    },
+    "mindformers.core.TrainingStateMonitor._output": {
+        "signature": "(self, tag, data, global_step, formats)"
+    },
     "mindformers.core.build_context": {
-        "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments])"
+        "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments], is_set_ms_ctx=True, is_init_ms=True)"
     },
     "mindformers.core.get_context": {
         "signature": "(attr_key)"
@@ -373,6 +424,15 @@
     },
     "mindformers.core.callback.CheckpointMonitor.save_checkpoint": {
         "signature": "(self, cb_params)"
+    },
+    "mindformers.core.callback.CheckpointMonitor._get_cur_dp": {
+        "signature": "(self, cur_rank, parameter_redundancy_dict)"
+    },
+    "mindformers.core.callback.CheckpointMonitor._tft_save_ckpt": {
+        "signature": "(self, param_layout_set, save_param_names, cur_file, append_dict, network)"
+    },
+    "mindformers.core.callback.CheckpointMonitor._do_remove_redundancy_for_tft": {
+        "signature": "(self, redundancy_info, cur_file, network, append_dict)"
     },
     "mindformers.core.callback.CheckpointMonitor.remove_redundancy": {
         "signature": "(self, network, cur_file, append_dict, train_network)"
@@ -449,6 +509,48 @@
     "mindformers.core.callback.SummaryMonitor": {
         "signature": "(summary_dir=None, collect_freq=10, collect_specified_data=None, keep_default_action=True, custom_lineage_data=None, collect_tensor_freq=None, max_file_size=None, export_options=None)"
     },
+    "mindformers.core.callback.TrainingStateMonitor": {
+        "signature": "(origin_epochs: int, config: dict = None, per_print_times: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor.epoch_begin": {
+        "signature": "(self, run_context)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor.epoch_end": {
+        "signature": "(self, run_context)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor.step_begin": {
+        "signature": "(self, run_context)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor.step_end": {
+        "signature": "(self, run_context)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor._init_config": {
+        "signature": "(self, config)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor._check_attr_formats": {
+        "signature": "(self, attr)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor._parse_step": {
+        "signature": "(self)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor._dump_data_in_step": {
+        "signature": "(self, global_step)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor._dump_optimizer_state": {
+        "signature": "(self, cb_params)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor._check_param_name": {
+        "signature": "(self, param_name)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor._to_tensorboard": {
+        "signature": "(self, tag, data, global_step)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor._to_log": {
+        "signature": "(self, tag, data, global_step)"
+    },
+    "mindformers.core.callback.TrainingStateMonitor._output": {
+        "signature": "(self, tag, data, global_step, formats)"
+    },
     "mindformers.core.callback.callback.CheckpointMonitor": {
         "signature": "(prefix='CKP', directory=None, config=None, save_checkpoint_steps=1, save_checkpoint_seconds=0, keep_checkpoint_max=5, keep_checkpoint_per_n_minutes=0, integrated_save=True, save_network_params=True, save_trainable_params=False, async_save=False, saved_network=None, append_info=None, enc_key=None, enc_mode='AES-GCM', exception_save=False, global_batch_size=None, checkpoint_format='ckpt', remove_redundancy=False)"
     },
@@ -460,6 +562,15 @@
     },
     "mindformers.core.callback.callback.CheckpointMonitor.save_checkpoint": {
         "signature": "(self, cb_params)"
+    },
+    "mindformers.core.callback.callback.CheckpointMonitor._get_cur_dp": {
+        "signature": "(self, cur_rank, parameter_redundancy_dict)"
+    },
+    "mindformers.core.callback.callback.CheckpointMonitor._tft_save_ckpt": {
+        "signature": "(self, param_layout_set, save_param_names, cur_file, append_dict, network)"
+    },
+    "mindformers.core.callback.callback.CheckpointMonitor._do_remove_redundancy_for_tft": {
+        "signature": "(self, redundancy_info, cur_file, network, append_dict)"
     },
     "mindformers.core.callback.callback.CheckpointMonitor.remove_redundancy": {
         "signature": "(self, network, cur_file, append_dict, train_network)"
@@ -540,7 +651,7 @@
         "signature": "(summary_dir=None, collect_freq=10, collect_specified_data=None, keep_default_action=True, custom_lineage_data=None, collect_tensor_freq=None, max_file_size=None, export_options=None)"
     },
     "mindformers.core.context.build_context": {
-        "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments])"
+        "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments], is_set_ms_ctx=True, is_init_ms=True)"
     },
     "mindformers.core.context.get_context": {
         "signature": "(attr_key)"
@@ -1175,6 +1286,18 @@
     "mindformers.experimental.graph.ColumnParallelLinear.sharding_propagation": {
         "signature": "(self, config: mindformers.experimental.graph.transformer.transformer_config.TransformerConfig) -> None"
     },
+    "mindformers.experimental.graph.Dropout": {
+        "signature": "(drop_prob=0.5, dtype=mindspore.float32)"
+    },
+    "mindformers.experimental.graph.Dropout.construct": {
+        "signature": "(self, x)"
+    },
+    "mindformers.experimental.graph.Dropout.extend_repr": {
+        "signature": "(self)"
+    },
+    "mindformers.experimental.graph.Dropout.shard": {
+        "signature": "(self, strategy)"
+    },
     "mindformers.experimental.graph.FusedScaleMaskSoftmax": {
         "signature": "(input_in_fp16: bool = False, input_in_bf16: bool = False, attn_mask_type: mindformers.experimental.graph.transformer.enums.AttnMaskType = <AttnMaskType.causal: 2>, scaled_masked_softmax_fusion: bool = False, mask_func: Callable = None, softmax_in_fp32: bool = True, scale: float = None, config: mindformers.experimental.graph.transformer.transformer_config.TransformerConfig = None, softmax_compute_dtype: mindspore.common.dtype = None)"
     },
@@ -1405,6 +1528,18 @@
     },
     "mindformers.experimental.graph.transformer.AttnMaskType": {
         "signature": "(value, names=None, *, module=None, qualname=None, type=None, start=1)"
+    },
+    "mindformers.experimental.graph.transformer.Dropout": {
+        "signature": "(drop_prob=0.5, dtype=mindspore.float32)"
+    },
+    "mindformers.experimental.graph.transformer.Dropout.construct": {
+        "signature": "(self, x)"
+    },
+    "mindformers.experimental.graph.transformer.Dropout.extend_repr": {
+        "signature": "(self)"
+    },
+    "mindformers.experimental.graph.transformer.Dropout.shard": {
+        "signature": "(self, strategy)"
     },
     "mindformers.experimental.graph.transformer.FusedScaleMaskSoftmax": {
         "signature": "(input_in_fp16: bool = False, input_in_bf16: bool = False, attn_mask_type: mindformers.experimental.graph.transformer.enums.AttnMaskType = <AttnMaskType.causal: 2>, scaled_masked_softmax_fusion: bool = False, mask_func: Callable = None, softmax_in_fp32: bool = True, scale: float = None, config: mindformers.experimental.graph.transformer.transformer_config.TransformerConfig = None, softmax_compute_dtype: mindspore.common.dtype = None)"
@@ -3536,6 +3671,9 @@
     "mindformers.models.ChatGLM2ForConditionalGeneration.construct": {
         "signature": "(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, prefix_key_values=None, block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None, input_mask=None)"
     },
+    "mindformers.models.ChatGLM2ForConditionalGeneration.clear_kv_cache": {
+        "signature": "(self)"
+    },
     "mindformers.models.ChatGLM3Tokenizer": {
         "signature": "(vocab_file, bos_token='<sop>', eos_token='<eop>', end_token='</s>', mask_token='[MASK]', gmask_token='[gMASK]', pad_token='<pad>', unk_token='<unk>', **kwargs)"
     },
@@ -4829,6 +4967,9 @@
     "mindformers.models.glm2.ChatGLM2ForConditionalGeneration.construct": {
         "signature": "(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, prefix_key_values=None, block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None, input_mask=None)"
     },
+    "mindformers.models.glm2.ChatGLM2ForConditionalGeneration.clear_kv_cache": {
+        "signature": "(self)"
+    },
     "mindformers.models.glm2.ChatGLM3Tokenizer": {
         "signature": "(vocab_file, bos_token='<sop>', eos_token='<eop>', end_token='</s>', mask_token='[MASK]', gmask_token='[gMASK]', pad_token='<pad>', unk_token='<unk>', **kwargs)"
     },
@@ -4943,14 +5084,23 @@
     "mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration.construct": {
         "signature": "(self, input_ids=None, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, prefix_key_values=None, block_tables=None, slot_mapping=None, batch_index=None, zactivate_len=None, input_mask=None)"
     },
+    "mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration.clear_kv_cache": {
+        "signature": "(self)"
+    },
     "mindformers.models.glm2.glm2.ChatGLM2Model": {
         "signature": "(config: mindformers.models.glm2.glm2_config.ChatGLM2Config, **kwargs)"
+    },
+    "mindformers.models.glm2.glm2.ChatGLM2Model.shard_head_tail": {
+        "signature": "(self, config)"
     },
     "mindformers.models.glm2.glm2.ChatGLM2Model.get_masks": {
         "signature": "(self, batch_size, seq_len, padding_mask=None, input_position=None)"
     },
     "mindformers.models.glm2.glm2.ChatGLM2Model.construct": {
         "signature": "(self, input_ids, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, batch_valid_length=None, full_attention_mask=None, prefix_key_values=None, block_tables=None, slot_mapping=None)"
+    },
+    "mindformers.models.glm2.glm2.ChatGLM2Model.clear_kv_cache": {
+        "signature": "(self)"
     },
     "mindformers.models.glm2.glm2.ChatGLM2WithPtuning2": {
         "signature": "(config: mindformers.models.glm2.glm2_config.ChatGLM2Config = None, **kwargs)"
@@ -7178,6 +7328,9 @@
     "mindformers.trainer.Trainer": {
         "signature": "(args: Union[NoneType, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, str] = None, task: Optional[str] = 'general', model: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, str] = None, model_name: Optional[str] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, train_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, eval_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, data_collator: Optional[Callable] = None, optimizers: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, compute_metrics: Union[NoneType, dict, set] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, eval_callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, pet_method: Optional[str] = '', image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, audio_processor: Optional[mindformers.models.base_processor.BaseAudioProcessor] = None, save_config: bool = False, reset_model: bool = False)"
     },
+    "mindformers.trainer.Trainer._reassign_monitor_config": {
+        "signature": "(self)"
+    },
     "mindformers.trainer.Trainer.train": {
         "signature": "(self, train_checkpoint: Union[NoneType, bool, str] = False, resume_from_checkpoint: Union[NoneType, bool, str] = None, resume_training: Union[NoneType, bool, str] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: Optional[bool] = False)"
     },
@@ -7495,6 +7648,9 @@
     },
     "mindformers.trainer.trainer.Trainer": {
         "signature": "(args: Union[NoneType, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, str] = None, task: Optional[str] = 'general', model: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, str] = None, model_name: Optional[str] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, train_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, eval_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, data_collator: Optional[Callable] = None, optimizers: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, compute_metrics: Union[NoneType, dict, set] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, eval_callbacks: Union[List[mindspore.train.callback._callback.Callback, mindspore.train.callback._callback.Callback], NoneType] = None, pet_method: Optional[str] = '', image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, audio_processor: Optional[mindformers.models.base_processor.BaseAudioProcessor] = None, save_config: bool = False, reset_model: bool = False)"
+    },
+    "mindformers.trainer.trainer.Trainer._reassign_monitor_config": {
+        "signature": "(self)"
     },
     "mindformers.trainer.trainer.Trainer.train": {
         "signature": "(self, train_checkpoint: Union[NoneType, bool, str] = False, resume_from_checkpoint: Union[NoneType, bool, str] = None, resume_training: Union[NoneType, bool, str] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: Optional[bool] = False)"
