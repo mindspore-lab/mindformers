@@ -389,6 +389,13 @@ def check_tft_valid():
     return any(flag in env_enable for flag in required_flags)
 
 
+def check_arf_status(cb_params):
+    """check arf flag when using ARF, make sure that the number of operators executed by all nodes is consistent"""
+    if check_tft_valid() and ("ARF:1" in os.getenv("MS_ENABLE_TFT", "")):
+        return cb_params.is_arf
+    return False
+
+
 def check_swiglu_valid():
     """check mindspore version is valid for swiglu"""
     version_valid = is_version_ge(ms.__version__, "2.5.0")
