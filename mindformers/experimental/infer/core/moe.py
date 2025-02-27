@@ -413,6 +413,7 @@ class ParallelMoEV2(nn.Cell):
         self.moe_token_unpermute = MoeTokenUnpermute()
         self.moe_init_routing_v2 = MoeInitRoutingV2()
         self.reduce_from_mp_region = ReduceFromModelParallelRegion()
+        self.topk = ops.TopK()
 
     def construct(self, input_tensor):
         """forward process"""
@@ -426,14 +427,11 @@ class ParallelMoEV2(nn.Cell):
 
         # bias
         score = score + self.router.e_score_correction_bias
-        # n_group
+        # n_group + topk
         score = self.group_topk(score.astype(mstype.bfloat16), self.idx_arr, self.n_group,
                                 self.topk_group, self.group_topk_inner)
+        expert_index = self.topk(score, self.num_experts_chosen)[1]
 
-        # topk
-        expert_index = mint.topk(score, self.num_experts_chosen, dim=-1)[1]
-
-        expert_index = self.cast(expert_index, mstype.int32)
         sorted_input_tensor, unsort_map, group_list, _ = \
             self.moe_init_routing_v2(
                 input_tensor,

@@ -470,9 +470,18 @@ class DeepseekV3Attention(nn.Cell):
             )
 
         self.lkv_norm = RMSNorm(self.kv_lora_rank, norm_eps, compute_type=layernorm_compute_dtype)
-        self.lkv2kv = ColumnParallelLinear(
+        self.lkv2kv_k_nope = ColumnParallelLinear(
             self.kv_lora_rank,
-            self.n_head * (self.qk_nope_head_dim + self.v_head_dim),
+            self.n_head * self.qk_nope_head_dim,
+            config=parallel_config,
+            bias=qkv_has_bias,
+            param_init_type=param_init_type,
+            compute_dtype=compute_dtype
+        )
+
+        self.lkv2kv_v = ColumnParallelLinear(
+            self.kv_lora_rank,
+            self.n_head * self.v_head_dim,
             config=parallel_config,
             bias=qkv_has_bias,
             param_init_type=param_init_type,
@@ -556,9 +565,10 @@ class DeepseekV3Attention(nn.Cell):
         q_nope = ops.depend(q_nope, key_out)
 
         if self.is_first_iteration:
-            o_kv = self.lkv2kv(i_kv)
-            kv = self.reshape(o_kv, (bs, seq_len, self.n_local_heads, self.qk_nope_head_dim + self.v_head_dim))
-            k_nope, value_states = mint.split(kv, [self.qk_nope_head_dim, self.v_head_dim], dim=-1)
+            o_k_nope = self.lkv2kv_k_nope(i_kv)
+            o_v = self.lkv2kv_v(i_kv)
+            k_nope = self.reshape(o_k_nope, (bs, seq_len, self.n_local_heads, self.qk_nope_head_dim))
+            value_states = self.reshape(o_v, (bs, seq_len, self.n_local_heads, self.v_head_dim))
             query_states = self.pe_concat((q_nope, q_pe))
             k_pe = self.tile_kv(k_pe, (1, 1, self.n_local_heads, 1))
             key_states = self.pe_concat((k_nope, k_pe))
@@ -579,8 +589,8 @@ class DeepseekV3Attention(nn.Cell):
             output = self.cast(output, ori_dtype)
             return output
 
-        kv_b_proj = self.lkv2kv.weight.view(self.n_local_heads, -1, self.kv_lora_rank)
-        q_absorb, out_absorb = mint.split(kv_b_proj, [self.qk_nope_head_dim, self.v_head_dim], dim=1)
+        q_absorb = self.lkv2kv_k_nope.weight.view(self.n_local_heads, self.qk_nope_head_dim, self.kv_lora_rank)
+        out_absorb = self.lkv2kv_v.weight.view(self.n_local_heads, self.v_head_dim, self.kv_lora_rank)
         q_nope = self.qabsorb_matmul(q_nope.transpose(0, 2, 1, 3), q_absorb).transpose(0, 2, 1, 3)
         query_states = self.pe_concat((q_nope, q_pe))
         query_states = query_states.view(bs, seq_len, -1)
