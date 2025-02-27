@@ -56,7 +56,7 @@ Qwen-VL 是阿里云研发的大规模视觉语言模型（Large Vision Language
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 ### 数据及权重准备
 
@@ -235,7 +235,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 2. 启动微调任务
 
-   多机训练需要分别在不同节点执行命令，以下为2机16卡训练过程，参数说明以及使用更多节点参考[msrun方式启动](../../README.md#方式一使用已有脚本启动)
+   多机训练需要分别在不同节点执行命令，以下为2机16卡训练过程，参数说明以及使用更多节点参考[msrun方式启动](../../README_CN.md#方式一使用已有脚本启动)
    多机多卡部分进行配置。
 
    > 注：如果各节点间使用共享存储存放工程文件，则可以使用[自动权重转换功能](../../docs/feature_cards/Transform_Ckpt.md#自动权重转换)

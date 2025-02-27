@@ -51,7 +51,7 @@ Coder在多种编程语言和各种基准测试上的开源代码模型中实现
 export MS_DEV_RUNTIME_CONF="inline:true"
 ```
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#二mindformers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#二mindformers安装)和[版本匹配关系](../../README_CN.md#三版本匹配关系)。
 
 ### 数据及权重准备
 

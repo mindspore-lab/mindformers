@@ -95,7 +95,7 @@ TeleChat2-115b:
 
 ### 安装环境
 
-**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README.md#二MindFormers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
+**MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README_CN.md#二MindFormers安装)和[版本匹配关系](../../README_CN.md#三版本匹配关系)。
 
 > 注：Atlas 800T A2芯片支持telechat_115B单机多卡推理，至少使用8卡，全参微调至少需要8机64卡。
 

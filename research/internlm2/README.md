@@ -57,7 +57,7 @@
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 ## 数据及权重准备
 
@@ -148,7 +148,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 #### 多机训练
 
-多机多卡训练可以参考[多机多卡启动方式](https://gitee.com/mindspore/mindformers/blob/dev/README.md#%E5%A4%9A%E6%9C%BA%E5%A4%9A%E5%8D%A1)。
+多机多卡训练可以参考[多机多卡启动方式](https://gitee.com/mindspore/mindformers/blob/dev/README_CN.md#%E5%A4%9A%E6%9C%BA%E5%A4%9A%E5%8D%A1)。
 
 ## 推理
 

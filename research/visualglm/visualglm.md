@@ -10,7 +10,7 @@ VisualGLM-6B 依靠来自于 CogView 数据集的30M高质量中文图文对，�
 
 ### 安装mindformers
 
-参考[README](../../README.md) "mindformers安装" 安装mindformers。
+参考[README](../../README_CN.md) "mindformers安装" 安装mindformers。
 
 ### 环境要求
 
