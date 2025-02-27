@@ -39,6 +39,7 @@ from mindformers.modules.layers import Linear, _check_input_dtype, _args_type_va
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.version_control import check_rmsnorm_big_kernel_valid
 from mindformers.modules.transformer.moe import MoEV2, MoEInfer
+from mindformers.modules.transformer.moev3 import MoEV3
 from mindformers.tools.utils import get_predict_run_mode
 
 
@@ -749,6 +750,7 @@ class LlamaFeedForwardWithMoE(Cell):
         self.add = P.Add()
         self.reshape = P.Reshape()
         self.use_seq_parallel = parallel_config.use_seq_parallel
+        self.use_gmm = moe_config.use_gmm
         if self.use_seq_parallel:
             self.dp_original = parallel_config.data_parallel
             self.dp = parallel_config.data_parallel * parallel_config.model_parallel
@@ -768,6 +770,18 @@ class LlamaFeedForwardWithMoE(Cell):
                 moe_config=moe_config,
                 parallel_config=parallel_config
             )
+        elif self.use_gmm:
+            self.routed_experts = MoEV3(
+                dim=hidden_size,
+                intermediate_size=intermediate_size,
+                compute_dtype=compute_dtype,
+                param_init_type=param_init_type,
+                return_extra_loss=return_extra_loss,
+                moe_config=moe_config,
+                parallel_config=parallel_config,
+                init_method_std=init_method_std
+            )
+
         else:
             self.routed_experts = MoEV2(
                 ffn=LlamaFeedForward(dim=hidden_size,

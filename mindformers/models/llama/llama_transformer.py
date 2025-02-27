@@ -36,6 +36,7 @@ from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.infer_attention import InferAttention
 from mindformers.modules.transformer.moe import MoEV2, MoEInfer
+from mindformers.modules.transformer.moev3 import MoEV3
 from mindformers.tools.utils import get_predict_run_mode, divide
 from mindformers.version_control import check_seqpp_fa_opt_support
 
@@ -846,6 +847,7 @@ class LLamaDecodeLayer(nn.Cell):
         self.shared_expert_num = 0 if moe_config is None else moe_config.shared_expert_num
         # set kbk infer for moe structural models.
         self.use_moe_infer = use_past and (self.expert_num > 1)
+        self.use_gmm = moe_config.use_gmm if moe_config else False
         if self.use_moe_infer:
             ffn = LlamaMoeInferFeedForward(dim=self.hidden_size,
                                            intermediate_size=intermediate_size,
@@ -874,7 +876,7 @@ class LLamaDecodeLayer(nn.Cell):
                                    use_3d_tensor_parallel=use_3d_tensor_parallel,
                                    tp_x=tp_x,
                                    tp_y=tp_y,
-                                   tp_z=tp_z) if self.shared_expert_num == 0 else None
+                                   tp_z=tp_z) if (self.shared_expert_num == 0 and not self.use_gmm) else None
         if self.expert_num == 1:
             self.feed_forward = ffn
         else:
@@ -885,6 +887,15 @@ class LLamaDecodeLayer(nn.Cell):
                         dim=self.hidden_size,
                         moe_config=moe_config,
                         parallel_config=parallel_config)
+                elif self.use_gmm:
+                    self.feed_forward = MoEV3(
+                        dim=self.hidden_size,
+                        intermediate_size=intermediate_size,
+                        compute_dtype=compute_dtype,
+                        param_init_type=param_init_type,
+                        moe_config=moe_config,
+                        parallel_config=parallel_config
+                    )
                 else:
                     self.feed_forward = MoEV2(
                         ffn=ffn,

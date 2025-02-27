@@ -20,16 +20,16 @@ from mindspore._checkparam import args_type_check
 from mindformers.modules.transformer.moe import MoEConfig
 from mindformers.modules.transformer.transformer import default_transformer_config, \
     TransformerOpParallelConfig, default_moe_config
-from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import convert_mstype
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.mindformer_book import MindFormerBook
+from deepseek2_config import DeepseekV2Config
 
 __all__ = ['DeepseekV3Config']
 
 
 @MindFormerRegister.register(MindFormerModuleType.CONFIG)
-class DeepseekV3Config(PretrainedConfig):
+class DeepseekV3Config(DeepseekV2Config):
     """DeepSeekV3 config class which defines the model size. It redefines the attention block and experts in moe blocks.
     NOTE: If any nuisances, refer to in-between llama_config and the transformer original deepseek configuration.
 
