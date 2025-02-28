@@ -698,8 +698,12 @@ class GenerationMixin:
         input_ids = np.reshape(input_ids, (-1, np.shape(input_ids)[-1]))
         batch_size = input_ids.shape[0]
 
-        seed = 0 if seed is None else seed
-        np.random.seed(seed)
+        if seed is not None:
+            if not isinstance(seed, int):
+                raise ValueError(f"Invalid seed type: {type(seed)}. Seed must be an integer.")
+            if not 0 <= seed < 2**64:
+                raise ValueError(f"Invalid seed value: {seed}. Seed must be in the range [0, 2**64 - 1].")
+            np.random.seed(seed)
 
         logits_processor = logits_processor if logits_processor is not None else LogitsProcessorList()
 
