@@ -10,7 +10,7 @@ nltk>=2.0
 mindpet==1.0.4
 opencv-python-headless
 pyarrow==12.0.1
-tokenizers==0.15.0
+tokenizers
 astunparse>=1.6.3
 numpy<2.0.0
 datasets==2.18.0

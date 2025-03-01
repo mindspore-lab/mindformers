@@ -143,8 +143,7 @@ class ColumnParallelLinear(nn.Cell):
         if self.is_expert and self.expert_num > 1:
             weight_shape = (self.expert_num,) + weight_shape
             if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
-                self.matmul = ops.auto_generate.GroupedMatmulV4(split_item=3, group_type=0,
-                                                                group_list_type=1, act_type=0)
+                self.matmul = ops.auto_generate.GroupedMatmulV4()
             elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
                 self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0)
             else:
@@ -196,7 +195,8 @@ class ColumnParallelLinear(nn.Cell):
         output_shape = self.shape(input_parallel)[:-1] + (self.output_size_per_partition,)
         input_parallel = self.reshape(input_parallel, (-1, self.input_size))
         if self.is_expert and self.expert_num > 1:
-            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None, group_list)[0]
+            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
+                                          group_list, split_item=3, group_type=0, group_list_type=1)[0]
         else:
             output_parallel = self.matmul(input_parallel, weight)
         if self.has_bias:
@@ -326,8 +326,7 @@ class RowParallelLinear(nn.Cell):
             weight_shape = (self.expert_num,) + weight_shape
             bias_shape = (1, self.expert_num, 1) + bias_shape
             if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
-                self.matmul = ops.auto_generate.GroupedMatmulV4(split_item=3, group_type=0,
-                                                                group_list_type=1, act_type=0)
+                self.matmul = ops.auto_generate.GroupedMatmulV4()
             elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
                 self.matmul = ops.auto_generate.GroupedMatmul(split_item=3, group_type=0)
             else:
@@ -375,7 +374,8 @@ class RowParallelLinear(nn.Cell):
         output_shape = self.shape(input_parallel)[:-1] + (self.output_size,)
         input_parallel = self.reshape(input_parallel, (-1, self.input_size_per_partition))
         if self.is_expert and self.expert_num > 1:
-            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None, group_list)[0]
+            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
+                                          group_list, split_item=3, group_type=0, group_list_type=1)[0]
         else:
             output_parallel = self.matmul(input_parallel, weight)
 

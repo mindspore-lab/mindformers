@@ -23,7 +23,7 @@ from mindformers.modules.transformer.transformer import default_transformer_conf
 from mindformers.models.utils import convert_mstype
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.mindformer_book import MindFormerBook
-from deepseek2_config import DeepseekV2Config
+from research.deepseek3.deepseek2_config import DeepseekV2Config
 
 __all__ = ['DeepseekV3Config']
 
