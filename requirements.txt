@@ -19,4 +19,4 @@ jinja2
 setproctitle
 safetensors
 tensorboardX
-deprecated
+deprecated>=1.2.0
