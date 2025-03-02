@@ -78,7 +78,6 @@ else:
 TOKENIZER_MAPPING_NAMES = OrderedDict(
     [
         ("bert", ("BertTokenizer", "BertTokenizerFast" if is_tokenizers_available() else None)),
-        ("bloom", ("BloomTokenizerFast", None if is_tokenizers_available() else None)),
         (
             "clip",
             (

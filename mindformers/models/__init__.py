@@ -140,16 +140,6 @@ from .pangualpha import (
     PanguAlphaPromptTextClassificationModel,
     PanguAlphaTokenizer
 )
-from .bloom import (
-    BloomConfig,
-    BloomLMHeadModel,
-    BloomModel,
-    BloomProcessor,
-    BloomRewardModel,
-    BloomTokenizer,
-    BloomTokenizerFast,
-    VHead
-)
 from .sam import (
     ImageEncoderConfig,
     MaskData,

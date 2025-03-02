@@ -48,7 +48,6 @@ MODEL_WITH_LM_HEAD_MAPPING_NAMES = OrderedDict(
     [
         # Model with LM heads mapping
         ("bert", "BertForMaskedLM"),
-        ("bloom", "BloomLMHeadModel"),
         ("gpt2", "GPT2LMHeadModel"),
         ("glm", "GLMChatModel"),
         ("glm2", "ChatGLM2ForConditionalGeneration"),
