@@ -51,7 +51,7 @@ from mindformers.modules.transformer.moe import MoEV2
 from mindformers.modules.transformer.moe import MoEInfer
 from mindformers.version_control import check_seqpp_fa_opt_support
 
-from research.deepseek2.deepseek2_config import DeepseekV2Config
+from research.deepseek3.deepseek2_config import DeepseekV2Config
 
 __all__ = ['DeepseekV2ForCausalLM', 'DeepseekV2Model']
 

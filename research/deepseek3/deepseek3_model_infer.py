@@ -45,8 +45,8 @@ from mindformers.experimental.infer.core.norm import RMSNorm
 from mindformers.experimental.infer.core.moe import RoutedParallelMLP, SharedParallelMLP, ParallelMoEV2
 from mindformers.experimental.infer.core.transformer import ParallelMLP, VocabEmbedding
 
-from deepseek3_config import DeepseekV3Config
-from utils import convert_model_config
+from research.deepseek3.deepseek3_config import DeepseekV3Config
+from research.deepseek3.utils import convert_model_config
 
 __all__ = ['InferenceDeepseekV3ForCausalLM', 'DeepseekV3Model']
 
@@ -107,8 +107,7 @@ class MLAPagedAttentionMgr(nn.Cell):
 
     def construct(self, key, slot_mapping):
         """The forward compute of single cache for Paged Attention."""
-        return self.reshape_and_cache(key, None, self.key_cache, None, slot_mapping, None, None,
-                                      None, None, False, cache_config=CacheConfig.KEY_CACHE.value)
+        return self.reshape_and_cache(key, None, self.key_cache, None, slot_mapping)
 
     def paged_attn(self, query, batch_valid_length, block_tables):
         """The forward compute of Paged Attention."""
