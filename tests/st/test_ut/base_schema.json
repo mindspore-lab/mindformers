@@ -1094,12 +1094,6 @@
     "mindformers.core.optim.optim.FusedAdamWeightDecay.clone_state": {
         "signature": "(self, prefix, init, forced_dtype=mindspore.float32, is_follow=False)"
     },
-    "mindformers.core.optim.optim.FusedCastAdamWeightDecay": {
-        "signature": "(params, learning_rate=0.001, beta1=0.9, beta2=0.999, eps=1e-06, weight_decay=0.0, clip_norm=1.0)"
-    },
-    "mindformers.core.optim.optim.FusedCastAdamWeightDecay.construct": {
-        "signature": "(self, gradients, clip_value)"
-    },
     "mindformers.dataset.BlendedMegatronDatasetDataLoader": {
         "signature": "(datasets_type: str, sizes: List[int], config: dict, tokenizer: Union[Callable, dict] = None, column_names: list = None, shuffle: bool = False, num_shards: int = None, shard_id: int = None, phase: str = 'train', **kwargs)"
     },

@@ -33,7 +33,6 @@ from mindspore.parallel._utils import _get_enable_parallel_optimizer
 import mindspore.common.dtype as mstype
 
 from mindformers.core.clip_grad import ClipGradNorm
-from mindformers.core.optim import FusedCastAdamWeightDecay
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.utils import get_real_rank
 from mindformers.version_control import get_identity
@@ -174,10 +173,6 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
             scale_sense = Tensor(scale_sense)
         super(MFTrainOneStepCell, self).__init__(network, optimizer, scale_sense)
         self.use_clip_grad = use_clip_grad
-        if isinstance(optimizer, FusedCastAdamWeightDecay):
-            self.use_grad_norm = True
-        else:
-            self.use_grad_norm = False
         self.clip_grad_norm = ClipGradNorm(max_norm=max_grad_norm)
         self.parallel_config = kwargs.pop("parallel_config", None)
         self.learning_rate = deepcopy(self.optimizer.learning_rate)
@@ -259,10 +254,7 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
 
         # if there is no overflow, do optimize
         if not overflow:
-            if self.use_clip_grad and self.use_grad_norm:
-                loss = F.depend(loss, self.optimizer(grads, global_norm))
-            else:
-                loss = F.depend(loss, self.optimizer(grads))
+            loss = F.depend(loss, self.optimizer(grads))
 
         if self.if_dump:
             zero = Tensor(0.0, mstype.float32)
