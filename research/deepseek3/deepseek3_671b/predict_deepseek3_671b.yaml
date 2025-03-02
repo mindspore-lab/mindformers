@@ -83,6 +83,7 @@ model:
     do_sample: False
     is_dynamic: True
     qkv_concat: False
+    ffn_concat: False
     auto_map:
       AutoConfig: deepseek3_config.DeepseekV3Config
       AutoModel: deepseek3.DeepseekV3ForCausalLM
