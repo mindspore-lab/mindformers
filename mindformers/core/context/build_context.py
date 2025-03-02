@@ -50,20 +50,20 @@ class Context:
             cls._instance = super(Context, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, config=None):
+    def __init__(self, config=None, is_set_ms_ctx=True, is_init_ms=True):
         """Build context."""
         if not hasattr(self, '_initailed'):
             self.rank_id = 0
             self.device_num = 1
             self.config = config if config is not None else MindFormerConfig()
             self.mf_ctx_opr = MFContextOperator(self.config)
-            self.ms_ctx_opr = MSContextOperator(self.config)
+            self.ms_ctx_opr = MSContextOperator(self.config, is_set_ms_ctx)
             self.parallel_opr = ParallelOperator(self.config)
             if check_tft_valid() and ("ARF:1" in os.getenv("MS_ENABLE_TFT", "")):
                 from mindspore.utils import _tft_handler
                 _tft_handler.init(config=self.config)
                 logger.warning(f"------------------init tft handler ok----------------------")
-            if self.config.use_parallel:
+            if self.config.use_parallel and is_init_ms:
                 self.rank_id, self.device_num = (
                     self.parallel_opr.init_communication()
                 )
@@ -93,11 +93,12 @@ class Context:
 class MSContextOperator:
     """The wrapper of mindspore context operation."""
 
-    def __init__(self, config):
+    def __init__(self, config, is_set_ms_ctx):
         self.config = config
         ms_kwargs = self._handle_data()
         logger.debug('MSContextConfig load configs: %s', ms_kwargs)
-        self.set_context(**ms_kwargs)
+        if is_set_ms_ctx:
+            self.set_context(**ms_kwargs)
         del self.config
 
     def _handle_data(self):
@@ -397,7 +398,9 @@ def init_context(
     return ctx.rank_id, ctx.device_num
 
 
-def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
+def build_context(config: Union[dict, MindFormerConfig, TrainingArguments],
+                  is_set_ms_ctx=True,
+                  is_init_ms=True):
     """
     Build the context from config.
 
@@ -410,6 +413,8 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
             The configuration to initialize the context.
             This can be a dictionary, a MindFormerConfig instance,
             or a TrainingArguments instance.
+        is_set_ms_ctx (bool, optional): Whether to set the mindspore context value. Default: ``True``.
+        is_init_ms (bool, optional): Whether to init ms. Default: ``True``.
 
     Returns:
         Context instance, The instantiated context.
@@ -426,7 +431,7 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
     mf_config = MindFormerConfig(**config)
 
     execute_validator(mf_config)
-    ctx = Context(mf_config)
+    ctx = Context(mf_config, is_set_ms_ctx, is_init_ms)
 
     config['local_rank'] = ctx.rank_id
     config['device_num'] = ctx.device_num

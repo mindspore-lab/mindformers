@@ -1139,3 +1139,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
             logits = self.reshape(logits, (-1, logits.shape[-1]))
             return logits
         return logits, tokens, input_mask
+
+    def kvcache(self, layer_idx):
+        """Get the key_cache depend on layer_idx."""
+        key_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache
+        return key_cache, None

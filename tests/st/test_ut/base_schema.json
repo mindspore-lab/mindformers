@@ -402,7 +402,7 @@
         "signature": "(self, tag, data, global_step, formats)"
     },
     "mindformers.core.build_context": {
-        "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments])"
+        "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments], is_set_ms_ctx=True, is_init_ms=True)"
     },
     "mindformers.core.get_context": {
         "signature": "(attr_key)"
@@ -651,7 +651,7 @@
         "signature": "(summary_dir=None, collect_freq=10, collect_specified_data=None, keep_default_action=True, custom_lineage_data=None, collect_tensor_freq=None, max_file_size=None, export_options=None)"
     },
     "mindformers.core.context.build_context": {
-        "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments])"
+        "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments], is_set_ms_ctx=True, is_init_ms=True)"
     },
     "mindformers.core.context.get_context": {
         "signature": "(attr_key)"
@@ -7331,6 +7331,9 @@
     "mindformers.trainer.Trainer._reassign_monitor_config": {
         "signature": "(self)"
     },
+    "mindformers.trainer.Trainer._reassign_monitor_config": {
+        "signature": "(self)"
+    },
     "mindformers.trainer.Trainer.train": {
         "signature": "(self, train_checkpoint: Union[NoneType, bool, str] = False, resume_from_checkpoint: Union[NoneType, bool, str] = None, resume_training: Union[NoneType, bool, str] = None, ignore_data_skip: Optional[bool] = None, data_skip_steps: Optional[int] = None, auto_trans_ckpt: Optional[bool] = None, src_strategy: Optional[str] = None, transform_process_num: Optional[int] = None, do_eval: Optional[bool] = False)"
     },
@@ -7648,6 +7651,9 @@
     },
     "mindformers.trainer.trainer.Trainer": {
         "signature": "(args: Union[NoneType, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments, str] = None, task: Optional[str] = 'general', model: Union[NoneType, mindformers.models.modeling_utils.PreTrainedModel, str] = None, model_name: Optional[str] = None, tokenizer: Optional[mindformers.models.tokenization_utils_base.PreTrainedTokenizerBase] = None, train_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, eval_dataset: Union[NoneType, collections.abc.Iterable, mindformers.dataset.base_dataset.BaseDataset, mindspore.dataset.engine.datasets.Dataset, str] = None, data_collator: Optional[Callable] = None, optimizers: Optional[mindspore.nn.optim.optimizer.Optimizer] = None, compute_metrics: Union[NoneType, dict, set] = None, callbacks: Union[List[mindspore.train.callback._callback.Callback], NoneType, mindspore.train.callback._callback.Callback] = None, eval_callbacks: Union[List[mindspore.train.callback._callback.Callback], NoneType, mindspore.train.callback._callback.Callback] = None, pet_method: Optional[str] = '', image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, audio_processor: Optional[mindformers.models.base_processor.BaseAudioProcessor] = None, save_config: bool = False, reset_model: bool = False)"
+    },
+    "mindformers.trainer.trainer.Trainer._reassign_monitor_config": {
+        "signature": "(self)"
     },
     "mindformers.trainer.trainer.Trainer._reassign_monitor_config": {
         "signature": "(self)"
