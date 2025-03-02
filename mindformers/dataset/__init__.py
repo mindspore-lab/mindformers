@@ -22,7 +22,6 @@ from .dataloader import (
     CommonDataLoader,
     Flickr8kDataLoader,
     IndexedDataLoader,
-    MultiImgCapDataLoader,
     MultiSourceDataLoader,
     SFTDataLoader,
     SQuADDataLoader,

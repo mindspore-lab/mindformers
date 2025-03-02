@@ -15,7 +15,7 @@
 """Build Trainer API."""
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from . import ImageClassificationTrainer, ZeroShotImageClassificationTrainer, \
-    MaskedImageModelingTrainer, MaskedLanguageModelingTrainer, ImageToTextRetrievalTrainer, \
+    MaskedImageModelingTrainer, MaskedLanguageModelingTrainer, \
     TranslationTrainer, TokenClassificationTrainer, TextClassificationTrainer, \
     ContrastiveLanguageImagePretrainTrainer, QuestionAnsweringTrainer, GeneralTaskTrainer
 
@@ -91,9 +91,6 @@ def register_mf_trainer():
     MindFormerRegister.register_cls(
         QuestionAnsweringTrainer,
         module_type=MindFormerModuleType.TRAINER, alias="question_answering")
-
-    MindFormerRegister.register_cls(
-        ImageToTextRetrievalTrainer, module_type=MindFormerModuleType.TRAINER, alias="image_to_text_retrieval")
 
     MindFormerRegister.register_cls(
         GeneralTaskTrainer, module_type=MindFormerModuleType.TRAINER, alias="general")
