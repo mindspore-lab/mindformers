@@ -67,6 +67,13 @@ class Context:
                 self.rank_id, self.device_num = (
                     self.parallel_opr.init_communication()
                 )
+
+            if self.config.get('kernel_launch_group', {}):
+                thread_num = self.config.kernel_launch_group.get('thread_num', 2)
+                kernel_group_num = self.config.kernel_launch_group.get('kernel_group_num', 8)
+                ms.runtime.set_kernel_launch_group(thread_num=thread_num,
+                                                   kernel_group_num=kernel_group_num)
+
             set_cpu_affinity(self.rank_id, self.device_num)
             set_ms_affinity(self.config.get('context', {}).get('affinity_cpu_list', {}))
 
