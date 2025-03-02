@@ -169,12 +169,9 @@ from mindformers.dataset import (
     TranslationDataset,
     WMT16DataLoader,
     ZeroShotImageClassificationDataset,
-    augment_and_mix_transform,
-    auto_augment_transform,
     build_data_handler,
     check_dataset_config,
-    check_dataset_iterable,
-    rand_augment_transform
+    check_dataset_iterable
 )
 from mindformers.models import (
     AutoConfig,
