@@ -752,7 +752,6 @@ class LlamaFeedForwardWithMoE(Cell):
         self.use_seq_parallel = parallel_config.use_seq_parallel
         self.use_gmm = moe_config.use_gmm
         if self.use_seq_parallel:
-            self.dp_original = parallel_config.data_parallel
             self.dp = parallel_config.data_parallel * parallel_config.model_parallel
         if moe_config.moe_shared_expert_overlap:
             self.add.add_prim_attr("parallel_branch", 1)
@@ -822,7 +821,7 @@ class LlamaFeedForwardWithMoE(Cell):
             shared_x = self.reshape(x, (self.dp, -1, x.shape[-1]))
             shared_experts_output = self.shared_experts(shared_x)
             shared_experts_output = self.reshape(shared_experts_output,
-                                                 (self.dp_original, -1, x.shape[-1]))
+                                                 (x.shape[0], -1, x.shape[-1]))
         else:
             shared_experts_output = self.shared_experts(x)
         if self.use_shared_expert_gating:
