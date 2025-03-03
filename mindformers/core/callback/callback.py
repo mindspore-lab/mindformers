@@ -1102,6 +1102,8 @@ class CheckpointMonitor(ModelCheckpoint):
         prefix = prefix + "_rank_{}".format(self.rank_id)
 
         self.global_batch_size = global_batch_size
+        # this list records parametrs which will be ignored when saving ckpt.
+        self.filter_list = ['accu_grads', 'fi_parameter', 'zeros_k_pe', 'zeros_k_nope', 'zeros_value_states', '_cache']
 
         self.save_info_list = defaultdict(
             lambda: {
@@ -1288,11 +1290,14 @@ class CheckpointMonitor(ModelCheckpoint):
 
         return min_value
 
+    def _filter_ckpt_not_save(self, x, filter_list):
+        return all(not x.startswith(item) and item not in x for item in filter_list)
+
     def _tft_save_ckpt(self, param_layout_set, save_param_names, cur_file, append_dict, network):
         """save checkpoint with remove redundancy for TFT training."""
         def choice_func(x):
-            return (x not in param_layout_set or (save_param_names is not None
-                                                  and x in save_param_names)) and not x.startswith('accu_grads')
+            return (x not in param_layout_set or (save_param_names is not None and x in save_param_names)) \
+                and self._filter_ckpt_not_save(x, self.filter_list)
 
         save_checkpoint(network, cur_file, False, False,
                         append_dict, self._config.enc_key, self._config.enc_mode,
@@ -1350,15 +1355,16 @@ class CheckpointMonitor(ModelCheckpoint):
                         f"For remove_redundancy save checkpoint, the saved parameters are non-redundant.")
 
                 def choice_func(x):
-                    return (x not in param_layout_set or (save_param_names is not None
-                                                          and x in save_param_names)) and not x.startswith('accu_grads')
+                    return (x not in param_layout_set or (save_param_names is not None and x in save_param_names)) \
+                        and self._filter_ckpt_not_save(x, self.filter_list)
             else:
                 param_redundancy_dict = get_parameter_redundancy(network)
                 single_params = remove_param_redundancy(param_redundancy_dict)
                 save_param_names = single_params.get(rank_id)
 
                 def choice_func(x):
-                    return save_param_names is not None and x in save_param_names and not x.startswith('accu_grads')
+                    return save_param_names is not None and x in save_param_names \
+                        and self._filter_ckpt_not_save(x, self.filter_list)
 
             # __exception_save__ is used to indicate that the checkpoint is saved by the TFT process
             if "__exception_save__" in append_dict:
@@ -1372,7 +1378,8 @@ class CheckpointMonitor(ModelCheckpoint):
         else:
             save_checkpoint(network, cur_file, self._config.integrated_save, self._config.async_save,
                             append_dict, self._config.enc_key, self._config.enc_mode,
-                            format=self._config.format, choice_func=lambda x: not x.startswith('accu_grads'))
+                            format=self._config.format,
+                            choice_func=lambda x: self._filter_ckpt_not_save(x, self.filter_list))
 
     def save_checkpoint_network(self, cb_params):
         """save checkpoint only network params, which is suitable for train, evaluate and predict."""

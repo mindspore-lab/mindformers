@@ -135,7 +135,7 @@ class MoEConfig:
                  aux_loss_types=None, aux_loss_factors=None, z_loss_factor=0., balance_via_topk_bias=False,
                  topk_bias_update_rate=0., use_allgather_dispatcher=False, moe_shared_expert_overlap=False,
                  expert_model_parallel=None, use_gating_sigmoid=False, use_gmm=False, enable_gmm_safe_tokens=False,
-                 use_fused_ops_permute=False):
+                 use_fused_ops_permute=False, callback_moe_droprate=False):
         Validator.check_positive_int(expert_num, "expert_num")
         Validator.check_positive_float(aux_loss_factor, "aux_loss_factor")
         Validator.check_positive_int(num_experts_chosen, "num_experts_chosen")
@@ -206,6 +206,7 @@ class MoEConfig:
         self.use_gmm = use_gmm
         self.enable_gmm_safe_tokens = enable_gmm_safe_tokens
         self.use_fused_ops_permute = use_fused_ops_permute
+        self.callback_moe_droprate = callback_moe_droprate
 
     def __eq__(self, other) -> bool:
         return isinstance(other, MoEConfig) and (self.to_dict() == other.to_dict())
@@ -1296,9 +1297,7 @@ class TopkRouterV2(Cell):
         self.reduce_sum_keep = P.ReduceSum(keep_dims=True).shard(((dp, 1, 1),))
         self.div_3d = P.RealDiv().shard(((dp, 1, 1), (dp, 1, 1)))
         self.concat_3d = P.Concat(1).shard(((dp, 1, 1), (dp, 1, 1)))
-        self.zeros_3d = Parameter(
-            initializer('zeros', shape=(dp, 1, d_model), dtype=mstype.bfloat16),
-            name='zeros_3d', requires_grad=False, parallel_optimizer=False)
+        self.zeros_op = P.Zeros().shard(((dp, 1, 1),))
         self.not_equal = P.NotEqual().shard(((dp, 1, 1), ()))
 
         # sort indexing
@@ -1334,7 +1333,7 @@ class TopkRouterV2(Cell):
         self.sub = P.Sub()
         self.mod_expert = P.Mod()
         self.tensor2scalar = TensorToScalar()
-        if self.aux_loss_config.get("expert", 0) > 0:
+        if moe_config.callback_moe_droprate:
             self.fi_parameter = Parameter(initializer("zeros", (dp, self.expert_dim), mstype.float32),
                                         requires_grad=False, parallel_optimizer=False)
             self.assign_fi = P.Assign().shard(((dp, 1), (dp, 1)))
@@ -1416,8 +1415,9 @@ class TopkRouterV2(Cell):
                 - **expert_input** (Tensor) - Tensor of shape :math:`(data\_parallel, expert\_num,
                 expert\_capacity, hidden\_size)`.(dp, E, n, h).
         """
-        input_tensor_padded = self.concat_3d(
-            (self.cast(self.zeros_3d, F.dtype(input_tensor)), input_tensor))  # (dp, 1+N, h) <-- (dp, N, h)
+        zeros_3d = self.zeros_op((input_tensor.shape[0], 1, input_tensor.shape[-1]),
+                                 dtype=F.dtype(input_tensor))
+        input_tensor_padded = self.concat_3d((zeros_3d, input_tensor)) # (dp, 1+N, h) <-- (dp, N, h)
         if self.use_allgather_dispatcher:
             # (outer_dp, inner_dp, 1+N, h) <-- (dp, 1+N, h)
             input_tensor_padded = self.reshape(input_tensor_padded, (
@@ -1816,7 +1816,8 @@ class TopkRouterV2(Cell):
             return expert_load_loss * is_return / (self.seq_split_num * self.seq_split_num)
         expert_load_loss = self.mul(self.reduce_mean_2d(self.mul_2d(pi, fi)),
                                     alpha * self.expert_dim ** 2)  # alpha*E \sum_i^E (f_i * P_i)
-        self.assign_fi(self.fi_parameter, fi)
+        if self.moe_config.callback_moe_droprate:
+            self.assign_fi(self.fi_parameter, fi)
         return expert_load_loss
 
     def _device_load_balancing(self, scores, top_indices, alpha):

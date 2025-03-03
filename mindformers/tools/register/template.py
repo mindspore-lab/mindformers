@@ -379,6 +379,7 @@ class MoEConfig(Config):
     use_gmm = False
     enable_gmm_safe_tokens = False
     use_fused_ops_permute = False
+    callback_moe_droprate = False
 
     _name = "moe_config"
 
