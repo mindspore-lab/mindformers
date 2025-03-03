@@ -360,7 +360,7 @@
         "signature": "(summary_dir=None, collect_freq=10, collect_specified_data=None, keep_default_action=True, custom_lineage_data=None, collect_tensor_freq=None, max_file_size=None, export_options=None)"
     },
     "mindformers.core.TrainingStateMonitor": {
-        "signature": "(origin_epochs: int, config: dict = None, per_print_times: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0)"
+        "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0)"
     },
     "mindformers.core.TrainingStateMonitor.epoch_begin": {
         "signature": "(self, run_context)"
@@ -510,7 +510,7 @@
         "signature": "(summary_dir=None, collect_freq=10, collect_specified_data=None, keep_default_action=True, custom_lineage_data=None, collect_tensor_freq=None, max_file_size=None, export_options=None)"
     },
     "mindformers.core.callback.TrainingStateMonitor": {
-        "signature": "(origin_epochs: int, config: dict = None, per_print_times: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0)"
+        "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0)"
     },
     "mindformers.core.callback.TrainingStateMonitor.epoch_begin": {
         "signature": "(self, run_context)"

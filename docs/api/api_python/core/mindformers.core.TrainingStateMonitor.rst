@@ -1,7 +1,7 @@
 mindformers.core.TrainingStateMonitor
 =====================================
 
-.. py:class:: mindformers.core.TrainingStateMonitor(origin_epochs, config=None, per_print_times=1, dataset_size=None, initial_epoch=0, initial_step=0, global_batch_size=0)
+.. py:class:: mindformers.core.TrainingStateMonitor(origin_epochs, config=None, step_interval=1, dataset_size=None, initial_epoch=0, initial_step=0, global_batch_size=0)
 
     监控训练过程中指标变化的回调函数。
 
@@ -19,7 +19,7 @@ mindformers.core.TrainingStateMonitor
           - ``"throughput_baseline"`` - 模型吞吐量的基线，用于计算线性度。必须为正数。会同时写入日志文件和tensorboard。设置为 ``None`` 以忽略该指标。默认值： ``None`` 。
           - ``"print_struct"`` - 是否打印模型结构。若是，则会在第一个step打印所有可训练参数的名字，并退出训练。默认值： ``False`` 。
 
-        - **per_print_times** (int, 可选) - 每多少次step打印日志信息。默认值： ``1`` 。
+        - **step_interval** (int, 可选) - 每多少次step对指标进行展示。默认值： ``1`` 。
         - **dataset_size** (int, 可选) - 数据下沉模式必选。训练的数据集数量。默认值： ``None`` 。
         - **initial_epoch** (int, 可选) - 训练开始的epoch数。默认值： ``0`` 。
         - **initial_step** (int, 可选) - 训练开始的step数。默认值： ``0`` 。
