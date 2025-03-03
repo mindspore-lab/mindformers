@@ -28,6 +28,9 @@ from mindformers.experimental.infer.core.layers import ColumnParallelLinear, Row
 from mindformers.experimental.infer.core.mapping import ReduceFromModelParallelRegion
 
 # pylint: disable=C0412
+from mindformers.experimental.infer.core.utils import get_tp_world_size
+from mindformers.tools.utils import divide
+
 try:
     from mindspore.ops.auto_generate import (MoeComputeExpertTokens,
                                              MoeFinalizeRouting,
@@ -230,23 +233,33 @@ class SharedParallelMLP(nn.Cell):
         self.hidden_size = self.config.hidden_size
         self.ffn_hidden_size = intermediate_size
         self.mlp_has_gate = self.config.mlp_has_gate
-
-        self.w1 = Linear(
-            self.hidden_size,
-            self.ffn_hidden_size,
-            has_bias=self.has_bias,
-            transpose_b=True,
-            param_init_type=self.config.param_init_dtype,
-            compute_dtype=self.config.compute_dtype,
-        )
-        self.w3 = Linear(
-            self.hidden_size,
-            self.ffn_hidden_size,
-            has_bias=self.has_bias,
-            transpose_b=True,
-            param_init_type=self.config.param_init_dtype,
-            compute_dtype=self.config.compute_dtype,
-        )
+        self.ffn_concat = self.config.ffn_concat
+        if self.ffn_concat:
+            self.w_gate_hidden = Linear(
+                self.hidden_size,
+                self.ffn_hidden_size * 2,
+                has_bias=self.has_bias,
+                transpose_b=True,
+                param_init_type=self.config.param_init_dtype,
+                compute_dtype=self.config.compute_dtype,
+            )
+        else:
+            self.w1 = Linear(
+                self.hidden_size,
+                self.ffn_hidden_size,
+                has_bias=self.has_bias,
+                transpose_b=True,
+                param_init_type=self.config.param_init_dtype,
+                compute_dtype=self.config.compute_dtype,
+            )
+            self.w3 = Linear(
+                self.hidden_size,
+                self.ffn_hidden_size,
+                has_bias=self.has_bias,
+                transpose_b=True,
+                param_init_type=self.config.param_init_dtype,
+                compute_dtype=self.config.compute_dtype,
+            )
 
         self.act_type = self.config.hidden_act
         self.act_func = get_act_func(self.act_type)
@@ -265,8 +278,13 @@ class SharedParallelMLP(nn.Cell):
 
     def construct(self, x):
         """ Construct function of mlp block. """
-        gate = self.w1(x)
-        hidden = self.w3(x)
+        if self.ffn_concat:
+            gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
+            gate, hidden = mint.split(gate_hidden_out,
+                                      (self.ffn_hidden_size, self.ffn_hidden_size), -1)
+        else:
+            gate = self.w1(x)
+            hidden = self.w3(x)
         gate = self.act_func(gate)
         hidden = mint.mul(hidden, gate)
         output = self.w2(hidden)
@@ -294,20 +312,48 @@ class RoutedParallelMLP(nn.Cell):
         self.cast = P.Cast()
         self.act_type = self.config.hidden_act
         self.act_func = get_act_func(self.act_type)
+        self.ffn_concat = self.config.ffn_concat
+        tp_group_size = get_tp_world_size()
+        self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, tp_group_size)
+        if self.ffn_concat:
+            self.w_gate_hidden = ColumnParallelLinear(
+                self.hidden_size,
+                self.ffn_hidden_size * 2,
+                config=self.config.parallel_config,
+                bias=self.has_bias,
+                transpose_b=True,
+                gather_output=False,
+                param_init_type=self.config.param_init_dtype,
+                compute_dtype=self.config.compute_dtype,
+                is_expert=True,
+                expert_num=self.config.moe_config.expert_num,
+            )
+        else:
+            self.w1 = ColumnParallelLinear(
+                self.hidden_size,
+                self.ffn_hidden_size,
+                config=self.config.parallel_config,
+                bias=self.has_bias,
+                transpose_b=True,
+                gather_output=False,
+                param_init_type=self.config.param_init_dtype,
+                compute_dtype=self.config.compute_dtype,
+                is_expert=True,
+                expert_num=self.config.moe_config.expert_num,
+            )
 
-        self.w1 = ColumnParallelLinear(
-            self.hidden_size,
-            self.ffn_hidden_size,
-            config=self.config.parallel_config,
-            bias=self.has_bias,
-            transpose_b=True,
-            gather_output=False,
-            param_init_type=self.config.param_init_dtype,
-            compute_dtype=self.config.compute_dtype,
-            is_expert=True,
-            expert_num=self.config.moe_config.expert_num,
-        )
-
+            self.w3 = ColumnParallelLinear(
+                self.hidden_size,
+                self.ffn_hidden_size,
+                config=self.config.parallel_config,
+                bias=self.has_bias,
+                transpose_b=True,
+                gather_output=False,
+                param_init_type=self.config.param_init_dtype,
+                compute_dtype=self.config.compute_dtype,
+                is_expert=True,
+                expert_num=self.config.moe_config.expert_num,
+            )
         self.w2 = RowParallelLinear(
             self.ffn_hidden_size,
             self.hidden_size,
@@ -323,27 +369,18 @@ class RoutedParallelMLP(nn.Cell):
             moe_delay_allreduce=True,
         )
 
-        self.w3 = ColumnParallelLinear(
-            self.hidden_size,
-            self.ffn_hidden_size,
-            config=self.config.parallel_config,
-            bias=self.has_bias,
-            transpose_b=True,
-            gather_output=False,
-            param_init_type=self.config.param_init_dtype,
-            compute_dtype=self.config.compute_dtype,
-            is_expert=True,
-            expert_num=self.config.moe_config.expert_num,
-        )
-
     def construct(self, x, group_list=None):
         """Forward process of the FeedForward"""
-        x = self.cast(x, self.config.compute_dtype)
-        gate = self.w1(x, group_list=group_list)
+        if self.ffn_concat:
+            gate_hidden_out = self.w_gate_hidden(x, group_list=group_list)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
+            gate, hidden = mint.split(gate_hidden_out,
+                                      (self.ffn_hidden_size_per_partition, self.ffn_hidden_size_per_partition), -1)
+        else:
+            gate = self.w1(x, group_list=group_list)
+            hidden = self.w3(x, group_list=group_list)
         gate = self.act_func(gate)
-        hidden = self.w3(x, group_list=group_list)
         hidden = mint.mul(hidden, gate)
-        output = self.w2(hidden, group_list=group_list)
+        output = self.w2(hidden, group_list)
         return output
 
 

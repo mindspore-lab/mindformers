@@ -24,6 +24,7 @@ from mindspore.ops import operations as P
 from mindspore.nn.cell import Cell
 from mindspore.common.initializer import Zero
 from mindspore.communication._comm_helper import _is_initialized
+
 try:
     from mindspore._checkparam import Validator
 except ImportError:
@@ -38,7 +39,7 @@ from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.infer_attention import InferRotaryEmbedding, FlashAttention
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import get_predict_run_mode
-from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
+from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_info, initialize_model_parallel
 from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.experimental.infer.core.norm import RMSNorm
@@ -415,7 +416,6 @@ class DeepseekV3Attention(nn.Cell):
                              .format(self.n_kv_head, parallel_config.model_parallel))
         self.shape = P.Shape()
         self.cast = P.Cast()
-
         if self.q_lora_rank == 0:
             self.q_proj = ColumnParallelLinear(
                 self.hidden_size,
@@ -601,6 +601,46 @@ class DeepseekV3Attention(nn.Cell):
         attn_out = attn_out.view(bs, seq_len, self.n_local_heads * self.v_head_dim)
         output = self.wo(attn_out)
         output = self.cast(output, ori_dtype)
+        return output
+
+
+class DeepseekV3ParallelMLP(ParallelMLP):
+    r"""
+    Implementation of parallel feedforward block.
+
+    Args:
+        config (dict): Configuration.
+        is_expert (book): This block is an expert block. Default: False.
+
+    Inputs:
+        - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.
+
+    Outputs:
+        - **output** (Tensor) - Output tensor of shape :math:`(B, S, H)`.
+
+    Supported Platforms:
+        ``Ascend``
+    """
+    def __init__(self, config, is_expert=False):
+        super().__init__(config)
+        if is_expert:
+            raise NotImplementedError("For ParallelMLP, `is_expert` is not supported for now.")
+
+    def construct(self, x):
+        """ Construct function of mlp block. """
+        # [B, S, H] -> [B, S, ffn_H]
+        if self.ffn_concat:
+            gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
+            gate, hidden = mint.split(gate_hidden_out,
+                                      (self.ffn_hidden_size_per_partition, self.ffn_hidden_size_per_partition), -1)
+        else:
+            gate = self.w1(x)  # dp,1 -> dp, mp
+            hidden = self.w3(x)  # dp,1 -> dp, mp
+        gate = self.act_func(gate)
+        hidden = mint.mul(hidden, gate)
+
+        # [B, S, ffn_H] -> [B, S, H]
+        output = self.w2(hidden)
         return output
 
 
@@ -790,7 +830,7 @@ class DeepseekV3DecodeLayer(nn.Cell):
         if self.first_k_dense:
             logger.warning("first_k_dense_replace is provided in MoEConfig, "
                            "a normal dense FFN will be used in this block.")
-            self.feed_forward = ParallelMLP(config)
+            self.feed_forward = DeepseekV3ParallelMLP(config)
         else:
             self.feed_forward = DeepseekV3MoE(config=config)
 
@@ -901,17 +941,10 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
                                                           use_flash_attention=config.use_flash_attention,
                                                           use_past=config.use_past)
 
-        if config.parallel_config.vocab_emb_dp:
-            self.tok_embeddings = VocabParallelEmbedding(num_embeddings=config.vocab_size,
-                                                         embedding_dim=config.hidden_size,
-                                                         parallel_config=config.parallel_config,
-                                                         init_method="normal",
-                                                         init_type=config.param_init_type)
-        else:
-            self.tok_embeddings = VocabEmbedding(num_embeddings=config.vocab_size,
-                                                 embedding_dim=config.hidden_size,
-                                                 param_init_type=config.param_init_type,
-                                                 param_init="normal")
+        self.tok_embeddings = VocabEmbedding(num_embeddings=config.vocab_size,
+                                             embedding_dim=config.hidden_size,
+                                             param_init_type=config.param_init_type,
+                                             param_init="normal")
 
         self.fine_grain_interleave = check_fine_grain_interleave_valid(config.fine_grain_interleave,
                                                                        config.parallel_config)
@@ -1060,16 +1093,26 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         self.gather = P.Gather()
         self.sub_batch_valid_len = P.Sub()
         self.model = DeepseekV3Model(config=config)
-        self.lm_head = ColumnParallelLinear(
-            config.hidden_size,
-            config.vocab_size,
-            config=config.parallel_config,
-            bias=False,
-            param_init_type=config.param_init_type,
-            compute_dtype=config.compute_dtype,
-            weight_init="normal",
-            gather_output=True
-        )
+        if config.parallel_config.vocab_emb_dp:
+            self.lm_head = Linear(
+                in_channels=config.hidden_size,
+                out_channels=config.vocab_size,
+                weight_init="normal",
+                has_bias=False,
+                param_init_type=config.param_init_type,
+                compute_dtype=config.compute_dtype
+            )
+        else:
+            self.lm_head = ColumnParallelLinear(
+                config.hidden_size,
+                config.vocab_size,
+                config=config.parallel_config,
+                bias=False,
+                param_init_type=config.param_init_type,
+                compute_dtype=config.compute_dtype,
+                weight_init="normal",
+                gather_output=True
+            )
         self.prefill_gather_flatten = P.Gather()
 
         self.load_checkpoint(config)

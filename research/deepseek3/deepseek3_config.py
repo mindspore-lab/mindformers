@@ -135,6 +135,7 @@ class DeepseekV3Config(DeepseekV2Config):
                  init_method_std=0.006,
                  qkv_has_bias=False,
                  qkv_concat=False,
+                 ffn_concat=False,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  moe_config: Union[dict, MoEConfig] = default_moe_config,
                  use_past: bool = False,
@@ -186,6 +187,7 @@ class DeepseekV3Config(DeepseekV2Config):
         self.ffn_dim_multiplier = ffn_dim_multiplier
         self.rms_norm_eps = rms_norm_eps
         self.qkv_concat = qkv_concat
+        self.ffn_concat = ffn_concat
         self.param_init_type = convert_mstype(param_init_type)
         self.qkv_has_bias = qkv_has_bias
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
