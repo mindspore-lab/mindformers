@@ -67,7 +67,7 @@ from mindformers.tools.utils import (
     get_pipeline_rank_ids
 )
 from mindformers.utils.tensorboard import get_tensorboard_writer, get_tensorboard_args
-from mindformers.version_control import check_stress_detect_valid, is_version_ge
+from mindformers.version_control import check_stress_detect_valid, is_version_ge, check_arf_status
 
 __all__ = ['ObsMonitor', 'MFLossMonitor', 'CheckpointMonitor', 'SummaryMonitor', 'ProfileMonitor', 'EvalCallBack']
 
@@ -326,7 +326,7 @@ class MFLossMonitor(Callback):
 
         if self.mf_support is None:
             self.mf_support = self._can_calculate_model_flops(cb_params)
-        if not self.mf_calculated and self.mf_support:
+        if (not self.mf_calculated or check_arf_status(cb_params)) and self.mf_support:
             self._calculate_model_flops()
 
         origin_epochs = self.origin_epochs
