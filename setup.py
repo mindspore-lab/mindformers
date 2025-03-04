@@ -78,7 +78,7 @@ def update_permissions(path):
     for dirpath, dirnames, filenames in os.walk(path):
         for dirname in dirnames:
             dir_fullpath = os.path.join(dirpath, dirname)
-            os.chmod(dir_fullpath, stat.S_IREAD | stat.S_IWRITE | stat.S_IEXEC | stat.S_IRGRP | stat.S_IXGRP)
+            os.chmod(dir_fullpath, stat.S_IREAD | stat.S_IEXEC)
         for filename in filenames:
             file_fullpath = os.path.join(dirpath, filename)
             os.chmod(file_fullpath, stat.S_IREAD)
