@@ -552,6 +552,46 @@ MindSpore Transformers支持对DeepSeek-V3的推理。为了方便体验，仓�
 
 权重下载参考[推理权重准备](#推理权重准备)，推理权重无需自己转换，可直接用于推理。
 
+### 推理权重转换
+
+deepseek V3/R1 huggfance face权重转换：
+
+1. fp8 safetensors -> bf16 safetensors
+
+```bash
+python fp8_cast_bfp16.py --input-fp8-hf-path /path/to/ckpt_fp8 --output-bf16-hf-path /path/to/ckpt_bf16
+https://gitee.com/ascend/ModelZoo-PyTorch/blob/master/MindIE/LLM/DeepSeek/DeepSeek-V2/NPU_inference/fp8_cast_bf16.py
+```
+
+2. huggingface safetensors -> mindspore safetensors, 一台机器转换生成的mindspore safetensors，拷贝到其他机器上。
+
+```bash
+BF16:
+python convert_weight.py --infer True --worker_num 10 --torch_ckpt_path /path/to/huggingface_ckpt_path --mindspore_ckpt_path /path/to/mindspore_ckpt_path
+quant w8a8:
+python convert_weight.py --infer True --worker_num 10 --torch_ckpt_path /path/to/huggingface_ckpt_path --mindspore_ckpt_path /path/to/mindspore_ckpt_path --is_quant True --param_json quant_model_weight_w8a8.index.json
+```
+
+3. mindspore safetensors -> 切分好的rank ckpt。注意yaml的ffn_concat都配置成False，生成的rank ckpt是不带ffn concat的。
+
+```bash
+BF16:
+bash ../../scripts/msrun_launcher.sh "infer_safetensor_to_ckpt.py --yaml_file /path/to/predict_deepseek3_671B.yaml --dst_path /path/to/deepseek_v3_ms_bf16_ckpt " 32
+quant w8a8:
+bash ../../scripts/msrun_launcher.sh "infer_safetensor_to_ckpt.py --yaml_file /path/to/predict_deepseek3_671B.yaml --is_quant True --dst_path /path/to/deepseek_v3_ms_w8a8_ckpt " 16
+```
+
+4. 切分好的rank ckpt -> ffn concat rank ckpt
+
+```bash
+BF16:
+python convert_weight.py --infer True --ffn_concat True --mindspore_ckpt_path /path/to/mindspore_ckpt_path
+quant w8a8:
+python convert_weight.py --infer True --ffn_concat True --mindspore_ckpt_path /path/to/mindspore_ckpt_path --is_quant True
+```
+
+5. 分布式运行的时候，yaml的ffn_concat配置成True，load_checkpoint指定为rank ckpt的目录。
+
 ### 修改配置
 
 仓库上提供的`research/deepseek3/deepseek3_671b/predict_deepseek3_671b.yaml`中有部分配置需要根据实际进行修改，需要修改的地方如下：
