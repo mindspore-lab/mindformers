@@ -239,11 +239,13 @@ class ChatGLM2SelfAttention(nn.Cell):
                                                   keep_prob=1. - config.attention_dropout,
                                                   pre_tokens=65536,
                                                   next_tokens=next_tokens)
-            self.shard_fa(cp, dp, mp, parallel_config)
+            self.shard_fa(dp, mp, parallel_config, kv_mp)
             self.cp_transpose_before = P.Transpose().shard(((dp, cp, mp, 1, 1),))
             self.cp_transpose_kv_before = P.Transpose().shard(((dp, cp, kv_mp, 1, 1),))
             self.cp_transpose_after = P.Transpose().shard(((dp, cp, 1, mp, 1),))
         self.merger_head_transpose = P.Transpose().shard(((dp, mp, cp, 1),))
+        if self.cp_ds > 1:
+            self._ulysses_initial(dp, mp, cp)
 
     def init_linear(self, in_channel, out_channel):
         """init linear"""
@@ -310,9 +312,9 @@ class ChatGLM2SelfAttention(nn.Cell):
             input_layout = "BSH"
         return input_layout, sparse_mode
 
-    def shard_fa(self, cp, dp, mp, parallel_config):
+    def shard_fa(self, dp, mp, parallel_config, kv_mp):
         """shard flash attention"""
-        if self.n_kv_head >= mp:
+        if self.n_kv_head >= mp * self.cp_ds:
             fa_parallel_config = copy.deepcopy(parallel_config)
             fa_parallel_config.model_parallel = mp * self.cp_ds
             fa_parallel_config.context_parallel = self.cp_co
@@ -321,8 +323,8 @@ class ChatGLM2SelfAttention(nn.Cell):
             if not self.qkv_concat:
                 self.wk.weight.parallel_optimizer = False
                 self.wv.weight.parallel_optimizer = False
-            layout = Layout((dp, self.n_kv_head, mp * self.cp_ds // self.n_kv_head, cp),
-                            ("dp", "mp1", "mp2", "cp"))
+            layout = Layout((dp, self.cp_co, kv_mp, mp * self.cp_ds // kv_mp),
+                            ("dp", "cp", "mp1", "mp2"))
             if self.use_ring_attention:
                 self.flash_attention.flash_attention.shard(
                     (
@@ -383,6 +385,98 @@ class ChatGLM2SelfAttention(nn.Cell):
             value_layer = self.kv_transpose(value_layer, (0, 2, 1, 3))
         return key_layer, value_layer, attention_mask
 
+    def _ulysses_initial(self, dp, mp, cp):
+        """initial ulysses related ops."""
+        if self.n_kv_head < self.cp_ds:
+            raise Exception("n_kv_head must be larger than ulysses cp")
+        self.transpose_ulysses = P.Transpose()
+        self.transpose_ulysses_kv = P.Transpose()
+        self.transpose_a2a = P.Transpose()
+        self.transpose_a2a_kv = P.Transpose()
+        self.transpose_ulysses_merger_a2a = P.Transpose()
+        self.transpose_ulysses_merger = P.Transpose()
+        self.mp = mp
+        self.kv_mp_ds = 1
+        # ulysses shard strategy
+        if self.is_first_iteration:
+            # [bs, seq_len, mp, n_head/cp_ds/mp, cp_ds, head_dim]
+            self.transpose_ulysses.shard(((dp, cp, mp, 1, 1, 1),))
+            # [bs, seq_len, kv_mp_, n_kv_head/cp_ds/kv_mp_, cp_ds, head_dim]
+            self.transpose_ulysses_kv.shard(((dp, cp, self.kv_mp_ds, 1, 1, 1),))
+            # [bs, seq_len, cp_ds, mp, n_head/cp_ds/mp, head_dim]
+            self.transpose_a2a.shard(((dp, self.cp_co, self.cp_ds, mp, 1, 1),))
+            # [bs, seq_len, cp_ds, kv_mp_ds, n_kv_head/cp_ds/kv_mp_ds, head_dim]
+            self.transpose_a2a_kv.shard(((dp, self.cp_co, self.cp_ds, self.kv_mp_ds, 1, 1),))
+            # [bs, seq_len, cp_ds, mp, n_head/cp_ds/mp, head_dim]
+            self.transpose_ulysses_merger_a2a.shard(((dp, self.cp_co, self.cp_ds, mp, 1, 1),))
+            # [bs, seq_len, cp_ds, mp, n_head/cp_ds/mp, head_dim]
+            self.transpose_ulysses_merger.shard(((dp, cp, 1, mp, 1, 1),))
+
+    def _ulysses_q_a2a(self, qkv):
+        """Given a query tensor with shape of (bs, seq_len, n_head, head_dim),
+        insert all to all in right place using transpose with specific shard strategy.
+        refers to <https://arxiv.org/abs/2309.14509>
+
+        Args:
+            qkv (Tensor): qkv after rotary embedding and before attention, with shape of (B, S, N, D)
+
+        Returns:
+            Tensor: qkv tensor after all to all commu.
+        """
+        bs, seq_len, _, _ = F.shape(qkv)
+        new_shape = (bs, seq_len, self.mp, self.cp_ds, -1, self.head_dim)
+        # [bs, seq_len, n_head, head_dim] -> [bs, seq_len, mp, cp_ds, n_head/cp_ds/mp, head_dim]
+        qkv = self.reshape(qkv, new_shape)
+        # [bs, seq_len, mp, cp_ds, n_head/cp_ds/mp, head_dim] -> [bs, seq_len, cp_ds, mp, n_head/cp_ds/mp, head_dim]
+        qkv = self.transpose_ulysses(qkv, (0, 1, 3, 2, 4, 5))
+        # insert all-to-all (dp, cp, 1, mp, 1, 1) -> (dp, cp_co, cp_ds, mp, 1, 1)
+        qkv = self.transpose_a2a(qkv, (0, 1, 2, 3, 4, 5))
+        return qkv
+
+    def _ulysses_kv_a2a(self, qkv):
+        """Given a kv tensor with shape of (bs, seq_len, n_kv_head, head_dim),
+        insert all to all in right place using transpose with specific shard strategy.
+        refers to <https://arxiv.org/abs/2309.14509>
+
+        Args:
+            qkv (Tensor): qkv after rotary embedding and before attention, with shape of (B, S, N, D)
+
+        Returns:
+            Tensor: qkv tensor after all to all commu.
+        """
+        bs, seq_len, _, _ = F.shape(qkv)
+        ## ((4, 2, 1, 2, 1, 1),), shape is [4, 32768, 1, 2, 1, 128]
+        new_shape = (bs, seq_len, self.kv_mp_ds, self.cp_ds, -1, self.head_dim)
+        # [bs, seq_len, n_kv_head, head_dim] -> [bs, seq_len, kv_mp_ds, cp_ds, n_kv_head/cp_ds/kv_mp_ds, head_dim]
+        qkv = self.reshape(qkv, new_shape)
+        # [bs, seq_len, kv_mp_ds, cp_ds, n_kv_head/cp_ds/kv_mp_ds, head_dim] ->
+        # [bs, seq_len, cp_ds, kv_mp_ds, n_kv_head/cp_ds/kv_mp_ds, head_dim]
+        qkv = self.transpose_ulysses_kv(qkv, (0, 1, 3, 2, 4, 5))
+        # insert all-to-all (dp, cp, 1, 1, 1, 1) -> (dp, cp_co, cp_ds, mp, 1, 1)
+        qkv = self.transpose_a2a_kv(qkv, (0, 1, 2, 3, 4, 5))
+        return qkv
+
+    def _ulysses_context_layer_a2a(self, context_layer):
+        """Given the context_layer tensor after fa, with shape of (bs, seq_len, hidden_size),
+        insert all to all in right place using transpose with specific shard strategy.
+        refers to <https://arxiv.org/abs/2309.14509>
+
+        Args:
+            context_layer (Tensor): context layer after attention, with shape of (B, S, H)
+
+        Returns:
+            Tensor: context layer tensor after all to all commu.
+        """
+        bs, seq_len, _ = F.shape(context_layer)
+        new_shape = (bs, seq_len, self.cp_ds, self.mp, -1, self.head_dim)
+        context_layer = F.reshape(context_layer, new_shape)
+        # insert all-to-all back (dp, cp_co, cp_ds, mp, 1, 1) -> (dp, cp, 1, mp, 1, 1)
+        context_layer = self.transpose_ulysses_merger_a2a(context_layer, (0, 1, 2, 3, 4, 5))
+        context_layer = self.transpose_ulysses_merger(context_layer, (0, 1, 3, 2, 4, 5))
+        # reshape back to BSH
+        context_layer = F.reshape(context_layer, (bs, seq_len, -1))
+        return context_layer
+
     def construct(self, hidden_states, attention_mask, rotary_pos_emb, batch_valid_length=None, prefix_key_value=None,
                   block_tables=None, slot_mapping=None, kv_mask=None, seq_chunk=None):
         """Forward process of self-attention."""
@@ -432,27 +526,22 @@ class ChatGLM2SelfAttention(nn.Cell):
                 key = self.kv_transpose_back(key, (0, 2, 1, 3))
 
             if self.use_flash_attention:
-                if self.cp_ds > 1:
-                    query = F.reshape(query, (bs, seq_len, self.n_head // self.cp_ds, self.cp_ds, self.head_dim))
-                    key = F.reshape(key, (bs, seq_len, self.n_kv_head // self.cp_ds, self.cp_ds, self.head_dim))
-                    value = F.reshape(value, (bs, seq_len, self.n_kv_head // self.cp_ds, self.cp_ds, self.head_dim))
-                    query = self.cp_transpose_before(query, (0, 1, 3, 2, 4))
-                    key = self.cp_transpose_kv_before(key, (0, 1, 3, 2, 4))
-                    value = self.cp_transpose_kv_before(value, (0, 1, 3, 2, 4))
                 if self.seq_pipe:
                     key_update, query, value_update = self.seq_pipe_process(query, key, value, kv_mask,
                                                                             seq_chunk, seq_len)
                     context_layer = self.flash_attention(query, key_update, value_update, attention_mask)
                 else:
+                    if self.cp_ds > 1:
+                        query = self._ulysses_q_a2a(query)
+                        key = self._ulysses_kv_a2a(key)
+                        value = self._ulysses_kv_a2a(value)
                     query = F.reshape(query, (bs, seq_len, self.n_head * self.head_dim))
                     key = F.reshape(key, (bs, seq_len, self.n_kv_head * self.head_dim))
                     value = F.reshape(value, (bs, seq_len, self.n_kv_head * self.head_dim))
                     context_layer = self.flash_attention(query, key, value, attention_mask)
                     if self.cp_ds > 1:
-                        context_layer = self.cp_transpose_after(F.reshape(context_layer, (
-                            bs, seq_len, self.cp_ds, self.n_head // self.cp_ds, self.head_dim)), (0, 1, 3, 2, 4))
+                        context_layer = self._ulysses_context_layer_a2a(context_layer)
                     context_layer = F.reshape(context_layer, (bs, seq_len, self.n_head * self.head_dim))
-
             else:
                 query = self.transpose(query, (0, 2, 1, 3))
                 key = self.kv_transpose(key, (0, 2, 1, 3))
