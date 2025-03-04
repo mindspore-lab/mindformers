@@ -237,7 +237,7 @@ def finetune_dataset_process(ori_data_file_path, tokenizer, num_proc=1):
 
 
 def main(args_param):
-    word_tokenizer = YiZhaoTokenizer(args_param.vocab_file, trust_remote_code=True)
+    word_tokenizer = YiZhaoTokenizer(args_param.vocab_file)
     samples = finetune_dataset_process(args_param.ori_data_file_path, word_tokenizer,
                                        num_proc=args_param.num_proc)
     write_to_mindrecord(samples['samples'], word_tokenizer, args_param)

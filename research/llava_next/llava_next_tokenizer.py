@@ -37,7 +37,7 @@ class LlavaNextTokenizer:
             image_tag="<image>",
             **kwargs,
     ):
-        cls._instance = AutoTokenizer.from_pretrained(vocab_file, trust_remote_code=True, **kwargs)
+        cls._instance = AutoTokenizer.from_pretrained(vocab_file, **kwargs)
         cls._instance.image_token = image_tag
         if len(cls._instance.tokenize(image_tag)) != 1:
             cls._instance.add_tokens(AddedToken(image_tag, lstrip=False, rstrip=False, special=False),

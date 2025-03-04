@@ -178,7 +178,7 @@ def convert_pt_to_ms(input_path, output_path, torch_dtype=torch.float16, dtype=m
     emb_strategy = kwargs.get("emb_strategy", None)
     use_qkv_concat = kwargs.get("use_qkv_concat", False)
 
-    model = AutoModelForCausalLM.from_pretrained(input_path, device_map="cpu", trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(input_path, device_map="cpu")
 
     ckpt_weights = []
     for name, param in model.named_parameters():
