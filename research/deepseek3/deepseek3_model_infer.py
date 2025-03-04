@@ -107,8 +107,7 @@ class MLAPagedAttentionMgr(nn.Cell):
 
     def construct(self, key, slot_mapping):
         """The forward compute of single cache for Paged Attention."""
-        return self.reshape_and_cache(key, None, self.key_cache, None, slot_mapping, None, None,
-                                      None, None, False, cache_config=CacheConfig.KEY_CACHE.value)
+        return self.reshape_and_cache(key, None, self.key_cache, None, slot_mapping)
 
     def paged_attn(self, query, batch_valid_length, block_tables):
         """The forward compute of Paged Attention."""
