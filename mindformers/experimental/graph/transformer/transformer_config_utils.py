@@ -43,8 +43,6 @@ _INIT_ATTRIBUTE = {
     'mindformers_version',
     'tokenizer_class',
     'architectures',
-    'is_encoder_decoder',
-    'is_sample_acceleration'
 }
 
 
@@ -115,6 +113,8 @@ def convert_pretrained_config(config: PretrainedConfig, transformer_config: Tran
     transformer_config.ulysses_degree_in_cp = config.parallel_config.ulysses_degree_in_cp
     transformer_config.vocab_emb_dp = config.parallel_config.vocab_emb_dp
     transformer_config.sequence_parallel = getattr(config.parallel_config, 'use_seq_parallel', False)
+    transformer_config.rotary_base = config.theta
+    transformer_config.ffn_concat = config.qkv_concat
 
     transformer_config.post_init_checks()
 
