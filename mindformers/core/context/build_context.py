@@ -113,7 +113,22 @@ class MSContextOperator:
         self._set_save_dump_path(ctx, ms_ctx)
         self._set_jit_config(ctx, ms_ctx)
         self._set_runtime_num_threads(ctx, ms_ctx)
+        self._set_runtime_kernel_launch_group()
         return self._remove_mf_keys({**ctx, **ms_ctx})
+
+    def _set_runtime_kernel_launch_group(self):
+        """Set the parameters of kernel_launch_group"""
+        kernel_launch_group = {}
+        env_kernel_launch_group = os.getenv("EXPERIMENTAL_KERNEL_LAUNCH_GROUP", None)
+        if env_kernel_launch_group is not None:
+            logger.info("........ Enable kernel_launch_group ........")
+            pairs = env_kernel_launch_group.split(',')
+            for pair in pairs:
+                key, val = pair.split(':')
+                kernel_launch_group[key] = val
+            thread_num = int(kernel_launch_group.get('thread_num', 2))
+            kernel_group_num = int(kernel_launch_group.get('kernel_group_num', 8))
+            ms.runtime.set_kernel_launch_group(thread_num=thread_num, kernel_group_num=kernel_group_num)
 
     def _set_device_id(self, ctx, ms_ctx):
         if self.config.use_parallel and check_in_dynamic_cluster():
