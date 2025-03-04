@@ -685,12 +685,10 @@ class DeepSeekV2Attention(nn.Cell):
                                                   rotary_cos_format=2)
             self.infer_attention.shard(parallel_config=parallel_config)
 
-    def cache_and_update(self, seq_chunk, kv, mask, cache):
+    def cache_and_update(self, seq_chunk, kv, mask, cache, seq_zero, ones):
         """ cache_and_update"""
         kv = self.tile_kv(kv, (1, 1, self.seq_split_num, 1))
         kv = self.mul_kv(kv, mask)
-        seq_zero = self.mul_update(self.not_equal_ones(kv, 0), 0)
-        ones = self.not_equal_ones(seq_zero, -1)
         kv_equal = self.mul_update(ones, self.not_equal_seq(seq_chunk, self.seq_split_size))
         kv_update = self.add_k(kv, cache)
         update_kv = self.select(kv_equal, kv_update, seq_zero)
@@ -698,12 +696,10 @@ class DeepSeekV2Attention(nn.Cell):
         kv_update_state = self.assign_kv(cache, update_kv)
         return kv_update, kv_update_state
 
-    def cache_and_update_k_pe(self, seq_chunk, kv, mask, cache):
+    def cache_and_update_k_pe(self, seq_chunk, kv, mask, cache, seq_zero, ones):
         """ cache_and_update_k_pe"""
         kv = self.tile_kv1(kv, (1, 1, self.seq_split_num, 1))
         kv = self.mul_kv1(kv, mask)
-        seq_zero = self.mul_update1(mask, 0)
-        ones = self.not_equal_ones1(seq_zero, -1)
         kv_equal = self.mul_update1(ones, self.not_equal_seq(seq_chunk, self.seq_split_size))
         kv_update = self.add_k1(kv, cache)
         update_kv = self.select1(kv_equal, kv_update, seq_zero)
@@ -713,7 +709,8 @@ class DeepSeekV2Attention(nn.Cell):
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], pad_zeros, mask=None, batch_valid_length=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None, seq_chunk=None, k_pe_mask=None,
-                  k_nope_mask=None, value_states_mask=None):
+                  k_nope_mask=None, value_states_mask=None, seq_zero_k_pe=None, seq_one_k_pe=None,
+                  seq_zero_k_nope=None, seq_one_k_nope=None, seq_zero_value_states=None, seq_one_value_states=None):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
@@ -740,7 +737,8 @@ class DeepSeekV2Attention(nn.Cell):
         k_pe = self.kv2l_k_pe(x)
         k_pe = self.reshape(k_pe, (bs, 1, seq_len, self.qk_rope_head_dim))
         if self.seq_pipe:
-            k_pe, k_pe_state = self.cache_and_update_k_pe(seq_chunk, k_pe, k_pe_mask, self.k_pe_cache)
+            k_pe, k_pe_state = self.cache_and_update_k_pe(seq_chunk, k_pe, k_pe_mask, self.k_pe_cache,
+                                                          seq_zero_k_pe, seq_one_k_pe)
         k_pe = self.tile_kv(k_pe, (1, self.n_head, 1, 1))
 
         latent_kv = self.kv2l_latent_kv(x)
@@ -756,13 +754,15 @@ class DeepSeekV2Attention(nn.Cell):
         k_nope = self.reshape(k_nope, (bs, seq_len, self.n_head, self.qk_nope_head_dim))
         k_nope = self.transpose(k_nope, (0, 2, 1, 3))
         if self.seq_pipe:
-            k_nope, k_nope_state = self.cache_and_update(seq_chunk, k_nope, k_nope_mask, self.k_nope_cache)
+            k_nope, k_nope_state = self.cache_and_update(seq_chunk, k_nope, k_nope_mask, self.k_nope_cache,
+                                                         seq_zero_k_nope, seq_one_k_nope)
         value_states = self.lkv2kv_v(i_kv)
         value_states = self.reshape(value_states, (bs, seq_len, self.n_head, self.v_head_dim))
         value_states = self.transpose(value_states, (0, 2, 1, 3))
         if self.seq_pipe:
             value_states, value_states_state = self.cache_and_update(seq_chunk, value_states, value_states_mask,
-                                                                     self.value_states_cache)
+                                                                     self.value_states_cache,
+                                                                     seq_zero_value_states, seq_one_value_states)
             q_pe = F.depend(q_pe, (k_pe_state, k_nope_state, value_states_state))
         q_pe, k_pe = self.apply_rotary_emb(q_pe, k_pe, freqs_cis, seq_chunk)
         query_states = self.pe_concat((q_nope, q_pe))
@@ -1091,7 +1091,8 @@ class DeepSeekV2DecodeLayer(nn.Cell):
 
     def construct(self, x, freqs_cis, pad_zeros, mask=None, batch_valid_length=None, block_tables=None,
                   slot_mapping=None, prefix_keys_values=None, extra_loss=Tensor([0], mstype.float32), seq_chunk=None,
-                  k_pe_mask=None, k_nope_mask=None, value_states_mask=None):
+                  k_pe_mask=None, k_nope_mask=None, value_states_mask=None, seq_zero_k_pe=None, seq_one_k_pe=None,
+                  seq_zero_k_nope=None, seq_one_k_nope=None, seq_zero_value_states=None, seq_one_value_states=None):
         """ Forward of transformer block. """
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
@@ -1099,7 +1100,9 @@ class DeepSeekV2DecodeLayer(nn.Cell):
         input_x = self.attention_norm(x)
         # [bs, seq/1, hidden_dim]
         h = self.attention(input_x, freqs_cis, pad_zeros, mask, batch_valid_length, block_tables,
-                           slot_mapping, prefix_keys_values, seq_chunk, k_pe_mask, k_nope_mask, value_states_mask)
+                           slot_mapping, prefix_keys_values, seq_chunk, k_pe_mask, k_nope_mask, value_states_mask,
+                           seq_zero_k_pe, seq_one_k_pe, seq_zero_k_nope, seq_one_k_nope,
+                           seq_zero_value_states, seq_one_value_states)
         h = self.add(x, h)
         ffn_norm = self.ffn_norm(h)
         if hasattr(self.feed_forward, "return_extra_loss") and self.return_extra_loss:
@@ -1348,6 +1351,11 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
             self.assign_add_count = P.AssignAdd()
             self.assign_count = P.Assign()
             self.assign_mask = P.Assign().shard(((dp, 1), (dp, 1)))
+            self.tile_mask = P.Tile().shard(((dp, mp, 1, 1),))
+            self.mul_zero = P.Mul().shard(((dp, mp, 1, 1), ()))
+            self.mul_zero_k_pe = P.Mul().shard(((dp, 1, 1, 1), ()))
+            self.not_equal_one_k_pe = P.NotEqual().shard(((dp, 1, 1, 1), ()))
+            self.not_equal_one = P.NotEqual().shard(((dp, mp, 1, 1), ()))
             self.mask_zeros = Tensor(np.zeros((config.batch_size * dp, config.seq_length)), mstype.float32)
 
     def clear_kv_cache(self):
@@ -1385,6 +1393,12 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
         k_pe_mask = None
         k_nope_mask = None
         value_states_mask = None
+        seq_zero_k_pe = None
+        seq_one_k_pe = None
+        seq_zero_k_nope = None
+        seq_one_k_nope = None
+        seq_zero_value_states = None
+        seq_one_value_states = None
         if self.use_past:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
@@ -1409,8 +1423,16 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                                                              self.value_states_mask), seq_chunk),
                                               self.dtype)
                 seq_update = F.depend(self.seq_update, mask)
-                seq_update = F.depend(seq_update, (k_pe_mask, k_nope_mask, value_states_mask))
+                seq_zero_k_pe = self.mul_zero_k_pe(k_pe_mask, 0)
+                seq_one_k_pe = self.not_equal_one_k_pe(seq_zero_k_pe, 1)
+                seq_zero_k_nope = self.mul_zero(self.tile_mask(k_nope_mask, (1, self.n_head, 1, 1)), 0)
+                seq_one_k_nope = self.not_equal_one(seq_zero_k_nope, 1)
+                seq_zero_value_states = self.mul_zero(self.tile_mask(value_states_mask, (1, self.n_head, 1, 1)), 0)
+                seq_one_value_states = self.not_equal_one(seq_zero_value_states, 1)
+                seq_update = F.depend(seq_update, (k_pe_mask, k_nope_mask, value_states_mask,
+                                                   seq_one_k_pe, seq_one_k_nope, seq_one_value_states))
                 mask = F.depend(mask, self.assign_add_count(self.seq_chunk, seq_update))
+
             else:
                 mask = self.casual_mask(tokens)
             freqs_cis = self.freqs_mgr(seq_len * self.seq_split_num)
@@ -1430,7 +1452,11 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                            block_tables=block_tables, slot_mapping=slot_mapping,
                                            prefix_keys_values=prefix_kv, extra_loss=extra_loss, seq_chunk=seq_chunk,
                                            k_pe_mask=k_pe_mask, k_nope_mask=k_nope_mask,
-                                           value_states_mask=value_states_mask)
+                                           value_states_mask=value_states_mask, seq_zero_k_pe=seq_zero_k_pe,
+                                           seq_one_k_pe=seq_one_k_pe, seq_zero_k_nope=seq_zero_k_nope,
+                                           seq_one_k_nope=seq_one_k_nope,
+                                           seq_zero_value_states=seq_zero_value_states,
+                                           seq_one_value_states=seq_one_value_states)
         output = self.norm_out(h)
         for i in range(self.mtp_depth):
             layer_id = i + self.num_layers
@@ -1443,7 +1469,11 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                                   block_tables=block_tables, slot_mapping=slot_mapping,
                                                   prefix_keys_values=prefix_kv, extra_loss=extra_loss,
                                                   seq_chunk=seq_chunk, k_pe_mask=k_pe_mask, k_nope_mask=k_nope_mask,
-                                                  value_states_mask=value_states_mask)
+                                                  value_states_mask=value_states_mask, seq_zero_k_pe=seq_zero_k_pe,
+                                                  seq_one_k_pe=seq_one_k_pe, seq_zero_k_nope=seq_zero_k_nope,
+                                                  seq_one_k_nope=seq_one_k_nope,
+                                                  seq_zero_value_states=seq_zero_value_states,
+                                                  seq_one_value_states=seq_one_value_states)
             output = self.concat((output, self.norm_out(h)))
         return output, extra_loss
 
