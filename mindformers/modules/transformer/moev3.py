@@ -29,6 +29,7 @@ from mindspore.common.initializer import initializer, Normal
 import mindspore.common.dtype as mstype
 
 from mindspore.ops import operations as P
+from mindspore.ops import functional as F
 from mindspore.ops.operations import Shape, Sort, Mod, Gather, CumSum, ReduceSum, ReduceMean, AssignAdd, StridedSlice, OneHot
 import mindspore.nn as nn
 from mindspore.nn.cell import Cell
@@ -161,8 +162,21 @@ class MoEV3(Cell):
                                                           [self.expert_dim, self.hidden_size], self.router_dense_type),
                                   has_bias=False, dtype=self.router_dense_type)
         self.router_dense.matmul.shard(((self.dp, 1), (1, 1)))
+        # seq pipe
+        self.seq_split_num = parallel_config.seq_split_num
+        self.seq_pipe = self.seq_split_num > 1
+        if self.seq_pipe:
+            self.pi_cache = Parameter(initializer('zeros', (self.dp, self.expert_dim), mstype.float32),
+                                      requires_grad=False, parallel_optimizer=False)
+            self.fi_cache = Parameter(initializer('zeros', (self.dp, self.expert_dim), mstype.float32),
+                                      requires_grad=False, parallel_optimizer=False)
+            self.assign_cache = P.Assign().shard(((self.dp, 1), (self.dp, 1)))
+            self.add_cache = P.Add().shard(((self.dp, 1), (self.dp, 1)))
+            self.mul_cache = P.Mul().shard(((self.dp, 1), ()))
+        if self.seq_pipe:
+            raise ValueError("Currently, not support using gmm in seqpipe.")
 
-    def construct(self, input_tensor, extra_loss=0.):
+    def construct(self, input_tensor, extra_loss=0., seq_chunk=None):
         """forward process"""
         input_tensor_shape = self.shape(input_tensor)
         # (dp, N, h) <-- (B*S, h)
@@ -181,7 +195,8 @@ class MoEV3(Cell):
         else:
             router_coeff = self.mul(self.moe_config.routed_scaling_factor, expert_gate)
         # float32 <-- (dp, N, E) fp32, (dp, N, k) int32, float32
-        router_aux_loss = self._expert_load_balancing(router_prob, expert_index, self.aux_loss_factor)
+        router_aux_loss = self._expert_load_balancing(router_prob, expert_index, self.aux_loss_factor,
+                                                      seq_chunk=seq_chunk)
 
         # 2.dispatch sort
         # (dp, kN, h) bf16, (dp, kN) fp32,  (dp, E) int32, (dp, N, k)int32 <-- (dp, N, h) bf16, (dp, N, k) int32
@@ -255,7 +270,7 @@ class MoEV3(Cell):
         # (dp, N, k)
         return router_coeff
 
-    def _expert_load_balancing(self, scores, top_indices, alpha):
+    def _expert_load_balancing(self, scores, top_indices, alpha, seq_chunk=None):
         """Expert level load balance loss, which regularizes the load from local batch data on each
         expert to be balanced.
         float32 <-- (dp, N, E) fp32, (dp, N, k) int32, float32
@@ -271,7 +286,21 @@ class MoEV3(Cell):
         mask = self.onehot_aux(top_indices, self.expert_dim, self.on_value, self.off_value)
         # (dp, E) <- (dp, kN, E)
         fi = self.reduce_mean_aux_3d(mask, 1)
-
+        if seq_chunk is not None:
+            is_clean = self.cast(P.NotEqual()(seq_chunk, 0), mstype.float32)
+            is_return = self.cast(P.Equal()(seq_chunk, self.seq_split_num - 1), mstype.float32)
+            clean_zeros_pi = self.mul_cache(self.pi_cache, is_clean)
+            clean_zeros_fi = self.mul_cache(self.fi_cache, is_clean)
+            clean_pi_state = self.assign_cache(self.pi_cache, clean_zeros_pi)
+            clean_fi_state = self.assign_cache(self.fi_cache, clean_zeros_fi)
+            pi = self.add_cache(F.depend(pi, clean_pi_state), self.pi_cache)
+            fi = self.add_cache(F.depend(fi, clean_fi_state), self.fi_cache)
+            pi_fi = self.reduce_mean_aux_2d(self.mul_aux_2d(pi, fi))
+            pi_cache_state = self.assign_cache(self.pi_cache, F.depend(pi, pi_fi))
+            fi_cache_state = self.assign_cache(self.fi_cache, F.depend(fi, pi_fi))
+            expert_load_loss = self.mul_noshard(pi_fi, alpha * self.expert_dim ** 2)
+            expert_load_loss = F.depend(expert_load_loss, (pi_cache_state, fi_cache_state))
+            return expert_load_loss * is_return / (self.seq_split_num * self.seq_split_num)
         # p*f  (dp) <- (dp, E)
         expert_load_loss = self.reduce_mean_aux_2d(self.mul_aux_2d(pi, fi))
         # alpha*E \sum_i^E (f_i * P_i)
