@@ -43,7 +43,9 @@ from mindformers import (
 )
 from mindformers.trainer.utils import transform_and_load_checkpoint
 from mindformers.tools import set_output_path
-from mindformers.tools.utils import is_version_ge
+from mindformers.version_control import check_delay_initialization_support
+from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
+
 eval_logger = utils.eval_logger
 
 
@@ -168,10 +170,6 @@ class MFLM(TemplateLM):
         if dp is not None:
             self._config.parallel_config.data_parallel = dp
         if self._max_length:
-            self._config.processor.tokenizer.model_max_length = self._max_length
-        else:
-            self._max_length = self._config.processor.tokenizer.model_max_length
-        if self._max_length:
             self._config.model.model_config.seq_length = self._max_length
         if use_past is not None:
             self._config.model.model_config.use_past = use_past
@@ -186,9 +184,12 @@ class MFLM(TemplateLM):
 
         return self._config
 
+    # pylint: disable=W0212
     def _create_model(self, config) -> None:
         """Initialize Model"""
-        if is_version_ge(mindspore.__version__, "2.5.0"):
+        sig = False
+        if check_delay_initialization_support():
+            sig = True
             from mindspore.nn.utils import no_init_parameters
             with no_init_parameters():  # Delay initialization
                 self._model = AutoModel.from_config(config)
@@ -199,10 +200,15 @@ class MFLM(TemplateLM):
         if not config.load_checkpoint:
             raise Exception("There is no model ckpt in the model directory.")
         eval_logger.info("----------------Load checkpoint----------------")
+        ms_safetensors_path = get_load_path_after_hf_convert(config, self._model)
+        config.load_checkpoint = ms_safetensors_path
         seq_length = config.model.model_config.seq_length
         input_ids = Tensor(shape=(self.batch_size, seq_length), dtype=mindspore.int32, init=initializer.One())
         infer_data = self._model.prepare_inputs_for_predict_layout(input_ids)
         transform_and_load_checkpoint(config, Model(self._model), self._model, infer_data, do_predict=True)
+        if sig:
+            self._model.init_parameters_data()
+        eval_logger.info("----------------Load checkpoint finished----------------")
 
     def _create_tokenizer(self, pretrained: str) -> None:
         """Initialize Tokenizer"""

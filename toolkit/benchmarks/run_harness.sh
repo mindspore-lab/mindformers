@@ -24,30 +24,40 @@ function show_help {
     echo "  --help                        Show this help message"
 }
 
+# Initialize variables
+EXTRA_ARGS=()
+
+# shellcheck disable=SC2034
 while [[ "$#" -gt 0 ]]; do
-    case $1 in
-        --register_path) REGISTER_PATH="$2"; shift ;; # Set register path parameter
-        --tasks) TASKS="$2"; shift ;;          # Set tasks parameter
-        --model_args) MODEL_ARGS="$2"; shift ;; # Set model_args parameter
-        --model) MODEL="$2"; shift ;;           # Set model parameter
-        --batch_size) BATCH_SIZE="$2"; shift ;; # Set batch_size parameter
-        --include_path) INCLUDE_PATH="$2"; shift ;; # Set include_path parameter
-        --help)
-          show_help
-            return 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            show_help
-            return 1
-            ;;
-    esac
+    # Check if the parameter starts with "--", indicating it's an option
+    if [[ "$1" == --* ]]; then
+        case $1 in
+            --register_path) REGISTER_PATH="$2"; shift ;; # Set register path parameter
+            --tasks) TASKS="$2"; shift ;;          # Set tasks parameter
+            --model_args) MODEL_ARGS="$2"; shift ;; # Set model_args parameter
+            --model) MODEL="$2"; shift ;;           # Set model parameter
+            --batch_size) BATCH_SIZE="$2"; shift ;; # Set batch_size parameter
+            --include_path) INCLUDE_PATH="$2"; shift ;; # Set include_path parameter
+            --help)
+                show_help
+                return 0
+                ;;
+            *)
+                # If it's an unknown option, show an error
+                echo "Unknown option: $1"
+                show_help
+                return 1
+                ;;
+        esac
+    else
+        # If the parameter doesn't start with "--", treat it as an extra argument (non-option)
+        EXTRA_ARGS+=("$1")
+    fi
     shift
 done
 
-if [[ -n "$REGISTER_PATH" ]]; then
-    export REGISTER_PATH=$REGISTER_PATH
-    echo "REGISTER_PATH is: $REGISTER_PATH"
+if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
+    echo "Extra arguments: " "${EXTRA_ARGS[@]}"
 fi
 
 MULTIPLE_CHOICE="cmmlu|ceval-valid|mmlu|race|lambada"
