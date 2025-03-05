@@ -55,6 +55,34 @@ def get_input_data_batch_slice_map(chosen_input_ids, chosen_labels,
         rejected_input_ids, rejected_labels, rejected_attention_mask, rejected_loss_mask, rejected_ref_logps
 
 
+def get_input_packing_data_batch_slice_map(chosen_attention_mask, chosen_index_packed, chosen_input_ids, chosen_labels,
+                                           chosen_lens, chosen_loss_mask, chosen_position_id, rejected_attention_mask,
+                                           rejected_index_packed, rejected_input_ids, rejected_labels, rejected_lens,
+                                           rejected_loss_mask, rejected_position_id, dis: int = 0, rank_id: int = 0):
+    """
+    Generate position_id and attention_mask according to input_ids considering eod reset
+    """
+    rank = int(rank_id)
+    chosen_input_ids = chosen_input_ids[rank * dis: (rank + 1) * dis]
+    rejected_input_ids = rejected_input_ids[rank * dis: (rank + 1) * dis]
+    chosen_labels = chosen_labels[rank * dis: (rank + 1) * dis]
+    rejected_labels = rejected_labels[rank * dis: (rank + 1) * dis]
+    chosen_attention_mask = chosen_attention_mask[rank * dis: (rank + 1) * dis]
+    rejected_attention_mask = rejected_attention_mask[rank * dis: (rank + 1) * dis]
+    chosen_index_packed = chosen_index_packed[rank * dis: (rank + 1) * dis]
+    chosen_lens = chosen_lens[rank * dis: (rank + 1) * dis]
+    chosen_loss_mask = chosen_loss_mask[rank * dis: (rank + 1) * dis]
+    chosen_position_id = chosen_position_id[rank * dis: (rank + 1) * dis]
+    rejected_index_packed = rejected_index_packed[rank * dis: (rank + 1) * dis]
+    rejected_lens = rejected_lens[rank * dis: (rank + 1) * dis]
+    rejected_loss_mask = rejected_loss_mask[rank * dis: (rank + 1) * dis]
+    rejected_position_id = rejected_position_id[rank * dis: (rank + 1) * dis]
+
+    return chosen_attention_mask, chosen_index_packed, chosen_input_ids, chosen_labels, chosen_lens, \
+            chosen_loss_mask, chosen_position_id, rejected_attention_mask, rejected_index_packed, \
+            rejected_input_ids, rejected_labels, rejected_lens, rejected_loss_mask, rejected_position_id
+
+
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class DPODataset(BaseDataset):
     """
@@ -159,6 +187,7 @@ class DPODataset(BaseDataset):
         rank_id, device_num = cls._generate_shard_info()
         dataset_config.rank_id = rank_id
         dataset_config.device_num = device_num
+        use_data_packing = dataset_config.use_data_packing
 
         if isinstance(dataset_config.data_loader, dict):
             if dataset_config.data_loader.type != "MindDataset" and \
@@ -169,7 +198,6 @@ class DPODataset(BaseDataset):
         else:
             dataset = dataset_config.data_loader
         type_cast_op = TypeCast(mstype.int32)
-        float_type_cast_op = TypeCast(mstype.float32)
         if dataset_config.eod_reset:
             if cls._is_semi_full_batch() or cls._is_data_parallel():
                 rank_id = 0
@@ -185,8 +213,11 @@ class DPODataset(BaseDataset):
             dataset = dataset.batch(dataset_config.batch_size,
                                     drop_remainder=dataset_config.drop_remainder,
                                     output_columns=dataset_config.input_columns)
-
-            my_get_input_data_batch_slice_map = partial(get_input_data_batch_slice_map, dis=dis, rank_id=rank_id)
+            if use_data_packing:
+                my_get_input_data_batch_slice_map = partial(get_input_packing_data_batch_slice_map,
+                                                            dis=dis, rank_id=rank_id)
+            else:
+                my_get_input_data_batch_slice_map = partial(get_input_data_batch_slice_map, dis=dis, rank_id=rank_id)
 
             dataset = get_dataset_map(dataset, my_get_input_data_batch_slice_map,
                                       input_columns=dataset_config.input_columns,
@@ -200,8 +231,6 @@ class DPODataset(BaseDataset):
             dataset = dataset.project(columns=dataset_config.output_columns)
         for input_arg in ['chosen_input_ids', 'rejected_input_ids', 'chosen_labels', 'rejected_labels']:
             dataset = dataset.map(operations=type_cast_op, input_columns=input_arg)
-        for input_arg in ['chosen_ref_logps', 'rejected_ref_logps']:
-            dataset = dataset.map(operations=float_type_cast_op, input_columns=input_arg)
         dataset = dataset.repeat(dataset_config.repeat)
         return dataset
 

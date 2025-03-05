@@ -94,6 +94,9 @@ def get_lazy_inline(func):
         bound_args.apply_defaults()
 
         disable_lazy_inline = bound_args.kwargs.get('disable_lazy_inline', False)
+        model_config = kwargs.get('config')
+        if model_config and hasattr(model_config, 'disable_lazy_inline'):
+            disable_lazy_inline = model_config.disable_lazy_inline
         stand_alone = ms.get_auto_parallel_context("parallel_mode") == 'stand_alone'
         pipeline_parallel = ms.get_auto_parallel_context("pipeline_stages") > 1
 

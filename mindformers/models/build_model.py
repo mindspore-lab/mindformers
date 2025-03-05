@@ -76,6 +76,8 @@ def build_network(
     pet_config = config.model_config.pet_config
     quant_config = config.model_config.quantization_config
     rl_config = config.model_config.rl_config
+    if rl_config:
+        default_args.update({'disable_lazy_inline': True})
     network = build_model(config, default_args=default_args)
     if quant_config:
         from mindformers.modules.quantizers import AutoQuantizer
@@ -89,7 +91,8 @@ def build_network(
         network = get_pet_model(network, pet_config)
     if rl_config:
         from mindformers.reinforcement_learning import get_rl_model
-        network = get_rl_model(network, rl_config)
+        ref_network = build_model(config, default_args=default_args)
+        network = get_rl_model(network, ref_network, rl_config)
     return network
 
 

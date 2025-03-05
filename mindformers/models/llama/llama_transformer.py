@@ -125,6 +125,7 @@ class LLamaAttention(nn.Cell):
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig(),
                  parallel_decoding=False,
+                 rl_config=None,
                  init_method_std=0.01,
                  chunk_prefill=False,
                  use_3d_tensor_parallel=False,
@@ -153,6 +154,8 @@ class LLamaAttention(nn.Cell):
         self.use_ring_attention = use_ring_attention
         self.use_attn_mask_compression = use_attn_mask_compression
         self.qkv_concat = qkv_concat
+
+        self.rl_config = rl_config
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
@@ -491,6 +494,8 @@ class LLamaAttention(nn.Cell):
             elif self.context_parallel > 1:
                 query = self._merge_heads(query)
                 key = self._merge_heads(key)
+                if self.rl_config is not None:
+                    value = self.reshape(value, (bs, seq_len, -1))
             else:
                 value = self.transpose(self.reshape(value, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
                 key, value = self._cat_prefix(key, value, prefix_keys_values)
@@ -535,6 +540,8 @@ class LLamaAttention(nn.Cell):
                     context_layer = self._attn(query, key, value, mask)
 
         # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
+        if self.rmsnorm_compute_2d and self.rl_config is not None:
+            context_layer = self.reshape(context_layer, (bs * seq_len, -1))
         output = self.wo(context_layer)  # dp, mp -> dp, 1 / dp * mp, 1
         output = self.cast(output, ori_dtype)
         return output
@@ -582,7 +589,10 @@ class LLamaAttention(nn.Cell):
         bs, seq_len, n_head, head_dim = self.shape(x)
         # [bs, seq/1, hidden_dim]
         if self.rmsnorm_compute_2d:
-            new_shape = (bs * seq_len, n_head * head_dim)
+            if self.rl_config is not None:
+                new_shape = (bs, seq_len, n_head * head_dim)
+            else:
+                new_shape = (bs * seq_len, n_head * head_dim)
         else:
             new_shape = (bs, seq_len, n_head * head_dim)
         x_merge = self.reshape(x, new_shape)
@@ -781,6 +791,7 @@ class LLamaDecodeLayer(nn.Cell):
                  num_blocks: Optional[int] = None,
                  parallel_config=TransformerOpParallelConfig(),
                  parallel_decoding=False,
+                 rl_config=None,
                  fused_kernel=True,
                  chunk_prefill=False,
                  use_3d_tensor_parallel=False,
@@ -835,6 +846,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         batch_size=batch_size,
                                         parallel_config=parallel_config,
                                         parallel_decoding=parallel_decoding,
+                                        rl_config=rl_config,
                                         init_method_std=init_method_std,
                                         chunk_prefill=chunk_prefill,
                                         use_3d_tensor_parallel=use_3d_tensor_parallel,

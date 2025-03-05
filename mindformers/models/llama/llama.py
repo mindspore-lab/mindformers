@@ -95,6 +95,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.rmsnorm_compute_2d = config.rmsnorm_compute_2d
+        self.rl_config = config.rl_config
 
         if config.moe_config.expert_num > 1:
             logger.info("MoE config is provided, use MoE FFN")
@@ -236,6 +237,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          moe_config=config.moe_config,
                                          parallel_config=config.parallel_config,
                                          parallel_decoding=self.parallel_decoding,
+                                         rl_config=self.rl_config,
                                          fused_kernel=config.fused_rms_norm,
                                          init_method_std=config.init_method_std,
                                          chunk_prefill=config.chunk_prefill,
@@ -251,6 +253,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                      fused_kernel=config.fused_rms_norm)
         dp = config.parallel_config.data_parallel
         cp = config.parallel_config.context_parallel
+        mp = config.parallel_config.model_parallel
 
         self.tok_embeddings.pipeline_stage = config.start_stage
         if config.parallel_config.pipeline_stage > 1:
@@ -276,7 +279,11 @@ class LlamaModel(LlamaPreTrainedModel):
             self.casual_mask.shard(config.parallel_config)
             self.concat.shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
             if self.fine_grain_interleave or config.rmsnorm_compute_2d:
-                self.norm_out.shard((dp * cp, 1))
+                if self.rl_config is not None:
+                    self.norm_out.shard((dp * cp * mp, 1))
+                else:
+                    self.norm_out.shard((dp * cp, 1))
+                self.norm_out.shard((dp * cp * mp, 1))
             else:
                 self.norm_out.shard((dp, cp, 1))
 
@@ -522,7 +529,10 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             self.prefill_gather_flatten.shard(((dp, 1, 1), (dp,)))
             self.sub_batch_valid_len.shard(((1,), ()))
             if config.parallel_config.vocab_emb_dp or (vocab_size % mp != 0):
-                self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
+                if self.rl_config is not None:
+                    self.lm_head.shard(strategy_matmul=((dp * cp * mp, 1), (1, 1)))
+                else:
+                    self.lm_head.shard(strategy_matmul=((dp * mp, 1), (1, 1)))
             else:
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (mp, 1)))
 
