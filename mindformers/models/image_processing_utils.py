@@ -17,13 +17,10 @@
 import copy
 import json
 import os
-from io import BytesIO
-from typing import Any, Dict, Iterable, Optional, Tuple, Union, List
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
-import requests
 import numpy as np
 import mindspore as ms
-from PIL import Image
 
 from mindformers.tools.logger import logger
 from mindformers.tools.generic import add_model_info_to_auto_map
@@ -452,28 +449,6 @@ class ImageProcessingMixin(PushToHubMixin):
             raise ValueError(f"{auto_class} is not a valid auto class.")
 
         cls._auto_class = auto_class
-
-    def fetch_images(self, image_url_or_urls: Union[str, List[str]]):
-        """
-        Convert a single or a list of urls into the corresponding `PIL.Image` objects.
-
-        If a single url is passed, the return value will be a single object. If a list is passed a list of objects is
-        returned.
-        """
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) \
-                 Chrome/114.0.0.0"
-                " Safari/537.36"
-            )
-        }
-        if isinstance(image_url_or_urls, list):
-            return [self.fetch_images(x) for x in image_url_or_urls]
-        if isinstance(image_url_or_urls, str):
-            response = requests.get(image_url_or_urls, stream=True, headers=headers)
-            response.raise_for_status()
-            return Image.open(BytesIO(response.content))
-        raise ValueError(f"only a single or a list of entries is supported but got type={type(image_url_or_urls)}")
 
 
 class BaseImageProcessor(ImageProcessingMixin):

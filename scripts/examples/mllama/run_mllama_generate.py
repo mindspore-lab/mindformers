@@ -29,9 +29,14 @@ from mindformers.trainer.utils import transform_and_load_checkpoint
 
 def main(config_path, use_parallel, load_checkpoint, vocab_file):
     # multi batch inputs
-    url = "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg"
+    image_path = "please set a image path."
+    if not os.path.exists(image_path):
+        raise ValueError(
+            f"Image is not existed, please set a true path. For example, you can download "
+            f"https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg "
+            f"and image path to demo.jpeg path")
     text = "<|image|>Describe the image in English:"
-    inputs = [{"image": url},
+    inputs = [{"image": image_path},
               {"text": text}]
     batch_size = 1
 

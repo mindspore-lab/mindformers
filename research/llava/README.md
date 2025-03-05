@@ -86,14 +86,17 @@ output_path: 转换后的MindSpore权重文件保存路径
 
 ### 单卡推理
 
-以`llava1.5-7b`单卡推理为例。
+以`llava1.5-7b`单卡推理为例，以下提供推理样例。
+
+- 首先下载示例图片[demo.jpeg](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg)，并在如下示例脚本中的`--predict_data`处指定该图片路径。
+- 运行如下脚本
 
 ```shell
 python run_mindformer.py \
 --config research/llava/llava1_5_7B/predict_llava1_5_7b.yaml \
 --register_path research/llava \
 --run_mode predict \
---predict_data 'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg' 'Describe the image in English:' \ # 依次传入图片路径或链接、提词
+--predict_data 'path of demo.jpeg' 'Describe the image in English:' \ # 依次传入图片路径或链接、提词
 --modal_type image text \ # 对应模态为image和text
 --load_checkpoint /path/to/ckpt \
 --use_parallel False \
@@ -120,12 +123,15 @@ python run_mindformer.py \
 
 此后运行并行脚本msrun_launcher.sh拉起并行推理进程
 
+- 首先下载示例图片[demo.jpeg](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg)，并在如下示例脚本中的`--predict_data`处指定该图片路径。
+- 运行如下脚本
+
 ```shell
 bash scripts/msrun_launcher.sh "run_mindformer.py \
 --config research/llava/llava1_5_7B/predict_llava1_5_7b.yaml \
 --register_path research/llava \
 --run_mode predict \
---predict_data 'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg' 'Describe the image in English:' \ # 依次传入图片路径或链接、提词
+--predict_data 'path of demo.jpeg' 'Describe the image in English:' \ # 依次传入图片路径或链接、提词
 --modal_type image text \ # 对应模态为image和text
 --load_checkpoint /path/to/ckpt \
 --use_parallel True \
