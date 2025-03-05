@@ -305,7 +305,7 @@ def func_infer_shape(*args):
     return args[0]
 
 
-def ffn_forward_func(x, expert_id, counter, w1, w2, w3, ep_group, hidden_size, ep):
+def ffn_forward_func(x, expert_id, counter, w1, w2, w3, ep_group, hidden_size, ep, use_fused_ops_permute=False):
     """
     Implements a forward pass functionality mainly used in processing input data x within an expert network
     (such as MoE, Mixture of Experts) through a series of operations including AllToAll communication, resorting,
@@ -349,9 +349,7 @@ def ffn_forward_func(x, expert_id, counter, w1, w2, w3, ep_group, hidden_size, e
                                               send_list, receive_list).reshape(1, -1)
 
     # 2.Resort
-    _, sort_map = ops.sort(expert_id)
-    _, unsort_map = ops.sort(sort_map.astype(ms.float32))
-    x = ops.gather(x, sort_map, axis=1, batch_dims=1)
+    x, unresort_map = _ffn_resort(x, expert_id, use_fused_ops_permute)
 
     # 3.GroupedMM
     # squeeze x [B, S, h] -- > [B*S, h] where B=1
@@ -365,7 +363,7 @@ def ffn_forward_func(x, expert_id, counter, w1, w2, w3, ep_group, hidden_size, e
     y = y.reshape((1, -1, hidden_size))
 
     # 4.Unresort
-    y = ops.gather(y, unsort_map, axis=1, batch_dims=1)
+    y = _ffn_unresort(y, unresort_map, use_fused_ops_permute)
 
     # 5.AllToAllv
     # x [B, S, h]
@@ -373,6 +371,43 @@ def ffn_forward_func(x, expert_id, counter, w1, w2, w3, ep_group, hidden_size, e
                                       send_list * hidden_size).reshape(1, -1, hidden_size)
     y = y.reshape(x_shape_origin)
     return y
+
+
+def _ffn_resort(x, expert_id, use_fused_ops_permute):
+    """resort tensor x according to expert_id"""
+    if use_fused_ops_permute:
+        x_dtype_org = x.dtype
+        x_shape_org = x.shape
+        # permute only support bfloat16 for now
+        x = ops.cast(x, ms.bfloat16)
+        x = ops.reshape(x, (-1, x_shape_org[-1]))
+        expert_id = ops.reshape(expert_id, (-1,))
+        x, unsort_map = ops.moe_token_permute(x, expert_id.astype(ms.int32))
+        x = ops.cast(x, x_dtype_org)
+        x = ops.reshape(x, x_shape_org)
+    else:
+        _, sort_map = ops.sort(expert_id)
+        _, unsort_map = ops.sort(sort_map.astype(ms.float32))
+        x = ops.gather(x, sort_map, axis=1, batch_dims=1)
+
+    return x, unsort_map
+
+
+def _ffn_unresort(x, unsort_map, use_fused_ops_permute):
+    """unresort tensor x according to unsort_map"""
+    if use_fused_ops_permute:
+        x_dtype_org = x.dtype
+        x_shape_org = x.shape
+        # permute only support bfloat16 for now
+        x = ops.cast(x, ms.bfloat16)
+        x = ops.reshape(x, (-1, x_shape_org[-1]))
+        x = ops.moe_token_unpermute(x, unsort_map)
+        x = ops.cast(x, x_dtype_org)
+        x = ops.reshape(x, x_shape_org)
+    else:
+        x = ops.gather(x, unsort_map, axis=1, batch_dims=1)
+
+    return x
 
 
 class FFN(nn.Cell):
@@ -413,6 +448,7 @@ class FFN(nn.Cell):
         self.inner_dp = self.ep
         self.ep_group = self._get_ep_group_name()
         self.init_method_std = init_method_std
+        self.use_fused_ops_permute = moe_config.use_fused_ops_permute
 
         # parameters
         self.w1 = Parameter(initializer(Normal(sigma=self.init_method_std, mean=0.0),
@@ -440,9 +476,10 @@ class FFN(nn.Cell):
         self.op_stridedslice_safe_tokens = StridedSlice().shard(((self.dp, 1, 1),))
 
         # hook_ffn_forward
-        self.layout = Layout((self.outer_dp, self.inner_dp, 1, 1, 1), ("outer_dp", "inner_dp", "sp", "mp0", "mp1"))
         self.hook_ffn_forward = P.Morph(ffn_forward_func, func_infer_shape, func_infer_dtype).add_prim_attr(
             "self_define_shard", True)
+
+        self.layout = Layout((self.outer_dp, self.inner_dp, 1, 1, 1), ("outer_dp", "inner_dp", "sp", "mp0", "mp1"))
         self.hook_ffn_forward.shard(
             in_strategy=(
                 self.layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # x [B, S, h]
@@ -480,7 +517,7 @@ class FFN(nn.Cell):
         x, expert_id, counter, unsort_map_safe_tokens = self._pad_safe_tokens(x, expert_id, counter)
         x = self.hook_ffn_forward(
             x, expert_id, counter, w1, w2, w3,
-            self.ep_group, self.hidden_size, self.ep
+            self.ep_group, self.hidden_size, self.ep, self.use_fused_ops_permute
         )
         x = self._remove_safe_tokens(x, unsort_map_safe_tokens)
         return x
