@@ -15,11 +15,14 @@
 '''Knowlm weight convert'''
 import yaml
 from mindspore import context
+from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from mindformers.pipeline import pipeline
 from mindformers import LlamaForCausalLM, LlamaConfig, LlamaTokenizer
 
 context.set_context(device_target="Ascend")
 with open("./knowlm.yaml", 'r') as file:
+    check_yaml_depth_before_loading(file)
+    file.seek(0)
     knowlm_data = yaml.load(file, Loader=yaml.SafeLoader)
 
 # init knowlm-13b-zhixi model

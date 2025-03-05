@@ -37,6 +37,7 @@ except ImportError:
 from mindspore.common.initializer import _INITIALIZER_ALIAS
 
 from mindformers.tools import DictConfig, logger
+from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from mindformers.experimental.parallel_core.pynative.utils import DictWithValueError, divide
 
 _SUPPORT_DTYPE_DICT = DictWithValueError(
@@ -850,6 +851,8 @@ def init_configs_from_yaml(file_path: str, config_classes=None, **kwargs):
         raise ValueError("file_path should be a yaml file.")
     filepath = os.path.realpath(file_path)
     with open(filepath, encoding="utf-8") as fp:
+        check_yaml_depth_before_loading(fp)
+        fp.seek(0)
         raw_dict = yaml.safe_load(fp)
         raw_dict = OrderedDict(sorted(raw_dict.items()))
 

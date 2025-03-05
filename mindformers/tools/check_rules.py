@@ -15,9 +15,14 @@
 """Functions to check rules"""
 import os
 import json
+import yaml
+from yaml.nodes import MappingNode
 import mindspore as ms
 from .utils import get_real_group_size
 from .logger import logger
+
+
+YAML_MAX_NESTING_DEPTH = 10
 
 
 def get_parallel_strategy(config):
@@ -301,3 +306,23 @@ def check_rules(config, mode='train', **kwargs):
     _check_env(config)
     _check_recompute(config)
     _check_config_campacity(config)
+
+
+def get_yaml_ast_depth(node, depth=0):
+    """Recursively calculate the maximum nesting depth of yaml ast structures."""
+    if isinstance(node, MappingNode):  # process dict
+        return max((get_yaml_ast_depth(v, depth + 1) for _, v in node.value), default=depth)
+    return depth
+
+
+def check_yaml_depth_before_loading(yaml_str, max_depth=YAML_MAX_NESTING_DEPTH):
+    """Check yaml depth before loading"""
+    try:
+        node = yaml.compose(yaml_str)  # parse yaml to ast
+        if node is None:
+            return  # null file has no question
+        depth = get_yaml_ast_depth(node)
+        if depth > max_depth:
+            raise ValueError(f"YAML nesting depth {depth} exceeds the maximum allowed value of {max_depth}")
+    except yaml.YAMLError as e:
+        raise ValueError(f"YAML parse error: {e}") from e

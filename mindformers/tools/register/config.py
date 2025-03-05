@@ -22,6 +22,7 @@ from collections import OrderedDict
 from typing import Union
 
 import yaml
+from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from .template import ConfigTemplate
 
 BASE_CONFIG = 'base_config'
@@ -178,6 +179,8 @@ class MindFormerConfig(DictConfig):
 
         filepath = os.path.realpath(filename)
         with open(filepath, encoding='utf-8') as fp:
+            check_yaml_depth_before_loading(fp)
+            fp.seek(0)
             cfg_dict = yaml.safe_load(fp)
             cfg_dict = OrderedDict(sorted(cfg_dict.items()))
 

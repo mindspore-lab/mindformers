@@ -24,6 +24,7 @@ import yaml
 import cv2
 import numpy as np
 from tqdm import tqdm
+from mindformers.tools.check_rules import check_yaml_depth_before_loading
 
 
 # pylint: disable=C0111
@@ -81,6 +82,8 @@ def get_origin_dict(dataset_dir):
     list_data_dict = []
     video_or_image_file_path = []
     with open(dataset_dir, "r") as file:
+        check_yaml_depth_before_loading(file)
+        file.seek(0)
         yaml_data = yaml.safe_load(file)
         datasets = yaml_data.get("datasets")
         for dataset in datasets:

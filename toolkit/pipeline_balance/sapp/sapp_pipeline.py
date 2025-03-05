@@ -17,7 +17,7 @@
 import os
 import sys
 import yaml
-
+from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from toolkit.pipeline_balance.utils.logger import logger
 import toolkit.pipeline_balance.simulator.pp_simulator as sim
 from toolkit.pipeline_balance.sapp.sapp_solver import SappSolver
@@ -323,6 +323,8 @@ class SappPipeline:
     def simulate_file(self, manual_config_file, output_folder):
         """simulate manual input config"""
         with open(manual_config_file, encoding="utf-8") as fp:
+            check_yaml_depth_before_loading(fp)
+            fp.seek(0)
             data = yaml.safe_load(fp)
         yaml_data = {}
         for manual in data.values():

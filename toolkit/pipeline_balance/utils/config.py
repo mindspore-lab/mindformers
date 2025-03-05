@@ -22,6 +22,7 @@ import random
 import yaml
 import numpy as np
 
+from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from toolkit.pipeline_balance.utils.logger import logger
 from toolkit.pipeline_balance.sapp.sapp_solver import SappSolver
 from toolkit.pipeline_balance.utils.layer import Layer
@@ -118,6 +119,8 @@ def time_parser(file_name: str, model_name: str):
 
     filepath = os.path.realpath(file_name)
     with open(filepath, encoding="utf-8") as fp:
+        check_yaml_depth_before_loading(fp)
+        fp.seek(0)
         cfg_dict = yaml.safe_load(fp)
 
     head_time = 0
@@ -243,6 +246,8 @@ def memory_parser(file_name: str):
 
     filepath = os.path.realpath(file_name)
     with open(filepath, encoding="utf-8") as fp:
+        check_yaml_depth_before_loading(fp)
+        fp.seek(0)
         cfg_dict = yaml.safe_load(fp)
 
     # get pipeline config

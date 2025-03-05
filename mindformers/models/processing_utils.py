@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Optional, Union
 import json
 import yaml
-
+from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from ..mindformer_book import print_path_or_list, MindFormerBook
 from .build_processor import build_processor
 from .tokenization_utils import PreTrainedTokenizer
@@ -470,6 +470,8 @@ class ProcessorMixin(PushToHubMixin):
         meraged_dict = {}
         if os.path.exists(config_path):
             with open(config_path, 'r') as file_reader:
+                check_yaml_depth_before_loading(file_reader)
+                file_reader.seek(0)
                 meraged_dict = yaml.safe_load(file_reader.read())
             file_reader.close()
         meraged_dict.update(wraped_config)

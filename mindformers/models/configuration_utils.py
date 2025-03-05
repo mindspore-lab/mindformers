@@ -32,6 +32,7 @@ from mindformers import __version__
 from mindformers.tools import MindFormerConfig
 from mindformers.tools.generic import experimental_mode_func_checker, is_experimental_mode
 from mindformers.tools.logger import logger
+from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from mindformers.models.build_config import build_model_config
 from mindformers.models.utils import CONFIG_NAME, ms_type_to_str
 from mindformers.mindformer_book import MindFormerBook, print_path_or_list
@@ -513,6 +514,8 @@ class PretrainedConfig(PushToHubMixin):
         meraged_dict = {}
         if os.path.exists(save_path):
             with open(save_path, 'r') as file_reader:
+                check_yaml_depth_before_loading(file_reader)
+                file_reader.seek(0)
                 meraged_dict = yaml.safe_load(file_reader.read())
             file_reader.close()
         meraged_dict.update(wraped_config)
