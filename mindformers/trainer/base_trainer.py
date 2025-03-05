@@ -909,11 +909,14 @@ class BaseTrainer:
         if (hasattr(config, 'tensorboard') and hasattr(config.tensorboard, 'tensorboard_dir') and
                 config.tensorboard.tensorboard_dir):
             rank_id = get_real_rank()
-            logger.info(f"set tensorboard path to '{config.tensorboard.tensorboard_dir}'")
-            config.tensorboard.tensorboard_dir = os.path.join(config.tensorboard.tensorboard_dir, f"rank_{rank_id}")
-            _set_tensorboard_writer(config.tensorboard)
-            write_args_to_tensorboard(config)
-            update_tensorboard_args(config.tensorboard)
+            if isinstance(config.tensorboard.tensorboard_dir, str):
+                logger.info(f"Set tensorboard path to '{config.tensorboard.tensorboard_dir}'")
+                config.tensorboard.tensorboard_dir = os.path.join(config.tensorboard.tensorboard_dir, f"rank_{rank_id}")
+                _set_tensorboard_writer(config.tensorboard)
+                write_args_to_tensorboard(config)
+                update_tensorboard_args(config.tensorboard)
+            else:
+                logger.warning("Since tensorboard_dir is not a string, tensorboard configuration will not take effect.")
 
         # build callback
         logger.info(".........Build Callbacks For Train..........")
