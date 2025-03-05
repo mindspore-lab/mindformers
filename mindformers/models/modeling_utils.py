@@ -32,10 +32,8 @@ from mindspore import context, Model
 from mindformers.tools.hub import (
     PushToHubMixin,
     cached_file,
-    download_url,
     extract_commit_hash,
     is_offline_mode,
-    is_remote_url,
     get_checkpoint_shard_files,
     convert_file_size_to_int,
     has_file
@@ -1073,9 +1071,6 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             elif os.path.isfile(os.path.join(subfolder, pretrained_model_name_or_path)):
                 archive_file = pretrained_model_name_or_path
                 is_local = True
-            elif is_remote_url(pretrained_model_name_or_path):
-                filename = pretrained_model_name_or_path
-                resolved_archive_file = download_url(pretrained_model_name_or_path)
             else:
                 filename = _add_variant(WEIGHTS_NAME, variant)
 
