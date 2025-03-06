@@ -484,8 +484,8 @@ class ParallelAttention(nn.Cell):
                     value = value.reshape(bs, seq_len, -1, self.head_dim)
                     # [B, S, N_kv, D] --> [B, S, N, D]
                     if self.use_gqa:
-                        key = mint.repeat_interleave(key, repeats=self.repeat_num, axis=2)
-                        value = mint.repeat_interleave(value, repeats=self.repeat_num, axis=2)
+                        key = mint.repeat_interleave(key, repeats=self.repeat_num, dim=2)
+                        value = mint.repeat_interleave(value, repeats=self.repeat_num, dim=2)
                     # [B, S, N, D] --> [B, N, S, D]
                     query = query.transpose(0, 2, 1, 3)
                     key = key.transpose(0, 2, 1, 3)
