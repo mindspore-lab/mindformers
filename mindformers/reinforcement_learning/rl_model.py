@@ -35,7 +35,7 @@ RL_TYPE_TO_CONFIG_MAPPING = {
 
 
 @args_type_check(config=(dict, RlConfig))
-def get_rl_model(base_model: PreTrainedModel, config: Union[dict, RlConfig]):
+def get_rl_model(base_model: PreTrainedModel, ref_model: PreTrainedModel, config: Union[dict, RlConfig]):
     """
     Get model with rl_preprocess model.
 
@@ -53,4 +53,4 @@ def get_rl_model(base_model: PreTrainedModel, config: Union[dict, RlConfig]):
         return base_model
 
     config = RL_TYPE_TO_CONFIG_MAPPING[rl_type](**config)
-    return RL_TYPE_TO_MODEL_MAPPING[rl_type](config, base_model)
+    return RL_TYPE_TO_MODEL_MAPPING[rl_type](config, base_model, ref_model)
