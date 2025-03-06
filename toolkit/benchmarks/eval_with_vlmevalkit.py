@@ -181,4 +181,5 @@ def main():
 
 if __name__ == '__main__':
     load_env()
+    os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
     main()
