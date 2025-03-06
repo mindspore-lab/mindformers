@@ -17,10 +17,6 @@ runner_config:
   batch_size: 2
   sink_mode: True
   sink_size: 1
-<<<<<<< HEAD:research/internlm2/internlm2_7b/finetune_internlm2_7b.yaml
-  gradient_accumulation_steps: 1
-=======
->>>>>>> 2b079982 (sink size baichuan):research/internlm2/predict_internlm2_20b.yaml
 
 # optimizer
 optimizer:
