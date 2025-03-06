@@ -133,6 +133,7 @@ class DeepseekV2Config(PretrainedConfig):
                  theta: float = 10000.0,
                  rotary_dtype: str = "float32",
                  param_init_type: str = "float16",
+                 init_method_std=0.01,
                  embedding_init_type=None,
                  qkv_has_bias: bool = False,
                  qkv_concat: bool = False,
@@ -157,6 +158,7 @@ class DeepseekV2Config(PretrainedConfig):
                  return_extra_loss: bool = True,
                  use_fused_rope: bool = False,
                  use_fused_swiglu: bool = False,
+                 enable_fa_var_len=False,
                  **kwargs):
         super(DeepseekV2Config, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -218,5 +220,7 @@ class DeepseekV2Config(PretrainedConfig):
         self.block_size = block_size
         self.num_blocks = num_blocks
         self.return_extra_loss = return_extra_loss
+        self.init_method_std = init_method_std
         self.use_fused_swiglu = use_fused_swiglu and check_swiglu_valid()
         self.use_fused_rope = use_fused_rope and check_rotary_position_embedding_valid()
+        self.enable_fa_var_len = enable_fa_var_len

@@ -51,7 +51,7 @@ from mindformers.modules.transformer.moe import MoEV2
 from mindformers.modules.transformer.moe import MoEInfer
 from mindformers.version_control import check_seqpp_fa_opt_support
 
-from research.deepseek2.deepseek2_config import DeepseekV2Config
+from deepseek2_config import DeepseekV2Config
 
 __all__ = ['DeepseekV2ForCausalLM', 'DeepseekV2Model']
 
@@ -382,6 +382,7 @@ class DeepSeekV2Attention(nn.Cell):
                  use_fused_rope=False,
                  batch_size=1,
                  seq_length=4096,
+                 enable_fa_var_len=False,
                  ):
         super().__init__()
         self.hidden_size = dim
@@ -408,6 +409,7 @@ class DeepSeekV2Attention(nn.Cell):
         self.use_past = use_past
         self.use_flash_attention = use_flash_attention
         self.qkv_concat = qkv_concat
+        self.enable_fa_var_len = enable_fa_var_len
 
         if self.hidden_size % self.n_head != 0:
             raise ValueError("For 'MultiHeadAttention', the class variable 'hidden_size' must be a multiple "
@@ -780,7 +782,12 @@ class DeepSeekV2Attention(nn.Cell):
                                          (bs, seq_len, self.n_head * self.v_head_dim),
                                          (1, 1, 1))
         else:
-            if self.use_flash_attention:
+            if self.use_flash_attention and self.enable_fa_var_len:
+                context_layer = self.flash_attention(self.cast(query_states, self.dtype),
+                                                     self.cast(key_states, self.dtype),
+                                                     self.cast(value_states, self.dtype), mask)
+                attn_out = self._merge_heads(context_layer)
+            elif self.use_flash_attention:
                 value_states = self.value_concat((value_states, pad_zeros))
                 context_layer = self.flash_attention(self.cast(query_states, self.dtype),
                                                      self.cast(key_states, self.dtype),
@@ -948,7 +955,8 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                  use_fused_rope=False,
                  use_fused_swiglu=False,
                  batch_size=1,
-                 seq_length=4096
+                 seq_length=4096,
+                 enable_fa_var_len=False,
                  ):
         super().__init__()
         self.layer_id = layer_id
@@ -995,7 +1003,8 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                              init_method_std=init_method_std,
                                              use_fused_rope=use_fused_rope,
                                              batch_size=batch_size,
-                                             seq_length=seq_length)
+                                             seq_length=seq_length,
+                                             enable_fa_var_len=enable_fa_var_len)
 
         self.expert_num = 1 if moe_config is None else moe_config.expert_num
         self.shared_expert_num = 0 if moe_config is None else moe_config.shared_expert_num
@@ -1266,7 +1275,8 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                           use_fused_rope=config.use_fused_rope,
                                           use_fused_swiglu=config.use_fused_swiglu,
                                           batch_size=config.batch_size,
-                                          seq_length=config.seq_length)
+                                          seq_length=config.seq_length,
+                                          enable_fa_var_len=config.enable_fa_var_len)
             self.layer_setting(layer, layer_id)
             self.layers.append(layer)
 
