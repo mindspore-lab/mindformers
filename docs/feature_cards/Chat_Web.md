@@ -1,5 +1,13 @@
 # Chat Web
 
+> ## 🚨 弃用说明
+>
+> 本文档已过时，不再进行维护，并将在 *1.5.0* 版本下架，其中可能包含过时的信息或已被更新的功能替代。建议参考最新的 **[官方文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)** ，以获取准确的信息。
+>
+> 如果您仍需使用本文档中的内容，请仔细核对其适用性，并结合最新版本的相关资源进行验证。
+>
+> 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
+
 ## 基本介绍
 
 Chat Web提供了一套对话推理服务(chat server)和网页应用（web demo），让用户可以通过类似线上聊天的方式使用MindFormers大语言模型（LLM）推理能力。
