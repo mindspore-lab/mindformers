@@ -130,7 +130,7 @@ cd chat_web
 
 ```yaml
 web_demo:
-  host: 0.0.0.0
+  host: 127.0.0.1
   port: 7860
 ```
 
@@ -148,7 +148,7 @@ python run_chat_web_demo.py &> web.log &
 
 > 如果应用启动在本地，即配置了`web_demo - host`为`127.0.0.1`，则访问`http://127.0.0.1:7860`或`http://localhost:7860`
 >
-> 如果应用启动在远程，即配置了`web_demo - host`为`0.0.0.0`，假设服务器IP地址为`12.23.34.45`，则访问`http://12.23.34.45:7860`
+> 如果应用启动在远程，假设服务器IP地址为`12.23.34.45`，则访问`http://12.23.34.45:7860`
 
 在输入框中输入文字，点击***提交***按钮，稍等片刻后屏幕上将会显示LLM的回答。点击***清除***按钮可以清空聊天记录。
 
@@ -400,13 +400,13 @@ micro_batch_interleave_num: 1
 
 ```yaml
 server:
-  host: "0.0.0.0"
+  host: "127.0.0.1"
   port: 11111  # the port that server is listening
   uvicorn_level: 'info'
   access_log: True  # whether open server logging
 
 web_demo:
-  host: "0.0.0.0"
+  host: "127.0.0.1"
   port: 7860
 
 model:
@@ -667,13 +667,13 @@ remote_save_url: "Please input obs url on AICC platform."
 
 ```yaml
 server:
-  host: "0.0.0.0"
+  host: "127.0.0.1"
   port: 11111  # the port that server is listening
   uvicorn_level: 'info'
   access_log: True  # whether open server logging
 
 web_demo:
-  host: "0.0.0.0"
+  host: "127.0.0.1"
   port: 7860
 
 model:
@@ -906,13 +906,13 @@ do_eval: False
 
 ```yaml
 server:
-  host: "0.0.0.0"
+  host: "127.0.0.1"
   port: 11111  # the port that server is listening
   uvicorn_level: 'info'
   access_log: True  # whether open server logging
 
 web_demo:
-  host: "0.0.0.0"
+  host: "127.0.0.1"
   port: 7860
 
 model:
