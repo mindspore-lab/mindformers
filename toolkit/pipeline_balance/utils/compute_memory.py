@@ -196,7 +196,7 @@ class ComputeMemory:
         stage_num = len(self.stages_a)
         if stage_num == used_rec_num + 3:
             return self._compute_memories_layer_bodies_(False)
-        if stage_num == used_rec_num + 4:
+        if stage_num >= used_rec_num + 4:
             logger.info("Enabled const memory component because enough stages were given")
             if self.zero_offset():
                 logger.error(
@@ -252,9 +252,18 @@ class ComputeMemory:
         logger.debug("solve("
                      f"\n {np.array(variable_factor_list)}, "
                      f"\n {np.array(constant_memory_list)}) ")
-        solution = list(
-            np.linalg.solve(np.array(variable_factor_list),
-                            np.array(constant_memory_list)))
+        used_rec = Recompute.get_used_list(self.recompute_considered_)
+        used_rec_num = len(used_rec)
+
+        if len(stages) == used_rec_num + 4:
+            solution = list(
+                np.linalg.solve(np.array(variable_factor_list),
+                                np.array(constant_memory_list)))
+        if len(stages) > used_rec_num + 4:
+            logger.warning("Stages given are more than needed, switch to least sqaures method")
+            solution = list(np.linalg.lstsq(np.array(variable_factor_list),
+                                            np.array(constant_memory_list), rcond=None)[0])
+
         memory_const = solution.pop(0)
         memory_param = solution.pop(0)
         memory_act_rec = Recompute.assign_used(solution, unused_rec)

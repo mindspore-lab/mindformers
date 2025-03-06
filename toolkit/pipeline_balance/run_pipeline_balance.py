@@ -18,7 +18,7 @@ import sys
 import argparse
 
 from toolkit.pipeline_balance.utils.logger import logger
-from toolkit.pipeline_balance.utils.config import initialize_layer_json
+from toolkit.pipeline_balance.utils.config import initialize_layer_json, get_stage_const_mem
 from toolkit.pipeline_balance.utils.layer import generate_layers_list
 from toolkit.pipeline_balance.utils.compute_memory import compute_memories
 from toolkit.pipeline_balance.sapp.sapp_pipeline import SappPipeline
@@ -42,9 +42,6 @@ if __name__ == "__main__":
     parser.add_argument('-lm', '--less_memory',
                         type=lambda x: (str(x).lower() in ['true', '1', 'yes']), default=False,
                         help="Compute Memory with 'Less Memory interleave' option")
-
-    parser.add_argument('-mc', '--constant_memory', type=int, default=0,
-                        help="Constant memory per stages")
 
     parser.add_argument('-o', '--output_folder', type=str, default="./output",
                         help="output files location")
@@ -91,9 +88,14 @@ if __name__ == "__main__":
                         type=lambda x: (str(x).lower() in ['true', '1', 'yes']), default=True,
                         help="Compute solver")
 
-
+    # Dryrun Config
+    parser.add_argument('-guide', '--guide', action='store_true', help="Help to instruct dryrun")
 
     args = parser.parse_args()
+
+    if args.guide:
+        Interactive.dryrun_guide()
+        sys.exit(0)
 
     if len(sys.argv) == 1:
         Interactive.main()
@@ -122,11 +124,11 @@ if __name__ == "__main__":
                                  not manual_config.endswith('yml')) else manual_config
 
     max_memory = args.max_memory
-    constant_memory = args.constant_memory
     interleave_degree = args.interleave_degree
     optimization_level = args.optimization_level
 
     layers = generate_layers_list(layer_folder, model_name)
+    constant_memory = get_stage_const_mem(layer_folder, model_name)
 
     if args.compute_memory:
         layers = compute_memories(layers=layers, memory_folder=memory_folder,

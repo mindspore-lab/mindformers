@@ -18,7 +18,7 @@ export MS_DEV_SIDE_EFFECT_LOAD_ELIM=3
 export MS_SIMULATION_LEVEL=1
 export MS_MEMORY_STATISTIC=1
 
-if [ $# != 3 ]
+if [ $# != 4 ]
 then
   echo "Usage Help: bash dry_run.sh [EXECUTE_ORDER] [RANK_SIZE] [PIPELINE_STAGES]"
   exit 1
@@ -27,6 +27,7 @@ fi
 EXECUTE_ORDER=$1
 RANK_SIZE=$2
 PIPELINE_STAGES=$3
+OUTPUT_FOLDER=$4
 RANK_GAP=$((RANK_SIZE/PIPELINE_STAGES)) 
 
 export RANK_SIZE=$RANK_SIZE
@@ -36,11 +37,11 @@ shopt -s extglob
 
 for((i=0; i<$PIPELINE_STAGES; i++))
 do
-    export DEVICE_ID=$i
+    export STAGE_ID=$i
     export RANK_ID=$(((i)*RANK_GAP))
-    mkdir -p ./output_dryrun/log/rank_$RANK_ID
-    echo "start training for rank $RANK_ID, device $DEVICE_ID"
-    $EXECUTE_ORDER &> ./output_dryrun/log/rank_$RANK_ID/mindformer.log &
+    mkdir -p ./$OUTPUT_FOLDER/log/stage${STAGE_ID}_$RANK_ID
+    echo "start training for rank $RANK_ID, stage $STAGE_ID"
+    $EXECUTE_ORDER &> ./$OUTPUT_FOLDER/log/stage${STAGE_ID}_$RANK_ID/mindformer.log &
 done
 
 shopt -u extglob

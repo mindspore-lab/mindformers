@@ -21,6 +21,7 @@ from toolkit.pipeline_balance.utils.layer import Layer
 import toolkit.pipeline_balance.utils.recompute as Recompute
 from toolkit.pipeline_balance.sapp.sapp_pipeline import SappPipeline
 from toolkit.pipeline_balance.utils.logger import logger
+from toolkit.pipeline_balance.utils.config import print_dryrun_config, generate_solvable_config
 
 YES_OR_NO = "[y/n]? "
 
@@ -104,6 +105,45 @@ def make_layer(t: Layer.type_enum, model_name):
     return Layer(name=layer_name, ltype=t, nb_layer=nb_layer, time=layer_time,
                  model_name=model_name, memory_activation_rec=memory_activation_rec,
                  memory_parameter=memory_parameter,)
+
+
+def dryrun_guide():
+    """offer dryrun guidance"""
+    considered_rec = []
+    stage_num = 0
+    num_layers = 0
+    s = input("Please enter the pipeline stage number" + default_v(stage_num))
+    if not is_empty(s):
+        stage_num = int(s)
+        _check_in_bounds(stage_num, "Pipeline stage number", 1, 10000)
+    else:
+        return
+
+    s = input("Please enter the number of layers" + default_v(num_layers))
+    if not is_empty(s):
+        num_layers = int(s)
+        _check_in_bounds(num_layers, "Micro batch number", 1, 10000)
+    else:
+        return
+
+    s = input("Do you consider full recomputation?" + YES_OR_NO)
+    if is_yes(s):
+        considered_rec.append(Recompute.TYPE.FULL)
+
+    s = input("Do you consider select recomputation?" + YES_OR_NO)
+    if is_yes(s):
+        considered_rec.append(Recompute.TYPE.SLCT)
+
+    s = input("Does your communication recomputation co-work with select recomputation?" + YES_OR_NO)
+    if is_yes(s):
+        considered_rec.append(Recompute.TYPE.BOTH)
+
+    s = input("Do you consider extra communication recomputation?" + YES_OR_NO)
+    if is_yes(s):
+        considered_rec.append(Recompute.TYPE.COMM)
+
+    offset_config_list, rec_config_list = generate_solvable_config(stage_num, num_layers, considered_rec)
+    print_dryrun_config(offset_config_list, rec_config_list)
 
 
 def main():

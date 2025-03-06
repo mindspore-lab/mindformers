@@ -16,13 +16,20 @@
 import json
 import os
 from dataclasses import dataclass, asdict
+from math import ceil
+import random
 
 import yaml
+import numpy as np
 
 from toolkit.pipeline_balance.utils.logger import logger
+from toolkit.pipeline_balance.sapp.sapp_solver import SappSolver
 from toolkit.pipeline_balance.utils.layer import Layer
 from toolkit.pipeline_balance.utils.compute_memory import Stage, ComputeMemory
 import toolkit.pipeline_balance.utils.recompute as Recompute
+from toolkit.pipeline_balance.utils.computation_analyzer import ComputationAnalyzer
+
+random.seed()
 
 
 @dataclass
@@ -51,14 +58,12 @@ class ModelInfo:
     """basic info of a model"""
 
     name: str
-    pre_defined_layer: dict
-    auto_partition_layer: dict
+    stage_const_mem: int
     layers_description: list[LayersDescription]
 
     def __init__(self, model_name, head_time, body_time, tail_time, nb_layer):
         self.name = model_name
-        self.pre_defined_layer = {"HEAD": 0, "TAIL": -1}
-        self.auto_partition_layer = {"NumberOfLayers": nb_layer}
+        self.stage_const_mem = 0
         self.layers_description = []
         self.layers_description.append(
             LayersDescription(Layer.type_enum.HEAD, head_time, 1, model_name)
@@ -76,7 +81,10 @@ class ModelInfo:
                 return layer
         return None
 
-    def memory_update(self, mem_act, mem_par, mem_head, mem_tail):
+    def set_stage_const_mem(self, mem_const):
+        self.stage_const_mem = mem_const
+
+    def layer_memory_update(self, mem_act, mem_par, mem_head, mem_tail):
         """update input memories to layer description"""
         self.get_layer_by_type(Layer.type_enum.HEAD).memory_parameter = mem_head
         self.get_layer_by_type(Layer.type_enum.TAIL).memory_parameter = mem_tail
@@ -98,7 +106,7 @@ class ModelInfo:
             json.dump(self.to_json_, json_file, indent=4)
 
 
-def time_parser(file_name: str):
+def time_parser(file_name: str, model_name: str):
     """parse time given by yaml"""
     if file_name is None:
         logger.error("input file cannot be none")
@@ -111,9 +119,51 @@ def time_parser(file_name: str):
     filepath = os.path.realpath(file_name)
     with open(filepath, encoding="utf-8") as fp:
         cfg_dict = yaml.safe_load(fp)
-    head_time = cfg_dict["time_config"]["head"]
-    body_time = cfg_dict["time_config"]["body"]
-    tail_time = cfg_dict["time_config"]["tail"]
+
+    head_time = 0
+    body_time = 0
+    tail_time = 0
+
+    if "time_config" in cfg_dict:
+        head_time = cfg_dict["time_config"].get("head")
+        body_time = cfg_dict["time_config"].get("body")
+        tail_time = cfg_dict["time_config"].get("tail")
+        if all(key in cfg_dict["time_config"] for key in ["head", "body", "tail"]):
+            return head_time, body_time, tail_time
+
+    if cfg_dict.get("profiling_config"):
+        head_layers = cfg_dict["profiling_config"].get("head_layers", ["LlamaEmbedding"])
+        body_layers = cfg_dict["profiling_config"].get("body_layers", ["LLamaDecodeLayer"])
+        tail_layers = cfg_dict["profiling_config"].get("tail_layers", ["lm_head-Linear", "LlamaRMSNorm"])
+        if isinstance(head_layers, str):
+            head_layers = [head_layers]
+        if isinstance(tail_layers, str):
+            tail_layers = [tail_layers]
+        if isinstance(body_layers, str):
+            body_layers = [body_layers]
+
+        num_layer = cfg_dict["pipeline_config"]["num_layer"]
+        micro_batch_num = cfg_dict["profiling_config"]["micro_batch_num"]
+        timeline_folder_path = cfg_dict["profiling_config"]["folder_path"]
+        layer_list = {"pre_defined_layer": {}, "auto_partition_layer": {}}
+        for layer in head_layers:
+            layer_list["pre_defined_layer"].update({layer: 0})
+        for layer in tail_layers:
+            layer_list["pre_defined_layer"].update({layer: -1})
+        for layer in body_layers:
+            layer_list["auto_partition_layer"].update({layer: num_layer})
+        analyzer = ComputationAnalyzer(timeline_folder_path, model_name, micro_batch_num, layer_list)
+        cost_list = analyzer.layer_with_cost_list
+        logger.info(cost_list)
+        for layer, time in cost_list.items():
+            if layer in layer_list["pre_defined_layer"] and layer_list["pre_defined_layer"][layer] == 0:
+                head_time += time
+            elif layer in layer_list["pre_defined_layer"] and layer_list["pre_defined_layer"][layer] == -1:
+                tail_time += time
+            else:
+                body_time += time
+
+    logger.info(f"head_time: {head_time}, body_time: {body_time}, tail_time: {tail_time}")
 
     return head_time, body_time, tail_time
 
@@ -282,29 +332,186 @@ def memory_parser(file_name: str):
 def initialize_layer_json(model_name: str, file_name: str):
     """initialize layer description json file"""
     num_stage, stages_a, num_layer = memory_parser(file_name)
-    head_time, body_time, tail_time = time_parser(file_name)
+    head_time, body_time, tail_time = time_parser(file_name, model_name)
     comp_mem = ComputeMemory(number_of_stage=num_stage, stages_A=stages_a)
+    mi = ModelInfo(model_name, head_time, body_time, tail_time, num_layer)
 
     mem_act = {}
-    print("[INFO] memory_parameter  =", int(comp_mem.get_memory_parameter()))
-    if comp_mem.get_memory_const() is not None:
-        print("[INFO] memory_const       =", int(comp_mem.get_memory_const()))
     for r in Recompute.TYPE:
         if comp_mem.recompute_considered_[r]:
             mem_act[r] = int(comp_mem.get_memory_activation(r))
-            print(
-                "[INFO]" + Recompute.JSON_MEMORY_NAME[r],
-                "=",
-                int(comp_mem.get_memory_activation(r)),
+            logger.info(
+                "[INFO] %s = %f", Recompute.JSON_MEMORY_NAME[r],
+                int(comp_mem.get_memory_activation(r))
             )
-    print("[INFO] memory_tail       =", int(comp_mem.get_memory_tail()))
-    print("[INFO] memory_head       =", int(comp_mem.get_memory_head()))
+    if comp_mem.get_memory_const() is not None:
+        mem_const = int(comp_mem.get_memory_const())
+        logger.info(f"[INFO] memory_const       = {mem_const}")
+        mi.set_stage_const_mem(mem_const)
+    mem_par = int(comp_mem.get_memory_parameter())
+    mem_tail = int(comp_mem.get_memory_tail())
+    mem_head = int(comp_mem.get_memory_head())
+    logger.info(f"[INFO] memory_parameter  = {mem_par}")
+    logger.info(f"[INFO] memory_tail       = {mem_tail}")
+    logger.info(f"[INFO] memory_head       = {mem_head}")
 
-    mi = ModelInfo(model_name, head_time, body_time, tail_time, num_layer)
-    mi.memory_update(
-        mem_act,
-        int(comp_mem.get_memory_parameter()),
-        int(comp_mem.get_memory_head()),
-        int(comp_mem.get_memory_tail()),
-    )
+    mi.layer_memory_update(mem_act, mem_par, mem_head, mem_tail)
     mi.dump_json(os.path.join("./layers", model_name + ".json"))
+
+
+def get_stage_const_mem(layer_folder: str, model_name: str):
+    """ Get stage constant memory from layer_folder/model_name.json"""
+    json_layer = os.path.join(layer_folder, model_name + '.json')
+    with open(json_layer, encoding="utf-8") as json_file:
+        json_data = json.load(json_file)
+        if "stage_const_mem" in json_data:
+            return json_data["stage_const_mem"]
+    return 0
+
+
+def _generate_offset_config(rounds, unknowns, target_sum, array_length):
+    """Generate legal random offset arrays"""
+    while True:
+        offset_config_list = []
+        flat = []
+        for _ in range(rounds):
+            offset_config = _generate_offset_array(target_sum, array_length)
+            offset_config_slice = offset_config[1:]
+            offset_config_slice = offset_config_slice[:-1]
+            flat.append(offset_config_slice)
+            offset_config_list.append(offset_config)
+        flat = np.array(flat)
+        flat = flat.flatten()[0 : unknowns + 1]
+        if not np.all(flat == flat[0]):
+            return offset_config_list
+
+
+def _generate_offset_array(target_sum, array_length):
+    """Generate a random offset array"""
+    if target_sum == array_length:
+        return [0] * array_length
+
+    if target_sum < array_length:
+        logger.error("number of layers must be larger than stage number")
+        return None
+
+    random_array = np.random.randint(1, 10, size=array_length)
+    total_sum = random_array.sum()
+    scaled_array = (random_array / total_sum) * target_sum
+    scaled_array = np.round(scaled_array).astype(int)
+    scaled_array = np.maximum(scaled_array, 1)
+    current_sum = scaled_array.sum()
+    diff = target_sum - current_sum
+
+    if diff >= 0:
+        for i in range(abs(diff)):
+            scaled_array[i] += 1
+    else:
+        count = 0
+        for i in range(len(scaled_array)):
+            # backwards iteration to avoid infinite loop
+            if scaled_array[-1 - i] > 1:
+                scaled_array[-1 - i] -= 1
+                count += 1
+                if count == abs(diff):
+                    break
+
+    baseline = target_sum // array_length
+    offset = scaled_array - baseline
+    return offset.tolist()
+
+
+def _get_coef_matrix(pp, layer_per_stage, offset_config_list, rec_config_list, considered_rec):
+    """get coef matrix of equations"""
+    activation_nums = SappSolver.compute_activation_nums(pp, 1, 0)[0]
+    coef_matrix = []
+    rounds = len(offset_config_list)
+    for round_ in range(rounds):
+        for stage in range(pp):
+            if stage not in [0, pp - 1]:
+                coef_matrix.append(
+                    [1, layer_per_stage + offset_config_list[round_][stage]]
+                    + Recompute.to_list(
+                        {
+                            rec: rec_config_list[round_][rec][stage]
+                                 * activation_nums[stage]
+                            for rec in considered_rec
+                        }
+                    )
+                )
+            if len(coef_matrix) == 2 + len(considered_rec):
+                return coef_matrix
+    return None
+
+
+def print_dryrun_config(offset_config_list, rec_config_list):
+    """print generated config"""
+    logger.output(
+        f"Please dryrun following config, {len(offset_config_list)} round(s) is needed"
+    )
+
+    for round_, offset_config in enumerate(offset_config_list):
+        yaml_config = {
+            Recompute.OFFSET: [],
+            Recompute.YAML_NAME[Recompute.TYPE.FULL]: [],
+            Recompute.YAML_NAME[Recompute.TYPE.SLCT]: [],
+            Recompute.YAML_NAME[Recompute.TYPE.COMM]: [],
+        }
+        yaml_config[Recompute.OFFSET] = offset_config
+        pp = len(offset_config)
+        slct = rec_config_list[round_].get(Recompute.TYPE.SLCT, [0] * pp)
+        comm = rec_config_list[round_].get(Recompute.TYPE.COMM, [0] * pp)
+        full = rec_config_list[round_].get(Recompute.TYPE.FULL, [0] * pp)
+        both = rec_config_list[round_].get(Recompute.TYPE.BOTH, [0] * pp)
+
+        yaml_config[Recompute.YAML_NAME[Recompute.TYPE.FULL]] = full
+        yaml_config[Recompute.YAML_NAME[Recompute.TYPE.SLCT]] = [
+            x + y + z for x, y, z in zip(slct, both, full)
+        ]
+        yaml_config[Recompute.YAML_NAME[Recompute.TYPE.COMM]] = [
+            x + y + z for x, y, z in zip(comm, both, full)
+        ]
+        yaml_results = f"for round {round_ + 1}, please dryrun config:"
+        for y, v in yaml_config.items():
+            yaml_results += f"\n\t{y}: {v}"
+        logger.output(yaml_results)
+
+
+def generate_solvable_config(pp: int, num_layers: int, considered_rec: list):
+    """generate a config that meets solvable criteria"""
+    if pp == 2:
+        logger.error("pp = 2 is not supported yet")
+        return None
+
+    considered_rec.append(Recompute.TYPE.NONE)
+    rounds = ceil((2 + len(considered_rec)) / (pp - 2))
+    layer_per_stage = num_layers // pp
+    is_solvable = False
+    offset_config_list = _generate_offset_config(
+        rounds, 2 + len(considered_rec), num_layers, pp
+    )
+    while not is_solvable:
+        rec_config_list = []
+        for round_ in range(rounds):
+            offset_config = offset_config_list[round_]
+            layer_per_recompute = {r: [0] * pp for r in considered_rec}
+            for rec in considered_rec:
+                stage_sum = [
+                    sum(col) for col in zip(*layer_per_recompute.values())
+                ]  # summation of each rec in each stage
+                layers_left = [
+                    offset_config[i] + layer_per_stage - stage_sum[i] for i in range(pp)
+                ]
+                layer_per_recompute[rec] = [
+                    random.randint(0, layers_left[i]) for i in range(pp)
+                ]
+            rec_config_list.append(layer_per_recompute)
+
+        coef_matrix = _get_coef_matrix(
+            pp, layer_per_stage, offset_config_list, rec_config_list, considered_rec
+        )
+        coef_rank = np.linalg.matrix_rank(coef_matrix)
+        if coef_rank == len(considered_rec) + 2:
+            is_solvable = True
+
+    return offset_config_list, rec_config_list
