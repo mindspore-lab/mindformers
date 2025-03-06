@@ -1554,6 +1554,7 @@ if __name__ == "__main__":
             if os.path.isfile(mindspore_ckpt_path):
                 os.remove(mindspore_ckpt_path)
                 ms.save_checkpoint(params, mindspore_ckpt_path)
+                print(f"--------- save checkpoint finished, save_path: {mindspore_ckpt_path}.", flush=True)
         else:
             infer_trans_ckpt_pt_to_ms(src_hf_dir=args.torch_ckpt_path,
                                       dst_ms_dir=args.mindspore_ckpt_path,

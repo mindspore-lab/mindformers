@@ -23,9 +23,6 @@ import mindspore as ms
 from mindspore import dtype as msdtype
 from mindspore import Model, Tensor, save_checkpoint
 from mindspore.common import initializer
-from mindspore_gs.ptq import PTQ
-from mindspore_gs.common import BackendTarget
-from mindspore_gs.ptq import PTQConfig, PTQMode, OutliersSuppressionType, PrecisionRecovery, QuantGranularity
 from mindformers import MindFormerConfig
 from mindformers import build_context
 from mindformers.tools.utils import get_rank_info, set_output_path, set_strategy_save_path
@@ -39,25 +36,21 @@ from research.deepseek3.deepseek3_model_infer import DeepseekV3DecodeLayer
 
 def create_ptq():
     """Create ptq algorithm."""
+    from mindspore_gs.ptq import PTQ
+    from mindspore_gs.common import BackendTarget
+    from mindspore_gs.ptq import PTQConfig, PTQMode, OutliersSuppressionType, PrecisionRecovery, QuantGranularity
     cfg = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, weight_quant_dtype=msdtype.int8,
                     act_quant_dtype=msdtype.int8, outliers_suppression=OutliersSuppressionType.OUTLIER_SUPPRESSION_PLUS,
                     opname_blacklist=['lkv2kv', 'lm_head'], precision_recovery=PrecisionRecovery.NONE,
                     act_quant_granularity=QuantGranularity.PER_TENSOR,
                     weight_quant_granularity=QuantGranularity.PER_CHANNEL)
-    wo_config = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, weight_quant_dtype=msdtype.int8,
-                          act_quant_dtype=msdtype.int8,
-                          outliers_suppression=OutliersSuppressionType.NONE,
-                          precision_recovery=PrecisionRecovery.NONE,
-                          act_quant_granularity=QuantGranularity.PER_TENSOR,
-                          weight_quant_granularity=QuantGranularity.PER_CHANNEL)
     ffn_config = PTQConfig(mode=PTQMode.DEPLOY, backend=BackendTarget.ASCEND, weight_quant_dtype=msdtype.int8,
                            act_quant_dtype=msdtype.int8,
                            outliers_suppression=OutliersSuppressionType.NONE,
                            precision_recovery=PrecisionRecovery.NONE,
                            act_quant_granularity=QuantGranularity.PER_TOKEN,
                            weight_quant_granularity=QuantGranularity.PER_CHANNEL)
-    ptq = PTQ(config=cfg, layer_policies=OrderedDict({r'.*\.wo.*': wo_config,
-                                                      r'.*\.feed_forward\..*': ffn_config}))
+    ptq = PTQ(config=cfg, layer_policies=OrderedDict({r'.*\.feed_forward\..*': ffn_config}))
     ptq.decoder_layers.append(DeepseekV3DecodeLayer)
     return ptq
 
@@ -90,9 +83,11 @@ def trans_sf_to_ckpt(yaml_file, is_quant, dst_path):
 
     rank_id, _ = get_rank_info()
     save_path = f"{dst_path}/rank_{rank_id}"
+    print(f"--------- start to save checkpoint, save_path: {save_path}.", flush=True)
     os.makedirs(save_path, exist_ok=True)
     save_checkpoint(network, os.path.join(f"{save_path}/dsv3_{rank_id}.ckpt"),
                     choice_func=lambda x: "key_cache" not in x and "value_cache" not in x and "float_weight" not in x)
+    print(f"--------- save checkpoint finished, save_path: {save_path}.", flush=True)
 
 
 if __name__ == "__main__":
