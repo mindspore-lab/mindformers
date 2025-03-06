@@ -20,6 +20,8 @@ import argparse
 import json
 import os
 from collections import defaultdict
+from glob import glob
+import warnings
 
 import mindspore as ms
 import torch
@@ -158,13 +160,30 @@ def mtp_name_replace(weight_name: str, current_layer_id: int, mtp_layer_id: int)
     return weight_name
 
 
+def load_data_pt(file_name):
+    return load_file(file_name, device="cpu")
+
+
 def layers_model_file_map(file_path):
     """Get weight-file map"""
     layer_st_map = defaultdict(set)
     weight_map_file = os.path.join(file_path, "model.safetensors.index.json")
-    with open(weight_map_file) as f:
-        weights_map = json.load(f)
-    weights_map = weights_map["weight_map"]
+    if os.path.exists(weight_map_file):
+        with open(weight_map_file) as f:
+            weights_map = json.load(f)
+        weights_map = weights_map["weight_map"]
+    else:
+        warnings.warn(f"Cannot find weight map file model.safetensors.index.json in path {file_path}, " \
+                    f"Trying to load one safetensor file ...")
+        files = sorted(glob(os.path.join(file_path, "*.safetensors")))
+        if not files:
+            raise ValueError(f"No safetensors files found in path {file_path}")
+
+        weight_file = files[0].split("/")[-1]
+        keys = load_data_pt(os.path.join(file_path, weight_file)).keys()
+        weights_map = {}
+        for k in keys:
+            weights_map[k] = weight_file
 
     for weight_key, value in weights_map.items():
         if weight_key.startswith("model.layers."):
@@ -173,10 +192,6 @@ def layers_model_file_map(file_path):
         else:
             layer_st_map[weight_key].add(os.path.join(file_path, value))
     return layer_st_map
-
-
-def load_data_pt(file_name):
-    return load_file(file_name, device="cpu")
 
 
 def read_matched_file_pt(layer_st_map, layer_list, is_first, is_last):
@@ -404,14 +419,56 @@ def _model_postprocess_pt_to_ms(pt_layer_weights):
     return plain_weight_dict
 
 
-def convert_pt_to_ms(input_path, output_path, config=None):
-    """convert hf weight to ms."""
-    if config is None:
-        config = default_config
-    save_format = config['save_format']
+def ms_ckpt_convertor(input_path, output_path, config):
+    """Convert to ckpt format checkpoint"""
+    # check output_path
+    if output_path.endswith(".ckpt"):
+        saving_file = output_path
+    else:
+        saving_file = os.path.join(output_path, "checkpoints.ckpt")
 
-    print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
-    os.makedirs(output_path, exist_ok=True)
+    layer_st_map = layers_model_file_map(input_path)
+    torch.set_default_dtype(torch.bfloat16)
+
+    dtype = config["dtype"]
+    num_layers = config["num_layers"]
+    num_nextn_predict_layers = config["num_nextn_predict_layers"]
+    total_num_layers = num_layers + num_nextn_predict_layers
+
+    ms_weights = defaultdict()
+    for layer_id in range(total_num_layers):
+        if layer_id == 0:
+            pt_layer_weights = read_matched_file_pt(layer_st_map, [layer_id], is_first=True, is_last=False)
+        elif layer_id == total_num_layers - 1:
+            pt_layer_weights = read_matched_file_pt(layer_st_map, [layer_id], is_first=False, is_last=True)
+        else:
+            pt_layer_weights = read_matched_file_pt(layer_st_map, [layer_id], is_first=False, is_last=False)
+        # first dequanting weights
+        pt_layer_weights = dequant_layer_weights(layer_id, pt_layer_weights)
+
+        if layer_id == 0:
+            ms_weights.update(_model_preprocess_pt_to_ms(pt_layer_weights))
+        ms_weights.update(_mla_pt_to_ms(layer_id, pt_layer_weights, config))
+        ms_weights.update(_mlp_pt_to_ms(layer_id, pt_layer_weights, config))
+        if layer_id > num_layers - 1:
+            ms_weights.update(_mtp_pt_to_ms(layer_id, pt_layer_weights, config))
+        if layer_id == total_num_layers - 1:
+            ms_weights.update(_model_postprocess_pt_to_ms(pt_layer_weights))
+
+    to_save_ckpt = []
+    for name in list(ms_weights.keys()):
+        value = ms_weights.pop(name).to(torch.float32).numpy()
+        tmp_dtype = dtype
+        if "norm" in name or "router.dense" in name or "topk_bias" in name:
+            tmp_dtype = ms.float32
+        to_save_ckpt.append({'name': name, 'data': ms.Tensor(value, dtype=tmp_dtype)})
+
+    print(f"Saving weights to file {saving_file}")
+    ms.save_checkpoint(to_save_ckpt, saving_file, format="ckpt")
+
+
+def ms_safetensors_convertor(input_path, output_path, config):
+    """Convert to safetensors format checkpoint"""
     layer_st_map = layers_model_file_map(input_path)
     torch.set_default_dtype(torch.bfloat16)
 
@@ -421,7 +478,6 @@ def convert_pt_to_ms(input_path, output_path, config=None):
     total_num_layers = num_layers + num_nextn_predict_layers
 
     converted_st_map = defaultdict()
-    num_saved_ckpt_files = 0
     for layer_id in range(total_num_layers):
         if layer_id == 0:
             pt_layer_weights = read_matched_file_pt(layer_st_map, [layer_id], is_first=True, is_last=False)
@@ -444,7 +500,7 @@ def convert_pt_to_ms(input_path, output_path, config=None):
             ms_layer_weights.update(_model_postprocess_pt_to_ms(pt_layer_weights))
 
         to_save_ckpt = []
-        saving_file = f"ms-model-{num_saved_ckpt_files:05d}.{save_format}"
+        saving_file = f"ms-model-{layer_id+1:05d}-of-{total_num_layers:05d}.safetensors"
         for name in list(ms_layer_weights.keys()):
             value = ms_layer_weights.pop(name).to(torch.float32).numpy()
             tmp_dtype = dtype
@@ -453,14 +509,30 @@ def convert_pt_to_ms(input_path, output_path, config=None):
             to_save_ckpt.append({'name': name, 'data': ms.Tensor(value, dtype=tmp_dtype)})
             converted_st_map[name] = saving_file
 
-        ms.save_checkpoint(to_save_ckpt, os.path.join(output_path, saving_file), format=save_format)
-        num_saved_ckpt_files += 1
+        ms.save_checkpoint(to_save_ckpt, os.path.join(output_path, saving_file), format="safetensors")
         print(f"saving weights in layer-{layer_id} to file {saving_file}")
 
-    converted_model_index_file = os.path.join(output_path, f"ms-model.{save_format}.index.json")
+    converted_model_index_file = os.path.join(output_path, f"ms-model.safetensors.index.json")
     with open(converted_model_index_file, "w") as f:
         json_string = json.dumps(converted_st_map, default=lambda x: x.__dict__, sort_keys=False, indent=2)
         f.write(json_string)
+
+
+def convert_pt_to_ms(input_path, output_path, config=None):
+    """convert hf weight to ms."""
+    if config is None:
+        config = default_config
+    os.makedirs(output_path, exist_ok=True)
+
+    save_format = config['save_format']
+    print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
+    if save_format == "ckpt":
+        ms_ckpt_convertor(input_path, output_path, config)
+
+    if save_format == "safetensors":
+        ms_safetensors_convertor(input_path, output_path, config)
+
+    print("Finish converting Huggingface checkpoints into mindspore checkpoints!")
 
 
 def convert_ms_to_gmm(input_path, output_path):
@@ -482,7 +554,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_routed_experts', default=256, type=int)
     parser.add_argument('--torch_ckpt_path', default=None, type=str)
     parser.add_argument('--mindspore_ckpt_path', default=None, type=str)
-    parser.add_argument('--use_gmm', action='store_true')
+    parser.add_argument('--use_gemm', action='store_true')
     parser.add_argument('--pre_ckpt_path', default=None, type=str)
     parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'])
     parser.add_argument("--num_layers", default=61, type=int)
