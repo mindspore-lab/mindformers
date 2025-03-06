@@ -132,7 +132,8 @@ class ColumnParallelLinear(nn.Cell):
         self.parallel_config = config
         self.compute_dtype = compute_dtype
 
-        self.sequence_parallel = self.parallel_config.use_sequence_parallel
+        self.sequence_parallel = getattr(self.parallel_config, 'use_seq_parallel',
+                                         self.parallel_config.sequence_parallel)
         self.transpose_b = transpose_b if self.expert_num <= 1 else False
 
         if self.sequence_parallel and self.tensor_parallel_group_size <= 1:
@@ -308,7 +309,8 @@ class RowParallelLinear(nn.Cell):
         self.input_size_per_partition = divide(input_size, self.tensor_parallel_group_size)
         self.parallel_config = config
         self.compute_dtype = compute_dtype
-        self.sequence_parallel = self.parallel_config.use_sequence_parallel
+        self.sequence_parallel = getattr(self.parallel_config, 'use_seq_parallel',
+                                         self.parallel_config.sequence_parallel)
         self.expert_num = expert_num
         self.is_expert = is_expert
         self.transpose_b = transpose_b if self.expert_num <= 1 else False
@@ -437,7 +439,7 @@ class VocabParallelEmbedding(nn.Cell):
         super().__init__()
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
-        self.sequence_parallel = parallel_config.use_sequence_parallel
+        self.sequence_parallel = getattr(parallel_config, 'use_seq_parallel', parallel_config.sequence_parallel)
 
         self.tensor_parallel_group_size = get_tp_world_size()
 

@@ -13,7 +13,8 @@
 # limitations under the License.
 # ============================================================================
 """Config Class"""
-from typing import Callable
+import copy
+from typing import Callable, Dict, Any
 from enum import Enum
 import mindspore.common.dtype as mstype
 from mindspore import log as logger
@@ -32,7 +33,7 @@ class ContextParallelAlgo(Enum):
     hybird_cp = "hybird_cp"
 
 
-class ModelParallelConfig:
+class ModelParallelConfig():
     r"""
         Parallel config class for setting parallel configuration, such as the data parallel and model parallel.
 
@@ -193,10 +194,12 @@ class TransformerConfig(ModelParallelConfig):
                  init_method_std: float = 0.01,
                  rotary_percent: float = 1.0,
                  rotary_seq_len_interpolation_factor: float = None,
+                 rotary_base: float = 10000.0,
                  compute_dtype: mstype = mstype.float32,
                  softmax_compute_dtype: mstype = mstype.float32,
                  params_dtype: mstype = mstype.float32,
                  embedding_init_type: mstype = mstype.float32,
+                 rotary_dtype: mstype = mstype.float32,
                  add_bias_linear: bool = False,
                  add_qkv_bias: bool = False,
                  mlp_has_gate: bool = True,
@@ -213,7 +216,7 @@ class TransformerConfig(ModelParallelConfig):
                  apply_residual_connection_post_layernorm: bool = False,
                  fp16_lm_cross_entropy: bool = False,
                  untie_embeddings_and_output_weights: bool = True,
-                 hidden_act: str = "gelu",
+                 hidden_act: str = "silu",
                  mask_func_type: str = "attn_mask_fill",
                  normalization: str = "FusedRMSNorm",
                  position_embedding_type: str = "rope",
@@ -236,10 +239,12 @@ class TransformerConfig(ModelParallelConfig):
         self.init_method_std = init_method_std
         self.rotary_percent = rotary_percent
         self.rotary_seq_len_interpolation_factor = rotary_seq_len_interpolation_factor
+        self.rotary_base = rotary_base
         self.compute_dtype = compute_dtype
         self.softmax_compute_dtype = softmax_compute_dtype
         self.params_dtype = params_dtype
         self.embedding_init_type = embedding_init_type
+        self.rotary_dtype = rotary_dtype
         self.add_bias_linear = add_bias_linear
         self.add_qkv_bias = add_qkv_bias
         self.mlp_has_gate = mlp_has_gate
@@ -249,6 +254,7 @@ class TransformerConfig(ModelParallelConfig):
         self.group_query_attention = group_query_attention
         self.use_flash_attn = use_flash_attn
         self.qkv_concat = qkv_concat
+        self.ffn_concat = qkv_concat
         self.use_attn_mask_compression = use_attn_mask_compression
         self.use_ring_attention = use_ring_attention
         self.apply_query_key_layer_scaling = apply_query_key_layer_scaling
@@ -319,7 +325,6 @@ class TransformerConfig(ModelParallelConfig):
         if self.max_position_embeddings == 1:
             self.max_position_embeddings = self.seq_length
 
-
     def get_ulysses_cp_num(self):
         """get ulysses context parallel num under this config.
 
@@ -334,3 +339,8 @@ class TransformerConfig(ModelParallelConfig):
             return self.context_parallel
         # hybird
         return self.ulysses_degree_in_cp
+
+    def to_dict(self) -> Dict[str, Any]:
+        """to dict convert function."""
+        output = copy.deepcopy(self.__dict__)
+        return output
