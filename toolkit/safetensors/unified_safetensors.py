@@ -16,23 +16,32 @@
 merge safetensors weight.
 Support mindspore format.
 """
-import time
 import argparse
 import os.path
 import shutil
+import time
+
 import mindspore as ms
-from mindformers.tools.utils import str2bool
+
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import str2bool
 
 
-def unified_safetensors(src_dir, src_merge_strategy, output_dir, file_suffix, has_redundancy):
+def unified_safetensors(src_dir, src_merge_strategy, output_dir, file_suffix, has_redundancy, filter_out_param_prefix,
+                        max_process_num):
     """merge safetensors files."""
     _timed_print("Start merge safetensor")
     merged_path_ = os.path.join(output_dir, "unified_safe")
+
     if not os.path.exists(merged_path_):
         os.makedirs(merged_path_, exist_ok=True)
+
+    filter_out_param_func = ((lambda param_name: not param_name.startswith(filter_out_param_prefix))
+                             if filter_out_param_prefix else None)
+
     ms.unified_safetensors(src_dir, src_merge_strategy, merged_path_,
-                           file_suffix=file_suffix, merge_with_redundancy=has_redundancy)
+                           file_suffix=file_suffix, merge_with_redundancy=has_redundancy,
+                           choice_func=filter_out_param_func, max_process_num=max_process_num)
     _timed_print("Merge safetensor completed")
     return merged_path_
 
@@ -73,6 +82,10 @@ if __name__ == "__main__":
     parser.add_argument('--format', default="safetensors", choices=["ckpt", "safetensors"])
     parser.add_argument('--has_redundancy', default=True, type=str2bool,
                         choices=[True, False], help='whether input ckpt file has redundancy')
+    parser.add_argument('--filter_out_param_prefix', default=None,
+                        help='parameters to be filtered out with given prefix')
+    parser.add_argument('--max_process_num', default=64, type=int,
+                        help='maximum number of processes to unify safetensors. Default: 64')
     _args = parser.parse_args()
     _args.output_dir = os.path.join(_args.output_dir, str(_args.file_suffix) + "_ckpt_convert")
 
@@ -86,7 +99,8 @@ if __name__ == "__main__":
     clear_output_dir(_args.output_dir)
     merge_strategy_file = merge_pipeline_strategys(_args.src_strategy_dirs, _args.output_dir)
     merged_path = unified_safetensors(_args.mindspore_ckpt_dir, merge_strategy_file,
-                                      _args.output_dir, _args.file_suffix, _args.has_redundancy)
+                                      _args.output_dir, _args.file_suffix, _args.has_redundancy,
+                                      _args.filter_out_param_prefix, _args.max_process_num)
 
     logger.info(f'merged safetensor path: {merged_path}')
 

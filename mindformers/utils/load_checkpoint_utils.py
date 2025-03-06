@@ -462,7 +462,8 @@ def get_merged_src_strategy_path(config):
 
 def get_merged_dst_strategy_path(config, strategy_path):
     """prepare for dst strategy."""
-    if config.use_parallel:
+    enable_stand_alone = (config.parallel.parallel_mode == 'STAND_ALONE')
+    if config.use_parallel and not enable_stand_alone:
         # prepare merged strategy directory
         merged_strategy = os.path.join(config.output_dir, 'merged_strategy')
         os.makedirs(merged_strategy, exist_ok=True)
