@@ -131,6 +131,7 @@ class BaseTrainer:
         self.pipeline_task = None
 
         self.network_delay_inited = False
+        self.optimizer_delay_inited = False
 
         if task not in SUPPORT_TASKS.keys():
             logger.warning("Input task name is not in the supported list or unspecified.")
@@ -560,6 +561,20 @@ class BaseTrainer:
                 default_args={"params": group_params})
         return self.optimizer
 
+    def create_optimizer_scheduler_without_param_init(self, network, layer_scale=False):
+        """Create the optimizer for training without initialize parameters."""
+        self.optimizer_delay_inited = False
+        if check_delay_init_valid():
+            from mindspore.nn.utils import no_init_parameters
+            with no_init_parameters():
+                optimizer = self.create_optimizer_scheduler(network=network, layer_scale=layer_scale)
+            logger.info("Parameters are not initialized during optimizer initialization.")
+            self.optimizer_delay_inited = True
+            return optimizer
+        logger.info("Parameters are initialized during optimizer initialization, "
+                    "due to delay initialization is not available.")
+        return self.create_optimizer_scheduler(network=network, layer_scale=layer_scale)
+
     def create_lr_scheduler(self, learning_scale: bool = False, scale_factor: int = 256):
         """Create the learning rate scheduler."""
         logger.info(".........Build LR Schedule From Config..........")
@@ -860,12 +875,20 @@ class BaseTrainer:
         if network is None and self.network is None:
             check_for_nan_in_loss_and_grad = getattr(config, "check_for_nan_in_loss_and_grad", False)
             calculate_per_token_loss = getattr(config, "calculate_per_token_loss", False)
-            network = self.create_network(
-                default_args={"parallel_config": config.parallel_config,
-                              "moe_config": config.moe_config,
-                              "dataset_config": config.train_dataset,
-                              "calculate_per_token_loss": calculate_per_token_loss,
-                              "check_for_nan_in_loss_and_grad": check_for_nan_in_loss_and_grad})
+            if config.load_checkpoint:
+                network = self.create_network_without_param_init(
+                    default_args={"parallel_config": config.parallel_config,
+                                  "moe_config": config.moe_config,
+                                  "dataset_config": config.train_dataset,
+                                  "calculate_per_token_loss": calculate_per_token_loss,
+                                  "check_for_nan_in_loss_and_grad": check_for_nan_in_loss_and_grad})
+            else:
+                network = self.create_network(
+                    default_args={"parallel_config": config.parallel_config,
+                                  "moe_config": config.moe_config,
+                                  "dataset_config": config.train_dataset,
+                                  "calculate_per_token_loss": calculate_per_token_loss,
+                                  "check_for_nan_in_loss_and_grad": check_for_nan_in_loss_and_grad})
         elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
@@ -888,7 +911,10 @@ class BaseTrainer:
         # build optimizer
         logger.info(".........Build Optimizer For Train..........")
         if optimizer is None:
-            optimizer = self.create_optimizer_scheduler(network, layer_scale=config.layer_scale)
+            if config.load_checkpoint:
+                optimizer = self.create_optimizer_scheduler_without_param_init(network, layer_scale=config.layer_scale)
+            else:
+                optimizer = self.create_optimizer_scheduler(network, layer_scale=config.layer_scale)
 
 
         # build model wrapper
@@ -1063,6 +1089,10 @@ class BaseTrainer:
         if get_real_rank() % 8 == 0:
             pprint(config)
         logger.info(".........Model Compiling, Please Wait a Moment...........")
+        if self.network_delay_inited:
+            network.init_parameters_data()
+        if self.optimizer_delay_inited:
+            optimizer.init_parameters_data()
         model.train(config.runner_config.epochs, dataset,
                     callbacks=callbacks,
                     dataset_sink_mode=config.runner_config.sink_mode,
