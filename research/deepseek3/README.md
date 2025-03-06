@@ -544,6 +544,7 @@ MindSpore Transformers支持对DeepSeek-V3的推理。为了方便体验，仓�
    export MINDFORMERS_HOME=/home/work/mindformers
    export HCCL_OP_EXPANSION_MODE=AIV
    export MS_ENABLE_LCCL=off
+   export EXPERIMENTAL_KERNEL_LAUNCH_GROUP="thread_num:2,kernel_group_num:8"
    export PYTHONPATH=$MINDFORMERS_HOME:$PYTHONPATH
    cd $MINDFORMERS_HOME
    ```
