@@ -312,12 +312,15 @@ class ParallelConfig(Config):
 
 
 class RecomputeConfig(Config):
+    """recompute config"""
     recompute = False
     select_recompute = False
     parallel_optimizer_comm_recompute = False
     select_comm_recompute = False
     mp_comm_recompute = True
     recompute_slice_activation = False
+    select_recompute_off = False
+    select_comm_recompute_off = False
 
     _name = "recompute_config"
 

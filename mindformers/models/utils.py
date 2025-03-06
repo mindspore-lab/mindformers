@@ -135,6 +135,8 @@ class LayerSetting:
     def __init__(self, num_layers, offset, parallel_config, pp_interleave_num=1, start_stage=0, stage_num=0):
         default_patterns = [r'feed_forward\.mul', r'feed_forward\.w1\.activation\.silu']
         default_comm_patterns = [r'.*\.norm']
+        default_off_patterns = []
+        default_comm_off_patterns = []
         try:
             use_pp_interleave = ms.get_auto_parallel_context("pipeline_interleave")
         except ValueError:
@@ -174,9 +176,48 @@ class LayerSetting:
                 self.recompute.select_recompute, default_patterns)
             self.select_comm_recompute = self._format_recompute_dict(
                 self.recompute.select_comm_recompute, default_comm_patterns)
+            self.select_recompute_off = self._format_recompute_dict(
+                self.recompute.select_recompute_off, default_off_patterns)
+            self.select_comm_recompute_off = self._format_recompute_dict(
+                self.recompute.select_comm_recompute_off, default_comm_off_patterns)
             logger.info(f"Formative layer_recompute: {self.layer_recompute}")
+
+            logger.info("The configuration of select_recompute_off and select_comm_recompute_off "
+                        "have the highest priority.")
+            # check repeat config and remove
+            self._check_repeat_recompute(self.select_recompute, self.select_recompute_off, is_comm=False)
+            self._check_repeat_recompute(self.select_comm_recompute, self.select_comm_recompute_off, is_comm=True)
+
             logger.info(f"Formative select_recompute: {self.select_recompute}")
             logger.info(f"Formative select_comm_recompute: {self.select_comm_recompute}")
+            logger.info(f"Formative select_recompute_off: {self.select_recompute_off}")
+            logger.info(f"Formative select_comm_recompute_off: {self.select_comm_recompute_off}")
+
+    @staticmethod
+    def _check_repeat_pattern(key, select_recompute):
+        """check and return the repeat pattern"""
+        repeat_key = None
+        key = key.split(r'\.')
+        for pattern in select_recompute:
+            split_pattern = pattern.split(r'\.')
+            if len(key) != len(split_pattern):
+                continue
+            for p1, p2 in zip(key, split_pattern):
+                if not re.fullmatch(p1, p2) and not re.fullmatch(p2, p1):
+                    break
+            else:
+                repeat_key = pattern
+                break
+        return repeat_key
+
+    def _check_repeat_recompute(self, select_recompute, select_recompute_off, is_comm=False):
+        comm = '_comm' if is_comm else ''
+        for key in select_recompute_off:
+            repeat_key = self._check_repeat_pattern(key, select_recompute)
+            if repeat_key:
+                select_recompute.pop(repeat_key)
+                logger.info(f"The pattern {repeat_key} in select{comm}_recompute conflicts with "
+                            f"select{comm}_recompute_off and will be removed.")
 
     def set(self, layer, layer_id):
         """Set pipeline stage and recompute for each layer with a layer_id."""
@@ -192,20 +233,25 @@ class LayerSetting:
             if self.recompute:
                 layer.recompute()
             return
+
+        is_full_recompute = False
         if self.recompute.recompute:
             if isinstance(self.recompute.recompute, bool):
-                if self.recompute.recompute:
-                    layer.recompute(recompute_slice_activation=self.recompute.recompute_slice_activation)
-            else:
-                if self._check_layer_rule(layer_id):
-                    layer.recompute()
-                    logger.info(f"Set full recompute at layer {layer_id}")
-                else:
-                    self._set_select_recompute(layer, layer_id, False)
-                    self._set_select_recompute(layer, layer_id, True)
-        else:
-            self._set_select_recompute(layer, layer_id, False)
-            self._set_select_recompute(layer, layer_id, True)
+                layer.recompute(recompute_slice_activation=self.recompute.recompute_slice_activation)
+                is_full_recompute = True
+                logger.info(f"Set full recompute at layer {layer_id}")
+            elif self._check_layer_rule(layer_id):
+                layer.recompute()
+                is_full_recompute = True
+                logger.info(f"Set full recompute at layer {layer_id}")
+        if not is_full_recompute:
+            self._set_select_recompute(layer, layer_id, False, set_on=True)
+            self._set_select_recompute(layer, layer_id, True, set_on=True)
+
+        # select recompute off
+        self._set_select_recompute(layer, layer_id, False, set_on=False)
+        self._set_select_recompute(layer, layer_id, True, set_on=False)
+
 
     def _alloc_recompute_layer(self, select_recompute):
         """Average allocate recompute layer among different interleave."""
@@ -274,21 +320,26 @@ class LayerSetting:
             return True
         return False
 
-    def _set_select_recompute(self, layer, layer_id, add_prim_attr=False):
-        """Set select recompute for a layer."""
-        select_recompute = self.select_comm_recompute if add_prim_attr else self.select_recompute
+    def _set_select_recompute(self, layer, layer_id, add_prim_attr=False, set_on=True):
+        """Set select recompute on/off for a layer."""
+        if set_on:
+            select_recompute = self.select_comm_recompute if add_prim_attr else self.select_recompute
+            action = "on"
+        else:
+            select_recompute = self.select_comm_recompute_off if add_prim_attr else self.select_recompute_off
+            action = "off"
         pp_id = int(self.pp_ids[layer_id])
         v_id = int(self.interleave_ids[layer_id])
         log_ops = []
         for pattern, layers_dict in select_recompute.items():
             if 0 <= layer_id - self.layer_accu_mod[v_id, pp_id] < layers_dict[v_id][pp_id]:
-                log = LayerSetting.set_pattern_recompute(layer, pattern.split(r'\.'), add_prim_attr)
+                log = LayerSetting.set_pattern_recompute(layer, pattern.split(r'\.'), add_prim_attr, set_on)
                 if log:
                     log_ops.append(log[1:])
         log_ops_str = ', '.join(log_ops)
         if log_ops_str:
             comm = 'comm ' if add_prim_attr else ''
-            logger.info(f"Set select {comm}recompute at layer {layer_id}: {log_ops_str}")
+            logger.info(f"Set select {comm}recompute {action} at layer {layer_id}: {log_ops_str}")
 
     def _check_inputs(self):
         """Check the inputs of offset."""
@@ -305,8 +356,8 @@ class LayerSetting:
                              f"= {r}")
 
     @staticmethod
-    def set_pattern_recompute(layer, p_list, add_prim_attr=False, info=''):
-        """Set an operator recompute for a given key-value pair in select_recompute dict."""
+    def set_pattern_recompute(layer, p_list, add_prim_attr=False, set_on=True, info=''):
+        """Set an operator recompute status on/off for a given key-value pair in select_recompute dict."""
         log_list = []
         log = ''
         if p_list:
@@ -317,7 +368,7 @@ class LayerSetting:
             # pylint: disable=W0212
             for name, cell in layer._cells.items():
                 if re.fullmatch(p, name):
-                    log = LayerSetting.set_pattern_recompute(cell, p_list, add_prim_attr, info + f'.{name}')
+                    log = LayerSetting.set_pattern_recompute(cell, p_list, add_prim_attr, set_on, info + f'.{name}')
                     if log:
                         log_list.append(log[1:])
         else:
@@ -325,17 +376,26 @@ class LayerSetting:
                 if re.fullmatch(p, attr):
                     operator = getattr(layer, attr)
                     if add_prim_attr:
-                        operator.add_prim_attr("recompute_comm_op", True)
+                        operator.add_prim_attr("recompute_comm_op", set_on)
                         log = f"{info}.{attr}"
                     elif hasattr(operator, 'recompute'):
-                        operator.recompute()
+                        operator.recompute(set_on)
                         log = f"{info}.{attr}"
             # pylint: disable=W0212
             for name, cell in layer._cells.items():
                 if re.fullmatch(p, name):
-                    if not add_prim_attr:
-                        cell.recompute()
-                        log = f"{info}.{name}"
+                    if not set_on:
+                        logger.info(f"For select recompute/comm_recompute off, {info.replace('.', '', 1)}.{name} "
+                                    "is expected to be operation but got cell, "
+                                    "this configuration will not be effective.")
+                        continue
+                    if add_prim_attr:
+                        logger.info(f"For communication recompute, {info.replace('.', '', 1)}.{name} "
+                                    "is expected to be operation but got cell, "
+                                    "this configuration will not be effective.")
+                        continue
+                    cell.recompute()
+                    log = f"{info}.{name}"
         p_list.insert(0, p)
         if log_list:
             return " " + ", ".join(log_list)
