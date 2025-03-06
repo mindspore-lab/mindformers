@@ -6,7 +6,7 @@
 
 ### 安装mindformers
 
-参考[README](../../README.md#二、mindformers安装)安装mindformers。
+参考[README](../../README_CN.md#二、mindformers安装)安装mindformers。
 本文操作的相对路径均为安装mindformers后的代码仓根路径。
 
 ### 环境要求

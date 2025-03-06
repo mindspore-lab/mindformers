@@ -101,7 +101,7 @@
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 ### 数据及权重准备
 
@@ -220,7 +220,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 1. 启动qwen1_5-14b预训练，执行2机16卡任务。
 
-   在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)
+   在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README_CN.md#三使用指南)
 
    在mindformers工作目录下，执行：
 
@@ -253,7 +253,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 2. 启动qwen1_5-72b预训练，执行8机64卡任务。
 
-  在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)
+  在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README_CN.md#三使用指南)
 
   在mindformers工作目录下，执行：
 
@@ -345,7 +345,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 2. 执行分布式启动命令
 
-   在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)
+   在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README_CN.md#三使用指南)
 
    在mindformers工作目录下，执行：
 

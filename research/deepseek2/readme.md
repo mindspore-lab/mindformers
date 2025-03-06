@@ -46,7 +46,7 @@ DeepSeek-V2采用了创新的MLA（Multi-head Latent Attention）注意力机制
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#二mindformers安装)和[版本匹配关系](../../README.md#三版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#二mindformers安装)和[版本匹配关系](../../README_CN.md#三版本匹配关系)。
 
 ### 数据及权重准备
 
@@ -94,7 +94,7 @@ python convert_weight.py --torch_ckpt_path TORCH_CKPT_PATH --mindspore_ckpt_path
 
 ### 多机训练
 
-以deepseekv2-236B为例，全参微调至少需要8机64卡，使用`research/deepseek2/deepseek2_236b/finetune_deepseek2_236B.yaml`配置文件。参考[多机多卡启动方式](../../README.md#多机多卡)，依次在每一台机器的项目根目录执行分布式启动脚本，其中127.0.0.1应当修改为第一个节点的主机ip：
+以deepseekv2-236B为例，全参微调至少需要8机64卡，使用`research/deepseek2/deepseek2_236b/finetune_deepseek2_236B.yaml`配置文件。参考[多机多卡启动方式](../../README_CN.md#多机多卡)，依次在每一台机器的项目根目录执行分布式启动脚本，其中127.0.0.1应当修改为第一个节点的主机ip：
 
 ```shell
 //在所有节点设置环境变量

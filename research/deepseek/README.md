@@ -44,7 +44,7 @@ DeepSeek Coder由一系列代码语言模型组成，每个模型都在2T token�
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 > 注：Atlas 800T A2芯片支持33b单机4卡推理，全参微调至少需要2机16卡，预训练至少需要2机16卡。
 
@@ -152,7 +152,7 @@ MindFormers提供`deepseek-33b`多机预训练示例，，使用`Wikitext-103`�
 
 `deepseek-33b`多机预训练使用配置文件`pretrain_deepseek_33b_16k.yaml`，不支持单机进行预训练任务。
 
-多机多卡训练需要不同节点上执行启动命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)。
+多机多卡训练需要不同节点上执行启动命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README_CN.md#三使用指南)。
 
 执行如下命令启动2机16卡预训练任务：
 
@@ -208,7 +208,7 @@ MindFormers提供`deepseek-33b`多机多卡微调示例，使用`code_alpaca`数
      gradient_aggregation_group: 4
    ```
 
-   多机多卡训练需要不同节点上执行启动命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README.md#三使用指南)。
+   多机多卡训练需要不同节点上执行启动命令，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README_CN.md#三使用指南)。
 
    ```shell
    # 节点0，节点ip为{ip_addr}，作为主节点，总共16卡且每个节点8卡

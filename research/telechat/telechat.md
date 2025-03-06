@@ -82,7 +82,7 @@
 
 注：Atlas 800T A2芯片：7b, 12b推理可在单机单卡上完成部署；52b推理可在单机四卡上完成部署。
 
-### [mindformers安装](../../README.md#二mindformers安装)
+### [mindformers安装](../../README_CN.md#二mindformers安装)
 
 ### 模型权重下载与转换
 

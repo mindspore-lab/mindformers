@@ -58,7 +58,7 @@ Mixtral是MistralAI基于Mistral的更新版本，目前有4个版本：Mixtral-
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README.md#源码编译安装)和[版本匹配关系](../../README.md#版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#源码编译安装)和[版本匹配关系](../../README_CN.md#版本匹配关系)。
 
 注：Atlas 800T A2芯片推理单机2卡即可推理.全参微调Atlas 800T A2芯片至少需要二机16卡。
 
