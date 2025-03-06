@@ -320,6 +320,8 @@ class LlamaFeedForward(Cell):
         if moe_config is not None:
             self.use_allgather_dispatcher = moe_config.use_allgather_dispatcher
             self.mp_moe_flag = moe_config.expert_model_parallel is not None
+            if self.mp_moe_flag and moe_config.expert_model_parallel not in (1, parallel_config.model_parallel):
+                raise ValueError("expert_model_parallel must be 1 or model_parallel if is is not none.")
             self.mp_moe = moe_config.expert_model_parallel if moe_config.expert_model_parallel is not None \
                 else parallel_config.model_parallel
         else:
