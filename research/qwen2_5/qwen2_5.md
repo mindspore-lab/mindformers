@@ -124,6 +124,16 @@ model:       模型名称
 input_path:  下载HuggingFace权重的文件夹路径
 output_path: 转换后的MindSpore权重文件保存路径
 dtype:       转换权重的精度
+is_lora:     转换的权重是否是lora
+align_rank:  lora配置中rank的值是否对齐
+```
+
+#### lora模型权重转换
+
+注：align_rank参数控制lora配置文件参数 'r' 的是否对齐16。Atlas 300V Pro型号机器需要开启对齐。
+
+```shell
+python convert_weight.py --input_path TORCH_CKPT_DIR --output_path {path}/MS_CKPT_NAME --dtype bf16 --is_lora True --align_rank True
 ```
 
 - **[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)**
