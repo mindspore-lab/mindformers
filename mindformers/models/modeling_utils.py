@@ -28,7 +28,7 @@ import mindspore as ms
 from mindspore import nn
 from mindspore import load_checkpoint, load_param_into_net
 from mindspore import context, Model
-
+from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from mindformers.tools.hub import (
     PushToHubMixin,
     cached_file,
@@ -560,6 +560,8 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         meraged_dict = {}
         if os.path.exists(config_path):
             with open(config_path, 'r') as file_reader:
+                check_yaml_depth_before_loading(file_reader)
+                file_reader.seek(0)
                 meraged_dict = yaml.safe_load(file_reader.read())
             file_reader.close()
         meraged_dict.update(wraped_config)

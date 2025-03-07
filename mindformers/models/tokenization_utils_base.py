@@ -32,6 +32,7 @@ from packaging import version
 import yaml
 import numpy as np
 import mindspore as ms
+from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from ..tools.logger import logger
 from ..tools.generic import add_model_info_to_auto_map
 from ..utils.import_utils import is_tokenizers_available
@@ -2573,6 +2574,8 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
             yaml_file = os.path.join(save_directory, save_name + '.yaml')
             if os.path.exists(yaml_file):
                 with open(yaml_file, 'r') as file_reader:
+                    check_yaml_depth_before_loading(file_reader)
+                    file_reader.seek(0)
                     merged_dict = yaml.safe_load(file_reader.read())
                     if merged_dict is None:
                         merged_dict = dict()
