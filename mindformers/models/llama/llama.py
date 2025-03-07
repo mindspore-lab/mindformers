@@ -87,6 +87,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.is_first_iteration = True
         self.chunk_prefill = config.chunk_prefill
         self.use_past = config.use_past
+        self.use_eod_attn_mask_compression = config.use_eod_attn_mask_compression
         self.use_flash_attention = config.use_flash_attention
         self.use_ring_attention = config.use_ring_attention
         self.parallel_decoding = config.parallel_decoding_params is not None
@@ -102,15 +103,18 @@ class LlamaModel(LlamaPreTrainedModel):
         else:
             logger.info("MoE config is None, use normal FFN")
         if not self.use_flash_attention and self.use_ring_attention:
-            raise ValueError(f"When the ring_attention = True, the flash_attention must be True ")
+            raise ValueError(f"When the ring_attention = True, the flash_attention must be True.")
+        if not self.use_flash_attention and self.use_eod_attn_mask_compression:
+            raise ValueError(f"When the use_eod_attn_mask_compression = True, the flash_attention must be True.")
         self.seq_split_num = config.parallel_config.seq_split_num
         self.seq_pipe = self.seq_split_num > 1
         if self.seq_pipe:
             dp = config.parallel_config.data_parallel
             if self.use_ring_attention:
-                raise ValueError(f"When the seq_pipe = True, the use_ring_attention cannot be True ")
-            if config.use_attn_mask_compression:
-                raise ValueError(f"Currently, when the seq_pipe = True, the use_attn_mask_compression cannot be True ")
+                raise ValueError(f"When the seq_pipe = True, the use_ring_attention cannot be True.")
+            if config.use_attn_mask_compression or config.use_eod_attn_mask_compression:
+                raise ValueError(f"Currently, when the seq_pipe = True, "
+                                 f"both use_attn_mask_compression and use_eod_attn_mask_compression cannot be True.")
             self.n_kv_head = self.n_head if config.n_kv_heads is None else config.n_kv_heads
             kv_shape = (config.batch_size * dp, self.n_kv_head, config.seq_length, self.head_dim)
             self.zeros = initializer('zeros', kv_shape, dtype=self.dtype)
@@ -147,13 +151,14 @@ class LlamaModel(LlamaPreTrainedModel):
                         f"residual dtype: {config.residual_dtype}")
         self.freqs_mgr.shard(config.parallel_config)
         total_batch_size_in_dp = config.batch_size * config.parallel_config.data_parallel
+        use_attn_mask_compression = config.use_attn_mask_compression or config.use_eod_attn_mask_compression
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           batch_size=total_batch_size_in_dp,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,
                                                           pad_token_id=config.pad_token_id,
                                                           use_flash_attention=config.use_flash_attention,
-                                                          use_attn_mask_compression=config.use_attn_mask_compression,
+                                                          use_attn_mask_compression=use_attn_mask_compression,
                                                           use_past=config.use_past,
                                                           seq_split_num=self.seq_split_num,
                                                           chunk_prefill=config.chunk_prefill)
@@ -202,6 +207,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                                    use_flash_attention=config.use_flash_attention,
                                                    use_ring_attention=config.use_ring_attention,
                                                    use_attn_mask_compression=config.use_attn_mask_compression,
+                                                   use_eod_attn_mask_compression=config.use_eod_attn_mask_compression,
                                                    fine_grain_interleave=config.fine_grain_interleave,
                                                    init_method_std=config.init_method_std,
                                                    parallel_config=config.parallel_config)
@@ -229,6 +235,7 @@ class LlamaModel(LlamaPreTrainedModel):
                                          use_flash_attention=config.use_flash_attention,
                                          use_ring_attention=config.use_ring_attention,
                                          use_attn_mask_compression=config.use_attn_mask_compression,
+                                         use_eod_attn_mask_compression=config.use_eod_attn_mask_compression,
                                          block_size=config.block_size,
                                          num_blocks=config.num_blocks,
                                          use_rope_slice=config.use_rope_slice,
@@ -290,7 +297,7 @@ class LlamaModel(LlamaPreTrainedModel):
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, input_embeds=None, batch_valid_length=None, batch_index=None,
                   zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None,
-                  attention_mask=None, position_ids=None, q_seq_lens=None, seq_range=None):
+                  attention_mask=None, position_ids=None, q_seq_lens=None, seq_range=None, actual_seq_len=None):
         """
         Forward of llama model.
 
@@ -307,6 +314,8 @@ class LlamaModel(LlamaPreTrainedModel):
         """
         # preprocess
         bs, seq_len = self.shape(tokens)
+        if actual_seq_len is not None:
+            actual_seq_len = self.reshape(actual_seq_len, (-1,))
         kv_mask = None
         seq_chunk = None
         rmsnorm_compute_2d = self.training and self.rmsnorm_compute_2d
@@ -325,6 +334,9 @@ class LlamaModel(LlamaPreTrainedModel):
             else:
                 mask = attention_mask
             freqs_cis = self.freqs_mgr.increment_multi_ids(position_ids)
+        elif self.use_eod_attn_mask_compression and not self.use_ring_attention:
+            mask = self.casual_mask()
+            freqs_cis = self.freqs_mgr(seq_len, position_ids)
         elif attention_mask is not None:
             mask = attention_mask
             mask = self.cast(mask, mstype.uint8)
@@ -374,7 +386,7 @@ class LlamaModel(LlamaPreTrainedModel):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
             h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length, block_tables=block_tables,
                                slot_mapping=slot_mapping, prefix_keys_values=prefix_kv, q_seq_lens=q_seq_lens,
-                               kv_mask=kv_mask, seq_chunk=seq_chunk)
+                               kv_mask=kv_mask, seq_chunk=seq_chunk, actual_seq_len=actual_seq_len)
         if rmsnorm_compute_2d:
             h = self.reshape(h, (bs * seq_len, -1))
         output = self.norm_out(h)
@@ -434,6 +446,8 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
           each sequence. Default: ``None``.
         - **seq_range** (Tensor, optional) - Int32 type Tensor, used to obtain Mask and positional encoding of
           valid tokens for each sequence. Default: ``None``.
+        - **actual_seq_len** (Tensor, optional) - Int32 type Tensor, used to automatically generate attention mask
+          within FlashAttention for eod text. Default: ``None``.
 
     Outputs:
         Tensor. If it is in training mode, the output Tensor contains loss;
@@ -576,11 +590,11 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
                             dynamic_slot_mapping, dynamic_prefix_keys_values, None, dynamic_q_seq_lens, None,
-                            None, None)
+                            None, None, None)
         elif self.use_past:
             self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, None, None, dynamic_q_seq_lens, None, None, None)
+                            dynamic_slot_mapping, None, None, dynamic_q_seq_lens, None, None, None, None)
         elif kwargs.get("pre_gather", False):
             self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
                             dynamic_batch_valid_length, None, None, None, None, None)
@@ -615,9 +629,9 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
     # pylint: disable=W0613
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
-                  input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None,
-                  zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None,
-                  llm_boost_inputs=None, q_seq_lens=None, loss_mask=None, gather_index=None, seq_range=None):
+                  input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None, q_seq_lens=None,
+                  loss_mask=None, gather_index=None, seq_range=None, actual_seq_len=None):
         r"""LlamaForCausalLM forward."""
         has_loss_mask = loss_mask is not None
         input_sliced_sig = self.input_sliced_sig
@@ -639,7 +653,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
 
         output = self.model(tokens, input_embeds, batch_valid_length, batch_index, zactivate_len, block_tables, \
                             slot_mapping, prefix_keys_values, attention_mask, position_ids, q_seq_lens, \
-                            seq_range)
+                            seq_range, actual_seq_len)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         output = self.pre_gather_func(pre_gather, output, batch_valid_length, gather_index)
         logits = self.lm_head(output)

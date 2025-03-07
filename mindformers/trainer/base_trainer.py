@@ -735,6 +735,10 @@ class BaseTrainer:
         cur_ds = dataset.get_dataset_size()
         logger.info(f"Use BlendedMegatronDatasetDataLoader, reset dataset size {ori_ds} to {cur_ds}.")
 
+        # Sync assign eod compression arguments
+        if self.config.train_dataset.data_loader.config.create_compressed_eod_mask:
+            self.config.model.model_config.use_eod_attn_mask_compression = True
+
         # skip data for real dataset
         if config.data_skip_steps or config.resume_training:
             rank_id = get_real_rank()

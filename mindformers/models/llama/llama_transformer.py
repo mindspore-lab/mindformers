@@ -29,7 +29,12 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindspore.parallel.shard import Layout
 
 from mindformers.tools.logger import logger
-from mindformers.models.llama.llama_layer import LlamaFeedForward, LlamaRMSNorm, LlamaMoeInferFeedForward, LlamaFeedForwardWithMoE
+from mindformers.models.llama.llama_layer import (
+    LlamaFeedForward,
+    LlamaRMSNorm,
+    LlamaMoeInferFeedForward,
+    LlamaFeedForwardWithMoE
+)
 from mindformers.models.utils import predict_lazy_inline
 from mindformers.modules.layers import _check_input_dtype, Linear, RotaryEmbedding
 from mindformers.modules.transformer import TransformerOpParallelConfig
@@ -119,6 +124,7 @@ class LLamaAttention(nn.Cell):
                  use_flash_attention=False,
                  use_ring_attention=False,
                  use_attn_mask_compression=False,
+                 use_eod_attn_mask_compression=False,
                  rmsnorm_compute_2d=False,
                  batch_size=1,
                  block_size: Optional[int] = None,
@@ -153,6 +159,7 @@ class LLamaAttention(nn.Cell):
         self.use_flash_attention = use_flash_attention
         self.use_ring_attention = use_ring_attention
         self.use_attn_mask_compression = use_attn_mask_compression
+        self.use_eod_attn_mask_compression = use_eod_attn_mask_compression
         self.qkv_concat = qkv_concat
 
         self.rl_config = rl_config
@@ -403,14 +410,21 @@ class LLamaAttention(nn.Cell):
                 self.cast_attn.recompute()
                 self.softmax.recompute()
                 self.batch_matmul.recompute()
-
+            self.input_layout = None
             if self.use_flash_attention:
                 self.input_layout = "BSH" if cp > 1 else "BNSD"
-                self.sparse_mode = 2 if self.use_attn_mask_compression and not self.use_ring_attention else 0
+                if self.use_eod_attn_mask_compression and not self.use_ring_attention:
+                    self.sparse_mode = 8
+                    self.input_layout = "TND"
+                elif self.use_attn_mask_compression and not self.use_ring_attention:
+                    self.sparse_mode = 2
+                else:
+                    self.sparse_mode = 0
                 if self.seq_pipe and not check_seqpp_fa_opt_support():
                     next_tokens = seq_length - self.seq_seg_len
                 else:
                     next_tokens = 0
+
                 self.flash_attention = FlashAttention(head_num=self.n_head,
                                                       pre_tokens=2147483647,
                                                       next_tokens=next_tokens,
@@ -421,6 +435,7 @@ class LLamaAttention(nn.Cell):
                                                       use_attention_mask=True,
                                                       use_ring_attention=self.use_ring_attention,
                                                       use_3d_tensor_parallel=use_3d_tensor_parallel,
+                                                      use_actual_seqlen=self.use_eod_attn_mask_compression,
                                                       tp_x=tp_x,
                                                       tp_y=tp_y,
                                                       tp_z=tp_z)
@@ -448,8 +463,8 @@ class LLamaAttention(nn.Cell):
             self.transpose_ulysses_merger.shard(((dp, cp, 1, mp, 1, 1),))
 
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None, q_seq_lens=None,
-                  kv_mask=None, seq_chunk=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, q_seq_lens=None, kv_mask=None,
+                  seq_chunk=None, actual_seq_len=None):
         """Forward process of the MultiHeadAttention"""
         ori_dtype = x.dtype
         # [bs, seq/1, hidden_dim]
@@ -482,7 +497,11 @@ class LLamaAttention(nn.Cell):
             key = self.transpose(self.reshape(key, (bs, seq_len, self.n_kv_head, self.head_dim)), (0, 2, 1, 3))
             query, key = self.apply_rotary_emb(query, key, freqs_cis)  # dp, mp, cp, 1
             # with ulysses context parallel, insert all to all before FA
-            if self.context_parallel > 1 and self.cp_ds > 1:
+            if self.input_layout == 'TND':
+                query = self._merge_seq_len(query)
+                key = self._merge_seq_len(key)
+                value = self.reshape(value, (bs * seq_len, self.n_kv_head, self.head_dim))
+            elif self.context_parallel > 1 and self.cp_ds > 1:
                 # for query & key, transpose from BNSD back to BSND
                 query = self.transpose_back(query, (0, 2, 1, 3))
                 query = self._ulysses_q_a2a(query)
@@ -525,14 +544,19 @@ class LLamaAttention(nn.Cell):
                     context_layer = self._merge_heads(context_layer)
             else:
                 if self.use_flash_attention:
-                    #with ulysses context parallel, insert all to all after FA
-                    if self.context_parallel > 1 and self.cp_ds > 1:
-                        context_layer = self.flash_attention(query, key, value, mask)
-                        context_layer = self._ulysses_context_layer_a2a(context_layer)
-                    elif self.context_parallel > 1:
-                        context_layer = self.flash_attention(query, key, value, mask)
+                    # with ulysses context parallel, insert all to all after FA
+                    if self.use_eod_attn_mask_compression:
+                        context_layer = self.flash_attention(
+                            query, key, value, mask,
+                            actual_seq_qlen=actual_seq_len, actual_seq_kvlen=actual_seq_len
+                        )
                     else:
                         context_layer = self.flash_attention(query, key, value, mask)
+                    if self.input_layout == 'TND':
+                        context_layer = self.reshape(context_layer, (bs, seq_len, -1))
+                    elif self.context_parallel > 1 and self.cp_ds > 1:
+                        context_layer = self._ulysses_context_layer_a2a(context_layer)
+                    elif self.context_parallel <= 1:
                         context_layer = self._merge_heads(context_layer)
                 else:
                     key = self._repeat_kv(key, self.n_rep)
@@ -572,6 +596,24 @@ class LLamaAttention(nn.Cell):
         x = self.tile_kv(x, (1, 1, rep, 1))
         x = self.reshape(x, (bs, n_kv_head * rep, seqlen, head_dim))
         return x
+
+    def _merge_seq_len(self, x):
+        """
+        convert a bhsd input to a tnd output
+
+        Inputs:
+            x: input tensor
+
+        Output:
+            x_merge: the tnd output
+        """
+        # [bs, n_head, seq/1, head_dim]
+        x = self.merger_head_transpose(x, (0, 2, 1, 3))  # dp,mp,1,1 -> dp,1,mp,1
+        # [bs, seq/1, n_head, head_dim]
+        bs, seq_len, n_head, head_dim = self.shape(x)
+        new_shape = (bs * seq_len, n_head, head_dim)
+        x_merge = self.reshape(x, new_shape)
+        return x_merge
 
     def _merge_heads(self, x):
         """
@@ -785,6 +827,7 @@ class LLamaDecodeLayer(nn.Cell):
                  use_flash_attention=False,
                  use_ring_attention=False,
                  use_attn_mask_compression=False,
+                 use_eod_attn_mask_compression=False,
                  rmsnorm_compute_2d=False,
                  batch_size=1,
                  block_size: Optional[int] = None,
@@ -840,6 +883,7 @@ class LLamaDecodeLayer(nn.Cell):
                                         use_flash_attention=use_flash_attention,
                                         use_ring_attention=use_ring_attention,
                                         use_attn_mask_compression=use_attn_mask_compression,
+                                        use_eod_attn_mask_compression=use_eod_attn_mask_compression,
                                         rmsnorm_compute_2d=rmsnorm_compute_2d,
                                         block_size=block_size,
                                         num_blocks=num_blocks,
@@ -994,20 +1038,23 @@ class LLamaDecodeLayer(nn.Cell):
         if self.predict_run_mode:
             self.no_inline = False
 
-    def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, prefix_keys_values=None, q_seq_lens=None, kv_mask=None, seq_chunk=None):
+    def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None, slot_mapping=None,
+                  prefix_keys_values=None, q_seq_lens=None, kv_mask=None, seq_chunk=None, actual_seq_len=None):
         """ Forward of transformer block. """
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
+        if actual_seq_len is not None:
+            _check_input_dtype(actual_seq_len.dtype, "actual_seq_len",
+                               [mstype.int32, mstype.int64], self.cls_name)
         # [bs, seq/1, hidden_dim]
         input_x = self.attention_norm(x)
         # [bs, seq/1, hidden_dim]
         if self.seq_pipe:
-            h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
-                               slot_mapping, prefix_keys_values, q_seq_lens, kv_mask, seq_chunk)
+            h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables, slot_mapping,
+                               prefix_keys_values, q_seq_lens, kv_mask, seq_chunk, actual_seq_len=actual_seq_len)
         else:
             h = self.attention(input_x, freqs_cis, mask, batch_valid_length, block_tables,
-                               slot_mapping, prefix_keys_values, q_seq_lens)
+                               slot_mapping, prefix_keys_values, q_seq_lens, actual_seq_len=actual_seq_len)
         if self.residual_cast_flag:
             x = self.cast(x, self.residual_dtype)
             h = self.cast(h, self.residual_dtype)

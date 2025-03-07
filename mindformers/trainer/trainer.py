@@ -1185,6 +1185,7 @@ class Trainer:
                 raise ValueError(f"train dataset path must be exist, but got {self.train_dataset}.")
             self.config.train_dataset.data_loader.dataset_dir = self.train_dataset
             self.train_dataset = None
+
         if isinstance(self.eval_dataset, str):
             logger.info("..........Init Eval Dataset..........")
             if not os.path.exists(self.eval_dataset):

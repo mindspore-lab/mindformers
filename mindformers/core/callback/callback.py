@@ -423,8 +423,13 @@ class MFLossMonitor(Callback):
         """
         Calculate the full model flops
         """
-        full_model_flops, _, shard_model_flops, \
-            _, is_dynamic_shape = flops_collection(self.current_phase)
+        try:
+            full_model_flops, _, shard_model_flops, \
+                _, is_dynamic_shape = flops_collection(self.current_phase)
+        except RuntimeError as e:
+            logger.warning("%s", e)
+            self.mf_support = False
+            return
         if is_dynamic_shape:
             logger.warning("Model Flops computation now do not support dynamic shape.")
             self.mf_support = False

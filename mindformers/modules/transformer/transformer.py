@@ -1250,7 +1250,7 @@ class LowerTriangularMaskWithDynamic(Cell):
             else:
                 self.lower_triangle_mask = None
         else:
-            if use_attn_mask_compression and seq_length > 2048:
+            if use_attn_mask_compression:
                 if seq_length < 2048:
                     raise ValueError("seq_length should be larger than 2048 when use mask_compression")
                 self.lower_triangle_mask = ms.Tensor(np.triu(np.ones((2048, 2048), dtype=np.int8), k=1), dtype=ms.uint8)

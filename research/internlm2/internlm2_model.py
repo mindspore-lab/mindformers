@@ -360,8 +360,9 @@ class InternLM2Attention(nn.Cell):
                                                       use_attention_mask=True)
                 self.flash_attention.shard(parallel_config)
 
+    # pylint: disable=W0613
     def construct(self, x: Tensor, freqs_cis: Tuple[Tensor, Tensor], mask=None, batch_valid_length=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None, q_seq_lens=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, q_seq_lens=None, **kwargs):
         """Forward process of the MultiHeadAttention"""
         _ = prefix_keys_values
         _ = q_seq_lens
@@ -697,7 +698,8 @@ class InternLM2AttentionInterleave(nn.Cell):
             value = self.cast(self.wv(x), self.dtype)  # dp, 1 -> dp, mp
         return query, key, value
 
-    def cal_attn(self, query, key, value, mask, freqs_cis):
+    # pylint: disable=W0613
+    def cal_attn(self, query, key, value, mask, freqs_cis, **kwargs):
         """cal_attn"""
         query = self.reshape(query, (-1, self.seq_length, self.n_head, self.head_dim))
         key = self.reshape(key, (-1, self.seq_length, self.n_kv_head, self.head_dim))
