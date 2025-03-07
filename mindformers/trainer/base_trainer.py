@@ -893,7 +893,7 @@ class BaseTrainer:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
 
-        config.load_checkpoint = self._get_load_path_after_hf_convert(config, network)
+        config.load_checkpoint = self.get_load_path_after_hf_convert(config, network)
         self._check_training_network_no_use_past(network)
 
         eval_network = None
@@ -1138,7 +1138,7 @@ class BaseTrainer:
         elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Evaluate: %s", self.network.__class__.__name__)
             network = self.network
-        config.load_checkpoint = self._get_load_path_after_hf_convert(config, network)
+        config.load_checkpoint = self.get_load_path_after_hf_convert(config, network)
         if network is not None and construct_args_key is not None:
             network = self.warp_data_order_with_tool_cells(network, construct_args_key)
 
@@ -1212,7 +1212,7 @@ class BaseTrainer:
                                   "moe_config": config.moe_config})
             self.set_network(network, is_train=False)
             self.count_parameters()
-            config.load_checkpoint = self._get_load_path_after_hf_convert(config, network)
+            config.load_checkpoint = self.get_load_path_after_hf_convert(config, network)
             if tokenizer is None and config.processor.tokenizer:
                 tokenizer = build_tokenizer(config.processor.tokenizer, tokenizer_name=config.trainer.model_name)
 
@@ -1298,7 +1298,7 @@ class BaseTrainer:
         return output
 
     @staticmethod
-    def _get_load_path_after_hf_convert(config, network):
+    def get_load_path_after_hf_convert(config, network):
         """check if it is hf safetensors and convert"""
         if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
                 is_hf_safetensors_dir(config.load_checkpoint, network)):
