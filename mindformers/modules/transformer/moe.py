@@ -1391,7 +1391,7 @@ class TopkRouterV2(Cell):
             self.fi_cache = Parameter(initializer('zeros', (dp, self.expert_dim), mstype.float32),
                                       requires_grad=False, parallel_optimizer=False)
             self.assign_cache = P.Assign().shard(((dp, 1), (dp, 1)))
-            self.assign_add_cache = P.AssignAdd().shard(((dp, 1), (dp, 1)))
+            self.add_cache = P.Add().shard(((dp, 1), (dp, 1)))
             self.mul_cache = P.Mul().shard(((dp, 1), ()))
         # topkrouter
         if self.moe_config.use_fused_ops_topkrouter:
@@ -1807,12 +1807,13 @@ class TopkRouterV2(Cell):
             clean_zeros_fi = self.mul_cache(self.fi_cache, is_clean)
             clean_pi_state = self.assign_cache(self.pi_cache, clean_zeros_pi)
             clean_fi_state = self.assign_cache(self.fi_cache, clean_zeros_fi)
-            pi_cache_state = self.assign_add_cache(self.pi_cache, F.depend(pi, clean_pi_state))
-            fi_cache_state = self.assign_add_cache(self.fi_cache, F.depend(fi, clean_fi_state))
-            pi_cache = F.depend(self.pi_cache, pi_cache_state)
-            fi_cache = F.depend(self.fi_cache, fi_cache_state)
-            expert_load_loss = self.mul(self.reduce_mean_2d(self.mul_2d(pi_cache, fi_cache)),
-                                        alpha * self.expert_dim ** 2)
+            pi = self.add_cache(F.depend(pi, clean_pi_state), self.pi_cache)
+            fi = self.add_cache(F.depend(fi, clean_fi_state), self.fi_cache)
+            pi_fi = self.reduce_mean_2d(self.mul_2d(pi, fi))
+            pi_cache_state = self.assign_cache(self.pi_cache, F.depend(pi, pi_fi))
+            fi_cache_state = self.assign_cache(self.fi_cache, F.depend(fi, pi_fi))
+            expert_load_loss = self.mul(pi_fi, alpha * self.expert_dim ** 2)
+            expert_load_loss = F.depend(expert_load_loss, (pi_cache_state, fi_cache_state))
             return expert_load_loss * is_return / (self.seq_split_num * self.seq_split_num)
         expert_load_loss = self.mul(self.reduce_mean_2d(self.mul_2d(pi, fi)),
                                     alpha * self.expert_dim ** 2)  # alpha*E \sum_i^E (f_i * P_i)
