@@ -319,8 +319,8 @@ class RecomputeConfig(Config):
     select_comm_recompute = False
     mp_comm_recompute = True
     recompute_slice_activation = False
-    select_recompute_off = False
-    select_comm_recompute_off = False
+    select_recompute_exclude = False
+    select_comm_recompute_exclude = False
 
     _name = "recompute_config"
 

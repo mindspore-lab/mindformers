@@ -184,22 +184,22 @@ class LayerSetting:
                 self.recompute.select_recompute, default_patterns, self.swap.swap)
             self.select_comm_recompute = self._format_recompute_dict(
                 self.recompute.select_comm_recompute, default_comm_patterns, self.swap.swap)
-            self.select_recompute_off = self._format_recompute_dict(
-                self.recompute.select_recompute_off, default_off_patterns)
-            self.select_comm_recompute_off = self._format_recompute_dict(
-                self.recompute.select_comm_recompute_off, default_comm_off_patterns)
+            self.select_recompute_exclude = self._format_recompute_dict(
+                self.recompute.select_recompute_exclude, default_off_patterns)
+            self.select_comm_recompute_exclude = self._format_recompute_dict(
+                self.recompute.select_comm_recompute_exclude, default_comm_off_patterns)
             logger.info(f"Formative layer_recompute: {self.layer_recompute}")
 
-            logger.info("The configuration of select_recompute_off and select_comm_recompute_off "
+            logger.info("The configuration of select_recompute_exclude and select_comm_recompute_exclude "
                         "have the highest priority.")
             # check repeat config and remove
-            self._check_repeat_recompute(self.select_recompute, self.select_recompute_off, is_comm=False)
-            self._check_repeat_recompute(self.select_comm_recompute, self.select_comm_recompute_off, is_comm=True)
+            self._check_repeat_recompute(self.select_recompute, self.select_recompute_exclude, is_comm=False)
+            self._check_repeat_recompute(self.select_comm_recompute, self.select_comm_recompute_exclude, is_comm=True)
 
             logger.info(f"Formative select_recompute: {self.select_recompute}")
             logger.info(f"Formative select_comm_recompute: {self.select_comm_recompute}")
-            logger.info(f"Formative select_recompute_off: {self.select_recompute_off}")
-            logger.info(f"Formative select_comm_recompute_off: {self.select_comm_recompute_off}")
+            logger.info(f"Formative select_recompute_exclude: {self.select_recompute_exclude}")
+            logger.info(f"Formative select_comm_recompute_exclude: {self.select_comm_recompute_exclude}")
 
         if not isinstance(self.swap, bool):
             self.layer_swap = []
@@ -227,10 +227,10 @@ class LayerSetting:
                 break
         return repeat_key
 
-    def _check_repeat_recompute(self, select_recompute, select_recompute_off, is_comm=False):
-        "Check if the select_recompute conflicts select_recompute_off."
+    def _check_repeat_recompute(self, select_recompute, select_recompute_exclude, is_comm=False):
+        "Check if the select_recompute conflicts select_recompute_exclude."
         comm = '_comm' if is_comm else ''
-        for key in select_recompute_off:
+        for key in select_recompute_exclude:
             repeat_key = self._check_repeat_pattern(key, select_recompute)
             if repeat_key:
                 select_recompute.pop(repeat_key)
@@ -469,7 +469,7 @@ class LayerSetting:
             select_recompute = self.select_comm_recompute if add_prim_attr else self.select_recompute
             action = "on"
         else:
-            select_recompute = self.select_comm_recompute_off if add_prim_attr else self.select_recompute_off
+            select_recompute = self.select_comm_recompute_exclude if add_prim_attr else self.select_recompute_exclude
             action = "off"
         pp_id = int(self.pp_ids[layer_id])
         v_id = int(self.interleave_ids[layer_id])

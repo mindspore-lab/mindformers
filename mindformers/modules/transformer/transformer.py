@@ -410,7 +410,7 @@ class TransformerRecomputeConfig(_Config):
     def __init__(self, recompute=False, select_recompute=False,
                  parallel_optimizer_comm_recompute=False, select_comm_recompute=False,
                  mp_comm_recompute=True, recompute_slice_activation=False,
-                 select_recompute_off=False, select_comm_recompute_off=False):
+                 select_recompute_exclude=False, select_comm_recompute_exclude=False):
         Validator.check_bool(parallel_optimizer_comm_recompute, "parallel_optimizer_comm_recompute")
         Validator.check_bool(mp_comm_recompute, "mp_comm_recompute")
         Validator.check_bool(recompute_slice_activation, "recompute_slice_activation")
@@ -420,8 +420,8 @@ class TransformerRecomputeConfig(_Config):
         self._parallel_optimizer_comm_recompute = parallel_optimizer_comm_recompute
         self._mp_comm_recompute = mp_comm_recompute
         self._recompute_slice_activation = recompute_slice_activation
-        self._select_recompute_off = select_recompute_off
-        self._select_comm_recompute_off = select_comm_recompute_off
+        self._select_recompute_exclude = select_recompute_exclude
+        self._select_comm_recompute_exclude = select_comm_recompute_exclude
 
     @property
     def recompute(self):
@@ -451,26 +451,26 @@ class TransformerRecomputeConfig(_Config):
         self._select_comm_recompute = value
 
     @property
-    def select_recompute_off(self):
-        return self._select_recompute_off
+    def select_recompute_exclude(self):
+        return self._select_recompute_exclude
 
     @property
-    def select_comm_recompute_off(self):
-        return self._select_comm_recompute_off
+    def select_comm_recompute_exclude(self):
+        return self._select_comm_recompute_exclude
 
     @property
     def parallel_optimizer_comm_recompute(self):
         return self._parallel_optimizer_comm_recompute
 
-    @select_recompute_off.setter
-    def select_recompute_off(self, value):
-        Validator.check_bool(value, "select_recompute_off")
-        self._select_recompute_off = value
+    @select_recompute_exclude.setter
+    def select_recompute_exclude(self, value):
+        Validator.check_bool(value, "select_recompute_exclude")
+        self._select_recompute_exclude = value
 
-    @select_comm_recompute_off.setter
-    def select_comm_recompute_off(self, value):
-        Validator.check_bool(value, "select_comm_recompute_off")
-        self._select_comm_recompute_off = value
+    @select_comm_recompute_exclude.setter
+    def select_comm_recompute_exclude(self, value):
+        Validator.check_bool(value, "select_comm_recompute_exclude")
+        self._select_comm_recompute_exclude = value
 
     @parallel_optimizer_comm_recompute.setter
     def parallel_optimizer_comm_recompute(self, value):
@@ -515,8 +515,8 @@ class TransformerRecomputeConfig(_Config):
             "parallel_optimizer_comm_recompute": self._parallel_optimizer_comm_recompute,
             "mp_comm_recompute": self._mp_comm_recompute,
             "recompute_slice_activation": self._recompute_slice_activation,
-            "select_recompute_off": self._select_recompute_off,
-            "select_comm_recompute_off": self._select_comm_recompute_off,
+            "select_recompute_exclude": self._select_recompute_exclude,
+            "select_comm_recompute_exclude": self._select_comm_recompute_exclude,
         }
         return config_dict
 
