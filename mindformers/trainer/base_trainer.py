@@ -181,6 +181,7 @@ class BaseTrainer:
     def _check_global_batch_size_for_auto_parallel(self):
         """Check global batch size in auto parallel mode."""
         batch_size = self.config.runner_config.batch_size
+        self.config.runner_config.mini_batch_size = batch_size
         gradient_accumulation_steps = self.config.runner_config.gradient_accumulation_steps
         dp = self.config.parallel_config.data_parallel
         micro_batch_num = self.config.parallel_config.micro_batch_num
@@ -892,7 +893,8 @@ class BaseTrainer:
                                   "moe_config": config.moe_config,
                                   "dataset_config": config.train_dataset,
                                   "calculate_per_token_loss": calculate_per_token_loss,
-                                  "check_for_nan_in_loss_and_grad": check_for_nan_in_loss_and_grad})
+                                  "check_for_nan_in_loss_and_grad": check_for_nan_in_loss_and_grad,
+                                  "batch_size": self.config.runner_config.mini_batch_size})
         elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
