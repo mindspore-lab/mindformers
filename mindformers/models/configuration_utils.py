@@ -41,9 +41,7 @@ from mindformers.tools import (
     custom_object_save,
     add_model_info_to_auto_map,
     cached_file,
-    download_url,
     extract_commit_hash,
-    is_remote_url,
 )
 
 __all__ = ["PretrainedConfig"]
@@ -653,9 +651,6 @@ class PretrainedConfig(PushToHubMixin):
             # Special case when pretrained_model_name_or_path is a local file
             resolved_config_file = pretrained_model_name_or_path
             is_local = True
-        elif is_remote_url(pretrained_model_name_or_path):
-            configuration_file = pretrained_model_name_or_path
-            resolved_config_file = download_url(pretrained_model_name_or_path)
         else:
             configuration_file = kwargs.pop("_configuration_file", CONFIG_NAME)
 

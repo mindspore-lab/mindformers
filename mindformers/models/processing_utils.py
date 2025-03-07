@@ -37,8 +37,6 @@ from ..tools.hub.dynamic_module_utils import custom_object_save
 from ..tools.hub.hub import (
     PushToHubMixin,
     is_offline_mode,
-    is_remote_url,
-    download_url,
     cached_file
 )
 from ..tools.generic import experimental_mode_func_checker
@@ -327,9 +325,6 @@ class ProcessorMixin(PushToHubMixin):
         if os.path.isfile(pretrained_model_name_or_path):
             resolved_processor_file = pretrained_model_name_or_path
             is_local = True
-        elif is_remote_url(pretrained_model_name_or_path):
-            processor_file = pretrained_model_name_or_path
-            resolved_processor_file = download_url(pretrained_model_name_or_path)
         else:
             processor_file = PROCESSOR_NAME
             try:

@@ -27,7 +27,7 @@ from PIL import Image
 
 from mindformers.tools.logger import logger
 from mindformers.tools.generic import add_model_info_to_auto_map
-from mindformers.tools import PushToHubMixin, cached_file, download_url, is_offline_mode, is_remote_url, custom_object_save
+from mindformers.tools import PushToHubMixin, cached_file, is_offline_mode, custom_object_save
 from mindformers.utils.image_transforms import center_crop, normalize, rescale
 from mindformers.utils.image_utils import ChannelDimension
 from mindformers.models.utils import IMAGE_PROCESSOR_NAME, is_json_serializable
@@ -255,9 +255,6 @@ class ImageProcessingMixin(PushToHubMixin):
         if os.path.isfile(pretrained_model_name_or_path):
             resolved_image_processor_file = pretrained_model_name_or_path
             is_local = True
-        elif is_remote_url(pretrained_model_name_or_path):
-            image_processor_file = pretrained_model_name_or_path
-            resolved_image_processor_file = download_url(pretrained_model_name_or_path)
         else:
             image_processor_file = IMAGE_PROCESSOR_NAME
             try:
