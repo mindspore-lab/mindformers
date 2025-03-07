@@ -289,20 +289,23 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 ### 单卡推理
 
-当前QwenVL只支持单卡推理。
+当前QwenVL只支持单卡推理，以下提供推理样例。
+
+- 首先下载示例图片[demo.jpeg](https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg)，并在如下示例脚本中的`--predict_data`处指定该图片路径。
+- 运行如下脚本
 
 ```shell
 python run_mindformer.py \
 --config research/qwenvl/qwenvl_9.6b/predict_qwenvl_9.6b.yaml \
 --register_path research/qwenvl \
 --run_mode predict \
---predict_data 'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg' 'Describe the image in English:' \
+--predict_data 'path of demo.jpeg'  'Describe the image in English:' \
 --modal_type image text \
 --load_checkpoint /path/to/qwenvl_9.6b_base.ckpt \
 --use_parallel False \
 --auto_trans_ckpt False \
 --predict_batch_size 1
  # 推理结果：
- # Picture 1: <img>https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg</img>
+ # Picture 1: <img>path of demo.jpeg</img>
  # Describe the image in English: A women and a dog on the bench at sunset.<|endoftext|>
 ```

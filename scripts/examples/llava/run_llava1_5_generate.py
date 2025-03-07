@@ -47,8 +47,14 @@ def register_modules():
 
 def main(config_path, use_parallel, load_checkpoint, vocab_file):
     # multi batch inputs
-    inputs = [{"image": "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg"},
+    inputs = [{"image": "please set a image path."},
               {"text": "Describe the image in English:"}]
+    for item in inputs:
+        if not os.path.exists(item["image"]):
+            raise ValueError(
+                f"Image is not existed, please set a true path. For example, you can download "
+                f"https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/MindFormers/qwenvl/demo.jpeg "
+                f"and image path to demo.jpeg path")
     batch_size = len(inputs)
 
     # init config with yaml
