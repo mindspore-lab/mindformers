@@ -58,12 +58,14 @@ class MoEParallelConfig(_Config):
     """
 
     def __init__(self, data_parallel=1, model_parallel=1, expert_parallel=1, context_parallel=1,
-                 use_seq_parallel=False, select_recompute=False):
+                 use_seq_parallel=False, select_recompute=False, enable_deredudency=False, npu_nums_per_device=1):
         Validator.check_positive_int(data_parallel, "data_parallel")
         Validator.check_positive_int(model_parallel, "model_parallel")
         Validator.check_positive_int(context_parallel, "context_parallel")
         Validator.check_positive_int(expert_parallel, "expert_parallel")
         Validator.check_bool(use_seq_parallel, "use_seq_parallel")
+        Validator.check_bool(enable_deredudency, "enable_deredudency")
+        Validator.check_positive_int(npu_nums_per_device, "npu_nums_per_device")
         self._dpmp = OpParallelConfig(data_parallel=data_parallel,
                                       model_parallel=model_parallel,
                                       context_parallel=context_parallel,
@@ -72,6 +74,8 @@ class MoEParallelConfig(_Config):
         self.expert_parallel = expert_parallel
         self.use_seq_parallel = use_seq_parallel
         self.select_recompute = select_recompute
+        self.enable_deredudency = enable_deredudency
+        self.npu_nums_per_device = npu_nums_per_device
 
     @property
     def data_parallel(self):

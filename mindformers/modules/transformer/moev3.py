@@ -89,6 +89,7 @@ class MoEV3(Cell):
 
         self.dp = parallel_config.data_parallel * parallel_config.model_parallel
         self.expert_dim = moe_config.expert_num
+        self.enable_deredundency = moe_config.enable_deredundency
         self.num_experts_chosen = moe_config.num_experts_chosen
         self.aux_loss_config = dict(zip(moe_config.aux_loss_types, moe_config.aux_loss_factors))
         self.aux_loss_factor = self.aux_loss_config.get("expert", 0.0)
@@ -183,16 +184,20 @@ class MoEV3(Cell):
         # float32 <-- (dp, N, E) fp32, (dp, N, k) int32, float32
         router_aux_loss = self._expert_load_balancing(router_prob, expert_index, self.aux_loss_factor)
 
-        # 2.dispatch sort
-        # (dp, kN, h) bf16, (dp, kN) fp32,  (dp, E) int32, (dp, N, k)int32 <-- (dp, N, h) bf16, (dp, N, k) int32
-        expert_input, expert_index_sorted, expert_cnt, unsort_map = self._tensor_sort(input_tensor, expert_index)
+        if self.enable_deredundency:
+            output_tensor = self.ffn(input_tensor, expert_index, router_coeff)
+        else:
+            # 2.dispatch sort
+            # (dp, kN, h) bf16, (dp, kN) fp32,  (dp, E) int32, (dp, N, k)int32 <-- (dp, N, h) bf16, (dp, N, k) int32
+            expert_input, expert_index_sorted, expert_cnt, unsort_map = self._tensor_sort(input_tensor, expert_index)
 
-        # 3.ffn
-        expert_output = self.ffn(expert_input, expert_index_sorted, expert_cnt)
+            # 3.ffn
+            expert_output = self.ffn(expert_input, expert_index_sorted, expert_cnt)
 
-        # 4.combine unsort
-        # (dp, N, h)bf16 <-- (dp, kN, h)bf16, (dp, N, k) fp32, (dp, N, k)int32
-        output_tensor = self._tensor_unsort(expert_output, router_coeff, unsort_map)
+            # 4.combine unsort
+            # (dp, N, h)bf16 <-- (dp, kN, h)bf16, (dp, N, k) fp32, (dp, N, k)int32
+            output_tensor = self._tensor_unsort(expert_output, router_coeff, unsort_map)
+
         output_tensor = self.reshape(output_tensor, input_tensor_shape)
         if self.return_extra_loss:
             final_extra_loss = self.add_loss(extra_loss, router_aux_loss)
@@ -295,6 +300,68 @@ class MoEV3(Cell):
         expert_load_data = self.reduce_mean(expert_mask, 1)
         expert_load_data = self.afb_reduce_mean(expert_load_data, 0)
         self.assign_add(self.expert_load, expert_load_data)
+
+
+def get_ndmask(expert_ids, num_node, expert_num):
+    """
+    Obtain the mapping matrix of the token and the node to which the expert belongs.
+    """
+    tokens_len = expert_ids.shape[0]
+    chosen_expert_num = expert_ids.shape[1]
+    on_value = Tensor(1, dtype=ms.float32)
+    off_value = Tensor(0, dtype=ms.float32)
+
+    ndonehot = P.OneHot()(expert_ids.reshape(-1), expert_num, on_value,
+                          off_value).reshape(tokens_len, chosen_expert_num, num_node, expert_num // num_node)
+    ndonehot = ndonehot.sum(axis=1)
+    ndonehot = ndonehot.sum(axis=2)
+    mask = ndonehot > 0
+    mask = mask.transpose((1, 0))
+    counter = mask.sum(1)
+    return mask, counter  # [N, num_node], [num_node]
+
+
+def nddispatch(tokens, expert_ids, router_coeff, ep, expert_num):
+    """
+    Obtain other nddispatch information among nodes.
+    """
+    mask, counter = get_ndmask(expert_ids, ep, expert_num)
+    dispatch_idx = mask.reshape(-1).nonzero().reshape(-1)
+    dispatch_idx = dispatch_idx % mask.shape[1]
+    tokens = ops.gather(tokens, dispatch_idx, axis=0, batch_dims=0)
+    expert_ids = ops.gather(expert_ids, dispatch_idx, axis=0, batch_dims=0)
+    router_coeff = ops.gather(router_coeff, dispatch_idx, axis=0, batch_dims=0)
+    return tokens, expert_ids, router_coeff, dispatch_idx, counter
+
+
+def get_exdispatch_idx(x, expert_ids, router_coeff, a, b, oep_group):
+    """
+    Obtain nddispatch information within nodes.
+    """
+    chosen_expert_num = expert_ids.shape[1]
+    hidden_size = x.shape[1]
+    expert_ids = expert_ids.reshape(-1)  # [nK] <-- [n,k]
+    sorted_expert_ids, dispatch_idx = ops.sort(expert_ids.astype(ms.float32))
+    sorted_expert_ids = sorted_expert_ids.astype(ms.int32)
+    router_coeff = router_coeff.reshape(-1)  # [nK] <-- [n,k]
+    sorted_router_coeff = ops.gather(
+        router_coeff, dispatch_idx, axis=0, batch_dims=0)
+    dispatch_idx = ops.Depend()(dispatch_idx, sorted_router_coeff)
+    dispatch_idx_floordiv_k = dispatch_idx // chosen_expert_num
+    sorted_expert_ids = ops.Depend()(sorted_expert_ids, dispatch_idx_floordiv_k)
+    mask = ops.logical_and(sorted_expert_ids >= a, sorted_expert_ids < b)
+    x = ops.Depend()(x, mask)
+    x = ops.AllGather(group=oep_group)(x)
+    idx = mask.reshape(-1).nonzero()
+    idx = idx.reshape(-1)
+    dispatch_idx = ops.gather(dispatch_idx_floordiv_k,
+                              idx, axis=0, batch_dims=0)
+    sorted_expert_ids = ops.gather(
+        sorted_expert_ids, idx, axis=0, batch_dims=0)
+    sorted_router_coeff = ops.gather(
+        sorted_router_coeff, idx, axis=0, batch_dims=0)
+    x = x.reshape(-1, hidden_size)
+    return x, dispatch_idx, sorted_expert_ids, sorted_router_coeff
 
 
 def func_infer_dtype(*args):
@@ -410,6 +477,108 @@ def _ffn_unresort(x, unsort_map, use_fused_ops_permute):
     return x
 
 
+def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, w3, iep, expert_num, a, b, oep_group, iep_group):
+    """
+    Implements a forward pass functionality without redundecy and  mainly used in processing input data x within
+    an expert network (such as MoE, Mixture of Experts) through a series of operations including AllToAll communication,
+    resorting, grouped matrix multiplication (GroupedMM), and its reverse operation.
+
+    Parameters:
+    - x (Tensor): Input tensor, typically with shape [B, S, h], where B is the batch size, S is the sequence length,
+      and h is the hidden size.
+    - expert_id (Tensor): Identifiers indicating which expert each input belongs to,
+      should be compatible with the shape of x.
+    - router_coeff (Tensor): router weight.
+    - w1, w2, w3 (List[Tensor]): Lists of weights used respectively for the first, second,
+      and third GroupedMatmul operations.
+    - iep (int): Communication Numbers per node.
+    - oep (int): Communication Numbers between nodes.
+    - expert_num (int): Number of experts.
+    - oep_group (group): Communication group object defining the communication group between nodes used in AlltoAll.
+    - iep_group (group): Communication group object defining the communication group per node in AlltoAll.
+
+    Returns:
+    - y (Tensor): Transformed output tensor after a series of operations, with the same shape as the input tensor x.
+    """
+    x = ops.squeeze(x, 0)
+    expert_id = ops.squeeze(expert_id, 0).astype(ms.int32)
+    router_coeff = ops.squeeze(router_coeff, 0).astype(ms.bfloat16)
+
+    hidden_size = x.shape[1]
+    chosen_expert_nums = expert_id.shape[1]
+
+    # prepare counter
+    iepones = [(b - a) // iep for i in range(iep)]
+    expert_id = ops.AllGather(group=oep_group)(expert_id).reshape(-1, chosen_expert_nums)
+    excounter = P.OneHot()(expert_id.reshape(-1), expert_num,
+                           Tensor(1, dtype=ms.float32), Tensor(0, dtype=ms.float32))
+    excounter = excounter.sum(axis=0)[a:b]
+    local_excounter = ops.AlltoAllV(group=iep_group, block_size=1)(
+        excounter.reshape(-1), iepones, iepones)
+    exrl = ops.cast(local_excounter.reshape(
+        iep, -1).sum(axis=1), ms.int64)  # [outer_ep]
+    exgl = ops.cast(ops.cumsum(local_excounter.reshape(
+        iep, -1).sum(dim=-2, keepdim=False), 0, ms.int32), ms.int64)
+    exsl = ops.cast(excounter.reshape(
+        iep, -1).sum(axis=1), ms.int64)  # [outer_ep]
+    exgl = ops.Depend()(exgl, exrl)
+    exsl = ops.Depend()(exsl, exgl)
+
+    router_coeff = ops.Depend()(router_coeff, exgl)
+    expert_id = ops.Depend()(expert_id, exsl)
+
+    # 1. allgather
+    router_coeff = ops.AllGather(group=oep_group)(router_coeff).reshape(-1, chosen_expert_nums)
+
+    # 2. exdispatch
+    x, exdispatch_idx, expert_id, router_coeff = get_exdispatch_idx(
+        x, expert_id, router_coeff, a, b, oep_group)
+    exgl = ops.Depend()(exgl, x)
+    exsl = ops.Depend()(exsl, exdispatch_idx)
+    exsl = ops.gen_ops_prim.MoveTo()(exsl, "CPU", True)
+    exrl = ops.gen_ops_prim.MoveTo()(exrl, "CPU", True)
+    excombine_whiteboard = x * Tensor(0.0, dtype=ms.bfloat16)
+    x = ops.gather(x, exdispatch_idx, axis=0, batch_dims=0)
+
+    # 3. inner alltoallv
+    x = ops.AlltoAllV(group=iep_group, block_size=hidden_size)(
+        x.reshape(-1), exsl, exrl).reshape(-1, hidden_size)
+    expert_id = ops.Depend()(expert_id, x)
+    expert_id = ops.AlltoAllV(group=iep_group, block_size=1)(
+        expert_id.reshape(-1), exsl, exrl)
+
+    # 4. resort
+    _, sort_map = ops.sort(expert_id.astype(ms.float32))
+    _, unsort_map = ops.sort(sort_map.astype(ms.float32))
+    x = ops.gather(x, sort_map, axis=0, batch_dims=0)
+
+    # FFN
+    gate = GroupedMatmul(split_item=3, group_type=0)(
+        [x], [w1], None, None, None, None, None, exgl)[0]
+    hidden = GroupedMatmul(split_item=3, group_type=0)(
+        [x], [w3], None, None, None, None, None, exgl)[0]
+    # pylint: disable=W0212
+    hidden = hidden * P._inner_ops.SiLU()(gate)
+    x = GroupedMatmul(split_item=3, group_type=0)(
+        [hidden], [w2], None, None, None, None, None, exgl)[0]
+
+    # -4. unresort
+    x = ops.gather(x, unsort_map, axis=0, batch_dims=0)
+
+    # -3. allToAllv
+    x = ops.AlltoAllV(group=iep_group, block_size=hidden_size)(
+        x.reshape(-1), exrl, exsl).reshape(-1, hidden_size)
+
+    # -2. excombine
+    x = ops.mul(router_coeff.unsqueeze(1), x)
+    x = excombine_whiteboard.index_add_(0, exdispatch_idx.reshape(-1), x)
+
+    # -1 reduce scatter
+    x = ops.ReduceScatter(group=oep_group)(x)
+    return x
+
+
+
 class FFN(nn.Cell):
     """
     Initializes a Feed-Forward Network (FFN) cell, which is a fundamental building block in many
@@ -446,9 +615,14 @@ class FFN(nn.Cell):
         self.dp = parallel_config.data_parallel * parallel_config.model_parallel
         self.outer_dp = self.dp // self.ep
         self.inner_dp = self.ep
+        self.iep = moe_config.npu_nums_per_device
+        self.oep = self.ep // self.iep
         self.ep_group = self._get_ep_group_name()
+        self.iep_group = self._get_iep_group_name()
+        self.oep_group = self._get_oep_group_name()
         self.init_method_std = init_method_std
         self.use_fused_ops_permute = moe_config.use_fused_ops_permute
+        self.enable_deredundency = moe_config.enable_deredundency
 
         # parameters
         self.w1 = Parameter(initializer(Normal(sigma=self.init_method_std, mean=0.0),
@@ -476,23 +650,48 @@ class FFN(nn.Cell):
         self.op_stridedslice_safe_tokens = StridedSlice().shard(((self.dp, 1, 1),))
 
         # hook_ffn_forward
-        self.hook_ffn_forward = P.Morph(ffn_forward_func, func_infer_shape, func_infer_dtype).add_prim_attr(
-            "self_define_shard", True)
-
         self.layout = Layout((self.outer_dp, self.inner_dp, 1, 1, 1), ("outer_dp", "inner_dp", "sp", "mp0", "mp1"))
-        self.hook_ffn_forward.shard(
-            in_strategy=(
-                self.layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # x [B, S, h]
-                self.layout(("outer_dp", "inner_dp"), "sp"),  # expert_id [B, S]
-                self.layout(("outer_dp", "inner_dp"), "sp"),  # conter [B, E]
-                self.layout("inner_dp", "mp0", "mp1"),  # w1 [E, h, H]
-                self.layout("inner_dp", "mp1", "mp0"),  # w2 [E, H, h]
-                self.layout("inner_dp", "mp0", "mp1"),  # w3 [E, h, H]
-            ),
-            out_strategy=(
-                self.layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # output [B, S, h]
+        if self.enable_deredundency:
+            self.hook_ffn_forward = P.Morph(
+                ffn_forward_deredundency_func, func_infer_shape, func_infer_dtype).add_prim_attr(
+                    "self_define_shard", True)
+            self.hook_ffn_forward.shard(
+                in_strategy=(
+                    self.layout(("outer_dp", "inner_dp"),
+                                "sp", "mp0"),  # x [dp, N, h]
+                    self.layout(("outer_dp", "inner_dp"), "sp",
+                                "mp0"),  # expert_id [dp, N, k]
+                    self.layout(("outer_dp", "inner_dp"), "sp",
+                                "mp0"),  # router_coeff [dp, N, K]
+                    self.layout("inner_dp", "mp0", "mp1"),  # w1 [E, h, H]
+                    self.layout("inner_dp", "mp1", "mp0"),  # w2 [E, H, h]
+                    self.layout("inner_dp", "mp0", "mp1"),  # w3 [E, h, H]
+                ),
+                out_strategy=(
+                    self.layout(("outer_dp", "inner_dp"), "sp", "mp0"), # output [dp, N, k]
+                )
             )
-        )
+            node_expert_num = self.expert_num // self.oep
+            ep_idx = self.rank_id % self.ep
+            self.a = ep_idx // self.iep * node_expert_num
+            self.b = self.a + node_expert_num
+        else:
+            self.hook_ffn_forward = P.Morph(ffn_forward_func, func_infer_shape, func_infer_dtype).add_prim_attr(
+                "self_define_shard", True)
+
+            self.hook_ffn_forward.shard(
+                in_strategy=(
+                    self.layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # x [B, S, h]
+                    self.layout(("outer_dp", "inner_dp"), "sp"),  # expert_id [B, S]
+                    self.layout(("outer_dp", "inner_dp"), "sp"),  # conter [B, E]
+                    self.layout("inner_dp", "mp0", "mp1"),  # w1 [E, h, H]
+                    self.layout("inner_dp", "mp1", "mp0"),  # w2 [E, H, h]
+                    self.layout("inner_dp", "mp0", "mp1"),  # w3 [E, h, H]
+                ),
+                out_strategy=(
+                    self.layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # output [B, S, h]
+                    )
+                )
 
     def construct(self, x, expert_id, counter):
         """
@@ -514,12 +713,17 @@ class FFN(nn.Cell):
         w1 = self.cast(self.w1, dtype)
         w2 = self.cast(self.w2, dtype)
         w3 = self.cast(self.w3, dtype)
-        x, expert_id, counter, unsort_map_safe_tokens = self._pad_safe_tokens(x, expert_id, counter)
-        x = self.hook_ffn_forward(
-            x, expert_id, counter, w1, w2, w3,
-            self.ep_group, self.hidden_size, self.ep, self.use_fused_ops_permute
-        )
-        x = self._remove_safe_tokens(x, unsort_map_safe_tokens)
+
+        if self.enable_deredundency:
+            x = self.hook_ffn_forward(x, expert_id, counter, w1, w2, w3, self.iep,
+                                      self.expert_num, self.a, self.b, self.oep_group, self.iep_group)
+        else:
+            x, expert_id, counter, unsort_map_safe_tokens = self._pad_safe_tokens(x, expert_id, counter)
+            x = self.hook_ffn_forward(
+                x, expert_id, counter, w1, w2, w3,
+                self.ep_group, self.hidden_size, self.ep, self.use_fused_ops_permute
+            )
+            x = self._remove_safe_tokens(x, unsort_map_safe_tokens)
         return x
 
     def _pad_safe_tokens(self, x, expert_id, counter):
@@ -602,6 +806,43 @@ class FFN(nn.Cell):
         ep_group_name = str(hashed)
         create_group(ep_group_name, rank_list)
         return ep_group_name
+
+    def _get_iep_group_name(self):
+        """
+        Generates a unique group name for a set of ranks involved in inner expert partitioning (iep)
+        and creates a communication group with this name.
+        This method calculates a range of ranks based on the current rank id
+        and the expert partition size, hashes this range to create a unique
+        identifier, and then establishes a new communication group using this identifier.
+        """
+        rank_start = self.rank_id // self.iep * self.iep
+        rand_end = rank_start + self.iep
+        rank_list = [i for i in range(rank_start, rand_end)]
+
+        rank_list_str = "-".join([str(i) for i in rank_list])
+        hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
+        iep_group_name = str(hashed)
+        create_group(iep_group_name, rank_list)
+        return iep_group_name
+
+    def _get_oep_group_name(self):
+        """
+        Generates a unique group name for a set of ranks involved in outer expert partitioning (oep)
+        and creates a communication group with this name.
+        This method calculates a range of ranks based on the current rank id
+        and the expert partition size, hashes this range to create a unique
+        identifier, and then establishes a new communication group using this identifier.
+        """
+        rank_start = self.rank_id // self.ep * self.ep
+        rank_start = rank_start + self.rank_id % self.iep
+        rand_end = rank_start + self.ep
+        rank_list = [i for i in range(rank_start, rand_end, self.iep)]
+
+        rank_list_str = "-".join([str(i) for i in rank_list])
+        hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
+        oep_group_name = str(hashed)
+        create_group(oep_group_name, rank_list)
+        return oep_group_name
 
     def shard(self, parallel_config):
         """

@@ -130,7 +130,7 @@ class MoEConfig:
                  hot_expert_num=0, cold_token_percent=1.0, moe_module_name="", routing_policy="TopkRouterV1",
                  norm_topk_prob=True, enable_sdrop=False, use_fused_ops_topkrouter=False, router_dense_type="float32",
                  shared_expert_num=0, use_shared_expert_gating=False, max_router_load=128 * 1024,
-                 topk_method="greedy", topk_group=None, n_group=None,
+                 topk_method="greedy", topk_group=None, n_group=None, enable_deredundency=False, npu_nums_per_device=1,
                  first_k_dense_replace=True, moe_intermediate_size=1407, routed_scaling_factor=1.0,
                  aux_loss_types=None, aux_loss_factors=None, z_loss_factor=0., balance_via_topk_bias=False,
                  topk_bias_update_rate=0., use_allgather_dispatcher=False, moe_shared_expert_overlap=False,
@@ -201,6 +201,8 @@ class MoEConfig:
         self.moe_shared_expert_overlap = moe_shared_expert_overlap
         self.expert_model_parallel = expert_model_parallel
         self.use_gating_sigmoid = use_gating_sigmoid
+        self.enable_deredundency = enable_deredundency
+        self.npu_nums_per_device = npu_nums_per_device
         self.use_gmm = use_gmm
         self.enable_gmm_safe_tokens = enable_gmm_safe_tokens
         self.use_fused_ops_permute = use_fused_ops_permute

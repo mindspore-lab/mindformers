@@ -365,6 +365,8 @@ class MoEConfig(Config):
     moe_shared_expert_overlap = False
     expert_model_parallel = None
     use_gating_sigmoid = False
+    enable_deredundency = False
+    npu_nums_per_device = 1
     use_gmm = False
     enable_gmm_safe_tokens = False
     use_fused_ops_permute = False
