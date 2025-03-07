@@ -373,14 +373,12 @@ class AutoProcessor:
                 return AutoImageProcessor.from_pretrained(
                     pretrained_model_name_or_path, trust_remote_code=trust_remote_code, **kwargs
                 )
-            except Exception:  # pylint: disable=W0703
-                pass
-
-        raise ValueError(
-            f"Unrecognized processing class in {pretrained_model_name_or_path}. Can't instantiate a processor, a "
-            "tokenizer, an image processor for this model. Make sure the repository contains "
-            "the files of at least one of those processing classes."
-        )
+            except Exception as e:  # pylint: disable=W0703
+                raise ValueError(
+                    f"Unrecognized processing class in {pretrained_model_name_or_path}. "
+                    f"Can't instantiate a processor, a tokenizer, an image processor for this model. "
+                    f"Make sure the repository contains the files of at least one of those processing classes."
+                ) from e
 
     @staticmethod
     def register(config_class, processor_class, exist_ok=False):
