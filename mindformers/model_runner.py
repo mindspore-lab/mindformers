@@ -249,7 +249,7 @@ class MindIEModelRunner:
         else:
             self.model_config = AutoConfig.from_pretrained(config_path)
         setattr(self.model_config, 'npu_mem_size', npu_mem_size)
-
+        self.use_legacy = getattr(self.model_config, "use_legacy", True)
         if self.config.moe_config:
             self.model_config.moe_config = self.config.moe_config
 
@@ -315,7 +315,10 @@ class MindIEModelRunner:
         batch_size = self.model_config.batch_size
         seq_length = self.model_config.seq_length
         input_ids = np.ones(shape=tuple([batch_size, seq_length]))
-        inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
+        if self.use_legacy:
+            inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
+        else:
+            inputs = None
         load_checkpoint = self.config.load_checkpoint
         if (self.config.get('load_ckpt_format', 'ckpt') == 'safetensors'
                 and is_hf_safetensors_dir(load_checkpoint, self.model)):
@@ -424,24 +427,39 @@ class MindIEModelRunner:
                 decode_args.pop("position_ids", None)
                 model_args.update(decode_args)
 
-        res, current_idx = self.model.forward(input_ids=input_ids,
-                                              valid_length_each_example=valid_length_each_example,
-                                              block_tables=block_tables,
-                                              slot_mapping=slot_mapping,
-                                              prefill=prefill,
-                                              use_past=True,
-                                              position_ids=position_ids,
-                                              spec_mask=spec_mask,
-                                              q_seq_lens=q_seq_lens,
-                                              adapter_ids=adapter_ids,
-                                              prefill_head_indices=prefill_head_indices,
-                                              key_cache=key_cache,
-                                              value_cache=value_cache,
-                                              **model_args)
+        if self.use_legacy:
+            res, current_idx = self.model.forward(input_ids=input_ids,
+                                                  valid_length_each_example=valid_length_each_example,
+                                                  block_tables=block_tables,
+                                                  slot_mapping=slot_mapping,
+                                                  prefill=prefill,
+                                                  use_past=True,
+                                                  position_ids=position_ids,
+                                                  spec_mask=spec_mask,
+                                                  q_seq_lens=q_seq_lens,
+                                                  adapter_ids=adapter_ids,
+                                                  prefill_head_indices=prefill_head_indices,
+                                                  key_cache=key_cache,
+                                                  value_cache=value_cache,
+                                                  **model_args)
+        else:
+            res, current_idx = self.model.forward_mcore(input_ids=input_ids,
+                                                        valid_length_each_example=valid_length_each_example,
+                                                        block_tables=block_tables,
+                                                        slot_mapping=slot_mapping,
+                                                        prefill=prefill,
+                                                        position_ids=position_ids,
+                                                        spec_mask=spec_mask,
+                                                        q_seq_lens=q_seq_lens,
+                                                        adapter_ids=adapter_ids,
+                                                        prefill_head_indices=prefill_head_indices,
+                                                        key_cache=key_cache,
+                                                        value_cache=value_cache,
+                                                        **model_args)
         logits = res[0] if isinstance(res, tuple) else res
         if hasattr(self, 'model_config') and parallel_decoding_control(self.model_config):
             return logits
-        if prefill and logits.shape[0] > len(current_idx):
+        if self.use_legacy and prefill and logits.shape[0] > len(current_idx):
             logits = logits[Tensor(current_idx)]
 
         if self.warmup_step > 0:

@@ -140,7 +140,7 @@ def test_model_runner():
     model_runner = ModelRunner(model_path=model_path, npu_mem_size=npu_mem_size, cpu_mem_size=cpu_mem_size,
                                block_size=block_size, rank_id=rank_id, world_size=world_size,
                                npu_device_ids=npu_device_ids)
-
+    model_runner.use_legacy = True
     input_ids = np.arange(32 * 256).reshape(32, 256).astype(np.int32)
     valid_length_each_example = np.arange(32).astype(np.int32)
     block_tables = np.arange(32 * 256).reshape(32, 256).astype(np.int32)

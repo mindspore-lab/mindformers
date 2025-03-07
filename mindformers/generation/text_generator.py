@@ -88,6 +88,7 @@ class GenerationMixin:
         self.argmax = mint.argmax if self.use_mint_op else ms.ops.argmax
         self._pre_set_phase = None
         self._exec_add_flags = True
+        self.gather = P.Gather()
 
     def _set_network_phase(self, phase):
         self._pre_set_phase = phase
@@ -152,6 +153,17 @@ class GenerationMixin:
                 Indicate whether current iteration is the first iteration in prediction.
         """
         self.add_flags_recursive(is_first_iteration=is_first_iteration)
+
+    def add_flags_custom_mcore(self, is_prefill):
+        """
+        Add customized attributes for specific cells in the model. If the model does not implement this method,
+        this will add customized attributes for all cells in the model recursively.
+
+        Args:
+            is_first_iteration (bool): Network configuration information.
+                Indicate whether current iteration is the first iteration in prediction.
+        """
+        self.add_flags_recursive(is_prefill=is_prefill)
 
     # pylint: disable=W0613
     def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
@@ -356,6 +368,47 @@ class GenerationMixin:
                 **model_inputs,
             )
 
+        return res
+
+    def _incremental_infer_mcore(self,
+                                 model_inputs: dict,
+                                 prefill):
+        """model forward for incremental infer."""
+        # Claim the first graph
+        if prefill:
+            self.phase = "prefill"
+            if self._pre_set_phase:
+                self.phase = f"prefill_{self._pre_set_phase}"
+            # In dynamic shape scenarios, only the first execution of the prefill process will trigger this.
+            if self._exec_add_flags:
+                self.add_flags_custom_mcore(is_prefill=True)
+            self.detailed_latency.start_predict_timer()
+            # pylint: disable=E1102
+            res = self(
+                **model_inputs,
+            )
+            self.phase = "increment"
+            # first iter done, go to other iters, in dynamic shape scenarios, only the first execution
+            # of the increment process will trigger this.
+            if self._exec_add_flags:
+                self.add_flags_custom_mcore(is_prefill=False)
+                self._exec_add_flags = False
+
+        else:
+            # slice model inputs for incremental infer
+            if self._pre_set_phase:
+                self.phase = f"increment_{self._pre_set_phase}"
+            self.detailed_latency.start_predict_timer()
+            # pylint: disable=E1102
+            res = self(
+                **model_inputs,
+            )
+            seq_lens_tensor = model_inputs.get("seq_lens_tensor", None)
+            context_lens_tensor = model_inputs.get("context_lens_tensor", None)
+            if seq_lens_tensor is not None and context_lens_tensor is not None:
+                q_lens_tensor = seq_lens_tensor - context_lens_tensor
+                if q_lens_tensor.max() > 1:
+                    res = self.gather(res, q_lens_tensor - 1, 0)
         return res
 
     def _beam_search(self,
@@ -712,7 +765,7 @@ class GenerationMixin:
         if use_past_tmp is not None:
             logger.warning("use_past should be defined in model config, it will not take effect when passed to "
                            ".generate() method.")
-
+        use_legacy = getattr(self.config, "use_legacy", True)
         # Handle `generation_config` and kwargs that might update it
         # priority: `generation_config` argument > `model.generation_config` (default config)
         if generation_config is None:
@@ -792,7 +845,10 @@ class GenerationMixin:
                 "`streamer` cannot be used with beam search yet. Make sure that `num_beams` is set to 1."
             )
 
-        if generation_config.use_past:
+        if not use_legacy:
+            self._set_block_mgr(batch_size, self.config.seq_length)
+            self.set_dynamic_inputs()
+        elif generation_config.use_past:
             self._set_block_mgr(batch_size, self.config.seq_length)
             if self.config.is_dynamic:
                 self.set_dynamic_inputs()
@@ -901,9 +957,9 @@ class GenerationMixin:
                 self.detailed_latency.start_preprocess_timer()
                 block_tables = None
                 slot_mapping = None
-                if generation_config.use_past:
+                if not use_legacy or generation_config.use_past:
                     if prefill:
-                        if (self.is_pynative and self.config.is_dynamic):
+                        if (use_legacy and self.is_pynative and self.config.is_dynamic):
                             max_input_length = len(origin_inputs[0])
                         else:
                             max_input_length = self.config.seq_length
@@ -914,19 +970,31 @@ class GenerationMixin:
                         block_tables, slot_mapping = self.block_mgr.assemble_pa_inc_inputs(valid_length_each_example,
                                                                                            is_finished)
                 self.profile.start_profiling(valid_length_each_example[0] - input_ids_length)
-                infer_output, is_finished = self.infer(input_ids=input_ids,
-                                                       valid_length_each_example=valid_length_each_example,
-                                                       generation_config=generation_config,
-                                                       logits_processor=logits_processor,
-                                                       logits_warper=logits_warper,
-                                                       block_tables=block_tables,
-                                                       slot_mapping=slot_mapping,
-                                                       prefill=prefill,
-                                                       is_finished=is_finished,
-                                                       encoder_mask=encoder_mask,
-                                                       encoder_output=encoder_output,
-                                                       target_mask=target_mask,
-                                                       **model_kwargs)
+                if use_legacy:
+                    infer_output, is_finished = self.infer(input_ids=input_ids,
+                                                           valid_length_each_example=valid_length_each_example,
+                                                           generation_config=generation_config,
+                                                           logits_processor=logits_processor,
+                                                           logits_warper=logits_warper,
+                                                           block_tables=block_tables,
+                                                           slot_mapping=slot_mapping,
+                                                           prefill=prefill,
+                                                           is_finished=is_finished,
+                                                           encoder_mask=encoder_mask,
+                                                           encoder_output=encoder_output,
+                                                           target_mask=target_mask,
+                                                           **model_kwargs)
+                else:
+                    infer_output, is_finished = self.infer_mcore(input_ids=input_ids,
+                                                                 valid_length_each_example=valid_length_each_example,
+                                                                 generation_config=generation_config,
+                                                                 logits_processor=logits_processor,
+                                                                 logits_warper=logits_warper,
+                                                                 block_tables=block_tables,
+                                                                 slot_mapping=slot_mapping,
+                                                                 prefill=prefill,
+                                                                 is_finished=is_finished,
+                                                                 **model_kwargs)
                 self.profile.stop_profiling(valid_length_each_example[0] - input_ids_length)
                 if generation_config.return_dict_in_generate:
                     target_list = infer_output["target_list"]
@@ -936,7 +1004,7 @@ class GenerationMixin:
                         raw_logits += (infer_output["logits"],)
                 else:
                     target_list = infer_output
-                if generation_config.use_past:
+                if not use_legacy or generation_config.use_past:
                     if prefill and "origin_inputs" in model_kwargs:
                         model_kwargs.pop("origin_inputs")
                     prefill = False
@@ -1190,6 +1258,185 @@ class GenerationMixin:
                     self.phase = f"predict_{self._pre_set_phase}"
                 res = self(**model_inputs)  # pylint: disable=E1102
         return res, current_index
+
+    def prepare_inputs_for_generation_mcore(self,
+                                            input_ids: [Union[List[int], List[List[int]]]],
+                                            valid_length_each_example: np.ndarray,
+                                            block_tables: Optional[Tensor] = None,
+                                            slot_mapping: Optional[Tensor] = None,
+                                            prefill: bool = None,
+                                            **model_kwargs):
+        """prepare inputs for mcore"""
+        model_inputs = dict()
+        seq_lens = valid_length_each_example
+        q_seq_lens = model_kwargs.get("q_seq_lens", None)
+        positions = model_kwargs.get("position_ids", None)
+        if q_seq_lens is None:
+            if len(input_ids) == len(seq_lens):
+                q_seq_lens = np.ones_like(seq_lens)
+            else:
+                q_seq_lens = valid_length_each_example
+        context_lens = seq_lens - q_seq_lens
+
+        if positions is None:
+            positions = np.zeros_like(input_ids, dtype=np.int32)
+            start = 0
+            for i in range(seq_lens.size):
+                positions[start:start + q_seq_lens[i]] = np.arange(context_lens[i], seq_lens[i])
+                start += q_seq_lens[i]
+        if context_lens.max() > 0:
+            prefill = False
+        model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
+        model_inputs["batch_valid_length"] = Tensor.from_numpy(seq_lens.astype(np.int32))
+        model_inputs["context_lens_tensor"] = Tensor.from_numpy(context_lens.astype(np.int32))
+        model_inputs["positions"] = Tensor.from_numpy(positions.astype(np.int32))
+        model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
+        model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
+        model_inputs["attention_mask"] = None
+        model_inputs["attn_metadata"] = None
+        model_inputs["kv_cache"] = None
+        return model_inputs, prefill
+
+    def forward_mcore(self,
+                      input_ids: [Union[List[int], List[List[int]]]],
+                      valid_length_each_example: np.ndarray,
+                      block_tables: Optional[Tensor] = None,
+                      slot_mapping: Optional[Tensor] = None,
+                      prefill: bool = None,
+                      **model_kwargs):
+        r"""
+        Model forward process.
+
+        Args:
+            input_ids (List(List(int))): Input ids after padding.
+            valid_length_each_example (np.ndarray): Valid input length except padding.
+            block_tables (Tensor, optional): Params for page attention. Default: ``None``.
+            slot_mapping (Tensor, optional): Params for page attention. Default: ``None``.
+            prefill (bool, optional): Whether to do prefill predict or decode predict. Default: ``None``.
+            **model_kwargs (Any): Keyword arguments of the model.
+
+        Returns:
+            res, the result after the forward process.
+            current_index, records the current index of the sequence.
+        """
+        model_inputs, prefill = self.prepare_inputs_for_generation_mcore(
+            input_ids=input_ids,
+            valid_length_each_example=valid_length_each_example,
+            block_tables=block_tables,
+            slot_mapping=slot_mapping,
+            prefill=prefill,
+            model_kwargs=model_kwargs,
+        )
+        res = self._incremental_infer_mcore(
+            model_inputs=model_inputs,
+            prefill=prefill,
+        )
+        return res, None
+
+    def infer_mcore(self,
+                    input_ids: Union[List[int], List[List[int]]],
+                    valid_length_each_example: np.ndarray,
+                    generation_config: GenerationConfig = None,
+                    logits_processor: Optional[LogitsProcessorList] = None,
+                    logits_warper: Optional[LogitsProcessorList] = None,
+                    block_tables: Optional[Tensor] = None,
+                    slot_mapping: Optional[Tensor] = None,
+                    prefill: bool = True,
+                    is_finished: List[bool] = None,
+                    **model_kwargs):
+        r"""
+        Do infer and return logits on next position, can choose do prefill or decode predict.
+
+        Args:
+            input_ids (List(List(int))): Input ids after padding.
+            valid_length_each_example (np.ndarray): Valid input length except padding.
+            generation_config (`GenerationConfig`, optional): The generation configuration to be used
+                as base parametrization for the generation call. Default: ``None``.
+            logits_processor (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`].
+                List of instances of class derived from [`LogitsProcessor`] used to modify the prediction scores
+                of the language modeling head applied at each generation step. Default: ``None``.
+            logits_warper (`LogitsProcessorList`, optional): An instance of [`LogitsProcessorList`].
+                List of instances of class derived from [`LogitsWarper`] used to warp the prediction score
+                distribution of the language modeling head applied before multinomial sampling
+                at each generation step. Default: ``None``.
+            block_tables (Tensor, optional): Store mapping tables for each sequence. Default: ``None``.
+            slot_mapping (Tensor, optional): Token cache physical slot index. Default: ``None``.
+            prefill (bool, optional): Whether to do prefill predict or decode predict. Default: ``True``.
+            is_finished (List(bool), optional): Whether each sequence is finished its generation. Default: ``None``.
+            **model_kwargs (Any): Keyword arguments of the model.
+
+        Returns:
+            next_token, the next token to be generated.
+            is_finished, whether the sequence has completed its generation task.
+        """
+        max_valid_length = max(valid_length_each_example)
+        if max_valid_length > self.config.seq_length:
+            raise ValueError(
+                f"The input length:{max_valid_length} is longer than the seq_length:{self.config.seq_length}, "
+                "which is not allowed."
+            )
+
+        start_time = time.time()
+        flatten_input_ids, slot_mapping = self._prepare_inputs_for_flatten(
+            input_ids, valid_length_each_example, slot_mapping, prefill
+        )
+        res, current_index = self.forward_mcore(
+            input_ids=flatten_input_ids,
+            valid_length_each_example=valid_length_each_example,
+            block_tables=block_tables,
+            slot_mapping=slot_mapping,
+            prefill=prefill,
+            **model_kwargs,
+        )
+
+        self.detailed_latency.start_postprocess_timer()
+        forward_time = time.time() - start_time
+        sample_time = time.time()
+        target_list, probs, logits, is_finished = self.postprocess(
+            input_ids=input_ids,
+            is_finished=is_finished,
+            res=res,
+            current_index=current_index,
+            generation_config=generation_config,
+            valid_length_each_example=valid_length_each_example,
+            logits_processor=logits_processor,
+            logits_warper=logits_warper,
+            need_gather_logits=False,
+        )
+
+        sample_time = time.time() - sample_time
+        infer_time = time.time() - start_time
+        logger.debug("forward time: %s s; sample time: %s s; total count: %s s",
+                     forward_time, sample_time, infer_time)
+
+        if generation_config.return_dict_in_generate:
+            infer_output_dict = InferOutput(
+                target_list=target_list,
+                probs=probs,
+                logits=logits
+            )
+            return infer_output_dict, is_finished
+
+        return target_list, is_finished
+
+    def _prepare_inputs_for_flatten(self, input_ids, valid_length_each_example, slot_mapping, prefill=True):
+        """prepare inputs ids for prefill flatten"""
+        input_ids = np.array(input_ids)
+        batch_valid_length_bs = valid_length_each_example.shape[0]
+        if prefill:
+            input_ids_list = []
+            for i in range(batch_valid_length_bs):
+                input_ids_list.append(input_ids[i][:valid_length_each_example[i]])
+            input_ids = np.concatenate(input_ids_list, 0)
+            slot_mapping = np.delete(slot_mapping, np.where(slot_mapping == -1))
+        else:
+            batch_valid_length_bs = valid_length_each_example.shape[0]
+            input_ids_list = []
+            for i in range(batch_valid_length_bs):
+                input_ids_list.append(input_ids[i][valid_length_each_example[i] - 1])
+            input_ids = np.array(input_ids_list)
+        input_ids = input_ids.reshape((-1))
+        return input_ids, slot_mapping
 
     # pylint: disable=E1102
     def chunk_prefill_infer(self,
