@@ -1281,10 +1281,15 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
             self.layers.append(layer)
 
         self.mtp_hidden_fusers = nn.CellList()
+        self.mtp_norms = nn.CellList()
         for i in range(self.mtp_depth):
             layer = MTPHiddenFuser(config)
             self.layer_setting(layer, config.num_layers + i)
             self.mtp_hidden_fusers.append(layer)
+            mtp_norm = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
+                                    compute_type=config.layernorm_compute_type,
+                                    fused_kernel=not get_predict_run_mode())
+            self.mtp_norms.append(mtp_norm)
         self.mtp_embeddings = None
         if self.mtp_depth > 0:
             self.mtp_embeddings = MtpEmbeddingLayer(vocab_table_size=config.vocab_size)
@@ -1300,9 +1305,15 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
             self.norm_out.pipeline_stage = config.parallel_config.pipeline_stage - 1
             self.tok_embeddings.set_comm_fusion(2)
             self.norm_out.set_comm_fusion(2)
+
+            for mtp_norm in self.mtp_norms:
+                mtp_norm.pipeline_stage = config.parallel_config.pipeline_stage - 1
+                mtp_norm.set_comm_fusion(2)
         else:
             self.tok_embeddings.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
             self.norm_out.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
+            for mtp_norm in self.mtp_norms:
+                mtp_norm.set_comm_fusion(config.parallel_config.gradient_aggregation_group)
 
         self.tok_embeddings.shard(config.parallel_config)
         if self.mtp_embeddings is not None:
@@ -1312,6 +1323,8 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
         dp = config.parallel_config.data_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.norm_out.shard((dp, 1, 1))
+            for mtp_norm in self.mtp_norms:
+                mtp_norm.shard((dp, 1, 1))
             self.concat.shard(((dp, 1, 1), (dp, 1, 1)))
             self.slice.shard(((dp, 1),))
             self.concat_2d.shard(((dp, 1), (dp, 1)))
@@ -1320,6 +1333,8 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
         if config.parallel_config.use_seq_parallel:
             mp = config.parallel_config.model_parallel
             self.norm_out.shard((dp, mp, 1))
+            for mtp_norm in self.mtp_norms:
+                mtp_norm.shard((dp, mp, 1))
 
         self.seq_pipe = self.seq_split_num > 1
         self.pad_zeros = initializer('zeros', shape=(config.batch_size * dp, self.n_head, config.seq_length,
@@ -1484,7 +1499,7 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                                   seq_one_k_nope=seq_one_k_nope,
                                                   seq_zero_value_states=seq_zero_value_states,
                                                   seq_one_value_states=seq_one_value_states)
-            output = self.concat((output, self.norm_out(h)))
+            output = self.concat((output, self.mtp_norms[i](h)))
         return output, extra_loss
 
     def _shift_and_pad(self, x):
