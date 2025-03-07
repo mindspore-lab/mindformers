@@ -18,7 +18,7 @@ import sys
 import argparse
 
 from toolkit.pipeline_balance.utils.logger import logger
-from toolkit.pipeline_balance.utils.config import initialize_layer_json, get_stage_const_mem
+from toolkit.pipeline_balance.utils.config import initialize_layer_json, get_stage_const_mem, parse_training_config
 from toolkit.pipeline_balance.utils.layer import generate_layers_list
 from toolkit.pipeline_balance.utils.compute_memory import compute_memories
 from toolkit.pipeline_balance.sapp.sapp_pipeline import SappPipeline
@@ -61,7 +61,8 @@ if __name__ == "__main__":
                         + " 2 better for memory constrained cases. ")
 
     # Simulate naive or manual config
-    parser.add_argument('-naive', '--simulate_naive', type=lambda x: (str(x).lower() in ['true', '1', 'yes']), default=False,
+    parser.add_argument('-naive', '--simulate_naive', type=lambda x: (str(x).lower() in ['true', '1', 'yes']),
+                        default=False,
                         help="Simualte naive configs")
     parser.add_argument('-manual', '--manual_config', type=str, default=None,
                         help="Path of manual config")
@@ -90,6 +91,13 @@ if __name__ == "__main__":
 
     # Dryrun Config
     parser.add_argument('-guide', '--guide', action='store_true', help="Help to instruct dryrun")
+    # Training Yaml configuration
+    parser.add_argument('-train', '--training_config', type=str, default=None,
+                        help="Path of training config (.ymal)")
+    # Seq pipe config
+    parser.add_argument('-seq', '--seq', type=int, default=1,
+                        help="Sequence chunk split number")
+
 
     args = parser.parse_args()
 
@@ -108,6 +116,33 @@ if __name__ == "__main__":
     number_of_micro_batch = args.micro_batch
     time_limit = args.time_limit
     less_memory = args.less_memory
+
+    extracted_training_params = None
+    if args.training_config:
+        if os.path.isabs(args.training_config):
+            training_config_path = args.training_config
+        else:
+            training_config_path = os.path.join(os.path.dirname(__file__), args.training_config)
+
+        if training_config_path.endswith('yaml') or training_config_path.endswith('yml'):
+            extracted_training_params = parse_training_config(training_config_path)
+        else:
+            logger.error("Training config file must be a YAML file")
+
+    seq_split_num = args.seq
+
+    #seq_chunk < 4k
+    if seq_split_num > 1:
+        if extracted_training_params['seq_length'] is not None:
+            if extracted_training_params['seq_length'] / seq_split_num < 4096:
+                logger.warning(f"Seq_chunk_length will < 4k after splitting with seq_split_num {seq_split_num}, \
+                               which will affect performance")
+                if seq_split_num == 2:
+                    seq_split_num = 1
+                    logger.warning("seqpipe has deactivated (seq_split_num = 1)")
+                else:
+                    seq_split_num = extracted_training_params['seq_length'] // 4096
+                    logger.warning(f"To avoid affecting performance, seq_split_num has updated as {seq_split_num}")
 
     if args.init:
         init_file = os.path.join(os.path.dirname(__file__), args.init)
@@ -145,12 +180,23 @@ if __name__ == "__main__":
                             num_of_micro_batch=number_of_micro_batch, max_memory=max_memory,
                             layers=layers, num_of_interleave=interleave_degree,
                             vpp_less_memory=less_memory, constant_memory=constant_memory,
-                            optimization_level=optimization_level)
+                            optimization_level=optimization_level, extracted_training_params=extracted_training_params,
+                            seq_split_num=seq_split_num)
 
         pipe.construct_problem(solver="pulp")
         pipe.solve_problem(time_limit=time_limit, dump_folder=output_folder)
         pipe.print_yaml_results()
-        total_time = pipe.simulate(show=True, file_name=os.path.join(output_folder, "result.svg"))
+
+        result = str(model_name)
+        result += "_" + str(max_memory)
+        result += "_" + str(interleave_degree)
+        result += "_" + str(number_of_stage)
+        result += "_" + str(number_of_micro_batch)
+        result += "_" + str(optimization_level)
+        result += "_" + str(time_limit)
+        result += "_" + str(less_memory)
+        result += ".svg"
+
 
         if args.simulate_naive:
             logger.output("Simulating naive configs")
@@ -158,8 +204,9 @@ if __name__ == "__main__":
         if manual_config:
             logger.output("Simulating manual configs")
             pipe.simulate_file(manual_config, output_folder)
-
-        logger.output("total_time: %d", total_time)
-        logger.output("time: %s", pipe.get_time())
-        logger.output("mem_par: %s", pipe.get_memory_parameter())
-        logger.output("mem_act: %s", pipe.get_memory_activation())
+        else:
+            total_time = pipe.simulate(show=True, file_name=os.path.join(output_folder, result))
+            logger.output("total_time: %d", total_time)
+            logger.output("time: %s", pipe.get_time())
+            logger.output("mem_par: %s", pipe.get_memory_parameter())
+            logger.output("mem_act: %s", pipe.get_memory_activation())

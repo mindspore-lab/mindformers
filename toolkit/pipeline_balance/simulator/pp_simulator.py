@@ -98,13 +98,15 @@ class PipelineSimulator:
         85.00, 79.00, 73.00, 70.20
     """
     def __init__(self, block_time: list, micro_num: int, *args, comm_time: float = 0.1,
-                 layer_recompute=False, block_mem=1, block_mem_par=0, constant_mem=0, backward_ratio=2., **kwargs):
+                 layer_recompute=False, block_mem=1, block_mem_par=0, constant_mem=0,
+                 backward_ratio=2., sub_fig=None, **kwargs):
         self.init(block_time, micro_num, comm_time, layer_recompute, block_mem,
-                  block_mem_par, constant_mem, backward_ratio, *args, **kwargs)
+                  block_mem_par, constant_mem, backward_ratio, sub_fig, *args, **kwargs)
 
     # pylint: disable=W0613
     def init(self, block_time, micro_num, comm_time,
-             layer_recompute, block_mem, block_mem_par, constant_mem, backward_ratio, *args, **kwargs):
+             layer_recompute, block_mem, block_mem_par, constant_mem, backward_ratio,
+             sub_fig, *args, **kwargs):
         r"""init"""
         self.micro_num = micro_num
         self.pp, self.vp = self._base_init(block_time)
@@ -115,6 +117,7 @@ class PipelineSimulator:
         self._statistic_init()
         self._comm = True
         self.adjust_func_list = [self.swap_send_rec]
+        self.sub_fig = sub_fig
         # Construct pipeline blocks
         if self.vp == 1:
             method = '1f1b'
@@ -163,7 +166,7 @@ class PipelineSimulator:
             self.print_info()
         return self
 
-    def show(self, comm=True, connect=None, file_name=None) -> PipelineSimulator:
+    def draw(self, comm=True, connect=None) -> PipelineSimulator:
         r"""
         Show the pipeline and memory timeline.
 
@@ -175,7 +178,7 @@ class PipelineSimulator:
         Return:
             PipelineSimulator
         """
-        self.canvas = PlotMgr(2, ['block', 'memory'])
+        self.canvas = PlotMgr(2, ['block', 'memory'], sub_fig=self.sub_fig)
         if self._comm:
             connect = True if connect is None else connect
             self.canvas.draw(self.lines, 0, comm, connect, False, 'timeline')
@@ -184,7 +187,17 @@ class PipelineSimulator:
             self.canvas.draw(self.blocks, 0, comm, connect, False, 'timeline')
         self.canvas.draw_mem(self.states.get('block_mem_list', []), 1)
         self.canvas.draw_info(self.bubbles, self.peak_memory)
+        return self
+
+
+    def show(self, comm=True, connect=None, file_name=None) -> PipelineSimulator:
+        self.draw(comm, connect)
         self.canvas.show(file_name)
+        return self
+
+    def save(self, file_name, comm=True, connect=None) -> PipelineSimulator:
+        self.draw(comm, connect)
+        self.canvas.save(file_name)
         return self
 
     def print_info(self):

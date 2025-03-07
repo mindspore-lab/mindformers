@@ -520,3 +520,37 @@ def generate_solvable_config(pp: int, num_layers: int, considered_rec: list):
             is_solvable = True
 
     return offset_config_list, rec_config_list
+
+
+def parse_training_config(yaml_path):
+    """extract useful configuration from training yaml to calculate operator shape"""
+    try:
+        with open(yaml_path, "r", encoding="utf-8") as file:
+            config = yaml.safe_load(file)
+
+        # Extract the requested values
+        model_config = config["model"]["model_config"]
+        parallel_config = config["parallel_config"]
+        runner_config = config["runner_config"]
+
+        # Create a dictionary with the requested parameters
+        extracted_params = {
+            "num_heads": model_config["num_heads"],
+            "hidden_size": model_config["hidden_size"],
+            "head_dim": int(model_config["hidden_size"] / model_config["num_heads"]),
+            "seq_length": model_config["seq_length"],
+            "batch_size": runner_config["batch_size"],
+            "vocab_size": model_config["vocab_size"],
+            "data_parallel": parallel_config.get("data_parallel", 1),
+            "model_parallel": parallel_config.get("model_parallel", 1),
+            "context_parallel": parallel_config.get("context_parallel", 1),
+        }
+        logger.output("Extracted training parameters:")
+        for key, value in extracted_params.items():
+            logger.output("%s: %s", key, value)
+
+        return extracted_params
+
+    except (yaml.YAMLError, FileNotFoundError, PermissionError) as e:
+        logger.error(f"Error parsing Training YAML file: {e}")
+        return None

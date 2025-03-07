@@ -17,6 +17,8 @@
 import os
 import sys
 import yaml
+import matplotlib.pyplot as plt
+
 from mindformers.tools.check_rules import check_yaml_depth_before_loading
 from toolkit.pipeline_balance.utils.logger import logger
 import toolkit.pipeline_balance.simulator.pp_simulator as sim
@@ -39,6 +41,8 @@ class SappPipeline:
             num_of_interleave: int = 1,
             constant_memory: int = 0,
             optimization_level: int = 1,
+            extracted_training_params: dict[str, int] = None,
+            seq_split_num: int = 1,
     ):
         self.model_name_ = model_name
         self.num_of_stage_ = num_of_stage
@@ -48,6 +52,10 @@ class SappPipeline:
         self.vpp_less_memory_ = vpp_less_memory
         self.constant_memory_ = constant_memory
         self.optimization_level = optimization_level
+        self.extracted_training_params_ = extracted_training_params
+        self.seq_split_num_ = seq_split_num
+        self.seqpipe_ = self.seq_split_num_ > 1
+        # logger.output("seq chunk: %s",self.seq_split_num_)
 
         self.problem_ = None
         self.layers_ = layers
@@ -231,9 +239,9 @@ class SappPipeline:
                             time[i][s] += layer_per_recompute[rec][i][s] * (
                                 layer.forward_time_)
         for head in self.layers_sorted_[Layer.type_enum.HEAD]:
-            time[0][0] += head.time_ / 3
+            time[0][0] += head.time_
         for tail in self.layers_sorted_[Layer.type_enum.TAIL]:
-            time[interleave_num - 1][self.num_of_stage_ - 1] += tail.time_ / 3
+            time[interleave_num - 1][self.num_of_stage_ - 1] += tail.time_
         return time
 
     def get_manual_recompute_time(self,
@@ -265,7 +273,7 @@ class SappPipeline:
         return [[r - n for r, n in zip(ar, nr)]
                 for ar, nr in zip(time_all_rec, time_no_rec)]
 
-    def simulate(self, show=True, file_name=None):
+    def simulate(self, show=True, file_name=None, sub_fig=None):
         """Use simulator to visualize output."""
         forward_time = self.get_fw_time()
         recompute_overhead = self.get_recompute_time()
@@ -283,6 +291,7 @@ class SappPipeline:
             self.constant_memory_,
             show,
             file_name,
+            sub_fig
         )
 
     def simulate_naive(self, layers, output_folder):
@@ -342,11 +351,22 @@ class SappPipeline:
                                         self.num_of_interleave_)
             show = manual.get("show", False)
             file_name = manual.get("file_name")
-            file_name = os.path.join(output_folder,
-                                     file_name) if (file_name) else None
-            self.simulate_yaml(yaml_data, show, interleave_num, file_name)
+            full_file_name = os.path.join(output_folder,
+                                          file_name) if (file_name) else None
 
-    def simulate_yaml(self, yaml_format, show=True, interleave_num=1, file_name=None):
+            fig = plt.figure(figsize=(24, 8))
+            sub_figs = fig.subfigures(1, 2, wspace=0.07)
+            sub_figs[0].suptitle('Automatic', fontsize='x-large')
+            self.simulate(show=False, file_name=os.path.join(output_folder, "Auto_" + file_name), sub_fig=sub_figs[0])
+
+            sub_figs[1].suptitle('Manual', fontsize='x-large')
+            self.simulate_yaml(yaml_data, False, interleave_num, full_file_name, sub_figs[1])
+            plt.savefig(os.path.join(output_folder, "Comparison_" + file_name))
+            if show:
+                plt.show()
+
+    def simulate_yaml(self, yaml_format, show=True, interleave_num=1,
+                      file_name=None, sub_fig=None):
         for layer in self.layers_sorted_[Layer.type_enum.BODY]:
             layer_num = layer.nb_layer_
         nass = self.naive_layer_per_stage(layer_num,
@@ -358,13 +378,125 @@ class SappPipeline:
             show,
             interleave_num=interleave_num,
             file_name=file_name,
+            sub_fig=sub_fig
         )
+
+    #######################################################################
+    ##                                                                   ##
+    ##                      Print Solver Model                           ##
+    ##                                                                   ##
+    #######################################################################
+    def _calculate_activation_memory(self, layer_per_recompute, v, s):
+        """Calculate activation memory for next and current stage"""
+        act_mem_next = 0
+        act_mem_curr = 0
+
+        for layer in self.layers_sorted_[Layer.type_enum.BODY]:
+            for rec in Recompute.TYPE:
+                if self.problem_.recompute_considered_[rec]:
+                    if layer_per_recompute[rec][v + 1][s] > 0:  # next
+                        act_mem_next += (layer_per_recompute[rec][v + 1][s] *
+                                         layer.memory_activation_rec_[rec])
+                    if layer_per_recompute[rec][v][s] > 0:    # current
+                        act_mem_curr += (layer_per_recompute[rec][v][s] *
+                                         layer.memory_activation_rec_[rec])
+
+        return act_mem_next, act_mem_curr
+
+    def _compute_parameter_memory_manually_solver(self, layer_per_recompute, s, interleave_num=1):
+        """Solver memory model: parameter memory"""
+        param_mem = 0
+        for layer in self.layers_sorted_[Layer.type_enum.BODY]:
+            if layer.memory_parameter_ is not None:
+                param_mem += self._calculate_layer_parameter_memory(
+                    layer, layer_per_recompute, s, interleave_num)
+        return param_mem
+
+    def _calculate_layer_parameter_memory(self, layer, layer_per_recompute, s, interleave_num):
+        """Calculate parameter memory for a single layer"""
+        layer_mem = 0
+        for inter in range(interleave_num):
+            for rec in Recompute.TYPE:
+                if self.problem_.recompute_considered_[rec]:
+                    if layer_per_recompute[rec][inter][s] > 0:
+                        layer_mem += layer_per_recompute[rec][inter][s] * layer.memory_parameter_
+        return layer_mem
+
+    def _calculate_activation_memory_solver(self, layer_per_recompute, s, interleave_num, activation_nums):
+        """Calculate activation memory for a given stage"""
+        act_mem = 0
+        for layer in self.layers_sorted_[Layer.type_enum.BODY]:
+            for inter in range(interleave_num):
+                for rec in Recompute.TYPE:
+                    if self.problem_.recompute_considered_[rec]:
+                        if layer_per_recompute[rec][inter][s] > 0:
+                            act_mem += (layer_per_recompute[rec][inter][s] *
+                                        layer.memory_activation_rec_[rec] *
+                                        activation_nums[inter][s])
+        return act_mem
+
+
+    def debug_print_manual_theoretical_memory(self, layer_per_recompute, interleave_num=1):
+        """print solver theoretical memory model"""
+        logger.info("%s Manual Theoretical Memory Analysis %s", "=" * 20, "=" * 20)
+
+        if self.vpp_less_memory_:
+            if self.seqpipe_:
+                activation_nums = self.problem_.compute_activation_seq_nums(
+                    self.num_of_stage_, interleave_num, self.seq_split_num_, self.num_of_micro_batch_, True)
+            else:
+                activation_nums = self.problem_.compute_less_activation_nums(
+                    self.num_of_stage_, interleave_num)
+        else:
+            if self.seqpipe_:
+                activation_nums = self.problem_.compute_activation_seq_nums(
+                    self.num_of_stage_, interleave_num, self.seq_split_num_, self.num_of_micro_batch_, False)
+            else:
+                activation_nums = self.problem_.compute_activation_nums(
+                    self.num_of_stage_, interleave_num, self.num_of_micro_batch_)
+
+        logger.info(f"Activation nums = {activation_nums}")
+
+        # compute for each stage
+        for s in range(self.num_of_stage_):
+
+            # parameter memory
+            param_mem = self._compute_parameter_memory_manually_solver(layer_per_recompute, s, interleave_num)
+
+            # head memory
+            if s == 0:
+                for head in self.layers_sorted_[Layer.type_enum.HEAD]:
+                    if head.memory_parameter_ is not None:
+                        param_mem += head.memory_parameter_
+
+            # tail memory
+            if s == self.num_of_stage_ - 1:
+                for tail in self.layers_sorted_[Layer.type_enum.TAIL]:
+                    if tail.memory_parameter_ is not None:
+                        param_mem += tail.memory_parameter_
+
+            # act memory
+            act_mem = self._calculate_activation_memory_solver(layer_per_recompute, s,
+                                                               interleave_num, activation_nums)
+
+            # overhead
+            overhead = 0
+
+            total = param_mem + act_mem + overhead + self.constant_memory_
+
+            logger.info("Stage %d Manual Memory Analysis:", s)
+            logger.info(f"Parameter Memory:     {param_mem:.2f}")
+            logger.info(f"Activation Memory:    {act_mem:.2f}")
+            logger.info(f"Memory Overhead:      {overhead:.2f}")
+            logger.info(f"Constant Memory:      {self.constant_memory_:.2f}")
+            logger.info(f"Total Theoretical Memory: {total:.2f}")
 
     def simulate_manual(self,
                         layer_per_recompute=None,
                         show=True,
                         interleave_num=1,
-                        file_name=None):
+                        file_name=None,
+                        sub_fig=None):
         """Use simulator to visualize output."""
         for layer in layer_per_recompute.values():
             if len(layer) != interleave_num:
@@ -393,6 +525,9 @@ class SappPipeline:
                 layer_per_recompute, interleave_num=interleave_num)
             stage_mem_act = self.get_manual_memory_activation(
                 layer_per_recompute, interleave_num=interleave_num)
+
+        self.debug_print_manual_theoretical_memory(layer_per_recompute, interleave_num)
+
         return self.simulation(
             forward_time,
             recompute_overhead,
@@ -401,6 +536,7 @@ class SappPipeline:
             self.constant_memory_,
             show,
             file_name,
+            sub_fig
         )
 
     def simulation(
@@ -412,6 +548,7 @@ class SappPipeline:
             constant_mem=0,
             show=True,
             file_name=None,
+            sub_fig=None
     ):
         """Use simulator to visualize output."""
         if self.has_some_memory_info():
@@ -431,6 +568,7 @@ class SappPipeline:
                 constant_mem=constant_mem,
                 layer_recompute=recompute_overhead,
                 method=sim_method,
+                sub_fig=sub_fig
             )
         else:
             logger.output(
@@ -442,11 +580,14 @@ class SappPipeline:
                 self.num_of_micro_batch_,
                 layer_recompute=recompute_overhead,
                 less_memory=self.vpp_less_memory_,
+                sub_fig=sub_fig
             )
 
         simulator.run(comm=False)
+        if file_name:
+            simulator.save(file_name)
         if show:
-            simulator.show(file_name=file_name)
+            simulator.show()
         return simulator.end_time
 
     def _construct_problem_pulp_(self) -> SappSolver:
@@ -461,6 +602,8 @@ class SappPipeline:
             layers=self.layers_,
             layers_sorted=self.layers_sorted_,
             optimization_level=self.optimization_level,
+            extracted_training_params=self.extracted_training_params_,
+            seq_split_num=self.seq_split_num_
         )
         return prob
 
