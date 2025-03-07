@@ -114,7 +114,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_proc', default=4, type=int)
     args = parser.parse_args()
 
-    word_tokenizer = YiZhaoTokenizer(args.vocab_file, trust_remote_code=True)
+    word_tokenizer = YiZhaoTokenizer(args.vocab_file)
     pretrain_dataset_process(model='YiZhao',
                              ori_data_file_path=args.ori_file_path,
                              output_data_file_path=args.output_file_path,

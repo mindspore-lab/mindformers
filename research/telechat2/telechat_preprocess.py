@@ -180,8 +180,7 @@ def make_dataset():
     """make dataset."""
     raw_dataset = TelechatDataset(args.output_path, args.seed, args.input_dataset_file)
     train_dataset = raw_dataset.get_train_data()
-    tokenizer = TelechatTokenizer(args.vocab_file_path, fast_tokenizer=True,
-                                  trust_remote_code=True, padding_side="left")
+    tokenizer = TelechatTokenizer(args.vocab_file_path, fast_tokenizer=True, padding_side="left")
     train_dataset = process_dataset(train_dataset, tokenizer, args.max_length)
     logger.info("***** Writing to output files *****")
     writer = FileWriter(args.output_dataset_file, 1)

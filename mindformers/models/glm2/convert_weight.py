@@ -149,7 +149,7 @@ def convert_pt_to_ms(input_path, output_path, config, dtype=ms.float32, **kwargs
     """ Convert pytorch model file to MindSpore model file. """
     config: ChatGLM2Config = MindFormerConfig(config)['model']['model_config']
     config = ChatGLM2Config(**config)
-    model = AutoModel.from_pretrained(input_path, trust_remote_code=True)
+    model = AutoModel.from_pretrained(input_path)
 
     print('parameter convert....')
     ms_param = []

@@ -119,7 +119,7 @@ def convert_vit_weight(name, value, ckpt_weights, dtype, qkv_dict):
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """Convert huggingface weights files to mindspore ckpt format."""
 
-    model = LlavaForConditionalGeneration.from_pretrained(input_path, device_map="cpu", trust_remote_code=True)
+    model = LlavaForConditionalGeneration.from_pretrained(input_path, device_map="cpu")
 
     ckpt_weights = []
 

@@ -56,7 +56,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     from transformers import AutoModelForCausalLM
 
     try:
-        model_hf = AutoModelForCausalLM.from_pretrained(ckpt_dir, trust_remote_code=True)
+        model_hf = AutoModelForCausalLM.from_pretrained(ckpt_dir)
         args_hf = read_json(os.path.join(ckpt_dir, "config.json"))
     # pylint: disable=W0703
     except Exception as e:

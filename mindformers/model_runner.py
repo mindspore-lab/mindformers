@@ -91,7 +91,7 @@ def is_multi_modal_model(config):
 
 def get_model(model_name_or_path: str,
               revision: Optional[str] = None,
-              trust_remote_code: Optional[bool] = True,
+              trust_remote_code: Optional[bool] = False,
               **kwargs):
     """
     get_model API, supports MF to be a backend of MindIEServer.
@@ -281,7 +281,7 @@ class MindIEModelRunner:
         if self.is_multi_modal_model:
             self.tokenizer = self.processor.tokenizer
         else:
-            self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True, use_fast=True)
+            self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=False, use_fast=True)
         logger.info(f"Build tokenizer finished.")
 
         # build model

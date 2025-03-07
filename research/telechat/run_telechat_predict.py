@@ -146,11 +146,9 @@ def main():
 
     # build tokenizer
     if not config.processor.tokenizer.vocab_file.endswith(".json"):
-        tokenizer = TelechatTokenizer(config.processor.tokenizer.vocab_file, \
-            fast_tokenizer=True, trust_remote_code=True)
+        tokenizer = TelechatTokenizer(config.processor.tokenizer.vocab_file, fast_tokenizer=True)
     else:
-        tokenizer = TelechatTokenizerFast(tokenizer_file=config.processor.tokenizer.vocab_file, \
-            fast_tokenizer=True, trust_remote_code=True)
+        tokenizer = TelechatTokenizerFast(tokenizer_file=config.processor.tokenizer.vocab_file, fast_tokenizer=True)
 
     model_config = config.model.model_config
     model_config.parallel_config = config.parallel_config
