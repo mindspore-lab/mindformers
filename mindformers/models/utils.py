@@ -23,6 +23,7 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from ..version_control import get_lazy_inline, get_predict_lazy_inline
 from ..tools.logger import logger
 
+# pylint: disable=W0212
 CONFIG_NAME = "config.json"
 WEIGHTS_NAME = "mindspore_model.ckpt"
 WEIGHTS_INDEX_NAME = "mindspore_model.ckpt.index.json"
@@ -121,7 +122,7 @@ predict_lazy_inline = get_predict_lazy_inline
 
 class LayerSetting:
     r"""
-    Class for setting offset, pipeline stage and select recompute for each transformer layer.
+    Class for setting offset, pipeline stage, swap and select recompute for each transformer layer.
     Default setting for the pipeline is: `(layer_id + offset) // (layers / pipeline_stage)`.
 
         Args:
@@ -150,6 +151,9 @@ class LayerSetting:
             self.start_stage = 0
             self.pp = parallel_config.pipeline_stage
         self.recompute = parallel_config.recompute
+        self.swap = parallel_config.swap
+        self.backward_prefetch = 'backward_prefetch'
+        self.layers = 'layers'
         self.gradient_aggregation_group = parallel_config.gradient_aggregation_group
         self.pp_interleave_num = pp_interleave_num if use_pp_interleave else 1
         self.offset = np.array(offset, np.int32)
@@ -171,11 +175,15 @@ class LayerSetting:
         self.layer_accu_mod = np.concatenate((pre_pad.T, self.layer_accu), axis=-1)
 
         if not isinstance(self.recompute, bool):
-            self.layer_recompute = self._format_recompute_list(self.recompute.recompute)
+            if self.swap.swap:
+                self.layer_recompute = self._format_recompute_list_select_layer_index(self.recompute.recompute)
+            else:
+                self.layer_recompute = self._format_recompute_list(
+                    self.recompute.recompute)
             self.select_recompute = self._format_recompute_dict(
-                self.recompute.select_recompute, default_patterns)
+                self.recompute.select_recompute, default_patterns, self.swap.swap)
             self.select_comm_recompute = self._format_recompute_dict(
-                self.recompute.select_comm_recompute, default_comm_patterns)
+                self.recompute.select_comm_recompute, default_comm_patterns, self.swap.swap)
             self.select_recompute_off = self._format_recompute_dict(
                 self.recompute.select_recompute_off, default_off_patterns)
             self.select_comm_recompute_off = self._format_recompute_dict(
@@ -192,6 +200,15 @@ class LayerSetting:
             logger.info(f"Formative select_comm_recompute: {self.select_comm_recompute}")
             logger.info(f"Formative select_recompute_off: {self.select_recompute_off}")
             logger.info(f"Formative select_comm_recompute_off: {self.select_comm_recompute_off}")
+
+        if not isinstance(self.swap, bool):
+            self.layer_swap = []
+            self.op_swap = dict()
+            self.layer_swap = self._initialize_swap_list(self.swap.layer_swap)
+            for key in self.swap.op_swap:
+                self.op_swap[key] = self._initialize_swap_list(self.swap.op_swap[key])
+            logger.info(f"Formative layer swap: {self.layer_swap}")
+            logger.info(f"Formative op swap: {self.op_swap}")
 
     @staticmethod
     def _check_repeat_pattern(key, select_recompute):
@@ -211,6 +228,7 @@ class LayerSetting:
         return repeat_key
 
     def _check_repeat_recompute(self, select_recompute, select_recompute_off, is_comm=False):
+        "Check if the select_recompute conflicts select_recompute_off."
         comm = '_comm' if is_comm else ''
         for key in select_recompute_off:
             repeat_key = self._check_repeat_pattern(key, select_recompute)
@@ -218,6 +236,96 @@ class LayerSetting:
                 select_recompute.pop(repeat_key)
                 logger.info(f"The pattern {repeat_key} in select{comm}_recompute conflicts with "
                             f"select{comm}_recompute_off and will be removed.")
+
+    def _initialize_swap_list(self, swap_list):
+        """Initialize the swap list by creating swap configurations for each item."""
+        if self.swap.swap and not swap_list:
+            return []
+        result = []
+        for item in swap_list:
+            layers = self._format_recompute_list_select_layer_index(item.get(self.layers))
+            swap_config = self._create_swap_dict(
+                item.get(self.backward_prefetch),
+                layers
+            )
+            result.append(swap_config)
+        return result
+
+    def _create_swap_dict(self, backward_prefetch, layers):
+        """Create a dictionary for swap configuration with backward_prefetch and layers."""
+        return {'backward_prefetch': backward_prefetch, 'layers': layers}
+
+    def set_swap(self, layer, layer_id):
+        """Set swap for a specific layer based on its layer_id."""
+        if self.swap.swap:
+            if self.layer_swap and isinstance(self.layer_swap[0].get(self.layers), bool):
+                if self.layer_swap[0].get(self.layers):
+                    layer.offload(backward_prefetch=self.layer_swap[0].get(self.backward_prefetch))
+                    logger.info(f"Set layer swap at layer {layer_id} \
+                                and value is: {self.layer_swap[0].get(self.backward_prefetch)}")
+            else:
+                if not self._set_layer_swap(layer, layer_id):
+                    self._set_op_swap(layer, layer_id)
+
+    def _set_op_swap(self, layer, layer_id):
+        """Set swap for operations in the layer based on patterns and layer_id when layer_index_swap == True."""
+        log_ops = []
+        for pattern in self.op_swap:
+            for layer_swap in self.op_swap[pattern]:
+                layers_id = layer_swap.get(self.layers)
+                is_valid_bool = isinstance(layers_id, bool) and layers_id
+                is_valid_list = isinstance(layers_id, list) and layer_id in layers_id
+                if is_valid_bool or is_valid_list:
+                    log = LayerSetting.set_pattern_swap(layer, pattern.split(r'\.'),
+                                                        layer_swap.get(self.backward_prefetch))
+                    if log:
+                        log_ops.append(log)
+                    break
+        if log_ops:
+            logger.info(f"Set op_swap at layer {layer_id}: {', '.join(log_ops)}")
+
+    def _set_layer_swap(self, layer, layer_id):
+        """Set swap for the entire layer based on the layer_id."""
+        for layer_swap in self.layer_swap:
+            if layer_id in layer_swap.get(self.layers):
+                layer.offload(backward_prefetch=layer_swap.get(self.backward_prefetch))
+                logger.info(f"Set layer swap at layer {layer_id} \
+                            and value is: {layer_swap.get(self.backward_prefetch)}")
+                return True
+        return False
+
+    @staticmethod
+    def set_pattern_swap(layer, p_list, value, info=''):
+        """Set swap for operators in the layer based on a pattern list and value."""
+        log_list = []
+        log = ''
+        if p_list:
+            p = p_list.pop(0)
+        else:
+            return info
+        if p_list:
+            # pylint: disable=W0212
+            for name, cell in layer._cells.items():
+                if re.fullmatch(p, name):
+                    log = LayerSetting.set_pattern_swap(cell, p_list, value, info + f'.{name}')
+                    if log:
+                        log_list.append(log[1:])
+        else:
+            for attr in dir(layer):
+                if re.fullmatch(p, attr):
+                    operator = getattr(layer, attr)
+                    if hasattr(operator, '_offload'):
+                        operator._offload(backward_prefetch=value)
+                        log = f"{info}.{attr}, value={value}"
+            # pylint: disable=W0212
+            for name, cell in layer._cells.items():
+                if re.fullmatch(p, name):
+                    cell.offload(backward_prefetch=value)
+                    log = f"{info}.{name}, value={value}"
+        p_list.insert(0, p)
+        if log_list:
+            return " " + ", ".join(log_list)
+        return log
 
     def set(self, layer, layer_id):
         """Set pipeline stage and recompute for each layer with a layer_id."""
@@ -252,6 +360,27 @@ class LayerSetting:
         self._set_select_recompute(layer, layer_id, False, set_on=False)
         self._set_select_recompute(layer, layer_id, True, set_on=False)
 
+
+    def set_recompute_select_layer_index(self, layer, layer_id):
+        """Set swap for specific layer based on its layer_id when."""
+        if isinstance(self.recompute, bool):
+            if self.recompute:
+                layer.recompute()
+            return
+        if self.recompute.recompute:
+            if isinstance(self.recompute.recompute, bool):
+                if self.recompute.recompute:
+                    layer.recompute(recompute_slice_activation=self.recompute.recompute_slice_activation)
+            else:
+                if layer_id in self.layer_recompute:
+                    layer.recompute()
+                    logger.info(f"Set full recompute at layer {layer_id}")
+                else:
+                    self._set_select_recompute_layer_index(layer, layer_id, False)
+                    self._set_select_recompute_layer_index(layer, layer_id, True)
+        else:
+            self._set_select_recompute_layer_index(layer, layer_id, False)
+            self._set_select_recompute_layer_index(layer, layer_id, True)
 
     def _alloc_recompute_layer(self, select_recompute):
         """Average allocate recompute layer among different interleave."""
@@ -298,7 +427,18 @@ class LayerSetting:
             return select_recompute
         raise ValueError(f"Illegal input list for select_recompute: {select_recompute}")
 
-    def _format_recompute_dict(self, select_recompute, default_patterns):
+    def _format_recompute_list_select_layer_index(self, select_recompute):
+        """Format recompute inputs into a list when using swap."""
+        if isinstance(select_recompute, bool):
+            if select_recompute:
+                return select_recompute
+            return []
+        if isinstance(select_recompute, list):
+            if all(isinstance(item, int) for item in select_recompute):
+                return select_recompute
+        raise ValueError(f"Illegal input list for select_recompute: {select_recompute}")
+
+    def _format_recompute_dict(self, select_recompute, default_patterns, select_layer_index=False):
         """Format select_recompute inputs into a dict"""
         dic = {}
         if isinstance(select_recompute, (list, tuple)) and all(isinstance(item, str) for item in select_recompute):
@@ -309,7 +449,10 @@ class LayerSetting:
             parttern = default_patterns
         for p in parttern:
             value = select_recompute[p] if isinstance(select_recompute, dict) else select_recompute
-            dic[p] = self._format_recompute_list(value)
+            if select_layer_index:
+                dic[p] = self._format_recompute_list_select_layer_index(value)
+            else:
+                dic[p] = self._format_recompute_list(value)
         return dic
 
     def _check_layer_rule(self, layer_id):
@@ -340,6 +483,20 @@ class LayerSetting:
         if log_ops_str:
             comm = 'comm ' if add_prim_attr else ''
             logger.info(f"Set select {comm}recompute {action} at layer {layer_id}: {log_ops_str}")
+
+    def _set_select_recompute_layer_index(self, layer, layer_id, add_prim_attr=False):
+        """Set select recompute for a layer when using swap."""
+        select_recompute = self.select_comm_recompute if add_prim_attr else self.select_recompute
+        log_ops = []
+        for pattern, layers_recompute in select_recompute.items():
+            if layer_id in layers_recompute:
+                log = LayerSetting.set_pattern_recompute(layer, pattern.split(r'\.'), add_prim_attr)
+                if log:
+                    log_ops.append(log[1:])
+        log_ops_str = ', '.join(log_ops)
+        if log_ops_str:
+            comm = 'comm ' if add_prim_attr else ''
+            logger.info(f"Set select {comm}recompute at layer {layer_id}: {log_ops_str}")
 
     def _check_inputs(self):
         """Check the inputs of offset."""
@@ -402,4 +559,8 @@ class LayerSetting:
         return log
 
     def __call__(self, layer, layer_id):
-        self.set(layer, layer_id)
+        if self.swap.swap:
+            self.set_recompute_select_layer_index(layer, layer_id)
+            self.set_swap(layer, layer_id)
+        else:
+            self.set(layer, layer_id)

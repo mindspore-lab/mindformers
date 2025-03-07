@@ -78,7 +78,8 @@ __all__ = [
     "Transformer",
     "TransformerOpParallelConfig",
     "EmbeddingOpParallelConfig",
-    "TransformerRecomputeConfig"]
+    "TransformerRecomputeConfig",
+    "TransformerSwapConfig"]
 
 
 class EmbeddingOpParallelConfig(_Config):
@@ -179,6 +180,207 @@ class EmbeddingOpParallelConfig(_Config):
             'select_recompute': self.select_recompute,
             'use_seq_parallel': self.use_seq_parallel,
             'vocab_emb_dp': self.vocab_emb_dp
+        }
+        return config_dict
+
+
+class TransformerSwapConfig(_Config):
+    r"""
+        TransformerSwapConfig for the setting offload attributes for encoder/decoder layers.
+
+        Args:
+            swap (bool): Enable offload of the transformer block or not. Default: False.
+            layer_swap (list or dict): Configuration for layer swapping. Each item in the list specifies
+                the `backward_prefetch` value for a specific layer. Default: None.
+            op_swap (list or dict): Configuration for operator swapping. Each item in the list specifies
+                the `backward_prefetch` value for operators matching a specific pattern. Default: None.
+
+        Supported Platforms:
+            ``Ascend``
+
+        Examples:
+            >>> from mindformers.modules.transformer import TransformerSwapConfig
+            >>> layer_swap_config = [{"backward_prefetch": 2, "layers": [0, 1]}]
+            >>> op_swap_config = [{"op_name": "matmul", "backward_prefetch": True}]
+            >>> swap_config = TransformerSwapConfig(swap=True, layer_swap=layer_swap_config, op_swap=op_swap_config)
+    """
+
+    def __init__(self, layer_swap=None, op_swap=None, swap=False, default_prefetch=1):
+        Validator.check_bool(swap, "swap")
+        self.backward_prefetch = 'backward_prefetch'
+        self.layers = 'layers'
+        self._swap = swap
+        self._default_prefetch = default_prefetch
+        self._layer_swap, self._op_swap = self._initialize_swap(layer_swap, op_swap)
+
+    def _initialize_swap(self, layer_swap, op_swap):
+        """Initialize the swap configuration."""
+        if layer_swap is None and op_swap is None:
+            op_swap_initialized = {}
+            op_swap_initialized['attention'] = [{
+                'backward_prefetch': self._default_prefetch,
+                'layers': True
+            }]
+            return [], op_swap_initialized
+        layer_swap_initialized = self._initialize_layer_swap(layer_swap)
+        op_swap_initialized = self._initialize_op_swap(op_swap)
+        return layer_swap_initialized, op_swap_initialized
+
+    def _initialize_layer_swap(self, layer_swap):
+        """Initializes and validates the layer swap configuration."""
+        if layer_swap is None:
+            return []
+        if not isinstance(layer_swap, (list, dict)):
+            raise ValueError("layer_swap must be a list or dict")
+        if isinstance(layer_swap, dict):
+            layer_swap = [layer_swap]
+        if self._validate_layers_consistency(layer_swap):
+            return [dict(backward_prefetch=layer_swap[0][self.backward_prefetch], layers=True)]
+        return layer_swap
+
+    def _initialize_op_swap(self, op_swap):
+        """Initializes and validates the operation swap configuration."""
+        if op_swap is None:
+            return []
+        if not isinstance(op_swap, (list, dict)):
+            raise ValueError("op_swap must be a list or dict")
+        if isinstance(op_swap, dict):
+            op_swap = [op_swap]
+        op_swap_dict = self.op_swap_to_dict(op_swap)
+        for k, v in op_swap_dict.items():
+            if self._validate_layers_consistency(v, mode=f'op_swap: {k}'):
+                op_swap_dict[k] = [dict(backward_prefetch=v[0][self.backward_prefetch], layers=True)]
+        return op_swap_dict
+
+    def _validate_layers_consistency(self, layer_swap, mode='layer_swap'):
+        """Validates the consistency of the layers configuration. Raise ValueError if prefetch values and layers are conflict."""
+        prev_backward_prefetch = None
+        has_boolean_layers = False
+        has_different_prefetch = False
+        for i, item in enumerate(layer_swap):
+            if prev_backward_prefetch is not None and prev_backward_prefetch != item.get(self.backward_prefetch):
+                has_different_prefetch = True
+            has_boolean_layers = self._validate_layer_type(item.get(self.layers), has_boolean_layers,
+                                                           mode) or has_boolean_layers
+            if has_different_prefetch and has_boolean_layers:
+                raise ValueError(
+                    f"Invalid {mode} configuration at index {i}: {item}. Inconsistent 'backward_prefetch' values.")
+            prev_backward_prefetch = item[self.backward_prefetch]
+        return has_boolean_layers
+
+    def _validate_layer_type(self, layers, has_boolean_layers, mode='layer_swap'):
+        """Validates the type of the layers configuration."""
+        if not isinstance(layers, (list, tuple, bool)):
+            raise ValueError(f"Invalid {mode} configuration: {layers}. Expected 'layers' to be a list, tuple, or bool.")
+        if isinstance(layers, (list, tuple)):
+            if not self._is_list_of_list_of_ints(layers) and not self._is_list_or_tuple_of_types(layers):
+                raise ValueError(
+                    f"Invalid {mode} configuration: {layers}. \
+                        Expected 'layers' to be a list of ints or list of lists of ints.")
+        if isinstance(layers, bool):
+            has_boolean_layers = layers
+        return has_boolean_layers
+
+    def op_swap_to_dict(self, op_swap):
+        """Converts the operation swap configuration to a dictionary."""
+        dic = {}
+        for i, item in enumerate(op_swap):
+            if not isinstance(item['op_name'], (str, list, tuple)):
+                raise ValueError(
+                    f"Invalid op_swap configuration at index {i}: {item}. \
+                        'op_name' must be a string, list, or tuple.")
+            if isinstance(item['op_name'], (list, tuple)):
+                if not self._is_list_or_tuple_of_types(item['op_name'], str):
+                    raise ValueError(
+                        f"Invalid op_swap configuration at index {i}: {item}. \
+                            'op_name' list must contain only strings.")
+                for key in item['op_name']:
+                    self._add_to_dict(dic, key, item)
+            else:
+                self._add_to_dict(dic, item['op_name'], item)
+        return dic
+
+    def _add_to_dict(self, dic, key, item):
+        """Adds an operation swap configuration to the dictionary."""
+        if key in dic:
+            dic[key].append(
+                dict(
+                    layers=item.get(self.layers),
+                    backward_prefetch=item.get(self.backward_prefetch)
+                )
+            )
+        else:
+            dic[key] = [
+                dict(
+                    layers=item.get(self.layers),
+                    backward_prefetch=item.get(self.backward_prefetch)
+                )
+            ]
+        return dic
+
+    def _is_list_or_tuple_of_types(self, obj, types=int) -> bool:
+        """check obj of list[types]/tuple[types]"""
+        if isinstance(obj, (list, tuple)):
+            if types == int and any(isinstance(item, bool) for item in obj):
+                return False
+            return all(isinstance(item, types) for item in obj)
+        return False
+
+    def _is_list_of_list_of_ints(self, obj) -> bool:
+        """check obj of list[list[int]]"""
+        return isinstance(obj, (list, tuple)) and all(self._is_list_or_tuple_of_types(item, int) for item in obj)
+
+    @property
+    def swap(self):
+        return self._swap
+
+    @swap.setter
+    def swap(self, value):
+        Validator.check_bool(value, "swap")
+        self._swap = value
+
+    @property
+    def default_prefetch(self):
+        return self._default_prefetch
+
+    @default_prefetch.setter
+    def default_prefetch(self, value):
+        self._default_prefetch = value
+
+    @property
+    def layer_swap(self):
+        return self._layer_swap
+
+    @layer_swap.setter
+    def layer_swap(self, value):
+        self._layer_swap = value
+
+    @property
+    def op_swap(self):
+        return self._op_swap
+
+    @op_swap.setter
+    def op_swap(self, value):
+        self._op_swap = value
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, TransformerSwapConfig) and (self.to_dict() == other.to_dict())
+
+    def to_diff_dict(self):
+        config_dict = self.to_dict()
+        default_dict = TransformerRecomputeConfig().to_dict()
+        res_dict = {}
+        for k, v in config_dict.items():
+            if v != default_dict.get(k):
+                res_dict[k] = v
+        return res_dict
+
+    def to_dict(self):
+        config_dict = {
+            "layer_swap": self._layer_swap,
+            "default_prefetch": self._default_prefetch,
+            "op_swap": self._op_swap,
+            "swap": self._swap
         }
         return config_dict
 
@@ -330,6 +532,7 @@ class ContextParallelAlgo(Enum):
     hybird_cp = "hybird_cp"
 
 
+default_transformer_swap_config = TransformerSwapConfig()
 default_transformer_recompute_config = TransformerRecomputeConfig()
 
 
@@ -381,9 +584,13 @@ class TransformerOpParallelConfig(_Config):
                  expert_parallel=1, pipeline_stage=1, micro_batch_num=1, seq_split_num=1,
                  recompute: Union[TransformerRecomputeConfig, dict] = default_transformer_recompute_config,
                  use_seq_parallel=False, optimizer_shard=None, gradient_aggregation_group=4, vocab_emb_dp=True,
-                 context_parallel_algo: str = "colossalai_cp", ulysses_degree_in_cp=1, mem_coeff=0.1):
+                 context_parallel_algo: str = "colossalai_cp", ulysses_degree_in_cp=1, mem_coeff=0.1,
+                 swap: Union[TransformerSwapConfig, dict] = default_transformer_swap_config):
         if isinstance(recompute, dict):
             recompute = TransformerRecomputeConfig(**recompute)
+        if isinstance(swap, dict):
+            swap = TransformerSwapConfig(**swap)
+        self.swap = swap
         self.recompute = recompute
         self.select_recompute = recompute.select_recompute
         self.use_seq_parallel = use_seq_parallel
