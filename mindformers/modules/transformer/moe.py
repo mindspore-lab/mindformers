@@ -1541,7 +1541,7 @@ class TopkRouterV2(Cell):
                                           (1, 1, self.moe_config.n_group))), mstype.float32)
             score_mask = self.reshape(
                 group_mask, (group_mask.shape[0], group_mask.shape[1], group_mask.shape[2], 1))  # (dp, N,  n_group, 1)
-            score_mask = score_mask.repeat(self.moe_config.expert_num // self.moe_config.n_group, axis=-1)
+            score_mask = score_mask.repeat_interleave(self.moe_config.expert_num // self.moe_config.n_group, dim=-1)
             score_mask = self.reshape(
                 score_mask, (score_mask.shape[0], score_mask.shape[1], -1))  # (dp, N, n_routed_experts)
             tmp_scores = ops.masked_fill(router_prob_with_bias, ~score_mask.bool(), 0.0)
