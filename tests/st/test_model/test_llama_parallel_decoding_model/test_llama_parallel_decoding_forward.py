@@ -18,7 +18,6 @@ How to run this:
     pytest tests/st/test_model/test_llama_parallel_decoding_model/test_llama_parallel_decoding_forward.py
 """
 import os
-import pytest
 import numpy as np
 import mindspore as ms
 
@@ -31,9 +30,6 @@ ms.set_context(mode=0, jit_config={"jit_level": "O0", "infer_boost": "on"})
 class TestLlamaParallelDecodingForward:
     """A test class for testing parallel decoding forward."""
 
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_onecard
     def test_forward(self):
         """
         Feature: Parallel decoding
