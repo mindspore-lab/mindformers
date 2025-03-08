@@ -194,16 +194,20 @@ class GPTDataset(MegatronDataset):
             not self.masks_and_position_ids_are_cacheable
             or not self.masks_and_position_ids_are_cached
         ):
-            attention_mask, loss_mask, position_ids, actual_seq_len = _get_ltor_masks_and_position_ids(
+            attention_mask, loss_mask, position_ids = _get_ltor_masks_and_position_ids(
                 tokens,
                 self._eod_token_id,
                 self.config.reset_position_ids,
                 self.config.reset_attention_mask,
                 self.config.eod_mask_loss,
-                self.config.create_attention_mask,
-                self.config.create_compressed_eod_mask,
-                self.config.eod_pad_length
+                self.config.create_attention_mask
             )
+
+            if self.config.create_compressed_eod_mask:
+                actual_seq_len = _get_eod_attention_mask(tokens, self._eod_token_id, self.config.eod_pad_length)
+            else:
+                actual_seq_len = None
+
             if self.masks_and_position_ids_are_cacheable:
                 self.cached_attention_mask = attention_mask
                 self.cached_loss_mask = loss_mask
@@ -639,9 +643,7 @@ def _get_ltor_masks_and_position_ids(
     reset_position_ids: bool,
     reset_attention_mask: bool,
     eod_mask_loss: bool,
-    create_attention_mask: bool,
-    create_compressed_eod_mask: bool,
-    eod_pad_length: int = 128
+    create_attention_mask: bool
 ):
     """Build masks and position id for left to right model.
 
@@ -671,11 +673,6 @@ def _get_ltor_masks_and_position_ids(
         attention_mask = numpy.expand_dims(numpy.tril(numpy.ones((seq_length, seq_length))), axis=0)
     else:
         attention_mask = None
-
-    if create_compressed_eod_mask:
-        actual_seq_len = _get_eod_attention_mask(data, eod_token, eod_pad_length)
-    else:
-        actual_seq_len = None
 
     # Loss mask.
     loss_mask = numpy.ones(seq_length, dtype=numpy.float32)
@@ -713,7 +710,7 @@ def _get_ltor_masks_and_position_ids(
         # Convert attention mask to binary:
         attention_mask = attention_mask < 0.5
 
-    return attention_mask, loss_mask, position_ids, actual_seq_len
+    return attention_mask, loss_mask, position_ids
 
 
 class MockGPTLowLevelDataset:
