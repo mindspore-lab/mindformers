@@ -93,7 +93,7 @@ model:
       algorithm_args: {}
       layer_policies: 
         {
-          r'.*\.feed_forward\..*':
+          .*\.feed_forward\..*:
           {
             quant_method: 'ptq',
             "activation_dtype": 'int8',
