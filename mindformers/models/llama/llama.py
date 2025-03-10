@@ -290,7 +290,6 @@ class LlamaModel(LlamaPreTrainedModel):
                     self.norm_out.shard((dp * cp * mp, 1))
                 else:
                     self.norm_out.shard((dp * cp, 1))
-                self.norm_out.shard((dp * cp * mp, 1))
             else:
                 self.norm_out.shard((dp, cp, 1))
 
@@ -546,7 +545,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 if self.rl_config is not None:
                     self.lm_head.shard(strategy_matmul=((dp * cp * mp, 1), (1, 1)))
                 else:
-                    self.lm_head.shard(strategy_matmul=((dp * mp, 1), (1, 1)))
+                    self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
             else:
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (mp, 1)))
 
