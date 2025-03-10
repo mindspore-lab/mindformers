@@ -119,7 +119,6 @@ class ChatGLM2Config(PretrainedConfig):
     model_type = "glm2"
     _support_list = MindFormerBook.get_config_support_list()['glm2']
     _support_list.extend(MindFormerBook.get_config_support_list()['glm3'])
-    _support_list.extend(MindFormerBook.get_config_support_list()['codegeex2'])
 
     @args_type_check(parallel_config=(dict, TransformerOpParallelConfig))
     def __init__(self,

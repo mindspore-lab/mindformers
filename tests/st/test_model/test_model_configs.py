@@ -113,15 +113,6 @@ class TestClipConfig(unittest.TestCase):
         model = CLIPModel(config)
 
 
-class TestCodegeex2Config(unittest.TestCase):
-    """test Codegeex2 config"""
-    def test_init_model_for_conditional_generation_from_yaml(self):
-        """test init model with config"""
-        config = AutoConfig.from_pretrained("configs/codegeex2/run_codegeex2_6b.yaml")
-        config.checkpoint_name_or_path = ''
-        model = ChatGLM2ForConditionalGeneration(config)
-
-
 class TestCodeLlamaConfig(unittest.TestCase):
     """test codellama config"""
     def test_init_model_for_text_generation_from_yaml(self):

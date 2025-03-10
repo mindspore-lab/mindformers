@@ -73,12 +73,6 @@ swin:
   output_path:
   dtype:
 
-codegeex2:
-  input_path:
-  output_path:
-  model_class: AutoModel
-  dtype:
-
 knowlm:
   input_path:
   output_path:

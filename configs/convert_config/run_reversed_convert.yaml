@@ -64,11 +64,6 @@ swin:
   output_path:
   dtype:
 
-codegeex2:
-  input_path:
-  output_path:
-  dtype:
-
 knowlm:
   input_path:
   output_path:

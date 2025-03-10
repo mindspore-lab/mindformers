@@ -129,7 +129,6 @@ class ChatGLM2Tokenizer(PreTrainedTokenizer):
 
     model_input_names = ["input_ids", "attention_mask", "position_ids"]
     _support_list = MindFormerBook.get_tokenizer_support_list()['glm2']
-    _support_list.extend(MindFormerBook.get_tokenizer_support_list()['codegeex2'])
 
     def __init__(self,
                  vocab_file,
