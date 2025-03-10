@@ -1,4 +1,4 @@
-# Copyright 2024 Huawei Technologies Co., Ltd
+# Copyright 2025 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ from mindformers.core.parallel_config import build_parallel_config
 
 from research.telechat2.telechat_tokenizer import TelechatTokenizer
 from research.telechat2.telechat_config import TelechatConfig
-from research.telechat2.telechat import TelechatForCausalLM
+from research.telechat2.infer.telechat import ParallelTelechatForCausalLM
 
 
 def main():
@@ -55,8 +55,8 @@ def main():
 
     # build tokenizer
     chat_template = "{%- if tools %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{-'<_system>'+messages[0]['content'] }}\n    {%- else %}\n        {{- '<_system>'+'你是中国电信星辰语义大模型，英文名是TeleChat，你是由中电信人工智能科技有限公司和中国电信人工智能研究院（TeleAI）研发的人工智能助手。' }}\n    {%- endif %}\n    {{- '\\n\\n# 可用工具\\n你可以调用<tools></tools>标签中包含的一个或多个工具来辅助你回答问题,以下是可用工具详情：\\n<tools>\\n' }}\n    {%- for tool in tools %}\n        {{- tool | tojson }}\n        {{-'\\n'}}\n    {%- endfor %}\n    {{- '</tools>\\n\\n# 调用方法\\n你需要遵循工具的要求，使用json格式返回工具名称及参数，并用<tool_call></tool_call>包含。下方是一个调用模板：\\n<tool_call>\\n{\\\"name\\\": <function-name>, \\\"arguments\\\": <args-json-object>}\\n</tool_call>\\n\\n' }}\n{%- else %}\n    {%- if messages[0]['role'] == 'system' %}\n        {{- '<_system>' + messages[0]['content'] + '\\n' }}\n    {%- else %}\n        {{- '<_system>'+'你是中国电信星辰语义大模型，英文名是TeleChat，你是由中电信人工智能科技有限公司和中国电信人工智能研究院（TeleAI）研发的人工智能助手。\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- for message in messages %}\n    {%- if (message.role == 'user') %}\n        {{- '<_user>' + message.content }}\n    {%- elif message.role == 'bot' or message.role == 'assistant' %}\n        {{- '<_bot>' }}\n        {%- if message.content %}\n            {{- message.content }}\n        {%- endif %}\n        {%- for tool_call in message.tool_calls %}\n            {%- if tool_call.function is defined %}\n                {%- set tool_call = tool_call.function %}\n            {%- endif %}\n            {%- if loop.index0 == 0 %}\n                {{-'<tool_call>'}}\n            {%- else %}\n                {{-'\\n<tool_call>'}}\n            {%- endif %}\n            {{- '\\n{\"name\": \"' }}{{ tool_call.name }}\n            {{- '\", \"arguments\": ' }}\n            {{- tool_call.arguments | tojson }}\n            {{- '}\\n</tool_call>' }}\n        {%- endfor %}\n        {{- '<_end>\\n' }}\n    {%- elif message.role == 'tool' %}\n        {%- if (loop.index0 == 0) or (messages[loop.index0 - 1].role != 'tool') %}\n            {{- '<_user>'+'<tool_response>\\n' }}\n        {%- else %}\n            {{- '\\n<tool_response>\\n' }}\n        {%- endif %}\n        {{- message.content }}\n        {{- '\\n</tool_response>' }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<_bot>' }}\n{%- endif %}"
-    tokenizer = TelechatTokenizer(config.processor.tokenizer.vocab_file, chat_template=chat_template,
-                                  fast_tokenizer=True)
+    tokenizer = TelechatTokenizer(config.processor.tokenizer.vocab_file, \
+        chat_template=chat_template, fast_tokenizer=True, trust_remote_code=True)
 
     # build model config
     model_config = config.model.model_config
@@ -73,7 +73,7 @@ def main():
     model_config = TelechatConfig(**model_config)
 
     # build model from config
-    model = TelechatForCausalLM(model_config)
+    model = ParallelTelechatForCausalLM(model_config)
     ms_model = Model(model)
     logger.info(f"[INFO_config]: {model_config}")
     if config.load_checkpoint:
@@ -84,26 +84,29 @@ def main():
         transform_and_load_checkpoint(config, ms_model, model, infer_data, do_predict=True)
 
     inputs = []
-    for question in input_questions:
-        inputs.append({"role": "user", "content": question})
-        inputs_chat = tokenizer.apply_chat_template(conversation=inputs, tokenize=False, add_generation_prompt=True)
-        logger.info(f"inputs: {inputs_chat}")
-        input_ids = tokenizer(inputs_chat)["input_ids"]
-        logger.debug(f"input_ids: {input_ids}")
-        outputs = model.generate(input_ids)
-        output_ids = outputs[0][len(inputs):-1]
-        logger.debug(f"output_ids: {output_ids}")
-        answer = tokenizer.decode(outputs[0][len(input_ids):-1])
-        logger.info(f"answer: {answer}")
-        inputs.append({"role": "bot", "content": answer})
+    for i, question in enumerate(input_questions):
+        question = [{"role": "user", "content": question}]
+        inputs.append(tokenizer.apply_chat_template(conversation=question, \
+            tokenize=False, add_generation_prompt=True))
+        logger.info(f"input {i}: {inputs[i]}")
+
+    input_ids = tokenizer(inputs)["input_ids"]
+    input_lens = [len(input_token) for input_token in input_ids]
+    max_len = max(input_lens)
+    input_ids = [input_token + [model_config.pad_token_id] * (max_len - len(input_token)) \
+        for input_token in input_ids]
+    outputs = model.generate(input_ids)
+    for i, output in enumerate(outputs):
+        answer = tokenizer.decode(output[input_lens[i]:-1])
+        logger.info(f"answer {i}: {answer}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--vocab_file_path', default=None, type=str,
-                        help='which model to use.')
     parser.add_argument('--yaml_file', default=None, type=str,
                         help='predict yaml path')
+    parser.add_argument('--vocab_file_path', default=None, type=str,
+                        help='which model to use.')
     parser.add_argument('--checkpoint_path', default=None, type=str,
                         help='set checkpoint path.')
     parser.add_argument('--use_parallel', default=True, type=str2bool,

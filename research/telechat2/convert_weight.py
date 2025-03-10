@@ -24,6 +24,7 @@ from glob import glob
 
 import numpy as np
 import torch
+from safetensors.torch import load_file
 
 import mindspore as ms
 from mindformers.tools.utils import str2bool
@@ -59,10 +60,19 @@ def name_replace(name: str):
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert telechat hf weight to ms."""
     files = list(glob(os.path.join(input_path, "pytorch_model*.bin")))
+    convert_safetensors = False
+    if not files:
+        files = list(glob(os.path.join(input_path, "model*.safetensors")))
+        if not files:
+            raise FileNotFoundError(f"No bin or safetensors found in the model path: {input_path}.")
+        convert_safetensors = True
     files.sort()
     pt_states_list = []
     for per_file in files:
-        pt_states = torch.load(per_file, map_location='cpu')
+        if convert_safetensors:
+            pt_states = load_file(per_file)
+        else:
+            pt_states = torch.load(per_file, map_location='cpu')
         pt_states_list.append(pt_states)
 
     ckpt_list = []
@@ -153,6 +163,11 @@ def convert_to_qkv_concat(model_name, pre_ckpt_path, mindspore_ckpt_path):
 
     if os.path.isdir(pre_ckpt_path):
         rank_dir_list = os.listdir(pre_ckpt_path)
+        rank_dir_list_new = []
+        for rank_dir in rank_dir_list:
+            if rank_dir.startswith('rank_'):
+                rank_dir_list_new.append(rank_dir)
+        rank_dir_list = rank_dir_list_new
         mp = len(rank_dir_list)
         for rank_dir in rank_dir_list:
             rank_dir_name = str(rank_dir)

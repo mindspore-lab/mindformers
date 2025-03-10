@@ -124,6 +124,8 @@ context:
   save_graphs: False
   save_graphs_path: "./graph"
   device_id: 0
+  mempool_block_size: "58GB"
+  affinity_cpu_list: "None"
 
 # model config
 model:
@@ -145,12 +147,12 @@ model:
     hidden_dropout_prob: 0.
     attention_dropout_prob: 0.
     intermediate_size: 12288
-    res_dtype: "bfloat16"
-    compute_dtype: "bfloat16"
+    res_dtype: "float16"
+    compute_dtype: "float16"
     layernorm_compute_type: "float32"
     softmax_compute_type: "float32"
-    rotary_dtype: "bfloat16"
-    param_init_type: "bfloat16"
+    rotary_dtype: "float16"
+    param_init_type: "float16"
     use_past: True
     pretrain_seqlen: 8192 # seqlen of the pretrain checkpoint
     extend_method: "None" # support "None", "PI", "NTK"
@@ -158,7 +160,7 @@ model:
     block_size: 16
     num_blocks: 512
     is_dynamic: True
-    out_proj_has_bias: True 
+    out_proj_has_bias: True
     qkv_concat: False
     use_past_shard: False
     repetition_penalty: 1
