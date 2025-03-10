@@ -363,7 +363,7 @@ class LlamaFeedForward(Cell):
                                         has_bias=False,
                                         compute_dtype=compute_dtype,
                                         param_init_type=param_init_type)
-            self.activate = self.hidden_act()
+            self.activate = self.hidden_act() if self.hidden_act else None
             self.split = ms.ops.auto_generate.SplitWithSize()
             self.w2 = Linear(in_channels=hidden_dim,
                              out_channels=dim,
@@ -401,12 +401,11 @@ class LlamaFeedForward(Cell):
                              has_bias=False,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type)
-            self.w13_concat = P.Concat(-1)
+            self.w13_concat = P.Concat(-2)
         self.rmsnorm_compute_2d = rmsnorm_compute_2d
         if self.use_fused_swiglu:
             self.swiglu = ms.ops.auto_generate.gen_ops_prim.Swiglu()
             self.expand_dims = P.ExpandDims()
-            self.squeeze = P.Squeeze(axis=-1)
 
     def construct(self, x):
         """Forward process of the FeedForward"""
@@ -426,12 +425,13 @@ class LlamaFeedForward(Cell):
             gate = self.w1(x)  # dp,1 -> dp, mp
             hidden = self.w3(x)  # dp,1 -> dp, mp
             if self.use_fused_swiglu:
-                gate = self.expand_dims(gate, -1)
-                hidden = self.expand_dims(hidden, -1)
+                gate = self.expand_dims(gate, -2)
+                hidden = self.expand_dims(hidden, -2)
             gate_hidden_out = self.w13_concat((gate, hidden))
         if self.use_fused_swiglu:
-            hidden = self.swiglu(gate_hidden_out, -1)
-            hidden = self.squeeze(hidden)
+            hidden_shape = hidden.shape
+            hidden = self.swiglu(gate_hidden_out, -2)
+            hidden = self.reshape(hidden, hidden_shape[:-2] + (-1,))
         else:
             hidden = self.mul(hidden, gate)  # dp,mp -> dp, mp
 
@@ -506,13 +506,13 @@ class LlamaFeedForward(Cell):
                     self.w2.shard(((dp * cp, mp), (1, mp)))
                     self.w3.shard(((dp * cp, 1), (mp, 1)))
                     self.mul.shard(((dp, cp, mp), (dp, cp, mp)))
-                    self.w13_concat.shard(((dp, cp, mp, 1), (dp, cp, mp, 1)))
+                    self.w13_concat.shard(((dp, cp, 1, mp), (dp, cp, 1, mp)))
                 if self.use_fused_swiglu:
                     layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
-                    self.swiglu.shard((layout("dp", "cp", "mp", "None"),), (layout("dp", "cp", "mp", "None"),))
+                    self.swiglu.shard((layout("dp", "cp", "None", "mp"),),
+                                      (layout("dp", "cp", "None", "mp"),))
                     self.swiglu.add_prim_attr("self_define_shard", True)
                     self.expand_dims.shard(((dp, cp, mp),))
-                    self.squeeze.shard(((dp, cp, mp, 1),))
             else:
                 logger.info("shard ffn with MoE")
                 if self.mp_moe_flag:
@@ -524,6 +524,7 @@ class LlamaFeedForward(Cell):
                               strategy_activation=((dp, ep, mp, 1),))
                 self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
                 self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
+                self.w13_concat.shard(((dp, ep * cp, 1, mp), (dp, ep * cp, 1, mp)))
                 if self.use_allgather_dispatcher:
                     self.mul.shard(((dp, ep, 1, mp), (dp, ep, 1, mp)))
                 else:
@@ -532,14 +533,12 @@ class LlamaFeedForward(Cell):
                         mul_shard = (dp, ep, mp)
                     self.mul.shard((mul_shard, mul_shard))
 
-                self.w13_concat.shard(((dp, ep * cp, mp, 1), (dp, ep * cp, mp, 1)))
                 if self.use_fused_swiglu:
-                    layout = Layout((dp, ep, cp, mp), ("dp", "ep", "cp", "mp"))
-                    self.swiglu.shard((layout("dp", ("ep", "cp"), "mp", "None"),),
-                                      (layout("dp", ("ep", "cp"), "mp", "None"),))
+                    layout = Layout((dp, ep * cp, mp), ("dp", "ep_cp", "mp"))
+                    self.swiglu.shard((layout("dp", "ep_cp", "None", "mp"),),
+                                      (layout("dp", "ep_cp", "None", "mp"),))
                     self.swiglu.add_prim_attr("self_define_shard", True)
                     self.expand_dims.shard(((dp, ep * cp, mp),))
-                    self.squeeze.shard(((dp, ep * cp, mp, 1),))
 
     def _shard_ndtp(self, parallel_config):
         """sharding for feedforward with use_3d_tensor_parallel"""
