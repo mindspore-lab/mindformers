@@ -14,20 +14,20 @@ ConvertWeight支持对torch权重和mindspore权重的格式互转
 
 ## 支持模型
 
-| name        |                          |
-|-------------|--------------------------|
-| llama       | llama                    |
-| glm         | glm                      |
-| glm-n       | glm2、glm3                |
-| qwen        | qwen2                    |
-| gpt         | gpt2                     |
-| mixtral     | mixtral                  |
-| mae         | mae                      |
-| vit         | vit                      |
-| swin        | swin                     |
-| knowlm      | knowlm                   |
-| telechat    | telechat_7b、telechat_12b |
-| deepseek    | deepseek、deepseek1_5     |
+| name     |                          |
+|----------|--------------------------|
+| llama    | llama                    |
+| glm      | glm                      |
+| glm-n    | glm3                     |
+| qwen     | qwen2                    |
+| gpt      | gpt2                     |
+| mixtral  | mixtral                  |
+| mae      | mae                      |
+| vit      | vit                      |
+| swin     | swin                     |
+| knowlm   | knowlm                   |
+| telechat | telechat_7b、telechat_12b |
+| deepseek | deepseek、deepseek1_5     |
 
 ## 使用方式
 
