@@ -27,7 +27,6 @@ from mindspore.context import ParallelMode
 from mindspore.ops import functional as F
 from mindspore.common import dtype
 from mindspore.common.parameter import Parameter
-from mindspore.common.initializer import initializer
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
 from mindspore.ops.auto_generate import Cast, MatMulExt, AddExt, Reshape, Transpose, IndexSelect
 
@@ -123,13 +122,12 @@ class ColumnParallelLinear(nn.Cell):
             self.weight = None
         else:
             weight_shape = (output_size, input_size) if transpose_b else (input_size, output_size)
-            # we use `zeros` to generate a tensor as the `init_method` parameter.
-            self.weight = Parameter(init_method(initializer('zeros', weight_shape)), name='weight')
+            self.weight = Parameter(init_method(weight_shape), name='weight')
 
         if self.has_bias:
             if bias_init is None:
                 bias_init = init_method_zero(self.params_dtype)
-            self.bias = Parameter(bias_init(initializer('zeros', (output_size,))), name='bias')
+            self.bias = Parameter(bias_init((output_size,)), name='bias')
         else:
             self.bias = None
 
@@ -281,13 +279,12 @@ class RowParallelLinear(nn.Cell):
         self.transpose = Transpose()
 
         weight_shape = (output_size, input_size) if transpose_b else (input_size, output_size)
-        # we use `zeros` to generate a tensor as the `init_method` parameter.
-        self.weight = Parameter(init_method(initializer('zeros', weight_shape)), name='weight')
+        self.weight = Parameter(init_method(weight_shape), name='weight')
 
         if self.has_bias:
             if bias_init is None:
                 bias_init = init_method_zero(self.params_dtype)
-            self.bias = Parameter(bias_init(initializer('zeros', (output_size,))), name='bias')
+            self.bias = Parameter(bias_init((output_size,)), name='bias')
         else:
             self.bias = None
 
@@ -398,9 +395,8 @@ class VocabParallelEmbedding(nn.Cell):
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
         self.weight = Parameter(
-            init_method(
-                initializer('zeros', [self.num_embeddings, self.embedding_dim], dtype=init_type)
-            ), name="weight"
+            init_method([self.num_embeddings, self.embedding_dim]).astype(init_type),
+            name="weight"
         )
         self.gather = IndexSelect()
         self.reshape = Reshape()

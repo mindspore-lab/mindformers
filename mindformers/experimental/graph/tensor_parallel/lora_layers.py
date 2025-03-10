@@ -148,13 +148,12 @@ class LoRAColumnParallelLinear(nn.Cell):
             self.weight = None
         else:
             weight_shape = (output_size, input_size) if transpose_b else (input_size, output_size)
-            # we use `zeros` to generate a tensor as the `init_method` parameter.
-            self.weight = Parameter(init_method(initializer('zeros', weight_shape)), name='weight')
+            self.weight = Parameter(init_method(weight_shape), name='weight')
 
         if self.has_bias:
             if bias_init is None:
                 bias_init = init_method_zero(self.params_dtype)
-            self.bias = Parameter(bias_init(initializer('zeros', (output_size,))), name='bias')
+            self.bias = Parameter(bias_init((output_size,)), name='bias')
         else:
             self.bias = None
 
@@ -355,13 +354,12 @@ class LoRARowParallelLinear(nn.Cell):
         self.scaling = self.lora_alpha / self.lora_rank
 
         weight_shape = (output_size, input_size) if transpose_b else (input_size, output_size)
-        # we use `zeros` to generate a tensor as the `init_method` parameter.
-        self.weight = Parameter(init_method(initializer('zeros', weight_shape)), name='weight')
+        self.weight = Parameter(init_method(weight_shape), name='weight')
 
         if self.has_bias:
             if bias_init is None:
                 bias_init = init_method_zero(self.params_dtype)
-            self.bias = Parameter(bias_init(initializer('zeros', (output_size,))), name='bias')
+            self.bias = Parameter(bias_init((output_size,)), name='bias')
         else:
             self.bias = None
 
