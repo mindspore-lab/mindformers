@@ -309,8 +309,7 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
         >>> type(network)
         <class 'mindformers.models.glm2.glm2.ChatGLM2ForConditionalGeneration'>
     """
-    _support_list = MindFormerBook.get_model_support_list()['glm2']
-    _support_list.extend(MindFormerBook.get_model_support_list()['glm3'])
+    _support_list = MindFormerBook.get_model_support_list()['glm3']
 
     @lazy_inline
     def __init__(self, config: ChatGLM2Config, **kwargs):

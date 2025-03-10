@@ -88,7 +88,6 @@ class TestGLM2WithLoRATrainerMethod:
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,
-                                    model_name='glm2_6b_lora',
                                     tokenizer=self.tokenizer,
                                     args=args,
                                     train_dataset=train_dataset,
