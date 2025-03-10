@@ -217,7 +217,7 @@ class TransformerSwapConfig(_Config):
         """Initialize the swap configuration."""
         if layer_swap is None and op_swap is None:
             op_swap_initialized = {}
-            op_swap_initialized['attention'] = [{
+            op_swap_initialized[r'.*\.flash_attention'] = [{
                 'backward_prefetch': self._default_prefetch,
                 'layers': True
             }]
