@@ -227,14 +227,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/codellama/pretrain_codellama_34b.yaml")),
             ("llama2_7b_lora", os.path.join(
                 _PROJECT_PATH, "configs/llama2/lora_llama2_7b.yaml")),
-            ("glm_6b", os.path.join(
-                _PROJECT_PATH, "configs/glm/run_glm_6b_finetune.yaml")),
-            ("glm_6b_chat", os.path.join(
-                _PROJECT_PATH, "configs/glm/run_glm_6b_infer.yaml")),
-            ("glm_6b_lora", os.path.join(
-                _PROJECT_PATH, "configs/glm/run_glm_6b_lora.yaml")),
-            ("glm_6b_lora_chat", os.path.join(
-                _PROJECT_PATH, "configs/glm/run_glm_6b_lora_infer.yaml")),
             ("glm3_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm3/run_glm3_6b.yaml")),
             ("glm4_9b", os.path.join(
@@ -368,14 +360,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/codellama/predict_codellama_34b.yaml")),
             ("llama2_7b_lora", os.path.join(
                 _PROJECT_PATH, "configs/llama2/lora_llama2_7b.yaml")),
-            ("glm_6b", os.path.join(
-                _PROJECT_PATH, "configs/glm/run_glm_6b_finetune.yaml")),
-            ("glm_6b_chat", os.path.join(
-                _PROJECT_PATH, "configs/glm/run_glm_6b_infer.yaml")),
-            ("glm_6b_lora", os.path.join(
-                _PROJECT_PATH, "configs/glm/run_glm_6b_lora.yaml")),
-            ("glm_6b_lora_chat", os.path.join(
-                _PROJECT_PATH, "configs/glm/run_glm_6b_lora_infer.yaml")),
             ("glm3_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm3/run_glm3_6b.yaml")),
             ("glm4_9b", os.path.join(
@@ -481,12 +465,6 @@ class MindFormerBook:
         ]),
         ('codellama', [
             'codellama_34b',
-        ]),
-        ('glm', [
-            'glm_6b',
-            'glm_6b_chat',
-            'glm_6b_lora',
-            'glm_6b_lora_chat'
         ]),
         ('glm3', [
             'glm3_6b',
@@ -597,12 +575,6 @@ class MindFormerBook:
         ('codellama', [
             'codellama_34b',
         ]),
-        ('glm', [
-            'glm_6b',
-            'glm_6b_chat',
-            'glm_6b_lora',
-            'glm_6b_lora_chat'
-        ]),
         ('glm3', [
             'glm3_6b',
         ]),
@@ -682,9 +654,6 @@ class MindFormerBook:
         ('mllama', [
             'mllama_11b',
         ]),
-        ('glm', [
-            'glm_6b',
-        ]),
         ('glm3', [
             'glm3_6b',
         ]),
@@ -750,9 +719,6 @@ class MindFormerBook:
         ]),
         ('codellama', [
             'codellama_34b',
-        ]),
-        ('glm', [
-            'glm_6b',
         ]),
         ('glm3', [
             'glm3_6b',
@@ -904,22 +870,6 @@ class MindFormerBook:
         ('gpt2_13b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/gpt2/gpt2_13b.ckpt'
-          ]),
-        ('glm_6b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/glm/glm_6b.ckpt'
-          ]),
-        ('glm_6b_chat',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/glm/glm_6b.ckpt'
-          ]),
-        ('glm_6b_lora',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/glm/glm_6b_lora.ckpt'
-          ]),
-        ('glm_6b_lora_chat',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/glm/glm_6b_lora.ckpt'
           ]),
         ('llama2_7b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -1105,10 +1055,6 @@ class MindFormerBook:
           '/XFormer_for_mindspore/gpt2/vocab.json',
           'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/gpt2/merges.txt'
-          ]),
-        ('glm_6b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/glm/ice_text.model'
           ]),
         ('glm3_6b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'

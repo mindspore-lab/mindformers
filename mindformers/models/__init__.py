@@ -101,13 +101,6 @@ from .gpt2 import (
     GPT2Tokenizer,
     GPT2TokenizerFast
 )
-from .glm import (
-    ChatGLMTokenizer,
-    GLMChatModel,
-    GLMConfig,
-    GLMForPreTraining,
-    GLMProcessor
-)
 from .glm2 import (
     ChatGLM2Config,
     ChatGLM2ForConditionalGeneration,
@@ -115,7 +108,8 @@ from .glm2 import (
     ChatGLM2Tokenizer,
     ChatGLM2WithPtuning2,
     ChatGLM3Tokenizer,
-    ChatGLM4Tokenizer
+    ChatGLM4Tokenizer,
+    GLMProcessor
 )
 from .llama import (
     LlamaConfig,

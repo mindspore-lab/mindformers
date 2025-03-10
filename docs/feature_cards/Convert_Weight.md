@@ -17,7 +17,6 @@ ConvertWeight支持对torch权重和mindspore权重的格式互转
 | name     |                          |
 |----------|--------------------------|
 | llama    | llama                    |
-| glm      | glm                      |
 | glm-n    | glm3                     |
 | qwen     | qwen2                    |
 | gpt      | gpt2                     |
