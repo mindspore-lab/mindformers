@@ -39,7 +39,6 @@ from .image_to_text_generation import ImageToTextGenerationTrainer
 from .multi_modal_to_text_generation import MultiModalToTextGenerationTrainer
 from .translation import TranslationTrainer
 from .text_classfication import TextClassificationTrainer
-from .token_classification import TokenClassificationTrainer
 from .question_answering import QuestionAnsweringTrainer
 from .causal_language_modeling import CausalLanguageModelingTrainer
 from .trainer import Trainer
