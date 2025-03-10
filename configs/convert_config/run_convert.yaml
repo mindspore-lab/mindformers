@@ -22,12 +22,6 @@ internlm:
   dtype:
   model_class: AutoModelForCausalLM
 
-baichuan:
-  input_path:
-  output_path:
-  dtype:
-  model_class: AutoModelForCausalLM
-
 gpt:
   input_path:
   output_path:

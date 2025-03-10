@@ -253,12 +253,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm3/run_glm3_6b.yaml")),
             ("glm4_9b", os.path.join(
                 _PROJECT_PATH, "configs/glm4/predict_glm4_9b_chat.yaml")),
-            ("baichuan_7b", os.path.join(
-                _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
-            ("baichuan2_7b", os.path.join(
-                _PROJECT_PATH, "research/baichuan2/run_baichuan2_7b.yaml")),
-            ("baichuan2_13b", os.path.join(
-                _PROJECT_PATH, "research/baichuan2/run_baichuan2_13b.yaml")),
             ("ziya_13b", os.path.join(
                 _PROJECT_PATH, "research/ziya/run_ziya_13b.yaml")),
             ("internlm_7b", os.path.join(
@@ -430,12 +424,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm3/run_glm3_6b.yaml")),
             ("glm4_9b", os.path.join(
                 _PROJECT_PATH, "configs/glm4/predict_glm4_9b_chat.yaml")),
-            ("baichuan_7b", os.path.join(
-                _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
-            ("baichuan2_7b", os.path.join(
-                _PROJECT_PATH, "research/baichuan2/run_baichuan2_7b.yaml")),
-            ("baichuan2_13b", os.path.join(
-                _PROJECT_PATH, "research/baichuan2/run_baichuan2_13b.yaml")),
             ("ziya_13b", os.path.join(
                 _PROJECT_PATH, "research/ziya/run_ziya_13b.yaml")),
             ("internlm_7b", os.path.join(
@@ -535,9 +523,6 @@ class MindFormerBook:
             'llama2_13b',
             'llama2_70b',
             'llama_7b_lora',
-            'baichuan_7b',
-            'baichuan2_7b',
-            'baichuan2_13b',
             'ziya_13b',
             'internlm_7b',
             'internlm_7b_lora',
@@ -848,7 +833,6 @@ class MindFormerBook:
             'llama2_70b',
             'llama3_8b',
             'llama_7b_lora',
-            'baichuan_7b',
             'ziya_13b',
             'codellama_34b',
         ]),
@@ -885,10 +869,6 @@ class MindFormerBook:
         ('internlm', [
             'internlm_7b',
             'internlm_7b_lora',
-        ]),
-        ('baichuan2', [
-            'baichuan2_7b',
-            'baichuan2_13b',
         ]),
         ('qwen', [
             'qwen_7b',
@@ -1340,9 +1320,7 @@ class MindFormerBook:
         ('LlamaTokenizer', 'LlamaProcessor'),
         ('GPT2Tokenizer', 'GPT2Processor'),
         ('PanguAlphaTokenizer', 'PanguAlphaProcessor'),
-        ('InternLMTokenizer', 'LlamaProcessor'),
-        ('BaichuanTokenizer', 'LlamaProcessor'),
-        ('Baichuan2Tokenizer', 'LlamaProcessor')
+        ('InternLMTokenizer', 'LlamaProcessor')
     ])
 
     @classmethod
