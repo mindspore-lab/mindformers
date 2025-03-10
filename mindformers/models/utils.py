@@ -209,6 +209,7 @@ class LayerSetting:
                 self.op_swap[key] = self._initialize_swap_list(self.swap.op_swap[key])
             logger.info(f"Formative layer swap: {self.layer_swap}")
             logger.info(f"Formative op swap: {self.op_swap}")
+            self._check_swap_recompute_conflict()
 
     @staticmethod
     def _check_repeat_pattern(key, select_recompute):
@@ -237,6 +238,53 @@ class LayerSetting:
                 logger.info(f"The pattern {repeat_key} in select{comm}_recompute conflicts with "
                             f"select{comm}_recompute_off and will be removed.")
 
+    def _check_swap_recompute_conflict(self):
+        "Check if the layer or operator is enable swap and recompute at the same time."
+        if isinstance(self.recompute.recompute, bool) and self.recompute.recompute:
+            logger.warning(f"All layers and ops that are enabled swap do not work! \
+                        Because recompute = {self.recompute.recompute}.")
+        if isinstance(self.recompute.recompute, list) and self.recompute.recompute:
+            for layer_idx in self.recompute.recompute:
+                self._check_layer_swap_recompute_conflict(layer_idx, self.layer_swap)
+            for op_name, _ in self.op_swap.items():
+                self._check_op_swap_recompute_conflict(op_name, self.recompute.recompute)
+
+        if isinstance(self.recompute.select_recompute, dict):
+            for op_name, recompute_layers in self.recompute.select_recompute.items(): # op_name->str, recompute_info->[]
+                for layer_idx in recompute_layers:
+                    self._check_layer_swap_recompute_conflict(layer_idx, self.layer_swap, op_name)
+                if op_name in self.op_swap.keys():
+                    self._check_op_swap_recompute_conflict(op_name, recompute_layers)
+
+    def _check_layer_swap_recompute_conflict(self, layer_idx, layer_list, op_name="All"):
+        "Check if the layer is enable swap and recompute at the same time."
+        for swap_layer in layer_list:
+            if isinstance(swap_layer.get(self.layers), bool) and swap_layer.get(self.layers):
+                logger.warning(f"{op_name} operator in layer {layer_idx} that \
+                            is enabled swap do not work! Because it is enabled recompute.")
+            else:
+                if layer_idx in swap_layer.get(self.layers):
+                    logger.warning(f"{op_name} operator in layer {layer_idx} that \
+                                is enabled swap do not work! Because it is enabled recompute.")
+
+    def _check_op_swap_recompute_conflict(self, op_name, layer_list):
+        "Check if the operator is enable swap and recompute at the same time."
+        if isinstance(layer_list, bool) and layer_list:
+            logger.warning(f"{op_name} operator that is enabled swap do not work! Because it is enabled recompute.")
+        else:
+            op_swap_layer_list = self.op_swap[op_name]
+            op_swap_layers = set()
+            for swap_info in op_swap_layer_list:
+                if isinstance(swap_info.get(self.layers), bool) and swap_info.get(self.layers):
+                    op_swap_layers.clear()
+                    op_swap_layers = True
+                    break
+                op_swap_layers = op_swap_layers.union(set(swap_info.get(self.layers)))
+            for layer_idx in layer_list:
+                if isinstance(op_swap_layers, bool) or layer_idx in op_swap_layers:
+                    logger.warning(f"{op_name} operator in layer {layer_idx} that \
+                                is enabled swap do not work! Because it is enabled recompute.")
+
     def _initialize_swap_list(self, swap_list):
         """Initialize the swap list by creating swap configurations for each item."""
         if self.swap.swap and not swap_list:
@@ -264,11 +312,11 @@ class LayerSetting:
                     logger.info(f"Set layer swap at layer {layer_id} \
                                 and value is: {self.layer_swap[0].get(self.backward_prefetch)}")
             else:
-                if not self._set_layer_swap(layer, layer_id):
-                    self._set_op_swap(layer, layer_id)
+                self._set_layer_swap(layer, layer_id)
+            self._set_op_swap(layer, layer_id)
 
     def _set_op_swap(self, layer, layer_id):
-        """Set swap for operations in the layer based on patterns and layer_id when layer_index_swap == True."""
+        """Set swap for operations in the layer based on patterns and layer_id."""
         log_ops = []
         for pattern in self.op_swap:
             for layer_swap in self.op_swap[pattern]:
@@ -291,8 +339,7 @@ class LayerSetting:
                 layer.offload(backward_prefetch=layer_swap.get(self.backward_prefetch))
                 logger.info(f"Set layer swap at layer {layer_id} \
                             and value is: {layer_swap.get(self.backward_prefetch)}")
-                return True
-        return False
+                break
 
     @staticmethod
     def set_pattern_swap(layer, p_list, value, info=''):
