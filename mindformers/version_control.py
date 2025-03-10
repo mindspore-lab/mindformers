@@ -422,3 +422,8 @@ def check_rotary_position_embedding_valid():
 def check_seqpp_fa_opt_support():
     """check mindspore version if sparse adaptive adjustment of fa with seqpipie"""
     return is_version_ge(ms.__version__, "2.6.0")
+
+
+def check_moveto_op_support():
+    """Check whether MindSpore supports the MoveTo operator."""
+    return is_version_ge(ms.__version__, "2.6.0")
