@@ -52,6 +52,7 @@ class DPOConfig(RlConfig):
     Args:
         dpo_alpha (float, optional): coef for dpo loss. Default: ``0.5``.
         dpo_beta (float, optional): coef for sft loss. Default: ``1.0``.
+        beta (float, optional): used to control the degree of regularization. Default: ``0.1``.
 
     Returns:
         An instance of DPOConfig.
@@ -60,12 +61,14 @@ class DPOConfig(RlConfig):
         >>> from mindformers.rl_preprocess.rl_config import DPOConfig
         >>> config = RlConfig(dpo_alpha='0.5')
         >>> print(config)
-        {'rl_type': 'dpo', 'dpo_alpha': 1.0, 'dpo_beta': 1.0}
+        {'rl_type': 'dpo', 'dpo_alpha': 0.5, 'dpo_beta': 1.0, 'beta': 0.1}
     """
     def __init__(self,
                  dpo_alpha: float = 0.5,
                  dpo_beta: float = 1.0,
+                 beta: float = 0.1,
                  **kwargs):
         super().__init__(**kwargs)
         self.dpo_alpha = dpo_alpha
         self.dpo_beta = dpo_beta
+        self.beta = beta
