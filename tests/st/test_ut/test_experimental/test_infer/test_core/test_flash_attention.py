@@ -22,8 +22,6 @@ import mindspore as ms
 import mindspore.common.dtype as mstype
 from mindspore import nn
 from mindspore import ops
-from mindspore import Parameter
-from mindspore.common.initializer import initializer
 from mindspore.common.tensor import Tensor
 
 from mindformers.experimental.graph.transformer.transformer_config import (
@@ -33,22 +31,11 @@ from mindformers.experimental.infer.core.flash_attention import FlashAttention a
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.paged_attention_mgr import PagedAttentionMgr
 
-NUM_BLOCKS = 128
-BLOCK_SIZE = 64
-
-def gen_kv_cache(config_):
-    """Generate the cache of key and value."""
-    kv_cache_shape = (NUM_BLOCKS, BLOCK_SIZE, config_.num_kv_heads,
-                      config_.head_dim)
-    key_cache = Parameter(initializer('normal', kv_cache_shape,
-                                      mstype.float16),
-                          name="key_cache",
-                          requires_grad=False)
-    value_cache = Parameter(initializer('normal', kv_cache_shape,
-                                        mstype.float16),
-                            name="value_cache",
-                            requires_grad=False)
-    return key_cache, value_cache
+from tests.st.test_ut.test_experimental.test_infer.test_core import (
+    BLOCK_SIZE,
+    NUM_BLOCKS,
+    gen_kv_cache,
+)
 
 ms.set_context(
     device_target="Ascend",
@@ -58,7 +45,6 @@ ms.set_context(
         "infer_boost": "on"
     }
 )
-
 
 class FlashAttentionMcoreNet(nn.Cell):
     """Construct flashAttention net of mcore interface."""

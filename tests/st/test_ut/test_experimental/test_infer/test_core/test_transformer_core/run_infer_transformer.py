@@ -70,7 +70,7 @@ def generate_inputs(config):
     positions = Tensor(np.arange(0, seq_len).astype(np.int32))
     batch_valid_length = Tensor(np.ones((bs,)).astype(np.int32))
     context_lens_tensor = Tensor(np.zeros((bs,)).astype(np.int32))
-    block_tables = Tensor(np.ones((bs, num_blocks)).astype(np.int64))
+    block_tables = Tensor(np.ones((bs, num_blocks)).astype(np.int32))
     slot_mapping = Tensor(np.ones((bs * seq_len,)).astype(np.int32))
     return hidden_states, positions, batch_valid_length, context_lens_tensor, block_tables, slot_mapping
 

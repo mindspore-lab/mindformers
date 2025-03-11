@@ -40,8 +40,11 @@ from mindformers.experimental.infer.core.layers import (
     RowParallelLinear,
 )
 
-NUM_BLOCKS = 128
-BLOCK_SIZE = 64
+from tests.st.test_ut.test_experimental.test_infer.test_core import (
+    BLOCK_SIZE,
+    NUM_BLOCKS,
+    convert_weight_name,
+)
 
 ms.set_context(
     device_target="Ascend",
@@ -51,21 +54,6 @@ ms.set_context(
         "infer_boost": "on"
     }
 )
-
-replacement_map = {
-    'w_qkv.weight': 'linear_qkv.weight',
-    'wo.weight': 'linear_proj.weight'
-}
-
-def convert_weight_name(params):
-    """Convert weight name."""
-    for old_name, param in list(params.items()):
-        new_name = replacement_map.get(old_name, old_name)
-        param.name = new_name
-        if new_name != old_name:
-            params.move_to_end(old_name)
-            params[new_name] = params.pop(old_name)
-    return params
 
 def get_self_attention_config(args_):
     """Generate config for SelfAttention test."""

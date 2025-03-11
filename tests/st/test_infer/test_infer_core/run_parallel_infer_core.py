@@ -76,7 +76,7 @@ def _test_parallel_attention(config):
     attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
     if use_past:
         batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
-        block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int64))
+        block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int32))
         slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
         if not is_pynative:
             attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
@@ -114,7 +114,7 @@ def _test_parallel_transformerlayers(config):
     attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
     if use_past:
         batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
-        block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int64))
+        block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int32))
         slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
         if not is_pynative:
             attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
@@ -145,7 +145,7 @@ def _test_parallel_transformer(config):
 
     if use_past:
         batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
-        block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int64))
+        block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int32))
         slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
 
     output = net(tokens, batch_valid_length=batch_valid_length, batch_index=None, zactivate_len=None,
