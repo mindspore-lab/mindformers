@@ -1019,7 +1019,7 @@ def build_alibi_tensor_v2(seq_len, num_heads, return_tensors='ms', dtype=mstype.
 
 def _check_llama3_scaling_factor(scaling_factor, max_position_embedding):
     """check llama3 scaling factor"""
-    if scaling_factor is None or not isinstance(scaling_factor, dict):
+    if not isinstance(scaling_factor, dict):
         raise ValueError(f"`scaling_factor` must be a dict for {SeqExtendMethod.LLAMA3.value} rope extend method,"
                          f" but got {scaling_factor}")
 
@@ -1034,14 +1034,14 @@ def _check_llama3_scaling_factor(scaling_factor, max_position_embedding):
         raise KeyError(f"Unrecognized keys in `scaling_factor` for 'extend_method' LLAMA3': {unused_keys}")
 
     factor = scaling_factor["factor"]
-    if factor is None or not isinstance(factor, float) or factor < 1.0:
+    if not isinstance(factor, (int, float)) or factor < 1.0:
         raise ValueError(f"`scaling_factor`'s factor field must be a float >= 1, got {factor}")
 
     low_freq_factor = scaling_factor["low_freq_factor"]
     high_freq_factor = scaling_factor["high_freq_factor"]
-    if low_freq_factor is None or not isinstance(low_freq_factor, float):
+    if not isinstance(low_freq_factor, (int, float)):
         raise ValueError(f"`scaling_factor`'s low_freq_factor field must be a float, got {low_freq_factor}")
-    if high_freq_factor is None or not isinstance(high_freq_factor, float):
+    if not isinstance(high_freq_factor, (int, float)):
         raise ValueError(f"`scaling_factor`'s high_freq_factor field must be a float, got {high_freq_factor}")
     if high_freq_factor < low_freq_factor:
         raise ValueError(
@@ -1050,7 +1050,7 @@ def _check_llama3_scaling_factor(scaling_factor, max_position_embedding):
         )
 
     original_max_position_embeddings = scaling_factor["original_max_position_embeddings"]
-    if original_max_position_embeddings is None or not isinstance(original_max_position_embeddings, int):
+    if not isinstance(original_max_position_embeddings, int):
         raise ValueError(
             "`scaling_factor`'s original_max_position_embeddings field must be an integer, got "
             f"{original_max_position_embeddings}"
@@ -1064,7 +1064,7 @@ def _check_llama3_scaling_factor(scaling_factor, max_position_embedding):
 
 def _check_yarn_scaling_factor(scaling_factor, max_position_embedding):
     """check YARN scaling factor"""
-    if scaling_factor is None or not isinstance(scaling_factor, dict):
+    if not isinstance(scaling_factor, dict):
         raise ValueError(f"`scaling_factor` must be a dict for {SeqExtendMethod.YARN.value} rope extend method,"
                          f" but got {scaling_factor}")
 
@@ -1080,14 +1080,14 @@ def _check_yarn_scaling_factor(scaling_factor, max_position_embedding):
         raise KeyError(f"Unrecognized keys in `scaling_factor` for 'extend_method' YARN': {unused_keys}")
 
     factor = scaling_factor["factor"]
-    if factor is None or not isinstance(factor, float) or factor < 1.0:
+    if not isinstance(factor, (int, float)) or factor < 1.0:
         raise ValueError(f"`scaling_factor`'s factor field must be a float >= 1, got {factor}")
 
     beta_slow = scaling_factor["beta_slow"]
     beta_fast = scaling_factor["beta_fast"]
-    if beta_slow is None or not isinstance(beta_slow, float):
+    if not isinstance(beta_slow, (int, float)):
         raise ValueError(f"`scaling_factor`'s beta_slow field must be a float, got {beta_slow}")
-    if beta_fast is None or not isinstance(beta_fast, float):
+    if not isinstance(beta_fast, (int, float)):
         raise ValueError(f"`scaling_factor`'s beta_fast field must be a float, got {beta_fast}")
     if beta_fast < beta_slow:
         raise ValueError(
@@ -1096,21 +1096,21 @@ def _check_yarn_scaling_factor(scaling_factor, max_position_embedding):
         )
 
     original_max_position_embeddings = scaling_factor["original_max_position_embeddings"]
-    if original_max_position_embeddings is None or not isinstance(original_max_position_embeddings, int):
+    if not isinstance(original_max_position_embeddings, int):
         raise ValueError(
             "`scaling_factor`'s original_max_position_embeddings field must be an integer, got "
             f"{original_max_position_embeddings}"
         )
-    if original_max_position_embeddings >= max_position_embedding:
+    if original_max_position_embeddings > max_position_embedding:
         raise ValueError(
-            "`scaling_factor`'s original_max_position_embeddings field must be less than max_position_embeddings, got "
-            f"{original_max_position_embeddings} and max_position_embeddings={max_position_embedding}"
+            "`scaling_factor`'s original_max_position_embeddings field must be not larger than max_position_embeddings,"
+            f" got {original_max_position_embeddings} and max_position_embeddings={max_position_embedding}"
         )
 
 
 def _check_linear_scaling_factor(scaling_factor):
     """check LINEAR scaling factor"""
-    if scaling_factor is None or not isinstance(scaling_factor, dict):
+    if not isinstance(scaling_factor, dict):
         raise ValueError(f"`scaling_factor` must be a dict for {SeqExtendMethod.LINEAR.value} rope extend method,"
                          f" but got {scaling_factor}")
     required_keys = {"factor"}
@@ -1122,7 +1122,7 @@ def _check_linear_scaling_factor(scaling_factor):
     if unused_keys:
         raise KeyError(f"Unrecognized keys in `scaling_factor` for 'extend_method' LINEAR': {unused_keys}")
     factor = scaling_factor["factor"]
-    if factor is None or not isinstance(factor, float) or factor < 1.0:
+    if isinstance(factor, (int, float)) or factor < 1.0:
         raise ValueError(f"`scaling_factor`'s factor field must be a float >= 1, got {factor}")
 
 
