@@ -44,7 +44,7 @@ def test_paged_attention_mgr():
     compute_dtype = mstype.float16
     hidden_size = head_num * head_dim
     batch_valid_length = Tensor(np.ones((bsz, 1)), mstype.int32)
-    block_tables = Tensor(np.ones((bsz, num_blocks)), mstype.int64)
+    block_tables = Tensor(np.ones((bsz, num_blocks)), mstype.int32)
     query = Tensor(np.ones((bsz, seq_len, hidden_size)), mstype.float16)
     key = Tensor(np.ones((bsz, seq_len, hidden_size)), mstype.float16)
     value = Tensor(np.ones((bsz, seq_len, hidden_size)), mstype.float16)
