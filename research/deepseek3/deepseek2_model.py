@@ -957,6 +957,10 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                  batch_size=1,
                  seq_length=4096,
                  enable_fa_var_len=False,
+                 use_3d_tensor_parallel=False,
+                 tp_x=1,
+                 tp_y=1,
+                 tp_z=1
                  ):
         super().__init__()
         self.layer_id = layer_id
@@ -1065,7 +1069,11 @@ class DeepSeekV2DecodeLayer(nn.Cell):
                                                                 use_moe_infer=self.use_moe_infer,
                                                                 return_extra_loss=self.return_extra_loss,
                                                                 init_method_std=init_method_std,
-                                                                use_fused_swiglu=use_fused_swiglu)
+                                                                use_fused_swiglu=use_fused_swiglu,
+                                                                use_3d_tensor_parallel=use_3d_tensor_parallel,
+                                                                tp_x=tp_x,
+                                                                tp_y=tp_y,
+                                                                tp_z=tp_z)
 
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
@@ -1196,6 +1204,12 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
             self.use_flash_attention = False
         if self.use_flash_attention:
             logger.info("Enable flash attention.")
+        self.use_3d_tensor_parallel = getattr(config, "use_3d_tensor_parallel", False)
+        self.tp_x = getattr(config, "tp_x", 1)
+        self.tp_y = getattr(config, "tp_y", 1)
+        self.tp_z = getattr(config, "tp_z", 1)
+        if self.use_3d_tensor_parallel:
+            logger.info("Enable 3d tensor parallel. tp_x={}, tp_y={}, tp_z={}".format(self.tp_x, self.tp_y, self.tp_z))
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
@@ -1276,7 +1290,11 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                           use_fused_swiglu=config.use_fused_swiglu,
                                           batch_size=config.batch_size,
                                           seq_length=config.seq_length,
-                                          enable_fa_var_len=config.enable_fa_var_len)
+                                          enable_fa_var_len=config.enable_fa_var_len,
+                                          use_3d_tensor_parallel=self.use_3d_tensor_parallel,
+                                          tp_x=self.tp_x,
+                                          tp_y=self.tp_y,
+                                          tp_z=self.tp_z)
             self.layer_setting(layer, layer_id)
             self.layers.append(layer)
 

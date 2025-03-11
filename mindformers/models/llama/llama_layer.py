@@ -733,7 +733,11 @@ class LlamaFeedForwardWithMoE(Cell):
                  use_moe_infer=True,
                  return_extra_loss=False,
                  use_fused_swiglu=False,
-                 init_method_std=0.01
+                 init_method_std=0.01,
+                 use_3d_tensor_parallel=False,
+                 tp_x=1,
+                 tp_y=1,
+                 tp_z=1
                  ):
         super().__init__()
         self.expert_num = moe_config.expert_num
@@ -778,7 +782,11 @@ class LlamaFeedForwardWithMoE(Cell):
                 return_extra_loss=return_extra_loss,
                 moe_config=moe_config,
                 parallel_config=parallel_config,
-                init_method_std=init_method_std
+                init_method_std=init_method_std,
+                use_3d_tensor_parallel=use_3d_tensor_parallel,
+                tp_x=tp_x,
+                tp_y=tp_y,
+                tp_z=tp_z
             )
 
         else:
