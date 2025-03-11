@@ -296,7 +296,7 @@ def use_mint_op():
 def check_valid_gmm_op(gmm_version=None):
     """check mindspore version is valid for groupedmatmul"""
     version_map = {"GroupedMatmul": "2.3.0",
-                   "GroupedMatmulV4": "2.5.0"}
+                   "GroupedMatmulV4": "2.6.0"}
     version_info = ms.__version__.split('rc')
     version_valid = is_version_ge(version_info[0], version_map.get(gmm_version))
     if version_valid is None:
