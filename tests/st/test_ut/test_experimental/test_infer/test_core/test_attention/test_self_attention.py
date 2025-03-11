@@ -29,13 +29,13 @@ from mindformers.experimental.graph.transformer.transformer_config import (
     TransformerConfig
 )
 from mindformers.experimental.infer.core.transformer import ParallelAttention
-from mindformers.experimental.infer.core.flash_attention import FlashAttention
-from mindformers.experimental.infer.core.self_attention import (
+from mindformers.experimental.infer.transformer.flash_attention import FlashAttention
+from mindformers.experimental.infer.transformer.self_attention import (
     CoreAttention,
     SelfAttention,
     SelfAttentionSubmodules,
 )
-from mindformers.experimental.infer.core.layers import (
+from mindformers.experimental.infer.tensor_parallel.layers import (
     ColumnParallelLinear,
     RowParallelLinear,
 )

@@ -18,9 +18,14 @@ from typing import Union
 from mindspore import nn
 from mindspore import ops as P
 
-from mindformers.experimental.infer.core.norm import get_norm
 from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec, build_module
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
+
+__all__ = [
+    'TransformerLayerSubmodules',
+    'BaseTransformerLayer',
+    'TransformerLayer'
+]
 
 
 class TransformerLayerSubmodules:
@@ -125,7 +130,12 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
         self.apply_residual_connection_post_norm = config.apply_residual_connection_post_layernorm
         self.add = P.Add()
 
-        self.input_layernorm = get_norm(config)
+        self.input_layernorm = build_module(
+            submodules.input_layernorm,
+            config.hidden_size,
+            eps=config.layernorm_epsilon,
+            compute_type=config.layernorm_compute_type
+        )
 
         attention_optional_kwargs = {}
         self.self_attention = build_module(
@@ -135,7 +145,13 @@ class TransformerLayer(nn.Cell, BaseTransformerLayer):
             **attention_optional_kwargs,
         )
 
-        self.pre_mlp_layernorm = get_norm(config)
+        self.pre_mlp_layernorm = build_module(
+            submodules.pre_mlp_layernorm,
+            config.hidden_size,
+            eps=config.layernorm_epsilon,
+            compute_type=config.layernorm_compute_type
+        )
+
         self.mlp = build_module(submodules.mlp, config=self.config)
 
     def construct(

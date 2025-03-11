@@ -18,6 +18,7 @@ import mindspore.ops.operations as P
 from mindspore import Parameter, nn
 from mindspore.common.initializer import initializer
 
+from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.version_control import check_rmsnorm_big_kernel_valid
 
 __all__ = ["get_norm"]
@@ -126,24 +127,18 @@ class RMSNorm(nn.Cell):
         return state_dict
 
 
-def get_norm(config):
+def get_norm(config: TransformerConfig):
     r"""
     Get normalization layer.
 
     Args:
-        config: The config of the model.
+        config: The transformer config of the model.
 
     Returns:
         callable, the normalization layer.
     """
     if config.normalization == "LayerNorm":
-        return LayerNorm(
-            config.hidden_size,
-            eps=config.layernorm_epsilon,
-            compute_type=config.layernorm_compute_dtype)
+        return LayerNorm
     if config.normalization == "RMSNorm":
-        return RMSNorm(dim=config.hidden_size,
-                       eps=config.layernorm_epsilon,
-                       compute_type=config.layernorm_compute_dtype)
-
+        return RMSNorm
     raise Exception(f"unsupported norm type '{config.normalization}'.")

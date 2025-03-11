@@ -1,4 +1,4 @@
-# Copyright 2024 Huawei Technologies Co., Ltd
+# Copyright 2025 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""Layers"""
+"""Linear units for tensor parallelism"""
 import mindspore.common.dtype as mstype
 import mindspore.ops.functional as F
 import mindspore.ops.operations as P
@@ -30,6 +30,7 @@ from mindformers.experimental.parallel_core.pynative.tensor_parallel.random impo
                                                                                     get_rng_tracer)
 from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.version_control import check_valid_gmm_op
+from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 
 __all__ = ["ColumnParallelLinear", "RowParallelLinear", "VocabParallelEmbedding"]
 
@@ -81,7 +82,7 @@ class ColumnParallelLinear(nn.Cell):
             self,
             input_size,
             output_size,
-            config,
+            config: TransformerConfig,
             weight_init="normal",
             bias_init="zeros",
             bias=True,
@@ -129,10 +130,9 @@ class ColumnParallelLinear(nn.Cell):
         self.is_expert = is_expert
         self.expert_num = expert_num
         self.skip_weight_param_allocation = skip_weight_param_allocation
-        self.parallel_config = config
         self.compute_dtype = compute_dtype
 
-        self.sequence_parallel = self.parallel_config.use_sequence_parallel
+        self.sequence_parallel = config.sequence_parallel
         self.transpose_b = transpose_b if self.expert_num <= 1 else False
 
         if self.sequence_parallel and self.tensor_parallel_group_size <= 1:
@@ -273,7 +273,7 @@ class RowParallelLinear(nn.Cell):
             self,
             input_size,
             output_size,
-            config,
+            config: TransformerConfig,
             input_is_parallel,
             weight_init="normal",
             bias_init="zeros",
@@ -306,9 +306,8 @@ class RowParallelLinear(nn.Cell):
         self.input_is_parallel = input_is_parallel
         self.tensor_parallel_group_size = get_tp_world_size()
         self.input_size_per_partition = divide(input_size, self.tensor_parallel_group_size)
-        self.parallel_config = config
         self.compute_dtype = compute_dtype
-        self.sequence_parallel = self.parallel_config.use_sequence_parallel
+        self.sequence_parallel = config.sequence_parallel
         self.expert_num = expert_num
         self.is_expert = is_expert
         self.transpose_b = transpose_b if self.expert_num <= 1 else False
@@ -430,14 +429,14 @@ class VocabParallelEmbedding(nn.Cell):
             self,
             num_embeddings,
             embedding_dim,
-            parallel_config,
+            config: TransformerConfig,
             init_method="normal",
             init_type=mstype.float32,
     ):
         super().__init__()
         self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
-        self.sequence_parallel = parallel_config.use_sequence_parallel
+        self.sequence_parallel = config.sequence_parallel
 
         self.tensor_parallel_group_size = get_tp_world_size()
 

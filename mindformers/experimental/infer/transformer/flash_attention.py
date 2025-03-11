@@ -22,6 +22,8 @@ from mindspore.nn.cell import Cell
 from mindspore.ops import functional as F
 from mindspore.ops.operations.nn_ops import FlashAttentionScore
 
+__all__ = ['FlashAttention']
+
 
 class FlashAttention(Cell):
     """Flash Attention Layer.

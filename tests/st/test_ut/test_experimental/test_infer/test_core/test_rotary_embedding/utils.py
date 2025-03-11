@@ -20,7 +20,7 @@ import mindspore.common.dtype as mstype
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.modules.layers import FreqsMgr, SeqExtendMethod
 from mindformers.modules.infer_attention import InferRotaryEmbedding
-from mindformers.experimental.infer.core.rotary_embedding import RotaryEmbedding, Llama3RotaryEmbedding
+from mindformers.experimental.infer.transformer.rotary_embedding import RotaryEmbedding, Llama3RotaryEmbedding
 
 
 class NewRopeNet(nn.Cell):
