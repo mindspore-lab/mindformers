@@ -77,7 +77,6 @@ from .keyword_gen_dataset import KeyWordGenDataset
 from .mask_language_model_dataset import MaskLanguageModelDataset
 from .mim_dataset import MIMDataset
 from .question_answering_dataset import QuestionAnsweringDataset
-from .reward_model_dataset import RewardModelDataset
 from .text_classification_dataset import TextClassificationDataset
 from .token_classification_dataset import TokenClassificationDataset
 from .translation_dataset import TranslationDataset

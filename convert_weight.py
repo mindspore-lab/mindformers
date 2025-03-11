@@ -44,7 +44,6 @@ convert_map = {
     'baichuan': 'research.baichuan.convert_weight.convert_pt_to_ms',
     'baichuan2': 'research.baichuan2.convert_weight.convert_pt_to_ms',
     'gpt': 'mindformers.models.gpt2.convert_weight.convert_pt_to_ms',
-    'bloom': 'mindformers.models.bloom.convert_weight.convert_pt_to_ms',
     'blip': 'mindformers.models.blip2.convert_weight.convert_pt_to_ms',
     'wizardcoder': 'research.wizardcoder.convert_weight.convert_pt_to_ms',
     'skywork': 'research.skywork.convert_weight.convert_pt_to_ms',
@@ -78,7 +77,6 @@ reversed_convert_map = {
     'baichuan': 'research.baichuan.convert_reversed.convert_ms_to_pt',
     'baichuan2': 'research.baichuan2.convert_reversed.convert_ms_to_pt',
     'gpt': 'mindformers.models.gpt2.convert_reversed.convert_ms_to_pt',
-    'bloom': 'mindformers.models.bloom.convert_reversed.convert_ms_to_pt',
     'blip': 'mindformers.models.blip2.convert_reversed.convert_ms_to_pt',
     'wizardcoder': 'research.wizardcoder.convert_reversed.convert_ms_to_pt',
     'skywork': 'research.skywork.convert_reversed.convert_ms_to_pt',
@@ -105,10 +103,6 @@ if __name__ == '__main__':
     parser.add_argument('--dtype', default=None, type=str, required=False)
     parser.add_argument('--qkv_concat', default=False, type=str2bool, required=False)
 
-    parser.add_argument('--n_head', default=32, type=int, required=False,
-                        help="Only for bloom, 16 for bloom_560m or 32 for bloom_7.1b")
-    parser.add_argument('--hidden_size', default=4096, type=int, required=False,
-                        help="Only for bloom, 1024 for bloom_560m or 4096 for bloom_7.1b")
     parser.add_argument('--layers', default=12, type=int, required=False,
                         help="Only for gpt2 and wizardcoder. "
                              "The number of layers of the model to be converted from hf to ms")

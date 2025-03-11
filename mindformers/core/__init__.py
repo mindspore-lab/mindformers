@@ -25,7 +25,6 @@ from .lr import (
     build_lr
 )
 from .loss import (
-    CompareLoss,
     CrossEntropyLoss,
     L1Loss,
     MSELoss,

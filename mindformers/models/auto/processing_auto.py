@@ -45,7 +45,6 @@ PROCESSOR_MAPPING_NAMES = OrderedDict(
     [
         ("bert", "BertProcessor"),
         ("blip2", "Blip2Processor"),
-        ("bloom", "BloomProcessor"),
         ("clip", "CLIPProcessor"),
         ("glm", "GLMProcessor"),
         ("gpt2", "GPT2Processor"),
