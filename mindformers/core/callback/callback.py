@@ -807,7 +807,9 @@ class TrainingStateMonitor(Callback):
         if not isinstance(config, dict):
             raise TypeError("The param `config` of TrainingStateMonitor should be a dict.")
         self.target = config.get('target') or ['.*']
-        self.invert = config.get('invert', False)
+        self.invert = config.get('invert')
+        if self.invert is None:
+            self.invert = False
         self.target_cache = {}
         self.local_norm_format = config.get('local_norm_format', None)
         self.local_loss_format = config.get('local_loss_format', None)
@@ -815,7 +817,9 @@ class TrainingStateMonitor(Callback):
         self.optimizer_state_format = config.get('optimizer_state_format', None)
         self.weight_state_format = config.get('weight_state_format', None)
         self.throughput_baseline = config.get('throughput_baseline', None)
-        self.print_struct = config.get('print_struct', False)
+        self.print_struct = config.get('print_struct')
+        if self.print_struct is None:
+            self.print_struct = False
         if not (isinstance(self.target, list) and self.target and all([isinstance(i, str) for i in self.target])):
             raise TypeError(f"The value of 'target' should be a list of str.")
         if not isinstance(self.invert, bool):
