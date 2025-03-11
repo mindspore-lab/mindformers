@@ -4,8 +4,8 @@ run_mode: 'predict'
 use_parallel: True
 
 load_checkpoint: "/path/to/deepseekr1/model_w8a8_ckpt"
-load_ckpt_format: "ckpt"
-auto_trans_ckpt: False # If true, auto transform load_checkpoint to load in distributed model
+load_ckpt_format: "safetensors"
+auto_trans_ckpt: True # If true, auto transform load_checkpoint to load in distributed model
 
 # trainer config
 trainer:
