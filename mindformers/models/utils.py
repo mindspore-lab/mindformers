@@ -201,7 +201,7 @@ class LayerSetting:
             logger.info(f"Formative select_recompute_exclude: {self.select_recompute_exclude}")
             logger.info(f"Formative select_comm_recompute_exclude: {self.select_comm_recompute_exclude}")
 
-        if not isinstance(self.swap, bool):
+        if self.swap.swap:
             self.layer_swap = []
             self.op_swap = dict()
             self.layer_swap = self._initialize_swap_list(self.swap.layer_swap)
@@ -241,8 +241,8 @@ class LayerSetting:
     def _check_swap_recompute_conflict(self):
         "Check if the layer or operator is enable swap and recompute at the same time."
         if isinstance(self.recompute.recompute, bool) and self.recompute.recompute:
-            logger.warning(f"All layers and ops that are enabled swap do not work! \
-                        Because recompute = {self.recompute.recompute}.")
+            logger.warning(f"All layers and ops that are enabled swap do not work!\
+                           Because recompute = {self.recompute.recompute}.")
         if isinstance(self.recompute.recompute, list) and self.recompute.recompute:
             for layer_idx in self.recompute.recompute:
                 self._check_layer_swap_recompute_conflict(layer_idx, self.layer_swap)
@@ -251,6 +251,10 @@ class LayerSetting:
 
         if isinstance(self.recompute.select_recompute, dict):
             for op_name, recompute_layers in self.recompute.select_recompute.items(): # op_name->str, recompute_info->[]
+                if isinstance(recompute_layers, bool) and recompute_layers:
+                    logger.warning(f"{op_name} operator in all layers that is enabled swap do not work!\
+                                   Because it is enabled recompute.")
+                    continue
                 for layer_idx in recompute_layers:
                     self._check_layer_swap_recompute_conflict(layer_idx, self.layer_swap, op_name)
                 if op_name in self.op_swap.keys():
@@ -260,12 +264,12 @@ class LayerSetting:
         "Check if the layer is enable swap and recompute at the same time."
         for swap_layer in layer_list:
             if isinstance(swap_layer.get(self.layers), bool) and swap_layer.get(self.layers):
-                logger.warning(f"{op_name} operator in layer {layer_idx} that \
-                            is enabled swap do not work! Because it is enabled recompute.")
+                logger.warning(f"{op_name} operator in layer {layer_idx} that\
+                               is enabled swap do not work! Because it is enabled recompute.")
             else:
                 if layer_idx in swap_layer.get(self.layers):
-                    logger.warning(f"{op_name} operator in layer {layer_idx} that \
-                                is enabled swap do not work! Because it is enabled recompute.")
+                    logger.warning(f"{op_name} operator in layer {layer_idx} that\
+                                   is enabled swap do not work! Because it is enabled recompute.")
 
     def _check_op_swap_recompute_conflict(self, op_name, layer_list):
         "Check if the operator is enable swap and recompute at the same time."
@@ -282,8 +286,8 @@ class LayerSetting:
                 op_swap_layers = op_swap_layers.union(set(swap_info.get(self.layers)))
             for layer_idx in layer_list:
                 if isinstance(op_swap_layers, bool) or layer_idx in op_swap_layers:
-                    logger.warning(f"{op_name} operator in layer {layer_idx} that \
-                                is enabled swap do not work! Because it is enabled recompute.")
+                    logger.warning(f"{op_name} operator in layer {layer_idx} that\
+                                   is enabled swap do not work! Because it is enabled recompute.")
 
     def _initialize_swap_list(self, swap_list):
         """Initialize the swap list by creating swap configurations for each item."""
@@ -536,7 +540,7 @@ class LayerSetting:
         select_recompute = self.select_comm_recompute if add_prim_attr else self.select_recompute
         log_ops = []
         for pattern, layers_recompute in select_recompute.items():
-            if layer_id in layers_recompute:
+            if (isinstance(layers_recompute, bool) and layers_recompute) or layer_id in layers_recompute:
                 log = LayerSetting.set_pattern_recompute(layer, pattern.split(r'\.'), add_prim_attr)
                 if log:
                     log_ops.append(log[1:])
