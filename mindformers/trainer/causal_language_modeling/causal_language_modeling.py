@@ -32,6 +32,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType,
 from mindformers.tools.check_rules import check_rules
 from mindformers.models.auto import AutoModel
 from mindformers.mindformer_book import MindFormerBook
+from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
 
 from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
@@ -205,7 +206,7 @@ class CausalLanguageModelingTrainer(BaseTrainer):
         self.set_network(network, is_train=False)
 
         self.count_parameters()
-        config.load_checkpoint = self.get_load_path_after_hf_convert(config, network)
+        config.load_checkpoint = get_load_path_after_hf_convert(config, network)
         # build metric
         logger.info(".........Build Compute Metrics For Evaluate..........")
         if compute_metrics is None:
