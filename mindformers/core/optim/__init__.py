@@ -17,8 +17,7 @@ from .build_optim import build_optim
 from .came import Came
 from .optim import (
     FP32StateAdamWeightDecay,
-    FusedAdamWeightDecay,
-    FusedCastAdamWeightDecay
+    FusedAdamWeightDecay
 )
 from .adamw import AdamW
 

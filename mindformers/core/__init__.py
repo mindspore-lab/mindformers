@@ -36,7 +36,6 @@ from .optim import (
     Came,
     FP32StateAdamWeightDecay,
     FusedAdamWeightDecay,
-    FusedCastAdamWeightDecay,
     build_optim
 )
 from .metric import (

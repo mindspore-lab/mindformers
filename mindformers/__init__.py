@@ -91,7 +91,6 @@ from mindformers.core import (
     EvalCallBack,
     FP32StateAdamWeightDecay,
     FusedAdamWeightDecay,
-    FusedCastAdamWeightDecay,
     L1Loss,
     LearningRateWiseLayer,
     LinearWithWarmUpLR,
