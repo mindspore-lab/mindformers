@@ -21,7 +21,6 @@ import mindspore as ms
 from .utils import get_real_group_size
 from .logger import logger
 
-
 YAML_MAX_NESTING_DEPTH = 10
 
 
@@ -150,11 +149,14 @@ def _check_context_parallel_algo_valid(config, cp, mp):
     else:
         n_heads = n_q_heads
     algo_is_ulysses_cp = config.parallel_config.context_parallel_algo.value == "ulysses_cp"
-    if algo_is_ulysses_cp and n_heads is not None:
-        if cp * mp > n_heads:
-            raise ValueError(f"ulysses_cp and mp is shard attention head, it need cp * mp <= attention head, "
-                             f"but got attention head which is {n_heads}, and cp * mp = {cp * mp},"
-                             f"please check num_heads and n_kv_heads.")
+    if algo_is_ulysses_cp and n_heads is not None and cp * mp > n_heads:
+        if config.model.model_config.__class__.__name__ == "ChatGLM2Config":
+            logger.warning(f"ulysses_cp and mp is shard attention head, since cp * mp > kv head, "
+                           f"but got kv head which is {n_heads}, and cp * mp = {cp * mp},"
+                           f"GLM will repeat kv head to ensure calculation equivalence.")
+        raise ValueError(f"ulysses_cp and mp is shard attention head, it need cp * mp <= attention head, "
+                         f"but got attention head which is {n_heads}, and cp * mp = {cp * mp},"
+                         f"please check num_heads and n_kv_heads.")
 
 
 def _check_parallel(config):
