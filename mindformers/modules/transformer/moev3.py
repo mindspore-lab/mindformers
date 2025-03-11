@@ -77,7 +77,11 @@ class MoEV3(Cell):
                  return_extra_loss=False,
                  moe_config=default_moe_config,
                  parallel_config=default_moeparallel_config,
-                 init_method_std=0.01):
+                 init_method_std=0.01,
+                 use_3d_tensor_parallel=False,
+                 tp_x=1,
+                 tp_y=1,
+                 tp_z=1):
         super(MoEV3, self).__init__()
         print("use MoEV3 computing via GroupedMatMul. Capacity factor is ignored.")
         self.hidden_size = dim
@@ -88,7 +92,28 @@ class MoEV3(Cell):
         self.moe_config = moe_config
         self.parallel_config = parallel_config
 
-        self.dp = parallel_config.data_parallel * parallel_config.model_parallel
+        self.use_3d_tensor_parallel = use_3d_tensor_parallel
+        if self.use_3d_tensor_parallel:
+            self.tp_z = tp_z
+            self.tp_x = tp_x
+            self.tp_y = tp_y
+            if parallel_config.expert_parallel > 1:
+                raise ValueError(f"When the use_3d_tensor_parallel = True, the expert_parallel is not supported ")
+            if moe_config.enable_deredundency:
+                raise ValueError(f"When the use_3d_tensor_parallel = True, the enable_deredundency should be False ")
+            if moe_config.enable_gmm_safe_tokens:
+                raise ValueError(f"When the use_3d_tensor_parallel = True, the enable_gmm_safe_tokens is not needed ")
+            if tp_x * tp_y * tp_z > parallel_config.data_parallel * parallel_config.model_parallel or \
+                parallel_config.data_parallel * parallel_config.model_parallel % (tp_x * tp_y * tp_z) != 0:
+                raise ValueError("data_parallel  * parallel_config must be divisible by tp_x * tp_y * tp_z, but got "
+                                 "tp_x={}, tp_y={}, tp_z={}, data_parallel={} and model_parallel={}.".format(
+                                     tp_x, tp_y, tp_z, parallel_config.data_parallel, parallel_config.model_parallel))
+            self.dp = int(parallel_config.data_parallel * parallel_config.model_parallel / self.tp_x / self.tp_y)
+        else:
+            self.tp_x = 1
+            self.tp_z = 1
+            self.tp_y = 1
+            self.dp = parallel_config.data_parallel * parallel_config.model_parallel
         self.expert_dim = moe_config.expert_num
         self.enable_deredundency = moe_config.enable_deredundency
         self.num_experts_chosen = moe_config.num_experts_chosen
@@ -100,13 +125,14 @@ class MoEV3(Cell):
         self.reshape = Reshape()
         self.cast = Cast()
         self.gating_activation = Softmax(axis=-1).shard(
-            ((self.dp, 1, 1,),)) if not moe_config.use_gating_sigmoid else P.Sigmoid().shard(((self.dp, 1, 1,),))
-        self.topk = TopkExt().shard(((self.dp, 1, 1),))
+            ((self.dp, self.tp_x * self.tp_y, 1,),)) if not moe_config.use_gating_sigmoid else \
+                P.Sigmoid().shard(((self.dp, self.tp_x * self.tp_y, 1,),))
+        self.topk = TopkExt().shard(((self.dp, self.tp_x * self.tp_y, 1),))
         self.topk.recompute(False)
-        self.mul = Mul().shard(((), (self.dp, 1, 1)))
+        self.mul = Mul().shard(((), (self.dp, self.tp_x * self.tp_y, 1)))
 
         # _tensor_sort
-        self.transpose_3d = Transpose().shard(((self.dp, 1, 1),))
+        self.transpose_3d = Transpose().shard(((self.dp, self.tp_x * self.tp_y, 1),))
         self.sort = Sort(1).shard(((self.dp, 1),))
         self.mod = Mod().shard(((self.dp, 1), ()))
         self.gather_sort = Gather(batch_dims=1).shard(((self.dp, 1, 1), (self.dp, 1)))
@@ -122,9 +148,9 @@ class MoEV3(Cell):
         self.sum_router_coeff = ReduceSum(keep_dims=False).shard(((self.dp, 1, 1, 1),))
 
         # _normalize
-        self.reduce_sum_keep = ReduceSum(keep_dims=True).shard(((self.dp, 1, 1),))
-        self.add_eps = AddExt().shard(((self.dp, 1, 1), ()))
-        self.div_3d = Div().shard(((self.dp, 1, 1), (self.dp, 1, 1)))
+        self.reduce_sum_keep = ReduceSum(keep_dims=True).shard(((self.dp, self.tp_x * self.tp_y, 1),))
+        self.add_eps = AddExt().shard(((self.dp, self.tp_x * self.tp_y, 1), ()))
+        self.div_3d = Div().shard(((self.dp, self.tp_x * self.tp_y, 1), (self.dp, self.tp_x * self.tp_y, 1)))
 
         # _aux
         self.reduce_mean_aux_3d = ReduceMean(keep_dims=False).shard(((self.dp, 1, 1),))
@@ -139,7 +165,8 @@ class MoEV3(Cell):
         if self.moe_config.balance_via_topk_bias:
             self.topk_bias = Parameter(initializer('zeros', (self.expert_dim), mstype.float32),
                                        requires_grad=False, parallel_optimizer=False)
-            self.gate_gather = Gather(batch_dims=2).shard(((self.dp, 1, 1), (self.dp, 1, 1)))
+            self.gate_gather = Gather(batch_dims=2).shard(
+                ((self.dp, self.tp_x * self.tp_y, 1), (self.dp, self.tp_x * self.tp_y, 1)))
             self.expert_load = Parameter(initializer('zeros', (self.expert_dim), mstype.float32),
                                          requires_grad=False, parallel_optimizer=False)
             self.assign_add = AssignAdd().shard(((1,), (1,)))
@@ -147,14 +174,15 @@ class MoEV3(Cell):
             self.onehot_2d = OneHot().shard(((self.dp, 1, 1), (), ()))
             self.reduce_mean = ReduceMean(keep_dims=False).shard(((self.dp, 1, 1),))
             self.afb_reduce_mean = ReduceMean(keep_dims=False).shard(((1, 1),))
-            self.afb_topk = TopkExt().shard(((self.dp, 1, 1),))
+            self.afb_topk = TopkExt().shard(((self.dp, self.tp_x * self.tp_y, 1),))
             self.afb_topk.recompute(False)
-            self.afb_add_topk_bias = AddExt().shard(((self.dp, 1, 1), (1,)))
+            self.afb_add_topk_bias = AddExt().shard(((self.dp, self.tp_x * self.tp_y, 1), (1,)))
             self.afb_add_topk_bias.recompute(False)
 
         # ffn
         self.ffn = FFN(self.hidden_size, self.intermediate_size, self.compute_dtype, self.param_init_type,
-                       self.moe_config, self.parallel_config, self.init_method_std)
+                       self.moe_config, self.parallel_config, self.init_method_std, self.use_3d_tensor_parallel,
+                       self.tp_x, self.tp_y, self.tp_z)
 
         # dense
         self.router_dense_type = moe_config.router_dense_type
@@ -162,7 +190,7 @@ class MoEV3(Cell):
                                   weight_init=initializer(Normal(sigma=self.init_method_std, mean=0.0),
                                                           [self.expert_dim, self.hidden_size], self.router_dense_type),
                                   has_bias=False, dtype=self.router_dense_type)
-        self.router_dense.matmul.shard(((self.dp, 1), (1, 1)))
+        self.router_dense.matmul.shard(((self.dp * self.tp_x * self.tp_y, 1), (1, 1)))
         # seq pipe
         self.seq_split_num = parallel_config.seq_split_num
         self.seq_pipe = self.seq_split_num > 1
@@ -199,7 +227,7 @@ class MoEV3(Cell):
         router_aux_loss = self._expert_load_balancing(router_prob, expert_index, self.aux_loss_factor,
                                                       seq_chunk=seq_chunk)
 
-        if self.enable_deredundency:
+        if self.enable_deredundency or self.use_3d_tensor_parallel:
             output_tensor = self.ffn(input_tensor, expert_index, router_coeff)
         else:
             # 2.dispatch sort
@@ -313,14 +341,18 @@ class MoEV3(Cell):
         return expert_load_loss
 
     def _topk(self, router_prob):
-        # in default, normal topk will be used
+        """in default, normal topk will be used"""
         if self.moe_config.balance_via_topk_bias:
             _, expert_index = self.afb_topk(self.afb_add_topk_bias(router_prob, self.topk_bias),
                                             self.num_experts_chosen)
+            # expert_index will be int64 without this cast,
+            # and compile fails for the grad ReduceScatter don't support int64
+            expert_index = self.cast(expert_index, mstype.int32)
             expert_gate = self.gate_gather(router_prob, expert_index, 2)
             self._update_expert_load(expert_index)
         else:
             expert_gate, expert_index = self.topk(router_prob, self.num_experts_chosen)
+            expert_index = self.cast(expert_index, mstype.int32)
         return expert_gate, expert_index
 
     def _update_expert_load(self, expert_index):
@@ -506,6 +538,80 @@ def _ffn_unresort(x, unsort_map, use_fused_ops_permute):
     return x
 
 
+def _ffn_sort(x, expert_id, use_fused_ops_permute):
+    """
+    Sort tensor x according to expert_id
+    Parameters:
+    - x (Tensor): Input tensor, should  have a shape of [num_tokens, h], where h is the hidden size.
+    - expert_id (Tensor): Identifiers indicating which expert each input belongs to,
+      should have a shape of [num_tokens, topk].
+    - use_fused_ops_permute (bool): Whether to use fused ops for permutation.
+
+    Returns:
+    - x (Tensor): The sorted input tensor, with the same shape as the input tensor x.
+    - unsort_map (1D Tensor): The map to unsort the tensor x back to its original order
+    """
+    x_shape_org = x.shape
+    x = ops.reshape(x, (-1, x_shape_org[-1]))
+    if use_fused_ops_permute:
+        x_dtype_org = x.dtype
+        # permute only support bfloat16 for now
+        x = ops.cast(x, ms.bfloat16)
+        # (Nk, h) bf16, (Nk) int32  <-- (N, h) bf16, (N, k) int32
+        x, unsort_map = ops.moe_token_permute(x, expert_id.astype(ms.int32))
+        x = ops.cast(x, x_dtype_org)
+    else:
+        num_tokens = x.shape[0]
+        expert_id_shape = expert_id.shape
+        # sort x
+        expert_id = ops.reshape(expert_id, (-1, expert_id_shape[-1]))
+        # (k, N) int32  <-- (N, k) int32
+        transposed_index = ops.transpose(expert_id, (1, 0))
+        # (kN ) int32 <-- (k, N) int32
+        reshaped_index = ops.reshape(transposed_index, (-1,))
+        # (kN) fp32, (kN) int32 <-- (kN) fp32 <-- (kN) int32
+        _, sort_map = ops.sort(reshaped_index.astype(ms.float32))
+        # (kN) int32 <-- (kN) int32, N int32
+        inter_map = P.Mod()(sort_map, num_tokens)
+        # (kN, h) bf16  <-- (N, h) bf16, (kN) int32
+        x = ops.gather(x, inter_map, axis=0, batch_dims=0)
+
+        # get unsort_map
+        # _, (kN) int32 <-- (kN) fp32 <-- (kN) int32
+        _, unsort_map = ops.sort(sort_map.astype(ms.float32))
+        # (k, N)int32 <-- (kN) int32
+        unsort_map = ops.reshape(unsort_map, (-1, expert_id_shape[-1]))
+        # (N, k)int32  <-- (k, N)int32
+        unsort_map = ops.transpose(unsort_map, (1, 0))
+        # (Nk)int32 <-- (N, k) int32
+        unsort_map = ops.reshape(unsort_map, (-1,))
+
+    return x, unsort_map
+
+
+def _ffn_unresort_with_probs(x, unsort_map, probs, use_fused_ops_permute):
+    """
+    unresort tensor x according to unsort_map and merge the tokens with their respective probabilities
+    """
+    x_shape_org = x.shape
+    x = ops.reshape(x, (-1, x_shape_org[-1]))
+    topk = probs.shape[-1]
+    if use_fused_ops_permute:
+        probs = ops.reshape(probs, (-1, topk))
+        x_dtype_org = x.dtype
+        # permute only support bfloat16 for now
+        x = ops.cast(x, ms.bfloat16)
+        x = ops.moe_token_unpermute(x, unsort_map, probs)
+        x = ops.cast(x, x_dtype_org)
+    else:
+        #  (Nk, h)bf16 <-- (Nk, h)bf16, (Nk)int32
+        x = ops.gather(x, unsort_map, axis=0, batch_dims=0)
+        x = ops.reshape(x, (-1, topk, x_shape_org[-1]))
+        x = x * probs.unsqueeze(2)
+        x = ops.sum(x, dim=1)
+    return x
+
+
 def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, w3, iep, expert_num, a, b, oep_group, iep_group):
     """
     Implements a forward pass functionality without redundecy and  mainly used in processing input data x within
@@ -607,6 +713,88 @@ def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, w3, iep, e
     return x
 
 
+def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, w3, expert_num, tp_x_group, tp_y_group, tp_z_group,
+                               use_fused_ops_permute=False):
+    """
+    Implements a forward pass functionality expertTP and mainly used in processing input data x within
+    an expert network (such as MoE, Mixture of Experts) through a series of operations including communication,
+    sorting, grouped matrix multiplication (GroupedMM), and its reverse operation.
+
+    Parameters:
+    - x (Tensor): Input tensor, typically with shape [B, S, h], where B is the batch size, S is the sequence length,
+      and h is the hidden size.
+    - expert_id (Tensor): Identifiers indicating which expert each input belongs to, should be compatible
+      with the shape of x.
+    - router_coeff (Tensor): router weight.
+    - w1, w2, w3 (List[Tensor]): Lists of weights used respectively for the first, second, and third
+      GroupedMatmul operations.
+    - expert_num (int): Number of experts.
+    - tp_x_group, tp_y_group, tp_z_group (List[group]): Communication group object defining the communication group
+      for expert tensor parallel in the three way of x, y and z. For the input, x split the sequence length,
+      y split the hidden size of activation, and z split the expert number of weights.
+    - use_fused_ops_permute (bool): Whether to use fused ops for permutation. Default is False.
+
+    Returns:
+    - y (Tensor): Transformed output tensor after a series of operations, with the same shape as the input tensor x.
+    """
+    x = ops.squeeze(x, 0)
+    expert_id = ops.squeeze(expert_id, 0).astype(ms.int32)
+    router_coeff = ops.squeeze(router_coeff, 0).astype(ms.bfloat16)
+
+    chosen_expert_nums = expert_id.shape[1]
+
+    # 1. get group list
+    if tp_y_group:
+        expert_id = ops.AllGather(group=tp_y_group)(expert_id) # [N/tp_x_group*tp_y_group, k] -- > [N/tp_x_group, k]
+    expert_id = ops.AllGather(group=tp_x_group)(expert_id).reshape(-1, chosen_expert_nums) # [N/tp_x_group, k] -- > [N, k]
+    excounter = P.OneHot()(expert_id.reshape(-1), expert_num,
+                           Tensor(1, dtype=ms.float32), Tensor(0, dtype=ms.float32)) # [N, k] -- > [Nk] -- > [Nk, E]
+    excounter = excounter.sum(axis=0) # [Nk, E] -- > [E]
+    gl = ops.cast(ops.cumsum(excounter, 0, ms.int32), ms.int64)
+
+
+    # 2. tp allgather
+    x = ops.AllGather(group=tp_x_group)(x) # x [BS/tp_x_group, h] -- > [BS, h]
+    if tp_y_group:
+        router_coeff = ops.AllGather(group=tp_y_group)(router_coeff) # [N/tp_x_group*tp_y_group, k] -- > [N/tp_x_group, k]
+    router_coeff = ops.AllGather(group=tp_x_group)(router_coeff).reshape(-1, chosen_expert_nums) # [N/tp_x_group, k] -- > [N, k]
+
+    # 3. sort
+    # (Nk, h) bf16, (Nk) int32  <-- (N, h) bf16, (N, k) int32
+    x, unresort_map = _ffn_sort(x, expert_id, use_fused_ops_permute)
+
+    # 4.FFN
+    if tp_z_group:
+        w1 = ops.AllGather(group=tp_z_group)(w1)
+        # w1 AllGather overlap with _ffn_sort
+        w1 = ops.Depend()(w1, expert_id)
+        x = ops.Depend()(x, w1)
+        w3 = ops.AllGather(group=tp_z_group)(w3)
+        w2 = ops.AllGather(group=tp_z_group)(w2)
+    gate = GroupedMatmul(split_item=3, group_type=0)(
+        [x], [w1], None, None, None, None, None, gl)[0]
+    if tp_y_group:
+        gate = ops.ReduceScatter(group=tp_y_group)(gate)
+    hidden = GroupedMatmul(split_item=3, group_type=0)(
+        [x], [w3], None, None, None, None, None, gl)[0]
+    if tp_z_group:
+        hidden = ops.Depend()(hidden, gate) # gate calculate before hidden
+    if tp_y_group:
+        hidden = ops.ReduceScatter(group=tp_y_group)(hidden)
+    # pylint: disable=W0212
+    hidden = hidden * P._inner_ops.SiLU()(gate)
+    if tp_y_group:
+        hidden = ops.AllGather(group=tp_y_group)(hidden)
+    x = GroupedMatmul(split_item=3, group_type=0)(
+        [hidden], [w2], None, None, None, None, None, gl)[0]
+
+    # 5.Unresort
+    y = _ffn_unresort_with_probs(x, unresort_map, router_coeff, use_fused_ops_permute)
+
+    # 6.tp ReduceScatter
+    y = ops.ReduceScatter(group=tp_x_group)(y)
+    return y
+
 
 class FFN(nn.Cell):
     """
@@ -632,7 +820,11 @@ class FFN(nn.Cell):
                  param_init_type,
                  moe_config,
                  parallel_config,
-                 init_method_std=0.01):
+                 init_method_std=0.01,
+                 use_3d_tensor_parallel=False,
+                 tp_x=1,
+                 tp_y=1,
+                 tp_z=1):
         super(FFN, self).__init__()
         self.rank_id = get_rank()
         self.hidden_size = hidden_size
@@ -646,13 +838,22 @@ class FFN(nn.Cell):
         self.inner_dp = self.ep
         self.iep = moe_config.npu_nums_per_device
         self.oep = self.ep // self.iep
-        self.ep_group = self._get_ep_group_name()
-        self.iep_group = self._get_iep_group_name()
-        self.oep_group = self._get_oep_group_name()
+        self.use_3d_tensor_parallel = use_3d_tensor_parallel
+        if self.use_3d_tensor_parallel:
+            self.tp_x = tp_x
+            self.tp_y = tp_y
+            self.tp_z = tp_z
+            self.outer_dp = int(parallel_config.data_parallel * parallel_config.model_parallel /
+                                self.tp_x / self.tp_y / self.tp_z)
+            self.tp_z_group, self.tp_x_group, self.tp_y_group, *_ = self._get_group_name_list_by_dev_matrix(
+                (self.tp_z, self.tp_x, self.tp_y))
+        else:
+            self.ep_group = self._get_ep_group_name()
+            self.iep_group = self._get_iep_group_name()
+            self.oep_group = self._get_oep_group_name()
         self.init_method_std = init_method_std
         self.use_fused_ops_permute = moe_config.use_fused_ops_permute
         self.enable_deredundency = moe_config.enable_deredundency
-
         # parameters
         self.w1 = Parameter(initializer(Normal(sigma=self.init_method_std, mean=0.0),
                                         [self.expert_num, self.hidden_size, self.intermediate_size],
@@ -704,6 +905,27 @@ class FFN(nn.Cell):
             ep_idx = self.rank_id % self.ep
             self.a = ep_idx // self.iep * node_expert_num
             self.b = self.a + node_expert_num
+        elif self.use_3d_tensor_parallel:
+            self.hook_ffn_forward = P.Morph(
+                ffn_forward_expert_tp_func, func_infer_shape, func_infer_dtype).add_prim_attr(
+                    "self_define_shard", True)
+            layout = Layout((self.outer_dp, self.tp_z, self.tp_x, self.tp_y), ("outer_dp", "tp_z", "tp_x", "tp_y"))
+            self.hook_ffn_forward.shard(
+                in_strategy=(
+                    layout(("outer_dp", "tp_z"),
+                           "tp_x", "tp_y"),  # x [dp, N, h]
+                    layout(("outer_dp", "tp_z"), ("tp_x", "tp_y"),
+                           "None"),  # expert_id [dp, N, k]
+                    layout(("outer_dp", "tp_z"), ("tp_x", "tp_y"),
+                           "None"),  # router_coeff [dp, N, K]
+                    layout("tp_z", "tp_y", "tp_x"),  # w1 [E, h, H]
+                    layout("tp_z", "tp_x", "tp_y"),  # w2 [E, H, h]
+                    layout("tp_z", "tp_y", "tp_x"),  # w3 [E, h, H]
+                ),
+                out_strategy=(
+                    layout(("outer_dp", "tp_z"), "tp_x", "tp_y"), # output [dp, N, k]
+                )
+            )
         else:
             self.hook_ffn_forward = P.Morph(ffn_forward_func, func_infer_shape, func_infer_dtype).add_prim_attr(
                 "self_define_shard", True)
@@ -746,6 +968,9 @@ class FFN(nn.Cell):
         if self.enable_deredundency:
             x = self.hook_ffn_forward(x, expert_id, counter, w1, w2, w3, self.iep,
                                       self.expert_num, self.a, self.b, self.oep_group, self.iep_group)
+        elif self.use_3d_tensor_parallel:
+            x = self.hook_ffn_forward(x, expert_id, counter, w1, w2, w3, self.expert_num, self.tp_x_group,
+                                      self.tp_y_group, self.tp_z_group, self.use_fused_ops_permute)
         else:
             x, expert_id, counter, unsort_map_safe_tokens = self._pad_safe_tokens(x, expert_id, counter)
             x = self.hook_ffn_forward(
@@ -872,6 +1097,32 @@ class FFN(nn.Cell):
         oep_group_name = str(hashed)
         create_group(oep_group_name, rank_list)
         return oep_group_name
+
+    def _get_group_name_list_by_dev_matrix(self, dev_matrix: tuple):
+        """
+        Generates a list of unique group names for a set of ranks involved by the device matrix
+        and creates corresponding communication groups with these name.
+        This method calculates a range of ranks based on the current rank id
+        and the device number in the device matrix, hashes this range to create a unique
+        identifier, and then establishes a new communication group using this identifier.
+        If one device number is 1, this dim is not partitioned and the group name is False.
+        """
+        group_name_list = []
+        for i, device_number in enumerate(dev_matrix):
+            if device_number == 1:
+                group_name_list.append(False)
+                continue
+            period = np.prod(dev_matrix[i:])
+            step = np.prod(dev_matrix[i + 1:]) if i < len(dev_matrix) - 1 else 1
+            rank_start = self.rank_id // period * period + self.rank_id % step
+            rank_end = rank_start + period
+            rank_list = [i for i in range(rank_start, rank_end, step)]
+            rank_list_str = "-".join([str(id) for id in rank_list])
+            hashed = hashlib.md5(rank_list_str.encode()).hexdigest()[:48]
+            tp_group_name = str(hashed)
+            create_group(tp_group_name, rank_list)
+            group_name_list.append(tp_group_name)
+        return tuple(group_name_list)
 
     def shard(self, parallel_config):
         """
