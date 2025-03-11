@@ -1348,11 +1348,8 @@ class TopkRouterV2(Cell):
             self.reshape_redist = P.Reshape().add_prim_attr("skip_redistribution", True)
             self.tile_5d = P.Tile().shard(((self.outer_dp, 1, self.ep, 1, 1),))
             self.concat = P.Concat(3).shard(((self.outer_dp, 1, self.ep, 1, 1), (self.outer_dp, 1, self.ep, 1, 1)))
-            self.zeros = Parameter(
-                initializer('zeros', shape=(
-                    self.outer_dp, self.inner_dp, self.ep * self.expert_dim, 1, d_model),
-                            dtype=mstype.bfloat16),
-                name='zeros', requires_grad=False, parallel_optimizer=False)
+            self.zeros = Tensor(
+                np.zeros((self.outer_dp, self.inner_dp, self.ep * self.expert_dim, 1, d_model)), mstype.float16)
             self.tile_idx = P.Tile().shard(((self.outer_dp, self.inner_dp, 1, 1, 1),))
             self.tile_coeff = P.Tile().shard(((self.outer_dp, self.inner_dp, 1, 1, 1, 1),))
             self.combine_gather = P.Gather(batch_dims=3).shard(((self.outer_dp, self.inner_dp, 1, 1, 1),
@@ -1375,9 +1372,7 @@ class TopkRouterV2(Cell):
         else:
             self.dispatch_gather = P.Gather(batch_dims=1).shard(((dp, 1, 1), (dp, 1, 1),))
             self.concat = P.Concat(2).shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
-            self.zeros = Parameter(
-                initializer('zeros', shape=(dp, self.expert_dim, 1, d_model), dtype=mstype.bfloat16),
-                name='zeros', requires_grad=False, parallel_optimizer=False)
+            self.zeros_op_4d = P.Zeros().shard(((dp, 1, 1, 1),))
             self.combine_gather = P.Gather(batch_dims=1).shard(((dp, 1, 1), (dp, 1, 1),))
             self.mul_router_coeff = P.Mul().shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
             self.sum_router_coeff = P.ReduceSum(keep_dims=False).shard(((dp, 1, 1, 1),))
@@ -1494,8 +1489,12 @@ class TopkRouterV2(Cell):
             output_tensor = self.reshape(output_tensor, (
                 self.dp_group, output_tensor.shape[2], hidden_size))
         else:
+            zeros = self.zeros_op_4d((expert_output.shape[0],
+                                      expert_output.shape[1],
+                                      1,
+                                      expert_output.shape[-1]), dtype=F.dtype(expert_output))
             expert_output = self.concat(
-                (self.cast(self.zeros, F.dtype(expert_output)), expert_output))  # (dp, E, 1+n, h) <-- (dp, E, n, h)
+                (zeros, expert_output))  # (dp, E, 1+n, h) <-- (dp, E, n, h)
             expert_output = self.reshape(
                 expert_output, (expert_output.shape[0],
                                 expert_output.shape[1] * expert_output.shape[2],
