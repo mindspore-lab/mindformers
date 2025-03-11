@@ -121,6 +121,12 @@ class ObsMonitor:
         return Local2ObsMonitor(src_dir, target_dir, step_upload_frequence, epoch_upload_frequence, keep_last)
 
 
+def _check_mspti_is_on():
+    """Check whether mspti is enabled."""
+    ld_preload = os.getenv("LD_PRELOAD")
+    return isinstance(ld_preload, str) and ld_preload.find("libmspti.so") != -1
+
+
 def _check_nan(loss, local_norm, global_norm):
     """Check if Nan in loss, local/global norm of grad then terminate training"""
     if isinstance(loss, ms.Tensor):
@@ -267,6 +273,8 @@ class MFLossMonitor(Callback):
         self.tensorboard = get_tensorboard_args()
         self.check_for_nan_in_loss_and_grad = check_for_nan_in_loss_and_grad
         self.calculate_per_token_loss = calculate_per_token_loss
+        self.mstx_range_id = None
+        self.mstx_enabled = is_version_ge(ms.__version__, '2.5.0') and _check_mspti_is_on()
 
     def epoch_begin(self, run_context):
         """
@@ -296,6 +304,10 @@ class MFLossMonitor(Callback):
         """
         self.step_time = time.time()
         self.run_context = run_context
+        if self.mstx_enabled:
+            cb_params = run_context.original_args()
+            step_num = cb_params.cur_step_num
+            self.mstx_range_id = ms.profiler.mstx.range_start(f'step {step_num}', ms.runtime.current_stream())
 
     def step_end(self, run_context):
         """
@@ -311,6 +323,8 @@ class MFLossMonitor(Callback):
             set_auto_parallel_context(parallel_mode='data_parallel', full_batch=False)
         cb_params = run_context.original_args()
         step_seconds = (time.time() - self.step_time) * 1000
+        if self.mstx_enabled:
+            ms.profiler.mstx.range_end(self.mstx_range_id)
         net_outputs = cb_params.net_outputs
         loss, overflow, scaling_sens, learning_rate, global_norm = \
             _get_loss_output(net_outputs, self.check_for_nan_in_loss_and_grad)
@@ -1493,7 +1507,7 @@ class ProfileMonitor(Callback):
                  profiler_level=0, with_stack=False, data_simplification=True, **kwargs):
         super(ProfileMonitor, self).__init__()
         self.mstx_range_id = None
-        self.mstx_avail = is_version_ge(ms.__version__, '2.5.0')
+        self.mstx_enabled = is_version_ge(ms.__version__, '2.5.0') and not _check_mspti_is_on()
         self.start_step = start_step
         self.stop_step = stop_step
         self.start_profile = start_profile
@@ -1544,9 +1558,8 @@ class ProfileMonitor(Callback):
         step_num = cb_params.cur_step_num
         if step_num == self.start_step and not self.start_profile and self.profiler:
             self.profiler.start()
-        if self.mstx_avail:
-            from mindspore.profiler import mstx
-            self.mstx_range_id = mstx.range_start(f'Training step {step_num}')
+        if self.mstx_enabled:
+            self.mstx_range_id = ms.profiler.mstx.range_start(f'step {step_num}', ms.runtime.current_stream())
 
     def step_end(self, run_context):
         """
@@ -1555,11 +1568,10 @@ class ProfileMonitor(Callback):
         Args:
             run_context (RunContext): Context of the train running.
         """
-        if self.mstx_avail:
-            from mindspore.profiler import mstx
-            mstx.range_end(self.mstx_range_id)
         cb_params = run_context.original_args()
         step_num = cb_params.cur_step_num
+        if self.mstx_enabled:
+            ms.profiler.mstx.range_end(self.mstx_range_id)
         if step_num == self.stop_step and self.profiler:
             self.profiler.stop()
             self.profiler.analyse()
