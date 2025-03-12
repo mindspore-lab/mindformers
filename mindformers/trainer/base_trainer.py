@@ -935,7 +935,7 @@ class BaseTrainer:
             except OSError:
                 logger.warning('The path specified in environment variable MA_SUMMARY_LOG_DIR is unavailable. Ignored.')
             else:
-                if not hasattr(config, 'tensorboard'):
+                if not config.get('tensorboard'):
                     config.tensorboard = MindFormerConfig(tensorboard_dir=None)
                 config.tensorboard.tensorboard_dir = modelarts_tensorboard_path
         if (hasattr(config, 'tensorboard') and hasattr(config.tensorboard, 'tensorboard_dir') and
