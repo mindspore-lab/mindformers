@@ -15,18 +15,12 @@
 """Test Language Model"""
 import os
 import numpy as np
-import pytest
 from tests.st.test_distri_core.utils import read_loss_from_log
 
 
 class TestLanguageModel:
     """A test class for language model."""
 
-    @pytest.mark.level0
-    @pytest.mark.skip(reason="Get golden loss from records")
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_onecard
-    @pytest.mark.run(order=1)
     def generate_goloden_loss(self):
         """
         Feature: generate goloden loss.
@@ -53,10 +47,6 @@ class TestLanguageModel:
         os.system(f"grep -E 'ERROR|error' {sh_path}/{log_dir}/worker_0.log -C 3")
         assert ret == 0, f"msrun failed, please check {log_dir}/worker_*.log"
 
-    @pytest.mark.level0
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.env_onecard
-    @pytest.mark.run(order=2)
     def test_language_model_loss(self):
         """
         Feature: test language model.
@@ -83,10 +73,6 @@ class TestLanguageModel:
         os.system(f"grep -E 'ERROR|error' {sh_path}/{log_dir}/worker_0.log -C 3")
         assert ret == 0, f"msrun failed, please check {log_dir}/worker_*.log"
 
-    @pytest.mark.level0
-    @pytest.mark.env_onecard
-    @pytest.mark.platform_arm_ascend910b_training
-    @pytest.mark.run(order=3)
     def test_compare_loss(self):
         """
         Feature: test_compare_loss
