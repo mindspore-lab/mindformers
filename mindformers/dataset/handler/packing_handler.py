@@ -59,6 +59,7 @@ def _process_sample(
 ):
     """process single sample in dataset"""
     seq_length = kwargs.get('seq_length')
+    pad_token = kwargs.get('pad_token', 0)
 
     cur_seq_length = len(sample.get('input_ids'))
     # skip data out of bounds
@@ -73,10 +74,12 @@ def _process_sample(
 
     # add sample to data
     for k in data_names:
-        if k != 'actual_seq_len':
-            data[k] += sample[k]
-        else:
+        if k == 'actual_seq_len':
             data[k] += [data.get(k)[-1] + cur_seq_length]
+        elif k == 'labels':
+            data[k] += sample[k][1:] + [pad_token]
+        else:
+            data[k] += sample[k]
     return dataset, data
 
 

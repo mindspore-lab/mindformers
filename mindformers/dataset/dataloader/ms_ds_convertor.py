@@ -37,7 +37,7 @@ def to_ms_dataset(
         num_shards: Optional[int] = None,
         shard_id: Optional[int] = None,
         python_multiprocessing: Optional[bool] = True,
-        max_rowsize: Optional[int] = 6,
+        max_rowsize: Optional[int] = None,
         packing: Optional[str] = None,
         adaptor_config: Optional[dict] = None
 ):
@@ -221,8 +221,7 @@ class MSDatasetAdaptor:
         seq_length = len(tokens)
 
         # loss mask
-        loss_mask = np.ones(seq_length, dtype=np.float32)
-        loss_mask[actual_seq_len[-1]:] = 0.0
+        loss_mask = (labels != -100)
 
         # position ids and attention mask
         position_ids = []
