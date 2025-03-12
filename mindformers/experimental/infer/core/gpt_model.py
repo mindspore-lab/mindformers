@@ -23,10 +23,10 @@ from mindformers.modules import Linear
 from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.infer.core.transformer import VocabEmbedding
-from mindformers.experimental.infer.core.layers import ColumnParallelLinear, VocabParallelEmbedding
+from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear, VocabParallelEmbedding
 from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec
-from mindformers.experimental.infer.core.rotary_embedding import RotaryEmbedding, Llama3RotaryEmbedding
-from mindformers.experimental.infer.core.transformer_block import TransformerBlock
+from mindformers.experimental.infer.transformer.rotary_embedding import RotaryEmbedding, Llama3RotaryEmbedding
+from mindformers.experimental.infer.transformer.transformer_block import TransformerBlock
 
 
 class GPTModel(nn.Cell):
@@ -104,7 +104,7 @@ class GPTModel(nn.Cell):
                 self.embedding = VocabParallelEmbedding(
                     num_embeddings=self.vocab_size,
                     embedding_dim=self.config.hidden_size,
-                    parallel_config=config,
+                    config=config,
                     init_method="normal",
                     init_type=self.config.embedding_init_type,
                 )

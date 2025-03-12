@@ -25,6 +25,10 @@ from mindspore.common.tensor import Tensor
 from mindspore.nn.cell import Cell
 from mindspore.ops import operations as P
 
+__all__ = [
+    'RotaryEmbedding',
+    'Llama3RotaryEmbedding'
+]
 
 
 class RotaryEmbedding(Cell):

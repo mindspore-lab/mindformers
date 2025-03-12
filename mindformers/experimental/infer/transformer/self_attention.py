@@ -19,7 +19,7 @@ import mindspore.common.dtype as mstype
 from mindspore import Tensor, mint, nn, ops
 
 from mindformers.experimental.infer.core import get_attn_mask_func
-from mindformers.experimental.infer.core.rotary_embedding import RotaryEmbedding
+from mindformers.experimental.infer.transformer.rotary_embedding import RotaryEmbedding
 from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.experimental.graph.transformer.spec_utils import (
     ModuleSpec, build_module
@@ -28,6 +28,12 @@ from mindformers.experimental.parallel_core.pynative.transformer.scale_mask_soft
     ScaleMaskSoftmax
 )
 from mindformers.experimental.parallel_core.pynative.utils import divide
+
+__all__ = [
+    'SelfAttentionSubmodules',
+    'CoreAttention',
+    'SelfAttention'
+]
 
 
 class SelfAttentionSubmodules:

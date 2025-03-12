@@ -12,4 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""test infer"""
+
+"""
+MindFormers tensor_parallel for infer.
+"""
+from .layers import ColumnParallelLinear, RowParallelLinear, VocabParallelEmbedding
+
+__all__ = []
+__all__.extend(layers.__all__)

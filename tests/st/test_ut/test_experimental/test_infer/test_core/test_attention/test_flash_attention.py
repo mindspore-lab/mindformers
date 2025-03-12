@@ -27,7 +27,7 @@ from mindspore.common.tensor import Tensor
 from mindformers.experimental.graph.transformer.transformer_config import (
     TransformerConfig,
 )
-from mindformers.experimental.infer.core.flash_attention import FlashAttention as FlashAttentionMcore
+from mindformers.experimental.infer.transformer.flash_attention import FlashAttention as FlashAttentionMcore
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.modules.paged_attention_mgr import PagedAttentionMgr
 

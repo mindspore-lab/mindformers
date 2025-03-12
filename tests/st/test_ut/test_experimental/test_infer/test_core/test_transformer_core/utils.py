@@ -17,15 +17,15 @@ import mindspore.nn as nn
 from mindspore import Tensor
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
-from mindformers.experimental.graph.transformer.norm import get_norm
-from mindformers.experimental.infer.core.rotary_embedding import RotaryEmbedding
-from mindformers.experimental.infer.core.self_attention import SelfAttention, CoreAttention, SelfAttentionSubmodules
-from mindformers.experimental.infer.core.flash_attention import FlashAttention
+from mindformers.experimental.infer.transformer.norm import get_norm
+from mindformers.experimental.infer.transformer.rotary_embedding import RotaryEmbedding
+from mindformers.experimental.infer.transformer.self_attention import SelfAttention, CoreAttention, SelfAttentionSubmodules
+from mindformers.experimental.infer.transformer.flash_attention import FlashAttention
 from mindformers.experimental.infer.core.gpt_model import LowerTriangularMaskWithDynamic
-from mindformers.experimental.infer.core.transformer_block import TransformerBlock
-from mindformers.experimental.infer.core.transformer_layer import TransformerLayer, TransformerLayerSubmodules
-from mindformers.experimental.infer.core.mlp import MLP, MLPSubmodules
-from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
+from mindformers.experimental.infer.transformer.transformer_block import TransformerBlock
+from mindformers.experimental.infer.transformer.transformer_layer import TransformerLayer, TransformerLayerSubmodules
+from mindformers.experimental.infer.transformer.mlp import MLP, MLPSubmodules
+from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec, build_module
 
 

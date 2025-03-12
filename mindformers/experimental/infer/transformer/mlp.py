@@ -20,7 +20,7 @@ from mindspore import mint, nn, ops
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.infer.core import get_act_func
-from mindformers.experimental.infer.core.layers import ColumnParallelLinear
+from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec, build_module
 

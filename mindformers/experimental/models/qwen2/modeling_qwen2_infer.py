@@ -28,18 +28,18 @@ from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.logger import logger
 from mindformers.experimental.infer.core.utils import get_tp_world_size
-from mindformers.experimental.infer.core.norm import get_norm
-from mindformers.experimental.infer.core.mlp import MLP, MLPSubmodules
-from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
+from mindformers.experimental.infer.transformer.norm import get_norm
+from mindformers.experimental.infer.transformer.mlp import MLP, MLPSubmodules
+from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec
 from mindformers.experimental.graph.transformer.transformer_config_utils import convert_to_transformer_config
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
-from mindformers.experimental.infer.core.self_attention import (
+from mindformers.experimental.infer.transformer.self_attention import (
     CoreAttention,
     SelfAttention,
     SelfAttentionSubmodules,
 )
-from mindformers.experimental.infer.core.flash_attention import FlashAttention
+from mindformers.experimental.infer.transformer.flash_attention import FlashAttention
 from mindformers.experimental.infer.core.gpt_model import GPTModel
 from mindformers.experimental.models.qwen2.configuration_qwen2 import Qwen2Config
 
@@ -57,7 +57,7 @@ def get_gpt_layer_spec(config) -> ModuleSpec:
         ModuleSpec: gpt layer
 
     """
-    from mindformers.experimental.infer.core.transformer_layer import TransformerLayer, TransformerLayerSubmodules
+    from mindformers.experimental.infer.transformer.transformer_layer import TransformerLayer, TransformerLayerSubmodules
     self_attn = ModuleSpec(
         module=SelfAttention,
         submodules=SelfAttentionSubmodules(
@@ -225,7 +225,6 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel):
         if weight_name == origin_name:
             logger.warning(f"weight name '{weight_name}' does not change after conversion. "
                            f"Please check if it is as expected.")
-        print("weight name: ", weight_name, flush=True)
         return weight_name
 
     @classmethod

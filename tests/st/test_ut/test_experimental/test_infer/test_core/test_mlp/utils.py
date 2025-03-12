@@ -18,9 +18,9 @@ from mindspore import Tensor
 
 from mindformers.models.llama import LlamaConfig
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
-from mindformers.experimental.infer.core.mlp import MLP, MLPSubmodules
+from mindformers.experimental.infer.transformer.mlp import MLP, MLPSubmodules
 from mindformers.models.llama.llama_transformer import LlamaFeedForward
-from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
+from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec, build_module
 
 

@@ -15,9 +15,14 @@
 """Transformer Block"""
 from typing import Union
 from mindspore import nn, Tensor
-from mindformers.experimental.infer.core.norm import get_norm
+from mindformers.experimental.infer.transformer.norm import get_norm
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec, build_module
+
+__all__ = [
+    'TransformerBlockSubmodules',
+    'TransformerBlock'
+]
 
 
 class TransformerBlockSubmodules:
@@ -55,7 +60,7 @@ def _get_block_submodules(
     Returns:
         TransformerBlockSubmodules: The submodules for the transformer block.
     """
-    from mindformers.experimental.infer.core.transformer_layer import BaseTransformerLayer
+    from mindformers.experimental.infer.transformer.transformer_layer import BaseTransformerLayer
     # Transformer block submodules.
     if isinstance(spec, TransformerBlockSubmodules):
         return spec
@@ -139,7 +144,12 @@ class TransformerBlock(nn.Cell):
         )
 
         if self.post_norm:
-            self.final_norm = self.submodules.layer_norm
+            self.final_norm = build_module(
+                self.submodules.layer_norm,
+                self.config.hidden_size,
+                eps=self.config.layernorm_epsilon,
+                compute_type=self.config.layernorm_compute_type
+            )
         else:
             self.final_norm = None
 
