@@ -719,6 +719,7 @@ class TrainingStateMonitor(Callback):
         self.tensor_writer = get_tensorboard_writer()
         self.outputer = {'tensorboard': self._to_tensorboard, 'log': self._to_log}
         self._init_config(config)
+        self.dump_path = None
         if get_auto_parallel_context("dump_local_norm_path"):
             self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f'rank_{get_real_rank()}')
             self.dump_key = {0: -1}
@@ -779,6 +780,7 @@ class TrainingStateMonitor(Callback):
             run_context (RunContext): Context of the process running.
         """
         if self.print_struct:
+            self._clear_dump_path()
             return
         step_seconds = (time.time() - self.step_time) * 1000
         parallel_mode = get_auto_parallel_context("parallel_mode")
@@ -935,8 +937,7 @@ class TrainingStateMonitor(Callback):
             # write the mean of local loss to tensorboard
             if local_losses:
                 self._output(f'local_loss', np.stack(local_losses).mean(), self.dump_step, self.local_loss_format)
-            for f in file_list:
-                os.remove(os.path.join(self.dump_path, f))
+            self._clear_dump_path()
             self.dump_step += self.per_print_times
 
     def _dump_optimizer_state(self, cb_params):
@@ -972,6 +973,13 @@ class TrainingStateMonitor(Callback):
             self.target_cache[param_name] = self.invert
             return self.invert
         return self.target_cache[param_name]
+
+    def _clear_dump_path(self):
+        if not self.dump_path:
+            return
+        file_list = os.listdir(self.dump_path)
+        for f in file_list:
+            os.remove(os.path.join(self.dump_path, f))
 
     def _to_tensorboard(self, tag, data, global_step):
         """Write data to tensorboard if possible"""
