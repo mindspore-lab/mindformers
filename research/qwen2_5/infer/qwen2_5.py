@@ -110,6 +110,7 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         self.npu_mem_size = config.npu_mem_size if hasattr(config, "npu_mem_size") else 2
         if config.tie_word_embeddings:
             self.lm_head.weight = self.model.tok_embeddings.embedding_weight
+        self.enable_vllm_infer = config.enable_vllm_infer
 
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -127,6 +128,9 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32) if self.enable_vllm_infer else None
+        dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32) if self.enable_vllm_infer else None
+        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16) if self.enable_vllm_infer else None
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
 
         def get_input():
@@ -145,9 +149,9 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
                             dynamic_slot_mapping, dynamic_prefix_keys_values, None, key_cache, value_cache)
         else:
-            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
+            self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_attention_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, None, None, key_cache, value_cache)
+                            dynamic_slot_mapping, None, None, key_cache, value_cache, dynamic_q_seq_lens)
         logger.info("Set dynamic input for llama.")
 
     def add_flags_custom(self, is_first_iteration):
@@ -163,7 +167,7 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None,
-                  key_cache=None, value_cache=None):
+                  key_cache=None, value_cache=None, q_seq_lens=None):
         """
         Forward of qwen model.
         """
@@ -174,7 +178,11 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
             else:
                 batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
-                            slot_mapping, prefix_keys_values, key_cache=key_cache, value_cache=value_cache)
+                            slot_mapping, prefix_keys_values, key_cache=key_cache, value_cache=value_cache,
+                            position_ids=position_ids, attention_mask=attention_mask, q_seq_lens=q_seq_lens)
+        if self.enable_vllm_infer:
+            output = self.reshape(output, (-1, output.shape[-1]))
+            return output
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
             if not self.is_pynative:
