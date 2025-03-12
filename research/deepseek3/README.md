@@ -286,7 +286,6 @@ bash build.sh
 进入DeepSeek-V3代码目录并执行以下命令拉起单台Atlas 800T A2（64G）预训练任务：
 
 ```shell
-export MS_DEV_DYNAMIC_SINK1=False
 cd $MINDFORMERS_HOME
 bash scripts/msrun_launcher.sh "run_mindformer.py \
 --register_path research/deepseek3 \
@@ -312,7 +311,6 @@ master_ip=192.168.1.1
 node_rank=0
 
 cd $MINDFORMERS_HOME
-export MS_DEV_DYNAMIC_SINK1=False
 bash scripts/msrun_launcher.sh "run_mindformer.py \
 --register_path research/deepseek3 \
 --config research/deepseek3/deepseek3_671b/pretrain_deepseek3_671b.yaml" \
@@ -371,13 +369,13 @@ output_path:      转换后的MindSpore权重文件保存路径
 dtype:            转换权重的精度
 ```
 
-#### [模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+#### [模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)
 
-  从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。可以按照下列参考教程进行离线切分保存，也可以在运行时启用自动切分策略，后续[拉起任务等章节](#拉起任务)示例命令中采用运行时自动切分策略。
+  从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。Safetensors格式权重只支持自动切分策略，后续[拉起任务等章节](#拉起任务)示例命令中采用运行时自动切分策略。
 
   通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](../../docs/feature_cards/Transform_Ckpt.md)
+  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)
 
 ### 修改配置
 
