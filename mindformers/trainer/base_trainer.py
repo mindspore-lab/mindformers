@@ -34,7 +34,6 @@ from mindspore.dataset.engine.datasets import Dataset
 from mindspore.train.metrics import get_metrics
 from mindspore.nn.wrap.cell_wrapper import _VirtualDatasetCell
 from mindspore.nn import Optimizer, Cell, PipelineCell, MicroBatchInterleaved
-from mindspore.communication.comm_func import barrier
 try:
     # new interface in ms2.1.1
     from mindspore.nn.wrap.cell_wrapper import GradAccumulationCell
@@ -64,6 +63,7 @@ from mindformers.tools.utils import get_real_rank, get_real_group_size
 from mindformers.core.callback.callback import ColdHotExpertMointor
 from mindformers.dataset.dataloader.blended_megatron_dataloader import is_dataset_built_on_rank
 from mindformers.modules.seq_pipe import SequenceSplit
+from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
 from .config_args import ConfigArguments
 from .training_args import TrainingArguments
 from .utils import (
@@ -75,8 +75,6 @@ from .utils import (
 from .optimizer_grouped_parameters import get_optimizer_grouped_parameters
 from .utils import set_seed, check_train_data_loader_type, \
     check_eval_data_loader_type, check_optimizer_and_lr_type, check_wrapper_config
-from ..utils import is_hf_safetensors_dir
-from ..utils.load_checkpoint_utils import process_hf_checkpoint
 from ..version_control import check_delay_init_valid, check_tft_valid
 
 SUPPORT_TASKS = MindFormerBook().get_trainer_support_task_list()
@@ -899,7 +897,7 @@ class BaseTrainer:
             logger.info(".........Using The Existing Network For Train:: %s", self.network.__class__.__name__)
             network = self.network
 
-        config.load_checkpoint = self.get_load_path_after_hf_convert(config, network)
+        config.load_checkpoint = get_load_path_after_hf_convert(config, network)
         self._check_training_network_no_use_past(network)
 
         eval_network = None
@@ -1144,7 +1142,7 @@ class BaseTrainer:
         elif network is None and self.network is not None:
             logger.info(".........Using The Existing Network For Evaluate: %s", self.network.__class__.__name__)
             network = self.network
-        config.load_checkpoint = self.get_load_path_after_hf_convert(config, network)
+        config.load_checkpoint = get_load_path_after_hf_convert(config, network)
         if network is not None and construct_args_key is not None:
             network = self.warp_data_order_with_tool_cells(network, construct_args_key)
 
@@ -1218,7 +1216,7 @@ class BaseTrainer:
                                   "moe_config": config.moe_config})
             self.set_network(network, is_train=False)
             self.count_parameters()
-            config.load_checkpoint = self.get_load_path_after_hf_convert(config, network)
+            config.load_checkpoint = get_load_path_after_hf_convert(config, network)
             if tokenizer is None and config.processor.tokenizer:
                 tokenizer = build_tokenizer(config.processor.tokenizer, tokenizer_name=config.trainer.model_name)
 
@@ -1302,16 +1300,3 @@ class BaseTrainer:
         )
         model.eval_network.set_train(origin_phase)
         return output
-
-    @staticmethod
-    def get_load_path_after_hf_convert(config, network):
-        """check if it is hf safetensors and convert"""
-        if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
-                is_hf_safetensors_dir(config.load_checkpoint, network)):
-            logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
-            converted_sf_path = process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
-            #wait for main rank to convert HF safetensors
-            if config.use_parallel:
-                barrier()
-            return converted_sf_path
-        return config.load_checkpoint

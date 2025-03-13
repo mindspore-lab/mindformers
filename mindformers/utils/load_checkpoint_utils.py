@@ -29,7 +29,7 @@ from mindspore import Parameter
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_main_rank, get_epoch_and_step_from_ckpt_name, get_real_rank, clear_auto_trans_output
-from mindformers.utils import convert_hf_safetensors_multiprocess, check_safetensors_key
+from mindformers.utils import convert_hf_safetensors_multiprocess, check_safetensors_key, is_hf_safetensors_dir
 
 
 class CkptFormat(Enum):
@@ -52,6 +52,19 @@ class CheckpointFileMode(Enum):
     SINGLE_CHECKPOINT_FILE = 'single_checkpoint_file'
     MULTI_CHECKPOINT_FILE = 'multi_checkpoint_file'
     MULTI_CHECKPOINT_FILE_WITH_RANK_ID = 'multi_checkpoint_file_with_rank_id'
+
+
+def get_load_path_after_hf_convert(config, network):
+    """check if it is hf safetensors and convert"""
+    if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
+            is_hf_safetensors_dir(config.load_checkpoint, network)):
+        logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
+        converted_sf_path = process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
+        #wait for main rank to convert HF safetensors
+        if config.use_parallel:
+            barrier()
+        return converted_sf_path
+    return config.load_checkpoint
 
 
 def _check_checkpoint_path(path):
@@ -243,7 +256,7 @@ def process_for_stand_alone_mode(config, network, strategy_path):
         from mindformers.experimental.infer.core.utils import generate_state_dict
         from mindformers.experimental.parallel_core.pynative.utils import save_strategy_file
         strategy_ckpt_save_dir = os.path.dirname(strategy_path)
-        if is_main_rank(ignore_check_modelarts=True):
+        if is_main_rank():
             if os.path.exists(strategy_ckpt_save_dir):
                 shutil.rmtree(strategy_ckpt_save_dir)
                 logger.info(f"Existed strategy directory {strategy_ckpt_save_dir} has been deleted.")
