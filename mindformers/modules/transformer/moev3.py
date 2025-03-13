@@ -41,6 +41,11 @@ from mindformers.tools.logger import logger
 from mindformers.modules.transformer.op_parallel_config import default_moeparallel_config
 from mindformers.modules.transformer.moe import default_moe_config
 
+from mindformers.version_control import check_moveto_op_support
+
+if check_moveto_op_support():
+    D2H = ops.gen_ops_prim.MoveTo().add_prim_attr("recompute", False)
+
 
 class MoEV3(Cell):
     """
@@ -222,7 +227,8 @@ class MoEV3(Cell):
             # (dp, N, k) fp32 <-- (dp, N, k) fp32
             router_coeff = self._normalize(expert_gate)
         else:
-            router_coeff = self.mul(self.moe_config.routed_scaling_factor, expert_gate)
+            router_coeff = expert_gate
+        router_coeff = self.mul(self.moe_config.routed_scaling_factor, router_coeff)
         # float32 <-- (dp, N, E) fp32, (dp, N, k) int32, float32
         router_aux_loss = self._expert_load_balancing(router_prob, expert_index, self.aux_loss_factor,
                                                       seq_chunk=seq_chunk)
@@ -433,7 +439,7 @@ def func_infer_shape(*args):
     return args[0]
 
 
-def ffn_forward_func(x, expert_id, counter, w1, w2, w3, ep_group, hidden_size, ep, use_fused_ops_permute=False):
+def ffn_forward_func(x, expert_id, counter, w1, w2, ep_group, hidden_size, ep, use_fused_ops_permute=False):
     """
     Implements a forward pass functionality mainly used in processing input data x within an expert network
     (such as MoE, Mixture of Experts) through a series of operations including AllToAll communication, resorting,
@@ -446,8 +452,7 @@ def ffn_forward_func(x, expert_id, counter, w1, w2, w3, ep_group, hidden_size, e
       should be compatible with the shape of x.
     - counter (Tensor): Counter tensor used to dynamically calculate parameters such as send_list,
       receive_list, group_list.
-    - w1, w2, w3 (List[Tensor]): Lists of weights used respectively for the first, second,
-      and third GroupedMatmul operations.
+    - w1, w2 (List[Tensor]): Lists of weights used respectively for the first and second GroupedMatmul operations.
     - ep_group (Group): Communication group object defining the communication group used in AlltoAll
       and AlltoAllV operations.
     - hidden_size (int): The size of the hidden layer, used to determine target dimensions
@@ -468,13 +473,18 @@ def ffn_forward_func(x, expert_id, counter, w1, w2, w3, ep_group, hidden_size, e
     # [ep, E/ep]  --> (E/ep) int64
     group_list = ops.cast(ops.cumsum(local_counter.reshape(ep, -1).sum(dim=-2, keepdim=False), 0), ms.int64)
 
+    send_list = ops.Depend()(send_list, receive_list)
+    send_list = ops.Depend()(send_list, group_list)
+    send_list = D2H(send_list, "CPU", True)
+    receive_list = D2H(receive_list, "CPU", True)
+
     # 1.AllToAllv
     # x [B, S, h]
-    x = ops.AlltoAllV(group=ep_group)(x.reshape(-1), send_list * hidden_size,
-                                      receive_list * hidden_size).reshape(1, -1, hidden_size)
+    x = ops.AlltoAllV(group=ep_group, block_size=hidden_size)(
+        x.reshape(-1), send_list, receive_list).reshape(1, -1, hidden_size)
     # x [B, S]
-    expert_id = ops.AlltoAllV(group=ep_group)(expert_id.astype(ms.float32).reshape(-1),
-                                              send_list, receive_list).reshape(1, -1)
+    expert_id = ops.AlltoAllV(group=ep_group, block_size=1)(
+        expert_id.astype(ms.float32).reshape(-1), send_list, receive_list).reshape(1, -1)
 
     # 2.Resort
     x, unresort_map = _ffn_resort(x, expert_id, use_fused_ops_permute)
@@ -483,10 +493,9 @@ def ffn_forward_func(x, expert_id, counter, w1, w2, w3, ep_group, hidden_size, e
     # squeeze x [B, S, h] -- > [B*S, h] where B=1
     x = x.reshape((-1, hidden_size))
     gate = GroupedMatmul(split_item=3, group_type=0)([x], [w1], None, None, None, None, None, group_list)[0]
-    hidden = GroupedMatmul(split_item=3, group_type=0)([x], [w3], None, None, None, None, None, group_list)[0]
     # pylint: disable=W0212
-    h = hidden * P._inner_ops.SiLU()(gate)
-    y = GroupedMatmul(split_item=3, group_type=0)([h], [w2], None, None, None, None, None, group_list)[0]
+    hidden = ms.ops.auto_generate.gen_ops_prim.Swiglu()(gate, -1).reshape((-1, w2.shape[1]))
+    y = GroupedMatmul(split_item=3, group_type=0)([hidden], [w2], None, None, None, None, None, group_list)[0]
     # unsqueeze y [B*S, h] -- > [B, S, h] where B=1
     y = y.reshape((1, -1, hidden_size))
 
@@ -495,8 +504,8 @@ def ffn_forward_func(x, expert_id, counter, w1, w2, w3, ep_group, hidden_size, e
 
     # 5.AllToAllv
     # x [B, S, h]
-    y = ops.AlltoAllV(group=ep_group)(y.reshape(-1), receive_list * hidden_size,
-                                      send_list * hidden_size).reshape(1, -1, hidden_size)
+    y = ops.AlltoAllV(group=ep_group, block_size=hidden_size)(
+        y.reshape(-1), receive_list, send_list).reshape(1, -1, hidden_size)
     y = y.reshape(x_shape_origin)
     return y
 
@@ -612,7 +621,7 @@ def _ffn_unresort_with_probs(x, unsort_map, probs, use_fused_ops_permute):
     return x
 
 
-def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, w3, iep, expert_num, a, b, oep_group, iep_group):
+def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, iep, expert_num, a, b, oep_group, iep_group):
     """
     Implements a forward pass functionality without redundecy and  mainly used in processing input data x within
     an expert network (such as MoE, Mixture of Experts) through a series of operations including AllToAll communication,
@@ -624,8 +633,7 @@ def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, w3, iep, e
     - expert_id (Tensor): Identifiers indicating which expert each input belongs to,
       should be compatible with the shape of x.
     - router_coeff (Tensor): router weight.
-    - w1, w2, w3 (List[Tensor]): Lists of weights used respectively for the first, second,
-      and third GroupedMatmul operations.
+    - w1, w2 (List[Tensor]): Lists of weights used respectively for the first and second GroupedMatmul operations.
     - iep (int): Communication Numbers per node.
     - oep (int): Communication Numbers between nodes.
     - expert_num (int): Number of experts.
@@ -670,8 +678,8 @@ def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, w3, iep, e
         x, expert_id, router_coeff, a, b, oep_group)
     exgl = ops.Depend()(exgl, x)
     exsl = ops.Depend()(exsl, exdispatch_idx)
-    exsl = ops.gen_ops_prim.MoveTo()(exsl, "CPU", True)
-    exrl = ops.gen_ops_prim.MoveTo()(exrl, "CPU", True)
+    exsl = D2H(exsl, "CPU", True)
+    exrl = D2H(exrl, "CPU", True)
     excombine_whiteboard = x * Tensor(0.0, dtype=ms.bfloat16)
     x = ops.gather(x, exdispatch_idx, axis=0, batch_dims=0)
 
@@ -690,10 +698,9 @@ def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, w3, iep, e
     # FFN
     gate = GroupedMatmul(split_item=3, group_type=0)(
         [x], [w1], None, None, None, None, None, exgl)[0]
-    hidden = GroupedMatmul(split_item=3, group_type=0)(
-        [x], [w3], None, None, None, None, None, exgl)[0]
+
     # pylint: disable=W0212
-    hidden = hidden * P._inner_ops.SiLU()(gate)
+    hidden = ms.ops.auto_generate.gen_ops_prim.Swiglu()(gate, -1).reshape((-1, w2.shape[1]))
     x = GroupedMatmul(split_item=3, group_type=0)(
         [hidden], [w2], None, None, None, None, None, exgl)[0]
 
@@ -834,6 +841,12 @@ class FFN(nn.Cell):
         self.expert_num = moe_config.expert_num
         self.ep = parallel_config.expert_parallel
         self.dp = parallel_config.data_parallel * parallel_config.model_parallel
+        if self.dp % self.ep != 0:
+            raise ValueError(f"The value of expert_parallel must be divisible by data_parallel*model_parallel, where"
+                             f"data parallel: {parallel_config.data_parallel}, "
+                             f"model_parallel: {parallel_config.model_parallel}, "
+                             f"expert_parallel: {parallel_config.expert_parallel}.")
+
         self.outer_dp = self.dp // self.ep
         self.inner_dp = self.ep
         self.iep = moe_config.npu_nums_per_device
@@ -856,15 +869,11 @@ class FFN(nn.Cell):
         self.enable_deredundency = moe_config.enable_deredundency
         # parameters
         self.w1 = Parameter(initializer(Normal(sigma=self.init_method_std, mean=0.0),
-                                        [self.expert_num, self.hidden_size, self.intermediate_size],
+                                        [self.expert_num, self.hidden_size, 2 * self.intermediate_size],
                                         self.param_init_type), name='w1')
         self.w2 = Parameter(initializer(Normal(sigma=self.init_method_std, mean=0.0),
                                         [self.expert_num, self.intermediate_size, self.hidden_size],
                                         self.param_init_type), name='w2')
-        self.w3 = Parameter(initializer(Normal(sigma=self.init_method_std, mean=0.0),
-                                        [self.expert_num, self.hidden_size, self.intermediate_size],
-                                        self.param_init_type), name='w3')
-
         # ops
         self.cast = P.Cast()
         self.enable_gmm_safe_tokens = moe_config.enable_gmm_safe_tokens
@@ -895,7 +904,6 @@ class FFN(nn.Cell):
                                 "mp0"),  # router_coeff [dp, N, K]
                     self.layout("inner_dp", "mp0", "mp1"),  # w1 [E, h, H]
                     self.layout("inner_dp", "mp1", "mp0"),  # w2 [E, H, h]
-                    self.layout("inner_dp", "mp0", "mp1"),  # w3 [E, h, H]
                 ),
                 out_strategy=(
                     self.layout(("outer_dp", "inner_dp"), "sp", "mp0"), # output [dp, N, k]
@@ -937,7 +945,6 @@ class FFN(nn.Cell):
                     self.layout(("outer_dp", "inner_dp"), "sp"),  # conter [B, E]
                     self.layout("inner_dp", "mp0", "mp1"),  # w1 [E, h, H]
                     self.layout("inner_dp", "mp1", "mp0"),  # w2 [E, H, h]
-                    self.layout("inner_dp", "mp0", "mp1"),  # w3 [E, h, H]
                 ),
                 out_strategy=(
                     self.layout(("outer_dp", "inner_dp"), "sp", "mp0"),  # output [B, S, h]
@@ -963,10 +970,9 @@ class FFN(nn.Cell):
         dtype = x.dtype
         w1 = self.cast(self.w1, dtype)
         w2 = self.cast(self.w2, dtype)
-        w3 = self.cast(self.w3, dtype)
 
         if self.enable_deredundency:
-            x = self.hook_ffn_forward(x, expert_id, counter, w1, w2, w3, self.iep,
+            x = self.hook_ffn_forward(x, expert_id, counter, w1, w2, self.iep,
                                       self.expert_num, self.a, self.b, self.oep_group, self.iep_group)
         elif self.use_3d_tensor_parallel:
             x = self.hook_ffn_forward(x, expert_id, counter, w1, w2, w3, self.expert_num, self.tp_x_group,
@@ -974,7 +980,7 @@ class FFN(nn.Cell):
         else:
             x, expert_id, counter, unsort_map_safe_tokens = self._pad_safe_tokens(x, expert_id, counter)
             x = self.hook_ffn_forward(
-                x, expert_id, counter, w1, w2, w3,
+                x, expert_id, counter, w1, w2,
                 self.ep_group, self.hidden_size, self.ep, self.use_fused_ops_permute
             )
             x = self._remove_safe_tokens(x, unsort_map_safe_tokens)
