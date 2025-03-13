@@ -427,3 +427,8 @@ def check_seqpp_fa_opt_support():
 def check_moveto_op_support():
     """Check whether MindSpore supports the MoveTo operator."""
     return is_version_ge(ms.__version__, "2.6.0")
+
+
+def check_delay_initialization_support():
+    """check mindspore version if use delay initialization"""
+    return is_version_ge(ms.__version__, "2.4.10")
