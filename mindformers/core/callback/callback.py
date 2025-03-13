@@ -690,7 +690,7 @@ class TrainingStateMonitor(Callback):
             - print_struct: Whether to print the structure of model. If ``True``, callback will print the names of all
               trainable params at the first step and then quit training process. Default: ``False``.
 
-        per_print_times (int, optional): Every how many steps to print the log information. Default: ``1``.
+        step_interval (int, optional): Every how many steps to display metrics. Default: ``1``.
         dataset_size (int, optional): Required in sink mode. Training dataset size. Default: ``None``.
         initial_epoch (int, optional): The beginning epoch. Default: ``0``.
         initial_step (int, optional): The beginning step. Default: ``0``.
@@ -699,13 +699,17 @@ class TrainingStateMonitor(Callback):
     def __init__(self,
                  origin_epochs: int,
                  config: dict = None,
-                 per_print_times: int = 1,
+                 step_interval: int = 1,
                  dataset_size: int = None,
                  initial_epoch: int = 0,
                  initial_step: int = 0,
                  global_batch_size: int = 0):
         super(TrainingStateMonitor, self).__init__()
-        self.per_print_times = per_print_times
+        if not (isinstance(step_interval, int) and step_interval > 0):
+            logger.warning(f"The value of 'monitor_config.step_interval' should be positive integer, "
+                           f"but get {step_interval}. Use default value: 1.")
+            step_interval = 1
+        self.step_interval = step_interval
         self.last_print_time = 0
         self.step_time = time.time()
         self.epoch_time = time.time()
@@ -723,7 +727,7 @@ class TrainingStateMonitor(Callback):
         if get_auto_parallel_context("dump_local_norm_path"):
             self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f'rank_{get_real_rank()}')
             self.dump_key = {0: -1}
-            self.dump_step = 1
+            self.dump_step = step_interval
             if is_version_ge(ms.__version__, '2.5.0'):
                 self.dump_name_mode = 0
                 self.finish_pattern = 'finish_step_*_*'
@@ -794,7 +798,7 @@ class TrainingStateMonitor(Callback):
         else:
             self.steps_per_epoch = cb_params.batch_num
             per_step_seconds = step_seconds
-        if (cb_params.cur_step_num - self.last_print_time) >= self.per_print_times:
+        if (cb_params.cur_step_num - self.last_print_time) >= self.step_interval:
             self.last_print_time = cb_params.cur_step_num
             if get_auto_parallel_context("dump_local_norm_path"):
                 self._dump_data_in_step(cb_params.cur_step_num)
@@ -938,7 +942,7 @@ class TrainingStateMonitor(Callback):
             if local_losses:
                 self._output(f'local_loss', np.stack(local_losses).mean(), self.dump_step, self.local_loss_format)
             self._clear_dump_path()
-            self.dump_step += self.per_print_times
+            self.dump_step += self.step_interval
 
     def _dump_optimizer_state(self, cb_params):
         """write the optimizer state to tensorboard"""
@@ -995,10 +999,9 @@ class TrainingStateMonitor(Callback):
 
     def _output(self, tag, data, global_step, formats):
         """Write data in specified formats"""
-        if formats is None:
-            return
-        for fmt in formats:
-            self.outputer[fmt](tag, data, global_step)
+        if formats:
+            for fmt in formats:
+                self.outputer[fmt](tag, data, global_step)
 
 
 @MindFormerRegister.register(MindFormerModuleType.CALLBACK)

@@ -525,6 +525,24 @@ class EvalCallbackConfig(ListConfig):
     _required_keys = ["type"]
 
 
+class MonitorConfig(Config):
+    """monitor config"""
+    monitor_on = False
+    dump_path = ""
+    target = None
+    invert = False
+    step_interval = 1
+    local_loss_format = None
+    local_norm_format = None
+    device_local_norm_format = None
+    optimizer_state_format = None
+    weight_state_format = None
+    throughput_baseline = None
+    print_struct = False
+
+    _name = "monitor_config"
+
+
 CONFIG_NAME_TO_CLASS = {
     "general_config": GeneralConfig,
     "parallel_config": ParallelConfig,
@@ -546,6 +564,7 @@ CONFIG_NAME_TO_CLASS = {
     "lr_schedule": LrScheduleConfig,
     "metric": MetricConfig,
     "callbacks": CallbackConfig,
+    "monitor_config": MonitorConfig,
     "eval_callbacks": EvalCallbackConfig,
 }
 
@@ -587,7 +606,8 @@ class ConfigTemplate:
         "metric",
         "train_dataset",
         "train_dataset_task",
-        "callbacks"
+        "callbacks",
+        "monitor_config"
     ]
 
     do_eval_configs = [

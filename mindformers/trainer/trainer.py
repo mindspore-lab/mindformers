@@ -327,12 +327,14 @@ class Trainer:
 
     def _reassign_monitor_config(self):
         """parse config.monitor_config and supplement settings"""
-        if hasattr(self.config, 'monitor_config') and self.config.monitor_config is not None:
+        if self.config.get('monitor_config') and self.config.monitor_config.monitor_on:
             monitor_config = self.config.monitor_config
-            self.config.check_for_nan_in_loss_and_grad = monitor_config.get('local_loss_format') is not None
-            dump_local_norm = monitor_config.get('local_norm_format') is not None
-            dump_device_local_norm = monitor_config.get('device_local_norm_format') is not None
-            dump_path = monitor_config.pop('dump_path') or './dump'
+            monitor_config.pop("monitor_on", None)
+            self.config.check_for_nan_in_loss_and_grad = bool(monitor_config.get('local_loss_format'))
+            dump_local_norm = bool(monitor_config.get('local_norm_format'))
+            dump_device_local_norm = bool(monitor_config.get('device_local_norm_format'))
+            dump_path = monitor_config.pop('dump_path', './dump') or './dump'
+            step_interval = monitor_config.pop('step_interval', 1) or 1
             ms.set_auto_parallel_context(
                 dump_local_norm_path=dump_path,
                 dump_local_norm=dump_local_norm,
@@ -341,8 +343,13 @@ class Trainer:
             for callback in self.config.callbacks:
                 if "type" in callback and callback["type"] == "TrainingStateMonitor":
                     callback['config'] = monitor_config
+                    callback['step_interval'] = step_interval
                     return
-            self.config.callbacks.append({"type": "TrainingStateMonitor", "config": monitor_config})
+            self.config.callbacks.append({
+                "type": "TrainingStateMonitor",
+                "config": monitor_config,
+                "step_interval": step_interval
+            })
 
     @args_type_check(train_checkpoint=(str, bool), resume_from_checkpoint=(str, bool),
                      resume_training=(bool, str), auto_trans_ckpt=bool, src_strategy=str,
