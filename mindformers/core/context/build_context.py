@@ -154,11 +154,12 @@ class MSContextOperator:
         """Get jit_level and infer_boost from config and set into ms context."""
         run_mode = self.config.get('run_mode')
         use_past = self.config.get_value('model.model_config.use_past', False)
-
+        use_legacy = self.config.get_value('use_legacy', True)
+        infer_flag = not use_legacy or use_past
         if (
                 run_mode is not None
                 and RunMode(run_mode) in [RunMode.PREDICT, RunMode.EVAL]
-                and use_past
+                and infer_flag
         ):
             jit_level = ctx.get("jit_level", "O0")
             infer_boost = ctx.get("infer_boost", "on")
@@ -308,10 +309,12 @@ class MFContextOperator(MFContextConfig):
         run_mode = (
             getattr(self, 'run_mode') if hasattr(self, 'run_mode') else None
         )
+        use_legacy = self.config.get_value('use_legacy', True)
+        infer_flag = not use_legacy or use_past
         if (
                 run_mode is not None
                 and RunMode(run_mode) in [RunMode.PREDICT, RunMode.EVAL]
-                and use_past
+                and infer_flag
         ):
             ms_alloc_conf = os.environ.get('MS_ALLOC_CONF', 'enable_vmm:False')
             cpu_affinity = os.environ.get('CPU_AFFINITY', 'True')

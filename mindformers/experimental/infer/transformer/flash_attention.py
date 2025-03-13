@@ -127,6 +127,7 @@ class FlashAttention(Cell):
                   block_tables=None,
                   batch_valid_length=None,
                   context_lens_tensor=None,
+                  q_seq_lens=None,
                   actual_seq_qlen=None,
                   actual_seq_kvlen=None,
                   attn_mask=None,
@@ -165,8 +166,7 @@ class FlashAttention(Cell):
                                                    prefix, actual_seq_qlen,
                                                    actual_seq_kvlen)
             return output
-
         return self.paged_attention(query, key_cache, value_cache,
                                     block_tables, batch_valid_length, None,
                                     None, attn_mask,
-                                    batch_valid_length - context_lens_tensor)
+                                    q_seq_lens)

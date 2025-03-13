@@ -131,7 +131,7 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel):
                               vocab_size=self.vocab_size,
                               rotary_base=self.config.rotary_base)
 
-    def set_dynamic_inputs(self):
+    def set_dynamic_inputs(self, **kwargs):
         """ dynamic shape"""
         dynamic_input_ids = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_positions = Tensor(shape=[None], dtype=mstype.int32)
@@ -139,8 +139,9 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel):
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_batch_valid_length = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_context_lens_tensor = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
         self.set_inputs(dynamic_input_ids, dynamic_positions, dynamic_batch_valid_length,
-                        dynamic_context_lens_tensor, dynamic_block_tables,
+                        dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
                         dynamic_slot_mapping, None, None, None)
         logger.info("Set dynamic input for qwen2.")
 
@@ -162,7 +163,7 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel):
             layer.self_attention.flash_attention.add_flags(is_prefill=is_prefill)
 
     # pylint: disable=W0613
-    def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None,
+    def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None, q_seq_lens=None,
                   block_tables=None, slot_mapping=None, kv_cache=None, attention_mask=None, attn_metadata=None):
         r"""
         model forward.
@@ -187,6 +188,7 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel):
             positions=positions,
             batch_valid_length=batch_valid_length,
             context_lens_tensor=context_lens_tensor,
+            q_seq_lens=q_seq_lens,
             block_tables=block_tables,
             slot_mapping=slot_mapping,
             attention_mask=attention_mask,

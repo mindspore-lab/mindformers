@@ -157,16 +157,17 @@ class TransformerBlock(nn.Cell):
         return self.layers[layer_number]
 
     def construct(self, hidden_states: Tensor, attention_mask: Tensor, rotary_pos_cos: Tensor = None,
-                  rotary_pos_sin: Tensor = None, batch_valid_length=None, context_lens_tensor=None, block_tables=None,
-                  slot_mapping=None, prefix_keys_values=None, kv_cache=None):
+                  rotary_pos_sin: Tensor = None, batch_valid_length=None, context_lens_tensor=None,
+                  q_seq_lens=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, kv_cache=None):
         """ Construct function of transformer. """
         for index in range(self.num_layers):
             layer = self._get_layer(index)
             prefix_kv = prefix_keys_values[index] if prefix_keys_values is not None else None
             hidden_states = layer(hidden_states, attention_mask, rotary_pos_cos=rotary_pos_cos,
                                   rotary_pos_sin=rotary_pos_sin, batch_valid_length=batch_valid_length,
-                                  context_lens_tensor=context_lens_tensor, kv_cache=kv_cache,
-                                  block_tables=block_tables, slot_mapping=slot_mapping, prefix_keys_values=prefix_kv)
+                                  context_lens_tensor=context_lens_tensor, q_seq_lens=q_seq_lens,
+                                  kv_cache=kv_cache, block_tables=block_tables,
+                                  slot_mapping=slot_mapping, prefix_keys_values=prefix_kv)
 
         # final layernorm.
         if self.post_norm:

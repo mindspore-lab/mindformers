@@ -20,6 +20,7 @@ import shutil
 import tempfile
 from multiprocessing import Process
 from typing import Dict, List, Tuple, Union
+from importlib import import_module
 
 import numpy as np
 import psutil
@@ -758,3 +759,12 @@ def calculate_pipeline_stage(layers_per_stage, model_layers):
         pipeline_stages.append(pipeline_stage)
 
     return pipeline_stages
+
+
+def get_context(attr_key, default_value=None):
+    context_module = import_module("mindformers.core.context.build_context")
+    if context_module.Context.is_exists():
+        attr_value = context_module.get_context(attr_key)
+        if attr_value is not None:
+            return attr_value
+    return default_value
