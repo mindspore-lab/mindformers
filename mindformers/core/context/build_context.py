@@ -98,7 +98,6 @@ class MSContextOperator:
         ms_kwargs = self._handle_data()
         logger.debug('MSContextConfig load configs: %s', ms_kwargs)
         self.set_context(**ms_kwargs)
-        del self.config
 
     def _handle_data(self):
         """Get the valid ms config."""
@@ -219,7 +218,6 @@ class MFContextOperator(MFContextConfig):
         super(MFContextOperator, self).__init__(**supported_kwargs)
         use_past = self.config.get_value('model.model_config.use_past', False)
         self.set_env(use_past)
-        del self.config
 
     def _handle_data(self):
         ctx_config = self.config.get('context', {})
@@ -235,75 +233,61 @@ class MFContextOperator(MFContextConfig):
 
     def _get_override_precision_sync_env(self, status, env_checks):
         """return mismatches env with precision sync config."""
-        env_values = {key: os.environ.get(key, values[1]) for key, values in env_checks.items()}
-        expected_values = {key: values[0] if status else values[1] for key, values in env_checks.items()}
+        env_values = {key: os.getenv(key) for key, _ in env_checks.items()}
+        expected_values = {
+            key: values[0] if status else values[1]
+            for key, values in env_checks.items()
+        }
         mismatches = []
         for key in env_checks:
             actual_value = env_values[key]
             expected_value = expected_values[key]
             if actual_value != expected_value:
-                mismatches.append(f"  - {key}: current={actual_value}, updated={expected_value}")
+                mismatches.append(
+                    f"  - {key}: current={actual_value}, updated={expected_value}"
+                )
         return mismatches
+
+    def _get_precision_env(self):
+        """Set deterministic computing and get relative env variable."""
+        custom_matmul_shuffle = os.getenv('CUSTOM_MATMUL_SHUFFLE', 'on')
+        lccl_deterministic = os.getenv('LCCL_DETERMINISTIC', '0')
+
+        if self.train_precision_sync:
+            ms.set_deterministic(deterministic=True)
+
+        if self.infer_precision_sync:
+            ms.set_deterministic(deterministic=True)
+            custom_matmul_shuffle = 'off'
+            lccl_deterministic = '1'
+
+        return {
+            'CUSTOM_MATMUL_SHUFFLE': custom_matmul_shuffle,
+            'LCCL_DETERMINISTIC': lccl_deterministic
+        }
 
     def set_env(self, use_past=False):
         """Update environment variables."""
-        env_train_precision_sync = {
-            'HCCL_DETERMINISTIC': ('true', 'false'),
-            'ASCEND_LAUNCH_BLOCKING': ('1', '0'),
-            'TE_PARALLEL_COMPILER': ('1', '0')
-        }
         env_infer_precision_sync = {
             'LCCL_DETERMINISTIC': ('1', '0'),
             'CUSTOM_MATMUL_SHUFFLE': ('off', 'on')
         }
-        if self.train_precision_sync:
-            hccl_deterministic = 'true'
-            ascend_launch_blocking = '1'
-            te_parallel_compiler = '1'
-            deterministic = 'ON'
-        else:
-            hccl_deterministic = 'false'
-            ascend_launch_blocking = '0'
-            te_parallel_compiler = '0'
-            deterministic = 'OFF'
-        mismatch_train_env = self._get_override_precision_sync_env(status=self.train_precision_sync,
-                                                                   env_checks=env_train_precision_sync)
-        if mismatch_train_env:
-            mismatch_details = "\n".join(mismatch_train_env)
-            logger.warning(
-                f"Environment variables override by config.train_precision_sync:"
-                f"'{'True' if self.train_precision_sync else 'False'}'."
-                f"If you want to change deterministic, Please modify the config.train_precision_sync."
-                f"Mismatch details:\n{mismatch_details}")
-        self.config.set_value(
-            'context.deterministic',
-            self.config.get_value('context.deterministic') or deterministic
-        )
 
-        if self.infer_precision_sync:
-            custom_matmul_shuffle = 'off'
-            lccl_deterministic = '1'
-        else:
-            custom_matmul_shuffle = 'on'
-            lccl_deterministic = '0'
-        mismatch_infer_env = self._get_override_precision_sync_env(status=self.infer_precision_sync,
-                                                                   env_checks=env_infer_precision_sync)
+        mismatch_infer_env = self._get_override_precision_sync_env(
+            status=self.infer_precision_sync,
+            env_checks=env_infer_precision_sync)
         if mismatch_infer_env:
             mismatch_details = "\n".join(mismatch_infer_env)
             logger.warning(
                 f"Environment variables override by config.infer_precision_sync:"
                 f"'{'True' if self.infer_precision_sync else 'False'}'."
-                f"If you want to change deterministic, Please modify the config.infer_precision_sync."
+                "If you want to change deterministic, "
+                "Please modify the config.infer_precision_sync."
                 f"Mismatch details:\n{mismatch_details}")
 
-        env = {
-            'HCCL_DETERMINISTIC': hccl_deterministic,
-            'ASCEND_LAUNCH_BLOCKING': ascend_launch_blocking,
-            'TE_PARALLEL_COMPILER': te_parallel_compiler,
-            'CUSTOM_MATMUL_SHUFFLE': custom_matmul_shuffle,
-            'LCCL_DETERMINISTIC': lccl_deterministic,
-            'MS_ENABLE_GRACEFUL_EXIT': '1' if self.use_graceful_exit else '0'
-        }
+        env = self._get_precision_env()
+
+        env['MS_ENABLE_GRACEFUL_EXIT'] = '1' if self.use_graceful_exit else '0'
 
         run_mode = (
             getattr(self, 'run_mode') if hasattr(self, 'run_mode') else None
@@ -325,7 +309,7 @@ class MFContextOperator(MFContextConfig):
             env['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = ms_internal_disable_custom_kernel_list
             env['RUN_MODE'] = run_mode
 
-        os.environ.update(env)
+        os.environ.update({k: v for k, v in env.items() if v is not None})
         logger.info(f"env: {env}")
 
     def set_context(self, **kwargs):
@@ -480,8 +464,6 @@ def set_context(run_mode=None, **kwargs):
     infer_precision_sync = kwargs.pop('infer_precision_sync', None)
     if train_precision_sync is not None:
         ctx.mf_ctx_opr.train_precision_sync = train_precision_sync
-        deterministic = "ON" if train_precision_sync else "OFF"
-        ctx.ms_ctx_opr.set_context(deterministic=deterministic)
         ctx.mf_ctx_opr.set_env()
 
     if infer_precision_sync is not None:
