@@ -43,6 +43,8 @@ def build_data_handler(config, module_type: str = 'data_handler', class_name: st
     if config is not None:
         if isinstance(config, dict) and not isinstance(config, MindFormerConfig):
             config = MindFormerConfig(**config)
+        if 'auto_register' in config:
+            MindFormerRegister.auto_register(class_reference=config.pop('auto_register'), module_type=module_type)
         return MindFormerRegister.get_cls(
             MindFormerModuleType.DATA_HANDLER, config.type)(config, **kwargs)
     return MindFormerRegister.get_cls(module_type, class_name)(**kwargs)
