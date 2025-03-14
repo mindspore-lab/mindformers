@@ -44,6 +44,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_pynative, get_context
 from mindformers.tools.debug_info import DetailedLatency, Profiling
 from mindformers.generation.parallel_decoding import parallel_decoding_control, parallel_decoding_process
+from mindformers.generation.parallel_decoding_mcore import la_pre_process
 
 __all__ = ["GenerationMixin"]
 
@@ -372,8 +373,20 @@ class GenerationMixin:
 
     def _incremental_infer_mcore(self,
                                  model_inputs: dict,
-                                 prefill):
-        """model forward for incremental infer."""
+                                 prefill,
+                                 gather_decode=True):
+        r"""
+        mcore model forward for incremental infer.
+
+        Args:
+            model_inputs: infer model inputs.
+            prefill: flag to distinguish prefill and decode.
+            gather_decode: whether to gather decode logits.
+
+        Returns:
+            res: the output logits.
+
+        """
         # Claim the first graph
         if prefill:
             self.phase = "prefill"
@@ -404,7 +417,7 @@ class GenerationMixin:
                 **model_inputs,
             )
             q_seq_lens = model_inputs.get("q_seq_lens", None)
-            if q_seq_lens is not None:
+            if gather_decode and q_seq_lens is not None:
                 if q_seq_lens.max() > 1 and q_seq_lens.sum() == res.shape[0]:
                     res = self.gather(res, mint.cumsum(q_seq_lens, dim=0) - 1, 0)
         return res
@@ -1270,6 +1283,7 @@ class GenerationMixin:
 
         q_seq_lens = model_kwargs.get("q_seq_lens", None)
         positions = model_kwargs.get("position_ids", None)
+        attention_mask = model_kwargs.get("attention_mask", None)
         if q_seq_lens is None or np.size(q_seq_lens) == 0:
             if len(input_ids) == len(seq_lens):
                 q_seq_lens = np.ones_like(seq_lens)
@@ -1294,7 +1308,12 @@ class GenerationMixin:
         model_inputs["positions"] = Tensor.from_numpy(positions.astype(np.int32))
         model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
         model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
-        model_inputs["attention_mask"] = None
+        if attention_mask is not None:
+            if isinstance(attention_mask, np.ndarray):
+                attention_mask = Tensor.from_numpy(attention_mask)
+            model_inputs["attention_mask"] = attention_mask.astype(self.config.compute_dtype)
+        else:
+            model_inputs["attention_mask"] = None
         model_inputs["attn_metadata"] = None
         model_inputs["kv_cache"] = None
         return model_inputs, prefill
@@ -1321,6 +1340,19 @@ class GenerationMixin:
             res, the result after the forward process.
             current_index, records the current index of the sequence.
         """
+        attention_mask = None
+        gather_decode = True
+        if isinstance(self.config.parallel_decoding_params, Dict):
+            plugin_type = self.config.parallel_decoding_params.get("plugin_type")
+        else:
+            plugin_type = None
+        if plugin_type == "la":
+            slot_mapping, attention_mask = la_pre_process(input_ids,
+                                                          slot_mapping,
+                                                          **model_kwargs)
+            model_kwargs["attention_mask"] = attention_mask
+            # lookahead should not gather decode logits
+            gather_decode = False
         model_inputs, prefill = self.prepare_inputs_for_generation_mcore(
             input_ids=input_ids,
             valid_length_each_example=valid_length_each_example,
@@ -1332,6 +1364,7 @@ class GenerationMixin:
         res = self._incremental_infer_mcore(
             model_inputs=model_inputs,
             prefill=prefill,
+            gather_decode=gather_decode
         )
         return res, None
 
