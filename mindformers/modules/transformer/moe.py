@@ -831,7 +831,7 @@ class MoEV2(Cell):
             # (dp_moe, E, ep, n, h) <-- (dp_moe, ep, E, n, h)
             expert_input = self.transpose_5dim_ep2(expert_input, (0, 2, 1, 3, 4))
 
-        expert_input = self.reshape(expert_input, (-1, self.hidden_size))
+        expert_input = self.reshape(expert_input, (self.dp_moe, -1, self.hidden_size))
         expert_output = self.ffn(expert_input)
 
         if self.group_wise_a2a:
