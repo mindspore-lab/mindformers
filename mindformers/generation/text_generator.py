@@ -41,7 +41,7 @@ from mindformers.generation.streamers import BaseStreamer
 from mindformers.generation.utils import softmax_with_threads, topk, GenerateOutput, InferOutput
 from mindformers.modules.block_tables import BlockTables
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import is_pynative
+from mindformers.tools.utils import is_pynative, get_context
 from mindformers.tools.debug_info import DetailedLatency, Profiling
 from mindformers.generation.parallel_decoding import parallel_decoding_control, parallel_decoding_process
 
@@ -403,12 +403,10 @@ class GenerationMixin:
             res = self(
                 **model_inputs,
             )
-            seq_lens_tensor = model_inputs.get("seq_lens_tensor", None)
-            context_lens_tensor = model_inputs.get("context_lens_tensor", None)
-            if seq_lens_tensor is not None and context_lens_tensor is not None:
-                q_lens_tensor = seq_lens_tensor - context_lens_tensor
-                if q_lens_tensor.max() > 1:
-                    res = self.gather(res, q_lens_tensor - 1, 0)
+            q_seq_lens = model_inputs.get("q_seq_lens", None)
+            if q_seq_lens is not None:
+                if q_seq_lens.max() > 1 and q_seq_lens.sum() == res.shape[0]:
+                    res = self.gather(res, mint.cumsum(q_seq_lens, dim=0) - 1, 0)
         return res
 
     def _beam_search(self,
@@ -765,7 +763,7 @@ class GenerationMixin:
         if use_past_tmp is not None:
             logger.warning("use_past should be defined in model config, it will not take effect when passed to "
                            ".generate() method.")
-        use_legacy = getattr(self.config, "use_legacy", True)
+        use_legacy = get_context("use_legacy", True)
         # Handle `generation_config` and kwargs that might update it
         # priority: `generation_config` argument > `model.generation_config` (default config)
         if generation_config is None:
@@ -1268,27 +1266,31 @@ class GenerationMixin:
                                             **model_kwargs):
         """prepare inputs for mcore"""
         model_inputs = dict()
-        seq_lens = valid_length_each_example
+        seq_lens = np.array(valid_length_each_example)
+
         q_seq_lens = model_kwargs.get("q_seq_lens", None)
         positions = model_kwargs.get("position_ids", None)
-        if q_seq_lens is None:
+        if q_seq_lens is None or np.size(q_seq_lens) == 0:
             if len(input_ids) == len(seq_lens):
                 q_seq_lens = np.ones_like(seq_lens)
             else:
-                q_seq_lens = valid_length_each_example
+                q_seq_lens = np.array(valid_length_each_example)
+        q_seq_lens = np.array(q_seq_lens)
+        if prefill and len(input_ids) != q_seq_lens.sum():
+            q_seq_lens = np.array(valid_length_each_example)
         context_lens = seq_lens - q_seq_lens
-
         if positions is None:
             positions = np.zeros_like(input_ids, dtype=np.int32)
             start = 0
             for i in range(seq_lens.size):
                 positions[start:start + q_seq_lens[i]] = np.arange(context_lens[i], seq_lens[i])
                 start += q_seq_lens[i]
-        if context_lens.max() > 0:
+        if prefill and context_lens.max() > 0:
             prefill = False
         model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
         model_inputs["batch_valid_length"] = Tensor.from_numpy(seq_lens.astype(np.int32))
         model_inputs["context_lens_tensor"] = Tensor.from_numpy(context_lens.astype(np.int32))
+        model_inputs["q_seq_lens"] = Tensor.from_numpy(q_seq_lens.astype(np.int32))
         model_inputs["positions"] = Tensor.from_numpy(positions.astype(np.int32))
         model_inputs["block_tables"] = Tensor.from_numpy(block_tables)
         model_inputs["slot_mapping"] = Tensor.from_numpy(slot_mapping)
@@ -1325,7 +1327,7 @@ class GenerationMixin:
             block_tables=block_tables,
             slot_mapping=slot_mapping,
             prefill=prefill,
-            model_kwargs=model_kwargs,
+            **model_kwargs,
         )
         res = self._incremental_infer_mcore(
             model_inputs=model_inputs,

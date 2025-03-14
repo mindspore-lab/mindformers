@@ -178,7 +178,8 @@ class GPTModel(nn.Cell):
 
     # pylint: disable=W0613
     def construct(self, input_ids, positions=None, batch_valid_length=None, context_lens_tensor=None,
-                  block_tables=None, slot_mapping=None, kv_cache=None, attention_mask=None, attn_metadata=None):
+                  q_seq_lens=None, block_tables=None, slot_mapping=None, kv_cache=None,
+                  attention_mask=None, attn_metadata=None):
         """ Construct function of GPTModel. """
         input_ids = self.reshape(input_ids, (1, -1))
         if self.is_prefill:
@@ -187,8 +188,11 @@ class GPTModel(nn.Cell):
         else:
             rotary_pos_cos, rotary_pos_sin = \
                 self.rotary_pos_emb.get_cos_sin_for_decode(positions, self.max_position_embeddings)
-        if attention_mask is None:
-            attention_mask = self.casual_mask(positions)
+        if self.is_prefill:
+            attention_mask = self.casual_mask.prefill()
+        else:
+            if attention_mask is None:
+                attention_mask = self.casual_mask.decode(positions)
 
         hidden_states = self.cast(self.embedding(input_ids), self.compute_dtype)
 
@@ -199,6 +203,7 @@ class GPTModel(nn.Cell):
             rotary_pos_sin=rotary_pos_sin,
             batch_valid_length=batch_valid_length,
             context_lens_tensor=context_lens_tensor,
+            q_seq_lens=q_seq_lens,
             block_tables=block_tables,
             slot_mapping=slot_mapping,
             prefix_keys_values=None,
@@ -225,7 +230,8 @@ class LowerTriangularMaskWithDynamic(nn.Cell):
         self.seq_length = seq_length
         self.is_prefill = True
         mask_coeff = 1.0 if self.compute_dtype is mstype.bfloat16 else -10000.0
-        self.pa_lower_triangle_mask = Tensor(np.tril(np.ones(shape=(self.seq_length, self.seq_length), dtype=np.int8)),
+        full_mask = np.ones(shape=(self.seq_length, self.seq_length), dtype=np.int8)
+        self.pa_lower_triangle_mask = Tensor(np.triu(full_mask, 1),
                                              dtype=self.compute_dtype) * -10000
         self.fa_lower_triangle_mask = Tensor(np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1) * mask_coeff,
                                              dtype=self.compute_dtype)

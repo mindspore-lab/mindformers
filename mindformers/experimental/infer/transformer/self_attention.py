@@ -240,6 +240,7 @@ class SelfAttention(nn.Cell):
                   actual_seq_qlen=None,
                   actual_seq_kvlen=None,
                   context_lens_tensor=None,
+                  q_seq_lens=None,
                   attn_mask=None,
                   alibi_mask=None,
                   prefix_keys_values=None):
@@ -289,8 +290,8 @@ class SelfAttention(nn.Cell):
             bs, seq_len, _ = query.shape
             context_layer = self.flash_attention(
                 query, key, value, kv_cache, slot_mapping, block_tables,
-                batch_valid_length, context_lens_tensor, actual_seq_qlen,
-                actual_seq_kvlen, attn_mask, alibi_mask)
+                batch_valid_length, context_lens_tensor, q_seq_lens,
+                actual_seq_qlen, actual_seq_kvlen, attn_mask, alibi_mask)
             context_layer = self.reshape(
                 context_layer,
                 (bs, seq_len, self.num_heads_per_partition * self.head_dim))

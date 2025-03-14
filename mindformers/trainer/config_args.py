@@ -507,6 +507,7 @@ class MFContextConfig(BaseArgsConfig):
         'auto_trans_ckpt',
         'only_save_strategy',
         'run_mode',
+        'use_legacy',
         'exclude_cann_cpu',
         'train_precision_sync',
         'infer_precision_sync',

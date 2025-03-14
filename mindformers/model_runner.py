@@ -41,6 +41,7 @@ from mindformers.tools.hub.dynamic_module_utils import get_class_from_dynamic_mo
 from mindformers.generation.parallel_decoding import parallel_decoding_control
 from mindformers.version_control import check_delay_init_valid, need_nz
 from mindformers.models import build_processor, PretrainedConfig
+from mindformers.tools.utils import get_context
 
 __all__ = ["ModelRunner"]
 
@@ -224,6 +225,8 @@ class MindIEModelRunner:
 
     def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0,
                  world_size=1, npu_device_ids=None, plugin_params=None):
+        if plugin_params is not None and not isinstance(plugin_params, str):
+            raise ValueError("plugin params should be str type!")
         self.dynamic_kv_cache_whitelist = ["ParallelLlamaForCausalLM"]
         self.config = MindFormerConfig(config_path)
         self.warmup_step = 2
@@ -249,7 +252,6 @@ class MindIEModelRunner:
         else:
             self.model_config = AutoConfig.from_pretrained(config_path)
         setattr(self.model_config, 'npu_mem_size', npu_mem_size)
-        self.use_legacy = getattr(self.model_config, "use_legacy", True)
         if self.config.moe_config:
             self.model_config.moe_config = self.config.moe_config
 
@@ -276,6 +278,7 @@ class MindIEModelRunner:
 
         build_context(self.config)
         logger.info(f"Build context finished.")
+        self.use_legacy = get_context("use_legacy", True)
 
         # build tokenizer
         if self.is_multi_modal_model:
@@ -300,7 +303,7 @@ class MindIEModelRunner:
 
         self.load_checkpoint(network_delay_inited)
 
-        if self.model_config.is_dynamic:
+        if not self.use_legacy or self.model_config.is_dynamic:
             self.model.set_dynamic_inputs()
 
         cpu_kv_shape = (self.cpu_num_blocks, block_size, self.num_kv_heads, self.head_size)
