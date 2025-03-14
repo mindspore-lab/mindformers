@@ -32,12 +32,18 @@ class GatherFromModelParallelRegion(nn.Cell):
             self.all_gather_into_tensor = ops.AllGather(group=self.tp_group)
 
     def construct(self, input_):
+        """construct."""
         # Size and dimension.
         if self.world_size == 1:
             return input_
-        input_ = input_.transpose(2, 1, 0)
-        output = self.all_gather_into_tensor(input_)
-        output = output.transpose(2, 1, 0)
+        if input_.dim() == 2:
+            input_ = input_.transpose(1, 0)
+            output = self.all_gather_into_tensor(input_)
+            output = output.transpose(1, 0)
+        else:
+            input_ = input_.transpose(2, 1, 0)
+            output = self.all_gather_into_tensor(input_)
+            output = output.transpose(2, 1, 0)
         return output
 
 

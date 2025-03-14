@@ -341,7 +341,7 @@ class ParallelAttention(nn.Cell):
         self.num_heads_per_partition = divide(self.num_heads, self.tp_group_size)
 
         self.use_gqa = (self.num_heads != self.kv_num_heads)
-
+        self.enable_vllm_infer = config.enable_vllm_infer
         if self.use_gqa:
             self._check_gqa_valid()
             self.kv_num_heads_per_partition = divide(self.kv_num_heads, self.tp_group_size)
@@ -395,14 +395,17 @@ class ParallelAttention(nn.Cell):
                                                                  kv_shape,
                                                                  config.seq_length,
                                                                  compute_dtype=self.compute_dtype,
-                                                                 npu_mem_size=npu_mem_size)
+                                                                 npu_mem_size=npu_mem_size,
+                                                                 enable_vllm_infer=self.enable_vllm_infer
+                                                                 )
             self.rotary_embedding = InferRotaryEmbedding(rotary_cos_format=2)
         else:
             self.apply_rotary_emb = RotaryEmbedding(self.head_dim, config.rotary_dtype)
 
+
     def construct(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None,
                   attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None,
-                  key_cache=None, value_cache=None):
+                  key_cache=None, value_cache=None, q_seq_lens=None):
         """Construct function of attention block."""
         # hidden_states: [B, S, H]
         ori_dtype = x.dtype
@@ -496,7 +499,7 @@ class ParallelAttention(nn.Cell):
                         bs, seq_len, self.hidden_size_per_partition)
             else:
                 context_layer = self.paged_attention_mgr.paged_attn(query, batch_valid_length, block_tables,
-                                                                    key_cache=key_cache, value_cache=value_cache)
+                                                                    attn_mask, q_seq_lens, key_cache, value_cache)
 
         # [B, S, N, D]
         else:
@@ -697,7 +700,7 @@ class ParallelTransformerLayer(nn.Cell):
         self.feed_forward = ParallelMLP(config)
 
     def construct(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None):
+                  slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None, q_seq_lens=None):
         """Construct function of transformer layer."""
         # hidden_states: [B, S, H]
         # norm at the beginning of the transformer layer.
@@ -705,7 +708,7 @@ class ParallelTransformerLayer(nn.Cell):
         # attention.
         attention_output = self.attention(norm_output, batch_valid_length, block_tables, slot_mapping, freqs_cis,
                                           mask, prefix_keys_values=prefix_keys_values,
-                                          key_cache=key_cache, value_cache=value_cache)
+                                          key_cache=key_cache, value_cache=value_cache, q_seq_lens=q_seq_lens)
         # residual-connection.
         if self.apply_residual_connection_post_norm:
             residual = norm_output
@@ -772,6 +775,7 @@ class ParallelTransformer(nn.Cell):
         self.shape = ops.Shape()
 
         self.is_pynative = is_pynative()
+        self.enable_vllm_infer = config.enable_vllm_infer
 
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
@@ -816,7 +820,8 @@ class ParallelTransformer(nn.Cell):
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None,
+                  position_ids=None, attention_mask=None, q_seq_lens=None):
         """
         Forward of ParallelTransformer.
 
@@ -832,7 +837,13 @@ class ParallelTransformer(nn.Cell):
         # preprocess
         bs, seq_len = self.shape(tokens)
         mask = None
-        if self.use_past:
+        if self.enable_vllm_infer:
+            mask = attention_mask
+            if self.is_first_iteration:
+                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+            else:
+                freqs_cis = self.freqs_mgr.chunk_with_decode(position_ids)
+        elif self.use_past:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
                 if self.is_pynative:
@@ -866,7 +877,7 @@ class ParallelTransformer(nn.Cell):
             hidden_states = self.layers[i](hidden_states, freqs_cis, mask, batch_valid_length=batch_valid_length,
                                            block_tables=block_tables, slot_mapping=slot_mapping,
                                            prefix_keys_values=prefix_kv,
-                                           key_cache=key_cache_i, value_cache=value_cache_i)
+                                           key_cache=key_cache_i, value_cache=value_cache_i, q_seq_lens=q_seq_lens)
 
         if self.post_norm:
             hidden_states = self.norm_out(hidden_states)
