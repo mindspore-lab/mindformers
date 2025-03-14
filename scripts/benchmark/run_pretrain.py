@@ -1,4 +1,4 @@
-# Copyright 2024 Huawei Technologies Co., Ltd
+# Copyright 2025 Huawei Technologies Co., Ltd
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,11 +18,9 @@ import zipfile
 import subprocess
 import tempfile
 from enum import Enum
-from typing import Optional
 from glob import glob
 from pathlib import Path
 import argparse
-import requests
 
 import mindformers
 from mindformers import MindFormerConfig
@@ -58,42 +56,6 @@ class DatasetType(Enum):
     JSON = "json"
     TXT = "txt"
     OTHER = "other"
-
-
-class SupportedDatasets(Enum):
-    """Supported datasets"""
-
-    WIKITEXT2 = (
-        "Wikitext2",
-        (
-            "https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip"
-        ),
-        DatasetType.ZIP
-    )
-
-    ALPACA = (
-        "alpaca",
-        (
-            "https://raw.githubusercontent.com/tatsu-lab/stanford_alpaca/main/"
-            "alpaca_data.json"
-        ),
-        DatasetType.JSON
-    )
-
-    BELLE_CHAT_RANDOM = (
-        "belle_chat_ramdon",
-        (
-            "https://raw.githubusercontent.com/baichuan-inc/Baichuan2/main/"
-            "fine-tune/data/belle_chat_ramdon_10k.json"
-        ),
-        DatasetType.JSON
-    )
-
-    def __init__(self, dataset_name, url, dtype):
-        self.dataset_name = dataset_name
-        self.url = url
-        self.dtype = dtype
-
 
 
 class ModelPretrain(BaseInitModel):
@@ -147,7 +109,7 @@ class ModelPretrain(BaseInitModel):
         model_name = self.config.trainer.model_name.lower()
 
         if pretrain_data.lower() == 'wikitext2':
-            return self._process_wikitext2(temp_dir)
+            return self._process_wikitext2(pretrain_data, temp_dir)
 
         if os.path.isfile(pretrain_data):
             filename = os.path.basename(pretrain_data)
@@ -164,8 +126,8 @@ class ModelPretrain(BaseInitModel):
 
         raise ValueError(f"File {pretrain_data} does not exist or is not a file.")
 
+    @staticmethod
     def _run_preprocess_script(
-            self,
             script_path,
             dataset_type,
             input_glob,
@@ -189,16 +151,12 @@ class ModelPretrain(BaseInitModel):
         except subprocess.CalledProcessError as e:
             raise Exception(f"Failed to execute {script_path}: {e}") from e
 
-    def _process_wikitext2(self, temp_dir) -> str:
+    def _process_wikitext2(self, pretrain_data, temp_dir) -> str:
         """process_wikitext2"""
         tokenizer_path = self.config.processor.tokenizer.vocab_file
         if tokenizer_path is not None:
-            url = SupportedDatasets.WIKITEXT2.url
-            file_path = os.path.join(temp_dir, os.path.basename(url))
-
-            self.download_file(url, file_path)
-            unzip_dir = os.path.join(temp_dir, os.path.splitext(file_path)[0])
-            self.unzip_file(file_path, unzip_dir)
+            unzip_dir = os.path.join(temp_dir, os.path.splitext(pretrain_data)[0])
+            self.unzip_file(pretrain_data, unzip_dir)
             input_glob = os.path.join(unzip_dir, 'wikitext-2', 'wiki.train.tokens')
 
             script_path = os.path.join(
@@ -224,7 +182,6 @@ class ModelPretrain(BaseInitModel):
             return output_file
 
         raise ValueError(f"Please specify the vocabulary [tokenizer.model].")
-
 
     def _process_wiki_file(self, pretrain_data, model_name, temp_dir) -> str:
         """process_wiki_file"""
@@ -321,7 +278,8 @@ class ModelPretrain(BaseInitModel):
 
         raise ValueError(f"Please specify the vocabulary [tokenizer.model].")
 
-    def generate_dataset_name(self, dataset_type, seq_length):
+    @staticmethod
+    def generate_dataset_name(dataset_type, seq_length):
         """generate_dataset_name"""
         if dataset_type == 'wiki':
             return f"{dataset_type}{seq_length}.mindrecord"
@@ -331,50 +289,8 @@ class ModelPretrain(BaseInitModel):
 
         raise ValueError(f"Invalid dataset type: {dataset_type}. Must be one of {DATASET_TYPES}.")
 
-    def download_file(self, url: str, save_path: str, encoding: Optional[EncodingFormat] = None) -> str:
-        """
-        Downloads a file from the specified URL and saves it to the given path.
-        If an encoding is specified, the file is saved using that encoding.
-        Otherwise, the file is saved in binary mode.
-
-        Args:
-            url (str): The URL of the file to download.
-            save_path (str): The local path where the file will be saved.
-            encoding (Optional[EncodingFormat]): The encoding format to use when saving the file. Defaults to None.
-
-        Returns:
-            str: The path where the file was saved.
-
-        Raises:
-            Exception: If the file download fails.
-        """
-        try:
-            with requests.get(url, stream=True, verify=False) as response:
-                response.raise_for_status()
-
-                if encoding is None:
-                    # Binary mode: Write bytes to the file
-                    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-                    with os.fdopen(os.open(save_path, flags, 0o750), 'wb') as file:
-                        for chunk in response.iter_content(chunk_size=8192):
-                            if chunk:  # Filter out keep-alive chunks
-                                file.write(chunk)
-                else:
-                    # Text mode: Decode content using the specified encoding and write as text
-                    text_content = response.content.decode(encoding.value)
-                    with open(save_path, 'w', encoding=encoding.value) as file:
-                        file.write(text_content)
-
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Failed to download the file. URL: {url}. Error: {e}") from e
-        except UnicodeDecodeError as e:
-            raise Exception(f"Failed to decode the file using encoding {encoding.name}. Error: {e}") from e
-        except OSError as e:
-            raise Exception(f"Failed to write the file to {save_path}. Error: {e}") from e
-
-        return save_path
-
-    def unzip_file(self, zip_path, extract_to):
+    @staticmethod
+    def unzip_file(zip_path, extract_to):
         """
         Extract the ZIP file to the specified directory.
 
@@ -489,13 +405,14 @@ def main(model_name_or_dir: str = 'llama2_7b', pretrain_data=None, input_args=No
         train_data = model_train.generate_pretrain_data(pretrain_data, temp_dir)
         model_train.train(model_name_or_dir, train_data)
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--model_name_or_dir', type=str, default="llama2_7b",
         help='input model name with size, e.g., llama2_7b.')
     parser.add_argument(
-        '--pretrain_data', type=str, default=None,
+        '--pretrain_data', type=str, default="wikitext2",
         help='dataset directory of data loader to train/finetune. '
              'Default: None')
 
