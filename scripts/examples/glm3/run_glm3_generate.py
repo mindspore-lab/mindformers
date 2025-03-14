@@ -110,9 +110,7 @@ def process_response(output, history):
             history.append({"role": "assistant", "metadata": metadata, "content": content})
             if history[0]["role"] == "system" and "tools" in history[0]:
                 content = "\n".join(content.split("\n")[1:-1])
-                # pylint: disable=eval-used
-                parameters = eval(content)
-                content_dict = {"name": metadata.strip(), "parameters": parameters}
+                content_dict = {"name": metadata.strip(), "parameters": content}
             else:
                 content_dict = {"name": metadata.strip(), "content": content}
     return content_dict, history
