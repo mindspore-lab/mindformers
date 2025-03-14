@@ -1542,6 +1542,11 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
         raise RuntimeError(f"{cls.__name__} does not implemented convert_map_dict method.")
 
     @classmethod
+    def obtain_name_map(cls, load_checkpoint_files):
+        """obtain HuggingFace safetensor name_map dict to MindFormers """
+        raise RuntimeError(f"{cls.__name__} does not implemented obtain_name_map method.")
+
+    @classmethod
     def obtain_qkv_ffn_concat_keys(cls):
         """
         Obtain key list generated during weight concatenation of qkv/ffn concat operation.

@@ -17,6 +17,7 @@ from multiprocessing.managers import DictProxy
 from multiprocessing.synchronize import Condition
 
 import numpy as np
+from safetensors import safe_open
 
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, ops, mint, mutable
@@ -289,6 +290,15 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         concat_keys = [qkv_key, ffn_key]
         logger.info(f"{cls.__name__} qkv/ffn concat keys are {concat_keys}")
         return concat_keys
+
+    @classmethod
+    def obtain_name_map(cls, load_checkpoint_files):
+        name_map = dict()
+        for checkpoint_file in load_checkpoint_files:
+            with safe_open(checkpoint_file, framework="np") as f:
+                for k in f.keys():
+                    name_map.update({cls.convert_name(k): k})
+        return name_map
 
     def clear_kv_cache(self):
         return self.model.clear_kv_cache()
