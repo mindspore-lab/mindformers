@@ -15,6 +15,7 @@
 """Qwen2 models' APIs."""
 from multiprocessing.managers import DictProxy
 from multiprocessing.synchronize import Condition
+from typing import Dict
 
 import numpy as np
 
@@ -126,6 +127,10 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel):
         self.reshape = ops.Reshape()
         self.tp_group_size = get_tp_world_size()
         self.is_prefill = True
+        if isinstance(self.config.parallel_decoding_params, Dict):
+            self.plugin_type = self.config.parallel_decoding_params.get("plugin_type")
+        else:
+            self.plugin_type = None
         self.model = GPTModel(config=self.config,
                               transformer_layer_spec=get_gpt_layer_spec(self.config),
                               vocab_size=self.vocab_size,
@@ -140,9 +145,13 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel):
         dynamic_batch_valid_length = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_context_lens_tensor = Tensor(shape=[None], dtype=mstype.int32)
         dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
+        if self.plugin_type == "la":
+            dynamic_attention_mask = Tensor(shape=[None, None], dtype=self.compute_dtype)
+        else:
+            dynamic_attention_mask = None
         self.set_inputs(dynamic_input_ids, dynamic_positions, dynamic_batch_valid_length,
                         dynamic_context_lens_tensor, dynamic_q_seq_lens, dynamic_block_tables,
-                        dynamic_slot_mapping, None, None, None)
+                        dynamic_slot_mapping, None, dynamic_attention_mask, None)
         logger.info("Set dynamic input for qwen2.")
 
     def add_flags_custom_mcore(self, is_prefill):
