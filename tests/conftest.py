@@ -12,21 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""test mlp in infer mode"""
+"""The common pytest fixtures."""
+
 import os
-import pytest
 
+from pytest import fixture
 
-@pytest.mark.level0
-@pytest.mark.platform_arm_ascend910b_training
-@pytest.mark.env_onecard
-def test_infer_mlp():
-    """
-    Feature: MLP for prediction
-    Description: Test MLP for prediction
-    Expectation: AssertionError
-    """
-    sh_path = os.path.split(os.path.realpath(__file__))[0]
-    os.environ['MS_ENABLE_LCCL'] = "off"
-    ret = os.system(f"python {sh_path}/run_infer_mlp.py")
-    assert ret == 0
+from mindformers import logger
+
+@fixture(scope="session", autouse=True)
+def check_ascend_home_path():
+    """Check if environment variable ASCEND_HOME_PATH in the CI machine."""
+
+    ascend_home_path = os.getenv("ASCEND_HOME_PATH")
+    logger.info("\n=============== Check ASCEND_HOME_PATH ENV ===============")
+    if ascend_home_path is not None:
+        logger.info("ASCEND_HOME_PATH: %s\n", ascend_home_path)
+    else:
+        logger.error(
+            "ASCEND_HOME_PATH not found, please contact CI administrator!!!\n")

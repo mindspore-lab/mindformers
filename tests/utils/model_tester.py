@@ -108,7 +108,6 @@ class ModelTester:
                  experiment_mode: bool = False,
                  input_sliced_sig: bool = False,
                  **kwargs):
-        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         set_seed(0)
         np.random.seed(0)
 

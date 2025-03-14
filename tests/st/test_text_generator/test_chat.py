@@ -35,7 +35,6 @@ class TestChat:
 
     def setup_method(self):
         """setup method."""
-        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         context.set_context(mode=0, jit_config={"jit_level": "O0", "infer_boost": "on"})
         os.environ['RUN_MODE'] = 'predict'
 

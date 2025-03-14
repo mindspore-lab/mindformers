@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """ test infer attention"""
-import os
 import pytest
 
 import numpy as np
@@ -32,7 +31,6 @@ def test_paged_attention_mgr():
     Description: Test the forward
     Expectation: No exception
     """
-    os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
     jit_level = "O0"
     infer_boost = "on"
     ms.set_context(jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
