@@ -110,7 +110,7 @@ class LlamaConfig(PretrainedConfig):
         calculate_per_token_loss (bool, optional): Whether to calculate the loss of each token. Default: ``False``.
         pipeline_stage (dict, optional): A dict set the start_stage, stage_num, and offset of the model when
             pipeline parallelism. Default: ``None``.
-        enable_vllm_infer (bool, optional): Whether to use vllm infer. Default: ``False``.
+        return_hidden_states (bool, optional): Whether to return hidden states. Default: ``False``.
 
     Returns:
         LlamaConfig, a LlamaConfig instance.
@@ -187,7 +187,7 @@ class LlamaConfig(PretrainedConfig):
                  input_sliced_sig: bool = False,
                  rmsnorm_compute_2d: bool = False,
                  chunk_prefill: bool = False,
-                 enable_vllm_infer: bool = False,
+                 return_hidden_states: bool = False,
                  calculate_per_token_loss: bool = False,
                  pipeline_stage: dict = None,
                  **kwargs):
@@ -265,7 +265,7 @@ class LlamaConfig(PretrainedConfig):
         self.input_sliced_sig = input_sliced_sig
         self.rmsnorm_compute_2d = rmsnorm_compute_2d
         self.chunk_prefill = chunk_prefill
-        self.enable_vllm_infer = enable_vllm_infer
+        self.return_hidden_states = return_hidden_states
         self.calculate_per_token_loss = calculate_per_token_loss
         if (pipeline_stage is not None and
                 pipeline_stage["start_stage"] + pipeline_stage["stage_num"] <= parallel_config.pipeline_stage):
