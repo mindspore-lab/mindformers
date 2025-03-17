@@ -27,6 +27,7 @@ from mindspore.common.api import _pynative_executor
 from mindspore.parallel.transform_safetensors import _collect_safetensor_files
 from mindspore import Parameter
 
+from mindformers.utils.safetensors.convert_safetensors import _convert_index_json
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import is_main_rank, get_epoch_and_step_from_ckpt_name, get_real_rank, clear_auto_trans_output
 from mindformers.utils import convert_hf_safetensors_multiprocess, check_safetensors_key, is_hf_safetensors_dir
@@ -58,12 +59,13 @@ def get_load_path_after_hf_convert(config, network):
     """check if it is hf safetensors and convert"""
     if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
             is_hf_safetensors_dir(config.load_checkpoint, network)):
-        logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
-        converted_sf_path = process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
-        #wait for main rank to convert HF safetensors
-        if config.use_parallel:
-            barrier()
-        return converted_sf_path
+        if config.qkv_concat:
+            logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
+            converted_sf_path = process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
+            #wait for main rank to convert HF safetensors
+            if config.use_parallel:
+                barrier()
+            return converted_sf_path
     return config.load_checkpoint
 
 
@@ -317,11 +319,19 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
     """load checkpoint into net."""
     if config.use_parallel and config.auto_trans_ckpt:
         logger.info("......Start load distributed checkpoint to model......")
+        name_map = None
+        if is_hf_safetensors_dir(load_ckpt_path, network) and not config.model.model_config.get("qkv_concat", False):
+            try:
+                name_map = network.obtain_name_map(load_checkpoint_files)
+            except Exception as e:
+                raise TypeError(f"Please complete abstract function obtain_name_map. Details: {e}") from e
+            _convert_index_json(load_ckpt_path, load_ckpt_path, network.convert_map_dict, False)
         ms.load_distributed_checkpoint(
             network=network,
             predict_strategy=strategy_path,
             unified_safetensors_dir=load_ckpt_path,
-            format=config.load_ckpt_format
+            format=config.load_ckpt_format,
+            name_map=name_map
         )
         #load optimizer param in resume_training
         hyper_param_file = os.path.join(load_ckpt_path, 'hyper_param.safetensors')
@@ -340,6 +350,13 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
                 ckpt_file_name=checkpoint_file,
                 format=config.load_ckpt_format
             ))
+        if is_hf_safetensors_dir(load_ckpt_path, network) and not config.model.model_config.get("qkv_concat", False):
+            logger.info("......HuggingFace weights convert name......")
+            params_dict_converted = dict()
+            for k, v in params_dict.items():
+                k = network.convert_name(k)
+                params_dict_converted.update({k: v})
+            params_dict = params_dict_converted
         if optimizer and config.resume_training:
             logger.info("......Start load hyper param into optimizer......")
             update_global_step(config, params_dict)

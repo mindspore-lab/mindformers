@@ -26,13 +26,12 @@ from mindspore import Tensor
 from mindspore.communication.management import init
 from mindspore.common.initializer import Zero
 from mindspore._c_expression import swap_cache
-from mindspore.communication.comm_func import barrier
 
 from mindformers import models, MindFormerRegister, MindFormerModuleType
 from mindformers import build_context, build_parallel_config, GenerationConfig
 from mindformers import AutoModel, AutoConfig, AutoTokenizer
 from mindformers.models.utils import convert_mstype, str_to_ms_type
-from mindformers.utils import contains_safetensors_files, is_hf_safetensors_dir, process_hf_checkpoint
+from mindformers.utils import contains_safetensors_files
 
 from mindformers.tools.logger import logger
 from mindformers.tools.register.config import MindFormerConfig
@@ -42,6 +41,7 @@ from mindformers.generation.parallel_decoding import parallel_decoding_control
 from mindformers.version_control import check_delay_init_valid, need_nz
 from mindformers.models import build_processor, PretrainedConfig
 from mindformers.tools.utils import get_context
+from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
 
 __all__ = ["ModelRunner"]
 
@@ -322,12 +322,7 @@ class MindIEModelRunner:
             inputs = self.model.prepare_inputs_for_predict_layout(input_ids)
         else:
             inputs = None
-        load_checkpoint = self.config.load_checkpoint
-        if (self.config.get('load_ckpt_format', 'ckpt') == 'safetensors'
-                and is_hf_safetensors_dir(load_checkpoint, self.model)):
-            self.config.load_checkpoint = process_hf_checkpoint(self.model, self.config.output_dir, load_checkpoint)
-            if self.config.use_parallel:
-                barrier()
+        self.config.load_checkpoint = get_load_path_after_hf_convert(self.config, self.model)
         transform_and_load_checkpoint(self.config, ms_model, self.model, inputs, do_predict=True)
         if network_delay_inited:
             self.model.init_parameters_data()
