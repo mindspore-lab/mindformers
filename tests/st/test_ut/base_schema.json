@@ -7259,42 +7259,6 @@
     "mindformers.pipeline.question_answering_pipeline.QuestionAnsweringPipeline._get_best_indexes": {
         "signature": "(self, logits, n_best_size)"
     },
-    "mindformers.pipeline.segment_anything_pipeline.SegmentAnythingPipeline": {
-        "signature": "(model: Union[mindformers.models.modeling_utils.PreTrainedModel, mindspore.train.model.Model], image_processor: Optional[mindformers.models.image_processing_utils.BaseImageProcessor] = None, **kwargs)"
-    },
-    "mindformers.pipeline.segment_anything_pipeline.SegmentAnythingPipeline._sanitize_parameters": {
-        "signature": "(self, **pipeline_parameters)"
-    },
-    "mindformers.pipeline.segment_anything_pipeline.SegmentAnythingPipeline.preprocess": {
-        "signature": "(self, inputs, **preprocess_params)"
-    },
-    "mindformers.pipeline.segment_anything_pipeline.SegmentAnythingPipeline._forward": {
-        "signature": "(self, model_inputs, **forward_params)"
-    },
-    "mindformers.pipeline.segment_anything_pipeline.SegmentAnythingPipeline.postprocess": {
-        "signature": "(self, model_outputs, **postprocess_params)"
-    },
-    "mindformers.pipeline.segment_anything_pipeline.SegmentAnythingPipeline.preprocess_image": {
-        "signature": "(self, image, image_format: str = 'RGB') -> None"
-    },
-    "mindformers.pipeline.segment_anything_pipeline.SegmentAnythingPipeline.preprocess_prompts": {
-        "signature": "(self, original_size, point_coords=None, point_labels=None, boxes=None, masks=None, multi_seg=False)"
-    },
-    "mindformers.pipeline.segment_anything_pipeline.SegmentAnythingPipeline.set_image": {
-        "signature": "(self, image, image_format: str = 'RGB')"
-    },
-    "mindformers.pipeline.segment_anything_pipeline.SegmentAnythingPipeline.reset_image": {
-        "signature": "(self) -> None"
-    },
-    "mindformers.pipeline.segment_anything_pipeline.SegmentAnythingPipeline.get_image_embedding": {
-        "signature": "(self)"
-    },
-    "mindformers.pipeline.segment_anything_pipeline.SegmentAnythingPipeline.reset_config": {
-        "signature": "(self, points_per_side=32, points_per_batch=64, pred_iou_thresh=0.88, stability_score_thresh=0.95, stability_score_offset=1.0, box_nms_thresh=0.7, crop_n_layers=0, crop_nms_thresh=0.7, crop_overlap_ratio=0.3413, crop_n_points_downscale_factor=1, point_grids=None, min_mask_region_area=0, output_mode='binary_mask', **kwargs) -> None"
-    },
-    "mindformers.pipeline.segment_anything_pipeline.SegmentAnythingPipeline.postprocess_small_regions": {
-        "signature": "(self, mask_data: mindformers.models.sam.sam_utils.MaskData, min_area: int, nms_thresh: float) -> mindformers.models.sam.sam_utils.MaskData"
-    },
     "mindformers.pipeline.text_classification_pipeline.TextClassificationPipeline": {
         "signature": "(model, tokenizer=None, **kwargs)"
     },

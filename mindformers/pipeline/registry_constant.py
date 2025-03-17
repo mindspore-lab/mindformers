@@ -19,7 +19,6 @@ from mindformers.models.auto.modeling_auto import (
     AutoModelForCausalLM,
     AutoModelForImageClassification,
     AutoModelForMaskedImageModeling,
-    AutoModelForMaskGeneration,
     AutoModelForSequenceClassification,
     AutoModelForQuestionAnswering,
     AutoModelForSeq2SeqLM,
@@ -33,7 +32,6 @@ from .image_to_text_generation_pipeline import ImageToTextPipeline
 from .masked_image_modeling_pipeline import MaskedImageModelingPipeline
 from .pipeline_registry import PipelineRegistry
 from .question_answering_pipeline import QuestionAnsweringPipeline
-from .segment_anything_pipeline import SegmentAnythingPipeline
 from .text_classification_pipeline import TextClassificationPipeline
 from .text_generation_pipeline import TextGenerationPipeline
 from .token_classification_pipeline import TokenClassificationPipeline
@@ -50,7 +48,6 @@ TASK_ALIASES = {
     "image_to_text_generation": "image-to-text",
     "masked_image_modeling": "masked-image-modeling",
     "question_answering": "question-answering",
-    "segment_anything": "segment-anything",
     "text_generation": "text-generation",
     "token_classification": "token-classification",
     "zero_shot_image_classification": "zero-shot-image-classification",
@@ -88,12 +85,6 @@ SUPPORTED_TASKS = {
         "ms": (AutoModelForQuestionAnswering,),
         "default": {"model": {"ms": ()}},
         "type": "text",
-    },
-    "segment-anything": {
-        "impl": SegmentAnythingPipeline,
-        "ms": (AutoModelForMaskGeneration,),
-        "default": {"model": {"ms": ()}},
-        "type": "image",
     },
     "text-classification": {
         "impl": TextClassificationPipeline,

@@ -22,7 +22,6 @@ from mindformers.models import (
     CLIPImageProcessor,
     ViTMAEImageProcessor,
     SwinImageProcessor,
-    SamImageProcessor,
     ViTImageProcessor
 )
 from mindformers.models.blip2 import Blip2ImageProcessor
@@ -37,7 +36,6 @@ BLIP2_REMOTE_PATH = 'mindformersinfra/test_blip2'
 CLIP_REMOTE_PATH = 'mindformersinfra/test_clip'
 MAE_REMOTE_PATH = 'mindformersinfra/test_mae'
 SWIN_REMOTE_PATH = 'mindformersinfra/test_swin'
-SAM_REMOTE_PATH = 'mindformersinfra/test_sam'
 VIT_REMOTE_PATH = 'mindformersinfra/test_vit'
 
 VISUALGLM_OUTPUT_SHAPE = (1, 3, 224, 224)
@@ -45,7 +43,6 @@ BLIP2_OUTPUT_SHAPE = (1, 3, 224, 224)
 CLIP_OUTPUT_SHAPE = (1, 3, 224, 224)
 MAE_OUTPUT_SHAPE = [(1, 3, 224, 224), (1, 196), (1, 196), (1, 49)]
 SWIN_OUTPUT_SHAPE = (1, 3, 224, 224)
-SAM_OUTPUT_1_SHAPE = (1, 3, 1024, 1024)
 VIT_OUTPUT_SHAPE = (1, 3, 224, 224)
 
 VISUALGLM_OUTPUT_SUM = -54167.4
@@ -53,8 +50,6 @@ BLIP2_OUTPUT_SUM = -54167.402
 CLIP_OUTPUT_SUM = -40270.586
 MAE_OUTPUT_SUM = [-64566.43, 147, 19110, 4720]
 SWIN_OUTPUT_SUM = -26959.375
-SAM_OUTPUT_1_SUM = -1019078.3
-SAM_OUTPUT_2 = (773, 1024)
 VIT_OUTPUT_SUM = -26959.375
 
 
@@ -88,10 +83,6 @@ def run_processor(
                 assert output[i].shape == output_shape[i]
             for i in range(len(output) - 1):
                 assert abs(output[i].sum() - output_shape[i]) < DIFF_THRESHOLD
-        elif name == 'sam':
-            assert output[0].shape == output_shape[0]
-            assert abs(output[0].sum() - output_sum) < DIFF_THRESHOLD
-            assert output[1] == output_shape[1]
         else:
             assert output.shape == output_shape
             assert abs(output.sum() - output_sum) < DIFF_THRESHOLD
@@ -157,15 +148,5 @@ class TestImageProcessor:
             processor=ViTMAEImageProcessor,
             remote_path=MAE_REMOTE_PATH,
             output_shape=MAE_OUTPUT_SHAPE,
-            output_sum=MAE_OUTPUT_SUM
-        )
-
-    def test_sam_image_processor(self):
-        """test sam image processor."""
-        run_processor(
-            name='sam',
-            processor=SamImageProcessor,
-            remote_path=MAE_REMOTE_PATH,
-            output_shape=[SAM_OUTPUT_1_SHAPE, SAM_OUTPUT_2],
             output_sum=MAE_OUTPUT_SUM
         )

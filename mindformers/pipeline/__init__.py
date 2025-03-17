@@ -27,7 +27,6 @@ from .token_classification_pipeline import TokenClassificationPipeline
 from .question_answering_pipeline import QuestionAnsweringPipeline
 from .text_generation_pipeline import TextGenerationPipeline
 from .masked_image_modeling_pipeline import MaskedImageModelingPipeline
-from .segment_anything_pipeline import SegmentAnythingPipeline
 
 __all__ = ['pipeline']
 __all__.extend(multi_modal_to_text_generation_pipeline.__all__)
