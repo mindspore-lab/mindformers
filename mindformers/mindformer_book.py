@@ -929,8 +929,6 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/clip/clip_vit_b_32.ckpt'
           ]),
-        ('mindspore/clip_vit_b_32',
-         ['https://xihe.mindspore.cn/api/v1/repo/model/MindSpore/clip_vit_b_32/file/clip_vit_b_32.ckpt']),
         ('clip_vit_b_16',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/clip/clip_vit_b_16.ckpt'
@@ -983,14 +981,10 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/blip2/blip2_stage2_vig_g_llama_7b_pretrained.ckpt'
           ]),
-        ('mindspore/vit_base_p16',
-         ['https://xihe.mindspore.cn/api/v1/repo/model/MindSpore/vit_base_p16/file/vit_base_p16.ckpt']),
         ('swin_base_p4w7',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/swin/swin_base_p4w7.ckpt'
           ]),
-        ('mindspore/swin_base_p4w7',
-         ['https://xihe.mindspore.cn/api/v1/repo/model/MindSpore/swin_base_p4w7/file/swin_base_p4w7.ckpt']),
         ('t5_small',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/t5/mindspore_model.ckpt'
@@ -1229,9 +1223,6 @@ class MindFormerBook:
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
         ]),
-        ('mindspore/clip_vit_b_32', [
-            "https://xihe.mindspore.cn/api/v1/repo/model/MindSpore/clip_vit_b_32/file/bpe_simple_vocab_16e6.txt.gz"
-        ]),
         ('clip_vit_b_16', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
@@ -1264,9 +1255,6 @@ class MindFormerBook:
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/bert/bert_base_chinese/vocab.txt"
         ]),
-        ('mindspore/tokcls_bert_base_chinese_cluener', [
-            "https://xihe.mindspore.cn/api/v1/repo/model/MindSpore/tokcls_bert_base_chineses_cluener/file/vocab.txt"
-        ]),
         ('txtcls_bert_base_uncased', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/bert/bert_base_english/vocab.txt"
@@ -1274,9 +1262,6 @@ class MindFormerBook:
         ('txtcls_bert_base_uncased_mnli', [
             "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/"
             "XFormer_for_mindspore/bert/bert_base_english/vocab.txt"
-        ]),
-        ('mindspore/txtcls_bert_base_uncased_mnli', [
-            "https://xihe.mindspore.cn/api/v1/repo/model/MindSpore/txtcls_bert_base_uncased_mnli/file/vocab.txt"
         ]),
         ('qa_bert_base_uncased',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/'

@@ -85,7 +85,7 @@ import xxx
 <font size=3>**规则 1.3.2 对外的类、方法、算子、Cell注释格式。**</font>
 
 - `class` 和 `def` 的注释格式相同，采用业界通用的python注释语法，写在声明下方并缩进，所有的 `class` 和 `def` 都需要写注释，模块内部的类和方法可以只写一条简介。
-- 注释格式详见[MindSpore注释规范](https://gitee.com/mindspore/community/blob/master/security/comments_specification_zh_cn.md)。
+- 注释格式详见[MindSpore注释规范](https://gitee.com/mindspore/community/blob/master/guidelines/docs_comments_guidelines_zh_cn.md)。
 
 <font size=3>**规则 1.3.3 不允许通过注释屏蔽pylint告警。**</font>
 
