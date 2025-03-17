@@ -253,8 +253,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm3/run_glm3_6b.yaml")),
             ("glm4_9b", os.path.join(
                 _PROJECT_PATH, "configs/glm4/predict_glm4_9b_chat.yaml")),
-            ("ziya_13b", os.path.join(
-                _PROJECT_PATH, "research/ziya/run_ziya_13b.yaml")),
             ("internlm_7b", os.path.join(
                 _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
             ("internlm_7b_lora", os.path.join(
@@ -424,8 +422,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm3/run_glm3_6b.yaml")),
             ("glm4_9b", os.path.join(
                 _PROJECT_PATH, "configs/glm4/predict_glm4_9b_chat.yaml")),
-            ("ziya_13b", os.path.join(
-                _PROJECT_PATH, "research/ziya/run_ziya_13b.yaml")),
             ("internlm_7b", os.path.join(
                 _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
             ("internlm_7b_lora", os.path.join(
@@ -523,7 +519,6 @@ class MindFormerBook:
             'llama2_13b',
             'llama2_70b',
             'llama_7b_lora',
-            'ziya_13b',
             'internlm_7b',
             'internlm_7b_lora',
             'codellama_34b',
@@ -833,7 +828,6 @@ class MindFormerBook:
             'llama2_70b',
             'llama3_8b',
             'llama_7b_lora',
-            'ziya_13b',
             'codellama_34b',
         ]),
         ('llama2', [
