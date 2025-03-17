@@ -160,7 +160,7 @@ class DeepseekV3Config(DeepseekV2Config):
                  input_sliced_sig: bool = False,
                  use_fused_rope=False,
                  use_fused_swiglu=False,
-                 enable_vllm_infer=False,
+                 return_hidden_states=False,
                  **kwargs):
         super(DeepseekV3Config, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -227,4 +227,4 @@ class DeepseekV3Config(DeepseekV2Config):
         self.init_method_std = init_method_std
         self.use_fused_rope = use_fused_rope
         self.use_fused_swiglu = use_fused_swiglu
-        self.enable_vllm_infer = enable_vllm_infer
+        self.return_hidden_states = return_hidden_states

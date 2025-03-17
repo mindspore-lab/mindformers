@@ -110,7 +110,7 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         self.npu_mem_size = config.npu_mem_size if hasattr(config, "npu_mem_size") else 2
         if config.tie_word_embeddings:
             self.lm_head.weight = self.model.tok_embeddings.embedding_weight
-        self.enable_vllm_infer = config.enable_vllm_infer
+        self.return_hidden_states = config.return_hidden_states
 
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -128,9 +128,9 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32) if self.enable_vllm_infer else None
-        dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32) if self.enable_vllm_infer else None
-        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16) if self.enable_vllm_infer else None
+        dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16)
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
 
         def get_input():
@@ -180,7 +180,7 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
                             slot_mapping, prefix_keys_values, key_cache=key_cache, value_cache=value_cache,
                             position_ids=position_ids, attention_mask=attention_mask, q_seq_lens=q_seq_lens)
-        if self.enable_vllm_infer:
+        if self.return_hidden_states:
             output = self.reshape(output, (-1, output.shape[-1]))
             return output
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None

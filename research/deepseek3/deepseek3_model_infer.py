@@ -89,8 +89,7 @@ class MLAPagedAttentionMgr(nn.Cell):
                  compute_dtype=mstype.float16,
                  parallel_decoding=False,
                  scale_value=None,
-                 mla_v_dim=512,
-                 enable_vllm_infer=False):
+                 mla_v_dim=512):
         super().__init__()
         self.n_heads = n_heads
         self.head_dim = head_dim
@@ -106,7 +105,6 @@ class MLAPagedAttentionMgr(nn.Cell):
                                                                 self.n_kv_heads,
                                                                 mla_v_dim=mla_v_dim)
         self.parallel_decoding = parallel_decoding
-        self.enable_vllm_infer = enable_vllm_infer
 
     def construct(self, key, slot_mapping):
         """The forward compute of single cache for Paged Attention."""
@@ -114,10 +112,8 @@ class MLAPagedAttentionMgr(nn.Cell):
 
     def paged_attn(self, query, batch_valid_length, block_tables, attn_mask=None, q_seq_lens=None):
         """The forward compute of Paged Attention."""
-        if self.enable_vllm_infer:
-            return self.paged_attention(query, self.key_cache, self.key_cache, block_tables, batch_valid_length,
-                                        None, None, attn_mask, q_seq_lens)
-        return self.paged_attention(query, self.key_cache, self.key_cache, block_tables, batch_valid_length)
+        return self.paged_attention(query, self.key_cache, self.key_cache, block_tables, batch_valid_length, None, None,
+                                    attn_mask, q_seq_lens)
 
 
 class MLAInferAttention(nn.Cell):
@@ -224,7 +220,6 @@ class MLAInferAttention(nn.Cell):
                  compute_dtype=mstype.float16,
                  parallel_decoding=False,
                  prefill_head_dim=None,
-                 enable_vllm_infer=False,
                  ):
         super(MLAInferAttention, self).__init__()
         self.n_head = n_head
@@ -246,7 +241,6 @@ class MLAInferAttention(nn.Cell):
 
         self.input_layout = "TH"
         self.use_attention_mask = not self.use_alibi_mask
-        self.enable_vllm_infer = enable_vllm_infer
         self.flash_attention = FlashAttention(head_num=self.n_head,
                                               pre_tokens=self.pre_tokens,
                                               next_tokens=self.next_tokens,
@@ -264,8 +258,7 @@ class MLAInferAttention(nn.Cell):
                                                         kv_shape,
                                                         compute_dtype=self.compute_dtype,
                                                         parallel_decoding=parallel_decoding,
-                                                        scale_value=self.scale_value,
-                                                        enable_vllm_infer=self.enable_vllm_infer)
+                                                        scale_value=self.scale_value)
         self.prefill_head_dim = prefill_head_dim
 
     def _prefill_attention(self, query, key, value, attn_mask, alibi_mask, actual_seq_qlen=None,
@@ -519,7 +512,6 @@ class DeepseekV3Attention(nn.Cell):
         self.pe_concat = P.Concat(3)
         self.qabsorb_matmul = P.BatchMatMul()
         self.outabsorb_matmul = P.BatchMatMul(transpose_b=True)
-        self.enable_vllm_infer = config.enable_vllm_infer
         self.infer_attention = MLAInferAttention(self.n_local_heads,
                                                  self.kv_lora_rank + self.qk_rope_head_dim,
                                                  1,
@@ -528,8 +520,7 @@ class DeepseekV3Attention(nn.Cell):
                                                  block_size=self.block_size,
                                                  num_blocks=self.num_blocks,
                                                  compute_dtype=compute_dtype,
-                                                 prefill_head_dim=self.qk_nope_head_dim + self.qk_rope_head_dim,
-                                                 enable_vllm_infer=self.enable_vllm_infer)
+                                                 prefill_head_dim=self.qk_nope_head_dim + self.qk_rope_head_dim)
 
         self.apply_rotary_emb = InferRotaryEmbedding(rotary_cos_format=2)
 
@@ -931,7 +922,6 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
         self.expand_dims = P.ExpandDims()
         self.gather = P.Gather()
         self.slice = P.StridedSlice()
-        self.enable_vllm_infer = config.enable_vllm_infer
         self.freqs_mgr = FreqsMgr(head_dim=self.qk_rope_head_dim,
                                   seq_length=config.seq_length,
                                   max_position_embedding=config.max_position_embeddings,
@@ -1012,20 +1002,12 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
         """
         # preprocess
         bs, seq_len = self.shape(tokens)
-        mask = None
-        if self.enable_vllm_infer:
-            mask = attention_mask
+        mask = attention_mask
+        if self.use_past:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
             else:
                 freqs_cis = self.freqs_mgr.chunk_with_decode(position_ids)
-        elif self.use_past:
-            if self.is_first_iteration:
-                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
-                mask = self.casual_mask.prefill()
-            else:
-                freqs_cis = self.freqs_mgr.increment(batch_valid_length)
-
         else:
             mask = self.casual_mask(tokens)
             freqs_cis = self.freqs_mgr(seq_len)
@@ -1132,7 +1114,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         self.predict_run_mode = get_predict_run_mode()
         logger.info("Predict run mode:{}".format(self.predict_run_mode))
 
-        self.enable_vllm_infer = config.enable_vllm_infer
+        self.return_hidden_states = config.return_hidden_states
 
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -1151,9 +1133,9 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
-        dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32) if self.enable_vllm_infer else None
-        dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32) if self.enable_vllm_infer else None
-        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16) if self.enable_vllm_infer else None
+        dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16)
         self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_attention_mask, None,
                         dynamic_init_reset, dynamic_batch_valid_length, None, None, dynamic_block_tables,
                         dynamic_slot_mapping, dynamic_q_seq_lens)
@@ -1185,7 +1167,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables,
                             slot_mapping, position_ids, q_seq_lens, attention_mask)
-        if self.enable_vllm_infer:
+        if self.return_hidden_states:
             output = self.reshape(output, (-1, output.shape[-1]))
             return output
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
