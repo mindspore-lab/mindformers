@@ -68,7 +68,7 @@ class Router(nn.Cell):
         super(Router, self).__init__()
         self.expert_num = moe_config.expert_num
         self.dense = nn.Dense(in_channels=hidden_size, out_channels=self.expert_num,
-                              has_bias=False, dtype=mstype.bfloat16)
+                              has_bias=False, dtype=dtype_map.get(moe_config.router_dense_type))
         self.router = TopkRouter(self.expert_num)
         self.e_score_correction_bias = Parameter(initializer('zeros', (self.expert_num), mstype.float32),
                                                  requires_grad=False, parallel_optimizer=False)

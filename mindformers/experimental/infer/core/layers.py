@@ -195,8 +195,16 @@ class ColumnParallelLinear(nn.Cell):
         output_shape = self.shape(input_parallel)[:-1] + (self.output_size_per_partition,)
         input_parallel = self.reshape(input_parallel, (-1, self.input_size))
         if self.is_expert and self.expert_num > 1:
-            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
-                                          group_list, split_item=3, group_type=0, group_list_type=1)[0]
+            if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
+                output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
+                                              group_list, split_item=3, group_type=0, group_list_type=1)[0]
+            elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
+                output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None,
+                                              group_list)[0]
+            else:
+                raise RuntimeError(f"Inference of the MoE model relies on the GMM op. "
+                                   "Please upgrade to a MindSpore version above 2.3.0.")
+
         else:
             output_parallel = self.matmul(input_parallel, weight)
         if self.has_bias:
@@ -374,8 +382,15 @@ class RowParallelLinear(nn.Cell):
         output_shape = self.shape(input_parallel)[:-1] + (self.output_size,)
         input_parallel = self.reshape(input_parallel, (-1, self.input_size_per_partition))
         if self.is_expert and self.expert_num > 1:
-            output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
-                                          group_list, split_item=3, group_type=0, group_list_type=1)[0]
+            if check_valid_gmm_op(gmm_version='GroupedMatmulV4'):
+                output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None, None,
+                                              group_list, split_item=3, group_type=0, group_list_type=1)[0]
+            elif check_valid_gmm_op(gmm_version='GroupedMatmul'):
+                output_parallel = self.matmul([input_parallel], [weight], None, None, None, None, None,
+                                              group_list)[0]
+            else:
+                raise RuntimeError(f"Inference of the MoE model relies on the GMM op. "
+                                   "Please upgrade to a MindSpore version above 2.3.0.")
         else:
             output_parallel = self.matmul(input_parallel, weight)
 
@@ -384,7 +399,7 @@ class RowParallelLinear(nn.Cell):
             output = self.reduce_scatter_to_sp_region(output_parallel)
             output = output.swapaxes(0, 1).contiguous()
         else:
-            if self.moe_delay_allreduce:
+            if self.moe_delay_allreduce or self.skip_bias_add:
                 output = output_parallel
             else:
                 output = self.reduce_from_mp_region(output_parallel)
