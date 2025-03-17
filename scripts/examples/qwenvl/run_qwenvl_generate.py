@@ -28,10 +28,9 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import str2bool
 from mindformers.trainer.utils import transform_and_load_checkpoint
 
-from qwen.qwen_config import QwenConfig
-from qwen.qwen_model import QwenForCausalLM
 from qwenvl import QwenVL
-from qwenvl_config import QwenVLConfig
+from qwen_model import QwenForCausalLM
+from qwenvl_config import QwenVLConfig, QwenConfig
 from qwenvl_processor import QwenVLImageProcessor
 from qwenvl_processor import QwenVLProcessor
 from qwenvl_tokenizer import QwenVLTokenizer

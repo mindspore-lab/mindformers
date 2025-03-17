@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """Llama2 Base Model."""
-from mindformers.models.llama import LlamaConfig
 from mindformers.models.glm2 import ChatGLM2Config
 
 GLM_CONFIG = {
@@ -60,54 +59,7 @@ GLM_CONFIG = {
     "do_sample": False,
 }
 
-QWEN_CONFIG = {
-    'batch_size': 1,
-    'bos_token_id': 151643,
-    'compute_dtype': 'bfloat16',
-    'do_sample': False,
-    'eos_token_id': [151643, 151645],
-    'extend_method': 'None',
-    'hidden_size': 896,
-    'ignore_token_id': -100,
-    'layernorm_compute_type': 'float32',
-    'max_decode_length': 512,
-    'multiple_of': 256,
-    'num_heads': 14,
-    'n_kv_heads': 2,
-    'num_layers': 24,
-    'offset': 0,
-    'pad_token_id': 151643,
-    'param_init_type': 'bfloat16',
-    'repetition_penalty': 1,
-    'rms_norm_eps': 1.0e-6,
-    'rotary_dtype': 'bfloat16',
-    'scaling_factor': 1.0,
-    'seq_length': 8192,
-    'emb_dropout_prob': 0.0,
-    'theta': 1000000.0,
-    'intermediate_size': 4864,
-    'qkv_has_bias': True,
-    'max_position_embeddings': 32768,
-    'softmax_compute_type': 'float32',
-    'top_k': 3,
-    'top_p': 1,
-    'type': 'LlamaConfig',
-    'use_flash_attention': True,
-    'use_past': True,
-    'vocab_size': 151936,
-    'block_size': 32,
-    'num_blocks': 1024,
-    'is_dynamic': True,
-    'qkv_concat': True,
-    'tie_word_embeddings': True,
-}
-
 
 def get_glm_config():
     """get instanced model config."""
     return ChatGLM2Config(**GLM_CONFIG)
-
-
-def get_qwen_config():
-    """get instanced model config."""
-    return LlamaConfig(**QWEN_CONFIG)
