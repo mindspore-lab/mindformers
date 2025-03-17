@@ -284,12 +284,27 @@ def _rule_recompute(pp, recompute, key):
                              f"length of {key} ({recompute}) > pp({pp})")
 
 
+def _rule_recompute_no_pp(recompute, key):
+    if not isinstance(recompute, (bool, list, tuple)):
+        raise ValueError(f"Type of {key} must be bool, list or tuple when enabling swap, "
+                         f"but get {type(recompute)}.")
+    if isinstance(recompute, (list, tuple)):
+        for obj in recompute:
+            if not isinstance(obj, int):
+                raise ValueError(f"If the type of {key} is list or tuple, "
+                                 f"the type of element of it must be int, but get {type(obj)}.")
+
+
 def _check_recompute(config):
-    if config.swap and not config.swap.swap:
+    if not config.swap_config.swap:
         pp = config.parallel_config.pipeline_stage
         _rule_recompute(pp, config.recompute_config.recompute, "recompute")
         _rule_recompute(pp, config.recompute_config.select_recompute, "select_recompute")
         _rule_recompute(pp, config.recompute_config.select_comm_recompute, "select_comm_recompute")
+    else:
+        _rule_recompute_no_pp(config.recompute_config.recompute, "recompute")
+        _rule_recompute_no_pp(config.recompute_config.select_recompute, "select_recompute")
+        _rule_recompute_no_pp(config.recompute_config.select_comm_recompute, "select_comm_recompute")
 
 
 def _check_config_campacity(config):
@@ -301,6 +316,40 @@ def _check_config_campacity(config):
                          f"use_seq_parallel must be set to 'True'.")
 
 
+def _rule_swap_no_pp(swap, key):
+    "Check all attributes of TransformerSwapConfig."
+    if swap and not isinstance(swap, list):
+        raise ValueError(f"Type of layer_swap must be list or NoneType, but get {type(swap)}.")
+    if isinstance(swap, list):
+        for swap_info in swap:
+            if not isinstance(swap_info, dict):
+                raise ValueError(f"Type of element in layer_swap must be dict, "
+                                 f"but get {type(swap_info)}.")
+            _rule_recompute_no_pp(swap_info["layers"], key + ".layers")
+            if not isinstance(swap_info["backward_prefetch"], int) or swap_info["backward_prefetch"] < 1:
+                raise ValueError(f"Type of {key}.backward_prefetch must be int and the value of "
+                                 f"{key}.backward_prefetch must be positive, "
+                                 f"but get {swap_info['backward_prefetch']}.")
+
+
+def _check_swap(config):
+    "Check the configuration of swap."
+    if not isinstance(config.swap_config.swap, bool):
+        raise ValueError(f"Type of swap must be bool, but get {type(config.swap_config.swap)}.")
+    if config.swap_config.swap:
+        default_prefetch = config.swap_config.default_prefetch
+        if not isinstance(default_prefetch, int) or default_prefetch < 1:
+            raise ValueError(f"Type of default_prefetch must be int and value of it must be positive, "
+                             f"but get {type(default_prefetch)} and {default_prefetch}.")
+        _rule_swap_no_pp(config.swap_config.layer_swap, "layer_swap")
+        if config.swap_config.op_swap and not isinstance(config.swap_config.op_swap, dict):
+            raise ValueError(f"Type of op_swap must be dict or NoneType, "
+                             f"but get {type(config.swap_config.op_swap)}.")
+        if isinstance(config.swap_config.op_swap, dict):
+            for op_name, op_name_info in config.swap_config.op_swap.items():
+                _rule_swap_no_pp(op_name_info, f"op_swap({op_name})")
+
+
 def check_rules(config, mode='train', **kwargs):
     """check rules"""
     _check_mode(config, mode, **kwargs)
@@ -309,6 +358,7 @@ def check_rules(config, mode='train', **kwargs):
     _check_env(config)
     _check_recompute(config)
     _check_config_campacity(config)
+    _check_swap(config)
 
 
 def get_yaml_ast_depth(node, depth=0):
