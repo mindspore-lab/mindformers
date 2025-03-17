@@ -16,7 +16,9 @@
 import os
 import copy
 import re
+from functools import partial
 from typing import Union, Optional, Callable, List
+from importlib import import_module
 import numpy as np
 
 import mindspore.common.dtype as mstype
@@ -32,33 +34,114 @@ from .base_dataset import BaseDataset
 CAST_TO_INT_COLUMNS = ["input_ids", "labels"]
 
 
-def dyn_batch_wrapper(divisor, remainder, pad_token_id=0):
-    """Generate dynamic batch process function for padding each batch data."""
+def _use_compressed_eod_mask(config):
+    if config.config and config.config.create_compressed_eod_mask:  # megatron dataset
+        return True
+    if config.adaptor_config and config.adaptor_config.compress_mask:  # common dataloader
+        return True
+    return False
 
-    def batch_map_process(*cols):
-        max_length = max([len(c) for c in cols[0]])
+
+def dyn_batch_wrapper(*cols, divisor, remainder, pad_token_id=None):
+    """Dynamic batch process function for padding each batch data."""
+    if pad_token_id is None:
+        pad_token_id = [0, -100]
+    elif not isinstance(pad_token_id, list):
+        raise ValueError("pad_token_id should be list.")
+
+    columns = cols[:-1]
+    outputs = []
+    for col_idx, col in enumerate(columns):
+        # set dynamic batch max length
+        max_length = max([len(sample) for sample in col])
         if divisor and remainder:
             max_length = ((max_length - remainder - 1) // divisor + 1) * divisor + remainder
         else:
-            logger.info("divisor or remainder are not set in yaml")
-        output = []
-        for col in cols[:-1]:
-            res = []
-            pad = 0
-            if isinstance(col[0], list) and col[0][0] == -100:
-                pad = -100
-            if pad_token_id != 0:
-                pad = pad_token_id
-            for c in col:
-                if len(c) < max_length:
-                    c_pad = np.append(c, [pad] * (max_length - len(c)))
-                    res.append(c_pad)
-                else:
-                    res.append(c)
-            output.append(res)
-        return tuple(output)
+            logger.info("dynamic batch 'divisor' or 'remainder' not set.")
 
-    return batch_map_process
+        # pad samples
+        pad = pad_token_id[col_idx]
+        cur_col = []
+        for sample in col:
+            sample = np.pad(
+                sample, (0, max_length - len(sample)),
+                mode='constant',
+                constant_values=pad
+            )
+            cur_col.append(sample)
+        outputs.append(cur_col)
+    return tuple(outputs)
+
+
+def asl_batch_wrapper(*cols, micro_batch_num):
+    """Add offset to actual_seq_len for each batch data."""
+    columns = cols[:-1]
+
+    # actual_seq_len have to set in last column from dataset.__getitem__
+    actual_seq_len = columns[-1]
+    if len(actual_seq_len) == 1:
+        # not process if actual_seq_len's batch size = 1
+        return columns
+
+    # add offset to each sample
+    batch_size = len(columns[-1]) // micro_batch_num
+    cur_seq_len = []
+    for micro_idx in range(micro_batch_num):
+        offset = 0
+        start_seq_idx = micro_idx * batch_size
+        end_seq_idx = (micro_idx + 1) * batch_size
+        for seq_idx in range(start_seq_idx, end_seq_idx):
+            per_seq = actual_seq_len[seq_idx] + offset
+            offset = per_seq[-1]
+            cur_seq_len.append(per_seq)
+
+    # only replace last column
+    columns = columns[:-1] + (cur_seq_len,)
+    return columns
+
+
+def dataset_batch_func(config, dataset):
+    """Dataset batch process function"""
+    # set per_batch_map
+    per_batch_map_func = None
+    use_compressed_eod_mask = _use_compressed_eod_mask(config.data_loader)
+
+    if config.dynamic_batch and use_compressed_eod_mask:
+        raise ValueError("dynamic_batch and use_compressed_eod_mask not supported simultaneously.")
+
+    if config.dynamic_batch:
+        # set dynamic batch wrapper
+        per_batch_map_func = partial(
+            dyn_batch_wrapper,
+            divisor=config.divisor,
+            remainder=config.remainder,
+            pad_token_id=config.pad_token_id
+        )
+    elif use_compressed_eod_mask:
+        context_module = import_module("mindformers.core.context.build_context")
+        context_instance = context_module.Context()
+        if context_instance is not None and context_instance.is_exists():
+            context_instance = context_module.Context()
+            # set batch actual_seq_len wrapper
+            per_batch_map_func = partial(
+                asl_batch_wrapper,
+                micro_batch_num=context_instance.parallel_opr.parallel.micro_batch_num
+            )
+
+    # set num_parallel_workers
+    if config.eod_reset:
+        # this branch might be abandoned
+        num_parallel_workers = None
+    else:
+        num_parallel_workers = config.num_parallel_workers
+
+    dataset = dataset.batch(
+        batch_size=config.batch_size,
+        drop_remainder=config.drop_remainder,
+        output_columns=config.input_columns,
+        num_parallel_workers=num_parallel_workers,
+        per_batch_map=per_batch_map_func)
+    return dataset
 
 
 def get_input_data_batch_slice_map(input_ids, eod_token_id, dis, rank_id: int = 0):
@@ -216,7 +299,6 @@ class CausalLanguageModelDataset(BaseDataset):
         shard_id, num_shards = cls._generate_shard_info()
         dataset_config.shard_id = shard_id
         dataset_config.num_shards = num_shards
-        pad_token_id = 0 if dataset_config.pad_token_id is None else dataset_config.pad_token_id
 
         if isinstance(dataset_config.data_loader, dict):
             if dataset_config.data_loader.type != "MindDataset" and \
@@ -240,17 +322,7 @@ class CausalLanguageModelDataset(BaseDataset):
                         f"batch size {dataset_config.batch_size} should be a multiple of dataset shard number "
                         f"{num_shards}. You should change the args: per_batch_size.")
 
-            if dataset_config.dynamic_batch:
-                dataset = dataset.batch(dataset_config.batch_size,
-                                        drop_remainder=dataset_config.drop_remainder,
-                                        output_columns=dataset_config.input_columns,
-                                        per_batch_map=dyn_batch_wrapper(dataset_config.divisor,
-                                                                        dataset_config.remainder,
-                                                                        pad_token_id=pad_token_id))
-            else:
-                dataset = dataset.batch(dataset_config.batch_size,
-                                        drop_remainder=dataset_config.drop_remainder,
-                                        output_columns=dataset_config.input_columns)
+            dataset = dataset_batch_func(dataset_config, dataset)
             map_func = lambda input_ids: get_input_data_batch_slice_map(input_ids,
                                                                         eod_token_id=dataset_config.eod_token_id,
                                                                         rank_id=shard_id,
@@ -265,19 +337,7 @@ class CausalLanguageModelDataset(BaseDataset):
                     dataset = get_dataset_map(dataset, type_cast_op,
                                               input_columns=input_arg)
         else:
-            if dataset_config.dynamic_batch:
-                dataset = dataset.batch(dataset_config.batch_size,
-                                        drop_remainder=dataset_config.drop_remainder,
-                                        output_columns=dataset_config.input_columns,
-                                        num_parallel_workers=dataset_config.num_parallel_workers,
-                                        per_batch_map=dyn_batch_wrapper(dataset_config.divisor,
-                                                                        dataset_config.remainder,
-                                                                        pad_token_id=pad_token_id))
-            else:
-                dataset = dataset.batch(dataset_config.batch_size,
-                                        drop_remainder=dataset_config.drop_remainder,
-                                        output_columns=dataset_config.input_columns,
-                                        num_parallel_workers=dataset_config.num_parallel_workers)
+            dataset = dataset_batch_func(dataset_config, dataset)
 
             dataset = dataset.project(columns=dataset_config.input_columns)
             for input_arg in dataset_config.input_columns:
