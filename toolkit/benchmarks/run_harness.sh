@@ -56,6 +56,10 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+if [[ -n "$REGISTER_PATH" ]]; then
+    export REGISTER_PATH=$REGISTER_PATH
+    echo "REGISTER_PATH is: $REGISTER_PATH"
+fi
 if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
     echo "Extra arguments: " "${EXTRA_ARGS[@]}"
 fi
