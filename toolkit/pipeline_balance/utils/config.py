@@ -22,7 +22,7 @@ import random
 import yaml
 import numpy as np
 
-from mindformers.tools.check_rules import check_yaml_depth_before_loading
+from toolkit.pipeline_balance.utils.check_rules import check_yaml_depth_before_loading
 from toolkit.pipeline_balance.utils.logger import logger
 from toolkit.pipeline_balance.sapp.sapp_solver import SappSolver
 from toolkit.pipeline_balance.utils.layer import Layer

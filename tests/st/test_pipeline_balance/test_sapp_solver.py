@@ -21,6 +21,7 @@ import os
 import pytest
 
 from toolkit.pipeline_balance.utils.layer import generate_layers_list
+from toolkit.pipeline_balance.utils.config import parse_training_config
 from toolkit.pipeline_balance.sapp.sapp_pipeline import SappPipeline
 
 
@@ -140,3 +141,54 @@ class TestSappSolver:
         )
 
         assert total_time == 51394.8
+
+    def test_sapp_seq_pp(self):
+        """
+        Feature: TestPipelineBalance.
+        Description: Test the sapp solver simulation when seqpp is on.
+        Expectation: Correct result
+        """
+        cur_path = os.path.dirname(os.path.abspath(__file__))
+        work_path = os.path.join(cur_path, "./seqpp")
+        config_file_path = os.path.join(work_path, "./seq_config.yaml")
+        extracted_training_params = parse_training_config(config_file_path)
+        layers = generate_layers_list(work_path, "seq")
+        pipe = SappPipeline(
+            model_name="seq",
+            num_of_stage=8,
+            num_of_micro_batch=32,
+            max_memory=40000,
+            layers=layers,
+            num_of_interleave=1,
+            seq_split_num=2,
+            extracted_training_params=extracted_training_params
+        )
+        pipe.construct_problem(solver="pulp")
+        pipe.solve_problem(time_limit=90, dump_folder=None)
+        pipe.simulate(show=False, file_name=None)
+
+        activation_nums = [[9, 8, 7, 6, 5, 4, 3, 2]]
+        peak_mems = []
+        expected_peak_mems = [25966.5, 36592.0, 33155.0, 28670.0, 24185.0, 19700.0, 22822.5, 18760.0]
+        for s in range(8):
+            param_mem = pipe.problem_.stage_param_memory(
+                pipe.problem_.variables_,
+                pipe.problem_.layers_sorted_,
+                s,
+                pipe.problem_.num_of_stage_,
+                pipe.problem_.num_of_interleave_
+            ).value()
+
+            act_mem = pipe.problem_.stage_active_memory(
+                pipe.problem_.variables_,
+                pipe.problem_.layers_sorted_,
+                s,
+                pipe.problem_.num_of_interleave_,
+                activation_nums
+            ).value()
+            peak_mem = act_mem + param_mem
+            peak_mems.append(peak_mem)
+
+        bias = [(x - y) / y for x, y in zip(peak_mems, expected_peak_mems)]
+        assert all(x < 0.1 for x in bias)
+        assert all(x < 40000 for x in peak_mems)
