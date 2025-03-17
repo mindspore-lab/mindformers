@@ -18,7 +18,7 @@
 
 ## 1. FAQ
 
-在查看FAQ之前，请仔细阅读[代码提交注意指南](https://gitee.com/mindspore/vision/wikis/%E4%BB%A3%E7%A0%81%E6%8F%90%E4%BA%A4%E6%B3%A8%E6%84%8F%E6%8C%87%E5%8D%97)
+在查看FAQ之前，请仔细阅读[代码提交注意指南](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.3.2/faq/mindformers_contribution.html)
 
 ### 1.1 如何给MindSpore贡献代码
 
