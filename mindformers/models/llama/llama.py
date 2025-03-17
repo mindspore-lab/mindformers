@@ -599,7 +599,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                             dynamic_batch_valid_length, None, None, None, None, None)
         else:
             self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
-                            None, None, None, None, None, None)
+                            None, None, None, None, None, None, None, None, None, None, None, None)
         logger.info("Set dynamic input for llama.")
 
     def add_flags_custom(self, is_first_iteration):
