@@ -321,7 +321,7 @@ class LlamaFeedForward(Cell):
             self.use_allgather_dispatcher = moe_config.use_allgather_dispatcher
             self.mp_moe_flag = moe_config.expert_model_parallel is not None
             if self.mp_moe_flag and moe_config.expert_model_parallel not in (1, parallel_config.model_parallel):
-                raise ValueError("expert_model_parallel must be 1 or model_parallel if is is not none.")
+                raise ValueError("expert_model_parallel must be 1 or model_parallel if is not none.")
             self.mp_moe = moe_config.expert_model_parallel if moe_config.expert_model_parallel is not None \
                 else parallel_config.model_parallel
         else:
@@ -429,7 +429,7 @@ class LlamaFeedForward(Cell):
             if self.use_fused_swiglu:
                 gate = self.expand_dims(gate, -2)
                 hidden = self.expand_dims(hidden, -2)
-            gate_hidden_out = self.w13_concat((gate, hidden))
+                gate_hidden_out = self.w13_concat((gate, hidden))
         if self.use_fused_swiglu:
             hidden_shape = hidden.shape
             hidden = self.swiglu(gate_hidden_out, -2)
