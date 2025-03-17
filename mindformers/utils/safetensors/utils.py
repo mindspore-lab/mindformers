@@ -37,6 +37,7 @@ def is_hf_safetensors_dir(safetensors_dir, model_cls_or_instance):
             except RuntimeError:
                 print("The model does not have a convert_name method, "
                       "please make sure your safetensors are converted to ms type.")
+                return False
     return False
 
 
