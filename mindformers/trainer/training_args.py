@@ -74,7 +74,8 @@ class TrainingArguments:
         data_seed (int, optional):
             Random seed to be used with data samplers. Default: ``None``.
         only_save_strategy (bool, optional):
-            If `True`, the task will only save the strategy file in `output_dir/strategy`.
+            If `True`, only the distributed strategy is generated and the actual task is not executed.
+            The task saves the strategy file to the `output_dir/strategy` directory and then terminates automatically.
             Only takes effect when the use_parallel is True. Default: ``False``.
         auto_trans_ckpt (bool, optional):
             Whether to transform checkpoint according to parallel config. Default: ``False``.

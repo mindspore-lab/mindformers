@@ -10,7 +10,7 @@ mindformers.TrainingArguments
         - **overwrite_output_dir** (bool, 可选) - 是否覆盖输出目录中的内容。如果 `output_dir` 指向的是checkpoint文件的话，该字段用于恢复训练。默认值： ``False`` 。
         - **seed** (int, 可选) - 训练任务的随机数种子。默认值： ``42`` 。
         - **data_seed** (int, 可选) - 数据采样的随机数种子。默认值： ``None`` 。
-        - **only_save_strategy** (bool, 可选) - 如果为True时，任务会把策略文件保存到 `output_dir/strategy` 目录。只有当 `use_parallel` 为True时才生效。默认值： ``False`` 。
+        - **only_save_strategy** (bool, 可选) - 如果为True时，仅生成分布式策略，而不执行实际任务。任务会把策略文件保存到 `output_dir/strategy` 目录，然后自动终止。只有当 `use_parallel` 为True时才生效。默认值： ``False`` 。
         - **auto_trans_ckpt** (bool, 可选) - 是否根据并行配置自动转换checkpoint。默认值： ``False`` 。
         - **src_strategy** (str, 可选) - 代表权重转换时的策略文件，只有 `auto_trans_ckpt` 为True时生效。默认值： ``None`` 。
         - **transform_process_num** (int, 可选) - 转换checkpoint的进程数。默认值： ``1`` 。
