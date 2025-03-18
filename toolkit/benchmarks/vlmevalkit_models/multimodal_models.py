@@ -14,6 +14,7 @@
 # ============================================================================
 """MindFormers model abstract instance."""
 from dataclasses import dataclass
+from pathlib import Path
 import numpy as np
 
 import mindspore as ms
@@ -22,7 +23,6 @@ from mindformers import build_context, logger, GenerationConfig
 from mindformers import AutoModel, AutoConfig, AutoTokenizer, AutoProcessor
 from mindformers.tools.register.config import MindFormerConfig
 from mindformers.trainer.utils import transform_and_load_checkpoint
-from mindformers.model_runner import register_auto_class
 
 
 @dataclass
@@ -37,19 +37,16 @@ class ModelOutput:
     batch_size: int
 
 
-def init_model(model_path, config_path):
+def init_model(model_path):
     """Init models."""
-    config = MindFormerConfig(config_path)
-    # register to Auto Class
-    register_auto_class(config, model_path, class_type="AutoConfig")
-    register_auto_class(config, model_path, class_type="AutoTokenizer")
-    register_auto_class(config, model_path, class_type="AutoModel")
-    register_auto_class(config, model_path, class_type="AutoProcessor")
-
+    config_path = [str(file.resolve()) for file in Path(model_path).glob('*.yaml')]
+    if len(config_path) != 1:
+        raise Exception("There is no or more than one config file in the model directory.")
+    config = MindFormerConfig(config_path[0])
     build_context(config)
     logger.info(f"Build context finished.")
 
-    model_config = AutoConfig.from_pretrained(config_path)
+    model_config = AutoConfig.from_pretrained(config_path[0])
     if not hasattr(model_config, "max_position_embedding") or not model_config.max_position_embedding:
         model_config.max_position_embedding = model_config.seq_length
 
@@ -61,7 +58,7 @@ def init_model(model_path, config_path):
     model = AutoModel.from_config(model_config)
     logger.info(f"Build model finished.")
 
-    processor = AutoProcessor.from_pretrained(config_path, trust_remote_code=True, use_fast=True)
+    processor = AutoProcessor.from_pretrained(config_path[0], trust_remote_code=True, use_fast=True)
     logger.info(f"Build processor finished.")
 
     batch_size = 1

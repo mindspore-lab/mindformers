@@ -31,7 +31,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 cache_path = get_cache_path('OpenGVLab/MVBench', branch='main')
 
 
-def parse_args():
+def parse_args(logger):
     """Describe evaluation parameters."""
     parser = argparse.ArgumentParser()
     # Essential Args
@@ -40,22 +40,24 @@ def parse_args():
     # Args that only apply to Video Dataset
     parser.add_argument('--nframe', type=int, default=8)
     parser.add_argument('--pack', action='store_true')
-    parser.add_argument('--use-subtitle', action='store_true')
+    parser.add_argument('--use_subtitle', action='store_true')
     # Work Dir
-    parser.add_argument('--work-dir', type=str, default='./outputs', help='select the output directory')
+    parser.add_argument('--work-dir', '--work_dir', type=str, default='./outputs', help='select the output directory')
     # Logging Utils
     parser.add_argument('--verbose', action='store_true', help='output log')
     # model Path
-    parser.add_argument('--model-path', type=str, required=True, help='setup the model path')
+    parser.add_argument('--model-path', '--model_path', type=str, help='setup the model path')
     # config Path
-    parser.add_argument('--config-path', type=str, required=True, help='setup the config path')
+    parser.add_argument('--config-path', type=str, help='setup the config path')
     args = parser.parse_args()
     if not args.data:
         raise ValueError("--data should be a list of data files")
     if not args.model_path:
-        raise ValueError("--model-path should be a str of model path")
-    if not args.config_path:
-        raise ValueError("--config-path should be a str of config path")
+        raise ValueError("--model_path should be a str of model path")
+    if args.config_path:
+        logger.warning("The --config-path will be removed in future versions. "
+                       "Please use --model_path (the path to the folder containing the model config file), "
+                       "no need to use --config-path")
     return args
 
 
@@ -104,7 +106,7 @@ def dump_evalresult(eval_results, model_name, dataset_name, logger):
 def main():
     logger = get_logger('RUN')
 
-    args = parse_args()
+    args = parse_args(logger)
 
     model_name = args.model
     if model_name not in SUPPORT_MODEL_LIST.values():
@@ -181,5 +183,4 @@ def main():
 
 if __name__ == '__main__':
     load_env()
-    os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
     main()

@@ -3,6 +3,7 @@
 import argparse
 import os
 import json
+from pathlib import Path
 import numpy as np
 
 from mindformers import logger
@@ -20,7 +21,6 @@ def parse_arguments():
                         help="setup the model path",)
     parser.add_argument('--config_path',
                         type=str,
-                        required=True,
                         help="setup the config path",)
     parser.add_argument('--dataset_name',
                         type=str,
@@ -40,16 +40,17 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def create_model(model_path, config_path):
+def create_model(model_path):
     """Init model."""
-    if os.path.exists(config_path) and config_path.endswith('.yaml'):
-        config = MindFormerConfig(config_path)
-        if config.trainer.model_name not in SUPPORT_MODEL_LIST.get("video"):
-            raise ValueError(f"model {config.trainer.model_name} is not support.")
-        ms_model = init_model(model_path, config_path)
-        return ms_model
-    raise ValueError(
-        f"the config_path should be a valid yaml file and exist, but got `{config_path}`, please check it.")
+    model_path = os.path.realpath(model_path)
+    config_path = [str(file.resolve()) for file in Path(model_path).glob('*.yaml')]
+    if len(config_path) != 1:
+        raise Exception("There is no or more than one config file in the model directory.")
+    config = MindFormerConfig(config_path[0])
+    if config.trainer.model_name not in SUPPORT_MODEL_LIST.get("video"):
+        raise ValueError(f"model {config.trainer.model_name} is not support.")
+    ms_model = init_model(model_path)
+    return ms_model
 
 
 if __name__ == '__main__':
@@ -75,8 +76,6 @@ if __name__ == '__main__':
 
     if not args.model_path:
         raise ValueError("--model-path should be a str of model path")
-    if not args.config_path:
-        raise ValueError("--config-path should be a str of config path")
     if args.dataset_name is None:
         dataset_name_list = list(dataset_qajson.keys())
     else:
@@ -86,7 +85,7 @@ if __name__ == '__main__':
 
     os.makedirs(args.chat_conversation_output_folder, exist_ok=True)
 
-    model_output = create_model(args.model_path, args.config_path)
+    model_output = create_model(args.model_path)
     model = model_output.model
     processor = model_output.processor
     batch_size = model_output.batch_size

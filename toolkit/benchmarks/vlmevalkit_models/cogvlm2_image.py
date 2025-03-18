@@ -27,11 +27,10 @@ class CogVlmImage(CogVlm):
     Initialize the model of CogVlmImage and implement inference.
 
     Args:
-        model_path (str): Directory of containing model related files.
-        config_path (str): File path of model configuration.
+        model_path (str): Directory of containing model config.
     """
-    def __init__(self, model_path, config_path):
-        self.model_output = init_model(model_path, config_path)
+    def __init__(self, model_path):
+        self.model_output = init_model(model_path)
         self.config = self.model_output.config
         self.model_config = self.model_output.model_config
         self.generation_config = self.model_output.generation_config
