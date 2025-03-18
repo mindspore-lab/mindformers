@@ -16,12 +16,22 @@
 import os
 import pickle
 from typing import Optional, Union, List, Tuple
+import hashlib
 import numpy as np
 
 from mindspore.dataset import GeneratorDataset
 
 from mindformers.utils import deprecated
 from ...tools.register import MindFormerRegister, MindFormerModuleType
+
+
+def hash_file(filename):
+    with open(filename, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+META_HASH_VALUE = "a5d4786345c961390f865e93b434dbd5c6904ce880667e0cb888c97d449f28b9"
+TEST_HASH_VALUE = "4b67687d9933c4db8f0831104447f15b93774f4f464bd0516f0f0f2ac83b7864"
+TRAIN_HASH_VALUE = "735e79b04f092ca3d2e6d07f368c0a7d70d48c48d28865950cc24454cf45129b"
 
 
 @deprecated(version="1.5.0")
@@ -131,8 +141,11 @@ class Cifar100DataSet:
                              " stage should be in [\"train\", \"test\", \"all\"]")
 
         meta_file = os.path.join(dataset_dir, "meta")
-        with open(meta_file, 'rb') as fo:
-            meta_dict = pickle.load(fo, encoding="bytes")
+        if hash_file(meta_file) == META_HASH_VALUE:
+            with open(meta_file, 'rb') as fo:
+                meta_dict = pickle.load(fo, encoding="bytes")
+        else:
+            raise ValueError("The hash value is not match, the file may be tampered!")
 
         if fine_label:
             label_names = meta_dict[b'fine_label_names']
@@ -148,8 +161,11 @@ class Cifar100DataSet:
 
         if stage in ["train", "all"]:
             train_file = os.path.join(dataset_dir, "train")
-            with open(train_file, 'rb') as fo:
-                train_dict = pickle.load(fo, encoding="bytes")
+            if hash_file(train_file) == TRAIN_HASH_VALUE:
+                with open(train_file, 'rb') as fo:
+                    train_dict = pickle.load(fo, encoding="bytes")
+            else:
+                raise ValueError("The hash value is not match, the file may be tampered!")
 
             if fine_label:
                 train_label = train_dict[b"fine_labels"]
@@ -165,8 +181,11 @@ class Cifar100DataSet:
 
         if stage in ["test", "all"]:
             test_file = os.path.join(dataset_dir, "test")
-            with open(test_file, 'rb') as fo:
-                test_dict = pickle.load(fo, encoding="bytes")
+            if hash_file(test_file) == TEST_HASH_VALUE:
+                with open(test_file, 'rb') as fo:
+                    test_dict = pickle.load(fo, encoding="bytes")
+            else:
+                raise ValueError("The hash value is not match, the file may be tampered!")
 
             if fine_label:
                 test_label = test_dict[b"fine_labels"]
