@@ -206,6 +206,14 @@ class DeepSeekV2RotaryEmbedding(Cell):
         xq = self.cast(xq, self.dtype)
         xk = self.cast(xk, self.dtype)
         freqs_cos, freqs_sin, swap_mask = freqs_cis
+        bs, n, seq_len, d = self.shape(freqs_cos)
+        # seq_pipe not support construct directly to reshape, this bug will be fixed later.
+        if n == 1 and not self.seq_pipe:
+            freqs_cos = self.reshape(freqs_cos, (bs, seq_len, n, d))
+            freqs_sin = self.reshape(freqs_sin, (bs, seq_len, n, d))
+        else:
+            freqs_cos = self.transpose(freqs_cos, (0, 2, 1, 3))
+            freqs_sin = self.transpose(freqs_sin, (0, 2, 1, 3))
         freqs_cos = self.cast(freqs_cos, self.dtype)
         freqs_sin = self.cast(freqs_sin, self.dtype)
         swap_mask = self.cast(swap_mask, self.dtype)
@@ -215,8 +223,8 @@ class DeepSeekV2RotaryEmbedding(Cell):
         freqs_sin_xq = freqs_sin
         if self.seq_pipe:
             seg_seq_range = self.add_seq(self.seq_seg_range, self.seq_seg_len * seq_chunk)
-            freqs_cos_xq = self.gather(freqs_cos, seg_seq_range, 2)
-            freqs_sin_xq = self.gather(freqs_sin, seg_seq_range, 2)
+            freqs_cos_xq = self.gather(freqs_cos, seg_seq_range, 1)
+            freqs_sin_xq = self.gather(freqs_sin, seg_seq_range, 1)
         if self.use_fused_rope:
             xq_out = self.rope(xq, freqs_cos_xq, freqs_sin_xq, 0)
             xk_out = self.rope(xk, freqs_cos, freqs_sin, 0)
@@ -233,7 +241,7 @@ class DeepSeekV2RotaryEmbedding(Cell):
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         cp = parallel_config.context_parallel
-        strategy_in = (dp, mp, 1, 1)
+        strategy_in = (dp, 1, mp, 1)
         if cp > 1:
             layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
             layout_add = (layout("dp", "mp", "cp", "None"), layout("dp", "mp", "cp", "None"))
@@ -250,7 +258,7 @@ class DeepSeekV2RotaryEmbedding(Cell):
         self.neg.shard((strategy_in,))
         self.slice.shard((strategy_in,))
         self.concat.shard((strategy_in, strategy_in))
-        transpose_strategy_in = (dp, mp, 1, 1, 1)
+        transpose_strategy_in = (dp, 1, 1, 1)
         self.transpose.shard((transpose_strategy_in,))
         if self.use_fused_rope:
             layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
@@ -567,47 +575,47 @@ class DeepSeekV2Attention(nn.Cell):
         self.seq_seg_len = seq_length // self.seq_split_num
         if self.seq_pipe:
             # adapt seqpipe
-            k_pe_shape = (batch_size * dp, 1, seq_length, self.qk_rope_head_dim)
+            k_pe_shape = (batch_size * dp, seq_length, 1, self.qk_rope_head_dim)
             # (bs, 1, seq_len, self.qk_rope_head_dim)
             self.k_pe_cache = Parameter(initializer('zeros', shape=k_pe_shape, dtype=compute_dtype),
                                         name="k_pe_key_cache", requires_grad=False, parallel_optimizer=False)
-            k_nope_shape = (batch_size * dp, self.n_head, seq_length, self.qk_nope_head_dim)
+            k_nope_shape = (batch_size * dp, seq_length, self.n_head, self.qk_nope_head_dim)
             # (bs, self.n_head, seq_len, self.qk_nope_head_dim)
             self.k_nope_cache = Parameter(initializer('zeros', shape=k_nope_shape, dtype=compute_dtype),
                                           name="k_nope_key_cache", requires_grad=False, parallel_optimizer=False)
             # (bs, self.n_head, seq_len, self.v_head_dim)
-            value_states_shape = (batch_size * dp, self.n_head, seq_length, self.v_head_dim)
+            value_states_shape = (batch_size * dp, seq_length, self.n_head, self.v_head_dim)
             self.value_states_cache = Parameter(initializer('zeros', shape=value_states_shape, dtype=compute_dtype),
                                                 name="value_states_value_cache",
                                                 requires_grad=False, parallel_optimizer=False)
 
-            k_pe_grad_shape = (batch_size, 1, seq_length, self.qk_rope_head_dim)
+            k_pe_grad_shape = (batch_size, seq_length, 1, self.qk_rope_head_dim)
             # (bs, 1, seq_len, self.qk_rope_head_dim)
             self.k_pe_cache_grad = Parameter(initializer('zeros', shape=k_pe_grad_shape, dtype=compute_dtype),
                                              name="k_pe_key_cache_grad", requires_grad=False, parallel_optimizer=False)
-            k_nope_grad_shape = (batch_size, self.n_head // mp, seq_length, self.qk_nope_head_dim)
+            k_nope_grad_shape = (batch_size, seq_length, self.n_head // mp, self.qk_nope_head_dim)
             # (bs, self.n_head, seq_len, self.qk_nope_head_dim)
             self.k_nope_cache_grad = Parameter(initializer('zeros', shape=k_nope_grad_shape, dtype=compute_dtype),
                                                name="k_nope_key_cache_grad",
                                                requires_grad=False, parallel_optimizer=False)
             # (bs, self.n_head, seq_len, self.v_head_dim)
-            value_states_grad_shape = (batch_size, self.n_head // mp, seq_length, self.v_head_dim)
+            value_states_grad_shape = (batch_size, seq_length, self.n_head // mp, self.v_head_dim)
             self.value_states_cache_grad = Parameter(initializer('zeros', shape=value_states_grad_shape,
                                                                  dtype=compute_dtype), name="value_states_value_cache",
                                                      requires_grad=False, parallel_optimizer=False)
 
             self.select = P.Select()
             self.select1 = P.Select()
-            self.select.shard(((dp, mp, 1, 1), (dp, mp, 1, 1), (dp, mp, 1, 1)))
-            self.add_k = P.Add().shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-            self.add_v = P.Add().shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-            self.mul_kv = P.Mul().shard(((dp, mp, 1, 1), (dp, 1, 1, 1)))
-            self.assign_kv = P.Assign().shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-            self.mul_update = P.Mul().shard(((dp, mp, 1, 1), ()))
-            self.not_equal_ones = P.NotEqual().shard(((dp, mp, 1, 1), ()))
+            self.select.shard(((dp, 1, mp, 1), (dp, 1, mp, 1), (dp, 1, mp, 1)))
+            self.add_k = P.Add().shard(((dp, 1, mp, 1), (dp, 1, mp, 1)))
+            self.add_v = P.Add().shard(((dp, 1, mp, 1), (dp, 1, mp, 1)))
+            self.mul_kv = P.Mul().shard(((dp, 1, mp, 1), (dp, 1, 1, 1)))
+            self.assign_kv = P.Assign().shard(((dp, 1, mp, 1), (dp, 1, mp, 1)))
+            self.mul_update = P.Mul().shard(((dp, 1, mp, 1), ()))
+            self.not_equal_ones = P.NotEqual().shard(((dp, 1, mp, 1), ()))
             self.not_equal_seq = P.NotEqual()
             self.seq_split_size = Tensor(self.seq_split_num - 1, dtype=mstype.int32)
-            self.tile_kv = P.Tile().shard(((dp, mp, 1, 1),))
+            self.tile_kv = P.Tile().shard(((dp, 1, mp, 1),))
 
 
             self.select1.shard(((dp, 1, 1, 1), (dp, 1, 1, 1), (dp, 1, 1, 1)))
@@ -632,27 +640,27 @@ class DeepSeekV2Attention(nn.Cell):
             self.batch_matmul.recompute()
 
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
-            self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-            self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-            self.tile_kv.shard(((dp, mp, 1, 1),))
-            self.slice_qkv.shard(((dp, mp, 1, 1),))
+            self.batch_matmul_q_k.shard(((dp, 1, mp, 1), (dp, 1, mp, 1)))
+            self.batch_matmul.shard(((dp, 1, mp, 1), (dp, 1, mp, 1)))
+            self.tile_kv.shard(((dp, 1, mp, 1),))
+            self.slice_qkv.shard(((dp, 1, mp, 1),))
             if parallel_config.use_seq_parallel and self.is_first_iteration:
                 self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
         else:
-            self.transpose.shard(((dp, 1, mp, 1),))
-            self.merger_head_transpose.shard(((dp, mp, 1, 1),))
-            self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-            self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-            self.mul.shard(((dp, mp, 1, 1), ()))
-            self.add.shard(((dp, 1, 1, 1), (dp, mp, 1, 1)))
-            self.softmax.shard(((dp, mp, 1, 1),))
-            self.tile_kv.shard(((dp, mp, 1, 1),))
-            self.slice_qkv.shard(((dp, mp, 1, 1),))
+            self.transpose.shard(((dp, mp, 1, 1),))
+            self.merger_head_transpose.shard(((dp, 1, mp, 1),))
+            self.batch_matmul_q_k.shard(((dp, 1, mp, 1), (dp, 1, mp, 1)))
+            self.batch_matmul.shard(((dp, 1, mp, 1), (dp, 1, mp, 1)))
+            self.mul.shard(((dp, 1, mp, 1), ()))
+            self.add.shard(((dp, 1, 1, 1), (dp, 1, mp, 1)))
+            self.softmax.shard(((dp, 1, mp, 1),))
+            self.tile_kv.shard(((dp, 1, mp, 1),))
+            self.slice_qkv.shard(((dp, 1, mp, 1),))
             self.dim_slice_3d.shard(((dp, 1, 1),))
-            self.dim_slice_4d.shard(((dp, mp, 1, 1),))
-            self.pe_concat.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-            self.value_concat.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
-            self.mul_zeros.shard(((dp, mp, 1, 1), ()))
+            self.dim_slice_4d.shard(((dp, 1, mp, 1),))
+            self.pe_concat.shard(((dp, 1, mp, 1), (dp, 1, mp, 1)))
+            self.value_concat.shard(((dp, 1, mp, 1), (dp, 1, mp, 1)))
+            self.mul_zeros.shard(((dp, 1, mp, 1), ()))
 
             self.apply_rotary_emb.shard(parallel_config)
 
@@ -667,7 +675,7 @@ class DeepSeekV2Attention(nn.Cell):
             self.flash_attention = FlashAttention(head_num=self.n_head,
                                                   pre_tokens=2147483647,
                                                   next_tokens=next_tokens,
-                                                  input_layout="BNSD",
+                                                  input_layout="BSH",
                                                   keep_prob=1.,
                                                   scale_value=self.scale_fa,
                                                   sparse_mode=0,
@@ -689,7 +697,7 @@ class DeepSeekV2Attention(nn.Cell):
 
     def cache_and_update(self, seq_chunk, kv, mask, cache, seq_zero, ones):
         """ cache_and_update"""
-        kv = self.tile_kv(kv, (1, 1, self.seq_split_num, 1))
+        kv = self.tile_kv(kv, (1, self.seq_split_num, 1, 1))
         kv = self.mul_kv(kv, mask)
         kv_equal = self.mul_update(ones, self.not_equal_seq(seq_chunk, self.seq_split_size))
         kv_update = self.add_k(kv, cache)
@@ -700,7 +708,7 @@ class DeepSeekV2Attention(nn.Cell):
 
     def cache_and_update_k_pe(self, seq_chunk, kv, mask, cache, seq_zero, ones):
         """ cache_and_update_k_pe"""
-        kv = self.tile_kv1(kv, (1, 1, self.seq_split_num, 1))
+        kv = self.tile_kv1(kv, (1, self.seq_split_num, 1, 1))
         kv = self.mul_kv1(kv, mask)
         kv_equal = self.mul_update1(ones, self.not_equal_seq(seq_chunk, self.seq_split_size))
         kv_update = self.add_k1(kv, cache)
@@ -730,18 +738,15 @@ class DeepSeekV2Attention(nn.Cell):
 
         q_nope = self.l2q_nope_proj(norm_q)
         q_nope = self.reshape(q_nope, (bs, seq_len, self.n_head, self.qk_nope_head_dim))
-        q_nope = self.transpose(q_nope, (0, 2, 1, 3))
 
         q_pe = self.l2q_pe_proj(norm_q)
         q_pe = self.reshape(q_pe, (bs, seq_len, self.n_head, self.qk_rope_head_dim))
-        q_pe = self.transpose(q_pe, (0, 2, 1, 3))
 
         k_pe = self.kv2l_k_pe(x)
-        k_pe = self.reshape(k_pe, (bs, 1, seq_len, self.qk_rope_head_dim))
+        k_pe = self.reshape(k_pe, (bs, seq_len, 1, self.qk_rope_head_dim))
         if self.seq_pipe:
             k_pe, k_pe_state = self.cache_and_update_k_pe(seq_chunk, k_pe, k_pe_mask, self.k_pe_cache,
                                                           seq_zero_k_pe, seq_one_k_pe)
-        k_pe = self.tile_kv(k_pe, (1, self.n_head, 1, 1))
 
         latent_kv = self.kv2l_latent_kv(x)
         latent_kv = self.reshape(latent_kv, (bs, seq_len, self.kv_lora_rank))
@@ -754,27 +759,26 @@ class DeepSeekV2Attention(nn.Cell):
             i_kv = self.lkv_norm(latent_kv)
         k_nope = self.lkv2kv_k_nope(i_kv)
         k_nope = self.reshape(k_nope, (bs, seq_len, self.n_head, self.qk_nope_head_dim))
-        k_nope = self.transpose(k_nope, (0, 2, 1, 3))
         if self.seq_pipe:
             k_nope, k_nope_state = self.cache_and_update(seq_chunk, k_nope, k_nope_mask, self.k_nope_cache,
                                                          seq_zero_k_nope, seq_one_k_nope)
         value_states = self.lkv2kv_v(i_kv)
         value_states = self.reshape(value_states, (bs, seq_len, self.n_head, self.v_head_dim))
-        value_states = self.transpose(value_states, (0, 2, 1, 3))
         if self.seq_pipe:
             value_states, value_states_state = self.cache_and_update(seq_chunk, value_states, value_states_mask,
                                                                      self.value_states_cache,
                                                                      seq_zero_value_states, seq_one_value_states)
             q_pe = F.depend(q_pe, (k_pe_state, k_nope_state, value_states_state))
+        k_pe = self.tile_kv(k_pe, (1, 1, self.n_head, 1))
         q_pe, k_pe = self.apply_rotary_emb(q_pe, k_pe, freqs_cis, seq_chunk)
         query_states = self.pe_concat((q_nope, q_pe))
         key_states = self.pe_concat((k_nope, k_pe))
 
         if self.use_past:
             value_states = self.value_concat((value_states, k_pe))
-            key_states = self.reshape(self.transpose(key_states, (0, 2, 1, 3)), (bs, seq_len, -1))
-            value_states = self.reshape(self.transpose(value_states, (0, 2, 1, 3)), (bs, seq_len, -1))
-            query_states = self.reshape(self.transpose(query_states, (0, 2, 1, 3)), (bs, seq_len, -1))
+            key_states = self.reshape(key_states, (bs, seq_len, -1))
+            value_states = self.reshape(value_states, (bs, seq_len, -1))
+            query_states = self.reshape(query_states, (bs, seq_len, -1))
             context_layer = self.infer_attention(query_states, key_states, value_states, batch_valid_length,
                                                  block_tables, slot_mapping, freqs_cis, mask,
                                                  prefix_keys_values=prefix_keys_values)
@@ -783,20 +787,30 @@ class DeepSeekV2Attention(nn.Cell):
                                          (1, 1, 1))
         else:
             if self.use_flash_attention and self.enable_fa_var_len:
+                key_states = self.reshape(key_states, (bs, key_states.shape[1], -1))
+                value_states = self.reshape(value_states, (bs, value_states.shape[1], -1))
+                query_states = self.reshape(query_states, (bs, query_states.shape[1], -1))
                 context_layer = self.flash_attention(self.cast(query_states, self.dtype),
                                                      self.cast(key_states, self.dtype),
                                                      self.cast(value_states, self.dtype), mask)
-                attn_out = self._merge_heads(context_layer)
+                attn_out = context_layer
             elif self.use_flash_attention:
                 value_states = self.value_concat((value_states, pad_zeros))
+                key_states = self.reshape(key_states, (bs, key_states.shape[1], -1))
+                value_states = self.reshape(value_states, (bs, value_states.shape[1], -1))
+                query_states = self.reshape(query_states, (bs, query_states.shape[1], -1))
                 context_layer = self.flash_attention(self.cast(query_states, self.dtype),
                                                      self.cast(key_states, self.dtype),
                                                      self.cast(value_states, self.dtype), mask)
-                context_layer = self.dim_slice_4d(context_layer, (0, 0, 0, 0),
-                                                  (bs, self.n_head, seq_len, self.v_head_dim),
-                                                  (1, 1, 1, 1))
-                attn_out = self._merge_heads(context_layer)
+                context_layer = self.reshape(context_layer, (bs, seq_len, self.n_head, -1))
+                attn_out = self.dim_slice_4d(context_layer, (0, 0, 0, 0),
+                                             (bs, seq_len, self.n_head, self.v_head_dim),
+                                             (1, 1, 1, 1))
+                attn_out = self.reshape(attn_out, (bs, seq_len, -1))
             else:
+                query_states = self.transpose(query_states, (0, 2, 1, 3))
+                key_states = self.transpose(key_states, (0, 2, 1, 3))
+                value_states = self.transpose(value_states, (0, 2, 1, 3))
                 attn_out = self._attn(query_states, key_states, value_states, mask)
 
         # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
@@ -1355,15 +1369,15 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                 mtp_norm.shard((dp, mp, 1))
 
         self.seq_pipe = self.seq_split_num > 1
-        self.pad_zeros = initializer('zeros', shape=(config.batch_size * dp, self.n_head, config.seq_length,
+        self.pad_zeros = initializer('zeros', shape=(config.batch_size * dp, config.seq_length, self.n_head,
                                                      self.qk_rope_head_dim), dtype=self.dtype)
         if self.seq_pipe:
             batch_size = config.batch_size
             self.n_kv_head = self.n_head if config.n_kv_heads is None else config.n_kv_heads
             #kv_shape = (config.batch_size * dp, self.n_kv_head, config.seq_length, self.head_dim)
-            k_pe_shape = (batch_size * dp, 1, config.seq_length, self.qk_rope_head_dim)
-            k_nope_shape = (batch_size * dp, 1, config.seq_length, self.qk_nope_head_dim)
-            value_states_shape = (batch_size * dp, 1, config.seq_length, self.v_head_dim)
+            k_pe_shape = (batch_size * dp, config.seq_length, 1, self.qk_rope_head_dim)
+            k_nope_shape = (batch_size * dp, config.seq_length, 1, self.qk_nope_head_dim)
+            value_states_shape = (batch_size * dp, config.seq_length, 1, self.v_head_dim)
             self.zeros_k_pe = Parameter(initializer('zeros', shape=k_pe_shape, dtype=self.dtype), name="zeros_k_pe",
                                         requires_grad=False, parallel_optimizer=False)
             self.zeros_k_nope = Parameter(initializer('zeros', shape=k_nope_shape, dtype=self.dtype),
@@ -1374,13 +1388,13 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
             self.seq_update = Tensor(1, dtype=mstype.int32)
             self.seq_zero = Tensor(0, dtype=mstype.int32)
             self.seq_seg_len = config.seq_length // self.seq_split_num
-            k_pe_mask = np.zeros((1, 1, config.seq_length, self.qk_rope_head_dim), np.int32)
-            k_nope_mask = np.zeros((1, 1, config.seq_length, self.qk_nope_head_dim), np.int32)
-            value_states_mask = np.zeros((1, 1, config.seq_length, self.v_head_dim), np.int32)
+            k_pe_mask = np.zeros((1, config.seq_length, 1, self.qk_rope_head_dim), np.int32)
+            k_nope_mask = np.zeros((1, config.seq_length, 1, self.qk_nope_head_dim), np.int32)
+            value_states_mask = np.zeros((1, config.seq_length, 1, self.v_head_dim), np.int32)
             for s in range(self.seq_split_num):
-                k_pe_mask[:, :, s * self.seq_seg_len: (s + 1) * self.seq_seg_len, :] = s
-                k_nope_mask[:, :, s * self.seq_seg_len: (s + 1) * self.seq_seg_len, :] = s
-                value_states_mask[:, :, s * self.seq_seg_len: (s + 1) * self.seq_seg_len, :] = s
+                k_pe_mask[:, s * self.seq_seg_len: (s + 1) * self.seq_seg_len, :, :] = s
+                k_nope_mask[:, s * self.seq_seg_len: (s + 1) * self.seq_seg_len, :, :] = s
+                value_states_mask[:, s * self.seq_seg_len: (s + 1) * self.seq_seg_len, :, :] = s
             self.k_pe_mask = Tensor(k_pe_mask)
             self.k_nope_mask = Tensor(k_nope_mask)
             self.value_states_mask = Tensor(value_states_mask)
@@ -1394,11 +1408,11 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
             self.assign_add_count = P.AssignAdd()
             self.assign_count = P.Assign()
             self.assign_mask = P.Assign().shard(((dp, 1), (dp, 1)))
-            self.tile_mask = P.Tile().shard(((dp, mp, 1, 1),))
-            self.mul_zero = P.Mul().shard(((dp, mp, 1, 1), ()))
+            self.tile_mask = P.Tile().shard(((dp, 1, mp, 1),))
+            self.mul_zero = P.Mul().shard(((dp, 1, mp, 1), ()))
             self.mul_zero_k_pe = P.Mul().shard(((dp, 1, 1, 1), ()))
             self.not_equal_one_k_pe = P.NotEqual().shard(((dp, 1, 1, 1), ()))
-            self.not_equal_one = P.NotEqual().shard(((dp, mp, 1, 1), ()))
+            self.not_equal_one = P.NotEqual().shard(((dp, 1, mp, 1), ()))
             self.mask_zeros = Tensor(np.zeros((config.batch_size * dp, config.seq_length)), mstype.float32)
 
     def clear_kv_cache(self):
@@ -1468,9 +1482,9 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                 seq_update = F.depend(self.seq_update, mask)
                 seq_zero_k_pe = self.mul_zero_k_pe(k_pe_mask, 0)
                 seq_one_k_pe = self.not_equal_one_k_pe(seq_zero_k_pe, 1)
-                seq_zero_k_nope = self.mul_zero(self.tile_mask(k_nope_mask, (1, self.n_head, 1, 1)), 0)
+                seq_zero_k_nope = self.mul_zero(self.tile_mask(k_nope_mask, (1, 1, self.n_head, 1)), 0)
                 seq_one_k_nope = self.not_equal_one(seq_zero_k_nope, 1)
-                seq_zero_value_states = self.mul_zero(self.tile_mask(value_states_mask, (1, self.n_head, 1, 1)), 0)
+                seq_zero_value_states = self.mul_zero(self.tile_mask(value_states_mask, (1, 1, self.n_head, 1)), 0)
                 seq_one_value_states = self.not_equal_one(seq_zero_value_states, 1)
                 seq_update = F.depend(seq_update, (k_pe_mask, k_nope_mask, value_states_mask,
                                                    seq_one_k_pe, seq_one_k_nope, seq_one_value_states))
