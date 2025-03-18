@@ -1016,6 +1016,7 @@ class LowerTriangularMaskWithDynamic(Cell):
                 self.lower_triangle_mask = Tensor(
                     np.triu(np.ones(shape=(128, 128), dtype=np.float16), 1) * mask_coeff, dtype=compute_type
                 )
+                self.hard_mask = Tensor([0], dtype=ms.bfloat16).reshape(1, 1)
             else:
                 self.lower_triangle_mask = None
         else:
@@ -1116,6 +1117,13 @@ class LowerTriangularMaskWithDynamic(Cell):
     def chunk_masks(self, seq_range):
         masks = self.gather(self.lower_triangle_mask, seq_range, 0)
         return 1 - masks
+
+    def gen_attention_mask(self, is_prefill):
+        if is_prefill:
+            attention_mask = self.lower_triangle_mask
+        else:
+            attention_mask = self.hard_mask
+        return attention_mask
 
     def shard(self, parallel_config):
         """sharding for LowerTriangularMaskWithDynamic"""
