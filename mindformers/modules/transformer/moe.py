@@ -1546,7 +1546,7 @@ class TopkRouterV2(Cell):
             tmp_scores = ops.masked_fill(router_prob_with_bias, ~score_mask.bool(), 0.0)
 
             if self.moe_config.balance_via_topk_bias:
-                _, expert_index = self.afb_topk(router_prob_with_bias, self.num_experts_chosen)
+                _, expert_index = self.afb_topk(tmp_scores, self.num_experts_chosen)
                 expert_gate = self.gate_gather(router_prob, expert_index, 2)
                 self._update_expert_load(expert_index)
             else:
@@ -1560,6 +1560,11 @@ class TopkRouterV2(Cell):
                 self._update_expert_load(expert_index)
             else:
                 expert_gate, expert_index = self.topk(router_prob, self.num_experts_chosen)
+
+        if self.num_experts_chosen > 1 and self.moe_config.norm_topk_prob:
+            expert_gate = self._normalize(expert_gate)  # (dp, N, k) <-- (dp, N, k)
+
+        expert_gate = ops.mul(self.moe_config.routed_scaling_factor, expert_gate)  # (dp, N, k) <-- (dp, N, k)
 
         if self.aux_loss_config.get("expert", 0):
             expert_load_loss = self._expert_load_balancing(router_prob_for_aux, expert_index,
@@ -1659,16 +1664,14 @@ class TopkRouterV2(Cell):
 
         dispatch_index = self.cast(dispatch_index, mstype.int32)
         combine_index = self.cast(combine_index, mstype.int32)
-        router_coeff_raw = self.mul_3d(
+        router_coeff = self.mul_3d(
             expert_gate,
             self.transpose_3d(
                 self.reshape(within_capacity, (within_capacity.shape[0], k, tokens_per_group)),
                 (0, 2, 1)))  # apply within_capacity (dp, N, k) <-- (dp, N, k), (dp, N, k) <--  (dp, kN)
-        if self.num_experts_chosen > 1 and self.moe_config.norm_topk_prob:
-            router_coeff = self._normalize(router_coeff_raw)  # (dp, N, k) <-- (dp, N, k)
-        else:
-            router_coeff = ops.mul(self.moe_config.routed_scaling_factor, router_coeff_raw)  # (dp, N, k) <-- (dp, N, k)
+
         return dispatch_index, combine_index, router_coeff  # (dp, E, n), (dp, N, k), (dp, N, k)
+
 
     def _maskout_overflowed_tokens_sort_sdrop(self, expert_index, expert_gate):
         """
@@ -1729,12 +1732,10 @@ class TopkRouterV2(Cell):
         dispatch_index = self.cast(dispatch_index, mstype.int32)
         combine_index = self.cast(combine_index, mstype.int32)
         within_capacity = self.reshape(within_capacity, (within_capacity.shape[0], tokens_per_group, k))
-        router_coeff_raw = self.mul_3d(expert_gate, within_capacity)
-        if self.num_experts_chosen > 1 and self.moe_config.norm_topk_prob:
-            router_coeff = self._normalize(router_coeff_raw)  # (dp, N, k) <-- (dp, N, k)
-        else:
-            router_coeff = ops.mul(self.moe_config.routed_scaling_factor, router_coeff_raw)  # (dp, N, k) <-- (dp, N, k)
+        router_coeff = self.mul_3d(expert_gate, within_capacity)
+
         return dispatch_index, combine_index, router_coeff  # (dp, E, n), (dp, N, k), (dp, N, k)
+
 
     def _maskout_overflowed_tokens_use_topkrouter(self, expert_index, expert_gate):
         """
@@ -1753,11 +1754,8 @@ class TopkRouterV2(Cell):
             dispatch_index, combine_index = self.topkrouter(expert_index, expert_capacity, self.expert_dim, 1)
         within_capacity = self.mod(combine_index, expert_capacity + 1)
         within_capacity = self.not_equal(self.cast(within_capacity, mstype.int32), 0)
-        expert_gate = self.mul_3d(within_capacity, expert_gate)
-        if self.num_experts_chosen > 1 and self.moe_config.norm_topk_prob:
-            router_coeff = self._normalize(expert_gate)
-        else:
-            router_coeff = ops.mul(self.moe_config.routed_scaling_factor, expert_gate)
+        router_coeff = self.mul_3d(within_capacity, expert_gate)
+
         return dispatch_index, combine_index, router_coeff
 
     def _normalize(self, router_coeff_raw):
