@@ -38,11 +38,6 @@ wizardcoder:
   output_path:
   dtype:
 
-skywork:
-  input_path:
-  output_path:
-  dtype:
-
 glm2:
   input_path:
   output_path:

@@ -46,12 +46,6 @@ wizardcoder:
   layers:
   model_class: GPTBigCodeForCausalLM
 
-skywork:
-  input_path:
-  output_path:
-  dtype:
-  model_class: LlamaForCausalLM
-
 glm2:
   input_path:
   output_path:
