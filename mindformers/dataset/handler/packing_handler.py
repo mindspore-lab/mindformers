@@ -13,10 +13,41 @@
 # limitations under the License.
 # ============================================================================
 """Dataset Packing Handler."""
+from dataclasses import dataclass
 import numpy as np
 
 from mindformers.dataset.handler.base_handler import BaseInstructDataHandler
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
+
+
+@dataclass
+class PackingConfig:
+
+    """
+    Configuration object for Packing Processing
+
+    Args:
+        seq_length (int): Max sequence length for packing samples.
+        pad_token (int, optional): Option to set pad token in input text. Default: ``0``.
+        ignore_token (int, optional): Option to set ignored token in input label,
+            ignored token will work in training. Default: ``-100``.
+        seed (int, optional): Option to set random seed in dataset shuffle. Default: ``42``.
+        dataset_shuffle (bool, optional): Option to shuffle total dataset before packing. Default: ``42``.
+    """
+
+    seq_length: int = None
+
+    # special token id setting
+    pad_token: int = 0
+    ignore_token: int = -100
+
+    # randomness setting
+    seed: int = 42
+    dataset_shuffle: bool = False
+
+    def __post_init__(self) -> None:
+        """Do asserts and set fields post init"""
+        assert self.seq_length is not None
 
 
 def _init_data(data_names):
@@ -37,11 +68,13 @@ def _pad_data(data, max_length, pad_value):
         constant_values=pad_value).tolist()
 
 
-def _add_dataset(dataset, data, seq_length, **kwargs):
+def _add_dataset(dataset, data, config: PackingConfig):
     """add data to dataset"""
+    seq_length = config.seq_length
+    pad_token = config.pad_token
+    ignore_token = config.ignore_token
+
     # packing data at max length
-    pad_token = kwargs.get('pad_token', 0)
-    ignore_token = kwargs.get('ignore_token', -100)
     data['input_ids'] = _pad_data(data.get('input_ids'), seq_length, pad_token)
     data['labels'] = _pad_data(data.get('labels'), seq_length, ignore_token)
 
@@ -55,21 +88,18 @@ def _process_sample(
         sample: dict,
         data: dict,
         dataset: dict,
-        **kwargs
+        config: PackingConfig
 ):
     """process single sample in dataset"""
-    seq_length = kwargs.get('seq_length')
-    pad_token = kwargs.get('pad_token', 0)
-
     cur_seq_length = len(sample.get('input_ids'))
     # skip data out of bounds
-    if cur_seq_length > seq_length:
+    if cur_seq_length > config.seq_length:
         return dataset, data
 
     data_names = list(dataset.keys())
-    if len(data.get('input_ids')) + cur_seq_length > seq_length:
+    if len(data.get('input_ids')) + cur_seq_length > config.seq_length:
         # add data to dataset and reset data
-        dataset = _add_dataset(dataset, data, **kwargs)
+        dataset = _add_dataset(dataset, data, config)
         data = _init_data(data_names)
 
     # add sample to data
@@ -77,13 +107,13 @@ def _process_sample(
         if k == 'actual_seq_len':
             data[k] += [data.get(k)[-1] + cur_seq_length]
         elif k == 'labels':
-            data[k] += sample[k][1:] + [pad_token]
+            data[k] += sample[k][1:] + [config.pad_token]
         else:
             data[k] += sample[k]
     return dataset, data
 
 
-def pack_examples(dataset, **kwargs):
+def pack_examples(dataset, config: PackingConfig):
     """packing dataset examples in pack mode"""
     from datasets import Dataset
     from tqdm import tqdm
@@ -94,7 +124,7 @@ def pack_examples(dataset, **kwargs):
     tmp_data = _init_data(data_names)
     for example in tqdm(dataset, desc="Packing"):
         cur_dataset, tmp_data = _process_sample(
-            example, tmp_data, cur_dataset, **kwargs
+            example, tmp_data, cur_dataset, config
         )
 
     if sum([len(v) for v in list(cur_dataset.values())]) == 0:
@@ -103,12 +133,16 @@ def pack_examples(dataset, **kwargs):
             'not packed data do not reach max length.'
         )
 
-    dataset = _add_dataset(cur_dataset, tmp_data, **kwargs)
+    dataset = _add_dataset(cur_dataset, tmp_data, config)
     return Dataset.from_dict(cur_dataset)
 
 
-def truncate_examples(examples, seq_length, pad_token, ignore_token):
+def truncate_examples(examples, config: PackingConfig):
     """packing dataset examples in truncate mode"""
+    seq_length = config.seq_length
+    pad_token = config.pad_token
+    ignore_token = config.ignore_token
+
     # add actual_seq_len into column
     per_seq_len = [len(x) for x in examples[list(examples.keys())[0]]]
     actual_seq_len = []
@@ -145,8 +179,15 @@ class PackingHandler(BaseInstructDataHandler):
 
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
-        self.pad_token = config.get('pad_token', 0)
-        self.ignore_token = config.get('ignore_token', -100)
+
+        # init packing config
+        self.packing_config = PackingConfig(
+            seq_length=self.seq_length,
+            pad_token=config.get('pad_token', 0),
+            ignore_token=config.get('ignore_token', -100),
+            seed=config.get('seed', 42),
+            dataset_shuffle=config.get('dataset_shuffle', False),
+        )
 
         if self.packing not in self.support_pack_mode:
             raise ValueError(
@@ -155,12 +196,11 @@ class PackingHandler(BaseInstructDataHandler):
     def handle(self, dataset):
         _check_input_columns(dataset)
 
+        if self.packing_config.dataset_shuffle:
+            dataset = dataset.shuffle(seed=self.packing_config.seed)
+
         map_args = dict(batched=True, desc="Packing")
-        fn_kwargs = dict(
-            seq_length=self.seq_length,
-            pad_token=self.pad_token,
-            ignore_token=self.ignore_token
-        )
+        fn_kwargs = dict(config=self.packing_config)
         if self.packing == 'truncate':
             return dataset.map(truncate_examples,
                                fn_kwargs=fn_kwargs,
