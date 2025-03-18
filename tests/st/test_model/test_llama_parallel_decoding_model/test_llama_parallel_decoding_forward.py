@@ -38,7 +38,6 @@ class TestLlamaParallelDecodingForward:
         """
         os.environ["MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST"] = "PagedAttention,FlashAttentionScore"
         os.environ["RUN_MODE"] = "predict"
-        os.environ["ASCEND_HOME_PATH"] = "/usr/local/Ascend/latest"
         ms.set_seed(0)
         model_config = LlamaConfig(
             num_layers=1,

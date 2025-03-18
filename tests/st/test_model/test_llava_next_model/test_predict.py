@@ -17,8 +17,6 @@ Test cogvlm2-video predict.
 How to run this:
     pytest tests/st/test_model/test_llava_next_model/test_predict.py
 """
-import os
-
 import numpy as np
 import pytest
 from mindspore import Tensor
@@ -41,7 +39,6 @@ class TestLlavaNextPredict:
         Description: Test base model prediction.
         Expectation: AssertionError
         """
-        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         model_config = get_config(video_config=True)
         model = get_model(model_config).network
         input_ids = np.random.randint(0, 128, size=(1, 2048), dtype=np.int32)
@@ -61,7 +58,6 @@ class TestLlavaNextPredict:
         Description: Test base model prediction.
         Expectation: AssertionError
         """
-        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         model_config = get_config(video_config=False)
         model = get_model(model_config).network
         input_ids = np.random.randint(0, 128, size=(1, 3072), dtype=np.int32)

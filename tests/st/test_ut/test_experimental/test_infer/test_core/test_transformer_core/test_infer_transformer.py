@@ -27,7 +27,6 @@ def test_infer_transformer_block():
     Expectation: AssertionError
     """
     sh_path = os.path.split(os.path.realpath(__file__))[0]
-    os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
     os.environ['MS_ENABLE_LCCL'] = "off"
     ret = os.system(f"python {sh_path}/run_infer_transformer.py --module transformerblock")
     assert ret == 0
@@ -42,7 +41,6 @@ def test_infer_transformer_layer():
     Expectation: AssertionError
     """
     sh_path = os.path.split(os.path.realpath(__file__))[0]
-    os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
     os.environ['MS_ENABLE_LCCL'] = "off"
     ret = os.system(f"python {sh_path}/run_infer_transformer.py --module transformerlayer")
     assert ret == 0

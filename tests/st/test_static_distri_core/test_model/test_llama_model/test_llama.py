@@ -42,7 +42,6 @@ class TestLlama:
 
     @staticmethod
     def setup_method():
-        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         os.environ['MS_MEMORY_POOL_RECYCLE'] = '1'
 
     @pytest.mark.level1

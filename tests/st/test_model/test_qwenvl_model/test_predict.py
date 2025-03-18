@@ -72,7 +72,6 @@ class TestQwenVLPredict:
         Expectation: TypeError, ValueError, RuntimeError
         """
         register_modules()
-        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         config = get_predict_config()
         model_config = get_model_config(config)
         model = get_model(model_config)

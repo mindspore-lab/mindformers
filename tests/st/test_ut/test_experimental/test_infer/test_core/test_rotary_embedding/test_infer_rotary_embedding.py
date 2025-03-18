@@ -35,7 +35,6 @@ class TestInferRotaryEmbedding:
         Exception: AssertionError
         """
         sh_path = os.path.split(os.path.realpath(__file__))[0]
-        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         os.environ['MS_ENABLE_LCCL'] = "off"
         num_heads = 4
         ret = os.system(f"python {sh_path}/run_infer_rotary_embedding.py --mode rope --bs {batch_size} --seq {seq_len}"
@@ -57,7 +56,6 @@ class TestInferRotaryEmbedding:
         Exception: AssertionError
         """
         sh_path = os.path.split(os.path.realpath(__file__))[0]
-        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         os.environ['MS_ENABLE_LCCL'] = "off"
         num_heads = 8
         ret = os.system(f"python {sh_path}/run_infer_rotary_embedding.py --mode llama3rope --bs {batch_size} "
