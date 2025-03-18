@@ -143,6 +143,12 @@ else
    --cluster_time_out=$CLUSTER_TIME_OUT"
 fi
 
+if [ $WORKER_NUM == 1 ]
+then
+  echo "You should use python instead of using msrun while running a single rank"
+  exit 0
+fi
+
 EXECUTE_ORDER="$MSRUN_CMD $1"
 
 ulimit -u unlimited
