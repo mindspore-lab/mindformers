@@ -39,7 +39,7 @@ class DPOModel(PreTrainedModel):
     @lazy_inline
     @args_type_check(config=(dict, DPOConfig))
     def __init__(self, config: Union[dict, DPOConfig], base_model: PreTrainedModel, ref_model: PreTrainedModel):
-        super().__init__(base_model.config, auto_prefix=False)
+        super().__init__(base_model.config, auto_prefix=True)
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.cast = P.Cast()
@@ -50,6 +50,8 @@ class DPOModel(PreTrainedModel):
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
         self.use_data_packing = config.dataset_config.use_data_packing
+        if self.use_data_packing:
+            self.packed_num = config.dataset_config.packed_num
         self.input_sliced_sig = config.input_sliced_sig
         self.dpo_model = base_model
         self.ref_model = ref_model
@@ -105,16 +107,20 @@ class DPOModel(PreTrainedModel):
 
     def convert_weight_dict(self, source_dict, **kwargs):
         dpo_weight_dict = self.dpo_model.convert_weight_dict(source_dict, **kwargs)
+        prefix_dpo = "dpo_model."
+        dpo_weight_dict = {f"{prefix_dpo}{key}": value for key, value in dpo_weight_dict.items()}
         ref_weight_dict = self.ref_model.convert_weight_dict(source_dict, **kwargs)
-        prefix_ref = "network._backbone.network.ref_model."
+        prefix_ref = "ref_model."
         ref_weight_dict = {f"{prefix_ref}{key}": value for key, value in ref_weight_dict.items()}
         merge_dict = {**dpo_weight_dict, **ref_weight_dict}
         return merge_dict
 
     def convert_map_dict(self, source_dict, **kwargs):
         dpo_weight_dict = self.dpo_model.convert_map_dict(source_dict, **kwargs)
+        prefix_dpo = "dpo_model."
+        dpo_weight_dict = {f"{prefix_dpo}{key}": value for key, value in dpo_weight_dict.items()}
         ref_weight_dict = self.ref_model.convert_map_dict(source_dict, **kwargs)
-        prefix_ref = "network._backbone.network.ref_model."
+        prefix_ref = "ref_model."
         ref_weight_dict = {f"{prefix_ref}{key}": value for key, value in ref_weight_dict.items()}
         merge_dict = {**dpo_weight_dict, **ref_weight_dict}
         return merge_dict
@@ -245,7 +251,7 @@ class DPOModel(PreTrainedModel):
             ref_logits = self.reshape(ref_logits, (bsz, tokens.shape[1], ref_logits.shape[-1]))
 
         if self.use_data_packing:
-            packed_num = self.shape(rejected_lens)[1]
+            packed_num = self.packed_num
         else:
             packed_num = None
         dpo_loss, sft_loss = self.dpo_loss(
@@ -314,7 +320,7 @@ class DPOLossV2(nn.Cell):
         self.cast = P.Cast()
         self.reshape = P.Reshape()
         # for cal reward
-        self.beta = 0.1
+        self.beta = config.rl_config.beta
         self.enable_force_redistribute = True
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             self.enable_force_redistribute = True

@@ -7044,13 +7044,13 @@
         "signature": "(self, model_outputs: dict, **postprocess_params)"
     },
     "mindformers.reinforcement_learning.DPOConfig": {
-        "signature": "(dpo_alpha: float = 0.5, dpo_beta: float = 1.0, **kwargs)"
+        "signature": "(dpo_alpha: float = 0.5, dpo_beta: float = 1.0, beta: float = 0.1, **kwargs)"
     },
     "mindformers.reinforcement_learning.RlConfig": {
         "signature": "(rl_type: str = None, **kwargs)"
     },
     "mindformers.reinforcement_learning.rl_config.DPOConfig": {
-        "signature": "(dpo_alpha: float = 0.5, dpo_beta: float = 1.0, **kwargs)"
+        "signature": "(dpo_alpha: float = 0.5, dpo_beta: float = 1.0, beta: float = 0.1, **kwargs)"
     },
     "mindformers.reinforcement_learning.rl_config.RlConfig": {
         "signature": "(rl_type: str = None, **kwargs)"
