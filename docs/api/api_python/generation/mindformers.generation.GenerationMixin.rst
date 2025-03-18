@@ -35,7 +35,7 @@ mindformers.generation.GenerationMixin
         模型前向传播的过程。
 
         参数：
-            - **input_ids** (List(List(int))) - 填充（Padding）后的输入索引。
+            - **input_ids** (List[List[int]]) - 填充（Padding）后的输入索引。
             - **valid_length_each_example** (np.ndarray) - 除填充外的有效输入长度。
             - **block_tables** (Tensor, 可选) - 页面注意力的参数。默认值： ``None`` 。
             - **slot_mapping** (Tensor, 可选) - 页面注意力的参数。默认值： ``None`` 。
@@ -44,8 +44,8 @@ mindformers.generation.GenerationMixin
             - **encoder_mask** (Tensor, 可选) - 用于编码器-解码器结构，对于纯解码器结构则不需要。默认值： ``None`` 。
             - **encoder_output** (Tensor, 可选) - 用于编码器-解码器结构，对于纯解码器结构则不需要。默认值： ``None`` 。
             - **target_mask** (Tensor, 可选) - 用于编码器-解码器结构，对于纯解码器结构则不需要。默认值： ``None`` 。
-            - **key_cache** (List(Tensor), 可选) - 一组Tensor用作KVcache的key cache。默认值： ``None`` 。
-            - **value_cache** (List(Tensor), 可选) - 一组Tensor用作KVcache的value cache。默认值： ``None`` 。
+            - **key_cache** (List[Tensor], 可选) - 一组Tensor用作KVcache的key cache。默认值： ``None`` 。
+            - **value_cache** (List[Tensor], 可选) - 一组Tensor用作KVcache的value cache。默认值： ``None`` 。
             - **\*\*model_kwargs** (Any) - 模型的关键字参数。
 
         返回：
