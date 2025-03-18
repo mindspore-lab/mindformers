@@ -19,7 +19,7 @@ import sys
 import yaml
 import matplotlib.pyplot as plt
 
-from mindformers.tools.check_rules import check_yaml_depth_before_loading
+from toolkit.pipeline_balance.utils.check_rules import check_yaml_depth_before_loading
 from toolkit.pipeline_balance.utils.logger import logger
 import toolkit.pipeline_balance.simulator.pp_simulator as sim
 from toolkit.pipeline_balance.sapp.sapp_solver import SappSolver
