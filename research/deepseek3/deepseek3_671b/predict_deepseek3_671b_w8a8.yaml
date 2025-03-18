@@ -24,10 +24,11 @@ context:
   mode: 0 # 0--Graph Mode; 1--Pynative Mode
   max_device_memory: "61GB"
   device_id: 0
+  affinity_cpu_list: None
 
 kernel_launch_group:
-  thread_num: 2
-  kernel_group_num: 8
+  thread_num: 4
+  kernel_group_num: 16
 
 # parallel context config
 parallel:
