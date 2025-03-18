@@ -35,9 +35,9 @@ class GatherFromModelParallelRegion(nn.Cell):
         # Size and dimension.
         if self.world_size == 1:
             return input_
-        input_ = input_.transpose(2, 1, 0)
+        input_ = ops.swapaxes(input_, 0, -1)
         output = self.all_gather_into_tensor(input_)
-        output = output.transpose(2, 1, 0)
+        output = ops.swapaxes(output, 0, -1)
         return output
 
 
