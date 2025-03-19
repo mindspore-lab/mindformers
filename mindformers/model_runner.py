@@ -224,7 +224,7 @@ class MindIEModelRunner:
 
     def __init__(self, model_path, config_path, npu_mem_size, cpu_mem_size, block_size, rank_id=0,
                  world_size=1, npu_device_ids=None, plugin_params=None):
-        self.dynamic_kv_cache_whitelist = ["ParallelLlamaForCausalLM"]
+        self.dynamic_kv_cache_whitelist = ["ParallelLlamaForCausalLM", "InferenceDeepseekV3ForCausalLM"]
         self.config = MindFormerConfig(config_path)
         self.warmup_step = 2
         self.is_multi_modal_model = is_multi_modal_model(self.config)
