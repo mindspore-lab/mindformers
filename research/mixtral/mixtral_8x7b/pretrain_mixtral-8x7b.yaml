@@ -42,7 +42,6 @@ moe_config:
   use_fused_ops_topkrouter: False
   balance_via_topk_bias: False
   topk_bias_update_rate: 0.001
-  use_allgather_dispatcher: False
 
 # lr schedule
 lr_schedule:
