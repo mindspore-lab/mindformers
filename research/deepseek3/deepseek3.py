@@ -19,6 +19,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
 from research.deepseek3.deepseek3_model_train import TrainingDeepseekV3ForCausalLM
 from research.deepseek3.deepseek3_model_infer import InferenceDeepseekV3ForCausalLM
+from research.deepseek3.deepseek3_model_infer import InferenceDeepseekV3MTPForCausalLM
 
 __all__ = ['DeepseekV3ForCausalLM']
 
@@ -39,5 +40,6 @@ class DeepseekV3ForCausalLM:
         # predict mode used to deploy.
         # when predict mode not supported, we can use online_predict mode to do inference task.
         if os.environ.get("RUN_MODE") == "predict":
-            return InferenceDeepseekV3ForCausalLM(config=config)
+            return InferenceDeepseekV3ForCausalLM(config=config) if not config.is_mtp_model else \
+                InferenceDeepseekV3MTPForCausalLM(config=config)
         return TrainingDeepseekV3ForCausalLM(config=config, *args, **kwargs)

@@ -1264,3 +1264,252 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         """Get the key_cache depend on layer_idx."""
         key_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache
         return key_cache, None
+
+
+class DeepseekV3MTPLayer(nn.Cell):
+    r"""
+    DeepseekV3 MTP layer consisting of a [`DeepseekV3DecoderLayer`]
+    Args:
+        config(DeepseekV3Config): the config of network
+
+    Inputs:
+        emb(Tensor): Float Tensor, shape should be [batch_size, seq_length, vercab_size]
+        batch_valid_length(Tensor): The past calculated the index with datatype int32, used for incremental
+            prediction. Tensor of shape :math:`(batch_size,)`. Default None.
+        freqs_cis(Tensor): The precomputed freqs and mask for rotary position embedding used in attention.
+        mask(Tensor): Tensor with shape (batch_size, src_seq_length, tgt_seq_length).
+        block_tables(Tensor, optional): Int64 type Tensor, store mapping tables for each sequence. Default None.
+        slot_mapping(Tensor, optional): Int32 type Tensor, token cache physical slot index. Default None.
+        q_seq_lens(Tensor): Int32 type Tensor, indicating the sequence length of query tokens.
+
+    Returns:
+        output: Tensor, the output of deepseek decoderlayer
+    """
+
+    def __init__(self, layer_id, config: DeepseekV3Config = None):
+        super(DeepseekV3MTPLayer, self).__init__()
+        self.enorm = RMSNorm(config.hidden_size, config.rms_norm_eps,
+                             compute_type=config.layernorm_compute_type)
+        self.hnorm = RMSNorm(config.hidden_size, config.rms_norm_eps,
+                             compute_type=config.layernorm_compute_type)
+        self.concat = P.Concat(axis=-1)
+
+        self.eh_proj = ColumnParallelLinear(config.hidden_size * 2,
+                                            config.hidden_size,
+                                            config=config.parallel_config,
+                                            bias=False,
+                                            gather_output=True,
+                                            param_init_type=config.param_init_type,
+                                            weight_init="normal",
+                                            compute_dtype=config.compute_dtype)
+        self.decode_layer = DeepseekV3DecodeLayer(config.num_layers + layer_id,
+                                                  dim=config.hidden_size,
+                                                  n_heads=config.num_heads,
+                                                  n_kv_heads=config.n_kv_heads,
+                                                  norm_eps=config.rms_norm_eps,
+                                                  qkv_has_bias=config.qkv_has_bias,
+                                                  compute_dtype=config.compute_dtype,
+                                                  layernorm_compute_dtype=config.layernorm_compute_type,
+                                                  param_init_type=config.param_init_type,
+                                                  use_past=config.use_past,
+                                                  use_flash_attention=config.use_flash_attention,
+                                                  block_size=config.block_size,
+                                                  num_blocks=config.num_blocks,
+                                                  parallel_config=config.parallel_config,
+                                                  moe_config=config.moe_config,
+                                                  kv_lora_rank=config.kv_lora_rank,
+                                                  q_lora_rank=config.q_lora_rank,
+                                                  qk_rope_head_dim=config.qk_rope_head_dim,
+                                                  v_head_dim=config.v_head_dim,
+                                                  qk_nope_head_dim=config.qk_nope_head_dim,
+                                                  max_position_embeddings=config.max_position_embeddings,
+                                                  scaling_factor=config.scaling_factor,
+                                                  config=config)
+
+    def construct(self, emb, hidden_states, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
+                  slot_mapping=None, q_seq_lens=None, key_cache=None):
+        """ Forward of DeepSeekV3MTP layer. """
+        norm_emb = self.enorm(emb)
+        norm_h = self.hnorm(hidden_states)
+        cat_h = self.concat([norm_emb, norm_h])
+        h = self.eh_proj(cat_h)
+        hidden_states = self.decode_layer(h, freqs_cis, mask, batch_valid_length=batch_valid_length,
+                                          block_tables=block_tables, slot_mapping=slot_mapping, q_seq_lens=q_seq_lens,
+                                          key_cache=key_cache)
+        return hidden_states
+
+
+class DeepseekV3MTPModel(DeepseekV3PreTrainedModel):
+    r"""
+    DeepseekV3MTP model consisting of *config.num_hidden_layers* layers. Each layer is a [`DeepseekV3MTPLayer`]
+    Args:
+        config(DeepseekV3Config): the config of network
+
+    Inputs:
+        input_ids(Tensor): The tokenized inputs with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
+        hidden_states(Tensor): The output hidden_states of deepseekv3, Tensor of shape :math:`(batch, seq\_length)`.
+        batch_valid_length(Tensor): The past calculated the index with datatype int32, used for incremental
+            prediction. Tensor of shape :math:`(batch_size,)`. Default None.
+        block_tables(Tensor, optional): Int64 type Tensor, store mapping tables for each sequence. Default None.
+        slot_mapping(Tensor, optional): Int32 type Tensor, token cache physical slot index. Default None.
+        position_ids(Tensor): Int32 type Tensor, indicating the position of each token.
+        attention_mask(Tensor): Tensor with shape (batch_size, src_seq_length, tgt_seq_length).
+        q_seq_lens(Tensor): Int32 type Tensor, indicating the sequence length of query tokens.
+
+    Returns:
+        output: Tensor, the output of deepseek decoderlayer
+    """
+
+    def __init__(self, config: DeepseekV3Config = None):
+        super(DeepseekV3MTPModel, self).__init__(config, auto_prefix=True)
+        self.dtype = config.compute_dtype
+        self.use_past = config.use_past
+        self.is_first_iteration = True
+
+        self.prefill_gather_flatten = P.Gather()
+        self.sub_batch_valid_len = P.Sub()
+        self.reshape = P.Reshape()
+        self.shape = P.Shape()
+        self.cast = P.Cast()
+
+        self.tok_embeddings = VocabEmbedding(num_embeddings=config.vocab_size,
+                                             embedding_dim=config.hidden_size,
+                                             param_init_type=config.param_init_type,
+                                             param_init="normal")
+
+        self.freqs_mgr = FreqsMgr(head_dim=config.qk_rope_head_dim,
+                                  seq_length=config.seq_length,
+                                  max_position_embedding=config.max_position_embeddings,
+                                  rotary_dtype=config.rotary_dtype,
+                                  theta=config.theta,
+                                  scaling_factor=config.scaling_factor,
+                                  extend_method=config.extend_method,
+                                  is_dynamic=config.is_dynamic)
+
+        self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
+                                                          compute_type=config.compute_dtype,
+                                                          is_dynamic=config.is_dynamic,
+                                                          pad_token_id=config.pad_token_id,
+                                                          use_flash_attention=config.use_flash_attention,
+                                                          use_past=config.use_past)
+        # ToDo: supports multi-mtpLayers with layer_list
+        self.layer = DeepseekV3MTPLayer(0, config)
+
+        self.norm = RMSNorm(config.hidden_size, config.rms_norm_eps,
+                            compute_type=config.layernorm_compute_type)
+        self.head = ColumnParallelLinear(config.hidden_size,
+                                         config.vocab_size,
+                                         config=config.parallel_config,
+                                         bias=False,
+                                         param_init_type=config.param_init_type,
+                                         compute_dtype=config.compute_dtype,
+                                         weight_init="normal",
+                                         gather_output=True)
+
+    def construct(self, input_ids, hidden_states, batch_valid_length, block_tables, slot_mapping,
+                  position_ids=None, attention_mask=None, q_seq_lens=None, key_cache=None):
+        """
+        Forward of deepseekv3 model.
+        """
+        bs, seq_len = self.shape(input_ids)
+        emb = self.cast(self.tok_embeddings(input_ids), self.dtype)
+        hidden_states = self.cast(hidden_states, self.dtype)
+
+        if batch_valid_length is not None:
+            batch_valid_length = self.reshape(batch_valid_length, (-1,))
+
+        mask = attention_mask
+        if self.use_past:
+            if self.is_first_iteration:
+                freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+            else:
+                freqs_cis = self.freqs_mgr.chunk_with_decode(position_ids)
+        else:
+            mask = self.casual_mask(input_ids)
+            freqs_cis = self.freqs_mgr(seq_len)
+        key_cache = key_cache[0] if key_cache is not None else None
+        hidden_states = self.layer(emb, hidden_states, freqs_cis, mask, batch_valid_length,
+                                   block_tables, slot_mapping, q_seq_lens, key_cache)
+        output = self.norm(hidden_states)
+        return output
+
+
+class InferenceDeepseekV3MTPForCausalLM(DeepseekV3PreTrainedModel):
+    r"""
+    Provide DeepseekV3 logits through network.
+    Args:
+        config (DeepseekV3Config): The config of DeepseekV3 model.
+
+    Inputs:
+        input_ids(Tensor): The tokenized inputs with datatype int32, Tensor of shape :math:`(batch, seq\_length)`.
+        hidden_states(Tensor): The output hidden_states of deepseekv3, Tensor of shape :math:`(batch, seq\_length)`.
+        batch_valid_length(Tensor): The past calculated the index with datatype int32, used for incremental
+            prediction. Tensor of shape :math:`(batch_size,)`. Default None.
+        block_tables(Tensor, optional): Int64 type Tensor, store mapping tables for each sequence. Default None.
+        slot_mapping(Tensor, optional): Int32 type Tensor, token cache physical slot index. Default None.
+        position_ids(Tensor): Int32 type Tensor, indicating the position of each token.
+        attention_mask(Tensor): Tensor with shape (batch_size, src_seq_length, tgt_seq_length).
+        q_seq_lens(Tensor): Int32 type Tensor, indicating the sequence length of query tokens.
+
+    Returns:
+        Tensor. If it is in prediction mode, the output Tensor contains logits;
+        If it is in evaluation mode, the output Tensor contains logits, tokens, and input masks.
+    """
+    
+    def __init__(self, config: DeepseekV3Config = None):
+        super(InferenceDeepseekV3MTPForCausalLM, self).__init__(config, auto_prefix=True)
+        self.dtype = config.compute_dtype
+        self.config = convert_model_config(config)
+        self.parallel_config = self.config.parallel_config
+        self.npu_mem_size = config.npu_mem_size
+
+        tp_group = get_group_info('tp').group is None
+        ep_group = get_group_info('ep').group is None
+        pp_group = get_group_info('pp').group is None
+        all_groups_initialized = tp_group and ep_group and pp_group
+
+        if all_groups_initialized and _is_initialized():
+            initialize_model_parallel(pipeline_model_parallel_size=self.parallel_config.pipeline_model_parallel_size,
+                                      expert_model_parallel_size=self.parallel_config.expert_parallel,
+                                      tensor_model_parallel_size=self.parallel_config.tensor_model_parallel_size,
+                                      order='tp-ep-dp-pp')
+        self.mtp_model = DeepseekV3MTPModel(config)
+
+    # pylint: disable=W0613
+    def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
+        """Get deepseekv3 model input tuple for transform ckpt."""
+        input_ids = Tensor(input_ids, mstype.int32)
+        bs, seq = input_ids.shape[0], input_ids.shape[1]
+        slot_mapping = Tensor(np.ones(shape=tuple([bs * seq])), mstype.int32)
+        return input_ids, None, None, None, slot_mapping, None, None, None
+
+    def set_dynamic_inputs(self, **kwargs):
+        """Mindspore's feature, Set dynamic input for DeepSeekV3-MTP."""
+        dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_hidden_states = Tensor(shape=[None, None, None], dtype=self.dtype)
+        dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
+        dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16)
+        dynamic_key_cache = None if self.npu_mem_size > 0 else \
+            mutable([Tensor(shape=[None, None, None, None], dtype=self.dtype) \
+                     for _ in range(self.config.num_nextn_predict_layers)])
+        self.set_inputs(dynamic_input_ids, dynamic_hidden_states, dynamic_batch_valid_length, dynamic_block_tables,
+                        dynamic_slot_mapping, dynamic_position_ids, dynamic_attention_mask, dynamic_q_seq_lens,
+                        dynamic_key_cache, None)
+        logger.info("Set dynamic input for DeepSeekV3-MTP.")
+
+    @ms.jit(jit_level='O0', infer_boost='on')
+    def construct(self, input_ids, hidden_states, batch_valid_length, block_tables, slot_mapping, position_ids=None,
+                  attention_mask=None, q_seq_lens=None, key_cache=None, value_cache=None):
+        """ DeepseekV3ForCausalLM forward. """
+        hidden_states = self.mtp_model(input_ids, hidden_states, batch_valid_length, block_tables, slot_mapping,
+                                       position_ids, attention_mask, q_seq_lens, key_cache)
+        return hidden_states.reshape(-1, hidden_states.shape[-1])
+
+    def kvcache(self, layer_idx):
+        """Get the key_cache depend on layer_idx."""
+        key_cache = self.mtp_model.layer.decode_layer.attention.infer_attention.paged_attention_mgr.key_cache
+        return key_cache, None
