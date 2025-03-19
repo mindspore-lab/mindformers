@@ -140,9 +140,9 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
                 labels (Tensor): the labels of inputs with data type int64/int32, Tensor of
                                 shape :math:`(batch, seq\_length)`.
                 input_position (Tensor): the position ids of inputs (at incremental reasoning mode) which is
-                                an increasing sequence with data type int64/int32, Tensor :math:`(bacth, seq\_length)`.
+                                an increasing sequence with data type int64/int32, Tensor :math:`(batch, seq\_length)`.
                 position_ids (Tensor): the position ids of inputs which is an increasing sequence with data type
-                                    int64/int32, Tensor :math:`(bacth, seq\_length)`.
+                                    int64/int32, Tensor :math:`(batch, seq\_length)`.
                 inputs_embeds (Tensor): the embedding of inputs with data type float32/float16, Tensor of
                                     shape :math:`(batch, seq\_length, hidden_size)
                 init_reset (bool): A bool tensor with shape [1], used to clear the past key parameter and
@@ -355,7 +355,7 @@ def set_parallel_configure_for_layer(network, layer_id, offset, parallel_config,
             network(Cell) - Represents the transformer block
             parallel_config(dict) - Parallel Config
             layer_id(int) - Means the layer index for the current module, counts from zero.
-            offset(int) - Means the layer_index needs a offset, if there are other modules in the net.
+            offset(int) - Means the layer_index needs an offset, if there are other modules in the net.
             layers(int) - The total layers used for the model.
     """
     pp_dis = max(int((layers + 1) / parallel_config.pipeline_stage), 1)
