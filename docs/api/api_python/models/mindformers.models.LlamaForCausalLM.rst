@@ -27,6 +27,7 @@ mindformers.models.LlamaForCausalLM
         - **loss_mask** (Tensor, 可选) - 数据类型为Float32/Int32，用于确定对应的token位置是否参与loss计算，如果值为 :math:`(1)` 则计算该位置的loss，:math:`(0)` 则不计算。默认值：``None`` 。
         - **gather_index** (Tensor, 可选) - 数据类型为Int32，用于获取每个sequence的最后一个token对应位置的隐向量计算logits。张量的形状为：:math:`(batch_size)` 。默认值： ``None`` 。
         - **seq_range** (Tensor, 可选) - 数据类型为Int32，用于指定每个sequence的实际长度。张量的形状为：:math:`(batch_size)` 。默认值： ``None`` 。
+        - **actual_seq_len** (Tensor, 可选) - 数据类型为Int32，用于在FlashAttention算子中为eod序列自动生成注意力掩码。默认值： ``None`` 。
 
     输出：
         Tensor类型。如果是训练模式，输出的Tensor包含在线损失值；如果是推理模式，输出的Tensor包含逻辑值；如果是评测模式，输出的Tensor包含逻辑值、词元、输入掩码。
