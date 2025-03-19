@@ -162,6 +162,7 @@ class DeepseekV3Config(DeepseekV2Config):
                  use_fused_swiglu=False,
                  enable_fa_var_len=False,
                  return_hidden_states=False,
+                 is_mtp_model: bool = False,
                  **kwargs):
         super(DeepseekV3Config, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -230,3 +231,4 @@ class DeepseekV3Config(DeepseekV2Config):
         self.use_fused_swiglu = use_fused_swiglu
         self.enable_fa_var_len = enable_fa_var_len
         self.return_hidden_states = return_hidden_states
+        self.is_mtp_model = is_mtp_model
