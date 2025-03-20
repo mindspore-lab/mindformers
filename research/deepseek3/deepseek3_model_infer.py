@@ -528,9 +528,9 @@ class DeepseekV3Attention(nn.Cell):
                   block_tables=None, slot_mapping=None, q_seq_lens=None):
         """ Forward process of the DeepseekV3Attention. """
         ori_dtype = x.dtype
-        bs, seq_len, _ = self.shape(x)
 
         if self.q_lora_rank == 0:
+            bs, seq_len, _ = self.shape(x)
             q = self.q_proj(x)
             latent_kv_all = self.kv2l(x)
             latent_kv, k_pe = mint.split(latent_kv_all, [self.kv_lora_rank, self.qk_rope_head_dim], dim=-1)
@@ -539,10 +539,12 @@ class DeepseekV3Attention(nn.Cell):
                 qkv2l = self.qkv2l(x)
                 q, latent_kv, k_pe = mint.split(qkv2l, [self.q_lora_rank, self.kv_lora_rank, self.qk_rope_head_dim],
                                                 dim=-1)
+                bs, seq_len, _ = self.shape(q)
                 norm_q = self.lq_norm(q)
                 q = self.l2q_proj(norm_q)
             else:
                 q = self.q2l_proj(x)
+                bs, seq_len, _ = self.shape(q)
                 norm_q = self.lq_norm(q)
                 q = self.l2q_proj(norm_q)
                 latent_kv_all = self.kv2l(x)
