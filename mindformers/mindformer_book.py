@@ -233,10 +233,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/codellama/pretrain_codellama_34b.yaml")),
             ("llama_7b_lora", os.path.join(
                 _PROJECT_PATH, "configs/llama/run_llama_7b_lora.yaml")),
-            ("pangualpha_2_6b", os.path.join(
-                _PROJECT_PATH, "configs/pangualpha/run_pangualpha_2_6b.yaml")),
-            ("pangualpha_13b", os.path.join(
-                _PROJECT_PATH, "configs/pangualpha/run_pangualpha_13b.yaml")),
             ("glm_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_finetune.yaml")),
             ("glm_6b_chat", os.path.join(
@@ -404,10 +400,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/codellama/predict_codellama_34b.yaml")),
             ("llama_7b_lora", os.path.join(
                 _PROJECT_PATH, "configs/llama/run_llama_7b_lora.yaml")),
-            ("pangualpha_2_6b", os.path.join(
-                _PROJECT_PATH, "configs/pangualpha/run_pangualpha_2_6b.yaml")),
-            ("pangualpha_13b", os.path.join(
-                _PROJECT_PATH, "configs/pangualpha/run_pangualpha_13b.yaml")),
             ("glm_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_finetune.yaml")),
             ("glm_6b_chat", os.path.join(
@@ -539,10 +531,6 @@ class MindFormerBook:
         ('codellama', [
             'codellama_34b',
         ]),
-        ('pangualpha', [
-            'pangualpha_2_6b',
-            'pangualpha_13b'
-        ]),
         ('glm', [
             'glm_6b',
             'glm_6b_chat',
@@ -670,10 +658,6 @@ class MindFormerBook:
         ('codellama', [
             'codellama_34b',
         ]),
-        ('pangualpha', [
-            'pangualpha_2_6b',
-            'pangualpha_13b'
-        ]),
         ('glm', [
             'glm_6b',
             'glm_6b_chat',
@@ -768,10 +752,6 @@ class MindFormerBook:
         ('mllama', [
             'mllama_11b',
         ]),
-        ('pangualpha', [
-            'pangualpha_2_6b',
-            'pangualpha_13b'
-        ]),
         ('glm', [
             'glm_6b',
         ]),
@@ -849,10 +829,6 @@ class MindFormerBook:
         ]),
         ('codellama', [
             'codellama_34b',
-        ]),
-        ('pangualpha', [
-            'pangualpha_2_6b',
-            'pangualpha_13b'
         ]),
         ('glm', [
             'glm_6b',
@@ -1013,14 +989,6 @@ class MindFormerBook:
         ('gpt2_13b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/gpt2/gpt2_13b.ckpt'
-          ]),
-        ('pangualpha_2_6b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/pangualpha/pangualpha_2_6b.ckpt'
-          ]),
-        ('pangualpha_13b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/pangualpha/pangualpha_13b.ckpt'
           ]),
         ('glm_6b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -1255,14 +1223,6 @@ class MindFormerBook:
           'https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/gpt2/merges.txt'
           ]),
-        ('pangualpha_2_6b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/pangualpha/vocab.model'
-         ]),
-        ('pangualpha_13b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/pangualpha/vocab.model'
-         ]),
         ('glm_6b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm/ice_text.model'
@@ -1319,7 +1279,6 @@ class MindFormerBook:
         ('T5Tokenizer', 'T5Processor'),
         ('LlamaTokenizer', 'LlamaProcessor'),
         ('GPT2Tokenizer', 'GPT2Processor'),
-        ('PanguAlphaTokenizer', 'PanguAlphaProcessor'),
         ('InternLMTokenizer', 'LlamaProcessor')
     ])
 

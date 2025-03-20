@@ -103,7 +103,6 @@ TOKENIZER_MAPPING_NAMES = OrderedDict(
                 "T5TokenizerFast" if is_tokenizers_available() else None,
             ),
         ),
-        ("pangualpha", ("PanguAlphaTokenizer", None)),
     ]
 )
 

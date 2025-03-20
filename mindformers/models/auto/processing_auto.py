@@ -50,7 +50,6 @@ PROCESSOR_MAPPING_NAMES = OrderedDict(
         ("gpt2", "GPT2Processor"),
         ("llama", "LlamaProcessor"),
         ("mae", "ViTMAEProcessor"),
-        ("pangualpha", "PanguAlphaProcessor"),
         ("sam", "SamProcessor"),
         ("swin", "SwinProcessor"),
         ("t5", "T5Processor"),
