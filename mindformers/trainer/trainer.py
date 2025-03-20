@@ -329,16 +329,15 @@ class Trainer:
         """parse config.monitor_config and supplement settings"""
         if self.config.get('monitor_config') and self.config.monitor_config.monitor_on:
             monitor_config = self.config.monitor_config
-            monitor_config.pop("monitor_on", None)
             self.config.check_for_nan_in_loss_and_grad = bool(monitor_config.get('local_loss_format'))
-            dump_local_norm = bool(monitor_config.get('local_norm_format'))
-            dump_device_local_norm = bool(monitor_config.get('device_local_norm_format'))
-            dump_path = monitor_config.pop('dump_path', './dump') or './dump'
-            step_interval = monitor_config.pop('step_interval', 1) or 1
+            if not monitor_config.dump_path:
+                monitor_config.dump_path = './dump'
+                logger.info("`monitor_config.dump_path` is unset or set to empty, use default path './dump' instead.")
+            step_interval = monitor_config.get('step_interval')
             ms.set_auto_parallel_context(
-                dump_local_norm_path=dump_path,
-                dump_local_norm=dump_local_norm,
-                dump_device_local_norm=dump_device_local_norm
+                dump_local_norm_path=monitor_config.dump_path,
+                dump_local_norm=bool(monitor_config.get('local_norm_format')),
+                dump_device_local_norm=bool(monitor_config.get('device_local_norm_format'))
             )
             for callback in self.config.callbacks:
                 if "type" in callback and callback["type"] == "TrainingStateMonitor":
