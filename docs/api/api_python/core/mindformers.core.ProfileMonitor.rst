@@ -1,7 +1,7 @@
 mindformers.core.ProfileMonitor
 ===============================
 
-.. py:class:: mindformers.core.ProfileMonitor(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline = False, profile_communication=False, profile_memory=False, profiler_level=0, with_stack=False, data_simplification=True, config=None, **kwargs)
+.. py:class:: mindformers.core.ProfileMonitor(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline = False, profile_communication=False, profile_memory=False, profiler_level=0, with_stack=False, data_simplification=True, config=None, mstx=False, **kwargs)
 
     监控训练过程的性能分析回调函数。
 
@@ -23,3 +23,4 @@ mindformers.core.ProfileMonitor
         - **with_stack** (str, 可选) - 是否收集Python侧的调用栈数据。默认值： ``False`` 。
         - **data_simplification** (str, 可选) - 是否开启数据精简，开启后将在导出profiling数据后删除FRAMEWORK目录以及其他多余数据。默认值： ``True`` 。
         - **config** (dict, 可选) - 配置项，用于对相关配置信息进行profiling，比如并行配置。默认值： ``None`` 。
+        - **mstx** (bool, 可选) - 是否开启mstx时延记录。默认值： ``False`` 。

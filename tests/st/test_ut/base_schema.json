@@ -279,7 +279,7 @@
         "signature": "(self, global_step)"
     },
     "mindformers.core.ProfileMonitor": {
-        "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, **kwargs)"
+        "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
     },
     "mindformers.core.ProfileMonitor.step_begin": {
         "signature": "(self, run_context)"
@@ -498,7 +498,7 @@
         "signature": "(self, ma_step_num, ma_loss)"
     },
     "mindformers.core.callback.ProfileMonitor": {
-        "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, **kwargs)"
+        "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
     },
     "mindformers.core.callback.ProfileMonitor.step_begin": {
         "signature": "(self, run_context)"
@@ -645,7 +645,7 @@
         "signature": "(src_dir: str = None, target_dir: str = None, step_upload_frequence: int = 100, epoch_upload_frequence: int = -1, keep_last: bool = True)"
     },
     "mindformers.core.callback.callback.ProfileMonitor": {
-        "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, **kwargs)"
+        "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
     },
     "mindformers.core.callback.callback.ProfileMonitor.step_begin": {
         "signature": "(self, run_context)"
@@ -1949,6 +1949,9 @@
     "mindformers.experimental.infer.models.llama.ParallelLlamaForCausalLM.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
     },
+    "mindformers.experimental.infer.models.llama.ParallelLlamaForCausalLM.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
+    },
     "mindformers.experimental.infer.models.llama.ParallelLlamaForCausalLM.clear_kv_cache": {
         "signature": "(self)"
     },
@@ -1981,6 +1984,9 @@
     },
     "mindformers.experimental.infer.models.llama.llama.ParallelLlamaForCausalLM.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
+    },
+    "mindformers.experimental.infer.models.llama.llama.ParallelLlamaForCausalLM.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
     },
     "mindformers.experimental.infer.models.llama.llama.ParallelLlamaForCausalLM.clear_kv_cache": {
         "signature": "(self)"
@@ -4331,6 +4337,9 @@
     "mindformers.models.PreTrainedModel.convert_map_dict": {
         "signature": "(source_dict, **kwargs)"
     },
+    "mindformers.models.PreTrainedModel.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
+    },
     "mindformers.models.PreTrainedModel.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
     },
@@ -6100,6 +6109,9 @@
     },
     "mindformers.models.modeling_utils.PreTrainedModel.convert_map_dict": {
         "signature": "(source_dict, **kwargs)"
+    },
+    "mindformers.models.modeling_utils.PreTrainedModel.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
     },
     "mindformers.models.modeling_utils.PreTrainedModel.obtain_qkv_ffn_concat_keys": {
         "signature": "()"

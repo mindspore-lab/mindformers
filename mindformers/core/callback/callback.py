@@ -1510,6 +1510,7 @@ class ProfileMonitor(Callback):
         with_stack (str, optional): Whether to collect Python-side stack trace data. Default: ``False``.
         data_simplification (str, optional): Whether to enable data simplification, which will delete the FRAMEWORK
             directory and other extraneous data after exporting profiling data. Default: ``True``.
+        mstx (bool, optional): Whether to enable mstx step-time recording. Default: ``False``.
 
     Examples:
         >>> from mindformers.core import ProfileMonitor
@@ -1519,7 +1520,7 @@ class ProfileMonitor(Callback):
     def __init__(self, start_step=1, stop_step=10, output_path=None,
                  start_profile=True, profile_rank_ids=None, profile_pipeline=False,
                  profile_communication=False, profile_memory=False, config=None,
-                 profiler_level=0, with_stack=False, data_simplification=True, **kwargs):
+                 profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs):
         super(ProfileMonitor, self).__init__()
         self.mstx_range_id = None
         self.mstx_enabled = is_version_ge(ms.__version__, '2.5.0') and not _check_mspti_is_on()
@@ -1556,8 +1557,8 @@ class ProfileMonitor(Callback):
                 start_profile=start_profile, output_path=output_path,
                 profile_communication=profile_communication, profile_memory=profile_memory,
                 profiler_level=self.profiler_level, with_stack=with_stack,
-                data_simplification=data_simplification, **kwargs
-                )
+                data_simplification=data_simplification, mstx=mstx, **kwargs
+            )
             self._record_metadata(config)
             self.run_context = None
             self.output_path = output_path
