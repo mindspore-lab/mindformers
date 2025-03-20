@@ -34,11 +34,6 @@ from .text_transforms import (
     TokenizerForward
 )
 from .mixup import Mixup
-from .auto_augment import (
-    augment_and_mix_transform,
-    auto_augment_transform,
-    rand_augment_transform
-)
 from .random_erasing import RandomErasing
 
 __all__ = []
