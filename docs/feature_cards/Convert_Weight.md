@@ -20,7 +20,6 @@ ConvertWeight支持对torch权重和mindspore权重的格式互转
 | glm         | glm                      |
 | glm-n       | glm2、glm3                |
 | qwen        | qwen、qwen2              |
-| internlm    | internlm                 |
 | baichuan    | baichuan、baichuan2       |
 | gpt         | gpt2                     |
 | wizardcoder | wizardcoder              |
