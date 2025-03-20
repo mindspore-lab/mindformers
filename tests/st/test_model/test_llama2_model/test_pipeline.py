@@ -28,7 +28,7 @@ class TestLlamaPipelineMethod:
     """A test class for testing pipeline."""
     def setup_method(self):
         """setup method."""
-        self.test_llm_list = ['llama_7b']
+        self.test_llm_list = ['llama2_7b']
 
     def test_pipeline(self):
         """

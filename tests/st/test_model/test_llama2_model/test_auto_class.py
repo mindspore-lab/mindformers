@@ -32,7 +32,7 @@ class TestLlamaAutoClassMethod:
     def setup_method(self):
         """setup method."""
         self.save_directory = MindFormerBook.get_default_checkpoint_save_folder()
-        self.test_llm_list = ['llama_7b']
+        self.test_llm_list = ['llama2_7b']
 
     def teardown_method(self):
         for model_or_config_type in self.test_llm_list:

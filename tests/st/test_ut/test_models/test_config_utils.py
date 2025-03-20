@@ -36,18 +36,6 @@ class TestLlamaConfig:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.path = self.temp_dir.name
 
-    def test_build_llama_config_from_yaml(self):
-        """test build llama config from yaml."""
-        config = LlamaConfig.from_pretrained("configs/llama/run_llama_7b.yaml")
-        assert isinstance(config, LlamaConfig)
-        assert config.rms_norm_eps == RMS_NORM_EPS
-
-    def test_build_llama_config_from_name(self):
-        """test build llama config from name."""
-        config = LlamaConfig.from_pretrained("llama_7b")
-        assert isinstance(config, LlamaConfig)
-        assert config.rms_norm_eps == RMS_NORM_EPS
-        assert os.path.exists("./checkpoint_download/llama/llama_7b.yaml")
 
     def test_build_llama_config_from_wrong_name(self):
         """test build llama config from wrong name."""
