@@ -146,7 +146,7 @@ class CoreAttention(nn.Cell):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import numpy as np
@@ -327,7 +327,7 @@ class ParallelAttention(Module):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import numpy as np
@@ -755,7 +755,7 @@ class ParallelTransformerLayer(Module):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import numpy as np
@@ -1136,7 +1136,7 @@ class ParallelTransformer(Module):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import numpy as np
@@ -1283,7 +1283,7 @@ class ParallelTransformer(Module):
                                  diff_select_recompute_layer_nums - full_recompute_layers)
 
             # remain layers are not recompute.
-            for i in range(remain_layer_nums):
+            for _ in range(remain_layer_nums):
                 layer_config_new = copy.deepcopy(layers_config)
                 layers_index_config.append(layer_config_new)
 
@@ -1521,7 +1521,7 @@ class ParallelLMLogits(nn.Cell):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import os

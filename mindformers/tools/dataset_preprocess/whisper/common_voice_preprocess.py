@@ -84,7 +84,7 @@ if __name__ == '__main__':
     writer = get_writer(args.output_file)
     tokenizer = WhisperTokenizer.from_pretrained(args.tokenizer_dir, language=args.language, task=args.task)
 
-    for i, data in enumerate(read_datasets(args.tsv_file, args.mp3_dir, tokenizer)):
+    for _, data in enumerate(read_datasets(args.tsv_file, args.mp3_dir, tokenizer)):
         minddata = {
             "input_features": data[0],
             "decoder_input_ids": pad(data[1], args.seq_length + 1, tokenizer).astype(np.int32),

@@ -116,7 +116,7 @@ def preprocess(sources, tokenizer, seq_length):
         rounds = conversation.split(conv.sep2)
         ids = [tokenizer.bos_token_id]
         mask = [1]
-        for i, rou in enumerate(rounds):
+        for _, rou in enumerate(rounds):
             if rou == "":
                 break
             conv_out = tokenizer(rou)
@@ -132,7 +132,7 @@ def preprocess(sources, tokenizer, seq_length):
         total_len = int(np.not_equal(target, tokenizer.pad_token_id).sum())
         cur_len = 1
         target[:cur_len] = IGNORE_TOKEN_ID
-        for i, rou in enumerate(rounds):
+        for _, rou in enumerate(rounds):
             if rou == "":
                 break
             parts = rou.split(sep)

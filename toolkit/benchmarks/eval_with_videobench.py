@@ -98,7 +98,7 @@ if __name__ == '__main__':
             data = json.load(f)
 
         eval_dict = {}
-        for idx, (q_id, item) in enumerate(data.items()):
+        for _, (q_id, item) in enumerate(data.items()):
             try:
                 video_id = item['video_id']
                 question = item['question']

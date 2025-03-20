@@ -395,7 +395,8 @@ class CausalLanguageModelingTrainer(BaseTrainer):
                 valid_length_each_example = np.array(valid_length_each_example)
 
                 if enable_max_new_tokens:
-                    # When we act as it, the batch_size is 1. it will be replaced when text_generator supports batch_size
+                    # When we act as it, the batch_size is 1.
+                    # it will be replaced when text_generator supports batch_size
                     # inference quickly or text_generator supports max_new_tokens as the input parameter.
                     max_length = valid_length_each_example[0] + self.config.model.model_config.max_new_tokens
 

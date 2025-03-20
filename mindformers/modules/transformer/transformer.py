@@ -253,7 +253,10 @@ class TransformerSwapConfig(_Config):
         return op_swap_dict
 
     def _validate_layers_consistency(self, layer_swap, mode='layer_swap'):
-        """Validates the consistency of the layers configuration. Raise ValueError if prefetch values and layers are conflict."""
+        """
+        Validates the consistency of the layers configuration.
+        Raise ValueError if prefetch values and layers are conflict.
+        """
         prev_backward_prefetch = None
         has_boolean_layers = False
         has_different_prefetch = False

@@ -292,7 +292,7 @@ def initialize_model_parallel(tensor_model_parallel_size=1,
     for key in kwargs:
         logger.warning(f"The parameter '{key}' is not used in initialize_model_parallel.")
 
-    rank_generator = CreateCommGroups(tp=tensor_model_parallel_size,\
+    rank_generator = CreateCommGroups(tp=tensor_model_parallel_size, \
                                       ep=expert_model_parallel_size, \
                                       dp=data_parallel_size, pp=pipeline_model_parallel_size, \
                                       cp=context_parallel_size, order=order)

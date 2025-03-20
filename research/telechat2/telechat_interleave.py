@@ -69,7 +69,7 @@ class _MicroBatch(nn.Cell):
                     strided_slice_begin += (0,)
                     strided_slice_end += (input_shape[j],)
 
-            micro_input = self.strided_slice_list[k](each_input, strided_slice_begin,\
+            micro_input = self.strided_slice_list[k](each_input, strided_slice_begin, \
                 strided_slice_end, strided_slice_strides)
             micro_inputs += (micro_input,)
             k += 1

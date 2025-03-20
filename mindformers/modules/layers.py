@@ -960,9 +960,12 @@ class AlibiTensorV2(nn.Cell):
         diag = -self.transpose(arange_tensor, (0, 2, 1))  # (batch_size, seq_len, 1)
         arange_tensor = self.add_3d(arange_tensor, diag)  # (batch_size, seq_len, seq_len)
         arange_tensor = self.expand_3d(arange_tensor, 1)  # (batch_size, 1, seq_len, seq_len)
-        alibi = self.mul_slope(self.slopes, arange_tensor)  # (batch_size, num_heads, seq_len, seq_len)
-        alibi_mask = self.mul_mask(alibi, self.reshape(attention_mask, (bs, 1, seqlen, 1)))  # (batch_size, num_heads, seq_len, seq_len)
-        alibi_mask = self.mul_mask(alibi_mask, self.reshape(attention_mask, (bs, 1, 1, seqlen)))  # (batch_size, num_heads, seq_len, seq_len)
+        # (batch_size, num_heads, seq_len, seq_len)
+        alibi = self.mul_slope(self.slopes, arange_tensor)
+        # (batch_size, num_heads, seq_len, seq_len)
+        alibi_mask = self.mul_mask(alibi, self.reshape(attention_mask, (bs, 1, seqlen, 1)))
+        # (batch_size, num_heads, seq_len, seq_len)
+        alibi_mask = self.mul_mask(alibi_mask, self.reshape(attention_mask, (bs, 1, 1, seqlen)))
         return alibi_mask.astype(dtype)
 
     def shard(self, parallel_config):
@@ -1580,7 +1583,8 @@ class RotaryEmbedding(Cell):
                 self.bmm_swap.shard((strategy_in, layout_ndtp("None", "None")))
                 self.mul.shard((strategy_in, layout_ndtp("dp", "None", ("cp", "z", "x"), "None")))
             self.mul_inc.shard((strategy_in, layout_ndtp("dp", "None", ("cp", "z", "x"), "None")))
-            self.mul_with_batch_freqs.shard((strategy_in, layout_ndtp("dp", "None", ("cp", "z", "x"), "None"))) # adapt for eod
+            # adapt for eod
+            self.mul_with_batch_freqs.shard((strategy_in, layout_ndtp("dp", "None", ("cp", "z", "x"), "None")))
             self.neg.shard((strategy_in,))
             self.slice.shard((strategy_in,))
             self.concat.shard((strategy_in, strategy_in))

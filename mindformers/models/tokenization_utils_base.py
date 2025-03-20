@@ -985,10 +985,10 @@ class SpecialTokensMixin:
     def add_tokens(
             self, new_tokens: Union[str, AddedToken, List[Union[str, AddedToken]]], special_tokens: bool = False
     ) -> int:
-        """Add a list of new tokens to the tokenizer class. If the new tokens are not in the vocabulary, they are added to
-        it with indices starting from length of the current vocabulary and and will be isolated before the tokenization
-        algorithm is applied. Added tokens and tokens from the vocabulary of the tokenization algorithm are therefore
-        not treated in the same way.
+        """Add a list of new tokens to the tokenizer class. If the new tokens are not in the vocabulary, they are
+        added to it with indices starting from length of the current vocabulary and and will be isolated before the
+        tokenization algorithm is applied. Added tokens and tokens from the vocabulary of the tokenization algorithm
+        are therefore not treated in the same way.
 
         Note, when adding new tokens to the vocabulary, you should make sure to also resize the token embedding matrix
         of the model so that its embedding matrix matches the tokenizer.
@@ -1019,7 +1019,8 @@ class SpecialTokensMixin:
 
         num_added_toks = tokenizer.add_tokens(["new_tok1", "my_new-tok2"])
         print("We have added", num_added_toks, "tokens")
-        # Notice: resize_token_embeddings expect to receive the full size of the new vocabulary, i.e., the length of the tokenizer.
+        # Notice: resize_token_embeddings expect to receive the full size of the new vocabulary,
+        # i.e., the length of the tokenizer.
         model.resize_token_embeddings(len(tokenizer))
         ```
         """
@@ -2159,7 +2160,8 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                 "added_tokens_file": ADDED_TOKENS_FILE,  # kept only for legacy
                 "special_tokens_map_file": SPECIAL_TOKENS_MAP_FILE,  # kept only for legacy
                 "tokenizer_config_file": TOKENIZER_CONFIG_FILE,
-                # tokenizer_file used to initialize a slow from a fast. Properly copy the `addedTokens` instead of adding in random orders
+                # tokenizer_file used to initialize a slow from a fast.
+                # Properly copy the `addedTokens` instead of adding in random orders
                 "tokenizer_file": FULL_TOKENIZER_FILE,
             }
             vocab_files = {**cls.vocab_files_names, **additional_files_names}
@@ -2460,7 +2462,8 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                     added_tokens_map[str(added_tokens_decoder[idx])] = added_tokens_decoder[idx]
             # end legacy
 
-        # Passing AddedTokens and not strings to the class to prevent it from casting the string to a different AddedToken
+        # Passing AddedTokens and not strings to the class
+        # to prevent it from casting the string to a different AddedToken
         for key in cls.SPECIAL_TOKENS_ATTRIBUTES & init_kwargs.keys():
             if added_tokens_map != {} and init_kwargs[key] is not None:
                 if key != "additional_special_tokens":
@@ -2731,7 +2734,8 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
 
         # Sanitize AddedTokens in special_tokens_map
 
-        # kept for forward compatibility, will be removed in transoformers 5. Typefields are not saved for FC, special should not be save either
+        # kept for forward compatibility, will be removed in transoformers 5.
+        # Typefields are not saved for FC, special should not be save either
         write_dict = self.convert_added_tokens(self.special_tokens_map_extended, save=True, add_type_field=False)
         flags_ = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
         with os.fdopen(os.open(special_tokens_map_file, flags_, 0o750), 'w', encoding="utf-8") as f:

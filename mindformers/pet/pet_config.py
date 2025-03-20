@@ -61,9 +61,11 @@ class LoraConfig(PetConfig):
         lora_alpha (int, optional): A constant in lora_rank. Default: ``16``.
         lora_dropout (float, optional): The dropout rate, greater equal than 0 and less than 1. Default: ``0.01``.
         lora_a_init (str, optional): The initialization strategy of LoRA A matrix.
-            Refers to (https://www.mindspore.cn/docs/en/master/api_python/mindspore.common.initializer.html). Default: ``normal``.
+            Refers to (https://www.mindspore.cn/docs/en/master/api_python/mindspore.common.initializer.html).
+            Default: ``normal``.
         lora_b_init (str, optional): The initialization strategy of LoRA B matrix.
-            Refers to (https://www.mindspore.cn/docs/en/master/api_python/mindspore.common.initializer.html). Default: ``zero``.
+            Refers to (https://www.mindspore.cn/docs/en/master/api_python/mindspore.common.initializer.html).
+            Default: ``zero``.
         param_init_type (str, optional): The type of data in initialized tensor. If set to None,
             it inherits the type from the replaced layer. Default: ``None``.
         compute_dtype (str, optional): The compute type of data. If set to None,

@@ -379,7 +379,10 @@ def load_resume_context_from_checkpoint(config, dataset):
 
 
 def is_hyper_param_existed_in_sf_dir(checkpoint_dir, load_ckpt_format):
-    """return True if load_ckpt_format is True and given dir contains hyper_param.safetensors file used for resume training"""
+    """
+    return True if load_ckpt_format is True
+    and given dir contains hyper_param.safetensors file used for resume training
+    """
     return load_ckpt_format == 'safetensors' and os.path.exists(os.path.join(checkpoint_dir, 'hyper_param.safetensors'))
 
 
