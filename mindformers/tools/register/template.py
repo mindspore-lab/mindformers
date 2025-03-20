@@ -268,6 +268,7 @@ class GeneralConfig(Config):
     profile_rank_ids = None
     profile_pipeline = False
     profile_level = 1
+    mstx = False
 
     layer_scale = False
     layer_decay = 0.65

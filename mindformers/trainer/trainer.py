@@ -1154,7 +1154,9 @@ class Trainer:
                 profiler_level=self.config.profiler_level,
                 with_stack=self.config.with_stack,
                 data_simplification=self.config.data_simplification,
-                config=self.config)
+                config=self.config,
+                mstx=self.config.mstx
+            )
             logger.warning(
                 "Please reduce the data sample size with 'num_samples' in MindSpore data format according to "
                 "https://www.mindspore.cn/mindinsight/docs/zh-CN/master/performance_profiling_ascend.html.")

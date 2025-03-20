@@ -41,7 +41,7 @@ _CHECK_TEXT_MAPPING = {
     'seed', 'output_dir', 'run_mode', 'use_parallel', 'resume_training', 'ignore_data_skip', 'data_skip_steps',
     'load_checkpoint', 'load_ckpt_format', 'auto_trans_ckpt', 'transform_process_num', 'src_strategy_path_or_dir',
     'load_ckpt_async', 'only_save_strategy', 'profile', 'profile_communication', 'profile_level', 'profile_memory',
-    'profile_start_step', 'profile_stop_step', 'profile_rank_ids', 'profile_pipeline', 'init_start_profile',
+    'profile_start_step', 'profile_stop_step', 'profile_rank_ids', 'profile_pipeline', 'init_start_profile', 'mstx',
     'layer_decay', 'layer_scale', 'lr_scale', 'lr_scale_factor', 'micro_batch_interleave_num', 'remote_save_url',
     'callbacks', 'context', 'data_size', 'device_num', 'do_eval', 'eval_callbacks', 'eval_step_interval',
     'eval_epoch_interval', 'eval_dataset', 'eval_dataset_task', 'lr_schedule', 'metric', 'model', 'moe_config',
