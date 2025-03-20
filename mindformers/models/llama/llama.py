@@ -340,6 +340,8 @@ class LlamaModel(LlamaPreTrainedModel):
             mask = attention_mask
             mask = self.cast(mask, mstype.uint8)
             freqs_cis = self.freqs_mgr(seq_len, position_ids)
+            if self.seq_pipe:
+                raise ValueError("When the seq_pipe = True, the attention_mask must be None.")
         else:
             mask = None
             if self.use_past:
