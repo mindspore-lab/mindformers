@@ -13,6 +13,7 @@
 # limitations under the License.
 # ============================================================================
 """DeepseekV3 models' APIs."""
+import mindspore as ms
 from mindspore.common import dtype as mstype
 from mindspore.ops import operations as P
 
@@ -122,3 +123,24 @@ class TrainingDeepseekV3ForCausalLM(DeepseekV2ForCausalLM):
         x = self.concat_2d((x, self.cast(pad_zeros, x.dtype)))
 
         return x
+
+    def check_pipeline_stage(self):
+        """check pipeline_stage and num_layers"""
+        config = self.config
+        parallel_mode = ms.get_auto_parallel_context("parallel_mode")
+        pp = config.parallel_config.pipeline_stage
+        if parallel_mode in ["semi_auto_parallel"]:
+            num_layers = config.num_layers
+            if num_layers and num_layers + config.mtp_depth < pp:
+                raise ValueError(
+                    f"num_layers + mtp_depth of model should be greater than or equal to pipeline_stage, "
+                    f"but get num_layers ({num_layers}) + mtp_depth ({config.mtp_depth}) < pp({pp})"
+                )
+            pipeline_interleave_enabled = ms.get_auto_parallel_context("pipeline_interleave")
+            pp_interleave_num = getattr(config, 'pp_interleave_num', 0) or 0
+            if pipeline_interleave_enabled and pp_interleave_num * pp > num_layers + config.mtp_depth:
+                raise ValueError(
+                    f"num_layers + mtp_depth should be greater than `pp * pp_interleave_num`, "
+                    f"but got num_layers + mtp_depth : {num_layers} + {config.mtp_depth} "
+                    f"and pp * pp_interleave_num = {pp * pp_interleave_num}."
+                )
