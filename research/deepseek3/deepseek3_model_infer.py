@@ -39,7 +39,7 @@ from mindformers.modules.transformer.transformer import LowerTriangularMaskWithD
 from mindformers.modules.transformer import TransformerOpParallelConfig
 from mindformers.modules.infer_attention import InferRotaryEmbedding, FlashAttention
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import get_predict_run_mode
+from mindformers.tools.utils import get_predict_run_mode, is_pynative
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_info, initialize_model_parallel
 from mindformers.experimental.infer.core.utils import get_tp_world_size
@@ -248,7 +248,11 @@ class MLAInferAttention(nn.Cell):
         self.is_first_iteration = True
         self.reshape = P.Reshape()
 
-        self.input_layout = "TH"
+        self.is_pynative = is_pynative()
+        if self.is_pynative:
+            self.input_layout = "BSH"
+        else:
+            self.input_layout = "TH"
         self.use_attention_mask = not self.use_alibi_mask
         self.flash_attention = FlashAttention(head_num=self.n_head,
                                               pre_tokens=self.pre_tokens,
@@ -279,9 +283,10 @@ class MLAInferAttention(nn.Cell):
         """
         bs, seq_len, _ = query.shape
         prefill_head_dim = self.prefill_head_dim if self.prefill_head_dim else self.head_dim
-        query = self.reshape(query, (-1, self.n_head * prefill_head_dim))
-        key = self.reshape(key, (-1, self.n_head * prefill_head_dim))
-        value = self.reshape(value, (-1, self.n_head * prefill_head_dim))
+        if self.input_layout == "TH":
+            query = self.reshape(query, (-1, self.n_head * prefill_head_dim))
+            key = self.reshape(key, (-1, self.n_head * prefill_head_dim))
+            value = self.reshape(value, (-1, self.n_head * prefill_head_dim))
         output = self.flash_attention(query, key, value, attn_mask, alibi_mask, None, None,
                                       actual_seq_qlen, actual_seq_kvlen)
         output = self.reshape(output, (bs, seq_len, self.n_head * prefill_head_dim))
@@ -927,6 +932,7 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
         self.max_position_embeddings = config.max_position_embeddings
 
         self.is_first_iteration = True
+        self.is_pynative = is_pynative()
         self.use_past = config.use_past
         self.is_dynamic = config.is_dynamic
 
@@ -1022,6 +1028,8 @@ class DeepseekV3Model(DeepseekV3PreTrainedModel):
         if self.use_past:
             if self.is_first_iteration:
                 freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
+                if self.is_pynative:
+                    mask = self.casual_mask(tokens)
             else:
                 freqs_cis = self.freqs_mgr.chunk_with_decode(position_ids)
         else:
