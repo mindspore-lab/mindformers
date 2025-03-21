@@ -110,6 +110,7 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         self.npu_mem_size = config.npu_mem_size if hasattr(config, "npu_mem_size") else 2
         if config.tie_word_embeddings:
             self.lm_head.weight = self.model.tok_embeddings.embedding_weight
+        self.return_hidden_states = config.return_hidden_states
 
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -130,7 +131,7 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
 
         def get_input():
-            if self.npu_mem_size > 0:
+            if self.npu_mem_size >= 0:
                 return None
             cache_list = []
             for _ in self.model.layers:
@@ -175,6 +176,9 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
                 batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
                             slot_mapping, prefix_keys_values, key_cache=key_cache, value_cache=value_cache)
+        if self.return_hidden_states:
+            output = self.reshape(output, (-1, output.shape[-1]))
+            return output
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
             if not self.is_pynative:

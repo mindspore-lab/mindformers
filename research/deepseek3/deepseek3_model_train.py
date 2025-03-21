@@ -17,7 +17,7 @@ import mindspore as ms
 from mindspore.common import dtype as mstype
 from mindspore.ops import operations as P
 
-from deepseek2_model import DeepseekV2ForCausalLM
+from research.deepseek3.deepseek2_model import DeepseekV2ForCausalLM
 
 
 class TrainingDeepseekV3ForCausalLM(DeepseekV2ForCausalLM):

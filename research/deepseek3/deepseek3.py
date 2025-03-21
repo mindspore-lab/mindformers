@@ -17,8 +17,8 @@ import os
 
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 
-from deepseek3_model_train import TrainingDeepseekV3ForCausalLM
-from deepseek3_model_infer import InferenceDeepseekV3ForCausalLM
+from research.deepseek3.deepseek3_model_train import TrainingDeepseekV3ForCausalLM
+from research.deepseek3.deepseek3_model_infer import InferenceDeepseekV3ForCausalLM
 
 __all__ = ['DeepseekV3ForCausalLM']
 

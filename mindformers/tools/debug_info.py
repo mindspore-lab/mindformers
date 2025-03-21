@@ -28,16 +28,16 @@ from mindformers.version_control import synchronize
 def get_profile_settings():
     """Get profile settings for context."""
     context_module = import_module("mindformers.core.context.build_context")
-    context_instance = context_module.Context()
+    mf_ctx_instance = context_module.MFContextOperator.get_mf_ctx_instance()
     profile = False
     profile_start_step = 0
     profile_stop_step = 0
     profile_level = 1
-    if context_instance is not None and context_instance.is_exists():
-        profile = context_module.get_context("profile")
-        profile_start_step = context_module.get_context("profile_start_step")
-        profile_stop_step = context_module.get_context("profile_stop_step")
-        profile_level = context_module.get_context("profile_level") or profile_level
+    if mf_ctx_instance is not None:
+        profile = getattr(mf_ctx_instance, 'profile', profile)
+        profile_start_step = getattr(mf_ctx_instance, 'profile_start_step', profile_start_step)
+        profile_stop_step = getattr(mf_ctx_instance, 'profile_stop_step', profile_stop_step)
+        profile_level = getattr(mf_ctx_instance, 'profile_level', profile_level)
         max_level = len(ProfilerLevel.__members__) - 1
         if profile_level < 0 or profile_level > max_level:
             logger.warning("Invalid profile level: %s, return level1.", profile_level)
