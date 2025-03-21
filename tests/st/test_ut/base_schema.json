@@ -75,13 +75,7 @@
         "signature": "()"
     },
     "mindformers.core.AdamW": {
-        "signature": "(params, learning_rate=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.0)"
-    },
-    "mindformers.core.AdamW.clone_state": {
-        "signature": "(self, prefix, init)"
-    },
-    "mindformers.core.AdamW.construct": {
-        "signature": "(self, gradients)"
+        "signature": "(*args, fused=False, **kwargs)"
     },
     "mindformers.core.CheckpointMonitor": {
         "signature": "(prefix='CKP', directory=None, config=None, save_checkpoint_steps=1, save_checkpoint_seconds=0, keep_checkpoint_max=5, keep_checkpoint_per_n_minutes=0, integrated_save=True, save_network_params=True, save_trainable_params=False, async_save=False, saved_network=None, append_info=None, enc_key=None, enc_mode='AES-GCM', exception_save=False, global_batch_size=None, checkpoint_format='ckpt', remove_redundancy=False)"
@@ -1059,13 +1053,7 @@
         "signature": "(self, logits)"
     },
     "mindformers.core.optim.AdamW": {
-        "signature": "(params, learning_rate=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.0)"
-    },
-    "mindformers.core.optim.AdamW.clone_state": {
-        "signature": "(self, prefix, init)"
-    },
-    "mindformers.core.optim.AdamW.construct": {
-        "signature": "(self, gradients)"
+        "signature": "(*args, fused=False, **kwargs)"
     },
     "mindformers.core.optim.adamw.AdamW": {
         "signature": "(params, learning_rate=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.0)"
@@ -1074,6 +1062,15 @@
         "signature": "(self, prefix, init)"
     },
     "mindformers.core.optim.adamw.AdamW.construct": {
+        "signature": "(self, gradients)"
+    },
+    "mindformers.core.optim.fused_adamw.FusedAdamW": {
+        "signature": "(params, learning_rate=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.0, amsgrad=False, maximize=False)"
+    },
+    "mindformers.core.optim.fused_adamw.FusedAdamW.clone_state": {
+        "signature": "(self, prefix, init)"
+    },
+    "mindformers.core.optim.fused_adamw.FusedAdamW.construct": {
         "signature": "(self, gradients)"
     },
     "mindformers.core.optim.optim.FP32StateAdamWeightDecay": {

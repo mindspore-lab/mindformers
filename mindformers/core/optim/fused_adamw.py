@@ -12,76 +12,63 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ============================================================================
-"""AdamW API"""
-import numpy as np
+"""FusedAdamW implementation"""
 
 from mindspore import _checkparam as validator, Parameter, ParameterTuple, Tensor
-from mindspore._checkparam import GT, INC_NEITHER
 from mindspore.common import dtype as mstype
-from mindspore.ops import operations as P
-from mindspore.ops import composite as C
+from mindspore.ops.operations import Cast
+from mindspore.ops.composite import MultitypeFuncGraph
 from mindspore.ops import functional as F
 from mindspore.nn.optim.optimizer import Optimizer
 from mindspore.common.initializer import initializer
+from mindspore.ops import auto_generate as gen
 
-op_mul = P.Mul()
-op_pow = P.Pow()
-op_sqrt = P.Sqrt()
-op_maximum = P.Maximum()
-addcmul = P.Addcmul()
-_adamw_opt = C.MultitypeFuncGraph("adamw_opt")
+# The compute graph of optimizer
+_adamw_opt = MultitypeFuncGraph("adamw_opt")
 
 
-@_adamw_opt.register("Tensor", "Tensor", "Tensor", "Tensor", "Tensor",
-                     "Tensor", "Tensor", "Tensor", "Tensor", "Tensor",
-                     "Bool")
-def _update_run_op(beta1, beta2, eps, step, lr,
-                   weight_decay, parameters, grads, exp_avg, exp_avg_sq,
-                   optim_filter):
+@_adamw_opt.register("Function", "Bool", "Bool", "Float", "Float", "Tensor", "Tensor", "Tensor", "Tensor",
+                     "Tensor", "Tensor", "Tensor", "Tensor", "Tensor")
+def _run_adamw_opt(opt, amsgrad, maximize, beta1, beta2, eps, step, lr, weight_decay, parameters, grads, exp_avg,
+                   exp_avg_sq, optim_filter, max_exp_avg_sq):
     """Apply AdamW optimizer to the weight parameter."""
-    op_cast = P.Cast()
+    step = Cast()(step, mstype.int64)
+    grads = Cast()(grads, F.dtype(parameters))
+    lr = float(lr)
+    weight_decay = float(weight_decay)
+
     if optim_filter:
-        param_fp32 = op_cast(parameters, mstype.float32)
-        next_param = op_mul(param_fp32, 1 - lr * weight_decay)
-        gradient_fp32 = op_cast(grads, mstype.float32)
-
-        next_param = F.depend(next_param,
-                              F.assign(exp_avg,
-                                       op_mul(exp_avg, beta1) + op_mul(gradient_fp32,
-                                                                       op_cast(F.tuple_to_array((1.0,)),
-                                                                               mstype.float32) - beta1)))
-        next_param = F.depend(next_param,
-                              F.assign(exp_avg_sq, addcmul(op_mul(exp_avg_sq, beta2), gradient_fp32, gradient_fp32,
-                                                           op_cast(F.tuple_to_array((1.0,)), mstype.float32) - beta2)))
-
-        bias_correction1 = 1 - op_pow(op_cast(beta1, mstype.float32), step)
-        bias_correction2 = 1 - op_pow(op_cast(beta2, mstype.float32), step)
-        step_size = lr / bias_correction1
-
-        denom = op_sqrt(exp_avg_sq / bias_correction2) + eps
-
-        return_param = next_param - op_mul(exp_avg / denom, step_size)
-        F.assign(parameters, op_cast(return_param, F.dtype(parameters)))
-        return op_cast(return_param, F.dtype(parameters))
-    return op_cast(grads, F.dtype(parameters))
+        if amsgrad:
+            opt(parameters, exp_avg, exp_avg_sq, max_exp_avg_sq, grads, step, lr, beta1, beta2, weight_decay, eps,
+                amsgrad, maximize)
+        else:
+            opt(parameters, exp_avg, exp_avg_sq, exp_avg_sq, grads, step, lr, beta1, beta2, weight_decay, eps,
+                amsgrad, maximize)
+    return True
 
 
 def _check_param_value(betas, eps, weight_decay, prim_name):
     """Check the type of inputs."""
-    validator.check_value_type('betas', betas, [list, tuple], prim_name)
+    if eps < 0.0:
+        raise ValueError(f"Invalid epsilon value: {eps}, should be >= 0.")
+    if not 0.0 <= betas[0] < 1.0:
+        raise ValueError(f"Invalid beta parameter at index 0: {betas[0]}, should be >= 0 and < 1.")
+    if not 0.0 <= betas[1] < 1.0:
+        raise ValueError(f"Invalid beta parameter at index 1: {betas[1]}, should be >= 0 and < 1.")
+    if weight_decay < 0.0:
+        raise ValueError(f"Invalid weight_decay value: {weight_decay}, should be >= 0.")
+
+    validator.check_value_type('betas', betas, [tuple, list], prim_name)
     validator.check("betas size", len(betas), "", [2], validator.IN, prim_name)
     validator.check_value_type("betas[0]", betas[0], [float], prim_name)
     validator.check_value_type("betas[1]", betas[1], [float], prim_name)
-    validator.check_float_range(betas[0], 0.0, 1.0, INC_NEITHER, "beta1", prim_name)
-    validator.check_float_range(betas[1], 0.0, 1.0, INC_NEITHER, "beta2", prim_name)
     validator.check_value_type("eps", eps, [float], prim_name)
-    validator.check_float(eps, 0.0, GT, "eps", prim_name)
     validator.check_value_type("weight_decay", weight_decay, [float], prim_name)
 
 
-class AdamW(Optimizer):
+class FusedAdamW(Optimizer):
     r"""
-    This is the implementation of AdamW.
+    This is the implementation of AdamW that uses fused operators.
 
     Args:
         params (Union[list[Parameter], list[dict]]): Must be list of `Parameter` or list of `dict`. When the
@@ -135,6 +122,14 @@ class AdamW(Optimizer):
             - Cell: Weight decay is dynamic. During training, the optimizer calls the instance of
               the Cell with step as the input to get the weight decay value of current step.
 
+        amsgrad (bool, optional): If True, uses the AMSGrad variant of the Adam algorithm,
+            which maintains the maximum of past squared gradients instead of an exponential average.
+            This can help improve convergence in some cases. Default is ``False``.
+
+        maximize (bool, optional): If True, the optimizer maximizes the objective function
+            instead of minimizing it. This is useful in cases where the goal is to maximize
+            a reward or utility function. Default is ``False``.
+
     Inputs:
         - **gradients** (tuple[Tensor]) - The gradients of `params`, the shape is the same as `params`.
 
@@ -151,16 +146,33 @@ class AdamW(Optimizer):
         ValueError: If `weight_decay` is less than 0.
     """
 
-    def __init__(self, params, learning_rate=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.0):
+    def __init__(self,
+                 params,
+                 learning_rate=1e-3,
+                 betas=(0.9, 0.999),
+                 eps=1e-8,
+                 weight_decay=0.0,
+                 amsgrad=False,
+                 maximize=False):
         _check_param_value(betas, eps, weight_decay, self.cls_name)
-
         super().__init__(learning_rate, params, weight_decay=weight_decay)
 
-        self.beta1 = Tensor(np.array([betas[0]]).astype(np.float32))
-        self.beta2 = Tensor(np.array([betas[1]]).astype(np.float32))
-        self.eps = Tensor(np.array([eps]).astype(np.float32))
-        self.exp_avg = self.clone_state(prefix="adam_m", init='zeros')
-        self.exp_avg_sq = self.clone_state(prefix="adam_v", init='zeros')
+        self.beta1 = betas[0]
+        self.beta2 = betas[1]
+        self.eps = eps
+        self.exp_avg = self.clone_state(prefix="exp_avg", init='zeros')
+        self.exp_avg_sq = self.clone_state(prefix="exp_avg_sq", init='zeros')
+
+        # When amsgrad=False, max_exp_avg_sq isn't actually used for calculations, but it still needs to be a valid
+        # iterable (not None). We reuse exp_avg_sq here to avoid allocating extra memory.
+        self.max_exp_avg_sq = self.clone_state(prefix="max_exp_avg_sq", init='zeros') if amsgrad else self.exp_avg_sq
+
+        self.amsgrad = amsgrad
+        self.maximize = maximize
+        self.fused_adamw_opt = gen.AdamW()
+
+        # Since the operator increments global_step internally, it should be initialized to -1.
+        self.global_step = Parameter(Tensor([-1], mstype.int32), "global_step")
 
     def clone_state(self, prefix, init):
         r"""clone state
@@ -183,10 +195,9 @@ class AdamW(Optimizer):
             new.append(new_state)
         return ParameterTuple(new)
 
-    # pylint: disable=W0221
     def construct(self, gradients):
         """forward process"""
-        gradients = self.flatten_gradients(gradients)
+        grads = self.flatten_gradients(gradients)
         weight_decay = self.get_weight_decay()
         lr = self.get_lr()
         self.assignadd(self.global_step, self.global_step_increase_tensor)
@@ -194,20 +205,23 @@ class AdamW(Optimizer):
         if self.is_group:
             if self.is_group_lr:
                 optim_result = self.hyper_map(
-                    F.partial(_adamw_opt, self.beta1, self.beta2, self.eps, self.global_step),
-                    lr, weight_decay, self._parameters, gradients, self.exp_avg, self.exp_avg_sq,
-                    self.optim_filter)
+                    F.partial(_run_adamw_opt, self.fused_adamw_opt, self.amsgrad, self.maximize, self.beta1, self.beta2,
+                              self.eps, self.global_step),
+                    lr, weight_decay, self._parameters, grads, self.exp_avg, self.exp_avg_sq, self.optim_filter,
+                    self.max_exp_avg_sq
+                )
             else:
                 optim_result = self.hyper_map(
-                    F.partial(_adamw_opt, self.beta1, self.beta2, self.eps, self.global_step, lr),
-                    weight_decay, self._parameters, gradients, self.exp_avg, self.exp_avg_sq,
-                    self.optim_filter)
+                    F.partial(_run_adamw_opt, self.fused_adamw_opt, self.amsgrad, self.maximize, self.beta1, self.beta2,
+                              self.eps, self.global_step, lr),
+                    weight_decay, self._parameters, grads, self.exp_avg, self.exp_avg_sq, self.optim_filter,
+                    self.max_exp_avg_sq
+                )
         else:
             optim_result = self.hyper_map(
-                F.partial(_adamw_opt, self.beta1, self.beta2, self.eps, self.global_step, lr, weight_decay),
-                self._parameters, gradients, self.exp_avg, self.exp_avg_sq,
-                self.optim_filter)
-        if self.use_parallel:
-            self.broadcast_params(optim_result)
+                F.partial(_run_adamw_opt, self.fused_adamw_opt, self.amsgrad, self.maximize, self.beta1, self.beta2,
+                          self.eps, self.global_step, lr, weight_decay),
+                self._parameters, grads, self.exp_avg, self.exp_avg_sq, self.optim_filter, self.max_exp_avg_sq
+            )
 
         return optim_result
