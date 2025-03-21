@@ -76,7 +76,7 @@ MindFormers软硬件配套关系以及安装参考[环境安装指南](../../REA
 
 | 数据集名称               |        适用模型        |   适用阶段   |                                                         下载链接                                                          |
 |:--------------------|:------------------:|:--------:|:---------------------------------------------------------------------------------------------------------------------:|
-| Wikitext2           |       yi-34b       | Pretrain | [Link](https://s3.amazonaws.com/research.metamind.io/wikitext/wikitext-2-v1.zip) |
+| Wikitext2           |       yi-34b       | Pretrain | [Link](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/func_related.html) |
 | alpaca              | yi-6b <br/> yi-34b | Finetune |                    [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)                    |
 | alpaca_gpt4_data_zh | yi-6b <br/> yi-34b | Finetune |       [Link](https://huggingface.co/datasets/llamafactory/alpaca_gpt4_zh/resolve/main/alpaca_gpt4_data_zh.json?download=true)       |
 
