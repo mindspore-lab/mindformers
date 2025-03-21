@@ -67,6 +67,20 @@ def validate_sink_size(config):
             raise ValueError(f'sink_size should be 1, got {sink_size}')
 
 
+def validate_precision_sync(config):
+    """Validate train_percision_sync and infer_percision_sync."""
+    train_precision_sync = config.get_value('train_precision_sync')
+    infer_percision_sync = config.get_value('train_precision_sync')
+    if train_precision_sync is not None and not isinstance(
+            train_precision_sync, bool):
+        raise ValueError(
+            f'train_percision_sync should be bool, got {train_precision_sync}')
+    if infer_percision_sync is not None and not isinstance(
+            infer_percision_sync, bool):
+        raise ValueError(
+            f'train_percision_sync should be bool, got {infer_percision_sync}')
+
+
 def execute_validator(config):
     """Execute all validate function."""
     current_module = inspect.getmodule(inspect.currentframe())
