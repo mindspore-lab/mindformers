@@ -34,10 +34,12 @@ from .base_dataset import BaseDataset
 CAST_TO_INT_COLUMNS = ["input_ids", "labels"]
 
 
-def _use_compressed_eod_mask(config):
-    if config.config and config.config.create_compressed_eod_mask:  # megatron dataset
+def _use_compressed_eod_mask(data_loader):
+    if (hasattr(data_loader, 'config') and data_loader.config and
+            data_loader.config.create_compressed_eod_mask):  # megatron dataset
         return True
-    if config.adaptor_config and config.adaptor_config.compress_mask:  # common dataloader
+    if (hasattr(data_loader, 'adaptor_config') and data_loader.adaptor_config and
+            data_loader.adaptor_config.compress_mask):  # common dataloader
         return True
     return False
 
