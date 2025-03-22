@@ -14,53 +14,47 @@
 # ============================================================================
 """run_check module"""
 import os
+import platform
 import re
+import subprocess
 import sys
 import time
-import platform
-import subprocess
+import json
 from io import StringIO
 from pathlib import Path
-import numpy as np
 
+import numpy as np
 import mindspore as ms
 from mindspore import JitConfig
 from mindspore.dataset import GeneratorDataset
 
 import mindformers as mf
-from mindformers import Trainer, TrainingArguments, AdamW
 from mindformers.models.llama import LlamaForCausalLM, LlamaConfig
 from mindformers.trainer.optimizer_grouped_parameters import get_optimizer_grouped_parameters
-
-from .tools.logger import logger
-
-VERSION_MAPPING = {
-    '1.2.0': {
-        'ms': '2.3.0',
-        'cann': '8.0.RC2',
-        'driver': '24.1.rc2',
-    },
-}
+from mindformers import Trainer, TrainingArguments, AdamW
+from mindformers.tools.logger import logger
 
 
 class BaseCheck:
-    """The base check class, needs to be implemented"""
+    """The base check class, needs to be implemented."""
 
-    def __init__(self, start):
+    def __init__(self, start, version_mapping=None):
         """
-        Init function
+        Init function.
 
         Args:
-            start (float): The start time of run_check
+            start (float): The start time of run_check.
+            version_mapping (dict): The version compatibility dict. Default is None.
         """
         self.start = start
+        self.version_mapping = version_mapping
 
     def set_next(self, next_check):
         """
-        Set next check
+        Set next check.
 
         Args:
-            next_check : The instance of next check
+            next_check : The instance of next check.
         """
         self.next_check = next_check
 
@@ -78,7 +72,7 @@ class BaseCheck:
 
 
 class MSCheck(BaseCheck):
-    """Test MindSpore's run_check API"""
+    """Test MindSpore's run_check API."""
 
     def check(self):
         """MindSpore check"""
@@ -92,8 +86,8 @@ class MSCheck(BaseCheck):
         sys.stdout = sys.__stdout__
         if re.search('failed', result):
             self._error(result=result)
-            vc = VersionCheck(self.start, error_flag='MS')
-            vc.check()
+            version_checker = VersionCheck(self.start, error_flag='MS')
+            version_checker.check()
         else:
             self._success(result=result.split('\n')[1])
             self._next()
@@ -108,23 +102,24 @@ class MSCheck(BaseCheck):
 
 
 class MFCheck(BaseCheck):
-    """Mindformers run test"""
+    """Mindformers run test."""
 
-    def __init__(self, start, batch_size=1, num_train_epochs=1, num_layers=2, seq_length=2,
+    def __init__(self, start, version_mapping=None, batch_size=1, num_train_epochs=1, num_layers=2, seq_length=2,
                  step_num=1, vocab_size=32000):
         """
         init function.
 
         Args:
-            start (float): The start time of run_check
-            batch_size (int): The batch size
-            num_train_epochs (int): The train epochs
-            num_layers (int): The number of layers
-            seq_length (int): The sequence length
-            step_num (int): The step number
-            vocab_size (int): The vocab size
+            start (float): The start time of run_check.
+            version_mapping (dict): The version compatibility dict. Default is None.
+            batch_size (int): The batch size.
+            num_train_epochs (int): The train epochs.
+            num_layers (int): The number of layers.
+            seq_length (int): The sequence length.
+            step_num (int): The step number.
+            vocab_size (int): The vocab size.
         """
-        super().__init__(start)
+        super().__init__(start, version_mapping)
 
         self.step_num = step_num
         self.vocab_size = vocab_size
@@ -133,7 +128,7 @@ class MFCheck(BaseCheck):
         self.model_config = LlamaConfig(num_layers=num_layers, seq_length=seq_length, use_flash_attention=True)
 
     def generator_train(self):
-        """train dataset generator"""
+        """train dataset generator."""
         size = (self.step_num * self.args.batch_size, self.model_config.seq_length + 1,)
         input_ids = np.random.randint(low=0, high=self.vocab_size, size=size).astype(np.int32)
         for _, input_id in enumerate(input_ids):
@@ -144,7 +139,7 @@ class MFCheck(BaseCheck):
         Construct trainer and start training.
 
         Args:
-            jit_level (str): The jit level, could be O0, O1 or O2
+            jit_level (str): The jit level, could be O0, O1 or O2.
         """
         train_dataset = GeneratorDataset(self.generator_train, column_names=["input_ids"])
         self.train_dataset = train_dataset.batch(batch_size=self.args.batch_size)
@@ -161,7 +156,7 @@ class MFCheck(BaseCheck):
         trainer.train()
 
     def check(self):
-        """Run mindformers test"""
+        """Run mindformers test."""
         logger.info('------------------------------Starting Pretrain Test------------------------------')
         try:
             self._train(jit_level='O1')
@@ -169,8 +164,8 @@ class MFCheck(BaseCheck):
         # pylint: disable=W0702
         except:
             self._error(error_flag='Pretrain')
-            vc = VersionCheck(self.start, error_flag='Pretrain')
-            vc.check()
+            version_checker = VersionCheck(self.start, error_flag='Pretrain')
+            version_checker.check()
             raise RuntimeError("The run check failed, please see more information above.")
 
         else:
@@ -184,8 +179,8 @@ class MFCheck(BaseCheck):
         # pylint: disable=W0702
         except:
             self._error(error_flag='Predict')
-            vc = VersionCheck(self.start, error_flag='Predict')
-            vc.check()
+            version_checker = VersionCheck(self.start, error_flag='Predict')
+            version_checker.check()
 
         else:
             self._success(test='Predict')
@@ -206,36 +201,48 @@ class MFCheck(BaseCheck):
 class VersionCheck(BaseCheck):
     """Version check"""
 
-    def __init__(self, start, error_flag=None):
-        super().__init__(start)
+    def __init__(self, start, version_mapping=None, error_flag=None):
+        super().__init__(start, version_mapping)
         self.error_flag = error_flag
 
     @staticmethod
-    def recommend(mfv):
+    def get_recommend_versions(mf_version=None, version_mapping=None):
         """
-        Check whether the given mindformers version is in record
+        Check whether the given mf_version is in record.
 
         Args:
-            mfv (str): The mindformers version needs to be searched
+            mf_version (str): The mf_version needs to be searched. Default is None.
+            version_mapping (dict): The version mapping dict. Default is None.
 
         Returns:
-            tuple:
-                - bool: Whether the mindformers version is in record
-                - str: The latest mindformers version or the input if the mindformers version is in record
-                - dict: The corresponding environment
+            dict:
+                - is_mf_version_in_record (bool): Whether the MindFormers version is in record.
+                - mf_version (str): The latest MindFormers version or the input if the version is in record.
+                - ms_version (str): The corresponding MindSpore version.
+                - cann_version (str): The corresponding cann version.
+                - driver_version (str): The corresponding driver version.
         """
-        matched_vs = VERSION_MAPPING.get(mfv, None)
+        matched_vs = version_mapping['mf'].get(mf_version, None)
         if matched_vs:
-            return True, mfv, matched_vs
-        latest = max(VERSION_MAPPING.keys(), key=lambda x: tuple(map(int, x.split('.'))))
-        return False, latest, VERSION_MAPPING[latest]
+            is_mf_version_in_record = True
+        else:
+            is_mf_version_in_record = False
+            mf_version = max(version_mapping['mf'].keys(), key=lambda x: tuple(map(int, x.split('.'))))
+        ms_version = version_mapping['mf'][mf_version]['prefer']
+        cann_version = version_mapping['ms'][ms_version]['prefer']
+        driver_version = version_mapping['cann'][cann_version]['prefer']
+        return {'is_mf_version_in_record': is_mf_version_in_record,
+                'mf_version': mf_version,
+                'ms_version': ms_version,
+                'cann_version': cann_version,
+                'driver_version': driver_version}
 
-    def _matched(self, end):
+    def _print_matched_logs(self, end):
         """
-        The installed versions are matched
+        The installed versions are matched.
 
         Args:
-            end (float): The end time of run_check
+            end (float): The end time of run_check.
         """
         if self.error_flag:
             logger.error(f'The run check failed in {end - self.start:.2f} seconds, '
@@ -244,103 +251,153 @@ class VersionCheck(BaseCheck):
             logger.info(
                 f'All checks passed, used {end - self.start:.2f} seconds, the environment is correctly set up!')
 
-    def _unmatched(self, end, mfv, mfv_matching):
+    def _print_unmatched_logs(self, end, mf_version, ms_version, cann_version, driver_version):
         """
-        The installed versions are unmatched
+        The installed versions are unmatched.
 
         Args:
-            end (float): The end time of run_check
-            mfv (str): The recommended mindformers version
-            mfv_matching (dict): The recommended environment version
+            end (float): The end time of run_check.
+            mf_version (str): The recommended mindformers version.
+            ms_version (str): The recommended mindspore version.
+            cann_version (str): The recommended cann-toolkit version.
+            driver_version (str): The recommended driver version.
         """
         if self.error_flag:
             logger.error(f"The run check failed in {end - self.start:.2f} "
-                         f"seconds, It's recommended to install cann=={mfv_matching['cann']} "
-                         f"driver=={mfv_matching['driver']} mindspore=={mfv_matching['ms']} mindformers=={mfv}")
+                         f"seconds, It's recommended to install cann-toolkit=={cann_version} "
+                         f"driver=={driver_version} mindspore=={ms_version} mindformers=={mf_version}")
         else:
             logger.warning(f'The installed software are unmatched '
                            f'but all checks passed in {end - self.start:.2f} seconds')
-            logger.info(f"It's recommended to install cann=={mfv_matching['cann']} "
-                        f"driver=={mfv_matching['driver']} mindspore=={mfv_matching['ms']} mindformers=={mfv}")
+            logger.info(f"It's recommended to install cann-toolkit=={cann_version} "
+                        f"driver=={driver_version} mindspore=={ms_version} mindformers=={mf_version}")
 
     def check(self):
-        """Check whether the software versions are matched"""
+        """Check whether the software versions are matched."""
         logger.info('------------------------------Searching Environment Info------------------------------')
         try:
-            mfv = mf.__version__
-            msv = ms.__version__
-            logger.info(f'MindFormers version: {mfv}')
-            logger.info(f'MindSpore version: {msv}')
+            mf_version = mf.__version__
+            ms_version = ms.__version__
+            logger.info(f'MindFormers version: {mf_version}')
+            logger.info(f'MindSpore version: {ms_version}')
 
             # one of ['aarch64', 'x86_64']
             arch = platform.machine()
 
-            cann_pth = os.getenv('LOCAL_ASCEND')
-            if cann_pth:
-                cann_pth = Path(cann_pth) / 'ascend-toolkit' / 'latest'
-            else:
+            cann_pth = os.getenv('ASCEND_HOME_PATH')
+            if not cann_pth:
                 cann_pth = Path('/usr/local/Ascend/ascend-toolkit/latest')
 
             cann_info_file = f'{str(cann_pth)}/{arch}-linux/ascend_toolkit_install.info'
-            if not Path(cann_info_file).exists():
-                raise RuntimeError('Cannot find cann info file')
+            driver_info_file = '/usr/local/Ascend/driver/version.info'
+            is_cann_info_file_exist = Path(cann_info_file).exists()
+            is_driver_info_file_exist = Path(driver_info_file).exists()
 
-            cann_info = subprocess.run(["cat", cann_info_file], shell=False, capture_output=True,
-                                       check=True).stdout.decode('utf-8')
-            cann_version = re.search(r'=(\d[\d.\w]+)', cann_info).group(1)
-            logger.info(f'Ascend-cann-toolkit version: {cann_version}')
+            if is_cann_info_file_exist:
+                cann_info = subprocess.run(["cat", cann_info_file], shell=False, capture_output=True,
+                                           check=True).stdout.decode('utf-8')
+                cann_version = re.search(r'=(\d[\d.\w]+)', cann_info).group(1)
+                logger.info(f'Ascend-cann-toolkit version: {cann_version}')
+            else:
+                logger.warning('The environment variable "ASCEND_HOME_PATH" is not set, please check whether the CANN '
+                               'Toolkit is installed. Try to execute "source ${HOME}/Ascend/ascend-toolkit/set_env.sh".'
+                               ' For installation manual, please refer to '
+                               'https://www.hiascend.com/document/detail/zh/canncommercial/800/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit')
 
-            driver_info_file = f'{str(cann_pth.parent.parent)}/driver/version.info'
-            if not Path(driver_info_file).exists():
-                raise RuntimeError('Cannot find driver info file')
+            if is_driver_info_file_exist:
+                driver_info = subprocess.run(["cat", driver_info_file], shell=False, capture_output=True,
+                                             check=True).stdout.decode('utf-8')
+                driver_version = re.search(r'=(\d[\d.\w]+)', driver_info).group(1)
+                logger.info(f'Ascend driver version: {driver_version}')
+            else:
+                logger.warning(f'Cannot find driver info file under default path, please check whether the driver is '
+                               f'installed properly. Please run infer to https://www.hiascend.com/document/detail/zh/canncommercial/800/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit')
 
-            driver_info = subprocess.run(["cat", driver_info_file], shell=False, capture_output=True,
-                                         check=True).stdout.decode('utf-8')
-            driver_version = re.search(r'=(\d[\d.\w]+)', driver_info).group(1)
-            logger.info(f'Ascend driver version: {driver_version}')
+            if not is_cann_info_file_exist or not is_driver_info_file_exist:
+                raise RuntimeError
 
-        # 版本不匹配
-        except RuntimeError as e:
+        # version unmatched
+        except RuntimeError:
             end = time.perf_counter()
-            logger.error(str(e))
-            mfv_inrecord, mfv, mfv_matching = self.recommend(mfv)
-            self._unmatched(end, mfv, mfv_matching)
+            recommend_version_dict = self.get_recommend_versions(mf_version, self.version_mapping)
+            self._print_unmatched_logs(
+                end,
+                recommend_version_dict['mf_version'],
+                recommend_version_dict['ms_version'],
+                recommend_version_dict['cann_version'],
+                recommend_version_dict['driver_version']
+            )
 
         else:
             end = time.perf_counter()
-            mfv_inrecord, mfv, mfv_matching = self.recommend(mfv)
+            recommend_version_dict = self.get_recommend_versions(mf_version, self.version_mapping)
 
-            # 版本匹配
-            if (mfv_inrecord
-                    and msv == mfv_matching['ms']
-                    and cann_version == mfv_matching['cann']
-                    and driver_version == mfv_matching['driver']):
-                self._matched(end)
+            # version matched
+            if (recommend_version_dict['is_mf_version_in_record']
+                    and (ms_version == recommend_version_dict['ms_version']
+                         or ms_version in self.version_mapping['mf'][mf_version]['support'])
+                    and cann_version == self.version_mapping['ms'][ms_version]['prefer']
+                    and driver_version == self.version_mapping['cann'][cann_version]['prefer']):
+                self._print_matched_logs(end)
 
-            # 版本不匹配
+            # version unmatched
             else:
-                self._unmatched(end, mfv, mfv_matching)
+                self._print_unmatched_logs(
+                    end,
+                    recommend_version_dict['mf_version'],
+                    recommend_version_dict['ms_version'],
+                    recommend_version_dict['cann_version'],
+                    recommend_version_dict['driver_version']
+                )
 
 
 def run_check():
     """
     Check whether the installed CANN, driver, MindSpore and MindFormers versions are matched.
+    The structure of the VERSION_MAP.json is shown as below:
+    {
+        'mf': {
+            'version1': {
+                'prefer': 'prefered ms version',
+                'support': [competible ms version list]
+            },
+        },
+        'ms': {
+            'version1': {
+                'prefer' : 'prefered cann version',
+                'support': [competible cann version list]
+            },
+        },
+        'cann': {
+            'version1': {
+                'prefer' : 'prefered driver version',
+                'support': [competible driver version list]
+            },
+        }
+    }
 
     Examples:
         >>> from mindformers import run_check
         >>> run_check()
     """
 
+    version_file = Path(f'{__file__}').parent / 'VERSION_MAP.json'
+    if not version_file.is_file():
+        raise RuntimeError('Cannot find VERSION_MAP.json or the found one is not a file')
+
+    with open(version_file) as f:
+        version_mapping = json.load(f)
+
     os.environ['MS_ALLOC_CONF'] = "enable_vmm:False"
 
     start = time.perf_counter()
     ms.set_context(mode=0)
 
-    msrc = MSCheck(start)
-    mfc = MFCheck(start)
-    vc = VersionCheck(start)
+    ms_checker = MSCheck(start, version_mapping=version_mapping)
+    mf_checker = MFCheck(start, version_mapping=version_mapping)
+    version_checker = VersionCheck(start, version_mapping=version_mapping)
 
-    msrc.set_next(mfc)
-    mfc.set_next(vc)
+    ms_checker.set_next(mf_checker)
+    mf_checker.set_next(version_checker)
 
-    msrc.check()
+    ms_checker.check()
