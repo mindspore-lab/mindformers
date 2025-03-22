@@ -24,6 +24,6 @@ SUPPORT_MODEL_LIST = {"image": "cogvlm2-image-llama3-chat", "video": "cogvlm2-vi
 
 def get_model(args):
     mindformers_series = {}
-    mindformers_series['cogvlm2-image-llama3-chat'] = partial(CogVlmImage, args.model_path, args.config_path)
-    mindformers_series['cogvlm2-video-llama3-chat'] = partial(CogVlmVideo, args.model_path, args.config_path)
+    mindformers_series['cogvlm2-image-llama3-chat'] = partial(CogVlmImage, args.model_path)
+    mindformers_series['cogvlm2-video-llama3-chat'] = partial(CogVlmVideo, args.model_path)
     return mindformers_series
