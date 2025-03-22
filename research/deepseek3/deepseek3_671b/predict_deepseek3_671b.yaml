@@ -10,7 +10,7 @@ auto_trans_ckpt: True # If true, auto transform load_checkpoint to load in distr
 # trainer config
 trainer:
   type: CausalLanguageModelingTrainer
-  model_name: 'DeepseekV3'
+  model_name: 'DeepSeekV3'
 
 # default parallel of device num = 32 for Atlas 800T A2
 parallel_config:
@@ -22,8 +22,13 @@ parallel_config:
 # mindspore context init config
 context:
   mode: 0 # 0--Graph Mode; 1--Pynative Mode
-  max_device_memory: "58GB"
+  max_device_memory: "61GB"
   device_id: 0
+  affinity_cpu_list: None
+
+kernel_launch_group:
+  thread_num: 4
+  kernel_group_num: 16
 
 # parallel context config
 parallel:
@@ -83,6 +88,7 @@ model:
     do_sample: False
     is_dynamic: True
     qkv_concat: False
+    ffn_concat: False
     auto_map:
       AutoConfig: deepseek3_config.DeepseekV3Config
       AutoModel: deepseek3.DeepseekV3ForCausalLM

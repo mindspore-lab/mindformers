@@ -221,16 +221,26 @@ class MFContextOperator(MFContextConfig):
         return cls._instance
 
     def __init__(self, config):
-        self.config = config
-        supported_kwargs = self._handle_data()
-        logger.debug('MFContextConfig load configs: %s', supported_kwargs)
-        super(MFContextOperator, self).__init__(**supported_kwargs)
-        use_past = self.config.get_value('model.model_config.use_past', False)
-        if not hasattr(self, 'train_precision_sync'):
-            self.train_precision_sync = None
-        if not hasattr(self, 'infer_precision_sync'):
-            self.infer_precision_sync = None
-        self.set_env(use_past)
+        if not hasattr(self, '_initailed'):
+            self.config = config
+            supported_kwargs = self._handle_data()
+            logger.debug('MFContextConfig load configs: %s', supported_kwargs)
+            super(MFContextOperator, self).__init__(**supported_kwargs)
+            use_past = self.config.get_value('model.model_config.use_past',
+                                             False)
+            if not hasattr(self, 'train_precision_sync'):
+                self.train_precision_sync = None
+            if not hasattr(self, 'infer_precision_sync'):
+                self.infer_precision_sync = None
+            self.set_env(use_past)
+            self._initailed = True
+
+    @classmethod
+    def get_mf_ctx_instance(cls):
+        """Check if singleton Context exists."""
+        if cls._instance:
+            return cls.__new__(cls)
+        return None
 
     def _handle_data(self):
         ctx_config = self.config.get('context', {})

@@ -24,6 +24,7 @@ from mindspore.ops import operations as P
 from mindspore.nn.cell import Cell
 from mindspore.common.initializer import Zero
 from mindspore.communication._comm_helper import _is_initialized
+
 try:
     from mindspore._checkparam import Validator
 except ImportError:
@@ -45,8 +46,8 @@ from mindformers.experimental.infer.core.norm import RMSNorm
 from mindformers.experimental.infer.core.moe import RoutedParallelMLP, SharedParallelMLP, ParallelMoEV2
 from mindformers.experimental.infer.core.transformer import ParallelMLP, VocabEmbedding
 
-from deepseek3_config import DeepseekV3Config
-from utils import convert_model_config
+from research.deepseek3.deepseek3_config import DeepseekV3Config
+from research.deepseek3.utils import convert_model_config
 
 __all__ = ['InferenceDeepseekV3ForCausalLM', 'DeepseekV3Model']
 
@@ -420,7 +421,6 @@ class DeepseekV3Attention(nn.Cell):
                              .format(self.n_kv_head, parallel_config.model_parallel))
         self.shape = P.Shape()
         self.cast = P.Cast()
-
         if self.q_lora_rank == 0:
             self.q_proj = ColumnParallelLinear(
                 self.hidden_size,
@@ -606,6 +606,46 @@ class DeepseekV3Attention(nn.Cell):
         attn_out = attn_out.view(bs, seq_len, self.n_local_heads * self.v_head_dim)
         output = self.wo(attn_out)
         output = self.cast(output, ori_dtype)
+        return output
+
+
+class DeepseekV3ParallelMLP(ParallelMLP):
+    r"""
+    Implementation of parallel feedforward block.
+
+    Args:
+        config (dict): Configuration.
+        is_expert (book): This block is an expert block. Default: False.
+
+    Inputs:
+        - **hidden_states** (Tensor) - Tensor of shape :math:`(B, S, H)`.
+
+    Outputs:
+        - **output** (Tensor) - Output tensor of shape :math:`(B, S, H)`.
+
+    Supported Platforms:
+        ``Ascend``
+    """
+    def __init__(self, config, is_expert=False):
+        super().__init__(config)
+        if is_expert:
+            raise NotImplementedError("For ParallelMLP, `is_expert` is not supported for now.")
+
+    def construct(self, x):
+        """ Construct function of mlp block. """
+        # [B, S, H] -> [B, S, ffn_H]
+        if self.ffn_concat:
+            gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
+            gate, hidden = mint.split(gate_hidden_out,
+                                      (self.ffn_hidden_size_per_partition, self.ffn_hidden_size_per_partition), -1)
+        else:
+            gate = self.w1(x)  # dp,1 -> dp, mp
+            hidden = self.w3(x)  # dp,1 -> dp, mp
+        gate = self.act_func(gate)
+        hidden = mint.mul(hidden, gate)
+
+        # [B, S, ffn_H] -> [B, S, H]
+        output = self.w2(hidden)
         return output
 
 
@@ -795,7 +835,7 @@ class DeepseekV3DecodeLayer(nn.Cell):
         if self.first_k_dense:
             logger.warning("first_k_dense_replace is provided in MoEConfig, "
                            "a normal dense FFN will be used in this block.")
-            self.feed_forward = ParallelMLP(config)
+            self.feed_forward = DeepseekV3ParallelMLP(config)
         else:
             self.feed_forward = DeepseekV3MoE(config=config)
 
@@ -1069,21 +1109,32 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         self.gather = P.Gather()
         self.sub_batch_valid_len = P.Sub()
         self.model = DeepseekV3Model(config=config)
-        self.lm_head = ColumnParallelLinear(
-            config.hidden_size,
-            config.vocab_size,
-            config=config.parallel_config,
-            bias=False,
-            param_init_type=config.param_init_type,
-            compute_dtype=config.compute_dtype,
-            weight_init="normal",
-            gather_output=True
-        )
+        if config.parallel_config.vocab_emb_dp:
+            self.lm_head = Linear(
+                in_channels=config.hidden_size,
+                out_channels=config.vocab_size,
+                weight_init="normal",
+                has_bias=False,
+                param_init_type=config.param_init_type,
+                compute_dtype=config.compute_dtype
+            )
+        else:
+            self.lm_head = ColumnParallelLinear(
+                config.hidden_size,
+                config.vocab_size,
+                config=config.parallel_config,
+                bias=False,
+                param_init_type=config.param_init_type,
+                compute_dtype=config.compute_dtype,
+                weight_init="normal",
+                gather_output=True
+            )
         self.prefill_gather_flatten = P.Gather()
 
         self.load_checkpoint(config)
         self.predict_run_mode = get_predict_run_mode()
         logger.info("Predict run mode:{}".format(self.predict_run_mode))
+        self.return_hidden_states = config.return_hidden_states
 
     # pylint: disable=W0613
     def prepare_inputs_for_predict_layout(self, input_ids, **kwargs):
@@ -1133,6 +1184,9 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables,
                             slot_mapping)
+        if self.return_hidden_states:
+            output = self.reshape(output, (-1, output.shape[-1]))
+            return output
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         output = self.pre_gather_func(pre_gather, output, batch_valid_length)
         logits = self.lm_head(output)
@@ -1147,3 +1201,8 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
             logits = self.reshape(logits, (-1, logits.shape[-1]))
             return logits
         return logits, tokens, input_mask
+
+    def kvcache(self, layer_idx):
+        """Get the key_cache depend on layer_idx."""
+        key_cache = self.model.layers[layer_idx].attention.infer_attention.paged_attention_mgr.key_cache
+        return key_cache, None

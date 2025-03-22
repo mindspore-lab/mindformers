@@ -23,7 +23,7 @@ from mindformers.modules.transformer.transformer import default_transformer_conf
 from mindformers.models.utils import convert_mstype
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.mindformer_book import MindFormerBook
-from deepseek2_config import DeepseekV2Config
+from research.deepseek3.deepseek2_config import DeepseekV2Config
 
 __all__ = ['DeepseekV3Config']
 
@@ -135,6 +135,7 @@ class DeepseekV3Config(DeepseekV2Config):
                  init_method_std=0.006,
                  qkv_has_bias=False,
                  qkv_concat=False,
+                 ffn_concat=False,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
                  moe_config: Union[dict, MoEConfig] = default_moe_config,
                  use_past: bool = False,
@@ -160,6 +161,7 @@ class DeepseekV3Config(DeepseekV2Config):
                  use_fused_rope=False,
                  use_fused_swiglu=False,
                  enable_fa_var_len=False,
+                 return_hidden_states=False,
                  **kwargs):
         super(DeepseekV3Config, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -187,6 +189,7 @@ class DeepseekV3Config(DeepseekV2Config):
         self.ffn_dim_multiplier = ffn_dim_multiplier
         self.rms_norm_eps = rms_norm_eps
         self.qkv_concat = qkv_concat
+        self.ffn_concat = ffn_concat
         self.param_init_type = convert_mstype(param_init_type)
         self.qkv_has_bias = qkv_has_bias
         self.layernorm_compute_type = convert_mstype(layernorm_compute_type)
@@ -226,3 +229,4 @@ class DeepseekV3Config(DeepseekV2Config):
         self.use_fused_rope = use_fused_rope
         self.use_fused_swiglu = use_fused_swiglu
         self.enable_fa_var_len = enable_fa_var_len
+        self.return_hidden_states = return_hidden_states

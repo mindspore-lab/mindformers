@@ -40,7 +40,6 @@ def convert_model_config(configs):
     configs.mlp_has_gate = True
     configs.post_norm = True
     configs.recompute_granularity = None
-    configs.ffn_concat = False
     configs.is_dynamic = True
 
     parallel_config = configs.parallel_config
