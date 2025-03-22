@@ -134,6 +134,8 @@ model:
     use_past: False
     extend_method: "None"
     use_flash_attention: True
+    use_fused_swiglu: True
+    use_fused_rope: True
     offset: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1]
     checkpoint_name_or_path: ""
     theta: 10000.0
@@ -152,24 +154,22 @@ moe_config:
   aux_loss_factor: 0.05
   num_experts_chosen: 8
   routing_policy: "TopkRouterV2"
-  enable_sdrop: False
   balance_via_topk_bias: &balance_via_topk_bias True
   topk_bias_update_rate: &topk_bias_update_rate 0.001
   use_fused_ops_topkrouter: True
-  group_wise_a2a: False
   shared_expert_num: 1
   routed_scaling_factor: 2.5
   norm_topk_prob: False
   first_k_dense_replace: 3
   moe_intermediate_size: 2048
-  # greedy_group_limited strategy, select topk_group from n_group
-  topk_group: 4
-  n_group: 8
-  aux_loss_factors: [0.0001, 0., 0.]
-  aux_loss_types: ["expert", "device", "comm"]
+  aux_loss_factors: [0.0001]
+  aux_loss_types: ["expert"]
   z_loss_factor: 0.0
   expert_model_parallel: 1
   use_gating_sigmoid: True
+  use_gmm: True
+  use_fused_ops_permute: True
+  enable_gmm_safe_tokens: True
 
 # callbacks
 callbacks:
