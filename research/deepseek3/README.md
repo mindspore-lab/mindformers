@@ -94,9 +94,11 @@ MindSpore Transformers支持对DeepSeek-V3进行预训练。仓库中提供了�
 
 准备一台Atlas 800T A2（64G）训练服务器。MindSpore Transformers的环境依赖如下：
 
-| Python | MindSpore |     CANN      |  固件与驱动   |
-|:------:|:---------:|:-------------:|:--------:|
-|  3.10  |  2.4.10   | 8.0.RC3.beta1 | 24.1.RC3 |
+| Python | MindSpore |     CANN      |  固件与驱动  |
+|:------:|:---------:|:-------------:|:-----------:|
+|  3.10  |  2.6.0    | 8.1.RC1       | 24.1.RC3    |
+
+> DeepSeek-V3模型使用了部分MindSpore的最新特性，最低支持版本为MindSpore 2.6.0，请检查版本是否符合要求并及时升级。
 
 #### 安装固件与驱动
 
@@ -280,6 +282,8 @@ bash build.sh
      ascend_config:
        parallel_speed_up_json_path: "./research/deepseek3/parallel_speed_up.json"  # 修改此项为数据集并行通信配置路径，需要固件与驱动版本不低于24.1.RC3
    ```
+
+> 注意，当前DeepSeek-V3模型使用GroupedMatmul实现，暂不支持模拟编译功能(dryrun)。如需dryrun获取训练内存情况，可将配置项中`moe_config`项下的`use_gmm`配置为False，执行BatchedMatmul流程的dryrun以评估模型训练内存使用情况。dryrun使用流程可参考[DryRun内存评估工具](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/perf_optimize/perf_optimize.html#dryrun%E5%86%85%E5%AD%98%E8%AF%84%E4%BC%B0%E5%B7%A5%E5%85%B7)文档介绍
 
 ### 拉起任务
 
