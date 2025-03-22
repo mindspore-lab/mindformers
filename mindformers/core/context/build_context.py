@@ -279,14 +279,14 @@ class MFContextOperator(MFContextConfig):
             if shuffle and lccl:
                 if custom_matmul_shuffle != shuffle:
                     logger.warning(
-                        f"Environment 'CUSTOM_MATMUL_SHUFFLE' will be set to '{shuffle}'. "
-                        f"cause infer_precision_sync is {self.infer_precision_sync}"
+                        f"'CUSTOM_MATMUL_SHUFFLE' is set to '{shuffle}' "
+                        f"because infer_precision_sync is {self.infer_precision_sync}."
                     )
 
                 if lccl_deterministic != lccl:
                     logger.warning(
-                        f"Environment 'LCCL_DETERMINISTIC' will be set to '{lccl}'. "
-                        f"cause infer_precision_sync is {self.infer_precision_sync}"
+                        f"'LCCL_DETERMINISTIC' is set to '{lccl}' "
+                        f"because infer_precision_sync is {self.infer_precision_sync}."
                     )
                 custom_matmul_shuffle = shuffle
                 lccl_deterministic = lccl
@@ -488,6 +488,13 @@ def set_context(run_mode=None, **kwargs):
         Attribute name is required for setting attributes.
         Currently only run_mode belongs to MindFormers context.
         The kwargs will be passed to MindSpore set_context.
+        The determination computation for training or inference can be controlled through keyword argument.
+        The keyword arguments for enabling/disabling determination computation during training and inference are:
+        ``train_precision_sync`` and ``infer_precision_sync``, respectively.
+        The on/off states correspond to boolean values,
+        where ``True`` indicates activation and ``False`` indicates deactivation.
+        This operation is a one-time action.
+        Repeated attempts will not succeed and will trigger warning logs.
 
     Args:
         run_mode (str, optional): The mode of the model behaviour.
@@ -499,6 +506,13 @@ def set_context(run_mode=None, **kwargs):
         >>> config = {'context': {'mode': 'GRAPH_MODE'}, 'parallel':{}}
         >>> build_context(config=config)
         >>> set_context(max_device_memory='59GB')
+        >>> set_context(run_mode='predict', infer_precision_sync=True)
+        WARNING - 'CUSTOM_MATMUL_SHUFFLE' is set to 'off' because infer_precision_sync is True.
+        WARNING - 'LCCL_DETERMINISTIC' is set to '1' because infer_precision_sync is True.
+        >>> set_context(run_mode='predict', infer_precision_sync=True)
+        WARNING - mindspore.set_deterministic has been set, can not be set repeatedly.
+        Key environment variables: HCCL_DETERMINISTIC: true, TE_PARALLEL_COMPILER: 1,
+        CUSTOM_MATMUL_SHUFFLE: off, LCCL_DETERMINISTIC: 1
     """
     ctx = Context()
     ctx.set_mf_ctx_run_mode(run_mode)
