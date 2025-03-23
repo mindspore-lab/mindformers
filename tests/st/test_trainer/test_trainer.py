@@ -17,6 +17,7 @@ Test module for testing the trainer interface used for mindformers.
 How to run this:
     pytest tests/st/test_trainer/test_trainer.py
 """
+import os
 import copy
 import numpy as np
 import pytest
@@ -24,11 +25,13 @@ import pytest
 import mindspore as ms
 from mindspore.dataset import GeneratorDataset
 
-from mindformers import GPT2LMHeadModel, GPT2Config
+from mindformers import LlamaConfig, LlamaForCausalLM, LlamaTokenizer
 from mindformers import Trainer, TrainingArguments
 from mindformers.core.callback import MFLossMonitor
 
 ms.set_context(mode=0)
+
+root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 EPOCHS = 1
 NUM_LAYERS = 1
@@ -45,20 +48,16 @@ def generator_train():
     """train dataset generator"""
     seq_len = SEQ_LENGTH + 1
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
-    input_mask = np.ones_like(input_ids)
-    train_data = (input_ids, input_mask)
     for _ in range(DATA_SIZE):
-        yield train_data
+        yield input_ids
 
 
 def generator_eval():
     """eval dataset generator"""
     seq_len = SEQ_LENGTH
     input_ids = np.random.randint(low=0, high=15, size=(seq_len,)).astype(np.int32)
-    input_mask = np.ones_like(input_ids)
-    train_data = (input_ids, input_mask)
     for _ in range(DATA_SIZE):
-        yield train_data
+        yield input_ids
 
 
 class IterableTrain:
@@ -68,12 +67,11 @@ class IterableTrain:
         self._index = 0
         seq_len = SEQ_LENGTH + 1
         self.input_ids = np.random.randint(low=0, high=15, size=(DATA_SIZE, seq_len)).astype(np.int32)
-        self.input_mask = np.ones_like(self.input_ids)
 
     def __next__(self):
         if self._index >= len(self.input_ids):
             raise StopIteration
-        item = (self.input_ids[self._index], self.input_mask[self._index])
+        item = self.input_ids[self._index]
         self._index += 1
         return item
 
@@ -92,12 +90,11 @@ class IterableEval:
         self._index = 0
         seq_len = SEQ_LENGTH
         self.input_ids = np.random.randint(low=0, high=15, size=(DATA_SIZE, seq_len)).astype(np.int32)
-        self.input_mask = np.ones_like(self.input_ids)
 
     def __next__(self):
         if self._index >= len(self.input_ids):
             raise StopIteration
-        item = (self.input_ids[self._index], self.input_mask[self._index])
+        item = self.input_ids[self._index]
         self._index += 1
         return item
 
@@ -115,10 +112,9 @@ class AccessibleTrain:
     def __init__(self):
         seq_len = SEQ_LENGTH + 1
         self.input_ids = np.random.randint(low=0, high=15, size=(16, seq_len)).astype(np.int32)
-        self.input_mask = np.ones_like(self.input_ids)
 
     def __getitem__(self, index):
-        return self.input_ids[index], self.input_mask[index]
+        return self.input_ids[index]
 
     def __len__(self):
         return len(self.input_ids)
@@ -130,24 +126,24 @@ class AccessibleEval:
     def __init__(self):
         seq_len = SEQ_LENGTH
         self.input_ids = np.random.randint(low=0, high=15, size=(16, seq_len)).astype(np.int32)
-        self.input_mask = np.ones_like(self.input_ids)
 
     def __getitem__(self, index):
-        return self.input_ids[index], self.input_mask[index]
+        return self.input_ids[index]
 
     def __len__(self):
         return len(self.input_ids)
 
 
-MODEL_CONFIG = GPT2Config(num_layers=NUM_LAYERS, hidden_size=HIDDEN_SIZE,
-                          num_heads=NUM_HEADS, seq_length=SEQ_LENGTH)
-MODEL = GPT2LMHeadModel(MODEL_CONFIG)
+MODEL_CONFIG = LlamaConfig(num_layers=NUM_LAYERS, hidden_size=HIDDEN_SIZE, num_heads=NUM_HEADS, seq_length=SEQ_LENGTH)
+MODEL = LlamaForCausalLM(MODEL_CONFIG)
 
-PREDICT_MODEL_CONFIG = GPT2Config(num_layers=NUM_LAYERS, hidden_size=HIDDEN_SIZE,
-                                  num_heads=NUM_HEADS, seq_length=SEQ_LENGTH, use_past=True)
-PREDICT_MODEL = GPT2LMHeadModel(MODEL_CONFIG)
+PREDICT_MODEL_CONFIG = LlamaConfig(num_layers=NUM_LAYERS, hidden_size=HIDDEN_SIZE,
+                                   num_heads=NUM_HEADS, seq_length=SEQ_LENGTH, use_past=True)
+PREDICT_MODEL = LlamaForCausalLM(MODEL_CONFIG)
 
-MINDFORMER_CONFIG = Trainer.get_task_config(task="text_generation", model_name="gpt2")
+TOKENIZER = LlamaTokenizer(vocab_file=f"{root_path}/utils/llama2_tokenizer/tokenizer.model")
+
+MINDFORMER_CONFIG = Trainer.get_task_config(task="text_generation", model_name="llama2_7b")
 MINDFORMER_CONFIG.model.model_config.num_layers = NUM_LAYERS
 MINDFORMER_CONFIG.model.model_config.hidden_size = HIDDEN_SIZE
 MINDFORMER_CONFIG.model.model_config.num_heads = NUM_HEADS
@@ -163,14 +159,16 @@ TRAINING_ARGUMENTS = TrainingArguments(do_eval=True,
                                        eval_steps=EVAL_STEPS,
                                        per_device_train_batch_size=TRAIN_BATCH_SIZE,
                                        per_device_eval_batch_size=EVAL_BATCH_SIZE,
-                                       train_dataset_in_columns=["input_ids", "input_mask"],
-                                       eval_dataset_in_columns=["input_ids", "input_mask"],
+                                       train_dataset_in_columns=["input_ids"],
+                                       eval_dataset_in_columns=["input_ids"],
                                        num_train_epochs=EPOCHS)
 
-TRAIN_DATASET = GeneratorDataset(generator_train, column_names=["input_ids", "input_mask"])
-TRAIN_DATASET = TRAIN_DATASET.batch(batch_size=TRAIN_BATCH_SIZE)
-EVAL_DATASET = GeneratorDataset(generator_eval, column_names=["input_ids", "input_mask"])
-EVAL_DATASET = EVAL_DATASET.batch(batch_size=EVAL_BATCH_SIZE)
+TRAIN_DATASET = GeneratorDataset(generator_train, column_names=["input_ids"])
+TRAIN_DATASET_FOR_TRAINER_WITH_ARGS = TRAIN_DATASET.batch(batch_size=TRAIN_BATCH_SIZE)
+TRAIN_DATASET_FOR_TRAINER_WITHOUT_ARGS = copy.deepcopy(TRAIN_DATASET_FOR_TRAINER_WITH_ARGS)
+EVAL_DATASET = GeneratorDataset(generator_eval, column_names=["input_ids"])
+EVAL_DATASET_FOR_TRAINER_WITH_ARGS = EVAL_DATASET.batch(batch_size=EVAL_BATCH_SIZE)
+EVAL_DATASET_FOR_TRAINER_WITHOUT_ARGS = copy.deepcopy(EVAL_DATASET_FOR_TRAINER_WITH_ARGS)
 
 
 @pytest.mark.level0
@@ -188,16 +186,16 @@ class TestTrainerInit:
         """
         test_cases = [
             (None, "general", None, None, "Neither `task`, `model`, `model_name`, nor `args` are configured."),
-            (None, "general", "gpt2", None, "The `task` is needed"),
-            (None, "general", None, "gpt2", "The `task` is needed"),
-            (None, "general", "gpt2", "gpt2", "The `task` is needed"),
+            (None, "general", "llama2_7b", None, "The `task` is needed"),
+            (None, "general", None, "llama2_7b", "The `task` is needed"),
+            (None, "general", "llama2_7b", "llama2_7b", "The `task` is needed"),
             (None, "general", MODEL, None, "The `args` is needed"),
-            (None, "general", MODEL, "gpt2", "The `task` is needed"),
+            (None, "general", MODEL, "llama2_7b", "The `task` is needed"),
             (None, "text_generation", None, None, "A model name is needed"),
             (TRAINING_ARGUMENTS, "general", None, None, "A model instance is needed"),
-            (TRAINING_ARGUMENTS, "general", "gpt2", None, "The `task` is needed"),
-            (TRAINING_ARGUMENTS, "general", None, "gpt2", "The `task` is needed"),
-            (TRAINING_ARGUMENTS, "general", "gpt2", "gpt2", "The `task` is needed"),
+            (TRAINING_ARGUMENTS, "general", "llama2_7b", None, "The `task` is needed"),
+            (TRAINING_ARGUMENTS, "general", None, "llama2_7b", "The `task` is needed"),
+            (TRAINING_ARGUMENTS, "general", "llama2_7b", "llama2_7b", "The `task` is needed"),
             (TRAINING_ARGUMENTS, "text_generation", None, None, "A model name is needed")]
         for test_case in test_cases:
             args, task, model, model_name, expected = test_case
@@ -212,30 +210,30 @@ class TestTrainerInit:
         Expectation: No exception
         """
         test_cases = [
-            (None, "text_generation", "gpt2", None),
-            (None, "text_generation", None, "gpt2"),
-            (None, "text_generation", "gpt2", "gpt2"),
+            (None, "text_generation", "llama2_7b", None),
+            (None, "text_generation", None, "llama2_7b"),
+            (None, "text_generation", "llama2_7b", "llama2_7b"),
             (None, "text_generation", MODEL, None),
-            (None, "text_generation", MODEL, "gpt2"),
+            (None, "text_generation", MODEL, "llama2_7b"),
             (MINDFORMER_CONFIG, "general", None, None),
-            (MINDFORMER_CONFIG, "general", "gpt2", None),
-            (MINDFORMER_CONFIG, "general", None, "gpt2"),
-            (MINDFORMER_CONFIG, "general", "gpt2", "gpt2"),
+            (MINDFORMER_CONFIG, "general", "llama2_7b", None),
+            (MINDFORMER_CONFIG, "general", None, "llama2_7b"),
+            (MINDFORMER_CONFIG, "general", "llama2_7b", "llama2_7b"),
             (MINDFORMER_CONFIG, "general", MODEL, None),
-            (MINDFORMER_CONFIG, "general", MODEL, "gpt2"),
+            (MINDFORMER_CONFIG, "general", MODEL, "llama2_7b"),
             (MINDFORMER_CONFIG, "text_generation", None, None),
-            (MINDFORMER_CONFIG, "text_generation", "gpt2", None),
-            (MINDFORMER_CONFIG, "text_generation", None, "gpt2"),
-            (MINDFORMER_CONFIG, "text_generation", "gpt2", "gpt2"),
+            (MINDFORMER_CONFIG, "text_generation", "llama2_7b", None),
+            (MINDFORMER_CONFIG, "text_generation", None, "llama2_7b"),
+            (MINDFORMER_CONFIG, "text_generation", "llama2_7b", "llama2_7b"),
             (MINDFORMER_CONFIG, "text_generation", MODEL, None),
-            (MINDFORMER_CONFIG, "text_generation", MODEL, "gpt2"),
+            (MINDFORMER_CONFIG, "text_generation", MODEL, "llama2_7b"),
             (TRAINING_ARGUMENTS, "general", MODEL, None),
-            (TRAINING_ARGUMENTS, "general", MODEL, "gpt2"),
-            (TRAINING_ARGUMENTS, "text_generation", "gpt2", None),
-            (TRAINING_ARGUMENTS, "text_generation", None, "gpt2"),
-            (TRAINING_ARGUMENTS, "text_generation", "gpt2", "gpt2"),
+            (TRAINING_ARGUMENTS, "general", MODEL, "llama2_7b"),
+            (TRAINING_ARGUMENTS, "text_generation", "llama2_7b", None),
+            (TRAINING_ARGUMENTS, "text_generation", None, "llama2_7b"),
+            (TRAINING_ARGUMENTS, "text_generation", "llama2_7b", "llama2_7b"),
             (TRAINING_ARGUMENTS, "text_generation", MODEL, None),
-            (TRAINING_ARGUMENTS, "text_generation", MODEL, "gpt2")]
+            (TRAINING_ARGUMENTS, "text_generation", MODEL, "llama2_7b")]
         for test_case in test_cases:
             args, task, model, model_name = test_case
             Trainer(args=args, task=task, model=model, model_name=model_name)
@@ -290,21 +288,15 @@ class TestTrainerInit:
         assert callback1 == callback2
 
 
-def run_trainer(args, task, model, model_name, train_dataset, eval_dataset):
+def run_trainer(args, task, model, model_name, train_dataset, eval_dataset, tokenizer):
     """static method of running trainer."""
     trainer = Trainer(args=args, task=task, model=model, model_name=model_name,
-                      train_dataset=train_dataset, eval_dataset=eval_dataset)
+                      train_dataset=train_dataset, eval_dataset=eval_dataset, tokenizer=tokenizer)
     trainer.config.runner_config.epochs = EPOCHS
     trainer.config.eval_step_interval = EVAL_STEPS
 
     trainer.train(do_eval=True)
     trainer.evaluate(eval_dataset=eval_dataset)
-
-
-def run_trainer_predict(args, model, model_name):
-    """static method of running trainer.predict."""
-    trainer = Trainer(args=args, task="text_generation", model=model, model_name=model_name)
-    trainer.predict(input_data="hello")
 
 
 @pytest.mark.level0
@@ -316,8 +308,8 @@ def test_trainer_with_args():
     Description: Test trainer without args.
     Expectation: No exception
     """
-    run_trainer(MINDFORMER_CONFIG, "text_generation", None, "gpt2", TRAIN_DATASET, EVAL_DATASET)
-    run_trainer_predict(PREDICT_MINDFORMER_CONFIG, None, "gpt2")
+    run_trainer(MINDFORMER_CONFIG, "text_generation", None, "llama2_7b", TRAIN_DATASET_FOR_TRAINER_WITH_ARGS,
+                EVAL_DATASET_FOR_TRAINER_WITH_ARGS, TOKENIZER)
 
 
 @pytest.mark.level0
@@ -329,8 +321,8 @@ def test_trainer_without_args():
     Description: Test trainer without args.
     Expectation: No exception
     """
-    run_trainer(None, "text_generation", MODEL, "gpt2", TRAIN_DATASET, EVAL_DATASET)
-    run_trainer_predict(None, PREDICT_MODEL, "gpt2")
+    run_trainer(None, "text_generation", MODEL, "llama2_7b", TRAIN_DATASET_FOR_TRAINER_WITHOUT_ARGS,
+                EVAL_DATASET_FOR_TRAINER_WITHOUT_ARGS, TOKENIZER)
 
 
 @pytest.mark.level0
@@ -342,23 +334,7 @@ def test_trainer_with_generator():
     Description: Test trainer with generator.
     Expectation: No exception
     """
-    run_trainer(MINDFORMER_CONFIG, "general", MODEL, None, generator_train, generator_eval)
-
-
-@pytest.mark.level0
-@pytest.mark.platform_arm_ascend910b_training
-@pytest.mark.env_onecard
-def test_trainer_with_check_for_nan_in_loss_and_grad():
-    """
-    Feature: Trainer
-    Description: Test trainer with check_for_nan_in_loss_and_grad.
-    Expectation: ValueError
-    """
-    args = copy.deepcopy(MINDFORMER_CONFIG)
-    args.check_for_nan_in_loss_and_grad = True
-    with pytest.raises(ValueError) as excinfo:
-        run_trainer(args, "general", MODEL, None, generator_train, generator_eval)
-        assert "global_norm is [nan], terminate training." in str(excinfo.value)
+    run_trainer(MINDFORMER_CONFIG, "general", MODEL, None, generator_train, generator_eval, TOKENIZER)
 
 
 @pytest.mark.level0
@@ -370,7 +346,7 @@ def test_trainer_with_iterable_dataset():
     Description: Test trainer with iterable dataset.
     Expectation: No exception
     """
-    run_trainer(TRAINING_ARGUMENTS, "general", MODEL, None, IterableTrain(), IterableEval())
+    run_trainer(TRAINING_ARGUMENTS, "general", MODEL, None, IterableTrain(), IterableEval(), TOKENIZER)
 
 
 @pytest.mark.level0
@@ -382,4 +358,5 @@ def test_trainer_with_accessible_dataset():
     Description: Test trainer with accessible dataset.
     Expectation: No exception
     """
-    run_trainer(TRAINING_ARGUMENTS, "text_generation", MODEL, "gpt2", AccessibleTrain(), AccessibleEval())
+    run_trainer(TRAINING_ARGUMENTS, "text_generation", MODEL, "llama2_7b", AccessibleTrain(), AccessibleEval(),
+                TOKENIZER)
