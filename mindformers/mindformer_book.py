@@ -253,8 +253,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm3/run_glm3_6b.yaml")),
             ("glm4_9b", os.path.join(
                 _PROJECT_PATH, "configs/glm4/predict_glm4_9b_chat.yaml")),
-            ("codegeex2_6b", os.path.join(
-                _PROJECT_PATH, "configs/codegeex2/run_codegeex2_6b.yaml")),
             ("baichuan_7b", os.path.join(
                 _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
             ("baichuan2_7b", os.path.join(
@@ -432,8 +430,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm3/run_glm3_6b.yaml")),
             ("glm4_9b", os.path.join(
                 _PROJECT_PATH, "configs/glm4/predict_glm4_9b_chat.yaml")),
-            ("codegeex2_6b", os.path.join(
-                _PROJECT_PATH, "configs/codegeex2/run_codegeex2_6b.yaml")),
             ("baichuan_7b", os.path.join(
                 _PROJECT_PATH, "research/baichuan/run_baichuan_7b.yaml")),
             ("baichuan2_7b", os.path.join(
@@ -578,9 +574,6 @@ class MindFormerBook:
         ('glm4', [
             'glm4_9b',
         ]),
-        ('codegeex2', [
-            'codegeex2_6b',
-        ]),
         ('sam', [
             'sam_vit_b',
             'sam_vit_l',
@@ -711,9 +704,6 @@ class MindFormerBook:
         ]),
         ('glm4', [
             'glm4_9b',
-        ]),
-        ('codegeex2', [
-            'codegeex2_6b',
         ]),
         ('internlm', [
             'internlm_7b',
@@ -892,9 +882,6 @@ class MindFormerBook:
         ('glm4', [
             'glm4_9b',
         ]),
-        ('codegeex2', [
-            'codegeex2_6b'
-        ]),
         ('internlm', [
             'internlm_7b',
             'internlm_7b_lora',
@@ -1070,10 +1057,6 @@ class MindFormerBook:
         ('glm_6b_lora_chat',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm/glm_6b_lora.ckpt'
-          ]),
-        ('codegeex2_6b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/codegeex2/codegeex2_6b.ckpt'
           ]),
         ('llama_7b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -1311,10 +1294,6 @@ class MindFormerBook:
         ('glm3_6b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm3/tokenizer.model'
-          ]),
-        ('codegeex2_6b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/codegeex2/tokenizer.model'
           ]),
         ('llama_7b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'

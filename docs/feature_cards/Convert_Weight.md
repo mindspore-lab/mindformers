@@ -29,7 +29,6 @@ ConvertWeight支持对torch权重和mindspore权重的格式互转
 | swin        | swin                     |
 | knowlm      | knowlm                   |
 | telechat    | telechat_7b、telechat_12b |
-| codegeex2   | codegeex2                |
 | deepseek    | deepseek、deepseek1_5     |
 
 ## 使用方式
