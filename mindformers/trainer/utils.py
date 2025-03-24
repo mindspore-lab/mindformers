@@ -40,6 +40,7 @@ from mindformers.tools.utils import (
 from mindformers.tools.ckpt_transform import TransformCkpt
 from mindformers.models.base_model import BaseModel
 from mindformers.models.modeling_utils import PreTrainedModel
+from mindformers.version_control import need_nz
 
 
 class BaseEnum(str, Enum):
@@ -542,6 +543,8 @@ def load_slora_ckpt(checkpoint_dict, config, network):
         for lora_params, lora_config in zip(adapter_list, config_list):
             if param_name in lora_params.keys():
                 lora_param = lora_params[param_name]
+                if re.match('.*lora_a.*', param_name) and need_nz():
+                    lora_param = ops.transpose(lora_param, (1, 0))
                 if re.match('.*lora_b.*', param_name):
                     # transpose lora_B shape from (n, r) to (r, n)
                     lora_param = ops.transpose(lora_param, (1, 0))
