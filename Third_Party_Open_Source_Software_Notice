@@ -4540,7 +4540,7 @@ Copyright (c) 2010-2020 Benjamin Peterson
 License: MIT License
 Please see above.
 
-Software: tokenizers 0.15.0
+Software: tokenizers 0.20.0
 Copyright notice:
 No copyright notice found in source files of this software
 
@@ -4769,13 +4769,92 @@ Copyright (c) 2022-2023 NLTK Project
 License: Apache License V2.0
 Please see above.
 
-Software: pyarrow 12.0.1
+Software: pyarrow 19.0.0
 Copyright notice:
-Copyright 2012-2014 Continuum Analytics, Inc.
-Copyright 2012 Continuum Analytics, Inc.
-Copyright 2012 Cloudera Inc.
-Copyright 2011 Kitware, Inc.
-Copyright 2001-2009 Kitware, Inc.
+Copyright (c) 2013 The Chromium Authors. All rights reserved
+Copyright: 2013 Daniel Lemire
+Copyright 2015 The TensorFlow Authors. All Rights Reserved
+Copyright (c) 2005-2017, NumPy Developers. All rights reserved
+Copyright 2014 Google Inc
+Copyright 2015 Microsoft Corporation. All rights reserved
+Copyright (C) 2002-2017 Jason Evans <jasone@canonware.com>. All rights reserved
+Copyright (C) 2007-2012 Mozilla Foundation.  All rights reserved
+Copyright (C) 2009-2017 Facebook, Inc.  All rights reserved
+Copyright (c) 2009 The Go Authors. All rights reserved
+Copyright 2016 Cloudera Inc
+Copyright (c) 2016 Giles Hall
+Copyright (c) 2017, Jeroen Ooms and Jim Hester
+Copyright (c) 2016 Ray Project (https://github.com/ray-project/ray)
+Copyright (c) 2015, 2016, 2017 Howard Hinnant
+Copyright (c) 2016 Adrian Colomitchi
+Copyright (c) 2017 Florian Dang
+Copyright (c) 2017 Paul Thompson
+Copyright (c) 2018 Tomasz Kamiński
+Copyright (c) 2008-2009 Bjoern Hoehrmann <bjoern@hoehrmann.de>
+Copyright (c) 2012-2014, Yann Collet All rights reserved
+Copyright 2006-2011, the V8 project authors. All rights reserved
+Copyright (C) 2007, Weijia Song <songweijia@gmail.com>
+Copyright (C) 2007, Sebastian Pipping <sebastian@pipping.org> All rights reserved.
+Copyright (c) 2015-2018, conda-forge All rights reserved
+Copyright 2006-2018 Nemanja Trifunovic
+Copyright: 2016 The Apache Software Foundation.
+Copyright: 2012 Cloudera, Inc.
+Copyright: 2016 The Apache Software Foundation
+Copyright: 2016 The Apache Software Foundation
+Copyright: 2009 Google Inc. All rights reserved
+Copyright: 2009 Google Inc. All rights reserved
+Copyright: 2016 manylinux
+Copyright (c) 2019 Omer Ozarslan
+Copyright 2019 RStudio, Inc
+Copyright (c) 2009 - 2013 by the mingw-w64 project
+Copyright (c)  Copyright 2017 Asylo authors
+Copyright 2008 Google Inc.  All rights reserved.
+Copyright 2014 gRPC authors.
+Copyright (C) 2006 - 2019, The Apache Software Foundation
+Copyright 2013-2019 The Apache Software Foundation
+(c) Copyright [2014-2015] Hewlett-Packard Development Company, L.P
+Copyright (c) 2016-present, Facebook, Inc. All rights reserved.
+Copyright (c) 2011-2016, Yann Collet
+Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors
+Copyright (C) 2015 THL A29 Limited, a Tencent company, and Milo Yip. All rights reserved
+Copyright 2011, Google Inc. All rights reserved
+Copyright (c) 2006, Google Inc. All rights reserved
+Copyright (c) 2008, Google Inc. All rights reserved
+Copyright (c) 2003-2008, Jouni Malinen <j@w1.fi> and contributors All Rights Reserved
+Copyright (c) 2009 The RE2 Authors. All rights reserved
+Copyright (c) 2007 - 2018, Daniel Stenberg with many contributors, see AUTHORS file
+Copyright 1998 by the Massachusetts Institute of Technology
+Copyright (C) 1995-2017 Jean-loup Gailly and Mark Adler
+Copyright (c) 1998-2019 The OpenSSL Project.  All rights reserved
+Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
+Copyright: Copyright (c) 2013 - 2019, Алексей and Jeroen Ooms All rights reserved
+Copyright (c) 2011-2012, Lambda Foundry, Inc. and PyData Development Team All rights reserved
+Copyright (c) 2008-2011 AQR Capital Management, LLC All rights reserved.
+Copyright (C) 2011-12, Dynamic NDArray Developers All rights reserved
+Copyright (c) 2009-present, Homebrew contributors All rights reserved
+Copyright (C) 2004-2017 René Nyffenegger
+Copyright: Copyright (c) Facebook, Inc. and its affiliates
+Copyright © 2005-2020 Rich Felker, et al
+Copyright (c) 2019 Cristian Adam
+Copyright 2014-2019 Melissa O'Neill <oneill@pcg-random.org>, and the PCG Project contributors.
+Copyright (c) 2013-2019 RStudio and others.
+Copyright The OpenTelemetry Authors
+Copyright (c) 2019 Conan.io
+Copyright (c) 2014-2015      UT-Battelle, LLC. All rights reserved.
+Copyright (C) 2014-2020      Mellanox Technologies Ltd. All rights reserved.
+Copyright (C) 2014-2015      The University of Houston System. All rights reserved.
+Copyright (C) 2015           The University of Tennessee and The University of Tennessee Research Foundation. All rights reserved.
+Copyright (C) 2016-2020      ARM Ltd. All rights reserved.
+Copyright (c) 2016           Los Alamos National Security, LLC. All rights reserved.
+Copyright (C) 2016-2020      Advanced Micro Devices, Inc.  All rights reserved.
+Copyright (C) 2019           UChicago Argonne, LLC.  All rights reserved.
+Copyright (c) 2018-2020      NVIDIA CORPORATION. All rights reserved.
+Copyright (C) 2020           Huawei Technologies Co., Ltd. All rights reserved.
+Copyright (C) 2016-2020      Stony Brook University. All rights reserved.
+Copyright (c) 2020 Joshua Piper
+Copyright (c) 2019-2022 Contention
+Copyright (c) 2019-2022 Burnett01
+
 
 License: Apache License V2.0
 Please see above.

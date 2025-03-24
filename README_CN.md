@@ -86,7 +86,7 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 
 当前支持的硬件为[Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2)训练服务器。
 
-当前套件建议使用的Python版本为3.10。
+当前套件建议使用的Python版本为3.11.4。
 
 | MindFormers | MindSpore | CANN | 固件与驱动 | 镜像链接 |
 |:-----------:|:---------:|:----:|:-----:|:----:|
@@ -113,7 +113,7 @@ bash build.sh
 
 MindFormers支持模型启动预训练、微调、推理、评测等功能，可点击[支持模型](#支持模型)中模型名称查看文档完成上述任务，以下为模型分布式启动方式的说明与示例。
 
-MindFormers推荐使用分布式方式拉起模型训练、推理等功能，目前提供`scripts/msrun_launcher.sh`分布式启动脚本作为模型的主要启动方式，`msrun`特性说明可以参考[msrun启动](https://www.mindspore.cn/docs/zh-CN/master/model_train/parallel/msrun_launcher.html)。
+MindFormers推荐使用分布式方式拉起模型训练、推理等功能，目前提供`scripts/msrun_launcher.sh`分布式启动脚本作为模型的主要启动方式，`msrun`特性说明可以参考[msrun启动](https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html)。
 该脚本主要输入参数说明如下：
 
   | **参数**           | **单机是否必选** | **多机是否必选** |     **默认值**      | **说明**           |
