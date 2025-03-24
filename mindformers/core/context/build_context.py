@@ -62,7 +62,6 @@ class Context:
             if check_tft_valid() and ("ARF:1" in os.getenv("MS_ENABLE_TFT", "")):
                 from mindspore.utils import _tft_handler
                 _tft_handler.init(config=self.config)
-                logger.warning(f"------------------init tft handler ok----------------------")
             if self.config.use_parallel:
                 self.rank_id, self.device_num = (
                     self.parallel_opr.init_communication()
@@ -459,33 +458,6 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
     return ctx
 
 
-def build_mf_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
-    """
-    Build the mindformer context from config.
-
-    Note:
-        parameter config must contain keys: 'context', 'parallel',
-        when config is dict.
-
-    Args:
-        config (Union[dict, MindFormerConfig, TrainingArguments]):
-            The configuration to initialize the context.
-            This can be a dictionary, a MindFormerConfig instance,
-            or a TrainingArguments instance.
-
-    Returns:
-        Mindformer context instance, The instantiated context.
-    """
-    if isinstance(config, TrainingArguments):
-        config = config.convert_args_to_mindformers_config()
-
-    config['parallel_config'] = config.get('parallel_config', {})
-    mf_config = MindFormerConfig(**config)
-
-    execute_validator(mf_config)
-    return MFContextOperator(mf_config)
-
-
 def set_context(run_mode=None, **kwargs):
     """
     Set context for running environment.
@@ -524,6 +496,8 @@ def set_context(run_mode=None, **kwargs):
         Key environment variables: HCCL_DETERMINISTIC: true, TE_PARALLEL_COMPILER: 1,
         CUSTOM_MATMUL_SHUFFLE: off, LCCL_DETERMINISTIC: 1
     """
+    if not Context.is_exists():
+        raise RuntimeError("Build a Context instance before set_context().")
     ctx = Context()
     ctx.set_mf_ctx_run_mode(run_mode)
 
@@ -576,7 +550,37 @@ def get_context(attr_key):
         >>> build_context(config=config)
         >>> get_context('max_device_memory')
     """
+    if not Context.is_exists():
+        raise RuntimeError("Build a Context instance before get_context().")
     ctx = Context()
+
     if attr_key in MFContextConfig.get_supported_kwargs():
         return getattr(ctx.mf_ctx_opr, attr_key, None)
     return ctx.ms_ctx_opr.get_context(attr_key)
+
+
+def build_mf_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
+    """
+    Build the mindformer context from config.
+
+    Note:
+        parameter config must contain keys: 'context', 'parallel',
+        when config is dict.
+
+    Args:
+        config (Union[dict, MindFormerConfig, TrainingArguments]):
+            The configuration to initialize the context.
+            This can be a dictionary, a MindFormerConfig instance,
+            or a TrainingArguments instance.
+
+    Returns:
+        Mindformer context instance, The instantiated context.
+    """
+    if isinstance(config, TrainingArguments):
+        config = config.convert_args_to_mindformers_config()
+
+    config['parallel_config'] = config.get('parallel_config', {})
+    mf_config = MindFormerConfig(**config)
+
+    execute_validator(mf_config)
+    return MFContextOperator(mf_config)
