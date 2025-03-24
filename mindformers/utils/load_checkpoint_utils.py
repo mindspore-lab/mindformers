@@ -54,12 +54,23 @@ class CheckpointFileMode(Enum):
     MULTI_CHECKPOINT_FILE = 'multi_checkpoint_file'
     MULTI_CHECKPOINT_FILE_WITH_RANK_ID = 'multi_checkpoint_file_with_rank_id'
 
+def _get_origin_network(network):
+    """recursive find if cells which have function <convert_name>"""
+    if 'convert_name' in dir(network):
+        return network, True
+    #DFS for network
+    for cell in list(network.cells()):
+        network, find_cell = _get_origin_network(cell)
+        if find_cell:
+            return network, True
+    return network, False
 
 def get_load_path_after_hf_convert(config, network):
     """check if it is hf safetensors and convert"""
     if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
             is_hf_safetensors_dir(config.load_checkpoint, network)):
-        if config.qkv_concat:
+        #'qkv_concat is True' or 'Dpo model' save ms safetensors
+        if config.qkv_concat or config.model.model_config.rl_config is not none:
             logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
             converted_sf_path = process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
             #wait for main rank to convert HF safetensors
@@ -317,12 +328,14 @@ def unify_safetensors(src_checkpoint, src_strategy_path, unified_path, use_paral
 
 def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy_path, load_ckpt_path, optimizer):
     """load checkpoint into net."""
+    origin_network, _ = _get_origin_network(network)
     if config.use_parallel and config.auto_trans_ckpt:
         logger.info("......Start load distributed checkpoint to model......")
         name_map = None
-        if is_hf_safetensors_dir(load_ckpt_path, network) and not config.model.model_config.get("qkv_concat", False):
+        if not config.model.model_config.get("qkv_concat", False) \
+           and is_hf_safetensors_dir(load_ckpt_path, origin_network):
             try:
-                name_map = network.obtain_name_map(load_checkpoint_files)
+                name_map = origin_network.obtain_name_map(load_checkpoint_files)
             except Exception as e:
                 raise TypeError(f"Please complete abstract function obtain_name_map. Details: {e}") from e
             _convert_index_json(load_ckpt_path, load_ckpt_path, network.convert_map_dict, False)
@@ -350,13 +363,10 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
                 ckpt_file_name=checkpoint_file,
                 format=config.load_ckpt_format
             ))
-        if is_hf_safetensors_dir(load_ckpt_path, network) and not config.model.model_config.get("qkv_concat", False):
+        if not config.model.model_config.get("qkv_concat", False) \
+           and is_hf_safetensors_dir(load_ckpt_path, origin_network):
             logger.info("......HuggingFace weights convert name......")
-            params_dict_converted = dict()
-            for k, v in params_dict.items():
-                k = network.convert_name(k)
-                params_dict_converted.update({k: v})
-            params_dict = params_dict_converted
+            params_dict = origin_network.convert_weight_dict(params_dict)
         if optimizer and config.resume_training:
             logger.info("......Start load hyper param into optimizer......")
             update_global_step(config, params_dict)
