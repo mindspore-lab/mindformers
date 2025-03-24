@@ -24,7 +24,6 @@ import mindspore as ms
 from mindspore import context
 from mindspore.communication.comm_func import barrier
 from mindspore.common.api import _pynative_executor
-from mindspore.parallel.transform_safetensors import _collect_safetensor_files
 from mindspore import Parameter
 
 from mindformers.utils.safetensors.convert_safetensors import _convert_index_json
@@ -233,9 +232,13 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
         else:
             logger.info(f"......auto_trans is False, will not unify or slice rank files......")
             _, file_suffix = _get_src_file_suffix(config)
-            all_safetensor_files_map = _collect_safetensor_files(load_checkpoint, file_suffix=file_suffix)
             rank_id = get_real_rank() if get_real_rank() else 0
-            load_checkpoint_files = [all_safetensor_files_map[rank_id]]
+            load_checkpoint_by_rank = os.path.join(load_checkpoint, f"rank_{rank_id}")
+            if file_suffix is None:
+                sf_file_name = os.path.join(load_checkpoint_by_rank, f"*.{config.load_ckpt_format}")
+            else:
+                sf_file_name = os.path.join(load_checkpoint_by_rank, f"*{file_suffix}.{config.load_ckpt_format}")
+            load_checkpoint_files = glob(sf_file_name, recursive=False)
 
         # use resume_training in train/finetune mode
         if config.resume_training:
