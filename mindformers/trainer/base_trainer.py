@@ -731,6 +731,11 @@ class BaseTrainer:
     def _process_megatron_dataset(self, dataset, config):
         """Dataset processing for Megatron Dataset."""
         dataset_info = config.train_dataset.data_loader
+        # check input_slice_sig
+        input_sliced_sig = config.model.model_config.get("input_sliced_sig")
+        if not input_sliced_sig:
+            raise ValueError("When using BlendedMegatronDatasetDataLoader,"
+                             "model.model_config.input_sliced_sig must be set 'True'.")
         # reset dataset size to remove redundant data
         ori_ds = dataset.get_dataset_size()
         dataset.dataset_size = int(dataset_info.sizes[0]) // self.global_batch_size
