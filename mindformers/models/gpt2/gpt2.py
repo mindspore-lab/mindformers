@@ -83,7 +83,7 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
                             parallel_config=self.config.parallel_config)
         if parallel_config.pipeline_stage > 1:
             self.head.pipeline_stage = parallel_config.pipeline_stage - 1
-            self.backbone.embedding.word_embedding.embedding_table.add_pipeline_stage(self.head.pipeline_stage)
+            self.backbone.embedding.pipeline_stage = self.head.pipeline_stage
 
         mp = config.parallel_config.model_parallel
         vocab_size = config.vocab_size
@@ -234,7 +234,7 @@ class GPT2ForSequenceClassification(GPT2PreTrainedModel):
         self.score.shard(strategy_matmul=((dp, 1), (1, 1)))
         if parallel_config.pipeline_stage > 1:
             self.head.pipeline_stage = parallel_config.pipeline_stage - 1
-            self.backbone.embedding.word_embedding.embedding_table.add_pipeline_stage(self.head.pipeline_stage)
+            self.backbone.embedding.pipeline_stage = self.head.pipeline_stage
 
         vocab_size = self.config.vocab_size
         loss_parallel_config = copy.deepcopy(parallel_config)
