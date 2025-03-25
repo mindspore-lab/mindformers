@@ -149,7 +149,8 @@ class LlamaModel(LlamaPreTrainedModel):
         if self.residual_cast_flag:
             logger.info(f"residual in llama model cast flag: {self.residual_cast_flag}, "
                         f"residual dtype: {config.residual_dtype}")
-        self.freqs_mgr.shard(config.parallel_config)
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
+            self.freqs_mgr.shard(config.parallel_config)
         total_batch_size_in_dp = config.batch_size * config.parallel_config.data_parallel
         use_attn_mask_compression = config.use_attn_mask_compression or config.use_eod_attn_mask_compression
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
@@ -281,7 +282,7 @@ class LlamaModel(LlamaPreTrainedModel):
                 self.norm_out.shard((dp * cp, 1))
             else:
                 self.norm_out.shard((dp, cp, 1))
-        else:
+        elif _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
             self.tok_embeddings.shard(config.parallel_config)
             self.casual_mask.shard(config.parallel_config)
             self.concat.shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
@@ -535,7 +536,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
             else:
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (mp, 1)))
-        else:
+        elif _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
             self.slice.shard(((dp, 1),))
             self.not_equal.shard(((dp, 1), ()))
             self.mul.shard(((dp, 1), (dp, 1)))

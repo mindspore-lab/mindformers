@@ -20,6 +20,7 @@ import re
 from typing import Union
 
 from mindspore._checkparam import args_type_check
+from mindspore.parallel._utils import _is_in_auto_parallel_mode
 from mindspore import nn
 from mindpet.delta.lora import LoRADense
 
@@ -105,7 +106,8 @@ def recursive_replace_dense_cell(net, config):
                     dest_cell.bias_add = cell.bias_add
 
                 # Shard strategies now only support loaded by linear layers.
-                if isinstance(cell, (Linear, ColumnParallelLinear, RowParallelLinear)):
+                if (isinstance(cell, (Linear, ColumnParallelLinear, RowParallelLinear))
+                        and _is_in_auto_parallel_mode()):
                     strategy_matmul = cell.matmul.in_strategy
 
                     dest_cell.lora_dropout.dropout.shard((strategy_matmul[0],))
