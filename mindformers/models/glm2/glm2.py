@@ -370,11 +370,15 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
 
     def set_dynamic_inputs(self, **kwargs):
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
-        dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
-        dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
-        dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
-        self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
-                        dynamic_batch_valid_length, None, dynamic_block_tables, dynamic_slot_mapping, None, None, None)
+        if self.use_past:
+            dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
+            dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
+            dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
+            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None, dynamic_batch_valid_length,
+                            None, dynamic_block_tables, dynamic_slot_mapping, None, None, None)
+        else:
+            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
+                            None, None, None, None, None, None, None)
         logger.info("Set dynamic input for glm.")
 
     def add_flags_custom(self, is_first_iteration):
