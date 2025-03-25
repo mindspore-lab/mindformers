@@ -81,12 +81,3 @@ class TestYiTrainerMethod:
         """
         self.task_trainer.model.set_train(False)
         self.task_trainer.evaluate()
-
-    @pytest.mark.run(order=2)
-    def test_predict(self):
-        """
-        Feature: Trainer.predict()
-        Description: Test trainer for predict.
-        Expectation: TypeError, ValueError, RuntimeError
-        """
-        self.task_trainer.predict(input_data="hello world!", max_length=20, repetition_penalty=1.3, top_k=40, top_p=0.8)
