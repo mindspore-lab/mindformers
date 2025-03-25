@@ -2385,7 +2385,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
         # Passing AddedTokens and not strings to the class
         # to prevent it from casting the string to a different AddedToken
         for key in cls.SPECIAL_TOKENS_ATTRIBUTES & init_kwargs.keys():
-            if added_tokens_map != {} and init_kwargs[key] is not None:
+            if added_tokens_map and init_kwargs[key] is not None:
                 if key != "additional_special_tokens":
                     init_kwargs[key] = added_tokens_map.get(init_kwargs[key], init_kwargs[key])
 
@@ -2401,7 +2401,7 @@ class PreTrainedTokenizerBase(SpecialTokensMixin, PushToHubMixin):
                 "Please check that the provided vocabulary is accessible and not corrupted."
             ) from e
 
-        if added_tokens_decoder != {} and max(list(added_tokens_decoder.keys())[-1], 0) > tokenizer.vocab_size:
+        if added_tokens_decoder and max(list(added_tokens_decoder.keys())[-1], 0) > tokenizer.vocab_size:
             logger.warning(
                 "Special tokens have been added in the vocabulary, make sure the associated word embeddings are"
                 " fine-tuned or trained."

@@ -119,7 +119,8 @@ class ComputeMemory:
                 if stage.nb_layer_rec_[rec] > 0:
                     self.recompute_considered_[rec] = True
 
-    def _compute_memory_parameter_local_(self, stage1: Stage, stage2: Stage) -> float:
+    @staticmethod
+    def _compute_memory_parameter_local_(stage1: Stage, stage2: Stage) -> float:
         """
         Given 2 stages information with the same configuration, and different id,
         Compute the memory_parameter

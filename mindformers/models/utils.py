@@ -303,7 +303,8 @@ class LayerSetting:
             result.append(swap_config)
         return result
 
-    def _create_swap_dict(self, backward_prefetch, layers):
+    @staticmethod
+    def _create_swap_dict(backward_prefetch, layers):
         """Create a dictionary for swap configuration with backward_prefetch and layers."""
         return {'backward_prefetch': backward_prefetch, 'layers': layers}
 
@@ -478,7 +479,8 @@ class LayerSetting:
             return select_recompute
         raise ValueError(f"Illegal input list for select_recompute: {select_recompute}")
 
-    def _format_recompute_list_select_layer_index(self, select_recompute):
+    @staticmethod
+    def _format_recompute_list_select_layer_index(select_recompute):
         """Format recompute inputs into a list when using swap."""
         if isinstance(select_recompute, bool):
             if select_recompute:

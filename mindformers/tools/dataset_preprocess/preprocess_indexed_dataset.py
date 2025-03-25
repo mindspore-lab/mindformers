@@ -48,7 +48,8 @@ class CustomLanguageVars(PunktLanguageVars):
 
 
 class IdentitySplitter:
-    def tokenize(self, *text):
+    @staticmethod
+    def tokenize(*text):
         return text
 
 

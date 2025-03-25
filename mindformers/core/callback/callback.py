@@ -389,7 +389,8 @@ class MFLossMonitor(Callback):
 
         return loss
 
-    def _get_pipeline_group(self):
+    @staticmethod
+    def _get_pipeline_group():
         """
         Calculate the communication group between all pipeline stages
         """
@@ -1953,7 +1954,8 @@ class StressDetectCallBack(Callback):
             self.log_stress_detect_result(detect_ret_list)
 
 
-    def log_stress_detect_result(self, detect_ret_list):
+    @staticmethod
+    def log_stress_detect_result(detect_ret_list):
         """print output information."""
         for ret in detect_ret_list:
             if ret == 0:

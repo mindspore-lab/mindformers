@@ -114,7 +114,8 @@ class MSContextOperator:
         self._set_runtime_kernel_launch_group()
         return self._remove_mf_keys({**ctx, **ms_ctx})
 
-    def _set_runtime_kernel_launch_group(self):
+    @staticmethod
+    def _set_runtime_kernel_launch_group():
         """Set the parameters of kernel_launch_group"""
         kernel_launch_group = {}
         env_kernel_launch_group = os.getenv("EXPERIMENTAL_KERNEL_LAUNCH_GROUP", None)
@@ -134,14 +135,16 @@ class MSContextOperator:
             ctx.pop('device_id', None)
             ms_ctx.pop('device_id', None)
 
-    def _set_save_graphs_path(self, ctx, ms_ctx):
+    @staticmethod
+    def _set_save_graphs_path(ctx, ms_ctx):
         if ctx.get('save_graphs'):
             ms_ctx['save_graphs_path'] = ctx.get(
                 'save_graphs_path',
                 get_output_subpath("debug/graphs_info", append_rank=False)
             )
 
-    def _set_save_dump_path(self, ctx, ms_ctx):
+    @staticmethod
+    def _set_save_dump_path(ctx, ms_ctx):
         if ctx.get('enable_dump'):
             ms_ctx['save_dump_path'] = ctx.get(
                 'save_dump_path',
@@ -185,7 +188,8 @@ class MSContextOperator:
                 "infer_boost": infer_boost
             }
 
-    def _set_runtime_num_threads(self, ctx, ms_ctx):
+    @staticmethod
+    def _set_runtime_num_threads(ctx, ms_ctx):
         ms_version = ms.__version__
         if ctx.get('runtime_num_threads') is None and ms_version < "2.3.0":
             ms_ctx['runtime_num_threads'] = 1
@@ -194,15 +198,18 @@ class MSContextOperator:
                 "and set the default runtime_num_threads to 1.", ms_version
             )
 
-    def _remove_mf_keys(self, ctx_config):
+    @staticmethod
+    def _remove_mf_keys(ctx_config):
         mf_keys = MFContextConfig.get_supported_kwargs()
         return {k: v for k, v in ctx_config.items() if k not in mf_keys}
 
-    def set_context(self, **kwargs):
+    @staticmethod
+    def set_context(**kwargs):
         """Set ms context value according to the input key words."""
         ms_context.set_context(**kwargs)
 
-    def get_context(self, attr_key):
+    @staticmethod
+    def get_context(attr_key):
         """Get ms context attribute value according to the input key."""
         return ms_context.get_context(attr_key)
 
@@ -253,7 +260,8 @@ class MFContextOperator(MFContextConfig):
             if k in MFContextOperator.get_supported_kwargs()
         }
 
-    def _call_ms_deterministic(self, deterministic):
+    @staticmethod
+    def _call_ms_deterministic(deterministic):
         """Call mindspore set_deterministic function and handle result."""
         try:
             ms.set_deterministic(deterministic)

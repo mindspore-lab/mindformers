@@ -466,7 +466,8 @@ class EnglishNumberNormalizer:
 
         return s
 
-    def postprocess(self, s: str):
+    @staticmethod
+    def postprocess(s: str):
         """post process"""
         def combine_cents(m: Match):
             try:

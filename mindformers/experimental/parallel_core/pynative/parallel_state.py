@@ -111,7 +111,8 @@ class CreateCommGroups():
                 self.ordered_size_w_ep.append(self.name_to_size.get(token))
                 self.ordered_size_wo_ep.append(self.name_to_size.get(token))
 
-    def get_mask(self, order, token):
+    @staticmethod
+    def get_mask(order, token):
         ordered_token = order.split('-')
         token = token.split('-')
         mask = [False] * len(ordered_token)
@@ -187,7 +188,8 @@ class CreateCommGroups():
                 position_embedding_group.group = group
                 position_embedding_group.global_ranks = position_embedding_ranks
 
-    def _dispatch_comm_ranks(self, world_size, parallel_size, mask):
+    @staticmethod
+    def _dispatch_comm_ranks(world_size, parallel_size, mask):
         """dispatch comm ranks"""
         def prefix_product(a, init=1):
             r = [init]

@@ -58,7 +58,8 @@ class BaseCheck:
         """
         self.next_check = next_check
 
-    def check(self):
+    @staticmethod
+    def check():
         """The actual checking flow control."""
 
     def _next(self):

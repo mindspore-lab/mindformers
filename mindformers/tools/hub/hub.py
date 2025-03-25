@@ -562,8 +562,8 @@ class PushToHubMixin:
     A Mixin containing the functionality to push a model or tokenizer to the hub.
     """
 
+    @staticmethod
     def _create_repo(
-            self,
             repo_id: str,
             private: Optional[bool] = None,
             token: Optional[Union[bool, str]] = None,
@@ -576,7 +576,8 @@ class PushToHubMixin:
         url = create_repo(repo_id=repo_id, token=token, private=private, exist_ok=True)
         return url.repo_id
 
-    def _get_files_timestamps(self, working_dir: Union[str, os.PathLike]):
+    @staticmethod
+    def _get_files_timestamps(working_dir: Union[str, os.PathLike]):
         """
         Returns the list of files with their last modification timestamp.
         """

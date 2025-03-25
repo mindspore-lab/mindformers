@@ -45,10 +45,12 @@ class TelechatDataset:
             raise ValueError("dataset type error")
         return dataset
 
-    def get_prompt(self, sample):
+    @staticmethod
+    def get_prompt(sample):
         return args.user_token + sample['input'] + args.bot_token
 
-    def get_prompt_and_answer(self, sample):
+    @staticmethod
+    def get_prompt_and_answer(sample):
         return args.user_token + sample['input'] + args.bot_token + sample['output'] + args.end_token
 
 
