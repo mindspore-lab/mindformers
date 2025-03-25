@@ -623,7 +623,8 @@ def _ffn_unresort_with_probs(x, unsort_map, probs, use_fused_ops_permute):
     return x
 
 
-def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, iep, expert_num, a, b, oep_group, iep_group):
+def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, iep, expert_num, a, b, oep_group, iep_group,
+                                  enable_safe_tokens):
     """
     Implements a forward pass functionality without redundecy and  mainly used in processing input data x within
     an expert network (such as MoE, Mixture of Experts) through a series of operations including AllToAll communication,
@@ -651,9 +652,18 @@ def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, iep, exper
 
     hidden_size = x.shape[1]
     chosen_expert_nums = expert_id.shape[1]
+    node_expert_num = b - a
+    if enable_safe_tokens:
+        safe_tokens = ms.ops.zeros((node_expert_num, hidden_size), mstype.bfloat16)
+        x = ops.concat((safe_tokens, x), 0)
+        safe_expert_ids = ms.ops.cumsum(ms.ops.ones((node_expert_num, chosen_expert_nums)), 0)
+        safe_expert_ids = (safe_expert_ids - 1 + a).astype(ms.int32)
+        expert_id = ops.concat((safe_expert_ids, expert_id), 0)
+        safe_router_coeff = ms.ops.zeros((node_expert_num, chosen_expert_nums), mstype.bfloat16)
+        router_coeff = ops.concat((safe_router_coeff, router_coeff), 0)
 
     # prepare counter
-    iepones = [(b - a) // iep for i in range(iep)]
+    iepones = [node_expert_num // iep for i in range(iep)]
     expert_id = ops.AllGather(group=oep_group)(expert_id).reshape(-1, chosen_expert_nums)
     excounter = P.OneHot()(expert_id.reshape(-1), expert_num,
                            Tensor(1, dtype=ms.float32), Tensor(0, dtype=ms.float32))
@@ -719,6 +729,8 @@ def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, iep, exper
 
     # -1 reduce scatter
     x = ops.ReduceScatter(group=oep_group)(x)
+    if enable_safe_tokens:
+        x = x[node_expert_num:]
     return x
 
 
@@ -978,8 +990,8 @@ class FFN(nn.Cell):
         w2 = self.cast(self.w2, dtype)
 
         if self.enable_deredundency:
-            x = self.hook_ffn_forward(x, expert_id, counter, w1, w2, self.iep,
-                                      self.expert_num, self.a, self.b, self.oep_group, self.iep_group)
+            x = self.hook_ffn_forward(x, expert_id, counter, w1, w2, self.iep, self.expert_num,
+                                      self.a, self.b, self.oep_group, self.iep_group, self.enable_gmm_safe_tokens)
         elif self.use_3d_tensor_parallel:
             x = self.hook_ffn_forward(x, expert_id, counter, w1, w2, w3, self.expert_num, self.tp_x_group,
                                       self.tp_y_group, self.tp_z_group, self.use_fused_ops_permute)
