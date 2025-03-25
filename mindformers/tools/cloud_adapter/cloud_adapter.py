@@ -73,7 +73,7 @@ class Local2ObsMonitor(Callback):
         if self.on_modelarts:
             check_obs_url(target_dir)
 
-    def step_end(self, run_context):
+    def on_train_step_end(self, run_context):
         """upload files at the end of step."""
         if not self.on_modelarts:
             return
@@ -84,7 +84,7 @@ class Local2ObsMonitor(Callback):
             self.log.info("Starting upload output file to obs!")
             self.upload()
 
-    def epoch_end(self, run_context):
+    def on_train_epoch_end(self, run_context):
         """upload files at the end of epoch."""
         if not self.on_modelarts:
             return

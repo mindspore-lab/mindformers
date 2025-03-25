@@ -276,7 +276,7 @@ class MFLossMonitor(Callback):
         self.mstx_range_id = None
         self.mstx_enabled = is_version_ge(ms.__version__, '2.5.0') and _check_mspti_is_on()
 
-    def epoch_begin(self, run_context):
+    def on_train_epoch_begin(self, run_context):
         """
         Record time at the beginning of epoch.
 
@@ -287,15 +287,7 @@ class MFLossMonitor(Callback):
         self.epoch_time = time.time()
         self.run_context = run_context
 
-    def epoch_end(self, run_context):
-        """
-        Print training info at the end of epoch.
-
-        Args:
-            run_context (RunContext): Context of the process running.
-        """
-
-    def step_begin(self, run_context):
+    def on_train_step_begin(self, run_context):
         """
         Record time at the beginning of step.
 
@@ -309,7 +301,7 @@ class MFLossMonitor(Callback):
             step_num = cb_params.cur_step_num
             self.mstx_range_id = ms.profiler.mstx.range_start(f'step {step_num}', ms.runtime.current_stream())
 
-    def step_end(self, run_context):
+    def on_train_step_end(self, run_context):
         """
         Print training info at the end of step.
 
@@ -741,7 +733,7 @@ class TrainingStateMonitor(Callback):
                 self.local_norm_pattern = re.compile('([0-9]+)_(local_norm)__(.+)')
                 self.device_local_norm_pattern = re.compile('([0-9]+)_(device_local_norm)')
 
-    def epoch_begin(self, run_context):
+    def on_train_epoch_begin(self, run_context):
         """
         Record time at the beginning of epoch.
 
@@ -751,15 +743,7 @@ class TrainingStateMonitor(Callback):
         self.epoch_time = time.time()
         self.run_context = run_context
 
-    def epoch_end(self, run_context):
-        """
-        Print training info at the end of epoch.
-
-        Args:
-            run_context (RunContext): Context of the process running.
-        """
-
-    def step_begin(self, run_context):
+    def on_train_step_begin(self, run_context):
         """
         Record time at the beginning of step.
 
@@ -776,7 +760,7 @@ class TrainingStateMonitor(Callback):
                 logger.info(param.name)
             self.run_context.request_stop()
 
-    def step_end(self, run_context):
+    def on_train_step_end(self, run_context):
         """
         Print training info at the end of step.
 
@@ -1563,7 +1547,7 @@ class ProfileMonitor(Callback):
             self.run_context = None
             self.output_path = output_path
 
-    def step_begin(self, run_context):
+    def on_train_step_begin(self, run_context):
         """
         Start profile at the beginning of step.
 
@@ -1577,7 +1561,7 @@ class ProfileMonitor(Callback):
         if self.mstx_enabled:
             self.mstx_range_id = ms.profiler.mstx.range_start(f'step {step_num}', ms.runtime.current_stream())
 
-    def step_end(self, run_context):
+    def on_train_step_end(self, run_context):
         """
         Stop profile at the end of step.
 
@@ -1684,7 +1668,7 @@ class EvalCallBack(Callback):
         self.step_interval = step_interval
         self.epoch_interval = epoch_interval
 
-    def epoch_end(self, run_context):
+    def on_eval_epoch_end(self, run_context):
         # if not use epoch end
         if self.epoch_interval <= 0:
             return
@@ -1693,7 +1677,7 @@ class EvalCallBack(Callback):
         if cur_epoch_num % self.epoch_interval == 0:
             self._execute_eval()
 
-    def step_end(self, run_context):
+    def on_eval_step_end(self, run_context):
         # if not use step end
         if self.step_interval <= 0:
             return
@@ -1901,7 +1885,7 @@ class TrainCallBack(Callback):
     def __init__(self, stop_step: int = None):
         self.stop_step = stop_step
 
-    def step_end(self, run_context):
+    def on_train_step_end(self, run_context):
         """
         Print training info at the end of epoch.
 
@@ -1945,7 +1929,7 @@ class StressDetectCallBack(Callback):
                            f"steps_per_epoch = {self.steps_per_epoch}")
 
 
-    def step_end(self, run_context):
+    def on_train_step_end(self, run_context):
         """
         Stress detect at the end of step.
 
@@ -2049,7 +2033,7 @@ class TopkBiasBalanceCallback(Callback):
                         self.assign(network.model.layers[i].feed_forward.routed_experts.topk_bias, topk_bias_new)
                         self.assign(network.model.layers[i].feed_forward.routed_experts.expert_load, self.zeros_tensor)
 
-    def step_end(self, run_context):
+    def on_train_step_end(self, run_context):
         cb_params = run_context.original_args()
         if self.update_topk_bias_flag:
             # pylint: disable=W0212
@@ -2099,7 +2083,7 @@ class MoEDropRateCallback(Callback):
                         droprate = ms.ops.sum(delta * (delta > 0))
                         logger.info("layer: %d, drop_rate: %.5f" % (i, droprate))
 
-    def step_end(self, run_context):
+    def on_train_step_end(self, run_context):
         cb_params = run_context.original_args()
         # pylint: disable=W0212
         self._callback_droprate(cb_params.train_network.network.network._backbone)
