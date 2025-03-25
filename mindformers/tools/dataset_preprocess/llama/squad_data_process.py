@@ -73,7 +73,10 @@ def main():
             query = paragraph["qas"][0]["question"]
             answer = paragraph["qas"][0]["answers"][0]["text"]
 
-            input_str = f"Read the passage and answer the question below.\n\n### Instruction:\n{passage}\n\n### Input:\n{query}\n\n### Response:"
+            input_str = ("Read the passage and answer the question below.\n\n"
+                         f"### Instruction:\n{passage}\n\n"
+                         f"### Input:\n{query}\n\n"
+                         "### Response:")
             sources.append(input_str)
             targets.append(answer)
 

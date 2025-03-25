@@ -28,7 +28,8 @@ from mindspore import Parameter
 
 from mindformers.utils.safetensors.convert_safetensors import _convert_index_json
 from mindformers.tools.logger import logger
-from mindformers.tools.utils import is_main_rank, get_epoch_and_step_from_ckpt_name, get_real_rank, clear_auto_trans_output
+from mindformers.tools.utils import (is_main_rank, get_epoch_and_step_from_ckpt_name,
+                                     get_real_rank, clear_auto_trans_output)
 from mindformers.utils import convert_hf_safetensors_multiprocess, check_safetensors_key, is_hf_safetensors_dir
 
 

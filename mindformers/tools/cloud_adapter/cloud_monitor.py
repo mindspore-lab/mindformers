@@ -20,7 +20,7 @@ import traceback
 from mindformers.tools.logger import logger
 
 from .cloud_adapter import mox_adapter
-from ..utils import DEBUG_INFO_PATH, PROFILE_INFO_PATH, PLOG_PATH, LAST_TRANSFORM_LOCK_PATH,\
+from ..utils import DEBUG_INFO_PATH, PROFILE_INFO_PATH, PLOG_PATH, LAST_TRANSFORM_LOCK_PATH, \
     get_output_root_path, get_remote_save_url, get_real_rank
 
 

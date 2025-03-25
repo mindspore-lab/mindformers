@@ -46,8 +46,6 @@ class VocabParallelCrossEntropy(nn.Cell):
 
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
-            Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> from mindspore import dtype as mstype
@@ -183,7 +181,7 @@ class VocabParallelCrossEntropy(nn.Cell):
     # pylint: disable=W0613, C0111
     def bprop(self, *args):
         grad_output = args[-1]
-        softmax, target_mask, masked_target_1d = self.saved_tensors[0].pop(0),\
+        softmax, target_mask, masked_target_1d = self.saved_tensors[0].pop(0), \
             self.saved_tensors[1].pop(0), self.saved_tensors[2].pop(0)
 
         (

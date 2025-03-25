@@ -162,11 +162,12 @@ class MFCheck(BaseCheck):
             self._train(jit_level='O1')
 
         # pylint: disable=W0702
-        except:
+        except Exception as e:
             self._error(error_flag='Pretrain')
             version_checker = VersionCheck(self.start, error_flag='Pretrain')
             version_checker.check()
-            raise RuntimeError("The run check failed, please see more information above.")
+            raise RuntimeError("The run check failed, please see more information above. "
+                               "Exception is {}".format(e))
 
         else:
             self._success(test='Pretrain')

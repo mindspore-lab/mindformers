@@ -35,7 +35,8 @@ SESSION_ID = uuid4().hex
 OPENMIND_DYNAMIC_MODULE_NAME = "openmind_modules"
 _is_offline_mode = os.environ.get("TRANSFORMERS_OFFLINE", "0").upper() in ENV_VARS_TRUE_VALUES
 _staging_mode = os.environ.get("OPENMIND_CO_STAGING", "NO").upper() in ENV_VARS_TRUE_VALUES
-_default_endpoint = "https://hub-ci.openmind.cn" if _staging_mode else "https://openmind.cn"  # confirm real default endpoint address
+# confirm real default endpoint address
+_default_endpoint = "https://hub-ci.openmind.cn" if _staging_mode else "https://openmind.cn"
 OPENMIND_CO_RESOLVE_ENDPOINT = os.environ.get("MDS_ENDPOINT", _default_endpoint)
 
 

@@ -30,11 +30,13 @@ import mindspore.common.dtype as mstype
 
 from mindspore.ops import operations as P
 from mindspore.ops import functional as F
-from mindspore.ops.operations import Shape, Sort, Mod, Gather, CumSum, ReduceSum, ReduceMean, AssignAdd, StridedSlice, OneHot
+from mindspore.ops.operations import (Shape, Sort, Mod, Gather, CumSum,
+                                      ReduceSum, ReduceMean, AssignAdd, StridedSlice, OneHot)
 import mindspore.nn as nn
 from mindspore.nn.cell import Cell
 from mindspore.nn.layer import Dense
-from mindspore.ops.auto_generate import GroupedMatmul, Reshape, Cast, Softmax, TopkExt, Mul, Transpose, AddExt, Concat, Div
+from mindspore.ops.auto_generate import (GroupedMatmul, Reshape, Cast,
+                                         Softmax, TopkExt, Mul, Transpose, AddExt, Concat, Div)
 from mindspore.parallel.shard import Layout
 from mindformers.tools.logger import logger
 
@@ -752,8 +754,10 @@ def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, w3, expert_nu
 
     # 1. get group list
     if tp_y_group:
-        expert_id = ops.AllGather(group=tp_y_group)(expert_id) # [N/tp_x_group*tp_y_group, k] -- > [N/tp_x_group, k]
-    expert_id = ops.AllGather(group=tp_x_group)(expert_id).reshape(-1, chosen_expert_nums) # [N/tp_x_group, k] -- > [N, k]
+        # [N/tp_x_group*tp_y_group, k] -- > [N/tp_x_group, k]
+        expert_id = ops.AllGather(group=tp_y_group)(expert_id)
+    # [N/tp_x_group, k] -- > [N, k]
+    expert_id = ops.AllGather(group=tp_x_group)(expert_id).reshape(-1, chosen_expert_nums)
     excounter = P.OneHot()(expert_id.reshape(-1), expert_num,
                            Tensor(1, dtype=ms.float32), Tensor(0, dtype=ms.float32)) # [N, k] -- > [Nk] -- > [Nk, E]
     excounter = excounter.sum(axis=0) # [Nk, E] -- > [E]
@@ -763,8 +767,10 @@ def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, w3, expert_nu
     # 2. tp allgather
     x = ops.AllGather(group=tp_x_group)(x) # x [BS/tp_x_group, h] -- > [BS, h]
     if tp_y_group:
-        router_coeff = ops.AllGather(group=tp_y_group)(router_coeff) # [N/tp_x_group*tp_y_group, k] -- > [N/tp_x_group, k]
-    router_coeff = ops.AllGather(group=tp_x_group)(router_coeff).reshape(-1, chosen_expert_nums) # [N/tp_x_group, k] -- > [N, k]
+        # [N/tp_x_group*tp_y_group, k] -- > [N/tp_x_group, k]
+        router_coeff = ops.AllGather(group=tp_y_group)(router_coeff)
+    # [N/tp_x_group, k] -- > [N, k]
+    router_coeff = ops.AllGather(group=tp_x_group)(router_coeff).reshape(-1, chosen_expert_nums)
 
     # 3. sort
     # (Nk, h) bf16, (Nk) int32  <-- (N, h) bf16, (N, k) int32
