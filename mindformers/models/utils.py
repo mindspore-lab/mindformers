@@ -236,7 +236,7 @@ class LayerSetting:
             if repeat_key:
                 select_recompute.pop(repeat_key)
                 logger.info(f"The pattern {repeat_key} in select{comm}_recompute conflicts with "
-                            f"select{comm}_recompute_off and will be removed.")
+                            f"select{comm}_recompute_exclude and will be removed.")
 
     def _check_swap_recompute_conflict(self):
         "Check if the layer or operator is enable swap and recompute at the same time."
@@ -407,7 +407,7 @@ class LayerSetting:
             self._set_select_recompute(layer, layer_id, False, set_on=True)
             self._set_select_recompute(layer, layer_id, True, set_on=True)
 
-        # select recompute off
+        # select recompute exclude
         self._set_select_recompute(layer, layer_id, False, set_on=False)
         self._set_select_recompute(layer, layer_id, True, set_on=False)
 
@@ -521,7 +521,7 @@ class LayerSetting:
             action = "on"
         else:
             select_recompute = self.select_comm_recompute_exclude if add_prim_attr else self.select_recompute_exclude
-            action = "off"
+            action = "exclude"
         pp_id = int(self.pp_ids[layer_id])
         v_id = int(self.interleave_ids[layer_id])
         log_ops = []
@@ -593,7 +593,7 @@ class LayerSetting:
             for name, cell in layer._cells.items():
                 if re.fullmatch(p, name):
                     if not set_on:
-                        logger.info(f"For select recompute/comm_recompute off, {info.replace('.', '', 1)}.{name} "
+                        logger.info(f"For select recompute/comm_recompute exclude, {info.replace('.', '', 1)}.{name} "
                                     "is expected to be operation but got cell, "
                                     "this configuration will not be effective.")
                         continue
