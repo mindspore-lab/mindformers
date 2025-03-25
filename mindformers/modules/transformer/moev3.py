@@ -160,10 +160,10 @@ class MoEV3(Cell):
         self.div_3d = Div().shard(((self.dp, self.tp_x * self.tp_y, 1), (self.dp, self.tp_x * self.tp_y, 1)))
 
         # _aux
-        self.reduce_mean_aux_3d = ReduceMean(keep_dims=False).shard(((self.dp, 1, 1),))
-        self.reduce_mean_aux_2d = ReduceMean(keep_dims=False).shard(((self.dp, 1),))
-        self.mul_aux_2d = Mul().shard(((self.dp, 1), (self.dp, 1)))
-        self.onehot_aux = OneHot().shard(((self.dp, 1, 1), (), ()))
+        self.reduce_mean_aux_3d = ReduceMean(keep_dims=False).shard(((self.dp * self.tp_x * self.tp_y, 1, 1),))
+        self.reduce_mean_aux_2d = ReduceMean(keep_dims=False).shard(((self.dp * self.tp_x * self.tp_y, 1),))
+        self.mul_aux_2d = Mul().shard(((self.dp * self.tp_x * self.tp_y, 1), (self.dp * self.tp_x * self.tp_y, 1)))
+        self.onehot_aux = OneHot().shard(((self.dp * self.tp_x * self.tp_y, 1, 1), (), ()))
         self.mul_noshard = Mul().shard(((), ()))
         self.add_loss = AddExt().shard(((1,), ()))
 
@@ -178,9 +178,9 @@ class MoEV3(Cell):
                                          requires_grad=False, parallel_optimizer=False)
             self.assign_add = AssignAdd().shard(((1,), (1,)))
             self.assign_add.recompute(False)
-            self.onehot_2d = OneHot().shard(((self.dp, 1, 1), (), ()))
-            self.reduce_mean = ReduceMean(keep_dims=False).shard(((self.dp, 1, 1),))
-            self.afb_reduce_mean = ReduceMean(keep_dims=False).shard(((1, 1),))
+            self.onehot_2d = OneHot().shard(((self.dp * self.tp_x * self.tp_y, 1, 1), (), ()))
+            self.reduce_mean = ReduceMean(keep_dims=False).shard(((self.dp * self.tp_x * self.tp_y, 1, 1),))
+            self.afb_reduce_mean = ReduceMean(keep_dims=False).shard(((self.dp * self.tp_x * self.tp_y, 1),))
             self.afb_topk = TopkExt().shard(((self.dp, self.tp_x * self.tp_y, 1),))
             self.afb_topk.recompute(False)
             self.afb_add_topk_bias = AddExt().shard(((self.dp, self.tp_x * self.tp_y, 1), (1,)))
@@ -211,6 +211,7 @@ class MoEV3(Cell):
             self.mul_cache = P.Mul().shard(((self.dp, 1), ()))
         if self.seq_pipe:
             raise ValueError("Currently, not support using gmm in seqpipe.")
+        self.stride_slice = P.StridedSlice().shard(((self.dp, self.tp_x * self.tp_y, 1),))
 
     def construct(self, input_tensor, extra_loss=0., seq_chunk=None):
         """forward process"""
@@ -236,7 +237,10 @@ class MoEV3(Cell):
                                                       seq_chunk=seq_chunk)
 
         if self.enable_deredundency or self.use_3d_tensor_parallel:
+            new_input_tensor_shape = self.shape(input_tensor)
+            input_tensor = self.stride_slice(input_tensor, (0, 0, 0), new_input_tensor_shape, (1, 1, 1))
             output_tensor = self.ffn(input_tensor, expert_index, router_coeff)
+            output_tensor = self.stride_slice(output_tensor, (0, 0, 0), new_input_tensor_shape, (1, 1, 1))
         else:
             # 2.dispatch sort
             # (dp, kN, h) bf16, (dp, kN) fp32,  (dp, E) int32, (dp, N, k)int32 <-- (dp, N, h) bf16, (dp, N, k) int32
@@ -318,6 +322,8 @@ class MoEV3(Cell):
         Please refer to DeepSeek-V2:
         A Strong, Economical, and Efficient Mixture-of-Experts Language Model, https://arxiv.org/abs/2405.04434
         """
+        scores = self.reshape(scores, (self.dp * self.tp_x * self.tp_y, -1, scores.shape[2]))
+        top_indices = self.reshape(top_indices, (self.dp * self.tp_x * self.tp_y, -1, top_indices.shape[2]))
         # p  (dp, E) <- (dp, N, E) fp32
         pi = self.reduce_mean_aux_3d(scores, 1)
 
@@ -364,7 +370,7 @@ class MoEV3(Cell):
         return expert_gate, expert_index
 
     def _update_expert_load(self, expert_index):
-        expert_index = self.reshape(expert_index, (expert_index.shape[0], -1))
+        expert_index = self.reshape(expert_index, (expert_index.shape[0] * self.tp_x * self.tp_y, -1))
         expert_mask = self.onehot_2d(expert_index, self.expert_dim, self.on_value, self.off_value)
         expert_load_data = self.reduce_mean(expert_mask, 1)
         expert_load_data = self.afb_reduce_mean(expert_load_data, 0)
@@ -591,7 +597,7 @@ def _ffn_sort(x, expert_id, use_fused_ops_permute):
         # _, (kN) int32 <-- (kN) fp32 <-- (kN) int32
         _, unsort_map = ops.sort(sort_map.astype(ms.float32))
         # (k, N)int32 <-- (kN) int32
-        unsort_map = ops.reshape(unsort_map, (-1, expert_id_shape[-1]))
+        unsort_map = ops.reshape(unsort_map, (expert_id_shape[-1], -1))
         # (N, k)int32  <-- (k, N)int32
         unsort_map = ops.transpose(unsort_map, (1, 0))
         # (Nk)int32 <-- (N, k) int32
@@ -700,7 +706,6 @@ def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, iep, exper
     # FFN
     gate = GroupedMatmul(split_item=3, group_type=0)(
         [x], [w1], None, None, None, None, None, exgl)[0]
-
     # pylint: disable=W0212
     hidden = ms.ops.auto_generate.gen_ops_prim.Swiglu()(gate, -1).reshape((-1, w2.shape[1]))
     x = GroupedMatmul(split_item=3, group_type=0)(
@@ -722,7 +727,7 @@ def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, iep, exper
     return x
 
 
-def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, w3, expert_num, tp_x_group, tp_y_group, tp_z_group,
+def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, expert_num, tp_x_group, tp_y_group, tp_z_group,
                                use_fused_ops_permute=False):
     """
     Implements a forward pass functionality expertTP and mainly used in processing input data x within
@@ -735,8 +740,7 @@ def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, w3, expert_nu
     - expert_id (Tensor): Identifiers indicating which expert each input belongs to, should be compatible
       with the shape of x.
     - router_coeff (Tensor): router weight.
-    - w1, w2, w3 (List[Tensor]): Lists of weights used respectively for the first, second, and third
-      GroupedMatmul operations.
+    - w1, w2 (List[Tensor]): Lists of weights used respectively for the first and second GroupedMatmul operations.
     - expert_num (int): Number of experts.
     - tp_x_group, tp_y_group, tp_z_group (List[group]): Communication group object defining the communication group
       for expert tensor parallel in the three way of x, y and z. For the input, x split the sequence length,
@@ -753,24 +757,31 @@ def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, w3, expert_nu
     chosen_expert_nums = expert_id.shape[1]
 
     # 1. get group list
-    if tp_y_group:
-        # [N/tp_x_group*tp_y_group, k] -- > [N/tp_x_group, k]
-        expert_id = ops.AllGather(group=tp_y_group)(expert_id)
-    # [N/tp_x_group, k] -- > [N, k]
-    expert_id = ops.AllGather(group=tp_x_group)(expert_id).reshape(-1, chosen_expert_nums)
+    # [N/tp_x*tp_y, k] -- > [Nk/tp_x*tp_y] -- > [Nk/tp_x*tp_y, E]
     excounter = P.OneHot()(expert_id.reshape(-1), expert_num,
-                           Tensor(1, dtype=ms.float32), Tensor(0, dtype=ms.float32)) # [N, k] -- > [Nk] -- > [Nk, E]
-    excounter = excounter.sum(axis=0) # [Nk, E] -- > [E]
+                           Tensor(1, dtype=ms.float32), Tensor(0, dtype=ms.float32))
+    excounter = excounter.sum(axis=0) # [Nk/tp_x_group*tp_y_group, E] -- > [E] (partilly sum)
+    if tp_y_group:
+        excounter = ops.AllReduce(group=tp_y_group)(excounter) # [E] (partilly sum x, y) --> [E] (partilly sum x)
+    if tp_x_group:
+        excounter = ops.AllReduce(group=tp_x_group)(excounter) # [E] (partilly sum x) --> [E]
     gl = ops.cast(ops.cumsum(excounter, 0, ms.int32), ms.int64)
 
-
     # 2. tp allgather
-    x = ops.AllGather(group=tp_x_group)(x) # x [BS/tp_x_group, h] -- > [BS, h]
     if tp_y_group:
-        # [N/tp_x_group*tp_y_group, k] -- > [N/tp_x_group, k]
-        router_coeff = ops.AllGather(group=tp_y_group)(router_coeff)
-    # [N/tp_x_group, k] -- > [N, k]
-    router_coeff = ops.AllGather(group=tp_x_group)(router_coeff).reshape(-1, chosen_expert_nums)
+        expert_id = ops.AllGather(group=tp_y_group)(expert_id) # [N/tp_x*tp_y, k] -- > [N/tp_x, k]
+        router_coeff = ops.AllGather(group=tp_y_group)(router_coeff) # [N/tp_x*tp_y, k] -- > [N/tp_x, k]
+    if tp_x_group:
+        # [N/tp_x, k] -- > [N, k]
+        expert_id = ops.AllGather(group=tp_x_group)(expert_id).reshape(-1, chosen_expert_nums)
+        # [N/tp_x, k] -- > [N, k]
+        router_coeff = ops.AllGather(group=tp_x_group)(router_coeff).reshape(-1, chosen_expert_nums)
+        x = ops.AllGather(group=tp_x_group)(x) # x [BS/tp_x, h] -- > [BS, h]
+
+    if tp_z_group:
+        w1 = ops.AllGather(group=tp_z_group)(w1)
+        # w1 AllGather overlap with _ffn_sort
+        expert_id = ops.Depend()(expert_id, w1) # w1 AllGather overlap with _ffn_sort
 
     # 3. sort
     # (Nk, h) bf16, (Nk) int32  <-- (N, h) bf16, (N, k) int32
@@ -778,24 +789,24 @@ def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, w3, expert_nu
 
     # 4.FFN
     if tp_z_group:
-        w1 = ops.AllGather(group=tp_z_group)(w1)
-        # w1 AllGather overlap with _ffn_sort
-        w1 = ops.Depend()(w1, expert_id)
-        x = ops.Depend()(x, w1)
-        w3 = ops.AllGather(group=tp_z_group)(w3)
+        x = ops.Depend()(x, w1) # w1 AllGather overlap with _ffn_sort
+
+        x = ops.Depend()(x, w2)
         w2 = ops.AllGather(group=tp_z_group)(w2)
+        w2 = ops.Depend()(w2, x) # w2 AllGather overlap with GMM w1
+
     gate = GroupedMatmul(split_item=3, group_type=0)(
         [x], [w1], None, None, None, None, None, gl)[0]
     if tp_y_group:
         gate = ops.ReduceScatter(group=tp_y_group)(gate)
-    hidden = GroupedMatmul(split_item=3, group_type=0)(
-        [x], [w3], None, None, None, None, None, gl)[0]
-    if tp_z_group:
-        hidden = ops.Depend()(hidden, gate) # gate calculate before hidden
-    if tp_y_group:
-        hidden = ops.ReduceScatter(group=tp_y_group)(hidden)
+        if tp_z_group:
+            # w2 AllGather overlap with GMM w1
+            gate = ops.Depend()(gate, w2)
+    if tp_z_group and not tp_y_group:
+        # w2 AllGather overlap with GMM w1
+        gate = ops.Depend()(gate, w2)
     # pylint: disable=W0212
-    hidden = hidden * P._inner_ops.SiLU()(gate)
+    hidden = ms.ops.auto_generate.gen_ops_prim.Swiglu()(gate, -1).reshape((-1, w2.shape[1]))
     if tp_y_group:
         hidden = ops.AllGather(group=tp_y_group)(hidden)
     x = GroupedMatmul(split_item=3, group_type=0)(
@@ -805,7 +816,8 @@ def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, w3, expert_nu
     y = _ffn_unresort_with_probs(x, unresort_map, router_coeff, use_fused_ops_permute)
 
     # 6.tp ReduceScatter
-    y = ops.ReduceScatter(group=tp_x_group)(y)
+    if tp_x_group:
+        y = ops.ReduceScatter(group=tp_x_group)(y)
     return y
 
 
@@ -934,7 +946,6 @@ class FFN(nn.Cell):
                            "None"),  # router_coeff [dp, N, K]
                     layout("tp_z", "tp_y", "tp_x"),  # w1 [E, h, H]
                     layout("tp_z", "tp_x", "tp_y"),  # w2 [E, H, h]
-                    layout("tp_z", "tp_y", "tp_x"),  # w3 [E, h, H]
                 ),
                 out_strategy=(
                     layout(("outer_dp", "tp_z"), "tp_x", "tp_y"), # output [dp, N, k]
@@ -981,7 +992,7 @@ class FFN(nn.Cell):
             x = self.hook_ffn_forward(x, expert_id, counter, w1, w2, self.iep,
                                       self.expert_num, self.a, self.b, self.oep_group, self.iep_group)
         elif self.use_3d_tensor_parallel:
-            x = self.hook_ffn_forward(x, expert_id, counter, w1, w2, w3, self.expert_num, self.tp_x_group,
+            x = self.hook_ffn_forward(x, expert_id, counter, w1, w2, self.expert_num, self.tp_x_group,
                                       self.tp_y_group, self.tp_z_group, self.use_fused_ops_permute)
         else:
             x, expert_id, counter, unsort_map_safe_tokens = self._pad_safe_tokens(x, expert_id, counter)
