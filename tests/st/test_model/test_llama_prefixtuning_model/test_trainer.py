@@ -17,6 +17,7 @@ Test module for testing the llama_ interface used for mindformers.
 How to run this:
 pytest /tests/st/test_model/test_llama_prefixtuning_model/test_trainer.py
 """
+import os
 import numpy as np
 import pytest
 
@@ -24,11 +25,14 @@ import mindspore as ms
 from mindspore.dataset import GeneratorDataset
 from mindformers.models.llama.llama import LlamaForCausalLM
 from mindformers.models.llama.llama_config import LlamaConfig
+from mindformers.models.llama.llama_tokenizer import LlamaTokenizer
 from mindformers.pet.pet_config import PrefixTuningConfig
 from mindformers.pet import get_pet_model
 from mindformers import Trainer, TrainingArguments
 
 ms.set_context(mode=0)
+
+root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 
 
 def generator_train():
@@ -69,13 +73,15 @@ class TestLlama2prefixtunigTrainerMethod:
         model_config.pet_config = PrefixTuningConfig(prefix_token_num=2, mid_dim=512, dropout_rate=0.01)
         model = LlamaForCausalLM(model_config)
         model = get_pet_model(model, model_config.pet_config)
+        tokenizer = LlamaTokenizer(vocab_file=f"{root_path}/utils/llama2_tokenizer/tokenizer.model")
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,
                                     model_name='llama_7b',
                                     args=args,
                                     train_dataset=train_dataset,
-                                    eval_dataset=eval_dataset)
+                                    eval_dataset=eval_dataset,
+                                    tokenizer=tokenizer)
 
     @pytest.mark.run(order=1)
     def test_finetune(self):
