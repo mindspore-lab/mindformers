@@ -445,10 +445,7 @@ class LlamaFeedForward(Cell):
         if self.use_3d_tensor_parallel:
             self._shard_ndtp(parallel_config)
             return
-        dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
-        cp = parallel_config.context_parallel
-        ep = parallel_config.expert_parallel
         if self.hidden_dim % mp != 0:
             raise ValueError("For 'FeedForward', the class variable 'hidden_dim' must be a multiple of the"
                              "num of model parallel, but got the hidden_dim is {} and the num of model "
@@ -458,89 +455,100 @@ class LlamaFeedForward(Cell):
                              "model parallel, but got the dim is {} and the num of model parallel is {}."
                              .format(self.dim, mp))
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation():
-            if self.expert_num == 1:
-                if self.ffn_concat:
-                    if not self.rmsnorm_compute_2d:
-                        self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
-                        self.activate.shard(((dp, 1, mp),))
-                        self.w2.shard(((dp, mp), (1, mp)))
-                        self.split.add_prim_attr("skip_redistribution", True)
-                        self.split.shard(((dp, 1, mp, 1),))
-                    else:
-                        self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
-                        self.activate.shard(((dp, mp),))
-                        self.w2.shard(((dp, mp), (1, mp)))
-                        self.split.shard(((dp, 1),))
-                        self.mul.shard(((dp, mp), (dp, mp)))
-                else:
-                    self.w1.shard(((dp * cp, 1), (mp, 1)), strategy_activation=((dp * cp, mp),))
-                    if not self.use_fused_swiglu:
-                        self.w1.activation.shard(((dp * cp, mp),))
-                    self.w2.shard(((dp * cp, mp), (1, mp)))
-                    self.w3.shard(((dp * cp, 1), (mp, 1)))
-            else:
-                logger.info("shard ffn with MoE")
-                ep = parallel_config.expert_parallel
-                dp = parallel_config.data_parallel * parallel_config.context_parallel // ep
-                self.w1.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)),
-                              strategy_activation=((dp, ep, mp, 1),))
-                self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
-                self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
+            self._shard_auto_parallel(parallel_config)
         else:
-            if self.expert_num == 1:
-                if self.ffn_concat:
-                    if not self.rmsnorm_compute_2d:
-                        self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
-                        self.activate.shard(((dp, 1, mp),))
-                        self.w2.shard(((dp, mp), (1, mp)))
-                        self.split.shard(((dp, 1, mp, 1),)).add_prim_attr("skip_redistribution", True)
-                        self.mul.shard(((dp, mp), (dp, mp)))
-                    else:
-                        self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
-                        self.activate.shard(((dp, mp),))
-                        self.w2.shard(((dp, mp), (1, mp)))
-                        self.split.shard(((dp, 1),))
-                        self.mul.shard(((dp, mp), (dp, mp)))
-                else:
-                    self.w1.shard(((dp * cp, 1), (mp, 1)), strategy_activation=((dp * cp, mp),))
-                    if not self.use_fused_swiglu:
-                        self.w1.activation.shard(((dp * cp, mp),))
-                    self.w2.shard(((dp * cp, mp), (1, mp)))
-                    self.w3.shard(((dp * cp, 1), (mp, 1)))
-                    self.mul.shard(((dp, cp, mp), (dp, cp, mp)))
-                    self.w13_concat.shard(((dp, cp, 1, mp), (dp, cp, 1, mp)))
-                if self.use_fused_swiglu:
-                    layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
-                    self.swiglu.shard((layout("dp", "cp", "None", "mp"),),
-                                      (layout("dp", "cp", "None", "mp"),))
-                    self.swiglu.add_prim_attr("self_define_shard", True)
-                    self.expand_dims.shard(((dp, cp, mp),))
-            else:
-                logger.info("shard ffn with MoE")
-                if self.mp_moe_flag:
-                    dp = dp * cp * mp // (ep * self.mp_moe)
-                    mp = self.mp_moe
-                else:
-                    dp = dp * cp // ep
-                self.w1.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)),
-                              strategy_activation=((dp, ep, mp, 1),))
-                self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
-                self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
-                self.w13_concat.shard(((dp, ep * cp, 1, mp), (dp, ep * cp, 1, mp)))
-                if self.use_allgather_dispatcher:
-                    self.mul.shard(((dp, ep, 1, mp), (dp, ep, 1, mp)))
-                else:
-                    mul_shard = (dp * ep, mp)
-                    if parallel_config.use_seq_parallel:
-                        mul_shard = (dp, ep, mp)
-                    self.mul.shard((mul_shard, mul_shard))
+            self._shard_semi_auto_parallel(parallel_config)
 
-                if self.use_fused_swiglu:
-                    layout = Layout((dp, ep * cp, mp), ("dp", "ep_cp", "mp"))
-                    self.swiglu.shard((layout("dp", "ep_cp", "None", "mp"),),
-                                      (layout("dp", "ep_cp", "None", "mp"),))
-                    self.swiglu.add_prim_attr("self_define_shard", True)
-                    self.expand_dims.shard(((dp, ep * cp, mp),))
+    def _shard_auto_parallel(self, parallel_config):
+        """sharding for feedforward with auto_parallel and sharding_propagation"""
+        dp, mp, cp, ep = parallel_config.data_parallel, parallel_config.model_parallel, \
+                         parallel_config.context_parallel, parallel_config.expert_parallel
+        if self.expert_num == 1:
+            if self.ffn_concat:
+                if not self.rmsnorm_compute_2d:
+                    self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
+                    self.activate.shard(((dp, 1, mp),))
+                    self.w2.shard(((dp, mp), (1, mp)))
+                    self.split.add_prim_attr("skip_redistribution", True)
+                    self.split.shard(((dp, 1, mp, 1),))
+                else:
+                    self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
+                    self.activate.shard(((dp, mp),))
+                    self.w2.shard(((dp, mp), (1, mp)))
+                    self.split.shard(((dp, 1),))
+                    self.mul.shard(((dp, mp), (dp, mp)))
+            else:
+                self.w1.shard(((dp * cp, 1), (mp, 1)), strategy_activation=((dp * cp, mp),))
+                if not self.use_fused_swiglu:
+                    self.w1.activation.shard(((dp * cp, mp),))
+                self.w2.shard(((dp * cp, mp), (1, mp)))
+                self.w3.shard(((dp * cp, 1), (mp, 1)))
+        else:
+            logger.info("shard ffn with MoE")
+            dp = parallel_config.data_parallel * parallel_config.context_parallel // ep
+            self.w1.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)),
+                          strategy_activation=((dp, ep, mp, 1),))
+            self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
+            self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
+
+    def _shard_semi_auto_parallel(self, parallel_config):
+        """sharding for feedforward with semi_auto_parallel"""
+        dp, mp, cp, ep = parallel_config.data_parallel, parallel_config.model_parallel, \
+                         parallel_config.context_parallel, parallel_config.expert_parallel
+        if self.expert_num == 1:
+            if self.ffn_concat:
+                if not self.rmsnorm_compute_2d:
+                    self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
+                    self.activate.shard(((dp, 1, mp),))
+                    self.w2.shard(((dp, mp), (1, mp)))
+                    self.split.shard(((dp, 1, mp, 1),)).add_prim_attr("skip_redistribution", True)
+                    self.mul.shard(((dp, 1, mp), (dp, 1, mp)))
+                else:
+                    self.w_gate_hidden.shard(((dp, 1), (mp, 1)))
+                    self.activate.shard(((dp, mp),))
+                    self.w2.shard(((dp, mp), (1, mp)))
+                    self.split.shard(((dp, 1),))
+                    self.mul.shard(((dp, mp), (dp, mp)))
+            else:
+                self.w1.shard(((dp * cp, 1), (mp, 1)), strategy_activation=((dp * cp, mp),))
+                if not self.use_fused_swiglu:
+                    self.w1.activation.shard(((dp * cp, mp),))
+                self.w2.shard(((dp * cp, mp), (1, mp)))
+                self.w3.shard(((dp * cp, 1), (mp, 1)))
+                self.mul.shard(((dp, cp, mp), (dp, cp, mp)))
+                self.w13_concat.shard(((dp, cp, 1, mp), (dp, cp, 1, mp)))
+            if self.use_fused_swiglu:
+                layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
+                self.swiglu.shard((layout("dp", "cp", "None", "mp"),),
+                                  (layout("dp", "cp", "None", "mp"),))
+                self.swiglu.add_prim_attr("self_define_shard", True)
+                self.expand_dims.shard(((dp, cp, mp),))
+        else:
+            logger.info("shard ffn with MoE")
+            if self.mp_moe_flag:
+                dp = dp * cp * mp // (ep * self.mp_moe)
+                mp = self.mp_moe
+            else:
+                dp = dp * cp // ep
+            self.w1.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)),
+                          strategy_activation=((dp, ep, mp, 1),))
+            self.w2.shard(strategy_matmul=((dp, ep, 1, mp), (ep, 1, mp)))
+            self.w3.shard(strategy_matmul=((dp, ep, 1, 1), (ep, mp, 1)))
+            self.w13_concat.shard(((dp, ep * cp, 1, mp), (dp, ep * cp, 1, mp)))
+            if self.use_allgather_dispatcher:
+                self.mul.shard(((dp, ep, 1, mp), (dp, ep, 1, mp)))
+            else:
+                if self.rmsnorm_compute_2d and not self.ffn_concat:
+                    self.mul.shard(((dp * ep, mp), (dp * ep, mp)))
+                else:
+                    self.mul.shard(((dp, ep, mp), (dp, ep, mp)))
+
+            if self.use_fused_swiglu:
+                layout = Layout((dp, ep * cp, mp), ("dp", "ep_cp", "mp"))
+                self.swiglu.shard((layout("dp", "ep_cp", "None", "mp"),),
+                                  (layout("dp", "ep_cp", "None", "mp"),))
+                self.swiglu.add_prim_attr("self_define_shard", True)
+                self.expand_dims.shard(((dp, ep * cp, mp),))
 
     def _shard_ndtp(self, parallel_config):
         """sharding for feedforward with use_3d_tensor_parallel"""
