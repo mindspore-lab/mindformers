@@ -18,11 +18,6 @@ internlm:
   output_path:
   dtype:
 
-baichuan:
-  input_path:
-  output_path:
-  dtype:
-
 gpt:
   input_path:
   output_path:

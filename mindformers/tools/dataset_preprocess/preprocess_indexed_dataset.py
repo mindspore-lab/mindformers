@@ -24,7 +24,6 @@ except ImportError:
 # pylint: disable=W0611
 from mindformers.dataset.dataloader import indexed_dataset
 from mindformers.models import build_tokenizer
-from research.baichuan2.baichuan2_tokenizer import Baichuan2Tokenizer
 from research.qwen.qwen_tokenizer import QwenTokenizer
 from research.qwen1_5.qwen1_5_tokenizer import Qwen2Tokenizer
 from research.internlm.internlm_tokenizer import InternLMTokenizer
@@ -256,7 +255,7 @@ def get_args():
 
     group = parser.add_argument_group(title='tokenizer')
     group.add_argument('--tokenizer-type', type=str, required=True,
-                       choices=['LlamaTokenizer', 'Llama3Tokenizer', 'Baichuan2Tokenizer', 'QwenTokenizer',
+                       choices=['LlamaTokenizer', 'Llama3Tokenizer', 'QwenTokenizer',
                                 'Qwen2Tokenizer', 'InternLMTokenizer', 'InternLM2Tokenizer', 'LlamaTokenizerFast'],
                        help='The tokenizer of the corresponding model.')
     group.add_argument('--vocab-file', type=str, default=None,
