@@ -70,7 +70,7 @@ def get_load_path_after_hf_convert(config, network):
     if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
             is_hf_safetensors_dir(config.load_checkpoint, network)):
         #'qkv_concat is True' or 'Dpo model' save ms safetensors
-        if config.qkv_concat or config.model.model_config.rl_config is not none:
+        if config.qkv_concat or config.model.model_config.rl_config is not None:
             logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
             converted_sf_path = process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
             #wait for main rank to convert HF safetensors
@@ -342,7 +342,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
                 name_map = origin_network.obtain_name_map(load_checkpoint_files)
             except Exception as e:
                 raise TypeError(f"Please complete abstract function obtain_name_map. Details: {e}") from e
-            _convert_index_json(load_ckpt_path, load_ckpt_path, network.convert_map_dict, False)
+            _convert_index_json(load_ckpt_path, load_ckpt_path, origin_network.convert_map_dict, False)
         ms.load_distributed_checkpoint(
             network=network,
             predict_strategy=strategy_path,
@@ -370,7 +370,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
         if not config.model.model_config.get("qkv_concat", False) \
            and is_hf_safetensors_dir(load_ckpt_path, origin_network):
             logger.info("......HuggingFace weights convert name......")
-            params_dict = origin_network.convert_weight_dict(params_dict)
+            params_dict = origin_network.convert_weight_dict(params_dict, model_config=config.model.model_config)
         if optimizer and config.resume_training:
             logger.info("......Start load hyper param into optimizer......")
             update_global_step(config, params_dict)
@@ -507,7 +507,7 @@ def get_merged_src_strategy_path(config):
 def get_merged_dst_strategy_path(config, strategy_path):
     """prepare for dst strategy."""
     enable_stand_alone = (config.parallel.parallel_mode == 'STAND_ALONE')
-    if config.use_parallel and not enable_stand_alone:
+    if config.use_parallel and config.auto_trans_ckpt and not enable_stand_alone:
         # prepare merged strategy directory
         merged_strategy = os.path.join(config.output_dir, 'merged_strategy')
         os.makedirs(merged_strategy, exist_ok=True)

@@ -18,6 +18,7 @@ from multiprocessing.synchronize import Condition
 from typing import Dict
 
 import numpy as np
+from safetensors import safe_open
 
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, ops
@@ -340,6 +341,15 @@ class InferenceQwen2ForCausalLM(Qwen2PreTrainedModel):
                 target_dict.update({w_gate_hidden_key: w_gate_hidden_value})
 
         return target_dict
+
+    @classmethod
+    def obtain_name_map(cls, load_checkpoint_files):
+        name_map = dict()
+        for checkpoint_file in load_checkpoint_files:
+            with safe_open(checkpoint_file, framework="np") as f:
+                for k in f.keys():
+                    name_map.update({cls.convert_name(k): k})
+        return name_map
 
     @classmethod
     def obtain_qkv_ffn_concat_keys(cls):
