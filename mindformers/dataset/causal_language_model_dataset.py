@@ -21,6 +21,7 @@ from typing import Union, Optional, Callable, List
 from importlib import import_module
 import numpy as np
 
+import mindspore as ms
 import mindspore.common.dtype as mstype
 from mindspore.dataset.transforms.transforms import TypeCast
 
@@ -48,8 +49,10 @@ def dyn_batch_wrapper(*cols, divisor, remainder, pad_token_id=None):
     """Dynamic batch process function for padding each batch data."""
     if pad_token_id is None:
         pad_token_id = [0, -100]
+    elif isinstance(pad_token_id, int):
+        pad_token_id = [pad_token_id] * len(cols)
     elif not isinstance(pad_token_id, list):
-        raise ValueError("pad_token_id should be list.")
+        raise ValueError("pad_token_id should be list or int.")
 
     columns = cols[:-1]
     outputs = []
@@ -121,13 +124,15 @@ def dataset_batch_func(config, dataset):
         )
     elif use_compressed_eod_mask:
         context_module = import_module("mindformers.core.context.build_context")
-        context_instance = context_module.Context()
-        if context_instance is not None and context_instance.is_exists():
-            context_instance = context_module.Context()
+        if context_module.Context.is_exists():
             # set batch actual_seq_len wrapper
+            context_instance = context_module.Context()
+            micro_batch_num = getattr(context_instance.parallel_opr.parallel, "micro_batch_num", 1)
+            if ms.get_auto_parallel_context("pipeline_stages") == 1:
+                micro_batch_num = 1
             per_batch_map_func = partial(
                 asl_batch_wrapper,
-                micro_batch_num=context_instance.parallel_opr.parallel.micro_batch_num
+                micro_batch_num=micro_batch_num
             )
 
     # set num_parallel_workers
@@ -386,7 +391,9 @@ class CausalLanguageModelDataset(BaseDataset):
 
         if not cls._is_full_batch():
             dataset_config = cls._reset_num_samples(dataset_config)
-
+        if not dataset_files:
+            raise FileNotFoundError("No dataset file is found. Please check whether the path indicated "
+                                    "by dataloader.dataset_dir or dataloader.dataset_files is correct.")
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_files': dataset_files,
                                                       'num_shards': dataset_config.num_shards,
