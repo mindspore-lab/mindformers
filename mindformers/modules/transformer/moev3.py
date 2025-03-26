@@ -223,6 +223,8 @@ class MoEV3(Cell):
         router_logits = self.router_dense(input_tensor.astype(self.router_dense_type))
         # (dp, N, E) fp32 <-- (dp, N, E) fp32
         router_prob = self.gating_activation(router_logits)
+        # (dp, N, E) fp32 <-- (dp, N, E) fp32
+        router_prob_for_aux = self._normalize(router_prob) if self.moe_config.use_gating_sigmoid else router_prob
         # (dp, N, k) fp32,  (dp, N, k) int32 <-- (dp, N, E) fp32
         expert_gate, expert_index = self._topk(router_prob)
         if self.num_experts_chosen > 1 and self.moe_config.norm_topk_prob:
@@ -232,7 +234,7 @@ class MoEV3(Cell):
             router_coeff = expert_gate
         router_coeff = self.mul(self.moe_config.routed_scaling_factor, router_coeff)
         # float32 <-- (dp, N, E) fp32, (dp, N, k) int32, float32
-        router_aux_loss = self._expert_load_balancing(router_prob, expert_index, self.aux_loss_factor,
+        router_aux_loss = self._expert_load_balancing(router_prob_for_aux, expert_index, self.aux_loss_factor,
                                                       seq_chunk=seq_chunk)
 
         if self.enable_deredundency or self.use_3d_tensor_parallel:
