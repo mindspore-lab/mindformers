@@ -25,8 +25,8 @@ from uuid import uuid4
 import requests
 
 from mindformers.tools.logger import logger
-from ..generic import working_or_temp_dir
-from ... import __version__
+from mindformers.tools.generic import working_or_temp_dir
+from mindformers import __version__
 
 ENV_VARS_TRUE_VALUES = {"1", "ON", "YES", "TRUE"}
 
