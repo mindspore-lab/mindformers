@@ -262,10 +262,10 @@ class DeepSeekV2RotaryEmbedding(Cell):
         self.transpose.shard((transpose_strategy_in,))
         if self.use_fused_rope:
             layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
-            self.rope.shard(in_strategy=(layout("dp", "mp", "cp", "None"),
-                                         layout("None", "None", "cp", "None"),
-                                         layout("None", "None", "cp", "None")),
-                            out_strategy=(layout("dp", "mp", "cp", "None"),)
+            self.rope.shard(in_strategy=(layout("dp", "cp", "mp", "None"),
+                                         layout("None", "cp", "None", "None"),
+                                         layout("None", "cp", "None", "None")),
+                            out_strategy=(layout("dp", "cp", "mp", "None"),)
                             )
             self.rope.add_prim_attr("self_define_shard", True)
             self.expand_dims0.shard(((cp, 1),))
