@@ -28,7 +28,10 @@ from mindspore import nn, Parameter, Tensor
 from mindspore.common.initializer import initializer, Zero
 from mindspore.nn import LossBase
 
+from mindformers.mindformer_book import MindFormerBook
+from mindformers.tools.download_tools import download_with_progress_bar
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import try_sync_file
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.bert.bert_config import BertConfig
 from mindformers.models.blip2.qformer_config import QFormerConfig
@@ -1463,10 +1466,34 @@ class BertLMHeadModel(BertPreTrainedModel):
             model name or a path to checkpoint, to load model weights.
         """
         checkpoint_name_or_path = config.checkpoint_name_or_path
+        # the relevant file will be downloaded from the Obs platform.
         if not os.path.exists(checkpoint_name_or_path):
-            raise ValueError(f"{checkpoint_name_or_path} is not existed, "
-                             f"please check checkpoint_name_or_path in yaml and set a correct value.")
-        ckpt_file = checkpoint_name_or_path
+            if checkpoint_name_or_path not in self._support_list:
+                raise ValueError(f"{checkpoint_name_or_path} is not a supported default model"
+                                 f" or a valid path to checkpoint,"
+                                 f" please select from {self._support_list}.")
+            # on Atlas 800T A2, load the 'resized' checkpoint.
+            if not config.resize_token_embeddings and not checkpoint_name_or_path.endswith("_resized"):
+                checkpoint_name_or_path = checkpoint_name_or_path + "_resized"
+            checkpoint_name = checkpoint_name_or_path
+            default_checkpoint_download_folder = os.path.join(
+                MindFormerBook.get_default_checkpoint_download_folder(),
+                checkpoint_name_or_path.split("_")[0])
+            if not os.path.exists(default_checkpoint_download_folder):
+                os.makedirs(default_checkpoint_download_folder, exist_ok=True)
+
+            ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name + ".ckpt")
+            if not os.path.exists(ckpt_file):
+                url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path][0]
+                succeed = download_with_progress_bar(url, ckpt_file)
+                if not succeed:
+                    logger.info("checkpoint download failed, and pretrained weights are unloaded.")
+                    return
+            try_sync_file(ckpt_file)
+            self.default_checkpoint_download_path = ckpt_file
+            logger.info("start to read the ckpt file: %s", os.path.getsize(ckpt_file))
+        else:
+            ckpt_file = checkpoint_name_or_path
         param = load_checkpoint(ckpt_file)
         try:
             self.load_bert_model_params(config, param)

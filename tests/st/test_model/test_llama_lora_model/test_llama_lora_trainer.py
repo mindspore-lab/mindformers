@@ -17,7 +17,6 @@ Test module for testing the llama_lora interface used for mindformers.
 How to run this:
 pytest tests/st/test_model/test_llama_lora_model/test_llama_lora_trainer.py
 """
-import os
 import numpy as np
 import pytest
 
@@ -25,14 +24,11 @@ import mindspore as ms
 from mindspore.dataset import GeneratorDataset
 from mindformers.models.llama.llama import LlamaForCausalLM
 from mindformers.models.llama.llama_config import LlamaConfig
-from mindformers.models.llama.llama_tokenizer import LlamaTokenizer
 from mindformers.pet.pet_config import LoraConfig
 from mindformers.pet import get_pet_model
 from mindformers import Trainer, TrainingArguments
 
 ms.set_context(mode=0)
-
-root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 
 
 def generator_train():
@@ -73,15 +69,13 @@ class TestLlamaTrainerMethod:
                                              target_modules='.*wq|.*wk|.*wv|.*wo')
         model = LlamaForCausalLM(model_config)
         model = get_pet_model(model, model_config.pet_config)
-        tokenizer = LlamaTokenizer(vocab_file=f"{root_path}/utils/llama2_tokenizer/tokenizer.model")
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,
                                     model_name='llama_7b_lora',
                                     args=args,
                                     train_dataset=train_dataset,
-                                    eval_dataset=eval_dataset,
-                                    tokenizer=tokenizer)
+                                    eval_dataset=eval_dataset)
 
     @pytest.mark.run(order=1)
     def test_finetune(self):

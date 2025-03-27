@@ -83,7 +83,6 @@ SUPPORT_PIPELINES = MindFormerBook().get_pipeline_support_task_list()
 SUPPORT_PIPELINE_INPUT_DATA = MindFormerBook().get_pipeline_support_input_data_list()
 CURRENT_PROJECT_PATH = MindFormerBook().get_project_path()
 DEFAULT_CONFIG_DIR = 'configs'
-NEED_MERGES_FILE_TOKENIZERS = ["Qwen2Tokenizer", "WhisperTokenizer"]
 
 
 class BaseTrainer:
@@ -395,46 +394,6 @@ class BaseTrainer:
                 "currently supported types are [dict, config_path(str), ConfigArguments, TrainingArguments], "
                 "but get %s", type(args))
         return self.default_task_config
-
-    @staticmethod
-    def _check_tokenizer_model_is_ready_in_yaml(config):
-        """check tokenizer vocabulary files whether set correctly."""
-        if "fast" not in config.processor.tokenizer.type:
-            if not hasattr(config.processor.tokenizer, "vocab_file"):
-                raise ValueError("tokenizer.vocab_file in yaml file is not set, "
-                                 "please set tokenizer.vocab_file a correct value.")
-            if not os.path.exists(config.processor.tokenizer.vocab_file):
-                raise ValueError(f"{config.processor.tokenizer.vocab_file} is not existed, "
-                                 f"please check vocab_file in yaml and set a correct value.")
-            if config.processor.tokenizer.type in NEED_MERGES_FILE_TOKENIZERS:
-                if not hasattr(config.processor.tokenizer, "merges_file"):
-                    raise ValueError("tokenizer.merges_file in yaml file is not set, "
-                                     "please set tokenizer.merges_file a correct value.")
-                if not os.path.exists(config.processor.tokenizer.merges_file):
-                    raise ValueError(f"{config.processor.tokenizer.merges_file} is not existed, "
-                                     f"please check merges_file in yaml and set a correct value.")
-        else:
-            if config.processor.tokenizer.type in NEED_MERGES_FILE_TOKENIZERS:
-                if not (
-                        hasattr(config.processor.tokenizer, "merges_file") and
-                        hasattr(config.processor.tokenizer, "vocab_file")
-                ) and not hasattr(config.processor.tokenizer, "tokenizer_file"):
-                    raise ValueError("vocabulary files in yaml file are not existed, "
-                                     "please set tokenizer.vocab_file and tokenizer.merges_file correct values, "
-                                     "or set tokenizer.tokenizer_file a correct value.")
-                if not (
-                        os.path.exists(config.processor.tokenizer.merges_file) and
-                        os.path.exists(config.processor.tokenizer.vocab_file)
-                ) and not os.path.exists(config.processor.tokenizer.tokenizer_file):
-                    raise ValueError("vocabulary files in yaml file are not existed, "
-                                     "please set tokenizer.vocab_file and tokenizer.merges_file correct values, "
-                                     "or set tokenizer.tokenizer_file a correct value.")
-            else:
-                if not os.path.exists(config.processor.tokenizer.vocab_file) and \
-                        not os.path.exists(config.processor.tokenizer.tokenizer_file):
-                    raise ValueError("vocabulary file in yaml file is not set correctly, "
-                                     "please set tokenizer.vocab_file a correct value, "
-                                     "or set tokenizer.tokenizer_file a correct value.")
 
     def create_dataset(self, is_train: bool = True, default_args: dict = None):
         """Create the dataset for training or evaluate."""
@@ -1267,7 +1226,7 @@ class BaseTrainer:
             self.count_parameters()
             config.load_checkpoint = get_load_path_after_hf_convert(config, network)
             if tokenizer is None and config.processor.tokenizer:
-                tokenizer = build_tokenizer(config.processor.tokenizer)
+                tokenizer = build_tokenizer(config.processor.tokenizer, tokenizer_name=config.trainer.model_name)
 
             if image_processor is None and config.processor.image_processor:
                 image_processor = build_processor(config.processor.image_processor)

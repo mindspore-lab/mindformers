@@ -30,6 +30,7 @@ from mindspore.train.serialization import load_checkpoint
 from mindspore.train.serialization import load_param_into_net
 
 from mindformers.tools.logger import logger
+from mindformers.tools.download_tools import download_with_progress_bar
 from mindformers.core.loss import build_loss
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.modeling_utils import PreTrainedModel
@@ -42,6 +43,7 @@ from mindformers.models.swin.swin_modules import SwinPatchEmbeddings
 from mindformers.models.swin.swin_modules import SwinPatchMerging
 from mindformers.models.swin.swin_modules import SwinStage
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.utils import try_sync_file
 
 
 __all__ = ['SwinForImageClassification', 'SwinModel']
@@ -254,9 +256,33 @@ class SwinForImageClassification(SwinBaseModel):
                     logger.error("the given config and weights in %s are"
                                  " mismatched, and weights load failed", ckpt_file)
                 logger.info("weights in %s are loaded", ckpt_file)
+
+            elif checkpoint_name_or_path not in self._support_list:
+                raise ValueError(f"{checkpoint_name_or_path} is not a supported default model"
+                                 f" or a valid path to checkpoint,"
+                                 f" please select from {self._support_list}.")
             else:
-                raise ValueError(f"{checkpoint_name_or_path} is not existed, "
-                                 f"please check checkpoint_name_or_path in yaml and set a correct value.")
+                default_checkpoint_download_folder = os.path.join(
+                    MindFormerBook.get_default_checkpoint_download_folder(), checkpoint_name_or_path.split("_")[0])
+                if not os.path.exists(default_checkpoint_download_folder):
+                    os.makedirs(default_checkpoint_download_folder, exist_ok=True)
+                ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name_or_path + ".ckpt")
+                if not os.path.exists(ckpt_file):
+                    url = MindFormerBook.get_model_ckpt_url_list()[checkpoint_name_or_path][0]
+                    succeed = download_with_progress_bar(url, ckpt_file)
+                    if not succeed:
+                        logger.info("checkpoint download failed, and pretrained weights are unloaded.")
+                        return
+                try_sync_file(ckpt_file)
+
+                logger.info("start to read the ckpt file: %s", os.path.getsize(ckpt_file))
+                param = load_checkpoint(ckpt_file)
+                try:
+                    load_param_into_net(self, param)
+                except RuntimeError:
+                    logger.error("the given config and weights in %s are"
+                                 " mismatched, and weights load failed", ckpt_file)
+                logger.info("weights in %s are loaded", ckpt_file)
         else:
             logger.info("model built, but weights is unloaded, since the config has no"
                         " checkpoint_name_or_path attribute or"

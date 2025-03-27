@@ -53,11 +53,13 @@ from mindformers.tools.utils import (
     get_device_num_per_node,
     is_publicly_accessible_path,
     clear_auto_trans_output,
+    try_sync_file
 )
 from mindformers.tools.logger import logger
 from mindformers.tools.register import MindFormerConfig
 from mindformers.tools.register.config import ordered_yaml_dump
 from mindformers.tools.resume_ckpt import get_resume_checkpoint
+from mindformers.tools.download_tools import download_with_progress_bar
 from mindformers.version_control import check_tft_valid
 from .build_trainer import build_trainer
 from .training_args import TrainingArguments
@@ -1044,7 +1046,47 @@ class Trainer:
         if os.path.exists(checkpoint):
             return checkpoint
 
-        raise ValueError(f"{checkpoint} is not existed, please check load_checkpoint in yaml and set a correct value.")
+        if not checkpoint.startswith("mindspore/") and "/" in checkpoint:
+            raise FileNotFoundError("The load_checkpoint must be correct, "
+                                    f"but get {checkpoint}")
+
+        if checkpoint not in SUPPORT_CHECKPOINT_NAMES:
+            raise ValueError(f"{checkpoint} is not a supported default model"
+                             f" or a valid path to checkpoint,"
+                             f" please select from {SUPPORT_CHECKPOINT_NAMES}.")
+
+        checkpoint_name = checkpoint
+        if checkpoint.startswith('mindspore'):
+            # Adaptation the name of checkpoint at the beginning of mindspore,
+            # the relevant file will be downloaded from the Xihe platform.
+            # such as "mindspore/vit_base_p16"
+            checkpoint_name = checkpoint.split('/')[1]
+            default_checkpoint_download_folder = os.path.join(
+                MindFormerBook.get_xihe_checkpoint_download_folder(),
+                checkpoint_name.split('_')[0])
+        else:
+            # Default the name of checkpoint,
+            # the relevant file will be downloaded from the Obs platform.
+            # such as "vit_base_p16"
+            default_checkpoint_download_folder = os.path.join(
+                MindFormerBook.get_default_checkpoint_download_folder(),
+                checkpoint.split("_")[0])
+
+        if not os.path.exists(default_checkpoint_download_folder) and not get_real_rank():
+            os.makedirs(default_checkpoint_download_folder, exist_ok=True)
+        while True:
+            if os.path.exists(default_checkpoint_download_folder):
+                break
+
+        ckpt_file = os.path.join(default_checkpoint_download_folder, checkpoint_name + ".ckpt")
+        if not os.path.exists(ckpt_file):
+            url = MindFormerBook.get_model_ckpt_url_list()[checkpoint][0]
+            succeed = download_with_progress_bar(url, ckpt_file)
+            if not succeed:
+                logger.info("checkpoint download failed, and pretrained weights are unloaded.")
+                return None
+        try_sync_file(ckpt_file)
+        return ckpt_file
 
     def _config_init(self,
                      args: Optional[Union[str, MindFormerConfig, TrainingArguments]] = None,
