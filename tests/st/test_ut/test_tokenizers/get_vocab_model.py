@@ -187,7 +187,7 @@ def get_bbpe_vocab_model(model_type, model_path):
             vocab_path = os.path.join(model_path, f"{model_type}_tokenizer.json")
             if os.path.exists(vocab_path):
                 shutil.rmtree(vocab_path)
-            if model_type == "gpt":
+            if model_type in ("gpt", "qwen2", "qwen2_5"):
                 vocab_path = os.path.join(model_path, f"{model_type}_vocab.json")
                 merges_path = os.path.join(model_path, f"{model_type}_merges.txt")
                 if os.path.exists(vocab_path):
