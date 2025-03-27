@@ -86,7 +86,7 @@ The following table lists models supported by MindFormers.
 
 Currently, the [Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=900A2) training server is supported.
 
-Python 3.10 is recommended for the current suite.
+Python 3.11.4 is recommended for the current suite.
 
 |      MindFormers       |       MindSpore        |          CANN          |    Driver/Firmware     |  Image Link  |
 |:----------------------:|:----------------------:|:----------------------:|:----------------------:|:------------:|
@@ -113,7 +113,7 @@ bash build.sh
 
 MindFormers supports model pre-training, fine-tuning, inference, and evaluation. You can click a model name in [Supported Models](#supported-models) to view the document and complete the preceding tasks. The following describes the distributed startup mode and provides an example.
 
-It is recommended that MindFormers launch model training and inference in distributed mode. Currently, the `scripts/msrun_launcher.sh` distributed launch script is provided as the main way to launch models. For details about the `msrun` feature, see [msrun Launching](https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html).
+It is recommended that MindFormers launch model training and inference in distributed mode. Currently, the `scripts/msrun_launcher.sh` distributed launch script is provided as the main way to launch models. For details about the `msrun` feature, see [msrun Launching](https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html).
 The input parameters of the script are described as follows.
 
   | **Parameter**    | **Required on Single-Node** | **Required on Multi-Node** | **Default Value** | **Description**                                                     |
