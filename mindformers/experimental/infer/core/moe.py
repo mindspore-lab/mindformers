@@ -37,7 +37,8 @@ try:
                                              MoeGatingTopKSoftmax,
                                              MoeInitRouting,
                                              MoeInitRoutingV2,
-                                             MoeTokenUnpermute)
+                                             MoeTokenUnpermute,
+                                             FusedAddTopKDiv)
     MOE_FUSED_OP_VALID = True
 except ImportError:
     MOE_FUSED_OP_VALID = False
@@ -450,6 +451,7 @@ class ParallelMoEV2(nn.Cell):
         self.moe_token_unpermute = MoeTokenUnpermute()
         self.moe_init_routing_v2 = MoeInitRoutingV2()
         self.reduce_from_mp_region = ReduceFromModelParallelRegion()
+        self.fused_add_topk_div = FusedAddTopKDiv()
 
     def construct(self, input_tensor):
         """forward process"""
@@ -458,17 +460,19 @@ class ParallelMoEV2(nn.Cell):
         input_tensor = self.reshape(input_tensor, (-1, self.hidden_size))
 
         gating_logits = self.gating(self.cast(input_tensor, self.router_dense_type))
-        score = mint.sigmoid(gating_logits)
-        origin_score = score
-
-        # bias
-        score = score + self.router.e_score_correction_bias
-        # n_group
-        score = self.group_topk(score.astype(mstype.bfloat16), self.idx_arr, self.n_group,
-                                self.topk_group, self.group_topk_inner)
-        # topk
-        expert_index = mint.topk(score, self.num_experts_chosen, dim=-1)[1]
-        expert_index = self.cast(expert_index, mstype.int32)
+        gating_logits = self.cast(gating_logits, mstype.float32)
+        expert_weight, expert_index = \
+            self.fused_add_topk_div(
+                gating_logits,
+                self.router.e_score_correction_bias,
+                self.num_experts_chosen,
+                self.topk_group,
+                self.group_topk_inner,
+                self.num_experts_chosen,
+                0,
+                True,
+                self.moe_config.routed_scaling_factor)
+        expert_weight = expert_weight.astype(input_dtype)
 
         sorted_input_tensor, unsort_map, group_list, _ = \
             self.moe_init_routing_v2(
@@ -483,11 +487,6 @@ class ParallelMoEV2(nn.Cell):
         group_list = self.cast(group_list, mstype.int64)
 
         expert_output = self.ffn(sorted_input_tensor, group_list)
-
-        weight = origin_score.gather(expert_index, 1, 1)
-        expert_weight = self.div(weight, mint.sum(weight, -1, True))
-        expert_weight = self.mul(self.moe_config.routed_scaling_factor, expert_weight).astype(input_dtype)
-
         moe_output = self.moe_token_unpermute(permuted_tokens=expert_output,
                                               sorted_indices=unsort_map,
                                               probs=expert_weight,
