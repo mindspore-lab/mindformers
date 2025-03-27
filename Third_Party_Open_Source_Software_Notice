@@ -4540,9 +4540,10 @@ Copyright (c) 2010-2020 Benjamin Peterson
 License: MIT License
 Please see above.
 
-Software: tokenizers 0.20.0
+Software: tokenizers v0.21.0
 Copyright notice:
-No copyright notice found in source files of this software
+Copyright (c) 2020 N-API
+(c) 2019 natuki
 
 License: Apache License V2.0
 Please see above.
