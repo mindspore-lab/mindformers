@@ -289,6 +289,13 @@ bash build.sh
 
 进入DeepSeek-V3代码目录并执行以下命令拉起单台Atlas 800T A2（64G）预训练任务：
 
+如果设置use_gmm=True, 须添加如下环境变量, 设置缓存队列的上限值为100，以避免host内存OOM。具体取值需要根据实际情况调整, 当host内存增长过快时，需要适当减小缓存上限值, 可以通过多次尝试来确定一个合适的值。
+
+```shell
+export MS_DEV_RUNTIME_CONF="aclnn_cache_queue_length:100"
+export ACLNN_CACHE_LIMIT=100
+```
+
 ```shell
 cd $MINDFORMERS_HOME
 bash scripts/msrun_launcher.sh "run_mindformer.py \
