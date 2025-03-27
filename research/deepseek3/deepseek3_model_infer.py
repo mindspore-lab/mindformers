@@ -46,6 +46,7 @@ from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.experimental.infer.core.norm import RMSNorm
 from mindformers.experimental.infer.core.moe import RoutedParallelMLP, SharedParallelMLP, ParallelMoEV2
 from mindformers.experimental.infer.core.transformer import ParallelMLP, VocabEmbedding
+from mindformers.experimental.infer.core.mapping import ReduceFromModelParallelRegion
 
 from research.deepseek3.deepseek3_config import DeepseekV3Config
 from research.deepseek3.utils import convert_model_config
@@ -695,11 +696,13 @@ class DeepseekV3MoE(Cell):
             intermediate_size = intermediate_size * self.moe_config.shared_expert_num
             self.shared_experts = SharedParallelMLP(config, intermediate_size)
         self.add = P.Add()
+        self.reduce_from_mp_region = ReduceFromModelParallelRegion()
 
     def construct(self, x):
         output = self.routed_experts(x)
         if self.moe_config.shared_expert_num is not None:
             output = self.add(output, self.shared_experts(x))
+            output = self.reduce_from_mp_region(output)
         return output
 
 

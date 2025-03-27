@@ -22,7 +22,6 @@ from mindspore import Tensor, nn, Parameter, mint, ops
 from mindspore.ops import operations as P
 from mindspore.common.initializer import initializer
 
-from mindformers.modules.layers import Linear
 from mindformers.experimental.infer.core import get_act_func
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.experimental.infer.core.mapping import ReduceFromModelParallelRegion
@@ -234,29 +233,40 @@ class SharedParallelMLP(nn.Cell):
         self.ffn_hidden_size = intermediate_size
         self.mlp_has_gate = self.config.mlp_has_gate
         self.ffn_concat = self.config.ffn_concat
+        tp_group_size = get_tp_world_size()
+        self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, tp_group_size)
         if self.ffn_concat:
-            self.w_gate_hidden = Linear(
+            self.w_gate_hidden = ColumnParallelLinear(
                 self.hidden_size,
                 self.ffn_hidden_size * 2,
-                has_bias=self.has_bias,
+                config=self.config.parallel_config,
+                bias=self.has_bias,
                 transpose_b=True,
+                gather_output=False,
+                is_expert=False,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
             )
         else:
-            self.w1 = Linear(
+            self.w1 = ColumnParallelLinear(
                 self.hidden_size,
                 self.ffn_hidden_size,
-                has_bias=self.has_bias,
+                config=self.config.parallel_config,
+                bias=self.has_bias,
                 transpose_b=True,
+                gather_output=False,
+                is_expert=False,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
             )
-            self.w3 = Linear(
+            self.w3 = ColumnParallelLinear(
                 self.hidden_size,
                 self.ffn_hidden_size,
-                has_bias=self.has_bias,
+                config=self.config.parallel_config,
+                bias=self.has_bias,
                 transpose_b=True,
+                gather_output=False,
+                is_expert=False,
                 param_init_type=self.config.param_init_dtype,
                 compute_dtype=self.config.compute_dtype,
             )
@@ -264,13 +274,17 @@ class SharedParallelMLP(nn.Cell):
         self.act_type = self.config.hidden_act
         self.act_func = get_act_func(self.act_type)
 
-        self.w2 = Linear(
+        self.w2 = RowParallelLinear(
             self.ffn_hidden_size,
             self.hidden_size,
-            has_bias=self.has_bias,
+            input_is_parallel=True,
+            config=self.config.parallel_config,
+            bias=self.has_bias,
             transpose_b=True,
+            is_expert=True,
             param_init_type=self.config.param_init_dtype,
             compute_dtype=self.config.compute_dtype,
+            moe_delay_allreduce=True,
         )
 
         self.mul = ops.Mul()
@@ -281,7 +295,7 @@ class SharedParallelMLP(nn.Cell):
         if self.ffn_concat:
             gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
             gate, hidden = mint.split(gate_hidden_out,
-                                      (self.ffn_hidden_size, self.ffn_hidden_size), -1)
+                                      (self.ffn_hidden_size_per_partition, self.ffn_hidden_size_per_partition), -1)
         else:
             gate = self.w1(x)
             hidden = self.w3(x)
@@ -493,6 +507,6 @@ class ParallelMoEV2(nn.Cell):
                                               probs=expert_weight,
                                               padded_mode=False,
                                               restore_shape=None)
-        moe_output = self.reduce_from_mp_region(moe_output)
+        #moe_output = self.reduce_from_mp_region(moe_output)
         output_tensor = self.reshape(moe_output, input_tensor_shape)
         return output_tensor
