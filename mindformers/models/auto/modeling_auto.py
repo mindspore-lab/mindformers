@@ -51,8 +51,7 @@ MODEL_WITH_LM_HEAD_MAPPING_NAMES = OrderedDict(
         ("gpt2", "GPT2LMHeadModel"),
         ("glm", "GLMChatModel"),
         ("glm2", "ChatGLM2ForConditionalGeneration"),
-        ("llama", "LlamaForCausalLM"),
-        ("pangualpha", "PanguAlphaHeadModel"),
+        ("llama", "LlamaForCausalLM")
     ]
 )
 
@@ -96,7 +95,6 @@ MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
     [
         # Model for Sequence Classification mapping
         ("gpt2", "GPT2ForSequenceClassification"),
-        ("pangualpha", "PanguAlphaPromptTextClassificationModel"),
         ("bert", "BertForMultipleChoice")
     ]
 )

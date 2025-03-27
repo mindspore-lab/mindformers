@@ -132,14 +132,6 @@ from .mllama import (
     MllamaTokenizer,
     MllamaForConditionalGeneration
 )
-from .pangualpha import (
-    PanguAlphaConfig,
-    PanguAlphaHeadModel,
-    PanguAlphaModel,
-    PanguAlphaProcessor,
-    PanguAlphaPromptTextClassificationModel,
-    PanguAlphaTokenizer
-)
 from .sam import (
     ImageEncoderConfig,
     MaskData,

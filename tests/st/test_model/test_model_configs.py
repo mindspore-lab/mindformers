@@ -25,8 +25,6 @@ from mindformers.models.glm2 import ChatGLM2ForConditionalGeneration
 from mindformers.models.gpt2 import GPT2LMHeadModel, GPT2ForSequenceClassification
 from mindformers.models.llama import LlamaForCausalLM
 from mindformers.models.mae import ViTMAEForPreTraining
-from mindformers.models.pangualpha import PanguAlphaPromptTextClassificationModel, \
-    PanguAlphaHeadModel
 from mindformers.models.sam import SamModel
 from mindformers.models.swin import SwinForImageClassification
 from mindformers.models.t5 import T5ForConditionalGeneration
@@ -186,22 +184,6 @@ class TestMaeConfig(unittest.TestCase):
         config = AutoConfig.from_pretrained("configs/mae/run_mae_vit_base_p16_224_800ep.yaml")
         config.checkpoint_name_or_path = ''
         model = ViTMAEForPreTraining(config)
-
-
-class TestPanguAlphaConfig(unittest.TestCase):
-    """test PanguAlpha config"""
-    def test_init_model_for_text_classification_from_yaml(self):
-        """test init model with config"""
-        config = AutoConfig.from_pretrained("configs/pangualpha/run_pangualpha_2_6b_prompt_txtcls.yaml")
-        config.checkpoint_name_or_path = ''
-        model = PanguAlphaPromptTextClassificationModel(config)
-
-    def test_init_model_for_text_generation_from_yaml(self):
-        """test init model with config"""
-        config = AutoConfig.from_pretrained("configs/pangualpha/run_pangualpha_2_6b.yaml")
-        config.checkpoint_name_or_path = ''
-        model = PanguAlphaHeadModel(config)
-
 
 class TestSamConfig(unittest.TestCase):
     """test sam config"""
