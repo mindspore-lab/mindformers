@@ -18,6 +18,14 @@ import os
 import shutil
 from copy import deepcopy
 
+from mindformers.core.clip_grad import ClipGradNorm
+from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
+from mindformers.tools.utils import get_real_rank
+from mindformers.version_control import get_identity, is_dump_supported
+
+from mindspore.parallel._auto_parallel_context import auto_parallel_context
+from mindspore.parallel._utils import _get_enable_parallel_optimizer
+import mindspore.common.dtype as mstype
 from mindspore import nn, Parameter, ParallelMode, get_auto_parallel_context
 from mindspore.common import RowTensor
 from mindspore.common.tensor import Tensor
@@ -26,16 +34,12 @@ from mindspore.nn.wrap.cell_wrapper import _MicroBatch
 from mindspore.ops import composite as C
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
-from mindspore.ops._grad_experimental.grad_comm_ops import get_squared_device_local_norm_param
+if is_dump_supported():
+    from mindspore.ops._grad_experimental.grad_comm_ops import get_squared_device_local_norm_param
 
-from mindspore.parallel._auto_parallel_context import auto_parallel_context
-from mindspore.parallel._utils import _get_enable_parallel_optimizer
-import mindspore.common.dtype as mstype
 
-from mindformers.core.clip_grad import ClipGradNorm
-from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
-from mindformers.tools.utils import get_real_rank
-from mindformers.version_control import get_identity
+
+
 
 __all__ = ['MFTrainOneStepCell', 'MFPipelineWithLossScaleCell', 'PipelineCellWithTwoOutput',
            'GradAccumulationCellWithTwoOutput']
@@ -182,8 +186,13 @@ class MFTrainOneStepCell(nn.TrainOneStepWithLossScaleCell):
         self.calculate_per_token_loss = calculate_per_token_loss
         self.zero_t = Tensor([0], dtype=mstype.float32)
         self.grad_scale_factor = Tensor([1], dtype=mstype.float32)
-        self.dump_device_local_norm = get_auto_parallel_context("dump_device_local_norm")
-        self.if_dump = bool(get_auto_parallel_context("dump_local_norm_path"))
+        if is_dump_supported():
+            self.dump_device_local_norm = get_auto_parallel_context("dump_device_local_norm")
+            self.if_dump = bool(get_auto_parallel_context("dump_local_norm_path"))
+        else:
+            self.dump_device_local_norm = False
+            self.if_dump = False
+
         if self.if_dump:
             self.dump = P.TensorDump()
             self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f"rank_{get_real_rank()}")
@@ -545,8 +554,12 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         self.calculate_per_token_loss = calculate_per_token_loss
         self.grad_scale_factor = Tensor([1], dtype=mstype.float32)
         self.zero_t = Tensor([0], dtype=mstype.float32)
-        self.dump_device_local_norm = get_auto_parallel_context("dump_device_local_norm")
-        self.if_dump = bool(get_auto_parallel_context("dump_local_norm_path"))
+        if is_dump_supported():
+            self.dump_device_local_norm = get_auto_parallel_context("dump_device_local_norm")
+            self.if_dump = bool(get_auto_parallel_context("dump_local_norm_path"))
+        else:
+            self.dump_device_local_norm = False
+            self.if_dump = False
         if self.if_dump:
             self.dump = P.TensorDump()
             self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f"rank_{get_real_rank()}")

@@ -432,3 +432,7 @@ def check_moveto_op_support():
 def check_delay_initialization_support():
     """check mindspore version if use delay initialization"""
     return is_version_ge(ms.__version__, "2.4.10")
+
+def is_dump_supported():
+    """Check if the dump feature is supported based on the MindSpore version."""
+    return is_version_ge(ms.__version__, "2.5.0")

@@ -27,6 +27,7 @@ from mindspore.parallel import set_algo_parameters
 from mindspore import log as logger
 from mindspore.parallel._utils import _get_device_num, _get_pipeline_stages, _get_parallel_mode
 
+from mindformers.version_control import is_dump_supported
 from mindformers.tools.logger import _LogActionOnce
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.tools.utils import get_real_rank
@@ -393,8 +394,11 @@ class CrossEntropyLoss(nn.Cell):
         self.add2 = P.Add()
         self.div2 = P.RealDiv()
         self.relu = P.ReLU().shard(((1,),))
-        self.dump_local_loss = (bool(get_auto_parallel_context("dump_local_norm_path"))
-                                and check_for_nan_in_loss_and_grad)
+        self.dump_local_loss = (
+            is_dump_supported() and
+            bool(get_auto_parallel_context("dump_local_norm_path")) and
+            check_for_nan_in_loss_and_grad
+        )
         if self.dump_local_loss:
             self.dump = P.TensorDump()
             self.dump_path = os.path.join(get_auto_parallel_context("dump_local_norm_path"), f"rank_{get_real_rank()}")
