@@ -239,25 +239,26 @@ class LLamaAttention(nn.Cell):
                                 has_bias=qkv_has_bias,
                                 compute_dtype=compute_dtype,
                                 param_init_type=param_init_type)
-            if qkv_has_bias:
-                if use_3d_tensor_parallel:
-                    self.w_qkv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
-                                     (layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("y",)),
-                                     enable_nd_tp=True)
-                else:
-                    self.w_qkv.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
-            else:
-                if use_3d_tensor_parallel:
-                    self.w_qkv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))), \
-                                     enable_nd_tp=True)
-                else:
-                    self.w_qkv.shard(((dp * cp, 1), (mp, 1)))
             self.split_qkv = ms.ops.auto_generate.SplitWithSize()
             self.split_qkv.add_prim_attr("skip_redistribution", True)
-            if use_3d_tensor_parallel:
-                self.split_qkv.shard(((dp, cp * tp_z * tp_x, tp_y, 1),))
-            else:
-                self.split_qkv.shard(((dp, cp, mp, 1),))
+            if _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+                if qkv_has_bias:
+                    if use_3d_tensor_parallel:
+                        self.w_qkv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                         (layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("y",)),
+                                         enable_nd_tp=True)
+                    else:
+                        self.w_qkv.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
+                else:
+                    if use_3d_tensor_parallel:
+                        self.w_qkv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                         enable_nd_tp=True)
+                    else:
+                        self.w_qkv.shard(((dp * cp, 1), (mp, 1)))
+                if use_3d_tensor_parallel:
+                    self.split_qkv.shard(((dp, cp * tp_z * tp_x, tp_y, 1),))
+                else:
+                    self.split_qkv.shard(((dp, cp, mp, 1),))
         else:
             self.wq = Linear(self.hidden_size,
                              self.hidden_size,
@@ -277,41 +278,43 @@ class LLamaAttention(nn.Cell):
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type)
-            if qkv_has_bias:
-                if use_3d_tensor_parallel:
-                    self.wq.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))), \
-                                  (layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("y",)), enable_nd_tp=True)
-                    self.wk.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))), \
-                                  (layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("y",)), enable_nd_tp=True)
-                    self.wv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))), \
-                                  (layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("y",)), enable_nd_tp=True)
+            if _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+                if qkv_has_bias:
+                    if use_3d_tensor_parallel:
+                        self.wq.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                      (layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("y",)), enable_nd_tp=True)
+                        self.wk.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                      (layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("y",)), enable_nd_tp=True)
+                        self.wv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                      (layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("y",)), enable_nd_tp=True)
+                    else:
+                        self.wq.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
+                        self.wk.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
+                        self.wv.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
                 else:
-                    self.wq.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
-                    self.wk.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
-                    self.wv.shard(((dp * cp, 1), (mp, 1)), ((dp * cp, mp), (mp,)))
-            else:
-                if use_3d_tensor_parallel:
-                    self.wq.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
-                                  enable_nd_tp=True)
-                    self.wk.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
-                                  enable_nd_tp=True)
-                    self.wv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
-                                  enable_nd_tp=True)
-                else:
-                    self.wq.shard(((dp * cp, 1), (mp, 1)))
-                    self.wk.shard(((dp * cp, 1), (mp, 1)))
-                    self.wv.shard(((dp * cp, 1), (mp, 1)))
+                    if use_3d_tensor_parallel:
+                        self.wq.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                      enable_nd_tp=True)
+                        self.wk.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                      enable_nd_tp=True)
+                        self.wv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
+                                      enable_nd_tp=True)
+                    else:
+                        self.wq.shard(((dp * cp, 1), (mp, 1)))
+                        self.wk.shard(((dp * cp, 1), (mp, 1)))
+                        self.wv.shard(((dp * cp, 1), (mp, 1)))
         self.wo = Linear(in_channels=self.hidden_size,
                          out_channels=self.hidden_size,
                          init_method_std=init_method_std,
                          has_bias=attn_proj_has_bias,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
-        if use_3d_tensor_parallel:
-            self.wo.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("x", ("y", "z"))), \
-                          (layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("x")), enable_nd_tp=True)
-        else:
-            self.wo.shard(((dp * cp, mp), (1, mp)), ((dp * cp, 1), (1,)), out_strategy_matmul=((dp * cp, 1),))
+        if _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+            if use_3d_tensor_parallel:
+                self.wo.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("x", ("y", "z"))), \
+                              (layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("x")), enable_nd_tp=True)
+            else:
+                self.wo.shard(((dp * cp, mp), (1, mp)), ((dp * cp, 1), (1,)), out_strategy_matmul=((dp * cp, 1),))
 
         if self.use_past:
             self.infer_attention = InferAttention(self.n_head,
@@ -332,7 +335,8 @@ class LLamaAttention(nn.Cell):
                                                   parallel_decoding=parallel_decoding,
                                                   chunk_prefill=chunk_prefill,
                                                   )
-            self.infer_attention.shard(parallel_config)
+            if _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+                self.infer_attention.shard(parallel_config)
         else:
             self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
 
@@ -369,7 +373,7 @@ class LLamaAttention(nn.Cell):
                 self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
                 self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
                 self.apply_rotary_emb.shard(parallel_config)
-            else:
+            elif _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
                 if use_3d_tensor_parallel:
                     self.transpose.shard((layout_ndtp("dp", ("cp", "z", "x"), "y", "None"),))
                 else:
@@ -439,7 +443,8 @@ class LLamaAttention(nn.Cell):
                                                       tp_x=tp_x,
                                                       tp_y=tp_y,
                                                       tp_z=tp_z)
-                self.flash_attention.shard(parallel_config)
+                if _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+                    self.flash_attention.shard(parallel_config)
 
     def _ulysses_initial(self):
         """initial ulysses related ops."""
@@ -971,33 +976,35 @@ class LLamaDecodeLayer(nn.Cell):
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         cp = parallel_config.context_parallel
-        if use_3d_tensor_parallel:
-            layout_ndtp = Layout((dp, cp, tp_z, tp_x, tp_y), ("dp", "cp", "z", "x", "y"))
-        if self.expert_num == 1:
-            self.feed_forward.shard(parallel_config)
-        elif self.shared_expert_num == 0:
-            self.feed_forward.ffn.shard(parallel_config)
-        else:
-            self.feed_forward.shard(parallel_config)
-        if not rmsnorm_compute_2d:
-            self.add.shard(((dp, cp, 1), (dp, cp, 1)))
-        else:
-            self.add.shard(((dp * cp, 1), (dp * cp, 1)))
-        if cp > 1:
-            if not rmsnorm_compute_2d:
-                self.attention_norm.shard((dp, cp * mp, 1))
-                self.ffn_norm.shard((dp, cp * mp, 1))
+        if _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+            if use_3d_tensor_parallel:
+                layout_ndtp = Layout((dp, cp, tp_z, tp_x, tp_y), ("dp", "cp", "z", "x", "y"))
+            if self.expert_num == 1:
+                self.feed_forward.shard(parallel_config)
+            elif self.shared_expert_num == 0:
+                self.feed_forward.ffn.shard(parallel_config)
             else:
-                self.attention_norm.shard((dp * cp * mp, 1))
-                self.ffn_norm.shard((dp * cp * mp, 1))
-        elif rmsnorm_compute_2d:
-            self.attention_norm.shard((dp, 1))
-            self.ffn_norm.shard((dp, 1))
-        else:
-            self.attention_norm.shard((dp, 1, 1))
-            self.ffn_norm.shard((dp, 1, 1))
+                self.feed_forward.shard(parallel_config)
+            if not rmsnorm_compute_2d:
+                self.add.shard(((dp, cp, 1), (dp, cp, 1)))
+            else:
+                self.add.shard(((dp * cp, 1), (dp * cp, 1)))
+            if cp > 1:
+                if not rmsnorm_compute_2d:
+                    self.attention_norm.shard((dp, cp * mp, 1))
+                    self.ffn_norm.shard((dp, cp * mp, 1))
+                else:
+                    self.attention_norm.shard((dp * cp * mp, 1))
+                    self.ffn_norm.shard((dp * cp * mp, 1))
+            elif rmsnorm_compute_2d:
+                self.attention_norm.shard((dp, 1))
+                self.ffn_norm.shard((dp, 1))
+            else:
+                self.attention_norm.shard((dp, 1, 1))
+                self.ffn_norm.shard((dp, 1, 1))
 
-        if moe_config is None or not moe_config.expert_num > 1:
+        if (moe_config is None or not moe_config.expert_num > 1) \
+                and _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
             if not rmsnorm_compute_2d:
                 if use_3d_tensor_parallel:
                     self.feed_forward.mul.shard((layout_ndtp("dp", ("cp", "z", "x"), "y"),
