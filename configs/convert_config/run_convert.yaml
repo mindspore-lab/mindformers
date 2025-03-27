@@ -33,13 +33,6 @@ blip:
   output_path:
   dtype:
 
-wizardcoder:
-  input_path:
-  output_path:
-  dtype:
-  layers:
-  model_class: GPTBigCodeForCausalLM
-
 glm2:
   input_path:
   output_path:

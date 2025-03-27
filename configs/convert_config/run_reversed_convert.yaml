@@ -28,11 +28,6 @@ blip:
   output_path:
   dtype:
 
-wizardcoder:
-  input_path:
-  output_path:
-  dtype:
-
 glm2:
   input_path:
   output_path:

@@ -42,7 +42,6 @@ convert_map = {
     'internlm2': 'research.internlm2.convert_weight.convert_pt_to_ms',
     'gpt': 'mindformers.models.gpt2.convert_weight.convert_pt_to_ms',
     'blip': 'mindformers.models.blip2.convert_weight.convert_pt_to_ms',
-    'wizardcoder': 'research.wizardcoder.convert_weight.convert_pt_to_ms',
     'mixtral': 'research.mixtral.convert_weight.convert_pt_to_ms',
     'mae': 'mindformers.models.mae.convert_weight.convert_pt_to_ms',
     'vit': 'mindformers.models.vit.convert_weight.convert_pt_to_ms',
@@ -70,7 +69,6 @@ reversed_convert_map = {
     'internlm2': 'research.internlm2.convert_reversed.convert_ms_to_pt',
     'gpt': 'mindformers.models.gpt2.convert_reversed.convert_ms_to_pt',
     'blip': 'mindformers.models.blip2.convert_reversed.convert_ms_to_pt',
-    'wizardcoder': 'research.wizardcoder.convert_reversed.convert_ms_to_pt',
     'mixtral': 'research.mixtral.convert_reversed.convert_ms_to_pt',
     'mae': 'mindformers.models.mae.convert_reversed.convert_ms_to_pt',
     'vit': 'mindformers.models.vit.convert_reversed.convert_ms_to_pt',
@@ -94,7 +92,7 @@ if __name__ == '__main__':
     parser.add_argument('--qkv_concat', default=False, type=str2bool, required=False)
 
     parser.add_argument('--layers', default=12, type=int, required=False,
-                        help="Only for gpt2 and wizardcoder. "
+                        help="Only for gpt2. "
                              "The number of layers of the model to be converted from hf to ms")
     parser.add_argument('--is_pretrain', default=False, type=bool, required=False,
                         help="Only for swin. Convert pretrain model weight.")
