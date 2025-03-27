@@ -1084,7 +1084,8 @@ class CheckpointMonitor(ModelCheckpoint):
         integrated_save (bool, optional): Whether to merge and save the split Tensor in the automatic parallel scenario.
             Integrated save function is only supported in automatic parallel scene. Default: ``True``.
         save_network_params (bool, optional): Whether to only save network weights additionally. Default: ``True``.
-        save_trainable_params (bool, optional): Whether to save fine-tuned weights additionally. Default: ``False``.
+        save_trainable_params (bool, optional): Whether to save only weights of trainable parameters.
+            Default: ``False``.
         async_save (bool, optional): Whether asynchronous execution saves the checkpoint to a file. Default: ``False``.
         saved_network (Cell, optional): Network to be saved in checkpoint file. Default: ``None``.
         append_info (list, optional): The information save to checkpoint file.

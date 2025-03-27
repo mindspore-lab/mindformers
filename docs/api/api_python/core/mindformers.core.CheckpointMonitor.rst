@@ -15,7 +15,7 @@ mindformers.core.CheckpointMonitor
         - **keep_checkpoint_per_n_minutes** (int, 可选) - 每隔多少分钟保存一个checkpoint文件。不能同时与 `keep_checkpoint_max` 一起使用。默认值： ``0`` 。
         - **integrated_save** (bool, 可选) - 在自动并行场景下，是否合并保存拆分后的Tensor。合并保存功能仅支持在自动并行场景中使用，在手动并行场景中不支持。默认值： ``True`` 。
         - **save_network_params** (bool, 可选) - 是否仅额外保存网络参数。默认值： ``True`` 。
-        - **save_trainable_params** (bool, 可选) - 是否仅额外保存fine-tuned的参数。默认值： ``False`` 。
+        - **save_trainable_params** (bool, 可选) - 是否仅额外保存可训练参数的权重。默认值： ``False`` 。
         - **async_save** (bool, 可选) - 是否异步执行保存checkpoint文件。默认值： ``False`` 。
         - **saved_network** (Cell, 可选) - 保存在checkpoint文件中的网络。如果 `saved_network` 没有被训练，则保存 `saved_network` 的初始值。默认值： ``None`` 。
         - **append_info** (list, 可选) - 保存在checkpoint文件中的信息。支持"epoch_num"、"step_num"和dict类型。dict的key必须是str，dict的value必须是int、float、bool、string、Parameter或Tensor中的一个。默认值： ``None`` 。
