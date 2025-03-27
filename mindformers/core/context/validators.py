@@ -81,6 +81,16 @@ def validate_precision_sync(config):
             f'train_percision_sync should be bool, got {infer_percision_sync}')
 
 
+def validate_invalid_predict_mode(config):
+    """Validate invalid predict mode when using FA but use_past is False."""
+    run_mode = config.get_value('run_mode')
+    use_past = config.get_value('model.model_config.use_past')
+    use_flash_attention = config.get_value('model.model_config.use_flash_attention')
+    if run_mode == RunMode.PREDICT.value and not use_past and use_flash_attention:
+        raise ValueError("Conflict detected in predict mode: "
+                         "Flash Attention is incompatible when use_past=False")
+
+
 def execute_validator(config):
     """Execute all validate function."""
     current_module = inspect.getmodule(inspect.currentframe())

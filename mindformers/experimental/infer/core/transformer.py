@@ -14,6 +14,7 @@
 # ============================================================================
 """ For transformer """
 import math
+import os
 
 import numpy as np
 
@@ -507,6 +508,10 @@ class ParallelAttention(nn.Cell):
             if freqs_cis is not None:
                 query, key = self.apply_rotary_emb(query, key, freqs_cis)
             if self.use_flash_attention:
+                if os.getenv('RUN_MODE') == 'predict':
+                    raise NotImplementedError(
+                        "Conflict detected in predict mode: "
+                        "Flash Attention is incompatible when use_past=False")
                 context_layer = self.flash_attention(query, key, value, attn_mask)
             else:
                 # [B, N_kv, S, D] --> [B, N, S, D]
