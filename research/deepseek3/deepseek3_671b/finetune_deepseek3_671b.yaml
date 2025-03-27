@@ -167,9 +167,7 @@ moe_config:
   z_loss_factor: 0.0
   expert_model_parallel: 1
   use_gating_sigmoid: True
-  use_gmm: True
-  use_fused_ops_permute: True
-  enable_gmm_safe_tokens: True
+  use_gmm: False
 
 # callbacks
 callbacks:
