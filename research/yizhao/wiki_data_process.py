@@ -11,7 +11,7 @@ from datasets import load_dataset
 from mindspore.mindrecord import FileWriter
 from tqdm import tqdm
 
-from yizhao_model.yizhao_tokenizer import YiZhaoTokenizer
+from yizhao_tokenizer import YiZhaoTokenizer
 
 
 def chunks(lst, n):

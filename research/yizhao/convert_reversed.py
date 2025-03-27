@@ -25,7 +25,7 @@ from tqdm import tqdm
 
 from mindformers import MindFormerConfig
 from mindformers.utils.convert_utils import ms2pt, is_lora_param
-from research.yizhao.yizhao_model.yizhao_config import YiZhaoConfig
+from yizhao_config import YiZhaoConfig
 
 digit_pattern = re.compile(r"([0-9]+)")
 qkv_pattern = re.compile(r"(wq|wk|wv)")
