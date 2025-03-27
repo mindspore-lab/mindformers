@@ -255,10 +255,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "research/internlm/run_internlm_7b.yaml")),
             ("internlm_7b_lora", os.path.join(
                 _PROJECT_PATH, "research/internlm/run_internlm_7b_lora.yaml")),
-            ("qwen_7b", os.path.join(
-                _PROJECT_PATH, "research/qwen/run_qwen_7b.yaml")),
-            ("qwen_7b_lora", os.path.join(
-                _PROJECT_PATH, "research/qwen/run_qwen_7b_lora.yaml")),
             ("yi_6b", os.path.join(
                 _PROJECT_PATH, "research/yi/predict_yi_6b.yaml")),
             ("yi_34b", os.path.join(
@@ -552,9 +548,6 @@ class MindFormerBook:
             'sam_vit_l',
             'sam_vit_h'
         ]),
-        ('qwen', [
-            'qwen_7b',
-        ]),
         ('yi', [
             'yi_6b_finetune',
             'yi_6b_pretrain',
@@ -846,9 +839,6 @@ class MindFormerBook:
             'internlm_7b',
             'internlm_7b_lora',
         ]),
-        ('qwen', [
-            'qwen_7b',
-        ]),
         ('yi', [
             'yi_6b',
             'yi_34b',
@@ -1037,14 +1027,6 @@ class MindFormerBook:
         ('sam_vit_h',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/sam/sam_vit_h_4b8939.ckpt'
-          ]),
-        ('qwen_7b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/qwen/qwen_7b_base.ckpt'
-          ]),
-        ('qwen_7b_chat',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/qwen/qwen_7b_chat.ckpt'
           ])
     ])
 
@@ -1262,11 +1244,7 @@ class MindFormerBook:
         ('codellama_34b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/llama2/tokenizer.model'
-          ]),
-        ('qwen_7b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/qwen/qwen.tiktoken'
-          ]),
+          ])
     ])
 
     _TOKENIZER_NAME_TO_PROCESSOR = OrderedDict([
