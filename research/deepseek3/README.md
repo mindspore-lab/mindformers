@@ -364,14 +364,17 @@ MindSpore Transformers支持对DeepSeek-V3进行全参微调。仓库中提供�
 下载完成后，运行`research/deepseek3/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
 
 ```shell
-python research/deepseek3/convert_weight.py --torch_ckpt_path TORCH_CKPT_DIR --mindspore_ckpt_path {path}/MS_CKPT_NAME --dtype bf16
+python research/deepseek3/convert_weight.py --torch_ckpt_path TORCH_CKPT_DIR --mindspore_ckpt_path {path}/MS_CKPT_NAME --use_gemm False --dtype bf16
 
 # 参数说明
 model:            模型名称
 torch_ckpt_path:  下载HuggingFace权重的文件夹路径
 output_path:      转换后的MindSpore权重文件保存路径
+use_gemm:         是否转换为grouped matmul权重，默认为True
 dtype:            转换权重的精度
 ```
+
+> 注：目前全参微调仅支持batched matmul实现，此处转换时use_gemm需设置为False；[模型权重下载](#模型权重下载)中提供的权重也均为bmm实现权重。
 
 #### [模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)
 

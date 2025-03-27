@@ -22,11 +22,12 @@ import os
 from collections import defaultdict
 from glob import glob
 import warnings
+import numpy as np
+import torch
+from safetensors.torch import save_file
 
 import mindspore as ms
 from mindspore.ops.operations import Cast
-import torch
-from safetensors.torch import save_file
 
 ms.set_context(device_target='CPU')
 cpu_cast = Cast().set_device('CPU')
@@ -47,9 +48,20 @@ default_config = {
     'num_nextn_predict_layers': 1,
     'first_k_dense_replace': 3,
     'dtype': torch.bfloat16,
-    'use_gemm': False,
+    'use_gemm': True,
     'load_format': "safetensors"
 }
+
+
+def str2bool(b: str):
+    """String convert to Bool."""
+    if b.lower() in ["false"]:
+        output = False
+    elif b.lower() in ["true"]:
+        output = True
+    else:
+        raise Exception("Invalid Bool Value")
+    return output
 
 
 def plain_name_replace(weight_name: str):
@@ -74,7 +86,7 @@ def mla_name_replace(weight_name: str):
     return weight_name
 
 
-def mlp_name_replace(weight_name: str):
+def mlp_name_replace(weight_name: str, use_gemm: bool = True):
     """Weight name replacing for MLP module, including MoE"""
     weight_name = weight_name.replace('feed_forward.w1.', 'mlp.gate_proj.')
     weight_name = weight_name.replace('feed_forward.w2.', 'mlp.down_proj.')
@@ -82,8 +94,14 @@ def mlp_name_replace(weight_name: str):
     weight_name = weight_name.replace('feed_forward.shared_experts.w1.', 'mlp.shared_experts.gate_proj.')
     weight_name = weight_name.replace('feed_forward.shared_experts.w2.', 'mlp.shared_experts.down_proj.')
     weight_name = weight_name.replace('feed_forward.shared_experts.w3.', 'mlp.shared_experts.up_proj.')
-    weight_name = weight_name.replace('feed_forward.routed_experts.router.dense.weight', 'mlp.gate.weight')
-    weight_name = weight_name.replace('feed_forward.routed_experts.router.router.topk_bias',
+
+    bmm_key = 'feed_forward.routed_experts.router.dense.weight'
+    gmm_key = 'feed_forward.routed_experts.router_dense.weight'
+    weight_name = weight_name.replace(gmm_key if use_gemm else bmm_key, 'mlp.gate.weight')
+
+    bmm_key = 'feed_forward.routed_experts.router.router.topk_bias'
+    gmm_key = 'feed_forward.routed_experts.topk_bias'
+    weight_name = weight_name.replace(gmm_key if use_gemm else bmm_key,
                                       'mlp.gate.e_score_correction_bias')
     return weight_name
 
@@ -96,6 +114,8 @@ def mtp_name_replace(weight_name: str, current_layer_id: int, mtp_layer_id: int)
                                       f"model.layers.{current_layer_id}.hnorm")
     weight_name = weight_name.replace(f"model.mtp_hidden_fusers.{mtp_layer_id}.dense",
                                       f"model.layers.{current_layer_id}.eh_proj")
+    weight_name = weight_name.replace(f"model.mtp_norms.{mtp_layer_id}",
+                                      f"model.layers.{current_layer_id}.shared_head.norm")
     return weight_name
 
 
@@ -249,6 +269,7 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config):
     num_routed_experts = config['num_routed_experts']
     first_k_dense_replace = config['first_k_dense_replace']
     dtype = config['dtype']
+    use_gemm = config['use_gemm']
 
     mlp_weight_dict = defaultdict()
     if layer_id < first_k_dense_replace:
@@ -266,8 +287,12 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config):
         mlp_weight_dict[up_proj_key] = torch.from_numpy(up_proj).to(dtype).clone()
         mlp_weight_dict[down_proj_key] = torch.from_numpy(down_proj).to(dtype).clone()
     else:
-        router_weight_key = f"model.layers.{layer_id}.feed_forward.routed_experts.router.dense.weight"
-        router_correct_bias_key = f"model.layers.{layer_id}.feed_forward.routed_experts.router.router.topk_bias"
+        if use_gemm:
+            router_weight_key = f"model.layers.{layer_id}.feed_forward.routed_experts.router_dense.weight"
+            router_correct_bias_key = f"model.layers.{layer_id}.feed_forward.routed_experts.topk_bias"
+        else:
+            router_weight_key = f"model.layers.{layer_id}.feed_forward.routed_experts.router.dense.weight"
+            router_correct_bias_key = f"model.layers.{layer_id}.feed_forward.routed_experts.router.router.topk_bias"
         shared_experts_gate_proj_key = f"model.layers.{layer_id}.feed_forward.shared_experts.w1.weight"
         shared_experts_up_proj_key = f"model.layers.{layer_id}.feed_forward.shared_experts.w3.weight"
         shared_experts_down_proj_key = f"model.layers.{layer_id}.feed_forward.shared_experts.w2.weight"
@@ -280,8 +305,8 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config):
         shared_experts_down_proj = cpu_cast(ms_layer_weights.pop(shared_experts_down_proj_key), ms.float32).numpy()
 
         # replace name and store
-        router_weight_key = mlp_name_replace(router_weight_key)
-        router_correct_bias_key = mlp_name_replace(router_correct_bias_key)
+        router_weight_key = mlp_name_replace(router_weight_key, use_gemm)
+        router_correct_bias_key = mlp_name_replace(router_correct_bias_key, use_gemm)
         shared_experts_gate_proj_key = mlp_name_replace(shared_experts_gate_proj_key)
         shared_experts_up_proj_key = mlp_name_replace(shared_experts_up_proj_key)
         shared_experts_down_proj_key = mlp_name_replace(shared_experts_down_proj_key)
@@ -292,12 +317,26 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config):
         mlp_weight_dict[shared_experts_down_proj_key] = torch.from_numpy(shared_experts_down_proj).to(dtype).clone()
 
         # routed experts
-        expert_gate_proj_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w1.weight"
-        expert_up_proj_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w3.weight"
-        expert_down_proj_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w2.weight"
-        expert_gate_proj = cpu_cast(ms_layer_weights.pop(expert_gate_proj_key), ms.float32).numpy()
-        expert_up_proj = cpu_cast(ms_layer_weights.pop(expert_up_proj_key), ms.float32).numpy()
-        expert_down_proj = cpu_cast(ms_layer_weights.pop(expert_down_proj_key), ms.float32).numpy()
+        if use_gemm:
+            weight1_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w1"
+            weight2_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w2"
+            weight1 = cpu_cast(ms_layer_weights.pop(weight1_key), ms.float32).numpy()
+            weight2 = cpu_cast(ms_layer_weights.pop(weight2_key), ms.float32).numpy()
+            # split then transpose back
+            expert_gate_proj, expert_up_proj = np.split(
+                weight1.reshape(num_routed_experts, -1, weight1.shape[-1]), 2, axis=-1)
+            expert_gate_proj = np.swapaxes(expert_gate_proj, 1, 2)
+            expert_up_proj = np.swapaxes(expert_up_proj, 1, 2)
+            # transpose back
+            expert_down_proj = np.swapaxes(
+                weight2.reshape(num_routed_experts, -1, weight2.shape[-1]), 1, 2)
+        else:
+            expert_gate_proj_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w1.weight"
+            expert_up_proj_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w3.weight"
+            expert_down_proj_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w2.weight"
+            expert_gate_proj = cpu_cast(ms_layer_weights.pop(expert_gate_proj_key), ms.float32).numpy()
+            expert_up_proj = cpu_cast(ms_layer_weights.pop(expert_up_proj_key), ms.float32).numpy()
+            expert_down_proj = cpu_cast(ms_layer_weights.pop(expert_down_proj_key), ms.float32).numpy()
         expert_gate_proj = torch.from_numpy(expert_gate_proj).to(dtype).reshape(num_routed_experts,
                                                                                 -1, expert_gate_proj.shape[-1])
         expert_up_proj = torch.from_numpy(expert_up_proj).to(dtype).reshape(num_routed_experts,
@@ -309,9 +348,9 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config):
             gate_proj_key = f"model.layers.{layer_id}.mlp.experts.{expert_id}.gate_proj.weight"
             up_proj_key = f"model.layers.{layer_id}.mlp.experts.{expert_id}.up_proj.weight"
             down_proj_key = f"model.layers.{layer_id}.mlp.experts.{expert_id}.down_proj.weight"
-            mlp_weight_dict[gate_proj_key] = expert_gate_proj[expert_id, ...].clone()
-            mlp_weight_dict[up_proj_key] = expert_up_proj[expert_id, ...].clone()
-            mlp_weight_dict[down_proj_key] = expert_down_proj[expert_id, ...].clone()
+            mlp_weight_dict[gate_proj_key] = expert_gate_proj[expert_id, ...].clone().contiguous()
+            mlp_weight_dict[up_proj_key] = expert_up_proj[expert_id, ...].clone().contiguous()
+            mlp_weight_dict[down_proj_key] = expert_down_proj[expert_id, ...].clone().contiguous()
 
     return mlp_weight_dict
 
@@ -326,32 +365,32 @@ def _mtp_ms_to_pt(layer_id, ms_layer_weights, config):
     enorm_key = f"model.mtp_hidden_fusers.{mtp_layer_id}.norm_emb.weight"
     hnorm_key = f"model.mtp_hidden_fusers.{mtp_layer_id}.norm.weight"
     e_proj_key = f"model.mtp_hidden_fusers.{mtp_layer_id}.dense.weight"
+    norm_out_key = f"model.mtp_norms.{mtp_layer_id}.weight"
 
     enorm = cpu_cast(ms_layer_weights.pop(enorm_key), ms.float32).numpy()
     hnorm = cpu_cast(ms_layer_weights.pop(hnorm_key), ms.float32).numpy()
     e_proj = cpu_cast(ms_layer_weights.pop(e_proj_key), ms.float32).numpy()
+    shard_head_norm = cpu_cast(ms_layer_weights.pop(norm_out_key), ms.float32).numpy()
 
     mtp_weight_dict = defaultdict()
     enorm_key = mtp_name_replace(enorm_key, layer_id, mtp_layer_id)
     hnorm_key = mtp_name_replace(hnorm_key, layer_id, mtp_layer_id)
     e_proj_key = mtp_name_replace(e_proj_key, layer_id, mtp_layer_id)
+    norm_out_key = mtp_name_replace(norm_out_key, layer_id, mtp_layer_id)
     mtp_weight_dict[enorm_key] = torch.from_numpy(enorm).to(dtype).clone()
     mtp_weight_dict[hnorm_key] = torch.from_numpy(hnorm).to(dtype).clone()
     mtp_weight_dict[e_proj_key] = torch.from_numpy(e_proj).to(dtype).clone()
+    mtp_weight_dict[norm_out_key] = torch.from_numpy(shard_head_norm).to(dtype).clone()
 
     emb_weight_key = "model.tok_embeddings.embedding_weight"
-    final_norm_key = "model.norm_out.weight"
     lm_head_key = "lm_head.weight"
     emb_weight = cpu_cast(ms_layer_weights.get(emb_weight_key), ms.float32).numpy()
-    final_norm = cpu_cast(ms_layer_weights.get(final_norm_key), ms.float32).numpy()
     lm_head = cpu_cast(ms_layer_weights.get(lm_head_key), ms.float32).numpy()
 
     shared_embed_key = f"model.layers.{layer_id}.embed_tokens.weight"
-    shared_head_norm_key = f"model.layers.{layer_id}.shared_head.norm.weight"
     shared_head_key = f"model.layers.{layer_id}.shared_head.head.weight"
     mtp_weight_dict[shared_embed_key] = torch.from_numpy(emb_weight).to(dtype).clone()
     mtp_weight_dict[shared_head_key] = torch.from_numpy(lm_head).to(dtype).clone()
-    mtp_weight_dict[shared_head_norm_key] = torch.from_numpy(final_norm).to(dtype).clone()
 
     return mtp_weight_dict
 
@@ -502,7 +541,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_routed_experts', default=256, type=int)
     parser.add_argument('--torch_ckpt_path', default=None, type=str)
     parser.add_argument('--mindspore_ckpt_path', default=None, type=str)
-    parser.add_argument('--use_gemm', action='store_true')
+    parser.add_argument('--use_gemm', default=True, type=str2bool)
     parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'])
     parser.add_argument("--num_layers", default=61, type=int)
     parser.add_argument("--num_nextn_predict_layers", default=1, type=int)
