@@ -1,5 +1,11 @@
 # 通义千问
 
+> ## 🚨 弃用说明
+>
+> 本模型已过时，不再进行维护，并将在 *1.5.0* 之后的版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/start/models.html)** 选择合适的版本进行使用。
+>
+> 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
+
 ## 模型描述
 
 通义千问是阿里云研发的通义千问大模型系列。Qwen1.5是Qwen2的beta版本, 基于Transformer的大语言模型, 在超大规模的预训练数据上进行训练得到。预训练数据类型多样，覆盖广泛，包括大量网络文本、专业书籍、代码等。
