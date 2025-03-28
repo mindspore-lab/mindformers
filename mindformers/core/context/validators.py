@@ -86,7 +86,7 @@ def validate_invalid_predict_mode(config):
     run_mode = config.get_value('run_mode')
     use_past = config.get_value('model.model_config.use_past')
     use_flash_attention = config.get_value('model.model_config.use_flash_attention')
-    if run_mode == RunMode.PREDICT.value and not use_past and use_flash_attention:
+    if run_mode == RunMode.PREDICT.value and use_past is False and use_flash_attention is True:
         raise ValueError("Conflict detected in predict mode: "
                          "Flash Attention is incompatible when use_past=False")
 
