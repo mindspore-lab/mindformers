@@ -64,6 +64,10 @@ def build_parallel_config(config):
                             config.parallel_config.pipeline_stage)
                 config.parallel_config.vocab_emb_dp = False
             _set_rp_matmul_mem_coef(config.parallel_config.get('mem_coeff', 0.1))
+            if config.parallel_config.context_parallel_algo and \
+                config.parallel_config.context_parallel_algo == "hybird_cp":
+                logger.warning(f"context_parallel_algo `hybird_cp` will not take effect in later versions, "
+                               f"and will be replaced by `hybrid_cp` in the new version.")
             config.parallel_config = TransformerOpParallelConfig(recompute=config.recompute_config,
                                                                  swap=config.swap_config,
                                                                  **config.parallel_config)
