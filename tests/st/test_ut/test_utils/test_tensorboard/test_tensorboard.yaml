@@ -6,6 +6,7 @@ auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in dis
 only_save_strategy: False
 resume_training: False
 run_mode: 'train'
+use_legacy: True
 
 # trainer config
 trainer:
