@@ -301,7 +301,7 @@ class MLAInferAttention(nn.Cell):
                   attn_mask=None, alibi_mask=None, q_seq_lens=None, key_cache=None):
         """ Forward process of the MLA Infer Attention Cell """
         if self.is_first_iteration:
-            return self._prefill_attention(query, key, value, attn_mask, alibi_mask, batch_valid_length,
+            return self._prefill_attention(query, key, value, attn_mask, alibi_mask, q_seq_lens,
                                            batch_valid_length)
         return self._incre_attention(query, batch_valid_length, block_tables,
                                      attn_mask, q_seq_lens, key_cache=key_cache)
@@ -598,7 +598,7 @@ class DeepseekV3Attention(nn.Cell):
             query_states = query_states.view(bs, seq_len, -1)
 
             context_layer = self.infer_attention(query_states, key_states, value_states, batch_valid_length,
-                                                 block_tables, mask, key_cache=key_cache)
+                                                 block_tables, mask, q_seq_lens=q_seq_lens, key_cache=key_cache)
 
             context_layer = context_layer.view(bs, seq_len, self.n_local_heads, self.q_head_dim)
             context_layer = self.dim_slice_4d(context_layer, (0, 0, 0, 0), (bs, seq_len, self.n_local_heads,
