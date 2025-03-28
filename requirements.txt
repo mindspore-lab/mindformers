@@ -9,8 +9,8 @@ rouge_chinese>=1.0.3
 nltk==3.9.1
 mindpet==1.0.4
 opencv-python-headless
-pyarrow==19.0.1
-tokenizers==0.20.0
+pyarrow==19.0.0
+tokenizers==0.21.0
 astunparse>=1.6.3
 numpy<2.0.0
 datasets==2.18.0
