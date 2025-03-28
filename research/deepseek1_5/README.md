@@ -1,5 +1,11 @@
 # DeepSeek Coder
 
+> ## 🚨 弃用说明
+>
+> 本模型已过时，不再进行维护，并将在 *1.5.0* 之后的版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/start/models.html)** 选择合适的版本进行使用。
+>
+> 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
+
 ## 模型描述
 
 DeepSeek Coder由一系列代码语言模型组成，每个模型都在2T token上从零开始训练，其中87%的代码和13%的自然语言组成，英文和中文都有。在编码功能方面，DeepSeek
