@@ -15,11 +15,12 @@
 """Test PreProcess in GenerationMixin.forward"""
 from unittest import mock
 
+import os
 import time
 import pytest
 
 import numpy as np
-from mindspore import set_context, Tensor, get_context
+from mindspore import set_context, Tensor
 
 from mindformers.generation.text_generator import GenerationMixin
 from mindformers.tools.debug_info import DetailedLatency, Profiling
@@ -49,7 +50,7 @@ class TestGenerationMixin:
         self.config = TestConfig()
         self._pre_set_phase = None
         self._exec_add_flags = True
-        self.is_pynative = get_context('mode') == 1
+        self.is_pynative = os.getenv("FORCE_EAGER", "false").lower() == "true"
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):

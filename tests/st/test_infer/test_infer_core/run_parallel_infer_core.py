@@ -14,10 +14,11 @@
 # ============================================================================
 """test parallel transformer."""
 
+import os
 import argparse
 
 import numpy as np
-from mindspore import Tensor, get_context, set_context
+from mindspore import Tensor, set_context
 from mindspore.communication import init
 
 from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
@@ -63,7 +64,7 @@ def _test_parallel_attention(config):
     num_blocks = config.num_blocks
 
     use_past = config.use_past
-    is_pynative = get_context('mode') == 1
+    is_pynative = os.getenv("FORCE_EAGER", "false").lower() == "true"
 
     input_x = Tensor(np.random.randn(batch_size, seq_length, hidden_size).astype(np.float16))
     freqs_cos = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
@@ -101,7 +102,7 @@ def _test_parallel_transformerlayers(config):
     num_blocks = config.num_blocks
 
     use_past = config.use_past
-    is_pynative = get_context('mode') == 1
+    is_pynative = os.getenv("FORCE_EAGER", "false").lower() == "true"
 
     x = Tensor(np.random.randn(batch_size, seq_length, hidden_size).astype(np.float16))
     freqs_cos = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
@@ -159,6 +160,9 @@ def _test_module(module, mode):
     # set_context
     jit_level = "O0"
     infer_boost = "on"
+    if mode == 1:
+        os.environ["MS_JIT"] = "0"
+        os.environ["FORCE_EAGER"] = "true"
     set_context(mode=mode, jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
 
     # init communication
