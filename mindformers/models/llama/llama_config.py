@@ -275,3 +275,4 @@ class LlamaConfig(PretrainedConfig):
         else:
             self.start_stage = 0
             self.stage_num = 0
+        self.npu_mem_size = 2

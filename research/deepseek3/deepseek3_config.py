@@ -228,3 +228,4 @@ class DeepseekV3Config(DeepseekV2Config):
         self.use_fused_rope = use_fused_rope
         self.use_fused_swiglu = use_fused_swiglu
         self.return_hidden_states = return_hidden_states
+        self.npu_mem_size = 2

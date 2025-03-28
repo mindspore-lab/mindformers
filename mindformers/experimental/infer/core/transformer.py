@@ -387,14 +387,13 @@ class ParallelAttention(nn.Cell):
             else:
                 kv_shape = (self.config.num_blocks, self.config.block_size,
                             self.kv_num_heads_per_partition, self.head_dim)
-            npu_mem_size = self.config.npu_mem_size if hasattr(self.config, 'npu_mem_size') else 2
             self.paged_attention_mgr = ParallelPagedAttentionMgr(self.num_heads_per_partition,
                                                                  self.head_dim,
                                                                  self.kv_num_heads_per_partition,
                                                                  kv_shape,
                                                                  config.seq_length,
                                                                  compute_dtype=self.compute_dtype,
-                                                                 npu_mem_size=npu_mem_size,
+                                                                 npu_mem_size=self.config.npu_mem_size,
                                                                  )
             self.rotary_embedding = InferRotaryEmbedding(rotary_cos_format=2)
         else:
@@ -402,8 +401,8 @@ class ParallelAttention(nn.Cell):
 
 
     def construct(self, x, batch_valid_length, block_tables, slot_mapping, freqs_cis=None,
-                  attn_mask=None, alibi_mask=None, prefix_keys_values=None, encoder_output=None,
-                  key_cache=None, value_cache=None, q_seq_lens=None):
+                  attn_mask=None, alibi_mask=None, encoder_output=None, prefix_keys_values=None,
+                  q_seq_lens=None, key_cache=None, value_cache=None):
         """Construct function of attention block."""
         # hidden_states: [B, S, H]
         ori_dtype = x.dtype
@@ -698,7 +697,7 @@ class ParallelTransformerLayer(nn.Cell):
         self.feed_forward = ParallelMLP(config)
 
     def construct(self, x, freqs_cis=None, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None, q_seq_lens=None):
+                  slot_mapping=None, prefix_keys_values=None, q_seq_lens=None, key_cache=None, value_cache=None):
         """Construct function of transformer layer."""
         # hidden_states: [B, S, H]
         # norm at the beginning of the transformer layer.
@@ -706,7 +705,7 @@ class ParallelTransformerLayer(nn.Cell):
         # attention.
         attention_output = self.attention(norm_output, batch_valid_length, block_tables, slot_mapping, freqs_cis,
                                           mask, prefix_keys_values=prefix_keys_values,
-                                          key_cache=key_cache, value_cache=value_cache, q_seq_lens=q_seq_lens)
+                                          q_seq_lens=q_seq_lens, key_cache=key_cache, value_cache=value_cache)
         # residual-connection.
         if self.apply_residual_connection_post_norm:
             residual = norm_output
@@ -817,8 +816,8 @@ class ParallelTransformer(nn.Cell):
 
     # pylint: disable=W0613
     def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
-                  block_tables=None, slot_mapping=None, prefix_keys_values=None, key_cache=None, value_cache=None,
-                  position_ids=None, attention_mask=None, q_seq_lens=None):
+                  block_tables=None, slot_mapping=None, prefix_keys_values=None, position_ids=None, attention_mask=None,
+                  q_seq_lens=None, key_cache=None, value_cache=None):
         """
         Forward of ParallelTransformer.
 
@@ -864,8 +863,8 @@ class ParallelTransformer(nn.Cell):
             value_cache_i = value_cache[i] if value_cache is not None else None
             hidden_states = self.layers[i](hidden_states, freqs_cis, mask, batch_valid_length=batch_valid_length,
                                            block_tables=block_tables, slot_mapping=slot_mapping,
-                                           prefix_keys_values=prefix_kv,
-                                           key_cache=key_cache_i, value_cache=value_cache_i, q_seq_lens=q_seq_lens)
+                                           prefix_keys_values=prefix_kv, q_seq_lens=q_seq_lens,
+                                           key_cache=key_cache_i, value_cache=value_cache_i)
 
         if self.post_norm:
             hidden_states = self.norm_out(hidden_states)
