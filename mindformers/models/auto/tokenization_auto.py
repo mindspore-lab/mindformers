@@ -24,23 +24,23 @@ import shutil
 from collections import OrderedDict
 from typing import Dict, Optional, Union
 from mindformers.tools.generic import experimental_mode_func_checker
-from ..tokenization_utils import PreTrainedTokenizer
-from ..tokenization_utils_base import TOKENIZER_CONFIG_FILE
-from ...tools import (
+from mindformers.models.tokenization_utils import PreTrainedTokenizer
+from mindformers.models.tokenization_utils_base import TOKENIZER_CONFIG_FILE
+from mindformers.tools import (
     cached_file,
     extract_commit_hash,
 )
-from ...tools.hub import get_class_from_dynamic_module, resolve_trust_remote_code
-from ...utils.import_utils import is_sentencepiece_available, is_tokenizers_available
-from ...tools.logger import logger
-from .configuration_auto import (
+from mindformers.tools.hub import get_class_from_dynamic_module, resolve_trust_remote_code
+from mindformers.utils.import_utils import is_sentencepiece_available, is_tokenizers_available
+from mindformers.tools.logger import logger
+from mindformers.models.auto.configuration_auto import (
     CONFIG_MAPPING_NAMES,
     PretrainedConfig,
     AutoConfig,
     config_class_to_model_type
 )
-from .auto_factory import _LazyAutoMapping
-from ...mindformer_book import MindFormerBook, print_dict
+from mindformers.models.auto.auto_factory import _LazyAutoMapping
+from mindformers.mindformer_book import MindFormerBook, print_dict
 
 TOKENIZER_SUPPORT_LIST = MindFormerBook.get_tokenizer_support_list()
 

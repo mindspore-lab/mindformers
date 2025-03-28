@@ -20,13 +20,13 @@ import shutil
 
 from mindformers.tools.utils import try_sync_file
 
-from .mindformer_book import MindFormerBook, print_dict
-from .models.build_processor import build_processor
-from .models.base_config import BaseConfig
-from .models.build_model import build_network
-from .models.build_config import build_model_config
-from .tools.logger import logger
-from .tools.register.config import MindFormerConfig
+from mindformers.mindformer_book import MindFormerBook, print_dict
+from mindformers.models.build_processor import build_processor
+from mindformers.models.base_config import BaseConfig
+from mindformers.models.build_model import build_network
+from mindformers.models.build_config import build_model_config
+from mindformers.tools.logger import logger
+from mindformers.tools.register.config import MindFormerConfig
 
 
 __all__ = ['AutoConfig', 'AutoModel', 'AutoProcessor', 'AutoTokenizer']

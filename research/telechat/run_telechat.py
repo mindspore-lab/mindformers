@@ -29,7 +29,7 @@ from telechat import TelechatForCausalLM
 MindFormerRegister.register_cls(TelechatConfig, MindFormerModuleType.CONFIG)
 MindFormerRegister.register_cls(TelechatForCausalLM, MindFormerModuleType.MODELS)
 
-sys.path.insert(0, os.getcwd().split('research')[0])
+sys.path.append(os.getcwd().split('research')[0])
 
 
 @cloud_monitor()

@@ -29,10 +29,12 @@ from mindformers.experimental.parallel_core.pynative.parallel_state import get_d
 from mindformers.experimental.parallel_core.pynative.dist_checkpointing import get_checkpoint_name
 from mindformers.experimental.parallel_core.pynative.optimizer.lr_scheduler import get_learning_rate_scheduler
 
-from . import zero
-from . import lr_scheduler
-from .distrib_optimizer import DistributedOptimizer
-from .optimizer import MixedPrecisionOptimizer, Float16OptimizerWithFloat16Params, get_optimizer_param_scheduler
+from mindformers.experimental.parallel_core.pynative.optimizer import zero
+from mindformers.experimental.parallel_core.pynative.optimizer import lr_scheduler
+from mindformers.experimental.parallel_core.pynative.optimizer.distrib_optimizer import DistributedOptimizer
+from mindformers.experimental.parallel_core.pynative.optimizer.optimizer import MixedPrecisionOptimizer
+from mindformers.experimental.parallel_core.pynative.optimizer.optimizer import Float16OptimizerWithFloat16Params
+from mindformers.experimental.parallel_core.pynative.optimizer.optimizer import get_optimizer_param_scheduler
 
 __all__ = [
     "DistributedOptimizer", "MixedPrecisionOptimizer", "Float16OptimizerWithFloat16Params", \
