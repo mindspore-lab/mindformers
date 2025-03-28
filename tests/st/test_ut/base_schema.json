@@ -4262,9 +4262,6 @@
     "mindformers.models.PreTrainedModel._from_config": {
         "signature": "(config, **kwargs)"
     },
-    "mindformers.models.PreTrainedModel.check_pipeline_stage": {
-        "signature": "(self)"
-    },
     "mindformers.models.PreTrainedModel.can_generate": {
         "signature": "() -> bool"
     },
@@ -6038,9 +6035,6 @@
     "mindformers.models.modeling_utils.PreTrainedModel._from_config": {
         "signature": "(config, **kwargs)"
     },
-    "mindformers.models.modeling_utils.PreTrainedModel.check_pipeline_stage": {
-        "signature": "(self)"
-    },
     "mindformers.models.modeling_utils.PreTrainedModel.can_generate": {
         "signature": "() -> bool"
     },
@@ -6466,6 +6460,12 @@
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.from_origin_pretrained": {
         "signature": "(name_or_path: str, **kwargs)"
+    },
+    "mindformers.models.tokenization_utils.PreTrainedTokenizerBase._download_using_name": {
+        "signature": "(name_or_path)"
+    },
+    "mindformers.models.tokenization_utils.PreTrainedTokenizerBase.cache_vocab_files": {
+        "signature": "(name_or_path, cache_path=None)"
     },
     "mindformers.models.tokenization_utils.PreTrainedTokenizerBase._get_class_name_and_args_form_config": {
         "signature": "(config)"

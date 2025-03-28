@@ -28,10 +28,6 @@ from mindformers.models.multi_modal.utils import DataRecord
 from mindformers.tools import MindFormerRegister, MindFormerModuleType
 
 
-path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-
-
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class TestContentTransformTemplate(ModalContentTransformTemplate):
     """modal transform template for testing"""
@@ -171,8 +167,7 @@ def make_dataset(batch_size, modal_content_max_size, image_size, max_length, num
         "seed": 2022,
         "tokenizer": {
             "type": "LlamaTokenizer",
-            "pad_token": "<pad>",
-            "vocab_file": f"{root_path}/utils/llama2_tokenizer/tokenizer.model"
+            "pad_token": "<pad>"
         },
         "modal_to_text_transform": {
             "type": "BaseXModalToTextTransform",

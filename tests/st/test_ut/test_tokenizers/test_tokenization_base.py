@@ -75,6 +75,13 @@ class TestTokenizerBase(unittest.TestCase):
     @pytest.mark.level1
     @pytest.mark.platform_x86_cpu
     @pytest.mark.env_onecard
+    def test_cache_vocab_files(self):
+        res = self.tokenizer.cache_vocab_files("llama2_7b")
+        assert res['vocab_file'] == './checkpoint_download/llama2/tokenizer.model'
+
+    @pytest.mark.level1
+    @pytest.mark.platform_x86_cpu
+    @pytest.mark.env_onecard
     def test_save_origin_pretrained(self):
         """test save origin pretrained."""
         res = self.tokenizer.save_origin_pretrained("notexist")

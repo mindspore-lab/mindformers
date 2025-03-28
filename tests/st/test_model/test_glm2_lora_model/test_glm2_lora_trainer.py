@@ -18,8 +18,6 @@ How to run this:
 pytest -v tests/st/test_model/test_glm2_lora_model/test_glm2_lora_trainer.py
 """
 
-import os
-import tempfile
 import numpy as np
 import pytest
 
@@ -27,12 +25,11 @@ import mindspore
 from mindspore import context
 from mindspore.dataset import GeneratorDataset
 
-from mindformers import ChatGLM2Config, ChatGLM2ForConditionalGeneration, ChatGLM2Tokenizer
+from mindformers import AutoTokenizer, ChatGLM2Config, ChatGLM2ForConditionalGeneration
 from mindformers.pet.pet_config import LoraConfig
 from mindformers.pet import get_pet_model
 from mindformers import Trainer, TrainingArguments
 from mindformers.tools.utils import is_version_ge
-from tests.st.test_ut.test_tokenizers.get_vocab_model import get_sp_vocab_model
 
 
 def generator_train():
@@ -72,20 +69,14 @@ class TestGLM2WithLoRATrainerMethod:
         train_dataset = train_dataset.batch(batch_size=2)
         eval_dataset = eval_dataset.batch(batch_size=2)
 
-        # padded_vocab_size=200, 200 is the sum of the mocked vocab size
         model_config = ChatGLM2Config(num_layers=2, seq_length=128, hidden_size=32, inner_hidden_size=None,
-                                      num_heads=2, position_encoding_2d=True, padded_vocab_size=200)
+                                      num_heads=2, position_encoding_2d=True, padded_vocab_size=64793)
         model_config.pet_config = LoraConfig(lora_rank=8, lora_alpha=32, lora_dropout=0.1,
                                              target_modules='.*query_key_value*')
         model = ChatGLM2ForConditionalGeneration(model_config)
         model = get_pet_model(model, model_config.pet_config)
 
-        temp_dir = tempfile.TemporaryDirectory()
-        temp_path = temp_dir.name
-        get_sp_vocab_model("chatglm2", temp_path)
-        tokenizer_model_path = os.path.join(temp_path, "chatglm2_tokenizer.model")
-        self.tokenizer = ChatGLM2Tokenizer(vocab_file=tokenizer_model_path)
-
+        self.tokenizer = AutoTokenizer.from_pretrained("glm2_6b")
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,
                                     model_name='glm2_6b_lora',

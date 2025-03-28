@@ -26,8 +26,10 @@ import ftfy
 import regex as re
 
 from mindformers.tools.logger import logger
+from mindformers.tools.utils import try_sync_file
 from ...mindformer_book import MindFormerBook
 from ...tools.register import MindFormerRegister, MindFormerModuleType
+from ...tools.download_tools import download_with_progress_bar
 from ..tokenization_utils import PreTrainedTokenizer
 
 
@@ -35,6 +37,19 @@ __all__ = ['CLIPTokenizer']
 
 
 VOCAB_FILES_NAMES = {'vocab_file': 'bpe_simple_vocab_16e6.txt.gz'}
+
+
+@lru_cache()
+def default_bpe():
+    r"""Bpe path"""
+    path = os.path.join(MindFormerBook.get_default_checkpoint_download_folder(),
+                        'clip', "bpe_simple_vocab_16e6.txt.gz")
+    if not os.path.exists(path):
+        url = "https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com/" \
+              "XFormer_for_mindspore/clip/bpe_simple_vocab_16e6.txt.gz"
+        download_with_progress_bar(url, path)
+    try_sync_file(path)
+    return path
 
 
 def get_pairs(input_wd):

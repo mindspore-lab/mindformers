@@ -14,8 +14,6 @@
 # ============================================================================
 
 """Build Tokenizer API."""
-import os.path
-
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from ..mindformer_book import MindFormerBook
 
@@ -38,12 +36,13 @@ def check_and_add_vocab_file_path(config, **kwargs):
         config.update(read_vocab_file_dict)
         config.update(read_tokenizer_file_dict)
     else:
-        if not hasattr(config, "vocab_file") or config.vocab_file is None:
-            raise ValueError("tokenizer.vocab_file in yaml file is not set, "
-                             "please set tokenizer.vocab_file a correct value.")
-        if not os.path.exists(config.vocab_file):
-            raise ValueError(f"{config.vocab_file} is not existed, "
-                             f"please check vocab_file in yaml and set a correct value.")
+        tokenizer_name = kwargs.pop("tokenizer_name", None)
+        if tokenizer_name in dynamic_class.get_support_list():
+            support_name = tokenizer_name
+        else:
+            support_name = dynamic_class.get_support_list()[0]
+        vocab_file = dynamic_class.cache_vocab_files(name_or_path=support_name)
+        config.update(vocab_file)
 
 
 def build_tokenizer(
