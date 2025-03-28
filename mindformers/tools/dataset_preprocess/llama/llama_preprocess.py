@@ -23,6 +23,8 @@ import re
 import numpy as np
 
 from mindspore.mindrecord import FileWriter
+from tqdm import tqdm
+
 from mindformers.dataset.dataloader.training_dataloader import TrainingDataset
 from mindformers.models.llama.llama_tokenizer import LlamaTokenizer
 from mindformers.tools import logger
@@ -94,65 +96,71 @@ def preprocess(sources, tokenizer, seq_length):
 
     # Apply prompt templates
     conversations = []
-    for i, source in enumerate(sources):
-        if roles.get(source[0].get("from")) != conv.roles[0]:
-            # Skip the first one if it is not from human
-            source = source[1:]
+    total_row = len(sources)
+    with tqdm(total=total_row, desc="Applying prompt templates", unit="row") as pbar:
+        for i, source in enumerate(sources):
+            if roles.get(source[0].get("from")) != conv.roles[0]:
+                # Skip the first one if it is not from human
+                source = source[1:]
 
-        conv.messages = []
-        for j, sentence in enumerate(source):
-            role = roles.get(sentence.get("from"))
-            if role != conv.roles[j % 2]:
-                raise ValueError(f"sources[{i}] is wrong.")
-            conv.append_message(role, sentence["value"])
-        conversations.append(conv.get_prompt())
+            conv.messages = []
+            for j, sentence in enumerate(source):
+                role = roles.get(sentence.get("from"))
+                if role != conv.roles[j % 2]:
+                    raise ValueError(f"sources[{i}] is wrong.")
+                conv.append_message(role, sentence["value"])
+            conversations.append(conv.get_prompt())
+            pbar.update(1)
 
     sep = conv.sep + conv.roles[1] + ": "
     # Tokenize conversations
     input_ids = []
     targets = []
     # attention_mask = []
-    for conversation in conversations:
-        rounds = conversation.split(conv.sep2)
-        ids = [tokenizer.bos_token_id]
-        mask = [1]
-        for _, rou in enumerate(rounds):
-            if rou == "":
-                break
-            conv_out = tokenizer(rou)
-            ids.extend(conv_out['input_ids'][1:])
-            mask.extend(conv_out['attention_mask'][1:])
-        d = {'input_ids': ids, 'attention_mask': mask}
-        # pylint: disable=W0212
-        d = tokenizer._pad(d, max_length=seq_length, padding_strategy='max_length')
-        input_ids.append(d['input_ids'][:seq_length])
-        # attention_mask.append(d['attention_mask'])
+    total_row = len(conversations)
+    with tqdm(total=total_row, desc="Tokenizing conversations", unit="row") as pbar:
+        for conversation in conversations:
+            rounds = conversation.split(conv.sep2)
+            ids = [tokenizer.bos_token_id]
+            mask = [1]
+            for _, rou in enumerate(rounds):
+                if rou == "":
+                    break
+                conv_out = tokenizer(rou)
+                ids.extend(conv_out['input_ids'][1:])
+                mask.extend(conv_out['attention_mask'][1:])
+            d = {'input_ids': ids, 'attention_mask': mask}
+            # pylint: disable=W0212
+            d = tokenizer._pad(d, max_length=seq_length, padding_strategy='max_length')
+            input_ids.append(d['input_ids'][:seq_length])
+            # attention_mask.append(d['attention_mask'])
 
-        target = np.array(d['input_ids'])
-        total_len = int(np.not_equal(target, tokenizer.pad_token_id).sum())
-        cur_len = 1
-        target[:cur_len] = IGNORE_TOKEN_ID
-        for _, rou in enumerate(rounds):
-            if rou == "":
-                break
-            parts = rou.split(sep)
-            if len(parts) != 2:
-                break
-            parts[0] += sep
-            round_len = len(tokenizer(rou)['input_ids']) - 1
-            instruction_len = len(tokenizer(parts[0])['input_ids']) - 3
+            target = np.array(d['input_ids'])
+            total_len = int(np.not_equal(target, tokenizer.pad_token_id).sum())
+            cur_len = 1
+            target[:cur_len] = IGNORE_TOKEN_ID
+            for _, rou in enumerate(rounds):
+                if rou == "":
+                    break
+                parts = rou.split(sep)
+                if len(parts) != 2:
+                    break
+                parts[0] += sep
+                round_len = len(tokenizer(rou)['input_ids']) - 1
+                instruction_len = len(tokenizer(parts[0])['input_ids']) - 3
 
-            target[cur_len : cur_len + instruction_len] = IGNORE_TOKEN_ID
+                target[cur_len : cur_len + instruction_len] = IGNORE_TOKEN_ID
 
-            cur_len += round_len
-        target[cur_len:] = IGNORE_TOKEN_ID
+                cur_len += round_len
+            target[cur_len:] = IGNORE_TOKEN_ID
 
-        if cur_len < seq_length:
-            if cur_len != total_len:
-                target[:] = IGNORE_TOKEN_ID
-        else:
-            target = target[:seq_length]
-        targets.append(target.tolist())
+            if cur_len < seq_length:
+                if cur_len != total_len:
+                    target[:] = IGNORE_TOKEN_ID
+            else:
+                target = target[:seq_length]
+            targets.append(target.tolist())
+            pbar.update(1)
 
     input_ids = np.array(input_ids, dtype=np.int32)
     targets = np.array(targets, dtype=np.int32)
@@ -188,19 +196,41 @@ class SupervisedDataset:
 def tokenize_wiki(tokenizer, file_path, seq_length, repeat):
     """tokenize wikitext-2/wikitext-103 dataset"""
     content = []
-    with open(file_path, 'r', encoding='utf-8') as f:
-        for para in clean_wikitext(f.read()).split("\n\n"):
+
+    total_steps = 5
+    with tqdm(total=total_steps, desc="Processing") as pbar:
+        pbar.set_description("Reading file")
+        with open(file_path, 'r', encoding='utf-8') as f:
+            raw_text = f.read()
+        pbar.update(1)
+
+        pbar.set_description("Processing text")
+        paras = clean_wikitext(raw_text).split("\n\n")
+        pbar.update(1)
+
+        pbar.set_description("Tokenizing text")
+        for para in paras:
             if para and para.strip().startswith('=') is False:
                 content += tokenizer(para)['input_ids']
-    content_out = []
-    for _ in range(repeat):
-        content_out.extend(content)
-    content = content_out
-    for chunk in chunks(content, seq_length):
-        sample = {}
-        if len(chunk) == seq_length:
-            sample['input_ids'] = np.array(chunk, dtype=np.int32)
-            yield sample
+            pbar.refresh()
+        pbar.update(1)
+
+        content_out = []
+        pbar.set_description("Repeating data")
+        for _ in range(repeat):
+            content_out.extend(content)
+            pbar.refresh()
+        pbar.update(1)
+
+        content = content_out
+        pbar.set_description("Chunking data")
+        for chunk in chunks(content, seq_length):
+            sample = {}
+            pbar.refresh()
+            if len(chunk) == seq_length:
+                sample['input_ids'] = np.array(chunk, dtype=np.int32)
+                yield sample
+        pbar.update(1)
 
 
 def tokenize_wikipedia(tokenizer, dataset_dir, seq_length, samples_num):
