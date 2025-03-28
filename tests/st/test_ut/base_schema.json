@@ -206,10 +206,10 @@
     "mindformers.core.EvalCallBack": {
         "signature": "(eval_func: Callable, step_interval: int = 100, epoch_interval: int = -1)"
     },
-    "mindformers.core.EvalCallBack.epoch_end": {
+    "mindformers.core.EvalCallBack.on_eval_epoch_end": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.EvalCallBack.step_end": {
+    "mindformers.core.EvalCallBack.on_eval_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.EvalCallBack._execute_eval": {
@@ -230,16 +230,13 @@
     "mindformers.core.MFLossMonitor": {
         "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
     },
-    "mindformers.core.MFLossMonitor.epoch_begin": {
+    "mindformers.core.MFLossMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.MFLossMonitor.epoch_end": {
+    "mindformers.core.MFLossMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.MFLossMonitor.step_begin": {
-        "signature": "(self, run_context)"
-    },
-    "mindformers.core.MFLossMonitor.step_end": {
+    "mindformers.core.MFLossMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.MFLossMonitor._fix_loss_for_parallel": {
@@ -281,10 +278,10 @@
     "mindformers.core.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
     },
-    "mindformers.core.ProfileMonitor.step_begin": {
+    "mindformers.core.ProfileMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.ProfileMonitor.step_end": {
+    "mindformers.core.ProfileMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.ProfileMonitor._record_metadata": {
@@ -365,16 +362,13 @@
     "mindformers.core.TrainingStateMonitor": {
         "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0)"
     },
-    "mindformers.core.TrainingStateMonitor.epoch_begin": {
+    "mindformers.core.TrainingStateMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.TrainingStateMonitor.epoch_end": {
+    "mindformers.core.TrainingStateMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.TrainingStateMonitor.step_begin": {
-        "signature": "(self, run_context)"
-    },
-    "mindformers.core.TrainingStateMonitor.step_end": {
+    "mindformers.core.TrainingStateMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.TrainingStateMonitor._init_config": {
@@ -455,10 +449,10 @@
     "mindformers.core.callback.EvalCallBack": {
         "signature": "(eval_func: Callable, step_interval: int = 100, epoch_interval: int = -1)"
     },
-    "mindformers.core.callback.EvalCallBack.epoch_end": {
+    "mindformers.core.callback.EvalCallBack.on_eval_epoch_end": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.EvalCallBack.step_end": {
+    "mindformers.core.callback.EvalCallBack.on_eval_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.EvalCallBack._execute_eval": {
@@ -467,16 +461,13 @@
     "mindformers.core.callback.MFLossMonitor": {
         "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
     },
-    "mindformers.core.callback.MFLossMonitor.epoch_begin": {
+    "mindformers.core.callback.MFLossMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.MFLossMonitor.epoch_end": {
+    "mindformers.core.callback.MFLossMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.MFLossMonitor.step_begin": {
-        "signature": "(self, run_context)"
-    },
-    "mindformers.core.callback.MFLossMonitor.step_end": {
+    "mindformers.core.callback.MFLossMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.MFLossMonitor._fix_loss_for_parallel": {
@@ -500,10 +491,10 @@
     "mindformers.core.callback.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
     },
-    "mindformers.core.callback.ProfileMonitor.step_begin": {
+    "mindformers.core.callback.ProfileMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.ProfileMonitor.step_end": {
+    "mindformers.core.callback.ProfileMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.ProfileMonitor._record_metadata": {
@@ -521,16 +512,13 @@
     "mindformers.core.callback.TrainingStateMonitor": {
         "signature": "(origin_epochs: int, config: dict = None, step_interval: int = 1, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0)"
     },
-    "mindformers.core.callback.TrainingStateMonitor.epoch_begin": {
+    "mindformers.core.callback.TrainingStateMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.TrainingStateMonitor.epoch_end": {
+    "mindformers.core.callback.TrainingStateMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.TrainingStateMonitor.step_begin": {
-        "signature": "(self, run_context)"
-    },
-    "mindformers.core.callback.TrainingStateMonitor.step_end": {
+    "mindformers.core.callback.TrainingStateMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.TrainingStateMonitor._init_config": {
@@ -599,10 +587,10 @@
     "mindformers.core.callback.callback.EvalCallBack": {
         "signature": "(eval_func: Callable, step_interval: int = 100, epoch_interval: int = -1)"
     },
-    "mindformers.core.callback.callback.EvalCallBack.epoch_end": {
+    "mindformers.core.callback.callback.EvalCallBack.on_eval_epoch_end": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.callback.EvalCallBack.step_end": {
+    "mindformers.core.callback.callback.EvalCallBack.on_eval_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.callback.EvalCallBack._execute_eval": {
@@ -611,16 +599,13 @@
     "mindformers.core.callback.callback.MFLossMonitor": {
         "signature": "(learning_rate: Union[NoneType, float, mindspore.nn.learning_rate_schedule.LearningRateSchedule] = None, per_print_times: int = 1, micro_batch_num: int = 1, micro_batch_interleave_num: int = 1, origin_epochs: int = None, dataset_size: int = None, initial_epoch: int = 0, initial_step: int = 0, global_batch_size: int = 0, gradient_accumulation_steps: int = 1, check_for_nan_in_loss_and_grad: bool = False, calculate_per_token_loss: bool = False)"
     },
-    "mindformers.core.callback.callback.MFLossMonitor.epoch_begin": {
+    "mindformers.core.callback.callback.MFLossMonitor.on_train_epoch_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.callback.MFLossMonitor.epoch_end": {
+    "mindformers.core.callback.callback.MFLossMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.callback.MFLossMonitor.step_begin": {
-        "signature": "(self, run_context)"
-    },
-    "mindformers.core.callback.callback.MFLossMonitor.step_end": {
+    "mindformers.core.callback.callback.MFLossMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.callback.MFLossMonitor._fix_loss_for_parallel": {
@@ -647,10 +632,10 @@
     "mindformers.core.callback.callback.ProfileMonitor": {
         "signature": "(start_step=1, stop_step=10, output_path=None, start_profile=True, profile_rank_ids=None, profile_pipeline=False, profile_communication=False, profile_memory=False, config=None, profiler_level=0, with_stack=False, data_simplification=True, mstx=False, **kwargs)"
     },
-    "mindformers.core.callback.callback.ProfileMonitor.step_begin": {
+    "mindformers.core.callback.callback.ProfileMonitor.on_train_step_begin": {
         "signature": "(self, run_context)"
     },
-    "mindformers.core.callback.callback.ProfileMonitor.step_end": {
+    "mindformers.core.callback.callback.ProfileMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.core.callback.callback.ProfileMonitor._record_metadata": {
@@ -2330,6 +2315,9 @@
     "mindformers.experimental.models.qwen2.InferenceQwen2ForCausalLM.convert_map_dict": {
         "signature": "(source_dict, **kwargs)"
     },
+    "mindformers.experimental.models.qwen2.InferenceQwen2ForCausalLM.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
+    },
     "mindformers.experimental.models.qwen2.InferenceQwen2ForCausalLM.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
     },
@@ -2368,6 +2356,9 @@
     },
     "mindformers.experimental.models.qwen2.modeling_qwen2_infer.InferenceQwen2ForCausalLM.convert_map_dict": {
         "signature": "(source_dict, **kwargs)"
+    },
+    "mindformers.experimental.models.qwen2.modeling_qwen2_infer.InferenceQwen2ForCausalLM.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
     },
     "mindformers.experimental.models.qwen2.modeling_qwen2_infer.InferenceQwen2ForCausalLM.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
@@ -4157,6 +4148,9 @@
     "mindformers.models.LlamaForCausalLM.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
     },
+    "mindformers.models.LlamaForCausalLM.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
+    },
     "mindformers.models.LlamaForCausalLM.clear_kv_cache": {
         "signature": "(self)"
     },
@@ -4261,6 +4255,9 @@
     },
     "mindformers.models.PreTrainedModel._from_config": {
         "signature": "(config, **kwargs)"
+    },
+    "mindformers.models.PreTrainedModel.check_pipeline_stage": {
+        "signature": "(self)"
     },
     "mindformers.models.PreTrainedModel.can_generate": {
         "signature": "() -> bool"
@@ -5660,6 +5657,9 @@
     "mindformers.models.llama.LlamaForCausalLM.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
     },
+    "mindformers.models.llama.LlamaForCausalLM.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
+    },
     "mindformers.models.llama.LlamaForCausalLM.clear_kv_cache": {
         "signature": "(self)"
     },
@@ -5749,6 +5749,9 @@
     },
     "mindformers.models.llama.llama.LlamaForCausalLM.obtain_qkv_ffn_concat_keys": {
         "signature": "()"
+    },
+    "mindformers.models.llama.llama.LlamaForCausalLM.obtain_name_map": {
+        "signature": "(load_checkpoint_files)"
     },
     "mindformers.models.llama.llama.LlamaForCausalLM.clear_kv_cache": {
         "signature": "(self)"
@@ -6034,6 +6037,9 @@
     },
     "mindformers.models.modeling_utils.PreTrainedModel._from_config": {
         "signature": "(config, **kwargs)"
+    },
+    "mindformers.models.modeling_utils.PreTrainedModel.check_pipeline_stage": {
+        "signature": "(self)"
     },
     "mindformers.models.modeling_utils.PreTrainedModel.can_generate": {
         "signature": "() -> bool"
@@ -7508,10 +7514,10 @@
     "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor": {
         "signature": "(src_dir, target_dir, step_upload_frequence: int = 100, epoch_upload_frequence: int = -1, keep_last=True, retry=3, retry_time=5, log=<class 'mindformers.tools.logger.logger'>)"
     },
-    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.step_end": {
+    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.on_train_step_end": {
         "signature": "(self, run_context)"
     },
-    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.epoch_end": {
+    "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.on_train_epoch_end": {
         "signature": "(self, run_context)"
     },
     "mindformers.tools.cloud_adapter.cloud_adapter.Local2ObsMonitor.upload": {
