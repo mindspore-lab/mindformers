@@ -312,7 +312,8 @@ class BaseTrainer:
                            "the feature is disabled by default.")
             os.environ['ENABLE_LAZY_INLINE_NO_PIPELINE'] = '0'
 
-    def _check_training_network_no_use_past(self, network):
+    @staticmethod
+    def _check_training_network_no_use_past(network):
         if network is not None and hasattr(network.config, "use_past") and network.config.use_past:
             raise ValueError("In training process, network should be configured to use_past=False, "
                              f"but got use_past={network.config.use_past}")
@@ -512,7 +513,8 @@ class BaseTrainer:
                     "due to delay initialization is not available.")
         return self.create_network(default_args=default_args)
 
-    def warp_data_order_with_tool_cells(self, network, construct_args_key):
+    @staticmethod
+    def warp_data_order_with_tool_cells(network, construct_args_key):
         """For passing parameters in lexicographical order."""
         return DataOrderWrapperCell(construct_args_key, network)
 
@@ -553,7 +555,8 @@ class BaseTrainer:
                 network._virtual_dataset.add_prim_attr("repeat_dim_direct", "right")
         return network
 
-    def wrap_eval_network_with_tool_cells(self, network):
+    @staticmethod
+    def wrap_eval_network_with_tool_cells(network):
         """For evaluate in training process, warp the network with some tool cells."""
         parallel_mode = ms.context.get_auto_parallel_context("parallel_mode")
         if parallel_mode in ["semi_auto_parallel", "auto_parallel"] and ms.get_context('mode') == 0:
@@ -752,7 +755,8 @@ class BaseTrainer:
             raise NotImplementedError("train dataset is None")
         return self.eval_dataset.get_dataset_size()
 
-    def get_pipeline_stages(self):
+    @staticmethod
+    def get_pipeline_stages():
         """Get pipeline stages for task trainer."""
         pipeline_stages = ms.get_auto_parallel_context("pipeline_stages")
         return pipeline_stages
@@ -797,7 +801,8 @@ class BaseTrainer:
             logger.info(f"local rank id: {rank_id}, ignore data skip: {config.ignore_data_skip}.")
         return dataset, config
 
-    def resume_ckpt_path_with_strategy(self, config):
+    @staticmethod
+    def resume_ckpt_path_with_strategy(config):
         """Get resume checkpoint path with strategy.
 
         This method finds the appropriate checkpoint path for the current rank when resuming training

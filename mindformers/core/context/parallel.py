@@ -99,7 +99,8 @@ class ParallelOperator:
         self._set_ms_parallel()
         return get_rank(), device_num
 
-    def _set_ms_auto_parallel_context(self, **parallel_ctx):
+    @staticmethod
+    def _set_ms_auto_parallel_context(**parallel_ctx):
         full_batch = parallel_ctx.get('full_batch')
         src_ds_stra = parallel_ctx.pop('dataset_strategy', None)
         if not full_batch and isinstance(src_ds_stra, list):
@@ -108,7 +109,8 @@ class ParallelOperator:
             parallel_ctx['dataset_strategy'] = ds_stra
         context.set_auto_parallel_context(**parallel_ctx)
 
-    def _set_ms_parallel(self):
+    @staticmethod
+    def _set_ms_parallel():
         """Init parallel config of mindspore."""
         parallel_mode = context.get_auto_parallel_context("parallel_mode")
         if parallel_mode == "auto_parallel":

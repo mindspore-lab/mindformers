@@ -234,7 +234,8 @@ class BaseXModalToTextTransform:
             return self.perform_train_transform(self.process_conversation(conversations))
         return self.perform_train_transform(conversations)
 
-    def process_conversation(self, conversations):
+    @staticmethod
+    def process_conversation(conversations):
         """process data"""
         import json
         dict_data = json.loads(np.array_str(conversations))
@@ -418,7 +419,8 @@ class BaseXModalToTextProcessor(BaseProcessor):
         self.add_batch_index_to_context_pos(data, batch_index)
         return data
 
-    def add_batch_index_to_context_pos(self, data, batch_index):
+    @staticmethod
+    def add_batch_index_to_context_pos(data, batch_index):
         context_pos_types = [modal + "_context_pos" for modal in MODALS]
         for pos_type in context_pos_types:
             if pos_type not in data:

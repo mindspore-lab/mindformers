@@ -233,7 +233,8 @@ class Trie:
 
         return self.cut_text(text, offsets)
 
-    def split_atom_1(self, states=None, text=None, offsets=None):
+    @staticmethod
+    def split_atom_1(states=None, text=None, offsets=None):
         """atomic act of split"""
         for start, trie_pointer in states.items():
             if "" in trie_pointer:
@@ -247,7 +248,8 @@ class Trie:
                 break
         return offsets
 
-    def split_atom_2(self, reset=None, to_remove=None, states=None):
+    @staticmethod
+    def split_atom_2(reset=None, to_remove=None, states=None):
         """atomic act of split"""
         if reset:
             states = {}
@@ -256,7 +258,8 @@ class Trie:
                 del states[start]
         return states
 
-    def split_atom_3(self, states=None, current=None, text=None, start=None, skip=None):
+    @staticmethod
+    def split_atom_3(states=None, current=None, text=None, start=None, skip=None):
         """atomic act of split"""
         for lookstart, looktrie_pointer in states.items():
             if lookstart > start:
@@ -293,7 +296,8 @@ class Trie:
                 next_char = text[lookahead_index]
         return states, start, end, skip
 
-    def cut_text(self, text, offsets):
+    @staticmethod
+    def cut_text(text, offsets):
         """cut_text"""
         # We have all the offsets now, we just need to do the actual splitting.
         # We need to eventually add the first part of the string and the eventual

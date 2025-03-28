@@ -105,7 +105,8 @@ class ComputationAnalyzer:
         self.step_time = step_time
         return (step_start, step_end)
 
-    def _load_json_data(self, file_path):
+    @staticmethod
+    def _load_json_data(file_path):
         with open(file_path) as json_file:
             return json.load(json_file)
 
@@ -114,11 +115,13 @@ class ComputationAnalyzer:
             step_start, step_end = self._parse_step_duration(timeline_data)
         return step_start, step_end
 
-    def _add_layer_object(self, objects_list, condition, obj):
+    @staticmethod
+    def _add_layer_object(objects_list, condition, obj):
         if condition and obj not in objects_list:
             objects_list.append(obj)
 
-    def _is_counted(self, default_table: list, step_start, step_end, cell_object):
+    @staticmethod
+    def _is_counted(default_table: list, step_start, step_end, cell_object):
         """Check if cell in under forward scope"""
         if float(cell_object["ts"]) < step_start or float(cell_object["ts"]) + float(cell_object["dur"]) > step_end:
             return False

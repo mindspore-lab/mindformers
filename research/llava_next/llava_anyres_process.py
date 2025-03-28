@@ -138,8 +138,9 @@ class LLavaAnyRes:
 
         return image_patches
 
+    @staticmethod
     def _resize_for_patching(
-            self, image: np.array, target_resolution: tuple, resample, input_data_format: ChannelDimension
+            image: np.array, target_resolution: tuple, resample, input_data_format: ChannelDimension
     ) -> np.array:
         """
         Resizes an image to a target resolution while maintaining aspect ratio.
@@ -180,8 +181,8 @@ class LLavaAnyRes:
 
         return padded_image
 
+    @staticmethod
     def pad(
-            self,
             image: np.ndarray,
             padding: Union[int, Tuple[int, int], Iterable[Tuple[int, int]]],
             mode: PaddingMode = PaddingMode.CONSTANT,

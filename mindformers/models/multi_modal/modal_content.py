@@ -509,7 +509,8 @@ class ModalContentTransformTemplate:
                 modal_builder.tokenizer = tokenizer
             self.has_init_modal_builder_tokens = True
 
-    def get_need_update_output_items(self, result: DataRecord) -> Dict[str, Any]:
+    @staticmethod
+    def get_need_update_output_items(result: DataRecord) -> Dict[str, Any]:
         """
         Retrieve the output items that need to be updated.
 

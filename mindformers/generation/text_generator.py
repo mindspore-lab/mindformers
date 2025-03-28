@@ -189,7 +189,8 @@ class GenerationMixin:
         inputs_tmp = input_ids[arg, current_index_tmp].reshape(-1, 1)
         model_inputs["input_ids"] = Tensor.from_numpy(inputs_tmp.astype(np.int32))
 
-    def process_logits(self, logits, current_index=None, keep_all=False):
+    @staticmethod
+    def process_logits(logits, current_index=None, keep_all=False):
         """Process the logits"""
         logits = logits.reshape(-1, logits.shape[-1])
         if not keep_all and current_index is not None:
@@ -243,8 +244,8 @@ class GenerationMixin:
             processors.append(LogitNormalization())
         return processors
 
-    def _merge_processor_list(self,
-                              default_list: LogitsProcessorList,
+    @staticmethod
+    def _merge_processor_list(default_list: LogitsProcessorList,
                               custom_list: LogitsProcessorList):
         """merge custom processor list with default list."""
         if not custom_list:
@@ -264,7 +265,8 @@ class GenerationMixin:
         default_list.extend(custom_list)
         return default_list
 
-    def get_logits_warper(self, generation_config: GenerationConfig):
+    @staticmethod
+    def get_logits_warper(generation_config: GenerationConfig):
         """
         This class returns a [`LogitsProcessorList`] list object that contains all relevant [`LogitsWarper`] instances
         used for multinomial sampling.
@@ -290,7 +292,8 @@ class GenerationMixin:
             warpers.append(TopPLogitsWarper(top_p=generation_config.top_p, min_tokens_to_keep=min_tokens_to_keep))
         return warpers
 
-    def _get_generation_mode(self, generation_config: GenerationConfig):
+    @staticmethod
+    def _get_generation_mode(generation_config: GenerationConfig):
         """determine the generation mode by config"""
         if generation_config.num_beams == 1:
             if generation_config.do_sample:
@@ -1454,7 +1457,8 @@ class GenerationMixin:
 
         return target_list, is_finished
 
-    def _prepare_inputs_for_flatten(self, input_ids, valid_length_each_example, slot_mapping, prefill=True):
+    @staticmethod
+    def _prepare_inputs_for_flatten(input_ids, valid_length_each_example, slot_mapping, prefill=True):
         """prepare inputs ids for prefill flatten"""
         input_ids = np.array(input_ids)
         batch_valid_length_bs = valid_length_each_example.shape[0]

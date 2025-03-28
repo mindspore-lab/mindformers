@@ -338,8 +338,8 @@ class TransformCkpt:
         if check_in_modelarts():
             self.send_transformed_checkpoint_to_obs(dst_checkpoint_dir)
 
-    def transform_checkpoints(self,
-                              src_checkpoint,
+    @staticmethod
+    def transform_checkpoints(src_checkpoint,
                               dst_checkpoint,
                               prefix,
                               src_strategy,
@@ -393,7 +393,8 @@ class TransformCkpt:
                                             src_strategy,
                                             dst_strategy)
 
-    def build_soft_link_of_checkpoint(self, checkpoint, soft_link_dir):
+    @staticmethod
+    def build_soft_link_of_checkpoint(checkpoint, soft_link_dir):
         """Build softlink of src checkpoint"""
         if os.path.isdir(checkpoint) and not check_rank_folders(checkpoint, 0) and \
             not check_ckpt_file_exist(checkpoint):
@@ -516,7 +517,8 @@ class TransformCkpt:
 
         return dst_strategy
 
-    def check_src_checkpoint_and_strategy(self, src_checkpoint, src_strategy):
+    @staticmethod
+    def check_src_checkpoint_and_strategy(src_checkpoint, src_strategy):
         """check src checkpoint and strategy"""
         check_path(src_checkpoint, "src_checkpoint")
         if not os.path.isdir(src_checkpoint) or not glob(os.path.join(src_checkpoint, "rank_*")):

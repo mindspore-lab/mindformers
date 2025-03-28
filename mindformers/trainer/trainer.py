@@ -1033,7 +1033,8 @@ class Trainer:
             output_folder, DEFAULT_CHECKPOINT_DIR, 'rank_{}'.format(self.rank_id))
         return get_last_checkpoint(checkpoint_dir, self.config.load_ckpt_format)
 
-    def get_load_checkpoint(self, checkpoint):
+    @staticmethod
+    def get_load_checkpoint(checkpoint):
         """get checkpoint path which will be loaded."""
         if not checkpoint:
             return None
@@ -1046,8 +1047,8 @@ class Trainer:
 
         raise ValueError(f"{checkpoint} is not existed, please check load_checkpoint in yaml and set a correct value.")
 
-    def _config_init(self,
-                     args: Optional[Union[str, MindFormerConfig, TrainingArguments]] = None,
+    @staticmethod
+    def _config_init(args: Optional[Union[str, MindFormerConfig, TrainingArguments]] = None,
                      task_config: dict = None):
         """init config from args"""
         logger.info("..........Init Config..........")

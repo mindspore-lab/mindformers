@@ -186,7 +186,8 @@ class BaseProcessor:
                 parsed_config.update({key: val})
         return parsed_config
 
-    def _wrap_config(self, config):
+    @staticmethod
+    def _wrap_config(config):
         """
         Wrap config function, which wraps a config to rebuild content of yaml file.
 

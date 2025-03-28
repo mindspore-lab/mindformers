@@ -53,7 +53,8 @@ class PlotMgr:
         ax.set_ylim(0, pp)
         ax.invert_yaxis()
 
-    def _get_block_indices(self, blocks: list[list[MicroBlockSim]], mode='compact', equal_wide=False):
+    @staticmethod
+    def _get_block_indices(blocks: list[list[MicroBlockSim]], mode='compact', equal_wide=False):
         r"""get block indices"""
         if mode not in ['compact', 'joint', 'timeline']:
             raise ValueError(f"Get unsupported draw mode: {mode}")
