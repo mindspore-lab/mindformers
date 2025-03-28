@@ -257,6 +257,15 @@ class MindIEModelRunner:
 
         self.update_model_config(plugin_params)
 
+        if not self.config.use_parallel and npu_device_ids:
+            if len(npu_device_ids) != 1:
+                raise ValueError("npu_device_ids should only contain one device_id")
+            self.config.context.device_id = npu_device_ids[0]
+
+        build_context(self.config)
+        logger.info(f"Build context finished.")
+        self.use_legacy = get_context("use_legacy", True)
+
         if self.is_multi_modal_model:
             if isinstance(self.model_config.llm_model, PretrainedConfig):
                 llm_config = self.model_config.llm_model
@@ -270,15 +279,6 @@ class MindIEModelRunner:
             self.update_llm_config(self.model_config, world_size, npu_mem_size, cpu_mem_size, block_size)
 
         self.generation_config = GenerationConfig.from_model_config(self.model_config)
-
-        if not self.config.use_parallel and npu_device_ids:
-            if len(npu_device_ids) != 1:
-                raise ValueError("npu_device_ids should only contain one device_id")
-            self.config.context.device_id = npu_device_ids[0]
-
-        build_context(self.config)
-        logger.info(f"Build context finished.")
-        self.use_legacy = get_context("use_legacy", True)
 
         # build tokenizer
         if self.is_multi_modal_model:
@@ -344,11 +344,19 @@ class MindIEModelRunner:
 
     def update_llm_config(self, config, world_size, npu_mem_size, cpu_mem_size, block_size):
         """update llm model config"""
-        self.num_layers = config.num_layers
-        self.num_kv_heads = config.num_heads if config.n_kv_heads is None \
-            else config.n_kv_heads
-        self.num_kv_heads = self.num_kv_heads // world_size  # check the divisibility in model initialization.
-        self.head_size = config.hidden_size // config.num_heads
+        if self.use_legacy:
+            self.num_layers = config.num_layers
+            self.num_kv_heads = config.num_heads if config.n_kv_heads is None \
+                else config.n_kv_heads
+            # check the divisibility in model initialization.
+            self.num_kv_heads = self.num_kv_heads // world_size
+            self.head_size = config.hidden_size // config.num_heads
+        else:
+            self.num_layers = config.num_hidden_layers
+            self.num_kv_heads = config.num_attention_heads if config.num_key_value_heads is None \
+                else config.num_key_value_heads
+            self.num_kv_heads = self.num_kv_heads // world_size
+            self.head_size = config.hidden_size // config.num_attention_heads
 
         kvcache_dtype = config.compute_dtype
         if hasattr(self.model_config, "quantization_config") and \
