@@ -18,6 +18,7 @@ import mindspore.common.dtype as mstype
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.experimental.utils import init_method_normal, init_method_zero
+from mindformers.tools.utils import get_context
 
 _CONFIG_MAPPING = {
     'vocab_size': 'padded_vocab_size',
@@ -113,8 +114,18 @@ def convert_pretrained_config(config: PretrainedConfig, transformer_config: Tran
     transformer_config.ulysses_degree_in_cp = config.parallel_config.ulysses_degree_in_cp
     transformer_config.vocab_emb_dp = config.parallel_config.vocab_emb_dp
     transformer_config.sequence_parallel = getattr(config.parallel_config, 'use_seq_parallel', False)
-    transformer_config.rotary_base = config.theta
     transformer_config.ffn_concat = config.qkv_concat
+    use_legacy = get_context("use_legacy", True)
+    if not use_legacy:
+        transformer_config.rotary_base = config.rope_theta
+        transformer_config.num_layers = config.num_hidden_layers
+        transformer_config.num_heads = config.num_attention_heads
+        transformer_config.n_kv_heads = config.num_key_value_heads
+        transformer_config.layernorm_epsilon = config.rms_norm_eps
+        if hasattr(config, 'num_key_value_heads'):
+            if config.num_key_value_heads is not None:
+                transformer_config.group_query_attention = True
+                transformer_config.num_query_groups = config.num_key_value_heads
 
     transformer_config.post_init_checks()
 
