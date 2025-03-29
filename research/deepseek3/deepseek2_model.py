@@ -206,14 +206,8 @@ class DeepSeekV2RotaryEmbedding(Cell):
         xq = self.cast(xq, self.dtype)
         xk = self.cast(xk, self.dtype)
         freqs_cos, freqs_sin, swap_mask = freqs_cis
-        bs, n, seq_len, d = self.shape(freqs_cos)
-        # seq_pipe not support construct directly to reshape, this bug will be fixed later.
-        if n == 1 and not self.seq_pipe:
-            freqs_cos = self.reshape(freqs_cos, (bs, seq_len, n, d))
-            freqs_sin = self.reshape(freqs_sin, (bs, seq_len, n, d))
-        else:
-            freqs_cos = self.transpose(freqs_cos, (0, 2, 1, 3))
-            freqs_sin = self.transpose(freqs_sin, (0, 2, 1, 3))
+        freqs_cos = self.transpose(freqs_cos, (0, 2, 1, 3))
+        freqs_sin = self.transpose(freqs_sin, (0, 2, 1, 3))
         freqs_cos = self.cast(freqs_cos, self.dtype)
         freqs_sin = self.cast(freqs_sin, self.dtype)
         swap_mask = self.cast(swap_mask, self.dtype)
@@ -258,7 +252,7 @@ class DeepSeekV2RotaryEmbedding(Cell):
         self.neg.shard((strategy_in,))
         self.slice.shard((strategy_in,))
         self.concat.shard((strategy_in, strategy_in))
-        transpose_strategy_in = (dp, 1, 1, 1)
+        transpose_strategy_in = (1, 1, 1, 1)
         self.transpose.shard((transpose_strategy_in,))
         if self.use_fused_rope:
             layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
