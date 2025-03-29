@@ -23,7 +23,7 @@ from transformers import AutoModel
 
 from mindformers import MindFormerConfig
 from mindformers.utils.convert_utils import pt2ms
-from research.yizhao.yizhao_model.yizhao_config import YiZhaoConfig
+from yizhao_config import YiZhaoConfig
 
 dtype_mapping = {
     ms.float16: np.float16,
