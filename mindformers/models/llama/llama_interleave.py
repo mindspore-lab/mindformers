@@ -276,6 +276,7 @@ class LLamaAttentionInterleave(nn.Cell):
                          has_bias=attn_proj_has_bias,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
+        self.input_layout = None
         if self.use_flash_attention:
             self.input_layout = "BSH" if cp > 1 else "BNSD"
             if self.use_eod_attn_mask_compression:
