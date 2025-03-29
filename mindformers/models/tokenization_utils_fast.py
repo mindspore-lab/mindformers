@@ -609,9 +609,15 @@ class PreTrainedTokenizerFast(PreTrainedTokenizerBase):
         # we add an overflow_to_sample_mapping array (see below)
         sanitized_tokens = {}
         for key in tokens_and_encodings[0][0].keys():
-            stack = [e for item, _ in tokens_and_encodings for e in item[key]]
+            stack = [
+                e
+                for item, _ in tokens_and_encodings
+                for e in item[key]
+            ]
             sanitized_tokens[key] = stack
-        sanitized_encodings = [e for _, item in tokens_and_encodings for e in item]
+        sanitized_encodings = [e
+                               for _, item in tokens_and_encodings
+                               for e in item]
 
         # If returning overflowing tokens, we need to return a mapping
         # from the batch idx to the original sample

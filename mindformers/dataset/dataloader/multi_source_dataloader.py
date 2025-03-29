@@ -214,6 +214,7 @@ class MultiSourceIterDataSet:
                                       for sample_num in self.sample_nums]
         self.shuffle_buffer_base_size = sum(self.shuffle_num_list_base)
         self.shuffle_diff = self.shuffle_buffer_size - self.shuffle_buffer_base_size
+        self.dataset_iter_list = None
 
     def _reset_parameters(self):
         """reset parameters when return a new iter object"""

@@ -48,6 +48,7 @@ class BaseCheck:
         """
         self.start = start
         self.version_mapping = version_mapping
+        self.next_check = None
 
     def set_next(self, next_check):
         """

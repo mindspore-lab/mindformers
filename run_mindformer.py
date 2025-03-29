@@ -211,7 +211,9 @@ if __name__ == "__main__":
         help='do_sample.')
 
     args_, rest_args_ = parser.parse_known_args()
-    rest_args_ = [i for item in rest_args_ for i in item.split("=")]
+    rest_args_ = [i
+                  for item in rest_args_
+                  for i in item.split("=")]
     if len(rest_args_) % 2 != 0:
         raise ValueError(f"input arg key-values are not in pair, please check input args. ")
 
@@ -258,7 +260,8 @@ if __name__ == "__main__":
     if args_.strategy_load_checkpoint is not None:
         if os.path.isdir(args_.strategy_load_checkpoint):
             ckpt_list = [os.path.join(args_.strategy_load_checkpoint, file)
-                         for file in os.listdir(args_.strategy_load_checkpoint) if file.endwith(".ckpt")]
+                         for file in os.listdir(args_.strategy_load_checkpoint)
+                         if file.endwith(".ckpt")]
             args_.strategy_load_checkpoint = ckpt_list[0]
         config_.parallel.strategy_ckpt_load_file = args_.strategy_load_checkpoint
     if args_.remote_save_url is not None:

@@ -581,7 +581,8 @@ class ModalContentTransformTemplate:
         """
         batched_data = {}
         for column_name in self.output_columns:
-            column_data_list = [data[column_name] for data in data_list if
+            column_data_list = [data[column_name]
+                                for data in data_list if
                                 data[column_name] is not None and len(data[column_name]) > 0]
 
             if column_name == "input_ids":

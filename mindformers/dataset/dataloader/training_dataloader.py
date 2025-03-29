@@ -433,7 +433,8 @@ class TrainingDataset:
         if os.path.exists(dataset_dir) and os.path.isdir(dataset_dir):
             # Obtaining local files
             logger.info("Detect local dataset directory: %s. Traverse local directory", dataset_dir)
-            current_list = [os.path.join(dataset_dir, file) for file in os.listdir(dataset_dir)
+            current_list = [os.path.join(dataset_dir, file)
+                            for file in os.listdir(dataset_dir)
                             if file.endswith(file_format)]
         elif os.path.exists(dataset_dir) and os.path.isfile(dataset_dir):
             current_list = [dataset_dir]

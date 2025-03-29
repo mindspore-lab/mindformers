@@ -148,7 +148,8 @@ def _list_model_options(indent, config_to_class=None, use_model_types=True):
             if config in CONFIG_MAPPING_NAMES
         }
         config_to_model_name = {
-            config: MODEL_NAMES_MAPPING[model_type] for model_type, config in CONFIG_MAPPING_NAMES.items()
+            config: MODEL_NAMES_MAPPING[model_type]
+            for model_type, config in CONFIG_MAPPING_NAMES.items()
         }
         lines = [
             f"{indent}- [`{config_name}`] configuration class:"

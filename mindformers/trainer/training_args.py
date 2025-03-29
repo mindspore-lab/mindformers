@@ -370,6 +370,9 @@ class TrainingArguments:
             Start step for performance analysis. Default: ``1``.
         profile_end_step (int, optional):
             End step for performance analysis. Default: ``10``.
+        prediction_loss_only (bool, optional):
+            When performing evaluation and predictions, only returns the loss.
+            Not support at current version. Default: ``False.``
         init_start_profile (bool, optional):
             Whether to enable data collection at the time of Profiler initialization. Once enabled, profile_start_step
             will not be effective. It must be enabled if multi-device communication data needs to be collected.
@@ -912,6 +915,11 @@ class TrainingArguments:
     per_device_eval_batch_size: int = field(
         default=8,
         metadata={"help": "Batch size per GPU/NPU core/CPU for evaluation. Default: 8."}
+    )
+    prediction_loss_only: bool = field(
+        default=False,
+        metadata={"help": "When performing evaluation and predictions, only returns the loss."
+                          "Not support at current version. Default: False."}
     )
     dataloader_num_workers: int = field(
         default=8,

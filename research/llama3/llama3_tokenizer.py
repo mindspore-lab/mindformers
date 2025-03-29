@@ -97,7 +97,8 @@ class Llama3Tokenizer(PreTrainedTokenizer):
             for i in range(5, num_reserved_special_tokens - 5)
         ]
         self.special_tokens = {
-            token: num_base_tokens + i for i, token in enumerate(special_tokens)
+            token: num_base_tokens + i
+            for i, token in enumerate(special_tokens)
         }
 
         self.tokenizer = tiktoken.Encoding(
@@ -108,9 +109,13 @@ class Llama3Tokenizer(PreTrainedTokenizer):
         )
 
         self.decoder = {
-            v: k for k, v in self.mergeable_ranks.items()
+            v: k
+            for k, v in self.mergeable_ranks.items()
         }  # type: dict[int, bytes|str]
-        self.decoder.update({v: k for k, v in self.special_tokens.items()})
+        self.decoder.update({
+            v: k
+            for k, v in self.special_tokens.items()
+        })
 
         bos_token = AddedToken(bos_token, lstrip=False, rstrip=False) if isinstance(bos_token, str) else bos_token
         eos_token = AddedToken(eos_token, lstrip=False, rstrip=False) if isinstance(eos_token, str) else eos_token

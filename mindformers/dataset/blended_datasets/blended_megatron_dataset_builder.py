@@ -194,7 +194,8 @@ class BlendedMegatronDatasetBuilder(object):
                     elif weights_i is None:
                         try:
                             weights_i = [
-                                len(megatron_dataset) for megatron_dataset in megatron_datasets[i]
+                                len(megatron_dataset)
+                                for megatron_dataset in megatron_datasets[i]
                             ]
                         except TypeError:
                             weights_i = [0 for _ in prefixes]
@@ -258,7 +259,8 @@ class BlendedMegatronDatasetBuilder(object):
                     elif weights is None:
                         try:
                             weights = [
-                                len(megatron_dataset) for megatron_dataset in megatron_datasets
+                                len(megatron_dataset)
+                                for megatron_dataset in megatron_datasets
                             ]
                         except TypeError:
                             weights = [0 for _ in prefixes]
