@@ -684,7 +684,6 @@ class ParallelAttention(nn.Cell):
         Returns:
             Tensor: qkv tensor after all-to-all communication.
         """
-        #bs, seq_len, head_num, head_size = F.shape(qkv)
         bs, seq_len, _, _ = F.shape(qkv)
         new_shape = (bs, seq_len, self.tp, self.cp_ds, -1, self.head_dim)
         # [bs, seq_len, n_head, head_dim] -> [bs, seq_len, n_head/cp_ds, cp_ds, head_dim]
@@ -709,7 +708,6 @@ class ParallelAttention(nn.Cell):
         Returns:
             Tensor: qkv tensor after all-to-all communication.
         """
-        #bs, seq_len, head_num, head_size = F.shape(qkv)
         bs, seq_len, _, _ = F.shape(qkv)
         new_shape = (bs, seq_len, self.tp, self.cp_ds, -1, self.head_dim)
         # [bs, seq_len, n_head, head_dim] -> [bs, seq_len, n_head/cp_ds, cp_ds, head_dim]

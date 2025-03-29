@@ -186,7 +186,6 @@ class SpmConverter(Converter):
     def __init__(self, *args):
         super().__init__(*args)
 
-        # from .utils import sentencepiece_model_pb2 as model_pb2
         model_pb2 = import_protobuf()
 
         m = model_pb2.ModelProto()

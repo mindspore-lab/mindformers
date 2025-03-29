@@ -278,7 +278,6 @@ class CoreAttention(nn.Cell):
         context_layer = context_layer.view(*output_size)
 
         # [b, np, sq, hn] --> [sq, b, np, hn]
-        # contiguous()
         context_layer = context_layer.permute(2, 0, 1, 3)
 
         new_context_layer_shape = context_layer.shape[:-2] + \

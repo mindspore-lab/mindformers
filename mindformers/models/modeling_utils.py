@@ -1218,7 +1218,6 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
             infer_data = network.prepare_inputs_for_predict_layout(input_ids)
             logger.info(".........Building model.........")
             model.infer_predict_layout(*infer_data)
-            # assert os.path.exists(dst_strategy), f"{dst_strategy} is not found!"
 
             logger.info(".........Get src checkpoint.........")
             if rank_id == 0:

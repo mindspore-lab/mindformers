@@ -301,7 +301,6 @@ class MultiheadAttention(nn.Cell):
         proj_std = (d_model ** -0.5) * ((2 * layers) ** -0.5)
         attn_std = d_model ** -0.5
 
-        # self.softmax = nn.Softmax(-1)
         self.scaling = self.head_dim ** -0.5
         self.reshape = P.Reshape()
         self.slice = P.StridedSlice()

@@ -203,7 +203,6 @@ class MllamaConfig(PretrainedConfig):
         self.vision_model = vision_model
         self.text_model = text_model
 
-        # self.vision_model.model_config.parallel_config = parallel_config
         self.vision_model.model_config.compute_dtype = self.compute_dtype
         self.vision_model.model_config.layernorm_compute_type = self.layernorm_compute_type
         self.vision_model.model_config.softmax_compute_type = self.softmax_compute_type

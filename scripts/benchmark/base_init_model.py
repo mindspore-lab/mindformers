@@ -89,7 +89,6 @@ class BaseInitModel:
         logger.info("build base model.")
 
         self.network = AutoModel.from_config(self.config)
-        # self.network = build_model(self.config.model)
         if self.use_pet_model:
             self.build_pet_model()
         self.model = Model(self.network)

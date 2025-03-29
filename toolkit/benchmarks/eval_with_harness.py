@@ -471,7 +471,6 @@ class MFLM(TemplateLM):
                 # Check if per-token argmax is exactly equal to continuation
                 greedy_tokens = logits.argmax(axis=-1)
                 eval_logger.info(f"\nanswer:{self.tokenizer.decode(greedy_tokens)}")
-                # eval_logger.info(f"{self.tokenizer.decode(res)}")
 
                 # check for one-token continuation cache hits.
                 # noop in case group_by != "contexts" or no cache hit and returns the
@@ -491,7 +490,6 @@ class MFLM(TemplateLM):
                     max_equal = (greedy_tokens == cont_toks_).all()
 
                     # Obtain log-probs at the corresponding continuation token indices
-                    # last_token_slice = logits[:, -1, :].squeeze(0).tolist()
                     logits_ = mindspore.mint.gather(logits_, 2, cont_toks_.unsqueeze(-1)).squeeze(-1)
 
                     # Answer: (log prob, is-exact-match)
