@@ -780,7 +780,7 @@ def forward_backward_pipelining_without_interleaving(
                                            **input_data_dict)
 
         # run forward
-        output_tensor, accumulate_loss,\
+        output_tensor, accumulate_loss, \
             micro_input_data = run_forward(*micro_input_data,
                                            model=model,
                                            accumulate_loss=accumulate_loss,

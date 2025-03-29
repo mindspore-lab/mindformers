@@ -56,7 +56,7 @@ class ParallelMLP(Module):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import os
@@ -71,7 +71,7 @@ class ParallelMLP(Module):
         >>> init()
         >>> initialize_model_parallel()
         >>> parallel_config = ModelParallelConfig(tensor_model_parallel_size=tensor_parallel)
-        >>> config = TransformerConfig      #The config of Transformer model. For details, please refer to TransformerConfig
+        >>> config = TransformerConfig #The config of Transformer model. For details, please refer to TransformerConfig
         >>> mlp = ParallelMLP(config=config)
         >>> input = Tensor(np.random.random((3, 8, 16)).astype(np.float32))
         >>> output, _ = mlp(input)

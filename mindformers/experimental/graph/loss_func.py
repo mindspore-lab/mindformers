@@ -15,7 +15,9 @@
 """loss function"""
 
 from mindspore import nn, Tensor
-from mindspore.ops.auto_generate import Cast, Reshape, Transpose, ReLU, SumExt, ArgMaxWithValue, Exp, Log, OneHotExt, ZerosLikeExt, GatherD, ExpandDims, Neg
+from mindspore.ops.auto_generate import (Cast, Reshape, Transpose, ReLU, SumExt,
+                                         ArgMaxWithValue, Exp, Log, OneHotExt,
+                                         ZerosLikeExt, GatherD, ExpandDims, Neg)
 from mindspore.ops.auto_generate import SubExt, AddExt, Div, Mul
 from mindspore.ops import functional as F
 from mindspore.common import dtype as mstype

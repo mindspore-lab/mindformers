@@ -120,7 +120,10 @@ class MegatronDatasetBuilder:
         logger.info(f"blended_config: {blended_config}")
 
         def build_gpt_dataset():
-            blended_megatron_dataset_builder = BlendedMegatronDatasetBuilder(GPTDataset, sizes, lambda: True, blended_config).build()
+            blended_megatron_dataset_builder = BlendedMegatronDatasetBuilder(GPTDataset,
+                                                                             sizes,
+                                                                             lambda: True,
+                                                                             blended_config).build()
 
             if phase == DatasetPhaseType.TRAIN:
                 blend_dataset = blended_megatron_dataset_builder[0]

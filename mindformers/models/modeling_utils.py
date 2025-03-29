@@ -1014,7 +1014,8 @@ class PreTrainedModel(nn.Cell, ModuleUtilsMixin, GenerationMixin, PushToHubMixin
 
         if commit_hash is None:
             if not isinstance(config, PretrainedConfig):
-                # We make a call to the config file first (which may be absent) to get the commit hash as soon as possible
+                # We make a call to the config file first (which may be absent) to
+                # get the commit hash as soon as possible
                 resolved_config_file = cached_file(
                     pretrained_model_name_or_path,
                     CONFIG_NAME,

@@ -1536,7 +1536,7 @@ class ParallelLMLogits(nn.Cell):
         >>> init()
         >>> initialize_model_parallel()
         >>> parallel_config = ModelParallelConfig(tensor_model_parallel_size=tensor_parallel)
-        >>> config = TransformerConfig      #The config of Transformer model. For details, please refer to TransformerConfig
+        >>> config = TransformerConfig #The config of Transformer model. For details, please refer to TransformerConfig
         >>> model = ParallelLMLogits(config=config, bias=False, compute_dtype=ms.float32)
         >>> input = Tensor(np.random.random((2, 3, 3)).astype(np.float32))
         >>> weight = Tensor(np.random.random((3, 3)).astype(np.float32))
