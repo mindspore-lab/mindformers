@@ -42,6 +42,9 @@ class StatusCode:
 
 def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     """download_with_progress_bar"""
+    logger.warning("The function to automatically download model and vocabulary files will be deprecated "
+                   "in the next version, due to security and maintenance concerns. "
+                   "Please manually download the relevant files from trusted official sources on your own.")
     local_id = get_real_rank()
     device_num = _get_device_num()
     filepath = format_path(filepath)
@@ -67,7 +70,7 @@ def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
     start = time.time()
 
     try:
-        response = requests.get(url, verify=False, stream=True, timeout=timeout)
+        response = requests.get(url, verify=True, stream=True, timeout=timeout)
     except (TimeoutError, urllib3.exceptions.MaxRetryError,
             requests.exceptions.ProxyError,
             requests.exceptions.ConnectionError):
@@ -82,7 +85,7 @@ def download_with_progress_bar(url, filepath, chunk_size=1024, timeout=4):
         response_json = response.json()
         download_url = response_json.get("data").get("download_url")
         if download_url:
-            response = requests.get(download_url, verify=False, stream=True, timeout=timeout, headers=header)
+            response = requests.get(download_url, verify=True, stream=True, timeout=timeout, headers=header)
             content_size = int(response.headers.get('content-length'))
         else:
             logger.error("Download url parsing failed from json file, please download %s to %s.", url, filepath)

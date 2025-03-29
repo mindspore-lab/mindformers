@@ -261,4 +261,4 @@ class ModelTester:
                                tokenizer=tokenizer)
         task_trainer.config.metric = metric
 
-        task_trainer.evaluate()
+        task_trainer.evaluate(tokenizer=tokenizer)
