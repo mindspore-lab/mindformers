@@ -30,6 +30,7 @@ if research_path not in sys.path:
     sys.path.append(research_path)
 # pylint: disable=C0413
 from research.telechat2.telechat import TelechatForCausalLM
+from research.telechat2.infer.telechat import ParallelTelechatForCausalLM
 from research.telechat2.telechat_config import TelechatConfig
 
 # copy from finetune_telechat_115b.yaml
@@ -58,6 +59,7 @@ BASE_CONFIG = {
     'softmax_compute_type': "float32",
     'rotary_dtype': "float32",
     'param_init_type': "float32",
+    'router_dense_type': "float32",
     'use_past': False,
     'parallel_optimizer': True,
     'pretrain_seqlen': 8192,  # seqlen of the pretrain checkpoint
@@ -71,15 +73,28 @@ BASE_CONFIG = {
     'top_k': 3,
     'top_p': 1,
     'do_sample': False,
-
 }
 
 
-def get_config():
+MOE_CONFIG = {
+    'expert_num': 8,
+    'num_experts_chosen': 2,
+    'moe_intermediate_size': 128,
+    'shared_expert_num': 0,
+    'norm_topk_prob': True,
+    'routed_scaling_factor': 1.0
+}
+
+
+def get_config(is_moe=False):
     """get instanced model config."""
+    if is_moe:
+        BASE_CONFIG["moe_config"] = MOE_CONFIG
     return TelechatConfig(**BASE_CONFIG)
 
 
-def get_model(config):
+def get_model(config, is_moe=False):
     """get instanced model."""
+    if is_moe:
+        return ParallelTelechatForCausalLM(config)
     return TelechatForCausalLM(config)

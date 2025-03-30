@@ -18,8 +18,9 @@ from typing import Optional, Union
 
 from mindspore._checkparam import args_type_check
 
+from mindformers.modules.transformer.moe import MoEConfig
 from mindformers.modules.transformer.transformer import default_transformer_config, \
-    TransformerOpParallelConfig
+    default_moe_config, TransformerOpParallelConfig
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.models.configuration_utils import PretrainedConfig
 from mindformers.models.utils import convert_mstype
@@ -64,6 +65,9 @@ class TelechatConfig(PretrainedConfig):
         use_past (`bool`, *optional*, defaults to `False`):
             Whether the model should use the past last key/values attentions
             (if applicable to the model) to speed up decoding.
+        moe_config(MoEConfig):
+            The configuration of MoE (Mixture of Expert). Default is an instance of MoEConfig
+            with default values. Please see `MoEConfig`.
         parallel_config(TransformerOpParallelConfig):
             The parallel configure. Default `default_transformer_config`,
             an instance of `TransformerOpParallelConfig` with default args.
@@ -128,6 +132,7 @@ class TelechatConfig(PretrainedConfig):
                  out_proj_has_bias: bool = True,
                  qkv_concat: bool = False,
                  parallel_config: Union[dict, TransformerOpParallelConfig] = default_transformer_config,
+                 moe_config: Union[dict, MoEConfig] = default_moe_config,
                  use_past: bool = False,
                  extend_method: str = "None",
                  scaling_factor: float = 1.0,
@@ -154,6 +159,8 @@ class TelechatConfig(PretrainedConfig):
         super(TelechatConfig, self).__init__(**kwargs)
         if isinstance(parallel_config, dict):
             parallel_config = TransformerOpParallelConfig(**parallel_config)
+        if isinstance(moe_config, dict):
+            moe_config = MoEConfig(**moe_config)
         self.batch_size = batch_size
         self.seq_length = seq_length
         self.vocab_size = vocab_size
@@ -182,6 +189,7 @@ class TelechatConfig(PretrainedConfig):
         self.compute_dtype = convert_mstype(compute_dtype)
         self.res_dtype = convert_mstype(res_dtype)
         self.parallel_config = parallel_config
+        self.moe_config = moe_config
         self.checkpoint_name_or_path = checkpoint_name_or_path
         self.bos_token_id = bos_token_id
         self.eos_token_id = eos_token_id

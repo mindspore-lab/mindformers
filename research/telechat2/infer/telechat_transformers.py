@@ -22,8 +22,107 @@ from mindformers.experimental.parallel_core.pynative.utils import divide
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear, RowParallelLinear
 from mindformers.experimental.infer.core.transformer import \
     ParallelAttention, ParallelTransformerLayer, ParallelTransformer, ParallelMLP
+from mindformers.experimental.infer.core.moe import ParallelMoE, RoutedParallelMLP
+from mindformers.experimental.infer.core.utils import get_tp_world_size
+from mindformers.experimental.infer.core.mapping import ReduceFromModelParallelRegion
 from mindformers.modules.layers import FreqsMgrDynamicNTK
 from mindformers.tools.logger import logger
+
+
+class TelechatParallelMoE(ParallelMoE):
+    r"""
+        TelechatParallelMoE. Routing each tokens to the topk expert and calculating the final output.
+
+        Args:
+            ffn (Cell): The FeedForward Module.
+            hidden_size (int): The hidden size of each token.
+            moe_config (MoEConfig): The configuration of MoE (Mixture of Expert).
+            use_fused_op (Bool): Whether use fused kernels.
+        Inputs:
+            - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+
+        Outputs:
+            - **output_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+    """
+
+    def __init__(self,
+                 ffn,
+                 hidden_size,
+                 moe_config,
+                 use_fused_op=True):
+        super(TelechatParallelMoE, self).__init__(
+            ffn=ffn,
+            hidden_size=hidden_size,
+            moe_config=moe_config,
+            use_fused_op=use_fused_op
+        )
+        self.tp_size = get_tp_world_size()
+        self.reduce_from_mp_region = ReduceFromModelParallelRegion()
+
+    def construct(self, input_tensor):
+        """forward process"""
+        input_tensor_shape = self.shape(input_tensor)  # (B, S, H)
+        input_dtype = input_tensor.dtype
+        input_tensor = self.reshape(input_tensor, (-1, self.hidden_size))  # (bs, seq/1, h) -> (bs*seq, h) : use N replace bs*seq
+
+        if self.use_fused_op:
+            expert_val, expert_index, row_index = self.gating_topk_softmax(input_tensor)
+            sorted_input_tensor, group_list, unsort_map = \
+                self.tensor_sort_by_fused_op(input_tensor, expert_index, row_index)
+        else:
+            gating_logits = self.gating(self.cast(input_tensor, self.router_dense_type)) # (N, h) * (h, E) -> (bs*seq, E)
+            routing_weights = self.softmax(self.cast(gating_logits, mstype.float32)) # (N, E) -> (N, E)
+            expert_val, expert_index = mint.topk(routing_weights, self.num_experts_chosen)
+            sorted_input_tensor, group_list, unsort_map = self.tensor_sort(input_tensor, expert_index)
+
+        if self.moe_config.norm_topk_prob and self.num_experts_chosen > 1:
+            expert_val = self.cast(expert_val, mstype.float32)
+            expert_weight = self.div(expert_val, self.add(mint.sum(expert_val, -1, True), 1e-9))
+        else:
+            expert_weight = self.mul(self.moe_config.routed_scaling_factor, expert_val)
+        expert_weight = self.cast(expert_weight, input_dtype)
+
+        # moeffn
+        group_list[1:] = group_list[1:] - group_list[:-1]
+        expert_output = self.ffn(sorted_input_tensor, group_list)  # (N, h) (N, k) -> (N, k, h)
+
+        expert_index = self.cast(expert_index, mstype.int32)
+        w2_bias = self.cast(mint.div(self.ffn.w2.bias, self.tp_size), input_dtype)
+        moe_output = self.tensor_moe_finalize_routing(expert_output, expert_weight, expert_index, unsort_map, w2_bias)  # -> (N, h)
+        moe_output = self.reduce_from_mp_region(moe_output)
+        output_tensor = self.reshape(moe_output, input_tensor_shape)  # (N, h) -> (bs, seq, h)
+        return output_tensor
+
+
+class TelechatRoutedParallelMLP(RoutedParallelMLP):
+    r"""
+        TelechatRoutedParallelMLP. Routing each tokens to the topk expert and calculating the final output.
+
+        Args:
+            config (Config): The configuration of Model.
+        Inputs:
+            - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+
+        Outputs:
+            - **output_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+    """
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.w2 = RowParallelLinear(
+            self.ffn_hidden_size,
+            self.hidden_size,
+            input_is_parallel=True,
+            config=self.config.parallel_config,
+            bias=True,
+            skip_bias_add=True,
+            transpose_b=True,
+            param_init_type=self.config.param_init_dtype,
+            compute_dtype=self.config.compute_dtype,
+            is_expert=True,
+            expert_num=self.config.moe_config.expert_num,
+            moe_delay_allreduce=True,
+        )
 
 
 class TelechatParallelMLP(ParallelMLP):
@@ -289,7 +388,17 @@ class TelechatParallelTransformerLayer(ParallelTransformerLayer):
         # Attention.
         self.attention = TelechatParallelAttention(config, layer_number)
         # MLP
-        self.feed_forward = TelechatParallelMLP(config)
+        self.expert_num = 1 if config.moe_config is None else config.moe_config.expert_num
+        self.use_moe_infer = config.use_past and self.expert_num > 1
+        config.moe_config.router_dense_type = config.router_dense_type
+        if self.use_moe_infer:
+            self.feed_forward = TelechatParallelMoE(
+                ffn=TelechatRoutedParallelMLP(config),
+                hidden_size=config.hidden_size,
+                moe_config=config.moe_config
+            )
+        else:
+            self.feed_forward = TelechatParallelMLP(config)
 
 
 class TelechatParallelTransformer(ParallelTransformer):

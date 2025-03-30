@@ -33,23 +33,29 @@
 TeleChat2-7b:
 
 | config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
-|-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
-| [TeleChat2_7b](./run_telechat_115b_finetune.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 2950 tokens/s/p |
-| [TeleChat2_7b](./run_telechat_115b_predict.yaml)  | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 54.1 tokens/s   |
+|:---------------------------------------------------:| :-------------------: |:----------:|:---------:|:---------------:|:------------:|
+| [TeleChat2_7b](./telechat2-7b/run_telechat_115b_finetune.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 2950 tokens/s/p |
+| [TeleChat2_7b](./telechat2-7b/run_telechat_115b_predict.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 54.1 tokens/s   |
 
 TeleChat2-35b:
 
 | config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
 |-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
-| [TeleChat2_35b](./run_telechat_115b_finetune.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 516 tokens/s/p |
-| [TeleChat2_35b](./run_telechat_115b_predict.yaml)  | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 27.7 tokens/s   |
+| [TeleChat2_35b](./telechat2-35b/run_telechat_115b_finetune.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 516 tokens/s/p |
+| [TeleChat2_35b](./telechat2-35b/run_telechat_115b_predict.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 27.7 tokens/s   |
 
 TeleChat2-115b:
 
 | config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
 |-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
-| [TeleChat2_115b](./run_telechat_115b_finetune.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 158 tokens/s/p |
-| [TeleChat2_115b](./run_telechat_115b_predict.yaml)  | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 26.5 tokens/s   |
+| [TeleChat2_115b](./telechat2-115b/run_telechat_115b_finetune.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 158 tokens/s/p |
+| [TeleChat2_115b](./telechat2-115b/run_telechat_115b_predict.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 26.5 tokens/s   |
+
+TeleChat2-39b-a12b:
+
+| config                                                       | task            | Datasets        | SeqLength | phase            | performance   |
+| ------------------------------------------------------------ | --------------- | --------------- | --------- | ---------------- | ------------- |
+| [TeleChat2_39b_a12b](./telechat2-39b-a12b/run_telechat_115b_finetune.yaml) | text_generation | example_dataset | 8192      | [predict](#推理) | 36.4 tokens/s |
 
 ## 模型文件
 
@@ -57,7 +63,7 @@ TeleChat2-115b:
 
 1. 模型具体实现：`mindformers/research/telechat2`
 
-   ```bash
+   ```text
    telechat
        ├── convert_weight.py                     # torch->ms权重转换脚本
        ├── convert_reversed.py                   # ms->torch权重转换脚本
@@ -68,19 +74,30 @@ TeleChat2-115b:
        ├── telechat_interleave.py                # telechat细粒度多副本
        ├── telechat_predict_utils.py             # telechat推理模块
        ├── telechat_tokenizer.py                 # telechat tokenizer
-       └── telechat_transformer.py               # transformer层实现
+       ├── telechat_transformer.py               # transformer层实现
+       └── infer
+           ├── telechat.py                       # 推理模型实现（前端并行）
+           └── telechat_transformers.py          # 推理模型transformer层实现（前端并行）
    ```
 
 2. 模型配置：`mindformers/research/telechat2`
 
-   ```bash
+   ```text
    telechat
-       ├── finetune_telechat_7b.yaml             # 7b全量微调启动配置
-       ├── predict_telechat_7b.yaml              # 7b推理启动配置
-       ├── finetune_telechat_35b.yaml            # 35b全量微调启动配置
-       ├── predict_telechat_35b.yaml             # 35b推理启动配置
-       ├── finetune_telechat_115b.yaml           # 115b全量微调启动配置
-       └── predict_telechat_115b.yaml            # 115b推理启动配置
+       ├── telechat2-7b                                  # telechat2-7B 配置文件
+       │   ├── finetune_telechat_7b.yaml                 # 7B全量微调启动配置
+       │   ├── predict_telechat_7b.yaml                  # 7B推理启动配置
+       │   └── predict_telechat_7b_parallel.yaml         # 7B推理启动配置（前端并行）
+       ├── telechat2-35b                                 # telechat2-35B 配置文件
+       │   ├── finetune_telechat_35b.yaml                # 35B全量微调启动配置
+       │   ├── predict_telechat_35b.yaml                 # 35B推理启动配置
+       │   └── predict_telechat_35b_parallel.yaml        # 35B推理启动配置（前端并行）
+       ├── telechat2-115b                                # telechat2-115B 配置文件
+       │   ├── finetune_telechat_115b.yaml               # 115B全量微调启动配置
+       │   ├── predict_telechat_115b.yaml                # 115B推理启动配置
+       │   └── predict_telechat_115b_parallel.yaml       # 115B推理启动配置（前端并行）
+       └── telechat2-39b-a12b                            # telechat2-39B-A12B 配置文件
+           └── predict_telechat_39b_a12b_parallel.yaml   # 39B-A12B推理启动配置（前端并行）
    ```
 
 3. 任务启动脚本：`mindformers/research/telechat2`
@@ -172,6 +189,7 @@ mindspore_path: 权重保存文件名，可以指定自定义保存路径
 - [TeleChat2-7b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_7B/Telechat_7B.zip)
 - [TeleChat2-35b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_35B/Telechat_35B.zip)
 - [TeleChat2-115b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_115B/Telechat_115B.zip)
+- [Telechat2-39b-a12b](https://telechat-docker.obs.cn-north-4.myhuaweicloud.com/model_weight/Telechat_39B_A12.tar)
 
 ### [分布式训练/微调权重合并](../../docs/feature_cards/Transform_Ckpt.md)
 
