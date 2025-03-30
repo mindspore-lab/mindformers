@@ -753,36 +753,6 @@ def _parse_args():
         action="store_true",
         help="Whether to use sliced inputs for label generation.",
     )
-    parser.add_argument(
-        "--vocab_file",
-        type=str,
-        default="./tokenizer.model",
-        help="Path to tokenizer vocabulary file.",
-    )
-    parser.add_argument(
-        "--pad_token",
-        type=str,
-        default="<|reserved_special_token_0|>",
-        help="Token used for padding sequences.",
-    )
-    parser.add_argument(
-        "--tokenizer_type",
-        type=str,
-        default="Llama3Tokenizer",
-        help="Type of tokenizer to use for text processing.",
-    )
-    parser.add_argument(
-        "--processor_type",
-        type=str,
-        default="LlamaProcessor",
-        help="Type of processor for tokenization pipeline.",
-    )
-    parser.add_argument(
-        "--auto_register",
-        type=str,
-        default="llama3_1.Llama3Tokenizer",
-        help="Component to auto-register with MindFormer.",
-    )
 
     return parser.parse_args()
 
@@ -806,18 +776,8 @@ def _setup_environment(args):
             sys.path.append(args.register_path)
 
     # Create tokenizer config
-    dict_config = {
-        "return_tensors": "ms",
-        "tokenizer": {
-            "model_max_length": args.seq_len,
-            "vocab_file": args.vocab_file,
-            "pad_token": args.pad_token,
-            "type": args.tokenizer_type,
-        },
-        "type": args.processor_type,
-        "auto_register": args.auto_register,
-    }
-    config = MindFormerConfig(processor=dict_config)
+    config_path = args.config
+    config = MindFormerConfig(config_path)
     tokenizer = build_tokenizer(config.processor.tokenizer)
     return tokenizer
 
