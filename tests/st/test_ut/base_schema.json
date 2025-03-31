@@ -1929,7 +1929,7 @@
         "signature": "(self, is_first_iteration)"
     },
     "mindformers.experimental.infer.models.llama.ParallelLlamaForCausalLM.construct": {
-        "signature": "(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None, key_cache=None, value_cache=None)"
+        "signature": "(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None, key_cache=None, value_cache=None, q_seq_lens=None)"
     },
     "mindformers.experimental.infer.models.llama.ParallelLlamaForCausalLM.kvcache": {
         "signature": "(self, layer_idx)"
@@ -1962,7 +1962,7 @@
         "signature": "(self, is_first_iteration)"
     },
     "mindformers.experimental.infer.models.llama.llama.ParallelLlamaForCausalLM.construct": {
-        "signature": "(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None, key_cache=None, value_cache=None)"
+        "signature": "(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None, input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None, block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None, key_cache=None, value_cache=None, q_seq_lens=None)"
     },
     "mindformers.experimental.infer.models.llama.llama.ParallelLlamaForCausalLM.kvcache": {
         "signature": "(self, layer_idx)"
