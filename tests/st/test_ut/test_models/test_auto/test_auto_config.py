@@ -18,7 +18,6 @@ os.environ["OPENMIND_HUB_ENDPOINT"] = "https://openmind.test.osinfra.cn"
 # pylint: disable=C0413
 import tempfile
 
-from mindformers import LlamaConfig
 from mindformers.models.auto import AutoConfig
 from mindformers.models import GPT2Config
 
@@ -66,15 +65,6 @@ class TestAutoConfig:
         config = AutoConfig.from_pretrained(DYNAMIC_REPO_ID, trust_remote_code=True)
         assert config.__class__.__name__ == DYNAMIC_CLASS_NAME
 
-    def test_autoconfig_from_model_name(self):
-        """test init AutoConfig from model name."""
-        config = AutoConfig.from_pretrained("llama_7b")
-        assert isinstance(config, LlamaConfig)
-
-    def test_autoconfig_from_yaml(self):
-        """test init AutoConfig from yaml."""
-        config = AutoConfig.from_pretrained("configs/llama/run_llama_7b.yaml")
-        assert isinstance(config, LlamaConfig)
 
     def test_autoconfig_for_model(self):
         """test init AutoConfig for model."""

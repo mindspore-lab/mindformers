@@ -77,7 +77,7 @@ class TestLlama2prefixtunigTrainerMethod:
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,
-                                    model_name='llama_7b',
+                                    model_name='llama2_7b',
                                     args=args,
                                     train_dataset=train_dataset,
                                     eval_dataset=eval_dataset,
