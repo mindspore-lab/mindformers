@@ -16,7 +16,7 @@
 from mindformers.tools.register import MindFormerRegister, MindFormerModuleType, MindFormerConfig
 from . import ImageClassificationTrainer, ZeroShotImageClassificationTrainer, \
     MaskedImageModelingTrainer, MaskedLanguageModelingTrainer, \
-    TranslationTrainer, TokenClassificationTrainer, TextClassificationTrainer, \
+    TranslationTrainer, TextClassificationTrainer, \
     ContrastiveLanguageImagePretrainTrainer, QuestionAnsweringTrainer, GeneralTaskTrainer
 
 
@@ -71,10 +71,6 @@ def register_mf_trainer():
     MindFormerRegister.register_cls(
         MaskedLanguageModelingTrainer,
         module_type=MindFormerModuleType.TRAINER, alias="fill_mask")
-
-    MindFormerRegister.register_cls(
-        TokenClassificationTrainer,
-        module_type=MindFormerModuleType.TRAINER, alias="token_classification")
 
     MindFormerRegister.register_cls(
         TextClassificationTrainer,

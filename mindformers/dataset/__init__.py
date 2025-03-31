@@ -74,7 +74,6 @@ from .mask_language_model_dataset import MaskLanguageModelDataset
 from .mim_dataset import MIMDataset
 from .question_answering_dataset import QuestionAnsweringDataset
 from .text_classification_dataset import TextClassificationDataset
-from .token_classification_dataset import TokenClassificationDataset
 from .translation_dataset import TranslationDataset
 from .zero_shot_image_classification_dataset import ZeroShotImageClassificationDataset
 from .multi_turn_dataset import MultiTurnDataset
