@@ -116,7 +116,6 @@ def preprocess(sources, tokenizer, seq_length):
     # Tokenize conversations
     input_ids = []
     targets = []
-    # attention_mask = []
     total_row = len(conversations)
     with tqdm(total=total_row, desc="Tokenizing conversations", unit="row") as pbar:
         for conversation in conversations:

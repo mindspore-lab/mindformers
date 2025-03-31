@@ -5,7 +5,6 @@
 
 # Essentially re-written in entirety
 
-# import logging
 import os
 import shutil
 import struct
@@ -22,7 +21,6 @@ try:
 except ModuleNotFoundError:
     pass
 import numpy
-# import torch
 
 from mindformers.dataset.blended_datasets.utils_s3 import (
     S3Config,
@@ -32,7 +30,6 @@ from mindformers.dataset.blended_datasets.utils_s3 import (
     parse_s3_path,
 )
 from mindformers.tools.logger import logger
-# logger = logging.getLogger(__name__)
 
 _INDEX_HEADER = b"MMIDIDX\x00\x00"
 
@@ -775,7 +772,6 @@ class IndexedDatasetBuilder(object):
 
             mode (int, optional): The mode for the item. Defaults to 0.
         """
-        # np_array = numpy.array(tensor.numpy(), dtype=self.dtype)
         self.data_file.write(np_array.tobytes(order="C"))
         self.sequence_lengths.append(np_array.size)
         if self.multimodal:
@@ -793,7 +789,6 @@ class IndexedDatasetBuilder(object):
 
             modes (Optional[List[int]], optional): The modes for each item in the document. Defaults to None.
         """
-        # np_array = numpy.array(tensor, dtype=self.dtype)
         self.data_file.write(np_array.tobytes(order="C"))
         self.sequence_lengths.extend(lengths)
         self.document_indices.append(len(self.sequence_lengths))

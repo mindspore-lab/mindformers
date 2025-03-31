@@ -1609,7 +1609,6 @@ class TopkRouterV2(Cell):
     def _maskout_overflowed_tokens_sort_kdrop(self, expert_index, expert_gate):
         """
         Keeping only the tokens that fit within expert_capacity.
-        # if tokens_per_group>10: self.print("range_kn", range_kn)
         """
         k = self.num_experts_chosen
         tokens_per_group = self.shape(expert_index)[1]
@@ -1634,8 +1633,7 @@ class TopkRouterV2(Cell):
         # (dp, kN, E)fp32 <-- (dp, kN, E)fp32, (dp, kN, E)bool, where 0<=position_in_expert<(1+n)
         position_in_expert = self.mul_3d(position_in_expert, self.less(position_in_expert, expert_capacity + 1))
         position_in_expert_2d = self.reduce_sum(position_in_expert, -1)  # (dp, kN)fp32 <-- (dp, kN, E)fp32
-        # (dp, kN)fp32 <-- (dp, kN)fp32, (dp, kN)fp32 where 0<= combine_index <E*(1+n),
-        # combine_index = expert_id *(1+n) + position_in_expert_2d
+        # (dp, kN)fp32 <-- (dp, kN)fp32, (dp, kN)fp32 where 0<= combine_index <E*(1+n), combine_index = expert_id *(1+n) + position_in_expert_2d
         combine_index = self.add_2d(
             self.mul_2d_1d(expert_index, expert_capacity + 1),
             position_in_expert_2d)
@@ -1676,7 +1674,6 @@ class TopkRouterV2(Cell):
     def _maskout_overflowed_tokens_sort_sdrop(self, expert_index, expert_gate):
         """
         Keeping only the tokens that fit within expert_capacity.
-        # if tokens_per_group>10: self.print("range_kn", range_kn)
         """
         k = self.num_experts_chosen
         tokens_per_group = self.shape(expert_index)[1]
@@ -1700,8 +1697,7 @@ class TopkRouterV2(Cell):
         # (dp, Nk, E)fp32 <-- (dp, Nk, E)fp32, (dp, Nk, E)bool, where 0<=position_in_expert<(1+n)
         position_in_expert = self.mul_3d(position_in_expert, self.less(position_in_expert, expert_capacity + 1))
         position_in_expert_2d = self.reduce_sum(position_in_expert, -1)  # (dp, Nk)fp32 <-- (dp, Nk, E)fp32
-        # (dp, Nk)fp32 <-- (dp, Nk)fp32, (dp, Nk)fp32 where 0<= combine_index <E*(1+n),
-        # combine_index = expert_id *(1+n) + position_in_expert_2d
+        # (dp, Nk)fp32 <-- (dp, Nk)fp32, (dp, Nk)fp32 where 0<= combine_index <E*(1+n), combine_index = expert_id *(1+n) + position_in_expert_2d
         combine_index = self.add_2d(self.mul_2d_1d(expert_index, expert_capacity + 1), position_in_expert_2d)
         combine_index = self.reshape(
             combine_index,

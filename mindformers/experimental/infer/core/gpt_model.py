@@ -210,7 +210,6 @@ class GPTModel(nn.Cell):
             kv_cache=kv_cache
         )
 
-        # return hidden_states
         output = self.pre_gather_func(hidden_states, context_lens_tensor, batch_valid_length)
 
         logits = self.output_layer(output)

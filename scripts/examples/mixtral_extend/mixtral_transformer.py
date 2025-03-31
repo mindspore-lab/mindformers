@@ -256,11 +256,6 @@ class MixtralAttention(nn.Cell):
                 self.tile_kv.shard(((dp, mp, 1, 1),))
 
                 self.apply_rotary_emb.shard(parallel_config)
-                # if parallel_config.use_seq_parallel and cp > 1:
-                #     logger.warning(
-                #         "The context parallel way conflicts with sequence parallel way."
-                #         "The Sequence parallel way has no effect here and is ignored"
-                #     )
                 if parallel_config.use_seq_parallel and self.is_first_iteration and cp == 1:
                     self.wo.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
                 elif parallel_config.use_seq_parallel and self.is_first_iteration:

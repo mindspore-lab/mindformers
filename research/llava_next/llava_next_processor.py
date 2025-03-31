@@ -344,7 +344,6 @@ class LlavaImageAndVideoBuilder(ModalContentBuilder):
             # video context_length calculation
             patches_height_width = (height // self.patch_size)
             patches_width_width = (width // self.patch_size)
-            # patches_height_width = int(math.sqrt(self.context_length))
             pooled_height_width = math.ceil(patches_height_width / 2)
             if self.video_contains_pooler:
                 context_length = (pooled_height_width * pooled_height_width)

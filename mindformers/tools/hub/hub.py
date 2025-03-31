@@ -652,8 +652,6 @@ class PushToHubMixin:
             commit_message=commit_message,
             commit_description=commit_description,
             token=token,
-            # create_pr=create_pr,
-            # revision=revision,
         )
 
     def push_to_hub(

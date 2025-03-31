@@ -18,7 +18,6 @@ from mindspore import nn
 import mindspore.common.dtype as mstype
 from mindspore.common.generator import default_generator
 from mindspore.common.tensor import Tensor
-# from mindspore.ops import operations as P
 
 # MindSpore 2.0 has changed the APIs of _checkparam, the following try except is for compatibility
 try:

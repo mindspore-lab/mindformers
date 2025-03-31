@@ -43,7 +43,6 @@ def process_folder(input_folder):
                     continue
                 video_path = os.path.join(folder_path, video_file)
                 label_data = create_label_data(query, response, video_path)
-                # samples.append(json.dumps(label_data, ensure_ascii=False))
                 samples.append(label_data)
     return samples
 
