@@ -532,7 +532,7 @@ class ContextParallelAlgo(Enum):
     """
     colossalai_cp = "colossalai_cp"
     ulysses_cp = "ulysses_cp"
-    hybird_cp = "hybird_cp"
+    hybrid_cp = "hybrid_cp"
 
 
 default_transformer_swap_config = TransformerSwapConfig()
@@ -568,9 +568,9 @@ class TransformerOpParallelConfig(_Config):
                 the transformer block. Default: An instance of TransformerRecomputeConfig with default values.
             vocab_emb_dp (bool): Shard embedding in model parallel or data parallel. Default: True.
             context_parallel_algo (str): Which type of context parallel algorithm to use. Supports `colossalai_cp`,
-                `ulysses_cp` and `hybird_cp`. Only takes effect when context_parallel > 1. Default: `colossalai_cp`
-            ulysses_degree_in_cp (int): When using hybird_cp, how many cp should be used for ulysses. context_parallel
-                should be divisible by it. Only takes effect when `hybird_cp` algorithm is chosen. Default: 1
+                `ulysses_cp` and `hybrid_cp`. Only takes effect when context_parallel > 1. Default: `colossalai_cp`
+            ulysses_degree_in_cp (int): When using hybrid_cp, how many cp should be used for ulysses. context_parallel
+                should be divisible by it. Only takes effect when `hybrid_cp` algorithm is chosen. Default: 1
 
         Supported Platforms:
             ``Ascend`` ``GPU``
@@ -621,7 +621,7 @@ class TransformerOpParallelConfig(_Config):
         """check whether context parallel config is valid.
 
         Raises:
-            ValueError: in hybird_cp algorithm, context_parallel should be divisible by ulysses_degree_in_cp
+            ValueError: in hybrid_cp algorithm, context_parallel should be divisible by ulysses_degree_in_cp
         """
         if self.context_parallel == 1:
             if self.context_parallel_algo != ContextParallelAlgo.colossalai_cp:
@@ -633,12 +633,12 @@ class TransformerOpParallelConfig(_Config):
             return
 
         # here context parallel > 1
-        if self.context_parallel_algo != ContextParallelAlgo.hybird_cp and self.ulysses_degree_in_cp > 1:
+        if self.context_parallel_algo != ContextParallelAlgo.hybrid_cp and self.ulysses_degree_in_cp > 1:
             logger.warning(f"ulysses_degree_in_cp {self.ulysses_degree_in_cp} will not take effect when "
-                           f"context_parallel_algo {self.context_parallel_algo.value} is not `hybird_cp`.")
-        if (self.context_parallel_algo == ContextParallelAlgo.hybird_cp and
+                           f"context_parallel_algo {self.context_parallel_algo.value} is not `hybrid_cp`.")
+        if (self.context_parallel_algo == ContextParallelAlgo.hybrid_cp and
                 self.context_parallel % self.ulysses_degree_in_cp != 0):
-            raise ValueError(f"When using hybird_cp algorithm, context_parallel {self.context_parallel} "
+            raise ValueError(f"When using hybrid_cp algorithm, context_parallel {self.context_parallel} "
                              f"should be divisible by ulysses_degree_in_cp {self.ulysses_degree_in_cp}. "
                              "Please check your `ulysses_degree_in_cp`.")
 

@@ -30,7 +30,7 @@ class ContextParallelAlgo(Enum):
     """
     colossalai_cp = "colossalai_cp"
     ulysses_cp = "ulysses_cp"
-    hybird_cp = "hybird_cp"
+    hybrid_cp = "hybrid_cp"
 
 
 class ModelParallelConfig():
@@ -54,7 +54,7 @@ class ModelParallelConfig():
             context_parallel (int): The context parallel way. The context data will be sliced into n parts for each
                 layer according to the context parallel strategy. Default: 1.
             context_parallel_algo (str): Which type of context parallel algorithm to use. Supports `colossalai_cp`,
-                `ulysses_cp` and `hybird_cp`. Only takes effect when context_parallel > 1. Default: `colossalai_cp`
+                `ulysses_cp` and `hybrid_cp`. Only takes effect when context_parallel > 1. Default: `colossalai_cp`
             vocab_emb_dp (bool): Shard embedding in model parallel or data parallel. If True, the embedding lookup
                 will be a data parallel style training and model_parallel value will be ignored.  If false, the
                 embedding table will be sharded into n parts at the 0-th dimension row slice of the embedding table,
@@ -89,7 +89,7 @@ class ModelParallelConfig():
         """check whether context parallel config is valid.
 
         Raises:
-            ValueError: in hybird_cp algorithm, context_parallel should be divisible by ulysses_degree_in_cp
+            ValueError: in hybrid_cp algorithm, context_parallel should be divisible by ulysses_degree_in_cp
         """
         if self.context_parallel == 1:
             if self.context_parallel_algo.value != ContextParallelAlgo.colossalai_cp.value:
@@ -101,12 +101,12 @@ class ModelParallelConfig():
             return
 
         # here context parallel > 1
-        if self.context_parallel_algo.value != ContextParallelAlgo.hybird_cp.value and self.ulysses_degree_in_cp > 1:
+        if self.context_parallel_algo.value != ContextParallelAlgo.hybrid_cp.value and self.ulysses_degree_in_cp > 1:
             logger.warning(f"ulysses_degree_in_cp {self.ulysses_degree_in_cp} will not take effect when "
-                           f"context_parallel_algo {self.context_parallel_algo.value} is not `hybird_cp`.")
-        if (self.context_parallel_algo.value == ContextParallelAlgo.hybird_cp.value and
+                           f"context_parallel_algo {self.context_parallel_algo.value} is not `hybrid_cp`.")
+        if (self.context_parallel_algo.value == ContextParallelAlgo.hybrid_cp.value and
                 self.context_parallel % self.ulysses_degree_in_cp != 0):
-            raise ValueError(f"When using hybird_cp algorithm, context_parallel {self.context_parallel} "
+            raise ValueError(f"When using hybrid_cp algorithm, context_parallel {self.context_parallel} "
                              f"should be divisible by ulysses_degree_in_cp {self.ulysses_degree_in_cp}. "
                              "Please check your `ulysses_degree_in_cp`.")
 
@@ -307,8 +307,8 @@ class TransformerConfig(ModelParallelConfig):
         if not self.use_flash_attn and self.use_ring_attention:
             raise ValueError(f"When the ring_attention = True, the flash_attention must be True ")
 
-        if self.context_parallel_algo.value == ContextParallelAlgo.hybird_cp.value and not self.use_ring_attention:
-            logger.warning(f"When using hybird_cp algorithm,but use_ring_attention=False, will not take effect."
+        if self.context_parallel_algo.value == ContextParallelAlgo.hybrid_cp.value and not self.use_ring_attention:
+            logger.warning(f"When using hybrid_cp algorithm,but use_ring_attention=False, will not take effect."
                            f"Please check your config")
 
         if self.context_parallel_algo.value == ContextParallelAlgo.ulysses_cp.value and self.use_ring_attention:
