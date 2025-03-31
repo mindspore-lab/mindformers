@@ -70,7 +70,7 @@ def get_load_path_after_hf_convert(config, network):
     if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
             is_hf_safetensors_dir(config.load_checkpoint, network)):
         #'qkv_concat is True' or 'Dpo model' save ms safetensors
-        if config.qkv_concat or config.model.model_config.rl_config is not None:
+        if config.model.model_config.get("qkv_concat", False) or config.model.model_config.rl_config is not None:
             logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
             converted_sf_path = process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
             #wait for main rank to convert HF safetensors
@@ -342,7 +342,9 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
                 name_map = origin_network.obtain_name_map(load_checkpoint_files)
             except Exception as e:
                 raise TypeError(f"Please complete abstract function obtain_name_map. Details: {e}") from e
-            _convert_index_json(load_ckpt_path, load_ckpt_path, origin_network.convert_map_dict, False)
+            if is_main_rank():
+                _convert_index_json(load_ckpt_path, load_ckpt_path, origin_network.convert_map_dict, False)
+            barrier()
         ms.load_distributed_checkpoint(
             network=network,
             predict_strategy=strategy_path,
