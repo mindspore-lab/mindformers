@@ -157,19 +157,15 @@ def get_tril():
 def get_norm():
     """return ops.norm"""
 
-    # pylint: disable=C0103
-    # pylint: disable=W0622
-    def tensor_norm1(A, ord=None, dim=None, keepdim=False, dtype=None):
-        return F.norm(A, ord=ord, dim=dim, keepdim=keepdim, dtype=dtype)
+    def tensor_norm1(input_tensor, tensor_ord=None, dim=None, keepdim=False, dtype=None):
+        return F.norm(input_tensor, ord=tensor_ord, dim=dim, keepdim=keepdim, dtype=dtype)
 
-    # pylint: disable=C0103
-    # pylint: disable=W0622
-    def tensor_norm2(A, ord=2, dim=None, keepdim=False, dtype=None):
+    def tensor_norm2(input_tensor, tensor_ord=2, dim=None, keepdim=False, dtype=None):
         if dtype is not None:
             logger.warning("The 'dtype' is not available when mindspore version < '1.11.0'")
-        if not isinstance(ord, int):
-            raise TypeError("The type of 'ord' should be int when mindspore version < '1.11.0'")
-        return F.norm(A, dim, p=ord, keep_dims=keepdim)
+        if not isinstance(tensor_ord, int):
+            raise TypeError("The type of 'tensor_ord' should be int when mindspore version < '1.11.0'")
+        return F.norm(input_tensor, dim, p=tensor_ord, keep_dims=keepdim)
 
     if is_version_ge(ms.__version__, '1.11.0'):
         return tensor_norm1
