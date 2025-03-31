@@ -10,7 +10,7 @@ import numpy as np
 from datasets import load_dataset
 from mindspore.mindrecord import FileWriter
 
-from yizhao_model.yizhao_tokenizer import YiZhaoTokenizer
+from yizhao_tokenizer import YiZhaoTokenizer
 
 
 class YiZhaoPreprocessor:
