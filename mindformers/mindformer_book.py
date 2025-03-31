@@ -215,12 +215,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/gpt2/run_gpt2_xl.yaml")),
             ("gpt2_xl_lora", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2_xl_lora.yaml")),
-            ("llama_7b", os.path.join(
-                _PROJECT_PATH, "configs/llama/run_llama_7b.yaml")),
-            ("llama_13b", os.path.join(
-                _PROJECT_PATH, "configs/llama/run_llama_13b.yaml")),
-            ("llama_65b", os.path.join(
-                _PROJECT_PATH, "configs/llama/run_llama_65b.yaml")),
             ("llama2_7b", os.path.join(
                 _PROJECT_PATH, "configs/llama2/pretrain_llama2_7b.yaml")),
             ("llama2_13b", os.path.join(
@@ -231,8 +225,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/llama2/predict_llama2_7b_slora.yaml")),
             ("codellama_34b", os.path.join(
                 _PROJECT_PATH, "configs/codellama/pretrain_codellama_34b.yaml")),
-            ("llama_7b_lora", os.path.join(
-                _PROJECT_PATH, "configs/llama/run_llama_7b_lora.yaml")),
+            ("llama2_7b_lora", os.path.join(
+                _PROJECT_PATH, "configs/llama2/lora_llama2_7b.yaml")),
             ("glm_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_finetune.yaml")),
             ("glm_6b_chat", os.path.join(
@@ -376,12 +370,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/gpt2/run_gpt2_xl_lora.yaml")),
             ("gpt2_13b", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2_13b.yaml")),
-            ("llama_7b", os.path.join(
-                _PROJECT_PATH, "configs/llama/run_llama_7b.yaml")),
-            ("llama_13b", os.path.join(
-                _PROJECT_PATH, "configs/llama/run_llama_13b.yaml")),
-            ("llama_65b", os.path.join(
-                _PROJECT_PATH, "configs/llama/run_llama_65b.yaml")),
             ("llama2_7b", os.path.join(
                 _PROJECT_PATH, "configs/llama2/predict_llama2_7b.yaml")),
             ("llama2_13b", os.path.join(
@@ -392,8 +380,8 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/mllama/predict_mllama_11b.yaml")),
             ("codellama_34b", os.path.join(
                 _PROJECT_PATH, "configs/codellama/predict_codellama_34b.yaml")),
-            ("llama_7b_lora", os.path.join(
-                _PROJECT_PATH, "configs/llama/run_llama_7b_lora.yaml")),
+            ("llama2_7b_lora", os.path.join(
+                _PROJECT_PATH, "configs/llama2/lora_llama2_7b.yaml")),
             ("glm_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_finetune.yaml")),
             ("glm_6b_chat", os.path.join(
@@ -990,14 +978,6 @@ class MindFormerBook:
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm/glm_6b_lora.ckpt'
           ]),
-        ('llama_7b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/llama/open_llama_7b.ckpt'
-          ]),
-        ('llama_13b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/llama/open_llama_13b.ckpt'
-          ]),
         ('llama2_7b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/llama2/llama2_7b.ckpt'
@@ -1005,10 +985,6 @@ class MindFormerBook:
         ('llama2_13b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/llama2/llama2-13b-fp16.ckpt'
-          ]),
-        ('llama_7b_lora',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/llama/open_llama_7b_lora.ckpt'
           ]),
         ('sam_vit_b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
@@ -1210,18 +1186,6 @@ class MindFormerBook:
         ('glm3_6b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm3/tokenizer.model'
-          ]),
-        ('llama_7b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/llama/tokenizer.model'
-          ]),
-        ('llama_7b_lora',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/llama/tokenizer.model'
-          ]),
-        ('llama_13b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/llama/tokenizer.model'
           ]),
         ('llama2_7b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'

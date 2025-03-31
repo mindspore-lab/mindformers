@@ -15,7 +15,7 @@
 """
 Test module for testing the llama_lora interface used for mindformers.
 How to run this:
-pytest tests/st/test_model/test_llama_lora_model/test_llama_lora_trainer.py
+pytest tests/st/test_model/test_llama_lora_model/test_llama2_lora_trainer.py
 """
 import os
 import numpy as np
@@ -77,7 +77,7 @@ class TestLlamaTrainerMethod:
 
         self.task_trainer = Trainer(task='text_generation',
                                     model=model,
-                                    model_name='llama_7b_lora',
+                                    model_name='llama2_7b_lora',
                                     args=args,
                                     train_dataset=train_dataset,
                                     eval_dataset=eval_dataset,

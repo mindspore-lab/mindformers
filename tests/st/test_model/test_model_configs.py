@@ -159,15 +159,6 @@ class TestGPT2Config(unittest.TestCase):
         model = GPT2ForSequenceClassification(config)
 
 
-class TestLlamaConfig(unittest.TestCase):
-    """test llama config"""
-    def test_init_mode_for_text_generation_from_yaml(self):
-        """test init model with config"""
-        config = AutoConfig.from_pretrained("configs/llama/run_llama_7b.yaml")
-        config.checkpoint_name_or_path = ''
-        model = LlamaForCausalLM(config)
-
-
 class TestLlama2Config(unittest.TestCase):
     """test llama2 config"""
     def test_init_model_for_text_generation_from_yaml(self):
