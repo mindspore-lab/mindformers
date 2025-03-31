@@ -136,7 +136,7 @@ class SLoraModel(PreTrainedModel):
         return self.lora_model.slice_incremental_inputs(model_inputs, current_index)
 
     def set_dynamic_inputs(self, **kwargs):
-        parallel_decoding = self.lora_model.parallel_decoding
+        parallel_decoding = getattr(self.lora_model, "parallel_decoding", False)
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
