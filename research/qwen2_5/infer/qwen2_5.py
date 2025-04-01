@@ -202,7 +202,6 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
             layer.attention.paged_attention_mgr.add_flags(is_first_iteration=is_first_iteration)
 
     # pylint: disable=W0613
-    @ms.jit(jit_level='O0', infer_boost='on')
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None,
