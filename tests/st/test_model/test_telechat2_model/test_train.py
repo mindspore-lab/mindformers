@@ -53,3 +53,28 @@ class TestTelechat2Train:
         model = get_model(model_config)
 
         runner.set_train(model, model_config, loss_std=loss_std)
+
+    @pytest.mark.level1
+    @pytest.mark.platform_arm_ascend910b_training
+    @pytest.mark.env_onecard
+    def test_moe_model(self):
+        """
+        Feature: Moe model train
+        Description: Test moe model training precision.
+        Expectation: AssertionError
+        """
+        runner = ModelTester(run_mode='train', batch_size=4, experiment_mode=False, use_label=True)
+
+        model_config = get_config(is_moe=True)
+        model_config.num_layers = 2
+        model_config.seq_length = 1024
+
+        loss_std = [
+            12.044357, 12.049769, 12.042031, 12.031639, 12.018247,
+            12.058418, 12.056941, 12.034752, 12.037576, 12.036832,
+            12.046038, 12.020708, 12.060337, 12.054157, 12.040143,
+            12.039155, 12.036914, 12.028869, 12.029605, 12.053224
+        ]
+        model = get_model(model_config)
+
+        runner.set_train(model, model_config, loss_std=loss_std)

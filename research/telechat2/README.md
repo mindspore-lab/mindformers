@@ -34,28 +34,29 @@ TeleChat2-7b:
 
 | config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
 |:---------------------------------------------------:| :-------------------: |:----------:|:---------:|:---------------:|:------------:|
-| [TeleChat2_7b](./telechat2-7b/run_telechat_115b_finetune.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 2950 tokens/s/p |
-| [TeleChat2_7b](./telechat2-7b/run_telechat_115b_predict.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 54.1 tokens/s   |
+| [TeleChat2_7b](./telechat2-7b/finetune_telechat_7b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 2950 tokens/s/p |
+| [TeleChat2_7b](./telechat2-7b/predict_telechat_7b.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 54.1 tokens/s   |
 
 TeleChat2-35b:
 
 | config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
 |-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
-| [TeleChat2_35b](./telechat2-35b/run_telechat_115b_finetune.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 516 tokens/s/p |
-| [TeleChat2_35b](./telechat2-35b/run_telechat_115b_predict.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 27.7 tokens/s   |
+| [TeleChat2_35b](./telechat2-35b/finetune_telechat_35b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 516 tokens/s/p |
+| [TeleChat2_35b](./telechat2-35b/predict_telechat_35b.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 27.7 tokens/s   |
 
 TeleChat2-115b:
 
 | config                                              | task                  | Datasets   | SeqLength | phase           | performance  |
 |-----------------------------------------------------| --------------------- |------------|-----------|-----------------|--------------|
-| [TeleChat2_115b](./telechat2-115b/run_telechat_115b_finetune.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 158 tokens/s/p |
-| [TeleChat2_115b](./telechat2-115b/run_telechat_115b_predict.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 26.5 tokens/s   |
+| [TeleChat2_115b](./telechat2-115b/finetune_telechat_115b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 158 tokens/s/p |
+| [TeleChat2_115b](./telechat2-115b/predict_telechat_115b.yaml) | text_generation       | example_dataset     | 8192      | [predict](#推理)  | 26.5 tokens/s   |
 
 TeleChat2-39b-a12b:
 
 | config                                                       | task            | Datasets        | SeqLength | phase            | performance   |
 | ------------------------------------------------------------ | --------------- | --------------- | --------- | ---------------- | ------------- |
-| [TeleChat2_39b_a12b](./telechat2-39b-a12b/run_telechat_115b_finetune.yaml) | text_generation | example_dataset | 8192      | [predict](#推理) | 36.4 tokens/s |
+| [TeleChat2_39b_a12b](./telechat2-39b-a12b/finetune_telechat_39b_a12b.yaml) | text_generation       | example_dataset | 8192      | [finetune](#微调) | 158 tokens/s/p |
+| [TeleChat2_39b_a12b](./telechat2-39b-a12b/predict_telechat_39b_a12b_parallel.yaml) | text_generation | example_dataset | 8192      | [predict](#推理) | 36.4 tokens/s |
 
 ## 模型文件
 
@@ -97,6 +98,7 @@ TeleChat2-39b-a12b:
        │   ├── predict_telechat_115b.yaml                # 115B推理启动配置
        │   └── predict_telechat_115b_parallel.yaml       # 115B推理启动配置（前端并行）
        └── telechat2-39b-a12b                            # telechat2-39B-A12B 配置文件
+           ├── finetune_telechat_39b_a12b.yaml           # 39B-A12B全量微调启动配置
            └── predict_telechat_39b_a12b_parallel.yaml   # 39B-A12B推理启动配置（前端并行）
    ```
 
@@ -114,13 +116,11 @@ TeleChat2-39b-a12b:
 
 **MindFormers安装**以及**软硬件配套关系**参考[MindFormers安装](../../README_CN.md#二MindFormers安装)和[版本匹配关系](../../README_CN.md#三版本匹配关系)。
 
-> 注：Atlas 800T A2芯片支持telechat_115B单机多卡推理，至少使用8卡，全参微调至少需要8机64卡。
-
 ### 数据及权重准备
 
 #### 数据集下载
 
-TeleChat2全系列模型中7B，35B，115B所使用的微调数据集是由中电信人工智能科技有限公司所提供。
+TeleChat2全系列模型中7B，39B-A12, 35B，115B所使用的微调数据集是由中电信人工智能科技有限公司所提供。
 
 step 1. 构建数据集
 
@@ -167,13 +167,14 @@ MindFormers提供已经转换完成的预训练权重、词表文件用于预训
 1.torch模型权重及词模型下载链接：
 
 - [TeleChat2-7b](https://modelscope.cn/models/TeleAI/TeleChat2-7B)
+- [TeleChat2-39B-A12B](https://modelscope.cn/models/TeleAI/TeleChat2-39B-A12B)
 - [TeleChat2-35b](https://modelscope.cn/models/TeleAI/TeleChat2-35B)
 - [TeleChat2-115b](https://modelscope.cn/models/TeleAI/TeleChat2-115B)
 
 下载完成后，运行如下转换脚本，将全量微调的权重转换为完整的ckpt权重。
 
 ```shell
-python mindformers/research/telechat2/convert_weight_torch_to_ms.py \
+python mindformers/research/telechat2/convert_weight.py \
 --torch_path TORCH_CKPT_DIR \
 --mindspore_path {path} \
 ```
@@ -208,7 +209,7 @@ python transform_ckpt.py \
 --src_ckpt_strategy {path}/output/strategy/ \
 --src_ckpt_dir {path}/output/checkpoint/ \
 --dst_ckpt_dir {path}/target_checkpoint/ \
---prefix telechat_115B
+--prefix telechat_{size}
 ```
 
 ```text
@@ -325,6 +326,19 @@ processor:
   --predict_data "<_start><_user>生抽与老抽的区别？<_bot>" \
   --register_path ./research/telechat2
   ```
+
+- 39b-a12模型2卡推理
+
+```bash
+cd mindformers/
+bash scripts/msrun_launcher.sh "python run_mindformer.py \
+--config ./research/telechat2/predict_telechat_39b_a12b.yaml \
+--load_checkpoint path/to/ckpt_path \
+--predict_data '<_start><_user>生抽与老抽的区别？<_bot>' \
+--auto_trans_ckpt True \
+--use_parallel True \
+--register_path ./research/telechat2 2
+```
 
 - 35b模型2卡推理
 
