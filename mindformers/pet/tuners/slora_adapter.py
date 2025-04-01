@@ -29,9 +29,9 @@ from mindspore._checkparam import args_type_check
 import mindspore.common.dtype as mstype
 
 from mindformers.modules.layers import Linear
-from mindformers.models.llama.llama_layer import LlamaEmbedding
 from mindformers.pet.pet_config import SLoraConfig
 from mindformers.tools.logger import logger
+from mindformers.version_control import need_nz
 
 
 class SLoraLinear(Cell):
@@ -49,9 +49,26 @@ class SLoraLinear(Cell):
         Outputs:
             Tensor of shape :math:`(batch, seq_length, hidden_size)`.
     """
-    def __init__(self, linear: Linear, slora_inputs: dict, config: SLoraConfig):
+    def __init__(self, input_linear: Cell, slora_inputs: dict, config: SLoraConfig):
         super().__init__()
         self.lora_group_list = slora_inputs.get("group_list")
+        self.input_cell_type = str(type(input_linear)).split(".")[-1].split("'")[0]
+        self.has_act_quant = False
+        if hasattr(input_linear, "layer"):
+            if self.input_cell_type != "AllQuantLinearInferCell":
+                raise TypeError(f"Expected 'AllQuantLinearInferCell', bug got {self.input_cell_type}.")
+            self._layer = input_linear.layer
+            self.has_act_quant = input_linear.has_act_quant
+            self.quant_op = input_linear.quant_op
+            linear = self._layer
+        else:
+            if self.input_cell_type != "Linear":
+                raise TypeError(f"Expected 'Linear', bug got {self.input_cell_type}.")
+            linear = input_linear
+            self.weight = linear.weight
+            self.matmul = linear.matmul
+            if linear.has_bias:
+                self.bias = linear.bias
         self.in_channels = linear.in_channels
         self.out_channels = linear.out_channels
         self.expert_num = linear.expert_num
@@ -63,10 +80,10 @@ class SLoraLinear(Cell):
         self.outer_batch = linear.outer_batch
         self.has_bias = linear.has_bias
         self.activation_flag = linear.activation_flag
-        self.weight = linear.weight
-        self.matmul = linear.matmul
+        self.need_nz = False
+        if need_nz():
+            self.need_nz = True
         if self.has_bias:
-            self.bias = linear.bias
             self.bias_add = linear.bias_add
         if self.activation_flag:
             self.activation = linear.activation
@@ -83,7 +100,10 @@ class SLoraLinear(Cell):
         from mindspore.ops.auto_generate import GroupedMatmul
         self.lora_a_gmm = GroupedMatmul(split_item=3, group_type=0)
         self.lora_b_gmm = GroupedMatmul(split_item=3, group_type=0)
-        self.lora_a_shape = [self.lora_num, self.lora_rank, self.in_channels]
+        if self.need_nz:
+            self.lora_a_shape = [self.lora_num, self.in_channels, self.lora_rank]
+        else:
+            self.lora_a_shape = [self.lora_num, self.lora_rank, self.in_channels]
         self.lora_b_shape = [self.lora_num, self.lora_rank, self.out_channels]
         self.lora_a = Parameter(initializer('zero', self.lora_a_shape, config.lora_dtype), requires_grad=False)
         self.lora_b = Parameter(initializer('zero', self.lora_b_shape, config.lora_dtype), requires_grad=False)
@@ -93,7 +113,8 @@ class SLoraLinear(Cell):
         x = self.reshape(x, (-1, self.in_channels))
         lora_a = self.cast(self.lora_a, self.dtype)
         lora_b = self.cast(self.lora_b, self.dtype)
-        lora_a = self.lora_a_transpose(lora_a, (0, 2, 1))
+        if not self.need_nz:
+            lora_a = self.lora_a_transpose(lora_a, (0, 2, 1))
         x = self.lora_a_gmm([x], [lora_a], None, None, None, None, None, self.lora_group_list)[0]
         x = self.lora_b_gmm([x], [lora_b], None, None, None, None, None, self.lora_group_list)[0]
         x = self.reshape(x, dense_result.shape)
@@ -103,23 +124,35 @@ class SLoraLinear(Cell):
     def construct(self, x, expert_ids=None):
         """Forward process, x should be a tensor"""
         out_shape = self.shape(x)[:-1] + (self.out_channels,)
+        ori_dtype = F.dtype(x)
+        x = self.cast(x, self.dtype)
+        x_input = x
+        if self.has_act_quant:
+            x = self.quant_op(x)
         x = self.reshape(x, (-1, self.in_channels))
         if self.expert_flag and not self.use_gmm:
             if self.use_expert_group_size is True:
                 x = self.reshape(x, (-1, self.expert_num, self.expert_group_size, self.in_channels))
             else:
                 x = self.reshape(x, (self.outer_batch, self.expert_num, -1, self.in_channels))
-        ori_dtype = F.dtype(x)
-        weight = self.cast(self.weight, self.dtype)
-        x = self.cast(x, self.dtype)
-        if self.use_gmm:
-            dense_result = self.matmul([x], [weight], None, None, None, None, None, expert_ids)[0]
+        if self.has_act_quant:
+            weight = self._layer.weight
+            if self.use_gmm:
+                dense_result = self._layer.matmul([x], [weight], None, None, None, None, None, expert_ids)[0]
+            else:
+                dense_result = self._layer.matmul(x, weight)
+            if self.has_bias:
+                dense_result = self.bias_add(dense_result, self.cast(self._layer.bias, self.dtype))
         else:
-            dense_result = self.matmul(x, weight)
-        if self.has_bias:
-            dense_result = self.bias_add(dense_result, self.cast(self.bias, self.dtype))
+            weight = self.cast(self.weight, self.dtype)
+            if self.use_gmm:
+                dense_result = self.matmul([x], [weight], None, None, None, None, None, expert_ids)[0]
+            else:
+                dense_result = self.matmul(x, weight)
+            if self.has_bias:
+                dense_result = self.bias_add(dense_result, self.cast(self.bias, self.dtype))
 
-        out = self._lora_linear(x, dense_result)
+        out = self._lora_linear(x_input, dense_result)
         if self.activation_flag:
             out = self.activation(out)
         out = self.cast(out, ori_dtype)
@@ -134,12 +167,13 @@ class SLoraLinear(Cell):
             It is valid only in semi auto parallel or auto parallel mode.
             In other parallel modes, strategies set here will be ignored.
         """
-        strategy = self.matmul.in_strategy
-        self.lora_a_transpose.shard(((1, 1, strategy[1][1]),))
-        self.lora_a_gmm.shard(
-            (((1, strategy[0][1]),), ((1, strategy[1][1], 1),), ((),), ((),), ((),), ((),), ((),), (1,)))
-        self.lora_b_gmm.shard((((1, 1),), ((1, 1, strategy[1][0]),), ((),), ((),), ((),), ((),), ((),), (1,)))
-        self.lora_add.shard(((1, strategy[1][0]), (1, strategy[1][0])))
+        if not self.has_act_quant:
+            strategy = self.matmul.in_strategy
+            self.lora_a_transpose.shard(((1, 1, strategy[1][1]),))
+            self.lora_a_gmm.shard(
+                (((1, strategy[0][1]),), ((1, strategy[1][1], 1),), ((),), ((),), ((),), ((),), ((),), (1,)))
+            self.lora_b_gmm.shard((((1, 1),), ((1, 1, strategy[1][0]),), ((),), ((),), ((),), ((),), ((),), (1,)))
+            self.lora_add.shard(((1, strategy[1][0]), (1, strategy[1][0])))
 
 
 class SLoraEmbedding(Cell):
@@ -179,13 +213,19 @@ class SLoraEmbedding(Cell):
         self.embedding_gather = P.Gather()
         self.lora_gather = P.Gather()
         self.lora_a_transpose = P.Transpose()
+        self.need_nz = False
+        if need_nz():
+            self.need_nz = True
         self.broadcast_to = P.BroadcastTo((-1, self.embedding_size))
         from mindspore.ops.auto_generate import GroupedMatmul
         self.embedding_gmm = GroupedMatmul(split_item=3, group_type=0)
         self.lora_a_gmm = GroupedMatmul(split_item=3, group_type=0)
         self.lora_b_gmm = GroupedMatmul(split_item=3, group_type=0)
 
-        self.lora_a_shape = [config.lora_num, config.lora_rank, self.lora_vocab_size]
+        if self.need_nz:
+            self.lora_a_shape = [config.lora_num, self.lora_vocab_size, config.lora_rank]
+        else:
+            self.lora_a_shape = [config.lora_num, config.lora_rank, self.lora_vocab_size]
         self.lora_b_shape = [config.lora_num, config.lora_rank, embedding.embedding_size]
         self.lora_a = Parameter(initializer('zero', self.lora_a_shape, config.lora_dtype), requires_grad=False)
         self.lora_b = Parameter(initializer('zero', self.lora_b_shape, config.lora_dtype), requires_grad=False)
@@ -226,7 +266,8 @@ class SLoraEmbedding(Cell):
         #-------- LoRA part ----------
         lora_a = self.cast(self.lora_a, self.dtype)
         lora_b = self.cast(self.lora_b, self.dtype)
-        lora_a = self.lora_a_transpose(self.lora_gather(lora_a, x, 2), (0, 2, 1))
+        if not self.need_nz:
+            lora_a = self.lora_a_transpose(self.lora_gather(lora_a, x, 2), (0, 2, 1))
         lora_embedding = self.lora_a_gmm([lora_mask], [lora_a], None, None, None, None, None, self.group_list)[0]
         lora_embedding = self.lora_b_gmm([lora_embedding], [lora_b], None, None, None, None, None, self.group_list)[0]
 
@@ -299,6 +340,9 @@ class SLoraHead(Cell):
         self.lora_embedding_transpose = P.Transpose()
         self.lora_a_transpose = P.Transpose()
         self.lora_concat = P.Concat(axis=-1)
+        self.need_nz = False
+        if need_nz():
+            self.need_nz = True
         from mindspore.ops.auto_generate import GroupedMatmul
         self.lora_a_gmm = GroupedMatmul(split_item=3, group_type=0)
         self.lora_b_gmm = GroupedMatmul(split_item=3, group_type=0)
@@ -309,7 +353,10 @@ class SLoraHead(Cell):
             self.lora_embedding = Parameter(initializer('zero', self.lora_embedding_shape, config.lora_dtype),
                                             requires_grad=False)
 
-        self.lora_a_shape = [self.lora_num, config.lora_rank, self.in_channels]
+        if self.need_nz:
+            self.lora_a_shape = [self.lora_num, self.in_channels, config.lora_rank]
+        else:
+            self.lora_a_shape = [self.lora_num, config.lora_rank, self.in_channels]
         self.lora_b_shape = [self.lora_num, config.lora_rank, self.lora_vocab_size]
         self.lora_a = Parameter(initializer('zero', self.lora_a_shape, config.lora_dtype), requires_grad=False)
         self.lora_b = Parameter(initializer('zero', self.lora_b_shape, config.lora_dtype), requires_grad=False)
@@ -319,7 +366,8 @@ class SLoraHead(Cell):
         x = self.reshape(x, (-1, self.in_channels))
         lora_a = self.cast(self.lora_a, self.dtype)
         lora_b = self.cast(self.lora_b, self.dtype)
-        lora_a = self.lora_a_transpose(lora_a, (0, 2, 1))
+        if not self.need_nz:
+            lora_a = self.lora_a_transpose(lora_a, (0, 2, 1))
         x = self.lora_a_gmm([x], [lora_a], None, None, None, None, None, self.group_list)[0]
         x = self.lora_b_gmm([x], [lora_b], None, None, None, None, None, self.group_list)[0]
         x = self.reshape(x, self.shape(dense_result))
@@ -466,8 +514,9 @@ class SLoraAdapter(abc.ABC):
         self.registered_loras[lora_b_name] = cell.lora_b_shape
 
     def build(self):
-        self.common_lora_cell[Linear] = SLoraLinear
-        self.common_lora_cell[LlamaEmbedding] = SLoraEmbedding
+        self.common_lora_cell["Linear"] = SLoraLinear
+        self.common_lora_cell["LlamaEmbedding"] = SLoraEmbedding
+        self.common_lora_cell["AllQuantLinearInferCell"] = SLoraLinear
 
     def get_pet_model(self, network: Cell):
         """Replace layers"""
@@ -508,7 +557,8 @@ class SLoraAdapter(abc.ABC):
             return cell, True
         if re.match(self.slora_config.target_modules, cell_name) or \
             (re.match('.*embeddings', cell_name) and ("embed_tokens" in self.slora_config.target_modules)):
-            wrap_lora = self.common_lora_cell.get(type(cell))
+            cell_type = str(type(cell)).split(".")[-1].split("'")[0]
+            wrap_lora = self.common_lora_cell.get(cell_type)
             if wrap_lora:
                 logger.info(f"Apply LoRA to {cell_name}.")
                 new_cell = wrap_lora(cell, self.slora_inputs, self.slora_config)
