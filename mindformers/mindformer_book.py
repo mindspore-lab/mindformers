@@ -257,16 +257,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "research/deepseek1_5/finetune_deepseek_coder1_5_7b.yaml")),
             ("common", os.path.join(
                 _PROJECT_PATH, "configs/gpt2/run_gpt2.yaml"))])
-         ),
-        ("segment_anything", OrderedDict([
-            ("sam_vit_b", os.path.join(
-                _PROJECT_PATH, "configs/sam/run_sam_vit-b.yaml")),
-            ("sam_vit_l", os.path.join(
-                _PROJECT_PATH, "configs/sam/run_sam_vit-l.yaml")),
-            ("sam_vit_h", os.path.join(
-                _PROJECT_PATH, "configs/sam/run_sam_vit-h.yaml")),
-            ("common", os.path.join(
-                _PROJECT_PATH, "configs/sam/run_sam_vit-h.yaml"))])
          )
     ])
 
@@ -412,16 +402,6 @@ class MindFormerBook:
         ("image_to_text_retrieval", OrderedDict([
             ("blip2_stage1_evaluator", os.path.join(
                 _PROJECT_PATH, "configs/blip2/run_blip2_stage1_vit_g_retrieval_flickr30k.yaml"))
-        ])),
-        ("segment_anything", OrderedDict([
-            ("sam_vit_b", os.path.join(
-                _PROJECT_PATH, "configs/sam/run_sam_vit-b.yaml")),
-            ("sam_vit_l", os.path.join(
-                _PROJECT_PATH, "configs/sam/run_sam_vit-l.yaml")),
-            ("sam_vit_h", os.path.join(
-                _PROJECT_PATH, "configs/sam/run_sam_vit-h.yaml")),
-            ("common", os.path.join(
-                _PROJECT_PATH, "configs/sam/run_sam_vit-h.yaml"))
         ]))
     ])
 
@@ -525,11 +505,6 @@ class MindFormerBook:
         ]),
         ('glm4', [
             'glm4_9b',
-        ]),
-        ('sam', [
-            'sam_vit_b',
-            'sam_vit_l',
-            'sam_vit_h'
         ]),
         ('yi', [
             'yi_6b_finetune',
@@ -658,11 +633,6 @@ class MindFormerBook:
             'yi_6b',
             'yi_34b',
         ]),
-        ('sam', [
-            'sam_vit_b',
-            'sam_vit_l',
-            'sam_vit_h'
-        ])
     ])
 
     _PROCESSOR_SUPPORT_LIST = OrderedDict([
@@ -739,11 +709,6 @@ class MindFormerBook:
         ]),
         ('glm4', [
             'glm4_9b',
-        ]),
-        ('sam', [
-            'sam_vit_b',
-            'sam_vit_l',
-            'sam_vit_h'
         ])
     ])
 
@@ -985,18 +950,6 @@ class MindFormerBook:
         ('llama2_13b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/MindFormers/llama2/llama2-13b-fp16.ckpt'
-          ]),
-        ('sam_vit_b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/sam/sam_vit_b_01ec64.ckpt'
-          ]),
-        ('sam_vit_l',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/sam/sam_vit_l_0b3195.ckpt'
-          ]),
-        ('sam_vit_h',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/MindFormers/sam/sam_vit_h_4b8939.ckpt'
           ])
     ])
 

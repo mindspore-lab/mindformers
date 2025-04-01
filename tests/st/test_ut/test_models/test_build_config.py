@@ -19,7 +19,6 @@ from mindformers.models.llama import LlamaConfig
 from mindformers.models.blip2 import Blip2Config
 from mindformers.models.blip2.qformer_config import QFormerConfig
 from mindformers.models.vit.vit_config import ViTConfig
-from mindformers.models.sam import SamConfig
 
 
 class TestBuildModelConfig:
@@ -39,12 +38,3 @@ class TestBuildModelConfig:
         assert isinstance(model_config.vision_config, ViTConfig)
         assert isinstance(model_config.qformer_config, QFormerConfig)
         assert isinstance(model_config.text_config, LlamaConfig)
-
-    def test_build_sam_config(self):
-        """test build sam config from yaml."""
-        config = MindFormerConfig("configs/sam/run_sam_vit-b.yaml")
-        model_config = build_model_config(config.model.model_config)
-        assert isinstance(model_config, SamConfig)
-        assert isinstance(model_config.image_encoder, MindFormerConfig)
-        assert isinstance(model_config.prompt_config, MindFormerConfig)
-        assert isinstance(model_config.decoder_config, MindFormerConfig)
