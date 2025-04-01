@@ -15,8 +15,13 @@
 """Files used for model evaluation."""
 import ssl
 
-# pylint: disable=W0401
-from vlmeval.smp import *
+import os
+import os.path as osp
+import json
+import argparse
+import pandas as pd
+from tabulate import tabulate
+from vlmeval.smp import get_logger, get_cache_path, load_env, MMBenchOfficialServer, listinstr
 from vlmeval.dataset import build_dataset
 from vlmeval.inference import infer_data_job
 from vlmeval.config import supported_VLM
