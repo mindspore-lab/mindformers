@@ -150,8 +150,6 @@ class LlamaModel(LlamaPreTrainedModel):
         if self.residual_cast_flag:
             logger.info(f"residual in llama model cast flag: {self.residual_cast_flag}, "
                         f"residual dtype: {config.residual_dtype}")
-        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
-            self.freqs_mgr.shard(config.parallel_config)
         total_batch_size_in_dp = config.batch_size * config.parallel_config.data_parallel
         use_attn_mask_compression = config.use_attn_mask_compression or config.use_eod_attn_mask_compression
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
@@ -337,11 +335,11 @@ class LlamaModel(LlamaPreTrainedModel):
             freqs_cis = self.freqs_mgr.increment_multi_ids(position_ids)
         elif self.use_eod_attn_mask_compression and not self.use_ring_attention:
             mask = self.casual_mask()
-            freqs_cis = self.freqs_mgr(seq_len, position_ids)
+            freqs_cis = self.freqs_mgr(seq_len)
         elif attention_mask is not None:
             mask = attention_mask
             mask = self.cast(mask, mstype.uint8)
-            freqs_cis = self.freqs_mgr(seq_len, position_ids)
+            freqs_cis = self.freqs_mgr(seq_len)
             if self.seq_pipe:
                 raise ValueError("When the seq_pipe = True, the attention_mask must be None.")
         else:
