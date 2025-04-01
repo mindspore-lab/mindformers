@@ -152,8 +152,6 @@ def sync_trans(f):
 
 def get_output_root_path():
     """get default output path in local/AICC."""
-    if check_in_modelarts():
-        return MA_OUTPUT_ROOT
     path = os.getenv("LOCAL_DEFAULT_PATH", './output')
     return os.path.expanduser(path)
 
