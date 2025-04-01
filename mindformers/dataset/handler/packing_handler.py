@@ -47,7 +47,8 @@ class PackingConfig:
 
     def __post_init__(self) -> None:
         """Do asserts and set fields post init"""
-        assert self.seq_length is not None
+        if self.seq_length is None:
+            raise ValueError('seq_length must be set in PackingHandler.')
 
 
 def _init_data(data_names):
