@@ -21,11 +21,10 @@ from mindspore.mindrecord import FileWriter
 from mindformers.models.glm.chatglm_6b_tokenizer import ChatGLMTokenizer
 from mindformers.tools.logger import logger
 
-prompt_column = "content"
-response_column = "summary"
-history_column = None
-prefix = ""
-
+PROMPT_COLUMN = "content"
+RESPONSE_COLUMN = "summary"
+HISTORY_COLUMN = None
+PREFIX = ""
 
 def get_masks(input_ids, bos_token_id=130004):
     """Get attention mask."""
@@ -134,27 +133,27 @@ def preprocess_function(input_file, vocab_file, output_file, num_splits, max_sou
     content_list = []
     summary_list = []
     for line in lines:
-        content_list.append(json.loads(line)[prompt_column])
-        summary_list.append(json.loads(line)[response_column])
-    examples[prompt_column] = content_list
-    examples[response_column] = summary_list
+        content_list.append(json.loads(line)[PROMPT_COLUMN])
+        summary_list.append(json.loads(line)[RESPONSE_COLUMN])
+    examples[PROMPT_COLUMN] = content_list
+    examples[RESPONSE_COLUMN] = summary_list
 
     model_inputs = {}
 
-    for i in tqdm(range(len(examples[prompt_column])), ascii=True, ncols=120):
-        if examples[prompt_column][i] and examples[response_column][i]:
-            query, answer = examples[prompt_column][i], examples[response_column][i]
+    for i in tqdm(range(len(examples[PROMPT_COLUMN])), ascii=True, ncols=120):
+        if examples[PROMPT_COLUMN][i] and examples[RESPONSE_COLUMN][i]:
+            query, answer = examples[PROMPT_COLUMN][i], examples[RESPONSE_COLUMN][i]
 
-            if history_column is None:
+            if HISTORY_COLUMN is None:
                 prompt = query
             else:
                 prompt = ""
-                history = examples.get(history_column)[i]
+                history = examples.get(HISTORY_COLUMN)[i]
                 for turn_idx, (old_query, response) in enumerate(history):
                     prompt += "[Round {}]\n问：{}\n答：{}\n".format(turn_idx, old_query, response)
                 prompt += "[Round {}]\n问：{}\n答：".format(len(history), query)
 
-            prompt = prefix + prompt
+            prompt = PREFIX + prompt
 
             if mode == 'train':
                 prompt_ids = tokenizer.encode(text=prompt, add_special_tokens=False)

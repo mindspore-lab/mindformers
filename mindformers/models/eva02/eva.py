@@ -194,6 +194,6 @@ class EVAModel(EVA02PreTrainedModel):
         """Forward of EVAModel."""
         x = self.construct_features(image)
         if not self.with_cls_token:
-            b, l, c = F.shape(x)
-            x = self.stride_slice(x, (0, 1, 0), (b, l, c), (1, 1, 1))
+            batch_size, seq_length, channels = F.shape(x)
+            x = self.stride_slice(x, (0, 1, 0), (batch_size, seq_length, channels), (1, 1, 1))
         return x
