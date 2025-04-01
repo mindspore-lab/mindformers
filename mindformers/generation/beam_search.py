@@ -274,7 +274,11 @@ class BeamSearchScorer(BeamScorer):
         # retrieve best hypotheses
         for i in range(batch_size):
             beam_hyps_in_batch = self._beam_hyps[i * self.num_beam_groups: (i + 1) * self.num_beam_groups]
-            candidate_beams = [beam for beam_hyp in beam_hyps_in_batch for beam in beam_hyp.beams]
+            candidate_beams = [
+                beam
+                for beam_hyp in beam_hyps_in_batch
+                for beam in beam_hyp.beams
+            ]
             sorted_hyps = sorted(candidate_beams, key=lambda x: x[0])
             for j in range(self.num_beam_hyps_to_keep):
                 best_hyp_tuple = sorted_hyps.pop()

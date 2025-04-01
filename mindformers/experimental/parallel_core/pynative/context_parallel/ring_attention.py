@@ -404,17 +404,21 @@ class RingAttention(nn.Cell):
                                             ) for x in [cur_k, cur_v]]
                 else:
                     cur_k, cur_v = [
-                        x[(slice(None),) * self.seq_dim + (0,)] for x in [cur_k, cur_v]]
+                        x[(slice(None),) * self.seq_dim + (0,)]
+                        for x in [cur_k, cur_v]]
 
             else:
 
                 cur_k, cur_v = [x.view(*x.shape[0:self.seq_dim], 2 * x.shape[self.seq_dim + 1],
-                                       *x.shape[(self.seq_dim + 2):]) for x in [cur_k, cur_v]]
+                                       *x.shape[(self.seq_dim + 2):])
+                                for x in [cur_k, cur_v]]
 
                 cur_q, cur_attn_out, cur_dout = [
-                    x[(slice(None),) * self.seq_dim + (1,)] for x in [q, attn_out, dout]]
+                    x[(slice(None),) * self.seq_dim + (1,)]
+                    for x in [q, attn_out, dout]]
                 cur_softmax_max, cur_softmax_sum = [
-                    x[:, :, 1, :, :] for x in [softmax_max, softmax_sum]]
+                    x[:, :, 1, :, :]
+                    for x in [softmax_max, softmax_sum]]
         elif attn_mask_type == "full":
             cur_attn_mask = None
             cur_q = q

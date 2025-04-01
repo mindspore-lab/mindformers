@@ -631,7 +631,8 @@ class ParallelAttention(Module):
                 # SBND -> SBH
                 fa_use_sbh = True
                 query, key, value = [
-                    x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3]) for x in [query, key, value]
+                    x.reshape(x.shape[0], x.shape[1], x.shape[2] * x.shape[3])
+                    for x in [query, key, value]
                 ]
             else:
                 # SBND -> BNSD

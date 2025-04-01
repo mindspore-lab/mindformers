@@ -298,7 +298,8 @@ def ensure_total_ckpt_is_less_than_limit(ckpt_path: str, limit: int = 5, format:
         format (str): checkpoint format. Default: '_format'
     """
     ckpt_list = [
-        checkpoint for checkpoint in os.listdir(ckpt_path)
+        checkpoint
+        for checkpoint in os.listdir(ckpt_path)
         if checkpoint.endswith(f'.{format}')
     ]
     # ckpt_list: [oldest, ..., newest]
@@ -384,7 +385,8 @@ def load_checkpoint(config, model, optimizer=None, opt_param_scheduler=None, ckp
 def get_last_checkpoint(ckpt_path: str, format: str = _FORMAT):
     """Get last timestamp checkpoint under ckpt_path."""
     ckpt_list = [
-        checkpoint for checkpoint in os.listdir(ckpt_path)
+        checkpoint
+        for checkpoint in os.listdir(ckpt_path)
         if checkpoint.endswith(f'.{format}')
     ]
     if not ckpt_list:

@@ -83,6 +83,12 @@ class MoEAlltoAllTokenDispatcher():
         self.dp_group_input_splits = None
         self.dp_group_output_splits = None
         self.dp_group_input_tokens_local_experts_indices = None
+        self.dp_group_input_sorted_map = None
+        self.local_input_sorted_map = None
+        self.hidden_dtype = None
+        self.alltoall = None
+        self.alltoall_reverse = None
+        self.count_dp_group_tokens_local_expert = None
 
         self.ep_group = get_expert_model_parallel_group()
         self.rank_id = get_expert_model_parallel_rank()

@@ -128,6 +128,7 @@ class BaseTrainer:
         self.compute_metrics = None
         self.kwargs = None
         self.pipeline_task = None
+        self.global_batch_size = None
 
         self.network_delay_inited = False
         self.optimizer_delay_inited = False

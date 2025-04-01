@@ -704,7 +704,8 @@ def get_last_checkpoint(checkpoint_dir, ckpt_format='ckpt'):
             f"load_checkpoint should be a checkpoint directory containing the directory of rank_{{0-*}},"
             f"The directory structure is as follows: **checkpoint_root_dir/rank_{{0-*}}/**.{ckpt_format}")
     output_checkpoint_path = [
-        checkpoint for checkpoint in os.listdir(checkpoint_dir)
+        checkpoint
+        for checkpoint in os.listdir(checkpoint_dir)
         if checkpoint.endswith(f'.{ckpt_format}')
     ]
     if not output_checkpoint_path:

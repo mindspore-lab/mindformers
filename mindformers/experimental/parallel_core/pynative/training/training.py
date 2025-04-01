@@ -147,7 +147,9 @@ class ParallelTrainingReducer:
             if training_config.parallel_config.sequence_parallel:
                 self.enable_grad_reduce["tp"] = True
                 self.sp_reduce_filter = [
-                    any([sp_param in param.name for sp_param in self.sp_reduce_params]) for param in params
+                    any([sp_param in param.name
+                         for sp_param in self.sp_reduce_params])
+                    for param in params
                 ]
 
         # pp
@@ -158,7 +160,9 @@ class ParallelTrainingReducer:
         if get_expert_model_parallel_world_size() > 1:
             self.enable_grad_reduce["ep-dp"] = True
             self.expert_filter = [
-                any([ep_param in param.name for ep_param in self.expert_params]) for param in params
+                any([ep_param in param.name
+                     for ep_param in self.expert_params])
+                for param in params
             ]
 
     def get_reduce_group(self, idx):
@@ -392,7 +396,8 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
 
                 # slice inputs over batch size dimension
                 inputs_tuple_micro = [
-                    input_data[idx * micro_batch_size : (idx + 1) * micro_batch_size] for input_data in inputs_tuple
+                    input_data[idx * micro_batch_size : (idx + 1) * micro_batch_size]
+                    for input_data in inputs_tuple
                 ]
                 inputs_dict_micro = {
                     key: value[idx * micro_batch_size : (idx + 1) * micro_batch_size]
@@ -735,7 +740,7 @@ def train(
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> from mindformers.experimental.parallel_core.pynative.optimizer import get_optimizer

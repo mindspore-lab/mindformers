@@ -505,7 +505,8 @@ def _get_model_config(model_path):
     """
 
     if os.path.isdir(model_path):
-        yaml_list = [file for file in os.listdir(model_path)
+        yaml_list = [file
+                     for file in os.listdir(model_path)
                      if file.endswith(".yaml")]
         if yaml_list:
             yaml_path = os.path.join(model_path, yaml_list[0])

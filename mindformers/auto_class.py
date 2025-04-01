@@ -339,9 +339,11 @@ class AutoModel:
                                  f" could be selected from {cls._support_list}.")
 
         if is_dir:
-            yaml_list = [file for file in os.listdir(pretrained_model_name_or_dir)
+            yaml_list = [file
+                         for file in os.listdir(pretrained_model_name_or_dir)
                          if file.endswith(".yaml")]
-            ckpt_list = [file for file in os.listdir(pretrained_model_name_or_dir)
+            ckpt_list = [file
+                         for file in os.listdir(pretrained_model_name_or_dir)
                          if file.endswith(".ckpt")]
             if not yaml_list or not ckpt_list:
                 raise FileNotFoundError(f"there is no yaml file for model config or ckpt file"

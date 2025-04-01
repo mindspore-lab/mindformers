@@ -259,8 +259,11 @@ def pack_images(
 
     # Determine output shape
     batch_size = len(batch_images)
-    max_num_images = max_num_images if max_num_images else max([len(images) for images in batch_images])
-    shapes = [image.shape for images in batch_images for image in images]
+    max_num_images = max_num_images if max_num_images else max([len(images)
+                                                                for images in batch_images])
+    shapes = [image.shape
+              for images in batch_images
+              for image in images]
     _, channels, tile_height, tile_width = shapes[0]
 
     # Initialize the stacked images array with zeros

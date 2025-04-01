@@ -67,7 +67,8 @@ def is_experimental_mode(path):
     is_dir = os.path.isdir(path)
     if is_exists:
         if is_dir:
-            yaml_list = [file for file in os.listdir(path)
+            yaml_list = [file
+                         for file in os.listdir(path)
                          if file.endswith(".yaml")]
             if not yaml_list:
                 experimental_mode = True
@@ -283,7 +284,8 @@ class AutoProcessor:
         # First, let's see if we have a preprocessor config.
         # Filter the kwargs for `get_file_from_repo`.
         get_file_from_repo_kwargs = {
-            key: kwargs.get(key) for key in inspect.signature(get_file_from_repo).parameters.keys() if key in kwargs
+            key: kwargs.get(key)
+            for key in inspect.signature(get_file_from_repo).parameters.keys() if key in kwargs
         }
 
         # Let's start by checking whether the processor class is saved in an processor config
