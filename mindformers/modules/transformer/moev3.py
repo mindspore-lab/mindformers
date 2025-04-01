@@ -911,16 +911,17 @@ class FFN(nn.Cell):
         # ops
         self.cast = P.Cast()
         self.enable_gmm_safe_tokens = moe_config.enable_gmm_safe_tokens
-        self.safe_tokens = Tensor(np.zeros((self.dp, self.expert_num, self.hidden_size)), mstype.bfloat16)
-        self.safe_tokens_expert_ids = Tensor(
-            np.arange(self.dp * self.expert_num).reshape(self.dp, self.expert_num) % self.expert_num, ms.int32)
+        if self.enable_gmm_safe_tokens:
+            self.safe_tokens = Tensor(np.zeros((self.dp, self.expert_num, self.hidden_size)), mstype.bfloat16)
+            self.safe_tokens_expert_ids = Tensor(
+                np.arange(self.dp * self.expert_num).reshape(self.dp, self.expert_num) % self.expert_num, ms.int32)
 
-        self.op_sort_safe_tokens = Sort(1).shard(((self.dp, 1),))
-        self.op_gather_safe_tokens = Gather(batch_dims=1).shard(((self.dp, 1, 1), (self.dp, 1)))
-        self.op_add_safe_tokens = AddExt().shard(((self.dp, 1), ()))
-        self.op_concat_safe_tokens = Concat(1).shard(((self.dp, 1, 1), (self.dp, 1, 1)))
-        self.op_concat_safe_tokens_expert_ids = Concat(1).shard(((self.dp, 1), (self.dp, 1)))
-        self.op_stridedslice_safe_tokens = StridedSlice().shard(((self.dp, 1, 1),))
+            self.op_sort_safe_tokens = Sort(1).shard(((self.dp, 1),))
+            self.op_gather_safe_tokens = Gather(batch_dims=1).shard(((self.dp, 1, 1), (self.dp, 1)))
+            self.op_add_safe_tokens = AddExt().shard(((self.dp, 1), ()))
+            self.op_concat_safe_tokens = Concat(1).shard(((self.dp, 1, 1), (self.dp, 1, 1)))
+            self.op_concat_safe_tokens_expert_ids = Concat(1).shard(((self.dp, 1), (self.dp, 1)))
+            self.op_stridedslice_safe_tokens = StridedSlice().shard(((self.dp, 1, 1),))
 
         # hook_ffn_forward
         self.layout = Layout((self.outer_dp, self.inner_dp, 1, 1, 1), ("outer_dp", "inner_dp", "sp", "mp0", "mp1"))
