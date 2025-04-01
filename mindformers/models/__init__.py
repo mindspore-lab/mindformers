@@ -132,34 +132,6 @@ from .mllama import (
     MllamaTokenizer,
     MllamaForConditionalGeneration
 )
-from .sam import (
-    ImageEncoderConfig,
-    MaskData,
-    SamConfig,
-    SamImageEncoder,
-    SamImageProcessor,
-    SamMaskDecoder,
-    SamModel,
-    SamProcessor,
-    SamPromptEncoder,
-    area_from_rle,
-    batch_iterator,
-    batched_mask_to_box,
-    box_area,
-    box_xyxy_to_xywh,
-    build_all_layer_point_grids,
-    calculate_stability_score,
-    coco_encode_rle,
-    generate_crop_boxes,
-    is_box_near_crop_edge,
-    mask_to_rle,
-    nms,
-    remove_small_regions,
-    rle_to_mask,
-    uncrop_boxes_xyxy,
-    uncrop_masks,
-    uncrop_points
-)
 from .cogvlm2 import (
     CogVLM2Config,
     CogVLM2ContentTransformTemplate,

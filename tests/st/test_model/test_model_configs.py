@@ -24,8 +24,6 @@ from mindformers.models.glm import GLMForPreTraining, GLMChatModel
 from mindformers.models.glm2 import ChatGLM2ForConditionalGeneration
 from mindformers.models.gpt2 import GPT2LMHeadModel, GPT2ForSequenceClassification
 from mindformers.models.llama import LlamaForCausalLM
-from mindformers.models.mae import ViTMAEForPreTraining
-from mindformers.models.sam import SamModel
 from mindformers.models.swin import SwinForImageClassification
 from mindformers.models.t5 import T5ForConditionalGeneration
 from mindformers.models.vit import ViTForImageClassification
@@ -175,15 +173,6 @@ class TestMaeConfig(unittest.TestCase):
         config = AutoConfig.from_pretrained("configs/mae/run_mae_vit_base_p16_224_800ep.yaml")
         config.checkpoint_name_or_path = ''
         model = ViTMAEForPreTraining(config)
-
-class TestSamConfig(unittest.TestCase):
-    """test sam config"""
-    def test_init_model_from_yaml(self):
-        """test init model with config"""
-        config = AutoConfig.from_pretrained("configs/sam/run_sam_vit-b.yaml")
-        config.checkpoint_name_or_path = ''
-        model = SamModel(config)
-
 
 class TestSwinConfig(unittest.TestCase):
     """test Swin config"""
