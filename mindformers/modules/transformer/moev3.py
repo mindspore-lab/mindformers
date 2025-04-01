@@ -654,6 +654,7 @@ def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, iep, exper
     Returns:
     - y (Tensor): Transformed output tensor after a series of operations, with the same shape as the input tensor x.
     """
+    x_orig_shape = x.shape
     x = ops.squeeze(x, 0)
     expert_id = ops.squeeze(expert_id, 0).astype(ms.int32)
     router_coeff = ops.squeeze(router_coeff, 0).astype(ms.bfloat16)
@@ -738,7 +739,7 @@ def ffn_forward_deredundency_func(x, expert_id, router_coeff, w1, w2, iep, exper
     x = ops.ReduceScatter(group=oep_group)(x)
     if enable_safe_tokens:
         x = x[node_expert_num:]
-    return x
+    return x.reshape(x_orig_shape)
 
 
 def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, expert_num, tp_x_group, tp_y_group, tp_z_group,
@@ -764,6 +765,7 @@ def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, expert_num, t
     Returns:
     - y (Tensor): Transformed output tensor after a series of operations, with the same shape as the input tensor x.
     """
+    x_orig_shape = x.shape
     x = ops.squeeze(x, 0)
     expert_id = ops.squeeze(expert_id, 0).astype(ms.int32)
     router_coeff = ops.squeeze(router_coeff, 0).astype(ms.bfloat16)
@@ -832,7 +834,7 @@ def ffn_forward_expert_tp_func(x, expert_id, router_coeff, w1, w2, expert_num, t
     # 6.tp ReduceScatter
     if tp_x_group:
         y = ops.ReduceScatter(group=tp_x_group)(y)
-    return y
+    return y.reshape(x_orig_shape)
 
 
 class FFN(nn.Cell):
