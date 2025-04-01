@@ -108,7 +108,7 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         self.predict_run_mode = get_predict_run_mode()
 
         self.use_past = config.use_past
-        self.npu_mem_size = config.npu_mem_size if hasattr(config, "npu_mem_size") else 2
+        self.npu_mem_size = config.npu_mem_size
         if config.tie_word_embeddings:
             self.lm_head.weight = self.model.tok_embeddings.embedding_weight
         self.return_hidden_states = config.return_hidden_states
@@ -186,7 +186,7 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         else:
             self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_attention_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, None, None, key_cache, value_cache, dynamic_q_seq_lens)
+                            dynamic_slot_mapping, None, None, dynamic_q_seq_lens, key_cache, value_cache)
         logger.info("Set dynamic input for llama.")
 
     def add_flags_custom(self, is_first_iteration):
@@ -203,7 +203,7 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None,
-                  key_cache=None, value_cache=None, q_seq_lens=None):
+                  q_seq_lens=None, key_cache=None, value_cache=None):
         """
         Forward of qwen model.
         """
@@ -214,8 +214,8 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
             else:
                 batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
-                            slot_mapping, prefix_keys_values, key_cache=key_cache, value_cache=value_cache,
-                            position_ids=position_ids, attention_mask=attention_mask, q_seq_lens=q_seq_lens)
+                            slot_mapping, prefix_keys_values, position_ids=position_ids, attention_mask=attention_mask,
+                            q_seq_lens=q_seq_lens, key_cache=key_cache, value_cache=value_cache)
         if self.return_hidden_states:
             output = self.reshape(output, (-1, output.shape[-1]))
             return output

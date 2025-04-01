@@ -1089,7 +1089,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
 
         self.config = convert_model_config(config)
         self.parallel_config = self.config.parallel_config
-        self.npu_mem_size = config.npu_mem_size if hasattr(config, 'npu_mem_size') else 2
+        self.npu_mem_size = config.npu_mem_size
 
         tp_group = get_group_info('tp').group is None
         ep_group = get_group_info('ep').group is None
