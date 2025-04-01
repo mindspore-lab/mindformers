@@ -60,6 +60,7 @@ def main():
 
     # build model config
     model_config = config.model.model_config
+    model_config.moe_config = config.moe_config
     model_config.parallel_config = config.parallel_config
     model_config.batch_size = 1
     model_config.use_past = args.use_past
