@@ -437,10 +437,6 @@ class MFLossMonitor(Callback):
             logger.warning("%s", e)
             self.mf_support = False
             return
-        if is_dynamic_shape:
-            logger.warning("Model Flops computation now do not support dynamic shape.")
-            self.mf_support = False
-            return
         self.full_model_flops = full_model_flops / 1.0
         self.mf_calculated = True
         if auto_parallel_context().get_pipeline_stages() > 1:
@@ -449,9 +445,21 @@ class MFLossMonitor(Callback):
                 pipeline_group_name.encode()).hexdigest()[:48]
             pipeline_group_name = str(hashed)
             create_group(pipeline_group_name, pipeline_group_list)
+
+            is_dynamic_shape = AllReduceNet(pipeline_group_name)(
+                Tensor([int(is_dynamic_shape)], dtype=ms.int32)).asnumpy()[0]
+            if is_dynamic_shape > 0:
+                logger.warning("Model Flops computation now do not support dynamic shape.")
+                self.mf_support = False
+                return
+
             self.full_model_flops = AllReduceNet(pipeline_group_name)(
                 Tensor([self.full_model_flops])).asnumpy()[0]
 
+        if is_dynamic_shape:
+            logger.warning("Model Flops computation now do not support dynamic shape.")
+            self.mf_support = False
+            return
         if auto_parallel_context().get_parallel_mode() != "stand_alone":
             self.full_model_flops = self.full_model_flops / get_group_size()
 
