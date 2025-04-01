@@ -1240,7 +1240,6 @@ class DeepseekV2Model(DeepseekV2PreTrainedModel):
                                   is_dynamic=config.is_dynamic,
                                   parallel_config=config.parallel_config,
                                   limit_not_apply_seq_pipe=True)
-        self.freqs_mgr.shard(config.parallel_config)
         total_batch_size_in_dp = config.batch_size * config.parallel_config.data_parallel
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           batch_size=total_batch_size_in_dp,
