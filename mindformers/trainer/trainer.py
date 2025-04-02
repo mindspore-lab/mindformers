@@ -1367,7 +1367,7 @@ class Trainer:
                 raise ValueError(f"When device num > {get_device_num_per_node()} and auto_trans_ckpt is set to True,"
                                  "the output_dir should be a shared directory that can be accessed by all nodes."
                                  f"but {os.path.abspath(self.config.output_dir)} is not a shared directory.")
-            clear_auto_trans_output()
+            clear_auto_trans_output(self.config.load_checkpoint, self.config.src_strategy_path_or_dir)
 
         if (self.config.auto_trans_ckpt or self.config.resume_training) and not self.config.load_checkpoint:
             if self.config.model and self.config.model.model_config.checkpoint_name_or_path:
