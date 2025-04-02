@@ -151,7 +151,10 @@ class ParallelQwenForCausalLM(LlamaPreTrainedModel):
         position_ids = batch_valid_length - 1
         model_inputs["position_ids"] = ms.Tensor(position_ids, dtype=ms.int32).reshape(-1)
 
-        q_seq_lens = np.ones(batch_valid_length.shape, dtype=np.int32).reshape(-1)
+        if not prefill:
+            q_seq_lens = np.ones(batch_valid_length.shape, dtype=np.int32).reshape(-1)
+        else:
+            q_seq_lens = batch_valid_length.astype(np.int32).reshape(-1)
         model_inputs["q_seq_lens"] = Tensor.from_numpy(q_seq_lens)
 
         model_inputs["attention_mask"] = self.model.casual_mask.gen_attention_mask(prefill)
