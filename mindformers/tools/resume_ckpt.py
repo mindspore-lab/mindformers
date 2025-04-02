@@ -275,7 +275,8 @@ def check_last_timestamp_checkpoints(checkpoint_dir, ckpt_format='ckpt'):
         checkpoint_rank_dir = os.path.join(checkpoint_dir, f"rank_{rank_id_tmp}")
         last_checkpoint = get_last_checkpoint(checkpoint_rank_dir, ckpt_format)
         if not last_checkpoint:
-            raise ValueError(f"Checkpoint not found under {checkpoint_rank_dir}.")
+            raise ValueError(f"Checkpoint not found under {checkpoint_rank_dir} "
+                             f"with config.load_ckpt_format:{ckpt_format}.")
         if check_ckpt_file_name(last_checkpoint, ckpt_format):
             compared_checkpoint_name = replace_rank_id_in_ckpt_name(last_checkpoint, 0)
             compared_original_checkpoint_name = os.path.basename(last_checkpoint)

@@ -1,6 +1,7 @@
 seed: 0
 output_dir: './output' # path to save checkpoint/strategy
 load_checkpoint: ''
+load_ckpt_format: "safetensors"
 src_strategy_path_or_dir: ''
 auto_trans_ckpt: False  # If true, auto transform load_checkpoint to load in distributed model
 only_save_strategy: False

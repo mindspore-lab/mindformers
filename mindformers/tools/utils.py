@@ -628,7 +628,7 @@ def replace_rank_id_in_ckpt_name(ckpt_file, dst_rank_id):
     return ckpt_name
 
 
-def clear_auto_trans_output():
+def clear_auto_trans_output(load_checkpoint=None, src_strategy_path_or_dir=None):
     """clear transformed_checkpoint and strategy"""
     folder_list = ["strategy", "transformed_checkpoint"]
     for folder in folder_list:
@@ -636,6 +636,11 @@ def clear_auto_trans_output():
             folder_path = os.path.join(get_remote_save_url(), folder)
         else:
             folder_path = os.path.join(get_output_root_path(), folder)
+        if os.path.realpath(folder_path) in (load_checkpoint, src_strategy_path_or_dir):
+            raise ValueError(
+                "./transformed_checkpoint or ./strategy with given config.output_dir is same as "
+                "load_checkpoint or src_strategy_path_or_dir which is not allowed when auto_trans is True."
+                "Please move it to a different location or specify a different output folder.")
         remake_folder(folder_path, permissions=0o750)
 
 
