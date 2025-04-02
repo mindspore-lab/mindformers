@@ -25,7 +25,7 @@ import mindspore as ms
 
 from mindformers.tools.logger import logger
 from mindformers.tools.utils import str2bool
-
+from mindformers.version_control import check_safetensors_addition_param_support
 
 def unified_safetensors(src_dir, src_merge_strategy, output_dir, file_suffix, has_redundancy, filter_out_param_prefix,
                         max_process_num):
@@ -38,10 +38,14 @@ def unified_safetensors(src_dir, src_merge_strategy, output_dir, file_suffix, ha
 
     filter_out_param_func = ((lambda param_name: not param_name.startswith(filter_out_param_prefix))
                              if filter_out_param_prefix else None)
-
+    addition_args = {}
+    if check_safetensors_addition_param_support():
+        addition_args["choice_func"] = filter_out_param_func
+        addition_args["max_process_num"] = max_process_num
+    else:
+        logger.info('MindSpore version is earlier than 2.6.0 that choice_func and max_process_num art not supported')
     ms.unified_safetensors(src_dir, src_merge_strategy, merged_path_,
-                           file_suffix=file_suffix, merge_with_redundancy=has_redundancy,
-                           choice_func=filter_out_param_func, max_process_num=max_process_num)
+                           file_suffix=file_suffix, merge_with_redundancy=has_redundancy, **addition_args)
     _timed_print("Merge safetensor completed")
     return merged_path_
 
