@@ -34,6 +34,7 @@ from mindformers.trainer.config_args import (
     MFContextConfig,
     ParallelContextConfig,
 )
+from mindformers.tools.utils import is_version_ge
 from mindformers.trainer.training_args import TrainingArguments
 from mindformers.utils import get_cann_workqueue_cores
 from mindformers.version_control import check_cpu_affinity_valid, check_tft_valid
@@ -109,7 +110,7 @@ class MSContextOperator:
         self._set_device_id(ctx, ms_ctx)
         self._set_save_graphs_path(ctx, ms_ctx)
         self._set_save_dump_path(ctx, ms_ctx)
-        self._set_jit_config(ctx, ms_ctx)
+        self._set_predict_jit_config(ctx, ms_ctx)
         self._set_runtime_num_threads(ctx, ms_ctx)
         self._set_runtime_kernel_launch_group()
         return self._remove_mf_keys({**ctx, **ms_ctx})
@@ -151,17 +152,10 @@ class MSContextOperator:
                 get_output_subpath("debug/dump_info", append_rank=False)
             )
 
-    def _set_jit_config(self, ctx, ms_ctx):
+    def _set_predict_jit_config(self, ctx, ms_ctx):
         """Get jit_level and infer_boost from config and set into ms context."""
         run_mode = self.config.get('run_mode')
-        use_past = self.config.get_value('model.model_config.use_past', False)
-        use_legacy = self.config.get_value('use_legacy', True)
-        infer_flag = not use_legacy or use_past
-        if (
-                run_mode is not None
-                and RunMode(run_mode) in [RunMode.PREDICT, RunMode.EVAL]
-                and infer_flag
-        ):
+        if run_mode is not None and RunMode(run_mode) in [RunMode.PREDICT, RunMode.EVAL]:
             jit_level = ctx.get("jit_level", "O0")
             infer_boost = ctx.get("infer_boost", "on")
             jit_config = ctx.get("jit_config")
@@ -260,11 +254,26 @@ class MFContextOperator(MFContextConfig):
             if k in MFContextOperator.get_supported_kwargs()
         }
 
-    @staticmethod
-    def _call_ms_deterministic(deterministic):
+    def _call_ms_deterministic(self, deterministic):
         """Call mindspore set_deterministic function and handle result."""
         try:
-            ms.set_deterministic(deterministic)
+            if is_version_ge(ms.__version__, '2.5.0'):
+                logger.debug("The version of MindSpore is %s, "
+                             "set deterministic compution by set_deterministic()",
+                             ms.__version__)
+                ms.set_deterministic(deterministic)
+            else:
+                deterministic_switch = 'ON' if deterministic else 'OFF'
+                logger.debug("The version of MindSpore is %s, "
+                             "set deterministic compution by set_context()",
+                             ms.__version__)
+                ms.set_context(deterministic=deterministic_switch)
+
+            ms_deterministic = self.config.get_value('context.deterministic')
+            if ms_deterministic is not None:
+                self.config.context.pop('deterministic')
+                logger.warning('The deterministic in context has been unset when '
+                               'train_precision_sync or infer_precision_sync was set.')
         except RuntimeError as e:
             msg = "The 'mindspore.set_deterministic' can not be set repeatedly."
             if str(e) == msg:
@@ -287,7 +296,9 @@ class MFContextOperator(MFContextConfig):
         custom_matmul_shuffle = os.getenv('CUSTOM_MATMUL_SHUFFLE')
         lccl_deterministic = os.getenv('LCCL_DETERMINISTIC')
         run_mode = getattr(self, 'run_mode') if hasattr(self, 'run_mode') else None
-        if run_mode == RunMode.TRAIN.value and self.train_precision_sync is not None:
+        if run_mode in (
+                RunMode.TRAIN.value, RunMode.FINETUNE.value
+            ) and self.train_precision_sync is not None:
             self._call_ms_deterministic(self.train_precision_sync)
 
         if run_mode == RunMode.PREDICT.value and self.infer_precision_sync is not None:

@@ -52,10 +52,8 @@ def run_deterministic_setting(
     config_tpl = get_config_tpl()
     config_tpl['run_mode'] = mode
     build_context(config_tpl)
-    if mode == 'train':
+    if mode in ('train', 'finetune'):
         set_context(train_precision_sync=switch)
-        print(os.getenv('HCCL_DETERMINISTIC'),
-              os.getenv('TE_PARALLEL_COMPILER'))
         assert get_context('train_precision_sync') == switch
     else:
         set_context(infer_precision_sync=switch)
@@ -75,6 +73,7 @@ def run_deterministic_setting(
         ('train', False, 'true', '1', None, None, None, None, 'on', '0'),
         ('train', False, 'false', '0', None, None, 'false', '0', 'on', '0'),
         ('train', True, 'false', '0', None, None, 'true', '1', 'on', '0'),
+        ('finetune', True, 'false', '0', None, None, 'true', '1', 'on', '0'),
         ('predict', False, None, None, 'off', '1', None, None, 'on', '0'),
         ('predict', True, None, None, 'on', '0', 'true', '1', 'off', '1'),
     )
