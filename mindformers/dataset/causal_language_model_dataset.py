@@ -381,6 +381,9 @@ class CausalLanguageModelDataset(BaseDataset):
             else:
                 if re.findall(mind_compile, data_dir) or data_dir.endswith(".tfrecord"):
                     dataset_files = data_dir
+            if not dataset_files:
+                raise FileNotFoundError(f"No dataset file is found. Please check whether the path "
+                                        f"`{data_dir}` indicated by dataloader.dataset_dir is correct.")
         elif dataset_config.data_loader.dataset_files:
             dataset_files = dataset_config.data_loader.dataset_files
             if isinstance(dataset_files, (list, tuple)):
@@ -391,9 +394,7 @@ class CausalLanguageModelDataset(BaseDataset):
 
         if not cls._is_full_batch():
             dataset_config = cls._reset_num_samples(dataset_config)
-        if not dataset_files:
-            raise FileNotFoundError("No dataset file is found. Please check whether the path indicated "
-                                    "by dataloader.dataset_dir or dataloader.dataset_files is correct.")
+
         dataset = build_dataset_loader(
             dataset_config.data_loader, default_args={'dataset_files': dataset_files,
                                                       'num_shards': dataset_config.num_shards,
