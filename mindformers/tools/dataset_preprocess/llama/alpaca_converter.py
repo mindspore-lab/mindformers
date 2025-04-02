@@ -32,6 +32,15 @@ PROMPT_DICT = {
 # pylint: disable=W0703
 def main(args_param):
     data_path = pathlib.Path(args_param.data_path)
+    output_file = pathlib.Path(args_param.output_path)
+    if output_file.is_dir():
+        raise IsADirectoryError(f"Output path {args_param.output_path} is a directory, cannot be used as a file")
+    output_dir = output_file.parent
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True, exist_ok=True)
+    if output_file.exists():
+        raise FileExistsError(f"Output file {args_param.output_path} already exists. Please change the --output_path.")
+
     with data_path.open() as f:
         data = json.load(f)
     prompt_input, prompt_no_input = (
