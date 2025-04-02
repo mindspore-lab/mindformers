@@ -78,10 +78,10 @@ def update_permissions(path):
     for dirpath, dirnames, filenames in os.walk(path):
         for dirname in dirnames:
             dir_fullpath = os.path.join(dirpath, dirname)
-            os.chmod(dir_fullpath, stat.S_IREAD | stat.S_IEXEC)
+            os.chmod(dir_fullpath, stat.S_IREAD | stat.S_IEXEC | stat.S_IWRITE)
         for filename in filenames:
             file_fullpath = os.path.join(dirpath, filename)
-            os.chmod(file_fullpath, stat.S_IREAD)
+            os.chmod(file_fullpath, stat.S_IREAD | stat.S_IWRITE)
 
 
 def write_commit_id():
