@@ -103,7 +103,8 @@ class GenerationMixin:
         if self.block_mgr:
             self.block_mgr.init_cache_engine(batch_size)
 
-    def _prepare_inputs_for_prefill_flatten(self, input_ids, batch_valid_length, slot_mapping, model_inputs):
+    @staticmethod
+    def _prepare_inputs_for_prefill_flatten(input_ids, batch_valid_length, slot_mapping, model_inputs):
         """prepare inputs ids for prefill flatten"""
         batch_valid_length_bs = batch_valid_length.shape[0]  # [bs,]
         input_ids_list = []
@@ -167,7 +168,8 @@ class GenerationMixin:
         self.add_flags_recursive(is_prefill=is_prefill)
 
     # pylint: disable=W0613
-    def update_model_kwargs_before_generate(self, input_ids, model_kwargs: dict):
+    @staticmethod
+    def update_model_kwargs_before_generate(input_ids, model_kwargs: dict):
         """
         update model kwargs before generate.
         If your model needs to update model kwargs before generate, implement
@@ -175,7 +177,8 @@ class GenerationMixin:
         """
         return
 
-    def slice_incremental_inputs(self, model_inputs: dict, current_index):
+    @staticmethod
+    def slice_incremental_inputs(model_inputs: dict, current_index):
         """used for non-first iterations, slice the inputs to length 1."""
         input_ids = model_inputs.pop("input_ids")
         if isinstance(input_ids, Tensor):

@@ -171,7 +171,8 @@ class ParallelMoE(nn.Cell):
     def tensor_moe_finalize_routing(self, input_tensor, expert_weight, expert_index, unsort_map, bias=None):
         '''calculate the final output by multiplying FeedForward's output and experts' weight in MoeFinalizeRouting'''
         input_shape = input_tensor.shape  # (kN, h)
-        x1 = mint.zeros((input_shape[0] // self.num_experts_chosen, input_shape[-1]), dtype=input_tensor.dtype)  # (N, h)
+        x1 = mint.zeros((input_shape[0] // self.num_experts_chosen, input_shape[-1]),
+                        dtype=input_tensor.dtype)  # (N, h)
         x2 = None
         if bias is None:
             bias = mint.zeros((self.expert_dim, input_shape[-1]), dtype=input_tensor.dtype)  # (E, h)
@@ -184,14 +185,16 @@ class ParallelMoE(nn.Cell):
         """forward process"""
         input_tensor_shape = self.shape(input_tensor)  # (B, S, H)
         input_dtype = input_tensor.dtype
-        input_tensor = self.reshape(input_tensor, (-1, self.hidden_size))  # (bs, seq/1, h) -> (bs*seq, h) : use N replace bs*seq
+        input_tensor = self.reshape(input_tensor,
+                                    (-1, self.hidden_size))  # (bs, seq/1, h) -> (bs*seq, h) : use N replace bs*seq
 
         if self.use_fused_op:
             expert_val, expert_index, row_index = self.gating_topk_softmax(input_tensor)
             sorted_input_tensor, group_list, unsort_map = \
                 self.tensor_sort_by_fused_op(input_tensor, expert_index, row_index)
         else:
-            gating_logits = self.gating(self.cast(input_tensor, self.router_dense_type)) # (N, h) * (h, E) -> (bs*seq, E)
+            gating_logits = self.gating(self.cast(input_tensor,
+                                                  self.router_dense_type)) # (N, h) * (h, E) -> (bs*seq, E)
             routing_weights = self.softmax(self.cast(gating_logits, mstype.float32)) # (N, E) -> (N, E)
             expert_val, expert_index = mint.topk(routing_weights, self.num_experts_chosen)
             sorted_input_tensor, group_list, unsort_map = self.tensor_sort(input_tensor, expert_index)
@@ -207,7 +210,10 @@ class ParallelMoE(nn.Cell):
         expert_output = self.ffn(sorted_input_tensor, group_list)  # (N, h) (N, k) -> (N, k, h)
 
         expert_index = self.cast(expert_index, mstype.int32)
-        moe_output = self.tensor_moe_finalize_routing(expert_output, expert_weight, expert_index, unsort_map)  # -> (N, h)
+        moe_output = self.tensor_moe_finalize_routing(expert_output,
+                                                      expert_weight,
+                                                      expert_index,
+                                                      unsort_map)  # -> (N, h)
 
         output_tensor = self.reshape(moe_output, input_tensor_shape)  # (N, h) -> (bs, seq, h)
         return output_tensor

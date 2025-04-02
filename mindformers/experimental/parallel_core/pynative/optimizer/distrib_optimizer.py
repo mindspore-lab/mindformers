@@ -76,7 +76,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> import numpy as np
@@ -593,7 +593,7 @@ class DistributedOptimizer(MixedPrecisionOptimizer):
         for group_idx, _ in enumerate(self.optimizer.param_groups):
             # update params in this group
             self.optimizer.param_groups[group_idx]['params'] = [
-                *self.sharded_param_fp32_groups[group_idx],\
+                *self.sharded_param_fp32_groups[group_idx], \
                 *self.sharded_param_fp32_from_fp16_groups[group_idx]
             ]
             self.optimizer.group_start_id[group_idx + 1] = self.optimizer.group_start_id[group_idx] + \

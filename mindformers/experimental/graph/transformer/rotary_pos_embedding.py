@@ -20,7 +20,8 @@ from mindspore import nn, Tensor, dtype
 from mindspore import ops
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-from mindspore.ops.auto_generate import AddExt, Reshape, Mul, Cos, Sin, Split, Neg, Concat, StackExt, StridedSlice, Div, Outer
+from mindspore.ops.auto_generate import (AddExt, Reshape, Mul, Cos, Sin,
+                                         Split, Neg, Concat, StackExt, StridedSlice, Div, Outer)
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
 
 __all__ = [

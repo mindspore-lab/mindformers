@@ -18,7 +18,8 @@ import mindspore as ms
 from mindspore.communication.management import init
 
 from mindformers.tools import logger
-from mindformers.experimental.parallel_core.pynative.parallel_state import get_data_parallel_world_size, initialize_model_parallel
+from mindformers.experimental.parallel_core.pynative.parallel_state import (get_data_parallel_world_size,
+                                                                            initialize_model_parallel)
 
 
 def decay_filter(x):

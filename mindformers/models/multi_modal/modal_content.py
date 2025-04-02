@@ -526,7 +526,10 @@ class ModalContentTransformTemplate:
         return update_items
 
     def batch_input_ids(self, input_ids_list, max_length):
-        """batch the input_ids_list with max_length, if the length of input_ids is greater than max_length, it will be truncated to the max_length"""
+        """
+        batch the input_ids_list with max_length, if the length of input_ids is
+        greater than max_length, it will be truncated to the max_length
+        """
         padded_input_ids = []
         for input_ids in input_ids_list:
             if len(input_ids) < max_length:
