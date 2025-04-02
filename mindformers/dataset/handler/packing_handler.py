@@ -133,7 +133,7 @@ def pack_examples(dataset, config: PackingConfig):
             'not packed data do not reach max length.'
         )
 
-    dataset = _add_dataset(cur_dataset, tmp_data, config)
+    cur_dataset = _add_dataset(cur_dataset, tmp_data, config)
     return Dataset.from_dict(cur_dataset)
 
 
