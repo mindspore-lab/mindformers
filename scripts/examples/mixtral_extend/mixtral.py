@@ -97,7 +97,6 @@ class MixtralModel(LlamaPreTrainedModel):
                                   extend_method=config.extend_method,
                                   parallel_config=config.parallel_config,
                                   is_dynamic=config.is_dynamic)
-        self.freqs_mgr.shard(config.parallel_config)
         self.casual_mask = LowerTriangularMaskWithDynamic(seq_length=config.seq_length,
                                                           compute_type=config.compute_dtype,
                                                           is_dynamic=config.is_dynamic,

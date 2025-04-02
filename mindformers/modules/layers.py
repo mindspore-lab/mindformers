@@ -1254,11 +1254,10 @@ class FreqsMgr(Cell):
         else:
             t = np.arange(0, max_position_embedding, 1).astype(np.float32)
 
-        self.freqs = Tensor(freqs.reshape(1, 1, 1, -1), dtype=rotary_dtype)
         freqs = np.outer(t, freqs)  # (max_position_embedding, head_dim // 2)
         emb = np.concatenate((freqs, freqs), axis=-1)
         freqs_cos = np.cos(emb) * mscale  # (seq_len, head_dim)
-        freqs_sin = np.sin(emb) * mscale # (seq_len, head_dim)
+        freqs_sin = np.sin(emb) * mscale  # (seq_len, head_dim)
         swap_mask = FreqsMgr.get_swap_mask(head_dim)
 
         if parallel_config is not None and parallel_config.context_parallel > 1:
@@ -1272,14 +1271,9 @@ class FreqsMgr(Cell):
         self.swap_mask = Tensor(swap_mask, dtype=rotary_dtype)
 
         self.reshape = P.Reshape()
-        self.shape = P.Shape()
-        self.slice = P.StridedSlice()
-        self.outer_mul = P.Mul()
-        self.concat = P.Concat(axis=-1)
-        self.sin = P.Sin()
-        self.cos = P.Cos()
-        self.gather = P.Gather()
-        self.tile = P.Tile()
+        self.slice = P.StridedSlice().shard(((1, 1),))
+        self.gather = P.Gather().shard(((1, 1), (1,)))
+        self.tile = P.Tile().shard(((1, 1),))
         self.seq_pipe = parallel_config and parallel_config.seq_split_num and parallel_config.seq_split_num > 1 \
                         and not limit_not_apply_seq_pipe
         if self.seq_pipe:
@@ -1289,35 +1283,18 @@ class FreqsMgr(Cell):
             self.seq_seg_range = Tensor(np_range, dtype=mstype.int32)
             self.add_seq = P.Add()
 
-    def construct(self, seq_length=None, position_ids=None, seq_chunk=None):
-        '''Get freqs_cos and freqs_sin'''
-        if position_ids is None:
-            if self.seq_pipe:
-                seg_seq_range = self.add_seq(self.seq_seg_range, self.seq_seg_len * seq_chunk)
-                freqs_cos = self.gather(self.freqs_cos, seg_seq_range, 0)
-                freqs_sin = self.gather(self.freqs_sin, seg_seq_range, 0)
-            else:
-                freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1))
-                freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1))
+    def construct(self, seq_length=None, seq_chunk=None):
+        """Get freqs_cos and freqs_sin"""
+        if self.seq_pipe:
+            seg_seq_range = self.add_seq(self.seq_seg_range, self.seq_seg_len * seq_chunk)
+            freqs_cos = self.gather(self.freqs_cos, seg_seq_range, 0)
+            freqs_sin = self.gather(self.freqs_sin, seg_seq_range, 0)
         else:
-            bs, seq = self.shape(position_ids)
-            freqs = self.outer_mul(self.reshape(position_ids, (bs, 1, seq, 1)), self.freqs)
-            emb = self.concat((freqs, freqs))
-            freqs_cos = self.cos(emb)
-            freqs_sin = self.sin(emb)
+            freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1))
+            freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1))
         freqs_cos = self.reshape(freqs_cos, (-1, 1, seq_length, self.head_dim))
         freqs_sin = self.reshape(freqs_sin, (-1, 1, seq_length, self.head_dim))
         return freqs_cos, freqs_sin, self.swap_mask
-
-    def shard(self, parallel_config):
-        dp = parallel_config.data_parallel
-        self.slice.shard(((1, 1),))
-        self.outer_mul.shard(((dp, 1, 1, 1), (1, 1, 1, 1)))
-        self.concat.shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
-        self.sin.shard(((dp, 1, 1, 1),))
-        self.cos.shard(((dp, 1, 1, 1),))
-        self.gather.shard(((1, 1), (1,)))
-        self.tile.shard(((1, 1),))
 
     def prefill(self, bs, seq_length):
         if self.is_dynamic and not self.is_pynative:
