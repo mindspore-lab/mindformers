@@ -31,7 +31,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import (is_main_rank, get_epoch_and_step_from_ckpt_name,
                                      get_real_rank, clear_auto_trans_output)
 from mindformers.utils import convert_hf_safetensors_multiprocess, check_safetensors_key, is_hf_safetensors_dir
-
+from mindformers.version_control import check_safetensors_addition_param_support
 
 class CkptFormat(Enum):
     """
@@ -70,7 +70,8 @@ def get_load_path_after_hf_convert(config, network):
     if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
             is_hf_safetensors_dir(config.load_checkpoint, network)):
         #'qkv_concat is True' or 'Dpo model' save ms safetensors
-        if config.model.model_config.get("qkv_concat", False) or config.model.model_config.rl_config is not None:
+        if (config.model.model_config.get("qkv_concat", False) or
+                config.model.model_config.rl_config is not None or not check_safetensors_addition_param_support()):
             logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
             converted_sf_path = process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
             #wait for main rank to convert HF safetensors
@@ -335,22 +336,26 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
     origin_network, _ = _get_origin_network(network)
     if config.use_parallel and config.auto_trans_ckpt:
         logger.info("......Start load distributed checkpoint to model......")
-        name_map = None
-        if not config.model.model_config.get("qkv_concat", False) \
-           and is_hf_safetensors_dir(load_ckpt_path, origin_network):
-            try:
-                name_map = origin_network.obtain_name_map(load_checkpoint_files)
-            except Exception as e:
-                raise TypeError(f"Please complete abstract function obtain_name_map. Details: {e}") from e
-            if is_main_rank():
-                _convert_index_json(load_ckpt_path, load_ckpt_path, origin_network.convert_map_dict, False)
-            barrier()
+        addition_args = {}
+        # convert HF name map directly with ms 2.6.0 version
+        if check_safetensors_addition_param_support():
+            name_map = None
+            if not config.model.model_config.get("qkv_concat", False) \
+                    and is_hf_safetensors_dir(load_ckpt_path, origin_network):
+                try:
+                    name_map = origin_network.obtain_name_map(load_checkpoint_files)
+                except Exception as e:
+                    raise TypeError(f"Please complete abstract function obtain_name_map. Details: {e}") from e
+                if is_main_rank():
+                    _convert_index_json(load_ckpt_path, load_ckpt_path, origin_network.convert_map_dict, False)
+                barrier()
+            addition_args["name_map"] = name_map
         ms.load_distributed_checkpoint(
             network=network,
             predict_strategy=strategy_path,
             unified_safetensors_dir=load_ckpt_path,
             format=config.load_ckpt_format,
-            name_map=name_map
+            **addition_args
         )
         #load optimizer param in resume_training
         hyper_param_file = os.path.join(load_ckpt_path, 'hyper_param.safetensors')
