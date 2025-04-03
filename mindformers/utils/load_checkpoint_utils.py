@@ -32,6 +32,7 @@ from mindformers.tools.utils import (is_main_rank, get_epoch_and_step_from_ckpt_
                                      get_real_rank, clear_auto_trans_output)
 from mindformers.utils import convert_hf_safetensors_multiprocess, check_safetensors_key, is_hf_safetensors_dir
 from mindformers.version_control import check_safetensors_addition_param_support
+from ..version_control import check_tft_valid
 
 class CkptFormat(Enum):
     """
@@ -233,13 +234,18 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
             load_checkpoint_files.sort()
         else:
             logger.info(f"......auto_trans is False, will not unify or slice rank files......")
-            _, file_suffix = _get_src_file_suffix(config)
-            rank_id = get_real_rank() if get_real_rank() else 0
-            load_checkpoint_by_rank = os.path.join(load_checkpoint, f"rank_{rank_id}")
-            if file_suffix is None:
-                sf_file_name = os.path.join(load_checkpoint_by_rank, f"*.{config.load_ckpt_format}")
+            if check_tft_valid() and not config.remove_redundancy:
+                sf_file_name = load_checkpoint
+                logger.info(f"......tft is enabled and not enable remove_redundancy, sf_file_name={sf_file_name}......")
             else:
-                sf_file_name = os.path.join(load_checkpoint_by_rank, f"*{file_suffix}.{config.load_ckpt_format}")
+                _, file_suffix = _get_src_file_suffix(config)
+                rank_id = get_real_rank() if get_real_rank() else 0
+                load_checkpoint_by_rank = os.path.join(load_checkpoint, f"rank_{rank_id}")
+                if file_suffix is None:
+                    sf_file_name = os.path.join(load_checkpoint_by_rank, f"*.{config.load_ckpt_format}")
+                else:
+                    sf_file_name = os.path.join(load_checkpoint_by_rank, f"*{file_suffix}.{config.load_ckpt_format}")
+                logger.info(f"......file_suffix={file_suffix}, sf_file_name={sf_file_name}......")
             load_checkpoint_files = glob(sf_file_name, recursive=False)
 
         # use resume_training in train/finetune mode
