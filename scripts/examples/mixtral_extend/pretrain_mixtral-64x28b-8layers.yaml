@@ -21,7 +21,7 @@ eval_epoch_interval: 1        # num of epoch intervals between each eval, 1 mean
 runner_config:
   epochs: 10
   batch_size: 1
-  sink_mode: True
+  sink_mode: False
   sink_size: 1
 
 # optimizer
@@ -140,7 +140,7 @@ context:
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   max_call_depth: 10000
-  max_device_memory: "58GB"
+  max_device_memory: "54GB"
   save_graphs: True
   save_graphs_path: "./graph"
   device_id: 0
