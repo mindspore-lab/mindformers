@@ -29,7 +29,7 @@ class PetConfig(DictConfig):
     The configuration base class for Parameter-Efficient Tuning (Pet) algorithms.
 
     Args:
-        pet_type (str, optional): The Pet method type. Default: ``None``.
+        pet_type (str, optional): The Pet method type, currently only ``“lora”`` is supported. Default: ``None``.
 
     Returns:
         An instance of PetConfig.
