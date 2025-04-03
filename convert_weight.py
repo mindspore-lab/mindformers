@@ -96,6 +96,7 @@ if __name__ == '__main__':
                         help="Only for swin. Convert pretrain model weight.")
     parser.add_argument('--telechat_type', default="telechat_12b", type=str, required=False,
                         help="Only for telechat. Telechat version.")
+    parser.add_argument('--is_lora', default=False, type=str2bool, required=False)
     args, extra_args = parser.parse_known_args()
     extra_args = [i
                   for item in extra_args
