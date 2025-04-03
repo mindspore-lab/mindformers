@@ -57,7 +57,6 @@ convert_map = {
     'llava': 'research.llava.convert_weight.convert_pt_to_ms',
     'whisper': 'mindformers.models.whisper.convert_weight.convert_pt_to_ms',
     'yizhao': 'research.yizhao.convert_weight.convert_pt_to_ms',
-    'llava_next': 'research.llava_next.convert_weight.convert_pt_to_ms',
     'internvl2': 'research.internvl2.convert_weight.convert_pt_to_ms'
 }
 reversed_convert_map = {
