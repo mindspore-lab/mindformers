@@ -142,7 +142,6 @@ context:
   device_id: 0
   ascend_config:
     precision_mode: "must_keep_origin_dtype"
-    parallel_speed_up_json_path: "./research/qwen2_5/parallel_speed_up.json"
 
 # model config
 model:
