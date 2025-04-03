@@ -235,10 +235,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm/run_glm_6b_lora.yaml")),
             ("glm_6b_lora_chat", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_lora_infer.yaml")),
-            ("glm2_6b", os.path.join(
-                _PROJECT_PATH, "configs/glm2/run_glm2_6b.yaml")),
-            ("glm2_6b_lora", os.path.join(
-                _PROJECT_PATH, "configs/glm2/run_glm2_6b_lora_800_32G.yaml")),
             ("glm3_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm3/run_glm3_6b.yaml")),
             ("glm4_9b", os.path.join(
@@ -380,10 +376,6 @@ class MindFormerBook:
                 _PROJECT_PATH, "configs/glm/run_glm_6b_lora.yaml")),
             ("glm_6b_lora_chat", os.path.join(
                 _PROJECT_PATH, "configs/glm/run_glm_6b_lora_infer.yaml")),
-            ("glm2_6b", os.path.join(
-                _PROJECT_PATH, "configs/glm2/run_glm2_6b.yaml")),
-            ("glm2_6b_lora", os.path.join(
-                _PROJECT_PATH, "configs/glm2/run_glm2_6b_lora_800_32G.yaml")),
             ("glm3_6b", os.path.join(
                 _PROJECT_PATH, "configs/glm3/run_glm3_6b.yaml")),
             ("glm4_9b", os.path.join(
@@ -495,10 +487,6 @@ class MindFormerBook:
             'glm_6b_chat',
             'glm_6b_lora',
             'glm_6b_lora_chat'
-        ]),
-        ('glm2', [
-            'glm2_6b',
-            'glm2_6b_lora'
         ]),
         ('glm3', [
             'glm3_6b',
@@ -615,10 +603,6 @@ class MindFormerBook:
             'glm_6b_lora',
             'glm_6b_lora_chat'
         ]),
-        ('glm2', [
-            'glm2_6b',
-            'glm2_6b_lora'
-        ]),
         ('glm3', [
             'glm3_6b',
         ]),
@@ -701,9 +685,6 @@ class MindFormerBook:
         ('glm', [
             'glm_6b',
         ]),
-        ('glm2', [
-            'glm2_6b',
-        ]),
         ('glm3', [
             'glm3_6b',
         ]),
@@ -772,9 +753,6 @@ class MindFormerBook:
         ]),
         ('glm', [
             'glm_6b',
-        ]),
-        ('glm2', [
-            'glm2_6b'
         ]),
         ('glm3', [
             'glm3_6b',
@@ -1131,10 +1109,6 @@ class MindFormerBook:
         ('glm_6b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
           '/XFormer_for_mindspore/glm/ice_text.model'
-          ]),
-        ('glm2_6b',
-         ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'
-          '/XFormer_for_mindspore/glm2/tokenizer.model'
           ]),
         ('glm3_6b',
          ['https://ascend-repo-modelzoo.obs.cn-east-2.myhuaweicloud.com'

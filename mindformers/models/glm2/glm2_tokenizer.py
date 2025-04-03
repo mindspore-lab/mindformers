@@ -17,7 +17,6 @@ import os
 from typing import List, Optional, Union
 from sentencepiece import SentencePieceProcessor
 
-from mindformers.mindformer_book import MindFormerBook
 from mindformers.models.tokenization_utils import PreTrainedTokenizer
 from mindformers.tools.register import MindFormerModuleType, MindFormerRegister
 
@@ -128,7 +127,6 @@ class ChatGLM2Tokenizer(PreTrainedTokenizer):
     vocab_files_names = {"vocab_file": "tokenizer.model"}
 
     model_input_names = ["input_ids", "attention_mask", "position_ids"]
-    _support_list = MindFormerBook.get_tokenizer_support_list()['glm2']
 
     def __init__(self,
                  vocab_file,
