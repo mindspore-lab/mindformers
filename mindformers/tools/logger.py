@@ -483,6 +483,7 @@ def get_logger(logger_name: str = 'mindformers', **kwargs) -> logging.Logger:
     Returns:
         logger (logging.Logger): Logger.
     """
+    logger_name = f"{logger_name}{get_log_path()}"
     mf_logger = logging.getLogger(logger_name)
     mf_logger.findCaller = _find_caller
     if logger_name in logger_list:
