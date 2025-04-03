@@ -23,6 +23,7 @@ import re
 import shutil
 import signal
 import sys
+import tempfile
 import warnings
 import threading
 from pathlib import Path
@@ -39,6 +40,15 @@ from mindformers.tools.hub.hub import (
 )
 from mindformers.tools.logger import logger
 _MF_REMOTE_CODE_LOCK = threading.Lock()
+
+
+def atomic_copy(src, dst):
+    """Ensure a complete and reliable file copy using a temporary file and atomic replacement."""
+    with tempfile.NamedTemporaryFile(delete=True, dir=os.path.dirname(dst)) as temp_file:
+        temp_path = temp_file.name
+        temp_file.close()
+        shutil.copy(src, temp_path)
+        os.replace(temp_path, dst)
 
 
 def init_mf_modules():
@@ -357,7 +367,7 @@ def get_cached_module_file(
         if not (submodule_path / module_file).exists() or not filecmp.cmp(
                 resolved_module_file, str(submodule_path / module_file)
         ):
-            shutil.copy(resolved_module_file, submodule_path / module_file)
+            atomic_copy(resolved_module_file, submodule_path / module_file)
             importlib.invalidate_caches()
         for module_needed in modules_needed:
             module_needed = f"{module_needed}.py"
@@ -365,7 +375,7 @@ def get_cached_module_file(
             if not (submodule_path / module_needed).exists() or not filecmp.cmp(
                     module_needed_file, str(submodule_path / module_needed)
             ):
-                shutil.copy(module_needed_file, submodule_path / module_needed)
+                atomic_copy(module_needed_file, submodule_path / module_needed)
                 importlib.invalidate_caches()
     else:
         # Get the commit hash
@@ -378,7 +388,7 @@ def get_cached_module_file(
         create_dynamic_module(full_submodule)
 
         if not (submodule_path / module_file).exists():
-            shutil.copy(resolved_module_file, submodule_path / module_file)
+            atomic_copy(resolved_module_file, submodule_path / module_file)
             importlib.invalidate_caches()
         # Make sure we also have every file with relative
         for module_needed in modules_needed:
@@ -599,13 +609,13 @@ def custom_object_save(obj: Any, folder: Union[str, os.PathLike], config: Option
     # Copy module file to the output folder.
     object_file = sys.modules[obj.__module__].__file__
     dest_file = Path(folder) / (Path(object_file).name)
-    shutil.copy(object_file, dest_file)
+    atomic_copy(object_file, dest_file)
     result.append(dest_file)
 
     # Gather all relative imports recursively and make sure they are copied as well.
     for needed_file in get_relative_import_files(object_file):
         dest_file = Path(folder) / (Path(needed_file).name)
-        shutil.copy(needed_file, dest_file)
+        atomic_copy(needed_file, dest_file)
         result.append(dest_file)
 
     return result
