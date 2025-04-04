@@ -1231,7 +1231,6 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         return output
 
     # pylint: disable=W0613
-    @ms.jit(jit_level='O0', infer_boost='on')
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, q_seq_lens=None, key_cache=None, value_cache=None):
@@ -1458,7 +1457,7 @@ class InferenceDeepseekV3MTPForCausalLM(DeepseekV3PreTrainedModel):
         Tensor. If it is in prediction mode, the output Tensor contains logits;
         If it is in evaluation mode, the output Tensor contains logits, tokens, and input masks.
     """
-    
+
     def __init__(self, config: DeepseekV3Config = None):
         super(InferenceDeepseekV3MTPForCausalLM, self).__init__(config, auto_prefix=True)
         self.dtype = config.compute_dtype
