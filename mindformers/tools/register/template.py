@@ -286,6 +286,8 @@ class GeneralConfig(Config):
 
     # mf context
     exclude_cann_cpu = False
+    train_precision_sync = None
+    infer_precision_sync = None
     postprocess_use_numpy = False
 
     _name = "general_config"
