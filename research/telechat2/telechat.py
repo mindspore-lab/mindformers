@@ -148,6 +148,7 @@ class TelechatModel(TelechatPreTrainedModel):
                                             n_kv_heads=config.n_kv_heads,
                                             sigma=config.sigma,
                                             mean=config.mean,
+                                            moe_config=config.moe_config,
                                             hidden_dropout_prob=config.hidden_dropout_prob,
                                             attention_dropout_prob=config.attention_dropout_prob,
                                             intermediate_size=config.intermediate_size,
@@ -176,6 +177,7 @@ class TelechatModel(TelechatPreTrainedModel):
         self.norm_out = LlamaRMSNorm(config.hidden_size, config.rms_norm_eps,
                                      compute_type=config.layernorm_compute_type)
         dp = config.parallel_config.data_parallel
+        self.expert_num = 1 if config.moe_config is None else config.moe_config.expert_num
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.tok_embeddings.pipeline_stage = 0
             if config.parallel_config.pipeline_stage > 1:
@@ -195,7 +197,7 @@ class TelechatModel(TelechatPreTrainedModel):
                 self.norm_out.shard((dp, 1, 1))
 
     # pylint: disable=W0613
-    def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None,
+    def construct(self, tokens: Tensor, batch_valid_length=None, batch_index=None, zactivate_len=None, aux_loss=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None):
         """
         Forward of telechat model.
@@ -239,9 +241,16 @@ class TelechatModel(TelechatPreTrainedModel):
         # h: [bs, seq/1, hidden_dim]
         for i in range(self.num_layers):
             prefix_kv = prefix_keys_values[i] if prefix_keys_values is not None else None
-            h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length, block_tables=block_tables,
-                               slot_mapping=slot_mapping, prefix_keys_values=prefix_kv)
+            if self.expert_num > 1:
+                h, aux_loss = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length,
+                                             block_tables=block_tables, aux_loss=aux_loss, slot_mapping=slot_mapping,
+                                             prefix_keys_values=prefix_kv)
+            else:
+                h = self.layers[i](h, freqs_cis, mask, batch_valid_length=batch_valid_length, block_tables=block_tables,
+                                   slot_mapping=slot_mapping, prefix_keys_values=prefix_kv)
         output = self.norm_out(h)
+        if self.expert_num > 1:
+            return output, aux_loss
         return output
 
 
@@ -280,6 +289,10 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
         self.rl_config = config.rl_config
         self.is_first_iteration = True
 
+        self.dp = config.parallel_config.data_parallel
+        self.mp = config.parallel_config.model_parallel
+        self.expert_num = config.moe_config.expert_num
+        self.init_aux_loss = Tensor(np.zeros([self.dp * self.mp, self.expert_num]), mstype.float32)
         self.shape = P.Shape()
         self.reshape = P.Reshape()
         self.cast = P.Cast()
@@ -313,6 +326,7 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
 
         dp = config.parallel_config.data_parallel
         mp = config.parallel_config.model_parallel
+        self.aux_reduce_mean = P.ReduceMean(keep_dims=True).shard(((1, 1),))
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
             self.slice.shard(((dp, 1),))
             self.not_equal.shard(((dp, 1), ()))
@@ -401,6 +415,7 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
             Tensor: The loss or (logits, tokens, input_mask) of the network.
         """
         bsz, seqlen = self.shape(input_ids)
+        aux_loss = None
         if self.use_past:
             if not isinstance(batch_valid_length, Tensor):
                 batch_valid_length = self.ones((bsz,), mstype.int32)
@@ -410,8 +425,12 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
             tokens = input_ids
         if batch_valid_length is not None:
             batch_valid_length = self.reshape(batch_valid_length, (-1,))
-        output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables, \
-                            slot_mapping, prefix_keys_values)
+        if self.expert_num == 1:
+            output = self.model(tokens, batch_valid_length, batch_index, zactivate_len, block_tables=block_tables, \
+                                slot_mapping=slot_mapping, prefix_keys_values=prefix_keys_values)
+        else:
+            output, aux_loss = self.model(tokens, batch_valid_length, batch_index, zactivate_len, self.init_aux_loss,
+                                          block_tables, slot_mapping, prefix_keys_values)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
             batch_valid_length = mint.cumsum(batch_valid_length, 0)
@@ -443,6 +462,9 @@ class TelechatForCausalLM(TelechatPreTrainedModel):
         labels = self.reshape(labels, (-1,))
         input_mask = self.reshape(input_mask, (-1,))
         loss = self.loss(logits, labels, input_mask)
+        if self.expert_num > 1:
+            aux_loss = self.aux_reduce_mean(aux_loss).reshape(-1)
+            loss = loss + aux_loss
         return loss
 
     def kvcache(self, layer_idx):

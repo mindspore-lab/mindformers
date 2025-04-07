@@ -14,6 +14,7 @@
 # ============================================================================
 """Telechat transformer Layer's APIs."""
 import math
+import copy
 from typing import Tuple, Optional
 
 import mindspore as ms
@@ -475,6 +476,7 @@ class TelechatDecodeLayer(nn.Cell):
                  use_attn_mask_compression=False,
                  block_size: Optional[int] = None,
                  num_blocks: Optional[int] = None,
+                 moe_config=None,
                  parallel_config=TransformerOpParallelConfig()):
         super().__init__()
         self.layer_id = layer_id
@@ -521,32 +523,61 @@ class TelechatDecodeLayer(nn.Cell):
                                            num_blocks=num_blocks,
                                            parallel_config=parallel_config)
 
-        self.feed_forward = TelechatFeedForward(dim=self.hidden_size,
-                                                intermediate_size=intermediate_size,
-                                                hidden_dim=4 * self.hidden_size,
-                                                sigma=self.sigma,
-                                                mean=self.mean,
-                                                hidden_dropout_prob=hidden_dropout_prob,
-                                                multiple_of=multiple_of,
-                                                ffn_dim_multiplier=ffn_dim_multiplier,
-                                                ffn_concat=self.qkv_concat,
-                                                compute_dtype=compute_dtype,
-                                                param_init_type=param_init_type)
-
+        parallel_config_new = copy.deepcopy(parallel_config)
+        parallel_config_new.data_parallel *= parallel_config.model_parallel
+        parallel_config_new.expert_parallel *= parallel_config.model_parallel
+        parallel_config_new.model_parallel = 1
+        self.expert_num = 1 if moe_config is None else moe_config.expert_num
+        ffn = TelechatFeedForward(dim=self.hidden_size,
+                                  intermediate_size=intermediate_size,
+                                  hidden_dim=4 * self.hidden_size,
+                                  sigma=self.sigma,
+                                  mean=self.mean,
+                                  expert_num=self.expert_num,
+                                  hidden_dropout_prob=hidden_dropout_prob,
+                                  multiple_of=multiple_of,
+                                  ffn_dim_multiplier=ffn_dim_multiplier,
+                                  ffn_concat=self.qkv_concat,
+                                  compute_dtype=compute_dtype,
+                                  param_init_type=param_init_type,
+                                  parallel_config=parallel_config_new)
+        if self.expert_num == 1:
+            logger.info("MoE config is None, use normal FFN")
+            self.feed_forward = ffn
+        else:
+            logger.info("MoE config is provided, use MoE FFN")
+            self.feed_forward = MoEV2(ffn=ffn,
+                                      dim=self.hidden_size,
+                                      moe_config=moe_config,
+                                      return_extra_loss=True,
+                                      parallel_config=parallel_config)
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         if not (_get_parallel_mode() in (ParallelMode.AUTO_PARALLEL,) and _is_sharding_propagation()):
-            self.feed_forward.shard(parallel_config)
-            self.add.shard(((dp, 1, 1), (dp, 1, 1)))
-            self.attention_norm.shard((dp, 1, 1))
-            self.ffn_norm.shard((dp, 1, 1))
-            self.feed_forward.mul.shard(((dp, 1, mp), (dp, 1, mp)))
+            if self.expert_num == 1:
+                self.feed_forward.shard(parallel_config)
+                self.add.shard(((dp, 1, 1), (dp, 1, 1)))
+                self.attention_norm.shard((dp, 1, 1))
+                self.ffn_norm.shard((dp, 1, 1))
+            else:
+                self.feed_forward.ffn.shard(parallel_config_new)
+                self.add.shard(((dp, 1, 1), (dp, 1, 1)))
+                self.attention_norm.shard((dp, 1, 1))
+                self.ffn_norm.shard((dp, 1, 1))
+            if moe_config is None or not moe_config.expert_num > 1:
+                self.feed_forward.mul.shard(((dp, 1, mp), (dp, 1, mp)))
 
         if parallel_config.use_seq_parallel and self.is_first_iteration:
-            self.add.shard(((dp, mp, 1), (dp, mp, 1)))
-            self.attention_norm.shard((dp, mp, 1))
-            self.ffn_norm.shard((dp, mp, 1))
-            self.feed_forward.w2.shard(((dp, mp), (1, mp)), out_strategy_matmul=((dp * mp, 1),))
+            if self.expert_num == 1:
+                self.add.shard(((dp, mp, 1), (dp, mp, 1)))
+                self.attention_norm.shard((dp, mp, 1))
+                self.ffn_norm.shard((dp, mp, 1))
+                self.feed_forward.w2.shard(((dp, mp), (1, mp)), ((dp * mp, 1), (1, )),
+                                           out_strategy_matmul=((dp * mp, 1),))
+            else:
+                self.add.shard(((dp, mp, 1), (dp, mp, 1)))
+                self.attention_norm.shard((dp, mp, 1))
+                self.ffn_norm.shard((dp, mp, 1))
 
         self.predict_run_mode = get_predict_run_mode()
         logger.info("Predict run mode:{}".format(self.predict_run_mode))
@@ -555,7 +586,7 @@ class TelechatDecodeLayer(nn.Cell):
             self.no_inline = False
 
     def construct(self, x, freqs_cis, mask=None, batch_valid_length=None, block_tables=None,
-                  slot_mapping=None, prefix_keys_values=None):
+                  slot_mapping=None, aux_loss=None, prefix_keys_values=None):
         """ Forward of transformer block. """
         if not self.use_past:
             self._check_input(x, freqs_cis, mask)
@@ -569,10 +600,15 @@ class TelechatDecodeLayer(nn.Cell):
         h = self.cast(h, ori_dtype)
         ffn_norm = self.ffn_norm(h)
         # [bs, seq/1, hidden_dim]
-        ffn_out = self.feed_forward(ffn_norm)
+        if self.expert_num == 1:
+            ffn_out = self.feed_forward(ffn_norm)
+        else:
+            ffn_out, aux_loss = self.feed_forward(ffn_norm, aux_loss)
         # [bs, seq/1, hidden_dim] or [bs * seq/1, hidden_dim]
         h = self.add(self.cast(h, self.res_dtype), self.cast(ffn_out, self.res_dtype))
         out = self.cast(h, ori_dtype)
+        if self.expert_num > 1:
+            return out, aux_loss
         return out
 
     def _check_input(self, x, freqs_cis, mask):
