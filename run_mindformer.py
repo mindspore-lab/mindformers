@@ -18,7 +18,7 @@ import os
 import sys
 
 from mindformers.tools.register import MindFormerConfig, ActionDict
-from mindformers.tools.utils import str2bool, parse_value
+from mindformers.tools.utils import str2bool, parse_value, str2bool_or_str
 from mindformers.core.context import build_context
 from mindformers.trainer import Trainer
 from mindformers.tools.cloud_adapter import cloud_monitor
@@ -153,7 +153,7 @@ if __name__ == "__main__":
         '--only_save_strategy', default=None, type=str2bool,
         help="if true, when strategy files are saved, system exit. ")
     parser.add_argument(
-        '--resume_training', default=None, type=str2bool,
+        '--resume_training', default=None, type=str2bool_or_str,
         help="Decide whether to resume training or specify the name of the checkpoint "
              "from which to resume training.")
     parser.add_argument(

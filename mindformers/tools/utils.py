@@ -310,6 +310,11 @@ def str2bool(b):
         raise Exception("Invalid Bool Value")
     return output
 
+def str2bool_or_str(b):
+    """String convert to Bool or String."""
+    mapping = {"false": False, "true": True}
+    b_lower = b.lower()
+    return mapping.get(b_lower, b)
 
 def count_params(net):
     """Count number of parameters in the network
