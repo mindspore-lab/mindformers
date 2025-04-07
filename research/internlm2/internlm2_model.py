@@ -22,6 +22,7 @@ from internlm2_config import InternLM2Config
 import mindspore.common.dtype as mstype
 from mindspore import nn, ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+from mindspore import ops
 from mindspore.ops import operations as P
 from mindspore.common.tensor import Tensor
 
@@ -267,6 +268,9 @@ class InternLM2Attention(nn.Cell):
             self.slice = P.StridedSlice()
             self.slice.add_prim_attr("skip_redistribution", True)
             self.slice.shard(((dp, mp, 1, 1),))
+            self.split_qkv = ops.auto_generate.SplitWithSize()
+            self.split_qkv.add_prim_attr("skip_redistribution", True)
+            self.split_qkv.shard(((dp, 1, mp, 1),))
         else:
             self.wq = Linear(self.hidden_size,
                              self.hidden_size,
@@ -370,17 +374,15 @@ class InternLM2Attention(nn.Cell):
         # [bs, seq/1, hidden_dim]
         bs, seq_len, _ = self.shape(x)
         if self.qkv_concat:
-            x = self.reshape(x, (-1, x.shape[-1]))
-            bs_seq = x.shape[0]
             qkv = self.cast(self.w(x), self.dtype)
-            qkv = self.reshape(qkv, (bs_seq, -1, (2 + self.n_rep), self.head_dim))  # b*q (h gs d) -> b*q h gs d
-            h = qkv.shape[1]
-            query = self.slice(qkv, (0, 0, 0, 0), (bs_seq, h, self.n_rep, self.head_dim), (1, 1, 1, 1))
-            query = self.reshape(query, (bs, seq_len, -1))  # b*q h gs d -> b*q (h gs d)
-            key = self.slice(qkv, (0, 0, self.n_rep, 0), (bs_seq, h, self.n_rep + 1, self.head_dim), (1, 1, 1, 1))
-            key = self.reshape(key, (bs, seq_len, -1))  # b*q h gs d -> b*q (h gs d)
-            value = self.slice(qkv, (0, 0, self.n_rep + 1, 0), (bs_seq, h, self.n_rep + 2, self.head_dim), (1, 1, 1, 1))
-            value = self.reshape(value, (bs, seq_len, -1))  # b*q h gs d -> b*q (h gs d)
+            reshape_qkv = self.reshape(qkv, (bs, seq_len, self.n_kv_head, (self.n_rep + 2) * self.head_dim))
+            query, key, value = self.split_qkv(reshape_qkv,
+                                               (self.head_dim * self.n_rep,
+                                                self.head_dim,
+                                                self.head_dim), 3)
+            query = self.reshape(query, (bs, seq_len, self.hidden_size))
+            key = self.reshape(key, (bs, seq_len, self.kv_dim))
+            value = self.reshape(value, (bs, seq_len, self.kv_dim))
         else:
             query = self.cast(self.wq(x), self.dtype)  # dp, 1 -> dp, mp
             key = self.cast(self.wk(x), self.dtype)  # dp, 1 -> dp, mp
