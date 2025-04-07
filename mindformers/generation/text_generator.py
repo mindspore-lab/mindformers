@@ -1202,7 +1202,7 @@ class GenerationMixin:
         Model forward process.
 
         Args:
-            input_ids (List(List(int))): Input ids after padding.
+            input_ids (List[List[int]]): Input ids after padding.
             valid_length_each_example (np.ndarray): Valid input length except padding.
             block_tables (Tensor, optional): Params for page attention. Default: ``None``.
             slot_mapping (Tensor, optional): Params for page attention. Default: ``None``.

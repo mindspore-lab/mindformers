@@ -6,7 +6,7 @@ mindformers.models.LlamaTokenizerFast
     构建基于字节级字节对编码（Byte-Pair-Encoding）的 Llama 快速分词器。此分词器使用 ByteFallback 且没有标准化处理。
 
     参数：
-        - **vocab_file** (str, 可选) - 包含必要词汇表的 `SentencePiece <https://github.com/google/sentencepiece>` 文件（通常具有 .model 扩展名），用于实例化分词器。默认值： ``None`` 。
+        - **vocab_file** (str, 可选) - 包含必要词汇表的 `SentencePiece <https://github.com/google/sentencepiece>`_ 文件（通常具有 .model 扩展名），用于实例化分词器。默认值： ``None`` 。
         - **tokenizer_file** (str, 可选) - 包含加载分词器所需所有内容的 tokenizers 文件（通常具有 .json 扩展名）。默认值： ``None`` 。
         - **clean_up_tokenization_spaces** (bool, 可选) - 解码后是否清理空格，清理包括去除可能的如额外空格等人为引入的问题。默认值： ``False`` 。
         - **unk_token** (Union[str, tokenizers.AddedToken], 可选) - 未知词元。不在词汇表中的词元将被设置为此词元。默认值： ``"<unk>"`` 。

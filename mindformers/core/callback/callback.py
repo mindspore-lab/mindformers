@@ -651,7 +651,7 @@ class TrainingStateMonitor(Callback):
     Args:
         origin_epochs (int): Required. Training epoches.
         config (dict, optional): The config specified how to display metrics. Keys are shown below. Default: ``None``,
-        mean that keys will be set as the default values as below.
+            mean that keys will be set as the default values as below.
 
             - target: Specify the name or regular expression of params to monitor.
               Must be list of str, e.g. ["layers.[01]", "attention"]. Default: ['*'] , all params are selected.
