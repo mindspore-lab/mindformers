@@ -255,12 +255,54 @@ train_dataset: &train_dataset
 
 3. 启动微调:
 
+- 启动单机微调：
+
+   在mindformers根目录下执行：
+
    ```shell
-   cd research/qwen2_5
-   bash ../../scripts/msrun_launcher.sh "run_qwen2_5.py \
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --register_path research/qwen2_5 \
     --config finetune_qwen2_5_7b.yaml \
     --run_mode finetune \
     --train_data ./path/alpaca-data.mindrecord "
+   ```
+
+- 启动多机微调：
+
+  以qwen2.5_72b_32k微调为例，执行8机64卡任务。
+
+  在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README_CN.md#三使用指南)
+
+  在mindformers根目录下，执行：
+
+   ```shell
+   # 节点0，节点ip为192.168.1.1，作为主节点，总共64卡且每个节点8卡
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --register_path research/qwen2_5 \
+    --config research/qwen2_5/finetune_qwen2.5_72B_32K.yaml \
+    --train_data /path/wiki.mindrecord" \
+   64 8 192.168.1.1 8118 0 output/msrun_log False 1200
+
+   # 节点1，节点ip为192.168.1.2，节点0与节点1启动命令仅参数NODE_RANK不同
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --register_path research/qwen2_5 \
+    --config research/qwen2_5/finetune_qwen2.5_72B_32K.yaml \
+    --train_data /path/wiki.mindrecord" \
+   64 8 192.168.1.1 8118 1 output/msrun_log False 1200
+
+   # ...
+   # 省略中间节点2-6的执行命令不同节点之间仅参数NODE_RANK不同
+
+   # 节点7，节点ip为192.168.1.8，节点0与节点7启动命令仅参数NODE_RANK不同
+   bash scripts/msrun_launcher.sh "run_mindformer.py \
+    --register_path research/qwen2_5 \
+    --config research/qwen2_5/finetune_qwen2.5_72B_32K.yaml \
+    --train_data /path/wiki.mindrecord" \
+   64 8 192.168.1.1 8118 7 output/msrun_log False 1200
+
+   # 参数说明
+   config:      配置文件路径
+   train_data:  训练数据集文件夹路径
    ```
 
 ## 推理
