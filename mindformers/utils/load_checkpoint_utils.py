@@ -157,7 +157,7 @@ def _is_distributed_checkpoint(checkpoint_file, ckpt_format='safetensors'):
 
 def _get_src_file_suffix(config):
     """get file_suffix from config.load_checkpoint."""
-    if config.resume_training:
+    if isinstance(config.resume_training, str):
         epoch, step = get_epoch_and_step_from_ckpt_name(config.resume_training, config.load_ckpt_format)
         logger.info(f"Load resume checkpoint from {config.load_checkpoint}, epoch: {epoch}, step: {step}.")
         file_suffix = f"{epoch}_{step}"
