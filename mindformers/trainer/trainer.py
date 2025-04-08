@@ -404,6 +404,9 @@ class Trainer:
         Raises:
             TypeError: if resume_from_checkpoint is not bool or str type.
         """
+        if self.config.runner_config.sink_mode:
+            logger.warning("sink_size will be deprecated in a future release. Setting sink_size may cause "
+                           "accuracy errors and functional issues when resuming training from a checkpoint.")
         if train_checkpoint is not None and \
                 not isinstance(train_checkpoint, (bool, str)):
             raise TypeError(f"train_checkpoint must be one of [None, string, bool], "
@@ -1114,8 +1117,6 @@ class Trainer:
             sink_size = self.config.runner_config.sink_size
             sink_mode = self.config.runner_config.sink_mode
             if sink_mode:
-                logger.warning("sink_size will be deprecated in a future release. Setting sink_size may cause "
-                               "accuracy errors and functional issues")
                 if self.config.profile_start_step % sink_size != 0:
                     self.config.profile_start_step -= self.config.profile_start_step % sink_size
                     self.config.profile_start_step = max(self.config.profile_start_step, sink_size)
