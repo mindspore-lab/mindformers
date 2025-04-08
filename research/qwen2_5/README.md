@@ -273,6 +273,12 @@ train_dataset: &train_dataset
 
   在多机上同时拉起任务，将参数`MASTER_ADDR`设置为主节点的ip地址， 所有节点设置的ip地址相同，不同节点之间仅参数`NODE_RANK`不同，具体可参考[使用指南](../../README_CN.md#三使用指南)
 
+  配置性能优化环境变量：
+
+  ```shell
+  export MS_DEV_GRAPH_KERNEL_FLAGS="--enable_cluster_ops=MatMul --online_tuning=1"
+  ```
+
   在mindformers根目录下，执行：
 
    ```shell

@@ -107,7 +107,7 @@ parallel_config:
   pipeline_stage: 8
   context_parallel: 1
   use_seq_parallel: True
-  micro_batch_num: 16
+  micro_batch_num: 32
   seq_split_num: 8
   vocab_emb_dp: False
   gradient_aggregation_group: 4
