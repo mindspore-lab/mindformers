@@ -139,7 +139,7 @@ def preprocess(sources, tokenizer, seq_length):
             round_len = len(tokenizer(rou)['input_ids']) - 1
             instruction_len = len(tokenizer(parts[0])['input_ids']) - 3
 
-            target[cur_len : cur_len + instruction_len] = IGNORE_TOKEN_ID
+            target[cur_len: cur_len + instruction_len] = IGNORE_TOKEN_ID
 
             cur_len += round_len
         target[cur_len:] = IGNORE_TOKEN_ID

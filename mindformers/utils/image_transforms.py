@@ -291,7 +291,7 @@ def center_crop(
     left += left_pad
     right += left_pad
 
-    new_image = new_image[..., max(0, top) : min(new_height, bottom), max(0, left) : min(new_width, right)]
+    new_image = new_image[..., max(0, top): min(new_height, bottom), max(0, left): min(new_width, right)]
     new_image = to_channel_dimension_format(new_image, output_data_format, ChannelDimension.FIRST)
 
     if not return_numpy:
