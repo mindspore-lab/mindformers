@@ -137,11 +137,11 @@ def convert_lora_to_ms(input_path, output_path, dtype=None, **kwargs):
     ms.save_checkpoint(ckpt_list, output_path)
     print(f"\rConvert huggingface checkpoint finished, the mindspore checkpoint is saved in '{output_path}'.",
           flush=True)
-    convert_lora_config(input_path, kwargs['align_rank'])
+    convert_lora_config(input_path)
     return True
 
 
-def convert_lora_config(input_path, align_rank):
+def convert_lora_config(input_path):
     """modified config.json 'r' and 'target_modules' """
     config_path = os.path.join(input_path, "adapter_config.json")
     replace_rules = {
@@ -157,14 +157,6 @@ def convert_lora_config(input_path, align_rank):
         with open(config_path, 'r', encoding='utf-8') as file:
             data = json.load(file)
         modified = False
-        # r must be a multiple of 16 on Atlas 300V Pro
-        if align_rank:
-            if data["r"] % 16 != 0:
-                data["r"] = (data["r"] // 16 + 1) * 16
-                print("r modification successful, the configuration file has been updated!")
-            else:
-                print("The configuration r has already been modified, no need to modify it again.")
-
         for i, name in enumerate(data["target_modules"]):
             if name not in replace_rules.keys():
                 print(f"target_modules {name} does not need to be modified")
@@ -303,24 +295,24 @@ def convert_weight(para):
     """convert weight entrance"""
     if not hasattr(para, 'torch_ckpt_dir'):
         para.torch_ckpt_dir = para.input_path
-    if not hasattr(para, 'pre_ckpt_path'):
-        para.pre_ckpt_path = para.input_path
     if not hasattr(para, 'mindspore_ckpt_path'):
         para.mindspore_ckpt_path = para.output_path
-    if not hasattr(para, 'config_path'):
-        para.config_path = para.config_path
     if not para.dtype:
         para.dtype = "bf16"
     if para.qkv_concat:
+        if not hasattr(para, 'pre_ckpt_path'):
+            para.pre_ckpt_path = para.input_path
+        if not hasattr(para, 'config_path'):
+            para.config_path = para.config_path
         convert_to_qkv_concat(para.pre_ckpt_path, para.mindspore_ckpt_path, para.config_path)
     else:
         dtype = dtype_map.get(para.dtype)
+        if not hasattr(para, 'is_lora'):
+            para.is_lora = para.is_lora
         if para.is_lora:
-            convert_lora_to_ms(input_path=para.torch_ckpt_dir, output_path=para.mindspore_ckpt_path,
-                               dtype=dtype, align_rank=para.align_rank)
+            convert_lora_to_ms(input_path=para.torch_ckpt_dir, output_path=para.mindspore_ckpt_path, dtype=dtype)
         else:
-            convert_pt_to_ms(input_path=para.torch_ckpt_dir,
-                             output_path=para.mindspore_ckpt_path, dtype=dtype)
+            convert_pt_to_ms(input_path=para.torch_ckpt_dir, output_path=para.mindspore_ckpt_path, dtype=dtype)
 
 
 if __name__ == "__main__":
@@ -332,7 +324,6 @@ if __name__ == "__main__":
     parser.add_argument('--qkv_concat', default=False, type=str2bool)
     parser.add_argument('--dtype', default='bf16')
     parser.add_argument('--is_lora', default=False)
-    parser.add_argument('--align_rank', default=False)
     args = parser.parse_args()
 
     convert_weight(args)

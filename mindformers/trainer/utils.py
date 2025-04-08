@@ -16,6 +16,7 @@
 import os
 import json
 import sys
+import math
 import random
 import re
 from enum import Enum
@@ -501,6 +502,17 @@ def check_path_include_total_ckpt(path):
     return False
 
 
+def calculate_scaling(lora_config):
+    """Scaling is calculated based on the configuration."""
+    lora_alpha = lora_config.get("lora_alpha")
+    r = lora_config.get("r")
+    if lora_config.get("use_rslora"):
+        scaling = lora_alpha / math.sqrt(r)
+    else:
+        scaling = lora_alpha / r
+    return scaling
+
+
 def load_slora_ckpt(checkpoint_dict, config, network):
     """
     1. Adjust the weight name of Linear to the weight name of the SLoraLinear according to the target_modules.
@@ -544,6 +556,7 @@ def load_slora_ckpt(checkpoint_dict, config, network):
         lora_shape = tuple(param_shape[1:])
         slora_param = ops.zeros(lora_shape)
         for lora_params, lora_config in zip(adapter_list, config_list):
+            scaling = calculate_scaling(lora_config)
             if param_name in lora_params.keys():
                 lora_param = lora_params[param_name]
                 if re.match('.*lora_a.*', param_name) and need_nz():
@@ -551,7 +564,7 @@ def load_slora_ckpt(checkpoint_dict, config, network):
                 if re.match('.*lora_b.*', param_name):
                     # transpose lora_B shape from (n, r) to (r, n)
                     lora_param = ops.transpose(lora_param, (1, 0))
-                    lora_param = mint.mul(lora_param, lora_config.get("lora_alpha") / lora_config.get("r"))
+                    lora_param = mint.mul(lora_param, scaling)
                 if lora_param.shape != lora_shape:
                     pad_a = lora_shape[0] - lora_param.shape[0]
                     pad_b = lora_shape[1] - lora_param.shape[1]

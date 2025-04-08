@@ -85,7 +85,6 @@ class TestLoraConvert:
             "base_model.model.model.layers.0.mlp.up_proj.lora_B.weight": self.fake_weight7_lora_b
         }
         fake_adapter_config_dict = {
-            "r": 8,
             "target_modules": [
                 "up_proj",
                 "gate_proj",
@@ -223,11 +222,6 @@ class TestLoraConvert:
 
         with open(adapter_config_file, 'r', encoding='utf-8') as f:
             adapter_config_dict = json.load(f)
-        # assert r
-        assert "r" in adapter_config_dict.keys(), \
-            "adapter_config.json does not have key 'r'."
-        assert adapter_config_dict.get("r") == 16, \
-            f"The value of 'r' should be 16, but got {adapter_config_dict.get('r')}."
         # assert target_modules
         assert "target_modules" in adapter_config_dict.keys(), \
             "adapter_config.json does not have key 'target_modules'."
