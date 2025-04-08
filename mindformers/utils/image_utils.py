@@ -162,9 +162,9 @@ def divide_to_patches(image: np.array, patch_size: int, input_data_format) -> Li
     for i in range(0, height, patch_size):
         for j in range(0, width, patch_size):
             if input_data_format == ChannelDimension.LAST:
-                patch = image[i : i + patch_size, j : j + patch_size]
+                patch = image[i: i + patch_size, j: j + patch_size]
             else:
-                patch = image[:, i : i + patch_size, j : j + patch_size]
+                patch = image[:, i: i + patch_size, j: j + patch_size]
             patches.append(patch)
 
     return patches

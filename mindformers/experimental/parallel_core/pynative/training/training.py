@@ -392,10 +392,10 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
 
                 # slice inputs over batch size dimension
                 inputs_tuple_micro = [
-                    input_data[idx * micro_batch_size : (idx + 1) * micro_batch_size] for input_data in inputs_tuple
+                    input_data[idx * micro_batch_size: (idx + 1) * micro_batch_size] for input_data in inputs_tuple
                 ]
                 inputs_dict_micro = {
-                    key: value[idx * micro_batch_size : (idx + 1) * micro_batch_size]
+                    key: value[idx * micro_batch_size: (idx + 1) * micro_batch_size]
                     for key, value in inputs_dict.items()
                 }
 
@@ -735,7 +735,7 @@ def train(
             For Ascend devices, it is recommended to use the msrun startup method
             without any third-party or configuration file dependencies.
             Please see the `msrun start up
-            <https://www.mindspore.cn/docs/en/master/model_train/parallel/msrun_launcher.html>`_
+            <https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html>`_
             for more details.
 
         >>> from mindformers.experimental.parallel_core.pynative.optimizer import get_optimizer

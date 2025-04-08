@@ -568,7 +568,7 @@ def _build_document_index(
         numpy.ndarray: The document index
     """
     if not separate_final_epoch or num_epochs == 1:
-        document_index = numpy.mgrid[0:num_epochs, 0 : len(documents)][1]
+        document_index = numpy.mgrid[0:num_epochs, 0: len(documents)][1]
         document_index[:] = documents
         document_index = document_index.reshape(-1)
         document_index = document_index.astype(numpy.int32)
@@ -700,10 +700,10 @@ def _get_ltor_masks_and_position_ids(
             i = int(eod_index[j])
             # Mask attention loss.
             if reset_attention_mask and attention_mask is not None:
-                attention_mask[0, (i + 1) :, : (i + 1)] = 0
+                attention_mask[0, (i + 1):, : (i + 1)] = 0
             # Reset positions.
             if reset_position_ids:
-                position_ids[(i + 1) :] -= i + 1 - prev_index
+                position_ids[(i + 1):] -= i + 1 - prev_index
                 prev_index = i + 1
 
     if attention_mask is not None:
@@ -735,7 +735,7 @@ class MockGPTLowLevelDataset:
     def get(self, idx: int, offset: int = 0, length: Optional[int] = None) -> numpy.ndarray:
         if length is None:
             length = self.sequence_lengths[idx] - offset
-        return self[idx][offset : offset + length]
+        return self[idx][offset: offset + length]
 
 
 class MockGPTDataset(GPTDataset):

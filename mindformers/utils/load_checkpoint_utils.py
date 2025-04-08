@@ -34,6 +34,7 @@ from mindformers.utils import convert_hf_safetensors_multiprocess, check_safeten
 from mindformers.version_control import check_safetensors_addition_param_support
 from ..version_control import check_tft_valid
 
+
 class CkptFormat(Enum):
     """
     Enum class for MindFormers support checkpoints formats.
@@ -55,6 +56,7 @@ class CheckpointFileMode(Enum):
     MULTI_CHECKPOINT_FILE = 'multi_checkpoint_file'
     MULTI_CHECKPOINT_FILE_WITH_RANK_ID = 'multi_checkpoint_file_with_rank_id'
 
+
 def _get_origin_network(network):
     """recursive find if cells which have function <convert_name>"""
     if 'convert_name' in dir(network):
@@ -65,6 +67,7 @@ def _get_origin_network(network):
         if find_cell:
             return network, True
     return network, False
+
 
 def get_load_path_after_hf_convert(config, network):
     """check if it is hf safetensors and convert"""
