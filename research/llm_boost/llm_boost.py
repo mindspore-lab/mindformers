@@ -135,7 +135,7 @@ class LlmBoostForCausalLM(PreTrainedModel):
             if input_ids.shape[-1] != 1:
                 for i in range(bs):
                     context_len = batch_valid_length[i]
-                    input_ids_list.append(input_ids[i][context_len - 1 : context_len])
+                    input_ids_list.append(input_ids[i][context_len - 1: context_len])
             if position_ids is None:
                 position_ids = batch_valid_length - 1
         if input_ids_list:

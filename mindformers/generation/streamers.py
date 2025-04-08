@@ -140,7 +140,7 @@ class TextStreamer(BaseStreamer):
             return text
         # After the symbol for a new line, we flush the cache.
         if text.endswith("\n"):
-            printable_text = text[self.print_len :]
+            printable_text = text[self.print_len:]
             self.token_cache = []
             self.print_len = 0
         # If the last token is a CJK character, we print the characters.
@@ -150,7 +150,7 @@ class TextStreamer(BaseStreamer):
         # Otherwise, prints until the last space char (simple heuristic to avoid printing incomplete words,
         # which may change with the subsequent token -- there are probably smarter ways to do this!)
         else:
-            printable_text = text[self.print_len : text.rfind(" ") + 1]
+            printable_text = text[self.print_len: text.rfind(" ") + 1]
             self.print_len += len(printable_text)
         return printable_text
 
@@ -159,7 +159,7 @@ class TextStreamer(BaseStreamer):
         # Flush the cache, if it exists
         if not self.batch_stream and self.token_cache:
             text = self.tokenizer.decode(self.token_cache, self.skip_special_tokens, **self.decode_kwargs)
-            printable_text = text[self.print_len :]
+            printable_text = text[self.print_len:]
         else:
             printable_text = ""
 
