@@ -178,7 +178,7 @@ moe_config:
   use_fused_ops_topkrouter: True
   shared_expert_num: 1
   routed_scaling_factor: 2.5
-  norm_topk_prob: False
+  norm_topk_prob: True
   first_k_dense_replace: 3
   moe_intermediate_size: 2048
   aux_loss_factors: [0.0001]
