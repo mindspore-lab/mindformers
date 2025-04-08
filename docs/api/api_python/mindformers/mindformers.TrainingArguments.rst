@@ -27,7 +27,7 @@ mindformers.TrainingArguments
         - **batch_size** (int, 可选) - 输入数据的batch size，如果设置了值，则会覆盖 `per_device_train_batch_size` 。默认值： ``None`` 。
         - **num_train_epochs** (float, 可选) - 训练任务的epoch总数。默认值： ``3.0`` 。
         - **sink_mode** (bool, 可选) - 是否直接下沉数据到设备端。默认值： ``True`` 。
-        - **sink_size** (int, 可选) - 训练或评估时，每一步下沉的数据量。默认值： ``2`` 。
+        - **sink_size** (int, 可选) - 训练或评估时，每一步下沉的数据量。此参数即将废弃。默认值： ``1`` 。
         - **gradient_accumulation_steps** (int, 可选) - 在执行反向传播前，累积梯度的步数。默认值： ``1`` 。
         - **mode** (int, 可选) - 运行模式，包括GRAPH_MODE(0)或者PYNATIVE_MODE(1)。默认值： ``0`` 。
         - **use_cpu** (bool, 可选) - 是否使用cpu。默认值： ``False`` 。
