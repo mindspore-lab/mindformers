@@ -869,7 +869,7 @@ class WhisperTokenizer(PreTrainedTokenizer):
         has_prompt = isinstance(token_ids, list) and token_ids and token_ids[0] == prompt_token_id
         if has_prompt:
             if decoder_start_token_id in token_ids:
-                return token_ids[token_ids.index(decoder_start_token_id) :]
+                return token_ids[token_ids.index(decoder_start_token_id):]
             return []
 
         return token_ids

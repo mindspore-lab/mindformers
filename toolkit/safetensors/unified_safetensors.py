@@ -27,6 +27,7 @@ from mindformers.tools.logger import logger
 from mindformers.tools.utils import str2bool
 from mindformers.version_control import check_safetensors_addition_param_support
 
+
 def unified_safetensors(src_dir, src_merge_strategy, output_dir, file_suffix, has_redundancy, filter_out_param_prefix,
                         max_process_num):
     """merge safetensors files."""

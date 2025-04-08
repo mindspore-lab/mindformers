@@ -396,11 +396,11 @@ def get_forward_backward_func(network_with_loss, params, training_config, model_
 
                 # slice inputs over batch size dimension
                 inputs_tuple_micro = [
-                    input_data[idx * micro_batch_size : (idx + 1) * micro_batch_size]
+                    input_data[idx * micro_batch_size: (idx + 1) * micro_batch_size]
                     for input_data in inputs_tuple
                 ]
                 inputs_dict_micro = {
-                    key: value[idx * micro_batch_size : (idx + 1) * micro_batch_size]
+                    key: value[idx * micro_batch_size: (idx + 1) * micro_batch_size]
                     for key, value in inputs_dict.items()
                 }
 

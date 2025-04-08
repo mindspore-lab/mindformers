@@ -22,6 +22,7 @@ from mindspore import nn, Parameter
 from mindspore.common.initializer import initializer
 from mindformers.experimental.infer.core.utils import create_empty_parameter
 
+
 class ParallelPagedAttentionMgr(nn.Cell):
     """Paged Attention Manager."""
     def __init__(self,

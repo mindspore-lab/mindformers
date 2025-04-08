@@ -429,9 +429,11 @@ def check_delay_initialization_support():
     """check mindspore version if use delay initialization"""
     return is_version_ge(ms.__version__, "2.4.10")
 
+
 def check_safetensors_addition_param_support():
     """check mindspore version if support safetensors name map and unify with choice func/max proc num"""
     return is_version_ge(ms.__version__, "2.6.0")
+
 
 def is_dump_supported():
     """Check if the dump feature is supported based on the MindSpore version."""

@@ -342,7 +342,7 @@ class ScatterToSequenceParallelRegion(nn.Cell):
         local_dim_size = dim_size // self.world_size
 
         dim_offset = self.rank * local_dim_size
-        output = input_[dim_offset : dim_offset + local_dim_size].contiguous()
+        output = input_[dim_offset: dim_offset + local_dim_size].contiguous()
 
         if self.need_to_swapaxes:
             output = output.swapaxes(0, 1)
@@ -401,7 +401,7 @@ class GatherFromSequenceParallelRegion(nn.Cell):
             local_dim_size = dim_size // self.world_size
 
             dim_offset = self.rank * local_dim_size
-            output = dout[dim_offset : dim_offset + local_dim_size].contiguous()
+            output = dout[dim_offset: dim_offset + local_dim_size].contiguous()
 
         if self.need_to_swapaxes:
             output = output.swapaxes(0, 1)
