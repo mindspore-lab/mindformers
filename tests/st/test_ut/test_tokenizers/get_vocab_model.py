@@ -16,7 +16,6 @@
 import os
 import shutil
 import json
-import gzip
 import tokenizers
 from tokenizers import (
     AddedToken,
@@ -164,22 +163,13 @@ def get_bbpe_vocab_model(model_type, model_path):
                 all_json["model"]["merges"] = [" ".join(item) if isinstance(item, list) else item \
                                                for item in all_json["model"]["merges"]]
                 w.write(json.dumps(all_json))
-            if model_type == "gpt":
+            if model_type in ("gpt", "qwen2", "qwen2_5"):
                 vocab_json_path = os.path.join(model_path, f"{model_type}_vocab.json")
                 merges_path = os.path.join(model_path, f"{model_type}_merges.txt")
                 with open(vocab_json_path, "w") as w_json, \
                         open(merges_path, "w") as w_merges:
                     w_json.write(json.dumps(all_json["model"]["vocab"]))
                     w_merges.write("\n".join(all_json["model"]["merges"]))
-            if model_type == "clip":
-                vocabtxt_path = os.path.join(model_path, f"bpe_simple_vocab_16e6.txt")
-                with open(vocabtxt_path, "w") as w_merges:
-                    w_merges.write("\n".join(all_json["model"]["merges"]))
-                gzip_path = os.path.join(model_path, f"bpe_simple_vocab_16e6.txt.gz")
-                # 使用gzip打开目标文件，并使用shutil.copyfileobj复制内容
-                with gzip.open(gzip_path, 'wb') as gz_file:
-                    with open(vocabtxt_path, 'rb') as f:
-                        shutil.copyfileobj(f, gz_file)
             retry = False
             success_sig = True
         # pylint: disable=W0703
@@ -194,13 +184,6 @@ def get_bbpe_vocab_model(model_type, model_path):
                     shutil.rmtree(vocab_path)
                 if os.path.exists(merges_path):
                     shutil.rmtree(merges_path)
-            if model_type == "clip":
-                vocabtxt_path = os.path.join(model_path, f"bpe_simple_vocab_16e6.txt")
-                gzip_path = os.path.join(model_path, f"bpe_simple_vocab_16e6.txt.gz")
-                if os.path.exists(vocabtxt_path):
-                    shutil.rmtree(vocabtxt_path)
-                if os.path.exists(gzip_path):
-                    shutil.rmtree(gzip_path)
             print(f"{model_type} tokenizer model initialize failed, due to \"{e}\".")
             if count >= 3:
                 retry = False
