@@ -17,7 +17,6 @@
 transform huggingface model to mindspore ckpt.
 """
 
-import os
 import argparse
 import mindspore as ms
 
@@ -61,11 +60,11 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
 
     try:
         model_hf = Qwen2ForCausalLM.from_pretrained(
-            os.path.dirname(input_path))
+            input_path)
     # pylint: disable=W0703
     except Exception as e:
         print(
-            f"Do not find huggingface checkpoint in '{os.path.dirname(input_path)}', Error {e.message}.", flush=True)
+            f"Do not find huggingface checkpoint in '{input_path}', Error {e.message}.", flush=True)
         return False
     ckpt_list = []
     for name, value in model_hf.state_dict().items():
