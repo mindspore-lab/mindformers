@@ -34,10 +34,13 @@ from mindformers.trainer.config_args import (
     MFContextConfig,
     ParallelContextConfig,
 )
-from mindformers.tools.utils import is_version_ge
 from mindformers.trainer.training_args import TrainingArguments
 from mindformers.utils import get_cann_workqueue_cores
-from mindformers.version_control import check_cpu_affinity_valid, check_tft_valid
+from mindformers.version_control import (
+    check_cpu_affinity_valid,
+    check_tft_valid,
+    set_ms_deterministic
+)
 
 
 class Context:
@@ -257,18 +260,7 @@ class MFContextOperator(MFContextConfig):
     def _call_ms_deterministic(self, deterministic):
         """Call mindspore set_deterministic function and handle result."""
         try:
-            if is_version_ge(ms.__version__, '2.5.0'):
-                logger.debug("The version of MindSpore is %s, "
-                             "set deterministic compution by set_deterministic()",
-                             ms.__version__)
-                ms.set_deterministic(deterministic)
-            else:
-                deterministic_switch = 'ON' if deterministic else 'OFF'
-                logger.debug("The version of MindSpore is %s, "
-                             "set deterministic compution by set_context()",
-                             ms.__version__)
-                ms.set_context(deterministic=deterministic_switch)
-
+            set_ms_deterministic(deterministic)
             ms_deterministic = self.config.get_value('context.deterministic')
             if ms_deterministic is not None:
                 self.config.context.pop('deterministic')
