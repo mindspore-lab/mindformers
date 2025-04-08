@@ -36,7 +36,6 @@ reversed_dtype_map = {
 convert_map = {
     'llama': 'mindformers.models.llama.convert_weight.convert_pt_to_ms',
     'qwen2_5': 'research.qwen2_5.convert_weight.convert_weight',
-    'glm': 'mindformers.models.glm.convert_weight.convert_pt_to_ms',
     'glm-n': 'mindformers.models.glm2.convert_weight.convert_pt_to_ms',
     'internlm2': 'research.internlm2.convert_weight.convert_pt_to_ms',
     'gpt': 'mindformers.models.gpt2.convert_weight.convert_pt_to_ms',
@@ -61,7 +60,6 @@ convert_map = {
 }
 reversed_convert_map = {
     'llama': 'mindformers.models.llama.convert_reversed.convert_ms_to_pt',
-    'glm': 'mindformers.models.glm.convert_reversed.convert_ms_to_pt',
     'glm-n': 'mindformers.models.glm2.convert_reversed.convert_ms_to_pt',
     'internlm2': 'research.internlm2.convert_reversed.convert_ms_to_pt',
     'gpt': 'mindformers.models.gpt2.convert_reversed.convert_ms_to_pt',

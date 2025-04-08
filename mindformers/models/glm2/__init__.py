@@ -22,8 +22,10 @@ from .glm2 import (
     ChatGLM2Model,
     ChatGLM2WithPtuning2
 )
+from .glm_processor import GLMProcessor
 
 __all__ = ['ChatGLM2ForConditionalGeneration']
 __all__.extend(glm2_config.__all__)
 __all__.extend(glm3_tokenizer.__all__)
 __all__.extend(glm4_tokenizer.__all__)
+__all__.extend(glm_processor.__all__)
