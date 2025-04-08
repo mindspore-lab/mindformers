@@ -151,7 +151,7 @@ def convert_megatron_to_ms(input_path, output_path, dtype=None, **kwargs):
         megatron_ckpt = torch.load(input_path, map_location='cpu')
     # pylint: disable=W0703
     except Exception as e:
-        print(f"Fail to load meagtron checkpoint '{os.path.dirname(input_path)}', Error {e.message}.", flush=True)
+        print(f"Fail to load megatron checkpoint '{input_path}', Error {e.message}.", flush=True)
         return False
 
     megatron_keys = flatten_dict(megatron_ckpt.get('model'))
@@ -196,10 +196,10 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     except Exception as e:
         raise RuntimeError("Unexpected error occurred when loading Hugging Face checkpoint.") from e
     try:
-        model_hf = LlamaForCausalLM.from_pretrained(os.path.dirname(input_path))
+        model_hf = LlamaForCausalLM.from_pretrained(input_path)
     # pylint: disable=W0703
     except Exception as e:
-        print(f"Do not find huggingface checkpoint in '{os.path.dirname(input_path)}', Error {e.message}.", flush=True)
+        print(f"Do not find huggingface checkpoint in '{input_path}', Error {e.message}.", flush=True)
         return False
     ckpt_list = []
     for name, value in model_hf.state_dict().items():

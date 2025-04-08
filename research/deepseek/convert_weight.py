@@ -18,7 +18,6 @@ transform huggingface model to mindspore ckpt.
 """
 
 import argparse
-import os
 
 import mindspore as ms
 from transformers import LlamaForCausalLM
@@ -48,7 +47,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     convert pt tp ms
     """
     print(f"Trying to convert mindspore checkpoint in {input_path}.")
-    model_hf = LlamaForCausalLM.from_pretrained(os.path.dirname(input_path))
+    model_hf = LlamaForCausalLM.from_pretrained(input_path)
     ckpt_list = []
     for name, value in model_hf.state_dict().items():
         name = name_replace(name)

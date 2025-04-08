@@ -51,12 +51,12 @@ def convert_pt_to_ms(input_path, output_path, num_routed_experts=160, dtype=ms.b
     """convert hf weight to ms."""
     print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
     try:
-        model_hf = AutoModelForCausalLM.from_pretrained(os.path.dirname(input_path), device_map="cpu",
+        model_hf = AutoModelForCausalLM.from_pretrained(input_path, device_map="cpu",
                                                         torch_dtype=torch.bfloat16, attn_implementation="eager")
         model_hf = model_hf.to('cpu')
     # pylint: disable=W0703
     except Exception as e:
-        print(f"Do not find huggingface checkpoint in '{os.path.dirname(input_path)}', Error {e.message}.", flush=True)
+        print(f"Do not find huggingface checkpoint in '{input_path}', Error {e.message}.", flush=True)
         return False
 
     ckpt_list = []

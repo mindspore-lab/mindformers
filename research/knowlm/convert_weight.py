@@ -49,8 +49,7 @@ def name_replace(name: str):
 # pylint: disable=W0613
 def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert hf weight to ms."""
-    ckpt_dir = os.path.dirname(input_path)
-    print(f"Trying to convert huggingface checkpoint in '{ckpt_dir}'.", flush=True)
+    print(f"Trying to convert huggingface checkpoint in '{input_path}'.", flush=True)
     try:
         from transformers import LlamaForCausalLM
     except ImportError as e:
@@ -61,8 +60,8 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     except Exception as e:
         raise RuntimeError("Unexpected error occurred when importing HuggingFace `transformers` library.") from e
     try:
-        model_hf = LlamaForCausalLM.from_pretrained(ckpt_dir)
-        args_hf = read_json(os.path.join(ckpt_dir, "config.json"))
+        model_hf = LlamaForCausalLM.from_pretrained(input_path)
+        args_hf = read_json(os.path.join(input_path, "config.json"))
         print(args_hf)
     # pylint: disable=W0703
     except Exception as e:
