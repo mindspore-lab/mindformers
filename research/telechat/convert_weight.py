@@ -62,10 +62,9 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
     """convert hf weight to ms"""
     telechat_type = kwargs.pop("telechat_type", "telechat_12b")
     state_dict = {}
-    torch_dir = os.path.dirname(input_path)
-    for file_name in os.listdir(torch_dir):
+    for file_name in os.listdir(input_path):
         if file_name.startswith("pytorch_model") and file_name.endswith(".bin"):
-            file_name = os.path.join(torch_dir, file_name)
+            file_name = os.path.join(input_path, file_name)
             state_dict.update(torch.load(file_name, map_location='cpu'))
 
     ms_params = []
