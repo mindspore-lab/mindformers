@@ -563,7 +563,7 @@ class SLoraAdapter(abc.ABC):
             if wrap_lora:
                 logger.info(f"Apply LoRA to {cell_name}.")
                 new_cell = wrap_lora(cell, self.slora_inputs, self.slora_config)
-                if isinstance(new_cell, SLoraEmbedding):
+                if isinstance(new_cell, SLoraEmbedding) and hasattr(new_cell.gather, 'in_strategy'):
                     new_cell.shard()
                 elif hasattr(new_cell, 'matmul') and hasattr(new_cell.matmul, 'in_strategy'):
                     new_cell.shard()
