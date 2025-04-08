@@ -46,7 +46,7 @@ from mindformers.modules.transformer.moe import default_moe_config
 from mindformers.version_control import check_moveto_op_support
 
 if check_moveto_op_support():
-    D2H = ops.gen_ops_prim.MoveTo().add_prim_attr("recompute", False)
+    D2H = ops.MoveTo().add_prim_attr("recompute", False)
 
 
 class MoEV3(Cell):
