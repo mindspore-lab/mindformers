@@ -227,13 +227,19 @@ class _LogSoftmax(nn.Cell):
         self.on_value = Tensor(1.0, mstype.float32)
         self.off_value = Tensor(0.0, mstype.float32)
 
-        self.sum = P.ReduceSum(keep_dims=True).shard(((dp, mp),))
-        self.max = P.ReduceMax(keep_dims=True).shard(
-            ((dp, mp),))
-        self.sub = P.Sub().shard(((dp, mp), (dp, 1)))
-        self.exp = P.Exp().shard(((dp, mp),))
-        self.log = P.Log().shard(((dp, 1),))
-        self.onehot = P.OneHot().shard(((dp, mp), (), ()))
+        self.sum = P.ReduceSum(keep_dims=True)
+        self.max = P.ReduceMax(keep_dims=True)
+        self.sub = P.Sub()
+        self.exp = P.Exp()
+        self.log = P.Log()
+        self.onehot = P.OneHot()
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
+            self.sum.shard(((dp, mp),))
+            self.max.shard(((dp, mp),))
+            self.sub.shard(((dp, mp), (dp, 1)))
+            self.exp.shard(((dp, mp),))
+            self.log.shard(((dp, 1),))
+            self.onehot.shard(((dp, mp), (), ()))
 
     def construct(self, logits, label):
         """Forward process"""
@@ -277,13 +283,16 @@ class _NLLLoss(nn.Cell):
         self.repeat_loss = 1
         self.gather_d = P.GatherD()
         self.expand_dims = P.ExpandDims()
+        self.sum = P.ReduceSum()
+        self.mul = P.Mul()
+        self.neg = P.Neg()
         # In auto parallel, there will be a virtual div in the back propagation begins. As we use custom bprop function
         # we need to eliminate this virtual div by adding a factor "mp".
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             self.repeat_loss = mp
-        self.sum = P.ReduceSum().shard(((dp, mp),))
-        self.mul = P.Mul().shard(((dp, mp), (dp, mp)))
-        self.neg = P.Neg().shard(((dp, mp),))
+            self.sum.shard(((dp, mp),))
+            self.mul.shard(((dp, mp), (dp, mp)))
+            self.neg.shard(((dp, mp),))
 
     def construct(self, log_softmax_result, one_hot_label):
         """Forward process"""
@@ -396,16 +405,19 @@ class CrossEntropyLoss(nn.Cell):
         self.seq_pipe = seq_split_num > 1
         self.kwargs = kwargs
         self.enable_force_redistribute = False
+        self.sum2 = P.ReduceSum()
+        self.mul2 = P.Mul()
+        self.relu = P.ReLU()
         if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             self.enable_force_redistribute = True
             self.add = P.Add().shard(((dp, mp), ())).add_prim_attr("keep_alive", True)
             self.add_label = P.Add().shard(((dp,), ())).add_prim_attr("keep_alive", True)
             self._check_and_modify_sharding_context(dp)
-        self.sum2 = P.ReduceSum().shard(((1,),))
-        self.mul2 = P.Mul().shard(((1,), (1,)))
+            self.sum2.shard(((1,),))
+            self.mul2.shard(((1,), (1,)))
+            self.relu.shard(((1,),))
         self.add2 = P.Add()
         self.div2 = P.RealDiv()
-        self.relu = P.ReLU().shard(((1,),))
         self.monitor_local_loss = check_for_nan_in_loss_and_grad
         self.monitor_device_local_loss = monitor_device_local_loss
         if self.monitor_device_local_loss:
