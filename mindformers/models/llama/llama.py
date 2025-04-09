@@ -286,7 +286,7 @@ class LlamaModel(LlamaPreTrainedModel):
                 self.norm_out.shard((dp * cp, 1))
             else:
                 self.norm_out.shard((dp, cp, 1))
-        elif _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+        elif _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             self.tok_embeddings.shard(config.parallel_config)
             self.casual_mask.shard(config.parallel_config)
             self.concat.shard(((dp, 1, 1, 1), (dp, 1, 1, 1)))
@@ -540,7 +540,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (1, 1)))
             else:
                 self.lm_head.shard(strategy_matmul=((dp * cp, 1), (mp, 1)))
-        elif _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+        elif _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             self.slice.shard(((dp, 1),))
             self.not_equal.shard(((dp, 1), ()))
             self.mul.shard(((dp, 1), (dp, 1)))
