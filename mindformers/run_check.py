@@ -334,15 +334,8 @@ class VersionCheck(BaseCheck):
             recommend_version_dict = self.get_recommend_versions(mf_version, self.version_mapping)
 
             # version matched
-            ms_version_is_valid = \
-                ms_version == recommend_version_dict['ms_version'] \
-                or ms_version in self.version_mapping['mf'][mf_version]['support']
-            cann_version_is_valid = cann_version == self.version_mapping['ms'][ms_version]['prefer']
-            driver_version_is_valid = driver_version == self.version_mapping['cann'][cann_version]['prefer']
             if recommend_version_dict['is_mf_version_in_record'] \
-                    and ms_version_is_valid \
-                    and cann_version_is_valid \
-                    and driver_version_is_valid:
+                    and self.version_match_check(ms_version, cann_version, driver_version, recommend_version_dict):
                 self._print_matched_logs(end)
 
             # version unmatched
@@ -354,6 +347,14 @@ class VersionCheck(BaseCheck):
                     recommend_version_dict['cann_version'],
                     recommend_version_dict['driver_version']
                 )
+
+    def version_match_check(self, ms_version, cann_version, driver_version, recommend_version_dict):
+        ms_version_is_valid = \
+            ms_version == recommend_version_dict['ms_version'] \
+            or ms_version in self.version_mapping['mf'][mf.__version__]['support']
+        cann_version_is_valid = cann_version == self.version_mapping['ms'][ms_version]['prefer']
+        driver_version_is_valid = driver_version == self.version_mapping['cann'][cann_version]['prefer']
+        return ms_version_is_valid and cann_version_is_valid and driver_version_is_valid
 
 
 def run_check():

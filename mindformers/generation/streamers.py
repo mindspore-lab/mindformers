@@ -145,7 +145,7 @@ class TextStreamer(BaseStreamer):
             self.print_len = 0
         # If the last token is a CJK character, we print the characters.
         elif text and self._is_chinese_char(ord(text[-1])):
-            printable_text = text[self.print_len :]
+            printable_text = text[self.print_len:]
             self.print_len += len(printable_text)
         # Otherwise, prints until the last space char (simple heuristic to avoid printing incomplete words,
         # which may change with the subsequent token -- there are probably smarter ways to do this!)
