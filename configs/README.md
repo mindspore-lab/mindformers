@@ -91,7 +91,7 @@ configs统一在run_xxx.yaml中，排序按照修改频率的顺序和一般的�
     - use_fused_ops_permute: 是否使用permute，unpermute融合算子进行性能加速，仅在use_gmm=True时生效。
     - enable_deredundency: 是否开启去冗余通信，要求专家并行数是每个节点中npu卡数量的整数倍，当use_gmm为True时生效。
     - npu_nums_per_device: 每个节点中npu卡的数量，当enable_deredundency=True时生效。
-    - enable_gmm_safe_tokens: 保证每个专家至少分配1个tokens，避免极度负载不均衡情况下，GroupedMatmul计算失败。该参数开启后会导致训练性能轻微劣化，建议预训练前期开启，训练至负载均衡后断点续训时可关闭。
+    - enable_gmm_safe_tokens: 保证每个专家至少分配1个tokens，避免极度负载不均衡情况下，GroupedMatmul计算失败。当use_gmm=True时，建议开启。
 - recompute_config：重计算配置，可以参考mindformers.modules.transformer.TransformerRecomputeConfig
     - recompute: 是否开启重计算
     - select_recompute: 是否开启选择重计算，只针对attention层的算子进行重计算
