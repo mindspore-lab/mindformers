@@ -241,7 +241,7 @@ class LLamaAttention(nn.Cell):
                                 param_init_type=param_init_type)
             self.split_qkv = ms.ops.auto_generate.SplitWithSize()
             self.split_qkv.add_prim_attr("skip_redistribution", True)
-            if _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
                 if qkv_has_bias:
                     if use_3d_tensor_parallel:
                         self.w_qkv.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
@@ -278,7 +278,7 @@ class LLamaAttention(nn.Cell):
                              has_bias=qkv_has_bias,
                              compute_dtype=compute_dtype,
                              param_init_type=param_init_type)
-            if _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
                 if qkv_has_bias:
                     if use_3d_tensor_parallel:
                         self.wq.shard((layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("y", ("x", "z"))),
@@ -309,7 +309,7 @@ class LLamaAttention(nn.Cell):
                          has_bias=attn_proj_has_bias,
                          compute_dtype=compute_dtype,
                          param_init_type=param_init_type)
-        if _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             if use_3d_tensor_parallel:
                 self.wo.shard((layout_ndtp(("dp", "cp", "z", "x"), "y"), layout_ndtp("x", ("y", "z"))), \
                               (layout_ndtp(("dp", "cp", "z", "y"), "x"), layout_ndtp("x")), enable_nd_tp=True)
@@ -335,7 +335,7 @@ class LLamaAttention(nn.Cell):
                                                   parallel_decoding=parallel_decoding,
                                                   chunk_prefill=chunk_prefill,
                                                   )
-            if _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+            if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
                 self.infer_attention.shard(parallel_config)
         else:
             self.inv_norm_factor = Tensor(1.0 / math.sqrt(self.head_dim), dtype=compute_dtype)
@@ -373,7 +373,7 @@ class LLamaAttention(nn.Cell):
                 self.batch_matmul_q_k.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
                 self.batch_matmul.shard(((dp, mp, 1, 1), (dp, mp, 1, 1)))
                 self.apply_rotary_emb.shard(parallel_config)
-            elif _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+            elif _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
                 if use_3d_tensor_parallel:
                     self.transpose.shard((layout_ndtp("dp", ("cp", "z", "x"), "y", "None"),))
                 else:
@@ -443,7 +443,7 @@ class LLamaAttention(nn.Cell):
                                                       tp_x=tp_x,
                                                       tp_y=tp_y,
                                                       tp_z=tp_z)
-                if _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+                if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
                     self.flash_attention.shard(parallel_config)
 
     def _ulysses_initial(self):
@@ -976,7 +976,7 @@ class LLamaDecodeLayer(nn.Cell):
         dp = parallel_config.data_parallel
         mp = parallel_config.model_parallel
         cp = parallel_config.context_parallel
-        if _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             if use_3d_tensor_parallel:
                 layout_ndtp = Layout((dp, cp, tp_z, tp_x, tp_y), ("dp", "cp", "z", "x", "y"))
             if self.expert_num == 1:
@@ -1004,7 +1004,7 @@ class LLamaDecodeLayer(nn.Cell):
                 self.ffn_norm.shard((dp, 1, 1))
 
         if (moe_config is None or not moe_config.expert_num > 1) \
-                and _get_parallel_mode() == ParallelMode.SEMI_AUTO_PARALLEL:
+                and _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
             if not rmsnorm_compute_2d:
                 if use_3d_tensor_parallel:
                     self.feed_forward.mul.shard((layout_ndtp("dp", ("cp", "z", "x"), "y"),
