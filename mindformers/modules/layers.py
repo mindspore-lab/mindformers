@@ -1274,9 +1274,13 @@ class FreqsMgr(Cell):
         self.swap_mask = Tensor(swap_mask, dtype=rotary_dtype)
 
         self.reshape = P.Reshape()
-        self.slice = P.StridedSlice().shard(((1, 1),))
-        self.gather = P.Gather().shard(((1, 1), (1,)))
-        self.tile = P.Tile().shard(((1, 1),))
+        self.slice = P.StridedSlice()
+        self.gather = P.Gather()
+        self.tile = P.Tile()
+        if _get_parallel_mode() in (ParallelMode.AUTO_PARALLEL, ParallelMode.SEMI_AUTO_PARALLEL):
+            self.slice.shard(((1, 1),))
+            self.gather.shard(((1, 1), (1,)))
+            self.tile.shard(((1, 1),))
         self.seq_pipe = parallel_config and parallel_config.seq_split_num and parallel_config.seq_split_num > 1 \
                         and not limit_not_apply_seq_pipe
         if self.seq_pipe:
