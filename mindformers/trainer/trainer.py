@@ -1127,17 +1127,19 @@ class Trainer:
             sink_size = self.config.runner_config.sink_size
             sink_mode = self.config.runner_config.sink_mode
             if sink_mode:
+                logger.warning("sink_size will be deprecated in a future release. Setting sink_size may cause "
+                               "accuracy errors and functional issues")
                 if self.config.profile_start_step % sink_size != 0:
                     self.config.profile_start_step -= self.config.profile_start_step % sink_size
                     self.config.profile_start_step = max(self.config.profile_start_step, sink_size)
-                    logger.warning("profile_start_step should divided by sink_size, \
-                        set profile_start_step to %s", self.config.profile_start_step)
+                    logger.warning(f"profile_start_step should divided by sink_size, "
+                                   f"set profile_start_step to {self.config.profile_start_step}")
                 if self.config.profile_stop_step % sink_size != 0:
                     self.config.profile_stop_step += self.config.profile_stop_step % sink_size
                     self.config.profile_stop_step = max(self.config.profile_stop_step, \
                                                         self.config.profile_start_step + sink_size)
-                    logger.warning("profile_stop_step should divided by sink_size, \
-                        set profile_stop_step to %s", self.config.profile_stop_step)
+                    logger.warning(f"profile_stop_step should divided by sink_size, "
+                                   f"set profile_stop_step to {self.config.profile_stop_step}")
 
             start_profile = self.config.init_start_profile
             profile_communication = self.config.profile_communication
@@ -1410,8 +1412,8 @@ class Trainer:
                     if self.model_name in list(MindFormerBook().get_model_name_support_list_for_task(task)):
                         task_name_support_list.append(task)
                 task_name_support_list.sort()
-                raise ValueError(f"The `task` is needed, \
-                    please select an appropriate task from {task_name_support_list}.")
+                raise ValueError(f"The `task` is needed, "
+                                 f"please select an appropriate task from {task_name_support_list}.")
             if self.args is None:
                 if self.is_model_instance:
                     # only model instance is defined, need train args.

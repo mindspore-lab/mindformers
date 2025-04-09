@@ -114,7 +114,7 @@ class TrainingArguments:
         sink_mode (bool, optional):
             Whether to directly sink data to the Device through a channel. Default: ``True``.
         sink_size (int, optional):
-            The data sink number per step for training or evaluation. Default: ``2``.
+            The data sink number per step for training or evaluation. Default: ``1``.
         gradient_accumulation_steps (int, optional):
             Number of steps to accumulate before performing a backward pass. Default: ``1``.
         mode (int, optional):
@@ -534,8 +534,8 @@ class TrainingArguments:
         metadata={"help": "Whether to directly sink data to the Device through a channel. Default: True."}
     )
     sink_size: int = field(
-        default=2,
-        metadata={"help": "The data sink number per step for training or evaluation. Default: 2."}
+        default=1,
+        metadata={"help": "The data sink number per step for training or evaluation. Default: 1."}
     )
     gradient_accumulation_steps: int = field(
         default=1,

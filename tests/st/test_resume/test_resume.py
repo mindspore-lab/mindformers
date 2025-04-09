@@ -95,5 +95,5 @@ def test_resume_train_from_instance():
     trainer.train(resume_from_checkpoint=os.path.join(f"{cur_dir}/resume_ckpt", "checkpoint"),
                   resume_training=True)
     loss = extract_loss_values(f"output/log/rank_0/info.log")
-    assert abs(loss[-4] - loss[-2]) < 0.005
-    assert abs(loss[-3] - loss[-1]) < 0.005
+    assert abs(loss[-4] - loss[-8]) < 0.005
+    assert abs(loss[-3] - loss[-7]) < 0.005
