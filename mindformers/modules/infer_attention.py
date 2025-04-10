@@ -24,6 +24,7 @@ from mindspore.ops import operations as P
 from mindformers.modules import PagedAttentionMgr
 from mindformers.modules.flash_attention import FlashAttention
 from mindformers.version_control import need_nz
+from mindformers.tools.utils import is_pynative
 
 
 class InferRotaryEmbedding(Cell):
@@ -264,7 +265,7 @@ class InferAttention(Cell):
             self.add_alibi = P.Add()
         self.use_attention_mask = True
         self.is_dynamic = is_dynamic
-        if self.is_dynamic:
+        if self.is_dynamic and not is_pynative():
             self.input_layout = "TH"
             self.use_attention_mask = not self.use_alibi_mask
         else:
