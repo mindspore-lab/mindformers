@@ -37,6 +37,7 @@ from mindformers.modules.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode
+from mindformers.version_control import check_seqpp_fa_opt_support
 
 from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm
@@ -113,9 +114,13 @@ class LlamaModel(LlamaPreTrainedModel):
             dp = config.parallel_config.data_parallel
             if self.use_ring_attention:
                 raise ValueError(f"When the seq_pipe = True, the use_ring_attention cannot be True.")
-            if config.use_attn_mask_compression or config.use_eod_attn_mask_compression:
+            if config.use_attn_mask_compression and not check_seqpp_fa_opt_support():
                 raise ValueError(f"Currently, when the seq_pipe = True, "
-                                 f"both use_attn_mask_compression and use_eod_attn_mask_compression cannot be True.")
+                                 f"use_attn_mask_compress must be False with mindspore < 2.6.0. "
+                                 f"If you want to enable it, please upgrade mindspore to 2.6.0 or later.")
+            if config.use_eod_attn_mask_compression:
+                raise ValueError(f"Currently, when the seq_pipe = True, "
+                                 f"use_eod_attn_mask_compression cannot be True.")
             self.n_kv_head = self.n_head if config.n_kv_heads is None else config.n_kv_heads
             kv_shape = (config.batch_size * dp, self.n_kv_head, config.seq_length, self.head_dim)
             self.zeros = initializer('zeros', kv_shape, dtype=self.dtype)
