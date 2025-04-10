@@ -1184,9 +1184,11 @@ class FreqsMgr(Cell):
                  extend_method=SeqExtendMethod.NONE.value,
                  parallel_config=None,
                  is_dynamic=False,
-                 limit_not_apply_seq_pipe=False):
+                 limit_not_apply_seq_pipe=False,
+                 use_tnd_layout=False):
         super().__init__()
         self.is_pynative = is_pynative()
+        self.use_tnd_layout = use_tnd_layout
         if seq_length is not None and seq_length > max_position_embedding:
             max_position_embedding = seq_length
         if extend_method == SeqExtendMethod.NTK.value:
@@ -1299,8 +1301,12 @@ class FreqsMgr(Cell):
         else:
             freqs_cos = self.slice(self.freqs_cos, (0, 0), (seq_length, self.head_dim), (1, 1))
             freqs_sin = self.slice(self.freqs_sin, (0, 0), (seq_length, self.head_dim), (1, 1))
-        freqs_cos = self.reshape(freqs_cos, (-1, 1, seq_length, self.head_dim))
-        freqs_sin = self.reshape(freqs_sin, (-1, 1, seq_length, self.head_dim))
+        if self.use_tnd_layout:
+            freqs_cos = self.reshape(freqs_cos, (-1, 1, self.head_dim))
+            freqs_sin = self.reshape(freqs_sin, (-1, 1, self.head_dim))
+        else:
+            freqs_cos = self.reshape(freqs_cos, (-1, 1, seq_length, self.head_dim))
+            freqs_sin = self.reshape(freqs_sin, (-1, 1, seq_length, self.head_dim))
         return freqs_cos, freqs_sin, self.swap_mask
 
     def prefill(self, bs, seq_length):
@@ -1486,7 +1492,8 @@ class RotaryEmbedding(Cell):
                  use_3d_tensor_parallel=False,
                  tp_x=1,
                  tp_y=1,
-                 tp_z=1):
+                 tp_z=1,
+                 use_tnd_layout=False):
         super().__init__(auto_prefix=False)
         self.half_head_dim = head_dim // 2
         self.head_dim = head_dim
@@ -1494,6 +1501,7 @@ class RotaryEmbedding(Cell):
         self.use_rope_slice = use_rope_slice
         self.is_first_iteration = True
         self.use_3d_tensor_parallel = use_3d_tensor_parallel
+        self.use_tnd_layout = use_tnd_layout
         self.tp_x = tp_x
         self.tp_y = tp_y
         self.tp_z = tp_z
@@ -1507,6 +1515,7 @@ class RotaryEmbedding(Cell):
         self.concat = P.Concat(axis=-1)
         self.shape = P.Shape()
         self.cast = P.Cast()
+        self.tile = P.Tile()
 
     def rotate_half(self, x, swap_mask):
         # [bs, n_head/n_kv_head, seq/1, head_dim], [head_dim, head_dim]
@@ -1528,6 +1537,10 @@ class RotaryEmbedding(Cell):
         # xq, xk: [bs, n_head/n_kv_head, seq/1, head_dim]
         freqs_cos, freqs_sin, swap_mask = freqs_cis
 
+        if self.use_tnd_layout and self.shape(freqs_cos)[0] < self.shape(xq)[0]:
+            bs = self.shape(xq)[0] // self.shape(freqs_cos)[0]
+            freqs_cos = self.tile(freqs_cos, (bs, 1, 1))
+            freqs_sin = self.tile(freqs_sin, (bs, 1, 1))
         if freqs_cos.shape[0] > 1:
             mul = self.mul_with_batch_freqs
         else:
@@ -1570,21 +1583,29 @@ class RotaryEmbedding(Cell):
             self.slice.shard((strategy_in,))
             self.concat.shard((strategy_in, strategy_in))
         else:
-            strategy_in = (dp, mp, 1, 1)
-            if cp > 1:
-                layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
-                layout_add = (layout("dp", "mp", "cp", "None"), layout("dp", "mp", "cp", "None"))
-                layout_bmm_swap = (layout("dp", "mp", "cp", "None"), layout("None", "None"))
-                layout_mul = (layout("dp", "mp", "cp", "None"), layout("None", "None", "cp", "None"))
-                self.add.shard(in_strategy=layout_add)
-                self.bmm_swap.shard(in_strategy=layout_bmm_swap)
-                self.mul.shard(in_strategy=layout_mul)
+            if self.use_tnd_layout:
+                strategy_in_tnd = (dp * cp, mp, 1)
+                self.mul_with_batch_freqs.shard((strategy_in_tnd, (dp * cp, 1, 1)))  # tnd  t,1,d
+                self.bmm_swap.shard((strategy_in_tnd, (1, 1)))
+                self.add.shard((strategy_in_tnd, strategy_in_tnd))
+                self.mul_inc.shard((strategy_in_tnd, (1, 1, 1)))
+                self.tile.shard(((1, 1, 1),))
             else:
-                self.add.shard((strategy_in, strategy_in))
-                self.bmm_swap.shard((strategy_in, (1, 1)))
-                self.mul.shard((strategy_in, (1, 1, 1, 1)))
-            self.mul_inc.shard((strategy_in, (strategy_in[0], 1, 1, 1)))  # allgather when cp > 1
-            self.mul_with_batch_freqs.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
-            self.neg.shard((strategy_in,))
-            self.slice.shard((strategy_in,))
-            self.concat.shard((strategy_in, strategy_in))
+                strategy_in = (dp, mp, 1, 1)
+                if cp > 1:
+                    layout = Layout((dp, cp, mp), ("dp", "cp", "mp"))
+                    layout_add = (layout("dp", "mp", "cp", "None"), layout("dp", "mp", "cp", "None"))
+                    layout_bmm_swap = (layout("dp", "mp", "cp", "None"), layout("None", "None"))
+                    layout_mul = (layout("dp", "mp", "cp", "None"), layout("None", "None", "cp", "None"))
+                    self.add.shard(in_strategy=layout_add)
+                    self.bmm_swap.shard(in_strategy=layout_bmm_swap)
+                    self.mul.shard(in_strategy=layout_mul)
+                else:
+                    self.add.shard((strategy_in, strategy_in))
+                    self.bmm_swap.shard((strategy_in, (1, 1)))
+                    self.mul.shard((strategy_in, (1, 1, 1, 1)))
+                self.mul_inc.shard((strategy_in, (strategy_in[0], 1, 1, 1)))  # allgather when cp > 1
+                self.mul_with_batch_freqs.shard((strategy_in, (strategy_in[0], 1, 1, 1)))
+                self.neg.shard((strategy_in,))
+                self.slice.shard((strategy_in,))
+                self.concat.shard((strategy_in, strategy_in))

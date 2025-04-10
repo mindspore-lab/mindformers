@@ -143,7 +143,7 @@ class LlamaModel(LlamaPreTrainedModel):
             self.assign_count = P.Assign()
             self.assign_mask = P.Assign().shard(((dp, 1), (dp, 1)))
             self.mask_zeros = Tensor(np.zeros((config.batch_size * dp, config.seq_length)), mstype.float32)
-
+        use_tnd_layout = self.use_eod_attn_mask_compression and not self.use_ring_attention
         self.freqs_mgr = FreqsMgr(head_dim=self.head_dim,
                                   seq_length=config.seq_length,
                                   max_position_embedding=config.max_position_embedding,
@@ -152,7 +152,8 @@ class LlamaModel(LlamaPreTrainedModel):
                                   scaling_factor=config.scaling_factor,
                                   extend_method=config.extend_method,
                                   parallel_config=config.parallel_config,
-                                  is_dynamic=config.is_dynamic)
+                                  is_dynamic=config.is_dynamic,
+                                  use_tnd_layout=use_tnd_layout)
         self.residual_cast_flag = config.residual_dtype != self.dtype
         if self.residual_cast_flag:
             logger.info(f"residual in llama model cast flag: {self.residual_cast_flag}, "
@@ -175,7 +176,8 @@ class LlamaModel(LlamaPreTrainedModel):
                                              init_method_std=config.init_method_std,
                                              param_init_type=config.embedding_init_type,
                                              parallel_optimizer=config.parallel_optimizer,
-                                             rmsnorm_compute_2d=config.rmsnorm_compute_2d)
+                                             rmsnorm_compute_2d=config.rmsnorm_compute_2d,
+                                             rl_config=self.rl_config)
         self.fine_grain_interleave = check_fine_grain_interleave_valid(config.fine_grain_interleave,
                                                                        config.parallel_config)
         self.use_3d_tensor_parallel = check_use_3d_tensor_parallel_valid(config)
