@@ -29,7 +29,7 @@ from mindformers.utils import deprecated
 __all__ = ['TextClassificationPipeline']
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="text_classification")
 class TextClassificationPipeline(Pipeline):
     """Pipeline for text classification

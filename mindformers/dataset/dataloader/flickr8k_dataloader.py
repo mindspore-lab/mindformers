@@ -24,7 +24,7 @@ from ...tools.image_tools import load_image
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
 class Flickr8kDataLoader:
     """Flicker8k Dataloader"""
@@ -102,7 +102,7 @@ class Flickr8kDataLoader:
         return GeneratorDataset(flick8k_dataset, column_names, **kwargs)
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 class Flickr8kDataSet:
     """Flickr8k DataSet"""
     def __init__(self, dataset_dir, annotation_dir, stage="train"):

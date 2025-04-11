@@ -178,7 +178,7 @@ class EntityScore(nn.Metric):
         return chunks
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.METRIC)
 class SQuADMetric(nn.Metric):
     r"""

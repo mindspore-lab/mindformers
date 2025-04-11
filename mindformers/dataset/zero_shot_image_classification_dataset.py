@@ -25,7 +25,7 @@ from ..tools.register import MindFormerRegister, MindFormerModuleType
 from ..models.build_tokenizer import build_tokenizer
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class ZeroShotImageClassificationDataset(BaseDataset):
     r"""
@@ -84,9 +84,6 @@ class ZeroShotImageClassificationDataset(BaseDataset):
         >>> # Initialize a MindFormerConfig instance with a specific config file of yaml.
         >>> config = MindFormerConfig(config_path)
         >>> config.eval_dataset.data_loader.dataset_dir = "The required task dataset path"
-        >>> # Note:
-        >>> #     The detailed data setting could refer to
-        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md
         >>> check_dataset_config(config)
         >>> # use class to build dataset
         >>> dataset_from_class = ZeroShotImageClassificationDataset(config.eval_dataset_task.dataset_config)

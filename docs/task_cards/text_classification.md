@@ -2,7 +2,7 @@
 
 > ## 🚨 弃用说明
 >
-> 本文档已过时，不再进行维护，并将在 *1.5.0* 版本下架，其中可能包含过时的信息或已被更新的功能替代。建议参考最新的 **[官方文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)** ，以获取准确的信息。
+> 本文档已过时，不再进行维护，并将在 *1.6.0* 版本下架，其中可能包含过时的信息或已被更新的功能替代。建议参考最新的 **[官方文档](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/index.html)** ，以获取准确的信息。
 >
 > 如果您仍需使用本文档中的内容，请仔细核对其适用性，并结合最新版本的相关资源进行验证。
 >
@@ -16,10 +16,10 @@
 
 ## 已支持数据集性能
 
-| model  |                            type                            | datasets |  Top1-accuracy  |           stage            |                                                                                                                             example                                                                                                                              |
-|:------:|:----------------------------------------------------------:|:--------:|:---------------:|:--------------------------:|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-|  bert  | txtcls_bert_base_uncased |   Mnli   | 30.9% |          pretrain          |                                                                                                                                --                                                                                                                                |
-| txtcls | txtcls_bert_case_uncased_mnli |   Mnli   | 84.8% | finetune<br>eval<br>predict | [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/text_classification/txtcls_bert_base_uncased_finetune_on_mnli.sh) <br> [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/text_classification/txtcls_bert_base_uncased_mnli_eval_on_mnli.sh) <br> [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/text_classification/txtcls_bert_base_uncased_mnli_predict_on_mnli.sh) |
+| model  |             type              | datasets | Top1-accuracy |            stage            | example |
+|:------:|:-----------------------------:|:--------:|:-------------:|:---------------------------:|:-------:|
+|  bert  |   txtcls_bert_base_uncased    |   Mnli   |     30.9%     |          pretrain           |    -    |
+| txtcls | txtcls_bert_case_uncased_mnli |   Mnli   |     84.8%     | finetune<br>eval<br>predict |    -    |
 
 ### [Mnli](https://dl.fbaipublicfiles.com/glue/data/MNLI.zip)
 

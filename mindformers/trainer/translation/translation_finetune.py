@@ -30,7 +30,7 @@ from ..config_args import ConfigArguments
 from ..training_args import TrainingArguments
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class TranslationTrainer(BaseTrainer):
     """

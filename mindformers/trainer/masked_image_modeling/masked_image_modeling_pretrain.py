@@ -35,7 +35,7 @@ from mindformers.tools.image_tools import load_image
 from mindformers.utils import deprecated
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class MaskedImageModelingTrainer(BaseTrainer):
     """

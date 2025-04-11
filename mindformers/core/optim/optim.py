@@ -149,7 +149,7 @@ def _check_param_value(beta1, beta2, eps, prim_name):
     validator.check_positive_float(eps, "eps", prim_name)
 
 
-@deprecated(reason="This API is rotten, use 'AdamW' instead.", version="1.5.0")
+@deprecated(reason="This API is rotten, use 'AdamW' instead.", version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
 class FusedAdamWeightDecay(Optimizer):
     """Implements the Adam algorithm to fix the weight decay. It is a complete operator, not a combination of other ops.
@@ -329,7 +329,7 @@ def clone_state(parameters, prefix, init):
     return ParameterTuple(new)
 
 
-@deprecated(reason="This API is rotten, use 'AdamW' instead.", version="1.5.0")
+@deprecated(reason="This API is rotten, use 'AdamW' instead.", version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.OPTIMIZER)
 class FP32StateAdamWeightDecay(nn.AdamWeightDecay):
     """This class is almost same with the mindspore's AdamWeightDecay implements, the

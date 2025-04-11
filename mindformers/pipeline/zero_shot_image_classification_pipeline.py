@@ -27,7 +27,7 @@ from mindformers.utils import deprecated
 from .base_pipeline import Pipeline
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="zero_shot_image_classification")
 class ZeroShotImageClassificationPipeline(Pipeline):
     """Pipeline For Zero Shot Image Classification

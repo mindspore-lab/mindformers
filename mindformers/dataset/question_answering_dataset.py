@@ -28,7 +28,7 @@ from .dataloader import build_dataset_loader
 from .base_dataset import BaseDataset
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class QuestionAnsweringDataset(BaseDataset):
     """
@@ -86,7 +86,7 @@ class QuestionAnsweringDataset(BaseDataset):
         >>> config.train_dataset.data_loader.dataset_dir = "The required task dataset path"
         >>> # Note:
         >>> #     The detailed data setting could refer to
-        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/task_cards/question_answering.md
+        >>> #     https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/task_cards/question_answering.md
         >>> check_dataset_config(config)
         >>> # use class to build dataset
         >>> dataset_from_class = QuestionAnsweringDataset(config.train_dataset_task.dataset_config)

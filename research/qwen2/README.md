@@ -164,13 +164,13 @@ dtype:               转换权重的精度
 config_path:         推理yaml文件路径
 ```
 
-- **[模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)**
+- **[模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html)**
 
   从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。
 
   通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)
+  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html)
 
 ## 微调
 
@@ -180,7 +180,7 @@ config_path:         推理yaml文件路径
 
 2. 运行下面的代码需要在`mindformers/`目录下，或者先将`mindformers/`目录所在路径加入到`PYTHONPATH`环境变量中。
 
-以``qwen2-7b` 8卡微调为例，执行如下命令进行微调，微调前请参考[权重转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)切分权重。
+以``qwen2-7b` 8卡微调为例，执行如下命令进行微调，微调前请参考[权重转换](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html)切分权重。
 
 1. 主要参数配置参考:
 
@@ -274,7 +274,7 @@ train_dataset: &train_dataset
 
 #### 多卡推理
 
-以`qwen2_7b`4卡推理为例，执行如下命令进行推理, 推理前先参考[权重转换](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)切分权重。
+以`qwen2_7b`4卡推理为例，执行如下命令进行推理, 推理前先参考[权重转换](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html)切分权重。
 
 1. 主要参数配置参考：
 

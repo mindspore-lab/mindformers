@@ -34,7 +34,7 @@ TEST_HASH_VALUE = "4b67687d9933c4db8f0831104447f15b93774f4f464bd0516f0f0f2ac83b7
 TRAIN_HASH_VALUE = "735e79b04f092ca3d2e6d07f368c0a7d70d48c48d28865950cc24454cf45129b"
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
 class Cifar100DataLoader:
     """Cifar100 Dataloader with class name as text column"""
@@ -111,7 +111,7 @@ class Cifar100DataLoader:
         return cifar100_dataloader
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 class Cifar100DataSet:
     """Cifar100 dataSet with class name"""
     def __init__(self, dataset_dir: str, stage: Optional[str] = "train",

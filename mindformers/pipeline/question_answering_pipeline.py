@@ -32,7 +32,7 @@ from ..tools.register import MindFormerRegister, MindFormerModuleType
 __all__ = ['QuestionAnsweringPipeline']
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="question_answering")
 class QuestionAnsweringPipeline(Pipeline):
     r"""Pipeline for token classification

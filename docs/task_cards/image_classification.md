@@ -2,7 +2,7 @@
 
 > ## 🚨 弃用说明
 >
-> 本文档已过时，不再进行维护，并将在 *1.5.0* 版本下架，其中可能包含过时的信息或已被更新的功能替代。建议参考最新的 **[官方文档](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/index.html)** ，以获取准确的信息。
+> 本文档已过时，不再进行维护，并将在 *1.6.0* 版本下架，其中可能包含过时的信息或已被更新的功能替代。建议参考最新的 **[官方文档](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/index.html)** ，以获取准确的信息。
 >
 > 如果您仍需使用本文档中的内容，请仔细核对其适用性，并结合最新版本的相关资源进行验证。
 >
@@ -17,10 +17,10 @@
 
 ## 已支持数据集性能
 
-| model |      type      |  datasets   | Top1-accuracy |                stage                 |                                                                                                                                                                                        example                                                                                                                                                                                        |
-| :---: | :------------: | :---------: | :-----------: | :----------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
-|  vit  |  vit_base_p16  | ImageNet-1K |    83.71%     | train<br>finetune<br>eval<br>predict |     [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/image_classification/vit_base_p16_train_on_imagenet1k.sh) <br>[link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/image_classification/vit_base_p16_finetune_on_imagenet1k.sh)<br>[link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/image_classification/vit_base_p16_eval_on_imagenet1k.sh)<br>[link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/image_classification/vit_base_p16_predict_on_imagenet1k.sh)     |
-| swin  | swin_base_p4w7 | ImageNet-1K |    83.44%     | train<br>finetune<br>eval<br>predict | [link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/image_classification/swin_base_p4w7_train_on_imagenet1k.sh) <br>[link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/image_classification/swin_base_p4w7_finetune_on_imagenet1k.sh)<br>[link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/image_classification/swin_base_p4w7_eval_on_imagenet1k.sh)<br>[link](https://gitee.com/mindspore/mindformers/blob/dev/scripts/examples/image_classification/swin_base_p4w7_predict_on_imagenet1k.sh) |
+| model |      type      |  datasets   | Top1-accuracy |                stage                 | example |
+|:-----:|:--------------:|:-----------:|:-------------:|:------------------------------------:|:-------:|
+|  vit  |  vit_base_p16  | ImageNet-1K |    83.71%     | train<br>finetune<br>eval<br>predict |    -    |
+| swin  | swin_base_p4w7 | ImageNet-1K |    83.44%     | train<br>finetune<br>eval<br>predict |    -    |
 
 ### [ImageNet2012](http://www.image-net.org/)
 
