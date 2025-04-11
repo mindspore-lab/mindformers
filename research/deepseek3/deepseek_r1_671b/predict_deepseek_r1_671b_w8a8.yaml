@@ -26,10 +26,6 @@ context:
   device_id: 0
   affinity_cpu_list: None
 
-kernel_launch_group:
-  thread_num: 4
-  kernel_group_num: 16
-
 # parallel context config
 parallel:
   parallel_mode: "STAND_ALONE" # use 'STAND_ALONE' mode for inference with parallelism in frontend

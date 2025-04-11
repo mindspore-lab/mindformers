@@ -342,7 +342,7 @@ class GenerationMixin:
     def _incremental_infer(self, model_inputs: dict, prefill, current_index, key_cache=None, value_cache=None):
         """model forward for incremental infer."""
         # Claim the first graph
-        if key_cache is not None and value_cache is not None:
+        if key_cache is not None:
             model_inputs = {**model_inputs, 'key_cache': key_cache, 'value_cache': value_cache}
         if prefill:
             self.phase = "prefill"

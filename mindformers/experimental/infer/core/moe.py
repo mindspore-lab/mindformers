@@ -220,9 +220,9 @@ class ParallelMoE(nn.Cell):
         return output_tensor
 
 
-class SharedParallelMLP(nn.Cell):
+class SharedMLP(nn.Cell):
     r"""
-        SharedParallelMLP. Shared Expert for MoE .
+        SharedMLP. Shared Expert for MoE .
 
         Args:
             config (Config): The configuration of Model.
@@ -239,7 +239,6 @@ class SharedParallelMLP(nn.Cell):
         self.has_bias = self.config.mlp_has_bias
         self.hidden_size = self.config.hidden_size
         self.ffn_hidden_size = intermediate_size
-        self.mlp_has_gate = self.config.mlp_has_gate
         self.ffn_concat = self.config.ffn_concat
         if self.ffn_concat:
             self.w_gate_hidden = Linear(
@@ -289,6 +288,98 @@ class SharedParallelMLP(nn.Cell):
             gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
             gate, hidden = mint.split(gate_hidden_out,
                                       (self.ffn_hidden_size, self.ffn_hidden_size), -1)
+        else:
+            gate = self.w1(x)
+            hidden = self.w3(x)
+        gate = self.act_func(gate)
+        hidden = mint.mul(hidden, gate)
+        output = self.w2(hidden)
+        return output
+
+
+class SharedParallelMLP(nn.Cell):
+    r"""
+        SharedParallelMLP. Parallel Shared Expert for MoE .
+
+        Args:
+            config (Config): The configuration of Model.
+        Inputs:
+            - **input_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+
+        Outputs:
+            - **output_tensor** (Tensor) - should be `[batch, seq_length, hidden_size].
+    """
+
+    def __init__(self, config, intermediate_size):
+        super().__init__(config)
+        self.config = config
+        self.has_bias = self.config.mlp_has_bias
+        self.hidden_size = self.config.hidden_size
+        self.ffn_hidden_size = intermediate_size
+        self.ffn_concat = self.config.ffn_concat
+        tp_group_size = get_tp_world_size()
+        self.ffn_hidden_size_per_partition = divide(self.ffn_hidden_size, tp_group_size)
+        if self.ffn_concat:
+            self.w_gate_hidden = ColumnParallelLinear(
+                self.hidden_size,
+                self.ffn_hidden_size * 2,
+                config=self.config.parallel_config,
+                bias=self.has_bias,
+                transpose_b=True,
+                gather_output=False,
+                is_expert=False,
+                param_init_type=self.config.param_init_dtype,
+                compute_dtype=self.config.compute_dtype,
+            )
+        else:
+            self.w1 = ColumnParallelLinear(
+                self.hidden_size,
+                self.ffn_hidden_size,
+                config=self.config.parallel_config,
+                bias=self.has_bias,
+                transpose_b=True,
+                gather_output=False,
+                is_expert=False,
+                param_init_type=self.config.param_init_dtype,
+                compute_dtype=self.config.compute_dtype,
+            )
+            self.w3 = ColumnParallelLinear(
+                self.hidden_size,
+                self.ffn_hidden_size,
+                config=self.config.parallel_config,
+                bias=self.has_bias,
+                transpose_b=True,
+                gather_output=False,
+                is_expert=False,
+                param_init_type=self.config.param_init_dtype,
+                compute_dtype=self.config.compute_dtype,
+            )
+
+        self.act_type = self.config.hidden_act
+        self.act_func = get_act_func(self.act_type)
+
+        self.w2 = RowParallelLinear(
+            self.ffn_hidden_size,
+            self.hidden_size,
+            input_is_parallel=True,
+            config=self.config.parallel_config,
+            bias=self.has_bias,
+            transpose_b=True,
+            is_expert=True,
+            param_init_type=self.config.param_init_dtype,
+            compute_dtype=self.config.compute_dtype,
+            moe_delay_allreduce=True,
+        )
+
+        self.mul = ops.Mul()
+        self.reshape = ops.Reshape()
+
+    def construct(self, x):
+        """ Construct function of mlp block. """
+        if self.ffn_concat:
+            gate_hidden_out = self.w_gate_hidden(x)  # dp,1 -> dp, mp  # dp,1 -> dp, mp
+            gate, hidden = mint.split(gate_hidden_out,
+                                      (self.ffn_hidden_size_per_partition, self.ffn_hidden_size_per_partition), -1)
         else:
             gate = self.w1(x)
             hidden = self.w3(x)
@@ -428,10 +519,12 @@ class ParallelMoEV2(nn.Cell):
     def __init__(self,
                  ffn,
                  hidden_size,
-                 moe_config):
+                 moe_config,
+                 is_reduce_moe_output=True):
         super(ParallelMoEV2, self).__init__()
         self.hidden_size = hidden_size
         self.moe_config = moe_config
+        self.is_reduce_moe_output = is_reduce_moe_output
         self.expert_num = moe_config.expert_num
         self.num_experts_chosen = moe_config.num_experts_chosen
         self.router_dense_type = dtype_map.get(moe_config.router_dense_type)
@@ -518,6 +611,7 @@ class ParallelMoEV2(nn.Cell):
                                               probs=expert_weight,
                                               padded_mode=False,
                                               restore_shape=None)
-        moe_output = self.reduce_from_mp_region(moe_output)
+        if self.is_reduce_moe_output:
+            moe_output = self.reduce_from_mp_region(moe_output)
         output_tensor = self.reshape(moe_output, input_tensor_shape)
         return output_tensor

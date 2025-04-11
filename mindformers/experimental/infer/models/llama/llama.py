@@ -19,11 +19,11 @@ from multiprocessing.synchronize import Condition
 import numpy as np
 from safetensors import safe_open
 
+import mindspore as ms
 import mindspore.common.dtype as mstype
 from mindspore import Tensor, ops, mint, mutable
 from mindspore.communication import get_group_size
 from mindspore.communication._comm_helper import _is_initialized
-
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear
 from mindformers.experimental.infer.core.transformer import ParallelTransformer
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_info, initialize_model_parallel
@@ -110,12 +110,53 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
         prefix_keys_values = Tensor(kwargs["prefix_keys_values"]) if "prefix_keys_values" in kwargs else None
         return input_ids, labels, None, None, None, None, None, None, None, None, None, slot_mapping, prefix_keys_values
 
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        """
+        prepare inputs for generation.
+        A model class needs to define a `prepare_inputs_for_generation` method
+        in order to use `.generate()`
+
+        """
+        model_inputs = {"input_ids": Tensor.from_numpy(input_ids.astype(np.int32))}
+        batch_valid_length = kwargs.get("valid_length_each_example")
+        prefill = kwargs.get("prefill")
+
+        if self.is_pynative:
+            model_inputs = {}
+            if self.config.is_dynamic and "origin_inputs" in kwargs and self.use_past:
+                input_ids = kwargs["origin_inputs"]
+            model_inputs["input_ids"] = Tensor.from_numpy(input_ids.astype(np.int32))
+        else:
+            if self.config.is_dynamic:
+                if prefill and "origin_inputs" in kwargs:
+                    origin_inputs = kwargs["origin_inputs"]
+                    slot_mapping = kwargs.get("slot_mapping")
+                    model_inputs = self._prepare_inputs_for_prefill_flatten(origin_inputs,
+                                                                            batch_valid_length,
+                                                                            slot_mapping,
+                                                                            model_inputs)
+        position_ids = batch_valid_length - 1
+        model_inputs["position_ids"] = ms.Tensor(position_ids, dtype=ms.int32).reshape(-1)
+
+        if not prefill:
+            q_seq_lens = np.ones(batch_valid_length.shape, dtype=np.int32).reshape(-1)
+        else:
+            q_seq_lens = batch_valid_length.astype(np.int32).reshape(-1)
+        model_inputs["q_seq_lens"] = Tensor.from_numpy(q_seq_lens)
+
+        model_inputs["attention_mask"] = self.model.casual_mask.gen_attention_mask(prefill)
+        return model_inputs
+
+
     def set_dynamic_inputs(self, **kwargs):
         """Prepare inputs for dynamic shape."""
         dynamic_input_ids = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_batch_valid_length = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_block_tables = Tensor(shape=[None, None], dtype=mstype.int32)
         dynamic_slot_mapping = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_position_ids = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_q_seq_lens = Tensor(shape=[None], dtype=mstype.int32)
+        dynamic_attention_mask = Tensor(shape=[None, None], dtype=mstype.bfloat16)
         have_prefix_keys_values = getattr(kwargs, "have_prefix_keys_values", False)
 
         def get_input():
@@ -133,9 +174,9 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
                             dynamic_slot_mapping, dynamic_prefix_keys_values, None, key_cache, value_cache)
         else:
-            self.set_inputs(dynamic_input_ids, None, None, None, None, None, None,
+            self.set_inputs(dynamic_input_ids, None, None, dynamic_position_ids, dynamic_attention_mask, None, None,
                             dynamic_batch_valid_length, None, None, dynamic_block_tables,
-                            dynamic_slot_mapping, None, None, key_cache, value_cache)
+                            dynamic_slot_mapping, None, None, key_cache, value_cache, dynamic_q_seq_lens)
         logger.info("Set dynamic input for llama.")
 
     def add_flags_custom(self, is_first_iteration):
@@ -151,7 +192,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None,
-                  key_cache=None, value_cache=None):
+                  key_cache=None, value_cache=None, q_seq_lens=None):
         """
         Forward of llama model.
         """
@@ -162,7 +203,8 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
             else:
                 batch_valid_length = self.reshape(batch_valid_length, (-1,))
         output = self.model(input_ids, batch_valid_length, batch_index, zactivate_len, block_tables,
-                            slot_mapping, prefix_keys_values, key_cache=key_cache, value_cache=value_cache)
+                            slot_mapping, prefix_keys_values, key_cache=key_cache, value_cache=value_cache,
+                            position_ids=position_ids, attention_mask=attention_mask, q_seq_lens=q_seq_lens)
         pre_gather = (not self.use_past or self.is_first_iteration) and batch_valid_length is not None
         if pre_gather:
             if not self.is_pynative:

@@ -19,16 +19,52 @@ How to run this:
 """
 import argparse
 import os
+import numpy as np
 
 import mindspore as ms
-from mindspore import Tensor, Model
-from mindspore.common import initializer as init
+import mindspore.common.dtype as mstype
+from mindspore import Tensor, Model, set_context
+from mindspore.common import initializer
+from mindspore.communication import init
 
 from mindformers import build_context, MindFormerConfig, build_parallel_config, LlamaConfig, \
     LlamaForCausalLM, Trainer
 from mindformers.tools.logger import logger
 from mindformers.trainer.utils import transform_and_load_checkpoint
+from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
+from mindformers.experimental.infer.core.moe import SharedParallelMLP
 from research.qwen2.qwen2_tokenizer import Qwen2Tokenizer
+from research.deepseek3.deepseek3_config import DeepseekV3Config
+
+
+def get_config():
+    """get config of testcase"""
+    base_config = DeepseekV3Config(
+        param_init_dtype=mstype.bfloat16,
+        compute_dtype=mstype.bfloat16,
+        use_past=True,
+        num_heads=16,
+        hidden_size=1024,
+        use_flash_attention=True,
+        qkv_has_bias=False,
+        rotary_dtype=mstype.bfloat16,
+        num_blocks=16,
+        block_size=256,
+        out_proj_has_bias=False,
+        vocab_size=1000,
+        num_layers=2,
+        seq_length=512,
+        mlp_has_bias=False,
+        ffn_concat=True,
+        intermediate_size=4096,
+    )
+    parallel_config = MindFormerConfig(
+        tensor_parallel=2,
+        context_parallel=1,
+        vocab_emb_dp=False
+    )
+    base_config.parallel_config = parallel_config
+    return base_config
 
 
 def parallel_qwen2_0_5b_predict_mp2():
@@ -74,7 +110,7 @@ def parallel_qwen2_0_5b_predict_mp2():
     if config.load_checkpoint:
         logger.info("----------------Transform and load checkpoint----------------")
         batch_size = config.model.model_config.batch_size
-        input_ids = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
+        input_ids = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=initializer.One())
         infer_data = network.prepare_inputs_for_predict_layout(input_ids)
         transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
 
@@ -227,7 +263,7 @@ def parallel_qwen_moe_predict_mp2():
     if config.load_checkpoint:
         logger.info("----------------Transform and load checkpoint----------------")
         batch_size = config.model.model_config.batch_size
-        input_ids = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
+        input_ids = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=initializer.One())
         infer_data = network.prepare_inputs_for_predict_layout(input_ids)
         transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
 
@@ -367,11 +403,34 @@ def parallel_qwen2_0_5b_predict_mp2_static():
             assert output_text == answer
 
 
+def parallel_shared_expert_predict_mp2():
+    """test shared expert with tensor model parallel size 2 """
+    jit_level = "O0"
+    infer_boost = "on"
+    set_context(mode=ms.GRAPH_MODE, jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
+
+    # init communication
+    init()
+    initialize_model_parallel(tensor_model_parallel_size=2)
+
+    base_config = get_config()
+    net = SharedParallelMLP(base_config, base_config.intermediate_size)
+
+    bs = 2
+    seq_len = base_config.seq_length
+    hidden_size = base_config.hidden_size
+    x = Tensor(np.random.rand(bs, seq_len, hidden_size)).astype(mstype.bfloat16)
+
+    output = net(x)
+    assert output.shape == (bs, seq_len, hidden_size)
+
+
 TEST_MAP = {
     'parallel_qwen2_0_5b_predict_mp2': parallel_qwen2_0_5b_predict_mp2,
     'parallel_glm3_6b_predict_mp2': parallel_glm3_6b_predict_mp2,
     'parallel_qwen_moe_predict_mp2': parallel_qwen_moe_predict_mp2,
     'parallel_qwen2_0_5b_predict_mp2_static': parallel_qwen2_0_5b_predict_mp2_static,
+    'parallel_shared_expert_predict_mp2': parallel_shared_expert_predict_mp2,
 }
 
 if __name__ == '__main__':

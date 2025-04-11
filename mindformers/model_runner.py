@@ -227,7 +227,7 @@ class MindIEModelRunner:
                  world_size=1, npu_device_ids=None, plugin_params=None):
         if plugin_params is not None and not isinstance(plugin_params, str):
             raise ValueError("plugin params should be str type!")
-        self.dynamic_kv_cache_whitelist = ["ParallelLlamaForCausalLM"]
+        self.dynamic_kv_cache_whitelist = ["ParallelLlamaForCausalLM", "InferenceDeepseekV3ForCausalLM"]
         self.config = MindFormerConfig(config_path)
         self.warmup_step = 2
         self.is_multi_modal_model = is_multi_modal_model(self.config)
