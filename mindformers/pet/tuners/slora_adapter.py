@@ -31,7 +31,7 @@ import mindspore.common.dtype as mstype
 from mindformers.modules.layers import Linear
 from mindformers.pet.pet_config import SLoraConfig
 from mindformers.tools.logger import logger
-from mindformers.version_control import need_nz
+from mindformers.version_control import need_nz, is_310p
 
 
 class SLoraLinear(Cell):
@@ -476,6 +476,9 @@ class SLoraAdapter(abc.ABC):
             if not all(isinstance(module, str) for module in config["target_modules"]):
                 raise TypeError(f"target_modules should be string type, but get wrong type.")
             target_modules_set.update(config["target_modules"])
+        if is_310p():
+            if max_rank % 16 != 0:
+                max_rank = (max_rank // 16 + 1) * 16
         target_modules_list = [".*" + module for module in list(target_modules_set)]
         target_modules = '|'.join(target_modules_list)
 
