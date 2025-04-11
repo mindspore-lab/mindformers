@@ -55,6 +55,11 @@ def is_910b():
     return device in ['910b', 'ascend910b']
 
 
+def is_310p():
+    device = get_ascend_soc_version()
+    return device in ['310p', 'ascend310p']
+
+
 def need_nz():
     device = get_ascend_soc_version()
     return device in ['310p', 'ascend310p', '910a', 'ascend910']
