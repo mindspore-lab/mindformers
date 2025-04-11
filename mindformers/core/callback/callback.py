@@ -1678,7 +1678,7 @@ class EvalCallBack(Callback):
         self.step_interval = step_interval
         self.epoch_interval = epoch_interval
 
-    def on_eval_epoch_end(self, run_context):
+    def on_train_epoch_end(self, run_context):
         # if not use epoch end
         if self.epoch_interval <= 0:
             return
@@ -1687,7 +1687,7 @@ class EvalCallBack(Callback):
         if cur_epoch_num % self.epoch_interval == 0:
             self._execute_eval()
 
-    def on_eval_step_end(self, run_context):
+    def on_train_step_end(self, run_context):
         # if not use step end
         if self.step_interval <= 0:
             return
