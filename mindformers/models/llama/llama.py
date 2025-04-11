@@ -38,6 +38,7 @@ from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.tools.register.register import MindFormerModuleType, MindFormerRegister
 from mindformers.tools.utils import get_predict_run_mode
 from mindformers.version_control import check_seqpp_fa_opt_support
+from mindformers.tools.utils import is_pynative
 
 from .llama_config import LlamaConfig
 from .llama_layer import LlamaEmbedding, LlamaRMSNorm
@@ -99,6 +100,7 @@ class LlamaModel(LlamaPreTrainedModel):
         self.reshape = P.Reshape()
         self.rmsnorm_compute_2d = config.rmsnorm_compute_2d
         self.rl_config = config.rl_config
+        self.is_pynative = is_pynative()
 
         if config.moe_config.expert_num > 1:
             logger.info("MoE config is provided, use MoE FFN")
@@ -353,7 +355,10 @@ class LlamaModel(LlamaPreTrainedModel):
                 if self.is_first_iteration:
                     freqs_cis = self.freqs_mgr.prefill(bs, seq_len)
                     if self.use_flash_attention:
-                        mask = self.casual_mask.prefill()
+                        if self.is_pynative:
+                            mask = self.casual_mask(tokens)
+                        else:
+                            mask = self.casual_mask.prefill()
                     else:
                         mask = self.casual_mask(tokens)
                     if prefix_keys_values is not None:
