@@ -36,8 +36,7 @@ from mindspore.dataset.engine.datasets import BatchDataset, RepeatDataset, Datas
 from mindformers.core.parallel_config import build_parallel_config, \
     reset_parallel_config
 from mindformers.core.callback.callback import ProfileMonitor
-from mindformers.dataset import build_dataset, build_dataset_loader, \
-    check_dataset_config, BaseDataset
+from mindformers.dataset import build_dataset_loader, check_dataset_config, BaseDataset
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.models import PreTrainedModel, BaseImageProcessor, \
     PreTrainedTokenizerBase, BaseAudioProcessor
@@ -418,12 +417,6 @@ class Trainer:
 
         do_eval = do_eval or self.config.do_eval
         if do_eval:
-            if self.eval_dataset is None:
-                logger.info("do_eval is enabled, building eval_dataset from config.")
-                self.eval_dataset = build_dataset(self.config.eval_dataset_task)
-            if self.eval_dataset is None:
-                raise ValueError(f"if do_eval is true, eval_dataset must be input, "
-                                 f"the task {self.task} is not support eval now.")
             # open do_eval for trainer config
             self.config.do_eval = True
 
@@ -546,12 +539,6 @@ class Trainer:
 
         do_eval = do_eval or self.config.do_eval
         if do_eval:
-            if self.eval_dataset is None:
-                logger.info("do_eval is enabled, building eval_dataset from config.")
-                self.eval_dataset = build_dataset(self.config.eval_dataset_task)
-            if self.eval_dataset is None:
-                raise ValueError(f"if do_eval is true, eval_dataset must be input, "
-                                 f"the task {self.task} is not support eval now.")
             # open do_eval for trainer config
             self.config.do_eval = True
 
