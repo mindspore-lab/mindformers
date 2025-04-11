@@ -526,7 +526,8 @@ class SLoraAdapter(abc.ABC):
         if "lm_head" in self.slora_config.target_modules:
             if hasattr(network, "lm_head"):
                 new_head = SLoraHead(network.lm_head, self.slora_inputs, self.slora_config)
-                new_head.shard()
+                if hasattr(new_head.matmul, 'in_strategy'):
+                    new_head.shard()
                 network.lm_head = new_head
                 self.registered_loras["lm_head.lora_a"] = network.lm_head.lora_a_shape
                 self.registered_loras["lm_head.lora_b"] = network.lm_head.lora_b_shape
@@ -565,6 +566,9 @@ class SLoraAdapter(abc.ABC):
             if wrap_lora:
                 logger.info(f"Apply LoRA to {cell_name}.")
                 new_cell = wrap_lora(cell, self.slora_inputs, self.slora_config)
-                new_cell.shard()
+                if isinstance(new_cell, SLoraEmbedding) and hasattr(new_cell.gather, 'in_strategy'):
+                    new_cell.shard()
+                elif hasattr(new_cell, 'matmul') and hasattr(new_cell.matmul, 'in_strategy'):
+                    new_cell.shard()
                 return new_cell, True
         return cell, False
