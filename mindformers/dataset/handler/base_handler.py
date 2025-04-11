@@ -52,6 +52,7 @@ class BaseInstructDataHandler:
     def __init__(self, config, **kwargs):
         self.seq_length = config.seq_length
         self.packing = kwargs.get('packing', None)
+        self.is_dynamic = config.get('is_dynamic', False)
 
         self.tokenizer = self.get_tokenizer(config)
         self.config = config
