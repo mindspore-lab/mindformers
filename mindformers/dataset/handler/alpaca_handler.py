@@ -87,7 +87,7 @@ class AlpacaInstructDataHandler(BaseInstructDataHandler):
             mask.extend(conv_out['attention_mask'][1:])
         d = {'input_ids': ids, 'attention_mask': mask}
         # pylint: disable=W0212
-        if not self.packing:
+        if not (self.is_dynamic or self.packing):
             d = self.tokenizer._pad(d, max_length=self.seq_length + 1, padding_strategy='max_length')
         input_id = d['input_ids'][:self.seq_length + 1]
         target = np.array(d['input_ids'])
@@ -107,7 +107,7 @@ class AlpacaInstructDataHandler(BaseInstructDataHandler):
             target[cur_len: cur_len + instruction_len] = self.ignore_token_id
 
             cur_len += round_len
-        if self.packing:
+        if self.is_dynamic or self.packing:
             return {
                 "input_ids": input_id,
                 "labels": target[:len(input_id)].tolist()
