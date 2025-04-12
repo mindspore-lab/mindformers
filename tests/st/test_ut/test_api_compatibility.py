@@ -120,6 +120,8 @@ def api_signature(obj, api_str, content, base_schema, failure_list, is_update=Fa
         signature = re.sub("<module.*dtype.py.>", "mindspore.common.dtype", signature)
     if re.search(r"Union\[.*\]", signature):
         signature = process_union_order(signature)
+    if re.search(r"Identity<>", signature):
+        signature = re.sub(r"Identity<>", "Identity()", signature)
     if is_update:
         content[api_str] = {"signature": signature}
     else:
