@@ -114,6 +114,12 @@ def check_use_3d_tensor_parallel_valid(config):
     return False
 
 
+def check_swap_enabled(swap_config):
+    if isinstance(swap_config, dict):
+        return swap_config["swap"]
+    return swap_config.swap
+
+
 ms_type_to_str = reverse_dict(str_to_ms_type)
 
 lazy_inline = get_lazy_inline
