@@ -777,11 +777,6 @@ class BaseTrainer:
     def _process_megatron_dataset(self, dataset, config):
         """Dataset processing for Megatron Dataset."""
         dataset_info = config.train_dataset.data_loader
-        # check input_slice_sig
-        input_sliced_sig = config.model.model_config.get("input_sliced_sig")
-        if not input_sliced_sig:
-            raise ValueError("When using BlendedMegatronDatasetDataLoader,"
-                             "model.model_config.input_sliced_sig must be set 'True'.")
         # reset dataset size to remove redundant data
         ori_ds = dataset.get_dataset_size()
         dataset.dataset_size = int(dataset_info.sizes[0]) // self.global_batch_size
@@ -800,6 +795,32 @@ class BaseTrainer:
                 # not skip fake data in megatron dataset
                 config.ignore_data_skip = True
             logger.info(f"local rank id: {rank_id}, ignore data skip: {config.ignore_data_skip}.")
+        return dataset, config
+
+    @staticmethod
+    def _check_input_sliced_sig(config, usage_info='special'):
+        """Check input_sliced_sig in model config."""
+        input_sliced_sig = config.model.model_config.get("input_sliced_sig")
+        if not input_sliced_sig:
+            raise ValueError(
+                f"In this {usage_info} configuration, input_sliced_sig in model_config should be set 'True'")
+
+    def _train_dataset_postprocess(self, dataset, config):
+        """Dataset postprocess."""
+        dataloader_info = config.train_dataset.get('data_loader')
+        if not dataloader_info:
+            return dataset, config
+
+        dataloader_type = dataloader_info.get('type')
+        # postprocess for BlendedMegatronDatasetDataLoader
+        if dataloader_type == "BlendedMegatronDatasetDataLoader":
+            self._check_input_sliced_sig(config, dataloader_type)
+            return self._process_megatron_dataset(dataset, config)
+
+        # postprocess for CommonDataLoader
+        if dataloader_type == "CommonDataLoader" and dataloader_info.get('packing'):
+            self._check_input_sliced_sig(config, f"{dataloader_type} with packing")
+
         return dataset, config
 
     @staticmethod
@@ -881,9 +902,8 @@ class BaseTrainer:
         # build dataset
         logger.info(".........Build Dataset For Train..........")
         dataset = self.create_train_dataset()
-        if config.train_dataset.get('data_loader') and \
-                config.train_dataset.data_loader.type == "BlendedMegatronDatasetDataLoader":
-            dataset, config = self._process_megatron_dataset(dataset, config)
+        # postprocess and check dataset configuration
+        dataset, config = self._train_dataset_postprocess(dataset, config)
         logger.info("Create train dataset finish, dataset size:%d", dataset.get_dataset_size())
 
         append_info = None
