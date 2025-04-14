@@ -200,7 +200,7 @@ def convert_pt_to_ms(input_path, output_path, dtype=None, **kwargs):
         model_hf = LlamaForCausalLM.from_pretrained(input_path)
     # pylint: disable=W0703
     except Exception as e:
-        print(f"Do not find huggingface checkpoint in '{input_path}', Error {e.message}.", flush=True)
+        print(f"Failed to load HuggingFace weights in '{input_path}', due to {str(e)}.", flush=True)
         return False
     ckpt_list = []
     for name, value in model_hf.state_dict().items():
