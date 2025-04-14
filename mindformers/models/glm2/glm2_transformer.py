@@ -642,6 +642,8 @@ class ChatGLM2Block(nn.Cell):
         self.residual_dtype = config.residual_dtype
         self.seq_split_num = config.parallel_config.seq_split_num
         self.seq_pipe = self.seq_split_num > 1
+        self.enable_post_self_attn_layernorm = config.post_self_attn_layernorm
+        self.enable_post_mlp_layernorm = config.post_mlp_layernorm
 
         layer_norm_func = ChatGLM2RMSNorm if config.rmsnorm else LayerNorm
         # Layernorm on the input data.
@@ -659,6 +661,14 @@ class ChatGLM2Block(nn.Cell):
         self.post_attention_layernorm = layer_norm_func(config.hidden_size, eps=config.layernorm_epsilon,
                                                         param_init_type=self.layernorm_dtype)
 
+        # Layernorm if sandwich norm is enable
+        if self.enable_post_self_attn_layernorm:
+            self.post_self_attn_layernorm = layer_norm_func(config.hidden_size, eps=config.layernorm_epsilon,
+                                                            param_init_type=self.layernorm_dtype)
+        if self.enable_post_mlp_layernorm:
+            self.post_mlp_layernorm = layer_norm_func(config.hidden_size, eps=config.layernorm_epsilon,
+                                                      param_init_type=self.layernorm_dtype)
+
         # MLP
         self.mlp = ChatGLM2MLP(config)
 
@@ -670,6 +680,11 @@ class ChatGLM2Block(nn.Cell):
 
         self.input_layernorm.shard(((dp, cp, 1),))
         self.dropout.dropout.shard(((dp, cp, 1),))
+        self.post_attention_layernorm.shard(((dp, cp, 1),))
+        if self.enable_post_self_attn_layernorm:
+            self.post_attention_layernorm.shard(((dp, cp, 1),))
+        if self.enable_post_mlp_layernorm:
+            self.post_mlp_layernorm.shard(((dp, cp, 1),))
         if config.parallel_config.use_seq_parallel and self.is_first_iteration:
             self.add.shard(((dp, cp * mp, 1), (dp, cp * mp, 1)))
             self.input_layernorm.shard(((dp, cp * mp, 1),))
@@ -678,14 +693,24 @@ class ChatGLM2Block(nn.Cell):
             self.mlp.dense_4h_to_h.shard(strategy_matmul=((dp * cp, mp), (1, mp)),
                                          strategy_bias=((dp * cp * mp, 1), (1,)),
                                          out_strategy_matmul=((dp * cp * mp, 1),))
+            if self.enable_post_self_attn_layernorm:
+                self.post_self_attn_layernorm.shard(((dp, cp * mp, 1),))
+            if self.enable_post_mlp_layernorm:
+                self.post_mlp_layernorm.shard(((dp, cp * mp, 1),))
 
     def set_select_recompute(self):
+        """Set the model's selection recompute"""
         self.input_layernorm.recompute(False)
         self.post_attention_layernorm.recompute(False)
         self.self_attention.recompute()
         self.mlp.recompute()
         self.dropout.dropout.recompute(False)
         self.cast.recompute(False)
+        if self.enable_post_self_attn_layernorm:
+            self.post_self_attn_layernorm.recompute(False)
+        if self.enable_post_mlp_layernorm:
+            self.post_mlp_layernorm.recompute(False)
+
 
     def construct(self, hidden_states, attention_mask, rotary_pos_emb, batch_valid_length=None, prefix_key_value=None,
                   block_tables=None, slot_mapping=None, kv_mask=None, seq_chunk=None):
@@ -708,6 +733,8 @@ class ChatGLM2Block(nn.Cell):
             kv_mask=kv_mask,
             seq_chunk=seq_chunk
         )
+        if self.enable_post_self_attn_layernorm:
+            attention_output = self.post_self_attn_layernorm(attention_output)
 
         # Residual connection.
         # False on default.
@@ -724,6 +751,8 @@ class ChatGLM2Block(nn.Cell):
 
         # MLP.
         mlp_output = self.mlp(F.cast(layernorm_output, self.compute_dtype))
+        if self.enable_post_mlp_layernorm:
+            mlp_output = self.post_mlp_layernorm(mlp_output)
 
         # Second residual connection.
         # False on default.

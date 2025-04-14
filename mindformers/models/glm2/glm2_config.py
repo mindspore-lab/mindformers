@@ -99,6 +99,10 @@ class ChatGLM2Config(PretrainedConfig):
         fine_grain_interleave (int, optional): Number of slices for fine grain interleave feature, which covers
              communication time with computation time in tensor parallel case. Default: ``1``.
         use_ring_attention (bool, optional): Whether enable ring attention ops. Default: ``False``.
+        post_self_attn_layernorm (bool, optional): Whether to use layer normalization after self-attention module
+            in transformer block. Default: ``False``.
+        post_mlp_layernorm (bool, optional): Whether to use layer normalization after mlp module
+            in transformer block. Default: ``False``.
         kwargs (dict, optional): A variable number of keyword parameters reserved for the keyword parameters to be
             expanded.
 
@@ -173,6 +177,8 @@ class ChatGLM2Config(PretrainedConfig):
                  mask_generate: str = None,
                  fine_grain_interleave: int = 1,
                  use_ring_attention: bool = False,
+                 post_self_attn_layernorm: bool = False,
+                 post_mlp_layernorm: bool = False,
                  **kwargs):
         super().__init__(**kwargs)
         if isinstance(parallel_config, dict):
@@ -232,3 +238,5 @@ class ChatGLM2Config(PretrainedConfig):
         self.mask_generate = mask_generate
         self.fine_grain_interleave = fine_grain_interleave
         self.use_ring_attention = use_ring_attention
+        self.post_self_attn_layernorm = post_self_attn_layernorm
+        self.post_mlp_layernorm = post_mlp_layernorm
