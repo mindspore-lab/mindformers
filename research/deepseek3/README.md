@@ -451,6 +451,7 @@ dtype:            转换权重的精度
 ```shell
 master_ip=192.168.1.1
 node_rank=0
+export MS_DEV_RUNTIME_CONF="multi_stream:true"
 
 bash scripts/msrun_launcher.sh "run_mindformer.py \
 --register_path research/deepseek3 \
@@ -466,6 +467,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 > 此处样例代码假设主节点为`192.168.1.1`、当前Rank序号为`0`。实际执行时请将`master_ip`设置为实际的主节点IP地址；将`node_rank`设置为当前节点的Rank序号。
 > load_checkpoint修改为原始权重路径，output_dir修改为用户想要保存训练后权重的路径。
 > 如开启自动权重切分auto_trans_ckpt，load_checkpoint路径与output_dir路径需要是多机共享路径。
+> 该配置在通信并发下有带宽抢占引发的性能劣化，通过配置`MS_DEV_RUNTIME_CONF="multi_stream:true"`控制通信单流来规避该劣化。
 
 上述命令执行完毕后，训练任务将在后台执行，过程日志保存在`./output/msrun_log`下，在node_rank最后的机器使用以下命令可查看训练状态（由于开启了流水并行`pipeline_stage: 2`，真实loss只显示在最后一个stage的日志（worker_16.log ~ worker_31.log，建议使用最后一张卡的日志）中，其余卡显示`loss`为`0`）：
 
