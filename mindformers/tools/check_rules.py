@@ -266,9 +266,14 @@ def _rule_recompute(pp, recompute, key):
 
 
 def _rule_recompute_no_pp(recompute, key):
+    """check recompute config with or without swap."""
     if not isinstance(recompute, (bool, list, tuple)):
-        raise ValueError(f"Type of {key} must be bool, list or tuple when enabling swap, "
-                         f"but get {type(recompute)}.")
+        for op_name, layer_list in recompute.items():
+            if not isinstance(op_name, str):
+                raise ValueError(f"Op_name of {key} must be str when enabling swap, but get {type(op_name)}.")
+            if not isinstance(layer_list, list):
+                raise ValueError(f"Layer info of {key} must be list when enabling swap, "
+                                 f"but get {type(layer_list)}.")
     if isinstance(recompute, (list, tuple)):
         for obj in recompute:
             if not isinstance(obj, int):
