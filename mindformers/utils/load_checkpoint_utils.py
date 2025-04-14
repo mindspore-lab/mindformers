@@ -74,7 +74,7 @@ def get_load_path_after_hf_convert(config, network):
     if (config.load_checkpoint and config.get('load_ckpt_format', 'ckpt') == 'safetensors' and
             is_hf_safetensors_dir(config.load_checkpoint, network)):
         #'qkv_concat is True' or 'Dpo model' save ms safetensors
-        if (config.model.model_config.get("qkv_concat", False) or
+        if (getattr(network.config, "qkv_concat", False) or
                 config.model.model_config.rl_config is not None or not check_safetensors_addition_param_support()):
             logger.info(".......Load Checkpoint format is hf safetensors,Start convert to ms safetensors!.......")
             converted_sf_path = process_hf_checkpoint(network, config.output_dir, config.load_checkpoint)
@@ -264,7 +264,7 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
 
     # only execute qkv concat check on the main rank in predict mode
     if do_predict and is_main_rank(ignore_check_modelarts=True):
-        qkv_concat_config = config.model.model_config.get("qkv_concat", False)
+        qkv_concat_config = getattr(network.config, "qkv_concat", False)
         validate_qkv_concat(network, qkv_concat_config, load_checkpoint)
     # wait for the main rank to complete qkv check
     if config.use_parallel:
@@ -349,7 +349,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
         # convert HF name map directly with ms 2.6.0 version
         if check_safetensors_addition_param_support():
             name_map = None
-            if not config.model.model_config.get("qkv_concat", False) \
+            if not getattr(network.config, "qkv_concat", False) \
                     and is_hf_safetensors_dir(load_ckpt_path, origin_network):
                 try:
                     name_map = origin_network.obtain_name_map(load_checkpoint_files)
@@ -383,7 +383,7 @@ def load_safetensors_checkpoint(config, load_checkpoint_files, network, strategy
                 ckpt_file_name=checkpoint_file,
                 format=config.load_ckpt_format
             ))
-        if not config.model.model_config.get("qkv_concat", False) \
+        if not getattr(network.config, "qkv_concat", False) \
            and is_hf_safetensors_dir(load_ckpt_path, origin_network):
             logger.info("......HuggingFace weights convert name......")
             params_dict = origin_network.convert_weight_dict(params_dict, model_config=config.model.model_config)

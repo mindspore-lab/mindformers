@@ -43,8 +43,8 @@ def convert_hf_safetensors_multiprocess(src_dir, dst_dir, model_cls_or_instance,
 
 def _check_valid_input(src_dir, dst_dir, model_cls_or_instance, model_config):
     """check whether the input arguments are valid"""
-    num_heads = model_config.num_heads
-    n_kv_heads = model_config.n_kv_heads
+    num_heads = model_config.num_heads or model_config.num_attention_heads
+    n_kv_heads = model_config.n_kv_heads or model_config.multi_query_group_num
     hidden_size = model_config.hidden_size
     qkv_concat = model_config.qkv_concat
 

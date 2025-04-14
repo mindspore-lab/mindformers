@@ -14,6 +14,9 @@
 # ============================================================================
 """ChatGLM2 model."""
 import copy
+from multiprocessing.managers import DictProxy
+from multiprocessing.synchronize import Condition
+
 import mindspore.ops as ops
 import mindspore.common.dtype as mstype
 from mindspore.common.initializer import initializer
@@ -25,6 +28,8 @@ from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagati
 from mindpet.delta.ptuning2 import PrefixEncoder
 
 import numpy as np
+from safetensors import safe_open
+
 from mindformers.mindformer_book import MindFormerBook
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
 from mindformers.modules.layers import Linear
@@ -35,6 +40,7 @@ from mindformers.pet.tuners.pet_adapter import PetAdapter
 from mindformers.version_control import get_dropout
 from mindformers.models.modeling_utils import PreTrainedModel
 from mindformers.models.glm2.glm2_modules import GLMEmbedding
+from mindformers.version_control import check_safetensors_addition_param_support
 
 from ..utils import lazy_inline
 from .glm2_config import ChatGLM2Config
@@ -457,8 +463,250 @@ class ChatGLM2ForConditionalGeneration(GLM2PreTrainedModel):
 
         return outputs
 
+    @classmethod
+    def convert_name(cls, weight_name):
+        """convert HuggingFace weight name to MindFormers weight name"""
+        origin_name = weight_name
+        weight_name = weight_name.replace('.word_embeddings.weight', '.embedding_weight')
+        weight_name = weight_name.replace('model.', 'transformer.encoder.')
+        weight_name = weight_name.replace('.encoder.embed_tokens.weight', '.embedding.embedding_weight')
+        weight_name = weight_name.replace('.down_proj.', '.dense_4h_to_h.')
+        weight_name = weight_name.replace('.gate_up_proj.', '.dense_h_to_4h.')
+        weight_name = weight_name.replace('.self_attn.q_proj.', '.self_attention.wq.')
+        weight_name = weight_name.replace('.self_attn.k_proj.', '.self_attention.wk.')
+        weight_name = weight_name.replace('.self_attn.v_proj.', '.self_attention.wv.')
+        weight_name = weight_name.replace('.self_attn.o_proj.', '.self_attention.dense.')
+        weight_name = weight_name.replace('.norm.', '.final_layernorm.')
+        weight_name = weight_name.replace('lm_head.', 'transformer.output_layer.')
+        if weight_name == origin_name:
+            logger.warning(f"weight name '{weight_name}' does not change after conversion. "
+                           f"Please check if it is as expected.")
+        return weight_name
+
+    @classmethod
+    def convert_weight_dict(cls, source_dict, **kwargs):
+        """convert HuggingFace weight dict to MindFormers weight dict"""
+        model_config = kwargs.get("model_config")
+        qkv_concat = model_config.qkv_concat if 'qkv_concat' in dir(model_config) else False
+        target_dict = {}
+        wq_keys = []
+        wk_keys = []
+        wv_keys = []
+        w_qkv_keys = []
+        w13_keys = []
+
+        has_qkv_weights = _check_hf_qkv_weight(source_dict)
+        for k, v in source_dict.items():
+            k = cls.convert_name(k)
+            target_dict.update({k: v})
+            part = k.split('.')
+            if part[-2] == 'wq':
+                wq_keys.append(k)
+            if part[-2] == 'wk':
+                wk_keys.append(k)
+            if part[-2] == 'wv':
+                wv_keys.append(k)
+            if part[-2] == "query_key_value":
+                w_qkv_keys.append(k)
+            if part[-2] == "dense_h_to_4h":
+                w13_keys.append(k)
+
+        if has_qkv_weights:
+            if not qkv_concat:
+                _split_qkv_weight(w_qkv_keys, model_config, target_dict)
+                _split_ffn_weight(w13_keys, model_config, target_dict)
+        else:
+            if qkv_concat:
+                qkv_dict = kwargs.get('qkv_dict', None)
+                if not isinstance(qkv_dict, DictProxy):
+                    raise ValueError(f'qkv_queue must be a queue, but got {qkv_dict}.')
+                condition = kwargs.get('condition', None)
+                if not isinstance(condition, Condition):
+                    raise ValueError(f'condition must be a Condition, but got {condition}.')
+                _concat_qkv_weight(wq_keys, wk_keys, wv_keys, qkv_dict, condition, target_dict)
+            if not qkv_concat:
+                _split_ffn_weight(w13_keys, model_config, target_dict)
+
+        return target_dict
+
+    @classmethod
+    def convert_map_dict(cls, source_dict, **kwargs):
+        """convert HuggingFace map dict to MindFormers map dict"""
+        qkv_concat = kwargs.pop("qkv_concat", False)
+        if not qkv_concat and check_safetensors_addition_param_support():
+            logger.warning(f'When MS version is >= 2.6.0, setting `qkv_concat` is False may cause precision issue '
+                           f'in current model {cls.__name__} after online hf weight conversion.')
+        target_dict = {}
+        wq_keys = []
+        w_qkv_keys = []
+        w13_keys = []
+        has_qkv_weights = _check_hf_qkv_weight(source_dict)
+
+        for k, v in source_dict.items():
+            k = cls.convert_name(k)
+            target_dict.update({k: v})
+            part = k.split('.')
+            if part[-2] == 'wq':
+                wq_keys.append(k)
+            if part[-2] == "query_key_value":
+                w_qkv_keys.append(k)
+            if part[-2] == "dense_h_to_4h":
+                w13_keys.append(k)
+
+        if has_qkv_weights:
+            if not qkv_concat:
+                for w_qkv_key in w_qkv_keys:
+                    wq_key = w_qkv_key.replace('query_key_value', 'wq')
+                    wk_key = w_qkv_key.replace('query_key_value', 'wk')
+                    wv_key = w_qkv_key.replace('query_key_value', 'wv')
+                    w_qkv_value = target_dict.pop(w_qkv_key)
+                    target_dict.update({wq_key: w_qkv_value, wk_key: w_qkv_value, wv_key: w_qkv_value})
+                for w13_key in w13_keys:
+                    w1_key = w13_key.replace('dense_h_to_4h', 'dense_left')
+                    w3_key = w13_key.replace('dense_h_to_4h', 'dense_right')
+                    w13_value = target_dict.pop(w13_key)
+                    target_dict.update({w1_key: w13_value, w3_key: w13_value})
+        else:
+            if qkv_concat:
+                for wq_key in wq_keys:
+                    wk_key = wq_key.replace('wq', 'wk')
+                    wv_key = wq_key.replace('wq', 'wv')
+                    wq_value = target_dict.pop(wq_key)
+                    target_dict.pop(wk_key)
+                    target_dict.pop(wv_key)
+
+                    w_qkv_key = wq_key.replace('wq', 'query_key_value')
+                    w_qkv_value = wq_value
+                    target_dict.update({w_qkv_key: w_qkv_value})
+            if not qkv_concat:
+                for w13_key in w13_keys:
+                    w13_value = target_dict.pop(w13_key)
+
+                    w1_key = w13_key.replace('dense_h_to_4h', 'dense_left')
+                    w3_key = w13_key.replace('dense_h_to_4h', 'dense_right')
+                    target_dict.update({w1_key: w13_value, w3_key: w13_value})
+
+        return target_dict
+
+    @classmethod
+    def obtain_qkv_ffn_concat_keys(cls):
+        qkv_key = "query_key_value"
+        ffn_key = "dense_h_to_4h"
+        concat_keys = [qkv_key, ffn_key]
+        logger.info(f"{cls.__name__} qkv/ffn concat keys are {concat_keys}")
+        return concat_keys
+
+    @classmethod
+    def obtain_name_map(cls, load_checkpoint_files):
+        name_map = dict()
+        for checkpoint_file in load_checkpoint_files:
+            with safe_open(checkpoint_file, framework="np") as f:
+                for k in f.keys():
+                    name_map.update({cls.convert_name(k): k})
+        return name_map
+
     def clear_kv_cache(self):
         return self.transformer.clear_kv_cache()
+
+
+def _check_hf_qkv_weight(source_dict):
+    """check whether qkv weight exists in hf original weights"""
+    for k, _ in source_dict.items():
+        if "query_key_value" in k:
+            return True
+    return False
+
+
+def _concat_qkv_weight(wq_keys, wk_keys, wv_keys, qkv_dict, condition, target_dict):
+    """concat qkv weight from dicts"""
+    # pop extra weight to shared dict if there is no corresponding weight for concat in the target dict
+    for wk_key in wk_keys:
+        wq_key = wk_key.replace('wk', 'wq')
+        if wq_key not in wq_keys:
+            with condition:
+                qkv_dict[wk_key] = target_dict.pop(wk_key)
+                condition.notify_all()
+    for wv_key in wv_keys:
+        wq_key = wv_key.replace('wv', 'wq')
+        if wq_key not in wq_keys:
+            with condition:
+                qkv_dict[wv_key] = target_dict.pop(wv_key)
+                condition.notify_all()
+
+    # concat qkv
+    for wq_key in wq_keys:
+        wk_key = wq_key.replace('wq', 'wk')
+        wv_key = wq_key.replace('wq', 'wv')
+        wq_value = target_dict.pop(wq_key)
+        wk_value = target_dict.pop(wk_key, None)
+        wv_value = target_dict.pop(wv_key, None)
+
+        # get missing weight from shared dict
+        if wk_value is None:
+            with condition:
+                condition.wait_for(lambda: wk_key in qkv_dict.keys())
+                wk_value = qkv_dict.pop(wk_key)
+        if wv_value is None:
+            with condition:
+                condition.wait_for(lambda: wv_key in qkv_dict.keys())
+                wv_value = qkv_dict.pop(wv_key)
+
+        w_qkv_key = wq_key.replace('wq', 'query_key_value')
+        w_qkv_value = np.concatenate((wq_value, wk_value, wv_value), 0)
+        target_dict.update({w_qkv_key: w_qkv_value})
+
+
+def _split_qkv_weight(w_qkv_keys, model_config, target_dict):
+    """split qkv weight from dicts"""
+    head_dim = model_config.kv_channels
+    num_attention_heads = model_config.num_attention_heads
+    n_kv_heads = model_config.multi_query_group_num or num_attention_heads
+    hidden_size = head_dim * num_attention_heads
+    kv_hidden_size = head_dim * n_kv_heads
+
+    # split qkv
+    for w_qkv_key in w_qkv_keys:
+        w_qkv_value = target_dict.pop(w_qkv_key)
+        qkv_dim = len(w_qkv_value.shape)
+        if qkv_dim == 1:
+            w_qkv_value = w_qkv_value.reshape(w_qkv_value.shape[0], -1)
+        wq_value = w_qkv_value[:hidden_size, :]
+        wk_value = w_qkv_value[hidden_size:hidden_size + kv_hidden_size, :]
+        wv_value = w_qkv_value[hidden_size + kv_hidden_size:hidden_size + 2*kv_hidden_size, :]
+        wq_key = w_qkv_key.replace('query_key_value', 'wq')
+        wk_key = w_qkv_key.replace('query_key_value', 'wk')
+        wv_key = w_qkv_key.replace('query_key_value', 'wv')
+
+        if qkv_dim == 1:
+            wq_value = wq_value.reshape(wq_value.shape[0],)
+            wk_value = wk_value.reshape(wk_value.shape[0],)
+            wv_value = wv_value.reshape(wv_value.shape[0],)
+
+        if check_safetensors_addition_param_support():
+            wq_value = Parameter(Tensor(wq_value), requires_grad=True)
+            wk_value = Parameter(Tensor(wk_value), requires_grad=True)
+            wv_value = Parameter(Tensor(wv_value), requires_grad=True)
+
+        target_dict.update({wq_key: wq_value, wk_key: wk_value, wv_key: wv_value})
+
+
+def _split_ffn_weight(w13_keys, model_config, target_dict):
+    """split ffn weight from dicts"""
+    ffn_hidden_size = model_config.ffn_hidden_size
+
+    # split ffn
+    for w13_key in w13_keys:
+        w13_value = target_dict.pop(w13_key)
+        w1_value = w13_value[:ffn_hidden_size, :]
+        w3_value = w13_value[ffn_hidden_size:, :]
+        w1_key = w13_key.replace('dense_h_to_4h', 'dense_left')
+        w3_key = w13_key.replace('dense_h_to_4h', 'dense_right')
+
+        if check_safetensors_addition_param_support():
+            w1_value = Parameter(Tensor(w1_value), requires_grad=True)
+            w3_value = Parameter(Tensor(w3_value), requires_grad=True)
+
+        target_dict.update({w1_key: w1_value, w3_key: w3_value})
 
 
 @MindFormerRegister.register(MindFormerModuleType.MODELS)

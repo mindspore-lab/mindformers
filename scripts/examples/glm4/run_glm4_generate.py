@@ -25,6 +25,7 @@ from mindformers import MindFormerConfig, logger
 from mindformers.models.glm2 import ChatGLM2Config, ChatGLM2ForConditionalGeneration, ChatGLM4Tokenizer
 from mindformers.core.context import build_context
 from mindformers.core.parallel_config import build_parallel_config
+from mindformers.utils.load_checkpoint_utils import get_load_path_after_hf_convert
 from mindformers.trainer.utils import transform_and_load_checkpoint
 
 
@@ -67,6 +68,7 @@ def main(config_path, use_parallel, load_checkpoint, vocab_file):
         seq_length = config.model.model_config.seq_length
         input_ids = Tensor(shape=(batch_size, seq_length), dtype=ms.int32, init=init.One())
         infer_data = network.prepare_inputs_for_predict_layout(input_ids)
+        config.load_checkpoint = get_load_path_after_hf_convert(config=config, network=network)
         transform_and_load_checkpoint(config, model, network, infer_data, do_predict=True)
 
     chat_template = config.processor.tokenizer.chat_template if config.processor.tokenizer.chat_template else None
