@@ -25,7 +25,7 @@ from mindformers.utils import deprecated
 __all__ = ['SimMask', 'MaeMask']
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.MASK_POLICY)
 class SimMask(py_transforms.PyTensorOperation):
     """SimMIM Mask Policy."""
@@ -62,7 +62,7 @@ class SimMask(py_transforms.PyTensorOperation):
         return "Mask generator for simmin arch."
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.MASK_POLICY)
 class MaeMask(py_transforms.PyTensorOperation):
     """MAE Mask Policy."""

@@ -28,7 +28,7 @@ def _get_pixels(per_pixel, rand_color, patch_size, dtype=np.float32):
     return func
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class RandomErasing(PyTensorOperation):
     """ Randomly selects a rectangle region in an image and erases its pixels.

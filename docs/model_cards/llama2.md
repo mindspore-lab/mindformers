@@ -2,7 +2,7 @@
 
 > ## 🚨 弃用说明
 >
-> 本模型已过时，不再进行维护，并将在 *1.5.0* 之后的版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/start/models.html)** 选择合适的版本进行使用。
+> 本模型已过时，不再进行维护，并将在 *1.6.0* 之后的版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/start/models.html)** 选择合适的版本进行使用。
 >
 > 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
 
@@ -102,7 +102,7 @@ MindFormers提供**Wikitext2**作为[预训练](#预训练)数据集和PPL评测
 
 | 数据集名称     |                    适用模型                     |          适用阶段           |                                        下载链接                                        |
 |:----------|:-------------------------------------------:|:-----------------------:|:----------------------------------------------------------------------------------:|
-| Wikitext2 | llama2-7b <br/> llama2-13b <br/> llama2-70b | Pretrain <br/> Evaluate | [Link](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/func_related.html)   |
+| Wikitext2 | llama2-7b <br/> llama2-13b <br/> llama2-70b | Pretrain <br/> Evaluate | [Link](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/faq/func_related.html)   |
 | alpaca    | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Finetune         |  [Link](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)   |
 | SQuAD 1.1 | llama2-7b <br/> llama2-13b <br/> llama2-70b |        Evaluate         |                    [Link](https://data.deepai.org/squad1.1.zip)                    |
 

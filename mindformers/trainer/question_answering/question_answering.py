@@ -34,7 +34,7 @@ from ..training_args import TrainingArguments
 __all__ = ['QuestionAnsweringTrainer']
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class QuestionAnsweringTrainer(BaseTrainer):
     """

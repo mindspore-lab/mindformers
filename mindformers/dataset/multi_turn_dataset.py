@@ -92,7 +92,7 @@ class MultiTurnDataset(BaseDataset):
         >>> #     `"/path/to/tool_alpaca.jsonl"` should be replaced with the real path of the formatted dataset file.
         >>> #     `"/path/to/tokenizer.model"` should be replaced with the real path of the tokenizer file.
         >>> #     The detailed data setting could refer to
-        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/glm3.md
+        >>> #     https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/glm3.md
         >>> config_dict = {
         ...     'data_loader': {
         ...         'type': 'ToolAlpacaDataLoader',

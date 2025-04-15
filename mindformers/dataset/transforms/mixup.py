@@ -23,7 +23,7 @@ from mindformers.tools.register import MindFormerRegister, MindFormerModuleType
 from mindformers.utils import deprecated
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 def one_hot(x, num_classes, on_value=1., off_value=0.):
     """one hot to label"""
     x = x.reshape(-1)
@@ -32,7 +32,7 @@ def one_hot(x, num_classes, on_value=1., off_value=0.):
     return x
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 def mixup_target(target, num_classes, lam=1., smoothing=0.0):
     """mixup_target"""
     off_value = smoothing / num_classes
@@ -42,7 +42,7 @@ def mixup_target(target, num_classes, lam=1., smoothing=0.0):
     return y1 * lam + y2 * (1. - lam)
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 def rand_bbox(img_shape, lam, margin=0., count=None):
     """ Standard CutMix bounding-box
     Generates a random square bbox based on lambda value. This impl includes
@@ -67,7 +67,7 @@ def rand_bbox(img_shape, lam, margin=0., count=None):
     return yl, yh, xl, xh
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 def rand_bbox_minmax(img_shape, minmax, count=None):
     """ Min-Max CutMix bounding-box
     Inspired by Darknet cutmix impl, generates a random rectangular bbox
@@ -92,7 +92,7 @@ def rand_bbox_minmax(img_shape, minmax, count=None):
     return yl, yu, xl, xu
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 def cutmix_bbox_and_lam(img_shape, lam, ratio_minmax=None, correct_lam=True, count=None):
     """ Generate bbox and apply lambda correction.
     """
@@ -106,7 +106,7 @@ def cutmix_bbox_and_lam(img_shape, lam, ratio_minmax=None, correct_lam=True, cou
     return (yl, yu, xl, xu), lam
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class Mixup(PyTensorOperation):
     """ Mixup/Cutmix that applies different params to each element or whole batch

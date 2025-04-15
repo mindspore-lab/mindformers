@@ -28,7 +28,7 @@ from ..models import PreTrainedModel, PreTrainedTokenizer
 __all__ = ['TranslationPipeline']
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="translation")
 class TranslationPipeline(Pipeline):
     """Pipeline for Translation

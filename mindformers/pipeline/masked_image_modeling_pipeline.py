@@ -32,7 +32,7 @@ __all__ = ['MaskedImageModelingPipeline']
 from ..tools.utils import LOCAL_DEFAULT_PATH
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="masked_image_modeling")
 class MaskedImageModelingPipeline(Pipeline):
     r"""Pipeline for masked image modeling

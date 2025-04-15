@@ -37,7 +37,7 @@ from mindformers.utils import deprecated
 __all__ = ['SoftTargetCrossEntropy', 'MSELoss', 'L1Loss', 'CrossEntropyLoss']
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
 class SoftTargetCrossEntropy(LossBase):
     """
@@ -75,7 +75,7 @@ class SoftTargetCrossEntropy(LossBase):
         return self.mean_ops(loss)
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
 class MSELoss(nn.Cell):
     """
@@ -147,7 +147,7 @@ class MSELoss(nn.Cell):
         return x_var
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.LOSS)
 class L1Loss(LossBase):
     """L1Loss for parallel."""

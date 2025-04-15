@@ -29,7 +29,7 @@ from mindformers.utils import deprecated
 from .base_pipeline import Pipeline
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="image_classification")
 class ImageClassificationPipeline(Pipeline):
     r"""Pipeline for image classification

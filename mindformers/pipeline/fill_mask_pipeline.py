@@ -25,7 +25,7 @@ from ..tools.register import MindFormerRegister, MindFormerModuleType
 __all__ = ['FillMaskPipeline']
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.PIPELINE, alias="fill_mask")
 class FillMaskPipeline(Pipeline):
     """

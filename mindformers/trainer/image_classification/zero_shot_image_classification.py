@@ -36,7 +36,7 @@ from ..base_trainer import BaseTrainer
 __all__ = ['ZeroShotImageClassificationTrainer']
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class ZeroShotImageClassificationTrainer(BaseTrainer):
     """

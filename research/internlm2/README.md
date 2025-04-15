@@ -148,7 +148,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 #### 多机训练
 
-多机多卡训练可以参考[多机多卡启动方式](https://gitee.com/mindspore/mindformers/blob/dev/README_CN.md#%E5%A4%9A%E6%9C%BA%E5%A4%9A%E5%8D%A1)。
+多机多卡训练可以参考[多机多卡启动方式](https://gitee.com/mindspore/mindformers/blob/r1.5.0/README_CN.md#%E5%A4%9A%E6%9C%BA%E5%A4%9A%E5%8D%A1)。
 
 ## 推理
 

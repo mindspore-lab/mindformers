@@ -26,7 +26,7 @@ __all__ = [
 ]
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class RandomChoiceTokenizerForward:
     """Random Choice Tokenizer Forward"""
@@ -50,7 +50,7 @@ class RandomChoiceTokenizerForward:
         return token_id
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class TokenizerForward:
     """Tokenizer Forward"""
@@ -71,7 +71,7 @@ class TokenizerForward:
         return token_id
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class TokenizeWithLabel:
     """Tokenizer With Label"""
@@ -97,7 +97,7 @@ class TokenizeWithLabel:
         return input_ids, token_type_ids, attention_mask, label_id
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class LabelPadding:
     """Label Padding"""
@@ -124,7 +124,7 @@ class LabelPadding:
         return pad_label_id
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.TRANSFORMS)
 class CaptionTransform:
     """

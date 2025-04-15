@@ -2,7 +2,7 @@
 
 > ## 🚨 弃用说明
 >
-> 本模型已过时，不再进行维护，并将在 *1.5.0* 之后的版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/start/models.html)** 选择合适的版本进行使用。
+> 本模型已过时，不再进行维护，并将在 *1.6.0* 之后的版本下架。如需使用此模型，建议根据官方文档中的 **[模型库](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/start/models.html)** 选择合适的版本进行使用。
 >
 > 如有任何问题或建议，请通过 **[社区Issue](https://gitee.com/mindspore/mindformers/issues/new)** 提交反馈。感谢您的理解与支持！
 
@@ -200,7 +200,7 @@ MindFormers提供`Wikitext-103`作为[预训练](#预训练)数据集，`alpaca`
   pip install torch transformers==4.37.2
   ```
 
-然后运行 [Mindformers 的权重转换工具](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/weight_conversion.html), 将huggingface的权重转换为 Mindspore 的ckpt格式。
+然后运行 [Mindformers 的权重转换工具](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/weight_conversion.html), 将huggingface的权重转换为 Mindspore 的ckpt格式。
 
 > 注意: 权重转换完成之后，注意重新根据本项目[requirements.txt](../../requirements.txt )恢复`tokenizers`包的版本:
 > `pip install -r requirements.txt`

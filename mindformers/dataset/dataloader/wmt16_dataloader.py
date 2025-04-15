@@ -22,7 +22,7 @@ from mindformers.utils import deprecated
 from ...tools.register import MindFormerRegister, MindFormerModuleType
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.DATASET_LOADER)
 class WMT16DataLoader:
     """WMT16 Dataloader"""
@@ -76,7 +76,7 @@ def read_text(train_file):
     return data
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 class WMT16DataSet:
     """WMT16 DataSet"""
 

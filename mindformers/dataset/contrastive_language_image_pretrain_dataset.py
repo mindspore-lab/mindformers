@@ -26,7 +26,7 @@ from ..models.build_tokenizer import build_tokenizer
 from ..tools.register import MindFormerRegister, MindFormerModuleType
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.DATASET)
 class ContrastiveLanguageImagePretrainDataset(BaseDataset):
     """
@@ -99,10 +99,6 @@ class ContrastiveLanguageImagePretrainDataset(BaseDataset):
         >>> from mindformers.dataset import Flickr8kDataLoader, ContrastiveLanguageImagePretrainDataset
         >>> from mindformers.dataset import Resize, RandomChoiceTokenizerForward
         >>> tokenizer = AutoTokenizer.from_pretrained("clip_vit_b_32")
-        >>> # Note:
-        >>> #     `"/dir/to/dataset"` should be replaced with the real directory of dataset.
-        >>> #     The detailed data setting could refer to
-        >>> #     https://gitee.com/mindspore/mindformers/blob/dev/docs/model_cards/clip.md
         >>> data_loader = Flickr8kDataLoader(dataset_dir="/dir/to/dataset", stage="train",
         ...                                  column_names=["image", "text"])
         >>> text_transforms = RandomChoiceTokenizerForward(max_length=77, padding="max_length", random_seed=2022,

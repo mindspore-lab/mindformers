@@ -30,7 +30,7 @@ from ..training_args import TrainingArguments
 from ..base_trainer import BaseTrainer
 
 
-@deprecated(version="1.5.0")
+@deprecated(version="1.6.0")
 @MindFormerRegister.register(MindFormerModuleType.TRAINER)
 class TextClassificationTrainer(BaseTrainer):
     """

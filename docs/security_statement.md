@@ -63,7 +63,7 @@ mindformers在源码构建安装过程中，会产生临时目录和程序文件
 
 ### 公开接口声明
 
-mindformers对外暴露接口可参考[api](https://gitee.com/mindspore/mindformers/tree/dev/docs/api)， 具体接口规格可参考对应API文档查询。
+mindformers对外暴露接口可参考[api](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/mindformers.html)， 具体接口规格可参考对应API文档查询。
 
 ### 通信矩阵
 

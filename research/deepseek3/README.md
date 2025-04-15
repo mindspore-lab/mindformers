@@ -180,7 +180,7 @@ bash build.sh
 
 1. 下载数据集和分词模型文件
 
-   - 数据集下载：[WikiText2数据集](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/faq/func_related.html)
+   - 数据集下载：[WikiText2数据集](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/faq/func_related.html)
 
    - 分词模型下载：分词模型[tokenizer.json](https://huggingface.co/deepseek-ai/DeepSeek-V3/resolve/main/tokenizer.json?download=true)
 
@@ -283,7 +283,7 @@ bash build.sh
        parallel_speed_up_json_path: "./research/deepseek3/parallel_speed_up.json"  # 修改此项为数据集并行通信配置路径，需要固件与驱动版本不低于24.1.RC3
    ```
 
-> 注意，当前DeepSeek-V3模型使用GroupedMatmul实现，暂不支持模拟编译功能(dryrun)。如需dryrun获取训练内存情况，可将配置项中`moe_config`项下的`use_gmm`配置为False，执行BatchedMatmul流程的dryrun以评估模型训练内存使用情况。dryrun使用流程可参考[DryRun内存评估工具](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/perf_optimize/perf_optimize.html#dryrun%E5%86%85%E5%AD%98%E8%AF%84%E4%BC%B0%E5%B7%A5%E5%85%B7)文档介绍
+> 注意，当前DeepSeek-V3模型使用GroupedMatmul实现，暂不支持模拟编译功能(dryrun)。如需dryrun获取训练内存情况，可将配置项中`moe_config`项下的`use_gmm`配置为False，执行BatchedMatmul流程的dryrun以评估模型训练内存使用情况。dryrun使用流程可参考[DryRun内存评估工具](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/perf_optimize/perf_optimize.html#dryrun%E5%86%85%E5%AD%98%E8%AF%84%E4%BC%B0%E5%B7%A5%E5%85%B7)文档介绍
 
 ### 拉起任务
 
@@ -383,13 +383,13 @@ dtype:            转换权重的精度
 
 > 注：目前全参微调仅支持batched matmul实现，此处转换时use_gemm需设置为False；[模型权重下载](#模型权重下载)中提供的权重也均为bmm实现权重。
 
-#### [模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)
+#### [模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html)
 
   从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。Safetensors格式权重只支持自动切分策略，后续[拉起任务等章节](#拉起任务)示例命令中采用运行时自动切分策略。
 
   通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
 
-  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/dev/function/transform_weight.html)
+  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html)
 
 ### 修改配置
 
