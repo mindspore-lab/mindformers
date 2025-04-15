@@ -22,7 +22,7 @@ from typing import Optional
 
 from mindformers.tools import MindFormerConfig, logger
 from mindformers.dataset.handler.build_data_handler import build_data_handler
-from mindformers.dataset.dataloader.common_dataloader import CommonDataLoader, ms_adaptor_execution
+from mindformers.dataset.dataloader.common_dataloader import CommonDataLoader
 
 
 class PreprocessDataLoader(CommonDataLoader):
@@ -41,7 +41,6 @@ class PreprocessDataLoader(CommonDataLoader):
             kwargs["split"] = "train"
 
         kwargs = cls._filter_params(kwargs=kwargs)
-        ms_adaptor_execution()
         dataset = cls.load_dataset(path=path, load_func=load_func, **kwargs)
 
         if handler:  # data preprocess
