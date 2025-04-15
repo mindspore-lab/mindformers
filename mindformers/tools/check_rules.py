@@ -184,6 +184,18 @@ def _check_parallel(config):
         if cp > 1:
             _check_context_parallel_algo_valid(config, cp, mp)
 
+    seq_split_num = getattr(config.parallel_config, 'seq_split_num', None)
+    if seq_split_num not in (1, None):
+        return
+    pipeline_config = getattr(config.parallel, 'pipeline_config', None)
+    if pipeline_config is None:
+        return
+    pipeline_scheduler = getattr(config.parallel.pipeline_config, 'pipeline_scheduler', None)
+    if pipeline_scheduler != 'seqvpp':
+        return
+    raise ValueError(f"It is not supported that pipeline_scheduler is seqvpp when seq_split_num is 1, "
+                     f"please set pipeline_scheduler to seqpipe.")
+
 
 def _check_keyword_gen_dataset(config, mode, **kwargs):
     """
