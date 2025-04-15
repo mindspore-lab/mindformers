@@ -1267,6 +1267,7 @@ class TopkRouterV2(Cell):
 
         if self.moe_config.topk_method == "noaux_tc":
             self.tc_topk = P.TopK().shard(((dp, 1, 1, 1),))
+            self.tc_topk.recompute(False)
             self.tc_sum = P.ReduceSum(keep_dims=False).shard(((dp, 1, 1, 1),))
 
         self.cast = P.Cast()
@@ -1275,6 +1276,7 @@ class TopkRouterV2(Cell):
         self.gating_activation = P.Softmax(axis=-1).shard(((dp, 1, 1,),)) \
             if not moe_config.use_gating_sigmoid else P.Sigmoid().shard(((dp, 1, 1,),))
         self.topk = P.TopK().shard(((dp, 1, 1),))
+        self.topk.recompute(False)
         self.argmax = P.ArgMaxWithValue(axis=-1, keep_dims=False).shard(((dp, 1, 1),))
         self.onehot_2d = P.OneHot().shard(((dp, 1, 1), (), ()))
         self.onehot_3d = P.OneHot().shard(((dp, 1, 1, 1), (), ()))
