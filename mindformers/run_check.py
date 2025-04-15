@@ -360,27 +360,31 @@ class VersionCheck(BaseCheck):
 def run_check():
     """
     Check whether the installed CANN, driver, MindSpore and MindFormers versions are matched.
+
     The structure of the VERSION_MAP.json is shown as below:
-    {
-        'mf': {
-            'version1': {
-                'prefer': 'prefered ms version',
-                'support': [competible ms version list]
+
+    .. code-block::
+
+        {
+            'mf': {
+                'version1': {
+                    'prefer': 'prefered ms version',
+                    'support': [competible ms version list]
+                },
             },
-        },
-        'ms': {
-            'version1': {
-                'prefer' : 'prefered cann version',
-                'support': [competible cann version list]
+            'ms': {
+                'version1': {
+                    'prefer' : 'prefered cann version',
+                    'support': [competible cann version list]
+                },
             },
-        },
-        'cann': {
-            'version1': {
-                'prefer' : 'prefered driver version',
-                'support': [competible driver version list]
-            },
+            'cann': {
+                'version1': {
+                    'prefer' : 'prefered driver version',
+                    'support': [competible driver version list]
+                },
+            }
         }
-    }
 
     Examples:
         >>> from mindformers import run_check
