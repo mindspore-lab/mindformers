@@ -672,7 +672,7 @@ def _split_qkv_weight(w_qkv_keys, model_config, target_dict):
             w_qkv_value = w_qkv_value.reshape(w_qkv_value.shape[0], -1)
         wq_value = w_qkv_value[:hidden_size, :]
         wk_value = w_qkv_value[hidden_size:hidden_size + kv_hidden_size, :]
-        wv_value = w_qkv_value[hidden_size + kv_hidden_size:hidden_size + 2*kv_hidden_size, :]
+        wv_value = w_qkv_value[hidden_size + kv_hidden_size:hidden_size + 2 * kv_hidden_size, :]
         wq_key = w_qkv_key.replace('query_key_value', 'wq')
         wk_key = w_qkv_key.replace('query_key_value', 'wk')
         wv_key = w_qkv_key.replace('query_key_value', 'wv')
