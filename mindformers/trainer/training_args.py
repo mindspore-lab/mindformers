@@ -282,6 +282,9 @@ class TrainingArguments:
             Batch size per GPU/NPU core/CPU for training. Default: ``8``.
         per_device_eval_batch_size (int, optional):
             Batch size per GPU/NPU core/CPU for evaluation. Default: ``8``.
+        prediction_loss_only (bool, optional):
+            When performing evaluation and predictions, only returns the loss.
+            Deprecated at current version. Default: ``False``.
         dataloader_num_workers (int, optional):
             Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process.
             Default: ``8``.
@@ -370,9 +373,6 @@ class TrainingArguments:
             Start step for performance analysis. Default: ``1``.
         profile_end_step (int, optional):
             End step for performance analysis. Default: ``10``.
-        prediction_loss_only (bool, optional):
-            When performing evaluation and predictions, only returns the loss.
-            Not support at current version. Default: ``False.``
         init_start_profile (bool, optional):
             Whether to enable data collection at the time of Profiler initialization. Once enabled, profile_start_step
             will not be effective. It must be enabled if multi-device communication data needs to be collected.
