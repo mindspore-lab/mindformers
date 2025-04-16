@@ -34,6 +34,7 @@ from mindspore.nn.wrap.cell_wrapper import _MicroBatch
 from mindspore.ops import composite as C
 from mindspore.ops import functional as F
 from mindspore.ops import operations as P
+from mindspore.ops.auto_generate import SumExt
 if is_dump_supported():
     from mindspore.ops._grad_experimental.grad_comm_ops import get_squared_device_local_norm_param
 
@@ -66,7 +67,7 @@ get_size = C.MultitypeFuncGraph("get_size")
 
 @get_square_sum.register("Tensor", "Number")
 def _get_square_sum(grad, value):
-    norm = P.ReduceSum(False)(F.square(F.cast(grad, mstype.float32)), ()) * value
+    norm = SumExt()(F.square(F.cast(grad, mstype.float32)), ()) * value
     norm = F.expand_dims(norm, 0)
     return norm
 
@@ -74,7 +75,7 @@ def _get_square_sum(grad, value):
 # pylint: disable=E0102
 @get_square_sum.register("Tensor")
 def _get_square_sum(grad):
-    norm = P.ReduceSum(False)(F.square(F.cast(grad, mstype.float32)), ())
+    norm = SumExt()(F.square(F.cast(grad, mstype.float32)), ())
     norm = F.expand_dims(norm, 0)
     return norm
 
@@ -513,7 +514,7 @@ class MFPipelineWithLossScaleCell(nn.TrainOneStepWithLossScaleCell):
         self.degree = 1
         self.cast = P.Cast()
         self.status = Tensor([0] * 8, mstype.int32)
-        self.reduce_sum = P.ReduceSum(keep_dims=False)
+        self.reduce_sum = SumExt()
         if self.parallel_mode not in [ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL]:
             raise ValueError(f"ParallelMode must be one of "
                              f"[ParallelMode.SEMI_AUTO_PARALLEL, ParallelMode.AUTO_PARALLEL], but found "
