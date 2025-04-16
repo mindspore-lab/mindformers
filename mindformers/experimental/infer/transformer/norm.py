@@ -55,9 +55,9 @@ class LayerNorm(nn.Cell):
     def construct(self, x):
         """construct method"""
         original_type = x.dtype
-        x = self.cast(x, self.compute_type)
+        x = P.Cast()(x, self.compute_type)
         output, _, _ = self.layer_norm(x, self.gamma, self.beta)
-        output = self.cast(x, original_type)
+        output = P.Cast()(x, original_type)
         return output
 
 
@@ -86,10 +86,7 @@ class RMSNorm(nn.Cell):
             self.norm = P.RmsNorm(eps)
             self.rms_norm = self._rms_norm
             self.self_define = False
-            self.cast = P.Cast()
-            self.rcast = P.Cast()
         else:
-            self.cast = P.Cast()
             self.mul = P.Mul()
             self.mul2 = P.Mul()
             self.square = P.Square()
@@ -101,18 +98,18 @@ class RMSNorm(nn.Cell):
 
     def _self_norm(self, x):
         original_type = x.dtype
-        norm_factor = self.square(self.cast(x, self.compute_type))
+        norm_factor = self.square(P.Cast()(x, self.compute_type))
         norm_factor = self.mean(norm_factor, -1)
         norm_factor = self.add(norm_factor, self.eps)
         norm_factor = self.rsqrt(norm_factor)
-        output = self.mul(x, self.cast(norm_factor, original_type))
-        output = self.mul2(output, self.cast(self.weight, original_type))
+        output = self.mul(x, P.Cast()(norm_factor, original_type))
+        output = self.mul2(output, P.Cast()(self.weight, original_type))
         return output
 
     def _rms_norm(self, x):
         original_type = x.dtype
-        output = self.norm(self.cast(x, self.compute_type), self.weight)[0]
-        return self.rcast(output, original_type)
+        output = self.norm(P.Cast()(x, self.compute_type), self.weight)[0]
+        return P.Cast()(output, original_type)
 
     def construct(self, x):
         """Forward of RMSNorm."""

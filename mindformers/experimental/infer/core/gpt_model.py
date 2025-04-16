@@ -85,7 +85,6 @@ class GPTModel(nn.Cell):
         self.rotary_base = rotary_base
         self.tp_group_size = get_tp_world_size()
 
-        self.cast = ops.Cast()
         self.gather = ops.Gather()
         self.sub = ops.Sub()
         self.reshape = ops.Reshape()
@@ -194,7 +193,7 @@ class GPTModel(nn.Cell):
             if attention_mask is None:
                 attention_mask = self.casual_mask.decode(positions)
 
-        hidden_states = self.cast(self.embedding(input_ids), self.compute_dtype)
+        hidden_states = ops.Cast()(self.embedding(input_ids), self.compute_dtype)
 
         hidden_states = self.decoder(
             hidden_states,
@@ -213,7 +212,7 @@ class GPTModel(nn.Cell):
         output = self.pre_gather_func(hidden_states, context_lens_tensor, batch_valid_length)
 
         logits = self.output_layer(output)
-        logits = self.cast(logits.squeeze(0), mstype.float32)
+        logits = ops.Cast()(logits.squeeze(0), mstype.float32)
         return logits
 
 

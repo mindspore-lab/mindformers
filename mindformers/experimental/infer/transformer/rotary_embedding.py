@@ -68,7 +68,6 @@ class RotaryEmbedding(Cell):
         self.reshape = P.Reshape()
         self.cos = P.Cos()
         self.sin = P.Sin()
-        self.cast = P.Cast()
         self.gather = P.Gather()
 
         self.rotary_dtype = rotary_dtype
@@ -107,8 +106,8 @@ class RotaryEmbedding(Cell):
         else:
             emb = self.cat((freqs, freqs))
 
-        rotary_pos_cos = self.cast(self.cos(emb), self.rotary_dtype)
-        rotary_pos_sin = self.cast(self.sin(emb), self.rotary_dtype)
+        rotary_pos_cos = P.Cast()(self.cos(emb), self.rotary_dtype)
+        rotary_pos_sin = P.Cast()(self.sin(emb), self.rotary_dtype)
 
         return rotary_pos_cos, rotary_pos_sin
 
@@ -122,8 +121,8 @@ class RotaryEmbedding(Cell):
         else:
             emb = self.cat((freqs, freqs))
 
-        cos = self.cast(self.cos(emb), self.rotary_dtype)
-        sin = self.cast(self.sin(emb), self.rotary_dtype)
+        cos = P.Cast()(self.cos(emb), self.rotary_dtype)
+        sin = P.Cast()(self.sin(emb), self.rotary_dtype)
 
         rotary_pos_cos = self.gather(cos, positions, 0)
         rotary_pos_sin = self.gather(sin, positions, 0)
