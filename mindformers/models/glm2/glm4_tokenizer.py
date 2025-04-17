@@ -15,7 +15,6 @@
 """ChatGLM4 Tokenizer."""
 import base64
 import os
-import json
 from typing import List, Optional, Union, Dict
 import tiktoken
 import regex as re
@@ -228,40 +227,6 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
             token_ids_0 = token_ids_0 + token_ids_1 + [self.convert_tokens_to_ids("<eos>")]
         return token_ids_0
 
-    def build_batch_input(self, queries, histories=None, roles="user", padding=True, return_tensors="np"):
-        """build batch input with role."""
-        if isinstance(queries, str):
-            queries = [queries]
-        if not isinstance(queries, list):
-            raise TypeError(f'{queries} must be of type list!')
-        batch_size = len(queries)
-        if isinstance(roles, str):
-            roles = [roles] * batch_size
-        if isinstance(histories, list) and len(histories) != batch_size:
-            histories = [histories]
-        if histories is None:
-            histories = [[] for _ in range(batch_size)]
-
-        if batch_size != len(histories) or batch_size != len(roles):
-            raise ValueError(f'len(queries) should equals to len(roles) and len(histories), but got len(queries): '
-                             f'{len(queries)} and len(histories):{len(histories)} and len(roles): {len(roles)}')
-        batch_inputs = []
-        for query, history, role in zip(queries, histories, roles):
-            if history is None:
-                history = []
-            input_ids = []
-            for item in history:
-                content = item["content"]
-                if item["role"] == "system" and "tools" in item:
-                    content = content + "\n" + json.dumps(item["tools"], indent=4, ensure_ascii=False)
-                input_ids.extend(self.build_single_message(item["role"], item.get("metadata", ""), content))
-            input_ids.extend(self.build_single_message(role, "", query))
-            input_ids.extend([self.convert_special_tokens_to_ids("<|assistant|>")])
-            batch_inputs.append(input_ids)
-
-        return self.batch_encode_plus(batch_inputs, return_tensors=return_tensors,
-                                      is_split_into_words=True, padding=padding)
-
     def _pad(
             self,
             encoded_inputs: Union[Dict[str, EncodedInput], BatchEncoding],
@@ -319,27 +284,3 @@ class ChatGLM4Tokenizer(PreTrainedTokenizer):
             encoded_inputs[self.model_input_names[0]] = required_input + [self.pad_token_id] * difference
 
         return encoded_inputs
-
-    def build_chat_input(self, query, history=None, role="user", return_tensors="np"):
-        """build chat input with role."""
-        if history is None:
-            history = []
-        input_ids = []
-        for item in history:
-            content = item["content"]
-            if item["role"] == "system" and "tools" in item:
-                content = content + "\n" + json.dumps(item["tools"], indent=4, ensure_ascii=False)
-            input_ids.extend(self.build_single_message(item["role"], item.get("metadata", ""), content))
-        input_ids.extend(self.build_single_message(role, "", query))
-        input_ids.extend([self.convert_special_tokens_to_ids("<|assistant|>")])
-        return self.batch_encode_plus([input_ids], return_tensors=return_tensors, is_split_into_words=True)
-
-    # pylint: disable=W0221
-    def apply_chat_template(self, conversation, return_tensors=None, **tokenizer_kwargs):
-        if not conversation:
-            return []
-        if not (isinstance(conversation, list) and len(conversation) == 1
-                and isinstance(conversation[0], Dict)):
-            raise ValueError(f"conversation {conversation} is invalid.")
-        return self.build_chat_input(query=conversation[0].get("content"), role=conversation[0].get("role"),
-                                     return_tensors=return_tensors)["input_ids"][0]
