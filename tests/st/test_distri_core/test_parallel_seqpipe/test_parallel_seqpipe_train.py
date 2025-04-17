@@ -59,7 +59,7 @@ def compare_loss(pred_loss, gt_loss, model_name):
                                                             "loss accuracy test fail !"
     print("============== Interleaved staged pipeline net loss accuracy test pass !!! ==============")
 
-@pytest.mark.level1
+@pytest.mark.level0
 @pytest.mark.platform_arm_ascend910b_training
 @pytest.mark.env_single
 class TestSeqPipelineParallel:
