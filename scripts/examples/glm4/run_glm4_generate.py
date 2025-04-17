@@ -73,22 +73,17 @@ def main(config_path, use_parallel, load_checkpoint, vocab_file):
 
     chat_template = config.processor.tokenizer.chat_template if config.processor.tokenizer.chat_template else None
 
-    if isinstance(inputs, list):
-        inputs_ids = tokenizer.build_batch_input(inputs)["input_ids"]
-    else:
-        if not isinstance(inputs, str):
-            raise ValueError("inputs must be a str, but got {}".format(type(inputs)))
-        inputs_ids = tokenizer.apply_chat_template(conversation=[{"role": "user", "content": inputs}],
+    for message in inputs:
+        inputs_ids = tokenizer.apply_chat_template(conversation=[{"role": "user", "content": message}],
                                                    chat_template=chat_template,
                                                    add_generation_prompt=True,
                                                    return_tensors="np")
 
-    outputs = network.generate(inputs_ids,
-                               max_length=model_config.max_decode_length,
-                               do_sample=model_config.do_sample,
-                               top_k=model_config.top_k,
-                               top_p=model_config.top_p)
-    for output in outputs:
+        output = network.generate(inputs_ids,
+                                  max_length=model_config.max_decode_length,
+                                  do_sample=model_config.do_sample,
+                                  top_k=model_config.top_k,
+                                  top_p=model_config.top_p)
         print(tokenizer.decode(output))
 
 
