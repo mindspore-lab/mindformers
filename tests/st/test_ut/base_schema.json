@@ -4097,17 +4097,8 @@
     "mindformers.models.ChatGLM4Tokenizer.build_inputs_with_special_tokens": {
         "signature": "(self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None) -> List[int]"
     },
-    "mindformers.models.ChatGLM4Tokenizer.build_batch_input": {
-        "signature": "(self, queries, histories=None, roles='user', padding=True, return_tensors='np')"
-    },
     "mindformers.models.ChatGLM4Tokenizer._pad": {
         "signature": "(self, encoded_inputs: Union[Dict[str, List[int]], mindformers.models.tokenization_utils_base.BatchEncoding], max_length: Optional[int] = None, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, pad_to_multiple_of: Optional[int] = None, return_attention_mask: Optional[bool] = None) -> dict"
-    },
-    "mindformers.models.ChatGLM4Tokenizer.build_chat_input": {
-        "signature": "(self, query, history=None, role='user', return_tensors='np')"
-    },
-    "mindformers.models.ChatGLM4Tokenizer.apply_chat_template": {
-        "signature": "(self, conversation, return_tensors=None, **tokenizer_kwargs)"
     },
     "mindformers.models.GLMProcessor": {
         "signature": "(tokenizer=None, max_length=128, padding='max_length', return_tensors='ms')"
@@ -5258,17 +5249,8 @@
     "mindformers.models.glm2.ChatGLM4Tokenizer.build_inputs_with_special_tokens": {
         "signature": "(self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None) -> List[int]"
     },
-    "mindformers.models.glm2.ChatGLM4Tokenizer.build_batch_input": {
-        "signature": "(self, queries, histories=None, roles='user', padding=True, return_tensors='np')"
-    },
     "mindformers.models.glm2.ChatGLM4Tokenizer._pad": {
         "signature": "(self, encoded_inputs: Union[Dict[str, List[int]], mindformers.models.tokenization_utils_base.BatchEncoding], max_length: Optional[int] = None, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, pad_to_multiple_of: Optional[int] = None, return_attention_mask: Optional[bool] = None) -> dict"
-    },
-    "mindformers.models.glm2.ChatGLM4Tokenizer.build_chat_input": {
-        "signature": "(self, query, history=None, role='user', return_tensors='np')"
-    },
-    "mindformers.models.glm2.ChatGLM4Tokenizer.apply_chat_template": {
-        "signature": "(self, conversation, return_tensors=None, **tokenizer_kwargs)"
     },
     "mindformers.models.glm2.GLMProcessor": {
         "signature": "(tokenizer=None, max_length=128, padding='max_length', return_tensors='ms')"
@@ -5447,17 +5429,8 @@
     "mindformers.models.glm2.glm4_tokenizer.ChatGLM4Tokenizer.build_inputs_with_special_tokens": {
         "signature": "(self, token_ids_0: List[int], token_ids_1: Optional[List[int]] = None) -> List[int]"
     },
-    "mindformers.models.glm2.glm4_tokenizer.ChatGLM4Tokenizer.build_batch_input": {
-        "signature": "(self, queries, histories=None, roles='user', padding=True, return_tensors='np')"
-    },
     "mindformers.models.glm2.glm4_tokenizer.ChatGLM4Tokenizer._pad": {
         "signature": "(self, encoded_inputs: Union[Dict[str, List[int]], mindformers.models.tokenization_utils_base.BatchEncoding], max_length: Optional[int] = None, padding_strategy: mindformers.models.tokenization_utils_base.PaddingStrategy = <PaddingStrategy.DO_NOT_PAD: 'do_not_pad'>, pad_to_multiple_of: Optional[int] = None, return_attention_mask: Optional[bool] = None) -> dict"
-    },
-    "mindformers.models.glm2.glm4_tokenizer.ChatGLM4Tokenizer.build_chat_input": {
-        "signature": "(self, query, history=None, role='user', return_tensors='np')"
-    },
-    "mindformers.models.glm2.glm4_tokenizer.ChatGLM4Tokenizer.apply_chat_template": {
-        "signature": "(self, conversation, return_tensors=None, **tokenizer_kwargs)"
     },
     "mindformers.models.glm2.glm_processor.GLMProcessor": {
         "signature": "(tokenizer=None, max_length=128, padding='max_length', return_tensors='ms')"
