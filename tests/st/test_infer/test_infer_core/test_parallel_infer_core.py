@@ -45,7 +45,6 @@ def test_parallel_infer_core_graph():
     Description: Test parallel core for prediction.
     Expectation: AssertionError.
     """
-    os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
     os.environ['MS_ENABLE_LCCL'] = "off"
     commands = [
         (f"export ASCEND_RT_VISIBLE_DEVICES=0,1 && "
@@ -79,7 +78,6 @@ def test_parallel_infer_core_pynative():
     Description: Test parallel core for prediction.
     Expectation: AssertionError.
     """
-    os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
     os.environ['MS_ENABLE_LCCL'] = "off"
     commands = [
         (f"export ASCEND_RT_VISIBLE_DEVICES=0,1 && "

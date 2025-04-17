@@ -32,7 +32,8 @@ except ImportError:
     import mindspore._checkparam as Validator
 
 from mindformers.models.modeling_utils import PreTrainedModel
-from mindformers.models.utils import lazy_inline, LayerSetting, check_fine_grain_interleave_valid, predict_lazy_inline
+from mindformers.models.utils import lazy_inline, LayerSetting, check_fine_grain_interleave_valid, predict_lazy_inline,\
+    predict_jit
 from mindformers.modules.layers import Linear, FreqsMgr, _check_input_dtype, _yarn_get_mscale
 from mindformers.modules.transformer.op_parallel_config import _check_config
 from mindformers.modules.transformer.transformer import LowerTriangularMaskWithDynamic
@@ -1231,6 +1232,7 @@ class InferenceDeepseekV3ForCausalLM(DeepseekV3PreTrainedModel):
         return output
 
     # pylint: disable=W0613
+    @predict_jit
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=True, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, q_seq_lens=None, key_cache=None, value_cache=None):

@@ -402,7 +402,7 @@
         "signature": "(self, tag, data, global_step, formats)"
     },
     "mindformers.core.build_context": {
-        "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments], is_set_ms_ctx=True, is_init_ms=True)"
+        "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments])"
     },
     "mindformers.core.get_context": {
         "signature": "(attr_key)"
@@ -651,7 +651,7 @@
         "signature": "(summary_dir=None, collect_freq=10, collect_specified_data=None, keep_default_action=True, custom_lineage_data=None, collect_tensor_freq=None, max_file_size=None, export_options=None)"
     },
     "mindformers.core.context.build_context": {
-        "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments], is_set_ms_ctx=True, is_init_ms=True)"
+        "signature": "(config: Union[dict, mindformers.tools.register.config.MindFormerConfig, mindformers.trainer.training_args.TrainingArguments])"
     },
     "mindformers.core.context.get_context": {
         "signature": "(attr_key)"

@@ -23,7 +23,7 @@ import mindspore.common.dtype as mstype
 from mindspore import Tensor, ops, mint, mutable
 from mindspore.communication import get_group_size
 from mindspore.communication._comm_helper import _is_initialized
-
+from mindformers.models.utils import predict_jit
 from mindformers.experimental.infer.core.layers import ColumnParallelLinear
 from mindformers.experimental.infer.core.transformer import ParallelTransformer
 from mindformers.experimental.parallel_core.pynative.parallel_state import get_group_info, initialize_model_parallel
@@ -189,6 +189,7 @@ class ParallelLlamaForCausalLM(LlamaPreTrainedModel):
             layer.attention.paged_attention_mgr.add_flags(is_first_iteration=is_first_iteration)
 
     # pylint: disable=W0613
+    @predict_jit
     def construct(self, input_ids, labels=None, input_position=None, position_ids=None, attention_mask=None,
                   input_embeds=None, init_reset=None, batch_valid_length=None, batch_index=None, zactivate_len=None,
                   block_tables=None, slot_mapping=None, prefix_keys_values=None, llm_boost_inputs=None,
