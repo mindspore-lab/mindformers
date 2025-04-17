@@ -36,7 +36,11 @@ from mindformers.trainer.config_args import (
 )
 from mindformers.trainer.training_args import TrainingArguments
 from mindformers.utils import get_cann_workqueue_cores
-from mindformers.version_control import check_cpu_affinity_valid, check_tft_valid
+from mindformers.version_control import (
+    check_cpu_affinity_valid,
+    check_tft_valid,
+    set_ms_deterministic
+)
 
 
 class Context:
@@ -50,30 +54,22 @@ class Context:
             cls._instance = super(Context, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, config=None, is_set_ms_ctx=True, is_init_ms=True):
+    def __init__(self, config=None):
         """Build context."""
         if not hasattr(self, '_initailed'):
             self.rank_id = 0
             self.device_num = 1
             self.config = config if config is not None else MindFormerConfig()
             self.mf_ctx_opr = MFContextOperator(self.config)
-            self.ms_ctx_opr = MSContextOperator(self.config, is_set_ms_ctx)
+            self.ms_ctx_opr = MSContextOperator(self.config)
             self.parallel_opr = ParallelOperator(self.config)
             if check_tft_valid() and ("ARF:1" in os.getenv("MS_ENABLE_TFT", "")):
                 from mindspore.utils import _tft_handler
                 _tft_handler.init(config=self.config)
-                logger.warning(f"------------------init tft handler ok----------------------")
-            if self.config.use_parallel and is_init_ms:
+            if self.config.use_parallel:
                 self.rank_id, self.device_num = (
                     self.parallel_opr.init_communication()
                 )
-
-            if self.config.get('kernel_launch_group', {}):
-                thread_num = self.config.kernel_launch_group.get('thread_num', 2)
-                kernel_group_num = self.config.kernel_launch_group.get('kernel_group_num', 8)
-                ms.runtime.set_kernel_launch_group(thread_num=thread_num,
-                                                   kernel_group_num=kernel_group_num)
-
             set_cpu_affinity(self.rank_id, self.device_num)
             set_ms_affinity(self.config.get('context', {}).get('affinity_cpu_list', {}))
 
@@ -100,13 +96,11 @@ class Context:
 class MSContextOperator:
     """The wrapper of mindspore context operation."""
 
-    def __init__(self, config, is_set_ms_ctx):
+    def __init__(self, config):
         self.config = config
         ms_kwargs = self._handle_data()
         logger.debug('MSContextConfig load configs: %s', ms_kwargs)
-        if is_set_ms_ctx:
-            self.set_context(**ms_kwargs)
-        del self.config
+        self.set_context(**ms_kwargs)
 
     def _handle_data(self):
         """Get the valid ms config."""
@@ -119,9 +113,25 @@ class MSContextOperator:
         self._set_device_id(ctx, ms_ctx)
         self._set_save_graphs_path(ctx, ms_ctx)
         self._set_save_dump_path(ctx, ms_ctx)
-        self._set_jit_config(ctx, ms_ctx)
+        self._set_predict_jit_config(ctx, ms_ctx)
         self._set_runtime_num_threads(ctx, ms_ctx)
+        self._set_runtime_kernel_launch_group()
         return self._remove_mf_keys({**ctx, **ms_ctx})
+
+    @staticmethod
+    def _set_runtime_kernel_launch_group():
+        """Set the parameters of kernel_launch_group"""
+        kernel_launch_group = {}
+        env_kernel_launch_group = os.getenv("EXPERIMENTAL_KERNEL_LAUNCH_GROUP", None)
+        if env_kernel_launch_group is not None:
+            logger.info("........ Enable kernel_launch_group ........")
+            pairs = env_kernel_launch_group.split(',')
+            for pair in pairs:
+                key, val = pair.split(':')
+                kernel_launch_group[key] = val
+            thread_num = int(kernel_launch_group.get('thread_num', 2))
+            kernel_group_num = int(kernel_launch_group.get('kernel_group_num', 8))
+            ms.runtime.set_kernel_launch_group(thread_num=thread_num, kernel_group_num=kernel_group_num)
 
     def _set_device_id(self, ctx, ms_ctx):
         if self.config.use_parallel and check_in_dynamic_cluster():
@@ -129,30 +139,26 @@ class MSContextOperator:
             ctx.pop('device_id', None)
             ms_ctx.pop('device_id', None)
 
-    def _set_save_graphs_path(self, ctx, ms_ctx):
+    @staticmethod
+    def _set_save_graphs_path(ctx, ms_ctx):
         if ctx.get('save_graphs'):
             ms_ctx['save_graphs_path'] = ctx.get(
                 'save_graphs_path',
                 get_output_subpath("debug/graphs_info", append_rank=False)
             )
 
-    def _set_save_dump_path(self, ctx, ms_ctx):
+    @staticmethod
+    def _set_save_dump_path(ctx, ms_ctx):
         if ctx.get('enable_dump'):
             ms_ctx['save_dump_path'] = ctx.get(
                 'save_dump_path',
                 get_output_subpath("debug/dump_info", append_rank=False)
             )
 
-    def _set_jit_config(self, ctx, ms_ctx):
+    def _set_predict_jit_config(self, ctx, ms_ctx):
         """Get jit_level and infer_boost from config and set into ms context."""
         run_mode = self.config.get('run_mode')
-        use_past = self.config.get_value('model.model_config.use_past', False)
-
-        if (
-                run_mode is not None
-                and RunMode(run_mode) in [RunMode.PREDICT, RunMode.EVAL]
-                and use_past
-        ):
+        if run_mode is not None and RunMode(run_mode) in [RunMode.PREDICT, RunMode.EVAL]:
             jit_level = ctx.get("jit_level", "O0")
             infer_boost = ctx.get("infer_boost", "on")
             jit_config = ctx.get("jit_config")
@@ -179,7 +185,8 @@ class MSContextOperator:
                 "infer_boost": infer_boost
             }
 
-    def _set_runtime_num_threads(self, ctx, ms_ctx):
+    @staticmethod
+    def _set_runtime_num_threads(ctx, ms_ctx):
         ms_version = ms.__version__
         if ctx.get('runtime_num_threads') is None and ms_version < "2.3.0":
             ms_ctx['runtime_num_threads'] = 1
@@ -188,15 +195,18 @@ class MSContextOperator:
                 "and set the default runtime_num_threads to 1.", ms_version
             )
 
-    def _remove_mf_keys(self, ctx_config):
+    @staticmethod
+    def _remove_mf_keys(ctx_config):
         mf_keys = MFContextConfig.get_supported_kwargs()
         return {k: v for k, v in ctx_config.items() if k not in mf_keys}
 
-    def set_context(self, **kwargs):
+    @staticmethod
+    def set_context(**kwargs):
         """Set ms context value according to the input key words."""
         ms_context.set_context(**kwargs)
 
-    def get_context(self, attr_key):
+    @staticmethod
+    def get_context(attr_key):
         """Get ms context attribute value according to the input key."""
         return ms_context.get_context(attr_key)
 
@@ -205,14 +215,35 @@ class MSContextOperator:
 class MFContextOperator(MFContextConfig):
     """The wrapper of mindformers context operation."""
 
+    _instance = None
+
+    # pylint: disable=W0613
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
     def __init__(self, config):
-        self.config = config
-        supported_kwargs = self._handle_data()
-        logger.debug('MFContextConfig load configs: %s', supported_kwargs)
-        super(MFContextOperator, self).__init__(**supported_kwargs)
-        use_past = self.config.get_value('model.model_config.use_past', False)
-        self.set_env(use_past)
-        del self.config
+        if not hasattr(self, '_initailed'):
+            self.config = config
+            supported_kwargs = self._handle_data()
+            logger.debug('MFContextConfig load configs: %s', supported_kwargs)
+            super(MFContextOperator, self).__init__(**supported_kwargs)
+            use_past = self.config.get_value('model.model_config.use_past',
+                                             False)
+            if not hasattr(self, 'train_precision_sync'):
+                self.train_precision_sync = None
+            if not hasattr(self, 'infer_precision_sync'):
+                self.infer_precision_sync = None
+            self.set_env(use_past)
+            self._initailed = True
+
+    @classmethod
+    def get_mf_ctx_instance(cls):
+        """Check if singleton Context exists."""
+        if cls._instance:
+            return cls.__new__(cls)
+        return None
 
     def _handle_data(self):
         ctx_config = self.config.get('context', {})
@@ -226,85 +257,81 @@ class MFContextOperator(MFContextConfig):
             if k in MFContextOperator.get_supported_kwargs()
         }
 
-    def _get_override_precision_sync_env(self, status, env_checks):
-        """return mismatches env with precision sync config."""
-        env_values = {key: os.environ.get(key, values[1]) for key, values in env_checks.items()}
-        expected_values = {key: values[0] if status else values[1] for key, values in env_checks.items()}
-        mismatches = []
-        for key in env_checks:
-            actual_value = env_values[key]
-            expected_value = expected_values[key]
-            if actual_value != expected_value:
-                mismatches.append(f"  - {key}: current={actual_value}, updated={expected_value}")
-        return mismatches
+    def _call_ms_deterministic(self, deterministic):
+        """Call mindspore set_deterministic function and handle result."""
+        try:
+            set_ms_deterministic(deterministic)
+            ms_deterministic = self.config.get_value('context.deterministic')
+            if ms_deterministic is not None:
+                self.config.context.pop('deterministic')
+                logger.warning('The deterministic in context has been unset when '
+                               'train_precision_sync or infer_precision_sync was set.')
+        except RuntimeError as e:
+            msg = "The 'mindspore.set_deterministic' can not be set repeatedly."
+            if str(e) == msg:
+                logger.warning(
+                    "mindspore.set_deterministic has been set, "
+                    "can not be set repeatedly. Key environment variables: "
+                    f"HCCL_DETERMINISTIC: {os.getenv('HCCL_DETERMINISTIC')}, "
+                    f"TE_PARALLEL_COMPILER: {os.getenv('TE_PARALLEL_COMPILER')}, "
+                    f"CUSTOM_MATMUL_SHUFFLE: {os.getenv('CUSTOM_MATMUL_SHUFFLE')}, "
+                    f"LCCL_DETERMINISTIC: {os.getenv('LCCL_DETERMINISTIC')}")
+                return '', ''
+            raise e
+        else:
+            if deterministic:
+                return 'off', '1'
+            return 'on', '0'
+
+    def _get_precision_env(self):
+        """Set deterministic computing and get relative env variable."""
+        custom_matmul_shuffle = os.getenv('CUSTOM_MATMUL_SHUFFLE')
+        lccl_deterministic = os.getenv('LCCL_DETERMINISTIC')
+        run_mode = getattr(self, 'run_mode') if hasattr(self, 'run_mode') else None
+        if run_mode in (
+                RunMode.TRAIN.value, RunMode.FINETUNE.value
+            ) and self.train_precision_sync is not None:
+            self._call_ms_deterministic(self.train_precision_sync)
+
+        if run_mode == RunMode.PREDICT.value and self.infer_precision_sync is not None:
+            shuffle, lccl = self._call_ms_deterministic(
+                self.infer_precision_sync)
+            if shuffle and lccl:
+                if custom_matmul_shuffle != shuffle:
+                    logger.warning(
+                        f"'CUSTOM_MATMUL_SHUFFLE' is set to '{shuffle}' "
+                        f"because infer_precision_sync is {self.infer_precision_sync}."
+                    )
+
+                if lccl_deterministic != lccl:
+                    logger.warning(
+                        f"'LCCL_DETERMINISTIC' is set to '{lccl}' "
+                        f"because infer_precision_sync is {self.infer_precision_sync}."
+                    )
+                custom_matmul_shuffle = shuffle
+                lccl_deterministic = lccl
+
+        return {
+            'CUSTOM_MATMUL_SHUFFLE': custom_matmul_shuffle or 'on',
+            'LCCL_DETERMINISTIC': lccl_deterministic or '0'
+        }
 
     def set_env(self, use_past=False):
         """Update environment variables."""
-        env_train_precision_sync = {
-            'HCCL_DETERMINISTIC': ('true', 'false'),
-            'ASCEND_LAUNCH_BLOCKING': ('1', '0'),
-            'TE_PARALLEL_COMPILER': ('1', '0')
-        }
-        env_infer_precision_sync = {
-            'LCCL_DETERMINISTIC': ('1', '0'),
-            'CUSTOM_MATMUL_SHUFFLE': ('off', 'on')
-        }
-        if self.train_precision_sync:
-            hccl_deterministic = 'true'
-            ascend_launch_blocking = '1'
-            te_parallel_compiler = '1'
-            deterministic = 'ON'
-        else:
-            hccl_deterministic = 'false'
-            ascend_launch_blocking = '0'
-            te_parallel_compiler = '0'
-            deterministic = 'OFF'
-        mismatch_train_env = self._get_override_precision_sync_env(status=self.train_precision_sync,
-                                                                   env_checks=env_train_precision_sync)
-        if mismatch_train_env:
-            mismatch_details = "\n".join(mismatch_train_env)
-            logger.warning(
-                f"Environment variables override by config.train_precision_sync:"
-                f"'{'True' if self.train_precision_sync else 'False'}'."
-                f"If you want to change deterministic, Please modify the config.train_precision_sync."
-                f"Mismatch details:\n{mismatch_details}")
-        self.config.set_value(
-            'context.deterministic',
-            self.config.get_value('context.deterministic') or deterministic
-        )
 
-        if self.infer_precision_sync:
-            custom_matmul_shuffle = 'off'
-            lccl_deterministic = '1'
-        else:
-            custom_matmul_shuffle = 'on'
-            lccl_deterministic = '0'
-        mismatch_infer_env = self._get_override_precision_sync_env(status=self.infer_precision_sync,
-                                                                   env_checks=env_infer_precision_sync)
-        if mismatch_infer_env:
-            mismatch_details = "\n".join(mismatch_infer_env)
-            logger.warning(
-                f"Environment variables override by config.infer_precision_sync:"
-                f"'{'True' if self.infer_precision_sync else 'False'}'."
-                f"If you want to change deterministic, Please modify the config.infer_precision_sync."
-                f"Mismatch details:\n{mismatch_details}")
+        env = self._get_precision_env()
 
-        env = {
-            'HCCL_DETERMINISTIC': hccl_deterministic,
-            'ASCEND_LAUNCH_BLOCKING': ascend_launch_blocking,
-            'TE_PARALLEL_COMPILER': te_parallel_compiler,
-            'CUSTOM_MATMUL_SHUFFLE': custom_matmul_shuffle,
-            'LCCL_DETERMINISTIC': lccl_deterministic,
-            'MS_ENABLE_GRACEFUL_EXIT': '1' if self.use_graceful_exit else '0'
-        }
+        env['MS_ENABLE_GRACEFUL_EXIT'] = '1' if self.use_graceful_exit else '0'
 
         run_mode = (
             getattr(self, 'run_mode') if hasattr(self, 'run_mode') else None
         )
+        use_legacy = self.config.get_value('use_legacy', True)
+        infer_flag = not use_legacy or use_past
         if (
                 run_mode is not None
                 and RunMode(run_mode) in [RunMode.PREDICT, RunMode.EVAL]
-                and use_past
+                and infer_flag
         ):
             ms_alloc_conf = os.environ.get('MS_ALLOC_CONF', 'enable_vmm:False')
             cpu_affinity = os.environ.get('CPU_AFFINITY', 'True')
@@ -318,8 +345,8 @@ class MFContextOperator(MFContextConfig):
             env['MS_INTERNAL_DISABLE_CUSTOM_KERNEL_LIST'] = ms_internal_disable_custom_kernel_list
             env['RUN_MODE'] = run_mode
 
-        os.environ.update(env)
-        logger.info(f"env: {env}")
+        os.environ.update({k: v for k, v in env.items() if v is not None})
+        logger.debug(f"Environment valiables to be set in mindformers context: {env}")
 
     def set_context(self, **kwargs):
         """Set mf context value according to the input key words."""
@@ -405,9 +432,7 @@ def init_context(
     return ctx.rank_id, ctx.device_num
 
 
-def build_context(config: Union[dict, MindFormerConfig, TrainingArguments],
-                  is_set_ms_ctx=True,
-                  is_init_ms=True):
+def build_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
     """
     Build the context from config.
 
@@ -420,8 +445,6 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments],
             The configuration to initialize the context.
             This can be a dictionary, a MindFormerConfig instance,
             or a TrainingArguments instance.
-        is_set_ms_ctx (bool, optional): Whether to set the mindspore context value. Default: ``True``.
-        is_init_ms (bool, optional): Whether to init ms. Default: ``True``.
 
     Returns:
         Context instance, The instantiated context.
@@ -438,7 +461,7 @@ def build_context(config: Union[dict, MindFormerConfig, TrainingArguments],
     mf_config = MindFormerConfig(**config)
 
     execute_validator(mf_config)
-    ctx = Context(mf_config, is_set_ms_ctx, is_init_ms)
+    ctx = Context(mf_config)
 
     config['local_rank'] = ctx.rank_id
     config['device_num'] = ctx.device_num
@@ -458,6 +481,13 @@ def set_context(run_mode=None, **kwargs):
         Attribute name is required for setting attributes.
         Currently only run_mode belongs to MindFormers context.
         The kwargs will be passed to MindSpore set_context.
+        The determination computation for training or inference can be controlled through keyword argument.
+        The keyword arguments for enabling/disabling determination computation during training and inference are:
+        ``train_precision_sync`` and ``infer_precision_sync``, respectively.
+        The on/off states correspond to boolean values,
+        where ``True`` indicates activation and ``False`` indicates deactivation.
+        This operation is a one-time action.
+        Repeated attempts will not succeed and will trigger warning logs.
 
     Args:
         run_mode (str, optional): The mode of the model behaviour.
@@ -469,19 +499,34 @@ def set_context(run_mode=None, **kwargs):
         >>> config = {'context': {'mode': 'GRAPH_MODE'}, 'parallel':{}}
         >>> build_context(config=config)
         >>> set_context(max_device_memory='59GB')
+        >>> set_context(run_mode='predict', infer_precision_sync=True)
+        WARNING - 'CUSTOM_MATMUL_SHUFFLE' is set to 'off' because infer_precision_sync is True.
+        WARNING - 'LCCL_DETERMINISTIC' is set to '1' because infer_precision_sync is True.
+        >>> set_context(run_mode='predict', infer_precision_sync=True)
+        WARNING - mindspore.set_deterministic has been set, can not be set repeatedly.
+        Key environment variables: HCCL_DETERMINISTIC: true, TE_PARALLEL_COMPILER: 1,
+        CUSTOM_MATMUL_SHUFFLE: off, LCCL_DETERMINISTIC: 1
     """
+    if not Context.is_exists():
+        raise RuntimeError("Build a Context instance before set_context().")
     ctx = Context()
     ctx.set_mf_ctx_run_mode(run_mode)
 
     train_precision_sync = kwargs.pop('train_precision_sync', None)
     infer_precision_sync = kwargs.pop('infer_precision_sync', None)
     if train_precision_sync is not None:
+        if not isinstance(train_precision_sync, bool):
+            raise ValueError(
+                f'train_percision_sync should be bool, got {train_precision_sync}'
+            )
         ctx.mf_ctx_opr.train_precision_sync = train_precision_sync
-        deterministic = "ON" if train_precision_sync else "OFF"
-        ctx.ms_ctx_opr.set_context(deterministic=deterministic)
         ctx.mf_ctx_opr.set_env()
 
     if infer_precision_sync is not None:
+        if not isinstance(infer_precision_sync, bool):
+            raise ValueError(
+                f'infer_precision_sync should be bool, got {infer_precision_sync}'
+            )
         ctx.mf_ctx_opr.infer_precision_sync = infer_precision_sync
         ctx.mf_ctx_opr.set_env()
 
@@ -516,7 +561,37 @@ def get_context(attr_key):
         >>> build_context(config=config)
         >>> get_context('max_device_memory')
     """
+    if not Context.is_exists():
+        raise RuntimeError("Build a Context instance before get_context().")
     ctx = Context()
+
     if attr_key in MFContextConfig.get_supported_kwargs():
         return getattr(ctx.mf_ctx_opr, attr_key, None)
     return ctx.ms_ctx_opr.get_context(attr_key)
+
+
+def build_mf_context(config: Union[dict, MindFormerConfig, TrainingArguments]):
+    """
+    Build the mindformer context from config.
+
+    Note:
+        parameter config must contain keys: 'context', 'parallel',
+        when config is dict.
+
+    Args:
+        config (Union[dict, MindFormerConfig, TrainingArguments]):
+            The configuration to initialize the context.
+            This can be a dictionary, a MindFormerConfig instance,
+            or a TrainingArguments instance.
+
+    Returns:
+        Mindformer context instance, The instantiated context.
+    """
+    if isinstance(config, TrainingArguments):
+        config = config.convert_args_to_mindformers_config()
+
+    config['parallel_config'] = config.get('parallel_config', {})
+    mf_config = MindFormerConfig(**config)
+
+    execute_validator(mf_config)
+    return MFContextOperator(mf_config)

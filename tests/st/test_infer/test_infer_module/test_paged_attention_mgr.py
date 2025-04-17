@@ -13,7 +13,6 @@
 # limitations under the License.
 # ============================================================================
 """ test infer attention"""
-import os
 import pytest
 
 import numpy as np
@@ -32,7 +31,6 @@ def test_paged_attention_mgr():
     Description: Test the forward
     Expectation: No exception
     """
-    os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
     jit_level = "O0"
     infer_boost = "on"
     ms.set_context(jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
@@ -44,7 +42,7 @@ def test_paged_attention_mgr():
     compute_dtype = mstype.float16
     hidden_size = head_num * head_dim
     batch_valid_length = Tensor(np.ones((bsz, 1)), mstype.int32)
-    block_tables = Tensor(np.ones((bsz, num_blocks)), mstype.int64)
+    block_tables = Tensor(np.ones((bsz, num_blocks)), mstype.int32)
     query = Tensor(np.ones((bsz, seq_len, hidden_size)), mstype.float16)
     key = Tensor(np.ones((bsz, seq_len, hidden_size)), mstype.float16)
     value = Tensor(np.ones((bsz, seq_len, hidden_size)), mstype.float16)

@@ -17,7 +17,6 @@ Test cogvlm2-video predict.
 How to run this:
     pytest tests/st/test_model/test_cogvlm2_model/test_predict.py
 """
-import os
 import numpy as np
 import pytest
 import mindspore as ms
@@ -59,7 +58,6 @@ class TestCogVLM2VideoPredict:
         Description: Test base model prediction.
         Expectation: AssertionError
         """
-        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
         model_config = get_config()
         model = get_model(model_config)
         input_ids = np.random.randint(0, 128, size=(1, 1024), dtype=np.int32)

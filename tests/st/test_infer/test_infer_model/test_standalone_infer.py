@@ -35,7 +35,6 @@ def test_qwen2_0_5b_predict_standalone():
     Description: Test parallel interface for training and prediction.
     Expectation: AssertionError
     """
-    os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
     cur_dir = os.path.dirname(os.path.realpath(__file__))
     config_path = os.path.join(cur_dir, "ci_predict_qwen2_0_5b_instruct.yaml")
 

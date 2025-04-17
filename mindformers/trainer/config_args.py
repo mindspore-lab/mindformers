@@ -523,16 +523,12 @@ class MFContextConfig(BaseArgsConfig):
     def __init__(
             self,
             exclude_cann_cpu: bool = False,
-            train_precision_sync: bool = False,
-            infer_precision_sync: bool = False,
             postprocess_use_numpy: bool = False,
             use_graceful_exit: bool = False,
             **kwargs,
     ):
         super(MFContextConfig, self).__init__(
             exclude_cann_cpu=exclude_cann_cpu,
-            train_precision_sync=train_precision_sync,
-            infer_precision_sync=infer_precision_sync,
             postprocess_use_numpy=postprocess_use_numpy,
             use_graceful_exit=use_graceful_exit,
             **kwargs

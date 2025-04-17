@@ -14,7 +14,6 @@
 # ============================================================================
 """ test infer attention"""
 import math
-import os
 
 import pytest
 import numpy as np
@@ -82,7 +81,6 @@ def test_infer_attention_with_dynamic_shape_th():
     Description: Test the forward
     Expectation: No exception
     """
-    os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
     jit_level = "O0"
     infer_boost = "on"
     ms.set_context(mode=ms.GRAPH_MODE, jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
@@ -184,7 +182,6 @@ def test_infer_attention_with_static_shape_bsh():
     Description: Test the forward
     Expectation: No exception
     """
-    os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
     jit_level = "O0"
     infer_boost = "on"
     ms.set_context(mode=ms.GRAPH_MODE, jit_config={"jit_level": jit_level, "infer_boost": infer_boost})

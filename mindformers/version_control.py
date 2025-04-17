@@ -24,7 +24,7 @@ import mindspore.ops.functional as F
 from mindspore.ops.auto_generate import Scatter  # internal api for aclnn op
 
 from mindformers.tools.utils import get_predict_run_mode
-from .tools.utils import is_version_ge
+from .tools.utils import is_version_ge, is_pynative
 from .tools.logger import logger
 
 
@@ -58,6 +58,18 @@ def is_910b():
 def need_nz():
     device = get_ascend_soc_version()
     return device in ['310p', 'ascend310p', '910a', 'ascend910']
+
+
+def get_predict_jit(func):
+    """Predict jit decorator."""
+
+    @wraps(func)
+    def decorator(*args, **kwargs):
+        if is_pynative():
+            return func(*args, **kwargs)
+        return ms.jit(func, jit_level='O0', infer_boost='on')(*args, **kwargs)
+
+    return decorator
 
 
 def get_predict_lazy_inline(func):
@@ -293,7 +305,7 @@ def use_mint_op():
 def check_valid_gmm_op(gmm_version=None):
     """check mindspore version is valid for groupedmatmul"""
     version_map = {"GroupedMatmul": "2.3.0",
-                   "GroupedMatmulV4": "2.5.0"}
+                   "GroupedMatmulV4": "2.6.0"}
     version_info = ms.__version__.split('rc')
     version_valid = is_version_ge(version_info[0], version_map.get(gmm_version))
     if version_valid is None:
@@ -412,3 +424,18 @@ def check_rotary_position_embedding_valid():
 def check_seqpp_fa_opt_support():
     """check mindspore version if sparse adaptive adjustment of fa with seqpipie"""
     return is_version_ge(ms.__version__, "2.6.0")
+
+
+def set_ms_deterministic(deterministic):
+    """Set deterministic computing through mindspore."""
+    if is_version_ge(ms.__version__, '2.5.0'):
+        logger.debug("The version of MindSpore is %s, "
+                     "set deterministic compution by set_deterministic()",
+                     ms.__version__)
+        ms.set_deterministic(deterministic)
+    else:
+        deterministic_switch = 'ON' if deterministic else 'OFF'
+        logger.debug("The version of MindSpore is %s, "
+                     "set deterministic compution by set_context()",
+                     ms.__version__)
+        ms.set_context(deterministic=deterministic_switch)

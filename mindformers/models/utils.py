@@ -20,7 +20,7 @@ import mindspore.common.dtype as mstype
 import mindspore as ms
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
-from ..version_control import get_lazy_inline, get_predict_lazy_inline
+from ..version_control import get_lazy_inline, get_predict_lazy_inline, get_predict_jit
 from ..tools.logger import logger
 
 CONFIG_NAME = "config.json"
@@ -117,6 +117,7 @@ ms_type_to_str = reverse_dict(str_to_ms_type)
 
 lazy_inline = get_lazy_inline
 predict_lazy_inline = get_predict_lazy_inline
+predict_jit = get_predict_jit
 
 
 class LayerSetting:

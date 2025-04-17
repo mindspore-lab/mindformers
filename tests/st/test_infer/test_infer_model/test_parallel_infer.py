@@ -42,10 +42,6 @@ def check_results(commands, results):
 class TestInferParallel:
     """A test class for testing pipeline."""
 
-    @staticmethod
-    def setup_method():
-        os.environ['ASCEND_HOME_PATH'] = "/usr/local/Ascend/latest"
-
     @pytest.mark.level0
     @pytest.mark.platform_arm_ascend910b_training
     @pytest.mark.env_single
