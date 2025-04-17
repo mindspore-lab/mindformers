@@ -6,31 +6,29 @@
 
 ## 1. Introduction
 
-The goal of the MindFormers suite is to build a full-process development suite for foundation model training, fine-tuning, evaluation, inference, and deployment. It provides mainstream Transformer-based pre-trained models and SOTA downstream task applications in the industry, covering various parallel features. It is expected to help users easily implement foundation model training and innovative R&D.
+The goal of the MindSpore Transformers suite is to build a full-process development suite for Large model pre-training, fine-tuning, evaluation, inference, and deployment. It provides mainstream Transformer-based Large Language Models (LLMs) and Multimodal Models (MMs). It is expected to help users easily realize the full process of large model development.
 
-Based on MindSpore's built-in parallel technology and component-based design, the MindFormers suite has the following features:
+Based on MindSpore's built-in parallel technology and component-based design, the MindSpore Transformers suite has the following features:
 
-- Seamless switch from single-device to large-scale cluster training with just one line of code
-- Flexible and easy-to-use personalized parallel configuration
-- Automatic topology awareness, efficiently combining data parallelism and model parallelism strategies
-- One-click launch for single-device/multi-device training, fine-tuning, evaluation, and inference for any task
-- Support for users to configure any module in a modular way, such as optimizers, learning strategies, and network assembly
-- High-level usability APIs such as Trainer, pipeline, and AutoClass.
-- Built-in SOTA weight auto-download and loading functionality
-- Seamless migration and deployment support for AI computing centers
+- One-click initiation of single or multi card pre-training, fine-tuning, evaluation, inference, and deployment processes for large models;
+- Provides rich multi-dimensional hybrid parallel capabilities for flexible and easy-to-use personalized configuration;
+- System-level deep optimization on large model training and inference, native support for ultra-large-scale cluster efficient training and inference, rapid fault recovery;
+- Support for configurable development of task components. Any module can be enabled by unified configuration, including model network, optimizer, learning rate policy, etc.;
+- Provide real-time visualization of training accuracy/performance monitoring indicators.
 
-For details about MindFormers tutorials and API documents, see **[MindFormers Documentation](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/index.html)**. The following are quick jump links to some of the key content:
+For details about MindSpore Transformers tutorials and API documents, see **[MindFormers Documentation](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/index.html)**. The following are quick jump links to some of the key content:
 
-- [Calling Source Code to Start](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/quick_start/source_code_start.html)
-- [Pre-training](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/usage/pre_training.html)
-- [Fine-Tuning](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/usage/sft_tuning.html)
-- [MindIE Service Deployment](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/usage/mindie_deployment.html)
+- 📝 [Quick Launch](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/quick_start/source_code_start.html)
+- 📝 [Pre-training](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/usage/pre_training.html)
+- 📝 [Fine-Tuning](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/usage/sft_tuning.html)
+- 📝 [Evaluation](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/usage/evaluation.html)
+- 📝 [Service-oriented Deployment](https://www.mindspore.cn/mindformers/docs/en/r1.5.0/usage/mindie_deployment.html)
 
-If you have any suggestions on MindFormers, contact us through an issue, and we will address it promptly.
+If you have any suggestions on MindSpore Transformers, contact us through an issue, and we will address it promptly.
 
 ### Models List
 
-The following table lists models supported by MindFormers.
+The following table lists models supported by MindSpore Transformers.
 
 | Model                                                                                                   | Specifications                |    Model Type    | Latest Version |
 |:--------------------------------------------------------------------------------------------------------|:------------------------------|:----------------:|:--------------:|
@@ -45,6 +43,8 @@ The following table lists models supported by MindFormers.
 | [GLM3-32K](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/glm32k)                         | 6B                            |    Dense LLM     |     1.5.0      |
 | [GLM3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/glm3.md)                    | 6B                            |    Dense LLM     |     1.5.0      |
 | [InternLM2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/internlm2)                     | 7B/20B                        |    Dense LLM     |     1.5.0      |
+| [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md)            | 3B                            |    Dense LLM     |     1.5.0      |
+| [Llama3.2-Vision](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/mllama.md)       | 11B                           |        MM        |     1.5.0      |
 | [Llama3.1](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/llama3_1)                       | 8B/70B                        |    Dense LLM     |     1.5.0      |
 | [Llama3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/llama3)                           | 8B/70B                        |    Dense LLM     |     1.5.0      |
 | [Llama2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama2.md)                | 7B/13B/70B                    |    Dense LLM     |     1.5.0      |
@@ -53,6 +53,8 @@ The following table lists models supported by MindFormers.
 | [Qwen2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen2)                             | 0.5B/1.5B/7B/57B/57B-A14B/72B | Dense/Sparse LLM |     1.5.0      |
 | [Qwen1.5](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen1_5)                         | 7B/14B/72B                    |    Dense LLM     |     1.5.0      |
 | [Qwen-VL](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwenvl)                          | 9.6B                          |        MM        |     1.5.0      |
+| [TeleChat2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/telechat2)                     | 7B/35B/112B                   |    Dense LLM     |     1.5.0      |
+| [TeleChat](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/telechat)                       | 7B/12B/52B                    |    Dense LLM     |     1.5.0      |
 | [Whisper](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/whisper.md)              | 1.5B                          |        MM        |     1.5.0      |
 | [Yi](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yi)                                   | 6B/34B                        |    Dense LLM     |     1.5.0      |
 | [YiZhao](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yizhao)                           | 12B                           |    Dense LLM     |     1.5.0      |
@@ -90,13 +92,13 @@ Currently, the [Atlas 800T A2](https://www.hiascend.com/hardware/ai-server?tag=9
 
 Python 3.11.4 is recommended for the current suite.
 
-| MindFormers |                 MindSpore                 |                                                                           CANN                                                                           |                                                                      Driver/Firmware                                                                      | Image Link  |
+| MindSpore Transformers |                 MindSpore                 |                                                                           CANN                                                                           |                                                                      Driver/Firmware                                                                      | Image Link  |
 |:-----------:|:-----------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------:|:-----------:|
 |    1.5.0    | [2.6.0](https://www.mindspore.cn/install) | [8.1.RC1](https://www.hiascend.com/document/detail/zh/canncommercial/81RC1/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit) | [25.0.RC1](https://www.hiascend.com/document/detail/zh/canncommercial/81RC1/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit) | Coming Soon |
 
 Historical Version Supporting Relationships:
 
-| MindFormers |                   MindSpore                   |                                                                         CANN                                                                         |                                                                    Driver/Firmware                                                                    |                              Image Link                              |
+| MindSpore Transformers |                   MindSpore                   |                                                                         CANN                                                                         |                                                                    Driver/Firmware                                                                    |                              Image Link                              |
 |:-----------:|:---------------------------------------------:|:----------------------------------------------------------------------------------------------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------:|:--------------------------------------------------------------------:|
 |    1.3.2    | [2.4.10](https://www.mindspore.cn/install/en) | [8.0.0](https://www.hiascend.com/document/detail/en/canncommercial/800/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit) | [24.1.0](https://www.hiascend.com/document/detail/en/canncommercial/800/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit) | [Link](http://mirrors.cn-central-221.ovaijisuan.com/detail/168.html) |
 |    1.3.0    | [2.4.0](https://www.mindspore.cn/versions/en) |                     [8.0.RC3.beta1](https://www.hiascend.com/developer/download/community/result?module=cann&cann=8.0.RC3.beta1)                     |                                       [24.1.RC3](https://www.hiascend.com/hardware/firmware-drivers/community)                                        | [Link](http://mirrors.cn-central-221.ovaijisuan.com/detail/154.html) |
@@ -104,7 +106,7 @@ Historical Version Supporting Relationships:
 
 ### Installation Using the Source Code
 
-Currently, MindFormers can be compiled and installed using the source code. You can run the following commands to install MindFormers:
+Currently, MindSpore Transformers can be compiled and installed using the source code. You can run the following commands to install MindSpore Transformers:
 
 ```shell
 git clone -v 1.5.0 https://gitee.com/mindspore/mindformers.git
@@ -114,9 +116,9 @@ bash build.sh
 
 ## 3. User Guide
 
-MindFormers supports model pre-training, fine-tuning, inference, and evaluation. You can click a model name in [Supported Models](#supported-models) to view the document and complete the preceding tasks. The following describes the distributed startup mode and provides an example.
+MindSpore Transformers supports model pre-training, fine-tuning, inference, and evaluation. You can click a model name in [Models List](#models-list) to view the document and complete the preceding tasks. The following describes the distributed startup mode and provides an example.
 
-It is recommended that MindFormers launch model training and inference in distributed mode. Currently, the `scripts/msrun_launcher.sh` distributed launch script is provided as the main way to launch models. For details about the `msrun` feature, see [msrun Launching](https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html).
+It is recommended that MindSpore Transformers launch model training and inference in distributed mode. Currently, the `scripts/msrun_launcher.sh` distributed launch script is provided as the main way to launch models. For details about the `msrun` feature, see [msrun Launching](https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html).
 The input parameters of the script are described as follows.
 
   | **Parameter**    | **Required on Single-Node** | **Required on Multi-Node** | **Default Value** | **Description**                                                     |
@@ -203,7 +205,7 @@ The IP address should be the same across all nodes, and only the `NODE_RANK` par
 
 ### Single-Device Launch
 
-MindFormers provides the `run_mindformer.py` script as the single-device launch method. This script can be used to complete the single-device training, fine-tuning, evaluation, and inference of a model based on the model configuration file.
+MindSpore Transformers provides the `run_mindformer.py` script as the single-device launch method. This script can be used to complete the single-device training, fine-tuning, evaluation, and inference of a model based on the model configuration file.
 
 ```shell
 # The input parameters for running run_mindformer.py will override the parameters in the model configuration file.
@@ -212,23 +214,24 @@ python run_mindformer.py --config {CONFIG_PATH} --run_mode {train/finetune/eval/
 
 ## 4. Life Cycle And Version Matching Strategy
 
-MindFormers version has the following five maintenance phases:
+MindSpore Transformers version has the following five maintenance phases:
 
-| **Status**        | **Duration** | **Description**                                                                                                                                                                                                                                                      |
-|-------------------|--------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Plan              | 1-3 months   | Planning function.                                                                                                                                                                                                                                                   |
-| Develop           | 3 months     | Build function.                                                                                                                                                                                                                                                      |
-| Preserve          | 6-12 months  | Incorporate all solved problems and release new versions. For MindFormers of different versions, implement a differentiated preservation plan: the preservation period of the general version is 6 months, while that of the long-term support version is 12 months. |
-| No Preserve       | 0—3 months   | Incorporate all the solved problems, there is no full-time maintenance team, and there is no plan to release a new version.                                                                                                                                          |
-| End of Life (EOL) | N/A          | The branch is closed and no longer accepts any modifications.                                                                                                                                                                                                        |
+| **Status**        | **Duration** | **Description**                                                                                                                                                                                                                                                                 |
+|-------------------|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Plan              | 1-3 months   | Planning function.                                                                                                                                                                                                                                                              |
+| Develop           | 3 months     | Build function.                                                                                                                                                                                                                                                                 |
+| Preserve          | 6-12 months  | Incorporate all solved problems and release new versions. For MindSpore Transformers of different versions, implement a differentiated preservation plan: the preservation period of the general version is 6 months, while that of the long-term support version is 12 months. |
+| No Preserve       | 0—3 months   | Incorporate all the solved problems, there is no full-time maintenance team, and there is no plan to release a new version.                                                                                                                                                     |
+| End of Life (EOL) | N/A          | The branch is closed and no longer accepts any modifications.                                                                                                                                                                                                                   |
 
-MindFormers released version preservation policy:
+MindSpore Transformers released version preservation policy:
 
-| **MindFormers Version** | **Corresponding Label** | **Preservation Policy** | **Current Status** | **Release Time** | **Subsequent Status**                   | **EOL Date** |
-|-------------------------|-------------------------|-------------------------|--------------------|------------------|-----------------------------------------|--------------|
-| 1.3.2                   | v1.3.2                  | General Version         | No Preserve        | 2024/12/20       | No preserve expected from 2025/06/20    |              |
-| 1.2.0                   | v1.2.0                  | General Version         | No Preserve        | 2024/07/12       | No preserve expected from 2025/01/12    |              |
-| 1.1.0                   | v1.1.0                  | General Version         | No Preserve        | 2024/04/15       | End of life is expected from 2025/01/15 | 2025/01/15   |
+| **MindSpore Transformers Version** | **Corresponding Label** | **Preservation Policy** | **Current Status** | **Release Time** | **Subsequent Status**                   | **EOL Date** |
+|------------------------------------|-------------------------|-------------------------|--------------------|------------------|-----------------------------------------|--------------|
+| 1.5.0                              | v1.5.0                  | General Version         | Preserve           | 2024/04/20       | No preserve expected from 2025/10/20    |              |
+| 1.3.2                              | v1.3.2                  | General Version         | Preserve           | 2024/12/20       | No preserve expected from 2025/06/20    |              |
+| 1.2.0                              | v1.2.0                  | General Version         | No Preserve        | 2024/07/12       | End of life is expected from 2025/07/12 | 2025/07/12   |
+| 1.1.0                              | v1.1.0                  | General Version         | No Preserve        | 2024/04/15       | End of life is expected from 2025/01/15 | 2025/01/15   |
 
 ## 5. Disclaimer
 

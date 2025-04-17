@@ -6,25 +6,23 @@
 
 ## 一、介绍
 
-MindSpore Transformers套件的目标是构建一个大模型训练、微调、评估、推理、部署的全流程开发套件，提供业内主流的Transformer类预训练模型和SOTA下游任务应用，涵盖丰富的并行特性。期望帮助用户轻松的实现大模型训练和创新研发。
+MindSpore Transformers套件的目标是构建一个大模型预训练、微调、评测、推理、部署的全流程开发套件，提供业内主流的Transformer类大语言模型（Large Language Models, LLMs）和多模态理解模型（Multimodal Models, MMs）。期望帮助用户轻松地实现大模型全流程开发。
 
-MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设计，具备如下特点：
+MindSpore Transformers套件基于MindSpore内置的多维混合并行技术和组件化设计，具备如下特点：
 
-- 一行代码实现从单卡到大规模集群训练的无缝切换；
-- 提供灵活易用的个性化并行配置；
-- 能够自动进行拓扑感知，高效地融合数据并行和模型并行策略；
-- 一键启动任意任务的单卡/多卡训练、微调、评估、推理流程；
-- 支持用户进行组件化配置任意模块，如优化器、学习策略、网络组装等；
-- 提供Trainer、pipeline、AutoClass等高阶易用性接口；
-- 提供预置SOTA权重自动下载及加载功能；
-- 支持人工智能计算中心无缝迁移部署；
+- 一键启动模型单卡或多卡预训练、微调、评测、推理、部署流程；
+- 提供丰富的多维混合并行能力可供灵活易用地进行个性化配置；
+- 大模型训推系统级深度优化，原生支持超大规模集群高效训推，故障快速恢复；
+- 支持任务组件配置化开发。任意模块可通过统一配置进行使能，包括模型网络、优化器、学习率策略等；
+- 提供训练精度/性能监控指标实时可视化能力等。
 
-欲获取MindFormers相关使用教程以及API文档，请参阅[**MindFormers文档**](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/index.html)，以下提供部分内容的快速跳转链接：
+欲获取MindSpore Transformers相关使用教程以及API文档，请参阅[**MindFormers文档**](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/index.html)，以下提供部分内容的快速跳转链接：
 
 - 📝 [快速启动](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/quick_start/source_code_start.html)
 - 📝 [大模型预训练](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/usage/pre_training.html)
 - 📝 [大模型微调](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/usage/sft_tuning.html)
-- 📝 [MindIE服务化部署](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/usage/mindie_deployment.html)
+- 📝 [大模型评测](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/usage/evaluation.html)
+- 📝 [服务化部署](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/usage/mindie_deployment.html)
 
 如果您对MindSpore Transformers有任何建议，请通过issue与我们联系，我们将及时处理。
 
@@ -45,6 +43,8 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 | [GLM3-32K](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/glm32k)                         | 6B                            |  稠密LLM   | 1.5.0  |
 | [GLM3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/glm3.md)                    | 6B                            |  稠密LLM   | 1.5.0  |
 | [InternLM2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/internlm2)                     | 7B/20B                        |  稠密LLM   | 1.5.0  |
+| [Llama3.2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama3_2.md)            | 3B                            |  稠密LLM   | 1.5.0  |
+| [Llama3.2-Vision](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/mllama.md)       | 11B                           |    MM    | 1.5.0  |
 | [Llama3.1](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/llama3_1)                       | 8B/70B                        |  稠密LLM   | 1.5.0  |
 | [Llama3](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/llama3)                           | 8B/70B                        |  稠密LLM   | 1.5.0  |
 | [Llama2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/llama2.md)                | 7B/13B/70B                    |  稠密LLM   | 1.5.0  |
@@ -53,6 +53,8 @@ MindSpore Transformers套件基于MindSpore内置的并行技术和组件化设�
 | [Qwen2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen2)                             | 0.5B/1.5B/7B/57B/57B-A14B/72B | 稠密/稀疏LLM | 1.5.0  |
 | [Qwen1.5](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen1_5)                         | 7B/14B/72B                    |  稠密LLM   | 1.5.0  |
 | [Qwen-VL](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwenvl)                          | 9.6B                          |    MM    | 1.5.0  |
+| [TeleChat2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/telechat2)                     | 7B/35B/112B                   |  稠密LLM   | 1.5.0  |
+| [TeleChat](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/telechat)                       | 7B/12B/52B                    |  稠密LLM   | 1.5.0  |
 | [Whisper](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/whisper.md)              | 1.5B                          |    MM    | 1.5.0  |
 | [Yi](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yi)                                   | 6B/34B                        |  稠密LLM   | 1.5.0  |
 | [YiZhao](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yizhao)                           | 12B                           |  稠密LLM   | 1.5.0  |
@@ -114,7 +116,7 @@ bash build.sh
 
 ## 三、使用指南
 
-MindFormers支持模型启动预训练、微调、推理、评测等功能，可点击[支持模型](#支持模型)中模型名称查看文档完成上述任务，以下为模型分布式启动方式的说明与示例。
+MindFormers支持模型启动预训练、微调、推理、评测等功能，可点击[模型列表](#模型列表)中模型名称查看文档完成上述任务，以下为模型分布式启动方式的说明与示例。
 
 MindFormers推荐使用分布式方式拉起模型训练、推理等功能，目前提供`scripts/msrun_launcher.sh`分布式启动脚本作为模型的主要启动方式，`msrun`特性说明可以参考[msrun启动](https://www.mindspore.cn/tutorials/zh-CN/master/parallel/msrun_launcher.html)。
 该脚本主要输入参数说明如下：
@@ -226,8 +228,9 @@ MindFormers已发布版本维护策略：
 
 | **MindFormers版本** | **对应标签** | **维护策略** | **当前状态** | **发布时间**   | **后续状态**           | **EOL日期**  |
 |-------------------|----------|----------|----------|------------|--------------------|------------|
+| 1.5.0             | v1.5.0   | 常规版本     | 维护       | 2024/04/20 | 预计2025/10/20起无维护   |            |
 | 1.3.2             | v1.3.2   | 常规版本     | 维护       | 2024/12/20 | 预计2025/06/20起无维护   |            |
-| 1.2.0             | v1.2.0   | 常规版本     | 维护       | 2024/07/12 | 预计2025/01/12起无维护   |            |
+| 1.2.0             | v1.2.0   | 常规版本     | 无维护      | 2024/07/12 | 预计2025/07/12生命周期终止 | 2025/07/12 |
 | 1.1.0             | v1.1.0   | 常规版本     | 无维护      | 2024/04/15 | 预计2025/01/15生命周期终止 | 2025/01/15 |
 
 ## 五、免责声明

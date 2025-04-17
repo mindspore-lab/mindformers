@@ -1,4 +1,4 @@
-# Llama Vision 3.2
+# Llama 3.2 Vision
 
 ## 模型描述
 
