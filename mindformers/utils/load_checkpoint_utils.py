@@ -251,10 +251,10 @@ def load_checkpoint_with_safetensors(config, model, network, input_data, do_eval
                 logger.info(f"......file_suffix={file_suffix}, sf_file_name={sf_file_name}......")
             load_checkpoint_files = glob(sf_file_name, recursive=False)
 
-        # use resume_training in train/finetune mode
-        if config.resume_training or (config.get('remove_redundancy', False) and not do_predict):
-            # pylint: disable=W0212
-            network = model._train_network
+    # use resume_training in train/finetune mode
+    if config.resume_training or (config.get('remove_redundancy', False) and not do_predict):
+        # pylint: disable=W0212
+        network = model._train_network
     #build model
     if config.use_parallel:
         logger.info(f"......Start build model in parallel mode......")
