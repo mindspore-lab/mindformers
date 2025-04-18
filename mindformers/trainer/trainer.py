@@ -402,6 +402,9 @@ class Trainer:
         Raises:
             TypeError: if resume_from_checkpoint is not bool or str type.
         """
+        if self.config.runner_config.sink_mode:
+            logger.warning("sink_size will not be able to set in a future release. Modifying sink_size may cause "
+                           "functional issues when resuming training from a checkpoint.")
         if train_checkpoint is not None and \
                 not isinstance(train_checkpoint, (bool, str)):
             raise TypeError(f"train_checkpoint must be one of [None, string, bool], "
