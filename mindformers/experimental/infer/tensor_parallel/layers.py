@@ -182,10 +182,10 @@ class ColumnParallelLinear(nn.Cell):
 
         origin_dtype = F.dtype(input_parallel)
         if self.skip_weight_param_allocation:
-            weight = self.cast(weight, self.compute_dtype)
+            weight = P.Cast()(weight, self.compute_dtype)
         else:
-            weight = self.cast(self.weight, self.compute_dtype)
-        input_parallel = self.cast(input_parallel, self.compute_dtype)
+            weight = P.Cast()(self.weight, self.compute_dtype)
+        input_parallel = P.Cast()(input_parallel, self.compute_dtype)
 
         if self.sequence_parallel:
             input_parallel = input_parallel.swapaxes(0, 1).contiguous()
@@ -201,9 +201,9 @@ class ColumnParallelLinear(nn.Cell):
             output_parallel = self.matmul(input_parallel, weight)
         if self.has_bias:
             output_parallel = self.bias_add(
-                output_parallel, self.cast(self.bias, self.compute_dtype)
+                output_parallel, P.Cast()(self.bias, self.compute_dtype)
             )
-        output_parallel = self.cast(output_parallel, origin_dtype)
+        output_parallel = P.Cast()(output_parallel, origin_dtype)
         output_parallel = self.reshape(output_parallel, output_shape)
 
         if self.gather_output:
@@ -349,7 +349,6 @@ class RowParallelLinear(nn.Cell):
 
         self.shape = P.Shape()
         self.reshape = P.Reshape()
-        self.cast = P.Cast()
         self.reduce_from_mp_region = ReduceFromModelParallelRegion()
         if not self.input_is_parallel:
             self.scatter_to_mp_region = ScatterToModelParallelRegion()
@@ -368,8 +367,8 @@ class RowParallelLinear(nn.Cell):
             input_parallel = self.scatter_to_mp_region(input_)
 
         origin_dtype = F.dtype(input_parallel)
-        weight = self.cast(self.weight, self.compute_dtype)
-        input_parallel = self.cast(input_parallel, self.compute_dtype)
+        weight = P.Cast()(self.weight, self.compute_dtype)
+        input_parallel = P.Cast()(input_parallel, self.compute_dtype)
         output_shape = self.shape(input_parallel)[:-1] + (self.output_size,)
         input_parallel = self.reshape(input_parallel, (-1, self.input_size_per_partition))
         if self.is_expert and self.expert_num > 1:
@@ -389,8 +388,8 @@ class RowParallelLinear(nn.Cell):
                 output = self.reduce_from_mp_region(output_parallel)
 
         if self.has_bias and not self.skip_bias_add:
-            output = self.bias_add(output, self.cast(self.bias, self.compute_dtype))
-        output = self.cast(output, origin_dtype)
+            output = self.bias_add(output, P.Cast()(self.bias, self.compute_dtype))
+        output = P.Cast()(output, origin_dtype)
         output = self.reshape(output, output_shape)
         return output
 
