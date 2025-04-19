@@ -50,6 +50,8 @@ model:
     residual_dtype: "bfloat16"
     use_past: True
     is_dynamic: True
+    qkv_concat: True
+    mlp_concat: True
     block_size: 16
     num_blocks: 4096
     use_flash_attention: True # when use FlashAttention, seq_length should be multiple of 16

@@ -58,6 +58,8 @@ model:
     block_size: 16
     num_blocks: 128
     is_dynamic: True
+    qkv_concat: True
+    mlp_concat: True
     eos_token_id: 2
     pad_token_id: 0
     repetition_penalty: 1.0
