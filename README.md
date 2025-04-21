@@ -53,7 +53,7 @@ The following table lists models supported by MindSpore Transformers.
 | [Qwen2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen2)                             | 0.5B/1.5B/7B/57B/57B-A14B/72B | Dense/Sparse LLM |     1.5.0      |
 | [Qwen1.5](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwen1_5)                         | 7B/14B/72B                    |    Dense LLM     |     1.5.0      |
 | [Qwen-VL](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/qwenvl)                          | 9.6B                          |        MM        |     1.5.0      |
-| [TeleChat2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/telechat2)                     | 7B/35B/112B                   |    Dense LLM     |     1.5.0      |
+| [TeleChat2](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/telechat2)                     | 7B/35B/115B                   |    Dense LLM     |     1.5.0      |
 | [TeleChat](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/telechat)                       | 7B/12B/52B                    |    Dense LLM     |     1.5.0      |
 | [Whisper](https://gitee.com/mindspore/mindformers/blob/r1.5.0/docs/model_cards/whisper.md)              | 1.5B                          |        MM        |     1.5.0      |
 | [Yi](https://gitee.com/mindspore/mindformers/blob/r1.5.0/research/yi)                                   | 6B/34B                        |    Dense LLM     |     1.5.0      |
