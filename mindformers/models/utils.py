@@ -15,11 +15,14 @@
 """Check Model Input Config."""
 import json
 import re
+from functools import wraps
 import numpy as np
 import mindspore.common.dtype as mstype
 import mindspore as ms
 from mindspore.context import ParallelMode
 from mindspore.parallel._utils import _get_parallel_mode, _is_sharding_propagation
+
+from ..tools.utils import get_predict_run_mode, is_pynative
 from ..version_control import get_lazy_inline, get_predict_lazy_inline
 from ..tools.logger import logger
 
@@ -119,6 +122,19 @@ def check_swap_enabled(swap_config):
         return swap_config["swap"]
     return swap_config.swap
 
+
+def jit(func):
+    """jit decorator."""
+
+    @wraps(func)
+    def decorator(*args, **kwargs):
+        if not get_predict_run_mode():
+            raise ValueError("Jit is only supported in predict mode now.")
+        if is_pynative():
+            return func(*args, **kwargs)
+        return ms.jit(func, jit_level='O0', infer_boost='on')(*args, **kwargs)
+
+    return decorator
 
 ms_type_to_str = reverse_dict(str_to_ms_type)
 

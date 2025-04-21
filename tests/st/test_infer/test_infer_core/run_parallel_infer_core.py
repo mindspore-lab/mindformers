@@ -15,11 +15,13 @@
 """test parallel transformer."""
 
 import argparse
+import os
 
 import numpy as np
-from mindspore import Tensor, get_context, set_context
+from mindspore import Tensor, set_context
 from mindspore.communication import init
 
+from mindformers.tools.utils import is_pynative
 from mindformers.experimental.parallel_core.pynative.parallel_state import initialize_model_parallel
 from tests.st.test_infer.test_infer_core.utils import (AttentionNet, MLPNet, TransformerLayerNet, TransformerNet,
                                                        get_config)
@@ -63,7 +65,7 @@ def _test_parallel_attention(config):
     num_blocks = config.num_blocks
 
     use_past = config.use_past
-    is_pynative = get_context('mode') == 1
+    is_pynative_mode = is_pynative()
 
     input_x = Tensor(np.random.randn(batch_size, seq_length, hidden_size).astype(np.float16))
     freqs_cos = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
@@ -78,7 +80,7 @@ def _test_parallel_attention(config):
         batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
         block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int32))
         slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
-        if not is_pynative:
+        if not is_pynative_mode:
             attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
     output = net(input_x, batch_valid_length, block_tables, slot_mapping, freqs_cis=freqs_cis, attn_mask=attn_mask)
 
@@ -101,7 +103,7 @@ def _test_parallel_transformerlayers(config):
     num_blocks = config.num_blocks
 
     use_past = config.use_past
-    is_pynative = get_context('mode') == 1
+    is_pynative_mode = is_pynative()
 
     x = Tensor(np.random.randn(batch_size, seq_length, hidden_size).astype(np.float16))
     freqs_cos = Tensor(np.ones((seq_length, head_dim)).astype(np.float16))
@@ -116,7 +118,7 @@ def _test_parallel_transformerlayers(config):
         batch_valid_length = Tensor(np.ones((batch_size,)).astype(np.int32))
         block_tables = Tensor(np.ones((batch_size, num_blocks)).astype(np.int32))
         slot_mapping = Tensor(np.ones((batch_size * seq_length,)).astype(np.int32))
-        if not is_pynative:
+        if not is_pynative_mode:
             attn_mask = Tensor(np.ones((batch_size, 1, seq_length, seq_length)).astype(np.uint8))
     output = net(x, freqs_cis, attn_mask, batch_valid_length, block_tables, slot_mapping)
 
@@ -159,6 +161,8 @@ def _test_module(module, mode):
     # set_context
     jit_level = "O0"
     infer_boost = "on"
+    if mode == 1:
+        os.environ["FORCE_EAGER"] = "True"
     set_context(mode=mode, jit_config={"jit_level": jit_level, "infer_boost": infer_boost})
 
     # init communication

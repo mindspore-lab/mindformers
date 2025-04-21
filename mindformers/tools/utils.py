@@ -677,8 +677,8 @@ def create_and_write_info_to_txt(txt_path, info=None):
 
 def is_pynative():
     """get whether the mode is pynative"""
-    mode = context.get_context("mode")
-    return mode == context.PYNATIVE_MODE
+    force_eager = os.getenv('FORCE_EAGER', "False")
+    return force_eager.lower() == "true"
 
 
 def barrier_world(action: str = None):

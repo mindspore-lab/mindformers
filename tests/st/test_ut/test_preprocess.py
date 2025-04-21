@@ -19,8 +19,9 @@ import time
 import pytest
 
 import numpy as np
-from mindspore import set_context, Tensor, get_context
+from mindspore import set_context, Tensor
 
+from mindformers.tools.utils import is_pynative
 from mindformers.generation.text_generator import GenerationMixin
 from mindformers.tools.debug_info import DetailedLatency, Profiling
 
@@ -49,7 +50,7 @@ class TestGenerationMixin:
         self.config = TestConfig()
         self._pre_set_phase = None
         self._exec_add_flags = True
-        self.is_pynative = get_context('mode') == 1
+        self.is_pynative = is_pynative()
 
     # pylint: disable=W0613
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
