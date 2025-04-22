@@ -20,8 +20,11 @@ import argparse
 import json
 import os
 from collections import defaultdict
+import math
+import multiprocessing
 from glob import glob
 import warnings
+import numpy as np
 import torch
 from safetensors.torch import load_file
 
@@ -44,8 +47,20 @@ default_config = {
     'num_nextn_predict_layers': 1,
     'first_k_dense_replace': 3,
     'dtype': ms.bfloat16,
-    'use_gemm': True,
+    'use_grouped_gemm': True,
     'save_format': "safetensors"
+}
+
+infer_config = {
+    'num_head': 128,
+    'qk_rope_head_dim': 64,
+    'qk_nope_head_dim': 128,
+    'kv_lora_rank': 512,
+    'v_head_dim': 128,
+    'rope_dim': 192,  # qk_rope_head_dim + qk_nope_head_dim
+    'kv_head_dim': 576,  # kv_lora_rank + qk_rope_head_dim
+    'total_layer_num': 62,
+    'num_routed_experts': 256
 }
 
 
@@ -146,7 +161,7 @@ def mla_name_replace(weight_name: str):
     return weight_name
 
 
-def mlp_name_replace(weight_name: str, use_gemm: bool = True):
+def mlp_name_replace(weight_name: str, use_grouped_gemm: bool = True):
     """Weight name replacing for MLP module, including MoE"""
     weight_name = weight_name.replace('mlp.gate_proj.', 'feed_forward.w1.')
     weight_name = weight_name.replace('mlp.down_proj.', 'feed_forward.w2.')
@@ -157,11 +172,11 @@ def mlp_name_replace(weight_name: str, use_gemm: bool = True):
 
     bmm_key = 'feed_forward.routed_experts.router.dense.weight'
     gmm_key = 'feed_forward.routed_experts.router_dense.weight'
-    weight_name = weight_name.replace('mlp.gate.weight', gmm_key if use_gemm else bmm_key)
+    weight_name = weight_name.replace('mlp.gate.weight', gmm_key if use_grouped_gemm else bmm_key)
 
     bmm_key = 'feed_forward.routed_experts.router.router.topk_bias'
     gmm_key = 'feed_forward.routed_experts.topk_bias'
-    weight_name = weight_name.replace('mlp.gate.e_score_correction_bias', gmm_key if use_gemm else bmm_key)
+    weight_name = weight_name.replace('mlp.gate.e_score_correction_bias', gmm_key if use_grouped_gemm else bmm_key)
 
     return weight_name
 
@@ -307,7 +322,7 @@ def _mlp_pt_to_ms(layer_id, pt_layer_weights, config):
     """Processing weights in MLP/MoE module"""
     num_routed_experts = config['num_routed_experts']
     first_k_dense_replace = config['first_k_dense_replace']
-    use_gemm = config['use_gemm']
+    use_grouped_gemm = config['use_grouped_gemm']
 
     mlp_weight_dict = defaultdict()
     if layer_id < first_k_dense_replace:
@@ -357,8 +372,8 @@ def _mlp_pt_to_ms(layer_id, pt_layer_weights, config):
         expert_down_proj = torch.stack(down_proj_list, 0)
 
         # replace name and store
-        router_weight_key = mlp_name_replace(router_weight_key, use_gemm)
-        router_correct_bias_key = mlp_name_replace(router_correct_bias_key, use_gemm)
+        router_weight_key = mlp_name_replace(router_weight_key, use_grouped_gemm)
+        router_correct_bias_key = mlp_name_replace(router_correct_bias_key, use_grouped_gemm)
         shared_experts_gate_proj_key = mlp_name_replace(shared_experts_gate_proj_key)
         shared_experts_up_proj_key = mlp_name_replace(shared_experts_up_proj_key)
         shared_experts_down_proj_key = mlp_name_replace(shared_experts_down_proj_key)
@@ -368,7 +383,7 @@ def _mlp_pt_to_ms(layer_id, pt_layer_weights, config):
         mlp_weight_dict[shared_experts_up_proj_key] = shared_experts_up_proj.clone()
         mlp_weight_dict[shared_experts_down_proj_key] = shared_experts_down_proj.clone()
         # routed experts
-        if use_gemm:
+        if use_grouped_gemm:
             # transpose from (num_experts, out_dim, in_dim) to (num_experts, in_dim, out_dim)
             expert_gate_proj = expert_gate_proj.transpose(1, 2)
             expert_up_proj = expert_up_proj.transpose(1, 2)
@@ -579,13 +594,292 @@ def convert_ms_to_gmm(input_path, output_path):
             print(f"\rConvertion finished, the mindspore ckpt is saved in '{output_path}'.", flush=True)
 
 
+def infer_name_replace(weight_name: str):
+    """replace weight name"""
+    weight_name = weight_name.replace('embed_tokens.', 'tok_embeddings.')
+    weight_name = weight_name.replace('.self_attn.q_proj.', '.attention.q_proj.')
+    weight_name = weight_name.replace('.self_attn.q_a_proj.', '.attention.q2l_proj.')
+    weight_name = weight_name.replace('.self_attn.q_a_layernorm.', '.attention.lq_norm.')
+    weight_name = weight_name.replace('.self_attn.q_b_proj.', '.attention.l2q_proj.')
+    weight_name = weight_name.replace('.self_attn.kv_a_proj_with_mqa.', '.attention.kv2l.')
+    weight_name = weight_name.replace('.self_attn.kv_a_layernorm.', '.attention.lkv_norm.')
+    weight_name = weight_name.replace('.self_attn.kv_b_proj.', '.attention.lkv2kv.')
+    weight_name = weight_name.replace('.self_attn.o_proj.', '.attention.wo.')
+    weight_name = weight_name.replace('mlp.gate_proj.', 'feed_forward.w1.')
+    weight_name = weight_name.replace('mlp.down_proj.', 'feed_forward.w2.')
+    weight_name = weight_name.replace('mlp.up_proj.', 'feed_forward.w3.')
+    weight_name = weight_name.replace('mlp.experts.', 'feed_forward.routed_experts.ffn.')
+    weight_name = weight_name.replace('mlp.shared_experts.gate_proj.', 'feed_forward.shared_experts.w1.')
+    weight_name = weight_name.replace('mlp.shared_experts.down_proj.', 'feed_forward.shared_experts.w2.')
+    weight_name = weight_name.replace('mlp.shared_experts.up_proj.', 'feed_forward.shared_experts.w3.')
+    weight_name = weight_name.replace('mlp.gate.weight', 'feed_forward.routed_experts.router.dense.weight')
+    weight_name = weight_name.replace('mlp.gate.e_score_correction_bias',
+                                      'feed_forward.routed_experts.router.e_score_correction_bias')
+    weight_name = weight_name.replace('.input_layernorm.', '.attention_norm.')
+    weight_name = weight_name.replace('.post_attention_layernorm.', '.ffn_norm.')
+    weight_name = weight_name.replace('model.tok_embeddings.weight', 'model.tok_embeddings.embedding_weight')
+    weight_name = weight_name.replace('model.norm.weight', 'model.norm_out.weight')
+    return weight_name
+
+
+def infer_trans_rope_weight(weight):
+    """process rope routed weight"""
+    w1 = weight[..., -infer_config['qk_rope_head_dim']::2, :]
+    w2 = weight[..., -infer_config['qk_rope_head_dim'] + 1::2, :]
+    weight[..., -infer_config['qk_rope_head_dim']:, :] = np.concatenate([w1, w2], axis=-2)
+    return weight
+
+
+def infer_process_moe_routed_expert_ffn_weight(params_dict, dst_ms_dir, layer, ms_meta):
+    """process moe routed expert weight"""
+    w1 = []
+    w2 = []
+    w3 = []
+
+    w1_keys = []
+    w2_keys = []
+    w3_keys = []
+    ffn_dtype = ms.bfloat16
+    for index in range(0, infer_config['num_routed_experts']):
+        w1_key = f"model.layers.{layer}.mlp.experts.{index}.gate_proj.weight"
+        w2_key = f"model.layers.{layer}.mlp.experts.{index}.down_proj.weight"
+        w3_key = f"model.layers.{layer}.mlp.experts.{index}.up_proj.weight"
+        ffn_dtype = params_dict[w1_key].dtype
+        w1.append(params_dict[w1_key].asnumpy())
+        w2.append(params_dict[w2_key].asnumpy())
+        w3.append(params_dict[w3_key].asnumpy())
+
+        w1_keys.append(w1_key)
+        w2_keys.append(w2_key)
+        w3_keys.append(w3_key)
+
+    params_w2 = {}
+    ffn_w2_key = f"model.layers.{layer}.feed_forward.routed_experts.ffn.w2.weight"
+    params_w2[ffn_w2_key] = ms.Parameter(ms.Tensor(np.stack(w2, axis=0).transpose(0, 2, 1), ffn_dtype), name=ffn_w2_key)
+    dst_w2_name = f"model_layer_{layer}_routed_experts_w2.safetensors"
+    ms_meta[ffn_w2_key] = dst_w2_name
+    w2_dst_path = f"{dst_ms_dir}/{dst_w2_name}"
+    ms.save_checkpoint(params_w2, w2_dst_path, format="safetensors")
+
+    params_w1 = {}
+    params_w3 = {}
+    ffn_w1_key = f"model.layers.{layer}.feed_forward.routed_experts.ffn.w1.weight"
+    ffn_w3_key = f"model.layers.{layer}.feed_forward.routed_experts.ffn.w3.weight"
+    params_w1[ffn_w1_key] = ms.Parameter(ms.Tensor(np.stack(w1, axis=0).transpose(0, 2, 1), ffn_dtype),
+                                         name=ffn_w1_key)
+    params_w3[ffn_w3_key] = ms.Parameter(ms.Tensor(np.stack(w3, axis=0).transpose(0, 2, 1), ffn_dtype),
+                                         name=ffn_w3_key)
+    dst_w1_name = f"model_layer_{layer}_routed_experts_w1.safetensors"
+    dst_w3_name = f"model_layer_{layer}_routed_experts_w3.safetensors"
+    ms_meta[ffn_w1_key] = dst_w1_name
+    ms_meta[ffn_w3_key] = dst_w3_name
+
+    w1_dst_path = f"{dst_ms_dir}/{dst_w1_name}"
+    w3_dst_path = f"{dst_ms_dir}/{dst_w3_name}"
+    ms.save_checkpoint(params_w1, w1_dst_path, format="safetensors")
+    ms.save_checkpoint(params_w3, w3_dst_path, format="safetensors")
+
+    for index in range(0, infer_config['num_routed_experts']):
+        params_dict.pop(w1_keys[index])
+        params_dict.pop(w2_keys[index])
+        params_dict.pop(w3_keys[index])
+
+
+def infer_process_moe_shared_expert_ffn_weight(trans_params):
+    """process moe shared expert weight"""
+    params_dict, ms_param, layer, ms_meta, dst_name = trans_params
+    w1_key = f"model.layers.{layer}.mlp.shared_experts.gate_proj.weight"
+    w2_key = f"model.layers.{layer}.mlp.shared_experts.down_proj.weight"
+    w3_key = f"model.layers.{layer}.mlp.shared_experts.up_proj.weight"
+
+    ffn_w2_key = f"model.layers.{layer}.feed_forward.shared_experts.w2.weight"
+    ms_param[ffn_w2_key] = params_dict[w2_key]
+    ms_meta[ffn_w2_key] = dst_name
+
+    ffn_w1_key = f"model.layers.{layer}.feed_forward.shared_experts.w1.weight"
+    ffn_w3_key = f"model.layers.{layer}.feed_forward.shared_experts.w3.weight"
+
+    ms_param[ffn_w1_key] = params_dict[w1_key]
+    ms_param[ffn_w3_key] = params_dict[w3_key]
+
+    ms_meta[ffn_w1_key] = dst_name
+    ms_meta[ffn_w3_key] = dst_name
+
+    params_dict.pop(w1_key)
+    params_dict.pop(w2_key)
+    params_dict.pop(w3_key)
+
+
+def infer_process_dense_ffn_weight(trans_params):
+    """process dense ffn weight"""
+    params_dict, ms_param, layer, ms_meta, dst_name = trans_params
+    w1_key = f"model.layers.{layer}.mlp.gate_proj.weight"
+    w2_key = f"model.layers.{layer}.mlp.down_proj.weight"
+    w3_key = f"model.layers.{layer}.mlp.up_proj.weight"
+
+    w1 = params_dict[w1_key]
+    w2 = params_dict[w2_key]
+    w3 = params_dict[w3_key]
+
+    w2_key_new = f"model.layers.{layer}.feed_forward.w2.weight"
+    ms_param[w2_key_new] = ms.Parameter(ms.Tensor(w2, w2.dtype), name=w2_key_new)
+    ms_meta[w2_key_new] = dst_name
+
+    w1_key_new = f"model.layers.{layer}.feed_forward.w1.weight"
+    w3_key_new = f"model.layers.{layer}.feed_forward.w3.weight"
+    ms_param[w1_key_new] = ms.Parameter(ms.Tensor(w1, w1.dtype), name=w1_key_new)
+    ms_param[w3_key_new] = ms.Parameter(ms.Tensor(w3, w3.dtype), name=w3_key_new)
+    ms_meta[w1_key_new] = dst_name
+    ms_meta[w3_key_new] = dst_name
+
+    params_dict.pop(w1_key)
+    params_dict.pop(w2_key)
+    params_dict.pop(w3_key)
+
+
+def infer_convert_layer_weight(src_hf_dir, dst_ms_dir, layer, queue):
+    """convert single layer weight"""
+    print(f"..... start convert layer {layer} .......", flush=True)
+    ms_meta = {}
+    with open(os.path.join(src_hf_dir, "model.safetensors.index.json"), "r") as fp:
+        hf_meta = json.load(fp).get('weight_map')
+
+    safetensor_files = set()
+    for param_key, param_path in hf_meta.items():
+        if f"model.layers.{layer}." in param_key:
+            safetensor_files.add(param_path)
+
+    params_dict = {}
+    for ckpt in safetensor_files:
+        src_path = f"{src_hf_dir}/{ckpt}"
+        p = ms.load_checkpoint(src_path, format="safetensors")
+        params_dict.update(p)
+
+    ms_param = {}
+    dst_name = f"model_layer_{layer}.safetensors"
+
+    if layer >= 3:
+        infer_process_moe_routed_expert_ffn_weight(params_dict, dst_ms_dir, layer, ms_meta)
+        infer_process_moe_shared_expert_ffn_weight((params_dict, ms_param, layer, ms_meta, dst_name))
+    else:
+        infer_process_dense_ffn_weight((params_dict, ms_param, layer, ms_meta, dst_name))
+
+    num_head = infer_config['num_head']
+    rope_dim = infer_config['rope_dim']
+    kv_head_dim = infer_config['kv_head_dim']
+    qk_nope_head_dim = infer_config['qk_nope_head_dim']
+    v_head_dim = infer_config['v_head_dim']
+
+    for key, value in params_dict.items():  # pylint: disable=redefined-outer-name
+        if not key.startswith(f"model.layers.{layer}."):
+            continue
+        value = params_dict[key]
+        dtype = params_dict[key].dtype
+        ms_key = infer_name_replace(key)
+
+        # l2q_proj
+        if "attention.l2q_proj.weight" in ms_key:
+            value = value.astype(np.float32).asnumpy()
+            value = value.reshape(num_head, rope_dim, -1)
+            weight = infer_trans_rope_weight(value)
+            weight = weight.reshape(num_head * rope_dim, -1)
+            ms_param[ms_key] = ms.Parameter(ms.Tensor(weight, dtype), name=ms_key)
+        # kv2l
+        elif "attention.kv2l.weight" in ms_key:
+            value = value.astype(np.float32).asnumpy()
+            value = value.reshape(kv_head_dim, -1)
+            weight = infer_trans_rope_weight(value)
+            ms_param[ms_key] = ms.Parameter(ms.Tensor(weight, dtype), name=ms_key)
+        # .attention.lkv2kv.
+        elif ".attention.lkv2kv." in ms_key:
+            value = value.astype(np.float32).asnumpy()
+            lkv2kv_head = qk_nope_head_dim + v_head_dim
+            value = value.reshape(num_head, lkv2kv_head, -1)
+            value_k_nope, value_v = value[:, :qk_nope_head_dim, :], value[:, qk_nope_head_dim:, :]
+            value_k_nope = value_k_nope.reshape(-1, value_k_nope.shape[-1])
+            value_v = value_v.reshape(-1, value_v.shape[-1])
+            name_k_nope = ms_key.replace(".attention.lkv2kv.", ".attention.lkv2kv_k_nope.")
+            name_v = ms_key.replace(".attention.lkv2kv.", ".attention.lkv2kv_v.")
+            ms_param[name_k_nope] = ms.Parameter(ms.Tensor(value_k_nope, dtype), name=name_k_nope)
+            ms_param[name_v] = ms.Parameter(ms.Tensor(value_v, dtype), name=name_v)
+            ms_meta[name_k_nope] = dst_name
+            ms_meta[name_v] = dst_name
+            continue
+        else:
+            ms_param[ms_key] = ms.Parameter(ms.Tensor(value, dtype), name=ms_key)
+        ms_meta[ms_key] = dst_name
+    dst_path = os.path.join(dst_ms_dir, dst_name)
+    ms.save_checkpoint(ms_param, dst_path, format="safetensors")
+    queue.put(ms_meta)
+    print(f"..... end convert layer {layer} .......", flush=True)
+
+
+def infer_convert_outer_weight(src_hf_dir, dst_ms_dir, ms_meta, param_json):
+    """convert weight not in model"""
+    with open(f"{src_hf_dir}/{param_json}", "r") as fp:
+        hf_meta = json.load(fp)['weight_map']
+
+    safetensor_files = set()
+    for param_key, param_path in hf_meta.items():
+        if "model.layers." not in param_key:
+            safetensor_files.add(param_path)
+
+    params_dict = {}
+    for ckpt in safetensor_files:
+        src_path = f"{src_hf_dir}/{ckpt}"
+        p = ms.load_checkpoint(src_path, format="safetensors")
+        params_dict.update(p)
+
+    ms_param = {}
+    dst_name = "model.safetensors"
+    for key, value in params_dict.items():  # pylint: disable=redefined-outer-name
+        if "model.layers." in key:
+            continue
+        value = params_dict[key]
+        ms_key = infer_name_replace(key)
+        ms_param[ms_key] = ms.Parameter(ms.Tensor(value), name=ms_key)
+        ms_meta[ms_key] = dst_name
+    dst_path = f"{dst_ms_dir}/{dst_name}"
+    ms.save_checkpoint(ms_param, dst_path, format="safetensors")
+
+
+def infer_convert_weight(src_hf_dir, dst_ms_dir, worker_num, ms_meta, arg):
+    """convert inference model weight """
+    infer_convert_outer_weight(src_hf_dir, dst_ms_dir, ms_meta, arg.param_json)
+    layers = infer_config['total_layer_num']
+    for index in range(math.ceil(layers / worker_num)):
+        process = []
+        queue = multiprocessing.Queue()
+        for j in range(index * worker_num, (index + 1) * worker_num, 1):
+            if j > layers - 1:
+                break
+            p = multiprocessing.Process(target=infer_convert_layer_weight, args=(src_hf_dir, dst_ms_dir, j, queue))
+            process.append(p)
+            p.start()
+        for p in process:
+            p.join()
+
+        while not queue.empty():
+            meta = queue.get()
+            ms_meta.update(meta)
+
+
+def infer_trans_ckpt_pt_to_ms(src_hf_dir, dst_ms_dir, worker_num, arg):
+    """main function of inference weight process"""
+    ms_meta = {}
+    os.makedirs(dst_ms_dir, exist_ok=True)
+    infer_convert_weight(src_hf_dir, dst_ms_dir, worker_num, ms_meta, arg)
+    with open(f"{dst_ms_dir}/param_name_map.json", "w") as fp:
+        json.dump(ms_meta, fp, indent=4)
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_routed_experts', default=256, type=int)
     parser.add_argument('--torch_ckpt_path', default=None, type=str)
     parser.add_argument('--mindspore_ckpt_path', default=None, type=str)
-    parser.add_argument('--use_gemm', default=True, type=str2bool)
+    parser.add_argument('--use_grouped_gemm', default=True, type=str2bool)
     parser.add_argument('--pre_ckpt_path', default=None, type=str)
     parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'])
     parser.add_argument("--num_layers", default=61, type=int)
@@ -597,13 +891,25 @@ if __name__ == "__main__":
     parser.add_argument("--v_head_dim", default=128, type=int)
     parser.add_argument("--save_format", default="safetensors", choices=["safetensors", "ckpt"])
 
+    parser.add_argument("--infer", default=False, type=str2bool)
+    parser.add_argument('--worker_num', default=4, type=int)
+    parser.add_argument('--param_json', default="model.safetensors.index.json", type=str)
+
     args = parser.parse_args()
 
-    if args.pre_ckpt_path:
-        convert_ms_to_gmm(input_path=args.pre_ckpt_path, output_path=args.mindspore_ckpt_path)
+    if args.infer:
+        ms.set_context(device_target="CPU")
+        infer_trans_ckpt_pt_to_ms(src_hf_dir=args.torch_ckpt_path,
+                                  dst_ms_dir=args.mindspore_ckpt_path,
+                                  worker_num=args.worker_num,
+                                  arg=args)
     else:
-        for key in default_config:
-            default_config[key] = getattr(args, key, default_config[key])
-        default_config['dtype'] = dtype_map.get(default_config['dtype'], default_config['dtype'])
+        if args.pre_ckpt_path:
+            convert_ms_to_gmm(input_path=args.pre_ckpt_path, output_path=args.mindspore_ckpt_path)
+        else:
+            for key in default_config:
+                default_config[key] = getattr(args, key, default_config[key])
+            default_config['dtype'] = dtype_map.get(default_config['dtype'], default_config['dtype'])
 
-        convert_pt_to_ms(input_path=args.torch_ckpt_path, output_path=args.mindspore_ckpt_path, config=default_config)
+            convert_pt_to_ms(input_path=args.torch_ckpt_path,
+                             output_path=args.mindspore_ckpt_path, config=default_config)
