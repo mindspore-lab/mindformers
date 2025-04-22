@@ -24,30 +24,62 @@ MindSpore Transformers中已提供DeepSeek-V3基于MindSpore的实现，主要�
 
     ```text
      deepseek3/
-      ├── deepseek2_model.py                  # DeepSeek-V2模型代码
-      ├── deepseek2_config.py                 # DeepSeek-V2配置代码
-      ├── deepseek3_model.py                  # DeepSeek-V3模型代码
-      └── deepseek3_config.py                 # DeepSeek-V3配置代码
+      ├── deepseek2_model.py                        # DeepSeek-V2模型代码
+      ├── deepseek2_config.py                       # DeepSeek-V2配置代码
+      ├── deepseek3.py                              # DeepSeek-V3模型代码
+      ├── deepseek3_model_infer.py                  # DeepSeek-V3推理代码
+      ├── deepseek3_model_train.py                  # DeepSeek-V3训练代码
+      └── deepseek3_config.py                       # DeepSeek-V3配置代码
     ```
 
 2. 模型配置：
 
     ```text
      deepseek3/
-      ├── parallel_speed_up.json              # 数据集并行通信配置
-      └── deepseek3_671b/
-           ├── pretrain_deepseek3_671b.yaml   # 预训练任务配置
-           └── finetune_deepseek3_671b.yaml   # 微调任务配置
+      ├── parallel_speed_up.json                     # 数据集并行通信配置
+      ├── deepseek3_671b/
+      |     ├── pretrain_deepseek3_671b.yaml         # 预训练任务配置
+      |     ├── finetune_deepseek3_671b.yaml         # 微调任务配置
+      |     ├── predict_deepseek3_671b.yaml          # 推理任务配置
+      |     └── predict_deepseek3_671b_w8a8.yaml     # 量化推理任务配置
+      └── deepseek3_r1_671b/
+            ├── predict_deepseek_r1_671b.yaml        # 推理任务配置
+            └── predict_deepseek_r1_671b_w8a8.yaml   # 量化推理任务配置
     ```
 
 3. 数据集处理脚本：
 
     ```text
     deepseek3/
-      ├── wikitext_to_bin.py                 # wikitext数据预处理
-      ├── deepseek3_conversation.py          # 微调chat_template实现
-      └── deepseek3_preprocess.py            # alpaca数据预处理
+      ├── wikitext_to_bin.py                         # Wikitext数据预处理
+      ├── deepseek3_conversation.py                  # 微调chat_template实现
+      └── deepseek3_preprocess.py                    # Alpaca数据预处理
     ```
+
+4. 权重转换脚本：
+
+    ```text
+    deepseek3/
+      ├── convert_reversed.py                         # MindSpore Safetensors权重转换为HuggingFace Safetensors权重
+      └── convert_weight.py                           # HuggingFace Safetensors权重转换为MindSpore Safetensors权重
+    ```
+
+5. 推理任务脚本：
+
+    ```text
+    deepseek3/
+      └── run_predict_deepseek.py                     # 执行推理任务
+    ```
+
+## 环境安装
+
+DeepSeek-V3所依赖的版本配套如下：
+
+| MindSpore Transformers |                 MindSpore                 |                                                                           CANN                                                                           |                                                                           固件与驱动                                                                           | 镜像链接 |
+|:-----------:|:-----------------------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------:|:----:|
+|    1.5.0    | [2.6.0](https://www.mindspore.cn/install) | [8.1.RC1](https://www.hiascend.com/document/detail/zh/canncommercial/81RC1/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit) | [25.0.RC1](https://www.hiascend.com/document/detail/zh/canncommercial/81RC1/softwareinst/instg/instg_0000.html?Mode=PmIns&OS=Ubuntu&Software=cannToolKit) | 即将发布 |
+
+环境的详细安装指南参考[环境安装指南](../../README_CN.md#源码编译安装)。
 
 ## 模型权重下载
 
@@ -55,10 +87,11 @@ MindSpore Transformers中已提供DeepSeek-V3基于MindSpore的实现，主要�
 
 用户可以从HuggingFace官方下载预训练权重，经过[模型权重转换](#模型权重转换)后进行使用，`tokenizer.json`文件也在链接中下载。
 
-| 模型名称                         |                                     Base权重（建议微调使用）                                      |                   Instruct权重（建议推理使用）                   |
+| 模型名称                         |                                     下载链接                                         |                           备注                          |
 |:-----------------------------|:---------------------------------------------------------------------------------------:|:------------------------------------------------------:|
-| deepseek-ai/DeepSeek-V3-Base |               [Link](https://huggingface.co/deepseek-ai/DeepSeek-V3-Base)               | [Link](https://huggingface.co/deepseek-ai/DeepSeek-V3) |
-| DeepSeek-V3-Base_4layer      | [Link](https://modelers.cn/models/mindformers-club/weights/tree/main/deepseekv3_4layer) |                                                        |
+| deepseek-ai/DeepSeek-V3      |               [Link](https://huggingface.co/deepseek-ai/DeepSeek-V3)                    |                   对话模型，建议推理使用                          |
+| deepseek-ai/DeepSeek-V3-Base |               [Link](https://huggingface.co/deepseek-ai/DeepSeek-V3-Base)               |                   基座模型，建议微调使用                          |
+| DeepSeek-V3-Base_4layer      | [Link](https://modelers.cn/models/mindformers-club/weights/tree/main/deepseekv3_4layer) |         经过裁剪的基座模型仅用于流程体验，不具备推理能力            |
 
 ### 推理权重准备
 
@@ -89,90 +122,6 @@ snapshot_download(
 ## 预训练
 
 MindSpore Transformers支持对DeepSeek-V3进行预训练。仓库中提供了一份[预训练配置文件](#模型文件)供参考，该配置基于128台Atlas 800T A2（64G），使用Wikitext-2数据集进行预训练。为了方便体验，本章节基于此配置进行修改，缩小了DeepSeek-V3模型参数量，使其能够在单台Atlas 800T A2（64G）上拉起预训练流程。
-
-### 环境准备
-
-准备一台Atlas 800T A2（64G）训练服务器。MindSpore Transformers的环境依赖如下：
-
-| Python | MindSpore |     CANN      |  固件与驱动  |
-|:------:|:---------:|:-------------:|:-----------:|
-|  3.10  |  2.6.0    | 8.1.RC1       | 24.1.RC3    |
-
-> DeepSeek-V3模型使用了部分MindSpore的最新特性，最低支持版本为MindSpore 2.6.0，请检查版本是否符合要求并及时升级。
-
-#### 安装固件与驱动
-
-点击[此处](https://www.hiascend.com/hardware/firmware-drivers/community)下载固件与驱动的安装包，参考[昇腾官方教程](https://www.hiascend.com/document/detail/zh/quick-installation/24.0.RC1/quickinstg_train/800_9000A2/quickinstg_800_9000A2_0007.html)进行安装。
-
-> 固件与驱动需要安装24.1.RC3及以上版本，版本过低请进行升级
-
-#### 准备Docker容器：
-
-提供了DeepSeek-V3预训练专用Docker镜像（镜像中已包含CANN、MindSpore，无需手动安装），通过如下步骤进行软件环境搭建。
-
-1. 下载Docker镜像
-
-   使用如下命令下载DeepSeek-V3预训练专用镜像：
-
-   ```bash
-   docker pull swr.cn-central-221.ovaijisuan.com/mindformers/deepseek_v3_mindspore2.4.10-train:20250209
-   ```
-
-2. 基于镜像创建容器
-
-   使用如下命令新建容器：
-
-   ```bash
-   image_name=swr.cn-central-221.ovaijisuan.com/mindformers/deepseek_v3_mindspore2.4.10-train:20250209
-   docker_name=deepseek_v3
-   docker run -itd -u root \
-   --ipc=host --net=host \
-   --privileged \
-   --device=/dev/davinci0 \
-   --device=/dev/davinci1 \
-   --device=/dev/davinci2 \
-   --device=/dev/davinci3 \
-   --device=/dev/davinci4 \
-   --device=/dev/davinci5 \
-   --device=/dev/davinci6 \
-   --device=/dev/davinci7 \
-   --device=/dev/davinci_manager \
-   --device=/dev/devmm_svm \
-   --device=/dev/hisi_hdc \
-   -v /etc/localtime:/etc/localtime \
-   -v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
-   -v /usr/local/Ascend/driver/tools/hccn_tool:/usr/local/bin/hccn_tool \
-   -v /etc/ascend_install.info:/etc/ascend_install.info \
-   -v /var/log/npu:/usr/slog \
-   -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
-   -v /etc/hccn.conf:/etc/hccn.conf \
-   --name "$docker_name" \
-   "$image_name" \
-   /bin/bash
-   ```
-
-3. 进入容器
-
-   使用如下命令进入容器，并进入代码目录：
-
-   ```bash
-   docker exec -ti deepseek_v3 bash
-   export MINDFORMERS_HOME=/home/work/mindformers
-   cd $MINDFORMERS_HOME
-   ```
-
-#### 安装MindSpore Transformers
-
-> 镜像中已经安装好了DeepSeek-V3预训练所需的MindSpore Transformers版本，如使用镜像可跳过此步骤。
-
-执行如下命令拉取MindSpore Transformers代码，并编译安装：
-
-```shell
-git clone -b dev https://gitee.com/mindspore/mindformers.git
-cd mindformers
-git checkout e45eb7c5
-bash build.sh
-```
 
 > ### 🚨 注意：
 >
@@ -256,10 +205,7 @@ bash build.sh
      pipeline_stage: 2                                   # 修改为2
      expert_parallel: 2                                  # 修改为2
      micro_batch_num: &micro_batch_num 4                 # 修改为4
-   # parallel context config
-   parallel:
-     parallel_optimizer_config:
-       optimizer_weight_shard_size: 8                    # 修改为8
+   # recompute config
    recompute_config:
      recompute: False                                    # 修改为False
    ```
@@ -293,7 +239,7 @@ bash build.sh
 
 进入DeepSeek-V3代码目录并执行以下命令拉起单台Atlas 800T A2（64G）预训练任务：
 
-如果设置use_gmm=True, 须添加如下环境变量, 设置缓存队列的上限值为100，以避免host内存OOM。具体取值需要根据实际情况调整, 当host内存增长过快时，需要适当减小缓存上限值, 可以通过多次尝试来确定一个合适的值。
+预训练默认设置use_gmm=True, 须添加如下环境变量, 设置缓存队列的上限值为100，以避免host内存OOM。具体取值需要根据实际情况调整, 当host内存增长过快时，需要适当减小缓存上限值, 可以通过多次尝试来确定一个合适的值。
 
 ```shell
 export MS_DEV_RUNTIME_CONF="aclnn_cache_queue_length:100"
@@ -307,7 +253,7 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 --config research/deepseek3/deepseek3_671b/pretrain_deepseek3_1b.yaml"
 ```
 
-上述命令执行完毕后，训练任务将在后台执行，过程日志保存在`./output/msrun_log`下，使用以下命令可查看训练状态（由于开启了流水并行`pipeline_stage: 2`，真实loss只显示在最后一张卡的日志`worker_7.log`中，其余卡均显示`loss`为`0`）：
+上述命令执行完毕后，训练任务将在后台执行，过程日志保存在`./output/msrun_log`下，使用以下命令可查看训练状态（由于开启了流水并行`pipeline_stage: 2`，真实loss只显示在最后一个stage的日志（worker_4.log ~ worker_7.log，建议使用最后一张卡的日志）中，其余卡显示`loss`为`0`）
 
 ```shell
 tail -f ./output/msrun_log/worker_7.log
@@ -350,9 +296,9 @@ MindSpore Transformers支持对DeepSeek-V3进行全参微调。仓库中提供�
 
 ### 数据集准备
 
-以[alpaca数据集](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)为例，参考如下步骤将数据集处理成Mindrecord格式文件。
+以[Alpaca数据集](https://github.com/tatsu-lab/stanford_alpaca/blob/main/alpaca_data.json)为例，参考如下步骤将数据集处理成MindRecord格式文件。
 
-  执行`research/deepseek3/deepseek3_preprocess.py`文件，进行数据预处理和Mindrecord数据生成。
+  执行`research/deepseek3/deepseek3_preprocess.py`文件，进行数据预处理和MindRecord数据生成。
 
   ```shell
   python research/deepseek3/deepseek3_preprocess.py \
@@ -361,14 +307,15 @@ MindSpore Transformers支持对DeepSeek-V3进行全参微调。仓库中提供�
    --tokenizer_file /path/tokenizer.json \
    --seq_length 4096 \
    --output_file /path/alpaca-messages.mindrecord
-
-  # 参数说明
-  dataset_type:     预处理数据类型
-  input_glob:       alpaca数据集原始文件路径
-  tokenizer_file:   tokenizer.json文件路径
-  seq_length:       输出数据的序列长度
-  output_file:      输出文件的保存路径
   ```
+
+参数说明
+
+- dataset_type:     预处理的数据类型，目前仅支持'wiki'和'qa', 微调选择'qa'
+- input_glob:       Alpaca数据集原始文件路径
+- tokenizer_file:   tokenizer.json文件路径
+- seq_length:       输出数据的序列长度
+- output_file:      输出文件的保存路径
 
 ### 模型权重准备
 
@@ -376,28 +323,27 @@ MindSpore Transformers支持对DeepSeek-V3进行全参微调。仓库中提供�
 
 #### 模型权重转换
 
-下载完成后，运行`research/deepseek3/convert_weight.py`转换脚本，将huggingface的权重转换为完整的ckpt权重。
+下载完成后，运行`research/deepseek3/convert_weight.py`转换脚本，将HuggingFace Safetensors权重转换为完整的MindSpore Safetensors权重。
 
 ```shell
-python research/deepseek3/convert_weight.py --torch_ckpt_path TORCH_CKPT_DIR --mindspore_ckpt_path {path}/MS_CKPT_NAME --use_gemm False --dtype bf16
-
-# 参数说明
-model:            模型名称
-torch_ckpt_path:  下载HuggingFace权重的文件夹路径
-output_path:      转换后的MindSpore权重文件保存路径
-use_gemm:         是否转换为grouped matmul权重，默认为True
-dtype:            转换权重的精度
+python research/deepseek3/convert_weight.py --torch_ckpt_path TORCH_CKPT_DIR --mindspore_ckpt_path {path}/MS_CKPT_NAME --use_grouped_gemm False --dtype bf16
 ```
 
-> 注：目前全参微调仅支持batched matmul实现，此处转换时use_gemm需设置为False；[模型权重下载](#模型权重下载)中提供的权重也均为bmm实现权重。
+参数说明：
 
-#### [模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html)
+- model:            模型名称
+- torch_ckpt_path:  下载HuggingFace权重的文件夹路径
+- output_path:      转换后的MindSpore权重文件保存路径
+- use_grouped_gemm:         是否转换为Grouped MatMul权重，默认为True
+- dtype:            权重的数值类型，有'fp32'、'fp16'和'bf16'
 
-  从hugging face或官方github仓库转换而来的权重通常是单卡权重，基于该权重进行多卡微调，评测，推理，涉及ckpt从单机策略到分布式策略的切换。Safetensors格式权重只支持自动切分策略，后续[拉起任务等章节](#拉起任务)示例命令中采用运行时自动切分策略。
+#### 模型权重切分与合并
 
-  通常训练采用分布式训练，基于该权重进行评测，推理多采用单卡，涉及ckpt从分布式策略到单机策略的切换。
+从Hugging Face或官方GitHub仓库转换而来的权重通常是单卡权重，使用该权重进行多卡微调，评测，推理之前需要将其转换为分布式权重。Safetensors格式权重只支持自动切分，后续[拉起任务等章节](#拉起任务)示例命令中采用运行时自动切分。
 
-  以上涉及到ckpt的单卡，多卡转换，详细教程请参考特性文档[模型权重切分与合并](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/transform_weight.html)
+通常训练采用分布式训练，使用训练得到的权重进行评测、推理等任务时，如涉及分布式策略更改，需要对权重进行切分或合并。
+
+以上涉及到Safetensors格式权重的单卡，多卡转换，详细教程请参考特性文档[Safetensors权重](https://www.mindspore.cn/mindformers/docs/zh-CN/r1.5.0/function/safetensors.html)
 
 ### 修改配置
 
@@ -485,9 +431,9 @@ tail -f ./output/msrun_log/worker_31.log
 
 训练过程中的权重checkpoint将会保存在`./output/checkpoint`下。
 
-### 扩展：整网微调
+### 扩展：完整模型微调
 
-整网需要128台机器，在每台服务器上执行如下命令。设置`master_ip`为主节点IP地址，即`Rank 0`服务器的IP；`node_rank`为每个节点的Rank序号，从`0`到`127`。
+完整模型需要128台机器，在每台服务器上执行如下命令。设置`master_ip`为主节点IP地址，即`Rank 0`服务器的IP；`node_rank`为每个节点的Rank序号，从`0`到`127`。
 
 ```shell
 master_ip=192.168.1.1
