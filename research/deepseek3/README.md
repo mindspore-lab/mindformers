@@ -484,7 +484,7 @@ cd $MINDFORMERS_HOME
 
 - 使用容器部署推理环境时，如果有部分宿主机的hostname是一致的，需要在起容器的时候修改容器的hostname，保证所有容器的hostname都不一致。
 
-### 下载权重
+### 权重准备
 
 权重下载参考[推理权重准备](#推理权重准备)，推理权重无需自己转换，可直接用于推理。如果用户从Hugging Face直接下载模型权重，需要将权重转换为MindSpore的权重，执行以下命令转换：
 
@@ -502,6 +502,27 @@ python research/deepseek3/convert_weight.py \
 - infer：是否进行推理权重的转换，默认值：`False`。
 - mindspore_ckpt_path：转换后的MindSpore权重文件夹保存路径
 - worker_num：多进程转换的进程数，默认值：`4`。
+
+如果使用训练后保存的权重进行推理，需要使用`deepseek3_train2infer.py`脚本将其转换为推理格式。执行以下命令进行转换：
+
+```bash
+python research/deepseek3/deepseek3_train2infer.py \
+--input_path TRAIN_CKPT_DIR \
+--output_path INFER_CKPT_DIR
+```
+
+参数说明：
+
+- `input_path`：包含训练权重.safetensors文件的目录路径
+- `output_path`：转换后的推理权重保存目录
+
+其他可选参数：
+
+- `first_k_dense_replace`：MoE层之前的稠密层数量，需要与训练时模型的配置一致，默认值：`3`
+- `num_heads`：注意力头数，需要与训练时模型的配置一致，默认值：`128`
+- `qk_nope_head_dim`：无位置编码的Q/K头维度，需要与训练时模型的配置一致，默认值：`128`
+- `qk_rope_head_dim`：带位置编码的Q/K头维度，需要与训练时模型的配置一致，默认值：`64`
+- `processes`：并行转换的进程数，默认值：`32`
 
 ### 修改配置
 
