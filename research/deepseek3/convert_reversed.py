@@ -48,7 +48,7 @@ default_config = {
     'num_nextn_predict_layers': 1,
     'first_k_dense_replace': 3,
     'dtype': torch.bfloat16,
-    'use_gemm': True,
+    'use_grouped_gemm': True,
     'load_format': "safetensors"
 }
 
@@ -86,7 +86,7 @@ def mla_name_replace(weight_name: str):
     return weight_name
 
 
-def mlp_name_replace(weight_name: str, use_gemm: bool = True):
+def mlp_name_replace(weight_name: str, use_grouped_gemm: bool = True):
     """Weight name replacing for MLP module, including MoE"""
     weight_name = weight_name.replace('feed_forward.w1.', 'mlp.gate_proj.')
     weight_name = weight_name.replace('feed_forward.w2.', 'mlp.down_proj.')
@@ -97,11 +97,11 @@ def mlp_name_replace(weight_name: str, use_gemm: bool = True):
 
     bmm_key = 'feed_forward.routed_experts.router.dense.weight'
     gmm_key = 'feed_forward.routed_experts.router_dense.weight'
-    weight_name = weight_name.replace(gmm_key if use_gemm else bmm_key, 'mlp.gate.weight')
+    weight_name = weight_name.replace(gmm_key if use_grouped_gemm else bmm_key, 'mlp.gate.weight')
 
     bmm_key = 'feed_forward.routed_experts.router.router.topk_bias'
     gmm_key = 'feed_forward.routed_experts.topk_bias'
-    weight_name = weight_name.replace(gmm_key if use_gemm else bmm_key,
+    weight_name = weight_name.replace(gmm_key if use_grouped_gemm else bmm_key,
                                       'mlp.gate.e_score_correction_bias')
     return weight_name
 
@@ -269,7 +269,7 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config):
     num_routed_experts = config['num_routed_experts']
     first_k_dense_replace = config['first_k_dense_replace']
     dtype = config['dtype']
-    use_gemm = config['use_gemm']
+    use_grouped_gemm = config['use_grouped_gemm']
 
     mlp_weight_dict = defaultdict()
     if layer_id < first_k_dense_replace:
@@ -287,7 +287,7 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config):
         mlp_weight_dict[up_proj_key] = torch.from_numpy(up_proj).to(dtype).clone()
         mlp_weight_dict[down_proj_key] = torch.from_numpy(down_proj).to(dtype).clone()
     else:
-        if use_gemm:
+        if use_grouped_gemm:
             router_weight_key = f"model.layers.{layer_id}.feed_forward.routed_experts.router_dense.weight"
             router_correct_bias_key = f"model.layers.{layer_id}.feed_forward.routed_experts.topk_bias"
         else:
@@ -305,8 +305,8 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config):
         shared_experts_down_proj = cpu_cast(ms_layer_weights.pop(shared_experts_down_proj_key), ms.float32).numpy()
 
         # replace name and store
-        router_weight_key = mlp_name_replace(router_weight_key, use_gemm)
-        router_correct_bias_key = mlp_name_replace(router_correct_bias_key, use_gemm)
+        router_weight_key = mlp_name_replace(router_weight_key, use_grouped_gemm)
+        router_correct_bias_key = mlp_name_replace(router_correct_bias_key, use_grouped_gemm)
         shared_experts_gate_proj_key = mlp_name_replace(shared_experts_gate_proj_key)
         shared_experts_up_proj_key = mlp_name_replace(shared_experts_up_proj_key)
         shared_experts_down_proj_key = mlp_name_replace(shared_experts_down_proj_key)
@@ -317,7 +317,7 @@ def _mlp_ms_to_pt(layer_id, ms_layer_weights, config):
         mlp_weight_dict[shared_experts_down_proj_key] = torch.from_numpy(shared_experts_down_proj).to(dtype).clone()
 
         # routed experts
-        if use_gemm:
+        if use_grouped_gemm:
             weight1_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w1"
             weight2_key = f"model.layers.{layer_id}.feed_forward.routed_experts.ffn.w2"
             weight1 = cpu_cast(ms_layer_weights.pop(weight1_key), ms.float32).numpy()
@@ -541,7 +541,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_routed_experts', default=256, type=int)
     parser.add_argument('--torch_ckpt_path', default=None, type=str)
     parser.add_argument('--mindspore_ckpt_path', default=None, type=str)
-    parser.add_argument('--use_gemm', default=True, type=str2bool)
+    parser.add_argument('--use_grouped_gemm', default=True, type=str2bool)
     parser.add_argument('--dtype', default='bf16', type=str, choices=['fp16', 'bf16', 'fp32'])
     parser.add_argument("--num_layers", default=61, type=int)
     parser.add_argument("--num_nextn_predict_layers", default=1, type=int)
