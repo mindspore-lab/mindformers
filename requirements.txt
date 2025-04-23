@@ -20,4 +20,4 @@ setproctitle
 safetensors
 tensorboardX
 deprecated>=1.2.0
-mindspore~=2.6.0
+mindspore~=2.6.0rc1
