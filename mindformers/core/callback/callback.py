@@ -1077,7 +1077,7 @@ class CheckpointMonitor(ModelCheckpoint):
             minutes. Can't be used with keep_checkpoint_max at the same time. Default: ``0``.
         integrated_save (bool, optional): Whether to merge and save the split Tensor in the automatic parallel scenario.
             Integrated save function is only supported in automatic parallel scene. Default: ``True``.
-        save_network_params (bool, optional): Whether to only save network weights additionally. Default: ``True``.
+        save_network_params (bool, optional): Whether to only save network weights additionally. Default: ``False``.
         save_trainable_params (bool, optional): Whether to save only weights of trainable parameters.
             Default: ``False``.
         async_save (bool, optional): Whether asynchronous execution saves the checkpoint to a file. Default: ``False``.
@@ -1112,7 +1112,7 @@ class CheckpointMonitor(ModelCheckpoint):
                  keep_checkpoint_max=5,
                  keep_checkpoint_per_n_minutes=0,
                  integrated_save=True,
-                 save_network_params=True,
+                 save_network_params=False,
                  save_trainable_params=False,
                  async_save=False,
                  saved_network=None,
