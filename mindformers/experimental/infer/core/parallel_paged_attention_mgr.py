@@ -18,8 +18,7 @@ import math
 
 import mindspore.common.dtype as mstype
 from mindspore import ops as P
-from mindspore import nn, Parameter
-from mindspore.common.initializer import initializer
+from mindspore import nn
 from mindformers.experimental.infer.core.utils import create_empty_parameter
 
 
@@ -60,11 +59,6 @@ class ParallelPagedAttentionMgr(nn.Cell):
                 name="value_cache",
                 requires_grad=False,
             )
-        elif self.npu_mem_size == 0:
-            self.key_cache = Parameter(initializer('zeros', kv_shape, compute_dtype), name="key_cache",
-                                       requires_grad=False)
-            self.value_cache = Parameter(initializer('zeros', kv_shape, compute_dtype), name="value_cache",
-                                         requires_grad=False)
 
         self.reshape_and_cache = P.auto_generate.ReshapeAndCache()
         self.paged_attention = P.auto_generate.PagedAttention(self.n_heads,
