@@ -19,14 +19,14 @@ import numpy as np
 from mindspore import nn, Tensor, ops, mint
 import mindspore.common.dtype as mstype
 
-from mindformers.modules import Linear
 from mindformers.experimental.infer.core.utils import get_tp_world_size
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
-from mindformers.experimental.infer.core.transformer import VocabEmbedding
-from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear, VocabParallelEmbedding
+from mindformers.experimental.infer.tensor_parallel.layers import ColumnParallelLinear
 from mindformers.experimental.graph.transformer.spec_utils import ModuleSpec
 from mindformers.experimental.infer.transformer.rotary_embedding import RotaryEmbedding, Llama3RotaryEmbedding
 from mindformers.experimental.infer.transformer.transformer_block import TransformerBlock
+from mindformers.experimental.infer.transformer.language_model_embedding import LanguageModelEmbedding
+from mindformers.experimental.parallel_core.pynative.utils import divide
 
 
 class GPTModel(nn.Cell):
@@ -76,37 +76,37 @@ class GPTModel(nn.Cell):
         self.vocab_size = vocab_size
         self.pre_process = pre_process
         self.post_process = post_process
-        self.position_embedding_type = position_embedding_type
         self.compute_dtype = self.config.compute_dtype
 
         self.max_position_embeddings = config.max_position_embeddings
-        self.hidden_dim = config.hidden_size // config.num_attention_heads
+        self.hidden_dim = getattr(config, "kv_channels", divide(config.hidden_size, config.num_attention_heads))
         self.rotary_percent = rotary_percent
         self.rotary_base = rotary_base
         self.tp_group_size = get_tp_world_size()
 
+        self.cast = ops.Cast()
         self.gather = ops.Gather()
         self.sub = ops.Sub()
         self.reshape = ops.Reshape()
 
         self.is_prefill = True
 
+        if hasattr(self.config, 'position_embedding_type'):
+            self.position_embedding_type = self.config.position_embedding_type
+        else:
+            self.position_embedding_type = position_embedding_type
+
+        if hasattr(self.config, 'rotary_base'):
+            self.rotary_base = self.config.rotary_base
+        else:
+            self.rotary_base = rotary_base
+
         if self.pre_process:
-            if self.config.vocab_emb_dp or self.tp_group_size == 1:
-                self.embedding = VocabEmbedding(
-                    num_embeddings=self.vocab_size,
-                    embedding_dim=self.config.hidden_size,
-                    param_init_type=self.config.embedding_init_type,
-                    param_init="normal",
-                )
-            else:
-                self.embedding = VocabParallelEmbedding(
-                    num_embeddings=self.vocab_size,
-                    embedding_dim=self.config.hidden_size,
-                    config=config,
-                    init_method="normal",
-                    init_type=self.config.embedding_init_type,
-                )
+            self.embedding = LanguageModelEmbedding(
+                config=config,
+                vocab_size=self.vocab_size,
+                max_sequence_length=self.max_position_embeddings
+            )
 
         self.casual_mask = LowerTriangularMaskWithDynamic(
             seq_length=self.config.seq_length,
@@ -145,27 +145,17 @@ class GPTModel(nn.Cell):
 
         # Output
         if post_process:
-            if self.config.vocab_emb_dp:
-                self.output_layer = Linear(
-                    in_channels=self.config.hidden_size,
-                    out_channels=self.vocab_size,
-                    weight_init="normal",
-                    has_bias=False,
-                    param_init_type=self.config.params_dtype,
-                    compute_dtype=self.config.compute_dtype
-                )
-            else:
-                self.output_layer = ColumnParallelLinear(
-                    input_size=self.config.hidden_size,
-                    output_size=self.vocab_size,
-                    config=self.config,
-                    bias=False,
-                    gather_output=True,
-                    param_init_type=self.config.params_dtype,
-                    compute_dtype=self.config.compute_dtype,
-                )
+            self.output_layer = ColumnParallelLinear(
+                input_size=self.config.hidden_size,
+                output_size=self.vocab_size,
+                config=self.config,
+                bias=False,
+                gather_output=True,
+                param_init_type=self.config.params_dtype,
+                compute_dtype=self.config.compute_dtype,
+            )
             if self.config.tie_word_embeddings:
-                self.output_layer.weight = self.embedding.embedding_weight
+                self.output_layer.weight = self.embedding.word_embeddings.weight
 
     def pre_gather_func(self, output, context_lens_tensor, seq_lens_tensor):
         """Pre gather operation in infer mode."""
@@ -193,7 +183,7 @@ class GPTModel(nn.Cell):
             if attention_mask is None:
                 attention_mask = self.casual_mask.decode(positions)
 
-        hidden_states = ops.Cast()(self.embedding(input_ids), self.compute_dtype)
+        hidden_states = self.cast(self.embedding(input_ids), self.compute_dtype)
 
         hidden_states = self.decoder(
             hidden_states,
@@ -212,7 +202,7 @@ class GPTModel(nn.Cell):
         output = self.pre_gather_func(hidden_states, context_lens_tensor, batch_valid_length)
 
         logits = self.output_layer(output)
-        logits = ops.Cast()(logits.squeeze(0), mstype.float32)
+        logits = self.cast(logits.squeeze(0), mstype.float32)
         return logits
 
 
