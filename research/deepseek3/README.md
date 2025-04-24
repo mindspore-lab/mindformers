@@ -504,68 +504,50 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 ## 推理
 
-MindSpore Transformers支持对DeepSeek-V3的推理。为了方便体验，仓库中提供了推理脚本，配置文件以及镜像，目前推理需要4台Atlas 800T A2（64G）机器。
+MindSpore Transformers支持对DeepSeek-V3的推理，目前推理需要4台Atlas 800T A2（64G）机器。
 
-### 准备容器
+### 环境准备
 
-提供了DeepSeek-V3推理专用Docker镜像（镜像中已包含CANN、MindSpore，无需手动安装），通过如下步骤进行软件环境搭建。
+参考[环境环境](#环境安装)搭建基础环境。完成之后，配置推理相关的环境变量：
 
-1. 下载Docker镜像
+```bash
+git clone https://gitee.com/mindspore/mindformers.git -b r1.5.0
+export MINDFORMERS_HOME=/path/to/mindformers
+export PYTHONPATH=$MINDFORMERS_HOME:$PYTHONPATH
+export REGISTER_PATH=/path/to/deepseek3
+export HCCL_OP_EXPANSION_MODE=AIV
+export MS_ENABLE_LCCL=off
+export EXPERIMENTAL_KERNEL_LAUNCH_GROUP="thread_num:2,kernel_group_num:8"
+cd $MINDFORMERS_HOME
+```
 
-   使用如下命令下载DeepSeek-V3推理专用镜像：
+环境变量说明：
 
-   ```bash
-   docker pull swr.cn-central-221.ovaijisuan.com/mindformers/deepseek_v3_mindspore2.5.0-infer:20250209
-   ```
-
-2. 基于镜像创建容器
-
-   使用如下命令新建容器：
-
-   ```bash
-   docker run -itd --privileged  --name=deepseek-v3-infer --net=host \
-   --shm-size 500g \
-   --device=/dev/davinci0 \
-   --device=/dev/davinci1 \
-   --device=/dev/davinci2 \
-   --device=/dev/davinci3 \
-   --device=/dev/davinci4 \
-   --device=/dev/davinci5 \
-   --device=/dev/davinci6 \
-   --device=/dev/davinci7 \
-   --device=/dev/davinci_manager \
-   --device=/dev/hisi_hdc \
-   --device /dev/devmm_svm \
-   -v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
-   -v /usr/local/Ascend/firmware:/usr/local/Ascend/firmware \
-   -v /usr/local/sbin/npu-smi:/usr/local/sbin/npu-smi \
-   -v /usr/local/sbin:/usr/local/sbin \
-   -v /etc/hccn.conf:/etc/hccn.conf \
-   swr.cn-central-221.ovaijisuan.com/mindformers/deepseek_v3_mindspore2.5.0-infer:20250209 \
-   bash
-   ```
+- MINDFORMERS_HOME：设置为Mindspore Transformers根目录`mindformers/`的绝对路径。
+- REGISTER_PATH：设置为DeepSeek-V3模型目录`deepseek3/`的绝对路径。
 
 > 注意事项：
 
-- 起容器时，如果有部分宿主机的hostname是一致的，需要在起容器的时候修改容器的hostname，保证所有容器的hostname都不一致。
-
-3. 进入容器
-
-   使用如下命令进入容器，并进入代码目录：
-
-   ```bash
-   docker exec -ti deepseek-v3-infer bash
-   export MINDFORMERS_HOME=/home/work/mindformers
-   export HCCL_OP_EXPANSION_MODE=AIV
-   export MS_ENABLE_LCCL=off
-   export EXPERIMENTAL_KERNEL_LAUNCH_GROUP="thread_num:2,kernel_group_num:8"
-   export PYTHONPATH=$MINDFORMERS_HOME:$PYTHONPATH
-   cd $MINDFORMERS_HOME
-   ```
+- 使用容器部署推理环境时，如果有部分宿主机的hostname是一致的，需要在起容器的时候修改容器的hostname，保证所有容器的hostname都不一致。
 
 ### 下载权重
 
-权重下载参考[推理权重准备](#推理权重准备)，推理权重无需自己转换，可直接用于推理。
+权重下载参考[推理权重准备](#推理权重准备)，推理权重无需自己转换，可直接用于推理。如果用户从Hugging Face直接下载模型权重，需要将权重转换为MindSpore的权重，执行以下命令转换：
+
+```bash
+python research/deepseek3/convert_weight.py \
+--torch_ckpt_path TORCH_CKPT_DIR \
+--infer True \
+--mindspore_ckpt_path MINDSPORE_CKPT_DIR \
+--worker_num 2
+```
+
+参数说明：
+
+- torch_ckpt_path：下载HuggingFace权重的文件夹路径。
+- infer：是否进行推理权重的转换，默认值：`False`。
+- mindspore_ckpt_path：转换后的MindSpore权重文件夹保存路径
+- worker_num：多进程转换的进程数，默认值：`4`。
 
 ### 修改配置
 
@@ -594,13 +576,9 @@ processor:
 
 ```sh
 master_ip=192.168.1.1
-bash scripts/msrun_launcher.sh "run_mindformer.py \
---register_path research/deepseek3 \
---auto_trans_ckpt True \
---use_parallel True \
---run_mode predict \
+bash scripts/msrun_launcher.sh "research/deepseek3/run_predict_deepseek.py \
 --config research/deepseek3/deepseek3_671b/predict_deepseek3_671b.yaml \
---predict_data '请介绍一下北京的景点'" \
+--input '请介绍一下北京的景点'" \
 32 8 $master_ip 8888 0 output/msrun_log False 300
 ```
 
@@ -608,13 +586,9 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 ```sh
 master_ip=192.168.1.1
-bash scripts/msrun_launcher.sh "run_mindformer.py \
---register_path research/deepseek3 \
---auto_trans_ckpt True \
---use_parallel True \
---run_mode predict \
+bash scripts/msrun_launcher.sh "research/deepseek3/run_predict_deepseek.py \
 --config research/deepseek3/deepseek3_671b/predict_deepseek3_671b.yaml \
---predict_data '请介绍一下北京的景点'" \
+--input '请介绍一下北京的景点'" \
 32 8 $master_ip 8888 1 output/msrun_log False 300
 ```
 
@@ -622,13 +596,9 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 ```sh
 master_ip=192.168.1.1
-bash scripts/msrun_launcher.sh "run_mindformer.py \
---register_path research/deepseek3 \
---auto_trans_ckpt True \
---use_parallel True \
---run_mode predict \
+bash scripts/msrun_launcher.sh "research/deepseek3/run_predict_deepseek.py \
 --config research/deepseek3/deepseek3_671b/predict_deepseek3_671b.yaml \
---predict_data '请介绍一下北京的景点'" \
+--input '请介绍一下北京的景点'" \
 32 8 $master_ip 8888 2 output/msrun_log False 300
 ```
 
@@ -636,13 +606,9 @@ bash scripts/msrun_launcher.sh "run_mindformer.py \
 
 ```sh
 master_ip=192.168.1.1
-bash scripts/msrun_launcher.sh "run_mindformer.py \
---register_path research/deepseek3 \
---auto_trans_ckpt True \
---use_parallel True \
---run_mode predict \
+bash scripts/msrun_launcher.sh "research/deepseek3/run_predict_deepseek.py \
 --config research/deepseek3/deepseek3_671b/predict_deepseek3_671b.yaml \
---predict_data '请介绍一下北京的景点'" \
+--input '请介绍一下北京的景点'" \
 32 8 $master_ip 8888 3 output/msrun_log False 300
 ```
 
