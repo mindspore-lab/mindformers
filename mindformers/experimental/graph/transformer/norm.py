@@ -18,6 +18,7 @@ import mindspore.ops.operations as P
 import mindspore.common.dtype as mstype
 
 from mindspore import nn, Parameter
+from mindspore.ops.auto_generate import MeanExt, Sqrt, Rsqrt, SubExt, AddExt, Mul, Div, Cast
 from mindspore.common.initializer import initializer
 
 from mindformers.experimental.graph.transformer.transformer_config import TransformerConfig
@@ -60,25 +61,25 @@ class LayerNorm(nn.Cell):
         self.beta = Parameter(initializer('zeros', normalized_shape, param_init_type), name="beta",
                               parallel_optimizer=False)
 
-        self.mean = P.ReduceMean(keep_dims=True)
-        self.mean2 = P.ReduceMean(keep_dims=True)
+        self.mean = MeanExt()
+        self.mean2 = MeanExt()
         self.square = P.Square()
-        self.sqrt = P.Sqrt()
-        self.sub = P.Sub()
-        self.add = P.Add()
+        self.sqrt = Sqrt()
+        self.sub = SubExt()
+        self.add = AddExt()
         self.eps = eps
-        self.mul = P.Mul()
-        self.add2 = P.Add()
-        self.real_div = P.RealDiv()
+        self.mul = Mul()
+        self.add2 = AddExt()
+        self.real_div = Div()
         self.compute_type = param_init_type
-        self.cast = P.Cast()
+        self.cast = Cast()
 
     def construct(self, x):
         """construct method"""
         original_type = x.dtype
-        mean = self.mean(self.cast(x, self.compute_type), -1)
+        mean = self.mean(self.cast(x, self.compute_type), -1, keepdim=True)
         diff = self.sub(self.cast(x, self.compute_type), mean)
-        varaince = self.mean2(self.square(diff), -1)
+        varaince = self.mean2(self.square(diff), -1, keepdim=True)
         variance_eps = self.sqrt(self.add(varaince, self.eps))
         output = self.real_div(diff, variance_eps)
         output = self.add2(self.mul(output, self.gamma), self.beta)
@@ -137,7 +138,7 @@ class FusedLayerNorm(nn.Cell):
         self.beta = Parameter(initializer('zeros', normalized_shape, param_init_type), name="beta",
                               parallel_optimizer=False)
         self.compute_type = param_init_type
-        self.cast = P.Cast()
+        self.cast = Cast()
 
     def construct(self, x):
         """construct method"""
@@ -191,18 +192,18 @@ class RMSNorm(nn.Cell):
         self.compute_type = param_init_type
 
         self.square = P.Square()
-        self.mean = P.ReduceMean(keep_dims=True)
-        self.add = P.Add()
-        self.rsqrt = P.Rsqrt()
-        self.mul = P.Mul()
-        self.mul2 = P.Mul()
-        self.cast = P.Cast()
+        self.mean = MeanExt()
+        self.add = AddExt()
+        self.rsqrt = Rsqrt()
+        self.mul = Mul()
+        self.mul2 = Mul()
+        self.cast = Cast()
 
     def construct(self, x):
         """construct method"""
         original_type = x.dtype
         norm_factor = self.square(self.cast(x, self.compute_type))
-        norm_factor = self.mean(norm_factor, -1)
+        norm_factor = self.mean(norm_factor, -1, keepdim=True)
         norm_factor = self.add(norm_factor, self.eps)
         norm_factor = self.rsqrt(norm_factor)
         output = self.mul(self.cast(x, self.compute_type), norm_factor)
@@ -256,7 +257,7 @@ class FusedRMSNorm(nn.Cell):
         self.compute_type = param_init_type
 
         self.norm = P.RmsNorm(eps)
-        self.cast = P.Cast()
+        self.cast = Cast()
 
     def construct(self, x):
         """construct method"""
