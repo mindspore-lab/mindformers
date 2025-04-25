@@ -10,9 +10,9 @@ DeepSeek-V2采用了创新的MLA（Multi-head Latent Attention）注意力机制
 
 以下模型性能均由Atlas 900 A2 PoDc硬件环境下测试得出。
 
-| Config                                           |      Task       |  Datasets   | SeqLength |  Phase   |  Performance  |
-|:-------------------------------------------------|:---------------:|:-----------:|:---------:|:--------:|:-------------:|
-| [deepseek2-236b](./finetune_deepseek2_236B.yaml) | text_generation | code_alpaca |   4096    | Finetune | 36 tokens/s/p |
+| Config                                                          |      Task       |  Datasets   | SeqLength |  Phase   |  Performance  |
+|:----------------------------------------------------------------|:---------------:|:-----------:|:---------:|:--------:|:-------------:|
+| [deepseek2-236b](./deepseek2_236b/finetune_deepseek2_236B.yaml) | text_generation | code_alpaca |   4096    | Finetune | 36 tokens/s/p |
 
 ## 模型文件
 
@@ -46,7 +46,7 @@ DeepSeek-V2采用了创新的MLA（Multi-head Latent Attention）注意力机制
 
 ### 安装环境
 
-MindFormers软硬件配套关系以及安装参考[环境安装指南](../../README_CN.md#二mindformers安装)和[版本匹配关系](../../README_CN.md#三版本匹配关系)。
+MindFormers软硬件配套关系以及安装参考[安装指南](../../README_CN.md#二安装)。
 
 ### 数据及权重准备
 
@@ -59,10 +59,10 @@ deepseekv2的数据预处理过程和llama相同，详见llama2文档。
 
 用户可以从HuggingFace官方下载预训练权重，经过[模型权重转换](#模型权重转换)后进行使用，tokenizer.json文件也在链接中下载。
 
-| 模型名称                        |                             MindSpore权重                             | HuggingFace权重 |
-| :------------------------------ | :----------------------------------------------------------: | ---- |
-| DeepSeek-V2-Chat | - | [Link](https://huggingface.co/deepseek-ai/DeepSeek-V2-Chat) |
-| DeepSeek-V2     | -  | [Link](https://huggingface.co/deepseek-ai/DeepSeek-V2/tree/main) |
+| 模型名称             | MindSpore权重 | HuggingFace权重                                                    |
+|:-----------------|:-----------:|------------------------------------------------------------------|
+| DeepSeek-V2-Chat |      -      | [Link](https://huggingface.co/deepseek-ai/DeepSeek-V2-Chat)      |
+| DeepSeek-V2      |      -      | [Link](https://huggingface.co/deepseek-ai/DeepSeek-V2/tree/main) |
 
 #### 模型权重转换
 
