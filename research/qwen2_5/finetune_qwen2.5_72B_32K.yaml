@@ -107,7 +107,7 @@ parallel_config:
   pipeline_stage: 8
   context_parallel: 1
   use_seq_parallel: True
-  micro_batch_num: 16
+  micro_batch_num: 32
   seq_split_num: 8
   vocab_emb_dp: False
   gradient_aggregation_group: 4
@@ -117,8 +117,15 @@ micro_batch_interleave_num: 1
 # recompute config
 recompute_config:
   recompute: False
-  select_recompute: False
-  select_comm_recompute: [ 6, 2, 1, 0, 0, 0, 0, 0 ]
+  select_recompute:
+    'feed_forward\.mul': True
+    'feed_forward\.activate\.silu': True
+    'feed_forward\.reshape': True
+    'feed_forward\.w2\.reshape': True
+  select_comm_recompute:
+    '.*\.norm': [ 6, 2, 1, 0, 0, 0, 0, 0 ]
+    '.*\.w_qkv\.reshape': [ 6, 2, 1, 0, 0, 0, 0, 0 ]
+    '.*\.w_gate_hidden\.reshape': [ 6, 2, 1, 0, 0, 0, 0, 0 ]
   parallel_optimizer_comm_recompute: False
   mp_comm_recompute: False
   recompute_slice_activation: False
@@ -138,7 +145,7 @@ callbacks:
 context:
   jit_config:
     jit_level: "O1"
-  memory_optimize_level: "O0"
+  memory_optimize_level: "O1"
   mode: 0 #0--Graph Mode; 1--Pynative Mode
   device_target: "Ascend"
   max_call_depth: 10000
